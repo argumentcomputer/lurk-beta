@@ -40,7 +40,8 @@ fn fib<F: LurkField>(store: &mut Store<F>, a: u64) -> Ptr<F> {
 
 fn fibo_total<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut BenchmarkGroup<M>) {
     let limit: usize = 10_000_000_000;
-    let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
+    let lang_vesta =
+        Lang::<pasta_curves::pallas::Scalar, Coproc<pasta_curves::pallas::Scalar>>::new();
     let lang_rc = Arc::new(lang_vesta.clone());
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
@@ -53,7 +54,7 @@ fn fibo_total<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut 
         |b, iterations| {
             let mut store = Store::default();
             let env = empty_sym_env(&store);
-            let ptr = fib::<pasta_curves::Fq>(&mut store, black_box(*iterations));
+            let ptr = fib::<pasta_curves::pallas::Scalar>(&mut store, black_box(*iterations));
             let prover = NovaProver::new(reduction_count, lang_vesta.clone());
 
             b.iter_batched(
@@ -92,7 +93,8 @@ fn fibo_eval<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut B
 
 fn fibo_prove<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut BenchmarkGroup<M>) {
     let limit = 10_000_000_000;
-    let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
+    let lang_vesta =
+        Lang::<pasta_curves::pallas::Scalar, Coproc<pasta_curves::pallas::Scalar>>::new();
     let lang_rc = Arc::new(lang_vesta.clone());
     let reduction_count = DEFAULT_REDUCTION_COUNT;
     let pp = public_params(reduction_count, lang_rc.clone()).unwrap();
@@ -103,7 +105,7 @@ fn fibo_prove<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut 
         |b, iterations| {
             let mut store = Store::default();
             let env = empty_sym_env(&store);
-            let ptr = fib::<pasta_curves::Fq>(&mut store, black_box(*iterations));
+            let ptr = fib::<pasta_curves::pallas::Scalar>(&mut store, black_box(*iterations));
             let prover = NovaProver::new(reduction_count, lang_vesta.clone());
 
             let frames = prover

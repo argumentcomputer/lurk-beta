@@ -46,7 +46,8 @@ fn end2end_benchmark(c: &mut Criterion) {
         .sample_size(10);
 
     let limit = 1_000_000_000;
-    let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
+    let lang_vesta =
+        Lang::<pasta_curves::pallas::Scalar, Coproc<pasta_curves::pallas::Scalar>>::new();
     let lang_vesta_rc = Arc::new(lang_vesta.clone());
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
@@ -63,7 +64,7 @@ fn end2end_benchmark(c: &mut Criterion) {
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         b.iter(|| {
-            let ptr = go_base::<pasta_curves::Fq>(&mut store, s.0, s.1);
+            let ptr = go_base::<pasta_curves::pallas::Scalar>(&mut store, s.0, s.1);
             let _result = prover
                 .evaluate_and_prove(&pp, ptr, env, &mut store, limit, lang_vesta_rc.clone())
                 .unwrap();
@@ -205,14 +206,14 @@ fn eval_benchmark(c: &mut Criterion) {
 //     let limit = 1_000_000_000;
 //     let _lang_bls = Lang::<Fr, Coproc<Fr>>::new();
 //     let _lang_pallas = Lang::<pasta_curves::Fp, Coproc<pasta_curves::Fp>>::new();
-//     let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
+//     let lang_vesta = Lang::<pasta_curves::pallas::Scalar, Coproc<pasta_curves::pallas::Scalar>>::new();
 
 //     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
 //     group.bench_function("circuit_generation_go_base_10_16_nova", |b| {
 //         let mut store = Store::default();
 //         let env = empty_sym_env(&store);
-//         let ptr = go_base::<pasta_curves::Fq>(&mut store, black_box(10), black_box(16));
+//         let ptr = go_base::<pasta_curves::pallas::Scalar>(&mut store, black_box(10), black_box(16));
 //         let prover = NovaProver::new(reduction_count, lang_vesta.clone());
 
 //         let pp = public_parameters::public_params(reduction_count).unwrap();
@@ -237,7 +238,8 @@ fn prove_benchmark(c: &mut Criterion) {
         .sample_size(10);
 
     let limit = 1_000_000_000;
-    let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
+    let lang_vesta =
+        Lang::<pasta_curves::pallas::Scalar, Coproc<pasta_curves::pallas::Scalar>>::new();
     let lang_vesta_rc = Arc::new(lang_vesta.clone());
     let mut store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
@@ -246,7 +248,7 @@ fn prove_benchmark(c: &mut Criterion) {
     let benchmark_id = BenchmarkId::new("prove_go_base_nova", format!("_{}_{}", size.0, size.1));
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
-        let ptr = go_base::<pasta_curves::Fq>(&mut store, s.0, s.1);
+        let ptr = go_base::<pasta_curves::pallas::Scalar>(&mut store, s.0, s.1);
         let prover = NovaProver::new(reduction_count, lang_vesta.clone());
         let pp = public_parameters::public_params(reduction_count, lang_vesta_rc.clone()).unwrap();
         let frames = prover
@@ -269,7 +271,8 @@ fn verify_benchmark(c: &mut Criterion) {
         .sample_size(10);
 
     let limit = 1_000_000_000;
-    let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
+    let lang_vesta =
+        Lang::<pasta_curves::pallas::Scalar, Coproc<pasta_curves::pallas::Scalar>>::new();
     let lang_vesta_rc = Arc::new(lang_vesta.clone());
     let mut store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
@@ -311,7 +314,8 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
         .sample_size(10);
 
     let limit = 1_000_000_000;
-    let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
+    let lang_vesta =
+        Lang::<pasta_curves::pallas::Scalar, Coproc<pasta_curves::pallas::Scalar>>::new();
     let lang_vesta_rc = Arc::new(lang_vesta.clone());
     let mut store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
