@@ -34,7 +34,7 @@ pub struct Store<F: LurkField> {
 }
 
 impl<F: LurkField> Store<F> {
-    pub fn index_2_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>) -> Ptr<F> {
+    pub fn intern_2_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>) -> Ptr<F> {
         let (idx, inserted) = self.ptrs2.insert_full((a, b));
         let ptr = Ptr::Tree2(tag, idx);
         if inserted {
@@ -44,11 +44,11 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn index_2_ptrs_not_dehydrated(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>) -> Ptr<F> {
+    pub fn intern_2_ptrs_not_dehydrated(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>) -> Ptr<F> {
         Ptr::Tree2(tag, self.ptrs2.insert_full((a, b)).0)
     }
 
-    pub fn index_3_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>) -> Ptr<F> {
+    pub fn intern_3_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>) -> Ptr<F> {
         let (idx, inserted) = self.ptrs3.insert_full((a, b, c));
         let ptr = Ptr::Tree3(tag, idx);
         if inserted {
@@ -58,7 +58,7 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn index_3_ptrs_not_dehydrated(
+    pub fn intern_3_ptrs_not_dehydrated(
         &mut self,
         tag: Tag,
         a: Ptr<F>,
@@ -68,7 +68,14 @@ impl<F: LurkField> Store<F> {
         Ptr::Tree3(tag, self.ptrs3.insert_full((a, b, c)).0)
     }
 
-    pub fn index_4_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>, d: Ptr<F>) -> Ptr<F> {
+    pub fn intern_4_ptrs(
+        &mut self,
+        tag: Tag,
+        a: Ptr<F>,
+        b: Ptr<F>,
+        c: Ptr<F>,
+        d: Ptr<F>,
+    ) -> Ptr<F> {
         let (idx, inserted) = self.ptrs4.insert_full((a, b, c, d));
         let ptr = Ptr::Tree4(tag, idx);
         if inserted {
@@ -78,7 +85,7 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn index_4_ptrs_not_dehydrated(
+    pub fn intern_4_ptrs_not_dehydrated(
         &mut self,
         tag: Tag,
         a: Ptr<F>,
@@ -104,7 +111,7 @@ impl<F: LurkField> Store<F> {
         self.ptrs4.get_index(idx)
     }
 
-    pub fn index_string(&mut self, s: String) -> Ptr<F> {
+    pub fn intern_string(&mut self, s: String) -> Ptr<F> {
         let mut chars = s.chars().rev().collect_vec();
         let mut ptr;
         let mut heads = vec![];
@@ -124,14 +131,14 @@ impl<F: LurkField> Store<F> {
         }
         while let Some(head) = heads.pop() {
             // use the accumulated heads to construct the pointers and populate the cache
-            ptr = self.index_2_ptrs(Tag::Str, Ptr::char(head), ptr);
+            ptr = self.intern_2_ptrs(Tag::Str, Ptr::char(head), ptr);
             chars.push(head);
             self.vec_char_cache.insert(chars.clone(), ptr);
         }
         ptr
     }
 
-    pub fn index_symbol_path(&mut self, path: Vec<String>) -> Ptr<F> {
+    pub fn intern_symbol_path(&mut self, path: Vec<String>) -> Ptr<F> {
         let mut components = path;
         components.reverse();
         let mut ptr;
@@ -152,18 +159,18 @@ impl<F: LurkField> Store<F> {
         }
         while let Some(head) = heads.pop() {
             // use the accumulated heads to construct the pointers and populate the cache
-            let head_ptr = self.index_string(head.clone());
-            ptr = self.index_2_ptrs(Tag::Sym, head_ptr, ptr);
+            let head_ptr = self.intern_string(head.clone());
+            ptr = self.intern_2_ptrs(Tag::Sym, head_ptr, ptr);
             components.push(head);
             self.vec_str_cache.insert(components.clone(), ptr);
         }
         ptr
     }
 
-    pub fn index_symbol(&mut self, s: Symbol) -> Ptr<F> {
+    pub fn intern_symbol(&mut self, s: Symbol) -> Ptr<F> {
         match s {
-            Symbol::Sym(path) => self.index_symbol_path(path),
-            Symbol::Key(path) => self.index_symbol_path(path).sym_to_key(),
+            Symbol::Sym(path) => self.intern_symbol_path(path),
+            Symbol::Key(path) => self.intern_symbol_path(path).sym_to_key(),
         }
     }
 

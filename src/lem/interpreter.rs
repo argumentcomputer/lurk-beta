@@ -29,7 +29,7 @@ impl<F: LurkField> LEM<F> {
                 LEMOP::Hash2Ptrs(tgt, tag, src) => {
                     let src_ptr1 = src[0].get_ptr(&ptrs)?;
                     let src_ptr2 = src[1].get_ptr(&ptrs)?;
-                    let tgt_ptr = store.index_2_ptrs(*tag, src_ptr1, src_ptr2);
+                    let tgt_ptr = store.intern_2_ptrs(*tag, src_ptr1, src_ptr2);
                     if ptrs.insert(tgt.name().clone(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -38,7 +38,7 @@ impl<F: LurkField> LEM<F> {
                     let src_ptr1 = src[0].get_ptr(&ptrs)?;
                     let src_ptr2 = src[1].get_ptr(&ptrs)?;
                     let src_ptr3 = src[2].get_ptr(&ptrs)?;
-                    let tgt_ptr = store.index_3_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3);
+                    let tgt_ptr = store.intern_3_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3);
                     if ptrs.insert(tgt.name().clone(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
@@ -48,7 +48,7 @@ impl<F: LurkField> LEM<F> {
                     let src_ptr2 = src[1].get_ptr(&ptrs)?;
                     let src_ptr3 = src[2].get_ptr(&ptrs)?;
                     let src_ptr4 = src[3].get_ptr(&ptrs)?;
-                    let tgt_ptr = store.index_4_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3, src_ptr4);
+                    let tgt_ptr = store.intern_4_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3, src_ptr4);
                     if ptrs.insert(tgt.name().clone(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }

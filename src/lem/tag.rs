@@ -4,6 +4,7 @@ use crate::field::LurkField;
 
 #[derive(Clone, Copy, PartialEq, Debug, PartialOrd, Ord, Eq, Hash)]
 pub enum Tag {
+    // expression tags
     Dummy,
     LurkSymbol,
     Num,
@@ -15,6 +16,7 @@ pub enum Tag {
     Cons,
     Sym,
     Key,
+    // continuation tags
     Outermost,
     Terminal,
     Error,
