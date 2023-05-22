@@ -3105,7 +3105,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let digest = result.hash();
 
         let (open_secret_scalar, open_expr_ptr) = store
-            .get_maybe_opaque(ExprTag::Comm, digest.get_value().unwrap_or_else(|| F::ZERO))
+            .get_maybe_opaque(ExprTag::Comm, digest.get_value().unwrap_or(F::ZERO))
             .and_then(|commit| store.open(commit))
             .unwrap_or_else(|| {
                 // nil is dummy
@@ -4759,10 +4759,10 @@ fn to_unsigned_integers<F: LurkField, CS: ConstraintSystem<F>>(
     g: &GlobalAllocations<F>,
     maybe_unsigned: &AllocatedNum<F>,
 ) -> Result<(AllocatedNum<F>, AllocatedNum<F>), SynthesisError> {
-    let field_elem = maybe_unsigned.get_value().unwrap_or_else(|| {
+    let field_elem = maybe_unsigned.get_value().unwrap_or(
         // dummy
-        F::ZERO
-    });
+        F::ZERO,
+    );
     let field_bn = BigUint::from_bytes_le(field_elem.to_repr().as_ref());
     // Since bit decomposition is expensive, we compute it only once here
     let field_elem_bits =
