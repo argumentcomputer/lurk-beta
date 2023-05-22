@@ -150,7 +150,7 @@ impl<F: LurkField> LEM<F> {
                             Some(alloc_tag) => alloc_tag.clone(),
                             None => {
                                 let Ok(alloc_tag) = AllocatedNum::alloc(
-                                    cs.namespace(|| format!("Tag {:?}", tag)),
+                                    cs.namespace(|| format!("Tag {}", tag)),
                                     || Ok(tag.field()),
                                 ) else {
                                     return Err(format!("Couldn't allocate tag for {}", tgt.name()));

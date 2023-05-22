@@ -652,14 +652,11 @@ pub(crate) fn and<CS: ConstraintSystem<F>, F: PrimeField>(
         // true AND x is always x
         (Boolean::Constant(true), x) | (x, Boolean::Constant(true)) => Ok(x.clone()),
         // a AND (NOT b)
-        (Boolean::Is(is), Boolean::Not(not))
-        | (Boolean::Not(not), Boolean::Is(is)) => {
+        (Boolean::Is(is), Boolean::Not(not)) | (Boolean::Not(not), Boolean::Is(is)) => {
             Ok(Boolean::Is(AllocatedBit::and_not(cs, is, not)?))
         }
         // (NOT a) AND (NOT b) = a NOR b
-        (Boolean::Not(a), Boolean::Not(b)) => {
-            Ok(Boolean::Is(AllocatedBit::nor(cs, a, b)?))
-        }
+        (Boolean::Not(a), Boolean::Not(b)) => Ok(Boolean::Is(AllocatedBit::nor(cs, a, b)?)),
         // a AND b
         (Boolean::Is(a), Boolean::Is(b)) => Ok(Boolean::Is(AllocatedBit::and(cs, a, b)?)),
     }
