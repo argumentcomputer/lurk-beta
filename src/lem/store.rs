@@ -188,7 +188,7 @@ impl<F: LurkField> Store<F> {
     /// Tails are cached as reversed vectors of `String`s because of how interning
     /// and hashing works: from right to left. So, for example, after interning
     /// the symbol path `["aa", "bb", "cc"]`, we will end up with cached pointers
-    /// to the symbol paths `["cc"]`, `["bb", "cc"]` and `["aa", "bb", "cc"]` 
+    /// to the symbol paths `["cc"]`, `["bb", "cc"]` and `["aa", "bb", "cc"]`
     /// stored in `vec_str_cache` as `["cc"]`, `["cc", "bb"]` and
     /// ["cc", "bb", "aa"]` respectively.
     pub fn intern_symbol_path(&mut self, path: Vec<String>) -> Ptr<F> {
