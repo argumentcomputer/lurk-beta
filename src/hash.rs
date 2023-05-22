@@ -1,6 +1,5 @@
 use std::hash::Hash;
 
-use crate::cache_map::CacheMap;
 use crate::field::LurkField;
 use generic_array::typenum::{U3, U4, U6, U8};
 use neptune::{poseidon::PoseidonConstants, Poseidon};
@@ -81,10 +80,10 @@ impl<F: LurkField> HashConstants<F> {
 
 #[derive(Default, Debug)]
 pub struct PoseidonCache<F: LurkField> {
-    a3: CacheMap<CacheKey<F, 3>, F>,
-    a4: CacheMap<CacheKey<F, 4>, F>,
-    a6: CacheMap<CacheKey<F, 6>, F>,
-    a8: CacheMap<CacheKey<F, 8>, F>,
+    a3: dashmap::DashMap<CacheKey<F, 3>, F, ahash::RandomState>,
+    a4: dashmap::DashMap<CacheKey<F, 4>, F, ahash::RandomState>,
+    a6: dashmap::DashMap<CacheKey<F, 6>, F, ahash::RandomState>,
+    a8: dashmap::DashMap<CacheKey<F, 8>, F, ahash::RandomState>,
 
     pub constants: HashConstants<F>,
 }
@@ -103,27 +102,37 @@ impl<F: LurkField, const N: usize> Hash for CacheKey<F, N> {
 
 impl<F: LurkField> PoseidonCache<F> {
     pub fn hash3(&self, preimage: &[F; 3]) -> F {
-        self.a3.get_copy_or_insert_with(CacheKey(*preimage), || {
-            Poseidon::new_with_preimage(preimage, self.constants.c3()).hash()
-        })
+        let hash = self
+            .a3
+            .entry(CacheKey(*preimage))
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c3()).hash());
+
+        *hash
     }
 
     pub fn hash4(&self, preimage: &[F; 4]) -> F {
-        self.a4.get_copy_or_insert_with(CacheKey(*preimage), || {
-            Poseidon::new_with_preimage(preimage, self.constants.c4()).hash()
-        })
+        let hash = self
+            .a4
+            .entry(CacheKey(*preimage))
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c4()).hash());
+
+        *hash
     }
 
     pub fn hash6(&self, preimage: &[F; 6]) -> F {
-        self.a6.get_copy_or_insert_with(CacheKey(*preimage), || {
-            Poseidon::new_with_preimage(preimage, self.constants.c6()).hash()
-        })
+        let hash = self
+            .a6
+            .entry(CacheKey(*preimage))
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c6()).hash());
+        *hash
     }
 
     pub fn hash8(&self, preimage: &[F; 8]) -> F {
-        self.a8.get_copy_or_insert_with(CacheKey(*preimage), || {
-            Poseidon::new_with_preimage(preimage, self.constants.c8()).hash()
-        })
+        let hash = self
+            .a8
+            .entry(CacheKey(*preimage))
+            .or_insert_with(|| Poseidon::new_with_preimage(preimage, self.constants.c8()).hash());
+        *hash
     }
 }
 

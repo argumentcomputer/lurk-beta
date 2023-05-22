@@ -1508,7 +1508,6 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "sha2",
- "stable_deref_trait",
  "string-interner",
  "structopt",
  "tap",

@@ -84,14 +84,29 @@ impl<F: LurkField> LEM<F> {
         }
     }
 
-    /// Create R1CS constraints for LEM.
-    /// As we find recursive (non-leaf) operations, we stack them to be
-    /// constrained later. We use hash maps to manage viariables and pointers
-    /// in a way we can reference allocated variables that were
-    /// previously created.
-    /// Leaves are constrained as follows:
-    /// - Concrete paths are constrained using implications of enforcements.
-    /// - Virtual paths are constrained using enforcements.
+    /// Create R1CS constraints for LEM given an evaluation witness.
+    ///
+    /// As we find recursive (non-leaf) LEM operations, we stack them to be
+    /// constrained later, using hash maps to manage viariables and pointers in
+    /// a way we can reference allocated variables that were previously created.
+    ///
+    /// Notably, we use a variable `branch_path_info: Option<Boolean>` to encode
+    /// a three-way information:
+    ///
+    /// * If it's `None`, it means that no logical branches have happened in the
+    /// LEM so far, meaning that the evaluation algorithm must have gone through
+    /// that operation. In this case, we use regular equality enforcements
+    ///
+    /// * If it's `Some(concrete_path)`, it means that we're on a logical LEM
+    /// branch, which might be *virtual* or *concrete*. A virtual path is one
+    /// that wasn't taken during evaluation and thus its witness pointers and
+    /// variables weren't bound. A concrete path means that that evaluation took
+    /// that path and the witness data should be complete. For virtual paths we
+    /// need to create dummy bindings and relax the enforcements with
+    /// implications whose premises are false. So, in the end, we use
+    /// implications on both virtual and concrete paths to make sure that the
+    /// circuit structure is always the same. The premise is precicely
+    /// `concrete_path`.
     pub fn constrain<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -104,7 +119,7 @@ impl<F: LurkField> LEM<F> {
         // allocate first input
         {
             let alloc_ptr = Self::allocate_ptr(
-                &mut cs.namespace(|| format!("allocate input {}", self.input[0])),
+                &mut cs.namespace(|| format!("allocate input {}", &self.input[0])),
                 &store.hydrate_ptr(&witness.input[0])?,
                 &self.input[0],
             )?;
@@ -115,10 +130,10 @@ impl<F: LurkField> LEM<F> {
         // allocate second input
         {
             if alloc_ptrs.contains_key(&self.input[1]) {
-                return Err(format!("{} already allocated", self.input[1]));
+                return Err(format!("{} already allocated", &self.input[1]));
             }
             let alloc_ptr = Self::allocate_ptr(
-                &mut cs.namespace(|| format!("allocate input {}", self.input[1])),
+                &mut cs.namespace(|| format!("allocate input {}", &self.input[1])),
                 &store.hydrate_ptr(&witness.input[1])?,
                 &self.input[1],
             )?;
@@ -129,10 +144,10 @@ impl<F: LurkField> LEM<F> {
         // allocate third input
         {
             if alloc_ptrs.contains_key(&self.input[2]) {
-                return Err(format!("{} already allocated", self.input[2]));
+                return Err(format!("{} already allocated", &self.input[2]));
             }
             let alloc_ptr = Self::allocate_ptr(
-                &mut cs.namespace(|| format!("allocate input {}", self.input[2])),
+                &mut cs.namespace(|| format!("allocate input {}", &self.input[2])),
                 &store.hydrate_ptr(&witness.input[2])?,
                 &self.input[2],
             )?;
@@ -145,14 +160,14 @@ impl<F: LurkField> LEM<F> {
         let mut alloc_manager = AllocationManager::default();
 
         let mut stack = vec![(&self.lem_op, None::<Boolean>, String::new())];
-        while let Some((op, concrete_path, path)) = stack.pop() {
+        while let Some((op, branch_path_info, path)) = stack.pop() {
             match op {
                 LEMOP::MkNull(tgt, tag) => {
                     if alloc_ptrs.contains_key(tgt.name()) {
                         return Err(format!("{} already allocated", tgt.name()));
                     };
                     let aqua_ptr = {
-                        if Self::on_concrete_path(&concrete_path)? {
+                        if Self::on_concrete_path(&branch_path_info)? {
                             let Some(ptr) = witness.ptrs.get(tgt.name()) else {
                                 return Err(format!("Couldn't retrieve witness {}", tgt.name()));
                             };
@@ -170,7 +185,7 @@ impl<F: LurkField> LEM<F> {
                     let alloc_tag = alloc_manager.alloc(cs, tag.field())?;
 
                     // If `concrete_path` is Some, then we constrain using "concrete implies ..." logic
-                    if let Some(concrete_path) = concrete_path {
+                    if let Some(concrete_path) = branch_path_info {
                         let Ok(_) = implies_equal(
                             &mut cs.namespace(|| format!("implies equal for {}'s tag", tgt.name())),
                             &concrete_path,
@@ -219,7 +234,7 @@ impl<F: LurkField> LEM<F> {
                         concrete_path_vec.push(alloc_has_match.clone());
 
                         let new_path_matchtag = format!("{}.{}", &path, tag);
-                        if let Some(concrete_path) = concrete_path.clone() {
+                        if let Some(concrete_path) = branch_path_info.clone() {
                             let Ok(concrete_path_and_has_match) = and
                                 (
                                     &mut cs.namespace(|| format!("{}.and (tag:{})", &path, tag)),
@@ -235,7 +250,7 @@ impl<F: LurkField> LEM<F> {
                     }
 
                     // If `concrete_path` is Some, then we constrain using "concrete implies ..." logic
-                    if let Some(concrete_path) = concrete_path {
+                    if let Some(concrete_path) = branch_path_info {
                         let Ok(_) = enforce_selector_with_premise(
                             &mut cs.namespace(|| {
                                 format!(
@@ -262,10 +277,10 @@ impl<F: LurkField> LEM<F> {
                 LEMOP::Seq(ops) => stack.extend(
                     ops.iter()
                         .rev()
-                        .map(|op| (op, concrete_path.clone(), path.clone())),
+                        .map(|op| (op, branch_path_info.clone(), path.clone())),
                 ),
                 LEMOP::SetReturn(outputs) => {
-                    let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
+                    let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
                     for (i, output) in outputs.iter().enumerate() {
                         let Some(alloc_ptr_computed) = alloc_ptrs.get(output.name()) else {
                             return Err(format!("Output {} not allocated", output.name()))
@@ -293,7 +308,7 @@ impl<F: LurkField> LEM<F> {
                         }
 
                         // If `concrete_path` is Some, then we constrain using "concrete implies ..." logic
-                        if let Some(concrete_path) = concrete_path.clone() {
+                        if let Some(concrete_path) = branch_path_info.clone() {
                             let Ok(_) = alloc_ptr_computed.implies_ptr_equal(
                                 &mut cs.namespace(|| format!("enforce imply equal for {}", &output_name)),
                                 &concrete_path,

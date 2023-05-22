@@ -5,7 +5,6 @@
 #[macro_use]
 extern crate alloc;
 
-pub mod cache_map;
 pub mod circuit;
 pub mod cont;
 pub mod coprocessor;
