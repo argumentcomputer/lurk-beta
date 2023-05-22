@@ -16,6 +16,25 @@ use super::{
     symbol::Symbol,
 };
 
+/// The `Store` is a crucial part of Lurk's implementation and tries to be a
+/// vesatile data structure for many parts of Lurk's data pipeline.
+///
+/// It holds Lurk data structured as trees of `Ptr`s (or `ZPtr`s). When a `Ptr`
+/// has children`, we store them in the `IndexSet`s available: `ptrs2`, `ptrs3`
+/// or `ptrs4`. These data structures speed up LEM interpretation because lookups
+/// by indices are fast.
+///
+/// The `Store` also provides an infra to speed up interning strings and symbols.
+/// This data is saved in `vec_char_cache` and `vec_str_cache`, which are better
+/// explained in `intern_string` and `intern_symbol_path` respectively.
+///
+/// There's also a process that we call "hydration", in which we use Poseidon
+/// hashes to compute the sstable) hash of the children of a pointer. These hashes
+/// are necessary when we want to create Lurk proofs because the circuit consumes
+/// elements of the `LurkField`, not (unstable) indices of `IndexSet`s.
+///
+/// Lastly, we have a `HashMap` to hold commited data, which can be retrieved by
+/// the resulting commitment hash.
 #[derive(Default)]
 pub struct Store<F: LurkField> {
     ptrs2: IndexSet<(Ptr<F>, Ptr<F>)>,
@@ -25,38 +44,48 @@ pub struct Store<F: LurkField> {
     vec_char_cache: HashMap<Vec<char>, Ptr<F>>,
     vec_str_cache: HashMap<Vec<String>, Ptr<F>>,
 
+    pub poseidon_cache: PoseidonCache<F>,
     dehydrated: Vec<Ptr<F>>,
     z_cache: DashMap<Ptr<F>, ZPtr<F>, ahash::RandomState>,
     z_dag: DashMap<ZPtr<F>, ZChildren<F>, ahash::RandomState>,
 
-    pub poseidon_cache: PoseidonCache<F>,
     pub comms: HashMap<FWrap<F>, (F, Ptr<F>)>, // hash -> (secret, src)
 }
 
 impl<F: LurkField> Store<F> {
+    /// Creates a `Ptr` that's a parent of two children
     pub fn intern_2_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>) -> Ptr<F> {
         let (idx, inserted) = self.ptrs2.insert_full((a, b));
         let ptr = Ptr::Tree2(tag, idx);
         if inserted {
+            // this is for `hydrate_z_cache`
             self.dehydrated.push(ptr);
         }
         ptr
     }
 
+    /// Similar to `intern_2_ptrs` but doesn't add the resulting pointer to
+    /// `dehydrated`. This function is used when converting a `ZStore` to a
+    /// `Store` (TODO).
     #[inline]
     pub fn intern_2_ptrs_not_dehydrated(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>) -> Ptr<F> {
         Ptr::Tree2(tag, self.ptrs2.insert_full((a, b)).0)
     }
 
+    /// Creates a `Ptr` that's a parent of three children
     pub fn intern_3_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>) -> Ptr<F> {
         let (idx, inserted) = self.ptrs3.insert_full((a, b, c));
         let ptr = Ptr::Tree3(tag, idx);
         if inserted {
+            // this is for `hydrate_z_cache`
             self.dehydrated.push(ptr);
         }
         ptr
     }
 
+    /// Similar to `intern_3_ptrs` but doesn't add the resulting pointer to
+    /// `dehydrated`. This function is used when converting a `ZStore` to a
+    /// `Store` (TODO).
     #[inline]
     pub fn intern_3_ptrs_not_dehydrated(
         &mut self,
@@ -68,6 +97,7 @@ impl<F: LurkField> Store<F> {
         Ptr::Tree3(tag, self.ptrs3.insert_full((a, b, c)).0)
     }
 
+    /// Creates a `Ptr` that's a parent of four children
     pub fn intern_4_ptrs(
         &mut self,
         tag: Tag,
@@ -79,11 +109,15 @@ impl<F: LurkField> Store<F> {
         let (idx, inserted) = self.ptrs4.insert_full((a, b, c, d));
         let ptr = Ptr::Tree4(tag, idx);
         if inserted {
+            // this is for `hydrate_z_cache`
             self.dehydrated.push(ptr);
         }
         ptr
     }
 
+    /// Similar to `intern_4_ptrs` but doesn't add the resulting pointer to
+    /// `dehydrated`. This function is used when converting a `ZStore` to a
+    /// `Store` (TODO).
     #[inline]
     pub fn intern_4_ptrs_not_dehydrated(
         &mut self,
@@ -111,6 +145,15 @@ impl<F: LurkField> Store<F> {
         self.ptrs4.get_index(idx)
     }
 
+    /// Iterates on the tails of a string, interning all of them, eventually
+    /// interning the full string provided as input. If some tail has already
+    /// been interned (and cached), break the loop.
+    ///
+    /// Tails are cached as reversed vectors of `char`s because of how interning
+    /// and hashing works: from right to left. So, for example, after interning
+    /// the string `"abc"`, we will end up with cached pointers to the strings
+    /// `"c"`, `"bc"` and `"abc"` stored in `vec_char_cache` as `['c']`,
+    /// `['c', 'b']` and `['c', 'b', 'a']` respectively.
     pub fn intern_string(&mut self, s: String) -> Ptr<F> {
         let mut chars = s.chars().rev().collect_vec();
         let mut ptr;
@@ -138,6 +181,16 @@ impl<F: LurkField> Store<F> {
         ptr
     }
 
+    /// Iterates on the tails of a symbol path, interning all of them, eventually
+    /// interning the full symbol path provided as input. If some tail has already
+    /// been interned (and cached), break the loop.
+    ///
+    /// Tails are cached as reversed vectors of `String`s because of how interning
+    /// and hashing works: from right to left. So, for example, after interning
+    /// the symbol path `["aa", "bb", "cc"]`, we will end up with cached pointers
+    /// to the symbol paths `["cc"]`, `["bb", "cc"]` and `["aa", "bb", "cc"]` 
+    /// stored in `vec_str_cache` as `["cc"]`, `["cc", "bb"]` and
+    /// ["cc", "bb", "aa"]` respectively.
     pub fn intern_symbol_path(&mut self, path: Vec<String>) -> Ptr<F> {
         let mut components = path;
         components.reverse();
@@ -174,6 +227,13 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    /// Recursively hashes the children of a `Ptr` in order to obtain its
+    /// corresponding `ZPtr`. While traversing a `Ptr` tree, it consults the
+    /// cache of `Ptr`s that have already been hydrated and also populates this
+    /// cache for the new `Ptr`s.
+    ///
+    /// Warning: without cache hits, this function might blow up Rust's recursion
+    /// depth limit. This limitation is circumvented by calling `hydrate_z_cache`.
     pub fn hydrate_ptr(&self, ptr: &Ptr<F>) -> Result<ZPtr<F>, String> {
         match ptr {
             Ptr::Leaf(Tag::Comm, hash) => match self.z_cache.get(ptr) {
@@ -278,6 +338,8 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    /// Hydrates `Ptr` trees from the bottom to the top, avoiding deep recursions
+    /// in `hydrate_ptr`.
     pub fn hydrate_z_cache(&mut self) {
         self.dehydrated.par_iter().for_each(|ptr| {
             self.hydrate_ptr(ptr).expect("failed to hydrate pointer");

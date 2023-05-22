@@ -6,13 +6,13 @@ use super::{symbol::LurkSymbol, tag::Tag};
 /// as a building block for trees that represent Lurk data. A pointer can be a
 /// leaf that contains data encoded as an element of a `LurkField` or it can have
 /// children. For performance, the children of a pointer are stored on an
-/// `IndexMap` and the resulding index is carried by the pointer itself.
+/// `IndexSet` and the resulding index is carried by the pointer itself.
 ///
-/// A pointer also has a tag, which says what kind of data it encodes. Note that,
-/// in theory, the tag would be enough to tell how many children a pointer has.
-/// But to simplify the implementation (and potentially speed up hydration), we
-/// express the number of children in the pointer's enum instead of further
-/// casing by tags.
+/// A pointer also has a tag, which says what kind of data it encodes. On
+/// previous implementations, the tag would be used to infer the number of
+/// children a pointer has. However, LEMs require extra flexibility because LEM
+/// hashing operations can plug any tag to the resulting pointer. Thus, the
+/// number of children have to be made explicit as the `Ptr` enum.
 ///
 /// Finally, we also have a pointer to express reserved Lurk symbols such as
 /// `let`, `if`, `nil` etc. This is piece of data allows LEMs to perform matches
