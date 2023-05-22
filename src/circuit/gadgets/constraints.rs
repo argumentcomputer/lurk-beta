@@ -33,6 +33,27 @@ pub(crate) fn enforce_equal<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     );
 }
 
+/// Adds a constraint to CS, enforcing an equality relationship between the allocated numbers a and b.
+///
+/// a == zero
+pub(crate) fn enforce_equal_zero<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    annotation: A,
+    a: &AllocatedNum<F>,
+) where
+    A: FnOnce() -> AR,
+    AR: Into<String>,
+{
+    // debug_assert_eq!(a.get_value(), b.get_value());
+    // a * 1 = zero
+    cs.enforce(
+        annotation,
+        |lc| lc + a.get_variable(),
+        |lc| lc + CS::one(),
+        |lc| lc,
+    );
+}
+
 /// Adds a constraint to CS, enforcing a add relationship between the allocated numbers a, b, and sum.
 ///
 /// a + b = sum
@@ -94,6 +115,31 @@ pub(crate) fn popcount<F: PrimeField, CS: ConstraintSystem<F>>(
         |_| v_lc,
         |lc| lc + CS::one(),
         |lc| lc + sum.get_variable(),
+    );
+
+    Ok(())
+}
+
+/// Adds a constraint to CS, enforcing that the addition of the allocated numbers in vector `v`
+/// is equal to `one`.
+///
+/// summation(v) = one
+#[allow(dead_code)]
+pub(crate) fn popcount_one<F: PrimeField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    v: &[Boolean],
+) -> Result<(), SynthesisError> {
+    let mut v_lc = LinearCombination::<F>::zero();
+    for b in v {
+        v_lc = add_to_lc::<F, CS>(b, v_lc, F::one())?;
+    }
+
+    // (summation(v)) * 1 = 1
+    cs.enforce(
+        || "popcount_one",
+        |_| v_lc,
+        |lc| lc + CS::one(),
+        |lc| lc + CS::one(),
     );
 
     Ok(())
@@ -709,6 +755,21 @@ pub(crate) fn implies_equal<CS: ConstraintSystem<F>, F: PrimeField>(
         cs.namespace(|| "premise implies equality"),
         premise,
         &is_equal,
+    )?;
+    Ok(())
+}
+
+/// Enforce equality of two allocated numbers given an implication premise
+pub(crate) fn implies_equal_zero<CS: ConstraintSystem<F>, F: PrimeField>(
+    cs: &mut CS,
+    premise: &Boolean,
+    a: &AllocatedNum<F>,
+) -> Result<(), SynthesisError> {
+    let is_zero = alloc_is_zero(cs.namespace(|| "is_zero"), a)?;
+    enforce_implication(
+        cs.namespace(|| "premise implies equality"),
+        premise,
+        &is_zero,
     )?;
     Ok(())
 }

@@ -7,8 +7,8 @@ use bellperson::{
 
 use crate::circuit::gadgets::{
     constraints::{
-        alloc_equal_const, and, enforce_equal, enforce_selector_with_premise, implies_equal,
-        popcount,
+        alloc_equal_const, and, enforce_equal, enforce_equal_zero, enforce_selector_with_premise,
+        implies_equal, implies_equal_zero, popcount_one,
     },
     pointer::AllocatedPtr,
 };
@@ -84,14 +84,14 @@ impl<F: LurkField> LEM<F> {
         }
     }
 
-    /// TODO: improve
     /// Create R1CS constraints for LEM.
-    /// As we find new operations, we stack them to be constrained later.
-    /// We use hash maps we manage viariables and pointers.
-    /// This way we can reference allocated variables that were
-    /// created previously.
-    /// We have real paths and virtual paths.
-    /// Then we can constrain LEM using implications.
+    /// As we find recursive (non-leaf) operations, we stack them to be
+    /// constrained later. We use hash maps to manage viariables and pointers
+    /// in a way we can reference allocated variables that were
+    /// previously created.
+    /// Leaves are constrained as follows:
+    /// - Concrete paths are constrained using implications of enforcements.
+    /// - Virtual paths are constrained using enforcements.
     pub fn constrain<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -143,8 +143,6 @@ impl<F: LurkField> LEM<F> {
         let mut num_inputized_outputs = 0;
 
         let mut alloc_manager = AllocationManager::default();
-        let zero = alloc_manager.alloc(cs, F::zero())?;
-        let one = alloc_manager.alloc(cs, F::one())?;
 
         let mut stack = vec![(&self.lem_op, None::<Boolean>, String::new())];
         while let Some((op, concrete_path, path)) = stack.pop() {
@@ -181,11 +179,10 @@ impl<F: LurkField> LEM<F> {
                         ) else {
                             return Err(format!("Couldn't enforce implies equal for {}'s tag", tgt.name()))
                         };
-                        let Ok(_) = implies_equal(
-                            &mut cs.namespace(|| format!("implies equal for {}'s hash (must be zero)", tgt.name())),
+                        let Ok(_) = implies_equal_zero(
+                            &mut cs.namespace(|| format!("implies equal zero for {}'s hash (must be zero)", tgt.name())),
                             &concrete_path,
                             alloc_tgt.hash(),
-                            &zero,
                         ) else {
                             return Err(format!("Couldn't enforce implies equal for {}'s hash", tgt.name()))
                         };
@@ -197,11 +194,10 @@ impl<F: LurkField> LEM<F> {
                             alloc_tgt.tag(),
                             &alloc_tag,
                         );
-                        enforce_equal(
+                        enforce_equal_zero(
                             cs,
                             || format!("{}'s hash is zero", tgt.name()),
                             alloc_tgt.hash(),
-                            &zero,
                         );
                     }
                 }
@@ -255,10 +251,9 @@ impl<F: LurkField> LEM<F> {
                         };
                     } else {
                         // If `concrete_path` is None, we just do regular constraining
-                        let Ok(_) = popcount(
+                        let Ok(_) = popcount_one(
                             &mut cs.namespace(|| format!("{}.enforce exactly one selected", &path)),
                             &concrete_path_vec[..],
-                            &one,
                         ) else {
                             return Err("Failed to enforce selector".to_string())
                         };

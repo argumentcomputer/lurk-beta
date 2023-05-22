@@ -34,7 +34,7 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 13;
-    const NUM_CONSTRAINTS: usize = 69;
+    const NUM_CONSTRAINTS: usize = 68;
 
     fn test_eval_and_constrain_aux(store: &mut Store<Fr>, pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>) {
         let lem = step().unwrap();
