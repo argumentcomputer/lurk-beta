@@ -122,7 +122,7 @@ impl<F: LurkField> LEM<F> {
                     let hash =
                         store
                             .poseidon_cache
-                            .hash3(&[*secret, aqua_ptr.tag.field(), aqua_ptr.val]);
+                            .hash3(&[*secret, aqua_ptr.tag.field(), aqua_ptr.hash]);
                     let tgt_ptr = Ptr::comm(hash);
                     store.comms.insert(FWrap::<F>(hash), (*secret, src_ptr));
                     if ptrs.insert(tgt.name().clone(), tgt_ptr).is_some() {

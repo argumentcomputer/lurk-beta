@@ -112,7 +112,7 @@ impl<F: LurkField> Ptr<F> {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct AquaPtr<F: LurkField> {
     pub tag: Tag,
-    pub val: F,
+    pub hash: F,
 }
 
 #[allow(dead_code)]
@@ -128,7 +128,7 @@ impl<F: LurkField> AquaPtr<F> {
     pub fn dummy() -> Self {
         Self {
             tag: Tag::Dummy,
-            val: F::zero(),
+            hash: F::zero(),
         }
     }
 }
@@ -136,6 +136,6 @@ impl<F: LurkField> AquaPtr<F> {
 impl<F: LurkField> std::hash::Hash for AquaPtr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.tag.hash(state);
-        self.val.to_repr().as_ref().hash(state);
+        self.hash.to_repr().as_ref().hash(state);
     }
 }

@@ -13,9 +13,33 @@ use crate::circuit::gadgets::{
     pointer::AllocatedPtr,
 };
 
-use crate::field::LurkField;
+use crate::field::{FWrap, LurkField};
 
-use super::{pointers::AquaPtr, store::Store, tag::Tag, Witness, LEM, LEMOP};
+use super::{pointers::AquaPtr, store::Store, Witness, LEM, LEMOP};
+
+#[derive(Default)]
+struct AllocationManager<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);
+
+impl<F: LurkField> AllocationManager<F> {
+    pub(crate) fn alloc<CS: ConstraintSystem<F>>(
+        &mut self,
+        cs: &mut CS,
+        f: F,
+    ) -> Result<AllocatedNum<F>, String> {
+        let wrap = FWrap(f);
+        match self.0.get(&wrap) {
+            Some(alloc) => Ok(alloc.to_owned()),
+            None => {
+                let digits = f.hex_digits();
+                let Ok(alloc) = AllocatedNum::alloc(cs.namespace(|| format!("allocate {}", &digits)), || Ok(f)) else {
+                    return Err(format!("Couldn't allocate {}", &digits));
+                };
+                self.0.insert(wrap, alloc.clone());
+                Ok(alloc)
+            }
+        }
+    }
+}
 
 impl<F: LurkField> LEM<F> {
     fn allocate_ptr<CS: ConstraintSystem<F>>(
@@ -23,17 +47,17 @@ impl<F: LurkField> LEM<F> {
         aqua_ptr: &AquaPtr<F>,
         name: &String,
     ) -> Result<AllocatedPtr<F>, String> {
-        let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("allocate {}'s tag", name)), || {
+        let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("allocate {}'s tag", name)), || 
             Ok(aqua_ptr.tag.field())
-        }) else {
+        ) else {
             return Err(format!("Couldn't allocate {}'s tag", name))
         };
-        let Ok(alloc_val) = AllocatedNum::alloc(cs.namespace(|| format!("allocate {}'s val", name)), || {
-            Ok(aqua_ptr.val)
-        }) else {
-            return Err(format!("Couldn't allocate {}'s val", name))
+        let Ok(alloc_hash) = AllocatedNum::alloc(cs.namespace(|| format!("allocate {}'s hash", name)), || 
+            Ok(aqua_ptr.hash)
+        ) else {
+            return Err(format!("Couldn't allocate {}'s hash", name))
         };
-        Ok(AllocatedPtr::from_parts(&alloc_tag, &alloc_val))
+        Ok(AllocatedPtr::from_parts(&alloc_tag, &alloc_hash))
     }
 
     fn inputize_ptr<CS: ConstraintSystem<F>>(
@@ -44,8 +68,8 @@ impl<F: LurkField> LEM<F> {
         let Ok(_) = alloc_ptr.tag().inputize(cs.namespace(|| format!("inputize {}'s tag", name))) else {
             return Err(format!("Couldn't inputize {}'s tag", name))
         };
-        let Ok(_) = alloc_ptr.hash().inputize(cs.namespace(|| format!("inputize {}'s val", name))) else {
-            return Err(format!("Couldn't inputize {}'s val", name))
+        let Ok(_) = alloc_ptr.hash().inputize(cs.namespace(|| format!("inputize {}'s hash", name))) else {
+            return Err(format!("Couldn't inputize {}'s hash", name))
         };
         Ok(())
     }
@@ -118,10 +142,10 @@ impl<F: LurkField> LEM<F> {
 
         let mut num_inputized_outputs = 0;
 
-        // TODO: consider greating globals
-        let zero = AllocatedNum::alloc(cs.namespace(|| "#zero"), || Ok(F::zero())).unwrap();
-        let one = AllocatedNum::alloc(cs.namespace(|| "#one"), || Ok(F::one())).unwrap();
-        let mut alloc_tags: HashMap<&Tag, AllocatedNum<F>> = HashMap::default();
+        let mut alloc_manager = AllocationManager::default();
+        let zero = alloc_manager.alloc(cs, F::zero())?;
+        let one = alloc_manager.alloc(cs, F::one())?;
+
         let mut stack = vec![(&self.lem_op, None::<Boolean>, String::new())];
         while let Some((op, concrete_path, path)) = stack.pop() {
             match op {
@@ -145,21 +169,7 @@ impl<F: LurkField> LEM<F> {
                         tgt.name(),
                     )?;
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
-                    let alloc_tag = {
-                        match alloc_tags.get(tag) {
-                            Some(alloc_tag) => alloc_tag.clone(),
-                            None => {
-                                let Ok(alloc_tag) = AllocatedNum::alloc(
-                                    cs.namespace(|| format!("Tag {}", tag)),
-                                    || Ok(tag.field()),
-                                ) else {
-                                    return Err(format!("Couldn't allocate tag for {}", tgt.name()));
-                                };
-                                alloc_tags.insert(tag, alloc_tag.clone());
-                                alloc_tag
-                            }
-                        }
-                    };
+                    let alloc_tag = alloc_manager.alloc(cs, tag.field())?;
 
                     // If `concrete_path` is Some, then we constrain using "concrete implies ..." logic
                     if let Some(concrete_path) = concrete_path {
@@ -169,15 +179,15 @@ impl<F: LurkField> LEM<F> {
                             alloc_tgt.tag(),
                             &alloc_tag,
                         ) else {
-                            return Err("TODO".to_string())
+                            return Err(format!("Couldn't enforce implies equal for {}'s tag", tgt.name()))
                         };
                         let Ok(_) = implies_equal(
-                            &mut cs.namespace(|| format!("implies equal for {}'s val (must be zero)", tgt.name())),
+                            &mut cs.namespace(|| format!("implies equal for {}'s hash (must be zero)", tgt.name())),
                             &concrete_path,
                             alloc_tgt.hash(),
                             &zero,
                         ) else {
-                            return Err("TODO".to_string())
+                            return Err(format!("Couldn't enforce implies equal for {}'s hash", tgt.name()))
                         };
                     } else {
                         // If `concrete_path` is None, we just do regular constraining
@@ -189,7 +199,7 @@ impl<F: LurkField> LEM<F> {
                         );
                         enforce_equal(
                             cs,
-                            || format!("{}'s val is zero", tgt.name()),
+                            || format!("{}'s hash is zero", tgt.name()),
                             alloc_tgt.hash(),
                             &zero,
                         );

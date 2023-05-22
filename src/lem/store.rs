@@ -177,7 +177,7 @@ impl<F: LurkField> Store<F> {
                         };
                     let aqua_ptr = AquaPtr {
                         tag: Tag::Comm,
-                        val: *hash,
+                        hash: *hash,
                     };
                     self.aqua_dag
                         .insert(aqua_ptr, AquaPtrKind::Comm(*secret, self.hydrate_ptr(ptr)?));
@@ -185,7 +185,10 @@ impl<F: LurkField> Store<F> {
                     Ok(aqua_ptr)
                 }
             },
-            Ptr::Leaf(tag, x) => Ok(AquaPtr { tag: *tag, val: *x }),
+            Ptr::Leaf(tag, x) => Ok(AquaPtr {
+                tag: *tag,
+                hash: *x,
+            }),
             Ptr::Tree2(tag, idx) => match self.aqua_cache.get(ptr) {
                 Some(aqua_ptr) => Ok(*aqua_ptr),
                 None => {
@@ -196,11 +199,11 @@ impl<F: LurkField> Store<F> {
                     let b = self.hydrate_ptr(b)?;
                     let aqua_ptr = AquaPtr {
                         tag: *tag,
-                        val: self.poseidon_cache.hash4(&[
+                        hash: self.poseidon_cache.hash4(&[
                             a.tag.field(),
-                            a.val,
+                            a.hash,
                             b.tag.field(),
-                            b.val,
+                            b.hash,
                         ]),
                     };
                     self.aqua_dag.insert(aqua_ptr, AquaPtrKind::Tree2(a, b));
@@ -219,13 +222,13 @@ impl<F: LurkField> Store<F> {
                     let c = self.hydrate_ptr(c)?;
                     let aqua_ptr = AquaPtr {
                         tag: *tag,
-                        val: self.poseidon_cache.hash6(&[
+                        hash: self.poseidon_cache.hash6(&[
                             a.tag.field(),
-                            a.val,
+                            a.hash,
                             b.tag.field(),
-                            b.val,
+                            b.hash,
                             c.tag.field(),
-                            c.val,
+                            c.hash,
                         ]),
                     };
                     self.aqua_dag.insert(aqua_ptr, AquaPtrKind::Tree3(a, b, c));
@@ -245,15 +248,15 @@ impl<F: LurkField> Store<F> {
                     let d = self.hydrate_ptr(d)?;
                     let aqua_ptr = AquaPtr {
                         tag: *tag,
-                        val: self.poseidon_cache.hash8(&[
+                        hash: self.poseidon_cache.hash8(&[
                             a.tag.field(),
-                            a.val,
+                            a.hash,
                             b.tag.field(),
-                            b.val,
+                            b.hash,
                             c.tag.field(),
-                            c.val,
+                            c.hash,
                             d.tag.field(),
-                            d.val,
+                            d.hash,
                         ]),
                     };
                     self.aqua_dag
