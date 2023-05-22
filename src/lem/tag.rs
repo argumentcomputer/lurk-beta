@@ -22,8 +22,8 @@ pub enum Tag {
 
 impl Tag {
     #[inline]
-    pub fn to_field<F: LurkField>(&self) -> F {
-        F::from_u64(*self as u64)
+    pub fn to_field<F: LurkField>(self) -> F {
+        F::from_u64(self as u64)
     }
 }
 
