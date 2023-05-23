@@ -328,17 +328,65 @@ impl<F: LurkField> Encodable for FWrap<F> {
     }
 }
 
+// TODO: Overriden below, is there a use for this version?
+//impl<'de, F: LurkField> Deserialize<'de> for FWrap<F> {
+//    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+//    where
+//        D: serde::Deserializer<'de>,
+//    {
+//        use serde::de::Error;
+//        let bytes: Vec<u8> = Vec::deserialize(deserializer)?;
+//        let f = F::from_bytes(&bytes).ok_or_else(|| {
+//            D::Error::custom(format!("expected field element as bytes, got {:?}", &bytes))
+//        })?;
+//        Ok(FWrap(f))
+//    }
+//}
+
+struct FWrapVisitor;
+
+impl<'de> serde::de::Visitor<'de> for FWrapVisitor {
+    type Value = Vec<u8>;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("FWrap bytes")
+    }
+
+    fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(v)
+    }
+
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        self.visit_byte_buf(v.to_vec())
+    }
+}
+
 impl<'de, F: LurkField> Deserialize<'de> for FWrap<F> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        use serde::de::Error;
-        let bytes: Vec<u8> = Vec::deserialize(deserializer)?;
-        let f = F::from_bytes(&bytes).ok_or_else(|| {
-            D::Error::custom(format!("expected field element as bytes, got {:?}", &bytes))
-        })?;
-        Ok(FWrap(f))
+        use serde::de;
+
+        let bytes = deserializer.deserialize_byte_buf(FWrapVisitor)?;
+
+        // the field element expects a certain Repr length, whereas ZData trims it.
+        let mut bytes_slice = F::default().to_repr();
+        bytes_slice
+            .as_mut()
+            .iter_mut()
+            .zip(&bytes)
+            .for_each(|(byte_slice, byte)| *byte_slice = *byte);
+        let f: Option<F> = F::from_repr(bytes_slice).into();
+        f.map(FWrap).ok_or_else(|| {
+            de::Error::custom(format!("expected field element as bytes, got {:?}", bytes))
+        })
     }
 }
 

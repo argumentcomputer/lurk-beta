@@ -17,7 +17,7 @@ use crate::tag::{ContTag, ExprTag, Tag};
 
 use crate::hash::IntoHashComponents;
 
-#[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 // Note: the trait bound E: Tag is not necessary in the struct, but it makes the proptest strategy more efficient.
 /// A struct representing a scalar pointer with a tag and a value.
@@ -68,6 +68,20 @@ impl<E: Tag, F: LurkField> Serialize for ZPtr<E, F> {
         S: serde::Serializer,
     {
         (FWrap(self.0.to_field::<F>()), FWrap(self.1)).serialize(serializer)
+    }
+}
+
+impl<'de, E: Tag, F: LurkField> Deserialize<'de> for ZPtr<E, F> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let (x, y) = <(FWrap<F>, FWrap<F>)>::deserialize(deserializer)?;
+        let tag_as_u16 =
+            x.0.to_u16()
+                .ok_or_else(|| serde::de::Error::custom("invalid range for field element tag"))?;
+        let tag = E::try_from(tag_as_u16).map_err(|_| serde::de::Error::custom("invalid tag"))?;
+        Ok(ZPtr(tag, y.0))
     }
 }
 

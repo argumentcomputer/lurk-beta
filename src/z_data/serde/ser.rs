@@ -137,7 +137,12 @@ impl<'a> ser::Serializer for &'a Serializer {
 
     #[inline]
     fn serialize_str(self, value: &str) -> Result<Self::Ok, Self::Error> {
-        self.serialize_bytes(value.as_bytes())
+        let chars = value.chars();
+        let mut cell: Vec<ZData> = Vec::with_capacity(chars.clone().count());
+        for c in chars {
+            cell.push(self.serialize_u32(c as u32)?);
+        }
+        Ok(ZData::Cell(cell))
     }
 
     fn serialize_bytes(self, value: &[u8]) -> Result<Self::Ok, Self::Error> {
@@ -161,7 +166,7 @@ impl<'a> ser::Serializer for &'a Serializer {
         variant_index: u32,
         _variant: &'static str,
     ) -> Result<Self::Ok, Self::Error> {
-        // Assuming # of variants < 128 for now
+        // Assuming # of variants < 256
         Ok(ZData::Cell(vec![
             self.serialize_u8(u8::try_from(variant_index).unwrap())?
         ]))
@@ -189,7 +194,7 @@ impl<'a> ser::Serializer for &'a Serializer {
     where
         T: ser::Serialize,
     {
-        // Assuming # of variants < 128 for now
+        // Assuming # of variants < 256
         Ok(ZData::Cell(vec![
             u8::try_from(variant_index).unwrap().serialize(self)?,
             value.serialize(self)?,
@@ -426,126 +431,5 @@ impl<'a> ser::SerializeStructVariant for StructSerializer<'a> {
             .serialize(self.ser)?];
         cell.extend(self.end_inner()?);
         Ok(ZData::Cell(cell))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    //use super::*;
-
-    use crate::tag::{ContTag, ExprTag};
-    use crate::tag::{Op1, Op2};
-    use crate::uint::UInt;
-    use crate::z_cont::ZCont;
-    use crate::z_data::to_z_data;
-    use crate::z_data::Encodable;
-    use crate::z_expr::ZExpr;
-    use crate::z_ptr::{ZContPtr, ZExprPtr};
-    use crate::z_store::ZStore;
-    use pasta_curves::pallas::Scalar;
-
-    #[test]
-    fn ser_z_expr() {
-        let test_zexpr = |ze: ZExpr<Scalar>| {
-            let zd = to_z_data(ze).unwrap();
-            println!("ZData: {:?}", zd);
-            //assert_eq!(ze.ser(), zd);
-        };
-        let f = Scalar::one();
-        let zp = ZExprPtr::from_parts(ExprTag::Sym, f);
-        assert_eq!(zp.ser(), to_z_data(zp).unwrap());
-        let zc = ZContPtr::from_parts(ContTag::Lookup, f);
-        assert_eq!(zc.ser(), to_z_data(zc).unwrap());
-
-        test_zexpr(ZExpr::Nil);
-        test_zexpr(ZExpr::Cons(zp, zp));
-        test_zexpr(ZExpr::Comm(f, zp));
-        test_zexpr(ZExpr::SymNil);
-        test_zexpr(ZExpr::SymCons(zp, zp));
-        test_zexpr(ZExpr::Key(zp));
-        test_zexpr(ZExpr::Fun {
-            arg: zp,
-            body: zp,
-            closed_env: zp,
-        });
-        test_zexpr(ZExpr::Num(f));
-        test_zexpr(ZExpr::StrNil);
-        test_zexpr(ZExpr::StrCons(zp, zp));
-        test_zexpr(ZExpr::Thunk(zp, zc));
-        test_zexpr(ZExpr::Char('a'));
-        test_zexpr(ZExpr::Uint(UInt::U64(0)));
-
-        let zs: ZStore<Scalar> = ZStore::new();
-        assert_eq!(zs.ser(), to_z_data(zs).unwrap());
-    }
-
-    #[test]
-    fn ser_z_cont() {
-        let test_zcont = |zc: ZCont<Scalar>| {
-            assert_eq!(zc.ser(), to_z_data(zc).unwrap());
-        };
-        let f = Scalar::one();
-        let ze = ZExprPtr::from_parts(ExprTag::Nil, f);
-        let zp = ZContPtr::from_parts(ContTag::Outermost, f);
-        assert_eq!(zp.ser(), to_z_data(zp).unwrap());
-
-        test_zcont(ZCont::Outermost);
-        test_zcont(ZCont::Call0 {
-            saved_env: ze,
-            continuation: zp,
-        });
-        test_zcont(ZCont::Call {
-            unevaled_arg: ze,
-            saved_env: ze,
-            continuation: zp,
-        });
-        test_zcont(ZCont::Call2 {
-            function: ze,
-            saved_env: ze,
-            continuation: zp,
-        });
-        test_zcont(ZCont::Tail {
-            saved_env: ze,
-            continuation: zp,
-        });
-        test_zcont(ZCont::Error);
-        test_zcont(ZCont::Lookup {
-            saved_env: ze,
-            continuation: zp,
-        });
-        test_zcont(ZCont::Unop {
-            operator: Op1::Car,
-            continuation: zp,
-        });
-        test_zcont(ZCont::Binop {
-            operator: Op2::Sum,
-            saved_env: ze,
-            unevaled_args: ze,
-            continuation: zp,
-        });
-        test_zcont(ZCont::Binop2 {
-            operator: Op2::Sum,
-            evaled_arg: ze,
-            continuation: zp,
-        });
-        test_zcont(ZCont::If {
-            unevaled_args: ze,
-            continuation: zp,
-        });
-        test_zcont(ZCont::Let {
-            var: ze,
-            body: ze,
-            saved_env: ze,
-            continuation: zp,
-        });
-        test_zcont(ZCont::LetRec {
-            var: ze,
-            body: ze,
-            saved_env: ze,
-            continuation: zp,
-        });
-        test_zcont(ZCont::Emit { continuation: zp });
-        test_zcont(ZCont::Dummy);
-        test_zcont(ZCont::Terminal);
     }
 }

@@ -24,13 +24,13 @@ use nom::multi::count;
 use nom::Finish;
 use nom::IResult;
 
-mod serde;
+pub mod serde;
 pub mod z_cont;
 pub mod z_expr;
 pub mod z_ptr;
 pub mod z_store;
 
-pub use self::serde::to_z_data;
+pub use self::serde::{from_z_data, to_z_data};
 
 /// `ZData` is a binary tree with two types of nodes: Atom and Cell.
 ///

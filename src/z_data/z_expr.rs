@@ -194,6 +194,14 @@ impl<F: LurkField> Serialize for ZExpr<F> {
     }
 }
 
+//impl<'de, F: LurkField> Deserialize<'de> for ZExpr<F> {
+//  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+//  where
+//    D: serde::Deserializer<'de>,
+//  {
+//    todo!()
+//  }
+
 impl<F: LurkField> Encodable for ZExpr<F> {
     fn ser(&self) -> ZData {
         match self {

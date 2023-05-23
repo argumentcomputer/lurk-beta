@@ -15,6 +15,7 @@ where
     T::deserialize(&mut deserializer)
 }
 
+#[derive(Debug)]
 pub struct Deserializer<'de> {
     input: &'de ZData,
 }
@@ -168,7 +169,21 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        self.deserialize_string(visitor)
+        let mut v: Vec<char> = vec![];
+        match self.input {
+            ZData::Cell(cell) => {
+                for zd in cell {
+                    match zd {
+                        ZData::Atom(_atom) => {
+                            v.push(char::deserialize(&mut Deserializer::from_z_data(zd))?)
+                        }
+                        _ => return Err(SerdeError::Type("expected string".into())),
+                    }
+                }
+            }
+            _ => return Err(SerdeError::Type("expected string".into())),
+        }
+        visitor.visit_str(&v.into_iter().collect::<String>())
     }
 
     #[inline]
@@ -176,13 +191,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match Vec::<u8>::deserialize(self) {
-            Ok(a) => match String::from_utf8(a) {
-                Ok(v) => visitor.visit_str(&v),
-                Err(_) => Err(SerdeError::Type("expected string".into())),
-            },
-            Err(_) => Err(SerdeError::Type("expected string".into())),
-        }
+        self.deserialize_str(visitor)
     }
 
     #[inline]
@@ -265,13 +274,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match self.input {
-            ZData::Cell(xs) => visitor.visit_seq(SeqAccess::new(xs)),
+            ZData::Cell(xs) => visitor.visit_seq(SeqAccess::new(xs, 0)),
             _ => Err(SerdeError::Type("expected sequence".into())),
         }
     }
 
     #[inline]
-    fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -281,8 +290,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     #[inline]
     fn deserialize_tuple_struct<V>(
         self,
-        name: &'static str,
-        len: usize,
+        _name: &'static str,
+        _len: usize,
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
@@ -291,8 +300,6 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self.deserialize_seq(visitor)
     }
 
-    // TODO: Should I just deserialize_seq into Vec<(A, B)> and collect into a map?
-    // Example Map: ZData::Cell(vec![ZData::Cell(vec![ZData::Atom[0], ZData::Atom[1]])])
     #[inline]
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
@@ -307,14 +314,14 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     #[inline]
     fn deserialize_struct<V>(
         self,
-        name: &'static str,
+        _name: &'static str,
         fields: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        self.deserialize_map(visitor)
+        self.deserialize_tuple(fields.len(), visitor)
     }
 
     #[inline]
@@ -328,7 +335,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match self.input {
-            ZData::Cell(xs) => visitor.visit_enum(VariantAccess::new(xs)),
+            ZData::Cell(xs) if !xs.is_empty() => match &xs[0] {
+                ZData::Atom(idx_vec) if idx_vec.len() == 1 => {
+                    let variant = String::from(variants[idx_vec[0] as usize]);
+                    visitor.visit_enum(Enum::new(self, variant, 1))
+                }
+                _ => Err(SerdeError::Type("expected enum".into())),
+            },
             _ => Err(SerdeError::Type("expected enum".into())),
         }
     }
@@ -361,8 +374,8 @@ struct SeqAccess<'a> {
 }
 
 impl<'a> SeqAccess<'a> {
-    fn new(vec: &'a [ZData]) -> Self {
-        Self { vec, index: 0 }
+    fn new(vec: &'a [ZData], index: usize) -> Self {
+        Self { vec, index }
     }
 }
 
@@ -405,6 +418,7 @@ impl<'de> de::MapAccess<'de> for MapAccess<'de> {
             Ok(None)
         } else {
             let value = seed.deserialize(&mut Deserializer::from_z_data(&self.vec[self.index]))?;
+            self.index += 1;
             Ok(Some(value))
         }
     }
@@ -423,31 +437,37 @@ impl<'de> de::MapAccess<'de> for MapAccess<'de> {
     }
 }
 
-struct VariantAccess<'a> {
-    vec: &'a [ZData],
+struct Enum<'a, 'de> {
+    de: &'a mut Deserializer<'de>,
+    variant: String,
     index: usize,
 }
 
-impl<'a> VariantAccess<'a> {
-    fn new(vec: &'a [ZData]) -> Self {
-        Self { vec, index: 0 }
+impl<'a, 'de> Enum<'a, 'de> {
+    fn new(de: &'a mut Deserializer<'de>, variant: String, index: usize) -> Self {
+        Enum { de, variant, index }
     }
 }
 
-impl<'de> de::EnumAccess<'de> for VariantAccess<'de> {
+// `EnumAccess` is provided to the `Visitor` to give it the ability to determine
+// which variant of the enum is supposed to be deserialized.
+impl<'de, 'a> de::EnumAccess<'de> for Enum<'a, 'de> {
     type Error = SerdeError;
     type Variant = Self;
 
-    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self), Self::Error>
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
     where
         V: de::DeserializeSeed<'de>,
     {
-        let val = seed.deserialize(&mut Deserializer::from_z_data(&self.vec[self.index]))?;
+        let variant = self.variant.clone().into_deserializer();
+        let val = seed.deserialize(variant)?;
         Ok((val, self))
     }
 }
 
-impl<'de> de::VariantAccess<'de> for VariantAccess<'de> {
+// `VariantAccess` is provided to the `Visitor` to give it the ability to see
+// the content of the single variant that it decided to deserialize.
+impl<'de, 'a> de::VariantAccess<'de> for Enum<'a, 'de> {
     type Error = SerdeError;
 
     fn unit_variant(self) -> Result<(), Self::Error> {
@@ -458,17 +478,21 @@ impl<'de> de::VariantAccess<'de> for VariantAccess<'de> {
     where
         T: de::DeserializeSeed<'de>,
     {
-        seed.deserialize(&mut Deserializer::from_z_data(&self.vec[self.index]))
+        let mut newtype = match self.de.input {
+            ZData::Cell(xs) if xs.len() > 1 => Deserializer::from_z_data(&xs[1]),
+            _ => return Err(SerdeError::Type("expected newtype variant".into())),
+        };
+        seed.deserialize(&mut newtype)
     }
 
     fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
-        de::Deserializer::deserialize_seq(
-            &mut Deserializer::from_z_data(&self.vec[self.index]),
-            visitor,
-        )
+        match self.de.input {
+            ZData::Cell(xs) => visitor.visit_seq(SeqAccess::new(xs, self.index)),
+            _ => Err(SerdeError::Type("expected sequence".into())),
+        }
     }
 
     fn struct_variant<V>(
@@ -477,52 +501,8 @@ impl<'de> de::VariantAccess<'de> for VariantAccess<'de> {
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
-        de::Deserializer::deserialize_struct(
-            &mut Deserializer::from_z_data(&self.vec[self.index]),
-            "",
-            fields,
-            visitor,
-        )
+        self.tuple_variant(fields.len(), visitor)
     }
-}
-// See https://github.com/pyfisch/cbor/blob/master/src/de.rs#L1133 for alternative
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::z_data::ZData::{Atom, Cell};
-    use crate::z_expr::ZExpr;
-    use pasta_curves::pallas::Scalar;
-
-    // TODO: Write up some test vectors for a Vec, tuple, BTreeMap, enum, and struct
-    #[test]
-    fn de_simple() {
-        let atom = Cell(vec![Atom(vec![1])]);
-        let num: u8 = from_z_data(&atom).unwrap();
-        assert_eq!(num, 1u8);
-    }
-
-    //#[test]
-    //fn de_z_expr() {
-    //let test_zexpr = |zd: ZData| {
-    //  let ze: ZExpr<Scalar> = from_z_data(&zd).unwrap();
-    //  println!("ZExpr: {:?}", ze);
-    //  //assert_eq!(ZExpr::de(zd), ze);
-    //};
-    //test_zexpr(ZData::Cell(vec![Atom(vec![0])]));
-    //test_zexpr(ZData::Cell(vec![Atom(vec![1]), Cell(vec![Atom(vec![2]), Atom(vec![1])]), Cell(vec![Atom(vec![2]), Atom(vec![1])])]));
-    //test_zexpr(ZData::Cell(vec![Atom(vec![2]), Atom(vec![1]), Cell(vec![Atom(vec![2]), Atom(vec![1])])]));
-    //test_zexpr(ZData::Cell(vec![Atom(vec![3])]));
-    //test_zexpr(ZData::Cell(vec![Atom(vec![4]), Cell(vec![Atom(vec![2]), Atom(vec![1])]), Cell(vec![Atom(vec![2]), Atom(vec![1])])]));
-    //test_zexpr(ZData::Cell(vec![Atom(vec![5]), Cell(vec![Atom(vec![2]), Atom(vec![1])])]));
-    //test_zexpr(ZData::Cell(vec![Atom(vec![6]), Cell(vec![Atom(vec![2]), Atom(vec![1])]), Cell(vec![Atom(vec![2]), Atom(vec![1])]), Cell(vec![Atom(vec![2]), Atom(vec![1])])]));
-    //test_zexpr(ZData::Cell(vec![Atom(vec![7]), Atom(vec![1])]));
-    //test_zexpr(ZData::Cell(vec![Atom(vec![8])]));
-    //test_zexpr(ZData::Cell(vec![Atom(vec![9]), Cell(vec![Atom(vec![2]), Atom(vec![1])]), Cell(vec![Atom(vec![2]), Atom(vec![1])])]));
-    //test_zexpr(ZData::Cell(vec![Atom(vec![10]), Cell(vec![Atom(vec![2]), Atom(vec![1])]), Cell(vec![Atom(vec![6, 16]), Atom(vec![1])])]));
-    //test_zexpr(ZData::Cell(vec![Atom(vec![11]), Atom(vec![97, 0, 0, 0])]));
-    //test_zexpr(ZData::Cell(vec![Atom(vec![12]), Atom(vec![0, 0, 0, 0, 0, 0, 0, 0])]));
-    //}
 }
