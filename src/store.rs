@@ -935,12 +935,12 @@ impl<F: LurkField> Store<F> {
                     (z_ptr, Some(z_cont))
                 }
                 Some(Continuation::Call {
-                    unevaled_arg,
                     saved_env,
+                    unevaled_arg,
                     continuation,
                 }) => {
-                    let (z_arg_ptr, _) = self.get_z_expr(&unevaled_arg, z_store.clone())?;
                     let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
+                    let (z_arg_ptr, _) = self.get_z_expr(&unevaled_arg, z_store.clone())?;
                     let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
                     let z_cont = ZCont::<F>::Call {
                         unevaled_arg: z_arg_ptr,
@@ -951,12 +951,12 @@ impl<F: LurkField> Store<F> {
                     (z_ptr, Some(z_cont))
                 }
                 Some(Continuation::Call2 {
-                    function,
                     saved_env,
+                    function,
                     continuation,
                 }) => {
-                    let (z_fun_ptr, _) = self.get_z_expr(&function, z_store.clone())?;
                     let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
+                    let (z_fun_ptr, _) = self.get_z_expr(&function, z_store.clone())?;
                     let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
                     let z_cont = ZCont::<F>::Call2 {
                         function: z_fun_ptr,
@@ -1120,6 +1120,7 @@ impl<F: LurkField> Store<F> {
             if let Some(z_store) = z_store {
                 z_store.borrow_mut().cont_map.insert(z_ptr, z_cont.clone());
             };
+            self.z_cont_ptr_map.insert(z_ptr, Box::new(*ptr));
             Ok((z_ptr, z_cont))
         }
     }
@@ -1156,7 +1157,7 @@ impl<F: LurkField> Store<F> {
                     let z_expr = ZExpr::Comm(secret, z_payload);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
-                Some(Expression::Fun(args, env, body)) => {
+                Some(Expression::Fun(args, body, env)) => {
                     let (z_args, _) = self.get_z_expr(&args, z_store.clone())?;
                     let (z_env, _) = self.get_z_expr(&env, z_store.clone())?;
                     let (z_body, _) = self.get_z_expr(&body, z_store.clone())?;
@@ -1193,7 +1194,7 @@ impl<F: LurkField> Store<F> {
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
                 Some(Expression::UInt(u)) => {
-                    let z_expr = ZExpr::Uint(u);
+                    let z_expr = ZExpr::UInt(u);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
                 Some(Expression::StrNil) => (
@@ -1223,7 +1224,7 @@ impl<F: LurkField> Store<F> {
                 }
             };
             if let Some(z_store) = z_store {
-                z_store.borrow_mut().expr_map.insert(z_ptr, z_expr.clone());
+                z_store.borrow_mut().insert_expr(&z_ptr, z_expr.clone());
             };
             self.z_expr_ptr_map.insert(z_ptr, Box::new(*ptr));
             Ok((z_ptr, z_expr))
@@ -1276,7 +1277,7 @@ impl<F: LurkField> Store<F> {
             },
             ExprTag::Str => match self.fetch(ptr) {
                 Some(Expression::StrCons(car, cdr)) => Ok((car, cdr)),
-                Some(Expression::StrNil) => Ok((self.strnil(), self.strnil())),
+                Some(Expression::StrNil) => Ok((self.get_nil(), self.strnil())),
                 _ => unreachable!(),
             },
             _ => Err(Error("Can only extract car_cdr from Cons".into())),
@@ -1356,7 +1357,7 @@ impl<F: LurkField> Store<F> {
 
     /// The only places that `ZPtr`s for `Ptr`s should be created, to
     /// ensure that they are cached properly
-    fn create_z_ptr(&self, ptr: Ptr<F>, hash: F) -> ZExprPtr<F> {
+    fn create_z_expr_ptr(&self, ptr: Ptr<F>, hash: F) -> ZExprPtr<F> {
         let z_ptr = ZPtr(ptr.tag, hash);
         self.z_expr_ptr_map.insert(z_ptr, Box::new(ptr));
         z_ptr
@@ -1370,49 +1371,49 @@ impl<F: LurkField> Store<F> {
             match (z_ptr.tag(), z_store.get_expr(&z_ptr)) {
                 (ExprTag::Nil, Some(Nil)) => {
                     let ptr = self.lurk_sym("nil");
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Cons, Some(Cons(car, cdr))) => {
                     let car = self.intern_z_expr_ptr(car, z_store)?;
                     let cdr = self.intern_z_expr_ptr(cdr, z_store)?;
                     let ptr = self.intern_cons(car, cdr);
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Comm, Some(Comm(secret, payload))) => {
                     let payload = self.intern_z_expr_ptr(payload, z_store)?;
                     let ptr = self.intern_comm(secret, payload);
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Str, Some(StrNil)) => {
                     let ptr = self.intern_strnil();
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Str, Some(StrCons(strcar, strcdr))) => {
                     let strcar = self.intern_z_expr_ptr(strcar, z_store)?;
                     let strcdr = self.intern_z_expr_ptr(strcdr, z_store)?;
                     let ptr = self.intern_strcons(strcar, strcdr);
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Str, Some(SymNil)) => {
                     let ptr = self.intern_symnil(false);
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Sym, Some(SymCons(symcar, symcdr))) => {
                     let symcar = self.intern_z_expr_ptr(symcar, z_store)?;
                     let symcdr = self.intern_z_expr_ptr(symcdr, z_store)?;
                     let ptr = self.intern_symcons(symcar, symcdr);
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Key, Some(SymNil)) => {
                     let ptr = self.intern_symnil(true);
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 // TODO: check if this is correctly returning a Tag::Key
@@ -1420,15 +1421,16 @@ impl<F: LurkField> Store<F> {
                     let keycar = self.intern_z_expr_ptr(keycar, z_store)?;
                     let keycdr = self.intern_z_expr_ptr(keycdr, z_store)?;
                     let ptr = self.intern_symcons(keycar, keycdr);
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Num, Some(Num(x))) => {
                     let ptr = self.intern_num(crate::Num::Scalar(x));
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (ExprTag::Char, Some(Char(x))) => Some(x.into()),
+                (ExprTag::U64, Some(UInt(x))) => Some(self.intern_uint(x)),
                 (ExprTag::Thunk, Some(Thunk(value, continuation))) => {
                     let value = self.intern_z_expr_ptr(value, z_store)?;
                     let continuation = self.intern_z_cont_ptr(continuation, z_store)?;
@@ -1436,7 +1438,7 @@ impl<F: LurkField> Store<F> {
                         value,
                         continuation,
                     });
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (
@@ -1451,17 +1453,23 @@ impl<F: LurkField> Store<F> {
                     let body = self.intern_z_expr_ptr(body, z_store)?;
                     let env = self.intern_z_expr_ptr(closed_env, z_store)?;
                     let ptr = self.intern_fun(arg, body, env);
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 (tag, None) => {
                     let ptr = self.intern_maybe_opaque(tag, z_ptr.1);
-                    self.create_z_ptr(ptr, *z_ptr.value());
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
                 _ => None,
             }
         }
+    }
+
+    fn create_z_cont_ptr(&self, ptr: ContPtr<F>, hash: F) -> ZContPtr<F> {
+        let z_ptr = ZPtr(ptr.tag, hash);
+        self.z_cont_ptr_map.insert(z_ptr, Box::new(ptr));
+        z_ptr
     }
 
     pub fn intern_z_cont_ptr(
@@ -1485,21 +1493,21 @@ impl<F: LurkField> Store<F> {
                     continuation: self.intern_z_cont_ptr(continuation, z_store)?,
                 },
                 Call {
-                    unevaled_arg,
                     saved_env,
+                    unevaled_arg,
                     continuation,
                 } => Continuation::Call {
-                    unevaled_arg: self.intern_z_expr_ptr(unevaled_arg, z_store)?,
                     saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    unevaled_arg: self.intern_z_expr_ptr(unevaled_arg, z_store)?,
                     continuation: self.intern_z_cont_ptr(continuation, z_store)?,
                 },
                 Call2 {
-                    function,
                     saved_env,
+                    function,
                     continuation,
                 } => Continuation::Call2 {
-                    function: self.intern_z_expr_ptr(function, z_store)?,
                     saved_env: self.intern_z_expr_ptr(saved_env, z_store)?,
+                    function: self.intern_z_expr_ptr(function, z_store)?,
                     continuation: self.intern_z_cont_ptr(continuation, z_store)?,
                 },
                 Tail {
@@ -1579,7 +1587,9 @@ impl<F: LurkField> Store<F> {
             };
 
             if continuation.cont_tag() == tag {
-                Some(continuation.intern_aux(self))
+                let ptr = continuation.intern_aux(self);
+                self.create_z_cont_ptr(ptr, *z_ptr.value());
+                Some(ptr)
             } else {
                 None
             }
@@ -1602,29 +1612,29 @@ impl<F: LurkField> Expression<F> {
         }
     }
 
-    pub fn as_sym_str(&self) -> Option<String> {
-        todo!()
-        //match self {
-        //    Expression::Sym(s) => Some(s.full_name()),
-        //    _ => None,
-        //}
-    }
+    //pub fn as_sym_str(&self) -> Option<String> {
+    //    todo!()
+    //    //match self {
+    //    //    Expression::Sym(s) => Some(s.full_name()),
+    //    //    _ => None,
+    //    //}
+    //}
 
-    pub const fn as_sym(&self) -> Option<&Symbol> {
-        todo!()
-        //match self {
-        //    Expression::Sym(s) => Some(s),
-        //    _ => None,
-        //}
-    }
+    //pub const fn as_sym(&self) -> Option<&Symbol> {
+    //    todo!()
+    //    //match self {
+    //    //    Expression::Sym(s) => Some(s),
+    //    //    _ => None,
+    //    //}
+    //}
 
-    pub fn as_simple_keyword_string(&self) -> Option<String> {
-        todo!()
-        //match self {
-        //    Expression::Sym(s) => s.simple_keyword_name(),
-        //    _ => None,
-        //}
-    }
+    //pub fn as_simple_keyword_string(&self) -> Option<String> {
+    //    todo!()
+    //    //match self {
+    //    //    Expression::Sym(s) => s.simple_keyword_name(),
+    //    //    _ => None,
+    //    //}
+    //}
 
     pub const fn is_null(&self) -> bool {
         matches!(self, Self::Nil)
@@ -1817,18 +1827,14 @@ impl<F: LurkField> ZStore<F> {
 
     pub fn to_store_with_z_ptr(&self, z_ptr: &ZExprPtr<F>) -> Result<(Store<F>, Ptr<F>), Error> {
         let mut store = Store::new();
-        let mut ptr_ret = None;
 
         for ptr in self.expr_map.keys() {
-            let ptr_ret_maybe = store.intern_z_expr_ptr(*ptr, self);
-            if *ptr == *z_ptr {
-                ptr_ret = ptr_ret_maybe;
-            }
+            store.intern_z_expr_ptr(*ptr, self);
         }
         for ptr in self.cont_map.keys() {
             store.intern_z_cont_ptr(*ptr, self);
         }
-        match ptr_ret {
+        match store.intern_z_expr_ptr(*z_ptr, self) {
             Some(ptr_ret) => Ok((store, ptr_ret)),
             None => Err(Error("Couldn't find given ZExprPtr".into())),
         }

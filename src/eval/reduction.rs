@@ -938,7 +938,10 @@ fn apply_continuation<F: LurkField>(
                             let scalar_ptr = store
                                 .hash_expr(&result)
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
-                            store.intern_char(scalar_ptr.value().to_char().unwrap())
+                            eprintln!("char {:?}", scalar_ptr.value());
+                            store.intern_char(
+                                char::from_u32(scalar_ptr.value().to_u32_unchecked()).unwrap(),
+                            )
                         }
                         _ => return Ok(Control::Error(result, env)),
                     },

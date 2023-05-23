@@ -11,6 +11,7 @@ use crate::ptr::Ptr;
 use crate::store::Store;
 use crate::symbol::Symbol;
 use crate::tag::ExprTag;
+use crate::uint::UInt;
 use crate::z_cont::ZCont;
 use crate::z_data::Encodable;
 use crate::z_data::ZData;
@@ -120,9 +121,43 @@ impl<F: LurkField> ZStore<F> {
     //	  _ => None,
     //      }
     //  }
+    pub fn immediate_z_expr(ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
+        match ptr {
+            ZPtr(ExprTag::U64, val) => {
+                let x = F::to_u64(val)?;
+                Some(ZExpr::UInt(UInt::U64(x)))
+            }
+            ZPtr(ExprTag::Char, val) => {
+                let x = F::to_char(val)?;
+                Some(ZExpr::Char(x))
+            }
+            ZPtr(ExprTag::Num, val) => Some(ZExpr::Num(*val)),
+            ZPtr(ExprTag::Str, val) if *val == F::zero() => Some(ZExpr::StrNil),
+            ZPtr(ExprTag::Sym, val) if *val == F::zero() => Some(ZExpr::SymNil),
+            _ => None,
+        }
+    }
 
     pub fn get_expr(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
-        self.expr_map.get(ptr).cloned()?
+        if let Some(expr) = ZStore::immediate_z_expr(ptr) {
+            Some(expr)
+        } else {
+            self.expr_map.get(ptr).cloned()?
+        }
+    }
+
+    /// if the entry is not present, or the pointer is immediate, return None,
+    /// otherwise update the value and return the old value. If the
+    pub fn insert_expr(
+        &mut self,
+        ptr: &ZExprPtr<F>,
+        expr: Option<ZExpr<F>>,
+    ) -> Option<Option<ZExpr<F>>> {
+        if let Some(_) = ZStore::immediate_z_expr(ptr) {
+            None
+        } else {
+            self.expr_map.insert(*ptr, expr.clone())
+        }
     }
 
     pub fn get_cont(&self, ptr: &ZContPtr<F>) -> Option<ZCont<F>> {

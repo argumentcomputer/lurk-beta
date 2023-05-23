@@ -2449,7 +2449,7 @@ pub mod tests {
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
-            r#"(car NIL)"#,
+            r#"(car nil)"#,
             Some(expected),
             None,
             Some(terminal),
@@ -2466,7 +2466,7 @@ pub mod tests {
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
-            r#"(cdr NIL)"#,
+            r#"(cdr nil)"#,
             Some(expected),
             None,
             Some(terminal),
@@ -3100,7 +3100,7 @@ pub mod tests {
         let expr = ":asdf";
         let expr2 = "(eq :asdf :asdf)";
         let expr3 = "(eq :asdf 'asdf)";
-        let res = s.key("ASDF");
+        let res = s.key("asdf");
         let res2 = s.get_t();
         let res3 = s.get_nil();
 
@@ -3456,8 +3456,8 @@ pub mod tests {
     fn test_prove_call_literal_fun() {
         let s = &mut Store::<Fr>::default();
         let empty_env = s.get_nil();
-        let arg = s.sym("X");
-        let body = s.read("((+ X 1))").unwrap();
+        let arg = s.sym("x");
+        let body = s.read("((+ x 1))").unwrap();
         let fun = s.intern_fun(arg, body, empty_env);
         let input = s.num(9);
         let expr = s.list(&[fun, input]);
@@ -3598,7 +3598,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::new();
 
         let mut lang = Lang::<Fr, DumbCoproc<Fr>>::new();
-        let name = Symbol::sym(vec!["".into(), "cproc".into(), "dumb".into()]);
+        let name = Symbol::sym(vec!["cproc".into(), "dumb".into()]);
         let dumb = DumbCoprocessor::new();
         let coproc = DumbCoproc::DC(dumb);
 

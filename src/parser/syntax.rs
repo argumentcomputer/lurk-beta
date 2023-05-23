@@ -2,11 +2,11 @@ use crate::field::LurkField;
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_till},
-    character::complete::{char, multispace0, multispace1, none_of},
+    character::complete::{anychar, char, multispace0, multispace1, none_of},
     combinator::{opt, peek, success, value},
     error::context,
-    multi::{many0, separated_list0, separated_list1},
-    sequence::{preceded, terminated},
+    multi::{many0, separated_list1},
+    sequence::{delimited, preceded, terminated},
     IResult,
 };
 
@@ -50,6 +50,12 @@ pub fn parse_symbol_limb<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> IResult<Span<'_>, String, ParseError<Span<'_>, F>> {
     move |from: Span<'_>| {
         let (i, s) = alt((
+            delimited(
+                tag("|"),
+                string::parse_string_inner1('|', true, "|"),
+                tag("|"),
+            ),
+            string::parse_string_inner1(symbol::SYM_SEPARATOR, false, symbol::ESCAPE_CHARS),
             string::parse_string_inner1(symbol::SYM_SEPARATOR, false, symbol::ESCAPE_CHARS),
             value(String::from(""), peek(tag("."))),
         ))(from)?;
@@ -71,7 +77,7 @@ pub fn parse_symbol_inner<F: LurkField>(
             // :foo
             value((false, key_mark), char(key_mark)),
             // foo
-            value((false, sym_mark), peek(none_of("',(){}[]1234567890"))),
+            value((false, sym_mark), peek(none_of("',~#(){}[]1234567890"))),
         ))(from)?;
         if is_root && mark == key_mark {
             Ok((i, Symbol::Key(vec![])))
@@ -142,14 +148,11 @@ fn f_from_le_bytes<F: LurkField>(bs: &[u8]) -> F {
     res
 }
 
-pub fn parse_num<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
+pub fn parse_num_inner<F: LurkField>(
+    base: base::LitBase,
+) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Num<F>, ParseError<Span<'_>, F>> {
     move |from: Span<'_>| {
-        let (i, base) = alt((
-            preceded(tag("0"), base::parse_litbase_code()),
-            success(base::LitBase::Dec),
-        ))(from)?;
-        let (upto, bytes): (Span<'_>, Vec<u8>) = base::parse_litbase_le_bytes(base)(i)?;
+        let (upto, bytes): (Span<'_>, Vec<u8>) = base::parse_litbase_le_bytes(base)(from)?;
         let max_bytes = (F::zero() - F::one()).to_bytes();
         let max_uint = num_bigint::BigUint::from_bytes_le(&max_bytes);
         if num_bigint::BigUint::from_bytes_le(&bytes) > max_uint {
@@ -158,14 +161,37 @@ pub fn parse_num<F: LurkField>(
                 ParseErrorKind::NumLiteralTooBig(F::most_positive(), max_uint),
             )
         } else {
-            let pos = Pos::from_upto(from, upto);
             let f = f_from_le_bytes::<F>(&bytes);
             if let Some(x) = f.to_u64() {
-                Ok((upto, Syntax::Num(pos, Num::U64(x))))
+                Ok((upto, Num::U64(x)))
             } else {
-                Ok((upto, Syntax::Num(pos, Num::Scalar(f))))
+                Ok((upto, Num::Scalar(f)))
             }
         }
+    }
+}
+
+pub fn parse_num<F: LurkField>(
+) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
+    move |from: Span<'_>| {
+        let (i, neg) = opt(tag("-"))(from)?;
+        let (i, base) = alt((
+            preceded(tag("0"), base::parse_litbase_code()),
+            success(base::LitBase::Dec),
+        ))(i)?;
+        let (i, num) = parse_num_inner(base)(i)?;
+        let (upto, denom) = opt(preceded(tag("/"), parse_num_inner(base)))(i)?;
+        let pos = Pos::from_upto(from, upto);
+        let mut tmp = Num::<F>::U64(0);
+        if let Some(_) = neg {
+            tmp -= num;
+        } else {
+            tmp = num;
+        }
+        if let Some(denom) = denom {
+            tmp /= denom;
+        }
+        Ok((upto, Syntax::Num(pos, tmp)))
     }
 }
 
@@ -178,20 +204,14 @@ pub fn parse_string<F: LurkField>(
     }
 }
 
-// Old syntax for chars
-pub fn parse_old_char<F: LurkField>(
+// hash syntax for chars
+pub fn parse_hash_char<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
     |from: Span<'_>| {
         let (i, _) = tag("#\\")(from)?;
-        let (upto, s) = string::parse_string_inner1('\'', true, "()'")(i)?;
-        let mut chars: Vec<char> = s.chars().collect();
-        if chars.len() == 1 {
-            let c = chars.pop().unwrap();
-            let pos = Pos::from_upto(from, upto);
-            Ok((upto, Syntax::Char(pos, c)))
-        } else {
-            ParseError::throw(from, ParseErrorKind::InvalidChar(s))
-        }
+        let (upto, c) = alt((string::parse_unicode(), anychar))(i)?;
+        let pos = Pos::from_upto(from, upto);
+        Ok((upto, Syntax::Char(pos, c)))
     }
 }
 
@@ -216,8 +236,8 @@ pub fn parse_list<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
     move |from: Span<'_>| {
         let (i, _) = tag("(")(from)?;
-        let (i, _) = parse_space(i)?;
-        let (i, xs) = separated_list0(parse_space1, parse_syntax())(i)?;
+        //let (i, _) = parse_space(i)?;
+        let (i, xs) = many0(preceded(parse_space, parse_syntax()))(i)?;
         let (i, end) = opt(preceded(
             preceded(parse_space, tag(".")),
             preceded(parse_space, parse_syntax()),
@@ -253,10 +273,10 @@ pub fn parse_syntax<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
     move |from: Span<'_>| {
         alt((
-            parse_old_char(),
-            context("symbol", parse_symbol()),
+            parse_hash_char(),
             parse_uint(),
             parse_num(),
+            context("symbol", parse_symbol()),
             parse_string(),
             context("quote", parse_quote()),
             context("list", parse_list()),
@@ -331,10 +351,21 @@ pub mod tests {
     #[test]
     fn unit_parse_symbol() {
         assert!(test(parse_symbol(), "", None));
-        assert!(test(parse_symbol(), "#.", Some(symbol!([]))));
+        assert!(test(parse_symbol(), "~()", Some(symbol!([]))));
         assert!(test(parse_symbol(), ".", None));
         assert!(test(parse_symbol(), "..", Some(symbol!([""]))));
         assert!(test(parse_symbol(), "foo", Some(symbol!(["foo"]))));
+        assert!(test(parse_symbol(), "|foo|", Some(symbol!(["foo"]))));
+        assert!(test(
+            parse_symbol(),
+            "|foo|.|bar|",
+            Some(symbol!(["foo", "bar"]))
+        ));
+        assert!(test(
+            parse_symbol(),
+            ".|foo|.|bar|",
+            Some(symbol!(["foo", "bar"]))
+        ));
         assert!(test(parse_symbol(), ".foo", Some(symbol!(["foo"]))));
         assert!(test(parse_symbol(), "..foo", Some(symbol!(["", "foo"]))));
         assert!(test(parse_symbol(), "foo.", Some(symbol!(["foo"]))));
@@ -381,7 +412,7 @@ pub mod tests {
     #[test]
     fn unit_parse_keyword() {
         assert!(test(parse_symbol(), "", None));
-        assert!(test(parse_symbol(), "#:", Some(keyword!([]))));
+        assert!(test(parse_symbol(), "~:()", Some(keyword!([]))));
         assert!(test(parse_symbol(), ":", None));
         assert!(test(parse_symbol(), ":.", Some(keyword!([""]))));
         assert!(test(parse_symbol(), ":foo", Some(keyword!(["foo"]))));
@@ -498,6 +529,17 @@ pub mod tests {
         assert!(test(parse_char(), "'('", None));
         assert!(test(parse_char(), "'\\('", Some(char!('('))));
     }
+    #[test]
+    fn unit_parse_hash_char() {
+        assert!(test(parse_hash_char(), "#\\a", Some(char!('a'))));
+        assert!(test(parse_hash_char(), "#\\b", Some(char!('b'))));
+        assert!(test(parse_hash_char(), r#"#\b"#, Some(char!('b'))));
+        assert!(test(parse_hash_char(), "#\\u{8f}", Some(char!('\u{8f}'))));
+        assert!(test(parse_syntax(), "#\\a", Some(char!('a'))));
+        assert!(test(parse_syntax(), "#\\b", Some(char!('b'))));
+        assert!(test(parse_syntax(), r#"#\b"#, Some(char!('b'))));
+        assert!(test(parse_syntax(), r#"#\u{8f}"#, Some(char!('\u{8f}'))));
+    }
 
     #[test]
     fn unit_parse_quote() {
@@ -569,6 +611,22 @@ pub mod tests {
             "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
             None,
         ));
+        assert!(test(parse_num(), "-0", Some(num!(0))));
+        let mut tmp = Num::U64(1u64);
+        tmp /= Num::U64(2u64);
+        assert!(test(parse_num(), "1/2", Some(Syntax::Num(Pos::No, tmp))));
+        let mut tmp = Num::U64(0u64);
+        tmp -= Num::U64(1u64);
+        tmp /= Num::U64(2u64);
+        assert!(test(parse_num(), "-1/2", Some(Syntax::Num(Pos::No, tmp))));
+        //assert!(test(
+        //    parse_num(),
+        //    "1/2",
+        //    Some(num!(
+        //        0x39f6d3a994cebea4199cec0404d0ec02a9ded2017fff2dff7fffffff80000001
+        //    ))
+        //));
+        //assert!(test(parse_num(), "-1/2", Some(num!(0))));
     }
 
     #[test]
@@ -616,7 +674,7 @@ pub mod tests {
         ));
         assert!(test(
             parse_syntax(),
-            "(#: 11242421860377074631u64 . :\u{ae}\u{60500}\u{87}..)",
+            "(~:() 11242421860377074631u64 . :\u{ae}\u{60500}\u{87}..)",
             Some(list!(
                 [keyword!([]), uint!(11242421860377074631)],
                 keyword!(["®\u{60500}\u{87}", ""])

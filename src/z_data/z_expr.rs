@@ -51,7 +51,7 @@ pub enum ZExpr<F: LurkField> {
     StrCons(ZExprPtr<F>, ZExprPtr<F>),
     Thunk(ZExprPtr<F>, ZContPtr<F>),
     Char(char),
-    Uint(UInt),
+    UInt(UInt),
 }
 
 impl<F: LurkField> std::fmt::Display for ZExpr<F> {
@@ -112,7 +112,7 @@ impl<F: LurkField> ZExpr<F> {
                 cache.hash4(&[x.0.to_field(), x.1, y.0.to_field(), y.1]),
             ),
             ZExpr::Char(f) => ZPtr(ExprTag::Char, F::from_char(*f)),
-            ZExpr::Uint(x) => match x {
+            ZExpr::UInt(x) => match x {
                 UInt::U64(x) => ZPtr(ExprTag::U64, F::from_u64(*x)),
             },
         }
@@ -228,7 +228,7 @@ impl<F: LurkField> Encodable for ZExpr<F> {
             ZExpr::StrCons(x, y) => ZData::Cell(vec![ZData::Atom(vec![9u8]), x.ser(), y.ser()]),
             ZExpr::Thunk(x, y) => ZData::Cell(vec![ZData::Atom(vec![10u8]), x.ser(), y.ser()]),
             ZExpr::Char(x) => ZData::Cell(vec![ZData::Atom(vec![11u8]), (*x).ser()]),
-            ZExpr::Uint(x) => ZData::Cell(vec![ZData::Atom(vec![12u8]), x.ser()]),
+            ZExpr::UInt(x) => ZData::Cell(vec![ZData::Atom(vec![12u8]), x.ser()]),
         }
     }
     fn de(ld: &ZData) -> anyhow::Result<Self> {
@@ -261,7 +261,7 @@ impl<F: LurkField> Encodable for ZExpr<F> {
                     Ok(ZExpr::Thunk(ZExprPtr::de(x)?, ZContPtr::de(y)?))
                 }
                 [ZData::Atom(u), x] if *u == vec![11u8] => Ok(ZExpr::Char(char::de(x)?)),
-                [ZData::Atom(u), x] if *u == vec![12u8] => Ok(ZExpr::Uint(UInt::de(x)?)),
+                [ZData::Atom(u), x] if *u == vec![12u8] => Ok(ZExpr::UInt(UInt::de(x)?)),
                 _ => Err(anyhow!("ZExpr::Cell({:?})", v)),
             },
         }

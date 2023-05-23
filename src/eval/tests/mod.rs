@@ -73,6 +73,8 @@ fn test_aux2<C: Coprocessor<Fr>>(
 
     if let Some(expected_result) = expected_result {
         dbg!(expected_result.fmt_to_string(s), &new_expr.fmt_to_string(s));
+        eprintln!("expected {:?}", expected_result);
+        eprintln!("new_expr {:?}", new_expr);
         assert!(s.ptr_eq(&expected_result, &new_expr).unwrap());
     }
     if let Some(expected_env) = expected_env {
@@ -228,11 +230,21 @@ fn emit_output() {
 #[test]
 fn evaluate_lambda() {
     let s = &mut Store::<Fr>::default();
-    let expr = "((lambda(x) x) 123)";
+    let expr = "((lambda (x) x) 123)";
 
     let expected = s.num(123);
     let terminal = s.get_cont_terminal();
     test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 4, None);
+}
+
+#[test]
+fn evaluate_empty_args_lambda() {
+    let s = &mut Store::<Fr>::default();
+    let expr = "((lambda () 123))";
+
+    let expected = s.num(123);
+    let terminal = s.get_cont_terminal();
+    test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
 }
 
 #[test]
@@ -362,12 +374,12 @@ fn evaluate_num_equal() {
     {
         let expr = "(= 5 5)";
 
-        // TODO: Consider special-casing T, like NIL, and force it to the
+        // TODO: Consider special-casing t, like nil, and force it to the
         // immediate value 1 (with Symbol type-tag). That way boolean logic
         // will work out. It might be more consistent to have an explicit
         // boolean type (like Scheme), though. Otherwise we will have to
         // think about handling of symbol names (if made explicit), since
-        // neither T/NIL as 1/0 will *not* be hashes of their symbol names.
+        // neither t/nil as 1/0 will *not* be hashes of their symbol names.
         let expected = s.t();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
@@ -1316,7 +1328,7 @@ fn test_car_nil() {
     let terminal = s.get_cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
-        r#"(car NIL)"#,
+        r#"(car nil)"#,
         Some(expected),
         None,
         Some(terminal),
@@ -1333,7 +1345,7 @@ fn test_cdr_nil() {
     let terminal = s.get_cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
-        r#"(cdr NIL)"#,
+        r#"(cdr nil)"#,
         Some(expected),
         None,
         Some(terminal),
@@ -2011,7 +2023,7 @@ fn test_num_syntax_implications() {
 fn test_quoted_symbols() {
     let s = &mut Store::<Fr>::default();
     let expr = "(let ((|foo bar| 9)
-                          (|Foo \\| Bar| (lambda (|X|) (* x x))))
+                          (|Foo \\| Bar| (lambda (x) (* x x))))
                       (|Foo \\| Bar| |foo bar|))";
     let res = s.num(81);
     let terminal = s.get_cont_terminal();
@@ -2296,7 +2308,7 @@ fn test_keyword() {
     let expr = ":asdf";
     let expr2 = "(eq :asdf :asdf)";
     let expr3 = "(eq :asdf 'asdf)";
-    let res = s.key("ASDF");
+    let res = s.key("asdf");
     let res2 = s.get_t();
     let res3 = s.get_nil();
 
@@ -2328,9 +2340,9 @@ fn test_sym_hash_values() {
 
     let s = &mut Store::<Fr>::default();
 
-    let sym = s.sym(".ASDF.FDSA");
-    let key = s.sym(":ASDF.FDSA");
-    let expr = s.read("(cons \"FDSA\" '.ASDF)").unwrap();
+    let sym = s.read(".asdf.fdsa").unwrap();
+    let key = s.read(":asdf.fdsa").unwrap();
+    let expr = s.read("(cons \"fdsa\" 'asdf)").unwrap();
 
     let limit = 10;
     let env = empty_sym_env(s);
@@ -2345,12 +2357,12 @@ fn test_sym_hash_values() {
         _emitted,
     ) = Evaluator::new(expr, env, s, limit, &lang).eval().unwrap();
 
-    let toplevel_sym = s.sym(".ASDF");
+    let toplevel_sym = s.read(".asdf").unwrap();
 
     let root = Symbol::root();
     let root_sym = s.intern_symbol(root);
 
-    let asdf = s.str("ASDF");
+    let asdf = s.str("asdf");
     let consed_with_root = s.cons(asdf, root_sym);
 
     let cons_scalar_ptr = &s.hash_expr(&new_expr).unwrap();
@@ -2560,7 +2572,7 @@ pub(crate) mod coproc {
         let s = &mut Store::<Fr>::new();
 
         let mut lang = Lang::<Fr, DumbCoproc<Fr>>::new();
-        let name = Symbol::sym(vec!["".into(), "cproc".into(), "dumb".into()]);
+        let name = Symbol::sym(vec!["cproc".into(), "dumb".into()]);
         let dumb = DumbCoprocessor::new();
         let coproc = DumbCoproc::DC(dumb);
 
