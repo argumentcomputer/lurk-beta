@@ -17,10 +17,14 @@ use crate::field::{FWrap, LurkField};
 
 use super::{pointers::ZPtr, store::Store, Witness, LEM, LEMOP};
 
+/// Manages allocations for numeric variables in a constraint system
 #[derive(Default)]
 struct AllocationManager<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);
 
 impl<F: LurkField> AllocationManager<F> {
+    /// Checks if the allocation for a numeric variable has already been cached.
+    /// If so, return the cached allocation variable. Allocate, cache and return
+    /// otherwise.
     pub(crate) fn alloc<CS: ConstraintSystem<F>>(
         &mut self,
         cs: &mut CS,

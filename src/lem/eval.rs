@@ -46,6 +46,7 @@ mod tests {
                     .output[0]
                     == expr_out
             );
+            store.hydrate_z_cache();
             for witness in witnesses {
                 let mut cs = TestConstraintSystem::<Fr>::new();
                 lem.constrain(&mut cs, store, &witness).unwrap();
