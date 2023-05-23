@@ -6,7 +6,6 @@ use crate::field::LurkField;
 pub enum Tag {
     // expression tags
     Dummy,
-    LurkSymbol,
     Num,
     U64,
     Char,
@@ -25,6 +24,7 @@ pub enum Tag {
 impl Tag {
     #[inline]
     pub fn to_field<F: LurkField>(self) -> F {
+        // TODO: match values from current approach
         F::from_u64(self as u64)
     }
 }
@@ -33,7 +33,6 @@ impl Display for Tag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Tag::Dummy => write!(f, "Dummy"),
-            Tag::LurkSymbol => write!(f, "LurkSymbol"),
             Tag::Char => write!(f, "Char"),
             Tag::Num => write!(f, "Num"),
             Tag::Sym => write!(f, "Sym"),

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::field::{FWrap, LurkField};
 
-use super::{pointers::Ptr, store::Store, symbol::LurkSymbol, tag::Tag, Witness, LEM, LEMOP};
+use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, Witness, LEM, LEMOP};
 
 impl LEM {
     /// Interprets a LEM using a stack of operations to be popped and executed.
@@ -166,13 +166,19 @@ impl LEM {
                         None => return Err(format!("No match for tag {:?}", ptr_tag)),
                     }
                 }
-                LEMOP::MatchLurkSymbolVal(ptr, cases) => {
-                    let Ptr::LurkSymbol(lurk_symbol) = ptr.get_ptr(&ptrs)? else {
-                        return Err(format!("{} not defined as a pointer to a Lurk symbol", ptr.name()))
-                    };
-                    match cases.get(&lurk_symbol) {
-                        Some(op) => stack.push(op),
-                        None => return Err(format!("No match for LurkSymbol {}", lurk_symbol)),
+                LEMOP::MatchSymbol(ptr, cases, def) => {
+                    let ptr = ptr.get_ptr(&ptrs)?;
+                    let mut has_match = false;
+                    for (sym, op) in cases {
+                        let sym_ptr = store.intern_symbol(sym);
+                        if ptr == sym_ptr {
+                            stack.push(op);
+                            has_match = true;
+                            break;
+                        }
+                    }
+                    if !has_match {
+                        stack.push(def);
                     }
                 }
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
@@ -206,7 +212,7 @@ impl LEM {
         store: &mut Store<F>,
     ) -> Result<Vec<Witness<F>>, String> {
         let mut expr = expr;
-        let mut env = Ptr::lurk_sym(&LurkSymbol::Nil);
+        let mut env = store.intern_symbol(&Symbol::lurk_sym("nil"));
         let mut cont = Ptr::null(Tag::Outermost);
         let mut witnesses = vec![];
         let terminal = Ptr::null(Tag::Terminal);

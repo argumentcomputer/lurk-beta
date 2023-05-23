@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use crate::field::LurkField;
 
-use self::{pointers::Ptr, symbol::LurkSymbol, tag::Tag};
+use self::{pointers::Ptr, symbol::Symbol, tag::Tag};
 
 use dashmap::DashMap;
 
@@ -133,10 +133,10 @@ pub enum LEMOP {
     /// `MatchTag(x, cases)` performs a match on the tag of `x`, considering only
     /// the appropriate `LEMOP` among the ones provided in `cases`
     MatchTag(MetaPtr, HashMap<Tag, LEMOP>),
-    /// `MatchLurkSymbolVal(x, cases)` is similar to `MatchTag`, but expects `x`
-    /// to be a `Ptr::LurkSymbol(_)`, considering only the appropriate `LEMOP`
-    /// among the ones provided in `cases`
-    MatchLurkSymbolVal(MetaPtr, HashMap<LurkSymbol, LEMOP>),
+    /// `MatchSymbol(x, cases, def)` checks whether `x` matches some symbol among
+    /// the ones provided in `cases`. If so, run the corresponding `LEMOP`. Run
+    /// The default `def` `LEMOP` otherwise
+    MatchSymbol(MetaPtr, HashMap<Symbol, LEMOP>, Box<LEMOP>),
     /// `Seq(ops)` executes each `op: LEMOP` in `ops` sequentially
     Seq(Vec<LEMOP>),
     /// `SetReturn([a, b, c])` sets the output as `[a, b, c]`

@@ -1,6 +1,6 @@
 use crate::field::*;
 
-use super::{symbol::LurkSymbol, tag::Tag};
+use super::tag::Tag;
 
 /// `Ptr` is the main piece of data LEMs operate on. We can think of a pointer
 /// as a building block for trees that represent Lurk data. A pointer can be a
@@ -25,7 +25,6 @@ pub enum Ptr<F: LurkField> {
     Tree2(Tag, usize),
     Tree3(Tag, usize),
     Tree4(Tag, usize),
-    LurkSymbol(LurkSymbol),
 }
 
 impl<F: LurkField> std::hash::Hash for Ptr<F> {
@@ -35,7 +34,6 @@ impl<F: LurkField> std::hash::Hash for Ptr<F> {
             Ptr::Tree2(tag, x) => (1, tag, x).hash(state),
             Ptr::Tree3(tag, x) => (2, tag, x).hash(state),
             Ptr::Tree4(tag, x) => (3, tag, x).hash(state),
-            Ptr::LurkSymbol(lurk_symbol) => (4, lurk_symbol).hash(state),
         }
     }
 }
@@ -47,7 +45,6 @@ impl<F: LurkField> Ptr<F> {
             Ptr::Tree2(tag, _) => tag,
             Ptr::Tree3(tag, _) => tag,
             Ptr::Tree4(tag, _) => tag,
-            Ptr::LurkSymbol(_) => &Tag::LurkSymbol,
         }
     }
 
@@ -77,11 +74,6 @@ impl<F: LurkField> Ptr<F> {
     #[inline]
     pub fn null(tag: Tag) -> Self {
         Ptr::Leaf(tag, F::zero())
-    }
-
-    #[inline]
-    pub fn lurk_sym(sym: &LurkSymbol) -> Self {
-        Ptr::Leaf(Tag::LurkSymbol, sym.field())
     }
 
     #[inline]

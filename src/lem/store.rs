@@ -154,7 +154,7 @@ impl<F: LurkField> Store<F> {
     /// the string `"abc"`, we will end up with cached pointers to the strings
     /// `"c"`, `"bc"` and `"abc"` stored in `vec_char_cache` as `['c']`,
     /// `['c', 'b']` and `['c', 'b', 'a']` respectively.
-    pub fn intern_string(&mut self, s: String) -> Ptr<F> {
+    pub fn intern_string(&mut self, s: &String) -> Ptr<F> {
         let mut chars = s.chars().rev().collect_vec();
         let mut ptr;
         let mut heads = vec![];
@@ -191,8 +191,8 @@ impl<F: LurkField> Store<F> {
     /// to the symbol paths `["cc"]`, `["bb", "cc"]` and `["aa", "bb", "cc"]`
     /// stored in `vec_str_cache` as `["cc"]`, `["cc", "bb"]` and
     /// ["cc", "bb", "aa"]` respectively.
-    pub fn intern_symbol_path(&mut self, path: Vec<String>) -> Ptr<F> {
-        let mut components = path;
+    pub fn intern_symbol_path(&mut self, path: &Vec<String>) -> Ptr<F> {
+        let mut components = path.clone();
         components.reverse();
         let mut ptr;
         let mut heads = vec![];
@@ -212,7 +212,7 @@ impl<F: LurkField> Store<F> {
         }
         while let Some(head) = heads.pop() {
             // use the accumulated heads to construct the pointers and populate the cache
-            let head_ptr = self.intern_string(head.clone());
+            let head_ptr = self.intern_string(&head);
             ptr = self.intern_2_ptrs(Tag::Sym, head_ptr, ptr);
             components.push(head);
             self.vec_str_cache.insert(components.clone(), ptr);
@@ -220,10 +220,10 @@ impl<F: LurkField> Store<F> {
         ptr
     }
 
-    pub fn intern_symbol(&mut self, s: Symbol) -> Ptr<F> {
+    pub fn intern_symbol(&mut self, s: &Symbol) -> Ptr<F> {
         match s {
-            Symbol::Sym(path) => self.intern_symbol_path(path),
-            Symbol::Key(path) => self.intern_symbol_path(path).sym_to_key(),
+            Symbol::Sym(path) => self.intern_symbol_path(&path),
+            Symbol::Key(path) => self.intern_symbol_path(&path).sym_to_key(),
         }
     }
 
@@ -331,10 +331,6 @@ impl<F: LurkField> Store<F> {
                     Ok(z_ptr)
                 }
             },
-            Ptr::LurkSymbol(lurk_symbol) => Ok(ZPtr {
-                tag: Tag::LurkSymbol,
-                hash: lurk_symbol.field(),
-            }),
         }
     }
 
