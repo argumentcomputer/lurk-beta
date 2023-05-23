@@ -4,14 +4,16 @@ use crate::field::{FWrap, LurkField};
 
 use super::{pointers::Ptr, store::Store, symbol::LurkSymbol, tag::Tag, Witness, LEM, LEMOP};
 
-impl<F: LurkField> LEM<F> {
+impl LEM {
     /// Interprets a LEM using a stack of operations to be popped and executed.
-    /// It modifies a `Store` and assigns `Ptr`s and elements of `LurkField` to
-    /// `MetaPtr`s and `MetaVar`s respectively as it goes.
-    pub fn run(&self, input: [Ptr<F>; 3], store: &mut Store<F>) -> Result<Witness<F>, String> {
-        // key/val pairs on these maps should never be overwritten
+    /// It modifies a `Store` and assigns `Ptr`s to `MetaPtr`s as it goes.
+    pub fn run<F: LurkField>(
+        &self,
+        input: [Ptr<F>; 3],
+        store: &mut Store<F>,
+    ) -> Result<Witness<F>, String> {
+        // key/val pairs on this map should never be overwritten
         let mut ptrs = HashMap::default();
-        let mut vars = HashMap::default();
         ptrs.insert(self.input[0].clone(), input[0]);
         if ptrs.insert(self.input[1].clone(), input[1]).is_some() {
             return Err(format!("{} already defined", self.input[1]));
@@ -119,28 +121,41 @@ impl<F: LurkField> LEM<F> {
                         return Err(format!("{} already defined", tgts[3].name()));
                     }
                 }
-                LEMOP::Hide(tgt, secret, src) => {
+                LEMOP::Hide(tgt, sec, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
+                    let Ptr::Leaf(Tag::Num, secret) = sec.get_ptr(&ptrs)? else {
+                        return Err(format!("{} is not a numeric pointer", sec.name()))
+                    };
                     let z_ptr = store.hydrate_ptr(&src_ptr)?;
                     let hash =
                         store
                             .poseidon_cache
-                            .hash3(&[*secret, z_ptr.tag.to_field(), z_ptr.hash]);
+                            .hash3(&[secret, z_ptr.tag.to_field(), z_ptr.hash]);
                     let tgt_ptr = Ptr::comm(hash);
-                    store.comms.insert(FWrap::<F>(hash), (*secret, src_ptr));
+                    store.comms.insert(FWrap::<F>(hash), (secret, src_ptr));
                     if ptrs.insert(tgt.name().clone(), tgt_ptr).is_some() {
                         return Err(format!("{} already defined", tgt.name()));
                     }
                 }
-                LEMOP::Open(tgt_secret, tgt_ptr, hash) => {
-                    let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
-                        return Err(format!("No committed data for hash {}", hash.hex_digits()))
-                    };
-                    if ptrs.insert(tgt_ptr.name().clone(), *ptr).is_some() {
-                        return Err(format!("{} already defined", tgt_ptr.name()));
-                    }
-                    if vars.insert(tgt_secret.name().clone(), *secret).is_some() {
-                        return Err(format!("{} already defined", tgt_secret.name()));
+                LEMOP::Open(tgt_secret, tgt_ptr, comm_or_num) => {
+                    match comm_or_num.get_ptr(&ptrs)? {
+                        Ptr::Leaf(Tag::Num, hash) | Ptr::Leaf(Tag::Comm, hash) => {
+                            let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(hash)) else {
+                                return Err(format!("No committed data for hash {}", &hash.hex_digits()))
+                            };
+                            if ptrs.insert(tgt_ptr.name().clone(), *ptr).is_some() {
+                                return Err(format!("{} already defined", tgt_ptr.name()));
+                            }
+                            if ptrs
+                                .insert(tgt_secret.name().clone(), Ptr::Leaf(Tag::Num, *secret))
+                                .is_some()
+                            {
+                                return Err(format!("{} already defined", tgt_secret.name()));
+                            }
+                        }
+                        _ => {
+                            return Err(format!("{} is not a num/comm pointer", comm_or_num.name()))
+                        }
                     }
                 }
                 LEMOP::MatchTag(ptr, cases) => {
@@ -180,13 +195,16 @@ impl<F: LurkField> LEM<F> {
             input,
             output,
             ptrs,
-            vars,
         })
     }
 
     /// Calls `run` until the stop contidion is satisfied, using the output of one
     /// iteration as the input of the next one.
-    pub fn eval(&self, expr: Ptr<F>, store: &mut Store<F>) -> Result<Vec<Witness<F>>, String> {
+    pub fn eval<F: LurkField>(
+        &self,
+        expr: Ptr<F>,
+        store: &mut Store<F>,
+    ) -> Result<Vec<Witness<F>>, String> {
         let mut expr = expr;
         let mut env = Ptr::lurk_sym(&LurkSymbol::Nil);
         let mut cont = Ptr::null(Tag::Outermost);

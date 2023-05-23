@@ -45,8 +45,8 @@ impl<F: LurkField> AllocationManager<F> {
     }
 }
 
-impl<F: LurkField> LEM<F> {
-    fn allocate_ptr<CS: ConstraintSystem<F>>(
+impl LEM {
+    fn allocate_ptr<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         z_ptr: &ZPtr<F>,
         name: &String,
@@ -64,7 +64,7 @@ impl<F: LurkField> LEM<F> {
         Ok(AllocatedPtr::from_parts(&alloc_tag, &alloc_hash))
     }
 
-    fn inputize_ptr<CS: ConstraintSystem<F>>(
+    fn inputize_ptr<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         alloc_ptr: &AllocatedPtr<F>,
         name: &String,
@@ -111,7 +111,7 @@ impl<F: LurkField> LEM<F> {
     /// implications on both virtual and concrete paths to make sure that the
     /// circuit structure is always the same, independently of the witness. The
     /// premise is precicely `concrete_path`.
-    pub fn constrain<CS: ConstraintSystem<F>>(
+    pub fn constrain<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         store: &mut Store<F>,

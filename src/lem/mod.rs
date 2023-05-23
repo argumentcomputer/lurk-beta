@@ -84,9 +84,9 @@ use dashmap::DashMap;
 ///
 /// 4. Assign first, use later: this prevents obvious errors such as "x not
 /// defined" during interpretation or "x not allocated" during constraining.
-pub struct LEM<F: LurkField> {
+pub struct LEM {
     input: [String; 3],
-    lem_op: LEMOP<F>,
+    lem_op: LEMOP,
 }
 
 /// Named references to be bound to `Ptr`s.
@@ -107,20 +107,9 @@ impl MetaPtr {
     }
 }
 
-/// Named references to be bound to elements of the `LurkField`.
-#[derive(PartialEq, Clone, Eq, Hash)]
-pub struct MetaVar(String);
-
-impl MetaVar {
-    #[inline]
-    pub fn name(&self) -> &String {
-        &self.0
-    }
-}
-
 /// The basic building blocks of LEMs.
 #[derive(Clone)]
-pub enum LEMOP<F: LurkField> {
+pub enum LEMOP {
     /// `MkNull(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
     MkNull(MetaPtr, Tag),
     /// `Hash2Ptrs(x, t, is)` binds `x` to a `Ptr` with tag `t` and 2 children `is`
@@ -135,26 +124,26 @@ pub enum LEMOP<F: LurkField> {
     Unhash3Ptrs([MetaPtr; 3], MetaPtr),
     /// `Unhash4Ptrs([a, b, c, d], x)` binds `a` and `b` to the 4 children of `x`
     Unhash4Ptrs([MetaPtr; 4], MetaPtr),
-    /// `Hide(x, s, p)` binds `x` to a comm `Ptr` resulting from hiding the payload
-    /// `p` with secret `s`
-    Hide(MetaPtr, F, MetaPtr),
+    /// `Hide(x, s, p)` binds `x` to a (comm) `Ptr` resulting from hiding the
+    /// payload `p` with (num) secret `s`
+    Hide(MetaPtr, MetaPtr, MetaPtr),
     /// `Open(s, p, h)` binds `s` and `p` to the secret and payload (respectively)
-    /// of the commitment that resulted on hash `h`
-    Open(MetaVar, MetaPtr, F),
+    /// of the commitment that resulted on (num or comm) `h`
+    Open(MetaPtr, MetaPtr, MetaPtr),
     /// `MatchTag(x, cases)` performs a match on the tag of `x`, considering only
     /// the appropriate `LEMOP` among the ones provided in `cases`
-    MatchTag(MetaPtr, HashMap<Tag, LEMOP<F>>),
+    MatchTag(MetaPtr, HashMap<Tag, LEMOP>),
     /// `MatchLurkSymbolVal(x, cases)` is similar to `MatchTag`, but expects `x`
     /// to be a `Ptr::LurkSymbol(_)`, considering only the appropriate `LEMOP`
     /// among the ones provided in `cases`
-    MatchLurkSymbolVal(MetaPtr, HashMap<LurkSymbol, LEMOP<F>>),
+    MatchLurkSymbolVal(MetaPtr, HashMap<LurkSymbol, LEMOP>),
     /// `Seq(ops)` executes each `op: LEMOP` in `ops` sequentially
-    Seq(Vec<LEMOP<F>>),
+    Seq(Vec<LEMOP>),
     /// `SetReturn([a, b, c])` sets the output as `[a, b, c]`
     SetReturn([MetaPtr; 3]),
 }
 
-impl<F: LurkField> LEMOP<F> {
+impl LEMOP {
     /// Performs the static checks of correctness described in `LEM`.
     ///
     /// Note: this function is not supposed to be called manually. It's used by
@@ -305,13 +294,12 @@ pub struct Witness<F: LurkField> {
     input: [Ptr<F>; 3],
     output: [Ptr<F>; 3],
     ptrs: HashMap<String, Ptr<F>>,
-    vars: HashMap<String, F>,
 }
 
-impl<F: LurkField> LEM<F> {
+impl LEM {
     /// Instantiates a `LEM` with the appropriate checks and transformations
     /// to make sure that interpretation and constraining will be smooth.
-    pub fn new(input: [&str; 3], lem_op: LEMOP<F>) -> Result<LEM<F>, String> {
+    pub fn new(input: [&str; 3], lem_op: LEMOP) -> Result<LEM, String> {
         lem_op.check()?;
         let dmap = DashMap::from_iter(input.map(|i| (i.to_string(), i.to_string())));
         Ok(LEM {
@@ -332,13 +320,7 @@ mod shortcuts {
 
     #[allow(dead_code)]
     #[inline]
-    pub(crate) fn mvar(name: &str) -> MetaVar {
-        MetaVar(name.to_string())
-    }
-
-    #[allow(dead_code)]
-    #[inline]
-    pub(crate) fn match_tag<F: LurkField>(i: MetaPtr, cases: Vec<(Tag, LEMOP<F>)>) -> LEMOP<F> {
+    pub(crate) fn match_tag(i: MetaPtr, cases: Vec<(Tag, LEMOP)>) -> LEMOP {
         LEMOP::MatchTag(i, HashMap::from_iter(cases))
     }
 }
@@ -351,7 +333,7 @@ mod tests {
     use blstrs::Scalar as Fr;
     use shortcuts::*;
 
-    fn constrain_test_helper(lem: &LEM<Fr>, store: &mut Store<Fr>, witnesses: &Vec<Witness<Fr>>) {
+    fn constrain_test_helper(lem: &LEM, store: &mut Store<Fr>, witnesses: &Vec<Witness<Fr>>) {
         for w in witnesses {
             let mut cs = TestConstraintSystem::<Fr>::new();
             lem.constrain(&mut cs, store, w).unwrap();

@@ -1,10 +1,8 @@
-use crate::field::LurkField;
-
 use super::{shortcuts::*, tag::Tag, LEM, LEMOP};
 
 /// This is Lurk's step function encoded as a LEM
 #[allow(dead_code)]
-pub(crate) fn step<F: LurkField>() -> Result<LEM<F>, String> {
+pub(crate) fn step() -> Result<LEM, String> {
     let input = ["expr_in", "env_in", "cont_in"];
     let lem_op = match_tag(
         mptr("expr_in"),
@@ -28,6 +26,7 @@ pub(crate) fn step<F: LurkField>() -> Result<LEM<F>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::field::LurkField;
     use crate::lem::{pointers::Ptr, store::Store};
     use bellperson::util_cs::test_cs::TestConstraintSystem;
     use blstrs::Scalar as Fr;
