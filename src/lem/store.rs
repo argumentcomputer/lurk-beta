@@ -154,7 +154,7 @@ impl<F: LurkField> Store<F> {
     /// the string `"abc"`, we will end up with cached pointers to the strings
     /// `"c"`, `"bc"` and `"abc"` stored in `vec_char_cache` as `['c']`,
     /// `['c', 'b']` and `['c', 'b', 'a']` respectively.
-    pub fn intern_string(&mut self, s: &String) -> Ptr<F> {
+    pub fn intern_string(&mut self, s: &str) -> Ptr<F> {
         let mut chars = s.chars().rev().collect_vec();
         let mut ptr;
         let mut heads = vec![];
@@ -191,8 +191,8 @@ impl<F: LurkField> Store<F> {
     /// to the symbol paths `["cc"]`, `["bb", "cc"]` and `["aa", "bb", "cc"]`
     /// stored in `vec_str_cache` as `["cc"]`, `["cc", "bb"]` and
     /// ["cc", "bb", "aa"]` respectively.
-    pub fn intern_symbol_path(&mut self, path: &Vec<String>) -> Ptr<F> {
-        let mut components = path.clone();
+    pub fn intern_symbol_path(&mut self, path: &[String]) -> Ptr<F> {
+        let mut components = path.to_owned();
         components.reverse();
         let mut ptr;
         let mut heads = vec![];
@@ -222,8 +222,8 @@ impl<F: LurkField> Store<F> {
 
     pub fn intern_symbol(&mut self, s: &Symbol) -> Ptr<F> {
         match s {
-            Symbol::Sym(path) => self.intern_symbol_path(&path),
-            Symbol::Key(path) => self.intern_symbol_path(&path).sym_to_key(),
+            Symbol::Sym(path) => self.intern_symbol_path(path),
+            Symbol::Key(path) => self.intern_symbol_path(path).sym_to_key(),
         }
     }
 
