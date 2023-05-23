@@ -155,8 +155,8 @@ impl<'a, F: LurkField> AllocatedConsWitness<'a, F> {
 
             let (car_ptr, cdr_ptr, cons_hash) = match p {
                 Stub::Dummy => (
-                    Some(ScalarPtr::from_parts(ExprTag::Nil, F::zero())),
-                    Some(ScalarPtr::from_parts(ExprTag::Nil, F::zero())),
+                    Some(ScalarPtr::from_parts(ExprTag::Nil, F::ZERO)),
+                    Some(ScalarPtr::from_parts(ExprTag::Nil, F::ZERO)),
                     None,
                 ),
                 Stub::Blank => (None, None, None),
@@ -238,14 +238,14 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
                 Stub::Dummy => (
                     None,
                     Some([
-                        F::zero(),
-                        F::zero(),
-                        F::zero(),
-                        F::zero(),
-                        F::zero(),
-                        F::zero(),
-                        F::zero(),
-                        F::zero(),
+                        F::ZERO,
+                        F::ZERO,
+                        F::ZERO,
+                        F::ZERO,
+                        F::ZERO,
+                        F::ZERO,
+                        F::ZERO,
+                        F::ZERO,
                     ]),
                 ),
                 Stub::Blank => (None, None),
