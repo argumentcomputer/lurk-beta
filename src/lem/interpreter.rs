@@ -5,6 +5,9 @@ use crate::field::{FWrap, LurkField};
 use super::{pointers::Ptr, store::Store, symbol::LurkSymbol, tag::Tag, Witness, LEM, LEMOP};
 
 impl<F: LurkField> LEM<F> {
+    /// Interprets a LEM using a stack of operations to be popped and executed.
+    /// It modifies a `Store` and assigns `Ptr`s and elements of `LurkField` to
+    /// `MetaPtr`s and `MetaVar`s respectively as it goes.
     pub fn run(&self, input: [Ptr<F>; 3], store: &mut Store<F>) -> Result<Witness<F>, String> {
         // key/val pairs on these maps should never be overwritten
         let mut ptrs = HashMap::default();
@@ -181,6 +184,8 @@ impl<F: LurkField> LEM<F> {
         })
     }
 
+    /// Calls `run` until the stop contidion is satisfied, using the output of one
+    /// iteration as the input of the next one.
     pub fn eval(&self, expr: Ptr<F>, store: &mut Store<F>) -> Result<Vec<Witness<F>>, String> {
         let mut expr = expr;
         let mut env = Ptr::lurk_sym(&LurkSymbol::Nil);
