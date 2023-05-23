@@ -29,7 +29,7 @@ use nom::IResult;
 /// # Examples
 ///
 /// ```
-/// use lurk::light_data::ZData;
+/// use lurk::z_data::ZData;
 ///
 /// let data = ZData::Cell(vec![
 ///     ZData::Atom(vec![0x01]),
