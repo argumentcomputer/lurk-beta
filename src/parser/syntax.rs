@@ -134,7 +134,7 @@ pub fn parse_uint<F: LurkField>(
 }
 
 fn f_from_le_bytes<F: LurkField>(bs: &[u8]) -> F {
-    let mut res = F::zero();
+    let mut res = F::ZERO;
     let mut bs = bs.iter().rev().peekable();
     while let Some(b) = bs.next() {
         let b: F = (*b as u64).into();
@@ -153,7 +153,7 @@ pub fn parse_num_inner<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Num<F>, ParseError<Span<'_>, F>> {
     move |from: Span<'_>| {
         let (upto, bytes): (Span<'_>, Vec<u8>) = base::parse_litbase_le_bytes(base)(from)?;
-        let max_bytes = (F::zero() - F::one()).to_bytes();
+        let max_bytes = (F::ZERO - F::ONE).to_bytes();
         let max_uint = num_bigint::BigUint::from_bytes_le(&max_bytes);
         if num_bigint::BigUint::from_bytes_le(&bytes) > max_uint {
             ParseError::throw(
@@ -296,7 +296,7 @@ pub fn parse_maybe_meta<F: LurkField>(
         use MaybeMeta::*;
         let (_, is_eof) = opt(nom::combinator::eof)(from)?;
         if is_eof.is_some() {
-            return Ok((from, EOF))
+            return Ok((from, EOF));
         }
         let (next, meta) = opt(char('!'))(from)?;
         if meta.is_some() {
@@ -614,7 +614,7 @@ pub mod tests {
             "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000000",
             Some(Syntax::Num(
                 Pos::No,
-                Num::Scalar(<Scalar as ff::Field>::zero() - Scalar::from(1u64))
+                Num::Scalar(<Scalar as ff::Field>::ZERO - Scalar::from(1u64))
             )),
         ));
         assert!(test(

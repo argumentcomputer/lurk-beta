@@ -683,7 +683,7 @@ impl<F: LurkField> Store<F> {
     pub fn fetch_string(&self, ptr: &Ptr<F>) -> Option<String> {
         let mut string = String::new();
         if *ptr == self.strnil() {
-            return Some(string)
+            return Some(string);
         }
         let mut strcons = self.fetch_strcons(&ptr);
         if let Some(..) = strcons {
@@ -692,7 +692,7 @@ impl<F: LurkField> Store<F> {
                 string.push(chr);
                 strcons = self.fetch_strcons(&cdr)
             }
-            return Some(string)
+            return Some(string);
         }
         None
     }

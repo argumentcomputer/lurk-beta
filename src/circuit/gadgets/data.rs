@@ -209,9 +209,9 @@ impl<F: LurkField> GlobalAllocations<F> {
         defsym!(dummy_arg_ptr, "_", dummy);
         defsym!(lambda_sym, "lambda", lambda);
 
-        let true_num = allocate_constant(&mut cs.namespace(|| "true"), F::one())?;
-        let false_num = allocate_constant(&mut cs.namespace(|| "false"), F::zero())?;
-        let default_num = allocate_constant(&mut cs.namespace(|| "default"), F::zero())?;
+        let true_num = allocate_constant(&mut cs.namespace(|| "true"), F::ONE)?;
+        let false_num = allocate_constant(&mut cs.namespace(|| "false"), F::ZERO)?;
+        let default_num = allocate_constant(&mut cs.namespace(|| "default"), F::ZERO)?;
 
         let power2_32_ff = F::pow_vartime(&F::from_u64(2), [32]);
         let power2_32_num = allocate_constant(&mut cs.namespace(|| "pow(2,32)"), power2_32_ff)?;
@@ -378,9 +378,9 @@ impl<F: LurkField> Ptr<F> {
         Self::allocate_fun(
             cs,
             store,
-            [F::zero(), F::zero()],
-            [F::zero(), F::zero()],
-            [F::zero(), F::zero()],
+            [F::ZERO, F::ZERO],
+            [F::ZERO, F::ZERO],
+            [F::ZERO, F::ZERO],
         )
     }
 }
@@ -504,12 +504,12 @@ impl<F: LurkField> Thunk<F> {
         store: &Store<F>,
     ) -> Result<(AllocatedNum<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         let value = AllocatedPtr::alloc(&mut cs.namespace(|| "Thunk component: value"), || {
-            Ok(ZExprPtr::from_parts(ExprTag::Nil, F::zero()))
+            Ok(ZExprPtr::from_parts(ExprTag::Nil, F::ZERO))
         })?;
 
         let cont = AllocatedContPtr::alloc(
             &mut cs.namespace(|| "Thunk component: continuation"),
-            || Ok(ZContPtr::from_parts(ContTag::Dummy, F::zero())),
+            || Ok(ZContPtr::from_parts(ContTag::Dummy, F::ZERO)),
         )?;
 
         let dummy_hash = Self::hash_components(cs.namespace(|| "Thunk"), store, &value, &cont)?;

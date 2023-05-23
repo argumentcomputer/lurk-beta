@@ -286,7 +286,7 @@ impl ClutchState<F, Coproc<F>> {
 
         let (expr, secret) = if rest.is_nil() {
             // TODO: also support Commitment::from_ptr_with_hiding (randomized secret at runtime).
-            (first, F::zero())
+            (first, F::ZERO)
         } else if let Expression::Num(n) = store
             .fetch(&second)
             .ok_or_else(|| anyhow!("second arg to !:COMMIT must be a number."))?
