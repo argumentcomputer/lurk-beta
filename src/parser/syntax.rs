@@ -284,16 +284,27 @@ pub fn parse_syntax<F: LurkField>(
     }
 }
 
+pub enum MaybeMeta<F: LurkField> {
+    EOF,
+    Meta(Syntax<F>),
+    Expr(Syntax<F>),
+}
+
 pub fn parse_maybe_meta<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, (Syntax<F>, bool), ParseError<Span<'_>, F>> {
+) -> impl Fn(Span<'_>) -> IResult<Span<'_>, MaybeMeta<F>, ParseError<Span<'_>, F>> {
     move |from: Span<'_>| {
+        use MaybeMeta::*;
+        let (_, is_eof) = opt(nom::combinator::eof)(from)?;
+        if is_eof.is_some() {
+            return Ok((from, EOF))
+        }
         let (next, meta) = opt(char('!'))(from)?;
         if meta.is_some() {
             let (end, syntax) = parse_syntax()(next)?;
-            Ok((end, (syntax, true)))
+            Ok((end, Meta(syntax)))
         } else {
             let (end, syntax) = parse_syntax()(from)?;
-            Ok((end, (syntax, false)))
+            Ok((end, Expr(syntax)))
         }
     }
 }
