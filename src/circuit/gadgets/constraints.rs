@@ -33,7 +33,7 @@ pub(crate) fn enforce_equal<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     );
 }
 
-/// Adds a constraint to CS, enforcing an equality relationship between the allocated numbers a and b.
+/// Adds a constraint to CS, enforcing an equality relationship between an allocated number a and zero.
 ///
 /// a == zero
 pub(crate) fn enforce_equal_zero<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
