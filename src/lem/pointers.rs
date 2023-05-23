@@ -13,12 +13,6 @@ use super::tag::Tag;
 /// children a pointer has. However, LEMs require extra flexibility because LEM
 /// hashing operations can plug any tag to the resulting pointer. Thus, the
 /// number of children have to be made explicit as the `Ptr` enum.
-///
-/// Finally, we also have a pointer to express reserved Lurk symbols such as
-/// `let`, `if`, `nil` etc. This is piece of data allows LEMs to perform matches
-/// on these particular symbols without needing to know their resulting store
-/// indices or Poseidon hashes. For this to work, it's assumed that these symbols
-/// will be interned as such.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Ptr<F: LurkField> {
     Leaf(Tag, F),
