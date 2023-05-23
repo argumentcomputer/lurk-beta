@@ -19,9 +19,9 @@ use anyhow::anyhow;
 
 use crate::field::LurkField;
 
-#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 /// Enum to represent a z expression.
 pub enum ZExpr<F: LurkField> {
     Nil,
@@ -32,7 +32,7 @@ pub enum ZExpr<F: LurkField> {
             strategy = "any::<(FWrap<F>, ZExprPtr<F>)>().prop_map(|(x, y)| Self::Comm(x.0, y))"
         )
     )]
-    Comm(F, ZExprPtr<F>),
+    Comm(#[serde(deserialize_with = "de_f")] F, ZExprPtr<F>),
     SymNil,
     SymCons(ZExprPtr<F>, ZExprPtr<F>),
     Key(ZExprPtr<F>),
@@ -45,12 +45,14 @@ pub enum ZExpr<F: LurkField> {
         not(target_arch = "wasm32"),
         proptest(strategy = "any::<FWrap<F>>().prop_map(|x| Self::Num(x.0))")
     )]
+    #[serde(deserialize_with = "de_f")]
     Num(F),
     StrNil,
     /// Contains a string and a pointer to the tail.
     StrCons(ZExprPtr<F>, ZExprPtr<F>),
     Thunk(ZExprPtr<F>, ZContPtr<F>),
     Char(char),
+    #[serde(deserialize_with = "de_uint")]
     UInt(UInt),
 }
 
@@ -165,8 +167,8 @@ impl<F: LurkField> ZExpr<F> {
     }
 }
 
-// Note: We can remove this in favor of a derive if there's a way to
-// serialize an F as an FWrap (maybe serialize_with attribute)
+// TODO: We can remove this in favor of a derive by serializing an F as an FWrap
+// using the serialize_with attribute)
 impl<F: LurkField> Serialize for ZExpr<F> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -189,18 +191,10 @@ impl<F: LurkField> Serialize for ZExpr<F> {
             ZExpr::StrCons(x, y) => (9u8, x, y).serialize(serializer),
             ZExpr::Thunk(x, y) => (10u8, x, y).serialize(serializer),
             ZExpr::Char(x) => (11u8, *x).serialize(serializer),
-            ZExpr::Uint(x) => (12u8, u64::from(*x)).serialize(serializer),
+            ZExpr::UInt(x) => (12u8, u64::from(*x)).serialize(serializer),
         }
     }
 }
-
-//impl<'de, F: LurkField> Deserialize<'de> for ZExpr<F> {
-//  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//  where
-//    D: serde::Deserializer<'de>,
-//  {
-//    todo!()
-//  }
 
 impl<F: LurkField> Encodable for ZExpr<F> {
     fn ser(&self) -> ZData {
@@ -266,6 +260,22 @@ impl<F: LurkField> Encodable for ZExpr<F> {
             },
         }
     }
+}
+
+fn de_f<'de, D, F: LurkField>(deserializer: D) -> Result<F, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let f = <FWrap<F>>::deserialize(deserializer)?;
+    Ok(f.0)
+}
+
+fn de_uint<'de, D>(deserializer: D) -> Result<UInt, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let uint = u64::deserialize(deserializer)?;
+    Ok(UInt::U64(uint))
 }
 
 #[cfg(test)]

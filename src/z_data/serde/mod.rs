@@ -31,6 +31,7 @@ mod tests {
     use crate::field::FWrap;
     use crate::tag::{ContTag, ExprTag};
     use crate::tag::{Op1, Op2};
+    use crate::uint::UInt;
     use crate::z_data::z_cont::ZCont;
     use crate::z_data::z_ptr::{ZContPtr, ZExprPtr};
     use crate::z_data::{from_z_data, to_z_data};
@@ -84,8 +85,7 @@ mod tests {
 
         zexpr_roundtrip(ZExpr::Nil);
         zexpr_roundtrip(ZExpr::Cons(zep, zep));
-        // Failing until custom ZExpr deserialization for F
-        //zexpr_roundtrip(ZExpr::Comm(f, zep));
+        zexpr_roundtrip(ZExpr::Comm(f, zep));
         zexpr_roundtrip(ZExpr::SymNil);
         zexpr_roundtrip(ZExpr::SymCons(zep, zep));
         zexpr_roundtrip(ZExpr::Key(zep));
@@ -94,14 +94,12 @@ mod tests {
             body: zep,
             closed_env: zep,
         });
-        // Failing until custom ZExpr deserialization for F
-        //zexpr_roundtrip(ZExpr::Num(f));
+        zexpr_roundtrip(ZExpr::Num(f));
         zexpr_roundtrip(ZExpr::StrNil);
         zexpr_roundtrip(ZExpr::StrCons(zep, zep));
         zexpr_roundtrip(ZExpr::Thunk(zep, zcp));
         zexpr_roundtrip(ZExpr::Char('a'));
-        // Failing until custom ZExpr deserialization for UInt wrapper type
-        //zexpr_roundtrip(ZExpr::Uint(UInt::U64(0)));
+        zexpr_roundtrip(ZExpr::UInt(UInt::U64(0)));
 
         zcont_roundtrip(ZCont::Outermost);
         zcont_roundtrip(ZCont::Call0 {

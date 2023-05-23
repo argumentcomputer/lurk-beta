@@ -263,17 +263,6 @@ impl<F: LurkField> Ord for FWrap<F> {
     }
 }
 
-// TODO: Overriden below, is there a use for this uncompressed version?
-//impl<F: LurkField> Serialize for FWrap<F> {
-//    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//    where
-//        S: serde::Serializer,
-//    {
-//        let bytes: Vec<u8> = Vec::from(self.0.to_repr().as_ref());
-//        bytes.serialize(serializer)
-//    }
-//}
-
 impl<F: LurkField> Serialize for FWrap<F> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -328,21 +317,6 @@ impl<F: LurkField> Encodable for FWrap<F> {
     }
 }
 
-// TODO: Overriden below, is there a use for this version?
-//impl<'de, F: LurkField> Deserialize<'de> for FWrap<F> {
-//    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//    where
-//        D: serde::Deserializer<'de>,
-//    {
-//        use serde::de::Error;
-//        let bytes: Vec<u8> = Vec::deserialize(deserializer)?;
-//        let f = F::from_bytes(&bytes).ok_or_else(|| {
-//            D::Error::custom(format!("expected field element as bytes, got {:?}", &bytes))
-//        })?;
-//        Ok(FWrap(f))
-//    }
-//}
-
 struct FWrapVisitor;
 
 impl<'de> serde::de::Visitor<'de> for FWrapVisitor {
@@ -372,11 +346,9 @@ impl<'de, F: LurkField> Deserialize<'de> for FWrap<F> {
     where
         D: serde::Deserializer<'de>,
     {
-        use serde::de;
-
         let bytes = deserializer.deserialize_byte_buf(FWrapVisitor)?;
 
-        // the field element expects a certain Repr length, whereas ZData trims it.
+        //// the field element expects a certain Repr length, whereas ZData trims it.
         let mut bytes_slice = F::default().to_repr();
         bytes_slice
             .as_mut()
@@ -385,7 +357,7 @@ impl<'de, F: LurkField> Deserialize<'de> for FWrap<F> {
             .for_each(|(byte_slice, byte)| *byte_slice = *byte);
         let f: Option<F> = F::from_repr(bytes_slice).into();
         f.map(FWrap).ok_or_else(|| {
-            de::Error::custom(format!("expected field element as bytes, got {:?}", bytes))
+            serde::de::Error::custom(format!("expected field element as bytes, got {:?}", bytes))
         })
     }
 }
