@@ -106,7 +106,6 @@ pub(crate) fn popcount_lc<F: PrimeField, CS: ConstraintSystem<F>>(
 
 /// Adds a constraint to CS, enforcing that the addition of the allocated numbers in vector `v`
 /// is equal to the value of the variable, `sum`.
-#[allow(dead_code)]
 pub(crate) fn popcount_equal<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     v: &[Boolean],
@@ -129,7 +128,7 @@ pub(crate) fn popcount_equal<F: PrimeField, CS: ConstraintSystem<F>>(
 /// is equal to `one`.
 ///
 /// summation(v) = one
-#[allow(dead_code)]
+#[inline]
 pub(crate) fn enforce_popcount_one<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     v: &[Boolean],
