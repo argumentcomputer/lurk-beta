@@ -62,11 +62,18 @@ mod tests {
         test_roundtrip((1u32, 2u64));
         test_roundtrip(String::from("Hello world"));
         test_roundtrip(vec!['a', 'b', 'c']);
+        test_roundtrip(vec![0u8, 1u8, 2u8]);
         test_roundtrip(vec![String::from("Hello"), String::from("World")]);
         test_roundtrip(BTreeMap::from([
             (String::from("Hello"), 0u8),
             (String::from("World"), 1u8),
         ]));
+        let f = FWrap(Scalar::one());
+        //let f = vec![0u8, 1u8, 2u8];
+        let ser = to_z_data(&f).unwrap();
+        println!("Ser: {:?}", ser);
+        let de: Vec<u8> = from_z_data(&ser).unwrap();
+        println!("De: {:?}", de);
     }
 
     #[test]

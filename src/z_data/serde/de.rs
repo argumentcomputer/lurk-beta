@@ -89,7 +89,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.input {
             ZData::Atom(x) if x.len() == 1 => visitor.visit_u8(x[0]),
-            _ => Err(SerdeError::Type("expected bool".into())),
+            _ => Err(SerdeError::Type("expected u8".into())),
         }
     }
 
