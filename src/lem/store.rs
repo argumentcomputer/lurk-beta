@@ -218,7 +218,7 @@ impl<F: LurkField> Store<F> {
             components.push(head);
             self.vec_str_cache.insert(components.clone(), ptr);
             self.sym_path_cache
-                .insert(ptr, components.iter().rev().cloned().collect_vec());
+                .insert(ptr, components.iter().rev().cloned().collect());
         }
         ptr
     }
