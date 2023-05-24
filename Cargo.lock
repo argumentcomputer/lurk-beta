@@ -610,6 +610,7 @@ dependencies = [
  "assert_cmd",
  "blstrs",
  "clap 4.3.0",
+ "ff",
  "lurk",
  "pasta_curves",
  "pretty_env_logger",
