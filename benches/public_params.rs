@@ -15,15 +15,15 @@ fn public_params_benchmark(c: &mut Criterion) {
     group.sampling_mode(SamplingMode::Flat);
     let lang_bls = Lang::<Fr, Coproc<Fr>>::new();
     let lang_bls_rc = Arc::new(lang_bls);
-    let lang_vesta =
+    let lang_pallas =
         Lang::<pasta_curves::pallas::Scalar, Coproc<pasta_curves::pallas::Scalar>>::new();
-    let lang_vesta_rc = Arc::new(lang_vesta);
+    let lang_pallas_rc = Arc::new(lang_pallas);
 
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
     group.bench_function("public_params_nova", |b| {
         b.iter(|| {
-            let result = nova::public_params(reduction_count, lang_vesta_rc.clone());
+            let result = nova::public_params(reduction_count, lang_pallas_rc.clone());
             black_box(result)
         })
     });
