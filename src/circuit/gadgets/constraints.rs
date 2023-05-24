@@ -819,7 +819,7 @@ mod tests {
         let mut lc = LinearCombination::zero();
         for (i, coeff) in coeffs.iter().enumerate() {
             let allocated_var =
-                AllocatedNum::alloc(cs.namespace(|| format!("{i}")), || Ok(Fr::zero())).unwrap();
+                AllocatedNum::alloc(cs.namespace(|| format!("{i}")), || Ok(Fr::one())).unwrap();
             let var = allocated_var.get_variable();
             let val = Fr::from_u64(*coeff);
             lc = lc + (val, var);
