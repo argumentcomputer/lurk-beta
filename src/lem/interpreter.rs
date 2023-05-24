@@ -169,7 +169,10 @@ impl LEM {
                 LEMOP::MatchSymPath(ptr, cases, def) => {
                     let ptr = ptr.get_ptr(&ptrs)?;
                     let Some(sym_path) = store.fetch_sym_path(&ptr) else {
-                        return Err("Symbol path should have been interned at this point".to_string());
+                        return Err(
+                            "Symbol path should have been interned at this point. Have you called `LEMOP::intern_matched_sym_paths`?"
+                            .to_string()
+                        );
                     };
                     match cases.get(sym_path) {
                         Some(op) => stack.push(op),
