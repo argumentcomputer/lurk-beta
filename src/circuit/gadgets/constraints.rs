@@ -707,7 +707,6 @@ pub(crate) fn enforce_implication_lc<
 /// is equal to one, if the premise is true.
 ///
 /// summation(v) = one (if premise)
-#[allow(dead_code)]
 pub(crate) fn enforce_selector_with_premise<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     premise: &Boolean,
@@ -804,12 +803,25 @@ pub(crate) fn allocate_is_negative<F: LurkField, CS: ConstraintSystem<F>>(
 mod tests {
     use super::*;
 
-    use bellperson::util_cs::test_cs::TestConstraintSystem;
+    use bellperson::{util_cs::test_cs::TestConstraintSystem, Index, Variable};
     use blstrs::Scalar as Fr;
+    use ff::Field;
     use proptest::prelude::*;
     use std::ops::{AddAssign, SubAssign};
 
     use crate::field::FWrap;
+
+    // Strategy for creating a random linear combination of 5 vars
+    fn random_lc_strategy() -> impl Strategy<Value = LinearCombination<Fr>> {
+        prop::collection::vec(any::<FWrap<Fr>>(), 5).prop_map(|coeffs| {
+            let mut lc = LinearCombination::zero();
+            for coeff in coeffs {
+                let var = Variable::new_unchecked(Index::Input(rand::random()));
+                lc = lc + (coeff.0, var);
+            }
+            lc
+        })
+    }
 
     proptest! {
 
@@ -835,7 +847,7 @@ mod tests {
         #[test]
         fn prop_sub_constraint((x, y) in any::<(FWrap<Fr>, FWrap<Fr>)>()) {
 
-               let mut cs = TestConstraintSystem::<Fr>::new();
+            let mut cs = TestConstraintSystem::<Fr>::new();
 
             let a = AllocatedNum::alloc(cs.namespace(|| "a"), || Ok(x.0))
                 .expect("alloc failed");
@@ -904,6 +916,37 @@ mod tests {
             assert_eq!(expected_or1, or1.get_value().unwrap());
             assert_eq!(expected_or2, or2.get_value().unwrap());
             assert!(cs.is_satisfied());
+        }
+
+        #[test]
+        fn prop_enforce_implication_lc(premise_val in any::<bool>(), lc in random_lc_strategy()) {
+            let mut cs = TestConstraintSystem::<Fr>::new();
+
+            // Allocate premise boolean.
+            let premise = Boolean::from(AllocatedBit::alloc(
+                cs.namespace(|| "premise"),
+                Some(premise_val)
+            ).expect("alloc failed"));
+
+            // Execute the function under test.
+            let _ = enforce_implication_lc(
+                cs.namespace(|| "enforce_implication_lc"),
+                &premise,
+                |_| lc.clone(),
+            ).expect("enforce_implication_lc failed");
+
+            // count ones in the linear combination
+            let sum: u64 = lc.iter().map(|(_var, coeff)| {
+                if *coeff == Fr::one() {
+                   1u64
+                } else {
+                    0
+                }
+            }).sum();
+
+            // The expected behavior is that if `premise` is true,
+            // the linear combination should evaluate to one.
+            prop_assume!(!premise_val || sum != 1 || cs.is_satisfied());
         }
     }
 }
