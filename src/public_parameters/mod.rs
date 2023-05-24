@@ -252,8 +252,29 @@ pub struct Proof<'a, F: LurkField> {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Claim<F: LurkField> {
     Evaluation(Evaluation),
+    // TODO: Add Expression type
     PtrEvaluation(PtrEvaluation<F>),
     Opening(Opening<F>),
+}
+
+impl<F: LurkField> Claim<F> {
+    pub fn proof_key(&self) -> Result<ZExprPtr<F>, Error> {
+        match self {
+            Claim::Evaluation(eval) => {
+                // Only using input and output for now
+                let expr_in = ZExprPtr::<F>::try_from(&eval.expr)?;
+                let expr_out = ZExprPtr::<F>::try_from(&eval.expr_out)?;
+                let expr = ZExpr::Cons(expr_in, expr_out);
+                Ok(expr.z_ptr(&PoseidonCache::default()))
+            }
+            Claim::PtrEvaluation(_ptr_eval) => {
+                todo!()
+            }
+            Claim::Opening(_open) => {
+                todo!()
+            }
+        }
+    }
 }
 
 // This is just a rough idea, mostly here so we can plumb it elsewhere. The idea is that a verifier can sign an
@@ -271,32 +292,6 @@ pub enum Claim<F: LurkField> {
 //    pub verifier_id: String,
 //    pub signature: String,
 //}
-
-//fn cid_string<S>(c: &Cid, s: S) -> Result<S::Ok, S::Error>
-//where
-//    S: Serializer,
-//{
-//    s.serialize_str(&c.to_string())
-//}
-//
-//pub fn string_cid<'de, D>(d: D) -> Result<Cid, D::Error>
-//where
-//    D: Deserializer<'de>,
-//{
-//    use serde::de::Error;
-//
-//    let string = String::deserialize(d)?;
-//
-//    Cid::from_str(&string).map_err(|e| D::Error::custom(e.to_string()))
-//}
-//
-//pub fn cid_from_string(s: &str) -> Result<Cid, libipld::cid::Error> {
-//    Cid::from_str(s)
-//}
-
-pub fn zptr_from_string<F: LurkField>(_s: &str) -> Option<ZExprPtr<F>> {
-    todo!()
-}
 
 #[allow(dead_code)]
 impl<F: LurkField> Claim<F> {
@@ -348,37 +343,6 @@ impl ReductionCount {
             Self::Ten => 10,
             Self::OneHundred => 100,
         }
-    }
-}
-
-pub trait Id
-where
-    Self: Sized,
-{
-    fn id<F: LurkField>(&self) -> String;
-    fn z_ptr<F: LurkField>(&self) -> ZExprPtr<F>;
-    fn has_id<F: LurkField>(&self, id: String) -> bool;
-}
-
-fn to_z_expr<T: Sized + Serialize, F: LurkField>(_val: T) -> ZExpr<F> {
-    todo!()
-}
-
-impl<T> Id for T
-where
-    T: Serialize + for<'de> Deserialize<'de>,
-{
-    fn z_ptr<F: LurkField>(&self) -> ZExprPtr<F> {
-        let z_expr = to_z_expr(self);
-        z_expr.z_ptr(&PoseidonCache::default())
-    }
-
-    fn id<F: LurkField>(&self) -> String {
-        self.z_ptr::<F>().to_string()
-    }
-
-    fn has_id<F: LurkField>(&self, id: String) -> bool {
-        self.id::<F>() == id
     }
 }
 
@@ -876,10 +840,9 @@ impl<'a> Proof<'a, S1> {
         let proof_map = nova_proof_cache(reduction_count);
         let function_map = committed_expression_store();
 
-        //let cid = claim.cid();
-        let z_ptr = claim.z_ptr();
+        let key = claim.proof_key()?;
 
-        if let Some(proof) = proof_map.get(&z_ptr) {
+        if let Some(proof) = proof_map.get(&key) {
             return Ok(proof);
         }
 
@@ -944,7 +907,7 @@ impl<'a> Proof<'a, S1> {
 
         proof.verify(pp, &lang).expect("Nova verification failed");
 
-        proof_map.set(z_ptr, &proof).unwrap();
+        proof_map.set(key, &proof).unwrap();
 
         Ok(proof)
     }
@@ -1131,7 +1094,36 @@ pub fn evaluate<F: LurkField>(
 
 #[cfg(test)]
 mod test {
-    //use super::*;
+    use super::*;
+    use crate::eval::Status;
+
+    #[test]
+    fn tmp_prove_and_verify() {
+        let store = &mut Store::<S1>::default();
+        let rc = ReductionCount::One;
+        let lang = Lang::new();
+        let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
+        let lang_rc = Arc::new(lang.clone());
+        let pp = public_params(rc.count(), lang_rc.clone()).unwrap();
+        let claim: Claim<S1> = Claim::Evaluation(Evaluation {
+            expr: "(+ 1 1)".into(),
+            env: "nil".into(),
+            cont: "Outermost".into(),
+            expr_out: "2".into(),
+            env_out: "nil".into(),
+            cont_out: "Terminal".into(),
+            status: Status::Terminal,
+            iterations: None,
+        });
+        let limit = 1000;
+        Proof::prove_claim(store, &claim, limit, false, &prover, &pp, lang_rc).unwrap();
+
+        //Test we are correctly reading/writing from disk
+        let proof_map = nova_proof_cache(rc.count());
+        let key = claim.proof_key().unwrap();
+        let proof = proof_map.get(&key).unwrap();
+        proof.verify(&pp, &lang).unwrap();
+    }
 
     //#[test]
     //fn test_cert_serialization() {

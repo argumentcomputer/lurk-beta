@@ -13,6 +13,7 @@ use crate::z_data::Encodable;
 use crate::z_data::ZData;
 
 use crate::field::{FWrap, LurkField};
+use crate::store::{self, Store};
 use crate::tag::{ContTag, ExprTag, Tag};
 
 use crate::hash::IntoHashComponents;
@@ -127,6 +128,22 @@ impl<E: Tag, F: LurkField> ZPtr<E, F> {
 }
 
 pub type ZExprPtr<F> = ZPtr<ExprTag, F>;
+
+// Parse string, intern Expr into store, then convert Ptr to ZPtr
+impl<F: LurkField> TryFrom<&String> for ZExprPtr<F> {
+    type Error = store::Error;
+
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        let mut store = Store::<F>::default();
+        let ptr = store
+            .read(&value)
+            .map_err(|_| store::Error("Parse error".into()))?;
+        let zptr = store
+            .hash_expr(&ptr)
+            .ok_or(store::Error("Invalid ptr".into()))?;
+        Ok(zptr)
+    }
+}
 
 impl<E: Tag, F: LurkField> IntoHashComponents<F> for ZPtr<E, F> {
     fn into_hash_components(self) -> [F; 2] {

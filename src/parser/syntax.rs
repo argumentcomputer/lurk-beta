@@ -289,7 +289,7 @@ pub fn parse_maybe_meta<F: LurkField>(
     move |from: Span<'_>| {
         let (_, is_eof) = opt(nom::combinator::eof)(from)?;
         if is_eof.is_some() {
-            return Ok((from, None))
+            return Ok((from, None));
         }
         let (next, meta) = opt(char('!'))(from)?;
         if meta.is_some() {

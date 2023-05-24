@@ -3,7 +3,7 @@
 use anyhow::{anyhow, bail, Context, Error, Result};
 use clap::{Arg, ArgAction, Command};
 use lurk::public_parameters::{
-    public_params, Claim, Commitment, CommittedExpression, CommittedExpressionMap, Id, LurkCont,
+    public_params, Claim, Commitment, CommittedExpression, CommittedExpressionMap, LurkCont,
     LurkPtr, NovaProofCache, Opening, Proof, PtrEvaluation,
 };
 use pasta_curves::pallas;
@@ -22,6 +22,7 @@ use lurk::store::Store;
 use lurk::symbol::Symbol;
 use lurk::tag::ExprTag;
 use lurk::writer::Write;
+use lurk::z_ptr::ZExprPtr;
 
 use std::fs::File;
 use std::io::{self, BufRead};
@@ -344,7 +345,7 @@ impl ClutchState<F, Coproc<F>> {
             .ok_or_else(|| anyhow!("secret missing"))
             .and_then(|hash| {
                 store
-                    .get_expr_hash(&hash)
+                    .hash_expr(&hash)
                     .ok_or_else(|| anyhow!("hash missing"))
             })
             .map(|hash| *hash.value())?;
@@ -485,8 +486,7 @@ impl ClutchState<F, Coproc<F>> {
             bail!("proof cid must be a string");
         };
 
-        let zptr = lurk::public_parameters::zptr_from_string(&zptr_string)
-            .ok_or(Error::msg("zptr get_proof"))?;
+        let zptr = ZExprPtr::try_from(&zptr_string).map_err(|_| Error::msg("zptr get_proof"))?;
         self.proof_map
             .get(&zptr)
             .ok_or_else(|| anyhow!("proof not found: {zptr}"))
@@ -527,7 +527,11 @@ impl ClutchState<F, Coproc<F>> {
         }?;
 
         if proof.verify(&pp, &self.lang())?.verified {
-            let zptr_str = proof.claim.z_ptr::<F>().to_string();
+            let zptr_str = proof
+                .claim
+                .proof_key()
+                .map_err(|_| Error::msg("Failed to generate proof key"))?
+                .to_string();
             match proof.claim {
                 Claim::Evaluation(_) | Claim::Opening(_) => println!("{0:#?}", proof.claim),
                 Claim::PtrEvaluation(_) => println!("Claim::PtrEvaluation elided."),
@@ -546,8 +550,7 @@ impl ClutchState<F, Coproc<F>> {
             .fetch_string(&proof_cid)
             .ok_or_else(|| anyhow!("failed to fetch zptr string"))?;
 
-        let zptr = lurk::public_parameters::zptr_from_string(&zptr_string)
-            .ok_or(Error::msg("zptr verify"))?;
+        let zptr = ZExprPtr::try_from(&zptr_string).map_err(|_| Error::msg("zptr verify"))?;
         let proof = self
             .proof_map
             .get(&zptr)
