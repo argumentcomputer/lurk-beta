@@ -803,7 +803,7 @@ pub(crate) fn allocate_is_negative<F: LurkField, CS: ConstraintSystem<F>>(
 mod tests {
     use super::*;
 
-    use bellperson::{util_cs::test_cs::TestConstraintSystem, Index, Variable};
+    use bellperson::util_cs::test_cs::TestConstraintSystem;
     use blstrs::Scalar as Fr;
     use ff::Field;
     use proptest::prelude::*;
@@ -811,16 +811,20 @@ mod tests {
 
     use crate::field::FWrap;
 
-    // Strategy for creating a random linear combination
-    fn random_lc_strategy(n: usize) -> impl Strategy<Value = LinearCombination<Fr>> {
-        prop::collection::vec(any::<FWrap<Fr>>(), n).prop_map(|coeffs| {
-            let mut lc = LinearCombination::zero();
-            for coeff in coeffs {
-                let var = Variable::new_unchecked(Index::Input(rand::random()));
-                lc = lc + (coeff.0, var);
-            }
-            lc
-        })
+    // Auxiliary function for creating a random linear combination
+    fn random_lc_strategy(cs: &mut impl ConstraintSystem<Fr>, n: usize) -> LinearCombination<Fr> {
+        let mut coeffs = vec![0; n];
+        coeffs.fill_with(|| rand::thread_rng().gen_range(0..10));
+
+        let mut lc = LinearCombination::zero();
+        for (i, coeff) in coeffs.iter().enumerate() {
+            let allocated_var =
+                AllocatedNum::alloc(cs.namespace(|| format!("{i}")), || Ok(Fr::zero())).unwrap();
+            let var = allocated_var.get_variable();
+            let val = Fr::from_u64(*coeff);
+            lc = lc + (val, var);
+        }
+        lc
     }
 
     proptest! {
@@ -919,8 +923,10 @@ mod tests {
         }
 
         #[test]
-        fn prop_enforce_implication_lc(premise_val in any::<bool>(), lc in random_lc_strategy(5)) {
+        fn prop_enforce_implication_lc(premise_val in any::<bool>()) {
             let mut cs = TestConstraintSystem::<Fr>::new();
+
+            let lc = random_lc_strategy(&mut cs, 10);
 
             // Allocate premise boolean.
             let premise = Boolean::from(AllocatedBit::alloc(
@@ -935,14 +941,8 @@ mod tests {
                 |_| lc.clone(),
             ).expect("enforce_implication_lc failed");
 
-            // count ones in the linear combination
-            let sum: u64 = lc.iter().map(|(_var, coeff)| {
-                if *coeff == Fr::one() {
-                   1u64
-                } else {
-                    0
-                }
-            }).sum();
+            // count positive coeffs in the linear combination
+            let sum = lc.iter().filter(|(_var, coeff)| **coeff != Fr::zero()).count();
 
             // The expected behavior is that if `premise` is true,
             // the linear combination should evaluate to one.
