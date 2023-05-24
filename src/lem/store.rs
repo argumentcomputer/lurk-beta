@@ -43,6 +43,7 @@ pub struct Store<F: LurkField> {
 
     vec_char_cache: HashMap<Vec<char>, Ptr<F>>,
     vec_str_cache: HashMap<Vec<String>, Ptr<F>>,
+    sym_path_cache: HashMap<Ptr<F>, Vec<String>>,
 
     pub poseidon_cache: PoseidonCache<F>,
     dehydrated: Vec<Ptr<F>>,
@@ -200,6 +201,7 @@ impl<F: LurkField> Store<F> {
             // try a cache hit until no char is left while accumulating the heads
             if components.is_empty() {
                 ptr = Ptr::null(Tag::Sym);
+                self.sym_path_cache.insert(ptr, vec![]);
                 break;
             }
             match self.vec_str_cache.get(&components) {
@@ -216,8 +218,17 @@ impl<F: LurkField> Store<F> {
             ptr = self.intern_2_ptrs(Tag::Sym, head_ptr, ptr);
             components.push(head);
             self.vec_str_cache.insert(components.clone(), ptr);
+            self.sym_path_cache.insert(
+                ptr,
+                components.iter().rev().map(|x| x.clone()).collect_vec(),
+            );
         }
         ptr
+    }
+
+    #[inline]
+    pub fn fetch_sym_path(&self, ptr: &Ptr<F>) -> Option<&Vec<String>> {
+        self.sym_path_cache.get(ptr)
     }
 
     pub fn intern_symbol(&mut self, s: &Symbol) -> Ptr<F> {
