@@ -7,7 +7,7 @@ use bellperson::{
         boolean::{AllocatedBit, Boolean},
         num::{AllocatedNum, Num},
     },
-    ConstraintSystem, SynthesisError,
+    ConstraintSystem, SynthesisError, Variable,
 };
 use ff::PrimeField;
 
@@ -94,27 +94,32 @@ pub(crate) fn add<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok(res)
 }
 
+/// Creates a linear combination representing the popcount (sum of one bits) of `v`.
+pub(crate) fn popcount_lc<F: PrimeField, CS: ConstraintSystem<F>>(
+    v: &[Boolean],
+) -> Result<LinearCombination<F>, SynthesisError> {
+    v.iter()
+        .try_fold(LinearCombination::<F>::zero(), |acc, bit| {
+            add_to_lc::<F, CS>(bit, acc, F::one())
+        })
+}
+
 /// Adds a constraint to CS, enforcing that the addition of the allocated numbers in vector `v`
-/// is equal to `sum`.
-///
-/// summation(v) = sum
+/// is equal to the value of the variable, `sum`.
 #[allow(dead_code)]
-pub(crate) fn popcount<F: PrimeField, CS: ConstraintSystem<F>>(
+pub(crate) fn popcount_equal<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     v: &[Boolean],
-    sum: &AllocatedNum<F>,
+    sum: Variable,
 ) -> Result<(), SynthesisError> {
-    let mut v_lc = LinearCombination::<F>::zero();
-    for b in v {
-        v_lc = add_to_lc::<F, CS>(b, v_lc, F::one())?;
-    }
+    let popcount = popcount_lc::<F, CS>(v)?;
 
-    // (summation(v)) * 1 = sum
+    // popcount * 1 = sum
     cs.enforce(
         || "popcount",
-        |_| v_lc,
+        |_| popcount,
         |lc| lc + CS::one(),
-        |lc| lc + sum.get_variable(),
+        |lc| lc + sum,
     );
 
     Ok(())
@@ -125,24 +130,11 @@ pub(crate) fn popcount<F: PrimeField, CS: ConstraintSystem<F>>(
 ///
 /// summation(v) = one
 #[allow(dead_code)]
-pub(crate) fn popcount_one<F: PrimeField, CS: ConstraintSystem<F>>(
+pub(crate) fn enforce_popcount_one<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     v: &[Boolean],
 ) -> Result<(), SynthesisError> {
-    let mut v_lc = LinearCombination::<F>::zero();
-    for b in v {
-        v_lc = add_to_lc::<F, CS>(b, v_lc, F::one())?;
-    }
-
-    // (summation(v)) * 1 = 1
-    cs.enforce(
-        || "popcount_one",
-        |_| v_lc,
-        |lc| lc + CS::one(),
-        |lc| lc + CS::one(),
-    );
-
-    Ok(())
+    popcount_equal(cs, v, CS::one())
 }
 
 pub(crate) fn add_to_lc<F: PrimeField, CS: ConstraintSystem<F>>(
@@ -707,17 +699,12 @@ pub(crate) fn enforce_implication_lc<
 /// is equal to one, if the premise is true.
 ///
 /// summation(v) = one (if premise)
-#[allow(dead_code)]
 pub(crate) fn enforce_selector_with_premise<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     premise: &Boolean,
     v: &[Boolean],
 ) -> Result<(), SynthesisError> {
-    let popcount = v
-        .iter()
-        .try_fold(LinearCombination::<F>::zero(), |acc, bit| {
-            add_to_lc::<F, CS>(bit, acc, F::one())
-        })?;
+    let popcount = popcount_lc::<F, CS>(v)?;
 
     enforce_implication_lc(cs, premise, |_| popcount)
 }

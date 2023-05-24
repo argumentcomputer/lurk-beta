@@ -5230,7 +5230,7 @@ pub(crate) fn print_cs<F: LurkField, C: Comparable<F>>(this: &C) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::circuit::circuit_frame::constraints::{popcount, sub};
+    use crate::circuit::circuit_frame::constraints::{popcount_equal, sub};
     use crate::eval::{
         empty_sym_env,
         lang::{Coproc, Lang},
@@ -5857,28 +5857,24 @@ mod tests {
     #[test]
     fn test_enforce_popcount() {
         let mut cs = TestConstraintSystem::<Fr>::new();
-        let s = &mut Store::<Fr>::default();
 
         for x in 0..128 {
-            let a = s.num(x);
             let alloc_a =
-                AllocatedPtr::alloc_ptr(&mut cs.namespace(|| x.to_string()), s, || Ok(&a)).unwrap();
+                AllocatedNum::alloc(&mut cs.namespace(|| x.to_string()), || Ok(Fr::from(x)))
+                    .unwrap();
             let bits = alloc_a
-                .hash()
                 .to_bits_le(&mut cs.namespace(|| format!("bits_{x}")))
                 .unwrap();
-            let popcount_result = s.num(x.count_ones() as u64);
-            let alloc_popcount = AllocatedPtr::alloc_ptr(
-                &mut cs.namespace(|| format!("alloc popcount {x}")),
-                s,
-                || Ok(&popcount_result),
-            )
-            .unwrap();
+            let popcount_result =
+                AllocatedNum::alloc(&mut cs.namespace(|| format!("alloc popcount {x}")), || {
+                    Ok(Fr::from(x.count_ones() as u64))
+                })
+                .unwrap();
 
-            popcount(
+            popcount_equal(
                 &mut cs.namespace(|| format!("popcount {x}")),
                 &bits,
-                alloc_popcount.hash(),
+                popcount_result.get_variable(),
             )
             .unwrap();
         }

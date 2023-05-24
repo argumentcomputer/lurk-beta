@@ -3,7 +3,6 @@ use std::collections::HashMap;
 
 use dashmap::DashMap;
 use indexmap::IndexSet;
-use itertools::Itertools;
 
 use crate::{
     field::{FWrap, LurkField},
@@ -41,7 +40,7 @@ pub struct Store<F: LurkField> {
     ptrs3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
     ptrs4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
 
-    vec_char_cache: HashMap<Vec<char>, Ptr<F>>,
+    vec_char_cache: HashMap<String, Ptr<F>>,
     vec_str_cache: HashMap<Vec<String>, Ptr<F>>,
 
     pub poseidon_cache: PoseidonCache<F>,
@@ -155,7 +154,7 @@ impl<F: LurkField> Store<F> {
     /// `"c"`, `"bc"` and `"abc"` stored in `vec_char_cache` as `['c']`,
     /// `['c', 'b']` and `['c', 'b', 'a']` respectively.
     pub fn intern_string(&mut self, s: &String) -> Ptr<F> {
-        let mut chars = s.chars().rev().collect_vec();
+        let mut chars = s.chars().rev().collect::<String>();
         let mut ptr;
         let mut heads = vec![];
         loop {
