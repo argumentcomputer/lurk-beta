@@ -7,7 +7,7 @@ use bellperson::{
         boolean::{AllocatedBit, Boolean},
         num::{AllocatedNum, Num},
     },
-    ConstraintSystem, SynthesisError,
+    ConstraintSystem, SynthesisError, Variable,
 };
 use ff::PrimeField;
 
@@ -94,27 +94,31 @@ pub(crate) fn add<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok(res)
 }
 
+/// Creates a linear combination representing the popcount (sum of one bits) of `v`.
+pub(crate) fn popcount_lc<F: PrimeField, CS: ConstraintSystem<F>>(
+    v: &[Boolean],
+) -> Result<LinearCombination<F>, SynthesisError> {
+    v.iter()
+        .try_fold(LinearCombination::<F>::zero(), |acc, bit| {
+            add_to_lc::<F, CS>(bit, acc, F::one())
+        })
+}
+
 /// Adds a constraint to CS, enforcing that the addition of the allocated numbers in vector `v`
-/// is equal to `sum`.
-///
-/// summation(v) = sum
-#[allow(dead_code)]
-pub(crate) fn popcount<F: PrimeField, CS: ConstraintSystem<F>>(
+/// is equal to the value of the variable, `sum`.
+pub(crate) fn popcount_equal<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     v: &[Boolean],
-    sum: &AllocatedNum<F>,
+    sum: Variable,
 ) -> Result<(), SynthesisError> {
-    let mut v_lc = LinearCombination::<F>::zero();
-    for b in v {
-        v_lc = add_to_lc::<F, CS>(b, v_lc, F::one())?;
-    }
+    let popcount = popcount_lc::<F, CS>(v)?;
 
-    // (summation(v)) * 1 = sum
+    // popcount * 1 = sum
     cs.enforce(
         || "popcount",
-        |_| v_lc,
+        |_| popcount,
         |lc| lc + CS::one(),
-        |lc| lc + sum.get_variable(),
+        |lc| lc + sum,
     );
 
     Ok(())
@@ -124,55 +128,12 @@ pub(crate) fn popcount<F: PrimeField, CS: ConstraintSystem<F>>(
 /// is equal to `one`.
 ///
 /// summation(v) = one
-#[allow(dead_code)]
-pub(crate) fn popcount_one<F: PrimeField, CS: ConstraintSystem<F>>(
+#[inline]
+pub(crate) fn enforce_popcount_one<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     v: &[Boolean],
 ) -> Result<(), SynthesisError> {
-    let mut v_lc = LinearCombination::<F>::zero();
-    for b in v {
-        v_lc = add_to_lc::<F, CS>(b, v_lc, F::one())?;
-    }
-
-    // (summation(v)) * 1 = 1
-    cs.enforce(
-        || "popcount_one",
-        |_| v_lc,
-        |lc| lc + CS::one(),
-        |lc| lc + CS::one(),
-    );
-
-    Ok(())
-}
-
-/// Adds a constraint to CS, enforcing that the addition of the allocated numbers in vector `v`
-/// is equal to one if the premise is true.
-///
-/// summation(v) = one (if not dummy)
-#[allow(dead_code)]
-pub(crate) fn enforce_selector_with_premise<F: PrimeField, CS: ConstraintSystem<F>>(
-    cs: &mut CS,
-    premise: &Boolean,
-    v: &[Boolean],
-) -> Result<(), SynthesisError> {
-    let mut v_lc = LinearCombination::<F>::zero();
-    for b in v {
-        v_lc = add_to_lc::<F, CS>(b, v_lc, F::one())?;
-    }
-    let mut nd_lc_b = LinearCombination::<F>::zero();
-    nd_lc_b = add_to_lc::<F, CS>(premise, nd_lc_b, F::one())?;
-    let mut nd_lc_c = LinearCombination::<F>::zero();
-    nd_lc_c = add_to_lc::<F, CS>(premise, nd_lc_c, F::one())?;
-
-    // (summation(v)) * premise = premise
-    cs.enforce(
-        || "enforce selector if not dummy",
-        |_| v_lc,
-        |_| nd_lc_b,
-        |_| nd_lc_c,
-    );
-
-    Ok(())
+    popcount_equal(cs, v, CS::one())
 }
 
 pub(crate) fn add_to_lc<F: PrimeField, CS: ConstraintSystem<F>>(
@@ -708,39 +669,54 @@ pub(crate) fn and<CS: ConstraintSystem<F>, F: PrimeField>(
     }
 }
 
-pub(crate) fn enforce_implication<CS: ConstraintSystem<F>, F: PrimeField>(
+/// Takes a boolean premise and a function that produces a `LinearCombination` (with same specification as `enforce`).
+/// Enforces the constraint that if `premise` is true, then the resulting linear combination evaluates to one.
+pub(crate) fn enforce_implication_lc<
+    CS: ConstraintSystem<F>,
+    F: PrimeField,
+    L: FnOnce(LinearCombination<F>) -> LinearCombination<F>,
+>(
     mut cs: CS,
-    a: &Boolean,
-    b: &Boolean,
+    premise: &Boolean,
+    implication_lc: L,
 ) -> Result<(), SynthesisError> {
-    let implication = implies(cs.namespace(|| "construct implication"), a, b)?;
-    enforce_true(cs.namespace(|| "enforce implication"), &implication)?;
+    let premise_b = premise.lc(CS::one(), F::one());
+    let premise_c = premise_b.clone();
+
+    // implication * premise = premise
+    cs.enforce(
+        || "implication",
+        implication_lc,
+        |_| premise_b,
+        |_| premise_c,
+    );
+
     Ok(())
 }
 
-pub(crate) fn enforce_true<CS: ConstraintSystem<F>, F: PrimeField>(
-    cs: CS,
-    prop: &Boolean,
+/// Adds a constraint to CS, enforcing that the number of true bits in `Boolean` vector `v`
+/// is equal to one, if the premise is true.
+///
+/// summation(v) = one (if premise)
+pub(crate) fn enforce_selector_with_premise<F: PrimeField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    premise: &Boolean,
+    v: &[Boolean],
 ) -> Result<(), SynthesisError> {
-    Boolean::enforce_equal(cs, &Boolean::Constant(true), prop)
+    let popcount = popcount_lc::<F, CS>(v)?;
+
+    enforce_implication_lc(cs, premise, |_| popcount)
 }
 
-#[allow(dead_code)]
-pub(crate) fn enforce_false<CS: ConstraintSystem<F>, F: PrimeField>(
+/// Enforce `premise` implies `implication`.
+pub(crate) fn enforce_implication<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: CS,
-    prop: &Boolean,
+    premise: &Boolean,
+    implication: &Boolean,
 ) -> Result<(), SynthesisError> {
-    Boolean::enforce_equal(cs, &Boolean::Constant(false), prop)
-}
-
-// a => b
-// not (a and (not b))
-pub(crate) fn implies<CS: ConstraintSystem<F>, F: PrimeField>(
-    cs: CS,
-    a: &Boolean,
-    b: &Boolean,
-) -> Result<Boolean, SynthesisError> {
-    Ok(Boolean::and(cs, a, &b.not())?.not())
+    enforce_implication_lc(cs, premise, |_|
+                           // One if implication is true, zero otherwise.
+                           implication.lc(CS::one(), F::one()))
 }
 
 /// Enforce equality of two allocated numbers given an implication premise
@@ -750,13 +726,10 @@ pub(crate) fn implies_equal<CS: ConstraintSystem<F>, F: PrimeField>(
     a: &AllocatedNum<F>,
     b: &AllocatedNum<F>,
 ) -> Result<(), SynthesisError> {
-    let is_equal = alloc_equal(cs.namespace(|| "is_equal"), a, b)?;
-    enforce_implication(
-        cs.namespace(|| "premise implies equality"),
-        premise,
-        &is_equal,
-    )?;
-    Ok(())
+    enforce_implication_lc(cs, premise, |lc| {
+        // One iff `a` == `b`.
+        lc + CS::one() + a.get_variable() - b.get_variable()
+    })
 }
 
 /// Enforce equality of two allocated numbers given an implication premise
@@ -765,13 +738,9 @@ pub(crate) fn implies_equal_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     premise: &Boolean,
     a: &AllocatedNum<F>,
 ) -> Result<(), SynthesisError> {
-    let is_zero = alloc_is_zero(cs.namespace(|| "is_zero"), a)?;
-    enforce_implication(
-        cs.namespace(|| "premise implies equality"),
-        premise,
-        &is_zero,
-    )?;
-    Ok(())
+    enforce_implication_lc(cs, premise, |lc|
+                           // One iff `a` == zero.
+                           lc + CS::one() + a.get_variable())
 }
 
 pub(crate) fn or<CS: ConstraintSystem<F>, F: PrimeField>(

@@ -7,8 +7,8 @@ use bellperson::{
 
 use crate::circuit::gadgets::{
     constraints::{
-        alloc_equal_const, and, enforce_equal, enforce_equal_zero, enforce_selector_with_premise,
-        implies_equal, implies_equal_zero, popcount_one,
+        alloc_equal_const, and, enforce_equal, enforce_equal_zero, enforce_popcount_one,
+        enforce_selector_with_premise, implies_equal, implies_equal_zero,
     },
     pointer::AllocatedPtr,
 };
@@ -273,7 +273,7 @@ impl LEM {
                         })?;
                     } else {
                         // If `branch_path_info` is None, we just do regular constraining
-                        popcount_one(
+                        enforce_popcount_one(
                             &mut cs.namespace(|| format!("{}.enforce exactly one selected", &path)),
                             &concrete_path_vec[..],
                         )

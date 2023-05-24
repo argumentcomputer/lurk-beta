@@ -28,11 +28,12 @@ mod tests {
     use super::*;
     use crate::field::LurkField;
     use crate::lem::{pointers::Ptr, store::Store};
-    use bellperson::util_cs::test_cs::TestConstraintSystem;
+    use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 13;
-    const NUM_CONSTRAINTS: usize = 68;
+    const NUM_AUX: usize = 20;
+    const NUM_CONSTRAINTS: usize = 29;
 
     fn test_eval_and_constrain_aux(store: &mut Store<Fr>, pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>) {
         let lem = step().unwrap();
@@ -51,6 +52,7 @@ mod tests {
                 lem.constrain(&mut cs, store, &witness).unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(cs.num_inputs(), NUM_INPUTS);
+                assert_eq!(cs.aux().len(), NUM_AUX);
                 assert_eq!(cs.num_constraints(), NUM_CONSTRAINTS);
             }
         }
