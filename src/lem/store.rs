@@ -29,11 +29,11 @@ use super::{
 /// explained in `intern_string` and `intern_symbol_path` respectively.
 ///
 /// There's also a process that we call "hydration", in which we use Poseidon
-/// hashes to compute the sstable) hash of the children of a pointer. These hashes
+/// hashes to compute the (stable) hash of the children of a pointer. These hashes
 /// are necessary when we want to create Lurk proofs because the circuit consumes
 /// elements of the `LurkField`, not (unstable) indices of `IndexSet`s.
 ///
-/// Lastly, we have a `HashMap` to hold commited data, which can be retrieved by
+/// Lastly, we have a `HashMap` to hold committed data, which can be retrieved by
 /// the resulting commitment hash.
 #[derive(Default)]
 pub struct Store<F: LurkField> {
