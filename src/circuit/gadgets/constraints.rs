@@ -814,7 +814,7 @@ mod tests {
     // Auxiliary function for creating a random linear combination
     fn random_lc_strategy(cs: &mut impl ConstraintSystem<Fr>, n: usize) -> LinearCombination<Fr> {
         let mut coeffs = vec![0; n];
-        coeffs.fill_with(|| rand::thread_rng().gen_range(0..10));
+        coeffs.fill_with(|| rand::thread_rng().gen_range(0..5));
 
         let mut lc = LinearCombination::zero();
         for (i, coeff) in coeffs.iter().enumerate() {
@@ -920,6 +920,30 @@ mod tests {
             assert_eq!(expected_or1, or1.get_value().unwrap());
             assert_eq!(expected_or2, or2.get_value().unwrap());
             assert!(cs.is_satisfied());
+        }
+
+        #[test]
+        fn prop_enforce_implication_lc_simple(premise_val in any::<bool>(), lc_val in any::<bool>()) {
+            let mut cs = TestConstraintSystem::<Fr>::new();
+
+            let mut lc = LinearCombination::zero();
+            lc = lc + (if lc_val { Fr::one() } else { Fr::zero() }, TestConstraintSystem::<Fr>::one());
+
+            // Allocate premise boolean.
+            let premise = Boolean::from(AllocatedBit::alloc(
+                cs.namespace(|| "premise"),
+                Some(premise_val)
+            ).expect("alloc failed"));
+
+            // Execute the function under test.
+            let _ = enforce_implication_lc(
+                cs.namespace(|| "enforce_implication_lc"),
+                &premise,
+                |_| lc,
+            ).expect("enforce_implication_lc failed");
+
+
+            prop_assert!((!premise_val || lc_val) == cs.is_satisfied())
         }
 
         #[test]
