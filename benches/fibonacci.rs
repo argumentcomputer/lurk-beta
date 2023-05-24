@@ -38,6 +38,7 @@ fn fib<F: LurkField>(store: &mut Store<F>, a: u64) -> Ptr<F> {
     store.read(&program).unwrap()
 }
 
+#[allow(dead_code)]
 fn fibo_total<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut BenchmarkGroup<M>) {
     let limit: usize = 10_000_000_000;
     let lang_vesta =
@@ -71,6 +72,7 @@ fn fibo_total<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut 
     );
 }
 
+#[allow(dead_code)]
 fn fibo_eval<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut BenchmarkGroup<M>) {
     let limit = 10_000_000_000;
     let lang_pallas = Lang::<pasta_curves::Fp, Coproc<pasta_curves::Fp>>::new();
@@ -124,6 +126,7 @@ fn fibo_prove<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut 
     );
 }
 
+#[allow(dead_code)]
 fn fibonacci_eval(c: &mut Criterion) {
     static BATCH_SIZES: [u64; 2] = [100, 1000];
     let mut group: BenchmarkGroup<_> = c.benchmark_group("Evaluate");
@@ -143,6 +146,7 @@ fn fibonacci_prove(c: &mut Criterion) {
     }
 }
 
+#[allow(dead_code)]
 fn fibonacci_total(c: &mut Criterion) {
     static BATCH_SIZES: [u64; 2] = [100, 1000];
     let mut group: BenchmarkGroup<_> = c.benchmark_group("Total");
@@ -156,6 +160,11 @@ fn fibonacci_total(c: &mut Criterion) {
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "flamegraph")] {
+        // In order to collect a flamegraph, you need to indicate a profile time, see
+        // https://github.com/tikv/pprof-rs#integrate-with-criterion
+        // Example usage :
+        // cargo criterion --bench fibonacci --features flamegraph -- --profile-time 5
+        // Warning: it is not recommended to run this on an M1 Mac, as making pprof work well there is hard.
         criterion_group! {
             name = benches;
             config = Criterion::default()
@@ -163,9 +172,7 @@ cfg_if::cfg_if! {
             .sample_size(10)
             .with_profiler(pprof::criterion::PProfProfiler::new(100, pprof::criterion::Output::Flamegraph(None)));
             targets =
-            fibonacci_eval,
             fibonacci_prove,
-            fibonacci_total,
         }
     } else {
         criterion_group! {
@@ -174,9 +181,7 @@ cfg_if::cfg_if! {
             .measurement_time(Duration::from_secs(120))
             .sample_size(10);
             targets =
-            fibonacci_eval,
             fibonacci_prove,
-            fibonacci_total,
         }
     }
 }
