@@ -67,19 +67,21 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
 
     fn command() -> Command;
 
-    fn handle_form<P: AsRef<Path> + Copy>(
+    fn handle_form<'a, P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
-        input: &str,
+        input: parser::Span<'a>,
         pwd: P,
-    ) -> Result<()> {
-        let (ptr, is_meta) = store.read_maybe_meta(input)?;
+    ) -> Result<parser::Span<'a>> {
+        let (input, ptr, is_meta) = store.read_maybe_meta(input)?;
 
         if is_meta {
             let pwd: &Path = pwd.as_ref();
-            self.handle_meta(store, ptr, pwd)
+            self.handle_meta(store, ptr, pwd)?;
+            Ok(input)
         } else {
-            self.handle_non_meta(store, ptr).map(|_| ())
+            self.handle_non_meta(store, ptr).map(|_| ())?;
+            Ok(input)
         }
     }
 
@@ -102,18 +104,22 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
             input
         );
 
+        let mut input = parser::Span::new(&input);
         loop {
-            if let Err(e) = self.handle_form(
+            match self.handle_form(
                 store,
-                &input,
+                input,
                 // use this file's dir as pwd for further loading
                 file_path.as_ref().parent().unwrap(),
             ) {
-                if let Some(parser::Error::NoInput) = e.downcast_ref::<parser::Error>() {
-                    // It's ok, it just means we've hit the EOF
-                    return Ok(());
-                } else {
-                    return Err(e);
+                Ok(new_input) => input = new_input,
+                Err(e) => {
+                    if let Some(parser::Error::NoInput) = e.downcast_ref::<parser::Error>() {
+                        // It's ok, it just means we've hit the EOF
+                        return Ok(());
+                    } else {
+                        return Err(e);
+                    }
                 }
             }
         }
@@ -247,11 +253,12 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
             .map(|line| repl.state.process_line(line));
         match line {
             Ok(line) => {
+                let input = parser::Span::new(&line);
                 #[cfg(not(target_arch = "wasm32"))]
                 repl.save_history()?;
 
-                match s.read_maybe_meta(&line) {
-                    Ok((expr, is_meta)) => {
+                match s.read_maybe_meta(input) {
+                    Ok((_, expr, is_meta)) => {
                         if is_meta {
                             if let Err(e) = repl.state.handle_meta(s, expr, p) {
                                 eprintln!("!Error: {e:?}");
@@ -498,7 +505,8 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             Some(new_name)
                         }
                         "load" => {
-                            match store.fetch(&store.car(&rest)?).unwrap() {
+                            let car = &store.car(&rest)?;
+                            match store.fetch(car).unwrap() {
                                 Expression::StrCons(..) => {
                                     let path: String = store
                                         .fetch_string(&car)

@@ -11,7 +11,7 @@ pub mod position;
 pub mod string;
 pub mod syntax;
 
-type Span<'a> = nom_locate::LocatedSpan<&'a str>;
+pub type Span<'a> = nom_locate::LocatedSpan<&'a str>;
 
 // see https://github.com/sg16-unicode/sg16/issues/69
 pub static LURK_WHITESPACE: [char; 27] = [
@@ -37,9 +37,12 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn read_maybe_meta(&mut self, input: &str) -> Result<(Ptr<F>, bool), Error> {
-        match preceded(syntax::parse_space, syntax::parse_maybe_meta()).parse(Span::new(input)) {
-            Ok((_i, (x, meta))) => Ok((self.intern_syntax(x), meta)),
+    pub fn read_maybe_meta<'a>(&mut self, input: Span<'a>) -> Result<(Span<'a>, Ptr<F>, bool), Error> {
+        use syntax::*;
+        match preceded(parse_space, parse_maybe_meta()).parse(input) {
+            Ok((i, MaybeMeta::Meta(x))) => Ok((i, self.intern_syntax(x), true)),
+            Ok((i, MaybeMeta::Expr(x))) => Ok((i, self.intern_syntax(x), false)),
+            Ok((_, MaybeMeta::EOF)) => Err(Error::NoInput),
             Err(e) => Err(Error::Syntax(format!("{}", e))),
         }
     }

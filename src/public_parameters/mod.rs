@@ -294,6 +294,10 @@ pub enum Claim<F: LurkField> {
 //    Cid::from_str(s)
 //}
 
+pub fn zptr_from_string<F: LurkField>(_s: &str) -> Option<ZExprPtr<F>> {
+    todo!()
+}
+
 #[allow(dead_code)]
 impl<F: LurkField> Claim<F> {
     pub fn is_evaluation(&self) -> bool {

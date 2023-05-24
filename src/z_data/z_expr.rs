@@ -82,7 +82,7 @@ impl<F: LurkField> ZExpr<F> {
                 cache.hash4(&[x.0.to_field(), x.1, y.0.to_field(), y.1]),
             ),
             ZExpr::Comm(f, x) => ZPtr(ExprTag::Comm, cache.hash3(&[*f, x.0.to_field(), x.1])),
-            ZExpr::SymNil => ZPtr(ExprTag::Sym, F::zero()),
+            ZExpr::SymNil => ZPtr(ExprTag::Sym, F::ZERO),
             ZExpr::SymCons(x, y) => ZPtr(
                 ExprTag::Sym,
                 cache.hash4(&[x.0.to_field(), x.1, y.0.to_field(), y.1]),
@@ -104,7 +104,7 @@ impl<F: LurkField> ZExpr<F> {
                 ]),
             ),
             ZExpr::Num(f) => ZPtr(ExprTag::Num, *f),
-            ZExpr::StrNil => ZPtr(ExprTag::Str, F::zero()),
+            ZExpr::StrNil => ZPtr(ExprTag::Str, F::ZERO),
             ZExpr::StrCons(x, y) => ZPtr(
                 ExprTag::Str,
                 cache.hash4(&[x.0.to_field(), x.1, y.0.to_field(), y.1]),

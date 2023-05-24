@@ -44,7 +44,7 @@ impl<K: Eq + Hash, V: StableDeref> CacheMap<K, V> {
     /// # Examples
     ///
     /// ```
-    /// use elsa::sync::CacheMap;
+    /// use lurk::cache_map::CacheMap;
     ///
     /// let map = CacheMap::new();
     /// assert_eq!(map.insert(1, Box::new("a")), &"a");
@@ -76,7 +76,7 @@ impl<K: Eq + Hash, V: StableDeref> CacheMap<K, V> {
     /// # Examples
     ///
     /// ```
-    /// use elsa::sync::CacheMap;
+    /// use lurk::cache_map::CacheMap;
     ///
     /// let map = CacheMap::new();
     /// assert_eq!(map.insert_with(1, || Box::new("a")), &"a");
@@ -108,7 +108,7 @@ impl<K: Eq + Hash, V: StableDeref> CacheMap<K, V> {
     /// # Examples
     ///
     /// ```
-    /// use elsa::sync::CacheMap;
+    /// use lurk::cache_map::CacheMap;
     ///
     /// let map = CacheMap::new();
     /// assert_eq!(map.insert_with_key(1, |_| Box::new("a")), &"a");
@@ -132,7 +132,7 @@ impl<K: Eq + Hash, V: StableDeref> CacheMap<K, V> {
     /// # Examples
     ///
     /// ```
-    /// use elsa::sync::CacheMap;
+    /// use lurk::cache_map::CacheMap;
     ///
     /// let map = CacheMap::new();
     /// map.insert(1, Box::new("a"));
@@ -158,7 +158,7 @@ impl<K: Eq + Hash, V: StableDeref> CacheMap<K, V> {
     /// # Examples
     ///
     /// ```
-    /// use elsa::sync::CacheMap;
+    /// use lurk::cache_map::CacheMap;
     ///
     /// let map = CacheMap::new();
     /// map.insert(1, Box::new("a"));
@@ -179,7 +179,7 @@ impl<K: Eq + Hash, V: StableDeref> CacheMap<K, V> {
     /// # Examples
     ///
     /// ```
-    /// use elsa::sync::CacheMap;
+    /// use lurk::cache_map::CacheMap;
     ///
     /// let map = CacheMap::new();
     /// assert_eq!(map.len(), 0);
@@ -194,7 +194,7 @@ impl<K: Eq + Hash, V: StableDeref> CacheMap<K, V> {
     /// # Examples
     ///
     /// ```
-    /// use elsa::sync::CacheMap;
+    /// use lurk::cache_map::CacheMap;
     ///
     /// let map = CacheMap::new();
     /// assert_eq!(map.is_empty(), true);
@@ -225,7 +225,7 @@ impl<K: Eq + Hash, V: Copy> CacheMap<K, V> {
     /// # Examples
     ///
     /// ```
-    /// use elsa::sync::CacheMap;
+    /// use lurk::cache_map::CacheMap;
     ///
     /// let map = CacheMap::new();
     /// map.get_copy_or_insert(1, 6);
@@ -255,7 +255,7 @@ impl<K: Eq + Hash, V: Copy> CacheMap<K, V> {
     /// # Examples
     ///
     /// ```
-    /// use elsa::sync::CacheMap;
+    /// use lurk::cache_map::CacheMap;
     ///
     /// let map = CacheMap::new();
     /// assert_eq!(map.get_copy_or_insert(1, 6), 6);
@@ -285,7 +285,7 @@ impl<K: Eq + Hash, V: Copy> CacheMap<K, V> {
     /// # Examples
     ///
     /// ```
-    /// use elsa::sync::CacheMap;
+    /// use lurk::cache_map::CacheMap;
     ///
     /// let map = CacheMap::new();
     /// assert_eq!(map.get_copy_or_insert_with(1, || 6), 6);
@@ -315,7 +315,7 @@ impl<K: Eq + Hash, V: Copy> CacheMap<K, V> {
     /// # Examples
     ///
     /// ```
-    /// use elsa::sync::CacheMap;
+    /// use lurk::cache_map::CacheMap;
     ///
     /// let map = CacheMap::new();
     /// assert_eq!(map.get_copy_or_insert_with_key(1, |_| 6), 6);

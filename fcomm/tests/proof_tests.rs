@@ -32,7 +32,7 @@ fn test_bad_command() {
 fn test_eval_expression() {
     let mut cmd = fcomm_cmd();
 
-    let expression = "((LAMBDA (A B) (+ (* A 3) B)) 9 7)";
+    let expression = "((lambda (a b) (+ (* a 3) b)) 9 7)";
 
     let tmp_dir = Builder::new().prefix("tmp").tempdir().unwrap();
     let expression_path = tmp_dir.path().join("expression.lurk");
@@ -47,7 +47,7 @@ fn test_eval_expression() {
 
     cmd.assert()
         .success()
-        .stdout("{\"expr\":\"((LAMBDA (A B) (+ (* A 3) B)) 9 7)\",\"env\":\"NIL\",\"cont\":\"Outermost\",\"expr_out\":\"34\",\"env_out\":\"NIL\",\"cont_out\":\"Terminal\",\"status\":\"Terminal\",\"iterations\":17}");
+        .stdout("{\"expr\":\"((lambda (a b) (+ (* a 3) b)) 9 7)\",\"env\":\"nil\",\"cont\":\"Outermost\",\"expr_out\":\"34\",\"env_out\":\"nil\",\"cont_out\":\"Terminal\",\"status\":\"Terminal\",\"iterations\":17}");
 }
 
 fn test_prove_expression(
@@ -56,7 +56,7 @@ fn test_prove_expression(
     proof_path: &Utf8Path,
     data_path: &Utf8Path,
 ) {
-    cmd.env("FCOMM_DATA_PATH", data_path)
+    cmd.env("fcomm_data_path", data_path)
         .arg("prove")
         .arg("--expression")
         .arg(expression_path)
@@ -75,7 +75,7 @@ fn test_open_commitment(
     data_path: &Utf8Path,
     chained: bool,
 ) {
-    cmd.env("FCOMM_DATA_PATH", data_path)
+    cmd.env("fcomm_data_path", data_path)
         .arg("open")
         .arg("--commitment")
         .arg(commitment)
@@ -143,7 +143,7 @@ fn test_prove_and_verify_expression() {
 
 fn commit(function_path: &Utf8Path, commitment_path: &Utf8Path, data_path: &Utf8Path) {
     let mut cmd = fcomm_cmd();
-    cmd.env("FCOMM_DATA_PATH", data_path)
+    cmd.env("fcomm_data_path", data_path)
         .arg("commit")
         .arg("--function")
         .arg(function_path)

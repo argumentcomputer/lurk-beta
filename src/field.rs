@@ -144,18 +144,18 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
 
     /// We define this to be the smallest negative field element
     fn most_negative() -> Self {
-        Self::most_positive() + Self::one()
+        Self::most_positive() + Self::ONE
     }
 
     /// 0 - 1 is one minus the modulus, which must be even in a prime field.
     /// The result is the largest field element which is even when doubled.
     /// We define this to be the most positive field element.
     fn most_positive() -> Self {
-        let one = Self::one();
+        let one = Self::ONE;
         let two = one + one;
 
         let half = two.invert().unwrap();
-        let modulus_minus_one = Self::zero() - one;
+        let modulus_minus_one = Self::ZERO - one;
         half * modulus_minus_one
     }
 
@@ -411,7 +411,7 @@ pub mod tests {
 
     // Construct field element from possibly canonical bytes
     fn from_le_bytes_canonical<F: LurkField>(bs: &[u8]) -> F {
-        let mut res = F::zero();
+        let mut res = F::ZERO;
         let mut bs = bs.iter().rev().peekable();
         while let Some(b) = bs.next() {
             let b: F = (*b as u64).into();

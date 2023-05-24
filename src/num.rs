@@ -470,10 +470,10 @@ mod tests {
     #[test]
     fn test_negative_positive() {
         let mns = Fr::most_negative();
-        let mps = mns - Fr::one();
+        let mps = mns - Fr::ONE;
         let mn = Num::Scalar(mns);
         let mp = Num::Scalar(mps);
-        let zero = Num::Scalar(Fr::zero());
+        let zero = Num::Scalar(Fr::ZERO);
 
         assert!(mn.is_negative());
         assert!(!mp.is_negative());

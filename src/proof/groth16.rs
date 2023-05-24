@@ -263,10 +263,6 @@ impl<'a, 'b, C: Coprocessor<Scalar>> Prover<'a, 'b, Scalar, C> for Groth16Prover
     type PublicParams = PublicParams<Bls12>;
 
     fn new(reduction_count: usize, lang: Lang<Scalar, C>) -> Self {
-        assert!(
-            lang.is_default(),
-            "Coprocessors are not yet supported in circuits."
-        );
         Groth16Prover {
             reduction_count,
             lang,
