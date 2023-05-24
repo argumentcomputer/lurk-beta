@@ -37,7 +37,10 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn read_maybe_meta<'a>(&mut self, input: Span<'a>) -> Result<(Span<'a>, Ptr<F>, bool), Error> {
+    pub fn read_maybe_meta<'a>(
+        &mut self,
+        input: Span<'a>,
+    ) -> Result<(Span<'a>, Ptr<F>, bool), Error> {
         use syntax::*;
         match preceded(parse_space, parse_maybe_meta()).parse(input) {
             Ok((i, Some((is_meta, x)))) => Ok((i, self.intern_syntax(x), is_meta)),

@@ -24,6 +24,14 @@ use nom::multi::count;
 use nom::Finish;
 use nom::IResult;
 
+pub mod serde;
+pub mod z_cont;
+pub mod z_expr;
+pub mod z_ptr;
+pub mod z_store;
+
+pub use self::serde::{from_z_data, to_z_data};
+
 /// `ZData` is a binary tree with two types of nodes: Atom and Cell.
 ///
 /// # Examples
@@ -38,6 +46,7 @@ use nom::IResult;
 ///
 /// assert_eq!(data.to_string(), "[c:[a:01], [a:02, 03]]");
 /// ```
+// Why is above better than       [c:[a:[01], a:[02, 03]]] ?
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum ZData {
     /// An Atom contains a byte sequence.
@@ -142,6 +151,7 @@ impl ZData {
         x & 0b0100_0000 == 0b0100_0000
     }
 
+    // TODO: Rename to to/from_bytes for clarity
     /// Serializes this `ZData` into a `Vec<u8>`.
     pub fn ser(&self) -> Vec<u8> {
         let mut res = vec![];
@@ -335,46 +345,10 @@ impl<A: Encodable + Sized, B: Encodable + Sized> Encodable for (A, B) {
     }
 }
 
-//use serde::{ser, Serialize};
-//
-//pub struct Serializer {
-//  // Maybe Vec<u8>?
-//  output: Vec<ZData>,
-//}
-//
-//// Same here
-//pub fn to_bytes<T>(value: &T) -> Result<Vec<ZData>>
-//where T: Serialize,
-//{
-//  let mut serializer = Serializer {
-//    output: Vec::new(),
-//  };
-//  value.serialize(&mut serializer)?;
-//  Ok(serializer.output)
-//}
-//
-//
-//impl<'a> ser::Serializer for &'a mut Serializer {
-//  type Ok = ();
-//
-//  // Which error type?
-//  type Error = Error;
-//
-//  //  type SerializeSeq = Self;
-//  //  type SerializeTuple = Self;
-//  //  type SerializeTupleStruct = Self;
-//  //  type SerializeTupleVariant = Self;
-//  //  type SerializeMap = Self;
-//  //  type SerializeStruct = Self;
-//  //  type SerializeStructVariant = Self;
-//
-//  fn serialize_bool(self,
-//
-//}
-
 #[cfg(test)]
 pub mod tests {
     use super::*;
+
     #[test]
     fn unit_byte_count() {
         assert_eq!(ZData::byte_count(0), 1);
@@ -398,13 +372,13 @@ pub mod tests {
     }
 
     #[test]
-    fn unit_light_data() {
-        let test = |ld: ZData, xs: Vec<u8>| {
-            println!("{:?}", ld.ser());
-            let ser = ld.ser();
+    fn unit_z_data() {
+        let test = |zd: ZData, xs: Vec<u8>| {
+            println!("{:?}", zd.ser());
+            let ser = zd.ser();
             assert_eq!(ser, xs);
             println!("{:?}", ZData::de(&ser));
-            assert_eq!(ld, ZData::de(&ser).expect("valid lightdata"))
+            assert_eq!(zd, ZData::de(&ser).expect("valid zdata"))
         };
         test(ZData::Atom(vec![]), vec![0b0000_0000]);
         test(ZData::Cell(vec![]), vec![0b1000_0000]);

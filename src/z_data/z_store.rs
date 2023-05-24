@@ -56,7 +56,7 @@ impl<F: LurkField> ZStore<F> {
 
     pub fn new_with_expr(store: &Store<F>, expr: &Ptr<F>) -> (Self, Option<ZExprPtr<F>>) {
         let mut new = Self::new();
-        let z_ptr = store.get_expr_hash(expr).unwrap();
+        let z_ptr = store.hash_expr(expr).unwrap();
         let z_expr = ZExpr::from_ptr(store, expr);
         new.expr_map.insert(z_ptr, z_expr);
         (new, Some(z_ptr))
@@ -153,10 +153,10 @@ impl<F: LurkField> ZStore<F> {
         ptr: &ZExprPtr<F>,
         expr: Option<ZExpr<F>>,
     ) -> Option<Option<ZExpr<F>>> {
-        if let Some(_) = ZStore::immediate_z_expr(ptr) {
+        if ZStore::immediate_z_expr(ptr).is_some() {
             None
         } else {
-            self.expr_map.insert(*ptr, expr.clone())
+            self.expr_map.insert(*ptr, expr)
         }
     }
 

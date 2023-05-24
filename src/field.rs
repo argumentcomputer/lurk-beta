@@ -21,7 +21,7 @@ use rand::{rngs::StdRng, SeedableRng};
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 
 /// The type of finite fields used in the language
-/// For Pallas/Vesta see https://electriccoin.co/blog/the-pasta-curves-for-halo-2-and-beyond/
+/// For Pallas/Vesta see `<https://electriccoin.co/blog/the-pasta-curves-for-halo-2-and-beyond/>`
 pub enum LanguageField {
     /// The Pallas field,
     Pallas,
@@ -231,7 +231,7 @@ pub struct FWrap<F: LurkField>(pub F);
 impl<F: LurkField> Copy for FWrap<F> {}
 
 #[cfg(not(target_arch = "wasm32"))]
-/// Trait implementation for generating FWrap<F> instances with proptest
+/// Trait implementation for generating `FWrap<F>` instances with proptest
 impl<F: LurkField> Arbitrary for FWrap<F> {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
@@ -269,7 +269,10 @@ impl<F: LurkField> Serialize for FWrap<F> {
         S: serde::Serializer,
     {
         let bytes: Vec<u8> = Vec::from(self.0.to_repr().as_ref());
-        bytes.serialize(serializer)
+        let mut trimmed_bytes: Vec<u8> =
+            bytes.into_iter().rev().skip_while(|x| *x == 0u8).collect();
+        trimmed_bytes.reverse();
+        serializer.serialize_bytes(&trimmed_bytes)
     }
 }
 
@@ -314,17 +317,48 @@ impl<F: LurkField> Encodable for FWrap<F> {
     }
 }
 
+struct FWrapVisitor;
+
+impl<'de> serde::de::Visitor<'de> for FWrapVisitor {
+    type Value = Vec<u8>;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("FWrap bytes")
+    }
+
+    fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(v)
+    }
+
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        self.visit_byte_buf(v.to_vec())
+    }
+}
+
 impl<'de, F: LurkField> Deserialize<'de> for FWrap<F> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        use serde::de::Error;
-        let bytes: Vec<u8> = Vec::deserialize(deserializer)?;
-        let f = F::from_bytes(&bytes).ok_or_else(|| {
-            D::Error::custom(format!("expected field element as bytes, got {:?}", &bytes))
-        })?;
-        Ok(FWrap(f))
+        let bytes = deserializer.deserialize_byte_buf(FWrapVisitor)?;
+
+        //// the field element expects a certain Repr length, whereas ZData trims it.
+        let mut bytes_slice = F::default().to_repr();
+        bytes_slice
+            .as_mut()
+            .iter_mut()
+            .zip(&bytes)
+            .for_each(|(byte_slice, byte)| *byte_slice = *byte);
+        let f: Option<F> = F::from_repr(bytes_slice).into();
+        f.map(FWrap).ok_or_else(|| {
+            serde::de::Error::custom(format!("expected field element as bytes, got {:?}", bytes))
+        })
     }
 }
 

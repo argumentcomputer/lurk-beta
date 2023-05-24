@@ -7,7 +7,7 @@ use std::sync::RwLock;
 
 #[derive(Debug)]
 /// `CacheMap` is an adaptation of `FrozenMap`:
-/// https://docs.rs/elsa/latest/elsa/map/struct.FrozenMap.html
+/// `<https://docs.rs/elsa/latest/elsa/map/struct.FrozenMap.html>`
 pub struct CacheMap<K, V> {
     map: RwLock<HashMap<K, V, ahash::RandomState>>,
 }

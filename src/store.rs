@@ -55,9 +55,9 @@ pub struct Store<F: LurkField> {
     pub opaque_ptrs: IndexSet<ZExprPtr<F>>,
     pub opaque_cont_ptrs: IndexSet<ZContPtr<F>>,
 
-    /// Holds a mapping of ZExprPtr -> Ptr for reverse lookups
+    /// Holds a mapping of `ZExprPtr` -> `Ptr` for reverse lookups
     pub z_expr_ptr_map: CacheMap<ZExprPtr<F>, Box<Ptr<F>>>,
-    /// Holds a mapping of ZExprPtr -> ContPtr<F> for reverse lookups
+    /// Holds a mapping of `ZExprPtr` -> `ContPtr<F>` for reverse lookups
     pub z_cont_ptr_map: CacheMap<ZContPtr<F>, Box<ContPtr<F>>>,
 
     /// Caches poseidon hashes
@@ -685,7 +685,7 @@ impl<F: LurkField> Store<F> {
         if *ptr == self.strnil() {
             return Some(string);
         }
-        let mut strcons = self.fetch_strcons(&ptr);
+        let mut strcons = self.fetch_strcons(ptr);
         if let Some(..) = strcons {
             while let Some((car, cdr)) = strcons {
                 let chr = self.fetch_char(&car)?;
@@ -1250,11 +1250,6 @@ impl<F: LurkField> Store<F> {
 
     pub fn hash_expr(&self, ptr: &Ptr<F>) -> Option<ZExprPtr<F>> {
         self.get_z_expr(ptr, None).ok().map(|x| x.0)
-    }
-
-    // This isn't needed, right?
-    pub fn get_expr_hash(&self, _ptr: &Ptr<F>) -> Option<ZExprPtr<F>> {
-        todo!()
     }
 
     pub fn to_z_cont(&self, ptr: &ContPtr<F>) -> Option<ZCont<F>> {
