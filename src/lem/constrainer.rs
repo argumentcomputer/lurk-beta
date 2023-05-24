@@ -35,9 +35,9 @@ impl<F: LurkField> AllocationManager<F> {
             Some(alloc) => Ok(alloc.to_owned()),
             None => {
                 let digits = f.hex_digits();
-                let Ok(alloc) = AllocatedNum::alloc(cs.namespace(|| format!("allocate {}", &digits)), || Ok(f)) else {
-                    return Err(format!("Couldn't allocate {}", &digits));
-                };
+                let alloc =
+                    AllocatedNum::alloc(cs.namespace(|| format!("allocate {digits}")), || Ok(f))
+                        .map_err(|e| format!("{e}: couldn't allocate {digits}"))?;
                 self.0.insert(wrap, alloc.clone());
                 Ok(alloc)
             }
@@ -51,16 +51,16 @@ impl LEM {
         z_ptr: &ZPtr<F>,
         name: &String,
     ) -> Result<AllocatedPtr<F>, String> {
-        let Ok(alloc_tag) = AllocatedNum::alloc(cs.namespace(|| format!("allocate {}'s tag", name)), || 
-            Ok(z_ptr.tag.to_field())
-        ) else {
-            return Err(format!("Couldn't allocate {}'s tag", name))
-        };
-        let Ok(alloc_hash) = AllocatedNum::alloc(cs.namespace(|| format!("allocate {}'s hash", name)), || 
-            Ok(z_ptr.hash)
-        ) else {
-            return Err(format!("Couldn't allocate {}'s hash", name))
-        };
+        let alloc_tag =
+            AllocatedNum::alloc(cs.namespace(|| format!("allocate {name}'s tag")), || {
+                Ok(z_ptr.tag.to_field())
+            })
+            .map_err(|e| format!("{e}: couldn't allocate {name}'s tag"))?;
+        let alloc_hash =
+            AllocatedNum::alloc(cs.namespace(|| format!("allocate {name}'s hash")), || {
+                Ok(z_ptr.hash)
+            })
+            .map_err(|e| format!("{e}: couldn't allocate {name}'s hash"))?;
         Ok(AllocatedPtr::from_parts(&alloc_tag, &alloc_hash))
     }
 
@@ -69,12 +69,14 @@ impl LEM {
         alloc_ptr: &AllocatedPtr<F>,
         name: &String,
     ) -> Result<(), String> {
-        let Ok(_) = alloc_ptr.tag().inputize(cs.namespace(|| format!("inputize {}'s tag", name))) else {
-            return Err(format!("Couldn't inputize {}'s tag", name))
-        };
-        let Ok(_) = alloc_ptr.hash().inputize(cs.namespace(|| format!("inputize {}'s hash", name))) else {
-            return Err(format!("Couldn't inputize {}'s hash", name))
-        };
+        alloc_ptr
+            .tag()
+            .inputize(cs.namespace(|| format!("inputize {}'s tag", name)))
+            .map_err(|e| format!("{}: couldn't inputize {}'s tag", &e, name))?;
+        alloc_ptr
+            .hash()
+            .inputize(cs.namespace(|| format!("inputize {}'s hash", name)))
+            .map_err(|e| format!("{}: couldn't inputize {}'s hash", &e, name))?;
         Ok(())
     }
 
@@ -86,6 +88,27 @@ impl LEM {
                 None => Err("Couldn't check whether we're on a concrete path".to_string()),
             },
         }
+    }
+
+    fn allocate_and_inputize_input<'a, F: LurkField, CS: ConstraintSystem<F>>(
+        &'a self,
+        cs: &mut CS,
+        store: &mut Store<F>,
+        witness: &Witness<F>,
+        alloc_ptrs: &mut HashMap<&'a String, AllocatedPtr<F>>,
+        idx: usize,
+    ) -> Result<(), String> {
+        if alloc_ptrs.contains_key(&self.input[idx]) {
+            return Err(format!("{} already allocated", &self.input[idx]));
+        }
+        let alloc_ptr = Self::allocate_ptr(
+            &mut cs.namespace(|| format!("allocate input {}", &self.input[idx])),
+            &store.hydrate_ptr(&witness.input[idx])?,
+            &self.input[idx],
+        )?;
+        alloc_ptrs.insert(&self.input[idx], alloc_ptr.clone());
+        Self::inputize_ptr(cs, &alloc_ptr, &self.input[idx])?;
+        Ok(())
     }
 
     /// Create R1CS constraints for LEM given an evaluation witness.
@@ -119,45 +142,14 @@ impl LEM {
     ) -> Result<(), String> {
         let mut alloc_ptrs: HashMap<&String, AllocatedPtr<F>> = HashMap::default();
 
-        // TODO: consider creating `initialize` function
         // allocate first input
-        {
-            let alloc_ptr = Self::allocate_ptr(
-                &mut cs.namespace(|| format!("allocate input {}", &self.input[0])),
-                &store.hydrate_ptr(&witness.input[0])?,
-                &self.input[0],
-            )?;
-            alloc_ptrs.insert(&self.input[0], alloc_ptr.clone());
-            Self::inputize_ptr(cs, &alloc_ptr, &self.input[0])?;
-        }
+        self.allocate_and_inputize_input(cs, store, witness, &mut alloc_ptrs, 0)?;
 
         // allocate second input
-        {
-            if alloc_ptrs.contains_key(&self.input[1]) {
-                return Err(format!("{} already allocated", &self.input[1]));
-            }
-            let alloc_ptr = Self::allocate_ptr(
-                &mut cs.namespace(|| format!("allocate input {}", &self.input[1])),
-                &store.hydrate_ptr(&witness.input[1])?,
-                &self.input[1],
-            )?;
-            alloc_ptrs.insert(&self.input[1], alloc_ptr.clone());
-            Self::inputize_ptr(cs, &alloc_ptr, &self.input[1])?;
-        }
+        self.allocate_and_inputize_input(cs, store, witness, &mut alloc_ptrs, 1)?;
 
         // allocate third input
-        {
-            if alloc_ptrs.contains_key(&self.input[2]) {
-                return Err(format!("{} already allocated", &self.input[2]));
-            }
-            let alloc_ptr = Self::allocate_ptr(
-                &mut cs.namespace(|| format!("allocate input {}", &self.input[2])),
-                &store.hydrate_ptr(&witness.input[2])?,
-                &self.input[2],
-            )?;
-            alloc_ptrs.insert(&self.input[2], alloc_ptr.clone());
-            Self::inputize_ptr(cs, &alloc_ptr, &self.input[2])?;
-        }
+        self.allocate_and_inputize_input(cs, store, witness, &mut alloc_ptrs, 2)?;
 
         let mut num_inputized_outputs = 0;
 
@@ -188,25 +180,35 @@ impl LEM {
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
                     let alloc_tag = alloc_manager.alloc(cs, tag.to_field())?;
 
-                    // If `concrete_path` is Some, then we constrain using "concrete implies ..." logic
+                    // If `branch_path_info` is Some, then we constrain using "concrete implies ..." logic
                     if let Some(concrete_path) = branch_path_info {
-                        let Ok(_) = implies_equal(
+                        implies_equal(
                             &mut cs.namespace(|| format!("implies equal for {}'s tag", tgt.name())),
                             &concrete_path,
                             alloc_tgt.tag(),
                             &alloc_tag,
-                        ) else {
-                            return Err(format!("Couldn't enforce implies equal for {}'s tag", tgt.name()))
-                        };
-                        let Ok(_) = implies_equal_zero(
-                            &mut cs.namespace(|| format!("implies equal zero for {}'s hash (must be zero)", tgt.name())),
+                        )
+                        .map_err(|e| {
+                            format!(
+                                "{e}: couldn't enforce implies equal for {}'s tag",
+                                tgt.name()
+                            )
+                        })?;
+                        implies_equal_zero(
+                            &mut cs.namespace(|| {
+                                format!("implies equal zero for {}'s hash", tgt.name())
+                            }),
                             &concrete_path,
                             alloc_tgt.hash(),
-                        ) else {
-                            return Err(format!("Couldn't enforce implies equal for {}'s hash", tgt.name()))
-                        };
+                        )
+                        .map_err(|e| {
+                            format!(
+                                "{e}: couldn't enforce implies equal zero for {}'s hash",
+                                tgt.name()
+                            )
+                        })?;
                     } else {
-                        // If `concrete_path` is None, we just do regular constraining
+                        // If `branch_path_info` is None, we just do regular constraining
                         enforce_equal(
                             cs,
                             || {
@@ -232,56 +234,50 @@ impl LEM {
                     };
                     let mut concrete_path_vec = Vec::new();
                     for (tag, op) in cases {
-                        let Ok(alloc_has_match) = alloc_equal_const(
-                            &mut cs.namespace(
-                                || format!("{}.alloc_equal_const (tag:{})", &path, tag)
-                            ),
+                        let alloc_has_match = alloc_equal_const(
+                            &mut cs.namespace(|| format!("{path}.{tag}.alloc_equal_const")),
                             alloc_match_ptr.tag(),
                             tag.to_field::<F>(),
-                        ) else {
-                            return Err("Allocated variable does not have the expected tag".to_string());
-                        };
+                        )
+                        .map_err(|e| format!("{e}: couldn't allocate equal const"))?;
                         concrete_path_vec.push(alloc_has_match.clone());
 
                         let new_path_matchtag = format!("{}.{}", &path, tag);
                         if let Some(concrete_path) = branch_path_info.clone() {
-                            let Ok(concrete_path_and_has_match) = and
-                                (
-                                    &mut cs.namespace(|| format!("{}.and (tag:{})", &path, tag)),
-                                    &concrete_path,
-                                    &alloc_has_match
-                                ) else {
-                                    return Err("Failed to constrain `and`".to_string());
-                                };
+                            let concrete_path_and_has_match = and(
+                                &mut cs.namespace(|| format!("{path}.{tag}.and")),
+                                &concrete_path,
+                                &alloc_has_match,
+                            )
+                            .map_err(|e| format!("{e}: failed to constrain `and`"))?;
                             stack.push((op, Some(concrete_path_and_has_match), new_path_matchtag));
                         } else {
                             stack.push((op, Some(alloc_has_match), new_path_matchtag));
                         }
                     }
 
-                    // If `concrete_path` is Some, then we constrain using "concrete implies ..." logic
+                    // If `branch_path_info` is Some, then we constrain using "concrete implies ..." logic
                     if let Some(concrete_path) = branch_path_info {
-                        let Ok(_) = enforce_selector_with_premise(
+                        enforce_selector_with_premise(
                             &mut cs.namespace(|| {
                                 format!(
-                                    "{}.enforce exactly one selected (if concrete, tag: {:?})",
-                                    &path,
+                                    "{path}.enforce exactly one selected (if concrete, tag: {:?})",
                                     alloc_match_ptr.tag().get_value()
                                 )
                             }),
                             &concrete_path,
                             &concrete_path_vec,
-                        ) else {
-                            return Err("Failed to enforce selector if concrete".to_string());
-                        };
+                        )
+                        .map_err(|e| {
+                            format!("{e}: couldn't constrain `enforce_selector_with_premise`")
+                        })?;
                     } else {
-                        // If `concrete_path` is None, we just do regular constraining
-                        let Ok(_) = enforce_popcount_one(
+                        // If `branch_path_info` is None, we just do regular constraining
+                        enforce_popcount_one(
                             &mut cs.namespace(|| format!("{}.enforce exactly one selected", &path)),
                             &concrete_path_vec[..],
-                        ) else {
-                            return Err("Failed to enforce selector".to_string())
-                        };
+                        )
+                        .map_err(|e| format!("{e}: couldn't enforce `popcount_one`"))?;
                     }
                 }
                 LEMOP::Seq(ops) => stack.extend(
@@ -317,17 +313,21 @@ impl LEM {
                             num_inputized_outputs += 1;
                         }
 
-                        // If `concrete_path` is Some, then we constrain using "concrete implies ..." logic
+                        // If `branch_path_info` is Some, then we constrain using "concrete implies ..." logic
                         if let Some(concrete_path) = branch_path_info.clone() {
-                            let Ok(_) = alloc_ptr_computed.implies_ptr_equal(
-                                &mut cs.namespace(|| format!("enforce imply equal for {}", &output_name)),
-                                &concrete_path,
-                                &alloc_ptr_expected,
-                            ) else {
-                                return Err("Failed to constrain implies_ptr_equal".to_string())
-                            };
+                            alloc_ptr_computed
+                                .implies_ptr_equal(
+                                    &mut cs.namespace(|| {
+                                        format!("enforce imply equal for {}", &output_name)
+                                    }),
+                                    &concrete_path,
+                                    &alloc_ptr_expected,
+                                )
+                                .map_err(|e| {
+                                    format!("{e}: couldn't constrain `implies_ptr_equal`")
+                                })?;
                         } else {
-                            // If `concrete_path` is None, we just do regular constraining
+                            // If `branch_path_info` is None, we just do regular constraining
                             alloc_ptr_computed.enforce_equal(
                                 &mut cs.namespace(|| format!("enforce equal for {}", &output_name)),
                                 &alloc_ptr_expected,

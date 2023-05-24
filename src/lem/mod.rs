@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use crate::field::LurkField;
 
-use self::{pointers::Ptr, symbol::Symbol, tag::Tag};
+use self::{pointers::Ptr, store::Store, tag::Tag};
 
 use dashmap::DashMap;
 
@@ -136,7 +136,7 @@ pub enum LEMOP {
     /// `MatchSymbol(x, cases, def)` checks whether `x` matches some symbol among
     /// the ones provided in `cases`. If so, run the corresponding `LEMOP`. Run
     /// The default `def` `LEMOP` otherwise
-    MatchSymbol(MetaPtr, HashMap<Symbol, LEMOP>, Box<LEMOP>),
+    MatchSymPath(MetaPtr, HashMap<Vec<String>, LEMOP>, Box<LEMOP>),
     /// `Seq(ops)` executes each `op: LEMOP` in `ops` sequentially
     Seq(Vec<LEMOP>),
     /// `SetReturn([a, b, c])` sets the output as `[a, b, c]`
@@ -282,6 +282,35 @@ impl LEMOP {
                 ]))
             }
             _ => todo!(),
+        }
+    }
+
+    /// Intern all symbol paths that are matched on `MatchSymPath`s
+    pub fn intern_matched_sym_paths<F: LurkField>(&self, store: &mut Store<F>) {
+        let mut stack = vec![self];
+        while let Some(op) = stack.pop() {
+            match op {
+                Self::MatchSymPath(_, cases, def) => {
+                    for (path, op) in cases {
+                        store.intern_symbol_path(path);
+                        stack.push(op);
+                    }
+                    stack.push(def);
+                }
+                Self::MatchTag(_, cases) => cases.values().for_each(|op| stack.push(op)),
+                Self::Seq(ops) => stack.extend(ops),
+                // It's safer to be exaustive here to avoid missing new LEMOPs
+                Self::MkNull(..)
+                | Self::Hash2Ptrs(..)
+                | Self::Hash3Ptrs(..)
+                | Self::Hash4Ptrs(..)
+                | Self::Unhash2Ptrs(..)
+                | Self::Unhash3Ptrs(..)
+                | Self::Unhash4Ptrs(..)
+                | Self::Hide(..)
+                | Self::Open(..)
+                | Self::SetReturn(..) => (),
+            }
         }
     }
 }

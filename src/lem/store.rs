@@ -42,6 +42,7 @@ pub struct Store<F: LurkField> {
 
     vec_char_cache: HashMap<String, Ptr<F>>,
     vec_str_cache: HashMap<Vec<String>, Ptr<F>>,
+    sym_path_cache: HashMap<Ptr<F>, Vec<String>>,
 
     pub poseidon_cache: PoseidonCache<F>,
     dehydrated: Vec<Ptr<F>>,
@@ -153,7 +154,7 @@ impl<F: LurkField> Store<F> {
     /// the string `"abc"`, we will end up with cached pointers to the strings
     /// `"c"`, `"bc"` and `"abc"` stored in `vec_char_cache` as `['c']`,
     /// `['c', 'b']` and `['c', 'b', 'a']` respectively.
-    pub fn intern_string(&mut self, s: &String) -> Ptr<F> {
+    pub fn intern_string(&mut self, s: &str) -> Ptr<F> {
         let mut chars = s.chars().rev().collect::<String>();
         let mut ptr;
         let mut heads = vec![];
@@ -190,8 +191,8 @@ impl<F: LurkField> Store<F> {
     /// to the symbol paths `["cc"]`, `["bb", "cc"]` and `["aa", "bb", "cc"]`
     /// stored in `vec_str_cache` as `["cc"]`, `["cc", "bb"]` and
     /// ["cc", "bb", "aa"]` respectively.
-    pub fn intern_symbol_path(&mut self, path: &Vec<String>) -> Ptr<F> {
-        let mut components = path.clone();
+    pub fn intern_symbol_path(&mut self, path: &[String]) -> Ptr<F> {
+        let mut components = path.to_owned();
         components.reverse();
         let mut ptr;
         let mut heads = vec![];
@@ -199,6 +200,7 @@ impl<F: LurkField> Store<F> {
             // try a cache hit until no char is left while accumulating the heads
             if components.is_empty() {
                 ptr = Ptr::null(Tag::Sym);
+                self.sym_path_cache.insert(ptr, vec![]);
                 break;
             }
             match self.vec_str_cache.get(&components) {
@@ -215,14 +217,21 @@ impl<F: LurkField> Store<F> {
             ptr = self.intern_2_ptrs(Tag::Sym, head_ptr, ptr);
             components.push(head);
             self.vec_str_cache.insert(components.clone(), ptr);
+            self.sym_path_cache
+                .insert(ptr, components.iter().rev().cloned().collect_vec());
         }
         ptr
     }
 
+    #[inline]
+    pub fn fetch_sym_path(&self, ptr: &Ptr<F>) -> Option<&Vec<String>> {
+        self.sym_path_cache.get(ptr)
+    }
+
     pub fn intern_symbol(&mut self, s: &Symbol) -> Ptr<F> {
         match s {
-            Symbol::Sym(path) => self.intern_symbol_path(&path),
-            Symbol::Key(path) => self.intern_symbol_path(&path).sym_to_key(),
+            Symbol::Sym(path) => self.intern_symbol_path(path),
+            Symbol::Key(path) => self.intern_symbol_path(path).sym_to_key(),
         }
     }
 

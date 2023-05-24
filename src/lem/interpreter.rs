@@ -163,22 +163,17 @@ impl LEM {
                     let ptr_tag = ptr.tag();
                     match cases.get(ptr_tag) {
                         Some(op) => stack.push(op),
-                        None => return Err(format!("No match for tag {:?}", ptr_tag)),
+                        None => return Err(format!("No match for tag {}", ptr_tag)),
                     }
                 }
-                LEMOP::MatchSymbol(ptr, cases, def) => {
-                    let ptr = ptr.get_ptr(&ptrs)?;
-                    let mut has_match = false;
-                    for (sym, op) in cases {
-                        let sym_ptr = store.intern_symbol(sym);
-                        if ptr == sym_ptr {
-                            stack.push(op);
-                            has_match = true;
-                            break;
-                        }
-                    }
-                    if !has_match {
-                        stack.push(def);
+                LEMOP::MatchSymPath(match_ptr, cases, def) => {
+                    let ptr = match_ptr.get_ptr(&ptrs)?;
+                    let Some(sym_path) = store.fetch_sym_path(&ptr) else {
+                        return Err(format!("Symbol path not found for {}", match_ptr.name()));
+                    };
+                    match cases.get(sym_path) {
+                        Some(op) => stack.push(op),
+                        None => stack.push(def),
                     }
                 }
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
@@ -217,6 +212,8 @@ impl LEM {
         let mut witnesses = vec![];
         let terminal = Ptr::null(Tag::Terminal);
         let error = Ptr::null(Tag::Error);
+        // Assures that `MatchSymPath`s will work properly
+        self.lem_op.intern_matched_sym_paths(store);
         loop {
             let w = self.run([expr, env, cont], store)?;
             witnesses.push(w.clone());
