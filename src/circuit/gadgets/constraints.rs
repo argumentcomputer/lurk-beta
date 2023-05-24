@@ -811,9 +811,9 @@ mod tests {
 
     use crate::field::FWrap;
 
-    // Strategy for creating a random linear combination of 5 vars
-    fn random_lc_strategy() -> impl Strategy<Value = LinearCombination<Fr>> {
-        prop::collection::vec(any::<FWrap<Fr>>(), 5).prop_map(|coeffs| {
+    // Strategy for creating a random linear combination
+    fn random_lc_strategy(n: usize) -> impl Strategy<Value = LinearCombination<Fr>> {
+        prop::collection::vec(any::<FWrap<Fr>>(), n).prop_map(|coeffs| {
             let mut lc = LinearCombination::zero();
             for coeff in coeffs {
                 let var = Variable::new_unchecked(Index::Input(rand::random()));
@@ -919,7 +919,7 @@ mod tests {
         }
 
         #[test]
-        fn prop_enforce_implication_lc(premise_val in any::<bool>(), lc in random_lc_strategy()) {
+        fn prop_enforce_implication_lc(premise_val in any::<bool>(), lc in random_lc_strategy(5)) {
             let mut cs = TestConstraintSystem::<Fr>::new();
 
             // Allocate premise boolean.
@@ -946,7 +946,7 @@ mod tests {
 
             // The expected behavior is that if `premise` is true,
             // the linear combination should evaluate to one.
-            prop_assume!(!premise_val || sum != 1 || cs.is_satisfied());
+            prop_assert!((!premise_val || sum == 1) == cs.is_satisfied());
         }
     }
 }
