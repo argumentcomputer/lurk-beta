@@ -46,26 +46,27 @@ fn end2end_benchmark(c: &mut Criterion) {
         .sample_size(10);
 
     let limit = 1_000_000_000;
-    let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
-    let lang_vesta_rc = Arc::new(lang_vesta.clone());
+    let lang_pallas =
+        Lang::<pasta_curves::pallas::Scalar, Coproc<pasta_curves::pallas::Scalar>>::new();
+    let lang_pallas_rc = Arc::new(lang_pallas.clone());
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
     // setup
     let mut store = Store::default();
     let env = empty_sym_env(&store);
-    let prover = NovaProver::new(reduction_count, lang_vesta);
+    let prover = NovaProver::new(reduction_count, lang_pallas);
 
     // use cached public params
-    let pp = public_parameters::public_params(reduction_count, lang_vesta_rc.clone()).unwrap();
+    let pp = public_parameters::public_params(reduction_count, lang_pallas_rc.clone()).unwrap();
 
     let size = (10, 0);
     let benchmark_id = BenchmarkId::new("end2end_go_base_nova", format!("_{}_{}", size.0, size.1));
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         b.iter(|| {
-            let ptr = go_base::<pasta_curves::Fq>(&mut store, s.0, s.1);
+            let ptr = go_base::<pasta_curves::pallas::Scalar>(&mut store, s.0, s.1);
             let _result = prover
-                .evaluate_and_prove(&pp, ptr, env, &mut store, limit, lang_vesta_rc.clone())
+                .evaluate_and_prove(&pp, ptr, env, &mut store, limit, lang_pallas_rc.clone())
                 .unwrap();
         })
     });
@@ -205,24 +206,24 @@ fn eval_benchmark(c: &mut Criterion) {
 //     let limit = 1_000_000_000;
 //     let _lang_bls = Lang::<Fr, Coproc<Fr>>::new();
 //     let _lang_pallas = Lang::<pasta_curves::Fp, Coproc<pasta_curves::Fp>>::new();
-//     let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
+//     let lang_pallas = Lang::<pasta_curves::pallas::Scalar, Coproc<pasta_curves::pallas::Scalar>>::new();
 
 //     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
 //     group.bench_function("circuit_generation_go_base_10_16_nova", |b| {
 //         let mut store = Store::default();
 //         let env = empty_sym_env(&store);
-//         let ptr = go_base::<pasta_curves::Fq>(&mut store, black_box(10), black_box(16));
-//         let prover = NovaProver::new(reduction_count, lang_vesta.clone());
+//         let ptr = go_base::<pasta_curves::pallas::Scalar>(&mut store, black_box(10), black_box(16));
+//         let prover = NovaProver::new(reduction_count, lang_pallas.clone());
 
 //         let pp = public_parameters::public_params(reduction_count).unwrap();
 //         let frames = prover
-//             .get_evaluation_frames(ptr, env, &mut store, limit, &lang_vesta)
+//             .get_evaluation_frames(ptr, env, &mut store, limit, &lang_pallas)
 //             .unwrap();
 
 //         b.iter(|| {
 //             let result = prover
-//                 .prove(&pp, frames.clone(), &mut store, &lang_vesta)
+//                 .prove(&pp, frames.clone(), &mut store, &lang_pallas)
 //                 .unwrap();
 //             black_box(result);
 //         })
@@ -237,8 +238,9 @@ fn prove_benchmark(c: &mut Criterion) {
         .sample_size(10);
 
     let limit = 1_000_000_000;
-    let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
-    let lang_vesta_rc = Arc::new(lang_vesta.clone());
+    let lang_pallas =
+        Lang::<pasta_curves::pallas::Scalar, Coproc<pasta_curves::pallas::Scalar>>::new();
+    let lang_pallas_rc = Arc::new(lang_pallas.clone());
     let mut store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
@@ -246,16 +248,16 @@ fn prove_benchmark(c: &mut Criterion) {
     let benchmark_id = BenchmarkId::new("prove_go_base_nova", format!("_{}_{}", size.0, size.1));
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
-        let ptr = go_base::<pasta_curves::Fq>(&mut store, s.0, s.1);
-        let prover = NovaProver::new(reduction_count, lang_vesta.clone());
-        let pp = public_parameters::public_params(reduction_count, lang_vesta_rc.clone()).unwrap();
+        let ptr = go_base::<pasta_curves::pallas::Scalar>(&mut store, s.0, s.1);
+        let prover = NovaProver::new(reduction_count, lang_pallas.clone());
+        let pp = public_parameters::public_params(reduction_count, lang_pallas_rc.clone()).unwrap();
         let frames = prover
-            .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_vesta)
+            .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
             .unwrap();
 
         b.iter(|| {
             let result = prover
-                .prove(&pp, frames.clone(), &mut store, lang_vesta_rc.clone())
+                .prove(&pp, frames.clone(), &mut store, lang_pallas_rc.clone())
                 .unwrap();
             black_box(result);
         })
@@ -269,8 +271,9 @@ fn verify_benchmark(c: &mut Criterion) {
         .sample_size(10);
 
     let limit = 1_000_000_000;
-    let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
-    let lang_vesta_rc = Arc::new(lang_vesta.clone());
+    let lang_pallas =
+        Lang::<pasta_curves::pallas::Scalar, Coproc<pasta_curves::pallas::Scalar>>::new();
+    let lang_pallas_rc = Arc::new(lang_pallas.clone());
     let mut store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
@@ -280,14 +283,14 @@ fn verify_benchmark(c: &mut Criterion) {
         let benchmark_id = BenchmarkId::new("verify_go_base_nova", &parameter_string);
         group.bench_with_input(benchmark_id, &size, |b, &s| {
             let ptr = go_base(&mut store, s.0, s.1);
-            let prover = NovaProver::new(reduction_count, lang_vesta.clone());
+            let prover = NovaProver::new(reduction_count, lang_pallas.clone());
             let pp =
-                public_parameters::public_params(reduction_count, lang_vesta_rc.clone()).unwrap();
+                public_parameters::public_params(reduction_count, lang_pallas_rc.clone()).unwrap();
             let frames = prover
-                .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_vesta)
+                .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
                 .unwrap();
             let (proof, z0, zi, num_steps) = prover
-                .prove(&pp, frames, &mut store, lang_vesta_rc.clone())
+                .prove(&pp, frames, &mut store, lang_pallas_rc.clone())
                 .unwrap();
 
             b.iter_batched(
@@ -311,8 +314,9 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
         .sample_size(10);
 
     let limit = 1_000_000_000;
-    let lang_vesta = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
-    let lang_vesta_rc = Arc::new(lang_vesta.clone());
+    let lang_pallas =
+        Lang::<pasta_curves::pallas::Scalar, Coproc<pasta_curves::pallas::Scalar>>::new();
+    let lang_pallas_rc = Arc::new(lang_pallas.clone());
     let mut store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
@@ -322,14 +326,14 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
         let benchmark_id = BenchmarkId::new("verify_compressed_go_base_nova", &parameter_string);
         group.bench_with_input(benchmark_id, &size, |b, &s| {
             let ptr = go_base(&mut store, s.0, s.1);
-            let prover = NovaProver::new(reduction_count, lang_vesta.clone());
+            let prover = NovaProver::new(reduction_count, lang_pallas.clone());
             let pp =
-                public_parameters::public_params(reduction_count, lang_vesta_rc.clone()).unwrap();
+                public_parameters::public_params(reduction_count, lang_pallas_rc.clone()).unwrap();
             let frames = prover
-                .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_vesta)
+                .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
                 .unwrap();
             let (proof, z0, zi, num_steps) = prover
-                .prove(&pp, frames, &mut store, lang_vesta_rc.clone())
+                .prove(&pp, frames, &mut store, lang_pallas_rc.clone())
                 .unwrap();
 
             let compressed_proof = proof.compress(&pp).unwrap();
