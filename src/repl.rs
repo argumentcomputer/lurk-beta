@@ -509,7 +509,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             match store.fetch(car).unwrap() {
                                 Expression::StrCons(..) => {
                                     let path: String = store
-                                        .fetch_string(&car)
+                                        .fetch_string(car)
                                         .ok_or(Error::msg("handle_meta fetch_string"))?;
                                     let joined = p.as_ref().join(Path::new(&path));
                                     self.handle_load(store, &joined)?

@@ -151,7 +151,7 @@ impl ZData {
         x & 0b0100_0000 == 0b0100_0000
     }
 
-    // TODO: Rename to to/from_z_data for clarity
+    // TODO: Rename to to/from_bytes for clarity
     /// Serializes this `ZData` into a `Vec<u8>`.
     pub fn ser(&self) -> Vec<u8> {
         let mut res = vec![];

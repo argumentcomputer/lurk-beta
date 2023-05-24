@@ -153,10 +153,10 @@ impl<F: LurkField> ZStore<F> {
         ptr: &ZExprPtr<F>,
         expr: Option<ZExpr<F>>,
     ) -> Option<Option<ZExpr<F>>> {
-        if let Some(_) = ZStore::immediate_z_expr(ptr) {
+        if ZStore::immediate_z_expr(ptr).is_some() {
             None
         } else {
-            self.expr_map.insert(*ptr, expr.clone())
+            self.expr_map.insert(*ptr, expr)
         }
     }
 

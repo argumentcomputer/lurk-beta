@@ -183,7 +183,7 @@ pub fn parse_num<F: LurkField>(
         let (upto, denom) = opt(preceded(tag("/"), parse_num_inner(base)))(i)?;
         let pos = Pos::from_upto(from, upto);
         let mut tmp = Num::<F>::U64(0);
-        if let Some(_) = neg {
+        if neg.is_some() {
             tmp -= num;
         } else {
             tmp = num;

@@ -685,7 +685,7 @@ impl<F: LurkField> Store<F> {
         if *ptr == self.strnil() {
             return Some(string);
         }
-        let mut strcons = self.fetch_strcons(&ptr);
+        let mut strcons = self.fetch_strcons(ptr);
         if let Some(..) = strcons {
             while let Some((car, cdr)) = strcons {
                 let chr = self.fetch_char(&car)?;
