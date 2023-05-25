@@ -6,9 +6,12 @@
 /.config/** @lurk-lab/lurk-ci
 /.github/** @lurk-lab/lurk-ci
 
+# Circuit
+/src/circuit/** @lurk-lab/lurk-circuit
+
+# LEM
+/src/lem/** @lurk-lab/lurk-lem
+
 # Order is important; the last matching pattern takes the most
 # precedence. This excludes @everyone but @porcuquine for /src/eval.rs
 /src/eval/** @porcuquine
-
-# Circuit
-/src/circuit/** @lurk-lab/lurk-circuit
