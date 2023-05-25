@@ -10,7 +10,7 @@
 
 ;; We open the functional commitment on input 5: Evaluate f(5).
 
-!(call 0x396e9cd726a3c323ad1ec3a7651da94bc08c2d7baa68211186101d3735fb31d3 5)
+!(call 0x3238c07bcc3c57b7466ee2370571a7cb862368036943abf41e956aa7f95bcd3d 5)
 
 ;; We can prove the functional-commitment opening.
 

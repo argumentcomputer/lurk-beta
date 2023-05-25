@@ -144,13 +144,7 @@ impl<F: LurkField> ZExpr<F> {
                     None
                 }
             }),
-            ExprTag::Key => {
-                if let Some(zptr) = store.hash_expr(ptr) {
-                    Some(ZExpr::Key(zptr))
-                } else {
-                    None
-                }
-            }
+            ExprTag::Key => store.hash_expr(ptr).map(ZExpr::Key),
             ExprTag::Fun => store.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
                 if let (Some(arg), Some(body), Some(closed_env)) = (
                     store.hash_expr(arg),
@@ -274,13 +268,14 @@ mod serde_uint {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::z_data::{from_z_data, to_z_data};
     use pasta_curves::pallas::Scalar;
 
     proptest! {
           #[test]
           fn prop_z_expr(x in any::<ZExpr<Scalar>>()) {
-              let ser = x.ser();
-              let de  = ZExpr::de(&ser).expect("read ZExpr");
+              let ser = to_z_data(&x).expect("write ZExpr");
+              let de: ZExpr<Scalar> = from_z_data(&ser).expect("read ZExpr");
               assert_eq!(x, de)
           }
     }

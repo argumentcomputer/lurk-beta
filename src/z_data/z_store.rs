@@ -199,18 +199,18 @@ impl<F: LurkField> ZStore<F> {
     }
 }
 
-// TODO: Fix the stack overflow issue
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use pasta_curves::pallas::Scalar;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::z_data::{from_z_data, to_z_data};
+    use pasta_curves::pallas::Scalar;
 
-//     proptest! {
-//         #[test]
-//         fn prop_z_store(s in any::<ZStore<Scalar>>()) {
-//             let ser = s.ser();
-//             let de  = ZStore::de(&ser).expect("read ZStore");
-//             assert_eq!(s, de)
-//         }
-//     }
-// }
+    proptest! {
+        #[test]
+        fn prop_z_store(s in any::<ZStore<Scalar>>()) {
+            let ser = to_z_data(&s).expect("write ZStore");
+            let de: ZStore<Scalar> = from_z_data(&ser).expect("read ZStore");
+            assert_eq!(s, de)
+        }
+    }
+}

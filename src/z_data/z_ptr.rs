@@ -136,7 +136,7 @@ impl<F: LurkField> TryFrom<&String> for ZExprPtr<F> {
     fn try_from(value: &String) -> Result<Self, Self::Error> {
         let mut store = Store::<F>::default();
         let ptr = store
-            .read(&value)
+            .read(value)
             .map_err(|_| store::Error("Parse error".into()))?;
         let zptr = store
             .hash_expr(&ptr)

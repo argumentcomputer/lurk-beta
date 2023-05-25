@@ -46,7 +46,6 @@ pub use self::serde::{from_z_data, to_z_data};
 ///
 /// assert_eq!(data.to_string(), "[c:[a:01], [a:02, 03]]");
 /// ```
-// Why is above better than       [c:[a:[01], a:[02, 03]]] ?
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum ZData {
     /// An Atom contains a byte sequence.

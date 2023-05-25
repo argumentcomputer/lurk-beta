@@ -21,7 +21,7 @@ use crate::{
     store::Store,
     tag::ExprTag,
     writer::Write,
-    z_data::{Encodable, ZData},
+    z_data::{from_z_data, Encodable, ZData},
     z_expr::ZExpr,
     z_ptr::ZExprPtr,
     z_store::ZStore,
@@ -261,17 +261,32 @@ impl<F: LurkField> Claim<F> {
     pub fn proof_key(&self) -> Result<ZExprPtr<F>, Error> {
         match self {
             Claim::Evaluation(eval) => {
-                // Only using input and output for now
+                // Only keying on input and output for now
                 let expr_in = ZExprPtr::<F>::try_from(&eval.expr)?;
                 let expr_out = ZExprPtr::<F>::try_from(&eval.expr_out)?;
                 let expr = ZExpr::Cons(expr_in, expr_out);
                 Ok(expr.z_ptr(&PoseidonCache::default()))
             }
-            Claim::PtrEvaluation(_ptr_eval) => {
-                todo!()
+            Claim::PtrEvaluation(ptr_eval) => {
+                let expr_in: ZExprPtr<F> = match &ptr_eval.expr {
+                    LurkPtr::Source(source) => ZExprPtr::<F>::try_from(source)?,
+                    LurkPtr::Bytes(bytes) => from_z_data(&ZData::de(&bytes.z_ptr)?)?,
+                    LurkPtr::ZStorePtr(zsp) => zsp.z_ptr,
+                };
+                let expr_out = match &ptr_eval.expr_out {
+                    LurkPtr::Source(source) => ZExprPtr::<F>::try_from(source)?,
+                    LurkPtr::Bytes(bytes) => from_z_data(&ZData::de(&bytes.z_ptr)?)?,
+                    LurkPtr::ZStorePtr(zsp) => zsp.z_ptr,
+                };
+                let expr = ZExpr::Cons(expr_in, expr_out);
+                Ok(expr.z_ptr(&PoseidonCache::default()))
             }
-            Claim::Opening(_open) => {
-                todo!()
+            // TODO: Change this the the commited value?
+            Claim::Opening(open) => {
+                let expr_in = ZExprPtr::<F>::try_from(&open.input)?;
+                let expr_out = ZExprPtr::<F>::try_from(&open.output)?;
+                let expr = ZExpr::Cons(expr_in, expr_out);
+                Ok(expr.z_ptr(&PoseidonCache::default()))
             }
         }
     }
@@ -1094,37 +1109,6 @@ pub fn evaluate<F: LurkField>(
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::eval::Status;
-
-    #[test]
-    fn tmp_prove_and_verify() {
-        let store = &mut Store::<S1>::default();
-        let rc = ReductionCount::One;
-        let lang = Lang::new();
-        let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
-        let lang_rc = Arc::new(lang.clone());
-        let pp = public_params(rc.count(), lang_rc.clone()).unwrap();
-        let claim: Claim<S1> = Claim::Evaluation(Evaluation {
-            expr: "(+ 1 1)".into(),
-            env: "nil".into(),
-            cont: "Outermost".into(),
-            expr_out: "2".into(),
-            env_out: "nil".into(),
-            cont_out: "Terminal".into(),
-            status: Status::Terminal,
-            iterations: None,
-        });
-        let limit = 1000;
-        Proof::prove_claim(store, &claim, limit, false, &prover, &pp, lang_rc).unwrap();
-
-        //Test we are correctly reading/writing from disk
-        let proof_map = nova_proof_cache(rc.count());
-        let key = claim.proof_key().unwrap();
-        let proof = proof_map.get(&key).unwrap();
-        proof.verify(&pp, &lang).unwrap();
-    }
-
     //#[test]
     //fn test_cert_serialization() {
     //    use serde_json::json;

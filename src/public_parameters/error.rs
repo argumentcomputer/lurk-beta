@@ -27,4 +27,8 @@ pub enum Error {
     StoreError(#[from] store::Error),
     #[error("Cache error: {0}")]
     CacheError(String),
+    #[error("Serde error: {0}")]
+    SerdeError(#[from] crate::z_data::serde::SerdeError),
+    #[error("Anyhow error: {0}")]
+    AnyhowError(#[from] anyhow::Error),
 }

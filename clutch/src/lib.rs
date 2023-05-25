@@ -212,8 +212,8 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
                     match s.print_escape().as_str() {
                         "call" => self.call(store, rest)?,
                         "chain" => self.chain(store, rest)?,
-                        "commit" => self.commit(store, rest)?,
-                        "open" => self.open(store, rest)?,
+                        "lurk.commit" => self.commit(store, rest)?,
+                        "lurk.open" => self.open(store, rest)?,
                         "proof-in-expr" => self.proof_in_expr(store, rest)?,
                         "proof-out-expr" => self.proof_out_expr(store, rest)?,
                         "proof-claim" => self.proof_claim(store, rest)?,
