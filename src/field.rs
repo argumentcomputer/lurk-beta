@@ -291,10 +291,6 @@ impl<'de, F: LurkField> Deserialize<'de> for FWrap<F> {
     }
 }
 
-const fn bytes_size<F: LurkField>() -> usize {
-    F::NUM_BITS as usize / 8 + (F::NUM_BITS % 8 != 0) as usize
-}
-
 #[cfg(test)]
 pub mod tests {
     use crate::z_data::{from_z_data, to_z_data};

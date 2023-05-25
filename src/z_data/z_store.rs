@@ -181,21 +181,6 @@ impl<F: LurkField> ZStore<F> {
     }
 }
 
-use crate::z_data::{from_z_data, to_z_data, ZData};
-use pasta_curves::pallas::Scalar;
-use tap::TapOptional;
-
-fn test_zstore<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>>() -> Store<F> {
-    let zs = ZStore::<F>::default();
-    let bytes = Some(ZData::to_bytes(&to_z_data(&zs).unwrap()));
-    let mut s = bytes
-        .and_then(|bytes| ZData::from_bytes(&bytes).ok())
-        .and_then(|zd| from_z_data(&zd).ok())
-        .map(|zs: ZStore<F>| ZStore::to_store(&zs))
-        .tap_none(|| eprintln!("Fail"))
-        .unwrap_or_default();
-    s
-}
 #[cfg(test)]
 mod tests {
     use super::*;

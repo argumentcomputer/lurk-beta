@@ -595,8 +595,8 @@ impl<F: LurkField + Serialize + DeserializeOwned> LurkPtr<F> {
         let (z_store, z_ptr) = ZStore::new_with_expr(s, ptr);
         let z_ptr = z_ptr.unwrap();
 
-        let z_store_ser = to_z_data(&z_store).unwrap();
-        let z_ptr_ser = to_z_data(&z_ptr).unwrap();
+        let z_store_ser = to_z_data(z_store).unwrap();
+        let z_ptr_ser = to_z_data(z_ptr).unwrap();
 
         let again: ZExprPtr<F> = from_z_data(&z_ptr_ser).unwrap();
         assert_eq!(&z_ptr, &again);
