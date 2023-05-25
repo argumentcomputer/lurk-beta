@@ -30,5 +30,4 @@ template Main() {
     sha256_2.b <== arg_in[1];
     arg_out[0] <== sha256_2.out;
 }
-
 component main { public [arg_in] } = Main();

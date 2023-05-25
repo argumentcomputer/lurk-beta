@@ -43,17 +43,17 @@ fn generate_witness_from_wasm<Fr: PrimeField>(
 }
 
 #[allow(dead_code)]
-pub(crate) fn sha256_circom<F: PrimeField, CS: ConstraintSystem<F>>(
+pub fn sha256_circom<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     input1: F,
     input2: F,
+    p: PathBuf,
 ) -> Result<AllocatedNum<F>, SynthesisError> {
-    let root = current_dir().unwrap();
 
-    let circuit_file = root.join("src/circuit/gadgets/circom/sha256/main.r1cs");
+    let circuit_file = p.join("src/circuit/gadgets/circom/sha256/main.r1cs");
     let r1cs = load_r1cs(&circuit_file);
 
-    let witness_generator_file = root.join("src/circuit/gadgets/circom/sha256/main_js/main.wasm");
+    let witness_generator_file = p.join("src/circuit/gadgets/circom/sha256/main_js/main.wasm");
     let hash_preimage = vec![input1, input2];
     let witness = generate_witness(hash_preimage, witness_generator_file)?;
 
@@ -162,6 +162,7 @@ fn synthesize<F: PrimeField, CS: ConstraintSystem<F>>(
 
 #[cfg(test)]
 mod tests {
+    use std::env::current_dir;
     use pasta_curves::vesta::Scalar as Fr;
 
     use crate::circuit::gadgets::circom::sha256::sha256_circom;
@@ -176,12 +177,14 @@ mod tests {
         // Then the prime parameter must be pallas if you set Fr to vesta::Scalar.
         // circom main.circom --r1cs --wasm --sym --c --output . --prime pallas --json
 
+        let mut root = current_dir().unwrap();
         let mut cs = TestConstraintSystem::<Fr>::new();
 
         let output = sha256_circom(
             &mut cs.namespace(|| "sha256_circom"),
             Fr::from(0),
             Fr::from(0),
+            root,
         );
 
         let expected = "0x00000000008619b3767c057fdf8e6d99fde2680c5d8517eb06761c0878d40c40";
