@@ -13,8 +13,6 @@ use crate::symbol::Symbol;
 use crate::tag::ExprTag;
 use crate::uint::UInt;
 use crate::z_cont::ZCont;
-use crate::z_data::Encodable;
-use crate::z_data::ZData;
 use crate::z_expr::ZExpr;
 use crate::z_ptr::ZContPtr;
 use crate::z_ptr::ZExprPtr;
@@ -28,22 +26,6 @@ use crate::field::LurkField;
 pub struct ZStore<F: LurkField> {
     pub expr_map: BTreeMap<ZExprPtr<F>, Option<ZExpr<F>>>,
     pub cont_map: BTreeMap<ZContPtr<F>, Option<ZCont<F>>>,
-}
-
-impl<F: LurkField> Encodable for ZStore<F> {
-    fn ser(&self) -> ZData {
-        (self.expr_map.clone(), self.cont_map.clone()).ser()
-    }
-    fn de(zd: &ZData) -> anyhow::Result<Self> {
-        let xs: (
-            BTreeMap<ZExprPtr<F>, Option<ZExpr<F>>>,
-            BTreeMap<ZContPtr<F>, Option<ZCont<F>>>,
-        ) = Encodable::de(zd)?;
-        Ok(ZStore {
-            expr_map: xs.0,
-            cont_map: xs.1,
-        })
-    }
 }
 
 impl<F: LurkField> ZStore<F> {
@@ -199,6 +181,21 @@ impl<F: LurkField> ZStore<F> {
     }
 }
 
+use crate::z_data::{from_z_data, to_z_data, ZData};
+use pasta_curves::pallas::Scalar;
+use tap::TapOptional;
+
+fn test_zstore<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>>() -> Store<F> {
+    let zs = ZStore::<F>::default();
+    let bytes = Some(ZData::to_bytes(&to_z_data(&zs).unwrap()));
+    let mut s = bytes
+        .and_then(|bytes| ZData::from_bytes(&bytes).ok())
+        .and_then(|zd| from_z_data(&zd).ok())
+        .map(|zs: ZStore<F>| ZStore::to_store(&zs))
+        .tap_none(|| eprintln!("Fail"))
+        .unwrap_or_default();
+    s
+}
 #[cfg(test)]
 mod tests {
     use super::*;

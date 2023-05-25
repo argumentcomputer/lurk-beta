@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
 use serde::{Deserialize, Serialize};
@@ -9,14 +8,10 @@ use std::hash::Hash;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
 
-use crate::z_data::Encodable;
-use crate::z_data::ZData;
-
 use crate::field::{FWrap, LurkField};
+use crate::hash::IntoHashComponents;
 use crate::store::{self, Store};
 use crate::tag::{ContTag, ExprTag, Tag};
-
-use crate::hash::IntoHashComponents;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
@@ -82,21 +77,6 @@ impl<'de, E: Tag, F: LurkField> Deserialize<'de> for ZPtr<E, F> {
             x.0.to_u16()
                 .ok_or_else(|| serde::de::Error::custom("invalid range for field element tag"))?;
         let tag = E::try_from(tag_as_u16).map_err(|_| serde::de::Error::custom("invalid tag"))?;
-        Ok(ZPtr(tag, y.0))
-    }
-}
-
-impl<E: Tag, F: LurkField> Encodable for ZPtr<E, F> {
-    fn ser(&self) -> ZData {
-        let (x, y): (FWrap<F>, FWrap<F>) = (FWrap(self.0.to_field()), FWrap(self.1));
-        (x, y).ser()
-    }
-    fn de(ld: &ZData) -> anyhow::Result<Self> {
-        let (x, y): (FWrap<F>, FWrap<F>) = Encodable::de(ld)?;
-        let tag_as_u16 =
-            x.0.to_u16()
-                .ok_or_else(|| anyhow!("invalid range for field element representing a tag"))?;
-        let tag = E::try_from(tag_as_u16).map_err(|_| anyhow!("invalid tag"))?;
         Ok(ZPtr(tag, y.0))
     }
 }

@@ -1,7 +1,7 @@
 use thiserror::Error;
 
-mod de;
-mod ser;
+pub mod de;
+pub mod ser;
 
 pub use de::from_z_data;
 pub use ser::to_z_data;

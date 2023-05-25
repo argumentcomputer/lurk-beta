@@ -11,12 +11,9 @@ use crate::num::Num;
 use crate::ptr::Ptr;
 use crate::store::Store;
 use crate::tag::{ExprTag, Tag};
-use crate::z_data::Encodable;
-use crate::z_data::ZData;
 use crate::z_ptr::{ZContPtr, ZExprPtr, ZPtr};
 use crate::z_store::ZStore;
 use crate::UInt;
-use anyhow::anyhow;
 
 use crate::field::ser_f;
 use crate::field::LurkField;
@@ -174,72 +171,6 @@ impl<F: LurkField> ZExpr<F> {
             ExprTag::Char => store.fetch_char(ptr).map(ZExpr::Char),
             ExprTag::U64 => store.fetch_uint(ptr).map(ZExpr::UInt),
             ExprTag::Thunk => unimplemented!(),
-        }
-    }
-}
-
-impl<F: LurkField> Encodable for ZExpr<F> {
-    fn ser(&self) -> ZData {
-        match self {
-            ZExpr::Nil => ZData::Cell(vec![ZData::Atom(vec![0u8])]),
-            ZExpr::Cons(x, y) => ZData::Cell(vec![ZData::Atom(vec![1u8]), x.ser(), y.ser()]),
-            ZExpr::Comm(f, x) => {
-                ZData::Cell(vec![ZData::Atom(vec![2u8]), FWrap(*f).ser(), x.ser()])
-            }
-            ZExpr::SymNil => ZData::Cell(vec![ZData::Atom(vec![3u8])]),
-            ZExpr::SymCons(x, y) => ZData::Cell(vec![ZData::Atom(vec![4u8]), x.ser(), y.ser()]),
-            ZExpr::Key(x) => ZData::Cell(vec![ZData::Atom(vec![5u8]), x.ser()]),
-            ZExpr::Fun {
-                arg,
-                body,
-                closed_env,
-            } => ZData::Cell(vec![
-                ZData::Atom(vec![6u8]),
-                arg.ser(),
-                body.ser(),
-                closed_env.ser(),
-            ]),
-            ZExpr::Num(f) => ZData::Cell(vec![ZData::Atom(vec![7u8]), FWrap(*f).ser()]),
-            ZExpr::StrNil => ZData::Cell(vec![ZData::Atom(vec![8u8])]),
-            ZExpr::StrCons(x, y) => ZData::Cell(vec![ZData::Atom(vec![9u8]), x.ser(), y.ser()]),
-            ZExpr::Thunk(x, y) => ZData::Cell(vec![ZData::Atom(vec![10u8]), x.ser(), y.ser()]),
-            ZExpr::Char(x) => ZData::Cell(vec![ZData::Atom(vec![11u8]), (*x).ser()]),
-            ZExpr::UInt(x) => ZData::Cell(vec![ZData::Atom(vec![12u8]), x.ser()]),
-        }
-    }
-    fn de(ld: &ZData) -> anyhow::Result<Self> {
-        match ld {
-            ZData::Atom(v) => Err(anyhow!("ZExpr::Atom({:?})", v)),
-            ZData::Cell(v) => match (*v).as_slice() {
-                [ZData::Atom(u)] if *u == vec![0u8] => Ok(ZExpr::Nil),
-                [ZData::Atom(u), x, y] if *u == vec![1u8] => {
-                    Ok(ZExpr::Cons(ZExprPtr::de(x)?, ZExprPtr::de(y)?))
-                }
-                [ZData::Atom(u), x, y] if *u == vec![2u8] => {
-                    Ok(ZExpr::Comm(FWrap::de(x)?.0, ZExprPtr::de(y)?))
-                }
-                [ZData::Atom(u)] if *u == vec![3u8] => Ok(ZExpr::SymNil),
-                [ZData::Atom(u), x, y] if *u == vec![4u8] => {
-                    Ok(ZExpr::SymCons(ZExprPtr::de(x)?, ZExprPtr::de(y)?))
-                }
-                [ZData::Atom(u), x] if *u == vec![5u8] => Ok(ZExpr::Key(ZExprPtr::de(x)?)),
-                [ZData::Atom(u), x, y, z] if *u == vec![6u8] => Ok(ZExpr::Fun {
-                    arg: ZExprPtr::de(x)?,
-                    body: ZExprPtr::de(y)?,
-                    closed_env: ZExprPtr::de(z)?,
-                }),
-                [ZData::Atom(u), x] if *u == vec![7u8] => Ok(ZExpr::Num(FWrap::de(x)?.0)),
-                [ZData::Atom(u)] if *u == vec![8u8] => Ok(ZExpr::StrNil),
-                [ZData::Atom(u), x, y] if *u == vec![9u8] => {
-                    Ok(ZExpr::StrCons(ZExprPtr::de(x)?, ZExprPtr::de(y)?))
-                }
-                [ZData::Atom(u), x, y] if *u == vec![10u8] => {
-                    Ok(ZExpr::Thunk(ZExprPtr::de(x)?, ZContPtr::de(y)?))
-                }
-                [ZData::Atom(u), x] if *u == vec![11u8] => Ok(ZExpr::Char(char::de(x)?)),
-                [ZData::Atom(u), x] if *u == vec![12u8] => Ok(ZExpr::UInt(UInt::de(x)?)),
-                _ => Err(anyhow!("ZExpr::Cell({:?})", v)),
-            },
         }
     }
 }

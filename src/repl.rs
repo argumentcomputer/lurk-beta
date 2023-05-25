@@ -9,7 +9,7 @@ use crate::store::Store;
 use crate::symbol::Symbol;
 use crate::tag::ContTag;
 use crate::writer::Write;
-use crate::z_data::{Encodable, ZData};
+use crate::z_data::{from_z_data, ZData};
 use crate::z_store::ZStore;
 use anyhow::{bail, Context, Error, Result};
 use clap::{Arg, ArgAction, Command};
@@ -182,40 +182,54 @@ impl<F: LurkField, T: ReplTrait<F, C>, C: Coprocessor<F>> Repl<F, T, C> {
     }
 }
 
-pub fn repl_cli<F: LurkField, T: ReplTrait<F, C>, C: Coprocessor<F>>(
+pub fn repl_cli<
+    F: LurkField + for<'de> serde::Deserialize<'de>,
+    T: ReplTrait<F, C>,
+    C: Coprocessor<F>,
+>(
     lang: Lang<F, C>,
 ) -> Result<()> {
     let command = T::command();
     let matches = command.clone().get_matches();
 
     let lurk_file = matches.get_one::<String>("lurk_file");
-    let light_store = matches.get_one::<String>("lightstore");
+    let z_store = matches.get_one::<String>("zstore");
 
-    repl_aux::<_, F, T, C>(lurk_file, light_store, Some(command), lang)
+    repl_aux::<_, F, T, C>(lurk_file, z_store, Some(command), lang)
 }
 
-pub fn repl<F: LurkField, T: ReplTrait<F, C>, P: AsRef<Path>, C: Coprocessor<F>>(
+pub fn repl<
+    F: LurkField + for<'de> serde::Deserialize<'de>,
+    T: ReplTrait<F, C>,
+    P: AsRef<Path>,
+    C: Coprocessor<F>,
+>(
     lurk_file: Option<P>,
     lang: Lang<F, C>,
 ) -> Result<()> {
     repl_aux::<_, F, T, C>(lurk_file, None, None, lang)
 }
 
-fn repl_aux<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor<F>>(
+fn repl_aux<
+    P: AsRef<Path>,
+    F: LurkField + for<'de> serde::Deserialize<'de>,
+    T: ReplTrait<F, C>,
+    C: Coprocessor<F>,
+>(
     lurk_file: Option<P>,
-    light_store: Option<P>,
+    z_store: Option<P>,
     command: Option<Command>,
     lang: Lang<F, C>,
 ) -> Result<()> {
-    let received_light_store = light_store.is_some();
-    let mut s = light_store
-        .and_then(|light_store_path| fs::read(light_store_path).ok())
-        .and_then(|bytes| ZData::de(&bytes).ok())
-        .and_then(|ld| Encodable::de(&ld).ok())
+    let received_z_store = z_store.is_some();
+    let mut s = z_store
+        .and_then(|z_store_path| fs::read(z_store_path).ok())
+        .and_then(|bytes| ZData::from_bytes(&bytes).ok())
+        .and_then(|zd| from_z_data(&zd).ok())
         .map(|z_store: ZStore<F>| ZStore::to_store(&z_store))
         .tap_none(|| {
-            if received_light_store {
-                eprintln!("Failed to load light store. Starting with empty store.")
+            if received_z_store {
+                eprintln!("Failed to load ZStore. Starting with empty store.")
             }
         })
         .unwrap_or_default();
@@ -358,12 +372,12 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                     .help("Specifies the path of a lurk file to run"),
             )
             .arg(
-                Arg::new("lightstore")
-                    .long("lightstore")
+                Arg::new("zstore")
+                    .long("zstore")
                     .value_parser(clap::builder::NonEmptyStringValueParser::new())
                     .action(ArgAction::Set)
-                    .value_name("LIGHTSTORE")
-                    .help("Specifies the lightstore file path"),
+                    .value_name("ZSTORE")
+                    .help("Specifies the zstore file path"),
             )
     }
 

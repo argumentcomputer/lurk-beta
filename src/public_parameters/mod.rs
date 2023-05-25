@@ -21,7 +21,7 @@ use crate::{
     store::Store,
     tag::ExprTag,
     writer::Write,
-    z_data::{from_z_data, Encodable, ZData},
+    z_data::{from_z_data, to_z_data, ZData},
     z_expr::ZExpr,
     z_ptr::ZExprPtr,
     z_store::ZStore,
@@ -270,12 +270,12 @@ impl<F: LurkField> Claim<F> {
             Claim::PtrEvaluation(ptr_eval) => {
                 let expr_in: ZExprPtr<F> = match &ptr_eval.expr {
                     LurkPtr::Source(source) => ZExprPtr::<F>::try_from(source)?,
-                    LurkPtr::Bytes(bytes) => from_z_data(&ZData::de(&bytes.z_ptr)?)?,
+                    LurkPtr::Bytes(bytes) => from_z_data(&ZData::from_bytes(&bytes.z_ptr)?)?,
                     LurkPtr::ZStorePtr(zsp) => zsp.z_ptr,
                 };
                 let expr_out = match &ptr_eval.expr_out {
                     LurkPtr::Source(source) => ZExprPtr::<F>::try_from(source)?,
-                    LurkPtr::Bytes(bytes) => from_z_data(&ZData::de(&bytes.z_ptr)?)?,
+                    LurkPtr::Bytes(bytes) => from_z_data(&ZData::from_bytes(&bytes.z_ptr)?)?,
                     LurkPtr::ZStorePtr(zsp) => zsp.z_ptr,
                 };
                 let expr = ZExpr::Cons(expr_in, expr_out);
@@ -568,11 +568,15 @@ impl<F: LurkField + Serialize + DeserializeOwned> LurkPtr<F> {
                 out.expr
             }
             LurkPtr::Bytes(bytes) => {
-                let z_store_data = ZData::de(&bytes.z_store).expect("could not read opaque zstore");
-                let z_ptr_data = ZData::de(&bytes.z_ptr).expect("could not read opaque zstore");
+                let z_store_data =
+                    ZData::from_bytes(&bytes.z_store).expect("could not read opaque zstore");
+                let z_ptr_data =
+                    ZData::from_bytes(&bytes.z_ptr).expect("could not read opaque zstore");
 
-                let z_store = ZStore::de(&z_store_data).expect("could not read opaque zstore");
-                let z_ptr = ZExprPtr::de(&z_ptr_data).expect("could not read opaque zptr");
+                let z_store: ZStore<F> =
+                    from_z_data(&z_store_data).expect("could not read opaque zstore");
+                let z_ptr: ZExprPtr<F> =
+                    from_z_data(&z_ptr_data).expect("could not read opaque zptr");
 
                 let lurk_ptr = LurkPtr::ZStorePtr(ZStorePtr { z_store, z_ptr });
 
@@ -591,15 +595,15 @@ impl<F: LurkField + Serialize + DeserializeOwned> LurkPtr<F> {
         let (z_store, z_ptr) = ZStore::new_with_expr(s, ptr);
         let z_ptr = z_ptr.unwrap();
 
-        let z_store_bytes = z_store.ser();
-        let z_ptr_bytes = z_ptr.ser();
+        let z_store_ser = to_z_data(&z_store).unwrap();
+        let z_ptr_ser = to_z_data(&z_ptr).unwrap();
 
-        let again = ZExprPtr::de(&z_ptr_bytes).unwrap();
+        let again: ZExprPtr<F> = from_z_data(&z_ptr_ser).unwrap();
         assert_eq!(&z_ptr, &again);
 
         Self::Bytes(ZBytes {
-            z_store: z_store_bytes.ser(),
-            z_ptr: z_ptr_bytes.ser(),
+            z_store: ZData::to_bytes(&z_store_ser),
+            z_ptr: ZData::to_bytes(&z_ptr_ser),
         })
     }
 }

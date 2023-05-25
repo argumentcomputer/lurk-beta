@@ -11,8 +11,6 @@
 //! This module also provides several traits that can be used to encode and decode Rust types into
 //! `ZData` values.
 
-use anyhow::Result;
-use std::collections::BTreeMap;
 use std::fmt::Display;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -150,9 +148,8 @@ impl ZData {
         x & 0b0100_0000 == 0b0100_0000
     }
 
-    // TODO: Rename to to/from_bytes for clarity
     /// Serializes this `ZData` into a `Vec<u8>`.
-    pub fn ser(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> Vec<u8> {
         let mut res = vec![];
         res.push(self.tag());
         match self {
@@ -165,13 +162,13 @@ impl ZData {
             Self::Cell(xs) if xs.is_empty() => {}
             Self::Cell(xs) if xs.len() <= 64 => {
                 for x in xs {
-                    res.extend(x.ser())
+                    res.extend(x.to_bytes())
                 }
             }
             Self::Cell(xs) => {
                 res.extend(ZData::to_trimmed_le_bytes(xs.len()));
                 for x in xs {
-                    res.extend(x.ser())
+                    res.extend(x.to_bytes())
                 }
             }
         };
@@ -183,15 +180,15 @@ impl ZData {
     /// # Errors
     ///
     /// This function errors if the input bytes don't correspond to a valid serialization of ZData
-    pub fn de(i: &[u8]) -> anyhow::Result<Self> {
-        match Self::de_aux(i).finish() {
+    pub fn from_bytes(i: &[u8]) -> anyhow::Result<Self> {
+        match Self::from_bytes_aux(i).finish() {
             Ok((_, x)) => Ok(x),
             Err(e) => Err(anyhow!("Error parsing light data: {:?}", e)),
         }
     }
 
     #[inline]
-    fn de_aux(i: &[u8]) -> IResult<&[u8], Self> {
+    fn from_bytes_aux(i: &[u8]) -> IResult<&[u8], Self> {
         let (i, tag) = take(1u8)(i)?;
         let tag = tag[0];
         let size = tag & 0b11_1111;
@@ -216,131 +213,11 @@ impl ZData {
             let (i, data) = take(size)(i)?;
             (i, ZData::Atom(data.to_vec()))
         } else {
-            let (i, xs) = count(ZData::de_aux, size)(i)?;
+            let (i, xs) = count(ZData::from_bytes_aux, size)(i)?;
             (i, ZData::Cell(xs.to_vec()))
         };
 
         Ok((i, res))
-    }
-}
-
-/// A trait for types that can be serialized and deserialized using `ZData`.
-pub trait Encodable {
-    /// Serializes this value into a `ZData`.
-    fn ser(&self) -> ZData;
-    /// Deserializes a `ZData` into this value.
-    fn de(ld: &ZData) -> Result<Self>
-    where
-        Self: Sized;
-}
-
-impl Encodable for u64 {
-    fn ser(&self) -> ZData {
-        ZData::Atom(u64::to_le_bytes(*self).to_vec())
-    }
-
-    fn de(ld: &ZData) -> Result<Self> {
-        match ld {
-            ZData::Atom(x) => match x.as_slice().try_into() {
-                Ok(a) => Ok(u64::from_le_bytes(a)),
-                Err(_) => anyhow::bail!("expected u64"),
-            },
-            ZData::Cell(_) => anyhow::bail!("expected u64"),
-        }
-    }
-}
-
-impl Encodable for u32 {
-    fn ser(&self) -> ZData {
-        ZData::Atom(u32::to_le_bytes(*self).to_vec())
-    }
-    fn de(ld: &ZData) -> Result<Self> {
-        match ld {
-            ZData::Atom(x) => match x.as_slice().try_into() {
-                Ok(a) => Ok(u32::from_le_bytes(a)),
-                Err(_) => anyhow::bail!("expected u32"),
-            },
-            ZData::Cell(_) => anyhow::bail!("expected u32"),
-        }
-    }
-}
-
-impl Encodable for char {
-    fn ser(&self) -> ZData {
-        ((*self) as u32).ser()
-    }
-
-    fn de(ld: &ZData) -> Result<Self> {
-        match char::from_u32(u32::de(ld)?) {
-            Some(x) => Ok(x),
-            None => anyhow::bail!("expected char"),
-        }
-    }
-}
-
-impl<A: Encodable + Sized> Encodable for Option<A> {
-    fn ser(&self) -> ZData {
-        match self {
-            None => ZData::Atom(vec![]),
-            Some(a) => ZData::Cell(vec![a.ser()]),
-        }
-    }
-
-    fn de(ld: &ZData) -> Result<Self> {
-        match ld {
-            ZData::Atom(x) => match x.as_slice() {
-                [] => Ok(Option::None),
-                _ => anyhow::bail!("expected Option"),
-            },
-            ZData::Cell(xs) => match xs.as_slice() {
-                [a] => Ok(Option::Some(A::de(a)?)),
-                _ => anyhow::bail!("expected Option"),
-            },
-        }
-    }
-}
-
-impl<A: Encodable + Sized> Encodable for Vec<A> {
-    fn ser(&self) -> ZData {
-        ZData::Cell(self.iter().map(|x| x.ser()).collect())
-    }
-
-    fn de(ld: &ZData) -> Result<Self> {
-        match ld {
-            ZData::Cell(xs) => xs.iter().map(|x| A::de(x)).collect(),
-            _ => anyhow::bail!("expected Vec"),
-        }
-    }
-}
-
-impl<A: Encodable + Sized + Ord, B: Encodable + Sized> Encodable for BTreeMap<A, B> {
-    fn ser(&self) -> ZData {
-        let mut res = Vec::new();
-        for (k, v) in self {
-            res.push(ZData::Cell(vec![k.ser(), v.ser()]))
-        }
-        ZData::Cell(res)
-    }
-
-    fn de(ld: &ZData) -> Result<Self> {
-        let xs: Vec<(A, B)> = Encodable::de(ld)?;
-        Ok(xs.into_iter().collect())
-    }
-}
-
-impl<A: Encodable + Sized, B: Encodable + Sized> Encodable for (A, B) {
-    fn ser(&self) -> ZData {
-        ZData::Cell(vec![self.0.ser(), self.1.ser()])
-    }
-
-    fn de(ld: &ZData) -> Result<Self> {
-        match ld {
-            ZData::Cell(xs) => match xs.as_slice() {
-                [x, y] => Ok((A::de(x)?, B::de(y)?)),
-                _ => anyhow::bail!("expected pair"),
-            },
-            _ => anyhow::bail!("expected pair"),
-        }
     }
 }
 
@@ -373,11 +250,12 @@ pub mod tests {
     #[test]
     fn unit_z_data() {
         let test = |zd: ZData, xs: Vec<u8>| {
-            println!("{:?}", zd.ser());
-            let ser = zd.ser();
+            let ser = zd.to_bytes();
+            println!("{:?}", ser);
             assert_eq!(ser, xs);
-            println!("{:?}", ZData::de(&ser));
-            assert_eq!(zd, ZData::de(&ser).expect("valid zdata"))
+            let de = ZData::from_bytes(&ser).expect("invalid zdata");
+            println!("{:?}", de);
+            assert_eq!(zd, de);
         };
         test(ZData::Atom(vec![]), vec![0b0000_0000]);
         test(ZData::Cell(vec![]), vec![0b1000_0000]);
@@ -421,8 +299,8 @@ pub mod tests {
     proptest! {
         #[test]
         fn prop_z_data(x in any::<ZData>()) {
-            let ser = x.ser();
-            let de  = ZData::de(&ser).expect("read ZData");
+            let ser = x.to_bytes();
+            let de  = ZData::from_bytes(&ser).expect("read ZData");
             eprintln!("x {}", x);
             eprintln!("ser {:?}", ser);
             assert_eq!(x, de)
