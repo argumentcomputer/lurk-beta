@@ -256,15 +256,13 @@ impl LEM {
                         }
                     }
 
+                    // Now we need to enforce that at least one path was taken. We do that by constraining
+                    // that the sum of the previously collected `Boolean`s is one
+
                     // If `branch_path_info` is Some, then we constrain using "concrete implies ..." logic
                     if let Some(concrete_path) = branch_path_info {
                         enforce_selector_with_premise(
-                            &mut cs.namespace(|| {
-                                format!(
-                                    "{path}.enforce exactly one selected (if concrete, tag: {:?})",
-                                    alloc_match_ptr.tag().get_value()
-                                )
-                            }),
+                            &mut cs.namespace(|| format!("{path}.enforce_selector_with_premise")),
                             &concrete_path,
                             &concrete_path_vec,
                         )
@@ -274,7 +272,7 @@ impl LEM {
                     } else {
                         // If `branch_path_info` is None, we just do regular constraining
                         enforce_popcount_one(
-                            &mut cs.namespace(|| format!("{}.enforce exactly one selected", &path)),
+                            &mut cs.namespace(|| format!("{path}.enforce_popcount_one")),
                             &concrete_path_vec[..],
                         )
                         .map_err(|e| format!("{e}: couldn't enforce `popcount_one`"))?;
@@ -318,7 +316,7 @@ impl LEM {
                             alloc_ptr_computed
                                 .implies_ptr_equal(
                                     &mut cs.namespace(|| {
-                                        format!("enforce imply equal for {}", &output_name)
+                                        format!("enforce imply equal for {output_name}")
                                     }),
                                     &concrete_path,
                                     &alloc_ptr_expected,
@@ -329,7 +327,7 @@ impl LEM {
                         } else {
                             // If `branch_path_info` is None, we just do regular constraining
                             alloc_ptr_computed.enforce_equal(
-                                &mut cs.namespace(|| format!("enforce equal for {}", &output_name)),
+                                &mut cs.namespace(|| format!("enforce equal for {output_name}")),
                                 &alloc_ptr_expected,
                             );
                         }
