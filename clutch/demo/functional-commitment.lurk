@@ -18,16 +18,16 @@
 
 ;; We can inspect the input expression that was proved.
 
-!(proof-in-expr "bafkr4icba2o33x7tupuu7p6a5jdtsohreiyn6qfa3d4swa4nqo2urr6vgq")
+!(proof-in-expr "aeaaztyfm7bd3zry22nwpqxa3b5tvanwdn3jtpd7lqy64ycjjn3ydgefq")
 
 ;; And also the output expression.
 
-!(proof-out-expr "bafkr4icba2o33x7tupuu7p6a5jdtsohreiyn6qfa3d4swa4nqo2urr6vgq")
+!(proof-out-expr "aeaaztyfm7bd3zry22nwpqxa3b5tvanwdn3jtpd7lqy64ycjjn3ydgefq")
 
 ;; We can also see exactly what we claim to have proved.
 
-!(proof-claim "bafkr4icba2o33x7tupuu7p6a5jdtsohreiyn6qfa3d4swa4nqo2urr6vgq")
+!(proof-claim "aeaaztyfm7bd3zry22nwpqxa3b5tvanwdn3jtpd7lqy64ycjjn3ydgefq")
 
 ;; Finally, and most importantly, we can verify the proof.
 
-!(verify "bafkr4icba2o33x7tupuu7p6a5jdtsohreiyn6qfa3d4swa4nqo2urr6vgq")
+!(verify "aeaaztyfm7bd3zry22nwpqxa3b5tvanwdn3jtpd7lqy64ycjjn3ydgefq")

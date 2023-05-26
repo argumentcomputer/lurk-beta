@@ -61,9 +61,9 @@ mod base64 {
     }
 }
 
-pub type NovaProofCache = FileMap<ZExprPtr<S1>, Proof<'static, S1>>;
+pub type NovaProofCache = FileMap<String, Proof<'static, S1>>;
 pub fn nova_proof_cache(reduction_count: usize) -> NovaProofCache {
-    FileMap::<ZExprPtr<S1>, Proof<'_, S1>>::new(format!("nova_proofs.{}", reduction_count)).unwrap()
+    FileMap::<String, Proof<'_, S1>>::new(format!("nova_proofs.{}", reduction_count)).unwrap()
 }
 
 pub type CommittedExpressionMap = FileMap<Commitment<S1>, CommittedExpression<S1>>;
@@ -258,6 +258,7 @@ pub enum Claim<F: LurkField> {
 }
 
 impl<F: LurkField> Claim<F> {
+    // Returns the ZPtr corresponding to the claim
     pub fn proof_key(&self) -> Result<ZExprPtr<F>, Error> {
         match self {
             Claim::Evaluation(eval) => {
@@ -859,7 +860,7 @@ impl<'a> Proof<'a, S1> {
         let proof_map = nova_proof_cache(reduction_count);
         let function_map = committed_expression_store();
 
-        let key = claim.proof_key()?;
+        let key = claim.proof_key()?.to_base32();
 
         if let Some(proof) = proof_map.get(&key) {
             return Ok(proof);

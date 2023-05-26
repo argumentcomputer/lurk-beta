@@ -22,7 +22,6 @@ use lurk::store::Store;
 use lurk::symbol::Symbol;
 use lurk::tag::ExprTag;
 use lurk::writer::Write;
-use lurk::z_ptr::ZExprPtr;
 
 use std::fs::File;
 use std::io::{self, BufRead};
@@ -480,16 +479,13 @@ impl ClutchState<F, Coproc<F>> {
 
     fn get_proof(&self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Proof<F>> {
         let (proof_cid, _rest1) = store.car_cdr(&rest)?;
-        let zptr_string = if let Some(p) = store.fetch_string(&proof_cid) {
-            p.to_string()
-        } else {
-            bail!("proof cid must be a string");
-        };
+        let zptr_string = store
+            .fetch_string(&proof_cid)
+            .ok_or_else(|| anyhow!("proof cid must be a string"))?;
 
-        let zptr = ZExprPtr::try_from(&zptr_string).map_err(|_| Error::msg("zptr get_proof"))?;
         self.proof_map
-            .get(&zptr)
-            .ok_or_else(|| anyhow!("proof not found: {zptr}"))
+            .get(&zptr_string)
+            .ok_or_else(|| anyhow!("proof not found: {zptr_string}"))
     }
 
     fn prove(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
@@ -527,18 +523,18 @@ impl ClutchState<F, Coproc<F>> {
         }?;
 
         if proof.verify(&pp, &self.lang())?.verified {
-            let zptr_str = proof
+            let zptr_string = proof
                 .claim
                 .proof_key()
                 .map_err(|_| Error::msg("Failed to generate proof key"))?
-                .to_string();
+                .to_base32();
             match proof.claim {
                 Claim::Evaluation(_) | Claim::Opening(_) => println!("{0:#?}", proof.claim),
                 Claim::PtrEvaluation(_) => println!("Claim::PtrEvaluation elided."),
             }
 
-            let cid = store.str(zptr_str);
-            Ok(Some(cid))
+            let zid = store.str(zptr_string);
+            Ok(Some(zid))
         } else {
             bail!("verification of new proof failed");
         }
@@ -550,11 +546,10 @@ impl ClutchState<F, Coproc<F>> {
             .fetch_string(&proof_cid)
             .ok_or_else(|| anyhow!("failed to fetch zptr string"))?;
 
-        let zptr = ZExprPtr::try_from(&zptr_string).map_err(|_| Error::msg("zptr verify"))?;
         let proof = self
             .proof_map
-            .get(&zptr)
-            .ok_or_else(|| anyhow!("proof not found: {zptr}"))?;
+            .get(&zptr_string)
+            .ok_or_else(|| anyhow!("proof not found: {zptr_string}"))?;
 
         let pp = public_params(self.reduction_count, self.lang())?;
         let result = proof.verify(&pp, &self.lang()).unwrap();

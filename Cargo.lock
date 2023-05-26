@@ -199,6 +199,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4cbbc9d0964165b47557570cce6c952866c2678457aca742aafc9fb771d30270"
 
 [[package]]
+name = "base32ct"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "396664016f30ad5ab761000391a5c0b436f7bfac738858263eb25897658b98c9"
+
+[[package]]
 name = "base64"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1363,6 +1369,7 @@ dependencies = [
  "anymap",
  "assert_cmd",
  "base-x",
+ "base32ct",
  "base64",
  "bellperson",
  "bincode",

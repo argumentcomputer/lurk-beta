@@ -1,3 +1,5 @@
+use anyhow::anyhow;
+use base32ct::{Base32Unpadded, Encoding};
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
 use serde::{Deserialize, Serialize};
@@ -105,10 +107,29 @@ impl<E: Tag, F: LurkField> ZPtr<E, F> {
     pub fn value(&self) -> &F {
         &self.1
     }
+
+    pub fn to_base32(&self) -> String {
+        let tag_b32 = Base32Unpadded::encode_string(&self.0.into().to_le_bytes());
+        let val_b32 = Base32Unpadded::encode_string(self.1.to_repr().as_ref());
+        format!("{}z{}", tag_b32, val_b32)
+    }
+
+    pub fn from_base32(zptr: &str) -> Result<Self, anyhow::Error> {
+        let tag_bytes = Base32Unpadded::decode_vec(&zptr[0..4])
+            .map_err(|_| anyhow!("Failed to decode base32"))?;
+        let val_bytes = Base32Unpadded::decode_vec(&zptr[5..])
+            .map_err(|_| anyhow!("Failed to decode base32"))?;
+        let tag = E::try_from(u16::from_le_bytes(tag_bytes[..2].try_into().unwrap()))
+            .map_err(|_| anyhow!("Failed to decode tag"))?;
+        let val = F::from_bytes(&val_bytes).ok_or_else(|| anyhow!("Failed to decode field"))?;
+        Ok(Self::from_parts(tag, val))
+    }
 }
 
 pub type ZExprPtr<F> = ZPtr<ExprTag, F>;
 
+// TODO: Remove this in favor of the idiomatic approach
+// Only used in public_parameters::proof_key
 // Parse string, intern Expr into store, then convert Ptr to ZPtr
 impl<F: LurkField> TryFrom<&String> for ZExprPtr<F> {
     type Error = store::Error;
@@ -132,3 +153,22 @@ impl<E: Tag, F: LurkField> IntoHashComponents<F> for ZPtr<E, F> {
 }
 
 pub type ZContPtr<F> = ZPtr<ContTag, F>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pasta_curves::pallas::Scalar;
+
+    #[test]
+    fn unit_base32() {
+        let zptr = ZExprPtr::from_parts(ExprTag::Nil, Scalar::zero());
+        assert_eq!(zptr, ZPtr::from_base32(&zptr.to_base32()).unwrap());
+    }
+
+    proptest! {
+      #[test]
+      fn prop_base32(x in any::<ZExprPtr<Scalar>>()) {
+        assert_eq!(x, ZPtr::from_base32(&x.to_base32()).unwrap());
+      }
+    }
+}
