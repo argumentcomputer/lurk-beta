@@ -837,7 +837,11 @@ mod tests {
         }
 
         #[test]
-        fn test_implies_equal_zero(p in any::<bool>()) {
+        fn test_implies_equal_zero(
+            p in any::<bool>(),
+            rand_a in (0u64..u64::MAX),
+            rand_positive in (1u64..u64::MAX),
+        ) {
 
             let test_premise_num = |premise: bool, n, result: bool| {
                 let mut cs = TestConstraintSystem::<Fr>::new();
@@ -852,11 +856,9 @@ mod tests {
             test_premise_num(p, 0, true);
 
             // false premise, any value
-            let rand_a = rand::thread_rng().gen_range(0..u64::MAX);
             test_premise_num(false, rand_a, true);
 
             // true premise, bad values
-            let rand_positive = rand::thread_rng().gen_range(1..u64::MAX);
             test_premise_num(true, rand_positive, false);
         }
 
