@@ -800,6 +800,91 @@ mod tests {
     proptest! {
 
         #[test]
+        fn test_popcount_equal((i, j, k) in ((0usize..42), (0usize..42), (0usize..42))) {
+            prop_assume!(i != j);
+            prop_assume!(j != k);
+            prop_assume!(i != k);
+
+            let mut cs = TestConstraintSystem::<Fr>::new();
+            let mut v = vec![Boolean::constant(false); 42];
+            let zero = AllocatedNum::alloc(cs.namespace(|| "zero"), || Ok(Fr::from(0)));
+            let _ = popcount_equal(&mut cs.namespace(|| "popcount equal"), &v, zero.unwrap().get_variable());
+            assert!(cs.is_satisfied());
+
+            let mut cs = TestConstraintSystem::<Fr>::new();
+            v[i] = Boolean::constant(true);
+            let one = AllocatedNum::alloc(cs.namespace(|| "one"), || Ok(Fr::from(1)));
+            let _ = popcount_equal(&mut cs.namespace(|| "popcount equal"), &v, one.unwrap().get_variable());
+            assert!(cs.is_satisfied());
+
+            let mut cs = TestConstraintSystem::<Fr>::new();
+            v[j] = Boolean::constant(true);
+            let two = AllocatedNum::alloc(cs.namespace(|| "two"), || Ok(Fr::from(2)));
+            let _ = popcount_equal(&mut cs.namespace(|| "popcount equal"), &v, two.unwrap().get_variable());
+            assert!(cs.is_satisfied());
+
+            let mut cs = TestConstraintSystem::<Fr>::new();
+            v[k] = Boolean::constant(true);
+            let three = AllocatedNum::alloc(cs.namespace(|| "three"), || Ok(Fr::from(3)));
+            let _ = popcount_equal(&mut cs.namespace(|| "popcount equal"), &v, three.unwrap().get_variable());
+            assert!(cs.is_satisfied());
+
+            // negative test
+            let mut cs = TestConstraintSystem::<Fr>::new();
+            let four = AllocatedNum::alloc(cs.namespace(|| "four"), || Ok(Fr::from(4)));
+            let _ = popcount_equal(&mut cs.namespace(|| "popcount equal"), &v, four.unwrap().get_variable());
+            assert!(!cs.is_satisfied());
+        }
+
+        #[test]
+        fn test_enforce_selector_with_premise_false((v1, v2, v3) in any::<(bool, bool, bool)>()) {
+            let mut cs = TestConstraintSystem::<Fr>::new();
+
+            let false_p = Boolean::Constant(false);
+            let v = vec!(
+                Boolean::constant(v1),
+                Boolean::constant(v2),
+                Boolean::constant(v3),
+            );
+            // if p is false, any v works
+            let _ = enforce_selector_with_premise(&mut cs.namespace(|| "all zeros"), &false_p, &v);
+            assert!(cs.is_satisfied());
+        }
+
+        #[test]
+        fn test_enforce_selector_with_any_premise_positive(p in any::<bool>(), i in (0usize..42)) {
+            let mut cs = TestConstraintSystem::<Fr>::new();
+
+            let premise = Boolean::Constant(p);
+            let mut v = vec![Boolean::constant(false); 42];
+            v[i] = Boolean::constant(true);
+            // for any premise, test good selections
+            let _ = enforce_selector_with_premise(&mut cs.namespace(|| "any premise, exactly one true"), &premise, &v);
+            assert!(cs.is_satisfied());
+        }
+
+        #[test]
+        fn test_enforce_selector_with_any_premise_negative(i in (0usize..3)) {
+            let mut cs = TestConstraintSystem::<Fr>::new();
+
+            let premise = Boolean::Constant(true);
+            let mut v = vec!(
+                Boolean::constant(true),
+                Boolean::constant(true),
+                Boolean::constant(true),
+            );
+            // for premise true, test bad selections
+            let _ = enforce_selector_with_premise(&mut cs.namespace(|| "premise true, more three trues"), &premise, &v);
+            assert!(!cs.is_satisfied());
+
+            let mut cs = TestConstraintSystem::<Fr>::new();
+            v[i] = Boolean::constant(false);
+            let _ = enforce_selector_with_premise(&mut cs.namespace(|| "premise true, two trues"), &premise, &v);
+            assert!(!cs.is_satisfied());
+        }
+
+
+        #[test]
         fn prop_add_constraint((x, y) in any::<(FWrap<Fr>, FWrap<Fr>)>()) {
             let mut cs = TestConstraintSystem::<Fr>::new();
 
@@ -891,5 +976,6 @@ mod tests {
             assert_eq!(expected_or2, or2.get_value().unwrap());
             assert!(cs.is_satisfied());
         }
+
     }
 }
