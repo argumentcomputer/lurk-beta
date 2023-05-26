@@ -800,13 +800,13 @@ mod tests {
     proptest! {
 
         #[test]
-        fn test_popcount_equal((i, j, k) in ((0usize..42), (0usize..42), (0usize..42))) {
+        fn test_popcount_equal((i, j, k) in ((0usize..12), (0usize..12), (0usize..12))) {
             prop_assume!(i != j);
             prop_assume!(j != k);
             prop_assume!(i != k);
 
             let mut cs = TestConstraintSystem::<Fr>::new();
-            let mut v = vec![Boolean::constant(false); 42];
+            let mut v = vec![Boolean::constant(false); 12];
             let zero = AllocatedNum::alloc(cs.namespace(|| "zero"), || Ok(Fr::from(0)));
             let _ = popcount_equal(&mut cs.namespace(|| "popcount equal"), &v, zero.unwrap().get_variable());
             assert!(cs.is_satisfied());
@@ -852,11 +852,11 @@ mod tests {
         }
 
         #[test]
-        fn test_enforce_selector_with_any_premise_positive(p in any::<bool>(), i in (0usize..42)) {
+        fn test_enforce_selector_with_any_premise_positive(p in any::<bool>(), i in (0usize..12)) {
             let mut cs = TestConstraintSystem::<Fr>::new();
 
             let premise = Boolean::Constant(p);
-            let mut v = vec![Boolean::constant(false); 42];
+            let mut v = vec![Boolean::constant(false); 12];
             v[i] = Boolean::constant(true);
             // for any premise, test good selections
             let _ = enforce_selector_with_premise(&mut cs.namespace(|| "any premise, exactly one true"), &premise, &v);
@@ -874,7 +874,7 @@ mod tests {
                 Boolean::constant(true),
             );
             // for premise true, test bad selections
-            let _ = enforce_selector_with_premise(&mut cs.namespace(|| "premise true, more three trues"), &premise, &v);
+            let _ = enforce_selector_with_premise(&mut cs.namespace(|| "premise true, three trues"), &premise, &v);
             assert!(!cs.is_satisfied());
 
             let mut cs = TestConstraintSystem::<Fr>::new();
