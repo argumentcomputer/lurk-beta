@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use anyhow::{anyhow, bail, Result};
 use bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
     ConstraintSystem,
@@ -29,7 +30,7 @@ impl<F: LurkField> AllocationManager<F> {
         &mut self,
         cs: &mut CS,
         f: F,
-    ) -> Result<AllocatedNum<F>, String> {
+    ) -> Result<AllocatedNum<F>> {
         let wrap = FWrap(f);
         match self.0.get(&wrap) {
             Some(alloc) => Ok(alloc.to_owned()),
@@ -37,7 +38,7 @@ impl<F: LurkField> AllocationManager<F> {
                 let digits = f.hex_digits();
                 let alloc =
                     AllocatedNum::alloc(cs.namespace(|| format!("allocate {digits}")), || Ok(f))
-                        .map_err(|e| format!("{e}: couldn't allocate {digits}"))?;
+                        .map_err(|e| anyhow!("{e}: couldn't allocate {digits}"))?;
                 self.0.insert(wrap, alloc.clone());
                 Ok(alloc)
             }
@@ -50,17 +51,17 @@ impl LEM {
         cs: &mut CS,
         z_ptr: &ZPtr<F>,
         name: &String,
-    ) -> Result<AllocatedPtr<F>, String> {
+    ) -> Result<AllocatedPtr<F>> {
         let alloc_tag =
             AllocatedNum::alloc(cs.namespace(|| format!("allocate {name}'s tag")), || {
                 Ok(z_ptr.tag.to_field())
             })
-            .map_err(|e| format!("{e}: couldn't allocate {name}'s tag"))?;
+            .map_err(|e| anyhow!("{e}: couldn't allocate {name}'s tag"))?;
         let alloc_hash =
             AllocatedNum::alloc(cs.namespace(|| format!("allocate {name}'s hash")), || {
                 Ok(z_ptr.hash)
             })
-            .map_err(|e| format!("{e}: couldn't allocate {name}'s hash"))?;
+            .map_err(|e| anyhow!("{e}: couldn't allocate {name}'s hash"))?;
         Ok(AllocatedPtr::from_parts(&alloc_tag, &alloc_hash))
     }
 
@@ -68,24 +69,24 @@ impl LEM {
         cs: &mut CS,
         alloc_ptr: &AllocatedPtr<F>,
         name: &String,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         alloc_ptr
             .tag()
             .inputize(cs.namespace(|| format!("inputize {}'s tag", name)))
-            .map_err(|e| format!("{}: couldn't inputize {}'s tag", &e, name))?;
+            .map_err(|e| anyhow!("{}: couldn't inputize {}'s tag", &e, name))?;
         alloc_ptr
             .hash()
             .inputize(cs.namespace(|| format!("inputize {}'s hash", name)))
-            .map_err(|e| format!("{}: couldn't inputize {}'s hash", &e, name))?;
+            .map_err(|e| anyhow!("{}: couldn't inputize {}'s hash", &e, name))?;
         Ok(())
     }
 
-    fn on_concrete_path(concrete_path: &Option<Boolean>) -> Result<bool, String> {
+    fn on_concrete_path(concrete_path: &Option<Boolean>) -> Result<bool> {
         match concrete_path {
             None => Ok(true),
             Some(concrete_path) => match concrete_path.get_value() {
                 Some(b) => Ok(b),
-                None => Err("Couldn't check whether we're on a concrete path".to_string()),
+                None => Err(anyhow!("Couldn't check whether we're on a concrete path")),
             },
         }
     }
@@ -97,9 +98,9 @@ impl LEM {
         witness: &Witness<F>,
         alloc_ptrs: &mut HashMap<&'a String, AllocatedPtr<F>>,
         idx: usize,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         if alloc_ptrs.contains_key(&self.input[idx]) {
-            return Err(format!("{} already allocated", &self.input[idx]));
+            bail!("{} already allocated", &self.input[idx]);
         }
         let alloc_ptr = Self::allocate_ptr(
             &mut cs.namespace(|| format!("allocate input {}", &self.input[idx])),
@@ -139,7 +140,7 @@ impl LEM {
         cs: &mut CS,
         store: &mut Store<F>,
         witness: &Witness<F>,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         let mut alloc_ptrs: HashMap<&String, AllocatedPtr<F>> = HashMap::default();
 
         // allocate first input
@@ -160,12 +161,12 @@ impl LEM {
             match op {
                 LEMOP::MkNull(tgt, tag) => {
                     if alloc_ptrs.contains_key(tgt.name()) {
-                        return Err(format!("{} already allocated", tgt.name()));
+                        bail!("{} already allocated", tgt.name());
                     };
                     let z_ptr = {
                         if Self::on_concrete_path(&branch_path_info)? {
                             let Some(ptr) = witness.ptrs.get(tgt.name()) else {
-                                return Err(format!("Couldn't retrieve witness {}", tgt.name()));
+                                bail!("Couldn't retrieve witness {}", tgt.name());
                             };
                             store.hydrate_ptr(ptr)?
                         } else {
@@ -189,7 +190,7 @@ impl LEM {
                             &alloc_tag,
                         )
                         .map_err(|e| {
-                            format!(
+                            anyhow!(
                                 "{e}: couldn't enforce implies equal for {}'s tag",
                                 tgt.name()
                             )
@@ -202,7 +203,7 @@ impl LEM {
                             alloc_tgt.hash(),
                         )
                         .map_err(|e| {
-                            format!(
+                            anyhow!(
                                 "{e}: couldn't enforce implies equal zero for {}'s hash",
                                 tgt.name()
                             )
@@ -230,7 +231,7 @@ impl LEM {
                 }
                 LEMOP::MatchTag(match_ptr, cases) => {
                     let Some(alloc_match_ptr) = alloc_ptrs.get(match_ptr.name()) else {
-                        return Err(format!("{} not allocated", match_ptr.name()));
+                        bail!("{} not allocated", match_ptr.name());
                     };
                     let mut concrete_path_vec = Vec::new();
                     for (tag, op) in cases {
@@ -239,7 +240,7 @@ impl LEM {
                             alloc_match_ptr.tag(),
                             tag.to_field::<F>(),
                         )
-                        .map_err(|e| format!("{e}: couldn't allocate equal const"))?;
+                        .map_err(|e| anyhow!("{e}: couldn't allocate equal const"))?;
                         concrete_path_vec.push(alloc_has_match.clone());
 
                         let new_path_matchtag = format!("{}.{}", &path, tag);
@@ -249,7 +250,7 @@ impl LEM {
                                 &concrete_path,
                                 &alloc_has_match,
                             )
-                            .map_err(|e| format!("{e}: failed to constrain `and`"))?;
+                            .map_err(|e| anyhow!("{e}: failed to constrain `and`"))?;
                             stack.push((op, Some(concrete_path_and_has_match), new_path_matchtag));
                         } else {
                             stack.push((op, Some(alloc_has_match), new_path_matchtag));
@@ -267,7 +268,7 @@ impl LEM {
                             &concrete_path_vec,
                         )
                         .map_err(|e| {
-                            format!("{e}: couldn't constrain `enforce_selector_with_premise`")
+                            anyhow!("{e}: couldn't constrain `enforce_selector_with_premise`")
                         })?;
                     } else {
                         // If `branch_path_info` is None, we just do regular constraining
@@ -275,7 +276,7 @@ impl LEM {
                             &mut cs.namespace(|| format!("{path}.enforce_popcount_one")),
                             &concrete_path_vec[..],
                         )
-                        .map_err(|e| format!("{e}: couldn't enforce `popcount_one`"))?;
+                        .map_err(|e| anyhow!("{e}: couldn't enforce `popcount_one`"))?;
                     }
                 }
                 LEMOP::Seq(ops) => stack.extend(
@@ -287,12 +288,12 @@ impl LEM {
                     let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
                     for (i, output) in outputs.iter().enumerate() {
                         let Some(alloc_ptr_computed) = alloc_ptrs.get(output.name()) else {
-                            return Err(format!("Output {} not allocated", output.name()))
+                            bail!("Output {} not allocated", output.name())
                         };
                         let z_ptr = {
                             if is_concrete_path {
                                 let Some(ptr) = witness.ptrs.get(output.name()) else {
-                                    return Err(format!("Output {} not found in the witness", output.name()))
+                                    bail!("Output {} not found in the witness", output.name())
                                 };
                                 store.hydrate_ptr(ptr)?
                             } else {
@@ -301,7 +302,7 @@ impl LEM {
                         };
                         let output_name = format!("{}.output[{}]", &path, i);
                         let alloc_ptr_expected = Self::allocate_ptr(
-                            &mut cs.namespace(|| format!("allocate input for {}", &output_name)),
+                            &mut cs.namespace(|| format!("allocate input for {output_name}")),
                             &z_ptr,
                             &output_name,
                         )?;
@@ -322,7 +323,7 @@ impl LEM {
                                     &alloc_ptr_expected,
                                 )
                                 .map_err(|e| {
-                                    format!("{e}: couldn't constrain `implies_ptr_equal`")
+                                    anyhow!("{e}: couldn't constrain `implies_ptr_equal`")
                                 })?;
                         } else {
                             // If `branch_path_info` is None, we just do regular constraining
@@ -337,7 +338,7 @@ impl LEM {
             }
         }
         if num_inputized_outputs != 3 {
-            return Err("Couldn't inputize the right number of outputs".to_string());
+            return Err(anyhow!("Couldn't inputize the right number of outputs"));
         }
         Ok(())
     }

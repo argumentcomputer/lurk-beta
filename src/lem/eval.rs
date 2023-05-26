@@ -1,8 +1,9 @@
 use super::{shortcuts::*, tag::Tag, LEM, LEMOP};
+use anyhow::Result;
 
 /// This is Lurk's step function encoded as a LEM
 #[allow(dead_code)]
-pub(crate) fn step() -> Result<LEM, String> {
+pub(crate) fn step() -> Result<LEM> {
     let input = ["expr_in", "env_in", "cont_in"];
     let lem_op = match_tag(
         mptr("expr_in"),

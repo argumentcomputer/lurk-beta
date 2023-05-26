@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-
+use anyhow::{Result, anyhow, bail};
 use crate::field::{FWrap, LurkField};
 
 use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, Witness, LEM, LEMOP};
@@ -11,15 +11,15 @@ impl LEM {
         &self,
         input: [Ptr<F>; 3],
         store: &mut Store<F>,
-    ) -> Result<Witness<F>, String> {
+    ) -> Result<Witness<F>> {
         // key/val pairs on this map should never be overwritten
         let mut ptrs = HashMap::default();
         ptrs.insert(self.input[0].clone(), input[0]);
         if ptrs.insert(self.input[1].clone(), input[1]).is_some() {
-            return Err(format!("{} already defined", self.input[1]));
+            bail!("{} already defined", self.input[1]);
         }
         if ptrs.insert(self.input[2].clone(), input[2]).is_some() {
-            return Err(format!("{} already defined", self.input[2]));
+            bail!("{} already defined", self.input[2]);
         }
         let mut output = None;
         let mut stack = vec![&self.lem_op];
@@ -28,7 +28,7 @@ impl LEM {
                 LEMOP::MkNull(tgt, tag) => {
                     let tgt_ptr = Ptr::null(*tag);
                     if ptrs.insert(tgt.name().clone(), tgt_ptr).is_some() {
-                        return Err(format!("{} already defined", tgt.name()));
+                        bail!("{} already defined", tgt.name());
                     }
                 }
                 LEMOP::Hash2Ptrs(tgt, tag, src) => {
@@ -36,7 +36,7 @@ impl LEM {
                     let src_ptr2 = src[1].get_ptr(&ptrs)?;
                     let tgt_ptr = store.intern_2_ptrs(*tag, src_ptr1, src_ptr2);
                     if ptrs.insert(tgt.name().clone(), tgt_ptr).is_some() {
-                        return Err(format!("{} already defined", tgt.name()));
+                        bail!("{} already defined", tgt.name());
                     }
                 }
                 LEMOP::Hash3Ptrs(tgt, tag, src) => {
@@ -45,7 +45,7 @@ impl LEM {
                     let src_ptr3 = src[2].get_ptr(&ptrs)?;
                     let tgt_ptr = store.intern_3_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3);
                     if ptrs.insert(tgt.name().clone(), tgt_ptr).is_some() {
-                        return Err(format!("{} already defined", tgt.name()));
+                        bail!("{} already defined", tgt.name());
                     }
                 }
                 LEMOP::Hash4Ptrs(tgt, tag, src) => {
@@ -55,76 +55,76 @@ impl LEM {
                     let src_ptr4 = src[3].get_ptr(&ptrs)?;
                     let tgt_ptr = store.intern_4_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3, src_ptr4);
                     if ptrs.insert(tgt.name().clone(), tgt_ptr).is_some() {
-                        return Err(format!("{} already defined", tgt.name()));
+                        bail!("{} already defined", tgt.name());
                     }
                 }
                 LEMOP::Unhash2Ptrs(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
                     let Some(idx) = src_ptr.get_index2() else {
-                        return Err(format!(
+                        bail!(
                             "{} isn't a Tree2 pointer",
                             src.name()
-                        ));
+                        );
                     };
                     let Some((a, b)) = store.fetch_2_ptrs(idx) else {
-                        return Err(format!("Couldn't fetch {}'s children", src.name()))
+                        bail!("Couldn't fetch {}'s children", src.name())
                     };
                     if ptrs.insert(tgts[0].name().clone(), *a).is_some() {
-                        return Err(format!("{} already defined", tgts[0].name()));
+                        bail!("{} already defined", tgts[0].name());
                     }
                     if ptrs.insert(tgts[1].name().clone(), *b).is_some() {
-                        return Err(format!("{} already defined", tgts[1].name()));
+                        bail!("{} already defined", tgts[1].name());
                     }
                 }
                 LEMOP::Unhash3Ptrs(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
                     let Some(idx) = src_ptr.get_index3() else {
-                        return Err(format!(
+                        bail!(
                             "{} isn't a Tree3 pointer",
                             src.name()
-                        ));
+                        );
                     };
                     let Some((a, b, c)) = store.fetch_3_ptrs(idx) else {
-                        return Err(format!("Couldn't fetch {}'s children", src.name()))
+                        bail!("Couldn't fetch {}'s children", src.name())
                     };
                     if ptrs.insert(tgts[0].name().clone(), *a).is_some() {
-                        return Err(format!("{} already defined", tgts[0].name()));
+                        bail!("{} already defined", tgts[0].name());
                     }
                     if ptrs.insert(tgts[1].name().clone(), *b).is_some() {
-                        return Err(format!("{} already defined", tgts[1].name()));
+                        bail!("{} already defined", tgts[1].name());
                     }
                     if ptrs.insert(tgts[2].name().clone(), *c).is_some() {
-                        return Err(format!("{} already defined", tgts[2].name()));
+                        bail!("{} already defined", tgts[2].name());
                     }
                 }
                 LEMOP::Unhash4Ptrs(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
                     let Some(idx) = src_ptr.get_index4() else {
-                        return Err(format!(
+                        bail!(
                             "{} isn't a Tree4 pointer",
                             src.name()
-                        ));
+                        );
                     };
                     let Some((a, b, c, d)) = store.fetch_4_ptrs(idx) else {
-                        return Err(format!("Couldn't fetch {}'s children", src.name()))
+                        bail!("Couldn't fetch {}'s children", src.name())
                     };
                     if ptrs.insert(tgts[0].name().clone(), *a).is_some() {
-                        return Err(format!("{} already defined", tgts[0].name()));
+                        bail!("{} already defined", tgts[0].name());
                     }
                     if ptrs.insert(tgts[1].name().clone(), *b).is_some() {
-                        return Err(format!("{} already defined", tgts[1].name()));
+                        bail!("{} already defined", tgts[1].name());
                     }
                     if ptrs.insert(tgts[2].name().clone(), *c).is_some() {
-                        return Err(format!("{} already defined", tgts[2].name()));
+                        bail!("{} already defined", tgts[2].name());
                     }
                     if ptrs.insert(tgts[3].name().clone(), *d).is_some() {
-                        return Err(format!("{} already defined", tgts[3].name()));
+                        bail!("{} already defined", tgts[3].name());
                     }
                 }
                 LEMOP::Hide(tgt, sec, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
                     let Ptr::Leaf(Tag::Num, secret) = sec.get_ptr(&ptrs)? else {
-                        return Err(format!("{} is not a numeric pointer", sec.name()))
+                        bail!("{} is not a numeric pointer", sec.name())
                     };
                     let z_ptr = store.hydrate_ptr(&src_ptr)?;
                     let hash =
@@ -134,27 +134,27 @@ impl LEM {
                     let tgt_ptr = Ptr::comm(hash);
                     store.comms.insert(FWrap::<F>(hash), (secret, src_ptr));
                     if ptrs.insert(tgt.name().clone(), tgt_ptr).is_some() {
-                        return Err(format!("{} already defined", tgt.name()));
+                        bail!("{} already defined", tgt.name());
                     }
                 }
                 LEMOP::Open(tgt_secret, tgt_ptr, comm_or_num) => {
                     match comm_or_num.get_ptr(&ptrs)? {
                         Ptr::Leaf(Tag::Num, hash) | Ptr::Leaf(Tag::Comm, hash) => {
                             let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(hash)) else {
-                                return Err(format!("No committed data for hash {}", &hash.hex_digits()))
+                                bail!("No committed data for hash {}", &hash.hex_digits())
                             };
                             if ptrs.insert(tgt_ptr.name().clone(), *ptr).is_some() {
-                                return Err(format!("{} already defined", tgt_ptr.name()));
+                                bail!("{} already defined", tgt_ptr.name());
                             }
                             if ptrs
                                 .insert(tgt_secret.name().clone(), Ptr::Leaf(Tag::Num, *secret))
                                 .is_some()
                             {
-                                return Err(format!("{} already defined", tgt_secret.name()));
+                                bail!("{} already defined", tgt_secret.name());
                             }
                         }
                         _ => {
-                            return Err(format!("{} is not a num/comm pointer", comm_or_num.name()))
+                            bail!("{} is not a num/comm pointer", comm_or_num.name())
                         }
                     }
                 }
@@ -163,13 +163,13 @@ impl LEM {
                     let ptr_tag = ptr.tag();
                     match cases.get(ptr_tag) {
                         Some(op) => stack.push(op),
-                        None => return Err(format!("No match for tag {}", ptr_tag)),
+                        None => bail!("No match for tag {}", ptr_tag),
                     }
                 }
                 LEMOP::MatchSymPath(match_ptr, cases, def) => {
                     let ptr = match_ptr.get_ptr(&ptrs)?;
                     let Some(sym_path) = store.fetch_sym_path(&ptr) else {
-                        return Err(format!("Symbol path not found for {}", match_ptr.name()));
+                        bail!("Symbol path not found for {}", match_ptr.name());
                     };
                     match cases.get(sym_path) {
                         Some(op) => stack.push(op),
@@ -179,7 +179,7 @@ impl LEM {
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
                 LEMOP::SetReturn(o) => {
                     if output.is_some() {
-                        return Err("Tried to return twice".to_string());
+                        return Err(anyhow!("Tried to return twice"));
                     }
                     output = Some([
                         o[0].get_ptr(&ptrs)?,
@@ -190,7 +190,7 @@ impl LEM {
             }
         }
         let Some(output) = output else {
-            return Err("Output not defined".to_string());
+            return Err(anyhow!("Output not defined"));
         };
         Ok(Witness {
             input,
@@ -205,7 +205,7 @@ impl LEM {
         &self,
         expr: Ptr<F>,
         store: &mut Store<F>,
-    ) -> Result<Vec<Witness<F>>, String> {
+    ) -> Result<Vec<Witness<F>>> {
         let mut expr = expr;
         let mut env = store.intern_symbol(&Symbol::lurk_sym("nil"));
         let mut cont = Ptr::null(Tag::Outermost);

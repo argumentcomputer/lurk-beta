@@ -7,7 +7,7 @@ mod symbol;
 mod tag;
 
 use std::collections::HashMap;
-
+use anyhow::{Result, anyhow, bail};
 use crate::field::LurkField;
 
 use self::{pointers::Ptr, store::Store, tag::Tag};
@@ -99,10 +99,10 @@ impl MetaPtr {
         &self.0
     }
 
-    pub fn get_ptr<F: LurkField>(&self, ptrs: &HashMap<String, Ptr<F>>) -> Result<Ptr<F>, String> {
+    pub fn get_ptr<F: LurkField>(&self, ptrs: &HashMap<String, Ptr<F>>) -> Result<Ptr<F>> {
         match ptrs.get(&self.0) {
             Some(ptr) => Ok(*ptr),
-            None => Err(format!("Meta pointer {} not defined", self.0)),
+            None => Err(anyhow!("Meta pointer {} not defined", self.0)),
         }
     }
 }
@@ -148,7 +148,7 @@ impl LEMOP {
     ///
     /// Note: this function is not supposed to be called manually. It's used by
     /// `LEM::new`, which is the API that should be used directly.
-    pub fn check(&self) -> Result<(), String> {
+    pub fn check(&self) -> Result<()> {
         // TODO
         Ok(())
     }
@@ -165,25 +165,25 @@ impl LEMOP {
         &self,
         path: String,
         dmap: &DashMap<String, String, ahash::RandomState>, // name -> path/name
-    ) -> Result<Self, String> {
+    ) -> Result<Self> {
         match self {
             Self::MkNull(ptr, tag) => {
                 let new_name = format!("{}.{}", path, ptr.name());
                 if dmap.insert(ptr.name().clone(), new_name.clone()).is_some() {
-                    return Err(format!("{} already defined", ptr.name()));
+                    bail!("{} already defined", ptr.name());
                 };
                 Ok(Self::MkNull(MetaPtr(new_name), *tag))
             }
             Self::Hash2Ptrs(tgt, tag, src) => {
                 let Some(src0_path) = dmap.get(src[0].name()) else {
-                    return Err(format!("{} not defined", src[0].name()));
+                    bail!("{} not defined", src[0].name());
                 };
                 let Some(src1_path) = dmap.get(src[1].name()) else {
-                    return Err(format!("{} not defined", src[1].name()));
+                    bail!("{} not defined", src[1].name());
                 };
                 let new_name = format!("{}/{}", path, tgt.name());
                 if dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
-                    return Err(format!("{} already defined", tgt.name()));
+                    bail!("{} already defined", tgt.name());
                 };
                 Ok(Self::Hash2Ptrs(
                     MetaPtr(new_name),
@@ -193,17 +193,17 @@ impl LEMOP {
             }
             Self::Hash3Ptrs(tgt, tag, src) => {
                 let Some(src0_path) = dmap.get(src[0].name()) else {
-                    return Err(format!("{} not defined", src[0].name()));
+                    bail!("{} not defined", src[0].name());
                 };
                 let Some(src1_path) = dmap.get(src[1].name()) else {
-                    return Err(format!("{} not defined", src[1].name()));
+                    bail!("{} not defined", src[1].name());
                 };
                 let Some(src2_path) = dmap.get(src[2].name()) else {
-                    return Err(format!("{} not defined", src[2].name()));
+                    bail!("{} not defined", src[2].name());
                 };
                 let new_name = format!("{}/{}", path, tgt.name());
                 if dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
-                    return Err(format!("{} already defined", tgt.name()));
+                    bail!("{} already defined", tgt.name());
                 };
                 Ok(Self::Hash3Ptrs(
                     MetaPtr(new_name),
@@ -217,20 +217,20 @@ impl LEMOP {
             }
             Self::Hash4Ptrs(tgt, tag, src) => {
                 let Some(src0_path) = dmap.get(src[0].name()) else {
-                    return Err(format!("{} not defined", src[0].name()));
+                    bail!("{} not defined", src[0].name());
                 };
                 let Some(src1_path) = dmap.get(src[1].name()) else {
-                    return Err(format!("{} not defined", src[1].name()));
+                    bail!("{} not defined", src[1].name());
                 };
                 let Some(src2_path) = dmap.get(src[2].name()) else {
-                    return Err(format!("{} not defined", src[2].name()));
+                    bail!("{} not defined", src[2].name());
                 };
                 let Some(src3_path) = dmap.get(src[3].name()) else {
-                    return Err(format!("{} not defined", src[3].name()));
+                    bail!("{} not defined", src[3].name());
                 };
                 let new_name = format!("{}/{}", path, tgt.name());
                 if dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
-                    return Err(format!("{} already defined", tgt.name()));
+                    bail!("{} already defined", tgt.name());
                 };
                 Ok(Self::Hash4Ptrs(
                     MetaPtr(new_name),
@@ -245,7 +245,7 @@ impl LEMOP {
             }
             LEMOP::MatchTag(ptr, cases) => {
                 let Some(ptr_path) = dmap.get(ptr.name()) else {
-                    return Err(format!("{} not defined", ptr.name()));
+                    bail!("{} not defined", ptr.name());
                 };
                 let mut new_cases = vec![];
                 for (tag, case) in cases {
@@ -267,13 +267,13 @@ impl LEMOP {
             }
             LEMOP::SetReturn(o) => {
                 let Some(o0) = dmap.get(o[0].name()) else {
-                    return Err(format!("{} not defined", o[0].name()));
+                    bail!("{} not defined", o[0].name());
                 };
                 let Some(o1) = dmap.get(o[1].name()) else {
-                    return Err(format!("{} not defined", o[1].name()));
+                    bail!("{} not defined", o[1].name());
                 };
                 let Some(o2) = dmap.get(o[2].name()) else {
-                    return Err(format!("{} not defined", o[2].name()));
+                    bail!("{} not defined", o[2].name());
                 };
                 Ok(LEMOP::SetReturn([
                     MetaPtr(o0.clone()),
@@ -328,7 +328,7 @@ pub struct Witness<F: LurkField> {
 impl LEM {
     /// Instantiates a `LEM` with the appropriate checks and transformations
     /// to make sure that interpretation and constraining will be smooth.
-    pub fn new(input: [&str; 3], lem_op: LEMOP) -> Result<LEM, String> {
+    pub fn new(input: [&str; 3], lem_op: LEMOP) -> Result<LEM> {
         lem_op.check()?;
         let dmap = DashMap::from_iter(input.map(|i| (i.to_string(), i.to_string())));
         Ok(LEM {
