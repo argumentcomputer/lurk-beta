@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
     ConstraintSystem,
@@ -38,7 +38,7 @@ impl<F: LurkField> AllocationManager<F> {
                 let digits = f.hex_digits();
                 let alloc =
                     AllocatedNum::alloc(cs.namespace(|| format!("allocate {digits}")), || Ok(f))
-                        .map_err(|e| anyhow!("{e}: couldn't allocate {digits}"))?;
+                        .with_context(|| format!("couldn't allocate {digits}"))?;
                 self.0.insert(wrap, alloc.clone());
                 Ok(alloc)
             }
@@ -56,12 +56,12 @@ impl LEM {
             AllocatedNum::alloc(cs.namespace(|| format!("allocate {name}'s tag")), || {
                 Ok(z_ptr.tag.to_field())
             })
-            .map_err(|e| anyhow!("{e}: couldn't allocate {name}'s tag"))?;
+            .with_context(|| format!("couldn't allocate {name}'s tag"))?;
         let alloc_hash =
             AllocatedNum::alloc(cs.namespace(|| format!("allocate {name}'s hash")), || {
                 Ok(z_ptr.hash)
             })
-            .map_err(|e| anyhow!("{e}: couldn't allocate {name}'s hash"))?;
+            .with_context(|| format!("couldn't allocate {name}'s hash"))?;
         Ok(AllocatedPtr::from_parts(&alloc_tag, &alloc_hash))
     }
 
@@ -73,11 +73,11 @@ impl LEM {
         alloc_ptr
             .tag()
             .inputize(cs.namespace(|| format!("inputize {}'s tag", name)))
-            .map_err(|e| anyhow!("{}: couldn't inputize {}'s tag", &e, name))?;
+            .with_context(|| format!("couldn't inputize {name}'s tag"))?;
         alloc_ptr
             .hash()
             .inputize(cs.namespace(|| format!("inputize {}'s hash", name)))
-            .map_err(|e| anyhow!("{}: couldn't inputize {}'s hash", &e, name))?;
+            .with_context(|| format!("couldn't inputize {name}'s hash"))?;
         Ok(())
     }
 
@@ -189,11 +189,8 @@ impl LEM {
                             alloc_tgt.tag(),
                             &alloc_tag,
                         )
-                        .map_err(|e| {
-                            anyhow!(
-                                "{e}: couldn't enforce implies equal for {}'s tag",
-                                tgt.name()
-                            )
+                        .with_context(|| {
+                            format!("couldn't enforce implies equal for {}'s tag", tgt.name())
                         })?;
                         implies_equal_zero(
                             &mut cs.namespace(|| {
@@ -202,9 +199,9 @@ impl LEM {
                             &concrete_path,
                             alloc_tgt.hash(),
                         )
-                        .map_err(|e| {
-                            anyhow!(
-                                "{e}: couldn't enforce implies equal zero for {}'s hash",
+                        .with_context(|| {
+                            format!(
+                                "couldn't enforce implies equal zero for {}'s hash",
                                 tgt.name()
                             )
                         })?;
@@ -240,7 +237,7 @@ impl LEM {
                             alloc_match_ptr.tag(),
                             tag.to_field::<F>(),
                         )
-                        .map_err(|e| anyhow!("{e}: couldn't allocate equal const"))?;
+                        .with_context(|| "couldn't allocate equal const")?;
                         concrete_path_vec.push(alloc_has_match.clone());
 
                         let new_path_matchtag = format!("{}.{}", &path, tag);
@@ -250,7 +247,7 @@ impl LEM {
                                 &concrete_path,
                                 &alloc_has_match,
                             )
-                            .map_err(|e| anyhow!("{e}: failed to constrain `and`"))?;
+                            .with_context(|| "failed to constrain `and`")?;
                             stack.push((op, Some(concrete_path_and_has_match), new_path_matchtag));
                         } else {
                             stack.push((op, Some(alloc_has_match), new_path_matchtag));
@@ -267,16 +264,14 @@ impl LEM {
                             &concrete_path,
                             &concrete_path_vec,
                         )
-                        .map_err(|e| {
-                            anyhow!("{e}: couldn't constrain `enforce_selector_with_premise`")
-                        })?;
+                        .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
                     } else {
                         // If `branch_path_info` is None, we just do regular constraining
                         enforce_popcount_one(
                             &mut cs.namespace(|| format!("{path}.enforce_popcount_one")),
                             &concrete_path_vec[..],
                         )
-                        .map_err(|e| anyhow!("{e}: couldn't enforce `popcount_one`"))?;
+                        .with_context(|| "couldn't enforce `popcount_one`")?;
                     }
                 }
                 LEMOP::Seq(ops) => stack.extend(
@@ -322,9 +317,7 @@ impl LEM {
                                     &concrete_path,
                                     &alloc_ptr_expected,
                                 )
-                                .map_err(|e| {
-                                    anyhow!("{e}: couldn't constrain `implies_ptr_equal`")
-                                })?;
+                                .with_context(|| "couldn't constrain `implies_ptr_equal`")?;
                         } else {
                             // If `branch_path_info` is None, we just do regular constraining
                             alloc_ptr_computed.enforce_equal(

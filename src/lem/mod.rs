@@ -6,9 +6,9 @@ mod store;
 mod symbol;
 mod tag;
 
-use std::collections::HashMap;
-use anyhow::{Result, anyhow, bail};
 use crate::field::LurkField;
+use anyhow::{anyhow, bail, Result};
+use std::collections::HashMap;
 
 use self::{pointers::Ptr, store::Store, tag::Tag};
 
