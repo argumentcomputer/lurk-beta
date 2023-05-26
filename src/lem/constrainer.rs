@@ -143,10 +143,10 @@ impl LEM {
     ) -> Result<()> {
         let mut alloc_ptrs: HashMap<&String, AllocatedPtr<F>> = HashMap::default();
 
-    // Allocate inputs
-    for i in 0..3 {
-        self.allocate_and_inputize_input(cs, store, witness, &mut alloc_ptrs, i)?;
-    }
+        // Allocate inputs
+        for i in 0..3 {
+            self.allocate_and_inputize_input(cs, store, witness, &mut alloc_ptrs, i)?;
+        }
 
         let mut num_inputized_outputs = 0;
 
