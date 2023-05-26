@@ -21,8 +21,8 @@ use crate::{
 
 use super::{
     constraints::{
-        alloc_equal, alloc_equal_const, boolean_to_num, enforce_equal, enforce_implication, pick,
-        pick_const,
+        alloc_equal, alloc_equal_const, boolean_to_num, enforce_equal, enforce_implication,
+        implies_equal, pick, pick_const,
     },
     data::{allocate_constant, hash_poseidon, GlobalAllocations},
     hashes::{AllocatedConsWitness, AllocatedContWitness},
@@ -188,6 +188,28 @@ impl<F: LurkField> AllocatedPtr<F> {
         tag: F,
     ) -> Result<Boolean, SynthesisError> {
         alloc_equal_const(&mut cs.namespace(|| "tags equal"), &self.hash, tag)
+    }
+
+    /// Enforce equality of two allocated pointers given an implication premise
+    pub fn implies_ptr_equal<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        premise: &Boolean,
+        other: &AllocatedPtr<F>,
+    ) -> Result<(), SynthesisError> {
+        implies_equal(
+            &mut cs.namespace(|| "implies tag equal"),
+            premise,
+            self.tag(),
+            other.tag(),
+        )?;
+        implies_equal(
+            &mut cs.namespace(|| "implies hash equal"),
+            premise,
+            self.hash(),
+            other.hash(),
+        )?;
+        Ok(())
     }
 
     pub fn is_nil<CS: ConstraintSystem<F>>(

@@ -16,6 +16,7 @@ pub mod hash;
 pub mod hash_witness;
 //pub mod package;
 pub mod error;
+pub mod lem;
 mod num;
 pub mod parser;
 pub mod proof;

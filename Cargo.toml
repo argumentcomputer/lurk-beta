@@ -21,7 +21,7 @@ generic-array = "0.14.6"
 itertools = "0.9"
 log = "0.4.17"
 lurk-macros = { path = "lurk-macros" }
-neptune = { version = "9.0.0", features = ["arity2","arity4","arity8","arity16","pasta","bls"] }
+neptune = { version = "10.0.0", features = ["arity2","arity4","arity8","arity16","pasta","bls"] }
 nova = { package = "nova-snark", version = "0.21", default-features = false }
 once_cell = "1.17.1"
 pairing_lib = { version = "0.23", package = "pairing" }
@@ -110,6 +110,10 @@ debug-assertions = false
 
 [[bench]]
 name = "end2end"
+harness = false
+
+[[bench]]
+name = "fibonacci"
 harness = false
 
 [[bench]]
