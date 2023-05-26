@@ -75,13 +75,3 @@ impl Pos {
         }
     }
 }
-
-// impl fmt::Display for Position {
-//    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//        write!(
-//            f,
-//            "{}@{}:{}-{}:{}",
-//            self.input, self.from_line, self.from_column, self.upto_line,
-// self.upto_column        )
-//    }
-//}

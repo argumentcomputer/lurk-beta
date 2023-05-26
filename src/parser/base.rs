@@ -93,87 +93,51 @@ impl LitBase {
             ))),
         }
     }
+}
 
-    pub fn decode1<'a, F: LurkField>(
-        &self,
-        input: Span<'a>,
-    ) -> IResult<Span<'a>, Vec<u8>, ParseError<Span<'a>, F>> {
-        let (i, o) = input
-            .split_at_position1_complete(|x| !self.is_digit(x), nom::error::ErrorKind::Digit)?;
-        match base_x::decode(self.base_digits(), o.fragment()) {
-            Ok(bytes) => Ok((i, bytes)),
-            Err(_) => Err(nom::Err::Error(ParseError::new(
-                i,
-                ParseErrorKind::InvalidBaseEncoding(*self),
-            ))),
+macro_rules! define_parse_digits {
+    ($name:ident, $base:ident, $digit_str:expr, $digits_str:expr, $map_fn:expr) => {
+        pub fn $name<F: LurkField>(
+        ) -> impl Fn(Span<'_>) -> IResult<Span<'_>, String, ParseError<Span<'_>, F>> {
+            move |from: Span<'_>| {
+                let (i, d) = context($digit_str, satisfy(|x| LitBase::$base.is_digit(x)))(from)?;
+                let (i, ds) = context(
+                    $digits_str,
+                    take_till(|x| !(LitBase::$base.is_digit(x) || x == '_')),
+                )(i)?;
+                let ds: String = core::iter::once(d)
+                    .chain((*ds.fragment()).to_owned().chars())
+                    .filter(|x| *x != '_')
+                    .map($map_fn)
+                    .collect();
+                Ok((i, ds))
+            }
         }
-    }
+    };
 }
 
-pub fn parse_bin_digits<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, String, ParseError<Span<'_>, F>> {
-    move |from: Span<'_>| {
-        let (i, d) = context("binary digit", satisfy(|x| LitBase::Bin.is_digit(x)))(from)?;
-        let (i, ds) = context(
-            "binary digits",
-            take_till(|x| !(LitBase::Bin.is_digit(x) || x == '_')),
-        )(i)?;
-        let ds: String = core::iter::once(d)
-            .chain((*ds.fragment()).to_owned().chars())
-            .filter(|x| *x != '_')
-            .collect();
-        Ok((i, ds))
-    }
-}
-
-pub fn parse_oct_digits<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, String, ParseError<Span<'_>, F>> {
-    move |from: Span<'_>| {
-        let (i, d) = context("octal digit", satisfy(|x| LitBase::Oct.is_digit(x)))(from)?;
-        let (i, ds) = context(
-            "octal digits",
-            take_till(|x| !(LitBase::Oct.is_digit(x) || x == '_')),
-        )(i)?;
-        let ds: String = core::iter::once(d)
-            .chain((*ds.fragment()).to_owned().chars())
-            .filter(|x| *x != '_')
-            .collect();
-        Ok((i, ds))
-    }
-}
-
-pub fn parse_dec_digits<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, String, ParseError<Span<'_>, F>> {
-    move |from: Span<'_>| {
-        let (i, d) = context("decimal digit", satisfy(|x| LitBase::Dec.is_digit(x)))(from)?;
-        let (i, ds) = context(
-            "decimal digits",
-            take_till(|x| !(LitBase::Dec.is_digit(x) || x == '_')),
-        )(i)?;
-        let ds: String = core::iter::once(d)
-            .chain((*ds.fragment()).to_owned().chars())
-            .filter(|x| *x != '_')
-            .collect();
-        Ok((i, ds))
-    }
-}
-
-pub fn parse_hex_digits<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, String, ParseError<Span<'_>, F>> {
-    move |from: Span<'_>| {
-        let (i, d) = context("hexadecimal digit", satisfy(|x| LitBase::Hex.is_digit(x)))(from)?;
-        let (i, ds) = context(
-            "hexadecimal digits",
-            take_till(|x| !(LitBase::Hex.is_digit(x) || x == '_')),
-        )(i)?;
-        let ds: String = core::iter::once(d)
-            .chain((*ds.fragment()).to_owned().chars())
-            .filter(|x| *x != '_')
-            .map(|x| x.to_ascii_lowercase())
-            .collect();
-        Ok((i, ds))
-    }
-}
+define_parse_digits!(
+    parse_bin_digits,
+    Bin,
+    "binary digit",
+    "binary digits",
+    |x| x
+);
+define_parse_digits!(parse_oct_digits, Oct, "octal digit", "octal digits", |x| x);
+define_parse_digits!(
+    parse_dec_digits,
+    Dec,
+    "decimal digit",
+    "decimal digits",
+    |x| x
+);
+define_parse_digits!(
+    parse_hex_digits,
+    Hex,
+    "hexadecimal digit",
+    "hexadecimal digits",
+    |x| x.to_ascii_lowercase()
+);
 
 pub fn parse_litbase_code<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> IResult<Span<'_>, LitBase, ParseError<Span<'_>, F>> {
@@ -189,14 +153,6 @@ pub fn parse_litbase_code<F: LurkField>(
         )
     }
 }
-// pub fn parse_litbase_bits_code() -> impl Fn(Span<'_>) -> IResult<Span<'_>, LitBase,
-// ParseError<Span<'_>>> {    move |from: Span<'_>| {
-//        throw_err(
-//            alt((value(LitBase::Bin, tag("b")), value(LitBase::Hex,
-// tag("x"))))(from),            |_| ParseError::new(from,
-// ParseErrorKind::UnknownBaseCode),        )
-//    }
-//}
 
 #[allow(clippy::type_complexity)]
 pub fn parse_litbase_digits<F: LurkField>(

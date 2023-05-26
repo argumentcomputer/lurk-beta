@@ -182,10 +182,9 @@ pub fn map_parse_err<I: AsBytes, F: LurkField, A, Fun: Fn(ParseError<I, F>) -> P
     x: IResult<I, A, ParseError<I, F>>,
     f: Fun,
 ) -> IResult<I, A, ParseError<I, F>> {
-    match x {
-        Ok(res) => Ok(res),
-        Err(Err::Incomplete(n)) => Err(Err::Incomplete(n)),
-        Err(Err::Error(e)) => Err(Err::Error(f(e))),
-        Err(Err::Failure(e)) => Err(Err::Failure(f(e))),
-    }
+    x.map_err(|e| match e {
+        Err::Incomplete(n) => Err::Incomplete(n),
+        Err::Error(e) => Err::Error(f(e)),
+        Err::Failure(e) => Err::Failure(f(e)),
+    })
 }

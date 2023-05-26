@@ -938,10 +938,12 @@ fn apply_continuation<F: LurkField>(
                             let scalar_ptr = store
                                 .hash_expr(&result)
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
-                            eprintln!("char {:?}", scalar_ptr.value());
-                            store.intern_char(
-                                char::from_u32(scalar_ptr.value().to_u32_unchecked()).unwrap(),
-                            )
+                            // TODO: what should the behavior be on u32s which are not valid chars?
+                            if let Some(c) = char::from_u32(scalar_ptr.value().to_u32_unchecked()) {
+                                store.intern_char(c)
+                            } else {
+                                return Ok(Control::Error(result, env));
+                            }
                         }
                         _ => return Ok(Control::Error(result, env)),
                     },
@@ -1125,11 +1127,7 @@ fn apply_continuation<F: LurkField>(
                             }
                         }
                         (Expression::Char(_), Expression::StrNil)
-                            if matches!(operator, Op2::StrCons) =>
-                        {
-                            cons_witness.strcons_named(ConsName::TheCons, store, evaled_arg, arg2)
-                        }
-                        (Expression::Char(_), Expression::StrCons(..))
+                        | (Expression::Char(_), Expression::StrCons(..))
                             if matches!(operator, Op2::StrCons) =>
                         {
                             cons_witness.strcons_named(ConsName::TheCons, store, evaled_arg, arg2)
