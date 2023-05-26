@@ -886,7 +886,10 @@ mod tests {
         }
 
         #[test]
-        fn test_popcount_equal((i, j, k) in ((0usize..7), (0usize..7), (0usize..7))) {
+        fn test_popcount_equal(
+            (i, j, k) in ((0usize..7), (0usize..7), (0usize..7)),
+            rand_wrong in (4u64..u64::MAX),
+        ) {
             prop_assume!(i != j);
             prop_assume!(j != k);
             prop_assume!(k != i);
@@ -913,7 +916,6 @@ mod tests {
             test_sum(Some(k), 3, true);
 
             // negative test, sum can't be a random number between 4 and MAX
-            let rand_wrong = rand::thread_rng().gen_range(4..u64::MAX);
             test_sum(None, rand_wrong, false);
         }
 
