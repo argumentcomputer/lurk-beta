@@ -819,7 +819,7 @@ mod tests {
         }
 
         #[test]
-        fn test_enforce_equal_zero(a in (1u64..42)) {
+        fn test_enforce_equal_zero(a in (1u64..u64::MAX)) {
 
             let test_num = |n: u64| {
                 let mut cs = TestConstraintSystem::<Fr>::new();
@@ -889,7 +889,7 @@ mod tests {
         fn test_popcount_equal((i, j, k) in ((0usize..7), (0usize..7), (0usize..7))) {
             prop_assume!(i != j);
             prop_assume!(j != k);
-            prop_assume!(i != k);
+            prop_assume!(k != i);
 
             let mut v = vec![Boolean::constant(false); 7];
 
