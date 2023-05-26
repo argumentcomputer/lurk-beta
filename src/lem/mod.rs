@@ -6,9 +6,9 @@ mod store;
 mod symbol;
 mod tag;
 
-use std::collections::HashMap;
-use anyhow::{Result, anyhow, bail};
 use crate::field::LurkField;
+use anyhow::{anyhow, bail, Result};
+use std::collections::HashMap;
 
 use self::{pointers::Ptr, store::Store, tag::Tag};
 
@@ -133,7 +133,7 @@ pub enum LEMOP {
     /// `MatchTag(x, cases)` performs a match on the tag of `x`, considering only
     /// the appropriate `LEMOP` among the ones provided in `cases`
     MatchTag(MetaPtr, HashMap<Tag, LEMOP>),
-    /// `MatchSymbol(x, cases, def)` checks whether `x` matches some symbol among
+    /// `MatchSymPath(x, cases, def)` checks whether `x` matches some symbol among
     /// the ones provided in `cases`. If so, run the corresponding `LEMOP`. Run
     /// The default `def` `LEMOP` otherwise
     MatchSymPath(MetaPtr, HashMap<Vec<String>, LEMOP>, Box<LEMOP>),
@@ -299,7 +299,7 @@ impl LEMOP {
                 }
                 Self::MatchTag(_, cases) => cases.values().for_each(|op| stack.push(op)),
                 Self::Seq(ops) => stack.extend(ops),
-                // It's safer to be exaustive here to avoid missing new LEMOPs
+                // It's safer to be exaustive here and avoid missing new LEMOPs
                 Self::MkNull(..)
                 | Self::Hash2Ptrs(..)
                 | Self::Hash3Ptrs(..)

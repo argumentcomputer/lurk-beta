@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use anyhow::{Result, anyhow, bail};
 use crate::field::{FWrap, LurkField};
+use anyhow::{anyhow, bail, Result};
+use std::collections::HashMap;
 
 use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, Witness, LEM, LEMOP};
 
