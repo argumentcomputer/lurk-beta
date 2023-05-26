@@ -84,10 +84,9 @@ impl LEM {
     fn on_concrete_path(concrete_path: &Option<Boolean>) -> Result<bool> {
         match concrete_path {
             None => Ok(true),
-            Some(concrete_path) => match concrete_path.get_value() {
-                Some(b) => Ok(b),
-                None => Err(anyhow!("Couldn't check whether we're on a concrete path")),
-            },
+            Some(concrete_path) => concrete_path
+                .get_value()
+                .ok_or_else(|| anyhow!("Couldn't check whether we're on a concrete path")),
         }
     }
 
