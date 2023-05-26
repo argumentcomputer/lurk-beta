@@ -67,7 +67,7 @@ impl<F: LurkField> Ptr<F> {
 
     #[inline]
     pub fn null(tag: Tag) -> Self {
-        Ptr::Leaf(tag, F::zero())
+        Ptr::Leaf(tag, F::ZERO)
     }
 
     #[inline]
@@ -127,7 +127,7 @@ impl<F: LurkField> ZPtr<F> {
     pub fn dummy() -> Self {
         Self {
             tag: Tag::Dummy,
-            hash: F::zero(),
+            hash: F::ZERO,
         }
     }
 }

@@ -17,4 +17,4 @@ proc-macro2 = "1.0.24"
 
 [dev-dependencies]
 lurk_crate = { path = "../", package = "lurk" }
-pasta_curves = { version = "0.5.2", features = ["repr-c", "serde"], package = "fil_pasta_curves" }
+pasta_curves = { version = "0.5.1", features = ["repr-c", "serde"] }

@@ -56,9 +56,9 @@ impl<F: LurkField> LightStore<F> {
             ExprTag::Num => true,
             ExprTag::Char => true,
             ExprTag::U64 => true,
-            ExprTag::Str => *ptr.value() == F::zero(), // the empty string
-            ExprTag::Sym => *ptr.value() == F::zero(), // the root symbol
-            ExprTag::Key => *ptr.value() == F::zero(), // the root keyword
+            ExprTag::Str => *ptr.value() == F::ZERO, // the empty string
+            ExprTag::Sym => *ptr.value() == F::ZERO, // the root symbol
+            ExprTag::Key => *ptr.value() == F::ZERO, // the root keyword
             _ => false,
         }
     }
@@ -71,7 +71,7 @@ impl<F: LurkField> LightStore<F> {
         let mut s = String::new();
         let mut tail_ptrs = vec![];
         let mut ptr = ptr0;
-        let strnil_ptr = ScalarPtr::from_parts(ExprTag::Str, F::zero());
+        let strnil_ptr = ScalarPtr::from_parts(ExprTag::Str, F::ZERO);
 
         // TODO: this needs to bail on encountering an opaque pointer
         while let Some(LightExpr::StrCons(c, cs)) = self.get(&ptr).flatten() {
@@ -118,11 +118,11 @@ impl<F: LurkField> LightStore<F> {
         let mut path = Sym::root();
         let mut tail_ptrs = vec![ptr0];
         let mut ptr = ptr0;
-        let symnil_ptr = ScalarPtr::from_parts(ExprTag::Sym, F::zero());
+        let symnil_ptr = ScalarPtr::from_parts(ExprTag::Sym, F::ZERO);
 
         // TODO: this needs to bail on encountering an opaque pointer
         while let Some(LightExpr::SymCons(s, ss)) = self.get(&ptr).flatten() {
-            let string = if s == ScalarPtr::from_parts(ExprTag::Str, F::zero()) {
+            let string = if s == ScalarPtr::from_parts(ExprTag::Str, F::ZERO) {
                 Ok(String::new())
             } else {
                 self.insert_scalar_string(s, store)

@@ -100,7 +100,7 @@ pub(crate) fn popcount_lc<F: PrimeField, CS: ConstraintSystem<F>>(
 ) -> Result<LinearCombination<F>, SynthesisError> {
     v.iter()
         .try_fold(LinearCombination::<F>::zero(), |acc, bit| {
-            add_to_lc::<F, CS>(bit, acc, F::one())
+            add_to_lc::<F, CS>(bit, acc, F::ONE)
         })
 }
 
@@ -142,7 +142,7 @@ pub(crate) fn add_to_lc<F: PrimeField, CS: ConstraintSystem<F>>(
     scalar: F,
 ) -> Result<LinearCombination<F>, SynthesisError> {
     let v_lc = match b {
-        Boolean::Constant(c) => lc + (if *c { scalar } else { F::zero() }, CS::one()),
+        Boolean::Constant(c) => lc + (if *c { scalar } else { F::ZERO }, CS::one()),
         Boolean::Is(ref v) => lc + (scalar, v.get_variable()),
         Boolean::Not(ref v) => lc + (scalar, CS::one()) - (scalar, v.get_variable()),
     };
@@ -156,7 +156,7 @@ pub(crate) fn enforce_pack<F: LurkField, CS: ConstraintSystem<F>>(
     v: &[Boolean],
     num: &AllocatedNum<F>,
 ) -> Result<(), SynthesisError> {
-    let mut coeff = F::one();
+    let mut coeff = F::ONE;
 
     let mut v_lc = LinearCombination::<F>::zero();
     for b in v {
@@ -363,7 +363,7 @@ where
     cs.enforce(
         || "pick",
         |lc| lc + b.get_variable() - a.get_variable(),
-        |_| condition.lc(CS::one(), F::one()),
+        |_| condition.lc(CS::one(), F::ONE),
         |lc| lc + b.get_variable() - c.get_variable(),
     );
 
@@ -396,7 +396,7 @@ where
     cs.enforce(
         || "pick",
         |lc| lc + (b, CS::one()) - (a, CS::one()),
-        |_| condition.lc(CS::one(), F::one()),
+        |_| condition.lc(CS::one(), F::ONE),
         |lc| lc + (b, CS::one()) - c.get_variable(),
     );
 
@@ -413,16 +413,16 @@ where
 {
     let num = AllocatedNum::alloc(cs.namespace(|| "Allocate num"), || {
         if bit.get_value().ok_or(SynthesisError::AssignmentMissing)? {
-            Ok(F::one())
+            Ok(F::ONE)
         } else {
-            Ok(F::zero())
+            Ok(F::ZERO)
         }
     })?;
 
     // Constrain (bit) * 1 = num, ensuring bit = num
     cs.enforce(
         || "Bit is equal to Num",
-        |_| bit.lc(CS::one(), F::one()),
+        |_| bit.lc(CS::one(), F::ONE),
         |lc| lc + CS::one(),
         |lc| lc + num.get_variable(),
     );
@@ -463,7 +463,7 @@ pub(crate) fn alloc_equal<CS: ConstraintSystem<F>, F: PrimeField>(
             if tmp1.is_some().into() {
                 Ok(tmp1.unwrap())
             } else {
-                Ok(F::one())
+                Ok(F::ONE)
             }
         },
     )?;
@@ -518,7 +518,7 @@ pub(crate) fn alloc_equal_const<CS: ConstraintSystem<F>, F: PrimeField>(
             if tmp1.is_some().into() {
                 Ok(tmp1.unwrap())
             } else {
-                Ok(F::one())
+                Ok(F::ONE)
             }
         },
     )?;
@@ -552,8 +552,8 @@ pub(crate) fn alloc_num_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     num: Num<F>,
 ) -> Result<Boolean, SynthesisError> {
     let num_value = num.get_value();
-    let x = num_value.unwrap_or_else(|| F::zero());
-    let is_zero = num_value.map(|n| n == F::zero());
+    let x = num_value.unwrap_or(F::ZERO);
+    let is_zero = num_value.map(|n| n == F::ZERO);
 
     // result = (x == 0)
     let result = AllocatedBit::alloc(cs.namespace(|| "x = 0"), is_zero)?;
@@ -563,7 +563,7 @@ pub(crate) fn alloc_num_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     cs.enforce(
         || "result or x is 0",
         |lc| lc + result.get_variable(),
-        |_| num.lc(F::one()),
+        |_| num.lc(F::ONE),
         |lc| lc,
     );
 
@@ -575,7 +575,7 @@ pub(crate) fn alloc_num_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
             if tmp.is_some().into() {
                 Ok(tmp.unwrap())
             } else {
-                Ok(F::one())
+                Ok(F::ONE)
             }
         },
     )?;
@@ -584,7 +584,7 @@ pub(crate) fn alloc_num_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     // This enforces that x and result are not both 0.
     cs.enforce(
         || "(x + result) * q = 1",
-        |_| num.lc(F::one()) + result.get_variable(),
+        |_| num.lc(F::ONE) + result.get_variable(),
         |lc| lc + q,
         |lc| lc + CS::one(),
     );
@@ -613,7 +613,7 @@ pub(crate) fn or_v_unchecked_for_optimization<CS: ConstraintSystem<F>, F: PrimeF
 ) -> Result<Boolean, SynthesisError> {
     // Count the number of true values in v.
     let count_true = v.iter().fold(Num::zero(), |acc, b| {
-        acc.add_bool_with_coeff(CS::one(), b, F::one())
+        acc.add_bool_with_coeff(CS::one(), b, F::ONE)
     });
 
     // If the number of true values is zero, then none of the values is true.
@@ -634,7 +634,7 @@ pub(crate) fn and_v<CS: ConstraintSystem<F>, F: PrimeField>(
 
     // Count the number of false values in v.
     let count_false = v.iter().fold(Num::zero(), |acc, b| {
-        acc.add_bool_with_coeff(CS::one(), &b.not(), F::one())
+        acc.add_bool_with_coeff(CS::one(), &b.not(), F::ONE)
     });
 
     // If the number of false values is zero, then all of the values are true.
@@ -680,7 +680,7 @@ pub(crate) fn enforce_implication_lc<
     premise: &Boolean,
     implication_lc: L,
 ) -> Result<(), SynthesisError> {
-    let premise_b = premise.lc(CS::one(), F::one());
+    let premise_b = premise.lc(CS::one(), F::ONE);
     let premise_c = premise_b.clone();
 
     // implication * premise = premise
@@ -716,7 +716,7 @@ pub(crate) fn enforce_implication<CS: ConstraintSystem<F>, F: PrimeField>(
 ) -> Result<(), SynthesisError> {
     enforce_implication_lc(cs, premise, |_|
                            // One if implication is true, zero otherwise.
-                           implication.lc(CS::one(), F::one()))
+                           implication.lc(CS::one(), F::ONE))
 }
 
 /// Enforce equality of two allocated numbers given an implication premise
