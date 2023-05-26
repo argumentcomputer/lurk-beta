@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/gadgets/constraints.rs`."><title>constraints.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-f3501f0f5ae15dfb.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.71.0-nightly (5ea3f0ae0 2023-05-23)" data-search-js="search-4926e5fc22a5646a.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ></div><script src="../../../../static.files/storage-62ce34ea385b278a.js"></script><script defer src="../../../../static.files/source-script-11255107d0a65077.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../static.files/main-f0540c1d82cde29b.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../lurk/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/gadgets/constraints.rs`."><title>constraints.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-f3501f0f5ae15dfb.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.71.0-nightly (a2b1646c5 2023-05-25)" data-search-js="search-4926e5fc22a5646a.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ></div><script src="../../../../static.files/storage-62ce34ea385b278a.js"></script><script defer src="../../../../static.files/source-script-11255107d0a65077.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../static.files/main-f0540c1d82cde29b.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../lurk/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -792,6 +792,278 @@
 <a href="#792" id="792">792</a>
 <a href="#793" id="793">793</a>
 <a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
 </pre></div><pre class="rust"><code><span class="comment">// Initially taken from: rust-fil-proofs/storage-proofs-core/src/gadgets/
 
 </span><span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
@@ -801,7 +1073,7 @@
         boolean::{AllocatedBit, Boolean},
         num::{AllocatedNum, Num},
     },
-    ConstraintSystem, SynthesisError,
+    ConstraintSystem, SynthesisError, Variable,
 };
 <span class="kw">use </span>ff::PrimeField;
 
@@ -824,6 +1096,27 @@
         |lc| lc + a.get_variable(),
         |lc| lc + CS::one(),
         |lc| lc + b.get_variable(),
+    );
+}
+
+<span class="doccomment">/// Adds a constraint to CS, enforcing an equality relationship between an allocated number a and zero.
+///
+/// a == zero
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>enforce_equal_zero&lt;F: PrimeField, A, AR, CS: ConstraintSystem&lt;F&gt;&gt;(
+    cs: <span class="kw-2">&amp;mut </span>CS,
+    annotation: A,
+    a: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
+) <span class="kw">where
+    </span>A: FnOnce() -&gt; AR,
+    AR: Into&lt;String&gt;,
+{
+    <span class="comment">// debug_assert_eq!(a.get_value(), b.get_value());
+    // a * 1 = zero
+    </span>cs.enforce(
+        annotation,
+        |lc| lc + a.get_variable(),
+        |lc| lc + CS::one(),
+        |lc| lc,
     );
 }
 
@@ -867,30 +1160,46 @@
     <span class="prelude-val">Ok</span>(res)
 }
 
+<span class="doccomment">/// Creates a linear combination representing the popcount (sum of one bits) of `v`.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>popcount_lc&lt;F: PrimeField, CS: ConstraintSystem&lt;F&gt;&gt;(
+    v: <span class="kw-2">&amp;</span>[Boolean],
+) -&gt; <span class="prelude-ty">Result</span>&lt;LinearCombination&lt;F&gt;, SynthesisError&gt; {
+    v.iter()
+        .try_fold(LinearCombination::&lt;F&gt;::zero(), |acc, bit| {
+            add_to_lc::&lt;F, CS&gt;(bit, acc, F::ONE)
+        })
+}
+
 <span class="doccomment">/// Adds a constraint to CS, enforcing that the addition of the allocated numbers in vector `v`
-/// is equal to `sum`.
-///
-/// summation(v) = sum
-</span><span class="attr">#[allow(dead_code)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>popcount&lt;F: PrimeField, CS: ConstraintSystem&lt;F&gt;&gt;(
+/// is equal to the value of the variable, `sum`.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>popcount_equal&lt;F: PrimeField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     v: <span class="kw-2">&amp;</span>[Boolean],
-    sum: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
+    sum: Variable,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>v_lc = LinearCombination::&lt;F&gt;::zero();
-    <span class="kw">for </span>b <span class="kw">in </span>v {
-        v_lc = add_to_lc::&lt;F, CS&gt;(b, v_lc, F::ONE)<span class="question-mark">?</span>;
-    }
+    <span class="kw">let </span>popcount = popcount_lc::&lt;F, CS&gt;(v)<span class="question-mark">?</span>;
 
-    <span class="comment">// (summation(v)) * 1 = sum
+    <span class="comment">// popcount * 1 = sum
     </span>cs.enforce(
         || <span class="string">&quot;popcount&quot;</span>,
-        |<span class="kw">_</span>| v_lc,
+        |<span class="kw">_</span>| popcount,
         |lc| lc + CS::one(),
-        |lc| lc + sum.get_variable(),
+        |lc| lc + sum,
     );
 
     <span class="prelude-val">Ok</span>(())
+}
+
+<span class="doccomment">/// Adds a constraint to CS, enforcing that the addition of the allocated numbers in vector `v`
+/// is equal to `one`.
+///
+/// summation(v) = one
+</span><span class="attr">#[inline]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>enforce_popcount_one&lt;F: PrimeField, CS: ConstraintSystem&lt;F&gt;&gt;(
+    cs: <span class="kw-2">&amp;mut </span>CS,
+    v: <span class="kw-2">&amp;</span>[Boolean],
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
+    popcount_equal(cs, v, CS::one())
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>add_to_lc&lt;F: PrimeField, CS: ConstraintSystem&lt;F&gt;&gt;(
@@ -1401,39 +1710,103 @@
     <span class="prelude-val">Ok</span>(and)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>enforce_implication&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
-    <span class="kw-2">mut </span>cs: CS,
-    a: <span class="kw-2">&amp;</span>Boolean,
-    b: <span class="kw-2">&amp;</span>Boolean,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
-    <span class="kw">let </span>implication = implies(cs.namespace(|| <span class="string">&quot;construct implication&quot;</span>), a, b)<span class="question-mark">?</span>;
-    enforce_true(cs.namespace(|| <span class="string">&quot;enforce implication&quot;</span>), <span class="kw-2">&amp;</span>implication)<span class="question-mark">?</span>;
-    <span class="prelude-val">Ok</span>(())
-}
-
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>enforce_true&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
-    cs: CS,
-    prop: <span class="kw-2">&amp;</span>Boolean,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
-    Boolean::enforce_equal(cs, <span class="kw-2">&amp;</span>Boolean::Constant(<span class="bool-val">true</span>), prop)
-}
-
-<span class="attr">#[allow(dead_code)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>enforce_false&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
-    cs: CS,
-    prop: <span class="kw-2">&amp;</span>Boolean,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
-    Boolean::enforce_equal(cs, <span class="kw-2">&amp;</span>Boolean::Constant(<span class="bool-val">false</span>), prop)
-}
-
-<span class="comment">// a =&gt; b
-// not (a and (not b))
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>implies&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
-    cs: CS,
+<span class="doccomment">/// This is a replication of Bellperson&#39;s original `and`, but receives a mutable
+/// reference for the constraint system instead of a copy
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>and&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
+    cs: <span class="kw-2">&amp;mut </span>CS,
     a: <span class="kw-2">&amp;</span>Boolean,
     b: <span class="kw-2">&amp;</span>Boolean,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Boolean, SynthesisError&gt; {
-    <span class="prelude-val">Ok</span>(Boolean::and(cs, a, <span class="kw-2">&amp;</span>b.not())<span class="question-mark">?</span>.not())
+    <span class="kw">match </span>(a, b) {
+        <span class="comment">// false AND x is always false
+        </span>(Boolean::Constant(<span class="bool-val">false</span>), <span class="kw">_</span>) | (<span class="kw">_</span>, Boolean::Constant(<span class="bool-val">false</span>)) =&gt; {
+            <span class="prelude-val">Ok</span>(Boolean::Constant(<span class="bool-val">false</span>))
+        }
+        <span class="comment">// true AND x is always x
+        </span>(Boolean::Constant(<span class="bool-val">true</span>), x) | (x, Boolean::Constant(<span class="bool-val">true</span>)) =&gt; <span class="prelude-val">Ok</span>(x.clone()),
+        <span class="comment">// a AND (NOT b)
+        </span>(Boolean::Is(is), Boolean::Not(not)) | (Boolean::Not(not), Boolean::Is(is)) =&gt; {
+            <span class="prelude-val">Ok</span>(Boolean::Is(AllocatedBit::and_not(cs, is, not)<span class="question-mark">?</span>))
+        }
+        <span class="comment">// (NOT a) AND (NOT b) = a NOR b
+        </span>(Boolean::Not(a), Boolean::Not(b)) =&gt; <span class="prelude-val">Ok</span>(Boolean::Is(AllocatedBit::nor(cs, a, b)<span class="question-mark">?</span>)),
+        <span class="comment">// a AND b
+        </span>(Boolean::Is(a), Boolean::Is(b)) =&gt; <span class="prelude-val">Ok</span>(Boolean::Is(AllocatedBit::and(cs, a, b)<span class="question-mark">?</span>)),
+    }
+}
+
+<span class="doccomment">/// Takes a boolean premise and a function that produces a `LinearCombination` (with same specification as `enforce`).
+/// Enforces the constraint that if `premise` is true, then the resulting linear combination evaluates to one.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>enforce_implication_lc&lt;
+    CS: ConstraintSystem&lt;F&gt;,
+    F: PrimeField,
+    L: FnOnce(LinearCombination&lt;F&gt;) -&gt; LinearCombination&lt;F&gt;,
+&gt;(
+    <span class="kw-2">mut </span>cs: CS,
+    premise: <span class="kw-2">&amp;</span>Boolean,
+    implication_lc: L,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
+    <span class="kw">let </span>premise_b = premise.lc(CS::one(), F::ONE);
+    <span class="kw">let </span>premise_c = premise_b.clone();
+
+    <span class="comment">// implication * premise = premise
+    </span>cs.enforce(
+        || <span class="string">&quot;implication&quot;</span>,
+        implication_lc,
+        |<span class="kw">_</span>| premise_b,
+        |<span class="kw">_</span>| premise_c,
+    );
+
+    <span class="prelude-val">Ok</span>(())
+}
+
+<span class="doccomment">/// Adds a constraint to CS, enforcing that the number of true bits in `Boolean` vector `v`
+/// is equal to one, if the premise is true.
+///
+/// summation(v) = one (if premise)
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>enforce_selector_with_premise&lt;F: PrimeField, CS: ConstraintSystem&lt;F&gt;&gt;(
+    cs: <span class="kw-2">&amp;mut </span>CS,
+    premise: <span class="kw-2">&amp;</span>Boolean,
+    v: <span class="kw-2">&amp;</span>[Boolean],
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
+    <span class="kw">let </span>popcount = popcount_lc::&lt;F, CS&gt;(v)<span class="question-mark">?</span>;
+
+    enforce_implication_lc(cs, premise, |<span class="kw">_</span>| popcount)
+}
+
+<span class="doccomment">/// Enforce `premise` implies `implication`.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>enforce_implication&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
+    cs: CS,
+    premise: <span class="kw-2">&amp;</span>Boolean,
+    implication: <span class="kw-2">&amp;</span>Boolean,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
+    enforce_implication_lc(cs, premise, |<span class="kw">_</span>|
+                           <span class="comment">// One if implication is true, zero otherwise.
+                           </span>implication.lc(CS::one(), F::ONE))
+}
+
+<span class="doccomment">/// Enforce equality of two allocated numbers given an implication premise
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>implies_equal&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
+    cs: <span class="kw-2">&amp;mut </span>CS,
+    premise: <span class="kw-2">&amp;</span>Boolean,
+    a: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
+    b: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
+    enforce_implication_lc(cs, premise, |lc| {
+        <span class="comment">// One iff `a` == `b`.
+        </span>lc + CS::one() + a.get_variable() - b.get_variable()
+    })
+}
+
+<span class="doccomment">/// Enforce equality of two allocated numbers given an implication premise
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>implies_equal_zero&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
+    cs: <span class="kw-2">&amp;mut </span>CS,
+    premise: <span class="kw-2">&amp;</span>Boolean,
+    a: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
+    enforce_implication_lc(cs, premise, |lc|
+                           <span class="comment">// One iff `a` == zero.
+                           </span>lc + CS::one() + a.get_variable())
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>or&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
@@ -1491,6 +1864,176 @@
     <span class="kw">use </span><span class="kw">crate</span>::field::FWrap;
 
     <span class="macro">proptest! </span>{
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>test_enforce_equal((a, b) <span class="kw">in </span>any::&lt;(FWrap&lt;Fr&gt;, FWrap&lt;Fr&gt;)&gt;()) {
+            <span class="macro">prop_assume!</span>(a != b);
+
+            <span class="kw">let </span>test_a_b = |a, b| {
+                <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
+                <span class="kw">let </span>a_num = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;a_num&quot;</span>), || <span class="prelude-val">Ok</span>(a)).unwrap();
+                <span class="kw">let </span>b_num = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;b_num&quot;</span>), || <span class="prelude-val">Ok</span>(b)).unwrap();
+                <span class="kw">let _ </span>= enforce_equal(<span class="kw-2">&amp;mut </span>cs, || <span class="string">&quot;enforce equal&quot;</span>, <span class="kw-2">&amp;</span>a_num, <span class="kw-2">&amp;</span>b_num);
+                <span class="macro">assert_eq!</span>(cs.is_satisfied(), a==b);
+            };
+
+            <span class="comment">// positive
+            </span>test_a_b(a.<span class="number">0</span>, a.<span class="number">0</span>);
+
+            <span class="comment">// negative
+            </span>test_a_b(a.<span class="number">0</span>, b.<span class="number">0</span>);
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>test_enforce_equal_zero(a <span class="kw">in </span>(<span class="number">1u64</span>..u64::MAX)) {
+
+            <span class="kw">let </span>test_num = |n: u64| {
+                <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
+                <span class="kw">let </span>num = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;zero&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from(n))).unwrap();
+                <span class="kw">let _ </span>= enforce_equal_zero(<span class="kw-2">&amp;mut </span>cs, || <span class="string">&quot;enforce equal zero&quot;</span>, <span class="kw-2">&amp;</span>num);
+                <span class="macro">assert_eq!</span>(cs.is_satisfied(), n==<span class="number">0</span>);
+
+            };
+
+            <span class="comment">// positive
+            </span>test_num(<span class="number">0</span>);
+
+            <span class="comment">// negative
+            </span>test_num(a);
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>test_implies_equal_zero(
+            p <span class="kw">in </span>any::&lt;bool&gt;(),
+            rand_a <span class="kw">in </span>(<span class="number">0u64</span>..u64::MAX),
+            rand_positive <span class="kw">in </span>(<span class="number">1u64</span>..u64::MAX),
+        ) {
+
+            <span class="kw">let </span>test_premise_num = |premise: bool, n, result: bool| {
+                <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
+                <span class="kw">let </span>num = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;num&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from(n))).unwrap();
+                <span class="kw">let </span>pb = Boolean::constant(premise);
+                <span class="kw">let _ </span>= implies_equal_zero(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal zero&quot;</span>), <span class="kw-2">&amp;</span>pb, <span class="kw-2">&amp;</span>num);
+                <span class="macro">assert_eq!</span>(cs.is_satisfied(), result);
+
+            };
+
+            <span class="comment">// any premise
+            </span>test_premise_num(p, <span class="number">0</span>, <span class="bool-val">true</span>);
+
+            <span class="comment">// false premise, any value
+            </span>test_premise_num(<span class="bool-val">false</span>, rand_a, <span class="bool-val">true</span>);
+
+            <span class="comment">// true premise, bad values
+            </span>test_premise_num(<span class="bool-val">true</span>, rand_positive, <span class="bool-val">false</span>);
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>test_implies_equal(p <span class="kw">in </span>any::&lt;bool&gt;(), (a, b) <span class="kw">in </span>any::&lt;(FWrap&lt;Fr&gt;, FWrap&lt;Fr&gt;)&gt;()) {
+            <span class="macro">prop_assume!</span>(a != b);
+
+            <span class="kw">let </span>test_a_b = |premise: bool, a, b, result: bool| {
+                <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
+                <span class="kw">let </span>a_num = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;a_num&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from(a))).unwrap();
+                <span class="kw">let </span>b_num = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;b_num&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from(b))).unwrap();
+                <span class="kw">let </span>pb = Boolean::constant(premise);
+                <span class="kw">let _ </span>= implies_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal&quot;</span>), <span class="kw-2">&amp;</span>pb, <span class="kw-2">&amp;</span>a_num, <span class="kw-2">&amp;</span>b_num);
+                <span class="macro">assert_eq!</span>(cs.is_satisfied(), result);
+            };
+
+            <span class="comment">// any premise
+            </span>test_a_b(p, a.<span class="number">0</span>, a.<span class="number">0</span>, <span class="bool-val">true</span>);
+
+            <span class="comment">// positive case
+            </span>test_a_b(<span class="bool-val">false</span>, a.<span class="number">0</span>, b.<span class="number">0</span>, <span class="bool-val">true</span>);
+
+            <span class="comment">// negative case
+            </span>test_a_b(<span class="bool-val">true</span>, a.<span class="number">0</span>, b.<span class="number">0</span>, <span class="bool-val">false</span>);
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>test_popcount_equal(
+            (i, j, k) <span class="kw">in </span>((<span class="number">0usize</span>..<span class="number">7</span>), (<span class="number">0usize</span>..<span class="number">7</span>), (<span class="number">0usize</span>..<span class="number">7</span>)),
+            rand_wrong <span class="kw">in </span>(<span class="number">4u64</span>..u64::MAX),
+        ) {
+            <span class="macro">prop_assume!</span>(i != j);
+            <span class="macro">prop_assume!</span>(j != k);
+            <span class="macro">prop_assume!</span>(k != i);
+
+            <span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[Boolean::constant(<span class="bool-val">false</span>); <span class="number">7</span>];
+
+            <span class="kw">let </span><span class="kw-2">mut </span>test_sum = |elem: <span class="prelude-ty">Option</span>&lt;usize&gt;, sum: u64, result: bool| {
+                <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = elem {
+                    v[e] = Boolean::constant(<span class="bool-val">true</span>);
+                };
+                <span class="kw">let </span>alloc_sum = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;sum&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from(sum)));
+                <span class="kw">let _ </span>= popcount_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;popcount equal&quot;</span>), <span class="kw-2">&amp;</span>v, alloc_sum.unwrap().get_variable());
+                <span class="macro">assert_eq!</span>(cs.is_satisfied(), result);
+            };
+
+            <span class="comment">// All values are false, popcount must be zero
+            </span>test_sum(<span class="prelude-val">None</span>, <span class="number">0</span>, <span class="bool-val">true</span>);
+            <span class="comment">// Insert true into a random position, now popocount must be one
+            </span>test_sum(<span class="prelude-val">Some</span>(i), <span class="number">1</span>, <span class="bool-val">true</span>);
+            <span class="comment">// Insert true into a distinct random position, now popocount must be two
+            </span>test_sum(<span class="prelude-val">Some</span>(j), <span class="number">2</span>, <span class="bool-val">true</span>);
+            <span class="comment">// Insert true again into a distinct random position, now popocount must be three
+            </span>test_sum(<span class="prelude-val">Some</span>(k), <span class="number">3</span>, <span class="bool-val">true</span>);
+
+            <span class="comment">// negative test, sum can&#39;t be a random number between 4 and MAX
+            </span>test_sum(<span class="prelude-val">None</span>, rand_wrong, <span class="bool-val">false</span>);
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>test_enforce_selector(
+            p <span class="kw">in </span>any::&lt;bool&gt;(),
+            (v1, v2, v3) <span class="kw">in </span>any::&lt;(bool, bool, bool)&gt;(),
+            (i, j, k) <span class="kw">in </span>((<span class="number">0usize</span>..<span class="number">7</span>), (<span class="number">0usize</span>..<span class="number">7</span>), (<span class="number">0usize</span>..<span class="number">7</span>)),
+        ) {
+            <span class="comment">// get distinct indices
+            </span><span class="macro">prop_assume!</span>(i != j);
+            <span class="macro">prop_assume!</span>(j != k);
+            <span class="macro">prop_assume!</span>(i != k);
+            <span class="comment">// initialize with false
+            </span><span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[Boolean::constant(<span class="bool-val">false</span>); <span class="number">7</span>];
+            <span class="kw">let </span><span class="kw-2">mut </span>test_premise = |
+                    premise: bool,
+                    randomize: bool,
+                    select_random: bool,
+                    select_many: bool,
+                    result: bool
+                | {
+                    <span class="kw">if </span>randomize {
+                        v[i] = Boolean::constant(v1);
+                        v[j] = Boolean::constant(v2);
+                        v[k] = Boolean::constant(v3);
+                    }
+                    <span class="kw">if </span>select_random {
+                        v[i] = Boolean::constant(<span class="bool-val">true</span>);
+                    }
+                    <span class="kw">if </span>select_many {
+                        v[i] = Boolean::constant(<span class="bool-val">true</span>);
+                        v[j] = Boolean::constant(<span class="bool-val">true</span>);
+                        v[k] = Boolean::constant(<span class="bool-val">true</span>);
+                    }
+                    <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
+                    <span class="kw">let </span>p = Boolean::Constant(premise);
+                    <span class="kw">let _ </span>= enforce_selector_with_premise(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;enforce selector with premise&quot;</span>), <span class="kw-2">&amp;</span>p, <span class="kw-2">&amp;</span>v);
+                    <span class="macro">assert_eq!</span>(cs.is_satisfied(), result);
+                };
+
+            <span class="comment">// select a random position
+            // for any premise, test good selections
+            </span>test_premise(p, <span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>);
+
+            <span class="comment">// if p is false, any v works
+            </span>test_premise(<span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>);
+
+            <span class="comment">// select many, then must fail
+            </span>test_premise(<span class="bool-val">true</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>);
+
+        }
 
         <span class="attr">#[test]
         </span><span class="kw">fn </span>prop_add_constraint((x, y) <span class="kw">in </span>any::&lt;(FWrap&lt;Fr&gt;, FWrap&lt;Fr&gt;)&gt;()) {
@@ -1584,6 +2127,7 @@
             <span class="macro">assert_eq!</span>(expected_or2, or2.get_value().unwrap());
             <span class="macro">assert!</span>(cs.is_satisfied());
         }
+
     }
 }
 </code></pre></div></section></main></body></html>
