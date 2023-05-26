@@ -1,14 +1,14 @@
 use rayon::prelude::*;
 use std::collections::HashMap;
 
-use dashmap::DashMap;
-use indexmap::IndexSet;
-
 use crate::{
     field::{FWrap, LurkField},
     hash::PoseidonCache,
     lem::tag::Tag,
 };
+use anyhow::{bail, Result};
+use dashmap::DashMap;
+use indexmap::IndexSet;
 
 use super::{
     pointers::{Ptr, ZChildren, ZPtr},
@@ -242,13 +242,13 @@ impl<F: LurkField> Store<F> {
     ///
     /// Warning: without cache hits, this function might blow up Rust's recursion
     /// depth limit. This limitation is circumvented by calling `hydrate_z_cache`.
-    pub fn hydrate_ptr(&self, ptr: &Ptr<F>) -> Result<ZPtr<F>, String> {
+    pub fn hydrate_ptr(&self, ptr: &Ptr<F>) -> Result<ZPtr<F>> {
         match ptr {
             Ptr::Leaf(Tag::Comm, hash) => match self.z_cache.get(ptr) {
                 Some(z_ptr) => Ok(*z_ptr),
                 None => {
                     let Some((secret, ptr)) = self.comms.get(&FWrap(*hash)) else {
-                            return Err(format!("Hash {} not found", hash.hex_digits()))
+                            bail!("Hash {} not found", hash.hex_digits())
                         };
                     let z_ptr = ZPtr {
                         tag: Tag::Comm,
@@ -268,7 +268,7 @@ impl<F: LurkField> Store<F> {
                 Some(z_ptr) => Ok(*z_ptr),
                 None => {
                     let Some((a, b)) = self.ptrs2.get_index(*idx) else {
-                            return Err(format!("Index {idx} not found on ptrs2"))
+                            bail!("Index {idx} not found on ptrs2")
                         };
                     let a = self.hydrate_ptr(a)?;
                     let b = self.hydrate_ptr(b)?;
@@ -290,7 +290,7 @@ impl<F: LurkField> Store<F> {
                 Some(z_ptr) => Ok(*z_ptr),
                 None => {
                     let Some((a, b, c)) = self.ptrs3.get_index(*idx) else {
-                            return Err(format!("Index {idx} not found on ptrs3"))
+                            bail!("Index {idx} not found on ptrs3")
                         };
                     let a = self.hydrate_ptr(a)?;
                     let b = self.hydrate_ptr(b)?;
@@ -315,7 +315,7 @@ impl<F: LurkField> Store<F> {
                 Some(z_ptr) => Ok(*z_ptr),
                 None => {
                     let Some((a, b, c, d)) = self.ptrs4.get_index(*idx) else {
-                            return Err(format!("Index {idx} not found on ptrs4"))
+                            bail!("Index {idx} not found on ptrs4")
                         };
                     let a = self.hydrate_ptr(a)?;
                     let b = self.hydrate_ptr(b)?;
