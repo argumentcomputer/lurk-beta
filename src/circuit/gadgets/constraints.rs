@@ -953,7 +953,7 @@ mod tests {
                     }
                     let mut cs = TestConstraintSystem::<Fr>::new();
                     let p = Boolean::Constant(premise);
-                    let _ = enforce_selector_with_premise(&mut cs.namespace(|| "all zeros"), &p, &v);
+                    let _ = enforce_selector_with_premise(&mut cs.namespace(|| "enforce selector with premise"), &p, &v);
                     assert_eq!(cs.is_satisfied(), result);
                 };
 
