@@ -13,6 +13,7 @@ pub mod expr;
 pub mod field;
 pub mod hash;
 pub mod hash_witness;
+pub mod lem;
 pub mod light_data;
 pub mod package;
 pub mod parser;

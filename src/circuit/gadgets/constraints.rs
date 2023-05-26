@@ -7,7 +7,7 @@ use bellperson::{
         boolean::{AllocatedBit, Boolean},
         num::{AllocatedNum, Num},
     },
-    ConstraintSystem, SynthesisError,
+    ConstraintSystem, SynthesisError, Variable,
 };
 use ff::PrimeField;
 
@@ -30,6 +30,27 @@ pub(crate) fn enforce_equal<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
         |lc| lc + a.get_variable(),
         |lc| lc + CS::one(),
         |lc| lc + b.get_variable(),
+    );
+}
+
+/// Adds a constraint to CS, enforcing an equality relationship between an allocated number a and zero.
+///
+/// a == zero
+pub(crate) fn enforce_equal_zero<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    annotation: A,
+    a: &AllocatedNum<F>,
+) where
+    A: FnOnce() -> AR,
+    AR: Into<String>,
+{
+    // debug_assert_eq!(a.get_value(), b.get_value());
+    // a * 1 = zero
+    cs.enforce(
+        annotation,
+        |lc| lc + a.get_variable(),
+        |lc| lc + CS::one(),
+        |lc| lc,
     );
 }
 
@@ -73,30 +94,46 @@ pub(crate) fn add<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok(res)
 }
 
+/// Creates a linear combination representing the popcount (sum of one bits) of `v`.
+pub(crate) fn popcount_lc<F: PrimeField, CS: ConstraintSystem<F>>(
+    v: &[Boolean],
+) -> Result<LinearCombination<F>, SynthesisError> {
+    v.iter()
+        .try_fold(LinearCombination::<F>::zero(), |acc, bit| {
+            add_to_lc::<F, CS>(bit, acc, F::ONE)
+        })
+}
+
 /// Adds a constraint to CS, enforcing that the addition of the allocated numbers in vector `v`
-/// is equal to `sum`.
-///
-/// summation(v) = sum
-#[allow(dead_code)]
-pub(crate) fn popcount<F: PrimeField, CS: ConstraintSystem<F>>(
+/// is equal to the value of the variable, `sum`.
+pub(crate) fn popcount_equal<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     v: &[Boolean],
-    sum: &AllocatedNum<F>,
+    sum: Variable,
 ) -> Result<(), SynthesisError> {
-    let mut v_lc = LinearCombination::<F>::zero();
-    for b in v {
-        v_lc = add_to_lc::<F, CS>(b, v_lc, F::ONE)?;
-    }
+    let popcount = popcount_lc::<F, CS>(v)?;
 
-    // (summation(v)) * 1 = sum
+    // popcount * 1 = sum
     cs.enforce(
         || "popcount",
-        |_| v_lc,
+        |_| popcount,
         |lc| lc + CS::one(),
-        |lc| lc + sum.get_variable(),
+        |lc| lc + sum,
     );
 
     Ok(())
+}
+
+/// Adds a constraint to CS, enforcing that the addition of the allocated numbers in vector `v`
+/// is equal to `one`.
+///
+/// summation(v) = one
+#[inline]
+pub(crate) fn enforce_popcount_one<F: PrimeField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    v: &[Boolean],
+) -> Result<(), SynthesisError> {
+    popcount_equal(cs, v, CS::one())
 }
 
 pub(crate) fn add_to_lc<F: PrimeField, CS: ConstraintSystem<F>>(
@@ -607,39 +644,103 @@ pub(crate) fn and_v<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(and)
 }
 
-pub(crate) fn enforce_implication<CS: ConstraintSystem<F>, F: PrimeField>(
-    mut cs: CS,
-    a: &Boolean,
-    b: &Boolean,
-) -> Result<(), SynthesisError> {
-    let implication = implies(cs.namespace(|| "construct implication"), a, b)?;
-    enforce_true(cs.namespace(|| "enforce implication"), &implication)?;
-    Ok(())
-}
-
-pub(crate) fn enforce_true<CS: ConstraintSystem<F>, F: PrimeField>(
-    cs: CS,
-    prop: &Boolean,
-) -> Result<(), SynthesisError> {
-    Boolean::enforce_equal(cs, &Boolean::Constant(true), prop)
-}
-
-#[allow(dead_code)]
-pub(crate) fn enforce_false<CS: ConstraintSystem<F>, F: PrimeField>(
-    cs: CS,
-    prop: &Boolean,
-) -> Result<(), SynthesisError> {
-    Boolean::enforce_equal(cs, &Boolean::Constant(false), prop)
-}
-
-// a => b
-// not (a and (not b))
-pub(crate) fn implies<CS: ConstraintSystem<F>, F: PrimeField>(
-    cs: CS,
+/// This is a replication of Bellperson's original `and`, but receives a mutable
+/// reference for the constraint system instead of a copy
+pub(crate) fn and<CS: ConstraintSystem<F>, F: PrimeField>(
+    cs: &mut CS,
     a: &Boolean,
     b: &Boolean,
 ) -> Result<Boolean, SynthesisError> {
-    Ok(Boolean::and(cs, a, &b.not())?.not())
+    match (a, b) {
+        // false AND x is always false
+        (Boolean::Constant(false), _) | (_, Boolean::Constant(false)) => {
+            Ok(Boolean::Constant(false))
+        }
+        // true AND x is always x
+        (Boolean::Constant(true), x) | (x, Boolean::Constant(true)) => Ok(x.clone()),
+        // a AND (NOT b)
+        (Boolean::Is(is), Boolean::Not(not)) | (Boolean::Not(not), Boolean::Is(is)) => {
+            Ok(Boolean::Is(AllocatedBit::and_not(cs, is, not)?))
+        }
+        // (NOT a) AND (NOT b) = a NOR b
+        (Boolean::Not(a), Boolean::Not(b)) => Ok(Boolean::Is(AllocatedBit::nor(cs, a, b)?)),
+        // a AND b
+        (Boolean::Is(a), Boolean::Is(b)) => Ok(Boolean::Is(AllocatedBit::and(cs, a, b)?)),
+    }
+}
+
+/// Takes a boolean premise and a function that produces a `LinearCombination` (with same specification as `enforce`).
+/// Enforces the constraint that if `premise` is true, then the resulting linear combination evaluates to one.
+pub(crate) fn enforce_implication_lc<
+    CS: ConstraintSystem<F>,
+    F: PrimeField,
+    L: FnOnce(LinearCombination<F>) -> LinearCombination<F>,
+>(
+    mut cs: CS,
+    premise: &Boolean,
+    implication_lc: L,
+) -> Result<(), SynthesisError> {
+    let premise_b = premise.lc(CS::one(), F::ONE);
+    let premise_c = premise_b.clone();
+
+    // implication * premise = premise
+    cs.enforce(
+        || "implication",
+        implication_lc,
+        |_| premise_b,
+        |_| premise_c,
+    );
+
+    Ok(())
+}
+
+/// Adds a constraint to CS, enforcing that the number of true bits in `Boolean` vector `v`
+/// is equal to one, if the premise is true.
+///
+/// summation(v) = one (if premise)
+pub(crate) fn enforce_selector_with_premise<F: PrimeField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    premise: &Boolean,
+    v: &[Boolean],
+) -> Result<(), SynthesisError> {
+    let popcount = popcount_lc::<F, CS>(v)?;
+
+    enforce_implication_lc(cs, premise, |_| popcount)
+}
+
+/// Enforce `premise` implies `implication`.
+pub(crate) fn enforce_implication<CS: ConstraintSystem<F>, F: PrimeField>(
+    cs: CS,
+    premise: &Boolean,
+    implication: &Boolean,
+) -> Result<(), SynthesisError> {
+    enforce_implication_lc(cs, premise, |_|
+                           // One if implication is true, zero otherwise.
+                           implication.lc(CS::one(), F::ONE))
+}
+
+/// Enforce equality of two allocated numbers given an implication premise
+pub(crate) fn implies_equal<CS: ConstraintSystem<F>, F: PrimeField>(
+    cs: &mut CS,
+    premise: &Boolean,
+    a: &AllocatedNum<F>,
+    b: &AllocatedNum<F>,
+) -> Result<(), SynthesisError> {
+    enforce_implication_lc(cs, premise, |lc| {
+        // One iff `a` == `b`.
+        lc + CS::one() + a.get_variable() - b.get_variable()
+    })
+}
+
+/// Enforce equality of two allocated numbers given an implication premise
+pub(crate) fn implies_equal_zero<CS: ConstraintSystem<F>, F: PrimeField>(
+    cs: &mut CS,
+    premise: &Boolean,
+    a: &AllocatedNum<F>,
+) -> Result<(), SynthesisError> {
+    enforce_implication_lc(cs, premise, |lc|
+                           // One iff `a` == zero.
+                           lc + CS::one() + a.get_variable())
 }
 
 pub(crate) fn or<CS: ConstraintSystem<F>, F: PrimeField>(
@@ -697,6 +798,176 @@ mod tests {
     use crate::field::FWrap;
 
     proptest! {
+
+        #[test]
+        fn test_enforce_equal((a, b) in any::<(FWrap<Fr>, FWrap<Fr>)>()) {
+            prop_assume!(a != b);
+
+            let test_a_b = |a, b| {
+                let mut cs = TestConstraintSystem::<Fr>::new();
+                let a_num = AllocatedNum::alloc(cs.namespace(|| "a_num"), || Ok(a)).unwrap();
+                let b_num = AllocatedNum::alloc(cs.namespace(|| "b_num"), || Ok(b)).unwrap();
+                let _ = enforce_equal(&mut cs, || "enforce equal", &a_num, &b_num);
+                assert_eq!(cs.is_satisfied(), a==b);
+            };
+
+            // positive
+            test_a_b(a.0, a.0);
+
+            // negative
+            test_a_b(a.0, b.0);
+        }
+
+        #[test]
+        fn test_enforce_equal_zero(a in (1u64..u64::MAX)) {
+
+            let test_num = |n: u64| {
+                let mut cs = TestConstraintSystem::<Fr>::new();
+                let num = AllocatedNum::alloc(cs.namespace(|| "zero"), || Ok(Fr::from(n))).unwrap();
+                let _ = enforce_equal_zero(&mut cs, || "enforce equal zero", &num);
+                assert_eq!(cs.is_satisfied(), n==0);
+
+            };
+
+            // positive
+            test_num(0);
+
+            // negative
+            test_num(a);
+        }
+
+        #[test]
+        fn test_implies_equal_zero(
+            p in any::<bool>(),
+            rand_a in (0u64..u64::MAX),
+            rand_positive in (1u64..u64::MAX),
+        ) {
+
+            let test_premise_num = |premise: bool, n, result: bool| {
+                let mut cs = TestConstraintSystem::<Fr>::new();
+                let num = AllocatedNum::alloc(cs.namespace(|| "num"), || Ok(Fr::from(n))).unwrap();
+                let pb = Boolean::constant(premise);
+                let _ = implies_equal_zero(&mut cs.namespace(|| "implies equal zero"), &pb, &num);
+                assert_eq!(cs.is_satisfied(), result);
+
+            };
+
+            // any premise
+            test_premise_num(p, 0, true);
+
+            // false premise, any value
+            test_premise_num(false, rand_a, true);
+
+            // true premise, bad values
+            test_premise_num(true, rand_positive, false);
+        }
+
+        #[test]
+        fn test_implies_equal(p in any::<bool>(), (a, b) in any::<(FWrap<Fr>, FWrap<Fr>)>()) {
+            prop_assume!(a != b);
+
+            let test_a_b = |premise: bool, a, b, result: bool| {
+                let mut cs = TestConstraintSystem::<Fr>::new();
+                let a_num = AllocatedNum::alloc(cs.namespace(|| "a_num"), || Ok(Fr::from(a))).unwrap();
+                let b_num = AllocatedNum::alloc(cs.namespace(|| "b_num"), || Ok(Fr::from(b))).unwrap();
+                let pb = Boolean::constant(premise);
+                let _ = implies_equal(&mut cs.namespace(|| "implies equal"), &pb, &a_num, &b_num);
+                assert_eq!(cs.is_satisfied(), result);
+            };
+
+            // any premise
+            test_a_b(p, a.0, a.0, true);
+
+            // positive case
+            test_a_b(false, a.0, b.0, true);
+
+            // negative case
+            test_a_b(true, a.0, b.0, false);
+        }
+
+        #[test]
+        fn test_popcount_equal(
+            (i, j, k) in ((0usize..7), (0usize..7), (0usize..7)),
+            rand_wrong in (4u64..u64::MAX),
+        ) {
+            prop_assume!(i != j);
+            prop_assume!(j != k);
+            prop_assume!(k != i);
+
+            let mut v = vec![Boolean::constant(false); 7];
+
+            let mut test_sum = |elem: Option<usize>, sum: u64, result: bool| {
+                let mut cs = TestConstraintSystem::<Fr>::new();
+                if let Some(e) = elem {
+                    v[e] = Boolean::constant(true);
+                };
+                let alloc_sum = AllocatedNum::alloc(cs.namespace(|| "sum"), || Ok(Fr::from(sum)));
+                let _ = popcount_equal(&mut cs.namespace(|| "popcount equal"), &v, alloc_sum.unwrap().get_variable());
+                assert_eq!(cs.is_satisfied(), result);
+            };
+
+            // All values are false, popcount must be zero
+            test_sum(None, 0, true);
+            // Insert true into a random position, now popocount must be one
+            test_sum(Some(i), 1, true);
+            // Insert true into a distinct random position, now popocount must be two
+            test_sum(Some(j), 2, true);
+            // Insert true again into a distinct random position, now popocount must be three
+            test_sum(Some(k), 3, true);
+
+            // negative test, sum can't be a random number between 4 and MAX
+            test_sum(None, rand_wrong, false);
+        }
+
+        #[test]
+        fn test_enforce_selector(
+            p in any::<bool>(),
+            (v1, v2, v3) in any::<(bool, bool, bool)>(),
+            (i, j, k) in ((0usize..7), (0usize..7), (0usize..7)),
+        ) {
+            // get distinct indices
+            prop_assume!(i != j);
+            prop_assume!(j != k);
+            prop_assume!(i != k);
+            // initialize with false
+            let mut v = vec![Boolean::constant(false); 7];
+            let mut test_premise = |
+                    premise: bool,
+                    randomize: bool,
+                    select_random: bool,
+                    select_many: bool,
+                    result: bool
+                | {
+                    if randomize {
+                        v[i] = Boolean::constant(v1);
+                        v[j] = Boolean::constant(v2);
+                        v[k] = Boolean::constant(v3);
+                    }
+                    if select_random {
+                        v[i] = Boolean::constant(true);
+                    }
+                    if select_many {
+                        v[i] = Boolean::constant(true);
+                        v[j] = Boolean::constant(true);
+                        v[k] = Boolean::constant(true);
+                    }
+                    let mut cs = TestConstraintSystem::<Fr>::new();
+                    let p = Boolean::Constant(premise);
+                    let _ = enforce_selector_with_premise(&mut cs.namespace(|| "enforce selector with premise"), &p, &v);
+                    assert_eq!(cs.is_satisfied(), result);
+                };
+
+            // select a random position
+            // for any premise, test good selections
+            test_premise(p, false, true, false, true);
+
+            // if p is false, any v works
+            test_premise(false, true, false, false, true);
+
+            // select many, then must fail
+            test_premise(true, false, false, true, false);
+
+        }
 
         #[test]
         fn prop_add_constraint((x, y) in any::<(FWrap<Fr>, FWrap<Fr>)>()) {
@@ -790,5 +1061,6 @@ mod tests {
             assert_eq!(expected_or2, or2.get_value().unwrap());
             assert!(cs.is_satisfied());
         }
+
     }
 }
