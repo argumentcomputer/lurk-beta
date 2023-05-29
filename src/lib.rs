@@ -1,6 +1,7 @@
 #![allow(clippy::single_match, clippy::type_complexity)]
 #![allow(clippy::uninlined_format_args)]
 #![warn(rust_2018_idioms, unreachable_pub)]
+#![feature(trace_macros)]
 
 #[macro_use]
 extern crate alloc;
