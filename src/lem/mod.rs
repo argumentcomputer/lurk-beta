@@ -473,6 +473,37 @@ mod tests {
     }
 
     macro_rules! lemop {
+        // entry point, with a separate bracketing to differentiate
+        ([ $($body:tt)* ]) => {
+            {
+                lemop! ( @seq {}, $($body)* )
+            }
+        };
+        // termination rule: we run out of input modulo trailing semicolumn, so we construct the Seq
+        // Note the bracketed limbs pattern, which disambiguates wrt the last argument
+        (@seq {$($limbs:tt)*}, $(;)? ) => {
+            LEMOP::Seq(vec!($(
+                $limbs
+            )*))
+        };
+        // handle the recursion: as we see a statement, we push it to the limbs position in the pattern
+        (@seq {$($limbs:tt)*}, $tag:ident $tgt:ident <-hash2 $src1:ident $src2:ident ; $($tail:tt)*) => {
+            lemop! (
+                @seq
+                {
+                    $($limbs)*
+                    LEMOP::Hash2Ptrs(
+                        MetaPtr(stringify!($tgt).to_string()),
+                        Tag::$tag,
+                        [
+                            MetaPtr(stringify!($src1).to_string()),
+                            MetaPtr(stringify!($src2).to_string()),
+                        ],
+                    ),
+                },
+                $($tail)*
+            )
+        };
         ( $tag:ident $tgt:ident <-hash2 $src1:ident $src2:ident ) => {
             LEMOP::Hash2Ptrs(
                 MetaPtr(stringify!($tgt).to_string()),
@@ -483,23 +514,16 @@ mod tests {
                 ],
             )
         };
-        ( $( $tail:expr );+ ) => {
-            {
-                let mut temp_vec = Vec::new();
-                $(
-                    temp_vec.push(lemop!($x));
-                )*
-                LEMOP::Seq(temp_vec)
-            }
-        };
     }
 
     fn qqq() {
-        let x = lemop!(Str b <-hash2 c d); // works
-        let y = lemop!(
-            Str b <-hash2 c d; // no rules expected the token `;`
-            Str x <-hash2 y z;
-            Str x <-hash2 y z;
-        );
+        trace_macros!(true);
+        let x = lemop!(Str b <-hash2 c d);
+        let y = lemop! ([
+           Str b <-hash2 c d;
+           Str x <-hash2 y z;
+           Str z <-hash2 t u;
+        ]);
+        trace_macros!(false);
     }
 }
