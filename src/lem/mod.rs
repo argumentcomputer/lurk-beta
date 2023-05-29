@@ -471,4 +471,35 @@ mod tests {
         let witnesses = lem.eval(expr, &mut store).unwrap();
         constrain_test_helper(&lem, &mut store, &witnesses);
     }
+
+    macro_rules! lemop {
+        ( $tag:ident $tgt:ident <-hash2 $src1:ident $src2:ident ) => {
+            LEMOP::Hash2Ptrs(
+                MetaPtr(stringify!($tgt).to_string()),
+                Tag::$tag,
+                [
+                    MetaPtr(stringify!($src1).to_string()),
+                    MetaPtr(stringify!($src2).to_string()),
+                ],
+            )
+        };
+        ( $( $tail:expr );+ ) => {
+            {
+                let mut temp_vec = Vec::new();
+                $(
+                    temp_vec.push(lemop!($x));
+                )*
+                LEMOP::Seq(temp_vec)
+            }
+        };
+    }
+
+    fn qqq() {
+        let x = lemop!(Str b <-hash2 c d); // works
+        let y = lemop!(
+            Str b <-hash2 c d; // no rules expected the token `;`
+            Str x <-hash2 y z;
+            Str x <-hash2 y z;
+        );
+    }
 }
