@@ -153,7 +153,7 @@ impl LEM {
                     }
                 }
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
-                LEMOP::SetReturn(o) => {
+                LEMOP::Return(o) => {
                     if output.is_some() {
                         return Err(anyhow!("Tried to return twice"));
                     }

@@ -274,7 +274,7 @@ impl LEM {
                         .rev()
                         .map(|op| (op, branch_path_info.clone(), path.clone())),
                 ),
-                LEMOP::SetReturn(outputs) => {
+                LEMOP::Return(outputs) => {
                     let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
                     for (i, output) in outputs.iter().enumerate() {
                         let Some(alloc_ptr_computed) = alloc_ptrs.get(output.name()) else {

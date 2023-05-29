@@ -1,6 +1,7 @@
 mod constrainer;
 mod eval;
 mod interpreter;
+mod macros;
 mod pointers;
 mod store;
 mod symbol;
@@ -108,7 +109,7 @@ impl MetaPtr {
 }
 
 /// The basic building blocks of LEMs.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum LEMOP {
     /// `MkNull(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
     MkNull(MetaPtr, Tag),
@@ -139,8 +140,8 @@ pub enum LEMOP {
     MatchSymPath(MetaPtr, HashMap<Vec<String>, LEMOP>, Box<LEMOP>),
     /// `Seq(ops)` executes each `op: LEMOP` in `ops` sequentially
     Seq(Vec<LEMOP>),
-    /// `SetReturn([a, b, c])` sets the output as `[a, b, c]`
-    SetReturn([MetaPtr; 3]),
+    /// `Return([a, b, c])` sets the output as `[a, b, c]`
+    Return([MetaPtr; 3]),
 }
 
 impl LEMOP {
@@ -265,7 +266,7 @@ impl LEMOP {
                 }
                 Ok(LEMOP::Seq(new_ops))
             }
-            LEMOP::SetReturn(o) => {
+            LEMOP::Return(o) => {
                 let Some(o0) = dmap.get(o[0].name()) else {
                     bail!("{} not defined", o[0].name());
                 };
@@ -275,7 +276,7 @@ impl LEMOP {
                 let Some(o2) = dmap.get(o[2].name()) else {
                     bail!("{} not defined", o[2].name());
                 };
-                Ok(LEMOP::SetReturn([
+                Ok(LEMOP::Return([
                     MetaPtr(o0.clone()),
                     MetaPtr(o1.clone()),
                     MetaPtr(o2.clone()),
@@ -309,7 +310,7 @@ impl LEMOP {
                 | Self::Unhash4Ptrs(..)
                 | Self::Hide(..)
                 | Self::Open(..)
-                | Self::SetReturn(..) => (),
+                | Self::Return(..) => (),
             }
         }
     }
@@ -380,11 +381,7 @@ mod tests {
                     Tag::Num,
                     LEMOP::Seq(vec![
                         LEMOP::MkNull(mptr("cont_out_terminal"), Tag::Terminal),
-                        LEMOP::SetReturn([
-                            mptr("expr_in"),
-                            mptr("env_in"),
-                            mptr("cont_out_terminal"),
-                        ]),
+                        LEMOP::Return([mptr("expr_in"), mptr("env_in"), mptr("cont_out_terminal")]),
                     ]),
                 ),
                 (
@@ -399,7 +396,7 @@ mod tests {
                             Tag::Num,
                             LEMOP::Seq(vec![
                                 LEMOP::MkNull(mptr("cont_out_error"), Tag::Error),
-                                LEMOP::SetReturn([
+                                LEMOP::Return([
                                     mptr("expr_in"),
                                     mptr("env_in"),
                                     mptr("cont_out_error"),
@@ -417,7 +414,7 @@ mod tests {
                         mptr("expr_in"),
                         vec![(
                             Tag::Char,
-                            LEMOP::SetReturn([mptr("expr_in"), mptr("env_in"), mptr("cont_in")]),
+                            LEMOP::Return([mptr("expr_in"), mptr("env_in"), mptr("cont_in")]),
                         )],
                     ),
                 ),
@@ -444,22 +441,14 @@ mod tests {
                     Tag::Num,
                     LEMOP::Seq(vec![
                         LEMOP::MkNull(mptr("cont_out_terminal"), Tag::Terminal),
-                        LEMOP::SetReturn([
-                            mptr("expr_in"),
-                            mptr("env_in"),
-                            mptr("cont_out_terminal"),
-                        ]),
+                        LEMOP::Return([mptr("expr_in"), mptr("env_in"), mptr("cont_out_terminal")]),
                     ]),
                 ),
                 (
                     Tag::Char,
                     LEMOP::Seq(vec![
                         LEMOP::MkNull(mptr("cont_out_terminal"), Tag::Terminal),
-                        LEMOP::SetReturn([
-                            mptr("expr_in"),
-                            mptr("env_in"),
-                            mptr("cont_out_terminal"),
-                        ]),
+                        LEMOP::Return([mptr("expr_in"), mptr("env_in"), mptr("cont_out_terminal")]),
                     ]),
                 ),
             ],
@@ -470,60 +459,5 @@ mod tests {
         let mut store = Store::default();
         let witnesses = lem.eval(expr, &mut store).unwrap();
         constrain_test_helper(&lem, &mut store, &witnesses);
-    }
-
-    macro_rules! lemop {
-        // entry point, with a separate bracketing to differentiate
-        ([ $($body:tt)* ]) => {
-            {
-                lemop! ( @seq {}, $($body)* )
-            }
-        };
-        // termination rule: we run out of input modulo trailing semicolumn, so we construct the Seq
-        // Note the bracketed limbs pattern, which disambiguates wrt the last argument
-        (@seq {$($limbs:tt)*}, $(;)? ) => {
-            LEMOP::Seq(vec!($(
-                $limbs
-            )*))
-        };
-        // handle the recursion: as we see a statement, we push it to the limbs position in the pattern
-        (@seq {$($limbs:tt)*}, $tag:ident $tgt:ident <-hash2 $src1:ident $src2:ident ; $($tail:tt)*) => {
-            lemop! (
-                @seq
-                {
-                    $($limbs)*
-                    LEMOP::Hash2Ptrs(
-                        MetaPtr(stringify!($tgt).to_string()),
-                        Tag::$tag,
-                        [
-                            MetaPtr(stringify!($src1).to_string()),
-                            MetaPtr(stringify!($src2).to_string()),
-                        ],
-                    ),
-                },
-                $($tail)*
-            )
-        };
-        ( $tag:ident $tgt:ident <-hash2 $src1:ident $src2:ident ) => {
-            LEMOP::Hash2Ptrs(
-                MetaPtr(stringify!($tgt).to_string()),
-                Tag::$tag,
-                [
-                    MetaPtr(stringify!($src1).to_string()),
-                    MetaPtr(stringify!($src2).to_string()),
-                ],
-            )
-        };
-    }
-
-    fn qqq() {
-        trace_macros!(true);
-        let x = lemop!(Str b <-hash2 c d);
-        let y = lemop! ([
-           Str b <-hash2 c d;
-           Str x <-hash2 y z;
-           Str z <-hash2 t u;
-        ]);
-        trace_macros!(false);
     }
 }

@@ -15,7 +15,7 @@ pub(crate) fn step() -> Result<LEM> {
                     Tag::Outermost,
                     LEMOP::Seq(vec![
                         LEMOP::MkNull(mptr("cont_out"), Tag::Terminal),
-                        LEMOP::SetReturn([mptr("expr_in"), mptr("env_in"), mptr("cont_out")]),
+                        LEMOP::Return([mptr("expr_in"), mptr("env_in"), mptr("cont_out")]),
                     ]),
                 )],
             ),
