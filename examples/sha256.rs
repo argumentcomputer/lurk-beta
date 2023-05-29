@@ -1,8 +1,10 @@
 use std::env;
+use std::io::{Read};
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Instant;
 
+use abomonation::abomonated::Abomonated;
 use lurk::circuit::gadgets::data::GlobalAllocations;
 use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use lurk::coprocessor::{CoCircuit, Coprocessor};
@@ -10,7 +12,7 @@ use lurk::eval::{empty_sym_env, lang::Lang};
 use lurk::field::LurkField;
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::ptr::Ptr;
-use lurk::public_parameters::public_params;
+use lurk::public_parameters::public_params_quick;
 use lurk::store::Store;
 use lurk::tag::{ExprTag, Tag};
 use lurk::Num;
@@ -164,10 +166,24 @@ fn main() {
     let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang.clone());
     let lang_rc = Arc::new(lang);
 
-    println!("Setting up public parameters...");
+    println!("Setting up public parameters (rc = {REDUCTION_COUNT})...");
 
     let pp_start = Instant::now();
-    let pp = public_params::<Sha256Coproc<Fr>>(REDUCTION_COUNT, true, lang_rc.clone()).unwrap();
+    // let pp = lurk::proof::nova::public_params::<Sha256Coproc<Fr>>(REDUCTION_COUNT, lang_rc.clone());
+    // let mut file = std::fs::File::create("/Users/hantingz/.clutch/data/public_params/public-params-rc-100-coproc--SHA256-HASH-64-ZERO-BYTES-quick").unwrap();
+    // unsafe { abomonation::encode(&pp, &mut file).unwrap() };
+    // let file = std::fs::File::open("/Users/hantingz/.clutch/data/public_params/public-params-rc-100-coproc--SHA256-HASH-64-ZERO-BYTES-quick")
+    //     .unwrap();
+    // let mut reader = std::io::BufReader::new(file);
+    // let mut bytes = Vec::new();
+    // reader.read_to_end(&mut bytes).unwrap();
+    // let pp_read = pp_start.elapsed();
+    // println!("Read {} bytes in {:?}", bytes.len(), pp_read);
+    // let ree = unsafe { Abomonated::<Vec<(u64, String)>,_>::new(bytes)} ;
+    // let (pp, remaining) = unsafe { abomonation::decode::<lurk::proof::nova::PublicParams<Sha256Coproc<pasta_curves::Fq>>>(&mut bytes).unwrap() };
+    // assert!(remaining.len() == 0);
+
+    let pp = public_params_quick(REDUCTION_COUNT, lang_rc.clone()).unwrap();
     let pp_end = pp_start.elapsed();
 
     println!("Public parameters took {:?}", pp_end);

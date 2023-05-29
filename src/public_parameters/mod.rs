@@ -85,6 +85,38 @@ pub fn public_params<C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static
     registry::CACHE_REG.get_coprocessor_or_update_with(rc, quick, f, lang)
 }
 
+pub fn public_params_quick<C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static>(
+    rc: usize,
+    lang: Arc<Lang<S1, C>>,
+) -> Result<PublicParams<'static, C>, Error> {
+    let disk_cache = file_map::FileIndex::new("public_params").unwrap();
+    // use the cached language key
+    let lang_key = lang.key();
+    // Sanity-check: we're about to use a lang-dependent disk cache, which should be specialized
+    // for this lang/coprocessor.
+    let key = format!("public-params-rc-{rc}-coproc-{lang_key}-quick");
+    if let Some(mut bytes) =
+        disk_cache.get_with_timing::<Vec<u8>>(&key, &"public params".to_string())
+    {
+        let (_, remaining) =
+            unsafe { abomonation::decode::<PublicParams<'static, C>>(bytes.as_mut()).unwrap() };
+        assert!(remaining.len() == 0);
+        let pp = std::mem::ManuallyDrop::new(bytes);
+        // this is extremely dangerous
+        let pp  = unsafe { std::mem::transmute_copy(&pp) };
+        Ok(pp)
+    } else {
+        let pp = nova::public_params(rc, lang);
+        let mut bytes = Vec::new();
+        unsafe { abomonation::encode(&pp, &mut bytes)? };
+        // maybe just directly write
+        disk_cache
+            .set_with_timing::<Vec<u8>>(&key, &bytes, &"public params".to_string())
+            .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+        Ok(pp)
+    }
+}
+
 // Number of circuit reductions per step, equivalent to `chunk_frame_count`
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ReductionCount {
