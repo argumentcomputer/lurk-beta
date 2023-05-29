@@ -52,11 +52,7 @@ impl Registry {
         // for this lang/coprocessor.
         let key = format!("public-params-rc-{rc}-coproc-{lang_key}{quick_suffix}");
         if quick {
-            if let Some(mut bytes) = disk_cache.get::<Vec<u8>>(&key) {
-                eprintln!(
-                    "Using disk-cached public params for lang {} (quick = {quick})",
-                    lang_key
-                );
+            if let Some(mut bytes) = disk_cache.get_mmap_bytes_with_timing(&key, &"public params".to_string()) {
                 let (pp, remaining) =
                     unsafe { decode::<PublicParams<'static, C>>(&mut bytes).unwrap() };
                 assert!(remaining.len() == 0);

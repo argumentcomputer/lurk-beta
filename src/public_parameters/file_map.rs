@@ -1,7 +1,9 @@
-use std::fs::create_dir_all;
+use std::fs::{create_dir_all, File};
 use std::io::Error;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
+use memmap::MmapMut;
 
 use crate::public_parameters::FileStore;
 
@@ -34,12 +36,51 @@ impl<K: ToString> FileIndex<K> {
     }
 
     pub(crate) fn get<V: FileStore>(&self, key: &K) -> Option<V> {
-        self.key_path(key);
         V::read_from_path(self.key_path(key)).ok()
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn get_with_timing<V: FileStore>(&self, key: &K, discr: &String) -> Option<V> {
+        let start = Instant::now();
+        let result = V::read_from_path(self.key_path(key));
+        let end = start.elapsed();
+        match result {
+            Ok(result) => {
+                eprintln!("Reading {discr} from disk-cache in {:?}", end);
+                Some(result)
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                None
+            }
+        }
+    }
+
+    pub(crate) fn get_mmap_bytes_with_timing(&self, key: &K, discr: &String) -> Option<MmapMut> {
+        let start = Instant::now();
+        let file = File::open(self.key_path(key)).unwrap();
+        let mmap = unsafe { MmapMut::map_mut(&file).unwrap() };
+        let end = start.elapsed();
+        eprintln!("Reading {discr} from disk-cache in {:?}", end);
+        Some(mmap)
     }
 
     pub(crate) fn set<V: FileStore>(&self, key: K, data: &V) -> Result<(), Error> {
         data.write_to_path(self.key_path(&key));
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn set_with_timing<V: FileStore>(
+        &self,
+        key: &K,
+        data: &V,
+        discr: &String,
+    ) -> Result<(), Error> {
+        let start = Instant::now();
+        data.write_to_path(self.key_path(key));
+        let end = start.elapsed();
+        eprintln!("Writing {discr} to disk-cache in {:?}", end);
         Ok(())
     }
 }
