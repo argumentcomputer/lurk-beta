@@ -181,7 +181,7 @@ impl LEMOP {
                 let Some(src1_path) = dmap.get(src[1].name()) else {
                     bail!("{} not defined", src[1].name());
                 };
-                let new_name = format!("{}/{}", path, tgt.name());
+                let new_name = format!("{}.{}", path, tgt.name());
                 if dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
                     bail!("{} already defined", tgt.name());
                 };
@@ -201,7 +201,7 @@ impl LEMOP {
                 let Some(src2_path) = dmap.get(src[2].name()) else {
                     bail!("{} not defined", src[2].name());
                 };
-                let new_name = format!("{}/{}", path, tgt.name());
+                let new_name = format!("{}.{}", path, tgt.name());
                 if dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
                     bail!("{} already defined", tgt.name());
                 };
@@ -228,7 +228,7 @@ impl LEMOP {
                 let Some(src3_path) = dmap.get(src[3].name()) else {
                     bail!("{} not defined", src[3].name());
                 };
-                let new_name = format!("{}/{}", path, tgt.name());
+                let new_name = format!("{}.{}", path, tgt.name());
                 if dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
                     bail!("{} already defined", tgt.name());
                 };
@@ -457,6 +457,34 @@ mod tests {
                         LEMOP::MkNull(mptr("cont_out_terminal"), Tag::Terminal),
                         LEMOP::SetReturn([
                             mptr("expr_in"),
+                            mptr("env_in"),
+                            mptr("cont_out_terminal"),
+                        ]),
+                    ]),
+                ),
+            ],
+        );
+        let lem = LEM::new(input, lem_op).unwrap();
+
+        let expr = Ptr::num(Fr::from_u64(42));
+        let mut store = Store::default();
+        let witnesses = lem.eval(expr, &mut store).unwrap();
+        constrain_test_helper(&lem, &mut store, &witnesses);
+    }
+
+    #[test]
+    fn test_hash_slots() {
+        let input = ["expr_in", "env_in", "cont_in"];
+        let lem_op = match_tag(
+            mptr("expr_in"),
+            vec![
+                (
+                    Tag::Num,
+                    LEMOP::Seq(vec![
+                        LEMOP::Hash2Ptrs(mptr("expr_out"), Tag::Cons, [mptr("expr_in"), mptr("expr_in")]),
+                        LEMOP::MkNull(mptr("cont_out_terminal"), Tag::Terminal),
+                        LEMOP::SetReturn([
+                            mptr("expr_out"),
                             mptr("env_in"),
                             mptr("cont_out_terminal"),
                         ]),

@@ -151,9 +151,63 @@ impl LEM {
 
         let mut alloc_manager = AllocationManager::default();
 
-        let mut stack = vec![(&self.lem_op, None::<Boolean>, String::new())];
-        while let Some((op, branch_path_info, path)) = stack.pop() {
+        let mut hash2_stack = Vec::new();
+        let mut hash2_implies_stack = Vec::new();
+        let mut stack = vec![(&self.lem_op, None::<Boolean>, String::new(), 0)];
+        while let Some((op, branch_path_info, path, slot)) = stack.pop() {
             match op {
+                LEMOP::Hash2Ptrs(tgt, tag, src) => {
+
+                    let alloc_car = alloc_ptrs.get(src[0].name()).expect(format!("{} not allocated", src[0].name()).as_str());
+                    let alloc_cdr = alloc_ptrs.get(src[1].name()).expect(format!("{} not allocated", src[1].name()).as_str());
+
+                    if alloc_ptrs.contains_key(tgt.name()) {
+                        bail!("{} already allocated", tgt.name());
+                    };
+                    let z_ptr = {
+                        if Self::on_concrete_path(&branch_path_info)? {
+                            let Some(ptr) = witness.ptrs.get(tgt.name()) else {
+                                bail!("Couldn't retrieve witness {}", tgt.name());
+                            };
+                            store.hydrate_ptr(ptr)?
+                        } else {
+                            ZPtr::dummy()
+                        }
+                    };
+                    let alloc_tgt = Self::allocate_ptr(
+                        &mut cs.namespace(|| format!("allocate pointer {}", tgt.name())),
+                        &z_ptr,
+                        tgt.name(),
+                    )?;
+
+                    //let hash = AllocatedPtr::alloc(
+                    //    &mut cs.namespace(|| "hash2"),
+                    //    store.poseidon_constants(), // TODO: implement poseidon constants
+                    //    vec![alloc_car, alloc_cdr],
+                    //)?;
+
+                    let slot_name = format!("slot_{}", slot);
+                    let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
+                    if let Some(concrete_path) = branch_path_info {
+
+                        // if concrete_path is true, push to slots
+                        if is_concrete_path {
+                            // when we pop, constrain:
+                            // - hash calculation of current slot is glued to alloc_car, alloc_cdr
+                            hash2_stack.push((slot_name.clone(), alloc_car.clone(), alloc_cdr.clone())); // only once per path
+                        }
+                        // concrete path implies alloc_tgt has the same value as in the current slot
+                        // concrete path implies alloc_tgt has the same tag as tag param
+                        hash2_implies_stack.push((concrete_path, slot_name, alloc_tgt.clone(), tag)); // many
+                    } else {
+                        // enforce equal hash(preimage) in the slot
+                        hash2_stack.push((slot_name, alloc_car.clone(), alloc_cdr.clone()))
+                    };
+
+                    alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
+
+                    // TODO: incrementing slot happens in `Seq`, not here
+                }
                 LEMOP::MkNull(tgt, tag) => {
                     if alloc_ptrs.contains_key(tgt.name()) {
                         bail!("{} already allocated", tgt.name());
@@ -168,6 +222,7 @@ impl LEM {
                             ZPtr::dummy()
                         }
                     };
+                    dbg!("ok7: {}", tgt.name());
                     let alloc_tgt = Self::allocate_ptr(
                         &mut cs.namespace(|| format!("allocate pointer {}", tgt.name())),
                         &z_ptr,
@@ -243,9 +298,9 @@ impl LEM {
                                 &alloc_has_match,
                             )
                             .with_context(|| "failed to constrain `and`")?;
-                            stack.push((op, Some(concrete_path_and_has_match), new_path_matchtag));
+                            stack.push((op, Some(concrete_path_and_has_match), new_path_matchtag, slot));
                         } else {
-                            stack.push((op, Some(alloc_has_match), new_path_matchtag));
+                            stack.push((op, Some(alloc_has_match), new_path_matchtag, slot));
                         }
                     }
 
@@ -272,7 +327,7 @@ impl LEM {
                 LEMOP::Seq(ops) => stack.extend(
                     ops.iter()
                         .rev()
-                        .map(|op| (op, branch_path_info.clone(), path.clone())),
+                        .map(|op| (op, branch_path_info.clone(), path.clone(), slot)), // TODO: slot must increment if op is hash2
                 ),
                 LEMOP::SetReturn(outputs) => {
                     let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
@@ -325,6 +380,8 @@ impl LEM {
                 _ => todo!(),
             }
         }
+        // TODO: pop hash slots and constrain them
+        // TODO: pop hash slots implications and constrain them
         if num_inputized_outputs != 3 {
             return Err(anyhow!("Couldn't inputize the right number of outputs"));
         }
