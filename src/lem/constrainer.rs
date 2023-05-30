@@ -181,7 +181,7 @@ impl LEM {
                         tgt.name(),
                     )?;
 
-                    let slot_name = format!("slot_{}", slot);
+                    //let slot_name = format!("slot_{}", slot);
                     let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
                     if let Some(concrete_path) = branch_path_info {
 
@@ -190,13 +190,13 @@ impl LEM {
                             // when we pop, constrain:
                             // - hash calculation of current slot is glued to alloc_car, alloc_cdr
                             // allocate pointer from parts (has the same tag as tag param)
-                            hash2_stack.push((slot_name.clone(), tag, alloc_car.clone(), alloc_cdr.clone())); // only once per path
+                            hash2_stack.push((slot, tag, alloc_car.clone(), alloc_cdr.clone())); // only once per path
                         }
                         // concrete path implies alloc_tgt has the same value as in the current slot
-                        hash2_implies_stack.push((concrete_path, slot_name, alloc_tgt.clone(), tag)); // many
+                        hash2_implies_stack.push((concrete_path, slot, tgt.clone())); // many
                     } else {
                         // enforce equal hash(preimage) in the slot
-                        hash2_stack.push((slot_name, tag, alloc_car.clone(), alloc_cdr.clone()))
+                        hash2_stack.push((slot, tag, alloc_car.clone(), alloc_cdr.clone()))
                     };
 
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
@@ -374,20 +374,38 @@ impl LEM {
                 _ => todo!(),
             }
         }
-        // TODO: pop hash slots and constrain them
-        while let Some((slot_name, tag, alloc_car, alloc_cdr)) = hash2_stack.pop() {
+        // Create hash constraints for each stacked slot
+        let mut hash2_slots: HashMap<usize, AllocatedPtr<F>> = HashMap::default();
+        while let Some((slot, tag, alloc_car, alloc_cdr)) = hash2_stack.pop() {
             let alloc_hash = hash_poseidon(
-                &mut cs.namespace(|| format!("hash2_{}", slot_name)),
+                &mut cs.namespace(|| format!("hash2_{}", slot)),
                 vec![alloc_car.tag().clone(), alloc_car.hash().clone(), alloc_cdr.tag().clone(), alloc_cdr.hash().clone()],
                 store.poseidon_cache.constants.c4(),
             )?;
             let alloc_tag = alloc_manager.alloc(cs, tag.to_field())?; // TODO: add tags to globals
             let alloc_ptr = AllocatedPtr::from_parts(&alloc_tag, &alloc_hash);
-            let hash2_slot_name = format!("hash2_{}", slot_name).clone();
-            alloc_ptrs.insert(hash2_slot_name, alloc_ptr);
+            //let hash2_slot_name = format!("hash2_{}", slot).clone();
+            hash2_slots.insert(slot, alloc_ptr);
         }
 
-        // TODO: pop hash slots implications and constrain them
+        // Create hash implications
+        while let Some((concrete_path, slot, tgt)) = hash2_implies_stack.pop() {
+
+            // get alloc_tgt from tgt
+            let alloc_tgt = alloc_ptrs.get(tgt.name()).expect(format!("{} not allocated", tgt.name()).as_str());
+
+            // get slot_hash from slot name
+            let slot_hash_ptr = hash2_slots.get(&slot).expect("dasdada");
+            let slot_hash = slot_hash_ptr.hash();
+
+            implies_equal(
+                &mut cs.namespace(|| format!("implies equal hash for {} and {}", slot, tgt.name())),
+                &concrete_path,
+                alloc_tgt.hash(),
+                &slot_hash,
+            )?;
+        }
+
         if num_inputized_outputs != 3 {
             return Err(anyhow!("Couldn't inputize the right number of outputs"));
         }
