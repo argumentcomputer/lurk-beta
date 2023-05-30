@@ -74,11 +74,20 @@ macro_rules! lemop {
             metaptrs!($src1, $src2, $src3)
         )
     };
-    // ( match_tag $ptr:ident { $($tag:ident => { $($body:tt)* }),* } ) => {
-        // TODO
-    // };
+    ( match_tag $sii:ident { $( $case:ident => $( $case_ops:tt )+ ),* $(,)? } ) => {
+        {
+            let mut cases = std::collections::HashMap::new();
+            $(
+                cases.insert(
+                    crate::lem::Tag::$case,
+                    lemop!( $( $case_ops )+ ),
+                );
+            )*
+            LEMOP::MatchTag(metaptr!($sii), cases)
+        }
+    };
     // seq entry point, with a separate bracketing to differentiate
-    ({ $($body:tt)* }) => {
+    ({ $($body:tt)+ }) => {
         {
             lemop! ( @seq {}, $($body)* )
         }
@@ -195,7 +204,11 @@ macro_rules! lemop {
 
 #[cfg(test)]
 mod tests {
-    use crate::lem::{shortcuts::mptr, tag::Tag, LEMOP};
+    use crate::lem::{
+        shortcuts::{match_tag, mptr},
+        tag::Tag,
+        LEMOP,
+    };
 
     #[test]
     fn test_macros() {
@@ -254,14 +267,38 @@ mod tests {
 
         assert!(LEMOP::Seq(lemops.to_vec()) == lemop_macro_seq);
 
-        trace_macros!(true);
-        // let foo = lemop!(
-        //    match_tag www {
-        //        Str => {
-        //            Num foo = null;
-        //        },
-        //    }
-        // );
-        trace_macros!(false);
+        let foo = lemop!(
+            match_tag www {
+                Str => {
+                    Num foo = null;
+                    Char goo = null;
+                },
+                Str => {
+                    Num foo = null;
+                    Char goo = null;
+                }
+            }
+        );
+        assert!(
+            foo == match_tag(
+                mptr("www"),
+                vec![
+                    (
+                        Tag::Str,
+                        LEMOP::Seq(vec![
+                            LEMOP::MkNull(mptr("foo"), Tag::Num),
+                            LEMOP::MkNull(mptr("goo"), Tag::Char)
+                        ])
+                    ),
+                    (
+                        Tag::Str,
+                        LEMOP::Seq(vec![
+                            LEMOP::MkNull(mptr("foo"), Tag::Num),
+                            LEMOP::MkNull(mptr("goo"), Tag::Char)
+                        ])
+                    )
+                ]
+            )
+        );
     }
 }
