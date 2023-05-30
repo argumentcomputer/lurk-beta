@@ -358,10 +358,9 @@ mod shortcuts {
 #[cfg(test)]
 mod tests {
     use super::{store::Store, *};
-    use crate::lem::{pointers::Ptr, tag::Tag};
+    use crate::{lem, lem::pointers::Ptr};
     use bellperson::util_cs::test_cs::TestConstraintSystem;
     use blstrs::Scalar as Fr;
-    use shortcuts::*;
 
     fn constrain_test_helper(lem: &LEM, store: &mut Store<Fr>, witnesses: &Vec<Witness<Fr>>) {
         for w in witnesses {
@@ -373,54 +372,37 @@ mod tests {
 
     #[test]
     fn accepts_virtual_nested_match_tag() {
-        let input = ["expr_in", "env_in", "cont_in"];
-        let lem_op = match_tag(
-            mptr("expr_in"),
-            vec![
-                (
-                    Tag::Num,
-                    LEMOP::Seq(vec![
-                        LEMOP::MkNull(mptr("cont_out_terminal"), Tag::Terminal),
-                        LEMOP::Return([mptr("expr_in"), mptr("env_in"), mptr("cont_out_terminal")]),
-                    ]),
-                ),
-                (
-                    Tag::Char,
-                    match_tag(
+        let lem = lem!(expr_in env_in cont_in {
+            match_tag expr_in {
+                Num => {
+                    Terminal cont_out_terminal = null;
+                    return expr_in env_in cont_out_terminal;
+                },
+                Char => {
+                    match_tag expr_in {
                         // This nested match excercises the need to pass on the information
                         // that we are on a virtual branch, because a constrain will
                         // be created for `cont_out_error` and it will need to be relaxed
                         // by an implication with a false premise
-                        mptr("expr_in"),
-                        vec![(
-                            Tag::Num,
-                            LEMOP::Seq(vec![
-                                LEMOP::MkNull(mptr("cont_out_error"), Tag::Error),
-                                LEMOP::Return([
-                                    mptr("expr_in"),
-                                    mptr("env_in"),
-                                    mptr("cont_out_error"),
-                                ]),
-                            ]),
-                        )],
-                    ),
-                ),
-                (
-                    Tag::Sym,
-                    match_tag(
+                        Num => {
+                            Error cont_out_error = null;
+                            return expr_in env_in cont_out_error;
+                        }
+                    };
+                },
+                Sym => {
+                    match_tag expr_in {
                         // This nested match exercises the need to relax `popcount`
                         // because there is no match but it's on a virtual path, so
                         // we don't want to be too restrictive
-                        mptr("expr_in"),
-                        vec![(
-                            Tag::Char,
-                            LEMOP::Return([mptr("expr_in"), mptr("env_in"), mptr("cont_in")]),
-                        )],
-                    ),
-                ),
-            ],
-        );
-        let lem = LEM::new(input, lem_op).unwrap();
+                        Char => {
+                            return expr_in env_in cont_in;
+                        }
+                    };
+                }
+            };
+        })
+        .unwrap();
 
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
@@ -430,30 +412,22 @@ mod tests {
 
     #[test]
     fn resolves_conflicts_of_clashing_names_in_parallel_branches() {
-        let input = ["expr_in", "env_in", "cont_in"];
-        let lem_op = match_tag(
-            // This match is creating `cont_out_terminal` on two different branches,
-            // which, in theory, would cause troubles at allocation time. But we're
-            // dealing with that automatically
-            mptr("expr_in"),
-            vec![
-                (
-                    Tag::Num,
-                    LEMOP::Seq(vec![
-                        LEMOP::MkNull(mptr("cont_out_terminal"), Tag::Terminal),
-                        LEMOP::Return([mptr("expr_in"), mptr("env_in"), mptr("cont_out_terminal")]),
-                    ]),
-                ),
-                (
-                    Tag::Char,
-                    LEMOP::Seq(vec![
-                        LEMOP::MkNull(mptr("cont_out_terminal"), Tag::Terminal),
-                        LEMOP::Return([mptr("expr_in"), mptr("env_in"), mptr("cont_out_terminal")]),
-                    ]),
-                ),
-            ],
-        );
-        let lem = LEM::new(input, lem_op).unwrap();
+        let lem = lem!(expr_in env_in cont_in {
+            match_tag expr_in {
+                // This match is creating `cont_out_terminal` on two different branches,
+                // which, in theory, would cause troubles at allocation time. But we're
+                // dealing with that automatically
+                Num => {
+                    Terminal cont_out_terminal = null;
+                    return expr_in env_in cont_out_terminal;
+                },
+                Char => {
+                    Terminal cont_out_terminal = null;
+                    return expr_in env_in cont_out_terminal;
+                }
+            };
+        })
+        .unwrap();
 
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
