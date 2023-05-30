@@ -74,14 +74,16 @@ macro_rules! lemop {
             metaptrs!($src1, $src2, $src3)
         )
     };
-    ( match_tag $sii:ident { $( $case:ident => $( $case_ops:tt )+ ),* $(,)? } ) => {
+    ( match_tag $sii:ident { $( $case:ident => $case_ops:tt ),* $(,)? } ) => {
         {
             let mut cases = std::collections::HashMap::new();
             $(
-                cases.insert(
+                if cases.insert(
                     crate::lem::Tag::$case,
-                    lemop!( $( $case_ops )+ ),
-                );
+                    lemop!( $case_ops ),
+                ).is_some() {
+                    panic!("Repeated tag on `match_tag`");
+                };
             )*
             LEMOP::MatchTag(metaptr!($sii), cases)
         }
@@ -95,9 +97,14 @@ macro_rules! lemop {
     // termination rule: we run out of input modulo trailing semicolumn, so we construct the Seq
     // Note the bracketed limbs pattern, which disambiguates wrt the last argument
     (@seq {$($limbs:tt)*}, $(;)? ) => {
-        LEMOP::Seq(vec!($(
-            $limbs
-        )*))
+        {
+            let temp_vec = vec!($( $limbs )*);
+            if temp_vec.len() == 1 {
+                temp_vec.last().unwrap().clone()
+            } else {
+                LEMOP::Seq(temp_vec)
+            }
+        }
     };
     // handle the recursion: as we see a statement, we push it to the limbs position in the pattern
     (@seq {$($limbs:tt)*}, $tag:ident $tgt:ident = null ; $($tail:tt)*) => {
@@ -269,11 +276,14 @@ mod tests {
 
         let foo = lemop!(
             match_tag www {
+                Num => {
+                    Num foo = null; // a single LEMOP will not turn into a Seq
+                },
                 Str => {
                     Num foo = null;
                     Char goo = null;
                 },
-                Str => {
+                Char => {
                     Num foo = null;
                     Char goo = null;
                 }
@@ -283,6 +293,7 @@ mod tests {
             foo == match_tag(
                 mptr("www"),
                 vec![
+                    (Tag::Num, LEMOP::MkNull(mptr("foo"), Tag::Num)),
                     (
                         Tag::Str,
                         LEMOP::Seq(vec![
@@ -291,7 +302,7 @@ mod tests {
                         ])
                     ),
                     (
-                        Tag::Str,
+                        Tag::Char,
                         LEMOP::Seq(vec![
                             LEMOP::MkNull(mptr("foo"), Tag::Num),
                             LEMOP::MkNull(mptr("goo"), Tag::Char)
