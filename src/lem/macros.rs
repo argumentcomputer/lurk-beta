@@ -92,6 +92,9 @@ macro_rules! lemop {
             ],
         )
     };
+    ( match_tag $ptr:ident { $($tag:ident => { $($body:tt)* }),* } ) => {
+        // TODO
+    };
     // seq entry point, with a separate bracketing to differentiate
     ({ $($body:tt)* }) => {
         {
@@ -330,5 +333,15 @@ mod tests {
         });
 
         assert!(LEMOP::Seq(lemops.to_vec()) == lemop_macro_seq);
+
+        trace_macros!(true);
+        let foo = lemop!(
+            match_tag www {
+                Str => {
+                    Num foo = null;
+                },
+            }
+        );
+        trace_macros!(false);
     }
 }
