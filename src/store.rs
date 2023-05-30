@@ -1310,7 +1310,7 @@ impl<F: LurkField> Store<F> {
     /// the arguments of each variant of ScalarContinuation with respect to the
     /// sourc position order of elements
     fn get_hash_components_default(&self) -> [[F; 2]; 4] {
-        let def = [F::zero(), F::zero()];
+        let def = [F::ZERO, F::ZERO];
         [def, def, def, def]
     }
 
@@ -1418,7 +1418,7 @@ impl<F: LurkField> Store<F> {
         unevaled_args: &Ptr<F>,
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
+        let def = [F::ZERO, F::ZERO];
         let unevaled_args = self.get_expr_hash(unevaled_args)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
         Some([unevaled_args, cont, def, def])
@@ -1430,8 +1430,8 @@ impl<F: LurkField> Store<F> {
         arg1: &Ptr<F>,
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
-        let op = [op.to_field(), F::zero()];
+        let def = [F::ZERO, F::ZERO];
+        let op = [op.to_field(), F::ZERO];
         let arg1 = self.get_expr_hash(arg1)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
         Some([op, arg1, cont, def])
@@ -1444,7 +1444,7 @@ impl<F: LurkField> Store<F> {
         unevaled_args: &Ptr<F>,
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
-        let op = [op.to_field(), F::zero()];
+        let op = [op.to_field(), F::ZERO];
         let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
         let unevaled_args = self.get_expr_hash(unevaled_args)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
@@ -1452,8 +1452,8 @@ impl<F: LurkField> Store<F> {
     }
 
     fn get_hash_components_unop(&self, op: &Op1, cont: &ContPtr<F>) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
-        let op = [op.to_field(), F::zero()];
+        let def = [F::ZERO, F::ZERO];
+        let op = [op.to_field(), F::ZERO];
         let cont = self.hash_cont(cont)?.into_hash_components();
         Some([op, cont, def, def])
     }
@@ -1463,7 +1463,7 @@ impl<F: LurkField> Store<F> {
         saved_env: &Ptr<F>,
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
+        let def = [F::ZERO, F::ZERO];
         let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
         Some([saved_env, cont, def, def])
@@ -1474,7 +1474,7 @@ impl<F: LurkField> Store<F> {
         saved_env: &Ptr<F>,
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
+        let def = [F::ZERO, F::ZERO];
         let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
         Some([saved_env, cont, def, def])
@@ -1485,7 +1485,7 @@ impl<F: LurkField> Store<F> {
         saved_env: &Ptr<F>,
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
+        let def = [F::ZERO, F::ZERO];
 
         let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
@@ -1499,7 +1499,7 @@ impl<F: LurkField> Store<F> {
         saved_env: &Ptr<F>,
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
+        let def = [F::ZERO, F::ZERO];
         let arg = self.get_expr_hash(arg)?.into_hash_components();
         let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
@@ -1513,7 +1513,7 @@ impl<F: LurkField> Store<F> {
         saved_env: &Ptr<F>,
         cont: &ContPtr<F>,
     ) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
+        let def = [F::ZERO, F::ZERO];
         let fun = self.get_expr_hash(fun)?.into_hash_components();
         let saved_env = self.get_expr_hash(saved_env)?.into_hash_components();
         let cont = self.hash_cont(cont)?.into_hash_components();
@@ -1521,7 +1521,7 @@ impl<F: LurkField> Store<F> {
     }
 
     fn get_hash_components_emit(&self, cont: &ContPtr<F>) -> Option<[[F; 2]; 4]> {
-        let def = [F::zero(), F::zero()];
+        let def = [F::ZERO, F::ZERO];
 
         let cont = self.hash_cont(cont)?.into_hash_components();
 
@@ -1632,7 +1632,7 @@ impl<F: LurkField> Store<F> {
 
     fn hash_symbol(&self, s: &Sym, mode: HashScalar) -> F {
         if s.is_root() {
-            return F::zero();
+            return F::ZERO;
         }
 
         let path = s.path();
@@ -1686,7 +1686,7 @@ impl<F: LurkField> Store<F> {
 
     fn hash_string(&self, s: &str) -> F {
         if s.is_empty() {
-            return F::zero();
+            return F::ZERO;
         };
         let mut chars = s.chars();
         let char = chars.next().unwrap();
@@ -1701,11 +1701,11 @@ impl<F: LurkField> Store<F> {
     pub fn hash_string_mut<T: AsRef<str>>(&mut self, s: T) -> F {
         let s = s.as_ref();
         if s.is_empty() {
-            return F::zero();
+            return F::ZERO;
         };
 
         let initial_scalar_ptr = {
-            let hash = F::zero();
+            let hash = F::ZERO;
             let ptr = self.intern_str_aux("");
             self.create_scalar_ptr(ptr, hash)
         };

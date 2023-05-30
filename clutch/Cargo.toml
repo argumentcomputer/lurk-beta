@@ -11,10 +11,10 @@ repository = "https://github.com/lurk-lab/lurk-rs"
 
 [dependencies]
 anyhow = "1.0.69"
-blstrs = "0.6.1"
+blstrs = "0.7.0"
 clap = "4.1.8"
 lurk = { path = "../" }
-pasta_curves = { version = "0.5.2", features = ["repr-c", "serde"], package = "fil_pasta_curves" }
+pasta_curves = { version = "0.5.1", features = ["repr-c", "serde"] }
 pretty_env_logger = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 
