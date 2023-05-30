@@ -11,6 +11,7 @@ use crate::circuit::gadgets::{
         alloc_equal_const, and, enforce_equal, enforce_equal_zero, enforce_popcount_one,
         enforce_selector_with_premise, implies_equal, implies_equal_zero,
     },
+    data::{hash_poseidon},
     pointer::AllocatedPtr,
 };
 
@@ -180,12 +181,6 @@ impl LEM {
                         tgt.name(),
                     )?;
 
-                    //let hash = AllocatedPtr::alloc(
-                    //    &mut cs.namespace(|| "hash2"),
-                    //    store.poseidon_constants(), // TODO: implement poseidon constants
-                    //    vec![alloc_car, alloc_cdr],
-                    //)?;
-
                     let slot_name = format!("slot_{}", slot);
                     let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
                     if let Some(concrete_path) = branch_path_info {
@@ -194,14 +189,14 @@ impl LEM {
                         if is_concrete_path {
                             // when we pop, constrain:
                             // - hash calculation of current slot is glued to alloc_car, alloc_cdr
-                            hash2_stack.push((slot_name.clone(), alloc_car.clone(), alloc_cdr.clone())); // only once per path
+                            // allocate pointer from parts (has the same tag as tag param)
+                            hash2_stack.push((slot_name.clone(), tag, alloc_car.clone(), alloc_cdr.clone())); // only once per path
                         }
                         // concrete path implies alloc_tgt has the same value as in the current slot
-                        // concrete path implies alloc_tgt has the same tag as tag param
                         hash2_implies_stack.push((concrete_path, slot_name, alloc_tgt.clone(), tag)); // many
                     } else {
                         // enforce equal hash(preimage) in the slot
-                        hash2_stack.push((slot_name, alloc_car.clone(), alloc_cdr.clone()))
+                        hash2_stack.push((slot_name, tag, alloc_car.clone(), alloc_cdr.clone()))
                     };
 
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
@@ -222,7 +217,6 @@ impl LEM {
                             ZPtr::dummy()
                         }
                     };
-                    dbg!("ok7: {}", tgt.name());
                     let alloc_tgt = Self::allocate_ptr(
                         &mut cs.namespace(|| format!("allocate pointer {}", tgt.name())),
                         &z_ptr,
@@ -381,6 +375,18 @@ impl LEM {
             }
         }
         // TODO: pop hash slots and constrain them
+        while let Some((slot_name, tag, alloc_car, alloc_cdr)) = hash2_stack.pop() {
+            let alloc_hash = hash_poseidon(
+                &mut cs.namespace(|| format!("hash2_{}", slot_name)),
+                vec![alloc_car.tag().clone(), alloc_car.hash().clone(), alloc_cdr.tag().clone(), alloc_cdr.hash().clone()],
+                store.poseidon_cache.constants.c4(),
+            )?;
+            let alloc_tag = alloc_manager.alloc(cs, tag.to_field())?; // TODO: add tags to globals
+            let alloc_ptr = AllocatedPtr::from_parts(&alloc_tag, &alloc_hash);
+            let hash2_slot_name = format!("hash2_{}", slot_name).clone();
+            alloc_ptrs.insert(hash2_slot_name, alloc_ptr);
+        }
+
         // TODO: pop hash slots implications and constrain them
         if num_inputized_outputs != 3 {
             return Err(anyhow!("Couldn't inputize the right number of outputs"));
