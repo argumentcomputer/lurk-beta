@@ -1136,105 +1136,188 @@ impl<F: LurkField> Store<F> {
         ptr: &Ptr<F>,
         z_store: Option<Rc<RefCell<ZStore<F>>>>,
     ) -> Result<(ZExprPtr<F>, Option<ZExpr<F>>), Error> {
-        if let Some(idx) = ptr.raw.opaque_idx() {
-            let z_ptr = self
-                .opaque_ptrs
-                .get_index(idx)
-                .ok_or(Error("get_z_expr unknown opaque".into()))?;
-            match self.z_expr_ptr_map.get(z_ptr) {
-                None => Ok((*z_ptr, None)),
-                // TODO: cycle-detection needed either here or on opaque ptr creation
-                Some(p) => self.get_z_expr(p, z_store.clone()),
+
+        struct Cont<F: LurkField>
+            (Box<dyn Fn(&Store<F>,
+                        Option<Rc<RefCell<ZStore<F>>>>,
+                        &mut Vec<Cont<F>>,
+                        &mut Vec<(ZExprPtr<F>, Option<ZExpr<F>>)>
+            ) -> Result<(), Error>>);
+
+        fn step<F: LurkField>(
+            ptr: Ptr<F>,
+            store: &Store<F>,
+            z_store: Option<Rc<RefCell<ZStore<F>>>>,
+            stack: &mut Vec<Cont<F>>,
+            ret_stack: &mut Vec<(ZExprPtr<F>, Option<ZExpr<F>>)>
+        ) -> Result<(), Error> {
+            if let Some(idx) = ptr.raw.opaque_idx() {
+                let z_ptr = store
+                    .opaque_ptrs
+                    .get_index(idx)
+                    .ok_or(Error("get_z_expr unknown opaque".into()))?;
+                match store.z_expr_ptr_map.get(z_ptr) {
+                    None => ret_stack.push((*z_ptr, None)),
+                    // TODO: cycle-detection needed either here or on opaque ptr creation
+                    Some(p) => {
+                        let p = *p;
+                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(p, store, z_store, stack, ret_stack)})))
+                    },
+                }
+                Ok(())
             }
-        } else {
-            let (z_ptr, z_expr) = match self.fetch(ptr) {
-                Some(Expression::Nil) => {
-                    // todo, add lurk_sym components
-                    (ZExpr::Nil.z_ptr(&self.poseidon_cache), Some(ZExpr::Nil))
-                }
-                Some(Expression::Cons(car, cdr)) => {
-                    let (z_car, _) = self.get_z_expr(&car, z_store.clone())?;
-                    let (z_cdr, _) = self.get_z_expr(&cdr, z_store.clone())?;
-                    let z_expr = ZExpr::Cons(z_car, z_cdr);
-                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
-                }
-                Some(Expression::Comm(secret, payload)) => {
-                    let (z_payload, _) = self.get_z_expr(&payload, z_store.clone())?;
-                    let z_expr = ZExpr::Comm(secret, z_payload);
-                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
-                }
-                Some(Expression::Fun(args, body, env)) => {
-                    let (z_args, _) = self.get_z_expr(&args, z_store.clone())?;
-                    let (z_env, _) = self.get_z_expr(&env, z_store.clone())?;
-                    let (z_body, _) = self.get_z_expr(&body, z_store.clone())?;
-                    let z_expr = ZExpr::Fun {
-                        arg: z_args,
-                        body: z_body,
-                        closed_env: z_env,
+            else {
+                stack.push(Cont (Box::new(move |store, z_store, _, ret_stack| {
+                    let (z_ptr, z_expr) = ret_stack.last().expect("Implementation broken 1");
+                    if let Some(z_store) = z_store.clone() {
+                        z_store.borrow_mut().insert_expr(&z_ptr, z_expr.clone());
                     };
-                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
+                    store.z_expr_ptr_map.insert(*z_ptr, Box::new(ptr));
+                    Ok(())
+                })));
+
+                match store.fetch(&ptr) {
+                    Some(Expression::Nil) => {
+                        // todo, add lurk_sym components
+                        stack.push(Cont(Box::new(|store, _, _, ret_stack| {
+                            ret_stack.push((ZExpr::Nil.z_ptr(&store.poseidon_cache), Some(ZExpr::Nil)));
+                            Ok(())
+                        })));
+                    }
+                    Some(Expression::Cons(car, cdr)) => {
+                        stack.push(Cont(Box::new(|store, _, _, ret_stack| {
+                            let (z_car, _) = ret_stack.pop().ok_or(Error("broken".into()))?;
+                            let (z_cdr, _) = ret_stack.pop().ok_or(Error("broken".into()))?;
+                            let z_expr = ZExpr::Cons(z_car, z_cdr);
+                            ret_stack.push((z_expr.z_ptr(&store.poseidon_cache), Some(z_expr)));
+                            Ok(())
+                        })));
+                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(car, store, z_store, stack, ret_stack)})));
+                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(cdr, store, z_store, stack, ret_stack)})));
+                    }
+                    Some(Expression::Comm(secret, payload)) => {
+                        stack.push(Cont(Box::new(move |store, _, _, ret_stack| {
+                            let (z_payload, _) = ret_stack.pop().ok_or(Error("broken".into()))?;
+                            let z_expr = ZExpr::Comm(secret, z_payload);
+                            ret_stack.push((z_expr.z_ptr(&store.poseidon_cache), Some(z_expr)));
+                            Ok(())
+                        })));
+                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(payload, store, z_store, stack, ret_stack)})));
+                    }
+                    Some(Expression::Fun(args, body, env)) => {
+                        stack.push(Cont(Box::new(|store, _, _, ret_stack| {
+                            let (z_args, _) = ret_stack.pop().ok_or(Error("broken".into()))?;
+                            let (z_env, _) = ret_stack.pop().ok_or(Error("broken".into()))?;
+                            let (z_body, _) = ret_stack.pop().ok_or(Error("broken".into()))?;
+                            let z_expr = ZExpr::Fun {
+                                arg: z_args,
+                                body: z_body,
+                                closed_env: z_env,
+                            };
+                            ret_stack.push((z_expr.z_ptr(&store.poseidon_cache), Some(z_expr)));
+                            Ok(())
+                        })));
+                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(args, store, z_store, stack, ret_stack)})));
+                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(env, store, z_store, stack, ret_stack)})));
+                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(body, store, z_store, stack, ret_stack)})));
+                    }
+                    Some(Expression::Num(n)) => {
+                        let f = match n {
+                            Num::Scalar(f) => f,
+                            Num::U64(u) => F::from_u64(u),
+                        };
+                        stack.push(Cont(Box::new(move |store, _, _, ret_stack| {
+                            let z_expr = ZExpr::Num(f);
+                            ret_stack.push((z_expr.z_ptr(&store.poseidon_cache), Some(z_expr)));
+                            Ok(())
+                        })));
+                    }
+                    Some(Expression::Thunk(Thunk {
+                        value,
+                        continuation,
+                    })) => {
+                        let (z_cont, _) = store.get_z_cont(&continuation, z_store)?;
+                        stack.push(Cont(Box::new(move |store, _, _, ret_stack| {
+                            let (z_value, _) = ret_stack.pop().ok_or(Error("broken".into()))?;
+                            let z_expr = ZExpr::Thunk(z_value, z_cont);
+                            ret_stack.push((z_expr.z_ptr(&store.poseidon_cache), Some(z_expr)));
+                            Ok(())
+                        })));
+                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(value, store, z_store, stack, ret_stack)})));
+                    }
+                    Some(Expression::Char(c)) => {
+                        stack.push(Cont(Box::new(move |store, _, _, ret_stack| {
+                            let z_expr = ZExpr::Char(c);
+                            ret_stack.push((z_expr.z_ptr(&store.poseidon_cache), Some(z_expr)));
+                            Ok(())
+                        })));
+                    }
+                    Some(Expression::UInt(u)) => {
+                        stack.push(Cont(Box::new(move |store, _, _, ret_stack| {
+                            let z_expr = ZExpr::UInt(u);
+                            ret_stack.push((z_expr.z_ptr(&store.poseidon_cache), Some(z_expr)));
+                            Ok(())
+                        })));
+                    }
+                    Some(Expression::StrNil) => {
+                        stack.push(Cont(Box::new(|store, _, _, ret_stack| {
+                            ret_stack.push((ZExpr::StrNil.z_ptr(&store.poseidon_cache), Some(ZExpr::StrNil)));
+                            Ok(())
+                        })));
+                    }
+                    Some(Expression::StrCons(car, cdr)) => {
+                        stack.push(Cont(Box::new(|store, _, _, ret_stack| {
+                            let (z_car, _) = ret_stack.pop().ok_or(Error("broken".into()))?;
+                            let (z_cdr, _) = ret_stack.pop().ok_or(Error("broken".into()))?;
+                            let z_expr = ZExpr::StrCons(z_car, z_cdr);
+                            ret_stack.push((z_expr.z_ptr(&store.poseidon_cache), Some(z_expr)));
+                            Ok(())
+                        })));
+                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(car, store, z_store, stack, ret_stack)})));
+                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(cdr, store, z_store, stack, ret_stack)})));
+                    }
+                    Some(Expression::SymNil) => {
+                        stack.push(Cont(Box::new(|store, _, _, ret_stack| {
+                            ret_stack.push((ZExpr::SymNil.z_ptr(&store.poseidon_cache), Some(ZExpr::SymNil)));
+                            Ok(())
+                        })));
+                    }
+                    Some(Expression::SymCons(car, cdr)) => {
+                        stack.push(Cont(Box::new(|store, _, _, ret_stack| {
+                            let (z_car, _) = ret_stack.pop().ok_or(Error("broken".into()))?;
+                            let (z_cdr, _) = ret_stack.pop().ok_or(Error("broken".into()))?;
+                            let z_expr = ZExpr::SymCons(z_car, z_cdr);
+                            ret_stack.push((z_expr.z_ptr(&store.poseidon_cache), Some(z_expr)));
+                            Ok(())
+                        })));
+                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(car, store, z_store, stack, ret_stack)})));
+                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(cdr, store, z_store, stack, ret_stack)})));
+                    }
+                    Some(Expression::Key(sym)) => {
+                        stack.push(Cont(Box::new(|store, _, _, ret_stack| {
+                            let (z_sym, _) = ret_stack.pop().ok_or(Error("broken".into()))?;
+                            let z_expr = ZExpr::Key(z_sym);
+                            ret_stack.push((z_expr.z_ptr(&store.poseidon_cache), Some(z_expr)));
+                            Ok(())
+                        })));
+                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(sym, store, z_store, stack, ret_stack)})));
+                    }
+                    None => {
+                        return Err(Error("get_z_expr unknown opaque".into()))
+                    }
                 }
-                Some(Expression::Num(n)) => {
-                    let f = match n {
-                        Num::Scalar(f) => f,
-                        Num::U64(u) => F::from_u64(u),
-                    };
-                    let z_expr = ZExpr::Num(f);
-                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
-                }
-                Some(Expression::Thunk(Thunk {
-                    value,
-                    continuation,
-                })) => {
-                    let (z_value, _) = self.get_z_expr(&value, z_store.clone())?;
-                    let (z_cont, _) = self.get_z_cont(&continuation, z_store.clone())?;
-                    let z_expr = ZExpr::Thunk(z_value, z_cont);
-                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
-                }
-                None => {
-                    let (z_ptr, _) = self.get_z_expr(ptr, z_store.clone())?;
-                    (z_ptr, None)
-                }
-                Some(Expression::Char(c)) => {
-                    let z_expr = ZExpr::Char(c);
-                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
-                }
-                Some(Expression::UInt(u)) => {
-                    let z_expr = ZExpr::UInt(u);
-                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
-                }
-                Some(Expression::StrNil) => (
-                    ZExpr::StrNil.z_ptr(&self.poseidon_cache),
-                    Some(ZExpr::StrNil),
-                ),
-                Some(Expression::StrCons(car, cdr)) => {
-                    let (z_car, _) = self.get_z_expr(&car, z_store.clone())?;
-                    let (z_cdr, _) = self.get_z_expr(&cdr, z_store.clone())?;
-                    let z_expr = ZExpr::StrCons(z_car, z_cdr);
-                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
-                }
-                Some(Expression::SymNil) => (
-                    ZExpr::SymNil.z_ptr(&self.poseidon_cache),
-                    Some(ZExpr::SymNil),
-                ),
-                Some(Expression::SymCons(car, cdr)) => {
-                    let (z_car, _) = self.get_z_expr(&car, z_store.clone())?;
-                    let (z_cdr, _) = self.get_z_expr(&cdr, z_store.clone())?;
-                    let z_expr = ZExpr::SymCons(z_car, z_cdr);
-                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
-                }
-                Some(Expression::Key(sym)) => {
-                    let (z_sym, _) = self.get_z_expr(&sym, z_store.clone())?;
-                    let z_expr = ZExpr::Key(z_sym);
-                    (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
-                }
-            };
-            if let Some(z_store) = z_store {
-                z_store.borrow_mut().insert_expr(&z_ptr, z_expr.clone());
-            };
-            self.z_expr_ptr_map.insert(z_ptr, Box::new(*ptr));
-            Ok((z_ptr, z_expr))
+                Ok(())
+            }
         }
+
+        let ptr = *ptr;
+        let mut stack = vec![Cont (Box::new(move |store, z_store, stack, ret_stack| { step(ptr, store, z_store, stack, ret_stack)}))];
+        let mut ret_stack = vec![];
+        while let Some(Cont(cont)) = stack.pop() {
+            cont(self, z_store.clone(), &mut stack, &mut ret_stack)?;
+        }
+        assert!(ret_stack.len() == 1);
+        Ok(ret_stack.pop().expect("Impossible"))
     }
 
     pub fn to_z_store_with_ptr(&self, ptr: &Ptr<F>) -> Result<(ZStore<F>, ZExprPtr<F>), Error> {
