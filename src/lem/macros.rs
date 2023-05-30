@@ -1,4 +1,21 @@
 #[macro_export]
+
+/*
+macro_rules! metaptr {
+    ($variable:ident) => {
+        crate::lem::MetaPtr(stringify!($variable).to_string())
+    };
+}
+
+macro_rules! metaptrs {
+    ($($variable:ident),*) => {
+        [
+            $(metaptr!($variable)),*
+        ]
+    };
+}
+*/
+
 macro_rules! lemop {
     ( $tag:ident $tgt:ident = null ) => {
         crate::lem::LEMOP::MkNull(
@@ -92,9 +109,9 @@ macro_rules! lemop {
             ],
         )
     };
-    ( match_tag $ptr:ident { $($tag:ident => { $($body:tt)* }),* } ) => {
+    // ( match_tag $ptr:ident { $($tag:ident => { $($body:tt)* }),* } ) => {
         // TODO
-    };
+    // };
     // seq entry point, with a separate bracketing to differentiate
     ({ $($body:tt)* }) => {
         {
@@ -114,10 +131,7 @@ macro_rules! lemop {
             @seq
             {
                 $($limbs)*
-                crate::lem::LEMOP::MkNull(
-                    crate::lem::MetaPtr(stringify!($tgt).to_string()),
-                    crate::lem::Tag::$tag,
-                ),
+                lemop!($tag $tgt = null),
             },
             $($tail)*
         )
@@ -127,14 +141,7 @@ macro_rules! lemop {
             @seq
             {
                 $($limbs)*
-                crate::lem::LEMOP::Hash2Ptrs(
-                    crate::lem::MetaPtr(stringify!($tgt).to_string()),
-                    crate::lem::Tag::$tag,
-                    [
-                        crate::lem::MetaPtr(stringify!($src1).to_string()),
-                        crate::lem::MetaPtr(stringify!($src2).to_string()),
-                    ],
-                ),
+                lemop!( $tag $tgt = hash2 $src1 $src2 ),
             },
             $($tail)*
         )
@@ -144,15 +151,7 @@ macro_rules! lemop {
             @seq
             {
                 $($limbs)*
-                crate::lem::LEMOP::Hash3Ptrs(
-                    crate::lem::MetaPtr(stringify!($tgt).to_string()),
-                    crate::lem::Tag::$tag,
-                    [
-                        crate::lem::MetaPtr(stringify!($src1).to_string()),
-                        crate::lem::MetaPtr(stringify!($src2).to_string()),
-                        crate::lem::MetaPtr(stringify!($src3).to_string()),
-                    ],
-                ),
+                lemop!( $tag $tgt = hash3 $src1 $src2 $src3 ),
             },
             $($tail)*
         )
@@ -162,16 +161,7 @@ macro_rules! lemop {
             @seq
             {
                 $($limbs)*
-                crate::lem::LEMOP::Hash4Ptrs(
-                    crate::lem::MetaPtr(stringify!($tgt).to_string()),
-                    crate::lem::Tag::$tag,
-                    [
-                        crate::lem::MetaPtr(stringify!($src1).to_string()),
-                        crate::lem::MetaPtr(stringify!($src2).to_string()),
-                        crate::lem::MetaPtr(stringify!($src3).to_string()),
-                        crate::lem::MetaPtr(stringify!($src4).to_string()),
-                    ],
-                ),
+                lemop!( $tag $tgt = hash4 $src1 $src2 $src3 $src4 ),
             },
             $($tail)*
         )
@@ -181,13 +171,7 @@ macro_rules! lemop {
             @seq
             {
                 $($limbs)*
-                crate::lem::LEMOP::Unhash2Ptrs(
-                    [
-                        crate::lem::MetaPtr(stringify!($tgt1).to_string()),
-                        crate::lem::MetaPtr(stringify!($tgt2).to_string()),
-                    ],
-                    crate::lem::MetaPtr(stringify!($src).to_string()),
-                ),
+                lemop!( $tgt1 $tgt2 = unhash2 $src ),
             },
             $($tail)*
         )
@@ -197,14 +181,7 @@ macro_rules! lemop {
             @seq
             {
                 $($limbs)*
-                crate::lem::LEMOP::Unhash3Ptrs(
-                    [
-                        crate::lem::MetaPtr(stringify!($tgt1).to_string()),
-                        crate::lem::MetaPtr(stringify!($tgt2).to_string()),
-                        crate::lem::MetaPtr(stringify!($tgt3).to_string()),
-                    ],
-                    crate::lem::MetaPtr(stringify!($src).to_string()),
-                ),
+                lemop!( $tgt1 $tgt2 $tgt3 = unhash3 $src ),
             },
             $($tail)*
         )
@@ -214,15 +191,7 @@ macro_rules! lemop {
             @seq
             {
                 $($limbs)*
-                crate::lem::LEMOP::Unhash4Ptrs(
-                    [
-                        crate::lem::MetaPtr(stringify!($tgt1).to_string()),
-                        crate::lem::MetaPtr(stringify!($tgt2).to_string()),
-                        crate::lem::MetaPtr(stringify!($tgt3).to_string()),
-                        crate::lem::MetaPtr(stringify!($tgt4).to_string()),
-                    ],
-                    crate::lem::MetaPtr(stringify!($src).to_string()),
-                ),
+                lemop!( $tgt1 $tgt2 $tgt3 $tgt4 = unhash4 $src ),
             },
             $($tail)*
         )
@@ -232,11 +201,7 @@ macro_rules! lemop {
             @seq
             {
                 $($limbs)*
-                crate::lem::LEMOP::Hide(
-                    crate::lem::MetaPtr(stringify!($tgt).to_string()),
-                    crate::lem::MetaPtr(stringify!($sec).to_string()),
-                    crate::lem::MetaPtr(stringify!($src).to_string()),
-                ),
+                lemop!( $tgt = hide $sec $src ),
             },
             $($tail)*
         )
@@ -246,11 +211,7 @@ macro_rules! lemop {
             @seq
             {
                 $($limbs)*
-                crate::lem::LEMOP::Open(
-                    crate::lem::MetaPtr(stringify!($sec).to_string()),
-                    crate::lem::MetaPtr(stringify!($src).to_string()),
-                    crate::lem::MetaPtr(stringify!($hash).to_string()),
-                ),
+                lemop!( $sec $src = open $hash ),
             },
             $($tail)*
         )
@@ -260,13 +221,7 @@ macro_rules! lemop {
             @seq
             {
                 $($limbs)*
-                crate::lem::LEMOP::Return(
-                    [
-                        crate::lem::MetaPtr(stringify!($src1).to_string()),
-                        crate::lem::MetaPtr(stringify!($src2).to_string()),
-                        crate::lem::MetaPtr(stringify!($src3).to_string()),
-                    ],
-                ),
+                lemop!( return $src1 $src2 $src3 ),
             },
             $($tail)*
         )
@@ -335,13 +290,13 @@ mod tests {
         assert!(LEMOP::Seq(lemops.to_vec()) == lemop_macro_seq);
 
         trace_macros!(true);
-        let foo = lemop!(
-            match_tag www {
-                Str => {
-                    Num foo = null;
-                },
-            }
-        );
+        // let foo = lemop!(
+        //    match_tag www {
+        //        Str => {
+        //            Num foo = null;
+        //        },
+        //    }
+        // );
         trace_macros!(false);
     }
 }
