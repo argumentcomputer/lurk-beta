@@ -1,6 +1,3 @@
-#[macro_export]
-
-/*
 macro_rules! metaptr {
     ($variable:ident) => {
         crate::lem::MetaPtr(stringify!($variable).to_string())
@@ -14,99 +11,67 @@ macro_rules! metaptrs {
         ]
     };
 }
-*/
 
+#[macro_export]
 macro_rules! lemop {
     ( $tag:ident $tgt:ident = null ) => {
         crate::lem::LEMOP::MkNull(
-            crate::lem::MetaPtr(stringify!($tgt).to_string()),
+            metaptr!($tgt),
             crate::lem::Tag::$tag,
         )
     };
     ( $tag:ident $tgt:ident = hash2 $src1:ident $src2:ident ) => {
         crate::lem::LEMOP::Hash2Ptrs(
-            crate::lem::MetaPtr(stringify!($tgt).to_string()),
+            metaptr!($tgt),
             crate::lem::Tag::$tag,
-            [
-                crate::lem::MetaPtr(stringify!($src1).to_string()),
-                crate::lem::MetaPtr(stringify!($src2).to_string()),
-            ],
+            metaptrs!($src1, $src2),
         )
     };
     ( $tag:ident $tgt:ident = hash3 $src1:ident $src2:ident $src3:ident ) => {
         crate::lem::LEMOP::Hash3Ptrs(
-            crate::lem::MetaPtr(stringify!($tgt).to_string()),
+            metaptr!($tgt),
             crate::lem::Tag::$tag,
-            [
-                crate::lem::MetaPtr(stringify!($src1).to_string()),
-                crate::lem::MetaPtr(stringify!($src2).to_string()),
-                crate::lem::MetaPtr(stringify!($src3).to_string()),
-            ],
+            metaptrs!($src1, $src2, $src3),
         )
     };
     ( $tag:ident $tgt:ident = hash4 $src1:ident $src2:ident $src3:ident $src4:ident ) => {
         crate::lem::LEMOP::Hash4Ptrs(
-            crate::lem::MetaPtr(stringify!($tgt).to_string()),
+            metaptr!($tgt),
             crate::lem::Tag::$tag,
-            [
-                crate::lem::MetaPtr(stringify!($src1).to_string()),
-                crate::lem::MetaPtr(stringify!($src2).to_string()),
-                crate::lem::MetaPtr(stringify!($src3).to_string()),
-                crate::lem::MetaPtr(stringify!($src4).to_string()),
-            ],
+            metaptrs!( $src1, $src2, $src3, $src4),
         )
     };
     ( $tgt1:ident $tgt2:ident = unhash2 $src:ident ) => {
         crate::lem::LEMOP::Unhash2Ptrs(
-            [
-                crate::lem::MetaPtr(stringify!($tgt1).to_string()),
-                crate::lem::MetaPtr(stringify!($tgt2).to_string()),
-            ],
+            metaptrs!( $tgt1, $tgt2),
             crate::lem::MetaPtr(stringify!($src).to_string()),
         )
     };
     ( $tgt1:ident $tgt2:ident $tgt3:ident = unhash3 $src:ident ) => {
         crate::lem::LEMOP::Unhash3Ptrs(
-            [
-                crate::lem::MetaPtr(stringify!($tgt1).to_string()),
-                crate::lem::MetaPtr(stringify!($tgt2).to_string()),
-                crate::lem::MetaPtr(stringify!($tgt3).to_string()),
-            ],
-            crate::lem::MetaPtr(stringify!($src).to_string()),
+            metaptrs!( $tgt1, $tgt2, $tgt3),
+            metaptr!( $src),
         )
     };
     ( $tgt1:ident $tgt2:ident $tgt3:ident $tgt4:ident = unhash4 $src:ident ) => {
         crate::lem::LEMOP::Unhash4Ptrs(
-            [
-                crate::lem::MetaPtr(stringify!($tgt1).to_string()),
-                crate::lem::MetaPtr(stringify!($tgt2).to_string()),
-                crate::lem::MetaPtr(stringify!($tgt3).to_string()),
-                crate::lem::MetaPtr(stringify!($tgt4).to_string()),
-            ],
-            crate::lem::MetaPtr(stringify!($src).to_string()),
+            metaptrs!( $tgt1, $tgt2, $tgt3, $tgt4),
+            metaptr!( $src),
         )
     };
     ( $tgt:ident = hide $sec:ident $src:ident ) => {
         crate::lem::LEMOP::Hide(
-            crate::lem::MetaPtr(stringify!($tgt).to_string()),
-            crate::lem::MetaPtr(stringify!($sec).to_string()),
-            crate::lem::MetaPtr(stringify!($src).to_string()),
+           metaptr!($tgt), metaptr!($sec), metaptr!($src),
         )
     };
     ( $sec:ident $src:ident = open $hash:ident ) => {
         crate::lem::LEMOP::Open(
-            crate::lem::MetaPtr(stringify!($sec).to_string()),
-            crate::lem::MetaPtr(stringify!($src).to_string()),
-            crate::lem::MetaPtr(stringify!($hash).to_string()),
+            metaptr!($sec), metaptr!($src), metaptr!($hash),
         )
     };
     ( return $src1:ident $src2:ident $src3:ident ) => {
         crate::lem::LEMOP::Return(
-            [
-                crate::lem::MetaPtr(stringify!($src1).to_string()),
-                crate::lem::MetaPtr(stringify!($src2).to_string()),
-                crate::lem::MetaPtr(stringify!($src3).to_string()),
-            ],
+            metaptrs!($src1, $src2, $src3)
         )
     };
     // ( match_tag $ptr:ident { $($tag:ident => { $($body:tt)* }),* } ) => {
