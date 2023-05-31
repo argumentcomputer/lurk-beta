@@ -13,29 +13,30 @@ fn trie_lang() {
     let expr = "(let ((trie (.lurk.trie.new)))
                       trie)";
     let res = s
-        .read("0x1f9e4f688af715843a6878202c0387841d2280b7fbec9a66c7b0aaeb39703bca")
+        .read("0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53")
         .unwrap();
 
     test_aux(s, &expr, Some(res), None, None, None, 3, Some(&lang));
 
-    // TODO: coprocessors need to evaluate their arguments for this to work.
+    // TODO: Coprocessors need to evaluate their arguments for this to work.
+    //       See https://github.com/lurk-lab/lurk-rs/issues/398.
     // let expr2 = "(let ((trie (.lurk.trie.new))
     //                    (found (.lurk.trie.lookup trie 123)))
     //                   found)";
 
-    let expr2 = "(.lurk.trie.lookup 0x1f9e4f688af715843a6878202c0387841d2280b7fbec9a66c7b0aaeb39703bca 123)";
+    let expr2 = "(.lurk.trie.lookup 0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53 123)";
     let res2 = s.intern_opaque_comm(Fr::zero());
 
     test_aux(s, &expr2, Some(res2), None, None, None, 1, Some(&lang));
 
-    let expr3 = "(.lurk.trie.insert 0x1f9e4f688af715843a6878202c0387841d2280b7fbec9a66c7b0aaeb39703bca 123 456)";
+    let expr3 = "(.lurk.trie.insert 0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53 123 456)";
     let res3 = s
-        .read("0x31a82c9a2e7ebfccccc0c02a2e4341c34b0b8b563aa0cb5815d3d8355e262ff9")
+        .read("0x1b22dc5a394231c34e4529af674dc56a736fbd07508acfd1d12c0e67c8b4de27")
         .unwrap();
 
     test_aux(s, &expr3, Some(res3), None, None, None, 1, Some(&lang));
 
-    let expr4 = "(.lurk.trie.lookup 0x31a82c9a2e7ebfccccc0c02a2e4341c34b0b8b563aa0cb5815d3d8355e262ff9 123)";
+    let expr4 = "(.lurk.trie.lookup 0x1b22dc5a394231c34e4529af674dc56a736fbd07508acfd1d12c0e67c8b4de27 123)";
     let res4 = s.intern_opaque_comm(Fr::from(456));
 
     test_aux(s, &expr4, Some(res4), None, None, None, 1, Some(&lang));
