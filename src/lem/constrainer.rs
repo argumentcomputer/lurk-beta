@@ -159,7 +159,7 @@ impl LEM {
         let mut stack = vec![(&self.lem_op, None::<Boolean>, String::new(), 0)];
         while let Some((op, branch_path_info, path, slot)) = stack.pop() {
             match op {
-                LEMOP::Hash2Ptrs(tgt, tag, src) => {
+                LEMOP::Hash2(tgt, tag, src) => {
                     let Some(alloc_car) = alloc_ptrs.get(src[0].name()) else {
                         bail!("{} not allocated", src[0].name());
                     };
@@ -203,7 +203,7 @@ impl LEM {
 
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
                 }
-                LEMOP::MkNull(tgt, tag) => {
+                LEMOP::Null(tgt, tag) => {
                     if alloc_ptrs.contains_key(tgt.name()) {
                         bail!("{} already allocated", tgt.name());
                     };
@@ -326,7 +326,7 @@ impl LEM {
                 LEMOP::Seq(ops) => {
                     let mut next_slot = slot;
                     stack.extend(ops.iter().rev().map(|op| {
-                        if matches!(op, LEMOP::Hash2Ptrs(_, _, _)) {
+                        if matches!(op, LEMOP::Hash2(_, _, _)) {
                             next_slot += 1;
                         };
                         (op, branch_path_info.clone(), path.clone(), next_slot)
@@ -335,7 +335,7 @@ impl LEM {
                         slots_len = next_slot;
                     };
                 }
-                LEMOP::SetReturn(outputs) => {
+                LEMOP::Return(outputs) => {
                     let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
                     for (i, output) in outputs.iter().enumerate() {
                         let Some(alloc_ptr_computed) = alloc_ptrs.get(output.name()) else {

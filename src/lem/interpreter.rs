@@ -32,24 +32,24 @@ impl LEM {
         let mut stack = vec![&self.lem_op];
         while let Some(op) = stack.pop() {
             match op {
-                LEMOP::MkNull(tgt, tag) => {
+                LEMOP::Null(tgt, tag) => {
                     let tgt_ptr = Ptr::null(*tag);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
                 }
-                LEMOP::Hash2Ptrs(tgt, tag, src) => {
+                LEMOP::Hash2(tgt, tag, src) => {
                     let src_ptr1 = src[0].get_ptr(&ptrs)?;
                     let src_ptr2 = src[1].get_ptr(&ptrs)?;
                     let tgt_ptr = store.intern_2_ptrs(*tag, src_ptr1, src_ptr2);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
                 }
-                LEMOP::Hash3Ptrs(tgt, tag, src) => {
+                LEMOP::Hash3(tgt, tag, src) => {
                     let src_ptr1 = src[0].get_ptr(&ptrs)?;
                     let src_ptr2 = src[1].get_ptr(&ptrs)?;
                     let src_ptr3 = src[2].get_ptr(&ptrs)?;
                     let tgt_ptr = store.intern_3_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
                 }
-                LEMOP::Hash4Ptrs(tgt, tag, src) => {
+                LEMOP::Hash4(tgt, tag, src) => {
                     let src_ptr1 = src[0].get_ptr(&ptrs)?;
                     let src_ptr2 = src[1].get_ptr(&ptrs)?;
                     let src_ptr3 = src[2].get_ptr(&ptrs)?;
@@ -57,7 +57,7 @@ impl LEM {
                     let tgt_ptr = store.intern_4_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3, src_ptr4);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
                 }
-                LEMOP::Unhash2Ptrs(tgts, src) => {
+                LEMOP::Unhash2(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
                     let Some(idx) = src_ptr.get_index2() else {
                         bail!(
@@ -71,7 +71,7 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
                     insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
                 }
-                LEMOP::Unhash3Ptrs(tgts, src) => {
+                LEMOP::Unhash3(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
                     let Some(idx) = src_ptr.get_index3() else {
                         bail!(
@@ -86,7 +86,7 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
                     insert_into_ptrs(&mut ptrs, tgts[2].name().clone(), *c)?;
                 }
-                LEMOP::Unhash4Ptrs(tgts, src) => {
+                LEMOP::Unhash4(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
                     let Some(idx) = src_ptr.get_index4() else {
                         bail!(
@@ -153,7 +153,7 @@ impl LEM {
                     }
                 }
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
-                LEMOP::SetReturn(o) => {
+                LEMOP::Return(o) => {
                     if output.is_some() {
                         return Err(anyhow!("Tried to return twice"));
                     }
