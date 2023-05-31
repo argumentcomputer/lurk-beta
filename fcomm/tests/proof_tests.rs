@@ -152,6 +152,7 @@ fn commit(function_path: &Utf8Path, commitment_path: &Utf8Path, data_path: &Utf8
         .assert()
         .success();
 }
+
 fn test_create_open_and_verify_functional_commitment_aux(
     function_source: &str,
     function_input: &str,
