@@ -172,7 +172,7 @@ fn test_create_open_and_verify_chained_functional_commitment_aux(
     function_source: &str,
     expected_io: Vec<(&str, &str)>,
 ) {
-    let tmp_dir = Builder::new().prefix("tmp").tempdir().unwrap();
+    let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
 
     test_aux(function_source, expected_io, true, tmp_dir);
 }
@@ -202,7 +202,7 @@ fn test_function_aux(
 
     let io = expected_io.iter();
 
-    let tmp_dir_path = Utf8Path::from_path(tmp_dir.path()).unwrap();
+    let tmp_dir_path = Utf8Path::from_path(tmp_dir.path()).expect("tmp dir path");
     let proof_path = tmp_dir_path.join("proof.json");
     let function_path = tmp_dir_path.join("function.json");
     let input_path = tmp_dir_path.join("input.lurk");
@@ -213,12 +213,13 @@ fn test_function_aux(
 
     commit(&function_path, &commitment_path, &fcomm_data_path);
 
-    let mut commitment: Commitment<S1> = Commitment::read_from_path(&commitment_path).unwrap();
+    let mut commitment: Commitment<S1> =
+        Commitment::read_from_path(&commitment_path).expect("read commitment");
 
     for (function_input, expected_output) in io {
-        let mut input_file = File::create(&input_path).unwrap();
+        let mut input_file = File::create(&input_path).expect("create file");
 
-        write!(input_file, "{function_input}").unwrap();
+        write!(input_file, "{function_input}").expect("write file");
 
         test_open_commitment(
             fcomm_cmd(),
@@ -229,16 +230,19 @@ fn test_function_aux(
             chained,
         );
 
-        let proof = Proof::<S1>::read_from_path(&proof_path).unwrap();
+        let proof = Proof::<S1>::read_from_path(&proof_path).expect("read proof");
         let opening = proof.claim.opening().expect("expected opening claim");
-        dbg!(&opening);
+        //dbg!(&opening);
 
         let mut store = Store::<S1>::default();
 
-        let input = store.read(function_input).unwrap();
+        let input = store.read(function_input).expect("store read");
         let canonical_input = input.fmt_to_string(&store);
 
-        let canonical_output = store.read(expected_output).unwrap().fmt_to_string(&store);
+        let canonical_output = store
+            .read(expected_output)
+            .expect("store read")
+            .fmt_to_string(&store);
 
         assert_eq!(canonical_input, opening.input);
         assert_eq!(*expected_output, canonical_output);

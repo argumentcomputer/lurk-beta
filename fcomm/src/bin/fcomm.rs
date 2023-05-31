@@ -176,8 +176,10 @@ impl Commit {
         let s = &mut Store::<S1>::default();
 
         let mut function = if self.lurk {
-            let path = env::current_dir().unwrap().join(&self.function);
-            let src = read_to_string(path).unwrap();
+            let path = env::current_dir()
+                .expect("env current dir")
+                .join(&self.function);
+            let src = read_to_string(path).expect("src read_to_string");
 
             CommittedExpression {
                 expr: LurkPtr::Source(src),
@@ -185,9 +187,10 @@ impl Commit {
                 commitment: None,
             }
         } else {
-            CommittedExpression::read_from_path(&self.function).unwrap()
+            CommittedExpression::read_from_path(&self.function)
+                .expect("committed expression read_from_path")
         };
-        let fun_ptr = function.expr_ptr(s, limit, lang).unwrap();
+        let fun_ptr = function.expr_ptr(s, limit, lang).expect("fun_ptr");
         let function_map = committed_expression_store();
 
         let commitment = if let Some(secret) = function.secret {
@@ -199,13 +202,15 @@ impl Commit {
         };
         function.commitment = Some(commitment);
 
-        function_map.set(commitment, &function).unwrap();
+        function_map
+            .set(commitment, &function)
+            .expect("function_map set");
         function.write_to_path(&self.function);
 
         if let Some(commitment_path) = &self.commitment {
             commitment.write_to_path(commitment_path);
         } else {
-            serde_json::to_writer(io::stdout(), &commitment).unwrap();
+            serde_json::to_writer(io::stdout(), &commitment).expect("serde_json to_writer");
         }
     }
 }
@@ -218,10 +223,10 @@ impl Open {
         );
 
         let s = &mut Store::<S1>::default();
-        let rc = ReductionCount::try_from(self.reduction_count).unwrap();
+        let rc = ReductionCount::try_from(self.reduction_count).expect("reduction count");
         let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
         let lang_rc = Arc::new(lang.clone());
-        let pp = public_params(rc.count(), lang_rc).unwrap();
+        let pp = public_params(rc.count(), lang_rc).expect("public params");
         let function_map = committed_expression_store();
 
         let handle_proof = |out_path, proof: Proof<S1>| {
@@ -241,7 +246,7 @@ impl Open {
             if let Some(out_path) = &self.proof {
                 let proof =
                     Opening::open_and_prove(s, request, limit, false, &prover, &pp, lang_rc)
-                        .unwrap();
+                        .expect("proof opening");
 
                 handle_proof(out_path, proof);
             } else {
@@ -250,8 +255,9 @@ impl Open {
                     .expect("committed function not found");
                 let input = request.input.eval(s, limit, lang).unwrap();
 
-                let claim = Opening::apply(s, input, function, limit, self.chain, lang).unwrap();
-                handle_claim(claim).unwrap();
+                let claim = Opening::apply(s, input, function, limit, self.chain, lang)
+                    .expect("claim apply");
+                handle_claim(claim).expect("handle claim")
             }
         } else {
             let function = if let Some(comm_string) = &self.commitment {
@@ -278,14 +284,15 @@ impl Open {
             };
 
             let input_path = self.input.as_ref().expect("input missing");
-            let input = input(s, input_path, eval_input, limit, self.quote_input, lang).unwrap();
+            let input =
+                input(s, input_path, eval_input, limit, self.quote_input, lang).expect("input");
             let lang_rc = Arc::new(lang.clone());
 
             if let Some(out_path) = &self.proof {
                 let proof = Opening::apply_and_prove(
                     s, input, function, limit, self.chain, false, &prover, &pp, lang_rc,
                 )
-                .unwrap();
+                .expect("apply and prove");
 
                 handle_proof(out_path, proof);
             } else {
