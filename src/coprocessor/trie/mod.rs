@@ -284,6 +284,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
     pub fn empty_root(&mut self) -> F {
         self.empty_root_for_height(HEIGHT)
     }
+
     fn new(
         poseidon_cache: &'a PoseidonCache<F>,
         inverse_poseidon_cache: &'a mut InversePoseidonCache<F>,
@@ -350,13 +351,8 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
     // We could alternately return `F::zero()` for missing values, but instead return an `Option` to more clearly
     // signal intent -- since the encoding of 'missing' values as `Fr::zero()` is significant.
     pub fn lookup(&self, key: F) -> Result<Option<F>, Error<F>> {
-        self.lookup_aux(key).map(|payload| {
-            if payload == F::zero() {
-                None
-            } else {
-                Some(payload)
-            }
-        })
+        self.lookup_aux(key)
+            .map(|payload| (payload != F::zero()).then(|| payload))
     }
 
     fn lookup_aux(&self, key: F) -> Result<F, Error<F>> {
