@@ -155,6 +155,7 @@ impl LEM {
         let mut slots_len = 0;
         let mut hash2_stack = Vec::new();
         let mut hash2_implies_stack = Vec::new();
+        let mut hash2_enforce_stack = Vec::new();
         let mut stack = vec![(&self.lem_op, None::<Boolean>, String::new(), 0)];
         while let Some((op, branch_path_info, path, slot)) = stack.pop() {
             match op {
@@ -192,13 +193,11 @@ impl LEM {
                         // concrete path implies alloc_tgt has the same value as in the current slot
                         hash2_implies_stack.push((concrete_path, slot, tgt.clone())); // many
                     } else {
-                        // TODO: enforce alloc_tgt equal hash(preimage) in the slot
+                        hash2_enforce_stack.push((slot, tgt.clone()));
                         hash2_stack.push((slot, tag, alloc_car.clone(), alloc_cdr.clone()))
                     };
 
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
-
-                    // TODO: incrementing slot happens in `Seq`, not here
                 }
                 LEMOP::MkNull(tgt, tag) => {
                     if alloc_ptrs.contains_key(tgt.name()) {
@@ -423,7 +422,6 @@ impl LEM {
                 bail!("Slot {} not allocated", slot)
             };
 
-            //let slot_hash_ptr = match hash2_slots.get(&slot).expect(format!("slot {} not found", slot).as_str());
             let slot_hash = slot_hash_ptr.hash();
 
             implies_equal(
@@ -433,6 +431,35 @@ impl LEM {
                 &slot_hash,
             )?;
         }
+
+        // Create hash enforce
+        while let Some((slot, tgt)) = hash2_enforce_stack.pop() {
+
+            // get alloc_tgt from tgt
+            let alloc_tgt = alloc_ptrs.get(tgt.name()).expect(format!("{} not allocated", tgt.name()).as_str());
+
+            // get slot_hash from slot name
+            let Some(slot_hash_ptr) = hash2_slots.get(&slot) else {
+                bail!("Slot {} not allocated", slot)
+            };
+
+            let slot_hash = slot_hash_ptr.hash();
+
+            enforce_equal(
+                cs,
+                || {
+                    format!(
+                        "enforce equal hash for tgt {} and slot {}",
+                        tgt.name(),
+                        slot,
+                    )
+                },
+                alloc_tgt.hash(),
+                &slot_hash,
+            );
+        }
+
+
 
         if num_inputized_outputs != 3 {
             return Err(anyhow!("Couldn't inputize the right number of outputs"));
