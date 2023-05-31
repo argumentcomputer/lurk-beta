@@ -161,6 +161,9 @@ impl LEMOP {
     /// conflicting names would cause different allocations to be bound the same
     /// name.
     ///
+    /// The conflict resolution is achieved by changing meta pointers so that
+    /// their names are prepended by the paths where they're declared.
+    ///
     /// Note: this function is not supposed to be called manually. It's used by
     /// `LEM::new`, which is the API that should be used directly.
     pub fn deconflict(
@@ -340,22 +343,6 @@ impl LEM {
     }
 }
 
-mod shortcuts {
-    use super::*;
-
-    #[allow(dead_code)]
-    #[inline]
-    pub(crate) fn mptr(name: &str) -> MetaPtr {
-        MetaPtr(name.to_string())
-    }
-
-    #[allow(dead_code)]
-    #[inline]
-    pub(crate) fn match_tag(i: MetaPtr, cases: Vec<(Tag, LEMOP)>) -> LEMOP {
-        LEMOP::MatchTag(i, HashMap::from_iter(cases))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::{store::Store, *};
@@ -381,10 +368,11 @@ mod tests {
                 },
                 Char => {
                     match_tag expr_in {
-                        // This nested match excercises the need to pass on the information
-                        // that we are on a virtual branch, because a constrain will
-                        // be created for `cont_out_error` and it will need to be relaxed
-                        // by an implication with a false premise
+                        // This nested match excercises the need to pass on the
+                        // information that we are on a virtual branch, because a
+                        // constraint will be created for `cont_out_error` and it
+                        // will need to be relaxed by an implication with a false
+                        // premise.
                         Num => {
                             let cont_out_error: Error;
                             return (expr_in, env_in, cont_out_error);
@@ -395,7 +383,8 @@ mod tests {
                     match_tag expr_in {
                         // This nested match exercises the need to relax `popcount`
                         // because there is no match but it's on a virtual path, so
-                        // we don't want to be too restrictive
+                        // we don't want to be too restrictive and demand that at
+                        // least one path must be taken.
                         Char => {
                             return (expr_in, env_in, cont_in);
                         }
@@ -415,9 +404,11 @@ mod tests {
     fn resolves_conflicts_of_clashing_names_in_parallel_branches() {
         let lem = lem!(expr_in env_in cont_in {
             match_tag expr_in {
-                // This match is creating `cont_out_terminal` on two different branches,
-                // which, in theory, would cause troubles at allocation time. But we're
-                // dealing with that automatically
+                // This match is creating `cont_out_terminal` on two different
+                // branches, which, in theory, would cause troubles at allocation
+                // time. We solve this problem by calling `LEMOP::deconflict`,
+                // which turns one into `Num.cont_out_terminal` and the other into
+                // `Char.cont_out_terminal`.
                 Num => {
                     let cont_out_terminal: Terminal;
                     return (expr_in, env_in, cont_out_terminal);

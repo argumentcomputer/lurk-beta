@@ -232,11 +232,17 @@ macro_rules! lem {
 
 #[cfg(test)]
 mod tests {
-    use crate::lem::{
-        shortcuts::{match_tag, mptr},
-        tag::Tag,
-        LEMOP,
-    };
+    use crate::lem::{tag::Tag, MetaPtr, LEMOP};
+
+    #[inline]
+    fn mptr(name: &str) -> MetaPtr {
+        MetaPtr(name.to_string())
+    }
+
+    #[inline]
+    fn match_tag(i: MetaPtr, cases: Vec<(Tag, LEMOP)>) -> LEMOP {
+        LEMOP::MatchTag(i, std::collections::HashMap::from_iter(cases))
+    }
 
     #[test]
     fn test_macros() {
