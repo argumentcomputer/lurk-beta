@@ -1,6 +1,7 @@
 mod constrainer;
 mod eval;
 mod interpreter;
+mod macros;
 mod pointers;
 mod store;
 mod symbol;
@@ -108,22 +109,23 @@ impl MetaPtr {
 }
 
 /// The basic building blocks of LEMs.
-#[derive(Clone)]
+#[non_exhaustive]
+#[derive(Clone, PartialEq)]
 pub enum LEMOP {
     /// `MkNull(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
-    MkNull(MetaPtr, Tag),
-    /// `Hash2Ptrs(x, t, is)` binds `x` to a `Ptr` with tag `t` and 2 children `is`
-    Hash2Ptrs(MetaPtr, Tag, [MetaPtr; 2]),
-    /// `Hash3Ptrs(x, t, is)` binds `x` to a `Ptr` with tag `t` and 3 children `is`
-    Hash3Ptrs(MetaPtr, Tag, [MetaPtr; 3]),
-    /// `Hash4Ptrs(x, t, is)` binds `x` to a `Ptr` with tag `t` and 4 children `is`
-    Hash4Ptrs(MetaPtr, Tag, [MetaPtr; 4]),
-    /// `Unhash2Ptrs([a, b], x)` binds `a` and `b` to the 2 children of `x`
-    Unhash2Ptrs([MetaPtr; 2], MetaPtr),
-    /// `Unhash3Ptrs([a, b, c], x)` binds `a` and `b` to the 3 children of `x`
-    Unhash3Ptrs([MetaPtr; 3], MetaPtr),
-    /// `Unhash4Ptrs([a, b, c, d], x)` binds `a` and `b` to the 4 children of `x`
-    Unhash4Ptrs([MetaPtr; 4], MetaPtr),
+    Null(MetaPtr, Tag),
+    /// `Hash2(x, t, is)` binds `x` to a `Ptr` with tag `t` and 2 children `is`
+    Hash2(MetaPtr, Tag, [MetaPtr; 2]),
+    /// `Hash3(x, t, is)` binds `x` to a `Ptr` with tag `t` and 3 children `is`
+    Hash3(MetaPtr, Tag, [MetaPtr; 3]),
+    /// `Hash4(x, t, is)` binds `x` to a `Ptr` with tag `t` and 4 children `is`
+    Hash4(MetaPtr, Tag, [MetaPtr; 4]),
+    /// `Unhash2([a, b], x)` binds `a` and `b` to the 2 children of `x`
+    Unhash2([MetaPtr; 2], MetaPtr),
+    /// `Unhash3([a, b, c], x)` binds `a` and `b` to the 3 children of `x`
+    Unhash3([MetaPtr; 3], MetaPtr),
+    /// `Unhash4([a, b, c, d], x)` binds `a` and `b` to the 4 children of `x`
+    Unhash4([MetaPtr; 4], MetaPtr),
     /// `Hide(x, s, p)` binds `x` to a (comm) `Ptr` resulting from hiding the
     /// payload `p` with (num) secret `s`
     Hide(MetaPtr, MetaPtr, MetaPtr),
@@ -139,8 +141,8 @@ pub enum LEMOP {
     MatchSymPath(MetaPtr, HashMap<Vec<String>, LEMOP>, Box<LEMOP>),
     /// `Seq(ops)` executes each `op: LEMOP` in `ops` sequentially
     Seq(Vec<LEMOP>),
-    /// `SetReturn([a, b, c])` sets the output as `[a, b, c]`
-    SetReturn([MetaPtr; 3]),
+    /// `Return([a, b, c])` sets the output as `[a, b, c]`
+    Return([MetaPtr; 3]),
 }
 
 impl LEMOP {
@@ -159,6 +161,9 @@ impl LEMOP {
     /// conflicting names would cause different allocations to be bound the same
     /// name.
     ///
+    /// The conflict resolution is achieved by changing meta pointers so that
+    /// their names are prepended by the paths where they're declared.
+    ///
     /// Note: this function is not supposed to be called manually. It's used by
     /// `LEM::new`, which is the API that should be used directly.
     pub fn deconflict(
@@ -167,14 +172,14 @@ impl LEMOP {
         dmap: &DashMap<String, String, ahash::RandomState>, // name -> path/name
     ) -> Result<Self> {
         match self {
-            Self::MkNull(ptr, tag) => {
+            Self::Null(ptr, tag) => {
                 let new_name = format!("{}.{}", path, ptr.name());
                 if dmap.insert(ptr.name().clone(), new_name.clone()).is_some() {
                     bail!("{} already defined", ptr.name());
                 };
-                Ok(Self::MkNull(MetaPtr(new_name), *tag))
+                Ok(Self::Null(MetaPtr(new_name), *tag))
             }
-            Self::Hash2Ptrs(tgt, tag, src) => {
+            Self::Hash2(tgt, tag, src) => {
                 let Some(src0_path) = dmap.get(src[0].name()) else {
                     bail!("{} not defined", src[0].name());
                 };
@@ -185,13 +190,13 @@ impl LEMOP {
                 if dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
                     bail!("{} already defined", tgt.name());
                 };
-                Ok(Self::Hash2Ptrs(
+                Ok(Self::Hash2(
                     MetaPtr(new_name),
                     *tag,
                     [MetaPtr(src0_path.clone()), MetaPtr(src1_path.clone())],
                 ))
             }
-            Self::Hash3Ptrs(tgt, tag, src) => {
+            Self::Hash3(tgt, tag, src) => {
                 let Some(src0_path) = dmap.get(src[0].name()) else {
                     bail!("{} not defined", src[0].name());
                 };
@@ -205,7 +210,7 @@ impl LEMOP {
                 if dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
                     bail!("{} already defined", tgt.name());
                 };
-                Ok(Self::Hash3Ptrs(
+                Ok(Self::Hash3(
                     MetaPtr(new_name),
                     *tag,
                     [
@@ -215,7 +220,7 @@ impl LEMOP {
                     ],
                 ))
             }
-            Self::Hash4Ptrs(tgt, tag, src) => {
+            Self::Hash4(tgt, tag, src) => {
                 let Some(src0_path) = dmap.get(src[0].name()) else {
                     bail!("{} not defined", src[0].name());
                 };
@@ -232,7 +237,7 @@ impl LEMOP {
                 if dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
                     bail!("{} already defined", tgt.name());
                 };
-                Ok(Self::Hash4Ptrs(
+                Ok(Self::Hash4(
                     MetaPtr(new_name),
                     *tag,
                     [
@@ -265,7 +270,7 @@ impl LEMOP {
                 }
                 Ok(LEMOP::Seq(new_ops))
             }
-            LEMOP::SetReturn(o) => {
+            LEMOP::Return(o) => {
                 let Some(o0) = dmap.get(o[0].name()) else {
                     bail!("{} not defined", o[0].name());
                 };
@@ -275,7 +280,7 @@ impl LEMOP {
                 let Some(o2) = dmap.get(o[2].name()) else {
                     bail!("{} not defined", o[2].name());
                 };
-                Ok(LEMOP::SetReturn([
+                Ok(LEMOP::Return([
                     MetaPtr(o0.clone()),
                     MetaPtr(o1.clone()),
                     MetaPtr(o2.clone()),
@@ -300,16 +305,16 @@ impl LEMOP {
                 Self::MatchTag(_, cases) => cases.values().for_each(|op| stack.push(op)),
                 Self::Seq(ops) => stack.extend(ops),
                 // It's safer to be exaustive here and avoid missing new LEMOPs
-                Self::MkNull(..)
-                | Self::Hash2Ptrs(..)
-                | Self::Hash3Ptrs(..)
-                | Self::Hash4Ptrs(..)
-                | Self::Unhash2Ptrs(..)
-                | Self::Unhash3Ptrs(..)
-                | Self::Unhash4Ptrs(..)
+                Self::Null(..)
+                | Self::Hash2(..)
+                | Self::Hash3(..)
+                | Self::Hash4(..)
+                | Self::Unhash2(..)
+                | Self::Unhash3(..)
+                | Self::Unhash4(..)
                 | Self::Hide(..)
                 | Self::Open(..)
-                | Self::SetReturn(..) => (),
+                | Self::Return(..) => (),
             }
         }
     }
@@ -338,29 +343,12 @@ impl LEM {
     }
 }
 
-mod shortcuts {
-    use super::*;
-
-    #[allow(dead_code)]
-    #[inline]
-    pub(crate) fn mptr(name: &str) -> MetaPtr {
-        MetaPtr(name.to_string())
-    }
-
-    #[allow(dead_code)]
-    #[inline]
-    pub(crate) fn match_tag(i: MetaPtr, cases: Vec<(Tag, LEMOP)>) -> LEMOP {
-        LEMOP::MatchTag(i, HashMap::from_iter(cases))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::{store::Store, *};
-    use crate::lem::{pointers::Ptr, tag::Tag};
+    use crate::{lem, lem::pointers::Ptr};
     use bellperson::util_cs::test_cs::TestConstraintSystem;
     use blstrs::Scalar as Fr;
-    use shortcuts::*;
 
     fn constrain_test_helper(lem: &LEM, store: &mut Store<Fr>, witnesses: &Vec<Witness<Fr>>) {
         for w in witnesses {
@@ -372,58 +360,39 @@ mod tests {
 
     #[test]
     fn accepts_virtual_nested_match_tag() {
-        let input = ["expr_in", "env_in", "cont_in"];
-        let lem_op = match_tag(
-            mptr("expr_in"),
-            vec![
-                (
-                    Tag::Num,
-                    LEMOP::Seq(vec![
-                        LEMOP::MkNull(mptr("cont_out_terminal"), Tag::Terminal),
-                        LEMOP::SetReturn([
-                            mptr("expr_in"),
-                            mptr("env_in"),
-                            mptr("cont_out_terminal"),
-                        ]),
-                    ]),
-                ),
-                (
-                    Tag::Char,
-                    match_tag(
-                        // This nested match excercises the need to pass on the information
-                        // that we are on a virtual branch, because a constrain will
-                        // be created for `cont_out_error` and it will need to be relaxed
-                        // by an implication with a false premise
-                        mptr("expr_in"),
-                        vec![(
-                            Tag::Num,
-                            LEMOP::Seq(vec![
-                                LEMOP::MkNull(mptr("cont_out_error"), Tag::Error),
-                                LEMOP::SetReturn([
-                                    mptr("expr_in"),
-                                    mptr("env_in"),
-                                    mptr("cont_out_error"),
-                                ]),
-                            ]),
-                        )],
-                    ),
-                ),
-                (
-                    Tag::Sym,
-                    match_tag(
+        let lem = lem!(expr_in env_in cont_in {
+            match_tag expr_in {
+                Num => {
+                    let cont_out_terminal: Terminal;
+                    return (expr_in, env_in, cont_out_terminal);
+                },
+                Char => {
+                    match_tag expr_in {
+                        // This nested match excercises the need to pass on the
+                        // information that we are on a virtual branch, because a
+                        // constraint will be created for `cont_out_error` and it
+                        // will need to be relaxed by an implication with a false
+                        // premise.
+                        Num => {
+                            let cont_out_error: Error;
+                            return (expr_in, env_in, cont_out_error);
+                        }
+                    };
+                },
+                Sym => {
+                    match_tag expr_in {
                         // This nested match exercises the need to relax `popcount`
                         // because there is no match but it's on a virtual path, so
-                        // we don't want to be too restrictive
-                        mptr("expr_in"),
-                        vec![(
-                            Tag::Char,
-                            LEMOP::SetReturn([mptr("expr_in"), mptr("env_in"), mptr("cont_in")]),
-                        )],
-                    ),
-                ),
-            ],
-        );
-        let lem = LEM::new(input, lem_op).unwrap();
+                        // we don't want to be too restrictive and demand that at
+                        // least one path must be taken.
+                        Char => {
+                            return (expr_in, env_in, cont_in);
+                        }
+                    };
+                }
+            };
+        })
+        .unwrap();
 
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
@@ -433,38 +402,24 @@ mod tests {
 
     #[test]
     fn resolves_conflicts_of_clashing_names_in_parallel_branches() {
-        let input = ["expr_in", "env_in", "cont_in"];
-        let lem_op = match_tag(
-            // This match is creating `cont_out_terminal` on two different branches,
-            // which, in theory, would cause troubles at allocation time. But we're
-            // dealing with that automatically
-            mptr("expr_in"),
-            vec![
-                (
-                    Tag::Num,
-                    LEMOP::Seq(vec![
-                        LEMOP::MkNull(mptr("cont_out_terminal"), Tag::Terminal),
-                        LEMOP::SetReturn([
-                            mptr("expr_in"),
-                            mptr("env_in"),
-                            mptr("cont_out_terminal"),
-                        ]),
-                    ]),
-                ),
-                (
-                    Tag::Char,
-                    LEMOP::Seq(vec![
-                        LEMOP::MkNull(mptr("cont_out_terminal"), Tag::Terminal),
-                        LEMOP::SetReturn([
-                            mptr("expr_in"),
-                            mptr("env_in"),
-                            mptr("cont_out_terminal"),
-                        ]),
-                    ]),
-                ),
-            ],
-        );
-        let lem = LEM::new(input, lem_op).unwrap();
+        let lem = lem!(expr_in env_in cont_in {
+            match_tag expr_in {
+                // This match is creating `cont_out_terminal` on two different
+                // branches, which, in theory, would cause troubles at allocation
+                // time. We solve this problem by calling `LEMOP::deconflict`,
+                // which turns one into `Num.cont_out_terminal` and the other into
+                // `Char.cont_out_terminal`.
+                Num => {
+                    let cont_out_terminal: Terminal;
+                    return (expr_in, env_in, cont_out_terminal);
+                },
+                Char => {
+                    let cont_out_terminal: Terminal;
+                    return (expr_in, env_in, cont_out_terminal);
+                }
+            };
+        })
+        .unwrap();
 
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();

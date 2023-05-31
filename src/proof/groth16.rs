@@ -288,6 +288,7 @@ impl<C: Coprocessor<Scalar>>
         C,
     >
 {
+    /// Verify a Groth16 Lurk proof.
     pub fn verify_groth16_proof(
         self,
         pvk: &groth16::PreparedVerifyingKey<Bls12>,

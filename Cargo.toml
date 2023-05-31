@@ -115,5 +115,10 @@ name = "fibonacci"
 harness = false
 
 [[bench]]
+name = "synthesis"
+harness = false
+
+
+[[bench]]
 name = "public_params"
 harness = false
