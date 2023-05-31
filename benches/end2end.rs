@@ -39,7 +39,7 @@ fn go_base<F: LurkField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
     store.read(&program).unwrap()
 }
 
-/// To run these benchmarks, do `cargo criterion end2end_benchmark`. 
+/// To run these benchmarks, do `cargo criterion end2end_benchmark`.
 /// For flamegraphs, run:
 /// ```cargo criterion end2end_benchmark --features flamegraph -- --profile-time <secs>```
 fn end2end_benchmark(c: &mut Criterion) {
@@ -78,7 +78,7 @@ fn end2end_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
-/// To run these benchmarks, do `cargo criterion store_benchmark`. 
+/// To run these benchmarks, do `cargo criterion store_benchmark`.
 /// For flamegraphs, run:
 /// ```cargo criterion store_benchmark --features flamegraph -- --profile-time <secs>```
 fn store_benchmark(c: &mut Criterion) {
@@ -115,7 +115,7 @@ fn store_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
-/// To run these benchmarks, do `cargo criterion hydration_benchmark`. 
+/// To run these benchmarks, do `cargo criterion hydration_benchmark`.
 /// For flamegraphs, run:
 /// ```cargo criterion hydration_benchmark --features flamegraph -- --profile-time <secs>```
 fn hydration_benchmark(c: &mut Criterion) {
@@ -152,7 +152,7 @@ fn hydration_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
-/// To run these benchmarks, do `cargo criterion eval_benchmark`. 
+/// To run these benchmarks, do `cargo criterion eval_benchmark`.
 /// For flamegraphs, run:
 /// ```cargo criterion eval_benchmark --features flamegraph -- --profile-time <secs>```
 fn eval_benchmark(c: &mut Criterion) {
@@ -243,7 +243,7 @@ fn eval_benchmark(c: &mut Criterion) {
 //     });
 // }
 
-/// To run these benchmarks, do `cargo criterion prove_benchmark`. 
+/// To run these benchmarks, do `cargo criterion prove_benchmark`.
 /// For flamegraphs, run:
 /// ```cargo criterion prove_benchmark --features flamegraph -- --profile-time <secs>```
 fn prove_benchmark(c: &mut Criterion) {
@@ -280,7 +280,7 @@ fn prove_benchmark(c: &mut Criterion) {
     });
 }
 
-/// To run these benchmarks, do `cargo criterion verify_benchmark`. 
+/// To run these benchmarks, do `cargo criterion verify_benchmark`.
 /// For flamegraphs, run:
 /// ```cargo criterion verify_benchmark --features flamegraph -- --profile-time <secs>```
 fn verify_benchmark(c: &mut Criterion) {
@@ -326,7 +326,7 @@ fn verify_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
-/// To run these benchmarks, do `cargo criterion verify_compressed_benchmark`. 
+/// To run these benchmarks, do `cargo criterion verify_compressed_benchmark`.
 /// For flamegraphs, run:
 /// ```cargo criterion verify_compressed_benchmark --features flamegraph -- --profile-time <secs>```
 fn verify_compressed_benchmark(c: &mut Criterion) {
@@ -377,7 +377,7 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
 }
 
 cfg_if::cfg_if! {
-    
+
     if #[cfg(feature = "flamegraph")] {
         // In order to collect a flamegraph, you need to indicate a profile time, see
         // https://github.com/tikv/pprof-rs#integrate-with-criterion
@@ -387,7 +387,7 @@ cfg_if::cfg_if! {
         criterion_group! {
             name = benches;
             config = Criterion::default()
-            
+
                 .with_profiler(pprof::criterion::PProfProfiler::new(100, pprof::criterion::Output::Flamegraph(None)));
             targets =
                 end2end_benchmark,

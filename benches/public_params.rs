@@ -10,7 +10,7 @@ use std::time::Duration;
 
 const DEFAULT_REDUCTION_COUNT: usize = 10;
 
-/// To run these benchmarks, do `cargo criterion public_params_benchmark`. 
+/// To run these benchmarks, do `cargo criterion public_params_benchmark`.
 /// For flamegraphs, run:
 /// ```cargo criterion public_params_benchmark --features flamegraph -- --profile-time <secs>```
 fn public_params_benchmark(c: &mut Criterion) {
