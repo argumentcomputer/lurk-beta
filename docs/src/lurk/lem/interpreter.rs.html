@@ -236,24 +236,24 @@
         <span class="kw">let </span><span class="kw-2">mut </span>stack = <span class="macro">vec!</span>[<span class="kw-2">&amp;</span><span class="self">self</span>.lem_op];
         <span class="kw">while let </span><span class="prelude-val">Some</span>(op) = stack.pop() {
             <span class="kw">match </span>op {
-                LEMOP::MkNull(tgt, tag) =&gt; {
+                LEMOP::Null(tgt, tag) =&gt; {
                     <span class="kw">let </span>tgt_ptr = Ptr::null(<span class="kw-2">*</span>tag);
                     insert_into_ptrs(<span class="kw-2">&amp;mut </span>ptrs, tgt.name().clone(), tgt_ptr)<span class="question-mark">?</span>;
                 }
-                LEMOP::Hash2Ptrs(tgt, tag, src) =&gt; {
+                LEMOP::Hash2(tgt, tag, src) =&gt; {
                     <span class="kw">let </span>src_ptr1 = src[<span class="number">0</span>].get_ptr(<span class="kw-2">&amp;</span>ptrs)<span class="question-mark">?</span>;
                     <span class="kw">let </span>src_ptr2 = src[<span class="number">1</span>].get_ptr(<span class="kw-2">&amp;</span>ptrs)<span class="question-mark">?</span>;
                     <span class="kw">let </span>tgt_ptr = store.intern_2_ptrs(<span class="kw-2">*</span>tag, src_ptr1, src_ptr2);
                     insert_into_ptrs(<span class="kw-2">&amp;mut </span>ptrs, tgt.name().clone(), tgt_ptr)<span class="question-mark">?</span>;
                 }
-                LEMOP::Hash3Ptrs(tgt, tag, src) =&gt; {
+                LEMOP::Hash3(tgt, tag, src) =&gt; {
                     <span class="kw">let </span>src_ptr1 = src[<span class="number">0</span>].get_ptr(<span class="kw-2">&amp;</span>ptrs)<span class="question-mark">?</span>;
                     <span class="kw">let </span>src_ptr2 = src[<span class="number">1</span>].get_ptr(<span class="kw-2">&amp;</span>ptrs)<span class="question-mark">?</span>;
                     <span class="kw">let </span>src_ptr3 = src[<span class="number">2</span>].get_ptr(<span class="kw-2">&amp;</span>ptrs)<span class="question-mark">?</span>;
                     <span class="kw">let </span>tgt_ptr = store.intern_3_ptrs(<span class="kw-2">*</span>tag, src_ptr1, src_ptr2, src_ptr3);
                     insert_into_ptrs(<span class="kw-2">&amp;mut </span>ptrs, tgt.name().clone(), tgt_ptr)<span class="question-mark">?</span>;
                 }
-                LEMOP::Hash4Ptrs(tgt, tag, src) =&gt; {
+                LEMOP::Hash4(tgt, tag, src) =&gt; {
                     <span class="kw">let </span>src_ptr1 = src[<span class="number">0</span>].get_ptr(<span class="kw-2">&amp;</span>ptrs)<span class="question-mark">?</span>;
                     <span class="kw">let </span>src_ptr2 = src[<span class="number">1</span>].get_ptr(<span class="kw-2">&amp;</span>ptrs)<span class="question-mark">?</span>;
                     <span class="kw">let </span>src_ptr3 = src[<span class="number">2</span>].get_ptr(<span class="kw-2">&amp;</span>ptrs)<span class="question-mark">?</span>;
@@ -261,7 +261,7 @@
                     <span class="kw">let </span>tgt_ptr = store.intern_4_ptrs(<span class="kw-2">*</span>tag, src_ptr1, src_ptr2, src_ptr3, src_ptr4);
                     insert_into_ptrs(<span class="kw-2">&amp;mut </span>ptrs, tgt.name().clone(), tgt_ptr)<span class="question-mark">?</span>;
                 }
-                LEMOP::Unhash2Ptrs(tgts, src) =&gt; {
+                LEMOP::Unhash2(tgts, src) =&gt; {
                     <span class="kw">let </span>src_ptr = src.get_ptr(<span class="kw-2">&amp;</span>ptrs)<span class="question-mark">?</span>;
                     <span class="kw">let </span><span class="prelude-val">Some</span>(idx) = src_ptr.get_index2() <span class="kw">else </span>{
                         <span class="macro">bail!</span>(
@@ -275,7 +275,7 @@
                     insert_into_ptrs(<span class="kw-2">&amp;mut </span>ptrs, tgts[<span class="number">0</span>].name().clone(), <span class="kw-2">*</span>a)<span class="question-mark">?</span>;
                     insert_into_ptrs(<span class="kw-2">&amp;mut </span>ptrs, tgts[<span class="number">1</span>].name().clone(), <span class="kw-2">*</span>b)<span class="question-mark">?</span>;
                 }
-                LEMOP::Unhash3Ptrs(tgts, src) =&gt; {
+                LEMOP::Unhash3(tgts, src) =&gt; {
                     <span class="kw">let </span>src_ptr = src.get_ptr(<span class="kw-2">&amp;</span>ptrs)<span class="question-mark">?</span>;
                     <span class="kw">let </span><span class="prelude-val">Some</span>(idx) = src_ptr.get_index3() <span class="kw">else </span>{
                         <span class="macro">bail!</span>(
@@ -290,7 +290,7 @@
                     insert_into_ptrs(<span class="kw-2">&amp;mut </span>ptrs, tgts[<span class="number">1</span>].name().clone(), <span class="kw-2">*</span>b)<span class="question-mark">?</span>;
                     insert_into_ptrs(<span class="kw-2">&amp;mut </span>ptrs, tgts[<span class="number">2</span>].name().clone(), <span class="kw-2">*</span>c)<span class="question-mark">?</span>;
                 }
-                LEMOP::Unhash4Ptrs(tgts, src) =&gt; {
+                LEMOP::Unhash4(tgts, src) =&gt; {
                     <span class="kw">let </span>src_ptr = src.get_ptr(<span class="kw-2">&amp;</span>ptrs)<span class="question-mark">?</span>;
                     <span class="kw">let </span><span class="prelude-val">Some</span>(idx) = src_ptr.get_index4() <span class="kw">else </span>{
                         <span class="macro">bail!</span>(
@@ -357,7 +357,7 @@
                     }
                 }
                 LEMOP::Seq(ops) =&gt; stack.extend(ops.iter().rev()),
-                LEMOP::SetReturn(o) =&gt; {
+                LEMOP::Return(o) =&gt; {
                     <span class="kw">if </span>output.is_some() {
                         <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">&quot;Tried to return twice&quot;</span>));
                     }

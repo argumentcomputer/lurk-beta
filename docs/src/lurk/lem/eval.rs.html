@@ -67,34 +67,26 @@
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
-<a href="#70" id="70">70</a>
-<a href="#71" id="71">71</a>
-<a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
-</pre></div><pre class="rust"><code><span class="kw">use super</span>::{shortcuts::<span class="kw-2">*</span>, tag::Tag, LEM, LEMOP};
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::lem;
+
+<span class="kw">use </span><span class="kw">super</span>::LEM;
 <span class="kw">use </span>anyhow::Result;
 
 <span class="doccomment">/// This is Lurk&#39;s step function encoded as a LEM
 </span><span class="attr">#[allow(dead_code)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>step() -&gt; <span class="prelude-ty">Result</span>&lt;LEM&gt; {
-    <span class="kw">let </span>input = [<span class="string">&quot;expr_in&quot;</span>, <span class="string">&quot;env_in&quot;</span>, <span class="string">&quot;cont_in&quot;</span>];
-    <span class="kw">let </span>lem_op = match_tag(
-        mptr(<span class="string">&quot;expr_in&quot;</span>),
-        <span class="macro">vec!</span>[(
-            Tag::Num,
-            match_tag(
-                mptr(<span class="string">&quot;cont_in&quot;</span>),
-                <span class="macro">vec!</span>[(
-                    Tag::Outermost,
-                    LEMOP::Seq(<span class="macro">vec!</span>[
-                        LEMOP::MkNull(mptr(<span class="string">&quot;cont_out&quot;</span>), Tag::Terminal),
-                        LEMOP::SetReturn([mptr(<span class="string">&quot;expr_in&quot;</span>), mptr(<span class="string">&quot;env_in&quot;</span>), mptr(<span class="string">&quot;cont_out&quot;</span>)]),
-                    ]),
-                )],
-            ),
-        )],
-    );
-    LEM::new(input, lem_op)
+    <span class="macro">lem!</span>(expr_in env_in cont_in {
+        match_tag expr_in {
+            Num =&gt; {
+                match_tag cont_in {
+                    Outermost =&gt; {
+                        <span class="kw">let </span>cont_out: Terminal;
+                        <span class="kw">return </span>(expr_in, env_in, cont_out);
+                    }
+                };
+            }
+        };
+    })
 }
 
 <span class="attr">#[cfg(test)]

@@ -427,54 +427,10 @@
 <a href="#427" id="427">427</a>
 <a href="#428" id="428">428</a>
 <a href="#429" id="429">429</a>
-<a href="#430" id="430">430</a>
-<a href="#431" id="431">431</a>
-<a href="#432" id="432">432</a>
-<a href="#433" id="433">433</a>
-<a href="#434" id="434">434</a>
-<a href="#435" id="435">435</a>
-<a href="#436" id="436">436</a>
-<a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
-<a href="#439" id="439">439</a>
-<a href="#440" id="440">440</a>
-<a href="#441" id="441">441</a>
-<a href="#442" id="442">442</a>
-<a href="#443" id="443">443</a>
-<a href="#444" id="444">444</a>
-<a href="#445" id="445">445</a>
-<a href="#446" id="446">446</a>
-<a href="#447" id="447">447</a>
-<a href="#448" id="448">448</a>
-<a href="#449" id="449">449</a>
-<a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
-<a href="#460" id="460">460</a>
-<a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
-<a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>constrainer;
 <span class="kw">mod </span>eval;
 <span class="kw">mod </span>interpreter;
+<span class="kw">mod </span>macros;
 <span class="kw">mod </span>pointers;
 <span class="kw">mod </span>store;
 <span class="kw">mod </span>symbol;
@@ -582,22 +538,23 @@
 }
 
 <span class="doccomment">/// The basic building blocks of LEMs.
-</span><span class="attr">#[derive(Clone)]
+</span><span class="attr">#[non_exhaustive]
+#[derive(Clone, PartialEq)]
 </span><span class="kw">pub enum </span>LEMOP {
     <span class="doccomment">/// `MkNull(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
-    </span>MkNull(MetaPtr, Tag),
-    <span class="doccomment">/// `Hash2Ptrs(x, t, is)` binds `x` to a `Ptr` with tag `t` and 2 children `is`
-    </span>Hash2Ptrs(MetaPtr, Tag, [MetaPtr; <span class="number">2</span>]),
-    <span class="doccomment">/// `Hash3Ptrs(x, t, is)` binds `x` to a `Ptr` with tag `t` and 3 children `is`
-    </span>Hash3Ptrs(MetaPtr, Tag, [MetaPtr; <span class="number">3</span>]),
-    <span class="doccomment">/// `Hash4Ptrs(x, t, is)` binds `x` to a `Ptr` with tag `t` and 4 children `is`
-    </span>Hash4Ptrs(MetaPtr, Tag, [MetaPtr; <span class="number">4</span>]),
-    <span class="doccomment">/// `Unhash2Ptrs([a, b], x)` binds `a` and `b` to the 2 children of `x`
-    </span>Unhash2Ptrs([MetaPtr; <span class="number">2</span>], MetaPtr),
-    <span class="doccomment">/// `Unhash3Ptrs([a, b, c], x)` binds `a` and `b` to the 3 children of `x`
-    </span>Unhash3Ptrs([MetaPtr; <span class="number">3</span>], MetaPtr),
-    <span class="doccomment">/// `Unhash4Ptrs([a, b, c, d], x)` binds `a` and `b` to the 4 children of `x`
-    </span>Unhash4Ptrs([MetaPtr; <span class="number">4</span>], MetaPtr),
+    </span>Null(MetaPtr, Tag),
+    <span class="doccomment">/// `Hash2(x, t, is)` binds `x` to a `Ptr` with tag `t` and 2 children `is`
+    </span>Hash2(MetaPtr, Tag, [MetaPtr; <span class="number">2</span>]),
+    <span class="doccomment">/// `Hash3(x, t, is)` binds `x` to a `Ptr` with tag `t` and 3 children `is`
+    </span>Hash3(MetaPtr, Tag, [MetaPtr; <span class="number">3</span>]),
+    <span class="doccomment">/// `Hash4(x, t, is)` binds `x` to a `Ptr` with tag `t` and 4 children `is`
+    </span>Hash4(MetaPtr, Tag, [MetaPtr; <span class="number">4</span>]),
+    <span class="doccomment">/// `Unhash2([a, b], x)` binds `a` and `b` to the 2 children of `x`
+    </span>Unhash2([MetaPtr; <span class="number">2</span>], MetaPtr),
+    <span class="doccomment">/// `Unhash3([a, b, c], x)` binds `a` and `b` to the 3 children of `x`
+    </span>Unhash3([MetaPtr; <span class="number">3</span>], MetaPtr),
+    <span class="doccomment">/// `Unhash4([a, b, c, d], x)` binds `a` and `b` to the 4 children of `x`
+    </span>Unhash4([MetaPtr; <span class="number">4</span>], MetaPtr),
     <span class="doccomment">/// `Hide(x, s, p)` binds `x` to a (comm) `Ptr` resulting from hiding the
     /// payload `p` with (num) secret `s`
     </span>Hide(MetaPtr, MetaPtr, MetaPtr),
@@ -613,8 +570,8 @@
     </span>MatchSymPath(MetaPtr, HashMap&lt;Vec&lt;String&gt;, LEMOP&gt;, Box&lt;LEMOP&gt;),
     <span class="doccomment">/// `Seq(ops)` executes each `op: LEMOP` in `ops` sequentially
     </span>Seq(Vec&lt;LEMOP&gt;),
-    <span class="doccomment">/// `SetReturn([a, b, c])` sets the output as `[a, b, c]`
-    </span>SetReturn([MetaPtr; <span class="number">3</span>]),
+    <span class="doccomment">/// `Return([a, b, c])` sets the output as `[a, b, c]`
+    </span>Return([MetaPtr; <span class="number">3</span>]),
 }
 
 <span class="kw">impl </span>LEMOP {
@@ -633,6 +590,9 @@
     /// conflicting names would cause different allocations to be bound the same
     /// name.
     ///
+    /// The conflict resolution is achieved by changing meta pointers so that
+    /// their names are prepended by the paths where they&#39;re declared.
+    ///
     /// Note: this function is not supposed to be called manually. It&#39;s used by
     /// `LEM::new`, which is the API that should be used directly.
     </span><span class="kw">pub fn </span>deconflict(
@@ -641,14 +601,14 @@
         dmap: <span class="kw-2">&amp;</span>DashMap&lt;String, String, ahash::RandomState&gt;, <span class="comment">// name -&gt; path/name
     </span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::MkNull(ptr, tag) =&gt; {
+            <span class="self">Self</span>::Null(ptr, tag) =&gt; {
                 <span class="kw">let </span>new_name = <span class="macro">format!</span>(<span class="string">&quot;{}.{}&quot;</span>, path, ptr.name());
                 <span class="kw">if </span>dmap.insert(ptr.name().clone(), new_name.clone()).is_some() {
                     <span class="macro">bail!</span>(<span class="string">&quot;{} already defined&quot;</span>, ptr.name());
                 };
-                <span class="prelude-val">Ok</span>(<span class="self">Self</span>::MkNull(MetaPtr(new_name), <span class="kw-2">*</span>tag))
+                <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Null(MetaPtr(new_name), <span class="kw-2">*</span>tag))
             }
-            <span class="self">Self</span>::Hash2Ptrs(tgt, tag, src) =&gt; {
+            <span class="self">Self</span>::Hash2(tgt, tag, src) =&gt; {
                 <span class="kw">let </span><span class="prelude-val">Some</span>(src0_path) = dmap.get(src[<span class="number">0</span>].name()) <span class="kw">else </span>{
                     <span class="macro">bail!</span>(<span class="string">&quot;{} not defined&quot;</span>, src[<span class="number">0</span>].name());
                 };
@@ -659,13 +619,13 @@
                 <span class="kw">if </span>dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
                     <span class="macro">bail!</span>(<span class="string">&quot;{} already defined&quot;</span>, tgt.name());
                 };
-                <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Hash2Ptrs(
+                <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Hash2(
                     MetaPtr(new_name),
                     <span class="kw-2">*</span>tag,
                     [MetaPtr(src0_path.clone()), MetaPtr(src1_path.clone())],
                 ))
             }
-            <span class="self">Self</span>::Hash3Ptrs(tgt, tag, src) =&gt; {
+            <span class="self">Self</span>::Hash3(tgt, tag, src) =&gt; {
                 <span class="kw">let </span><span class="prelude-val">Some</span>(src0_path) = dmap.get(src[<span class="number">0</span>].name()) <span class="kw">else </span>{
                     <span class="macro">bail!</span>(<span class="string">&quot;{} not defined&quot;</span>, src[<span class="number">0</span>].name());
                 };
@@ -679,7 +639,7 @@
                 <span class="kw">if </span>dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
                     <span class="macro">bail!</span>(<span class="string">&quot;{} already defined&quot;</span>, tgt.name());
                 };
-                <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Hash3Ptrs(
+                <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Hash3(
                     MetaPtr(new_name),
                     <span class="kw-2">*</span>tag,
                     [
@@ -689,7 +649,7 @@
                     ],
                 ))
             }
-            <span class="self">Self</span>::Hash4Ptrs(tgt, tag, src) =&gt; {
+            <span class="self">Self</span>::Hash4(tgt, tag, src) =&gt; {
                 <span class="kw">let </span><span class="prelude-val">Some</span>(src0_path) = dmap.get(src[<span class="number">0</span>].name()) <span class="kw">else </span>{
                     <span class="macro">bail!</span>(<span class="string">&quot;{} not defined&quot;</span>, src[<span class="number">0</span>].name());
                 };
@@ -706,7 +666,7 @@
                 <span class="kw">if </span>dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
                     <span class="macro">bail!</span>(<span class="string">&quot;{} already defined&quot;</span>, tgt.name());
                 };
-                <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Hash4Ptrs(
+                <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Hash4(
                     MetaPtr(new_name),
                     <span class="kw-2">*</span>tag,
                     [
@@ -739,7 +699,7 @@
                 }
                 <span class="prelude-val">Ok</span>(LEMOP::Seq(new_ops))
             }
-            LEMOP::SetReturn(o) =&gt; {
+            LEMOP::Return(o) =&gt; {
                 <span class="kw">let </span><span class="prelude-val">Some</span>(o0) = dmap.get(o[<span class="number">0</span>].name()) <span class="kw">else </span>{
                     <span class="macro">bail!</span>(<span class="string">&quot;{} not defined&quot;</span>, o[<span class="number">0</span>].name());
                 };
@@ -749,7 +709,7 @@
                 <span class="kw">let </span><span class="prelude-val">Some</span>(o2) = dmap.get(o[<span class="number">2</span>].name()) <span class="kw">else </span>{
                     <span class="macro">bail!</span>(<span class="string">&quot;{} not defined&quot;</span>, o[<span class="number">2</span>].name());
                 };
-                <span class="prelude-val">Ok</span>(LEMOP::SetReturn([
+                <span class="prelude-val">Ok</span>(LEMOP::Return([
                     MetaPtr(o0.clone()),
                     MetaPtr(o1.clone()),
                     MetaPtr(o2.clone()),
@@ -774,16 +734,16 @@
                 <span class="self">Self</span>::MatchTag(<span class="kw">_</span>, cases) =&gt; cases.values().for_each(|op| stack.push(op)),
                 <span class="self">Self</span>::Seq(ops) =&gt; stack.extend(ops),
                 <span class="comment">// It&#39;s safer to be exaustive here and avoid missing new LEMOPs
-                </span><span class="self">Self</span>::MkNull(..)
-                | <span class="self">Self</span>::Hash2Ptrs(..)
-                | <span class="self">Self</span>::Hash3Ptrs(..)
-                | <span class="self">Self</span>::Hash4Ptrs(..)
-                | <span class="self">Self</span>::Unhash2Ptrs(..)
-                | <span class="self">Self</span>::Unhash3Ptrs(..)
-                | <span class="self">Self</span>::Unhash4Ptrs(..)
+                </span><span class="self">Self</span>::Null(..)
+                | <span class="self">Self</span>::Hash2(..)
+                | <span class="self">Self</span>::Hash3(..)
+                | <span class="self">Self</span>::Hash4(..)
+                | <span class="self">Self</span>::Unhash2(..)
+                | <span class="self">Self</span>::Unhash3(..)
+                | <span class="self">Self</span>::Unhash4(..)
                 | <span class="self">Self</span>::Hide(..)
                 | <span class="self">Self</span>::Open(..)
-                | <span class="self">Self</span>::SetReturn(..) =&gt; (),
+                | <span class="self">Self</span>::Return(..) =&gt; (),
             }
         }
     }
@@ -812,29 +772,12 @@
     }
 }
 
-<span class="kw">mod </span>shortcuts {
-    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-
-    <span class="attr">#[allow(dead_code)]
-    #[inline]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>mptr(name: <span class="kw-2">&amp;</span>str) -&gt; MetaPtr {
-        MetaPtr(name.to_string())
-    }
-
-    <span class="attr">#[allow(dead_code)]
-    #[inline]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>match_tag(i: MetaPtr, cases: Vec&lt;(Tag, LEMOP)&gt;) -&gt; LEMOP {
-        LEMOP::MatchTag(i, HashMap::from_iter(cases))
-    }
-}
-
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use super</span>::{store::Store, <span class="kw-2">*</span>};
-    <span class="kw">use </span><span class="kw">crate</span>::lem::{pointers::Ptr, tag::Tag};
+    <span class="kw">use crate</span>::{lem, lem::pointers::Ptr};
     <span class="kw">use </span>bellperson::util_cs::test_cs::TestConstraintSystem;
     <span class="kw">use </span>blstrs::Scalar <span class="kw">as </span>Fr;
-    <span class="kw">use </span>shortcuts::<span class="kw-2">*</span>;
 
     <span class="kw">fn </span>constrain_test_helper(lem: <span class="kw-2">&amp;</span>LEM, store: <span class="kw-2">&amp;mut </span>Store&lt;Fr&gt;, witnesses: <span class="kw-2">&amp;</span>Vec&lt;Witness&lt;Fr&gt;&gt;) {
         <span class="kw">for </span>w <span class="kw">in </span>witnesses {
@@ -846,58 +789,39 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>accepts_virtual_nested_match_tag() {
-        <span class="kw">let </span>input = [<span class="string">&quot;expr_in&quot;</span>, <span class="string">&quot;env_in&quot;</span>, <span class="string">&quot;cont_in&quot;</span>];
-        <span class="kw">let </span>lem_op = match_tag(
-            mptr(<span class="string">&quot;expr_in&quot;</span>),
-            <span class="macro">vec!</span>[
-                (
-                    Tag::Num,
-                    LEMOP::Seq(<span class="macro">vec!</span>[
-                        LEMOP::MkNull(mptr(<span class="string">&quot;cont_out_terminal&quot;</span>), Tag::Terminal),
-                        LEMOP::SetReturn([
-                            mptr(<span class="string">&quot;expr_in&quot;</span>),
-                            mptr(<span class="string">&quot;env_in&quot;</span>),
-                            mptr(<span class="string">&quot;cont_out_terminal&quot;</span>),
-                        ]),
-                    ]),
-                ),
-                (
-                    Tag::Char,
-                    match_tag(
-                        <span class="comment">// This nested match excercises the need to pass on the information
-                        // that we are on a virtual branch, because a constrain will
-                        // be created for `cont_out_error` and it will need to be relaxed
-                        // by an implication with a false premise
-                        </span>mptr(<span class="string">&quot;expr_in&quot;</span>),
-                        <span class="macro">vec!</span>[(
-                            Tag::Num,
-                            LEMOP::Seq(<span class="macro">vec!</span>[
-                                LEMOP::MkNull(mptr(<span class="string">&quot;cont_out_error&quot;</span>), Tag::Error),
-                                LEMOP::SetReturn([
-                                    mptr(<span class="string">&quot;expr_in&quot;</span>),
-                                    mptr(<span class="string">&quot;env_in&quot;</span>),
-                                    mptr(<span class="string">&quot;cont_out_error&quot;</span>),
-                                ]),
-                            ]),
-                        )],
-                    ),
-                ),
-                (
-                    Tag::Sym,
-                    match_tag(
+        <span class="kw">let </span>lem = <span class="macro">lem!</span>(expr_in env_in cont_in {
+            match_tag expr_in {
+                Num =&gt; {
+                    <span class="kw">let </span>cont_out_terminal: Terminal;
+                    <span class="kw">return </span>(expr_in, env_in, cont_out_terminal);
+                },
+                Char =&gt; {
+                    match_tag expr_in {
+                        <span class="comment">// This nested match excercises the need to pass on the
+                        // information that we are on a virtual branch, because a
+                        // constraint will be created for `cont_out_error` and it
+                        // will need to be relaxed by an implication with a false
+                        // premise.
+                        </span>Num =&gt; {
+                            <span class="kw">let </span>cont_out_error: Error;
+                            <span class="kw">return </span>(expr_in, env_in, cont_out_error);
+                        }
+                    };
+                },
+                Sym =&gt; {
+                    match_tag expr_in {
                         <span class="comment">// This nested match exercises the need to relax `popcount`
                         // because there is no match but it&#39;s on a virtual path, so
-                        // we don&#39;t want to be too restrictive
-                        </span>mptr(<span class="string">&quot;expr_in&quot;</span>),
-                        <span class="macro">vec!</span>[(
-                            Tag::Char,
-                            LEMOP::SetReturn([mptr(<span class="string">&quot;expr_in&quot;</span>), mptr(<span class="string">&quot;env_in&quot;</span>), mptr(<span class="string">&quot;cont_in&quot;</span>)]),
-                        )],
-                    ),
-                ),
-            ],
-        );
-        <span class="kw">let </span>lem = LEM::new(input, lem_op).unwrap();
+                        // we don&#39;t want to be too restrictive and demand that at
+                        // least one path must be taken.
+                        </span>Char =&gt; {
+                            <span class="kw">return </span>(expr_in, env_in, cont_in);
+                        }
+                    };
+                }
+            };
+        })
+        .unwrap();
 
         <span class="kw">let </span>expr = Ptr::num(Fr::from_u64(<span class="number">42</span>));
         <span class="kw">let </span><span class="kw-2">mut </span>store = Store::default();
@@ -907,38 +831,24 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>resolves_conflicts_of_clashing_names_in_parallel_branches() {
-        <span class="kw">let </span>input = [<span class="string">&quot;expr_in&quot;</span>, <span class="string">&quot;env_in&quot;</span>, <span class="string">&quot;cont_in&quot;</span>];
-        <span class="kw">let </span>lem_op = match_tag(
-            <span class="comment">// This match is creating `cont_out_terminal` on two different branches,
-            // which, in theory, would cause troubles at allocation time. But we&#39;re
-            // dealing with that automatically
-            </span>mptr(<span class="string">&quot;expr_in&quot;</span>),
-            <span class="macro">vec!</span>[
-                (
-                    Tag::Num,
-                    LEMOP::Seq(<span class="macro">vec!</span>[
-                        LEMOP::MkNull(mptr(<span class="string">&quot;cont_out_terminal&quot;</span>), Tag::Terminal),
-                        LEMOP::SetReturn([
-                            mptr(<span class="string">&quot;expr_in&quot;</span>),
-                            mptr(<span class="string">&quot;env_in&quot;</span>),
-                            mptr(<span class="string">&quot;cont_out_terminal&quot;</span>),
-                        ]),
-                    ]),
-                ),
-                (
-                    Tag::Char,
-                    LEMOP::Seq(<span class="macro">vec!</span>[
-                        LEMOP::MkNull(mptr(<span class="string">&quot;cont_out_terminal&quot;</span>), Tag::Terminal),
-                        LEMOP::SetReturn([
-                            mptr(<span class="string">&quot;expr_in&quot;</span>),
-                            mptr(<span class="string">&quot;env_in&quot;</span>),
-                            mptr(<span class="string">&quot;cont_out_terminal&quot;</span>),
-                        ]),
-                    ]),
-                ),
-            ],
-        );
-        <span class="kw">let </span>lem = LEM::new(input, lem_op).unwrap();
+        <span class="kw">let </span>lem = <span class="macro">lem!</span>(expr_in env_in cont_in {
+            match_tag expr_in {
+                <span class="comment">// This match is creating `cont_out_terminal` on two different
+                // branches, which, in theory, would cause troubles at allocation
+                // time. We solve this problem by calling `LEMOP::deconflict`,
+                // which turns one into `Num.cont_out_terminal` and the other into
+                // `Char.cont_out_terminal`.
+                </span>Num =&gt; {
+                    <span class="kw">let </span>cont_out_terminal: Terminal;
+                    <span class="kw">return </span>(expr_in, env_in, cont_out_terminal);
+                },
+                Char =&gt; {
+                    <span class="kw">let </span>cont_out_terminal: Terminal;
+                    <span class="kw">return </span>(expr_in, env_in, cont_out_terminal);
+                }
+            };
+        })
+        .unwrap();
 
         <span class="kw">let </span>expr = Ptr::num(Fr::from_u64(<span class="number">42</span>));
         <span class="kw">let </span><span class="kw-2">mut </span>store = Store::default();
