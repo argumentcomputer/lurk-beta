@@ -915,11 +915,7 @@ impl<F: LurkField> Store<F> {
                 .opaque_cont_ptrs
                 .get_index(idx)
                 .ok_or(Error("get_z_expr unknown opaque".into()))?;
-            match self.z_cont_ptr_map.get(z_ptr) {
-                // TODO: cycle-detection needed either here or on opaque ptr creation
-                Some(p) => self.get_z_cont(p, z_store.clone()),
-                None => Ok((*z_ptr, None)),
-            }
+            Ok((*z_ptr, None))
         } else {
             let (z_ptr, z_cont) = match self.fetch_cont(ptr) {
                 Some(Continuation::Outermost) => {
@@ -1136,38 +1132,33 @@ impl<F: LurkField> Store<F> {
         ptr: &Ptr<F>,
         z_store: Option<Rc<RefCell<ZStore<F>>>>,
     ) -> Result<(ZExprPtr<F>, Option<ZExpr<F>>), Error> {
-
-        struct Cont<F: LurkField>
-            (Box<dyn Fn(&Store<F>,
-                        Option<Rc<RefCell<ZStore<F>>>>,
-                        &mut Vec<Cont<F>>,
-                        &mut Vec<(ZExprPtr<F>, Option<ZExpr<F>>)>
-            ) -> Result<(), Error>>);
+        struct Cont<F: LurkField>(
+            Box<
+                dyn Fn(
+                    &Store<F>,
+                    Option<Rc<RefCell<ZStore<F>>>>,
+                    &mut Vec<Cont<F>>,
+                    &mut Vec<(ZExprPtr<F>, Option<ZExpr<F>>)>,
+                ) -> Result<(), Error>,
+            >,
+        );
 
         fn step<F: LurkField>(
             ptr: Ptr<F>,
             store: &Store<F>,
             z_store: Option<Rc<RefCell<ZStore<F>>>>,
             stack: &mut Vec<Cont<F>>,
-            ret_stack: &mut Vec<(ZExprPtr<F>, Option<ZExpr<F>>)>
+            ret_stack: &mut Vec<(ZExprPtr<F>, Option<ZExpr<F>>)>,
         ) -> Result<(), Error> {
             if let Some(idx) = ptr.raw.opaque_idx() {
                 let z_ptr = store
                     .opaque_ptrs
                     .get_index(idx)
                     .ok_or(Error("get_z_expr unknown opaque".into()))?;
-                match store.z_expr_ptr_map.get(z_ptr) {
-                    None => ret_stack.push((*z_ptr, None)),
-                    // TODO: cycle-detection needed either here or on opaque ptr creation
-                    Some(p) => {
-                        let p = *p;
-                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(p, store, z_store, stack, ret_stack)})))
-                    },
-                }
+                ret_stack.push((*z_ptr, None));
                 Ok(())
-            }
-            else {
-                stack.push(Cont (Box::new(move |store, z_store, _, ret_stack| {
+            } else {
+                stack.push(Cont(Box::new(move |store, z_store, _, ret_stack| {
                     let (z_ptr, z_expr) = ret_stack.last().expect("Implementation broken 1");
                     if let Some(z_store) = z_store.clone() {
                         z_store.borrow_mut().insert_expr(&z_ptr, z_expr.clone());
@@ -1180,7 +1171,8 @@ impl<F: LurkField> Store<F> {
                     Some(Expression::Nil) => {
                         // todo, add lurk_sym components
                         stack.push(Cont(Box::new(|store, _, _, ret_stack| {
-                            ret_stack.push((ZExpr::Nil.z_ptr(&store.poseidon_cache), Some(ZExpr::Nil)));
+                            ret_stack
+                                .push((ZExpr::Nil.z_ptr(&store.poseidon_cache), Some(ZExpr::Nil)));
                             Ok(())
                         })));
                     }
@@ -1192,8 +1184,12 @@ impl<F: LurkField> Store<F> {
                             ret_stack.push((z_expr.z_ptr(&store.poseidon_cache), Some(z_expr)));
                             Ok(())
                         })));
-                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(car, store, z_store, stack, ret_stack)})));
-                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(cdr, store, z_store, stack, ret_stack)})));
+                        stack.push(Cont(Box::new(move |store, z_store, stack, ret_stack| {
+                            step(car, store, z_store, stack, ret_stack)
+                        })));
+                        stack.push(Cont(Box::new(move |store, z_store, stack, ret_stack| {
+                            step(cdr, store, z_store, stack, ret_stack)
+                        })));
                     }
                     Some(Expression::Comm(secret, payload)) => {
                         stack.push(Cont(Box::new(move |store, _, _, ret_stack| {
@@ -1202,7 +1198,9 @@ impl<F: LurkField> Store<F> {
                             ret_stack.push((z_expr.z_ptr(&store.poseidon_cache), Some(z_expr)));
                             Ok(())
                         })));
-                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(payload, store, z_store, stack, ret_stack)})));
+                        stack.push(Cont(Box::new(move |store, z_store, stack, ret_stack| {
+                            step(payload, store, z_store, stack, ret_stack)
+                        })));
                     }
                     Some(Expression::Fun(args, body, env)) => {
                         stack.push(Cont(Box::new(|store, _, _, ret_stack| {
@@ -1217,9 +1215,15 @@ impl<F: LurkField> Store<F> {
                             ret_stack.push((z_expr.z_ptr(&store.poseidon_cache), Some(z_expr)));
                             Ok(())
                         })));
-                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(args, store, z_store, stack, ret_stack)})));
-                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(env, store, z_store, stack, ret_stack)})));
-                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(body, store, z_store, stack, ret_stack)})));
+                        stack.push(Cont(Box::new(move |store, z_store, stack, ret_stack| {
+                            step(args, store, z_store, stack, ret_stack)
+                        })));
+                        stack.push(Cont(Box::new(move |store, z_store, stack, ret_stack| {
+                            step(env, store, z_store, stack, ret_stack)
+                        })));
+                        stack.push(Cont(Box::new(move |store, z_store, stack, ret_stack| {
+                            step(body, store, z_store, stack, ret_stack)
+                        })));
                     }
                     Some(Expression::Num(n)) => {
                         let f = match n {
@@ -1243,7 +1247,9 @@ impl<F: LurkField> Store<F> {
                             ret_stack.push((z_expr.z_ptr(&store.poseidon_cache), Some(z_expr)));
                             Ok(())
                         })));
-                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(value, store, z_store, stack, ret_stack)})));
+                        stack.push(Cont(Box::new(move |store, z_store, stack, ret_stack| {
+                            step(value, store, z_store, stack, ret_stack)
+                        })));
                     }
                     Some(Expression::Char(c)) => {
                         stack.push(Cont(Box::new(move |store, _, _, ret_stack| {
@@ -1261,7 +1267,10 @@ impl<F: LurkField> Store<F> {
                     }
                     Some(Expression::StrNil) => {
                         stack.push(Cont(Box::new(|store, _, _, ret_stack| {
-                            ret_stack.push((ZExpr::StrNil.z_ptr(&store.poseidon_cache), Some(ZExpr::StrNil)));
+                            ret_stack.push((
+                                ZExpr::StrNil.z_ptr(&store.poseidon_cache),
+                                Some(ZExpr::StrNil),
+                            ));
                             Ok(())
                         })));
                     }
@@ -1273,12 +1282,19 @@ impl<F: LurkField> Store<F> {
                             ret_stack.push((z_expr.z_ptr(&store.poseidon_cache), Some(z_expr)));
                             Ok(())
                         })));
-                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(car, store, z_store, stack, ret_stack)})));
-                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(cdr, store, z_store, stack, ret_stack)})));
+                        stack.push(Cont(Box::new(move |store, z_store, stack, ret_stack| {
+                            step(car, store, z_store, stack, ret_stack)
+                        })));
+                        stack.push(Cont(Box::new(move |store, z_store, stack, ret_stack| {
+                            step(cdr, store, z_store, stack, ret_stack)
+                        })));
                     }
                     Some(Expression::SymNil) => {
                         stack.push(Cont(Box::new(|store, _, _, ret_stack| {
-                            ret_stack.push((ZExpr::SymNil.z_ptr(&store.poseidon_cache), Some(ZExpr::SymNil)));
+                            ret_stack.push((
+                                ZExpr::SymNil.z_ptr(&store.poseidon_cache),
+                                Some(ZExpr::SymNil),
+                            ));
                             Ok(())
                         })));
                     }
@@ -1290,8 +1306,12 @@ impl<F: LurkField> Store<F> {
                             ret_stack.push((z_expr.z_ptr(&store.poseidon_cache), Some(z_expr)));
                             Ok(())
                         })));
-                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(car, store, z_store, stack, ret_stack)})));
-                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(cdr, store, z_store, stack, ret_stack)})));
+                        stack.push(Cont(Box::new(move |store, z_store, stack, ret_stack| {
+                            step(car, store, z_store, stack, ret_stack)
+                        })));
+                        stack.push(Cont(Box::new(move |store, z_store, stack, ret_stack| {
+                            step(cdr, store, z_store, stack, ret_stack)
+                        })));
                     }
                     Some(Expression::Key(sym)) => {
                         stack.push(Cont(Box::new(|store, _, _, ret_stack| {
@@ -1300,18 +1320,20 @@ impl<F: LurkField> Store<F> {
                             ret_stack.push((z_expr.z_ptr(&store.poseidon_cache), Some(z_expr)));
                             Ok(())
                         })));
-                        stack.push(Cont (Box::new(move |store, z_store, stack, ret_stack| { step(sym, store, z_store, stack, ret_stack)})));
+                        stack.push(Cont(Box::new(move |store, z_store, stack, ret_stack| {
+                            step(sym, store, z_store, stack, ret_stack)
+                        })));
                     }
-                    None => {
-                        return Err(Error("get_z_expr unknown opaque".into()))
-                    }
+                    None => return Err(Error("get_z_expr unknown opaque".into())),
                 }
                 Ok(())
             }
         }
 
         let ptr = *ptr;
-        let mut stack = vec![Cont (Box::new(move |store, z_store, stack, ret_stack| { step(ptr, store, z_store, stack, ret_stack)}))];
+        let mut stack = vec![Cont(Box::new(move |store, z_store, stack, ret_stack| {
+            step(ptr, store, z_store, stack, ret_stack)
+        }))];
         let mut ret_stack = vec![];
         while let Some(Cont(cont)) = stack.pop() {
             cont(self, z_store.clone(), &mut stack, &mut ret_stack)?;
