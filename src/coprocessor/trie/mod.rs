@@ -126,7 +126,6 @@ pub struct Trie<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> {
     empty_roots: [F; HEIGHT],
     hash_cache: &'a PoseidonCache<F>,
     children: &'a mut ChildMap<F, ARITY>,
-    count: usize,
 }
 
 pub struct LookupProof<F: LurkField, const ARITY: usize, const HEIGHT: usize> {
@@ -273,7 +272,6 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
                 *elt = hash;
             }
         }
-        self.count = 0;
         self.root = self.empty_roots[HEIGHT - 1]
     }
 
@@ -297,7 +295,6 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
             empty_roots: [F::zero(); HEIGHT],
             hash_cache: poseidon_cache,
             children: inverse_poseidon_cache,
-            count: 0,
         };
         new.init_empty();
 
@@ -436,14 +433,19 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         let new_root = new_value;
         let inserted = new_root != self.root;
 
-        if inserted {
-            self.count += 1
-        };
         self.root = new_root;
 
         let new_proof = LookupProof::new(proof);
 
         Ok((InsertProof::new(old_proof, new_proof), inserted))
+    }
+}
+
+impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Default
+    for Trie<'a, F, ARITY, HEIGHT>
+{
+    fn default() -> Self {
+        todo!();
     }
 }
 
