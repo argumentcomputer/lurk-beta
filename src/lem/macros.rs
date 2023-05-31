@@ -101,10 +101,9 @@ macro_rules! lemop {
     (@seq {$($limbs:tt)*}, $(;)? ) => {
         {
             let temp_vec = vec!($( $limbs )*);
-            if temp_vec.len() == 1 {
-                temp_vec.last().unwrap().clone()
-            } else {
-                $crate::lem::LEMOP::Seq(temp_vec)
+            match &temp_vec[..] {
+                [x] => x.clone(),
+                _ => $crate::lem::LEMOP::Seq(temp_vec)
             }
         }
     };
