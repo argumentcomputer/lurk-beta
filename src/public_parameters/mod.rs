@@ -6,6 +6,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use crate::coprocessor::Coprocessor;
+use crate::error::ReductionError;
 use crate::{
     circuit::ToInputs,
     eval::{
@@ -450,7 +451,7 @@ impl Evaluation {
 
         let input = evaluator.initial();
 
-        let (output, iterations, _) = evaluator.eval().map_err(|_| Error::EvaluationFailure)?;
+        let (output, iterations, _) = evaluator.eval().map_err(Error::EvaluationFailure)?;
 
         Ok(Self::new(store, input, output, Some(iterations)))
     }
@@ -915,12 +916,16 @@ impl<'a> Proof<'a, S1> {
             }
             Claim::Evaluation(e) => {
                 if e.status != Status::Terminal {
-                    return Err(Error::EvaluationFailure);
+                    return Err(Error::EvaluationFailure(ReductionError::Misc(format!(
+                        "nonterminal status"
+                    ))));
                 };
             }
             Claim::PtrEvaluation(e) => {
                 if e.status != Status::Terminal {
-                    return Err(Error::EvaluationFailure);
+                    return Err(Error::EvaluationFailure(ReductionError::Misc(format!(
+                        "nonterminal status"
+                    ))));
                 }
             }
         };
@@ -1102,7 +1107,7 @@ pub fn evaluate<F: LurkField>(
     let env = supplied_env.unwrap_or_else(|| empty_sym_env(store));
     let mut evaluator = Evaluator::new(expr, env, store, limit, lang);
 
-    let (io, iterations, _) = evaluator.eval().map_err(|_| Error::EvaluationFailure)?;
+    let (io, iterations, _) = evaluator.eval().map_err(Error::EvaluationFailure)?;
 
     assert!(<crate::eval::IO<F> as Evaluable<
         F,

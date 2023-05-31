@@ -1,3 +1,4 @@
+use crate::error::ReductionError;
 use crate::store;
 use bellperson::SynthesisError;
 use std::io;
@@ -22,7 +23,7 @@ pub enum Error {
     #[error("Opening Failure: {0}")]
     OpeningFailure(String),
     #[error("Evaluation Failure")]
-    EvaluationFailure,
+    EvaluationFailure(ReductionError),
     #[error("Store error: {0}")]
     StoreError(#[from] store::Error),
     #[error("Cache error: {0}")]
