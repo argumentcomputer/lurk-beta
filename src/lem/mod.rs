@@ -477,20 +477,18 @@ mod tests {
         let input = ["expr_in", "env_in", "cont_in"];
         let lem_op = match_tag(
             mptr("expr_in"),
-            vec![
-                (
-                    Tag::Num,
-                    LEMOP::Seq(vec![
-                        LEMOP::Hash2Ptrs(mptr("expr_out"), Tag::Cons, [mptr("expr_in"), mptr("expr_in")]),
-                        LEMOP::MkNull(mptr("cont_out_terminal"), Tag::Terminal),
-                        LEMOP::SetReturn([
-                            mptr("expr_out"),
-                            mptr("env_in"),
-                            mptr("cont_out_terminal"),
-                        ]),
-                    ]),
-                ),
-            ],
+            vec![(
+                Tag::Num,
+                LEMOP::Seq(vec![
+                    LEMOP::Hash2Ptrs(
+                        mptr("expr_out"),
+                        Tag::Cons,
+                        [mptr("expr_in"), mptr("expr_in")],
+                    ),
+                    LEMOP::MkNull(mptr("cont_out_terminal"), Tag::Terminal),
+                    LEMOP::SetReturn([mptr("expr_out"), mptr("env_in"), mptr("cont_out_terminal")]),
+                ]),
+            )],
         );
         let lem = LEM::new(input, lem_op).unwrap();
 
@@ -509,8 +507,16 @@ mod tests {
                 (
                     Tag::Num,
                     LEMOP::Seq(vec![
-                        LEMOP::Hash2Ptrs(mptr("expr_aux"), Tag::Cons, [mptr("expr_in"), mptr("expr_in")]),
-                        LEMOP::Hash2Ptrs(mptr("expr_out"), Tag::Cons, [mptr("expr_aux"), mptr("expr_aux")]),
+                        LEMOP::Hash2Ptrs(
+                            mptr("expr_aux"),
+                            Tag::Cons,
+                            [mptr("expr_in"), mptr("expr_in")],
+                        ),
+                        LEMOP::Hash2Ptrs(
+                            mptr("expr_out"),
+                            Tag::Cons,
+                            [mptr("expr_aux"), mptr("expr_aux")],
+                        ),
                         LEMOP::MkNull(mptr("cont_out_terminal"), Tag::Terminal),
                         LEMOP::SetReturn([
                             mptr("expr_out"),
@@ -522,9 +528,21 @@ mod tests {
                 (
                     Tag::Char,
                     LEMOP::Seq(vec![
-                        LEMOP::Hash2Ptrs(mptr("expr_aux"), Tag::Cons, [mptr("expr_in"), mptr("expr_in")]),
-                        LEMOP::Hash2Ptrs(mptr("expr_aux2"), Tag::Cons, [mptr("expr_aux"), mptr("expr_aux")]),
-                        LEMOP::Hash2Ptrs(mptr("expr_out"), Tag::Cons, [mptr("expr_aux2"), mptr("expr_aux2")]),
+                        LEMOP::Hash2Ptrs(
+                            mptr("expr_aux"),
+                            Tag::Cons,
+                            [mptr("expr_in"), mptr("expr_in")],
+                        ),
+                        LEMOP::Hash2Ptrs(
+                            mptr("expr_aux2"),
+                            Tag::Cons,
+                            [mptr("expr_aux"), mptr("expr_aux")],
+                        ),
+                        LEMOP::Hash2Ptrs(
+                            mptr("expr_out"),
+                            Tag::Cons,
+                            [mptr("expr_aux2"), mptr("expr_aux2")],
+                        ),
                         LEMOP::MkNull(mptr("cont_out_terminal"), Tag::Terminal),
                         LEMOP::SetReturn([
                             mptr("expr_out"),
@@ -547,15 +565,19 @@ mod tests {
     fn test_hash_slots_seq() {
         let input = ["expr_in", "env_in", "cont_in"];
         let lem_op = LEMOP::Seq(vec![
-                LEMOP::Hash2Ptrs(mptr("expr_aux"), Tag::Cons, [mptr("expr_in"), mptr("expr_in")]),
-                LEMOP::Hash2Ptrs(mptr("expr_out"), Tag::Cons, [mptr("expr_aux"), mptr("expr_aux")]),
-                LEMOP::MkNull(mptr("cont_out_terminal"), Tag::Terminal),
-                LEMOP::SetReturn([
-                    mptr("expr_out"),
-                    mptr("env_in"),
-                    mptr("cont_out_terminal"),
-                ]),
-            ]);
+            LEMOP::Hash2Ptrs(
+                mptr("expr_aux"),
+                Tag::Cons,
+                [mptr("expr_in"), mptr("expr_in")],
+            ),
+            LEMOP::Hash2Ptrs(
+                mptr("expr_out"),
+                Tag::Cons,
+                [mptr("expr_aux"), mptr("expr_aux")],
+            ),
+            LEMOP::MkNull(mptr("cont_out_terminal"), Tag::Terminal),
+            LEMOP::SetReturn([mptr("expr_out"), mptr("env_in"), mptr("cont_out_terminal")]),
+        ]);
         let lem = LEM::new(input, lem_op).unwrap();
 
         let expr = Ptr::num(Fr::from_u64(42));
