@@ -1,27 +1,23 @@
-use super::{shortcuts::*, tag::Tag, LEM, LEMOP};
+use crate::lem;
+
+use super::LEM;
 use anyhow::Result;
 
 /// This is Lurk's step function encoded as a LEM
 #[allow(dead_code)]
 pub(crate) fn step() -> Result<LEM> {
-    let input = ["expr_in", "env_in", "cont_in"];
-    let lem_op = match_tag(
-        mptr("expr_in"),
-        vec![(
-            Tag::Num,
-            match_tag(
-                mptr("cont_in"),
-                vec![(
-                    Tag::Outermost,
-                    LEMOP::Seq(vec![
-                        LEMOP::MkNull(mptr("cont_out"), Tag::Terminal),
-                        LEMOP::SetReturn([mptr("expr_in"), mptr("env_in"), mptr("cont_out")]),
-                    ]),
-                )],
-            ),
-        )],
-    );
-    LEM::new(input, lem_op)
+    lem!(expr_in env_in cont_in {
+        match_tag expr_in {
+            Num => {
+                match_tag cont_in {
+                    Outermost => {
+                        let cont_out: Terminal;
+                        return (expr_in, env_in, cont_out);
+                    }
+                };
+            }
+        };
+    })
 }
 
 #[cfg(test)]
