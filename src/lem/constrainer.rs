@@ -17,7 +17,7 @@ use crate::circuit::gadgets::{
 
 use crate::field::{FWrap, LurkField};
 
-use super::{pointers::ZPtr, store::Store, Witness, LEM, LEMOP};
+use super::{pointers::ZPtr, store::Store, Witness, LEM, LEMOP, Tag};
 
 /// Manages allocations for numeric variables in a constraint system
 #[derive(Default)]
@@ -152,6 +152,7 @@ impl LEM {
 
         let mut alloc_manager = AllocationManager::default();
 
+        let mut slots_len = 0;
         let mut hash2_stack = Vec::new();
         let mut hash2_implies_stack = Vec::new();
         let mut stack = vec![(&self.lem_op, None::<Boolean>, String::new(), 0)];
@@ -181,21 +182,17 @@ impl LEM {
                         tgt.name(),
                     )?;
 
-                    //let slot_name = format!("slot_{}", slot);
                     let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
                     if let Some(concrete_path) = branch_path_info {
 
                         // if concrete_path is true, push to slots
                         if is_concrete_path {
-                            // when we pop, constrain:
-                            // - hash calculation of current slot is glued to alloc_car, alloc_cdr
-                            // allocate pointer from parts (has the same tag as tag param)
                             hash2_stack.push((slot, tag, alloc_car.clone(), alloc_cdr.clone())); // only once per path
                         }
                         // concrete path implies alloc_tgt has the same value as in the current slot
                         hash2_implies_stack.push((concrete_path, slot, tgt.clone())); // many
                     } else {
-                        // enforce equal hash(preimage) in the slot
+                        // TODO: enforce alloc_tgt equal hash(preimage) in the slot
                         hash2_stack.push((slot, tag, alloc_car.clone(), alloc_cdr.clone()))
                     };
 
@@ -318,11 +315,22 @@ impl LEM {
                         .with_context(|| "couldn't enforce `popcount_one`")?;
                     }
                 }
-                LEMOP::Seq(ops) => stack.extend(
-                    ops.iter()
-                        .rev()
-                        .map(|op| (op, branch_path_info.clone(), path.clone(), slot)), // TODO: slot must increment if op is hash2
-                ),
+                LEMOP::Seq(ops) => {
+                    let mut next_slot = slot;
+                    stack.extend(
+                        ops.iter()
+                           .rev()
+                           .map(|op| {
+                               if matches!(op, LEMOP::Hash2Ptrs(_, _, _)) {
+                                   next_slot += 1;
+                               };
+                               (op, branch_path_info.clone(), path.clone(), next_slot)
+                           }),
+                    );
+                    if next_slot > slots_len {
+                        slots_len = next_slot;
+                    };
+                },
                 LEMOP::SetReturn(outputs) => {
                     let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
                     for (i, output) in outputs.iter().enumerate() {
@@ -374,7 +382,11 @@ impl LEM {
                 _ => todo!(),
             }
         }
+
+        dbg!(slots_len);
+
         // Create hash constraints for each stacked slot
+        let mut concrete_slots_len = 0;
         let mut hash2_slots: HashMap<usize, AllocatedPtr<F>> = HashMap::default();
         while let Some((slot, tag, alloc_car, alloc_cdr)) = hash2_stack.pop() {
             let alloc_hash = hash_poseidon(
@@ -386,6 +398,18 @@ impl LEM {
             let alloc_ptr = AllocatedPtr::from_parts(&alloc_tag, &alloc_hash);
             //let hash2_slot_name = format!("hash2_{}", slot).clone();
             hash2_slots.insert(slot, alloc_ptr);
+            concrete_slots_len += 1;
+        }
+
+        // TODO: create dummy pointer as global
+        let alloc_dummy_hash = AllocatedNum::alloc(cs.namespace(|| "dummy hash"), || Ok(F::ZERO))?;
+        // TODO: all tags should be global, then only allocated once
+        let alloc_dummy_tag = alloc_manager.alloc(&mut cs.namespace(|| "dummy tag"), Tag::Dummy.to_field())?; // TODO: add tags to globals
+        let alloc_dummy_ptr = AllocatedPtr::from_parts(&alloc_dummy_tag, &alloc_dummy_hash); // TODO: use globals
+
+        // complete hash slot with dummies
+        for s in concrete_slots_len..slots_len {
+            hash2_slots.insert(s+1, alloc_dummy_ptr.clone());
         }
 
         // Create hash implications
@@ -395,7 +419,11 @@ impl LEM {
             let alloc_tgt = alloc_ptrs.get(tgt.name()).expect(format!("{} not allocated", tgt.name()).as_str());
 
             // get slot_hash from slot name
-            let slot_hash_ptr = hash2_slots.get(&slot).expect("dasdada");
+            let Some(slot_hash_ptr) = hash2_slots.get(&slot) else {
+                bail!("Slot {} not allocated", slot)
+            };
+
+            //let slot_hash_ptr = match hash2_slots.get(&slot).expect(format!("slot {} not found", slot).as_str());
             let slot_hash = slot_hash_ptr.hash();
 
             implies_equal(

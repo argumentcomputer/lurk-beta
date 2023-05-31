@@ -33,7 +33,7 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 13;
-    const NUM_AUX: usize = 20;
+    const NUM_AUX: usize = 22;
     const NUM_CONSTRAINTS: usize = 29;
 
     fn test_eval_and_constrain_aux(store: &mut Store<Fr>, pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>) {
