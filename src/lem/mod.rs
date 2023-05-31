@@ -112,19 +112,19 @@ impl MetaPtr {
 #[derive(Clone, PartialEq)]
 pub enum LEMOP {
     /// `MkNull(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
-    MkNull(MetaPtr, Tag),
-    /// `Hash2Ptrs(x, t, is)` binds `x` to a `Ptr` with tag `t` and 2 children `is`
-    Hash2Ptrs(MetaPtr, Tag, [MetaPtr; 2]),
-    /// `Hash3Ptrs(x, t, is)` binds `x` to a `Ptr` with tag `t` and 3 children `is`
-    Hash3Ptrs(MetaPtr, Tag, [MetaPtr; 3]),
-    /// `Hash4Ptrs(x, t, is)` binds `x` to a `Ptr` with tag `t` and 4 children `is`
-    Hash4Ptrs(MetaPtr, Tag, [MetaPtr; 4]),
-    /// `Unhash2Ptrs([a, b], x)` binds `a` and `b` to the 2 children of `x`
-    Unhash2Ptrs([MetaPtr; 2], MetaPtr),
-    /// `Unhash3Ptrs([a, b, c], x)` binds `a` and `b` to the 3 children of `x`
-    Unhash3Ptrs([MetaPtr; 3], MetaPtr),
-    /// `Unhash4Ptrs([a, b, c, d], x)` binds `a` and `b` to the 4 children of `x`
-    Unhash4Ptrs([MetaPtr; 4], MetaPtr),
+    Null(MetaPtr, Tag),
+    /// `Hash2(x, t, is)` binds `x` to a `Ptr` with tag `t` and 2 children `is`
+    Hash2(MetaPtr, Tag, [MetaPtr; 2]),
+    /// `Hash3(x, t, is)` binds `x` to a `Ptr` with tag `t` and 3 children `is`
+    Hash3(MetaPtr, Tag, [MetaPtr; 3]),
+    /// `Hash4(x, t, is)` binds `x` to a `Ptr` with tag `t` and 4 children `is`
+    Hash4(MetaPtr, Tag, [MetaPtr; 4]),
+    /// `Unhash2([a, b], x)` binds `a` and `b` to the 2 children of `x`
+    Unhash2([MetaPtr; 2], MetaPtr),
+    /// `Unhash3([a, b, c], x)` binds `a` and `b` to the 3 children of `x`
+    Unhash3([MetaPtr; 3], MetaPtr),
+    /// `Unhash4([a, b, c, d], x)` binds `a` and `b` to the 4 children of `x`
+    Unhash4([MetaPtr; 4], MetaPtr),
     /// `Hide(x, s, p)` binds `x` to a (comm) `Ptr` resulting from hiding the
     /// payload `p` with (num) secret `s`
     Hide(MetaPtr, MetaPtr, MetaPtr),
@@ -168,14 +168,14 @@ impl LEMOP {
         dmap: &DashMap<String, String, ahash::RandomState>, // name -> path/name
     ) -> Result<Self> {
         match self {
-            Self::MkNull(ptr, tag) => {
+            Self::Null(ptr, tag) => {
                 let new_name = format!("{}.{}", path, ptr.name());
                 if dmap.insert(ptr.name().clone(), new_name.clone()).is_some() {
                     bail!("{} already defined", ptr.name());
                 };
-                Ok(Self::MkNull(MetaPtr(new_name), *tag))
+                Ok(Self::Null(MetaPtr(new_name), *tag))
             }
-            Self::Hash2Ptrs(tgt, tag, src) => {
+            Self::Hash2(tgt, tag, src) => {
                 let Some(src0_path) = dmap.get(src[0].name()) else {
                     bail!("{} not defined", src[0].name());
                 };
@@ -186,13 +186,13 @@ impl LEMOP {
                 if dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
                     bail!("{} already defined", tgt.name());
                 };
-                Ok(Self::Hash2Ptrs(
+                Ok(Self::Hash2(
                     MetaPtr(new_name),
                     *tag,
                     [MetaPtr(src0_path.clone()), MetaPtr(src1_path.clone())],
                 ))
             }
-            Self::Hash3Ptrs(tgt, tag, src) => {
+            Self::Hash3(tgt, tag, src) => {
                 let Some(src0_path) = dmap.get(src[0].name()) else {
                     bail!("{} not defined", src[0].name());
                 };
@@ -206,7 +206,7 @@ impl LEMOP {
                 if dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
                     bail!("{} already defined", tgt.name());
                 };
-                Ok(Self::Hash3Ptrs(
+                Ok(Self::Hash3(
                     MetaPtr(new_name),
                     *tag,
                     [
@@ -216,7 +216,7 @@ impl LEMOP {
                     ],
                 ))
             }
-            Self::Hash4Ptrs(tgt, tag, src) => {
+            Self::Hash4(tgt, tag, src) => {
                 let Some(src0_path) = dmap.get(src[0].name()) else {
                     bail!("{} not defined", src[0].name());
                 };
@@ -233,7 +233,7 @@ impl LEMOP {
                 if dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
                     bail!("{} already defined", tgt.name());
                 };
-                Ok(Self::Hash4Ptrs(
+                Ok(Self::Hash4(
                     MetaPtr(new_name),
                     *tag,
                     [
@@ -301,13 +301,13 @@ impl LEMOP {
                 Self::MatchTag(_, cases) => cases.values().for_each(|op| stack.push(op)),
                 Self::Seq(ops) => stack.extend(ops),
                 // It's safer to be exaustive here and avoid missing new LEMOPs
-                Self::MkNull(..)
-                | Self::Hash2Ptrs(..)
-                | Self::Hash3Ptrs(..)
-                | Self::Hash4Ptrs(..)
-                | Self::Unhash2Ptrs(..)
-                | Self::Unhash3Ptrs(..)
-                | Self::Unhash4Ptrs(..)
+                Self::Null(..)
+                | Self::Hash2(..)
+                | Self::Hash3(..)
+                | Self::Hash4(..)
+                | Self::Unhash2(..)
+                | Self::Unhash3(..)
+                | Self::Unhash4(..)
                 | Self::Hide(..)
                 | Self::Open(..)
                 | Self::Return(..) => (),
@@ -375,8 +375,8 @@ mod tests {
         let lem = lem!(expr_in env_in cont_in {
             match_tag expr_in {
                 Num => {
-                    Terminal cont_out_terminal = null;
-                    return expr_in env_in cont_out_terminal;
+                    let cont_out_terminal: Terminal;
+                    return (expr_in, env_in, cont_out_terminal);
                 },
                 Char => {
                     match_tag expr_in {
@@ -385,8 +385,8 @@ mod tests {
                         // be created for `cont_out_error` and it will need to be relaxed
                         // by an implication with a false premise
                         Num => {
-                            Error cont_out_error = null;
-                            return expr_in env_in cont_out_error;
+                            let cont_out_error: Error;
+                            return (expr_in, env_in, cont_out_error);
                         }
                     };
                 },
@@ -396,7 +396,7 @@ mod tests {
                         // because there is no match but it's on a virtual path, so
                         // we don't want to be too restrictive
                         Char => {
-                            return expr_in env_in cont_in;
+                            return (expr_in, env_in, cont_in);
                         }
                     };
                 }
@@ -418,12 +418,12 @@ mod tests {
                 // which, in theory, would cause troubles at allocation time. But we're
                 // dealing with that automatically
                 Num => {
-                    Terminal cont_out_terminal = null;
-                    return expr_in env_in cont_out_terminal;
+                    let cont_out_terminal: Terminal;
+                    return (expr_in, env_in, cont_out_terminal);
                 },
                 Char => {
-                    Terminal cont_out_terminal = null;
-                    return expr_in env_in cont_out_terminal;
+                    let cont_out_terminal: Terminal;
+                    return (expr_in, env_in, cont_out_terminal);
                 }
             };
         })

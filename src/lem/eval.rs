@@ -11,8 +11,8 @@ pub(crate) fn step() -> Result<LEM> {
             Num => {
                 match_tag cont_in {
                     Outermost => {
-                        Terminal cont_out = null;
-                        return expr_in env_in cont_out;
+                        let cont_out: Terminal;
+                        return (expr_in, env_in, cont_out);
                     }
                 };
             }

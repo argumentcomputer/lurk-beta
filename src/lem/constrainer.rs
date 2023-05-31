@@ -154,7 +154,7 @@ impl LEM {
         let mut stack = vec![(&self.lem_op, None::<Boolean>, String::new())];
         while let Some((op, branch_path_info, path)) = stack.pop() {
             match op {
-                LEMOP::MkNull(tgt, tag) => {
+                LEMOP::Null(tgt, tag) => {
                     if alloc_ptrs.contains_key(tgt.name()) {
                         bail!("{} already allocated", tgt.name());
                     };
