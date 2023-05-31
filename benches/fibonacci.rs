@@ -48,7 +48,7 @@ fn fibo_total<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut 
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
     // use cached public params
-    let pp = public_params(reduction_count, lang_rc.clone()).unwrap();
+    let pp = public_params(reduction_count, true, lang_rc.clone()).unwrap();
 
     c.bench_with_input(
         BenchmarkId::new(name.to_string(), iterations),
@@ -99,7 +99,7 @@ fn fibo_prove<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut 
     let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
     let lang_rc = Arc::new(lang_pallas.clone());
     let reduction_count = DEFAULT_REDUCTION_COUNT;
-    let pp = public_params(reduction_count, lang_rc.clone()).unwrap();
+    let pp = public_params(reduction_count, true, lang_rc.clone()).unwrap();
 
     c.bench_with_input(
         BenchmarkId::new(name.to_string(), iterations),
