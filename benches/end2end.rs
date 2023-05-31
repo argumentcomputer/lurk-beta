@@ -19,6 +19,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 const DEFAULT_REDUCTION_COUNT: usize = 10;
+
 fn go_base<F: LurkField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
     let program = format!(
         r#"
@@ -38,6 +39,9 @@ fn go_base<F: LurkField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
     store.read(&program).unwrap()
 }
 
+/// To run these benchmarks, do `cargo criterion end2end_benchmark`. 
+/// For flamegraphs, run:
+/// ```cargo criterion end2end_benchmark --features flamegraph -- --profile-time <secs>```
 fn end2end_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("end2end_benchmark");
     group
@@ -74,6 +78,9 @@ fn end2end_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
+/// To run these benchmarks, do `cargo criterion store_benchmark`. 
+/// For flamegraphs, run:
+/// ```cargo criterion store_benchmark --features flamegraph -- --profile-time <secs>```
 fn store_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("store_benchmark");
     group
@@ -108,6 +115,9 @@ fn store_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
+/// To run these benchmarks, do `cargo criterion hydration_benchmark`. 
+/// For flamegraphs, run:
+/// ```cargo criterion hydration_benchmark --features flamegraph -- --profile-time <secs>```
 fn hydration_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("hydration_benchmark");
     group
@@ -142,6 +152,9 @@ fn hydration_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
+/// To run these benchmarks, do `cargo criterion eval_benchmark`. 
+/// For flamegraphs, run:
+/// ```cargo criterion eval_benchmark --features flamegraph -- --profile-time <secs>```
 fn eval_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("eval_benchmark");
     group
@@ -230,6 +243,9 @@ fn eval_benchmark(c: &mut Criterion) {
 //     });
 // }
 
+/// To run these benchmarks, do `cargo criterion prove_benchmark`. 
+/// For flamegraphs, run:
+/// ```cargo criterion prove_benchmark --features flamegraph -- --profile-time <secs>```
 fn prove_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("prove_benchmark");
     group
@@ -264,6 +280,9 @@ fn prove_benchmark(c: &mut Criterion) {
     });
 }
 
+/// To run these benchmarks, do `cargo criterion verify_benchmark`. 
+/// For flamegraphs, run:
+/// ```cargo criterion verify_benchmark --features flamegraph -- --profile-time <secs>```
 fn verify_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("verify_benchmark");
     group
@@ -307,6 +326,9 @@ fn verify_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
+/// To run these benchmarks, do `cargo criterion verify_compressed_benchmark`. 
+/// For flamegraphs, run:
+/// ```cargo criterion verify_compressed_benchmark --features flamegraph -- --profile-time <secs>```
 fn verify_compressed_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("verify_compressed_benchmark");
     group
@@ -355,10 +377,17 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
 }
 
 cfg_if::cfg_if! {
+    
     if #[cfg(feature = "flamegraph")] {
+        // In order to collect a flamegraph, you need to indicate a profile time, see
+        // https://github.com/tikv/pprof-rs#integrate-with-criterion
+        // Example usage :
+        // cargo criterion --bench fibonacci --features flamegraph -- --profile-time 5
+        // Warning: it is not recommended to run this on an M1 Mac, as making pprof work well there is hard.
         criterion_group! {
             name = benches;
             config = Criterion::default()
+            
                 .with_profiler(pprof::criterion::PProfProfiler::new(100, pprof::criterion::Output::Flamegraph(None)));
             targets =
                 end2end_benchmark,
@@ -387,4 +416,8 @@ cfg_if::cfg_if! {
     }
 }
 
+/// To run these benchmarks, first download `criterion` with `cargo install cargo install cargo-criterion`.
+/// Then `cargo criterion --bench end2end`. The results are located in `target/criterion/data/<name-of-benchmark>`.
+/// For flamegraphs, run `cargo criterion --bench end2end --features flamegraph -- --profile-time <secs>`.
+/// The results are located in `target/criterion/profile/<name-of-benchmark>`.
 criterion_main!(benches);
