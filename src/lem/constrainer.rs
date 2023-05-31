@@ -444,16 +444,16 @@ impl LEM {
                 &mut cs.namespace(|| format!("implies equal hash for {} and {}", slot, tgt.name())),
                 &concrete_path,
                 alloc_tgt.hash(),
-                &slot_hash,
+                slot_hash,
             )?;
         }
 
         // Create hash enforce
         while let Some((slot, tgt)) = hash2_enforce_stack.pop() {
             // get alloc_tgt from tgt
-            let alloc_tgt = alloc_ptrs
-                .get(tgt.name())
-                .expect(format!("{} not allocated", tgt.name()).as_str());
+            let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
+                bail!("{} not allocated", tgt.name());
+            };
 
             // get slot_hash from slot name
             let Some(slot_hash_ptr) = hash2_slots.get(&slot) else {
@@ -472,7 +472,7 @@ impl LEM {
                     )
                 },
                 alloc_tgt.hash(),
-                &slot_hash,
+                slot_hash,
             );
         }
 
