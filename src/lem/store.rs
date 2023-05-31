@@ -24,7 +24,7 @@ use super::{
 /// by indices are fast.
 ///
 /// The `Store` also provides an infra to speed up interning strings and symbols.
-/// This data is saved in `vec_char_cache` and `vec_str_cache`, which are better
+/// This data is saved in `str_tails_cache` and `sym_tails_cache`, which are better
 /// explained in `intern_string` and `intern_symbol_path` respectively.
 ///
 /// There's also a process that we call "hydration", in which we use Poseidon
@@ -40,8 +40,8 @@ pub struct Store<F: LurkField> {
     ptrs3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
     ptrs4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
 
-    vec_char_cache: HashMap<String, Ptr<F>>,
-    vec_str_cache: HashMap<Vec<String>, Ptr<F>>,
+    str_tails_cache: HashMap<String, Ptr<F>>,
+    sym_tails_cache: HashMap<Vec<String>, Ptr<F>>,
     sym_path_cache: HashMap<Ptr<F>, Vec<String>>,
 
     pub poseidon_cache: PoseidonCache<F>,
@@ -149,34 +149,34 @@ impl<F: LurkField> Store<F> {
     /// interning the full string provided as input. If some tail has already
     /// been interned (and cached), break the loop.
     ///
-    /// Tails are cached as reversed vectors of `char`s because of how interning
-    /// and hashing works: from right to left. So, for example, after interning
-    /// the string `"abc"`, we will end up with cached pointers to the strings
-    /// `"c"`, `"bc"` and `"abc"` stored in `vec_char_cache` as `['c']`,
-    /// `['c', 'b']` and `['c', 'b', 'a']` respectively.
+    /// Tails are cached as reversed `String`s because of how interning and hashing
+    /// works: from right to left. So, for example, after interning the string
+    /// `"abc"`, we will end up with cached pointers to the strings `"c"`, `"bc"`
+    /// and `"abc"` stored in `str_tails_cache` as `"c"`, `"cb"` and `"cba"`
+    /// respectively.
     pub fn intern_string(&mut self, s: &str) -> Ptr<F> {
-        let mut chars = s.chars().rev().collect::<String>();
+        let mut tail = s.chars().rev().collect::<String>();
         let mut ptr;
         let mut heads = vec![];
         loop {
             // try a cache hit until no char is left while accumulating the heads
-            if chars.is_empty() {
+            if tail.is_empty() {
                 ptr = Ptr::null(Tag::Str);
                 break;
             }
-            match self.vec_char_cache.get(&chars) {
+            match self.str_tails_cache.get(&tail) {
                 Some(ptr_cache) => {
                     ptr = *ptr_cache;
                     break;
                 }
-                None => heads.push(chars.pop().unwrap()),
+                None => heads.push(tail.pop().unwrap()),
             }
         }
         while let Some(head) = heads.pop() {
             // use the accumulated heads to construct the pointers and populate the cache
             ptr = self.intern_2_ptrs(Tag::Str, Ptr::char(head), ptr);
-            chars.push(head);
-            self.vec_char_cache.insert(chars.clone(), ptr);
+            tail.push(head);
+            self.str_tails_cache.insert(tail.clone(), ptr);
         }
         ptr
     }
@@ -189,36 +189,36 @@ impl<F: LurkField> Store<F> {
     /// and hashing works: from right to left. So, for example, after interning
     /// the symbol path `["aa", "bb", "cc"]`, we will end up with cached pointers
     /// to the symbol paths `["cc"]`, `["bb", "cc"]` and `["aa", "bb", "cc"]`
-    /// stored in `vec_str_cache` as `["cc"]`, `["cc", "bb"]` and
+    /// stored in `sym_tails_cache` as `["cc"]`, `["cc", "bb"]` and
     /// ["cc", "bb", "aa"]` respectively.
     pub fn intern_symbol_path(&mut self, path: &[String]) -> Ptr<F> {
-        let mut components = path.to_owned();
-        components.reverse();
+        let mut tail = path.to_owned();
+        tail.reverse();
         let mut ptr;
         let mut heads = vec![];
         loop {
             // try a cache hit until no char is left while accumulating the heads
-            if components.is_empty() {
+            if tail.is_empty() {
                 ptr = Ptr::null(Tag::Sym);
                 self.sym_path_cache.insert(ptr, vec![]);
                 break;
             }
-            match self.vec_str_cache.get(&components) {
+            match self.sym_tails_cache.get(&tail) {
                 Some(ptr_cache) => {
                     ptr = *ptr_cache;
                     break;
                 }
-                None => heads.push(components.pop().unwrap()),
+                None => heads.push(tail.pop().unwrap()),
             }
         }
         while let Some(head) = heads.pop() {
             // use the accumulated heads to construct the pointers and populate the cache
             let head_ptr = self.intern_string(&head);
             ptr = self.intern_2_ptrs(Tag::Sym, head_ptr, ptr);
-            components.push(head);
-            self.vec_str_cache.insert(components.clone(), ptr);
+            tail.push(head);
+            self.sym_tails_cache.insert(tail.clone(), ptr);
             self.sym_path_cache
-                .insert(ptr, components.iter().rev().cloned().collect());
+                .insert(ptr, tail.iter().rev().cloned().collect());
         }
         ptr
     }
