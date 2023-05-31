@@ -916,6 +916,11 @@ impl<F: LurkField> Store<F> {
                 .get_index(idx)
                 .ok_or(Error("get_z_expr unknown opaque".into()))?;
             Ok((*z_ptr, None))
+            // TODO: should we try to dereference the opaque ptr here?
+            //match self.z_cont_ptr_map.get(z_ptr) {
+            //    Some(p) if p != ptr => self.get_z_cont(p, z_store.clone()),
+            //    _ => Ok((*z_ptr, None)),
+            //}
         } else {
             let (z_ptr, z_cont) = match self.fetch_cont(ptr) {
                 Some(Continuation::Outermost) => {
@@ -1156,6 +1161,16 @@ impl<F: LurkField> Store<F> {
                     .get_index(idx)
                     .ok_or(Error("get_z_expr unknown opaque".into()))?;
                 ret_stack.push((*z_ptr, None));
+                // TODO: should we try to dereference the opaque ptr here?
+                //match store.z_expr_ptr_map.get(z_ptr) {
+                //    Some(p) if *p != ptr => {
+                //        let p = *p;
+                //        stack.push(Cont(Box::new(move |store, z_store, stack, ret_stack| {
+                //            step(p, store, z_store, stack, ret_stack)
+                //        })))
+                //    }
+                //    _ => ret_stack.push((*z_ptr, None)),
+                //}
                 Ok(())
             } else {
                 stack.push(Cont(Box::new(move |store, z_store, _, ret_stack| {
