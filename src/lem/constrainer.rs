@@ -69,17 +69,17 @@ struct HashSlots<F: LurkField> {
     hash3_stack: Vec<(usize, AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>)>,
     hash3_implies_stack: Vec<(Boolean, usize, MetaPtr, Option<Tag>)>,
     hash3_enforce_stack: Vec<(usize, MetaPtr, Option<Tag>)>,
-    slots_hash4_len: usize,
-    hash4_stack: Vec<(usize, AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>)>,
-    hash4_implies_stack: Vec<(Boolean, usize, MetaPtr, Option<Tag>)>,
-    hash4_enforce_stack: Vec<(usize, MetaPtr, Option<Tag>)>,
+    // slots_hash4_len: usize,
+    // hash4_stack: Vec<(usize, AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>)>,
+    // hash4_implies_stack: Vec<(Boolean, usize, MetaPtr, Option<Tag>)>,
+    // hash4_enforce_stack: Vec<(usize, MetaPtr, Option<Tag>)>,
 }
 
 #[derive(Default, Clone)]
 struct Slots {
     slot_hash2: usize,
     slot_hash3: usize,
-    slot_hash4: usize,
+    // slot_hash4: usize,
 }
 
 impl LEM {
@@ -239,12 +239,16 @@ impl LEM {
                         ));
                     // many
                     } else {
-                        hash_slots
-                            .hash2_enforce_stack
-                            .push((slots.slot_hash2, tgt.clone(), Some(*tag)));
-                        hash_slots
-                            .hash2_stack
-                            .push((slots.slot_hash2, alloc_car.clone(), alloc_cdr.clone()))
+                        hash_slots.hash2_enforce_stack.push((
+                            slots.slot_hash2,
+                            tgt.clone(),
+                            Some(*tag),
+                        ));
+                        hash_slots.hash2_stack.push((
+                            slots.slot_hash2,
+                            alloc_car.clone(),
+                            alloc_cdr.clone(),
+                        ))
                     };
 
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
@@ -310,9 +314,11 @@ impl LEM {
                         hash_slots
                             .hash2_enforce_stack
                             .push((slots.slot_hash2, src.clone(), None));
-                        hash_slots
-                            .hash2_stack
-                            .push((slots.slot_hash2, alloc_car.clone(), alloc_cdr.clone()))
+                        hash_slots.hash2_stack.push((
+                            slots.slot_hash2,
+                            alloc_car.clone(),
+                            alloc_cdr.clone(),
+                        ))
                     };
 
                     alloc_ptrs.insert(tgt[0].name(), alloc_car.clone());
@@ -369,17 +375,17 @@ impl LEM {
                         ));
                     // many
                     } else {
-                        hash_slots
-                            .hash3_enforce_stack
-                            .push((slots.slot_hash3, tgt.clone(), Some(*tag)));
-                        hash_slots
-                            .hash3_stack
-                            .push((
-                                slots.slot_hash3,
-                                alloc_input1.clone(),
-                                alloc_input2.clone(),
-                                alloc_input3.clone(),
-                            ))
+                        hash_slots.hash3_enforce_stack.push((
+                            slots.slot_hash3,
+                            tgt.clone(),
+                            Some(*tag),
+                        ));
+                        hash_slots.hash3_stack.push((
+                            slots.slot_hash3,
+                            alloc_input1.clone(),
+                            alloc_input2.clone(),
+                            alloc_input3.clone(),
+                        ))
                     };
 
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
@@ -466,14 +472,12 @@ impl LEM {
                         hash_slots
                             .hash3_enforce_stack
                             .push((slots.slot_hash3, src.clone(), None));
-                        hash_slots
-                            .hash3_stack
-                            .push((
-                                slots.slot_hash3,
-                                alloc_input1.clone(),
-                                alloc_input2.clone(),
-                                alloc_input3.clone(),
-                            ))
+                        hash_slots.hash3_stack.push((
+                            slots.slot_hash3,
+                            alloc_input1.clone(),
+                            alloc_input2.clone(),
+                            alloc_input3.clone(),
+                        ))
                     };
 
                     alloc_ptrs.insert(tgt[0].name(), alloc_input1.clone());
@@ -577,7 +581,12 @@ impl LEM {
                                 slots.clone(),
                             ));
                         } else {
-                            stack.push((op, Some(alloc_has_match), new_path_matchtag, slots.clone()));
+                            stack.push((
+                                op,
+                                Some(alloc_has_match),
+                                new_path_matchtag,
+                                slots.clone(),
+                            ));
                         }
                     }
 
@@ -605,13 +614,21 @@ impl LEM {
                     //let mut next_slot_hash2 = slots.slot_hash2;
                     let mut next_slots = slots.clone();
                     stack.extend(ops.iter().rev().map(|op| {
-                        if matches!(op, LEMOP::Hash2(_, _, _)) {
-                            next_slots.slot_hash2 += 1;
-                        };
-                        if matches!(op, LEMOP::Hash3(_, _, _)) {
-                            next_slots.slot_hash3 += 1;
-                        };
-                        (op, branch_path_info.clone(), path.clone(), next_slots.clone())
+                        match op {
+                            LEMOP::Hash2(..) => {
+                                next_slots.slot_hash2 += 1;
+                            }
+                            LEMOP::Hash3(..) => {
+                                next_slots.slot_hash3 += 1;
+                            }
+                            _ => (),
+                        }
+                        (
+                            op,
+                            branch_path_info.clone(),
+                            path.clone(),
+                            next_slots.clone(),
+                        )
                     }));
                     if next_slots.slot_hash2 > hash_slots.slots_hash2_len {
                         hash_slots.slots_hash2_len = next_slots.slot_hash2;
@@ -678,7 +695,7 @@ impl LEM {
 
         dbg!(hash_slots.slots_hash2_len);
         dbg!(hash_slots.slots_hash3_len);
-        dbg!(hash_slots.slots_hash4_len);
+        // dbg!(hash_slots.slots_hash4_len);
 
         /////////////////////////////////////////////////////////////////////////
         ///////////////////////////// Hash2 /////////////////////////////////////
@@ -722,7 +739,8 @@ impl LEM {
             };
 
             implies_equal(
-                &mut cs.namespace(|| format!("implies equal hash2 for {} and {}", slot, tgt.name())),
+                &mut cs
+                    .namespace(|| format!("implies equal hash2 for {} and {}", slot, tgt.name())),
                 &concrete_path,
                 alloc_tgt.hash(),
                 slot_hash,
@@ -731,8 +749,9 @@ impl LEM {
             if tag.is_some() {
                 let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.unwrap().to_field())?;
                 implies_equal(
-                    &mut cs
-                        .namespace(|| format!("implies equal tag for {} and {} in hash2", slot, tgt.name())),
+                    &mut cs.namespace(|| {
+                        format!("implies equal tag for {} and {} in hash2", slot, tgt.name())
+                    }),
                     &concrete_path,
                     alloc_tgt.tag(),
                     &alloc_tag,
@@ -767,7 +786,13 @@ impl LEM {
             if tag.is_some() {
                 enforce_equal(
                     cs,
-                    || format!("enforce equal tag for tgt {} and slot number {}", tgt.name(), slot,),
+                    || {
+                        format!(
+                            "enforce equal tag for tgt {} and slot number {}",
+                            tgt.name(),
+                            slot,
+                        )
+                    },
                     alloc_tgt.hash(),
                     slot_hash,
                 );
@@ -781,7 +806,9 @@ impl LEM {
         // Create hash constraints for each stacked slot
         let mut concrete_slots_hash3_len = 0;
         let mut hash3_slots: HashMap<usize, AllocatedNum<F>> = HashMap::default();
-        while let Some((slot, alloc_input1, alloc_input2, alloc_input3)) = hash_slots.hash3_stack.pop() {
+        while let Some((slot, alloc_input1, alloc_input2, alloc_input3)) =
+            hash_slots.hash3_stack.pop()
+        {
             let alloc_hash = hash_poseidon(
                 &mut cs.namespace(|| format!("hash3_{}", slot)),
                 vec![
@@ -816,7 +843,13 @@ impl LEM {
             };
 
             implies_equal(
-                &mut cs.namespace(|| format!("implies equal hash for {} and {} in hash3", slot, tgt.name())),
+                &mut cs.namespace(|| {
+                    format!(
+                        "implies equal hash for {} and {} in hash3",
+                        slot,
+                        tgt.name()
+                    )
+                }),
                 &concrete_path,
                 alloc_tgt.hash(),
                 slot_hash,
@@ -825,8 +858,9 @@ impl LEM {
             if tag.is_some() {
                 let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.unwrap().to_field())?;
                 implies_equal(
-                    &mut cs
-                        .namespace(|| format!("implies equal tag for {} and {} in hash3", slot, tgt.name())),
+                    &mut cs.namespace(|| {
+                        format!("implies equal tag for {} and {} in hash3", slot, tgt.name())
+                    }),
                     &concrete_path,
                     alloc_tgt.tag(),
                     &alloc_tag,
@@ -861,7 +895,13 @@ impl LEM {
             if tag.is_some() {
                 enforce_equal(
                     cs,
-                    || format!("enforce equal tag for tgt {} and slot hash3 number {}", tgt.name(), slot,),
+                    || {
+                        format!(
+                            "enforce equal tag for tgt {} and slot hash3 number {}",
+                            tgt.name(),
+                            slot,
+                        )
+                    },
                     alloc_tgt.hash(),
                     slot_hash,
                 );

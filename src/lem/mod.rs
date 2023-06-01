@@ -565,7 +565,6 @@ mod tests {
         constrain_test_helper(&lem, &mut store, &witnesses);
     }
 
-
     #[test]
     fn test_hash2_slots_many() {
         let lem = lem!(expr_in env_in cont_in {
@@ -687,7 +686,6 @@ mod tests {
         let witnesses = lem.eval(expr, &mut store).unwrap();
         constrain_test_helper(&lem, &mut store, &witnesses);
     }
-
 
     #[test]
     fn test_hash3_slots_many() {
