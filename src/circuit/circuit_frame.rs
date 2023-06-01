@@ -104,7 +104,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
         count: usize,
         frames: &[Frame<T, W, C>],
         store: &'a Store<F>,
-        lang: Arc<Lang<F, C>>,
+        lang: &Arc<Lang<F, C>>,
     ) -> Vec<Self> {
         // `count` is the number of `Frames` to include per `MultiFrame`.
         let total_frames = frames.len();
@@ -5296,8 +5296,7 @@ mod tests {
                     witness,
                     _p: Default::default(),
                 }],
-                store,
-                lang.clone(),
+                store, &lang,
             );
 
             let multiframe = &multiframes[0];
@@ -5412,8 +5411,7 @@ mod tests {
             MultiFrame::<<Bls12 as Engine>::Fr, _, _, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
-                store,
-                lang.clone(),
+                store, &lang,
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5493,8 +5491,7 @@ mod tests {
             MultiFrame::<<Bls12 as Engine>::Fr, _, _, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
-                store,
-                lang.clone(),
+                store, &lang,
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5575,8 +5572,7 @@ mod tests {
             MultiFrame::<<Bls12 as Engine>::Fr, _, _, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
-                store,
-                lang.clone(),
+                store, &lang,
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5658,8 +5654,7 @@ mod tests {
             MultiFrame::<<Bls12 as Engine>::Fr, _, _, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
-                store,
-                lang.clone(),
+                store, &lang,
             )[0]
             .clone()
             .synthesize(&mut cs)
