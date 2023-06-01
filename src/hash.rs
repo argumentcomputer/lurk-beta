@@ -107,6 +107,8 @@ impl<F: LurkField> InversePoseidonCache<F> {
                 let preimage = self.$name.get(key);
                 if let Some(p) = preimage {
                     assert_eq!(ARITY, $n);
+                    // SAFETY: we are just teaching the compiler that the slice has size, ARITY, which is guaranteed by
+                    // the assertion above.
                     Some(unsafe { std::mem::transmute::<&[F; $n], &[F; ARITY]>(p) })
                 } else {
                     None
@@ -125,10 +127,12 @@ impl<F: LurkField> InversePoseidonCache<F> {
     pub fn insert<const ARITY: usize>(&mut self, key: FWrap<F>, preimage: [F; ARITY]) {
         macro_rules! insert {
             ($name:ident, $n:expr) => {{
-                let mut buffer = [F::zero(); $n];
-                buffer.copy_from_slice(&preimage);
-
-                self.$name.insert(key, buffer);
+                assert_eq!(ARITY, $n);
+                // SAFETY: we are just teaching the compiler that the slice has size, ARITY, which is guaranteed by
+                // the assertion above.
+                self.$name.insert(key, unsafe {
+                    *std::mem::transmute::<&[F; ARITY], &[F; $n]>(&preimage)
+                });
             }};
         }
 
