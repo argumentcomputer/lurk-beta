@@ -233,14 +233,14 @@ impl LEM {
 
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
                 }
-                LEMOP::Unhash2(src, tgt) => {
-                    if alloc_ptrs.contains_key(src[0].name()) {
-                        bail!("{} already allocated", src[0].name());
+                LEMOP::Unhash2(tgt, src) => {
+                    if alloc_ptrs.contains_key(tgt[0].name()) {
+                        bail!("{} already allocated", tgt[0].name());
                     };
                     let z_ptr = {
                         if Self::on_concrete_path(&branch_path_info)? {
-                            let Some(ptr) = witness.ptrs.get(src[0].name()) else {
-                                bail!("Couldn't retrieve witness {}", src[0].name());
+                            let Some(ptr) = witness.ptrs.get(tgt[0].name()) else {
+                                bail!("Couldn't retrieve witness {}", tgt[0].name());
                             };
                             store.hydrate_ptr(ptr)?
                         } else {
@@ -248,17 +248,17 @@ impl LEM {
                         }
                     };
                     let alloc_car = Self::allocate_ptr(
-                        &mut cs.namespace(|| format!("allocate pointer {}", src[0].name())),
+                        &mut cs.namespace(|| format!("allocate pointer {}", tgt[0].name())),
                         &z_ptr,
-                        src[0].name(),
+                        tgt[0].name(),
                     )?;
-                    if alloc_ptrs.contains_key(src[1].name()) {
-                        bail!("{} already allocated", src[1].name());
+                    if alloc_ptrs.contains_key(tgt[1].name()) {
+                        bail!("{} already allocated", tgt[1].name());
                     };
                     let z_ptr = {
                         if Self::on_concrete_path(&branch_path_info)? {
-                            let Some(ptr) = witness.ptrs.get(src[1].name()) else {
-                                bail!("Couldn't retrieve witness {}", src[1].name());
+                            let Some(ptr) = witness.ptrs.get(tgt[1].name()) else {
+                                bail!("Couldn't retrieve witness {}", tgt[1].name());
                             };
                             store.hydrate_ptr(ptr)?
                         } else {
@@ -266,9 +266,9 @@ impl LEM {
                         }
                     };
                     let alloc_cdr = Self::allocate_ptr(
-                        &mut cs.namespace(|| format!("allocate pointer {}", src[1].name())),
+                        &mut cs.namespace(|| format!("allocate pointer {}", tgt[1].name())),
                         &z_ptr,
-                        src[1].name(),
+                        tgt[1].name(),
                     )?;
 
                     let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
@@ -286,21 +286,21 @@ impl LEM {
                         hash_slots.hash2_implies_stack.push((
                             concrete_path,
                             slot,
-                            tgt.clone(),
+                            src.clone(),
                             None,
                         ));
                     // many
                     } else {
                         hash_slots
                             .hash2_enforce_stack
-                            .push((slot, tgt.clone(), None));
+                            .push((slot, src.clone(), None));
                         hash_slots
                             .hash2_stack
                             .push((slot, alloc_car.clone(), alloc_cdr.clone()))
                     };
 
-                    alloc_ptrs.insert(src[0].name(), alloc_car.clone());
-                    alloc_ptrs.insert(src[1].name(), alloc_cdr.clone());
+                    alloc_ptrs.insert(tgt[0].name(), alloc_car.clone());
+                    alloc_ptrs.insert(tgt[1].name(), alloc_cdr.clone());
                 }
                 LEMOP::Null(tgt, tag) => {
                     if alloc_ptrs.contains_key(tgt.name()) {
