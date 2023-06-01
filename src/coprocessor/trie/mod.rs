@@ -536,7 +536,6 @@ mod test {
         }
     }
 
-    #[cfg(test)]
     pub(crate) fn scalar_from_u64s(parts: [u64; 4]) -> Fr {
         let mut le_bytes = [0u8; 32];
         le_bytes[0..8].copy_from_slice(&parts[0].to_le_bytes());
