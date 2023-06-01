@@ -527,7 +527,7 @@ mod tests {
     }
 
     #[test]
-    fn test_hash_slots_simple() {
+    fn test_hash2_slots_simple() {
         let lem = lem!(expr_in env_in cont_in {
             match_tag expr_in {
                 Num => {
@@ -546,7 +546,7 @@ mod tests {
     }
 
     #[test]
-    fn test_hash_slots_unhash_simple() {
+    fn test_hash2_slots_unhash_simple() {
         let lem = lem!(expr_in env_in cont_in {
             match_tag expr_in {
                 Num => {
@@ -564,6 +564,7 @@ mod tests {
         let witnesses = lem.eval(expr, &mut store).unwrap();
         constrain_test_helper(&lem, &mut store, &witnesses);
     }
+
 
     #[test]
     fn test_hash_slots_many() {
@@ -593,7 +594,7 @@ mod tests {
     }
 
     #[test]
-    fn test_hash_slots_many_nested() {
+    fn test_hash2_slots_many_nested() {
         let lem = lem!(expr_in env_in cont_in {
             match_tag expr_in {
                 Num => {
@@ -633,7 +634,7 @@ mod tests {
     }
 
     #[test]
-    fn test_hash_slots_seq() {
+    fn test_hash2_slots_seq() {
         let lem = lem!(expr_in env_in cont_in {
             let expr_aux: Cons = hash2(expr_in, expr_in);
             let expr_out: Cons = hash2(expr_aux, expr_aux);
@@ -647,4 +648,24 @@ mod tests {
         let witnesses = lem.eval(expr, &mut store).unwrap();
         constrain_test_helper(&lem, &mut store, &witnesses);
     }
+
+    #[test]
+    fn test_hash3_slots_simple() {
+        let lem = lem!(expr_in env_in cont_in {
+            match_tag expr_in {
+                Num => {
+                    let expr_out: Cons = hash3(expr_in, expr_in, expr_in);
+                    let cont_out_terminal: Terminal;
+                    return (expr_out, env_in, cont_out_terminal);
+                }
+            };
+        })
+        .unwrap();
+
+        let expr = Ptr::num(Fr::from_u64(42));
+        let mut store = Store::default();
+        let witnesses = lem.eval(expr, &mut store).unwrap();
+        constrain_test_helper(&lem, &mut store, &witnesses);
+    }
+
 }
