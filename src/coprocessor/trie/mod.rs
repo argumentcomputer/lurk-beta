@@ -40,7 +40,7 @@ impl<F: LurkField> Coprocessor<F> for NewCoprocessor<F> {
     }
 
     fn simple_evaluate(&self, s: &mut Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
-        let trie: Trie<'_, F, 8, 85> = Trie::new(&s.poseidon_cache, &mut s.inverse_poseidon_cache);
+        let trie: Trie<'_, F, 8, 85> = Trie::new(s);
 
         let root = trie.root;
 
@@ -283,12 +283,24 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         self.empty_root_for_height(HEIGHT)
     }
 
-    fn new(
-        poseidon_cache: &'a PoseidonCache<F>,
-        inverse_poseidon_cache: &'a mut InversePoseidonCache<F>,
-    ) -> Self {
+    /// Creates a new `Trie`, saving preimage data in `store`.
+    /// HEIGHT must be exactly that required to minimally store all elements of `F`.
+    pub fn new(store: &'a mut Store<F>) -> Self {
+        Self::new_aux(store, None)
+    }
+
+    /// Creates a new `Trie`, saving preimage data in `store`.
+    /// Height must be at least that required to store `size` elements.
+    pub fn new_with_capacity(store: &'a mut Store<F>, size: usize) -> Self {
+        Self::new_aux(store, Some(size))
+    }
+
+    fn new_aux(store: &'a mut Store<F>, size: Option<usize>) -> Self {
         // ARITY must be a power of two.
         assert_eq!(1, ARITY.count_ones());
+
+        let poseidon_cache = &store.poseidon_cache;
+        let inverse_poseidon_cache = &mut store.inverse_poseidon_cache;
 
         let mut new = Self {
             root: Default::default(),
@@ -296,6 +308,31 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
             hash_cache: poseidon_cache,
             children: inverse_poseidon_cache,
         };
+
+        let (arity_bits, bits_needed_for_path) = Self::path_bit_dimensions();
+        let bits_available_from_field = std::mem::size_of::<F>() * 8;
+
+        // The path shape derived from HEIGHT and ARITY must not be greater than the number of bits the field supplies.
+        assert!(bits_needed_for_path <= bits_available_from_field);
+
+        match size {
+            // No size specified means size must be 'exact'.
+            None => {
+                let field_significant_bits = F::NUM_BITS as usize;
+                let height_needed_for_field = field_significant_bits / arity_bits
+                    + ((field_significant_bits % arity_bits != 0) as usize);
+
+                // HEIGHT must be exactly the minimum required so that every field element has a unique path.
+                assert_eq!(height_needed_for_field, HEIGHT);
+            }
+
+            // A specified size must not require more than the available path bits.
+            Some(size) => {
+                let size_from_path = 1 << (arity_bits * HEIGHT);
+                assert!(size <= size_from_path);
+            }
+        };
+
         new.init_empty();
 
         new
@@ -303,10 +340,8 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
 
     /// Create a new `Trie` with specified root. The provided `PoseidonCache` must
     fn new_with_root(store: &'a mut Store<F>, root: F) -> Self {
-        let poseidon_cache = &store.poseidon_cache;
-        let inverse_poseidon_cache = &mut store.inverse_poseidon_cache;
-        let mut new = Self::new(poseidon_cache, inverse_poseidon_cache);
-        // FIXME: count is not initialized.
+        let mut new = Self::new(store);
+
         new.root = root;
 
         new
@@ -349,7 +384,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
     // signal intent -- since the encoding of 'missing' values as `Fr::zero()` is significant.
     pub fn lookup(&self, key: F) -> Result<Option<F>, Error<F>> {
         self.lookup_aux(key)
-            .map(|payload| (payload != F::zero()).then(|| payload))
+            .map(|payload| (payload != F::zero()).then_some(payload))
     }
 
     fn lookup_aux(&self, key: F) -> Result<F, Error<F>> {
@@ -457,25 +492,24 @@ mod test {
 
     #[test]
     fn test_sizes() {
-        let p = PoseidonCache::<Fr>::default();
-        let mut p2 = InversePoseidonCache::<Fr>::default();
+        let s = &mut Store::new();
         {
-            let t: Trie<'_, Fr, 8, 1> = Trie::new(&p, &mut p2);
+            let t: Trie<'_, Fr, 8, 1> = Trie::new_with_capacity(s, 8);
             assert_eq!(8, t.leaves());
         }
 
         {
-            let t: Trie<'_, Fr, 8, 2> = Trie::new(&p, &mut p2);
+            let t: Trie<'_, Fr, 8, 2> = Trie::new_with_capacity(s, 64);
             assert_eq!(64, t.leaves());
         }
 
         {
-            let t: Trie<'_, Fr, 8, 3> = Trie::new(&p, &mut p2);
+            let t: Trie<'_, Fr, 8, 3> = Trie::new_with_capacity(s, 512);
             assert_eq!(512, t.leaves());
         }
 
         {
-            let t: Trie<'_, Fr, 8, 4> = Trie::new(&p, &mut p2);
+            let t: Trie<'_, Fr, 8, 4> = Trie::new_with_capacity(s, 4096);
             assert_eq!(1, t.row_size(0));
             assert_eq!(8, t.row_size(1));
             assert_eq!(64, t.row_size(2));
@@ -499,10 +533,9 @@ mod test {
 
     #[test]
     fn test_hashes() {
-        let p = PoseidonCache::<Fr>::default();
-        let mut p2 = InversePoseidonCache::<Fr>::default();
+        let s = &mut Store::new();
         {
-            let mut t0: Trie<'_, Fr, 8, 1> = Trie::new(&p, &mut p2);
+            let mut t0: Trie<'_, Fr, 8, 1> = Trie::new_with_capacity(s, 8);
             assert_eq!(
                 scalar_from_u64s([
                     0xa81830c13a876b1c,
@@ -515,7 +548,7 @@ mod test {
             assert_eq!(t0.empty_root(), t0.root());
         }
         {
-            let mut t1: Trie<'_, Fr, 8, 2> = Trie::new(&p, &mut p2);
+            let mut t1: Trie<'_, Fr, 8, 2> = Trie::new_with_capacity(s, 64);
             assert_eq!(
                 scalar_from_u64s([
                     0x33ff39660bc554aa,
@@ -528,7 +561,7 @@ mod test {
             assert_eq!(t1.empty_root(), t1.root());
         }
         {
-            let mut t2: Trie<'_, Fr, 8, 3> = Trie::new(&p, &mut p2);
+            let mut t2: Trie<'_, Fr, 8, 3> = Trie::new_with_capacity(s, 512);
             assert_eq!(
                 scalar_from_u64s([
                     0xa52e7d0bbbee086b,
@@ -541,7 +574,7 @@ mod test {
             assert_eq!(t2.empty_root(), t2.root());
         }
         {
-            let mut t3: Trie<'_, Fr, 8, 4> = Trie::new(&p, &mut p2);
+            let mut t3: Trie<'_, Fr, 8, 4> = Trie::new_with_capacity(s, 4096);
             assert_eq!(
                 scalar_from_u64s([
                     0xd95987b58e6c5852,
@@ -562,10 +595,9 @@ mod test {
 
     #[test]
     fn test_lookup() {
-        let p = PoseidonCache::<Fr>::default();
-        let mut p2 = InversePoseidonCache::<Fr>::default();
+        let s = &mut Store::new();
         {
-            let t3: Trie<'_, Fr, 8, 3> = Trie::new(&p, &mut p2);
+            let t3: Trie<'_, Fr, 8, 3> = Trie::new_with_capacity(s, 512);
 
             let found = t3.lookup(Fr::from_u64(500)).unwrap();
             assert_eq!(None, found);
@@ -573,10 +605,9 @@ mod test {
     }
     #[test]
     fn test_lookup_proof() {
-        let p = PoseidonCache::<Fr>::default();
-        let mut p2 = InversePoseidonCache::<Fr>::default();
+        let s = &mut Store::new();
         {
-            let t3: Trie<'_, Fr, 8, 3> = Trie::new(&p, &mut p2);
+            let t3: Trie<'_, Fr, 8, 3> = Trie::new_with_capacity(s, 512);
             let root = t3.root();
             let key = Fr::from_u64(500);
             let proof = t3.prove_lookup(key).unwrap();
@@ -591,10 +622,9 @@ mod test {
     fn test_insert() {
         // TODO: Use prop tests.
 
-        let p = PoseidonCache::<Fr>::default();
-        let mut p2 = InversePoseidonCache::<Fr>::default();
+        let s = &mut Store::new();
         {
-            let mut t3: Trie<'_, Fr, 8, 3> = Trie::new(&p, &mut p2);
+            let mut t3: Trie<'_, Fr, 8, 3> = Trie::new_with_capacity(s, 512);
             let key = Fr::from_u64(500);
             let val = Fr::from_u64(123);
 
@@ -627,10 +657,9 @@ mod test {
 
     #[test]
     fn test_insert_proof() {
-        let p = PoseidonCache::<Fr>::default();
-        let mut p2 = InversePoseidonCache::<Fr>::default();
+        let s = &mut Store::new();
         {
-            let mut t3: Trie<'_, Fr, 8, 3> = Trie::new(&p, &mut p2);
+            let mut t3: Trie<'_, Fr, 8, 3> = Trie::new_with_capacity(s, 512);
             let key = Fr::from_u64(500);
             let val = Fr::from_u64(123);
 
