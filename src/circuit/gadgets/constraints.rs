@@ -792,6 +792,7 @@ mod tests {
 
     use bellperson::util_cs::test_cs::TestConstraintSystem;
     use blstrs::Scalar as Fr;
+    use ff::Field;
     use proptest::prelude::*;
     use std::ops::{AddAssign, SubAssign};
 
@@ -1060,6 +1061,30 @@ mod tests {
             assert_eq!(expected_or1, or1.get_value().unwrap());
             assert_eq!(expected_or2, or2.get_value().unwrap());
             assert!(cs.is_satisfied());
+        }
+
+        #[test]
+        fn prop_enforce_implication_lc((premise_val, lc_val) in any::<(bool, bool)>()) {
+            let mut cs = TestConstraintSystem::<Fr>::new();
+
+            let mut lc = LinearCombination::zero();
+            lc = lc + (if lc_val { Fr::ONE } else { Fr::ZERO }, TestConstraintSystem::<Fr>::one());
+
+            // Allocate premise boolean.
+            let premise = Boolean::from(AllocatedBit::alloc(
+                cs.namespace(|| "premise"),
+                Some(premise_val)
+            ).expect("alloc failed"));
+
+            // Execute the function under test.
+            let _ = enforce_implication_lc(
+                cs.namespace(|| "enforce_implication_lc"),
+                &premise,
+                |_| lc,
+            ).expect("enforce_implication_lc failed");
+
+
+            prop_assert!((!premise_val || lc_val) == cs.is_satisfied())
         }
 
     }
