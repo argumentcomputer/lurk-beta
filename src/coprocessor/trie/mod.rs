@@ -35,6 +35,8 @@ pub enum Error<F> {
     MissingPreimage(F),
 }
 
+// TODO: As an optimization, PreimagePath and HashPreimagePath only actually need to hold the ARITY - 1 sibling hashes
+// used to supplement the computed/supplied element at each step.
 pub type PreimagePath<F, const ARITY: usize> = Vec<[F; ARITY]>;
 
 pub type HashPreimagePath<F, const ARITY: usize> = Vec<(F, [F; ARITY])>;
@@ -197,14 +199,14 @@ impl<F: LurkField, const ARITY: usize, const HEIGHT: usize> InsertProof<F, ARITY
         new_value: F,
         hash_cache: &PoseidonCache<F>,
     ) -> bool {
-        let old_verified = self.old_proof.verify(
-            old_root,
-            key,
-            old_value.unwrap_or_else(|| F::zero()),
-            hash_cache,
-        );
+        let old_value = old_value.unwrap_or_else(|| F::zero());
 
-        let new_verified = self.new_proof.verify(new_root, key, new_value, hash_cache);
+        let old_verified = self.old_proof.verify(old_root, key, old_value, hash_cache);
+
+        // This is purely an evaluation-time optimization. Don't try to reproduce in the circuit, which cannot shortcut.
+        if !old_verified {
+            return false;
+        };
 
         let paths_differ_by_at_most_one = self
             .old_proof
@@ -212,6 +214,11 @@ impl<F: LurkField, const ARITY: usize, const HEIGHT: usize> InsertProof<F, ARITY
             .iter()
             .zip(&self.new_proof.preimage_path)
             .all(|(a, b)| {
+                if a == b {
+                    // If the remaining trees are identical, then only one needs to be verified.
+                    // This is purely an evaluation-time optimization. Don't try to reproduce in the circuit, which cannot shortcut.
+                    return old_verified;
+                }
                 let differing_position_count = a
                     .iter()
                     .zip(b)
@@ -220,7 +227,12 @@ impl<F: LurkField, const ARITY: usize, const HEIGHT: usize> InsertProof<F, ARITY
                 differing_position_count <= 1
             });
 
-        old_verified && new_verified && paths_differ_by_at_most_one
+        // This is purely an evaluation-time optimization. Don't try to reproduce in the circuit, which cannot shortcut.
+        if !paths_differ_by_at_most_one {
+            return false;
+        };
+
+        self.new_proof.verify(new_root, key, new_value, hash_cache)
     }
 }
 
