@@ -1,3 +1,20 @@
+//! The `trie` module implements a Trie with the following properties:
+//! Big-endian bits of the (field element) key are taken N at a time, where the underlying hash has arity 2^N. This
+//! forms a fixed-length path whose final element is either zero or some non-zero payload. If the payload is assumed to
+//! be a commitment, then zero can be used as a hash whose preimage is undiscoverable, and hence empty. To optimize
+//! creation of an empty tree, we precompute the empty subtree at each row rather than trying to actually construct the
+//! tree with a vast number of redundant hashes.
+//!
+//! The non-circuit implementation appears to do the unnecessary work of returning not only lookup and insertion results
+//! but also Merkle inclusion *proofs* of correctness. That's because the circuit implementation, which represents a
+//! proof, will actually be a proof *verifying* that the vanilla operation was correctly performed. Therefore, the
+//! vanilla operation needs to provide such a proof so the circuit can verify it.
+
+// TODO:
+//  - Implement circuit (https://github.com/lurk-lab/lurk-rs/issues/421).
+//  - Adapt to ongoing changes to general coprocessor API, most importantly, absorb
+//    https://github.com/lurk-lab/lurk-rs/issues/398. - If #398 is smooth enough, no actual implementation changes
+//    should be required here, but the test in src/eval/tests/trie.rs can and should be updated.
 use std::marker::PhantomData;
 
 use lurk_macros::Coproc;
