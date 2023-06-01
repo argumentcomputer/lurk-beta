@@ -234,10 +234,6 @@ impl LEM {
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
                 }
                 LEMOP::Unhash2(src, tgt) => {
-                    let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
-                        bail!("{} not allocated", tgt.name());
-                    };
-
                     if alloc_ptrs.contains_key(src[0].name()) {
                         bail!("{} already allocated", src[0].name());
                     };
@@ -256,7 +252,6 @@ impl LEM {
                         &z_ptr,
                         src[0].name(),
                     )?;
-
                     if alloc_ptrs.contains_key(src[1].name()) {
                         bail!("{} already allocated", src[1].name());
                     };
@@ -304,7 +299,8 @@ impl LEM {
                             .push((slot, alloc_car.clone(), alloc_cdr.clone()))
                     };
 
-                    alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
+                    alloc_ptrs.insert(src[0].name(), alloc_car.clone());
+                    alloc_ptrs.insert(src[1].name(), alloc_cdr.clone());
                 }
                 LEMOP::Null(tgt, tag) => {
                     if alloc_ptrs.contains_key(tgt.name()) {
