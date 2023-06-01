@@ -17,7 +17,7 @@ use crate::circuit::gadgets::{
 
 use crate::field::{FWrap, LurkField};
 
-use super::{pointers::ZPtr, store::Store, Witness, LEM, LEMOP, Tag, MetaPtr};
+use super::{pointers::ZPtr, store::Store, MetaPtr, Tag, Witness, LEM, LEMOP};
 
 /// Manages allocations for numeric variables in a constraint system
 #[derive(Default)]
@@ -207,15 +207,28 @@ impl LEM {
                     if let Some(concrete_path) = branch_path_info {
                         // if concrete_path is true, push to slots
                         if is_concrete_path {
-                            hash_slots.hash2_stack.push((slot, alloc_car.clone(), alloc_cdr.clone()));
+                            hash_slots.hash2_stack.push((
+                                slot,
+                                alloc_car.clone(),
+                                alloc_cdr.clone(),
+                            ));
                             // only once per path
                         }
                         // concrete path implies alloc_tgt has the same value as in the current slot
-                        hash_slots.hash2_implies_stack.push((concrete_path, slot, tgt.clone(), Some(*tag)));
+                        hash_slots.hash2_implies_stack.push((
+                            concrete_path,
+                            slot,
+                            tgt.clone(),
+                            Some(*tag),
+                        ));
                     // many
                     } else {
-                        hash_slots.hash2_enforce_stack.push((slot, tgt.clone(), Some(*tag)));
-                        hash_slots.hash2_stack.push((slot, alloc_car.clone(), alloc_cdr.clone()))
+                        hash_slots
+                            .hash2_enforce_stack
+                            .push((slot, tgt.clone(), Some(*tag)));
+                        hash_slots
+                            .hash2_stack
+                            .push((slot, alloc_car.clone(), alloc_cdr.clone()))
                     };
 
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
@@ -267,15 +280,28 @@ impl LEM {
                     if let Some(concrete_path) = branch_path_info {
                         // if concrete_path is true, push to slots
                         if is_concrete_path {
-                            hash_slots.hash2_stack.push((slot, alloc_car.clone(), alloc_cdr.clone()));
+                            hash_slots.hash2_stack.push((
+                                slot,
+                                alloc_car.clone(),
+                                alloc_cdr.clone(),
+                            ));
                             // only once per path
                         }
                         // concrete path implies alloc_tgt has the same value as in the current slot
-                        hash_slots.hash2_implies_stack.push((concrete_path, slot, tgt.clone(), None));
+                        hash_slots.hash2_implies_stack.push((
+                            concrete_path,
+                            slot,
+                            tgt.clone(),
+                            None,
+                        ));
                     // many
                     } else {
-                        hash_slots.hash2_enforce_stack.push((slot, tgt.clone(), None));
-                        hash_slots.hash2_stack.push((slot, alloc_car.clone(), alloc_cdr.clone()))
+                        hash_slots
+                            .hash2_enforce_stack
+                            .push((slot, tgt.clone(), None));
+                        hash_slots
+                            .hash2_stack
+                            .push((slot, alloc_car.clone(), alloc_cdr.clone()))
                     };
 
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
@@ -517,13 +543,13 @@ impl LEM {
             if tag.is_some() {
                 let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.unwrap().to_field())?;
                 implies_equal(
-                    &mut cs.namespace(|| format!("implies equal tag for {} and {}", slot, tgt.name())),
+                    &mut cs
+                        .namespace(|| format!("implies equal tag for {} and {}", slot, tgt.name())),
                     &concrete_path,
                     alloc_tgt.tag(),
                     &alloc_tag,
                 )?;
             }
-
         }
 
         // Create hash enforce
@@ -553,13 +579,7 @@ impl LEM {
             if tag.is_some() {
                 enforce_equal(
                     cs,
-                    || {
-                        format!(
-                            "enforce equal tag for tgt {} and slot {}",
-                            tgt.name(),
-                            slot,
-                        )
-                    },
+                    || format!("enforce equal tag for tgt {} and slot {}", tgt.name(), slot,),
                     alloc_tgt.hash(),
                     slot_hash,
                 );

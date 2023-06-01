@@ -153,7 +153,7 @@ macro_rules! lemop {
             @seq
             {
                 $($limbs)*
-                lemop!(let ($tgt1, $tgt2) = unhash2($src) ),
+                $crate::lemop!(let ($tgt1, $tgt2) = unhash2($src) ),
             },
             $($tail)*
         )
@@ -173,7 +173,7 @@ macro_rules! lemop {
             @seq
             {
                 $($limbs)*
-                lemop!(let ($tgt1, $tgt2, $tgt3, $tgt4) = unhash4($src) ),
+                $crate::lemop!(let ($tgt1, $tgt2, $tgt3, $tgt4) = unhash4($src) ),
             },
             $($tail)*
         )
