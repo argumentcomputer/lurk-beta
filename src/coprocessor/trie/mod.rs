@@ -217,7 +217,7 @@ impl<F: LurkField, const ARITY: usize, const HEIGHT: usize> InsertProof<F, ARITY
                     .zip(b)
                     .map(|(x, y)| x != y)
                     .fold(0, |acc, are_diff| acc + are_diff as usize);
-                differing_postition_count == 1 || differing_postition_count == 0
+                differing_postition_count <= 1
             });
 
         old_verified && new_verified && paths_differ_by_at_most_one
