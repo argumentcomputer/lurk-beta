@@ -1106,8 +1106,10 @@ pub fn evaluate<F: LurkField>(
 ) -> Result<(IO<F>, usize), Error> {
     let env = supplied_env.unwrap_or_else(|| empty_sym_env(store));
     let mut evaluator = Evaluator::new(expr, env, store, limit, lang);
+    dbg!((expr, env, limit, lang));
 
     let (io, iterations, _) = evaluator.eval().map_err(Error::EvaluationFailure)?;
+    dbg!((io, iterations));
 
     assert!(<crate::eval::IO<F> as Evaluable<
         F,

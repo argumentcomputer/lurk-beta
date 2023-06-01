@@ -98,6 +98,7 @@ impl<'a, C: Coprocessor<S1>> MultiFrame<'a, S1, IO<S1>, Witness<S1>, C> {
 }
 
 /// A struct for the Nova prover that operates on field elements of type `F`.
+#[derive(Debug)]
 pub struct NovaProver<F: LurkField, C: Coprocessor<F>> {
     // `reduction_count` specifies the number of small-step reductions are performed in each recursive step.
     reduction_count: usize,
