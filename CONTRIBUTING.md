@@ -23,20 +23,20 @@ The maintainers will review your pull request as soon as they can, and it can on
 
 ## Merging a Pull-request
 
-To be in a mergeable state, a pull-request must satisfy several conditions.
+A pull-request must meet certain criteria before it can be merged.
 
-1. If you are OK with a squash merge, the pull-request's last commit should be approved by at least one reviewer, and all maintainers listed in the .github/CODEOWNERS file for the touched portions of the code.
-2. If you would like a classic merge, the pull-request should satisfy the above conditions, and it should be a fast-forward merge (which implies it should be up to date).
+1. If you are fine with a squash merge, your pull-request's final commit should have at least one approval from a reviewer, and from all maintainers listed in the .github/CODEOWNERS file for the touched code sections.
+2. If you prefer a classic merge, the pull-request should meet the above conditions, and and it should be a fast-forward merge from master, which implies it must also be up-to-date.
 
-**Warning:** A fast-forward merge is the merge of an up-to-date, rebased branch. This means that when it is ready to merge, your branch should not contain merge commits itself: while we have no issue with `Merge` as a merge method for a pull-request, we would like the history of a pull-request itself to be linear. One way to ensure this is to update your local branch with `git pull--rebase` (see [doc](https://www.git-scm.com/docs/git-pull)).
+**Warning:** An up-to-date, rebased branch is required for a fast-forward merge. This means that your branch should not contain any merge commits: while we do not object to `Merge` as a pull-request merge method, we prefer the pull-request's history to be linear. To achieve this, you can update your local branch with `git pull --rebase` (see [doc](https://www.git-scm.com/docs/git-pull)).
 
-A maintainer will merge your pull-request (or their own) using one of two methods:
-1.  GitHub's [merge queue](https://github.blog/changelog/2023-02-08-pull-request-merge-queue-public-beta/), using a squash merge strategy: this is always 'okay' and is the simplest workflow if you are okay with having a single commit.
-2.  If your commit history is curated to remove junk commits and ensure each retained commit is meaningful, a repo admin can use the 'Merge' strategy.
+A maintainer will merge your pull-request (or their own) using one of the following methods:
+1.  The [GitHub's merge queue](https://github.blog/changelog/2023-02-08-pull-request-merge-queue-public-beta/) with a squash merge strategy. This is the simplest workflow and always acceptable if you don't mind having a single commit.
+2.  If your commit history is carefully cleaned to remove unnecessary commits and ensure that each retained commit is meaningful, a repo admin may use the 'Merge' strategy.
 
-Please feel free to add guidance to your PR summary as to which merge method you are aiming for.
+Please feel free to specify your preferred merge method in your PR summary.
 
-The implemented workflow is as below, where the rounded corners and dotted lines are taken care of automatically by Github's merge queue:
+The implemented workflow is represented below, with rounded corners and dotted lines automatically handled by Github's merge queue:
 ```mermaid
 flowchart TD
     Review{Is *last commit* of PR reviewed by CODEOWNERS?} -->|Yes| Squash
@@ -54,7 +54,7 @@ flowchart TD
     Merge --> |Somebody pushed to master before maintainer| Rebase
 
     MQueue -.-> |PR squash-merges cleanly on master & passes CI| Celebrate
-    MQueue -.-> |Bors found squash-merge or CI issue| Rebase
+    MQueue -.-> |Github merge queue found squash-merge or CI issue| Rebase
 ```
 
 **Note:** In exceptional cases, we may preserve some messy commit history if not doing so would lose too much important information and fully disentangling is too difficult. We expect this would rarely apply.
