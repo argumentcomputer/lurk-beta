@@ -17,7 +17,7 @@ use crate::circuit::gadgets::{
 
 use crate::field::{FWrap, LurkField};
 
-use super::{pointers::ZPtr, store::Store, Tag, Witness, LEM, LEMOP};
+use super::{pointers::ZPtr, store::Store, Witness, LEM, LEMOP};
 
 /// Manages allocations for numeric variables in a constraint system
 #[derive(Default)]
@@ -27,7 +27,7 @@ impl<F: LurkField> AllocationManager<F> {
     /// Checks if the allocation for a numeric variable has already been cached.
     /// If so, return the cached allocation variable. Allocate, cache and return
     /// otherwise.
-    pub(crate) fn alloc<CS: ConstraintSystem<F>>(
+    pub(crate) fn get_or_alloc_num<CS: ConstraintSystem<F>>(
         &mut self,
         cs: &mut CS,
         f: F,
@@ -44,6 +44,18 @@ impl<F: LurkField> AllocationManager<F> {
                 Ok(alloc)
             }
         }
+    }
+
+    /// Calls `get_or_alloc_num` to allocate tag and hash for a pointer.
+    pub(crate) fn get_or_alloc_ptr<CS: ConstraintSystem<F>>(
+        &mut self,
+        cs: &mut CS,
+        z_ptr: &ZPtr<F>,
+    ) -> Result<AllocatedPtr<F>> {
+        Ok(AllocatedPtr::from_parts(
+            &self.get_or_alloc_num(cs, z_ptr.tag.to_field())?,
+            &self.get_or_alloc_num(cs, z_ptr.hash)?,
+        ))
     }
 }
 
@@ -223,7 +235,7 @@ impl LEM {
                         tgt.name(),
                     )?;
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
-                    let alloc_tag = alloc_manager.alloc(cs, tag.to_field())?;
+                    let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
 
                     // If `branch_path_info` is Some, then we constrain using "concrete implies ..." logic
                     if let Some(concrete_path) = branch_path_info {
@@ -407,19 +419,14 @@ impl LEM {
                 ],
                 store.poseidon_cache.constants.c4(),
             )?;
-            let alloc_tag = alloc_manager.alloc(cs, tag.to_field())?; // TODO: add tags to globals
+            let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?; // TODO: add tags to globals
             let alloc_ptr = AllocatedPtr::from_parts(&alloc_tag, &alloc_hash);
             //let hash2_slot_name = format!("hash2_{}", slot).clone();
             hash2_slots.insert(slot, alloc_ptr);
             concrete_slots_len += 1;
         }
 
-        // TODO: create dummy pointer as global
-        let alloc_dummy_hash = AllocatedNum::alloc(cs.namespace(|| "dummy hash"), || Ok(F::ZERO))?;
-        // TODO: all tags should be global, then only allocated once
-        let alloc_dummy_tag =
-            alloc_manager.alloc(&mut cs.namespace(|| "dummy tag"), Tag::Dummy.to_field())?; // TODO: add tags to globals
-        let alloc_dummy_ptr = AllocatedPtr::from_parts(&alloc_dummy_tag, &alloc_dummy_hash); // TODO: use globals
+        let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
 
         // complete hash slot with dummies
         for s in concrete_slots_len..slots_len {
