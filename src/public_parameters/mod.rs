@@ -748,9 +748,13 @@ impl<'a> Opening<S1> {
         chain: bool,
         lang: &Lang<S1, Coproc<S1>>,
     ) -> Result<Claim<S1>, Error> {
+        println!("Constructing fun app");
         let (commitment, expression) =
             Commitment::construct_with_fun_application(s, function, input, limit, lang)?;
+        println!("Finished fun app");
         let (public_output, _iterations) = evaluate(s, expression, None, limit, lang)?;
+
+        println!("Finished eval");
 
         let (new_commitment, output_expr) = if chain {
             let cons = public_output.expr;
@@ -1121,6 +1125,27 @@ pub fn evaluate<F: LurkField>(
 
 #[cfg(test)]
 mod test {
+    use super::*;
+    use std::convert::TryFrom;
+    use std::env;
+    use std::fs::read_to_string;
+    use std::io;
+    use std::path::{Path, PathBuf};
+    use std::sync::Arc;
+
+    use hex::FromHex;
+    use serde::{Deserialize, Serialize};
+
+    use crate::eval::{
+        lang::{Coproc, Lang},
+        IO,
+    };
+    use crate::field::LurkField;
+    use crate::proof::{nova::NovaProver, Prover};
+    use crate::ptr::Ptr;
+    use crate::store::Store;
+    use std::io::Write;
+    use tempfile::Builder;
     //#[test]
     //fn test_cert_serialization() {
     //    use serde_json::json;
@@ -1144,4 +1169,426 @@ mod test {
     //    let cert_again: Cert = serde_json::from_str(&string).unwrap();
     //    assert_eq!(cert, cert_again);
     //}
+
+    struct Commit {
+        function: PathBuf,
+        commitment: Option<PathBuf>,
+        lurk: bool,
+    }
+
+    impl Commit {
+        fn commit(&self, limit: usize, lang: &Lang<S1, Coproc<S1>>) {
+            let s = &mut Store::<S1>::default();
+
+            let mut function = if self.lurk {
+                let path = env::current_dir()
+                    .expect("env current dir")
+                    .join(&self.function);
+                let src = read_to_string(path).expect("src read_to_string");
+
+                CommittedExpression {
+                    expr: LurkPtr::Source(src),
+                    secret: None,
+                    commitment: None,
+                }
+            } else {
+                CommittedExpression::read_from_path(&self.function)
+                    .expect("committed expression read_from_path")
+            };
+            let fun_ptr = function.expr_ptr(s, limit, lang).expect("fun_ptr");
+            let function_map = committed_expression_store();
+
+            let commitment = if let Some(secret) = function.secret {
+                Commitment::from_ptr_and_secret(s, &fun_ptr, secret)
+            } else {
+                let (commitment, secret) = Commitment::from_ptr_with_hiding(s, &fun_ptr);
+                function.secret = Some(secret);
+                commitment
+            };
+            function.commitment = Some(commitment);
+
+            function_map
+                .set(commitment, &function)
+                .expect("function_map set");
+            function.write_to_path(&self.function);
+
+            if let Some(commitment_path) = &self.commitment {
+                commitment.write_to_path(commitment_path);
+            } else {
+                serde_json::to_writer(io::stdout(), &commitment).expect("serde_json to_writer");
+            }
+        }
+    }
+
+    struct Open {
+        input: Option<PathBuf>,
+        proof: Option<PathBuf>,
+        reduction_count: usize,
+        commitment: Option<String>,
+        function: Option<PathBuf>,
+        request: Option<PathBuf>,
+        lurk: bool,
+        chain: bool,
+        quote_input: bool,
+    }
+
+    impl Open {
+        fn open(&self, limit: usize, eval_input: bool, lang: &Lang<S1, Coproc<S1>>) {
+            assert!(
+                !(self.commitment.is_some() && self.function.is_some()),
+                "commitment and function must not both be supplied"
+            );
+
+            let s = &mut Store::<S1>::default();
+            let rc = ReductionCount::try_from(self.reduction_count).expect("reduction count");
+            let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
+            let lang_rc = Arc::new(lang.clone());
+            let pp = public_params(rc.count(), lang_rc).expect("public params");
+            let function_map = committed_expression_store();
+
+            let handle_proof = |out_path, proof: Proof<'_, S1>| {
+                proof.write_to_path(out_path);
+                proof
+                    .verify(&pp, lang)
+                    .expect("created opening doesn't verify");
+            };
+
+            let handle_claim = |claim: Claim<S1>| serde_json::to_writer(io::stdout(), &claim);
+
+            let lang_rc = Arc::new(lang.clone());
+            if let Some(request_path) = &self.request {
+                assert!(!self.chain, "chain and request may not both be specified");
+                let request = OpeningRequest::read_from_path(request_path)
+                    .expect("failed to read opening request");
+
+                if let Some(out_path) = &self.proof {
+                    let proof =
+                        Opening::open_and_prove(s, request, limit, false, &prover, &pp, lang_rc)
+                            .expect("proof opening");
+
+                    handle_proof(out_path, proof);
+                } else {
+                    let function = function_map
+                        .get(&request.commitment)
+                        .expect("committed function not found");
+                    let input = request.input.eval(s, limit, lang).unwrap();
+
+                    let claim = Opening::apply(s, input, function, limit, self.chain, lang)
+                        .expect("claim apply");
+                    handle_claim(claim).expect("handle claim")
+                }
+            } else {
+                let function = if let Some(comm_string) = &self.commitment {
+                    println!("Comm string: {}", comm_string);
+                    let commitment = Commitment::from_hex(comm_string)
+                        .map_err(Error::CommitmentParseError)
+                        .unwrap();
+
+                    println!("Commitment: {:?}", commitment);
+                    function_map
+                        .get(&commitment)
+                        .expect("committed function not found")
+                } else {
+                    let function_path = self.function.as_ref().expect("function missing");
+                    if self.lurk {
+                        let path = env::current_dir().unwrap().join(function_path);
+                        let src = read_to_string(path).unwrap();
+                        CommittedExpression {
+                            expr: LurkPtr::Source(src),
+                            secret: None,
+                            commitment: None,
+                        }
+                    } else {
+                        CommittedExpression::read_from_path(function_path).unwrap()
+                    }
+                };
+
+                let input_path = self.input.as_ref().expect("input missing");
+                let input =
+                    input(s, input_path, eval_input, limit, self.quote_input, lang).expect("input");
+                let lang_rc = Arc::new(lang.clone());
+
+                println!("Applying and proving");
+                if let Some(out_path) = &self.proof {
+                    let proof = Opening::apply_and_prove(
+                        s, input, function, limit, self.chain, false, &prover, &pp, lang_rc,
+                    )
+                    .expect("apply and prove");
+
+                    println!("Finished Applying and proving");
+                    handle_proof(out_path, proof);
+                } else {
+                    let claim =
+                        Opening::apply(s, input, function, limit, self.chain, lang).unwrap();
+
+                    handle_claim(claim).unwrap();
+                }
+            };
+        }
+    }
+
+    struct Verify {
+        proof: PathBuf,
+    }
+
+    impl Verify {
+        fn verify(&self, cli_error: bool, lang: &Lang<S1, Coproc<S1>>) {
+            let proof = proof(Some(&self.proof)).unwrap();
+            let lang_rc = Arc::new(lang.clone());
+            let pp = public_params(proof.reduction_count.count(), lang_rc).unwrap();
+            let result = proof.verify(&pp, lang).unwrap();
+
+            serde_json::to_writer(io::stdout(), &result).unwrap();
+
+            if result.verified {
+                info!("Verification succeeded.");
+            } else if cli_error {
+                serde_json::to_writer(io::stderr(), &result).unwrap();
+                std::process::exit(1);
+            };
+        }
+    }
+
+    // Temporary test to run a chained commitment without fcomm for debugging
+    #[test]
+    fn tmp_chained_functional_commitment() {
+        use crate::writer::Write;
+        let function_source = "(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))";
+
+        //let expected_io = vec![("3", "8")];
+        let expected_io = vec![("5", "5"), ("3", "8")];
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
+
+        // TODO: Test with LurkPtr::Bytes and LurkPtr::ZStorePtr
+        let function = CommittedExpression::<S1> {
+            expr: LurkPtr::Source(function_source.into()),
+            secret: None,
+            commitment: None,
+        };
+
+        let limit = 1000;
+        let lang = Lang::new();
+        let chained = true;
+        let io = expected_io.iter();
+
+        let tmp_dir_path = Path::new(tmp_dir.path());
+        let proof_path = tmp_dir_path.join("proof.json");
+        let function_path = tmp_dir_path.join("function.json");
+        let input_path = tmp_dir_path.join("input.lurk");
+        let commitment_path = tmp_dir_path.join("commitment.json");
+        let _fcomm_data_path = tmp_dir_path.join("fcomm_data");
+        assert!(env::set_current_dir(&tmp_dir_path).is_ok());
+
+        function.write_to_path(&function_path);
+
+        let commit = Commit {
+            function: function_path.clone().into(),
+            commitment: Some(commitment_path.clone().into()),
+            lurk: false,
+        };
+
+        commit.commit(limit, &lang);
+
+        let mut commitment: Commitment<S1> =
+            Commitment::read_from_path(&commitment_path).expect("read commitment");
+
+        for (function_input, expected_output) in io {
+            let mut input_file = File::create(&input_path).expect("create file");
+
+            write!(input_file, "{function_input}").expect("write file");
+
+            let open = Open {
+                input: Some(input_path.clone()),
+                proof: Some(proof_path.clone()),
+                reduction_count: 10,
+                //commitment: Some("0de31ec962623ed9eaf747f9ce3e3ac3e5c700b24bb719d133ee79c6f4f1edc2"
+                //    .into()),
+                commitment: Some(commitment.to_string()),
+                function: None,
+                request: None,
+                lurk: false,
+                chain: true,
+                quote_input: false,
+            };
+
+            // TODO: Check if we should eval_input
+            open.open(limit, false, &lang);
+
+            let proof = Proof::<S1>::read_from_path(&proof_path).expect("read proof");
+            let opening = proof.claim.opening().expect("expected opening claim");
+            //dbg!(&opening);
+
+            let mut store = Store::<S1>::default();
+
+            let input = store.read(function_input).expect("store read");
+            let canonical_input = input.fmt_to_string(&store);
+
+            let canonical_output = store
+                .read(expected_output)
+                .expect("store read")
+                .fmt_to_string(&store);
+
+            assert_eq!(canonical_input, opening.input);
+            assert_eq!(*expected_output, canonical_output);
+
+            let verify = Verify {
+                proof: proof_path.clone(),
+            };
+
+            verify.verify(false, &lang);
+
+            if chained {
+                match opening.new_commitment {
+                    Some(c) => commitment = c,
+                    _ => panic!("new commitment missing"),
+                }
+            }
+        }
+    }
+
+    fn input<P: AsRef<Path>, F: LurkField + Serialize>(
+        store: &mut Store<F>,
+        input_path: P,
+        eval_input: bool,
+        limit: usize,
+        quote_input: bool,
+        lang: &Lang<F, Coproc<F>>,
+    ) -> Result<Ptr<F>, Error> {
+        let input = if eval_input {
+            let (evaled_input, _src) = read_eval_from_path(store, input_path, limit, lang)?;
+            evaled_input
+        } else {
+            let (quoted, src) = read_no_eval_from_path(store, input_path)?;
+            if quote_input {
+                quoted
+            } else {
+                src
+            }
+        };
+
+        Ok(input)
+    }
+
+    fn read_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
+        store: &mut Store<F>,
+        path: P,
+    ) -> Result<Ptr<F>, Error> {
+        let path = env::current_dir().unwrap().join(path);
+        let input = read_to_string(path).unwrap();
+        let src = store.read(&input).unwrap();
+
+        Ok(src)
+    }
+
+    fn read_no_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
+        store: &mut Store<F>,
+        path: P,
+    ) -> Result<(Ptr<F>, Ptr<F>), Error> {
+        let src = read_from_path(store, path)?;
+
+        let quote = store.lurk_sym("quote");
+        let quoted = store.list(&[quote, src]);
+        Ok((quoted, src))
+    }
+
+    fn read_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
+        store: &mut Store<F>,
+        path: P,
+        limit: usize,
+        lang: &Lang<F, Coproc<F>>,
+    ) -> Result<(Ptr<F>, Ptr<F>), Error> {
+        let src = read_from_path(store, path)?;
+        let (
+            IO {
+                expr,
+                env: _,
+                cont: _,
+            },
+            _iterations,
+        ) = evaluate(store, src, None, limit, lang)?;
+
+        Ok((expr, src))
+    }
+
+    // Get proof from supplied path or else from stdin.
+    fn proof<'a, P: AsRef<Path>, F: LurkField>(proof_path: Option<P>) -> Result<Proof<'a, F>, Error>
+    where
+        F: Serialize + for<'de> Deserialize<'de>,
+    {
+        match proof_path {
+            Some(path) => Proof::read_from_path(path),
+            None => Proof::read_from_stdin(),
+        }
+    }
+}
+
+// Temporary minimal chained functional commitment test which does not read/write to disk
+#[test]
+fn tmp_chained_no_io() {
+    let function_source = "(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))";
+    let expected_io = vec![("5", "5"), ("3", "8")];
+
+    let mut function = CommittedExpression::<S1> {
+        expr: LurkPtr::Source(function_source.into()),
+        secret: None,
+        commitment: None,
+    };
+
+    let limit = 1000;
+    let lang = Lang::new();
+    let lang_rc = Arc::new(lang.clone());
+    let rc = ReductionCount::Ten;
+    let pp = public_params(rc.count(), lang_rc.clone()).expect("public params");
+    let chained = true;
+    let s = &mut Store::<S1>::default();
+
+    let io = expected_io.iter();
+
+    let fun_ptr = function.expr_ptr(s, limit, &lang).expect("fun_ptr");
+    //let function_map = committed_expression_store();
+
+    let mut commitment = if let Some(secret) = function.secret {
+        Commitment::from_ptr_and_secret(s, &fun_ptr, secret)
+    } else {
+        let (commitment, secret) = Commitment::from_ptr_with_hiding(s, &fun_ptr);
+        function.secret = Some(secret);
+        commitment
+    };
+    function.commitment = Some(commitment);
+
+    for (function_input, _expected_output) in io {
+        let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
+
+        let input = s.read(function_input).expect("Read error");
+        //let input = evaluate(s, input, None, limit, &lang).expect("Evaluate function input failed").0.expr;
+
+        println!("Input ptr: {:?}", input);
+
+        println!("Applying and proving");
+        let proof = Opening::apply_and_prove(
+            s,
+            input,
+            function.clone(),
+            limit,
+            chained,
+            false,
+            &prover,
+            &pp,
+            lang_rc.clone(),
+        )
+        .expect("apply and prove");
+
+        println!("Finished Applying and proving");
+        proof.verify(&pp, &lang).expect("Failed to verify");
+
+        let opening = proof.claim.opening().expect("expected opening claim");
+
+        if chained {
+            match opening.new_commitment {
+                Some(c) => commitment = c,
+                _ => panic!("new commitment missing"),
+            }
+        }
+        println!("Commitment: {:?}", commitment);
+    }
 }
