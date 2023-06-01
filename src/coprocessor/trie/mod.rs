@@ -338,7 +338,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         new
     }
 
-    /// Create a new `Trie` with specified root. The provided `PoseidonCache` must
+    /// Create a new `Trie` with specified root.
     fn new_with_root(store: &'a mut Store<F>, root: F) -> Self {
         let mut new = Self::new(store);
 
