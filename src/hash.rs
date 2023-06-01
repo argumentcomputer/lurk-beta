@@ -90,6 +90,26 @@ pub struct PoseidonCache<F: LurkField> {
     pub constants: HashConstants<F>,
 }
 
+impl<F: LurkField> PoseidonCache<F> {
+    pub fn compute_hash<const ARITY: usize>(&self, preimage: [F; ARITY]) -> F {
+        macro_rules! hash {
+            ($hash_name:ident, $n:expr) => {{
+                assert_eq!(ARITY, $n);
+                // SAFETY: we are just teaching the compiler that the slice has size, ARITY, which is guaranteed by
+                // the assertion above.
+                self.$hash_name(unsafe { std::mem::transmute::<&[F; ARITY], &[F; $n]>(&preimage) })
+            }};
+        }
+        match ARITY {
+            3 => hash!(hash3, 3),
+            4 => hash!(hash4, 4),
+            6 => hash!(hash6, 6),
+            8 => hash!(hash8, 8),
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[derive(Default, Debug)]
 pub struct InversePoseidonCache<F: LurkField> {
     a3: HashMap<FWrap<F>, [F; 3]>,

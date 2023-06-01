@@ -212,12 +212,12 @@ impl<F: LurkField, const ARITY: usize, const HEIGHT: usize> InsertProof<F, ARITY
             .iter()
             .zip(&self.new_proof.preimage_path)
             .all(|(a, b)| {
-                let differing_postition_count = a
+                let differing_position_count = a
                     .iter()
                     .zip(b)
                     .map(|(x, y)| x != y)
                     .fold(0, |acc, are_diff| acc + are_diff as usize);
-                differing_postition_count <= 1
+                differing_position_count <= 1
             });
 
         old_verified && new_verified && paths_differ_by_at_most_one
@@ -226,21 +226,7 @@ impl<F: LurkField, const ARITY: usize, const HEIGHT: usize> InsertProof<F, ARITY
 
 impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARITY, HEIGHT> {
     fn compute_hash(hash_cache: &PoseidonCache<F>, preimage: [F; ARITY]) -> F {
-        macro_rules! hash {
-            ($hash_name:ident, $n:expr) => {{
-                let mut buffer = [F::zero(); $n];
-                buffer.copy_from_slice(&preimage);
-
-                hash_cache.$hash_name(&buffer)
-            }};
-        }
-        match ARITY {
-            3 => hash!(hash3, 3),
-            4 => hash!(hash4, 4),
-            6 => hash!(hash6, 6),
-            8 => hash!(hash8, 8),
-            _ => unimplemented!(),
-        }
+        hash_cache.compute_hash(preimage)
     }
 
     pub fn root(&self) -> F {
