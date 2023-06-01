@@ -25,7 +25,7 @@ use crate as lurk;
 use crate::coprocessor::{CoCircuit, Coprocessor};
 use crate::eval::lang::Lang;
 use crate::field::{FWrap, LurkField};
-use crate::hash::{InversePoseidonCache, PoseidonCache};
+use crate::hash::{HashArity, InversePoseidonCache, PoseidonCache};
 use crate::num::Num;
 use crate::ptr::Ptr;
 use crate::store::Store;
@@ -304,6 +304,9 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
 
         let poseidon_cache = &store.poseidon_cache;
         let inverse_poseidon_cache = &mut store.inverse_poseidon_cache;
+
+        // This will panic if ARITY is unsupporteed.
+        let _ = HashArity::from(ARITY);
 
         let mut new = Self {
             root: Default::default(),
