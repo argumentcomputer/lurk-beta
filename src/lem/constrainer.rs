@@ -384,6 +384,103 @@ impl LEM {
 
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
                 }
+                LEMOP::Unhash3(tgt, src) => {
+                    if alloc_ptrs.contains_key(tgt[0].name()) {
+                        bail!("{} already allocated", tgt[0].name());
+                    };
+                    let z_ptr = {
+                        if Self::on_concrete_path(&branch_path_info)? {
+                            let Some(ptr) = witness.ptrs.get(tgt[0].name()) else {
+                                bail!("Couldn't retrieve witness {}", tgt[0].name());
+                            };
+                            store.hydrate_ptr(ptr)?
+                        } else {
+                            ZPtr::dummy()
+                        }
+                    };
+                    let alloc_input1 = Self::allocate_ptr(
+                        &mut cs.namespace(|| format!("allocate pointer {}", tgt[0].name())),
+                        &z_ptr,
+                        tgt[0].name(),
+                    )?;
+
+                    if alloc_ptrs.contains_key(tgt[1].name()) {
+                        bail!("{} already allocated", tgt[1].name());
+                    };
+                    let z_ptr = {
+                        if Self::on_concrete_path(&branch_path_info)? {
+                            let Some(ptr) = witness.ptrs.get(tgt[1].name()) else {
+                                bail!("Couldn't retrieve witness {}", tgt[1].name());
+                            };
+                            store.hydrate_ptr(ptr)?
+                        } else {
+                            ZPtr::dummy()
+                        }
+                    };
+                    let alloc_input2 = Self::allocate_ptr(
+                        &mut cs.namespace(|| format!("allocate pointer {}", tgt[1].name())),
+                        &z_ptr,
+                        tgt[1].name(),
+                    )?;
+
+                    if alloc_ptrs.contains_key(tgt[2].name()) {
+                        bail!("{} already allocated", tgt[2].name());
+                    };
+                    let z_ptr = {
+                        if Self::on_concrete_path(&branch_path_info)? {
+                            let Some(ptr) = witness.ptrs.get(tgt[2].name()) else {
+                                bail!("Couldn't retrieve witness {}", tgt[2].name());
+                            };
+                            store.hydrate_ptr(ptr)?
+                        } else {
+                            ZPtr::dummy()
+                        }
+                    };
+                    let alloc_input3 = Self::allocate_ptr(
+                        &mut cs.namespace(|| format!("allocate pointer {}", tgt[2].name())),
+                        &z_ptr,
+                        tgt[2].name(),
+                    )?;
+
+                    let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
+                    if let Some(concrete_path) = branch_path_info {
+                        // if concrete_path is true, push to slots
+                        if is_concrete_path {
+                            hash_slots.hash3_stack.push((
+                                slots.slot_hash3,
+                                alloc_input1.clone(),
+                                alloc_input2.clone(),
+                                alloc_input3.clone(),
+                            ));
+                            // only once per path
+                        }
+                        // concrete path implies alloc_tgt has the same value as in the current slot
+                        hash_slots.hash3_implies_stack.push((
+                            concrete_path,
+                            slots.slot_hash3,
+                            src.clone(),
+                            None,
+                        ));
+                    // many
+                    } else {
+                        hash_slots
+                            .hash3_enforce_stack
+                            .push((slots.slot_hash3, src.clone(), None));
+                        hash_slots
+                            .hash3_stack
+                            .push((
+                                slots.slot_hash3,
+                                alloc_input1.clone(),
+                                alloc_input2.clone(),
+                                alloc_input3.clone(),
+                            ))
+                    };
+
+                    alloc_ptrs.insert(tgt[0].name(), alloc_input1.clone());
+                    alloc_ptrs.insert(tgt[1].name(), alloc_input2.clone());
+                    alloc_ptrs.insert(tgt[2].name(), alloc_input3.clone());
+                }
+
                 LEMOP::Null(tgt, tag) => {
                     if alloc_ptrs.contains_key(tgt.name()) {
                         bail!("{} already allocated", tgt.name());
@@ -511,10 +608,16 @@ impl LEM {
                         if matches!(op, LEMOP::Hash2(_, _, _)) {
                             next_slots.slot_hash2 += 1;
                         };
+                        if matches!(op, LEMOP::Hash3(_, _, _)) {
+                            next_slots.slot_hash3 += 1;
+                        };
                         (op, branch_path_info.clone(), path.clone(), next_slots.clone())
                     }));
                     if next_slots.slot_hash2 > hash_slots.slots_hash2_len {
                         hash_slots.slots_hash2_len = next_slots.slot_hash2;
+                    };
+                    if next_slots.slot_hash3 > hash_slots.slots_hash3_len {
+                        hash_slots.slots_hash3_len = next_slots.slot_hash3;
                     };
                 }
                 LEMOP::Return(outputs) => {
