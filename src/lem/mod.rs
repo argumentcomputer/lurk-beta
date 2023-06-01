@@ -271,6 +271,82 @@ impl LEMOP {
                     MetaPtr(src_path.clone()),
                 ))
             }
+            LEMOP::Unhash3(tgt, src) => {
+                let Some(src_path) = dmap.get(src.name()) else {
+                    bail!("{} not defined", src.name());
+                };
+                let tgt0_new_name = format!("{}.{}", path, tgt[0].name());
+                if dmap
+                    .insert(tgt[0].name().clone(), tgt0_new_name.clone())
+                    .is_some()
+                {
+                    bail!("{} already defined", tgt[0].name());
+                };
+                let tgt1_new_name = format!("{}.{}", path, tgt[1].name());
+                if dmap
+                    .insert(tgt[1].name().clone(), tgt1_new_name.clone())
+                    .is_some()
+                {
+                    bail!("{} already defined", tgt[1].name());
+                };
+                let tgt2_new_name = format!("{}.{}", path, tgt[2].name());
+                if dmap
+                    .insert(tgt[2].name().clone(), tgt2_new_name.clone())
+                    .is_some()
+                {
+                    bail!("{} already defined", tgt[2].name());
+                };
+                Ok(Self::Unhash3(
+                    [
+                        MetaPtr(tgt0_new_name),
+                        MetaPtr(tgt1_new_name),
+                        MetaPtr(tgt2_new_name),
+                    ],
+                    MetaPtr(src_path.clone()),
+                ))
+            }
+            LEMOP::Unhash4(tgt, src) => {
+                let Some(src_path) = dmap.get(src.name()) else {
+                    bail!("{} not defined", src.name());
+                };
+                let tgt0_new_name = format!("{}.{}", path, tgt[0].name());
+                if dmap
+                    .insert(tgt[0].name().clone(), tgt0_new_name.clone())
+                    .is_some()
+                {
+                    bail!("{} already defined", tgt[0].name());
+                };
+                let tgt1_new_name = format!("{}.{}", path, tgt[1].name());
+                if dmap
+                    .insert(tgt[1].name().clone(), tgt1_new_name.clone())
+                    .is_some()
+                {
+                    bail!("{} already defined", tgt[1].name());
+                };
+                let tgt2_new_name = format!("{}.{}", path, tgt[2].name());
+                if dmap
+                    .insert(tgt[2].name().clone(), tgt2_new_name.clone())
+                    .is_some()
+                {
+                    bail!("{} already defined", tgt[2].name());
+                };
+                let tgt3_new_name = format!("{}.{}", path, tgt[3].name());
+                if dmap
+                    .insert(tgt[3].name().clone(), tgt3_new_name.clone())
+                    .is_some()
+                {
+                    bail!("{} already defined", tgt[3].name());
+                };
+                Ok(Self::Unhash4(
+                    [
+                        MetaPtr(tgt0_new_name),
+                        MetaPtr(tgt1_new_name),
+                        MetaPtr(tgt2_new_name),
+                        MetaPtr(tgt3_new_name),
+                    ],
+                    MetaPtr(src_path.clone()),
+                ))
+            }
             LEMOP::MatchTag(ptr, cases) => {
                 let Some(ptr_path) = dmap.get(ptr.name()) else {
                     bail!("{} not defined", ptr.name());
