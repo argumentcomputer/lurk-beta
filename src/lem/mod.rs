@@ -447,6 +447,28 @@ mod tests {
     }
 
     #[test]
+    fn test_hash_slots_unhash_simple() {
+        let lem = lem!(expr_in env_in cont_in {
+            match_tag expr_in {
+                Num => {
+                    let expr_out: Cons = hash2(expr_in, expr_in);
+                    let (expr_car, expr_cdr) = unhash2(expr_out);
+                    let cont_out_terminal: Terminal;
+                    return (expr_car, env_in, cont_out_terminal);
+                }
+            };
+        })
+        .unwrap();
+
+        let expr = Ptr::num(Fr::from_u64(42));
+        let mut store = Store::default();
+        let witnesses = lem.eval(expr, &mut store).unwrap();
+        constrain_test_helper(&lem, &mut store, &witnesses);
+    }
+
+
+
+    #[test]
     fn test_hash_slots_many() {
         let lem = lem!(expr_in env_in cont_in {
             match_tag expr_in {

@@ -17,7 +17,7 @@ use crate::circuit::gadgets::{
 
 use crate::field::{FWrap, LurkField};
 
-use super::{pointers::ZPtr, store::Store, Witness, LEM, LEMOP};
+use super::{pointers::ZPtr, store::Store, Witness, LEM, LEMOP, Tag, MetaPtr};
 
 /// Manages allocations for numeric variables in a constraint system
 #[derive(Default)]
@@ -57,6 +57,14 @@ impl<F: LurkField> AllocationManager<F> {
             &self.get_or_alloc_num(cs, z_ptr.hash)?,
         ))
     }
+}
+
+#[derive(Default)]
+struct HashSlots<F: LurkField> {
+    slots_len: usize,
+    hash2_stack: Vec<(usize, AllocatedPtr<F>, AllocatedPtr<F>)>,
+    hash2_implies_stack: Vec<(Boolean, usize, MetaPtr, Option<Tag>)>,
+    hash2_enforce_stack: Vec<(usize, MetaPtr, Option<Tag>)>,
 }
 
 impl LEM {
@@ -164,10 +172,7 @@ impl LEM {
 
         let mut alloc_manager = AllocationManager::default();
 
-        let mut slots_len = 0;
-        let mut hash2_stack = Vec::new();
-        let mut hash2_implies_stack = Vec::new();
-        let mut hash2_enforce_stack = Vec::new();
+        let mut hash_slots: HashSlots<F> = Default::default();
         let mut stack = vec![(&self.lem_op, None::<Boolean>, String::new(), 0)];
         while let Some((op, branch_path_info, path, slot)) = stack.pop() {
             match op {
@@ -202,15 +207,75 @@ impl LEM {
                     if let Some(concrete_path) = branch_path_info {
                         // if concrete_path is true, push to slots
                         if is_concrete_path {
-                            hash2_stack.push((slot, tag, alloc_car.clone(), alloc_cdr.clone()));
+                            hash_slots.hash2_stack.push((slot, alloc_car.clone(), alloc_cdr.clone()));
                             // only once per path
                         }
                         // concrete path implies alloc_tgt has the same value as in the current slot
-                        hash2_implies_stack.push((concrete_path, slot, tgt.clone()));
+                        hash_slots.hash2_implies_stack.push((concrete_path, slot, tgt.clone(), Some(*tag)));
                     // many
                     } else {
-                        hash2_enforce_stack.push((slot, tgt.clone()));
-                        hash2_stack.push((slot, tag, alloc_car.clone(), alloc_cdr.clone()))
+                        hash_slots.hash2_enforce_stack.push((slot, tgt.clone(), Some(*tag)));
+                        hash_slots.hash2_stack.push((slot, alloc_car.clone(), alloc_cdr.clone()))
+                    };
+
+                    alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
+                }
+                LEMOP::Unhash2(src, tgt) => {
+                    let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
+                        bail!("{} not allocated", tgt.name());
+                    };
+
+                    if alloc_ptrs.contains_key(src[0].name()) {
+                        bail!("{} already allocated", src[0].name());
+                    };
+                    let z_ptr = {
+                        if Self::on_concrete_path(&branch_path_info)? {
+                            let Some(ptr) = witness.ptrs.get(src[0].name()) else {
+                                bail!("Couldn't retrieve witness {}", src[0].name());
+                            };
+                            store.hydrate_ptr(ptr)?
+                        } else {
+                            ZPtr::dummy()
+                        }
+                    };
+                    let alloc_car = Self::allocate_ptr(
+                        &mut cs.namespace(|| format!("allocate pointer {}", src[0].name())),
+                        &z_ptr,
+                        src[0].name(),
+                    )?;
+
+                    if alloc_ptrs.contains_key(src[1].name()) {
+                        bail!("{} already allocated", src[1].name());
+                    };
+                    let z_ptr = {
+                        if Self::on_concrete_path(&branch_path_info)? {
+                            let Some(ptr) = witness.ptrs.get(src[1].name()) else {
+                                bail!("Couldn't retrieve witness {}", src[1].name());
+                            };
+                            store.hydrate_ptr(ptr)?
+                        } else {
+                            ZPtr::dummy()
+                        }
+                    };
+                    let alloc_cdr = Self::allocate_ptr(
+                        &mut cs.namespace(|| format!("allocate pointer {}", src[1].name())),
+                        &z_ptr,
+                        src[1].name(),
+                    )?;
+
+                    let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
+                    if let Some(concrete_path) = branch_path_info {
+                        // if concrete_path is true, push to slots
+                        if is_concrete_path {
+                            hash_slots.hash2_stack.push((slot, alloc_car.clone(), alloc_cdr.clone()));
+                            // only once per path
+                        }
+                        // concrete path implies alloc_tgt has the same value as in the current slot
+                        hash_slots.hash2_implies_stack.push((concrete_path, slot, tgt.clone(), None));
+                    // many
+                    } else {
+                        hash_slots.hash2_enforce_stack.push((slot, tgt.clone(), None));
+                        hash_slots.hash2_stack.push((slot, alloc_car.clone(), alloc_cdr.clone()))
                     };
 
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
@@ -343,8 +408,8 @@ impl LEM {
                         };
                         (op, branch_path_info.clone(), path.clone(), next_slot)
                     }));
-                    if next_slot > slots_len {
-                        slots_len = next_slot;
+                    if next_slot > hash_slots.slots_len {
+                        hash_slots.slots_len = next_slot;
                     };
                 }
                 LEMOP::Return(outputs) => {
@@ -403,12 +468,12 @@ impl LEM {
             return Err(anyhow!("Couldn't inputize the right number of outputs"));
         }
 
-        dbg!(slots_len);
+        dbg!(hash_slots.slots_len);
 
         // Create hash constraints for each stacked slot
         let mut concrete_slots_len = 0;
-        let mut hash2_slots: HashMap<usize, AllocatedPtr<F>> = HashMap::default();
-        while let Some((slot, tag, alloc_car, alloc_cdr)) = hash2_stack.pop() {
+        let mut hash2_slots: HashMap<usize, AllocatedNum<F>> = HashMap::default();
+        while let Some((slot, alloc_car, alloc_cdr)) = hash_slots.hash2_stack.pop() {
             let alloc_hash = hash_poseidon(
                 &mut cs.namespace(|| format!("hash2_{}", slot)),
                 vec![
@@ -419,33 +484,28 @@ impl LEM {
                 ],
                 store.poseidon_cache.constants.c4(),
             )?;
-            let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?; // TODO: add tags to globals
-            let alloc_ptr = AllocatedPtr::from_parts(&alloc_tag, &alloc_hash);
-            //let hash2_slot_name = format!("hash2_{}", slot).clone();
-            hash2_slots.insert(slot, alloc_ptr);
+            hash2_slots.insert(slot, alloc_hash);
             concrete_slots_len += 1;
         }
 
         let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
 
         // complete hash slot with dummies
-        for s in concrete_slots_len..slots_len {
-            hash2_slots.insert(s + 1, alloc_dummy_ptr.clone());
+        for s in concrete_slots_len..hash_slots.slots_len {
+            hash2_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
         }
 
         // Create hash implications
-        while let Some((concrete_path, slot, tgt)) = hash2_implies_stack.pop() {
+        while let Some((concrete_path, slot, tgt, tag)) = hash_slots.hash2_implies_stack.pop() {
             // get alloc_tgt from tgt
             let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
                 bail!("{} not allocated", tgt.name());
             };
 
             // get slot_hash from slot name
-            let Some(slot_hash_ptr) = hash2_slots.get(&slot) else {
+            let Some(slot_hash) = hash2_slots.get(&slot) else {
                 bail!("Slot {} not allocated", slot)
             };
-
-            let slot_hash = slot_hash_ptr.hash();
 
             implies_equal(
                 &mut cs.namespace(|| format!("implies equal hash for {} and {}", slot, tgt.name())),
@@ -453,21 +513,30 @@ impl LEM {
                 alloc_tgt.hash(),
                 slot_hash,
             )?;
+
+            if tag.is_some() {
+                let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.unwrap().to_field())?;
+                implies_equal(
+                    &mut cs.namespace(|| format!("implies equal tag for {} and {}", slot, tgt.name())),
+                    &concrete_path,
+                    alloc_tgt.tag(),
+                    &alloc_tag,
+                )?;
+            }
+
         }
 
         // Create hash enforce
-        while let Some((slot, tgt)) = hash2_enforce_stack.pop() {
+        while let Some((slot, tgt, tag)) = hash_slots.hash2_enforce_stack.pop() {
             // get alloc_tgt from tgt
             let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
                 bail!("{} not allocated", tgt.name());
             };
 
             // get slot_hash from slot name
-            let Some(slot_hash_ptr) = hash2_slots.get(&slot) else {
+            let Some(slot_hash) = hash2_slots.get(&slot) else {
                 bail!("Slot {} not allocated", slot)
             };
-
-            let slot_hash = slot_hash_ptr.hash();
 
             enforce_equal(
                 cs,
@@ -481,6 +550,20 @@ impl LEM {
                 alloc_tgt.hash(),
                 slot_hash,
             );
+            if tag.is_some() {
+                enforce_equal(
+                    cs,
+                    || {
+                        format!(
+                            "enforce equal tag for tgt {} and slot {}",
+                            tgt.name(),
+                            slot,
+                        )
+                    },
+                    alloc_tgt.hash(),
+                    slot_hash,
+                );
+            }
         }
 
         Ok(())
