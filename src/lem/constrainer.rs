@@ -153,7 +153,7 @@ impl LEM {
         idx: usize,
     ) -> Result<()> {
         let alloc_ptr = Self::allocate_ptr(
-            &mut cs.namespace(|| format!("allocate input {}", &self.input[idx])),
+            cs,
             &store.hydrate_ptr(&witness.input[idx])?,
             &self.input[idx],
             alloc_ptrs,
@@ -221,7 +221,7 @@ impl LEM {
                     };
 
                     let alloc_tgt = Self::allocate_ptr(
-                        &mut cs.namespace(|| format!("allocate pointer {}", tgt.name())),
+                        cs,
                         &Self::z_ptr_from_witness(&branch_path_info, witness, tgt.name(), store)?,
                         tgt.name(),
                         &alloc_ptrs,
@@ -263,7 +263,7 @@ impl LEM {
                 }
                 LEMOP::Unhash2(tgt, src) => {
                     let alloc_car = Self::allocate_ptr(
-                        &mut cs.namespace(|| format!("allocate pointer {}", tgt[0].name())),
+                        cs,
                         &Self::z_ptr_from_witness(
                             &branch_path_info,
                             witness,
@@ -274,7 +274,7 @@ impl LEM {
                         &alloc_ptrs,
                     )?;
                     let alloc_cdr = Self::allocate_ptr(
-                        &mut cs.namespace(|| format!("allocate pointer {}", tgt[1].name())),
+                        cs,
                         &Self::z_ptr_from_witness(
                             &branch_path_info,
                             witness,
@@ -332,7 +332,7 @@ impl LEM {
                     };
 
                     let alloc_tgt = Self::allocate_ptr(
-                        &mut cs.namespace(|| format!("allocate pointer {}", tgt.name())),
+                        cs,
                         &Self::z_ptr_from_witness(&branch_path_info, witness, tgt.name(), store)?,
                         tgt.name(),
                         &alloc_ptrs,
@@ -376,7 +376,7 @@ impl LEM {
                 }
                 LEMOP::Unhash3(tgt, src) => {
                     let alloc_input1 = Self::allocate_ptr(
-                        &mut cs.namespace(|| format!("allocate pointer {}", tgt[0].name())),
+                        cs,
                         &Self::z_ptr_from_witness(
                             &branch_path_info,
                             witness,
@@ -388,7 +388,7 @@ impl LEM {
                     )?;
 
                     let alloc_input2 = Self::allocate_ptr(
-                        &mut cs.namespace(|| format!("allocate pointer {}", tgt[1].name())),
+                        cs,
                         &Self::z_ptr_from_witness(
                             &branch_path_info,
                             witness,
@@ -400,7 +400,7 @@ impl LEM {
                     )?;
 
                     let alloc_input3 = Self::allocate_ptr(
-                        &mut cs.namespace(|| format!("allocate pointer {}", tgt[2].name())),
+                        cs,
                         &Self::z_ptr_from_witness(
                             &branch_path_info,
                             witness,
@@ -452,7 +452,7 @@ impl LEM {
 
                 LEMOP::Null(tgt, tag) => {
                     let alloc_tgt = Self::allocate_ptr(
-                        &mut cs.namespace(|| format!("allocate pointer {}", tgt.name())),
+                        cs,
                         &Self::z_ptr_from_witness(&branch_path_info, witness, tgt.name(), store)?,
                         tgt.name(),
                         &alloc_ptrs,
@@ -595,7 +595,7 @@ impl LEM {
                         };
                         let output_name = format!("{}.output[{}]", &path, i);
                         let alloc_ptr_expected = Self::allocate_ptr(
-                            &mut cs.namespace(|| format!("allocate input for {output_name}")),
+                            cs,
                             &Self::z_ptr_from_witness(
                                 &branch_path_info,
                                 witness,
