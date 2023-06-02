@@ -267,7 +267,6 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         children.get(&FWrap(hash))
     }
 
-    // TODO: This is expensive and can be cached for the type.
     fn init_empty(&mut self) {
         self.empty_roots = [F::zero(); HEIGHT];
 
