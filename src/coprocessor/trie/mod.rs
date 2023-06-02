@@ -288,9 +288,6 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
             self.empty_roots[i] = hash;
 
             preimage = [hash; ARITY];
-            for elt in preimage.iter_mut().take(ARITY) {
-                *elt = hash;
-            }
         }
         self.root = self.empty_roots[HEIGHT - 1]
     }
