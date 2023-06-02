@@ -22,6 +22,14 @@ use crate::tag::{ContTag, ExprTag, Op1, Op2};
 
 /// The type of finite fields used in the language
 /// For Pallas/Vesta see https://electriccoin.co/blog/the-pasta-curves-for-halo-2-and-beyond/
+///
+/// Please note:
+/// - pasta_curves::pallas::Scalar = pasta_curves::Fq
+/// - pasta_curves::vesta::Scalar = pasta_curves::Fp
+///
+/// Because confusion on this point, perhaps combined with cargo-cult copying of incorrect previous usage has led to
+/// inconsistencies and inaccuracies in the code base, please prefer the named Scalar forms when correspondence to a
+/// named `LanguageField` is important.
 pub enum LanguageField {
     /// The Pallas field,
     Pallas,
