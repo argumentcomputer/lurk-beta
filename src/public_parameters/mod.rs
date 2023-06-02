@@ -5,6 +5,11 @@ use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
 use std::sync::Arc;
 
+#[cfg(not(target_arch = "wasm32"))]
+use proptest::prelude::*;
+#[cfg(not(target_arch = "wasm32"))]
+use proptest_derive::Arbitrary;
+
 use crate::coprocessor::Coprocessor;
 use crate::error::ReductionError;
 use crate::{
@@ -14,7 +19,7 @@ use crate::{
         lang::{Coproc, Lang},
         Evaluable, Evaluator, Status, Witness, IO,
     },
-    field::LurkField,
+    field::{FWrap, LurkField},
     hash::PoseidonCache,
     proof::nova::{self, NovaProver, PublicParams},
     proof::Prover,
@@ -89,6 +94,7 @@ pub enum ReductionCount {
     OneHundred,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
 pub struct Evaluation {
     pub expr: String,
@@ -101,6 +107,8 @@ pub struct Evaluation {
     pub iterations: Option<usize>,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
 pub struct PtrEvaluation<F: LurkField> {
     pub expr: LurkPtr<F>,
@@ -113,8 +121,13 @@ pub struct PtrEvaluation<F: LurkField> {
     pub iterations: Option<usize>,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Commitment<F: LurkField> {
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        proptest(strategy = "any::<FWrap<F>>().prop_map(|x| x.0)")
+    )]
     pub comm: F,
 }
 
@@ -184,6 +197,8 @@ pub struct Expression<F: LurkField> {
     pub expr: LurkPtr<F>,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct Opening<F: LurkField> {
     pub input: String,
@@ -193,6 +208,7 @@ pub struct Opening<F: LurkField> {
     pub new_commitment: Option<Commitment<F>>,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 pub struct ZBytes {
     #[serde(with = "base64")]
@@ -201,12 +217,16 @@ pub struct ZBytes {
     z_ptr: Vec<u8>, // can also be a scalar_cont_ptr
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ZStorePtr<F: LurkField> {
     z_store: ZStore<F>,
     z_ptr: ZExprPtr<F>,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum LurkPtr<F: LurkField> {
     Source(String),
@@ -214,6 +234,7 @@ pub enum LurkPtr<F: LurkField> {
     ZStorePtr(ZStorePtr<F>),
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
 pub enum LurkCont {
     #[default]
@@ -230,9 +251,15 @@ impl<F: LurkField> Default for LurkPtr<F> {
 
 impl<F: LurkField> Eq for LurkPtr<F> {}
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct CommittedExpression<F: LurkField + Serialize> {
     pub expr: LurkPtr<F>,
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        proptest(strategy = "any::<FWrap<F>>().prop_map(|x| Some(x.0))")
+    )]
     pub secret: Option<F>,
     pub commitment: Option<Commitment<F>>,
 }
@@ -250,6 +277,8 @@ pub struct Proof<'a, F: LurkField> {
     pub reduction_count: ReductionCount,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Claim<F: LurkField> {
     Evaluation(Evaluation),
@@ -258,7 +287,7 @@ pub enum Claim<F: LurkField> {
     Opening(Opening<F>),
 }
 
-impl<F: LurkField> Claim<F> {
+impl<F: LurkField + Serialize + for<'de> Deserialize<'de>> Claim<F> {
     // Returns the ZPtr corresponding to the claim
     pub fn proof_key(&self) -> Result<ZExprPtr<F>, Error> {
         match self {
@@ -272,7 +301,11 @@ impl<F: LurkField> Claim<F> {
             Claim::PtrEvaluation(ptr_eval) => {
                 let expr_in: ZExprPtr<F> = match &ptr_eval.expr {
                     LurkPtr::Source(source) => ZExprPtr::<F>::try_from(source)?,
-                    LurkPtr::Bytes(bytes) => from_z_data(&ZData::from_bytes(&bytes.z_ptr)?)?,
+                    LurkPtr::Bytes(bytes) =>
+                    //todo!(),
+                    {
+                        from_z_data(&ZData::from_bytes(&bytes.z_ptr)?)?
+                    }
                     LurkPtr::ZStorePtr(zsp) => zsp.z_ptr,
                 };
                 let expr_out = match &ptr_eval.expr_out {
@@ -374,7 +407,7 @@ where
 
 impl<T: Serialize> FileStore for T
 where
-    for<'de> T: Deserialize<'de>, // + Decode<DagJsonCodec>,
+    for<'de> T: Deserialize<'de>,
 {
     fn write_to_path<P: AsRef<Path>>(&self, path: P) {
         let file = File::create(path).expect("failed to create file");
@@ -920,16 +953,16 @@ impl<'a> Proof<'a, S1> {
             }
             Claim::Evaluation(e) => {
                 if e.status != Status::Terminal {
-                    return Err(Error::EvaluationFailure(ReductionError::Misc(format!(
-                        "nonterminal status"
-                    ))));
+                    return Err(Error::EvaluationFailure(ReductionError::Misc(
+                        "nonterminal status".into(),
+                    )));
                 };
             }
             Claim::PtrEvaluation(e) => {
                 if e.status != Status::Terminal {
-                    return Err(Error::EvaluationFailure(ReductionError::Misc(format!(
-                        "nonterminal status"
-                    ))));
+                    return Err(Error::EvaluationFailure(ReductionError::Misc(
+                        "nonterminal status".into(),
+                    )));
                 }
             }
         };
@@ -1144,6 +1177,7 @@ mod test {
     use crate::proof::{nova::NovaProver, Prover};
     use crate::ptr::Ptr;
     use crate::store::Store;
+    use crate::z_data::{from_z_data, to_z_data};
     use std::io::Write;
     use tempfile::Builder;
     //#[test]
@@ -1169,6 +1203,139 @@ mod test {
     //    let cert_again: Cert = serde_json::from_str(&string).unwrap();
     //    assert_eq!(cert, cert_again);
     //}
+
+    proptest! {
+      #[test]
+      fn prop_z_bytes(x in any::<ZBytes>()) {
+        let ser  = to_z_data(&x).expect("write ZBytes");
+        let de: ZBytes = from_z_data(&ser).expect("read ZBytes");
+        assert_eq!(x, de);
+
+        let ser: Vec<u8> = bincode::serialize(&x).expect("write ZBytes");
+        let de: ZBytes = bincode::deserialize(&ser).expect("read ZBytes");
+        assert_eq!(x, de);
+
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
+        let tmp_dir_path = Path::new(tmp_dir.path());
+        let z_bytes_path = tmp_dir_path.join("zbytes.json");
+      x.write_to_path(&z_bytes_path);
+      assert_eq!(x, ZBytes::read_from_path(&z_bytes_path).unwrap());
+      }
+    }
+
+    proptest! {
+      #[test]
+      fn prop_z_store_ptr(x in any::<ZStorePtr<S1>>()) {
+        let ser = to_z_data(&x).expect("write ZStorePtr");
+        let de: ZStorePtr<S1> = from_z_data(&ser).expect("read ZStorePtr");
+        assert_eq!(x, de);
+
+        let ser: Vec<u8> = bincode::serialize(&x).expect("write ZStorePtr");
+        let de: ZStorePtr<S1> = bincode::deserialize(&ser).expect("read ZStorePtr");
+        assert_eq!(x, de);
+
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
+        let tmp_dir_path = Path::new(tmp_dir.path());
+        let z_store_ptr_path = tmp_dir_path.join("zstoreptr.json");
+      x.write_to_path(&z_store_ptr_path);
+      assert_eq!(x, ZStorePtr::<S1>::read_from_path(&z_store_ptr_path).unwrap());
+      }
+    }
+
+    proptest! {
+      #[test]
+      fn prop_lurk_ptr(x in any::<LurkPtr<S1>>()) {
+        let ser = to_z_data(&x).expect("write LurkPtr");
+        let de: LurkPtr<S1> = from_z_data(&ser).expect("read LurkPtr");
+        assert_eq!(x, de);
+
+        let ser: Vec<u8> = bincode::serialize(&x).expect("write LurkPtr");
+        let de: LurkPtr<S1> = bincode::deserialize(&ser).expect("read LurkPtr");
+        assert_eq!(x, de);
+
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
+        let tmp_dir_path = Path::new(tmp_dir.path());
+        let lurk_ptr_path = tmp_dir_path.join("lurkptr.json");
+      x.write_to_path(&lurk_ptr_path);
+      assert_eq!(x, LurkPtr::<S1>::read_from_path(&lurk_ptr_path).unwrap());
+      }
+    }
+
+    proptest! {
+      #[test]
+      fn prop_ptr_evaluation(x in any::<PtrEvaluation<S1>>()) {
+        let ser = to_z_data(&x).expect("write PtrEvaluation");
+        let de: PtrEvaluation<S1> = from_z_data(&ser).expect("read PtrEvaluation");
+        assert_eq!(x, de);
+
+       let ser: Vec<u8> = bincode::serialize(&x).expect("write PtrEvalution");
+       let de: PtrEvaluation<S1> = bincode::deserialize(&ser).expect("read PtrEvaluation");
+       assert_eq!(x, de);
+
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
+        let tmp_dir_path = Path::new(tmp_dir.path());
+        let ptr_evaluation_path = tmp_dir_path.join("ptrevaluation.json");
+      x.write_to_path(&ptr_evaluation_path);
+      assert_eq!(x, PtrEvaluation::<S1>::read_from_path(&ptr_evaluation_path).unwrap());
+      }
+    }
+
+    proptest! {
+      #[test]
+      fn prop_committed_expr(x in any::<CommittedExpression<S1>>()) {
+        let ser = to_z_data(&x).expect("write CommittedExpression");
+        let de: CommittedExpression<S1> = from_z_data(&ser).expect("read CommittedExpression");
+        assert_eq!(x, de);
+
+       let ser: Vec<u8> = bincode::serialize(&x).expect("write CommittedExpression");
+       let de: CommittedExpression<S1> = bincode::deserialize(&ser).expect("read CommittedExpression");
+        assert_eq!(x, de);
+
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
+        let tmp_dir_path = Path::new(tmp_dir.path());
+        let committed_expr_path = tmp_dir_path.join("committedexpr.json");
+      x.write_to_path(&committed_expr_path);
+      assert_eq!(x, CommittedExpression::<S1>::read_from_path(&committed_expr_path).unwrap());
+      }
+    }
+
+    proptest! {
+      #[test]
+      fn prop_opening(x in any::<Opening<S1>>()) {
+        let ser = to_z_data(&x).expect("write Opening");
+        let de: Opening<S1> = from_z_data(&ser).expect("read Opening");
+        assert_eq!(x, de);
+
+       let ser: Vec<u8> = bincode::serialize(&x).expect("write Opening");
+       let de: Opening<S1> = bincode::deserialize(&ser).expect("read Opening");
+        assert_eq!(x, de);
+
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
+        let tmp_dir_path = Path::new(tmp_dir.path());
+        let opening_path = tmp_dir_path.join("opening.json");
+      x.write_to_path(&opening_path);
+      assert_eq!(x, Opening::<S1>::read_from_path(&opening_path).unwrap());
+      }
+    }
+
+    proptest! {
+      #[test]
+      fn prop_claim(x in any::<Claim<S1>>()) {
+        let ser = to_z_data(&x).expect("write Claim");
+        let de: Claim<S1> = from_z_data(&ser).expect("read Claim");
+        assert_eq!(x, de);
+
+       let ser: Vec<u8> = bincode::serialize(&x).expect("write Claim");
+       let de: Claim<S1> = bincode::deserialize(&ser).expect("read Claim");
+        assert_eq!(x, de);
+
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
+        let tmp_dir_path = Path::new(tmp_dir.path());
+        let claim_path = tmp_dir_path.join("claim.json");
+      x.write_to_path(&claim_path);
+      assert_eq!(x, Claim::<S1>::read_from_path(&claim_path).unwrap());
+      }
+    }
 
     struct Commit {
         function: PathBuf,
@@ -1206,6 +1373,7 @@ mod test {
                 commitment
             };
             function.commitment = Some(commitment);
+            println!("My commitment: {:?}", function);
 
             function_map
                 .set(commitment, &function)
@@ -1550,11 +1718,13 @@ fn tmp_chained_no_io() {
     let mut commitment = if let Some(secret) = function.secret {
         Commitment::from_ptr_and_secret(s, &fun_ptr, secret)
     } else {
+        println!("There was no secret, right?");
         let (commitment, secret) = Commitment::from_ptr_with_hiding(s, &fun_ptr);
         function.secret = Some(secret);
         commitment
     };
     function.commitment = Some(commitment);
+    println!("My commitment: {:?}", function);
 
     for (function_input, _expected_output) in io {
         let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());

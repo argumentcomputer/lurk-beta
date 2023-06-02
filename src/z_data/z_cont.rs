@@ -371,7 +371,11 @@ mod tests {
           fn prop_z_cont(x in any::<ZCont<Scalar>>()) {
              let ser = to_z_data(&x).expect("write ZCont");
              let de: ZCont<Scalar> = from_z_data(&ser).expect("read ZCont");
-              assert_eq!(x, de)
+              assert_eq!(x, de);
+
+      let ser: Vec<u8> = bincode::serialize(&x).expect("write ZCont");
+      let de: ZCont<Scalar> = bincode::deserialize(&ser).expect("read ZCont");
+      assert_eq!(x, de);
           }
     }
 }

@@ -269,14 +269,6 @@ impl<F: LurkField> Serialize for FWrap<F> {
     }
 }
 
-/// Serialize an F as an FWrap
-pub fn ser_f<F: LurkField, S>(f: &F, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    FWrap(*f).serialize(serializer)
-}
-
 impl<'de, F: LurkField> Deserialize<'de> for FWrap<F> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

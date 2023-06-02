@@ -1,5 +1,6 @@
 use crate::field::FWrap;
 use serde::{Deserialize, Serialize};
+//use serde_with;
 
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
@@ -15,7 +16,6 @@ use crate::z_ptr::{ZContPtr, ZExprPtr, ZPtr};
 use crate::z_store::ZStore;
 use crate::UInt;
 
-use crate::field::ser_f;
 use crate::field::LurkField;
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
@@ -31,7 +31,7 @@ pub enum ZExpr<F: LurkField> {
             strategy = "any::<(FWrap<F>, ZExprPtr<F>)>().prop_map(|(x, y)| Self::Comm(x.0, y))"
         )
     )]
-    Comm(#[serde(serialize_with = "ser_f")] F, ZExprPtr<F>),
+    Comm(F, ZExprPtr<F>),
     SymNil,
     SymCons(ZExprPtr<F>, ZExprPtr<F>),
     Key(ZExprPtr<F>),
@@ -44,14 +44,12 @@ pub enum ZExpr<F: LurkField> {
         not(target_arch = "wasm32"),
         proptest(strategy = "any::<FWrap<F>>().prop_map(|x| Self::Num(x.0))")
     )]
-    #[serde(serialize_with = "ser_f")]
     Num(F),
     StrNil,
     /// Contains a string and a pointer to the tail.
     StrCons(ZExprPtr<F>, ZExprPtr<F>),
     Thunk(ZExprPtr<F>, ZContPtr<F>),
     Char(char),
-    #[serde(with = "serde_uint")]
     UInt(UInt),
 }
 
@@ -175,27 +173,6 @@ impl<F: LurkField> ZExpr<F> {
     }
 }
 
-mod serde_uint {
-    use super::*;
-
-    pub(crate) fn serialize<S>(uint: &UInt, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match uint {
-            UInt::U64(u) => u.serialize(serializer),
-        }
-    }
-
-    pub(crate) fn deserialize<'de, D>(deserializer: D) -> Result<UInt, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let uint = u64::deserialize(deserializer)?;
-        Ok(UInt::U64(uint))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -207,7 +184,11 @@ mod tests {
           fn prop_z_expr(x in any::<ZExpr<Scalar>>()) {
               let ser = to_z_data(&x).expect("write ZExpr");
               let de: ZExpr<Scalar> = from_z_data(&ser).expect("read ZExpr");
-              assert_eq!(x, de)
+              assert_eq!(x, de);
+
+      let ser: Vec<u8> = bincode::serialize(&x).expect("write ZExpr");
+      let de: ZExpr<Scalar> = bincode::deserialize(&ser).expect("read ZExpr");
+      assert_eq!(x, de);
           }
     }
 }

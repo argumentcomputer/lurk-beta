@@ -44,65 +44,6 @@ impl<F: LurkField> ZStore<F> {
         (new, Some(z_ptr))
     }
 
-    ///// Create a new `ZStore` and add all `ZPtr`s reachable in the ZData representation of `expr`.
-    //pub fn new_with_expr(
-    //  store: &Store<F>,
-    //  expr: &Ptr<F>,
-    //) -> (Self, Option<ZExprPtr<F>>) {
-    //  let mut new = Self::new();
-    //  let z_ptr = new.add_one_ptr(store, expr);
-    //  (new, z_ptr)
-    //}
-
-    ///// Add all ZPtrs representing and reachable from expr.
-    //pub fn add_one_ptr(&mut self, store: &Store<F>, expr: &Ptr<F>) -> Option<ZExprPtr<F>> {
-    //  let z_ptr = self.add_ptr(store, expr);
-    //  self.finalize(store);
-    //  z_ptr
-    //}
-
-    //  /// Add the `ZPtr` representing `expr`, and queue it for proceessing.
-    //  pub fn add_ptr(&mut self, store: &Store<F>, expr: &Ptr<F>) -> Option<ZExprPtr<F>> {
-    //      // Find the z_ptr representing ptr.
-    //      if let Some(z_ptr) = store.get_expr_hash(expr) {
-    //          self.add(store, expr, z_ptr);
-    //          Some(z_ptr)
-    //      } else {
-    //          None
-    //      }
-    //  }
-
-    ///// Add the `ZPtr` and `ZExpr` associated with `ptr`. The relationship between `ptr` and
-    ///// `z_ptr` is not checked here, so `add` should only be called by `add_ptr` and `add_z_ptr`, which
-    ///// enforce this relationship.
-    //  fn add(&mut self, store: &Store<F>, ptr: &Ptr<F>, z_ptr: ZExprPtr<F>) {
-    //      let mut new_pending_z_ptrs: Vec<ZPtr<F>> = Default::default();
-
-    //      // If `z_ptr` is not already in the map, queue its children for processing.
-    //      self.expr_map.entry(z_ptr).or_insert_with(|| {
-    //          let z_expr = ZExpr::from_ptr(store, ptr)?;
-    //          if let Some(more_z_ptrs) = Self::child_z_ptrs(&z_expr) {
-    //              new_pending_z_ptrs.extend(more_z_ptrs);
-    //          }
-    //          Some(z_expr)
-    //      });
-
-    //      self.pending_z_ptrs.extend(new_pending_z_ptrs);
-    //  }
-
-    //  /// All the `ScalarPtr`s directly reachable from `scalar_expression`, if any.
-    //  fn child_z_ptrs(z_expr: &ZExpr<F>) -> Option<Vec<ZExprPtr<F>>> {
-    //      match z_expr {
-    //          ZExpr::Cons(car, cdr) => Some([*car, *cdr].into()),
-    //          ZExpr::Comm(_, payload) => Some([*payload].into()),
-    //          ZExpr::Fun {
-    //              arg,
-    //              body,
-    //              closed_env,
-    //          } => Some([*arg, *body, *closed_env].into()),
-    //	  _ => None,
-    //      }
-    //  }
     pub fn immediate_z_expr(ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
         match ptr {
             ZPtr(ExprTag::U64, val) => {
@@ -192,7 +133,11 @@ mod tests {
         fn prop_z_store(s in any::<ZStore<Scalar>>()) {
             let ser = to_z_data(&s).expect("write ZStore");
             let de: ZStore<Scalar> = from_z_data(&ser).expect("read ZStore");
-            assert_eq!(s, de)
+            assert_eq!(s, de);
+
+      let ser: Vec<u8> = bincode::serialize(&s).expect("write ZStore");
+      let de: ZStore<Scalar> = bincode::deserialize(&ser).expect("read ZStore");
+      assert_eq!(s, de);
         }
     }
 }

@@ -15,7 +15,7 @@ use crate::hash::IntoHashComponents;
 use crate::store::{self, Store};
 use crate::tag::{ContTag, ExprTag, Tag};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 // Note: the trait bound E: Tag is not necessary in the struct, but it makes the proptest strategy more efficient.
 /// A struct representing a scalar pointer with a tag and a value.
@@ -57,29 +57,6 @@ impl<E: Tag, F: LurkField> Ord for ZPtr<E, F> {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         self.partial_cmp(other)
             .expect("ZPtr::cmp: partial_cmp domain invariant violation")
-    }
-}
-
-impl<E: Tag, F: LurkField> Serialize for ZPtr<E, F> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        (FWrap(self.0.to_field::<F>()), FWrap(self.1)).serialize(serializer)
-    }
-}
-
-impl<'de, E: Tag, F: LurkField> Deserialize<'de> for ZPtr<E, F> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let (x, y) = <(FWrap<F>, FWrap<F>)>::deserialize(deserializer)?;
-        let tag_as_u16 =
-            x.0.to_u16()
-                .ok_or_else(|| serde::de::Error::custom("invalid range for field element tag"))?;
-        let tag = E::try_from(tag_as_u16).map_err(|_| serde::de::Error::custom("invalid tag"))?;
-        Ok(ZPtr(tag, y.0))
     }
 }
 
@@ -157,17 +134,44 @@ pub type ZContPtr<F> = ZPtr<ContTag, F>;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::z_data::{from_z_data, to_z_data};
     use pasta_curves::pallas::Scalar;
 
+    proptest! {
+            #[test]
+            fn prop_z_expr_ptr(x in any::<ZExprPtr<Scalar>>()) {
+                let ser = to_z_data(x).expect("write ZExprPtr");
+                let de: ZExprPtr<Scalar> = from_z_data(&ser).expect("read ZExprPtr");
+                assert_eq!(x, de);
+
+        let ser: Vec<u8> = bincode::serialize(&x).expect("write ZExprPtr");
+        let de: ZExprPtr<Scalar> = bincode::deserialize(&ser).expect("read ZExprPtr");
+        assert_eq!(x, de);
+            }
+    }
+
+    proptest! {
+            #[test]
+            fn prop_z_cont_ptr(x in any::<ZContPtr<Scalar>>()) {
+                let ser = to_z_data(x).expect("write ZContPtr");
+                let de: ZContPtr<Scalar> = from_z_data(&ser).expect("read ZContPtr");
+                assert_eq!(x, de);
+
+        let ser: Vec<u8> = bincode::serialize(&x).expect("write ZContPtr");
+        let de: ZContPtr<Scalar> = bincode::deserialize(&ser).expect("read ZContPtr");
+        assert_eq!(x, de);
+            }
+    }
+
     #[test]
-    fn unit_base32() {
+    fn unit_z_expr_ptr_base32() {
         let zptr = ZExprPtr::from_parts(ExprTag::Nil, Scalar::zero());
         assert_eq!(zptr, ZPtr::from_base32(&zptr.to_base32()).unwrap());
     }
 
     proptest! {
       #[test]
-      fn prop_base32(x in any::<ZExprPtr<Scalar>>()) {
+      fn prop_z_expr_ptr_base32(x in any::<ZExprPtr<Scalar>>()) {
         assert_eq!(x, ZPtr::from_base32(&x.to_base32()).unwrap());
       }
     }

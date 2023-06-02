@@ -1175,8 +1175,8 @@ impl<F: LurkField> Store<F> {
             } else {
                 stack.push(Cont(Box::new(move |store, z_store, _, ret_stack| {
                     let (z_ptr, z_expr) = ret_stack.last().expect("Implementation broken 1");
-                    if let Some(z_store) = z_store.clone() {
-                        z_store.borrow_mut().insert_expr(&z_ptr, z_expr.clone());
+                    if let Some(z_store) = z_store {
+                        z_store.borrow_mut().insert_expr(z_ptr, z_expr.clone());
                     };
                     store.z_expr_ptr_map.insert(*z_ptr, Box::new(ptr));
                     Ok(())

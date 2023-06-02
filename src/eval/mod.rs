@@ -11,6 +11,8 @@ use crate::writer::Write;
 use lang::Lang;
 
 use log::info;
+#[cfg(not(target_arch = "wasm32"))]
+use proptest_derive::Arbitrary;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::iter::{Iterator, Take};
@@ -57,6 +59,7 @@ pub struct Frame<T: Copy, W: Copy, C> {
     pub _p: PhantomData<C>,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Status {
     Terminal,
