@@ -1088,4 +1088,78 @@ mod tests {
         }
 
     }
+
+    #[test]
+    fn edge_enforce_implication_lc() {
+        let mut cs = TestConstraintSystem::<Fr>::new();
+
+        ////////////////////////////////////////////
+        // Big lc
+        // an lc > 1 should fail if premise is true.
+        ////////////////////////////////////////////
+
+        let mut test_lc_big = LinearCombination::zero();
+        test_lc_big = test_lc_big + (Fr::ONE + Fr::ONE, TestConstraintSystem::<Fr>::one());
+
+        // Allocate premise boolean.
+        let premise_true = Boolean::from(
+            AllocatedBit::alloc(cs.namespace(|| "premise_true"), Some(true)).expect("alloc failed"),
+        );
+
+        // Execute the function under test.
+        let _ = enforce_implication_lc(
+            cs.namespace(|| "enforce_implication_lc_big"),
+            &premise_true,
+            |_| test_lc_big.clone(),
+        )
+        .expect("enforce_implication_lc failed");
+
+        assert!(!cs.is_satisfied());
+
+        ////////////////////////////////////////////
+
+        let mut cs = TestConstraintSystem::<Fr>::new();
+        // an lc > 1 should pass if premise is false.
+        // Allocate premise boolean.
+        let premise_false = Boolean::from(
+            AllocatedBit::alloc(cs.namespace(|| "premise_false"), Some(false))
+                .expect("alloc failed"),
+        );
+
+        // Execute the function under test.
+        let _ = enforce_implication_lc(
+            cs.namespace(|| "enforce_implication_lc_big_with_false"),
+            &premise_false,
+            |_| test_lc_big,
+        )
+        .expect("enforce_implication_lc failed");
+
+        assert!(cs.is_satisfied());
+
+        ///////////////////////////////////////////////////////////////////////
+        // type constraints: lcs not made of booleans may incidentally pass. //
+        ///////////////////////////////////////////////////////////////////////
+
+        let mut test_lc_arb_num = LinearCombination::zero();
+
+        // Allocate a few numbers. Here TWO_INV + TWO_INV = ONE
+        let anum1 =
+            AllocatedNum::alloc(cs.namespace(|| "num1"), || Ok(Fr::TWO_INV)).expect("alloc failed");
+        let anum2 =
+            AllocatedNum::alloc(cs.namespace(|| "num2"), || Ok(Fr::TWO_INV)).expect("alloc failed");
+
+        // Add them to the lc
+        test_lc_arb_num = test_lc_arb_num + (Fr::ONE, anum1.get_variable());
+        test_lc_arb_num = test_lc_arb_num + (Fr::ONE, anum2.get_variable());
+
+        // Execute the function under test.
+        let _ = enforce_implication_lc(
+            cs.namespace(|| "enforce_implication_lc_arb_num"),
+            &premise_true,
+            |_| test_lc_arb_num,
+        )
+        .expect("enforce_implication_lc failed");
+
+        assert!(cs.is_satisfied());
+    }
 }
