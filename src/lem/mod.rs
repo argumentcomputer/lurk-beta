@@ -432,7 +432,7 @@ pub struct Witness<F: LurkField> {
 impl LEM {
     /// Instantiates a `LEM` with the appropriate checks and transformations
     /// to make sure that interpretation and constraining will be smooth.
-    pub fn new(input: [&str; 3], lem_op: LEMOP) -> Result<LEM> {
+    pub fn new(input: [&str; 3], lem_op: &LEMOP) -> Result<LEM> {
         lem_op.check()?;
         let dmap = DashMap::from_iter(input.map(|i| (i.to_string(), i.to_string())));
         Ok(LEM {

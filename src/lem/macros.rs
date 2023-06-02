@@ -225,7 +225,7 @@ macro_rules! lem {
     ($in1:ident $in2:ident $in3:ident $lemop:tt) => {
         $crate::lem::LEM::new(
             [stringify!($in1), stringify!($in2), stringify!($in3)],
-            $crate::lemop!($lemop),
+            &$crate::lemop!($lemop),
         )
     };
 }

@@ -60,26 +60,24 @@ impl<F: LurkField> AllocationManager<F> {
 }
 
 #[derive(Default)]
+struct SlotStacks {
+    max_slots_len: usize,
+    implies_stack: Vec<(Boolean, usize, MetaPtr, Option<Tag>)>,
+    enforce_stack: Vec<(usize, MetaPtr, Option<Tag>)>,
+}
+
+#[derive(Default)]
 struct HashSlots<F: LurkField> {
-    slots_hash2_len: usize,
-    hash2_stack: Vec<(usize, AllocatedPtr<F>, AllocatedPtr<F>)>,
-    hash2_implies_stack: Vec<(Boolean, usize, MetaPtr, Option<Tag>)>,
-    hash2_enforce_stack: Vec<(usize, MetaPtr, Option<Tag>)>,
-    slots_hash3_len: usize,
-    hash3_stack: Vec<(usize, AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>)>,
-    hash3_implies_stack: Vec<(Boolean, usize, MetaPtr, Option<Tag>)>,
-    hash3_enforce_stack: Vec<(usize, MetaPtr, Option<Tag>)>,
-    // slots_hash4_len: usize,
-    // hash4_stack: Vec<(usize, AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>)>,
-    // hash4_implies_stack: Vec<(Boolean, usize, MetaPtr, Option<Tag>)>,
-    // hash4_enforce_stack: Vec<(usize, MetaPtr, Option<Tag>)>,
+    hash2_alloc: Vec<(usize, AllocatedPtr<F>, AllocatedPtr<F>)>,
+    hash2_stacks: SlotStacks,
+    hash3_alloc: Vec<(usize, AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>)>,
+    hash3_stacks: SlotStacks,
 }
 
 #[derive(Default, Clone)]
-struct Slots {
-    slot_hash2: usize,
-    slot_hash3: usize,
-    // slot_hash4: usize,
+struct SlotsIndices {
+    hash2_idx: usize,
+    hash3_idx: usize,
 }
 
 impl LEM {
@@ -188,8 +186,12 @@ impl LEM {
         let mut alloc_manager = AllocationManager::default();
 
         let mut hash_slots: HashSlots<F> = Default::default();
-        let slots: Slots = Default::default();
-        let mut stack = vec![(&self.lem_op, None::<Boolean>, String::new(), slots)];
+        let mut stack = vec![(
+            &self.lem_op,
+            None::<Boolean>,
+            String::new(),
+            SlotsIndices::default(),
+        )];
         while let Some((op, branch_path_info, path, slots)) = stack.pop() {
             match op {
                 LEMOP::Hash2(tgt, tag, src) => {
@@ -206,7 +208,7 @@ impl LEM {
                     let z_ptr = {
                         if Self::on_concrete_path(&branch_path_info)? {
                             let Some(ptr) = witness.ptrs.get(tgt.name()) else {
-                                bail!("Couldn't retrieve witness {}", tgt.name());
+                                bail!("Couldn't retrieve {} from witness", tgt.name());
                             };
                             store.hydrate_ptr(ptr)?
                         } else {
@@ -223,29 +225,29 @@ impl LEM {
                     if let Some(concrete_path) = branch_path_info {
                         // if concrete_path is true, push to slots
                         if is_concrete_path {
-                            hash_slots.hash2_stack.push((
-                                slots.slot_hash2,
+                            hash_slots.hash2_alloc.push((
+                                slots.hash2_idx,
                                 alloc_car.clone(),
                                 alloc_cdr.clone(),
                             ));
                             // only once per path
                         }
                         // concrete path implies alloc_tgt has the same value as in the current slot
-                        hash_slots.hash2_implies_stack.push((
+                        hash_slots.hash2_stacks.implies_stack.push((
                             concrete_path,
-                            slots.slot_hash2,
+                            slots.hash2_idx,
                             tgt.clone(),
                             Some(*tag),
                         ));
                     // many
                     } else {
-                        hash_slots.hash2_enforce_stack.push((
-                            slots.slot_hash2,
+                        hash_slots.hash2_stacks.enforce_stack.push((
+                            slots.hash2_idx,
                             tgt.clone(),
                             Some(*tag),
                         ));
-                        hash_slots.hash2_stack.push((
-                            slots.slot_hash2,
+                        hash_slots.hash2_alloc.push((
+                            slots.hash2_idx,
                             alloc_car.clone(),
                             alloc_cdr.clone(),
                         ))
@@ -260,7 +262,7 @@ impl LEM {
                     let z_ptr = {
                         if Self::on_concrete_path(&branch_path_info)? {
                             let Some(ptr) = witness.ptrs.get(tgt[0].name()) else {
-                                bail!("Couldn't retrieve witness {}", tgt[0].name());
+                                bail!("Couldn't retrieve {} from witness", tgt[0].name());
                             };
                             store.hydrate_ptr(ptr)?
                         } else {
@@ -278,7 +280,7 @@ impl LEM {
                     let z_ptr = {
                         if Self::on_concrete_path(&branch_path_info)? {
                             let Some(ptr) = witness.ptrs.get(tgt[1].name()) else {
-                                bail!("Couldn't retrieve witness {}", tgt[1].name());
+                                bail!("Couldn't retrieve {} from witness", tgt[1].name());
                             };
                             store.hydrate_ptr(ptr)?
                         } else {
@@ -295,27 +297,29 @@ impl LEM {
                     if let Some(concrete_path) = branch_path_info {
                         // if concrete_path is true, push to slots
                         if is_concrete_path {
-                            hash_slots.hash2_stack.push((
-                                slots.slot_hash2,
+                            hash_slots.hash2_alloc.push((
+                                slots.hash2_idx,
                                 alloc_car.clone(),
                                 alloc_cdr.clone(),
                             ));
                             // only once per path
                         }
                         // concrete path implies alloc_tgt has the same value as in the current slot
-                        hash_slots.hash2_implies_stack.push((
+                        hash_slots.hash2_stacks.implies_stack.push((
                             concrete_path,
-                            slots.slot_hash2,
+                            slots.hash2_idx,
                             src.clone(),
                             None,
                         ));
                     // many
                     } else {
-                        hash_slots
-                            .hash2_enforce_stack
-                            .push((slots.slot_hash2, src.clone(), None));
-                        hash_slots.hash2_stack.push((
-                            slots.slot_hash2,
+                        hash_slots.hash2_stacks.enforce_stack.push((
+                            slots.hash2_idx,
+                            src.clone(),
+                            None,
+                        ));
+                        hash_slots.hash2_alloc.push((
+                            slots.hash2_idx,
                             alloc_car.clone(),
                             alloc_cdr.clone(),
                         ))
@@ -341,7 +345,7 @@ impl LEM {
                     let z_ptr = {
                         if Self::on_concrete_path(&branch_path_info)? {
                             let Some(ptr) = witness.ptrs.get(tgt.name()) else {
-                                bail!("Couldn't retrieve witness {}", tgt.name());
+                                bail!("Couldn't retrieve {} from witness", tgt.name());
                             };
                             store.hydrate_ptr(ptr)?
                         } else {
@@ -358,8 +362,8 @@ impl LEM {
                     if let Some(concrete_path) = branch_path_info {
                         // if concrete_path is true, push to slots
                         if is_concrete_path {
-                            hash_slots.hash3_stack.push((
-                                slots.slot_hash3,
+                            hash_slots.hash3_alloc.push((
+                                slots.hash3_idx,
                                 alloc_input1.clone(),
                                 alloc_input2.clone(),
                                 alloc_input3.clone(),
@@ -367,21 +371,21 @@ impl LEM {
                             // only once per path
                         }
                         // concrete path implies alloc_tgt has the same value as in the current slot
-                        hash_slots.hash3_implies_stack.push((
+                        hash_slots.hash3_stacks.implies_stack.push((
                             concrete_path,
-                            slots.slot_hash3,
+                            slots.hash3_idx,
                             tgt.clone(),
                             Some(*tag),
                         ));
                     // many
                     } else {
-                        hash_slots.hash3_enforce_stack.push((
-                            slots.slot_hash3,
+                        hash_slots.hash3_stacks.enforce_stack.push((
+                            slots.hash3_idx,
                             tgt.clone(),
                             Some(*tag),
                         ));
-                        hash_slots.hash3_stack.push((
-                            slots.slot_hash3,
+                        hash_slots.hash3_alloc.push((
+                            slots.hash3_idx,
                             alloc_input1.clone(),
                             alloc_input2.clone(),
                             alloc_input3.clone(),
@@ -397,7 +401,7 @@ impl LEM {
                     let z_ptr = {
                         if Self::on_concrete_path(&branch_path_info)? {
                             let Some(ptr) = witness.ptrs.get(tgt[0].name()) else {
-                                bail!("Couldn't retrieve witness {}", tgt[0].name());
+                                bail!("Couldn't retrieve {} from witness", tgt[0].name());
                             };
                             store.hydrate_ptr(ptr)?
                         } else {
@@ -416,7 +420,7 @@ impl LEM {
                     let z_ptr = {
                         if Self::on_concrete_path(&branch_path_info)? {
                             let Some(ptr) = witness.ptrs.get(tgt[1].name()) else {
-                                bail!("Couldn't retrieve witness {}", tgt[1].name());
+                                bail!("Couldn't retrieve {} from witness", tgt[1].name());
                             };
                             store.hydrate_ptr(ptr)?
                         } else {
@@ -435,7 +439,7 @@ impl LEM {
                     let z_ptr = {
                         if Self::on_concrete_path(&branch_path_info)? {
                             let Some(ptr) = witness.ptrs.get(tgt[2].name()) else {
-                                bail!("Couldn't retrieve witness {}", tgt[2].name());
+                                bail!("Couldn't retrieve {} from witness", tgt[2].name());
                             };
                             store.hydrate_ptr(ptr)?
                         } else {
@@ -452,8 +456,8 @@ impl LEM {
                     if let Some(concrete_path) = branch_path_info {
                         // if concrete_path is true, push to slots
                         if is_concrete_path {
-                            hash_slots.hash3_stack.push((
-                                slots.slot_hash3,
+                            hash_slots.hash3_alloc.push((
+                                slots.hash3_idx,
                                 alloc_input1.clone(),
                                 alloc_input2.clone(),
                                 alloc_input3.clone(),
@@ -461,19 +465,21 @@ impl LEM {
                             // only once per path
                         }
                         // concrete path implies alloc_tgt has the same value as in the current slot
-                        hash_slots.hash3_implies_stack.push((
+                        hash_slots.hash3_stacks.implies_stack.push((
                             concrete_path,
-                            slots.slot_hash3,
+                            slots.hash3_idx,
                             src.clone(),
                             None,
                         ));
                     // many
                     } else {
-                        hash_slots
-                            .hash3_enforce_stack
-                            .push((slots.slot_hash3, src.clone(), None));
-                        hash_slots.hash3_stack.push((
-                            slots.slot_hash3,
+                        hash_slots.hash3_stacks.enforce_stack.push((
+                            slots.hash3_idx,
+                            src.clone(),
+                            None,
+                        ));
+                        hash_slots.hash3_alloc.push((
+                            slots.hash3_idx,
                             alloc_input1.clone(),
                             alloc_input2.clone(),
                             alloc_input3.clone(),
@@ -492,7 +498,7 @@ impl LEM {
                     let z_ptr = {
                         if Self::on_concrete_path(&branch_path_info)? {
                             let Some(ptr) = witness.ptrs.get(tgt.name()) else {
-                                bail!("Couldn't retrieve witness {}", tgt.name());
+                                bail!("Couldn't retrieve {} from witness", tgt.name());
                             };
                             store.hydrate_ptr(ptr)?
                         } else {
@@ -611,15 +617,14 @@ impl LEM {
                     }
                 }
                 LEMOP::Seq(ops) => {
-                    //let mut next_slot_hash2 = slots.slot_hash2;
                     let mut next_slots = slots.clone();
                     stack.extend(ops.iter().rev().map(|op| {
                         match op {
                             LEMOP::Hash2(..) => {
-                                next_slots.slot_hash2 += 1;
+                                next_slots.hash2_idx += 1;
                             }
                             LEMOP::Hash3(..) => {
-                                next_slots.slot_hash3 += 1;
+                                next_slots.hash3_idx += 1;
                             }
                             _ => (),
                         }
@@ -630,12 +635,10 @@ impl LEM {
                             next_slots.clone(),
                         )
                     }));
-                    if next_slots.slot_hash2 > hash_slots.slots_hash2_len {
-                        hash_slots.slots_hash2_len = next_slots.slot_hash2;
-                    };
-                    if next_slots.slot_hash3 > hash_slots.slots_hash3_len {
-                        hash_slots.slots_hash3_len = next_slots.slot_hash3;
-                    };
+                    hash_slots.hash2_stacks.max_slots_len =
+                        std::cmp::max(hash_slots.hash2_stacks.max_slots_len, next_slots.hash2_idx);
+                    hash_slots.hash3_stacks.max_slots_len =
+                        std::cmp::max(hash_slots.hash3_stacks.max_slots_len, next_slots.hash3_idx);
                 }
                 LEMOP::Return(outputs) => {
                     let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
@@ -693,9 +696,8 @@ impl LEM {
             return Err(anyhow!("Couldn't inputize the right number of outputs"));
         }
 
-        dbg!(hash_slots.slots_hash2_len);
-        dbg!(hash_slots.slots_hash3_len);
-        // dbg!(hash_slots.slots_hash4_len);
+        dbg!(hash_slots.hash2_stacks.max_slots_len);
+        dbg!(hash_slots.hash3_stacks.max_slots_len);
 
         /////////////////////////////////////////////////////////////////////////
         ///////////////////////////// Hash2 /////////////////////////////////////
@@ -704,7 +706,7 @@ impl LEM {
         // Create hash constraints for each stacked slot
         let mut concrete_slots_hash2_len = 0;
         let mut hash2_slots: HashMap<usize, AllocatedNum<F>> = HashMap::default();
-        while let Some((slot, alloc_car, alloc_cdr)) = hash_slots.hash2_stack.pop() {
+        while let Some((slot, alloc_car, alloc_cdr)) = hash_slots.hash2_alloc.pop() {
             let alloc_hash = hash_poseidon(
                 &mut cs.namespace(|| format!("hash2_{}", slot)),
                 vec![
@@ -722,12 +724,14 @@ impl LEM {
         let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
 
         // complete hash slot with dummies
-        for s in concrete_slots_hash2_len..hash_slots.slots_hash2_len {
+        for s in concrete_slots_hash2_len..hash_slots.hash2_stacks.max_slots_len {
             hash2_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
         }
 
         // Create hash implications
-        while let Some((concrete_path, slot, tgt, tag)) = hash_slots.hash2_implies_stack.pop() {
+        while let Some((concrete_path, slot, tgt, tag)) =
+            hash_slots.hash2_stacks.implies_stack.pop()
+        {
             // get alloc_tgt from tgt
             let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
                 bail!("{} not allocated", tgt.name());
@@ -760,7 +764,7 @@ impl LEM {
         }
 
         // Create hash enforce
-        while let Some((slot, tgt, tag)) = hash_slots.hash2_enforce_stack.pop() {
+        while let Some((slot, tgt, tag)) = hash_slots.hash2_stacks.enforce_stack.pop() {
             // get alloc_tgt from tgt
             let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
                 bail!("{} not allocated", tgt.name());
@@ -807,7 +811,7 @@ impl LEM {
         let mut concrete_slots_hash3_len = 0;
         let mut hash3_slots: HashMap<usize, AllocatedNum<F>> = HashMap::default();
         while let Some((slot, alloc_input1, alloc_input2, alloc_input3)) =
-            hash_slots.hash3_stack.pop()
+            hash_slots.hash3_alloc.pop()
         {
             let alloc_hash = hash_poseidon(
                 &mut cs.namespace(|| format!("hash3_{}", slot)),
@@ -826,12 +830,14 @@ impl LEM {
         }
 
         // complete hash slot with dummies
-        for s in concrete_slots_hash3_len..hash_slots.slots_hash3_len {
+        for s in concrete_slots_hash3_len..hash_slots.hash3_stacks.max_slots_len {
             hash3_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
         }
 
         // Create hash implications
-        while let Some((concrete_path, slot, tgt, tag)) = hash_slots.hash3_implies_stack.pop() {
+        while let Some((concrete_path, slot, tgt, tag)) =
+            hash_slots.hash3_stacks.implies_stack.pop()
+        {
             // get alloc_tgt from tgt
             let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
                 bail!("{} not allocated", tgt.name());
@@ -869,7 +875,7 @@ impl LEM {
         }
 
         // Create hash enforce
-        while let Some((slot, tgt, tag)) = hash_slots.hash3_enforce_stack.pop() {
+        while let Some((slot, tgt, tag)) = hash_slots.hash3_stacks.enforce_stack.pop() {
             // get alloc_tgt from tgt
             let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
                 bail!("{} not allocated", tgt.name());
