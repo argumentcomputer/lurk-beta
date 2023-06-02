@@ -85,7 +85,11 @@ impl LEM {
         cs: &mut CS,
         z_ptr: &ZPtr<F>,
         name: &String,
+        alloc_ptrs: &HashMap<&String, AllocatedPtr<F>>,
     ) -> Result<AllocatedPtr<F>> {
+        if alloc_ptrs.contains_key(name) {
+            bail!("{} already allocated", name);
+        };
         let alloc_tag =
             AllocatedNum::alloc(cs.namespace(|| format!("allocate {name}'s tag")), || {
                 Ok(z_ptr.tag.to_field())
@@ -124,6 +128,22 @@ impl LEM {
         }
     }
 
+    fn z_ptr_from_witness<F: LurkField>(
+        branch_path_info: &Option<Boolean>,
+        witness: &Witness<F>,
+        name: &String,
+        store: &mut Store<F>,
+    ) -> Result<ZPtr<F>> {
+        if Self::on_concrete_path(branch_path_info)? {
+            let Some(ptr) = witness.ptrs.get(name) else {
+                bail!("Couldn't retrieve {} from witness", name);
+            };
+            store.hydrate_ptr(ptr)
+        } else {
+            Ok(ZPtr::dummy())
+        }
+    }
+
     fn allocate_and_inputize_input<'a, F: LurkField, CS: ConstraintSystem<F>>(
         &'a self,
         cs: &mut CS,
@@ -132,13 +152,11 @@ impl LEM {
         alloc_ptrs: &mut HashMap<&'a String, AllocatedPtr<F>>,
         idx: usize,
     ) -> Result<()> {
-        if alloc_ptrs.contains_key(&self.input[idx]) {
-            bail!("{} already allocated", &self.input[idx]);
-        }
         let alloc_ptr = Self::allocate_ptr(
             &mut cs.namespace(|| format!("allocate input {}", &self.input[idx])),
             &store.hydrate_ptr(&witness.input[idx])?,
             &self.input[idx],
+            alloc_ptrs,
         )?;
         alloc_ptrs.insert(&self.input[idx], alloc_ptr.clone());
         Self::inputize_ptr(cs, &alloc_ptr, &self.input[idx])?;
@@ -202,23 +220,11 @@ impl LEM {
                         bail!("{} not allocated", src[1].name());
                     };
 
-                    if alloc_ptrs.contains_key(tgt.name()) {
-                        bail!("{} already allocated", tgt.name());
-                    };
-                    let z_ptr = {
-                        if Self::on_concrete_path(&branch_path_info)? {
-                            let Some(ptr) = witness.ptrs.get(tgt.name()) else {
-                                bail!("Couldn't retrieve {} from witness", tgt.name());
-                            };
-                            store.hydrate_ptr(ptr)?
-                        } else {
-                            ZPtr::dummy()
-                        }
-                    };
                     let alloc_tgt = Self::allocate_ptr(
                         &mut cs.namespace(|| format!("allocate pointer {}", tgt.name())),
-                        &z_ptr,
+                        &Self::z_ptr_from_witness(&branch_path_info, witness, tgt.name(), store)?,
                         tgt.name(),
+                        &alloc_ptrs,
                     )?;
 
                     let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
@@ -256,41 +262,27 @@ impl LEM {
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
                 }
                 LEMOP::Unhash2(tgt, src) => {
-                    if alloc_ptrs.contains_key(tgt[0].name()) {
-                        bail!("{} already allocated", tgt[0].name());
-                    };
-                    let z_ptr = {
-                        if Self::on_concrete_path(&branch_path_info)? {
-                            let Some(ptr) = witness.ptrs.get(tgt[0].name()) else {
-                                bail!("Couldn't retrieve {} from witness", tgt[0].name());
-                            };
-                            store.hydrate_ptr(ptr)?
-                        } else {
-                            ZPtr::dummy()
-                        }
-                    };
                     let alloc_car = Self::allocate_ptr(
                         &mut cs.namespace(|| format!("allocate pointer {}", tgt[0].name())),
-                        &z_ptr,
+                        &Self::z_ptr_from_witness(
+                            &branch_path_info,
+                            witness,
+                            tgt[0].name(),
+                            store,
+                        )?,
                         tgt[0].name(),
+                        &alloc_ptrs,
                     )?;
-                    if alloc_ptrs.contains_key(tgt[1].name()) {
-                        bail!("{} already allocated", tgt[1].name());
-                    };
-                    let z_ptr = {
-                        if Self::on_concrete_path(&branch_path_info)? {
-                            let Some(ptr) = witness.ptrs.get(tgt[1].name()) else {
-                                bail!("Couldn't retrieve {} from witness", tgt[1].name());
-                            };
-                            store.hydrate_ptr(ptr)?
-                        } else {
-                            ZPtr::dummy()
-                        }
-                    };
                     let alloc_cdr = Self::allocate_ptr(
                         &mut cs.namespace(|| format!("allocate pointer {}", tgt[1].name())),
-                        &z_ptr,
+                        &Self::z_ptr_from_witness(
+                            &branch_path_info,
+                            witness,
+                            tgt[1].name(),
+                            store,
+                        )?,
                         tgt[1].name(),
+                        &alloc_ptrs,
                     )?;
 
                     let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
@@ -339,23 +331,11 @@ impl LEM {
                         bail!("{} not allocated", src[2].name());
                     };
 
-                    if alloc_ptrs.contains_key(tgt.name()) {
-                        bail!("{} already allocated", tgt.name());
-                    };
-                    let z_ptr = {
-                        if Self::on_concrete_path(&branch_path_info)? {
-                            let Some(ptr) = witness.ptrs.get(tgt.name()) else {
-                                bail!("Couldn't retrieve {} from witness", tgt.name());
-                            };
-                            store.hydrate_ptr(ptr)?
-                        } else {
-                            ZPtr::dummy()
-                        }
-                    };
                     let alloc_tgt = Self::allocate_ptr(
                         &mut cs.namespace(|| format!("allocate pointer {}", tgt.name())),
-                        &z_ptr,
+                        &Self::z_ptr_from_witness(&branch_path_info, witness, tgt.name(), store)?,
                         tgt.name(),
+                        &alloc_ptrs,
                     )?;
 
                     let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
@@ -395,61 +375,40 @@ impl LEM {
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
                 }
                 LEMOP::Unhash3(tgt, src) => {
-                    if alloc_ptrs.contains_key(tgt[0].name()) {
-                        bail!("{} already allocated", tgt[0].name());
-                    };
-                    let z_ptr = {
-                        if Self::on_concrete_path(&branch_path_info)? {
-                            let Some(ptr) = witness.ptrs.get(tgt[0].name()) else {
-                                bail!("Couldn't retrieve {} from witness", tgt[0].name());
-                            };
-                            store.hydrate_ptr(ptr)?
-                        } else {
-                            ZPtr::dummy()
-                        }
-                    };
                     let alloc_input1 = Self::allocate_ptr(
                         &mut cs.namespace(|| format!("allocate pointer {}", tgt[0].name())),
-                        &z_ptr,
+                        &Self::z_ptr_from_witness(
+                            &branch_path_info,
+                            witness,
+                            tgt[0].name(),
+                            store,
+                        )?,
                         tgt[0].name(),
+                        &alloc_ptrs,
                     )?;
 
-                    if alloc_ptrs.contains_key(tgt[1].name()) {
-                        bail!("{} already allocated", tgt[1].name());
-                    };
-                    let z_ptr = {
-                        if Self::on_concrete_path(&branch_path_info)? {
-                            let Some(ptr) = witness.ptrs.get(tgt[1].name()) else {
-                                bail!("Couldn't retrieve {} from witness", tgt[1].name());
-                            };
-                            store.hydrate_ptr(ptr)?
-                        } else {
-                            ZPtr::dummy()
-                        }
-                    };
                     let alloc_input2 = Self::allocate_ptr(
                         &mut cs.namespace(|| format!("allocate pointer {}", tgt[1].name())),
-                        &z_ptr,
+                        &Self::z_ptr_from_witness(
+                            &branch_path_info,
+                            witness,
+                            tgt[1].name(),
+                            store,
+                        )?,
                         tgt[1].name(),
+                        &alloc_ptrs,
                     )?;
 
-                    if alloc_ptrs.contains_key(tgt[2].name()) {
-                        bail!("{} already allocated", tgt[2].name());
-                    };
-                    let z_ptr = {
-                        if Self::on_concrete_path(&branch_path_info)? {
-                            let Some(ptr) = witness.ptrs.get(tgt[2].name()) else {
-                                bail!("Couldn't retrieve {} from witness", tgt[2].name());
-                            };
-                            store.hydrate_ptr(ptr)?
-                        } else {
-                            ZPtr::dummy()
-                        }
-                    };
                     let alloc_input3 = Self::allocate_ptr(
                         &mut cs.namespace(|| format!("allocate pointer {}", tgt[2].name())),
-                        &z_ptr,
+                        &Self::z_ptr_from_witness(
+                            &branch_path_info,
+                            witness,
+                            tgt[2].name(),
+                            store,
+                        )?,
                         tgt[2].name(),
+                        &alloc_ptrs,
                     )?;
 
                     let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
@@ -492,23 +451,11 @@ impl LEM {
                 }
 
                 LEMOP::Null(tgt, tag) => {
-                    if alloc_ptrs.contains_key(tgt.name()) {
-                        bail!("{} already allocated", tgt.name());
-                    };
-                    let z_ptr = {
-                        if Self::on_concrete_path(&branch_path_info)? {
-                            let Some(ptr) = witness.ptrs.get(tgt.name()) else {
-                                bail!("Couldn't retrieve {} from witness", tgt.name());
-                            };
-                            store.hydrate_ptr(ptr)?
-                        } else {
-                            ZPtr::dummy()
-                        }
-                    };
                     let alloc_tgt = Self::allocate_ptr(
                         &mut cs.namespace(|| format!("allocate pointer {}", tgt.name())),
-                        &z_ptr,
+                        &Self::z_ptr_from_witness(&branch_path_info, witness, tgt.name(), store)?,
                         tgt.name(),
+                        &alloc_ptrs,
                     )?;
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
                     let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
@@ -646,21 +593,17 @@ impl LEM {
                         let Some(alloc_ptr_computed) = alloc_ptrs.get(output.name()) else {
                             bail!("Output {} not allocated", output.name())
                         };
-                        let z_ptr = {
-                            if is_concrete_path {
-                                let Some(ptr) = witness.ptrs.get(output.name()) else {
-                                    bail!("Output {} not found in the witness", output.name())
-                                };
-                                store.hydrate_ptr(ptr)?
-                            } else {
-                                ZPtr::dummy()
-                            }
-                        };
                         let output_name = format!("{}.output[{}]", &path, i);
                         let alloc_ptr_expected = Self::allocate_ptr(
                             &mut cs.namespace(|| format!("allocate input for {output_name}")),
-                            &z_ptr,
+                            &Self::z_ptr_from_witness(
+                                &branch_path_info,
+                                witness,
+                                output.name(),
+                                store,
+                            )?,
                             &output_name,
+                            &alloc_ptrs,
                         )?;
 
                         if is_concrete_path {
@@ -882,7 +825,7 @@ impl LEM {
             };
 
             // get slot_hash from slot name
-            let Some(slot_hash) = hash2_slots.get(&slot) else {
+            let Some(slot_hash) = hash3_slots.get(&slot) else {
                 bail!("Slot hash3 number {} not allocated", slot)
             };
 
