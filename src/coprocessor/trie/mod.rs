@@ -199,7 +199,7 @@ impl<F: LurkField, const ARITY: usize, const HEIGHT: usize> InsertProof<F, ARITY
         new_value: F,
         hash_cache: &PoseidonCache<F>,
     ) -> bool {
-        let old_value = old_value.unwrap_or_else(|| F::zero());
+        let old_value = old_value.unwrap_or_else(|| Trie::<'_, F, ARITY, HEIGHT>::empty_element());
 
         let old_verified = self.old_proof.verify(old_root, key, old_value, hash_cache);
 
@@ -237,6 +237,12 @@ impl<F: LurkField, const ARITY: usize, const HEIGHT: usize> InsertProof<F, ARITY
 }
 
 impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARITY, HEIGHT> {
+    /// The empty element is specified to be zero. This is a natural choice. Crucially, the chosen value must have no known
+    /// preimage.
+    fn empty_element() -> F {
+        F::zero()
+    }
+
     fn compute_hash(hash_cache: &PoseidonCache<F>, preimage: [F; ARITY]) -> F {
         hash_cache.compute_hash(preimage)
     }
@@ -268,7 +274,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
     }
 
     fn init_empty(&mut self) {
-        self.empty_roots = [F::zero(); HEIGHT];
+        self.empty_roots = [Self::empty_element(); HEIGHT];
 
         if HEIGHT == 0 {
             return;
@@ -290,7 +296,13 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
     }
 
     fn empty_root_for_height(&self, height: usize) -> F {
-        self.empty_roots[height - 1]
+        if height == 0 {
+            // This should probably never actually be used, but providing it clarifies the specification, and the
+            // meaning of the `height` parameter with respect to the structure  of the trie.
+            Self::empty_element()
+        } else {
+            self.empty_roots[height - 1]
+        }
     }
 
     pub fn empty_root(&mut self) -> F {
@@ -321,7 +333,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
 
         let mut new = Self {
             root: Default::default(),
-            empty_roots: [F::zero(); HEIGHT],
+            empty_roots: [Self::empty_element(); HEIGHT],
             hash_cache: poseidon_cache,
             children: inverse_poseidon_cache,
         };
@@ -396,12 +408,12 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
     }
 
     // Returns a value corresponding to the commitment associated with `key`, if any.
-    // Note that this depends on the impossibility of discovering a value for which the commitment is zero.
-    // We could alternately return `F::zero()` for missing values, but instead return an `Option` to more clearly
-    // signal intent -- since the encoding of 'missing' values as `Fr::zero()` is significant.
+    // Note that this depends on the impossibility of discovering a value for which the commitment is zero. We could
+    // alternately return the empty element (`F::zero()`) for missing values, but instead return an `Option` to more
+    // clearly signal intent -- since the encoding of 'missing' values as `Fr::zero()` is significant.
     pub fn lookup(&self, key: F) -> Result<Option<F>, Error<F>> {
         self.lookup_aux(key)
-            .map(|payload| (payload != F::zero()).then_some(payload))
+            .map(|payload| (payload != Self::empty_element()).then_some(payload))
     }
 
     fn lookup_aux(&self, key: F) -> Result<F, Error<F>> {
@@ -506,6 +518,42 @@ mod test {
     use super::*;
     use ff::PrimeField;
     use pasta_curves::pallas::Scalar as Fr;
+
+    #[test]
+    fn test_empty_roots() {
+        let s = &mut Store::new();
+        let t: Trie<'_, Fr, 8, 3> = Trie::new_with_capacity(s, 512);
+        assert_eq!(Fr::zero(), Trie::<'_, Fr, 8, 3>::empty_element());
+        assert_eq!(Fr::zero(), t.empty_root_for_height(0));
+        assert_eq!(
+            scalar_from_u64s([
+                0xa81830c13a876b1c,
+                0x83b4610d346c2a33,
+                0x528056fe84bb9846,
+                0x0ef417527046e53c
+            ]),
+            t.empty_root_for_height(1)
+        );
+
+        assert_eq!(
+            scalar_from_u64s([
+                0x33ff39660bc554aa,
+                0xd85d92c9279a65e7,
+                0x8e0f305f27de3d65,
+                0x089120e96e4b6dc5
+            ]),
+            t.empty_root_for_height(2)
+        );
+        assert_eq!(
+            scalar_from_u64s([
+                0xa52e7d0bbbee086b,
+                0x06e4ba3d56dbd7fa,
+                0xed7adffde497af73,
+                0x2fd6f6c5e5d21d60
+            ]),
+            t.empty_root_for_height(3)
+        );
+    }
 
     #[test]
     fn test_sizes() {
