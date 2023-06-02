@@ -72,12 +72,32 @@ struct HashSlots<F: LurkField> {
     hash2_stacks: SlotStacks,
     hash3_alloc: Vec<(usize, AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>)>,
     hash3_stacks: SlotStacks,
+    hash4_alloc: Vec<(
+        usize,
+        AllocatedPtr<F>,
+        AllocatedPtr<F>,
+        AllocatedPtr<F>,
+        AllocatedPtr<F>,
+    )>,
+    hash4_stacks: SlotStacks,
 }
 
 #[derive(Default, Clone)]
 struct SlotsIndices {
     hash2_idx: usize,
     hash3_idx: usize,
+    hash4_idx: usize,
+}
+
+enum AllocHashPreimage<F: LurkField> {
+    A2(AllocatedPtr<F>, AllocatedPtr<F>),
+    A3(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>),
+    A4(
+        AllocatedPtr<F>,
+        AllocatedPtr<F>,
+        AllocatedPtr<F>,
+        AllocatedPtr<F>,
+    ),
 }
 
 impl LEM {
@@ -163,6 +183,93 @@ impl LEM {
         Ok(())
     }
 
+    fn stack_hash_slots<F: LurkField>(
+        branch_path_info: &Option<Boolean>,
+        hash_slots: &mut HashSlots<F>,
+        slots: &SlotsIndices,
+        hash: MetaPtr,
+        alloc_arity: AllocHashPreimage<F>,
+        tag: Option<Tag>,
+    ) -> Result<()> {
+        let is_concrete_path = Self::on_concrete_path(branch_path_info)?;
+        match alloc_arity {
+            AllocHashPreimage::A2(i0, i1) => {
+                if let Some(concrete_path) = branch_path_info {
+                    // if concrete_path is true, push to slots
+                    if is_concrete_path {
+                        hash_slots.hash2_alloc.push((slots.hash2_idx, i0, i1));
+                        // only once per path
+                    }
+                    // concrete path implies alloc_tgt has the same value as in the current slot
+                    hash_slots.hash2_stacks.implies_stack.push((
+                        concrete_path.clone(),
+                        slots.hash2_idx,
+                        hash,
+                        tag,
+                    ));
+                // many
+                } else {
+                    hash_slots
+                        .hash2_stacks
+                        .enforce_stack
+                        .push((slots.hash2_idx, hash, tag));
+                    hash_slots.hash2_alloc.push((slots.hash2_idx, i0, i1))
+                };
+            }
+            AllocHashPreimage::A3(i0, i1, i2) => {
+                if let Some(concrete_path) = branch_path_info {
+                    // if concrete_path is true, push to slots
+                    if is_concrete_path {
+                        hash_slots.hash3_alloc.push((slots.hash3_idx, i0, i1, i2));
+                        // only once per path
+                    }
+                    // concrete path implies alloc_tgt has the same value as in the current slot
+                    hash_slots.hash3_stacks.implies_stack.push((
+                        concrete_path.clone(),
+                        slots.hash3_idx,
+                        hash,
+                        tag,
+                    ));
+                // many
+                } else {
+                    hash_slots
+                        .hash3_stacks
+                        .enforce_stack
+                        .push((slots.hash3_idx, hash, tag));
+                    hash_slots.hash3_alloc.push((slots.hash3_idx, i0, i1, i2))
+                };
+            }
+            AllocHashPreimage::A4(i0, i1, i2, i3) => {
+                if let Some(concrete_path) = branch_path_info {
+                    // if concrete_path is true, push to slots
+                    if is_concrete_path {
+                        hash_slots
+                            .hash4_alloc
+                            .push((slots.hash4_idx, i0, i1, i2, i3));
+                        // only once per path
+                    }
+                    // concrete path implies alloc_tgt has the same value as in the current slot
+                    hash_slots.hash4_stacks.implies_stack.push((
+                        concrete_path.clone(),
+                        slots.hash4_idx,
+                        hash,
+                        tag,
+                    ));
+                // many
+                } else {
+                    hash_slots
+                        .hash4_stacks
+                        .enforce_stack
+                        .push((slots.hash4_idx, hash, tag));
+                    hash_slots
+                        .hash4_alloc
+                        .push((slots.hash4_idx, i0, i1, i2, i3))
+                };
+            }
+        }
+        Ok(())
+    }
+
     /// Create R1CS constraints for LEM given an evaluation witness.
     ///
     /// As we find recursive (non-leaf) LEM operations, we stack them to be
@@ -212,244 +319,243 @@ impl LEM {
         )];
         while let Some((op, branch_path_info, path, slots)) = stack.pop() {
             match op {
-                LEMOP::Hash2(tgt, tag, src) => {
-                    let Some(alloc_car) = alloc_ptrs.get(src[0].name()) else {
-                        bail!("{} not allocated", src[0].name());
+                LEMOP::Hash2(hash, tag, preimg) => {
+                    let Some(i1) = alloc_ptrs.get(preimg[0].name()) else {
+                        bail!("{} not allocated", preimg[0].name());
                     };
-                    let Some(alloc_cdr) = alloc_ptrs.get(src[1].name()) else {
-                        bail!("{} not allocated", src[1].name());
+                    let Some(i2) = alloc_ptrs.get(preimg[1].name()) else {
+                        bail!("{} not allocated", preimg[1].name());
                     };
 
-                    let alloc_tgt = Self::allocate_ptr(
+                    let alloc_hash = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_witness(&branch_path_info, witness, tgt.name(), store)?,
-                        tgt.name(),
+                        &Self::z_ptr_from_witness(&branch_path_info, witness, hash.name(), store)?,
+                        hash.name(),
                         &alloc_ptrs,
                     )?;
 
-                    let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
-                    if let Some(concrete_path) = branch_path_info {
-                        // if concrete_path is true, push to slots
-                        if is_concrete_path {
-                            hash_slots.hash2_alloc.push((
-                                slots.hash2_idx,
-                                alloc_car.clone(),
-                                alloc_cdr.clone(),
-                            ));
-                            // only once per path
-                        }
-                        // concrete path implies alloc_tgt has the same value as in the current slot
-                        hash_slots.hash2_stacks.implies_stack.push((
-                            concrete_path,
-                            slots.hash2_idx,
-                            tgt.clone(),
-                            Some(*tag),
-                        ));
-                    // many
-                    } else {
-                        hash_slots.hash2_stacks.enforce_stack.push((
-                            slots.hash2_idx,
-                            tgt.clone(),
-                            Some(*tag),
-                        ));
-                        hash_slots.hash2_alloc.push((
-                            slots.hash2_idx,
-                            alloc_car.clone(),
-                            alloc_cdr.clone(),
-                        ))
-                    };
+                    Self::stack_hash_slots(
+                        &branch_path_info,
+                        &mut hash_slots,
+                        &slots,
+                        hash.clone(),
+                        AllocHashPreimage::A2(i1.clone(), i2.clone()),
+                        Some(*tag),
+                    )?;
 
-                    alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
+                    alloc_ptrs.insert(hash.name(), alloc_hash.clone());
                 }
-                LEMOP::Unhash2(tgt, src) => {
-                    let alloc_car = Self::allocate_ptr(
+                LEMOP::Unhash2(preimg, hash) => {
+                    let i1 = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_witness(
                             &branch_path_info,
                             witness,
-                            tgt[0].name(),
+                            preimg[0].name(),
                             store,
                         )?,
-                        tgt[0].name(),
+                        preimg[0].name(),
                         &alloc_ptrs,
                     )?;
-                    let alloc_cdr = Self::allocate_ptr(
+
+                    let i2 = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_witness(
                             &branch_path_info,
                             witness,
-                            tgt[1].name(),
+                            preimg[1].name(),
                             store,
                         )?,
-                        tgt[1].name(),
+                        preimg[1].name(),
                         &alloc_ptrs,
                     )?;
 
-                    let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
-                    if let Some(concrete_path) = branch_path_info {
-                        // if concrete_path is true, push to slots
-                        if is_concrete_path {
-                            hash_slots.hash2_alloc.push((
-                                slots.hash2_idx,
-                                alloc_car.clone(),
-                                alloc_cdr.clone(),
-                            ));
-                            // only once per path
-                        }
-                        // concrete path implies alloc_tgt has the same value as in the current slot
-                        hash_slots.hash2_stacks.implies_stack.push((
-                            concrete_path,
-                            slots.hash2_idx,
-                            src.clone(),
-                            None,
-                        ));
-                    // many
-                    } else {
-                        hash_slots.hash2_stacks.enforce_stack.push((
-                            slots.hash2_idx,
-                            src.clone(),
-                            None,
-                        ));
-                        hash_slots.hash2_alloc.push((
-                            slots.hash2_idx,
-                            alloc_car.clone(),
-                            alloc_cdr.clone(),
-                        ))
-                    };
+                    Self::stack_hash_slots(
+                        &branch_path_info,
+                        &mut hash_slots,
+                        &slots,
+                        hash.clone(),
+                        AllocHashPreimage::A2(i1.clone(), i2.clone()),
+                        None,
+                    )?;
 
-                    alloc_ptrs.insert(tgt[0].name(), alloc_car.clone());
-                    alloc_ptrs.insert(tgt[1].name(), alloc_cdr.clone());
+                    alloc_ptrs.insert(preimg[0].name(), i1);
+                    alloc_ptrs.insert(preimg[1].name(), i2);
                 }
-                LEMOP::Hash3(tgt, tag, src) => {
-                    let Some(alloc_input1) = alloc_ptrs.get(src[0].name()) else {
-                        bail!("{} not allocated", src[0].name());
+                LEMOP::Hash3(hash, tag, preimg) => {
+                    let Some(i1) = alloc_ptrs.get(preimg[0].name()) else {
+                        bail!("{} not allocated", preimg[0].name());
                     };
-                    let Some(alloc_input2) = alloc_ptrs.get(src[1].name()) else {
-                        bail!("{} not allocated", src[1].name());
+                    let Some(i2) = alloc_ptrs.get(preimg[1].name()) else {
+                        bail!("{} not allocated", preimg[1].name());
                     };
-                    let Some(alloc_input3) = alloc_ptrs.get(src[2].name()) else {
-                        bail!("{} not allocated", src[2].name());
+                    let Some(i3) = alloc_ptrs.get(preimg[2].name()) else {
+                        bail!("{} not allocated", preimg[2].name());
                     };
 
-                    let alloc_tgt = Self::allocate_ptr(
+                    let alloc_hash = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_witness(&branch_path_info, witness, tgt.name(), store)?,
-                        tgt.name(),
+                        &Self::z_ptr_from_witness(&branch_path_info, witness, hash.name(), store)?,
+                        hash.name(),
                         &alloc_ptrs,
                     )?;
 
-                    let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
-                    if let Some(concrete_path) = branch_path_info {
-                        // if concrete_path is true, push to slots
-                        if is_concrete_path {
-                            hash_slots.hash3_alloc.push((
-                                slots.hash3_idx,
-                                alloc_input1.clone(),
-                                alloc_input2.clone(),
-                                alloc_input3.clone(),
-                            ));
-                            // only once per path
-                        }
-                        // concrete path implies alloc_tgt has the same value as in the current slot
-                        hash_slots.hash3_stacks.implies_stack.push((
-                            concrete_path,
-                            slots.hash3_idx,
-                            tgt.clone(),
-                            Some(*tag),
-                        ));
-                    // many
-                    } else {
-                        hash_slots.hash3_stacks.enforce_stack.push((
-                            slots.hash3_idx,
-                            tgt.clone(),
-                            Some(*tag),
-                        ));
-                        hash_slots.hash3_alloc.push((
-                            slots.hash3_idx,
-                            alloc_input1.clone(),
-                            alloc_input2.clone(),
-                            alloc_input3.clone(),
-                        ))
-                    };
+                    Self::stack_hash_slots(
+                        &branch_path_info,
+                        &mut hash_slots,
+                        &slots,
+                        hash.clone(),
+                        AllocHashPreimage::A3(i1.clone(), i2.clone(), i3.clone()),
+                        Some(*tag),
+                    )?;
 
-                    alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
+                    alloc_ptrs.insert(hash.name(), alloc_hash.clone());
                 }
-                LEMOP::Unhash3(tgt, src) => {
-                    let alloc_input1 = Self::allocate_ptr(
+                LEMOP::Unhash3(preimg, hash) => {
+                    let i1 = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_witness(
                             &branch_path_info,
                             witness,
-                            tgt[0].name(),
+                            preimg[0].name(),
                             store,
                         )?,
-                        tgt[0].name(),
+                        preimg[0].name(),
                         &alloc_ptrs,
                     )?;
 
-                    let alloc_input2 = Self::allocate_ptr(
+                    let i2 = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_witness(
                             &branch_path_info,
                             witness,
-                            tgt[1].name(),
+                            preimg[1].name(),
                             store,
                         )?,
-                        tgt[1].name(),
+                        preimg[1].name(),
                         &alloc_ptrs,
                     )?;
 
-                    let alloc_input3 = Self::allocate_ptr(
+                    let i3 = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_witness(
                             &branch_path_info,
                             witness,
-                            tgt[2].name(),
+                            preimg[2].name(),
                             store,
                         )?,
-                        tgt[2].name(),
+                        preimg[2].name(),
                         &alloc_ptrs,
                     )?;
 
-                    let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
-                    if let Some(concrete_path) = branch_path_info {
-                        // if concrete_path is true, push to slots
-                        if is_concrete_path {
-                            hash_slots.hash3_alloc.push((
-                                slots.hash3_idx,
-                                alloc_input1.clone(),
-                                alloc_input2.clone(),
-                                alloc_input3.clone(),
-                            ));
-                            // only once per path
-                        }
-                        // concrete path implies alloc_tgt has the same value as in the current slot
-                        hash_slots.hash3_stacks.implies_stack.push((
-                            concrete_path,
-                            slots.hash3_idx,
-                            src.clone(),
-                            None,
-                        ));
-                    // many
-                    } else {
-                        hash_slots.hash3_stacks.enforce_stack.push((
-                            slots.hash3_idx,
-                            src.clone(),
-                            None,
-                        ));
-                        hash_slots.hash3_alloc.push((
-                            slots.hash3_idx,
-                            alloc_input1.clone(),
-                            alloc_input2.clone(),
-                            alloc_input3.clone(),
-                        ))
+                    Self::stack_hash_slots(
+                        &branch_path_info,
+                        &mut hash_slots,
+                        &slots,
+                        hash.clone(),
+                        AllocHashPreimage::A3(i1.clone(), i2.clone(), i3.clone()),
+                        None,
+                    )?;
+
+                    alloc_ptrs.insert(preimg[0].name(), i1);
+                    alloc_ptrs.insert(preimg[1].name(), i2);
+                    alloc_ptrs.insert(preimg[2].name(), i3);
+                }
+                LEMOP::Hash4(hash, tag, preimg) => {
+                    let Some(i1) = alloc_ptrs.get(preimg[0].name()) else {
+                        bail!("{} not allocated", preimg[0].name());
+                    };
+                    let Some(i2) = alloc_ptrs.get(preimg[1].name()) else {
+                        bail!("{} not allocated", preimg[1].name());
+                    };
+                    let Some(i3) = alloc_ptrs.get(preimg[2].name()) else {
+                        bail!("{} not allocated", preimg[2].name());
+                    };
+                    let Some(i4) = alloc_ptrs.get(preimg[3].name()) else {
+                        bail!("{} not allocated", preimg[3].name());
                     };
 
-                    alloc_ptrs.insert(tgt[0].name(), alloc_input1.clone());
-                    alloc_ptrs.insert(tgt[1].name(), alloc_input2.clone());
-                    alloc_ptrs.insert(tgt[2].name(), alloc_input3.clone());
-                }
+                    let alloc_hash = Self::allocate_ptr(
+                        cs,
+                        &Self::z_ptr_from_witness(&branch_path_info, witness, hash.name(), store)?,
+                        hash.name(),
+                        &alloc_ptrs,
+                    )?;
 
+                    Self::stack_hash_slots(
+                        &branch_path_info,
+                        &mut hash_slots,
+                        &slots,
+                        hash.clone(),
+                        AllocHashPreimage::A4(i1.clone(), i2.clone(), i3.clone(), i4.clone()),
+                        Some(*tag),
+                    )?;
+
+                    alloc_ptrs.insert(hash.name(), alloc_hash.clone());
+                }
+                LEMOP::Unhash4(preimg, hash) => {
+                    let i1 = Self::allocate_ptr(
+                        cs,
+                        &Self::z_ptr_from_witness(
+                            &branch_path_info,
+                            witness,
+                            preimg[0].name(),
+                            store,
+                        )?,
+                        preimg[0].name(),
+                        &alloc_ptrs,
+                    )?;
+
+                    let i2 = Self::allocate_ptr(
+                        cs,
+                        &Self::z_ptr_from_witness(
+                            &branch_path_info,
+                            witness,
+                            preimg[1].name(),
+                            store,
+                        )?,
+                        preimg[1].name(),
+                        &alloc_ptrs,
+                    )?;
+
+                    let i3 = Self::allocate_ptr(
+                        cs,
+                        &Self::z_ptr_from_witness(
+                            &branch_path_info,
+                            witness,
+                            preimg[2].name(),
+                            store,
+                        )?,
+                        preimg[2].name(),
+                        &alloc_ptrs,
+                    )?;
+
+                    let i4 = Self::allocate_ptr(
+                        cs,
+                        &Self::z_ptr_from_witness(
+                            &branch_path_info,
+                            witness,
+                            preimg[3].name(),
+                            store,
+                        )?,
+                        preimg[3].name(),
+                        &alloc_ptrs,
+                    )?;
+
+                    Self::stack_hash_slots(
+                        &branch_path_info,
+                        &mut hash_slots,
+                        &slots,
+                        hash.clone(),
+                        AllocHashPreimage::A4(i1.clone(), i2.clone(), i3.clone(), i4.clone()),
+                        None,
+                    )?;
+
+                    alloc_ptrs.insert(preimg[0].name(), i1);
+                    alloc_ptrs.insert(preimg[1].name(), i2);
+                    alloc_ptrs.insert(preimg[2].name(), i3);
+                    alloc_ptrs.insert(preimg[3].name(), i4);
+                }
                 LEMOP::Null(tgt, tag) => {
                     let alloc_tgt = Self::allocate_ptr(
                         cs,
@@ -856,6 +962,12 @@ impl LEM {
                 );
             }
         }
+
+        /////////////////////////////////////////////////////////////////////////
+        ///////////////////////////// Hash4 /////////////////////////////////////
+        /////////////////////////////////////////////////////////////////////////
+
+        // TODO
 
         Ok(())
     }
