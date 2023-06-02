@@ -219,11 +219,9 @@ impl<F: LurkField, const ARITY: usize, const HEIGHT: usize> InsertProof<F, ARITY
                     // This is purely an evaluation-time optimization. Don't try to reproduce in the circuit, which cannot shortcut.
                     return old_verified;
                 }
-                let differing_position_count = a
-                    .iter()
-                    .zip(b)
-                    .map(|(x, y)| x != y)
-                    .fold(0, |acc, are_diff| acc + are_diff as usize);
+                let differing_position_count: usize =
+                    a.iter().zip(b).map(|(x, y)| usize::from(x != y)).sum();
+
                 differing_position_count <= 1
             });
 
