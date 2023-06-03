@@ -5,6 +5,8 @@ use criterion::{
     BenchmarkId, Criterion, SamplingMode,
 };
 
+use pasta_curves::pallas;
+
 use lurk::{
     eval::{
         empty_sym_env,
@@ -41,8 +43,7 @@ fn fib<F: LurkField>(store: &mut Store<F>, a: u64) -> Ptr<F> {
 #[allow(dead_code)]
 fn fibo_total<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut BenchmarkGroup<M>) {
     let limit: usize = 10_000_000_000;
-    let lang_pallas =
-        Lang::<pasta_curves::pallas::Scalar, Coproc<pasta_curves::pallas::Scalar>>::new();
+    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
     let lang_rc = Arc::new(lang_pallas.clone());
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
@@ -55,7 +56,7 @@ fn fibo_total<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut 
         |b, iterations| {
             let mut store = Store::default();
             let env = empty_sym_env(&store);
-            let ptr = fib::<pasta_curves::pallas::Scalar>(&mut store, black_box(*iterations));
+            let ptr = fib::<pallas::Scalar>(&mut store, black_box(*iterations));
             let prover = NovaProver::new(reduction_count, lang_pallas.clone());
 
             b.iter_batched(
@@ -75,14 +76,14 @@ fn fibo_total<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut 
 #[allow(dead_code)]
 fn fibo_eval<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut BenchmarkGroup<M>) {
     let limit = 10_000_000_000;
-    let lang_pallas = Lang::<pasta_curves::Fp, Coproc<pasta_curves::Fp>>::new();
+    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
 
     c.bench_with_input(
         BenchmarkId::new(name.to_string(), iterations),
         &(iterations),
         |b, iterations| {
             let mut store = Store::default();
-            let ptr = fib::<pasta_curves::Fp>(&mut store, black_box(*iterations));
+            let ptr = fib::<pallas::Scalar>(&mut store, black_box(*iterations));
             b.iter(|| {
                 let result =
                     Evaluator::new(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
@@ -95,8 +96,7 @@ fn fibo_eval<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut B
 
 fn fibo_prove<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut BenchmarkGroup<M>) {
     let limit = 10_000_000_000;
-    let lang_pallas =
-        Lang::<pasta_curves::pallas::Scalar, Coproc<pasta_curves::pallas::Scalar>>::new();
+    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
     let lang_rc = Arc::new(lang_pallas.clone());
     let reduction_count = DEFAULT_REDUCTION_COUNT;
     let pp = public_params(reduction_count, lang_rc.clone()).unwrap();
@@ -107,7 +107,7 @@ fn fibo_prove<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut 
         |b, iterations| {
             let mut store = Store::default();
             let env = empty_sym_env(&store);
-            let ptr = fib::<pasta_curves::pallas::Scalar>(&mut store, black_box(*iterations));
+            let ptr = fib::<pallas::Scalar>(&mut store, black_box(*iterations));
             let prover = NovaProver::new(reduction_count, lang_pallas.clone());
 
             let frames = prover
