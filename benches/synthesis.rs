@@ -61,8 +61,7 @@ fn synthesize<M: measurement::Measurement>(
                 .unwrap();
 
             let multiframe =
-                MultiFrame::from_frames(*reduction_count, &frames, &store, lang_rc.clone())[0]
-                    .clone();
+                MultiFrame::from_frames(*reduction_count, &frames, &store, &lang_rc)[0].clone();
 
             b.iter_batched(
                 || (multiframe.clone()), // avoid cloning the frames in the benchmark

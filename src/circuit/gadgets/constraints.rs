@@ -544,12 +544,12 @@ pub(crate) fn alloc_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: CS,
     x: &AllocatedNum<F>,
 ) -> Result<Boolean, SynthesisError> {
-    alloc_num_is_zero(cs, Num::from(x.clone()))
+    alloc_num_is_zero(cs, &Num::from(x.clone()))
 }
 
 pub(crate) fn alloc_num_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
-    num: Num<F>,
+    num: &Num<F>,
 ) -> Result<Boolean, SynthesisError> {
     let num_value = num.get_value();
     let x = num_value.unwrap_or(F::ZERO);
@@ -618,7 +618,7 @@ pub(crate) fn or_v_unchecked_for_optimization<CS: ConstraintSystem<F>, F: PrimeF
 
     // If the number of true values is zero, then none of the values is true.
     // Therefore, nor(v0, v1, ..., vn) is true.
-    let nor = alloc_num_is_zero(&mut cs.namespace(|| "nor"), count_true)?;
+    let nor = alloc_num_is_zero(&mut cs.namespace(|| "nor"), &count_true)?;
 
     Ok(nor.not())
 }
@@ -639,7 +639,7 @@ pub(crate) fn and_v<CS: ConstraintSystem<F>, F: PrimeField>(
 
     // If the number of false values is zero, then all of the values are true.
     // Therefore, and(v0, v1, ..., vn) is true.
-    let and = alloc_num_is_zero(&mut cs.namespace(|| "nor_of_nots"), count_false)?;
+    let and = alloc_num_is_zero(&mut cs.namespace(|| "nor_of_nots"), &count_false)?;
 
     Ok(and)
 }

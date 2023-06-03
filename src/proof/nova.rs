@@ -155,8 +155,7 @@ impl<C: Coprocessor<S1>> NovaProver<S1, C> {
     ) -> Result<(Proof<'_, C>, Vec<S1>, Vec<S1>, usize), ProofError> {
         let z0 = frames[0].input.to_vector(store)?;
         let zi = frames.last().unwrap().output.to_vector(store)?;
-        let circuits =
-            MultiFrame::from_frames(self.reduction_count(), &frames, store, lang.clone());
+        let circuits = MultiFrame::from_frames(self.reduction_count(), &frames, store, &lang);
         let num_steps = circuits.len();
         let proof =
             Proof::prove_recursively(pp, store, &circuits, self.reduction_count, z0.clone(), lang)?;
@@ -480,8 +479,7 @@ pub mod tests {
             .get_evaluation_frames(expr, e, s, limit, &lang)
             .unwrap();
 
-        let multiframes =
-            MultiFrame::from_frames(nova_prover.reduction_count(), &frames, s, lang.clone());
+        let multiframes = MultiFrame::from_frames(nova_prover.reduction_count(), &frames, s, &lang);
         let len = multiframes.len();
 
         let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);

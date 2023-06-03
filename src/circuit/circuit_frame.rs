@@ -104,7 +104,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
         count: usize,
         frames: &[Frame<T, W, C>],
         store: &'a Store<F>,
-        lang: Arc<Lang<F, C>>,
+        lang: &Arc<Lang<F, C>>,
     ) -> Vec<Self> {
         // `count` is the number of `Frames` to include per `MultiFrame`.
         let total_frames = frames.len();
@@ -3991,7 +3991,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let (alloc_q, alloc_r) = enforce_u64_div_mod(
             &mut cs.namespace(|| "u64 div mod equation"),
-            op2_is_mod.clone(),
+            &op2_is_mod,
             &arg1,
             arg2,
         )?;
@@ -4717,15 +4717,15 @@ fn to_unsigned_integer_helper<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
     field_elem: &AllocatedNum<F>,
-    field_bn: BigUint,
+    field_bn: &BigUint,
     field_elem_bits: &[Boolean],
     size: UnsignedInt,
 ) -> Result<AllocatedNum<F>, SynthesisError> {
     let power_of_two_bn = BigUint::pow(&BigUint::from_u32(2).unwrap(), size.num_bits());
 
     let (q_bn, r_bn) = field_bn.div_rem(&power_of_two_bn);
-    let q_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "q"), q_bn)?;
-    let r_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "r"), r_bn)?;
+    let q_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "q"), &q_bn)?;
+    let r_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "r"), &r_bn)?;
     let pow2_size = match size {
         UnsignedInt::U32 => &g.power2_32_num,
         UnsignedInt::U64 => &g.power2_64_num,
@@ -4772,7 +4772,7 @@ fn to_unsigned_integers<F: LurkField, CS: ConstraintSystem<F>>(
         &mut cs.namespace(|| "enforce u32"),
         g,
         maybe_unsigned,
-        field_bn.clone(),
+        &field_bn,
         &field_elem_bits,
         UnsignedInt::U32,
     )?;
@@ -4780,7 +4780,7 @@ fn to_unsigned_integers<F: LurkField, CS: ConstraintSystem<F>>(
         &mut cs.namespace(|| "enforce u64"),
         g,
         maybe_unsigned,
-        field_bn,
+        &field_bn,
         &field_elem_bits,
         UnsignedInt::U64,
     )?;
@@ -4802,7 +4802,7 @@ fn to_u64<F: LurkField, CS: ConstraintSystem<F>>(
         &mut cs.namespace(|| "enforce u64"),
         g,
         maybe_u64,
-        field_bn,
+        &field_bn,
         &field_elem_bits,
         UnsignedInt::U64,
     )?;
@@ -4814,7 +4814,7 @@ fn to_u64<F: LurkField, CS: ConstraintSystem<F>>(
 // arg1 = q * arg2 + r, such that 0 <= r < arg2.
 fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
-    cond: Boolean,
+    cond: &Boolean,
     arg1: &AllocatedPtr<F>,
     arg2: &AllocatedPtr<F>,
 ) -> Result<(AllocatedNum<F>, AllocatedNum<F>), SynthesisError> {
@@ -4862,7 +4862,7 @@ fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
     let b_is_not_zero_and_cond = Boolean::and(
         &mut cs.namespace(|| "b is not zero and cond"),
         &b_is_zero.not(),
-        &cond,
+        cond,
     )?;
     enforce_implication(
         &mut cs.namespace(|| "enforce u64 mod decomposition"),
@@ -4873,8 +4873,8 @@ fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
     enforce_less_than_bound(
         &mut cs.namespace(|| "remainder in range b"),
         cond,
-        alloc_r_num.clone(),
-        alloc_arg2_num,
+        &alloc_r_num,
+        &alloc_arg2_num,
     )?;
 
     Ok((alloc_q_num, alloc_r_num))
@@ -4886,11 +4886,11 @@ fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
 // `cond` is a Boolean condition that enforces the validation iff it is True.
 fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
-    cond: Boolean,
-    num: AllocatedNum<F>,
-    bound: AllocatedNum<F>,
+    cond: &Boolean,
+    num: &AllocatedNum<F>,
+    bound: &AllocatedNum<F>,
 ) -> Result<(), SynthesisError> {
-    let diff_bound_num = sub(&mut cs.namespace(|| "bound minus num"), &bound, &num)?;
+    let diff_bound_num = sub(&mut cs.namespace(|| "bound minus num"), bound, num)?;
 
     let diff_bound_num_is_negative = allocate_is_negative(
         &mut cs.namespace(|| "diff bound num is negative"),
@@ -4899,7 +4899,7 @@ fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
 
     enforce_implication(
         &mut cs.namespace(|| "enforce u64 range"),
-        &cond,
+        cond,
         &diff_bound_num_is_negative.not(),
     )
 }
@@ -4911,7 +4911,7 @@ fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
 // after dividing by 2ˆ64. Therefore we constrain this relation afterwards.
 fn allocate_unconstrained_bignum<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
-    bn: BigUint,
+    bn: &BigUint,
 ) -> Result<AllocatedNum<F>, SynthesisError> {
     let bytes_le = bn.to_bytes_le();
     let mut bytes_padded = [0u8; 32];
@@ -5297,7 +5297,7 @@ mod tests {
                     _p: Default::default(),
                 }],
                 store,
-                lang.clone(),
+                &lang,
             );
 
             let multiframe = &multiframes[0];
@@ -5413,7 +5413,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                lang.clone(),
+                &lang,
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5494,7 +5494,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                lang.clone(),
+                &lang,
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5576,7 +5576,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                lang.clone(),
+                &lang,
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5659,7 +5659,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                lang.clone(),
+                &lang,
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5757,9 +5757,9 @@ mod tests {
 
         let res = enforce_less_than_bound(
             &mut cs.namespace(|| "enforce less than bound"),
-            cond,
-            alloc_num,
-            alloc_most_positive,
+            &cond,
+            &alloc_num,
+            &alloc_most_positive,
         );
         assert!(res.is_ok());
         assert!(cs.is_satisfied());
@@ -5776,9 +5776,9 @@ mod tests {
 
         let res = enforce_less_than_bound(
             &mut cs.namespace(|| "enforce less than bound"),
-            cond,
-            alloc_num,
-            alloc_bound,
+            &cond,
+            &alloc_num,
+            &alloc_bound,
         );
         assert!(res.is_ok());
         assert!(cs.is_satisfied());
@@ -5795,9 +5795,9 @@ mod tests {
 
         let res = enforce_less_than_bound(
             &mut cs.namespace(|| "enforce less than bound"),
-            cond,
-            alloc_num,
-            alloc_bound,
+            &cond,
+            &alloc_num,
+            &alloc_bound,
         );
         assert!(res.is_ok());
         assert!(!cs.is_satisfied());
@@ -5817,7 +5817,7 @@ mod tests {
 
         let (q, r) = enforce_u64_div_mod(
             &mut cs.namespace(|| "enforce u64 div mod"),
-            cond,
+            &cond,
             &alloc_a,
             &alloc_b,
         )
@@ -5841,7 +5841,7 @@ mod tests {
 
         let (q, r) = enforce_u64_div_mod(
             &mut cs.namespace(|| "enforce u64 div mod"),
-            cond,
+            &cond,
             &alloc_a,
             &alloc_b,
         )
@@ -5900,7 +5900,7 @@ mod tests {
             &mut cs,
             &g,
             &a_plus_power2_32_num,
-            field_bn,
+            &field_bn,
             &bits,
             UnsignedInt::U32,
         )
@@ -5931,7 +5931,7 @@ mod tests {
             &mut cs,
             &g,
             &a_plus_power2_64_num,
-            field_bn,
+            &field_bn,
             &bits,
             UnsignedInt::U64,
         )

@@ -168,7 +168,7 @@ impl LEMOP {
     /// `LEM::new`, which is the API that should be used directly.
     pub fn deconflict(
         &self,
-        path: String,
+        path: &str,
         dmap: &DashMap<String, String, ahash::RandomState>, // name -> path/name
     ) -> Result<Self> {
         match self {
@@ -255,7 +255,8 @@ impl LEMOP {
                 let mut new_cases = vec![];
                 for (tag, case) in cases {
                     // each case needs it's own clone of `dmap`
-                    let new_case = case.deconflict(format!("{}.{}", &path, &tag), &dmap.clone())?;
+                    let new_case =
+                        case.deconflict(&format!("{}.{}", &path, &tag), &dmap.clone())?;
                     new_cases.push((*tag, new_case));
                 }
                 Ok(LEMOP::MatchTag(
@@ -266,7 +267,7 @@ impl LEMOP {
             LEMOP::Seq(ops) => {
                 let mut new_ops = vec![];
                 for op in ops {
-                    new_ops.push(op.deconflict(path.clone(), dmap)?);
+                    new_ops.push(op.deconflict(path, dmap)?);
                 }
                 Ok(LEMOP::Seq(new_ops))
             }
@@ -338,7 +339,7 @@ impl LEM {
         let dmap = DashMap::from_iter(input.map(|i| (i.to_string(), i.to_string())));
         Ok(LEM {
             input: input.map(|i| i.to_string()),
-            lem_op: lem_op.deconflict(String::new(), &dmap)?,
+            lem_op: lem_op.deconflict("", &dmap)?,
         })
     }
 }
