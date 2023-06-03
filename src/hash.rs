@@ -5,6 +5,7 @@ use generic_array::typenum::{U3, U4, U6, U8};
 use neptune::{poseidon::PoseidonConstants, Poseidon};
 use once_cell::sync::OnceCell;
 
+#[derive(Debug, Clone, Copy)]
 pub enum HashArity {
     A3,
     A4,
