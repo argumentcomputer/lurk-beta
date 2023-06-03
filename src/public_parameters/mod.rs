@@ -76,13 +76,24 @@ pub fn committed_expression_store() -> CommittedExpressionMap {
     FileMap::<Commitment<S1>, CommittedExpression<S1>>::new("committed_expressions").unwrap()
 }
 
-pub fn public_params<C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static>(
-    rc: usize,
-    quick: bool,
-    lang: Arc<Lang<S1, C>>,
-) -> Result<Arc<PublicParams<'static, C>>, Error> {
+pub fn public_params<C, B, T>(rc: usize, quick: bool, lang: Arc<Lang<S1, C>>, bind: B) -> T
+where
+    C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static,
+    B: Fn(PublicParams<'static, C>) -> T,
+{
     let f = |lang: Arc<Lang<S1, C>>| Arc::new(nova::public_params(rc, lang));
     registry::CACHE_REG.get_coprocessor_or_update_with(rc, quick, f, lang)
+}
+
+pub fn with_public_params<
+    C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static,
+    T,
+    F: FnOnce(&PublicParams<'static, C>) -> T,
+>(
+    rc: usize,
+    lang: Arc<Lang<S1, C>>,
+    f: F,
+) {
 }
 
 pub fn public_params_quick<C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static>(
@@ -103,7 +114,7 @@ pub fn public_params_quick<C: Coprocessor<S1> + Serialize + DeserializeOwned + '
         assert!(remaining.len() == 0);
         let pp = std::mem::ManuallyDrop::new(bytes);
         // this is extremely dangerous
-        let pp  = unsafe { std::mem::transmute_copy(&pp) };
+        let pp = unsafe { std::mem::transmute_copy(&pp) };
         Ok(pp)
     } else {
         let pp = nova::public_params(rc, lang);
