@@ -52,7 +52,7 @@ string-interner = "0.14.0"
 tap = "1.0.1"
 thiserror = { workspace = true }
 abomonation = "0.7.3"
-abomonation_derive = "0.5.0"
+abomonation_derive = { git = "https://github.com/winston-h-zhang/abomonation_derive.git" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 memmap = { version = "0.5.10", package = "memmap2" }

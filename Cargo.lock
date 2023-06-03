@@ -11,17 +11,6 @@ checksum = "56e72913c99b1f927aa7bd59a41518fdd9995f63ffc8760f211609e0241c4fb2"
 [[package]]
 name = "abomonation_derive"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e50e2a046af56a864c62d97b7153fda72c596e646be1b0c7963736821f6e1efa"
-dependencies = [
- "proc-macro2 1.0.59",
- "quote 1.0.28",
- "synstructure",
-]
-
-[[package]]
-name = "abomonation_derive"
-version = "0.5.0"
 source = "git+https://github.com/winston-h-zhang/abomonation_derive.git#b2ce264619f64b6eebd18a43f7e68318e6f5533a"
 dependencies = [
  "proc-macro2 1.0.59",
@@ -1438,7 +1427,7 @@ name = "lurk"
 version = "0.2.0"
 dependencies = [
  "abomonation",
- "abomonation_derive 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "abomonation_derive",
  "ahash 0.7.6",
  "anyhow",
  "anymap",
@@ -1668,7 +1657,7 @@ version = "10.0.0"
 source = "git+https://github.com/lurk-lab/neptune?branch=dev#b3dc59efcd4c2628bcdb78b5d188d4e1bbaa40c9"
 dependencies = [
  "abomonation",
- "abomonation_derive 0.5.0 (git+https://github.com/winston-h-zhang/abomonation_derive.git)",
+ "abomonation_derive",
  "bellperson",
  "blake2s_simd 0.5.11",
  "blstrs",
@@ -1718,7 +1707,7 @@ version = "0.21.0"
 source = "git+https://github.com/lurk-lab/nova?branch=dev#001202ff6636b9cb1d4de3b2d47c88b04b4c5b1d"
 dependencies = [
  "abomonation",
- "abomonation_derive 0.5.0 (git+https://github.com/winston-h-zhang/abomonation_derive.git)",
+ "abomonation_derive",
  "bellperson",
  "bincode",
  "bitvec",
