@@ -2,7 +2,7 @@ use crate::field::{FWrap, LurkField};
 use anyhow::{anyhow, bail, Result};
 use std::collections::HashMap;
 
-use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, Witness, LEM, LEMOP};
+use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, Valuation, LEM, LEMOP};
 
 fn insert_into_ptrs<F: LurkField>(
     ptrs: &mut HashMap<String, Ptr<F>>,
@@ -22,7 +22,7 @@ impl LEM {
         &self,
         input: [Ptr<F>; 3],
         store: &mut Store<F>,
-    ) -> Result<Witness<F>> {
+    ) -> Result<Valuation<F>> {
         // key/val pairs on this map should never be overwritten
         let mut ptrs = HashMap::default();
         ptrs.insert(self.input[0].clone(), input[0]);
@@ -168,7 +168,7 @@ impl LEM {
         let Some(output) = output else {
             return Err(anyhow!("Output not defined"));
         };
-        Ok(Witness {
+        Ok(Valuation {
             input,
             output,
             ptrs,
@@ -181,24 +181,24 @@ impl LEM {
         &self,
         expr: Ptr<F>,
         store: &mut Store<F>,
-    ) -> Result<Vec<Witness<F>>> {
+    ) -> Result<Vec<Valuation<F>>> {
         let mut expr = expr;
         let mut env = store.intern_symbol(&Symbol::lurk_sym("nil"));
         let mut cont = Ptr::null(Tag::Outermost);
-        let mut witnesses = vec![];
+        let mut valuations = vec![];
         let terminal = Ptr::null(Tag::Terminal);
         let error = Ptr::null(Tag::Error);
         // Assures that `MatchSymPath`s will work properly
         self.lem_op.intern_matched_sym_paths(store);
         loop {
-            let w = self.run([expr, env, cont], store)?;
-            witnesses.push(w.clone());
-            if w.output[2] == terminal || w.output[2] == error {
+            let v = self.run([expr, env, cont], store)?;
+            valuations.push(v.clone());
+            if v.output[2] == terminal || v.output[2] == error {
                 break;
             } else {
-                [expr, env, cont] = w.output;
+                [expr, env, cont] = v.output;
             }
         }
-        Ok(witnesses)
+        Ok(valuations)
     }
 }

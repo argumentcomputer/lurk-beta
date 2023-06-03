@@ -17,7 +17,7 @@ use crate::circuit::gadgets::{
 
 use crate::field::{FWrap, LurkField};
 
-use super::{pointers::ZPtr, store::Store, MetaPtr, Tag, Witness, LEM, LEMOP};
+use super::{pointers::ZPtr, store::Store, MetaPtr, Tag, Valuation, LEM, LEMOP};
 
 /// Manages allocations for numeric variables in a constraint system
 #[derive(Default)]
@@ -148,15 +148,15 @@ impl LEM {
         }
     }
 
-    fn z_ptr_from_witness<F: LurkField>(
+    fn z_ptr_from_valuation<F: LurkField>(
         branch_path_info: &Option<Boolean>,
-        witness: &Witness<F>,
+        valuation: &Valuation<F>,
         name: &String,
         store: &mut Store<F>,
     ) -> Result<ZPtr<F>> {
         if Self::on_concrete_path(branch_path_info)? {
-            let Some(ptr) = witness.ptrs.get(name) else {
-                bail!("Couldn't retrieve {} from witness", name);
+            let Some(ptr) = valuation.ptrs.get(name) else {
+                bail!("Couldn't retrieve {} from valuation", name);
             };
             store.hydrate_ptr(ptr)
         } else {
@@ -168,13 +168,13 @@ impl LEM {
         &'a self,
         cs: &mut CS,
         store: &mut Store<F>,
-        witness: &Witness<F>,
+        valuation: &Valuation<F>,
         alloc_ptrs: &mut HashMap<&'a String, AllocatedPtr<F>>,
         idx: usize,
     ) -> Result<()> {
         let alloc_ptr = Self::allocate_ptr(
             cs,
-            &store.hydrate_ptr(&witness.input[idx])?,
+            &store.hydrate_ptr(&valuation.input[idx])?,
             &self.input[idx],
             alloc_ptrs,
         )?;
@@ -270,7 +270,7 @@ impl LEM {
         Ok(())
     }
 
-    /// Create R1CS constraints for LEM given an evaluation witness.
+    /// Create R1CS constraints for LEM given an evaluation valuation.
     ///
     /// As we find recursive (non-leaf) LEM operations, we stack them to be
     /// constrained later, using hash maps to manage viariables and pointers in
@@ -284,26 +284,26 @@ impl LEM {
     /// that operation. In this case, we use regular equality enforcements
     ///
     /// * If it's `Some(concrete_path)`, it means that we're on a logical LEM
-    /// branch, which might be *virtual* or *concrete* depending on the witness.
+    /// branch, which might be *virtual* or *concrete* depending on the valuation.
     /// A virtual path is one that wasn't taken during evaluation and thus its
-    /// witness pointers and variables weren't bound. A concrete path means that
-    /// evaluation took that path and the witness data should be complete. For
+    /// valuation pointers and variables weren't bound. A concrete path means that
+    /// evaluation took that path and the valuation data should be complete. For
     /// virtual paths we need to create dummy bindings and relax the enforcements
     /// with implications whose premises are false. So, in the end, we use
     /// implications on both virtual and concrete paths to make sure that the
-    /// circuit structure is always the same, independently of the witness. The
+    /// circuit structure is always the same, independently of the valuation. The
     /// premise is precicely `concrete_path`.
     pub fn constrain<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         store: &mut Store<F>,
-        witness: &Witness<F>,
+        valuation: &Valuation<F>,
     ) -> Result<()> {
         let mut alloc_ptrs: HashMap<&String, AllocatedPtr<F>> = HashMap::default();
 
         // Allocate inputs
         for i in 0..3 {
-            self.allocate_and_inputize_input(cs, store, witness, &mut alloc_ptrs, i)?;
+            self.allocate_and_inputize_input(cs, store, valuation, &mut alloc_ptrs, i)?;
         }
 
         let mut num_inputized_outputs = 0;
@@ -329,7 +329,12 @@ impl LEM {
 
                     let alloc_hash = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_witness(&branch_path_info, witness, hash.name(), store)?,
+                        &Self::z_ptr_from_valuation(
+                            &branch_path_info,
+                            valuation,
+                            hash.name(),
+                            store,
+                        )?,
                         hash.name(),
                         &alloc_ptrs,
                     )?;
@@ -348,9 +353,9 @@ impl LEM {
                 LEMOP::Unhash2(preimg, hash) => {
                     let i1 = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_witness(
+                        &Self::z_ptr_from_valuation(
                             &branch_path_info,
-                            witness,
+                            valuation,
                             preimg[0].name(),
                             store,
                         )?,
@@ -360,9 +365,9 @@ impl LEM {
 
                     let i2 = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_witness(
+                        &Self::z_ptr_from_valuation(
                             &branch_path_info,
-                            witness,
+                            valuation,
                             preimg[1].name(),
                             store,
                         )?,
@@ -395,7 +400,12 @@ impl LEM {
 
                     let alloc_hash = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_witness(&branch_path_info, witness, hash.name(), store)?,
+                        &Self::z_ptr_from_valuation(
+                            &branch_path_info,
+                            valuation,
+                            hash.name(),
+                            store,
+                        )?,
                         hash.name(),
                         &alloc_ptrs,
                     )?;
@@ -414,9 +424,9 @@ impl LEM {
                 LEMOP::Unhash3(preimg, hash) => {
                     let i1 = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_witness(
+                        &Self::z_ptr_from_valuation(
                             &branch_path_info,
-                            witness,
+                            valuation,
                             preimg[0].name(),
                             store,
                         )?,
@@ -426,9 +436,9 @@ impl LEM {
 
                     let i2 = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_witness(
+                        &Self::z_ptr_from_valuation(
                             &branch_path_info,
-                            witness,
+                            valuation,
                             preimg[1].name(),
                             store,
                         )?,
@@ -438,9 +448,9 @@ impl LEM {
 
                     let i3 = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_witness(
+                        &Self::z_ptr_from_valuation(
                             &branch_path_info,
-                            witness,
+                            valuation,
                             preimg[2].name(),
                             store,
                         )?,
@@ -477,7 +487,12 @@ impl LEM {
 
                     let alloc_hash = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_witness(&branch_path_info, witness, hash.name(), store)?,
+                        &Self::z_ptr_from_valuation(
+                            &branch_path_info,
+                            valuation,
+                            hash.name(),
+                            store,
+                        )?,
                         hash.name(),
                         &alloc_ptrs,
                     )?;
@@ -496,9 +511,9 @@ impl LEM {
                 LEMOP::Unhash4(preimg, hash) => {
                     let i1 = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_witness(
+                        &Self::z_ptr_from_valuation(
                             &branch_path_info,
-                            witness,
+                            valuation,
                             preimg[0].name(),
                             store,
                         )?,
@@ -508,9 +523,9 @@ impl LEM {
 
                     let i2 = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_witness(
+                        &Self::z_ptr_from_valuation(
                             &branch_path_info,
-                            witness,
+                            valuation,
                             preimg[1].name(),
                             store,
                         )?,
@@ -520,9 +535,9 @@ impl LEM {
 
                     let i3 = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_witness(
+                        &Self::z_ptr_from_valuation(
                             &branch_path_info,
-                            witness,
+                            valuation,
                             preimg[2].name(),
                             store,
                         )?,
@@ -532,9 +547,9 @@ impl LEM {
 
                     let i4 = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_witness(
+                        &Self::z_ptr_from_valuation(
                             &branch_path_info,
-                            witness,
+                            valuation,
                             preimg[3].name(),
                             store,
                         )?,
@@ -559,7 +574,12 @@ impl LEM {
                 LEMOP::Null(tgt, tag) => {
                     let alloc_tgt = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_witness(&branch_path_info, witness, tgt.name(), store)?,
+                        &Self::z_ptr_from_valuation(
+                            &branch_path_info,
+                            valuation,
+                            tgt.name(),
+                            store,
+                        )?,
                         tgt.name(),
                         &alloc_ptrs,
                     )?;
@@ -702,9 +722,9 @@ impl LEM {
                         let output_name = format!("{}.output[{}]", &path, i);
                         let alloc_ptr_expected = Self::allocate_ptr(
                             cs,
-                            &Self::z_ptr_from_witness(
+                            &Self::z_ptr_from_valuation(
                                 &branch_path_info,
-                                witness,
+                                valuation,
                                 output.name(),
                                 store,
                             )?,

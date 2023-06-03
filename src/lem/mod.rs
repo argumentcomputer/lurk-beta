@@ -423,7 +423,7 @@ impl LEMOP {
 /// it contains all the assignments resulting from running one iteration.
 #[derive(Clone)]
 #[allow(dead_code)]
-pub struct Witness<F: LurkField> {
+pub struct Valuation<F: LurkField> {
     input: [Ptr<F>; 3],
     output: [Ptr<F>; 3],
     ptrs: HashMap<String, Ptr<F>>,
@@ -449,10 +449,10 @@ mod tests {
     use bellperson::util_cs::test_cs::TestConstraintSystem;
     use blstrs::Scalar as Fr;
 
-    fn constrain_test_helper(lem: &LEM, store: &mut Store<Fr>, witnesses: &Vec<Witness<Fr>>) {
-        for w in witnesses {
+    fn constrain_test_helper(lem: &LEM, store: &mut Store<Fr>, valuations: &Vec<Valuation<Fr>>) {
+        for v in valuations {
             let mut cs = TestConstraintSystem::<Fr>::new();
-            lem.constrain(&mut cs, store, w).unwrap();
+            lem.constrain(&mut cs, store, v).unwrap();
             assert!(cs.is_satisfied());
         }
     }
@@ -495,8 +495,8 @@ mod tests {
 
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
-        let witnesses = lem.eval(expr, &mut store).unwrap();
-        constrain_test_helper(&lem, &mut store, &witnesses);
+        let valuations = lem.eval(expr, &mut store).unwrap();
+        constrain_test_helper(&lem, &mut store, &valuations);
     }
 
     #[test]
@@ -522,8 +522,8 @@ mod tests {
 
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
-        let witnesses = lem.eval(expr, &mut store).unwrap();
-        constrain_test_helper(&lem, &mut store, &witnesses);
+        let valuations = lem.eval(expr, &mut store).unwrap();
+        constrain_test_helper(&lem, &mut store, &valuations);
     }
 
     #[test]
@@ -541,8 +541,8 @@ mod tests {
 
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
-        let witnesses = lem.eval(expr, &mut store).unwrap();
-        constrain_test_helper(&lem, &mut store, &witnesses);
+        let valuations = lem.eval(expr, &mut store).unwrap();
+        constrain_test_helper(&lem, &mut store, &valuations);
     }
 
     #[test]
@@ -561,8 +561,8 @@ mod tests {
 
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
-        let witnesses = lem.eval(expr, &mut store).unwrap();
-        constrain_test_helper(&lem, &mut store, &witnesses);
+        let valuations = lem.eval(expr, &mut store).unwrap();
+        constrain_test_helper(&lem, &mut store, &valuations);
     }
 
     #[test]
@@ -588,8 +588,8 @@ mod tests {
 
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
-        let witnesses = lem.eval(expr, &mut store).unwrap();
-        constrain_test_helper(&lem, &mut store, &witnesses);
+        let valuations = lem.eval(expr, &mut store).unwrap();
+        constrain_test_helper(&lem, &mut store, &valuations);
     }
 
     #[test]
@@ -628,8 +628,8 @@ mod tests {
 
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
-        let witnesses = lem.eval(expr, &mut store).unwrap();
-        constrain_test_helper(&lem, &mut store, &witnesses);
+        let valuations = lem.eval(expr, &mut store).unwrap();
+        constrain_test_helper(&lem, &mut store, &valuations);
     }
 
     #[test]
@@ -644,8 +644,8 @@ mod tests {
 
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
-        let witnesses = lem.eval(expr, &mut store).unwrap();
-        constrain_test_helper(&lem, &mut store, &witnesses);
+        let valuations = lem.eval(expr, &mut store).unwrap();
+        constrain_test_helper(&lem, &mut store, &valuations);
     }
 
     #[test]
@@ -663,8 +663,8 @@ mod tests {
 
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
-        let witnesses = lem.eval(expr, &mut store).unwrap();
-        constrain_test_helper(&lem, &mut store, &witnesses);
+        let valuations = lem.eval(expr, &mut store).unwrap();
+        constrain_test_helper(&lem, &mut store, &valuations);
     }
 
     #[test]
@@ -683,8 +683,8 @@ mod tests {
 
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
-        let witnesses = lem.eval(expr, &mut store).unwrap();
-        constrain_test_helper(&lem, &mut store, &witnesses);
+        let valuations = lem.eval(expr, &mut store).unwrap();
+        constrain_test_helper(&lem, &mut store, &valuations);
     }
 
     #[test]
@@ -710,8 +710,8 @@ mod tests {
 
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
-        let witnesses = lem.eval(expr, &mut store).unwrap();
-        constrain_test_helper(&lem, &mut store, &witnesses);
+        let valuations = lem.eval(expr, &mut store).unwrap();
+        constrain_test_helper(&lem, &mut store, &valuations);
     }
 
     #[test]
@@ -750,8 +750,8 @@ mod tests {
 
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
-        let witnesses = lem.eval(expr, &mut store).unwrap();
-        constrain_test_helper(&lem, &mut store, &witnesses);
+        let valuations = lem.eval(expr, &mut store).unwrap();
+        constrain_test_helper(&lem, &mut store, &valuations);
     }
 
     #[test]
@@ -766,7 +766,7 @@ mod tests {
 
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
-        let witnesses = lem.eval(expr, &mut store).unwrap();
-        constrain_test_helper(&lem, &mut store, &witnesses);
+        let valuations = lem.eval(expr, &mut store).unwrap();
+        constrain_test_helper(&lem, &mut store, &valuations);
     }
 }

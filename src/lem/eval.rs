@@ -35,18 +35,18 @@ mod tests {
     fn test_eval_and_constrain_aux(store: &mut Store<Fr>, pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>) {
         let lem = step().unwrap();
         for (expr_in, expr_out) in pairs {
-            let witnesses = lem.eval(expr_in, store).unwrap();
+            let valuations = lem.eval(expr_in, store).unwrap();
             assert!(
-                witnesses
+                valuations
                     .last()
                     .expect("eval should add at least one step data")
                     .output[0]
                     == expr_out
             );
             store.hydrate_z_cache();
-            for witness in witnesses {
+            for valuation in valuations {
                 let mut cs = TestConstraintSystem::<Fr>::new();
-                lem.constrain(&mut cs, store, &witness).unwrap();
+                lem.constrain(&mut cs, store, &valuation).unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(cs.num_inputs(), NUM_INPUTS);
                 assert_eq!(cs.aux().len(), NUM_AUX);
