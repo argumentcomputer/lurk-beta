@@ -22,6 +22,14 @@ use crate::tag::{ContTag, ExprTag, Op1, Op2};
 
 /// The type of finite fields used in the language
 /// For Pallas/Vesta see https://electriccoin.co/blog/the-pasta-curves-for-halo-2-and-beyond/
+///
+/// Please note:
+/// - pasta_curves::pallas::Scalar = pasta_curves::Fq
+/// - pasta_curves::vesta::Scalar = pasta_curves::Fp
+///
+/// Because confusion on this point, perhaps combined with cargo-cult copying of incorrect previous usage has led to
+/// inconsistencies and inaccuracies in the code base, please prefer the named Scalar forms when correspondence to a
+/// named `LanguageField` is important.
 pub enum LanguageField {
     /// The Pallas field,
     Pallas,
@@ -215,11 +223,11 @@ impl LurkField for blstrs::Scalar {
     const FIELD: LanguageField = LanguageField::BLS12_381;
 }
 
-impl LurkField for pasta_curves::Fp {
+impl LurkField for pasta_curves::pallas::Scalar {
     const FIELD: LanguageField = LanguageField::Pallas;
 }
 
-impl LurkField for pasta_curves::Fq {
+impl LurkField for pasta_curves::vesta::Scalar {
     const FIELD: LanguageField = LanguageField::Vesta;
 }
 
@@ -332,6 +340,7 @@ impl<'de, F: LurkField> Deserialize<'de> for FWrap<F> {
 pub mod tests {
     use crate::light_data::Encodable;
     use blstrs::Scalar as Fr;
+    use pasta_curves::{pallas, vesta};
 
     use super::*;
 
@@ -347,11 +356,11 @@ pub mod tests {
         repr_bytes_consistency(f1)
       }
       #[test]
-      fn prop_pallas_repr_bytes_consistency(f1 in any::<FWrap<pasta_curves::Fp>>()) {
+      fn prop_pallas_repr_bytes_consistency(f1 in any::<FWrap<pallas::Scalar>>()) {
           repr_bytes_consistency(f1)
       }
       #[test]
-      fn prop_vesta_repr_bytes_consistency(f1 in any::<FWrap<pasta_curves::Fq>>()) {
+      fn prop_vesta_repr_bytes_consistency(f1 in any::<FWrap<vesta::Scalar>>()) {
           repr_bytes_consistency(f1)
       }
     }
@@ -406,11 +415,11 @@ pub mod tests {
         repr_canonicity(f1)
       }
       #[test]
-      fn prop_pallas_repr_canonicity(f1 in any::<FWrap<pasta_curves::Fp>>()) {
+      fn prop_pallas_repr_canonicity(f1 in any::<FWrap<pallas::Scalar>>()) {
           repr_canonicity(f1)
       }
       #[test]
-      fn prop_vesta_repr_canonicity(f1 in any::<FWrap<pasta_curves::Fq>>()) {
+      fn prop_vesta_repr_canonicity(f1 in any::<FWrap<vesta::Scalar>>()) {
           repr_canonicity(f1)
       }
       #[test]
@@ -437,7 +446,7 @@ pub mod tests {
     proptest! {
         #[test]
         fn prop_pallas_tag_roundtrip(x in any::<u64>()){
-            let f1 = pasta_curves::Fp::from(x);
+            let f1 = pallas::Scalar::from(x);
             let bytes = f1.to_repr().as_ref().to_vec();
             let mut bytes_from_u64 = [0u8; 32];
             bytes_from_u64[..8].copy_from_slice(&x.to_le_bytes());
@@ -446,7 +455,7 @@ pub mod tests {
 
         #[test]
         fn prop_vesta_tag_roundtrip(x in any::<u64>()){
-            let f1 = pasta_curves::Fq::from(x);
+            let f1 = vesta::Scalar::from(x);
             let bytes = f1.to_repr().as_ref().to_vec();
             let mut bytes_from_u64 = [0u8; 32];
             bytes_from_u64[..8].copy_from_slice(&x.to_le_bytes());

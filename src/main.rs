@@ -2,8 +2,8 @@ use anyhow::Result;
 
 use lurk::eval::lang::{Coproc, Lang};
 use lurk::field::LanguageField;
-use lurk::proof::nova;
 use lurk::repl::{repl_cli, ReplState};
+use pasta_curves::{pallas, vesta};
 
 fn main() -> Result<()> {
     pretty_env_logger::init();
@@ -27,14 +27,14 @@ fn main() -> Result<()> {
             Coproc<blstrs::Scalar>,
         >(Lang::<blstrs::Scalar, Coproc<blstrs::Scalar>>::new()),
         LanguageField::Pallas => repl_cli::<
-            nova::S1,
-            ReplState<nova::S1, Coproc<nova::S1>>,
-            Coproc<nova::S1>,
-        >(Lang::<nova::S1, Coproc<nova::S1>>::new()),
+            pallas::Scalar,
+            ReplState<pallas::Scalar, Coproc<pallas::Scalar>>,
+            Coproc<pallas::Scalar>,
+        >(Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new()),
         LanguageField::Vesta => repl_cli::<
-            nova::S2,
-            ReplState<nova::S2, Coproc<nova::S2>>,
-            Coproc<nova::S2>,
-        >(Lang::<nova::S2, Coproc<nova::S2>>::new()),
+            vesta::Scalar,
+            ReplState<vesta::Scalar, Coproc<vesta::Scalar>>,
+            Coproc<vesta::Scalar>,
+        >(Lang::<vesta::Scalar, Coproc<vesta::Scalar>>::new()),
     }
 }
