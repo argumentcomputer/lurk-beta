@@ -42,8 +42,8 @@
 
 <span class="kw">use </span>lurk::eval::lang::{Coproc, Lang};
 <span class="kw">use </span>lurk::field::LanguageField;
-<span class="kw">use </span>lurk::proof::nova;
 <span class="kw">use </span>lurk::repl::{repl_cli, ReplState};
+<span class="kw">use </span>pasta_curves::{pallas, vesta};
 
 <span class="kw">fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     pretty_env_logger::init();
@@ -67,15 +67,15 @@
             Coproc&lt;blstrs::Scalar&gt;,
         &gt;(Lang::&lt;blstrs::Scalar, Coproc&lt;blstrs::Scalar&gt;&gt;::new()),
         LanguageField::Pallas =&gt; repl_cli::&lt;
-            nova::S1,
-            ReplState&lt;nova::S1, Coproc&lt;nova::S1&gt;&gt;,
-            Coproc&lt;nova::S1&gt;,
-        &gt;(Lang::&lt;nova::S1, Coproc&lt;nova::S1&gt;&gt;::new()),
+            pallas::Scalar,
+            ReplState&lt;pallas::Scalar, Coproc&lt;pallas::Scalar&gt;&gt;,
+            Coproc&lt;pallas::Scalar&gt;,
+        &gt;(Lang::&lt;pallas::Scalar, Coproc&lt;pallas::Scalar&gt;&gt;::new()),
         LanguageField::Vesta =&gt; repl_cli::&lt;
-            nova::S2,
-            ReplState&lt;nova::S2, Coproc&lt;nova::S2&gt;&gt;,
-            Coproc&lt;nova::S2&gt;,
-        &gt;(Lang::&lt;nova::S2, Coproc&lt;nova::S2&gt;&gt;::new()),
+            vesta::Scalar,
+            ReplState&lt;vesta::Scalar, Coproc&lt;vesta::Scalar&gt;&gt;,
+            Coproc&lt;vesta::Scalar&gt;,
+        &gt;(Lang::&lt;vesta::Scalar, Coproc&lt;vesta::Scalar&gt;&gt;::new()),
     }
 }
 </code></pre></div></section></main></body></html>

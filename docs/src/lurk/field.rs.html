@@ -463,6 +463,15 @@
 <a href="#463" id="463">463</a>
 <a href="#464" id="464">464</a>
 <a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
 </pre></div><pre class="rust"><code><span class="attr">#![deny(missing_docs)]
 </span><span class="doccomment">//! The finite field used in the language.
 //!
@@ -487,6 +496,14 @@
 
 <span class="doccomment">/// The type of finite fields used in the language
 /// For Pallas/Vesta see https://electriccoin.co/blog/the-pasta-curves-for-halo-2-and-beyond/
+///
+/// Please note:
+/// - pasta_curves::pallas::Scalar = pasta_curves::Fq
+/// - pasta_curves::vesta::Scalar = pasta_curves::Fp
+///
+/// Because confusion on this point, perhaps combined with cargo-cult copying of incorrect previous usage has led to
+/// inconsistencies and inaccuracies in the code base, please prefer the named Scalar forms when correspondence to a
+/// named `LanguageField` is important.
 </span><span class="kw">pub enum </span>LanguageField {
     <span class="doccomment">/// The Pallas field,
     </span>Pallas,
@@ -680,11 +697,11 @@
     <span class="kw">const </span>FIELD: LanguageField = LanguageField::BLS12_381;
 }
 
-<span class="kw">impl </span>LurkField <span class="kw">for </span>pasta_curves::Fp {
+<span class="kw">impl </span>LurkField <span class="kw">for </span>pasta_curves::pallas::Scalar {
     <span class="kw">const </span>FIELD: LanguageField = LanguageField::Pallas;
 }
 
-<span class="kw">impl </span>LurkField <span class="kw">for </span>pasta_curves::Fq {
+<span class="kw">impl </span>LurkField <span class="kw">for </span>pasta_curves::vesta::Scalar {
     <span class="kw">const </span>FIELD: LanguageField = LanguageField::Vesta;
 }
 
@@ -797,6 +814,7 @@
 </span><span class="kw">pub mod </span>tests {
     <span class="kw">use </span><span class="kw">crate</span>::light_data::Encodable;
     <span class="kw">use </span>blstrs::Scalar <span class="kw">as </span>Fr;
+    <span class="kw">use </span>pasta_curves::{pallas, vesta};
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -812,11 +830,11 @@
         repr_bytes_consistency(f1)
       }
       <span class="attr">#[test]
-      </span><span class="kw">fn </span>prop_pallas_repr_bytes_consistency(f1 <span class="kw">in </span>any::&lt;FWrap&lt;pasta_curves::Fp&gt;&gt;()) {
+      </span><span class="kw">fn </span>prop_pallas_repr_bytes_consistency(f1 <span class="kw">in </span>any::&lt;FWrap&lt;pallas::Scalar&gt;&gt;()) {
           repr_bytes_consistency(f1)
       }
       <span class="attr">#[test]
-      </span><span class="kw">fn </span>prop_vesta_repr_bytes_consistency(f1 <span class="kw">in </span>any::&lt;FWrap&lt;pasta_curves::Fq&gt;&gt;()) {
+      </span><span class="kw">fn </span>prop_vesta_repr_bytes_consistency(f1 <span class="kw">in </span>any::&lt;FWrap&lt;vesta::Scalar&gt;&gt;()) {
           repr_bytes_consistency(f1)
       }
     }
@@ -871,11 +889,11 @@
         repr_canonicity(f1)
       }
       <span class="attr">#[test]
-      </span><span class="kw">fn </span>prop_pallas_repr_canonicity(f1 <span class="kw">in </span>any::&lt;FWrap&lt;pasta_curves::Fp&gt;&gt;()) {
+      </span><span class="kw">fn </span>prop_pallas_repr_canonicity(f1 <span class="kw">in </span>any::&lt;FWrap&lt;pallas::Scalar&gt;&gt;()) {
           repr_canonicity(f1)
       }
       <span class="attr">#[test]
-      </span><span class="kw">fn </span>prop_vesta_repr_canonicity(f1 <span class="kw">in </span>any::&lt;FWrap&lt;pasta_curves::Fq&gt;&gt;()) {
+      </span><span class="kw">fn </span>prop_vesta_repr_canonicity(f1 <span class="kw">in </span>any::&lt;FWrap&lt;vesta::Scalar&gt;&gt;()) {
           repr_canonicity(f1)
       }
       <span class="attr">#[test]
@@ -902,7 +920,7 @@
     </span><span class="macro">proptest! </span>{
         <span class="attr">#[test]
         </span><span class="kw">fn </span>prop_pallas_tag_roundtrip(x <span class="kw">in </span>any::&lt;u64&gt;()){
-            <span class="kw">let </span>f1 = pasta_curves::Fp::from(x);
+            <span class="kw">let </span>f1 = pallas::Scalar::from(x);
             <span class="kw">let </span>bytes = f1.to_repr().as_ref().to_vec();
             <span class="kw">let </span><span class="kw-2">mut </span>bytes_from_u64 = [<span class="number">0u8</span>; <span class="number">32</span>];
             bytes_from_u64[..<span class="number">8</span>].copy_from_slice(<span class="kw-2">&amp;</span>x.to_le_bytes());
@@ -911,7 +929,7 @@
 
         <span class="attr">#[test]
         </span><span class="kw">fn </span>prop_vesta_tag_roundtrip(x <span class="kw">in </span>any::&lt;u64&gt;()){
-            <span class="kw">let </span>f1 = pasta_curves::Fq::from(x);
+            <span class="kw">let </span>f1 = vesta::Scalar::from(x);
             <span class="kw">let </span>bytes = f1.to_repr().as_ref().to_vec();
             <span class="kw">let </span><span class="kw-2">mut </span>bytes_from_u64 = [<span class="number">0u8</span>; <span class="number">32</span>];
             bytes_from_u64[..<span class="number">8</span>].copy_from_slice(<span class="kw-2">&amp;</span>x.to_le_bytes());
