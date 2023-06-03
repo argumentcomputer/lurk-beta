@@ -4,6 +4,7 @@ use std::{
 };
 
 use abomonation::{decode, encode};
+use bincode::config::WithOtherEndian;
 use once_cell::sync::Lazy;
 use pasta_curves::pallas;
 use serde::{de::DeserializeOwned, Serialize};
@@ -33,16 +34,19 @@ pub(crate) static CACHE_REG: Lazy<Registry> = Lazy::new(|| Registry {
 });
 
 impl Registry {
-    fn get_from_file_cache_or_update_with<
-        C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static,
-        F: FnOnce(Arc<Lang<S1, C>>) -> Arc<PublicParams<'static, C>>,
-    >(
+    fn get_from_file_cache_or_update_with<C, F, B, T>(
         &'static self,
         rc: usize,
-        quick: bool,
-        default: F,
         lang: Arc<Lang<S1, C>>,
-    ) -> Result<Arc<PublicParams<'static, C>>, Error> {
+        abomonated: bool,
+        default: F,
+        bind: B,
+    ) -> Result<Arc<PublicParams<'static, C>>, Error>
+    where
+        C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static,
+        F: FnOnce(Arc<Lang<S1, C>>) -> Arc<PublicParams<'static, C>>,
+        B: Fn(PublicParams<'static, C>) -> T,
+    {
         // subdirectory search
         let disk_cache = FileIndex::new("public_params").unwrap();
         // use the cached language key
@@ -52,7 +56,9 @@ impl Registry {
         // for this lang/coprocessor.
         let key = format!("public-params-rc-{rc}-coproc-{lang_key}{quick_suffix}");
         if quick {
-            if let Some(mut bytes) = disk_cache.get_mmap_bytes_with_timing(&key, &"public params".to_string()) {
+            if let Some(mut bytes) =
+                disk_cache.get_mmap_bytes_with_timing(&key, &"public params".to_string())
+            {
                 let (pp, remaining) =
                     unsafe { decode::<PublicParams<'static, C>>(&mut bytes).unwrap() };
                 assert!(remaining.len() == 0);
@@ -89,29 +95,69 @@ impl Registry {
 
     /// Check if params for this Coproc are in registry, if so, return them.
     /// Otherwise, initialize with the passed in function.
-    pub(crate) fn get_coprocessor_or_update_with<
-        C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static,
-        F: FnOnce(Arc<Lang<S1, C>>) -> Arc<PublicParams<'static, C>>,
-    >(
+    pub(crate) fn get_coprocessor_or_update_with<C, F, B, T>(
         &'static self,
         rc: usize,
-        quick: bool,
-        default: F,
         lang: Arc<Lang<S1, C>>,
-    ) -> Result<Arc<PublicParams<'static, C>>, Error> {
+        abomonated: bool,
+        default: F,
+        bind: B,
+    ) -> T
+    where
+        C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static,
+        F: FnOnce(Arc<Lang<S1, C>>) -> Arc<PublicParams<'static, C>>,
+        B: FnOnce(&PublicParams<'static, C>) -> T,
+    {
         // re-grab the lock
         let mut registry = self.registry.lock().unwrap();
         // retrieve the per-Coproc public param table
         let entry = registry.entry::<PublicParamMemCache<C>>();
         // deduce the map and populate it if needed
         let param_entry = entry.or_insert_with(HashMap::new);
-        match param_entry.entry((rc, quick)) {
-            Entry::Occupied(o) => Ok(o.into_mut()),
+        match param_entry.entry((rc, abomonated)) {
+            Entry::Occupied(o) => {
+                let pp = o.into_mut().as_ref();
+                bind(pp)
+            },
             Entry::Vacant(v) => {
                 let val = self.get_from_file_cache_or_update_with(rc, quick, default, lang)?;
                 Ok(v.insert(val))
             }
         }
-        .cloned()
+    }
+
+    /// Check if params for this Coproc are in registry,
+    /// if one exists, we proceed with the computation in `bind`
+    /// otherwise, initialize with `default` and then proceed with `bind`
+    pub(crate) fn with_get_coprocessor<
+        C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static,
+        F: FnOnce(Arc<Lang<S1, C>>) -> Arc<PublicParams<'static, C>>,
+        B: FnOnce(&PublicParams<'static, C>) -> T,
+        T,
+    >(
+        &'static self,
+        rc: usize,
+        quick: bool,
+        lang: Arc<Lang<S1, C>>,
+        default: F,
+        bind: B,
+    ) -> T {
+        let mut registry = self.registry.lock().unwrap();
+        // retrieve the per-Coproc public param table
+        let entry = registry.entry::<PublicParamMemCache<C>>();
+        // deduce the map and populate it if needed
+        let param_entry = entry.or_insert_with(HashMap::new);
+        match param_entry.entry((rc, quick)) {
+            Entry::Occupied(o) => {
+                let pp = o.into_mut().as_ref();
+                bind(pp)
+            }
+            Entry::Vacant(v) => {
+                let val = self.get_from_file_cache_or_update_with(rc, quick, default, lang)?;
+                Ok(v.insert(val))
+            }
+        }
+        .cloned();
+        unimplemented!()
     }
 }

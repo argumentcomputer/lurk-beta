@@ -11,12 +11,10 @@ checksum = "56e72913c99b1f927aa7bd59a41518fdd9995f63ffc8760f211609e0241c4fb2"
 [[package]]
 name = "abomonation_derive"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e50e2a046af56a864c62d97b7153fda72c596e646be1b0c7963736821f6e1efa"
 dependencies = [
  "proc-macro2 1.0.59",
  "quote 1.0.28",
- "synstructure",
+ "syn 2.0.17",
 ]
 
 [[package]]
@@ -1458,7 +1456,7 @@ dependencies = [
  "lurk-macros",
  "memmap2",
  "multihash",
- "neptune 10.0.0",
+ "neptune",
  "nom",
  "nova-snark",
  "num-bigint 0.4.3",
@@ -1658,29 +1656,10 @@ dependencies = [
 
 [[package]]
 name = "neptune"
-version = "9.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4227e5557caad6d2a910b7770f2479f0c9aeb8ddc1dc537623cb6ffec7f01d31"
-dependencies = [
- "bellperson",
- "blake2s_simd 0.5.11",
- "blstrs",
- "byteorder",
- "ff",
- "generic-array 0.14.7",
- "itertools 0.8.2",
- "log",
- "pasta_curves",
- "serde",
- "trait-set",
-]
-
-[[package]]
-name = "neptune"
 version = "10.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb9a64337e6d214e2a48db5714ef18cf1e5a7bbff9043838fdf6e57ce5659335"
 dependencies = [
+ "abomonation",
+ "abomonation_derive",
  "bellperson",
  "blake2s_simd 0.5.11",
  "blstrs",
@@ -1727,9 +1706,9 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 [[package]]
 name = "nova-snark"
 version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6247c61ab29e5da01c8f80403c25c40956045f0343d79793a2675bf7775dd80"
 dependencies = [
+ "abomonation",
+ "abomonation_derive",
  "bellperson",
  "bincode",
  "bitvec",
@@ -1739,7 +1718,7 @@ dependencies = [
  "flate2",
  "generic-array 0.14.7",
  "itertools 0.9.0",
- "neptune 9.0.0",
+ "neptune",
  "num-bigint 0.4.3",
  "num-integer",
  "num-traits",
