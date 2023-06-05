@@ -1,0 +1,29 @@
+name: Benchmark pull requests
+on: [pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  runBenchmark:
+    name: run benchmark
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+      - run: export PATH=~/.cargo/bin:$PATH
+      - run: source "$HOME/.cargo/env"
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      #- run: rustup show:
+      - run: cargo --version
+      - run: rustc --version
+      - uses: Swatinem/rust-cache@v2
+      - run: apt-get update && apt-get -y install llvm-14 clang-14 build-essential
+      - uses: boa-dev/criterion-compare-action@v3
+        with:
+          # Optional. Compare only this benchmark target
+          benchName: "end2end"
+          features: "portable"
+          # Needed. The name of the branch to compare with. This default uses the branch which is being pulled against
+          branchName: ${{ github.base_ref }}
