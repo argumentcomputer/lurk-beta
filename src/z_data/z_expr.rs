@@ -1,12 +1,12 @@
-use crate::field::FWrap;
 use serde::{Deserialize, Serialize};
-//use serde_with;
 
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
 
+#[cfg(not(target_arch = "wasm32"))]
+use crate::field::FWrap;
 use crate::hash::PoseidonCache;
 use crate::num::Num;
 use crate::ptr::Ptr;

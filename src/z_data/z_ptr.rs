@@ -10,7 +10,9 @@ use std::hash::Hash;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
 
-use crate::field::{FWrap, LurkField};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::field::FWrap;
+use crate::field::LurkField;
 use crate::hash::IntoHashComponents;
 use crate::store::{self, Store};
 use crate::tag::{ContTag, ExprTag, Tag};
