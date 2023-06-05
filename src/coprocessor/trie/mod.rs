@@ -238,7 +238,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
     /// The empty element is specified to be zero. This is a natural choice. Crucially, the chosen value must have no known
     /// preimage.
     fn empty_element() -> F {
-        F::zero()
+        F::ZERO
     }
 
     fn compute_hash(hash_cache: &PoseidonCache<F>, preimage: [F; ARITY]) -> F {
