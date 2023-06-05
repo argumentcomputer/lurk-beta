@@ -270,6 +270,96 @@ impl LEM {
         Ok(())
     }
 
+    fn create_slot_constraints<F: LurkField, CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        alloc_ptrs: &HashMap<&String, AllocatedPtr<F>>,
+        implies_stack: &mut Vec<(Boolean, usize, MetaPtr, Option<Tag>)>,
+        enforce_stack: &mut Vec<(usize, MetaPtr, Option<Tag>)>,
+        hash_slots: &HashMap<usize, AllocatedNum<F>>,
+        alloc_manager: &mut AllocationManager<F>,
+    ) -> Result<()> {
+        // Create hash implications
+        while let Some((concrete_path, slot, tgt, tag)) = implies_stack.pop() {
+            // get alloc_tgt from tgt
+            let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
+                bail!("{} not allocated", tgt.name());
+            };
+
+            // get slot_hash from slot name
+            let Some(slot_hash) = hash_slots.get(&slot) else {
+                bail!("Slot {} not allocated", slot)
+            };
+
+            implies_equal(
+                &mut cs
+                    .namespace(|| format!("implies equal hash2 for {} and {}", slot, tgt.name())),
+                &concrete_path,
+                alloc_tgt.hash(),
+                slot_hash,
+            )?;
+
+            match tag {
+                Some(tag) => {
+                    let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
+                    implies_equal(
+                        &mut cs.namespace(|| {
+                            format!("implies equal tag for {} and {} in hash2", slot, tgt.name())
+                        }),
+                        &concrete_path,
+                        alloc_tgt.tag(),
+                        &alloc_tag,
+                    )?;
+                }
+                None => (),
+            }
+        }
+
+        // Create hash enforce
+        while let Some((slot, tgt, tag)) = enforce_stack.pop() {
+            // get alloc_tgt from tgt
+            let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
+                bail!("{} not allocated", tgt.name());
+            };
+
+            // get slot_hash from slot name
+            let Some(slot_hash) = hash_slots.get(&slot) else {
+                bail!("Slot number {} not allocated", slot)
+            };
+
+            enforce_equal(
+                cs,
+                || {
+                    format!(
+                        "enforce equal hash for tgt {} and slot number {}",
+                        tgt.name(),
+                        slot,
+                    )
+                },
+                alloc_tgt.hash(),
+                slot_hash,
+            );
+            match tag {
+                Some(tag) => {
+                    let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
+                    enforce_equal(
+                        cs,
+                        || {
+                            format!(
+                                "enforce equal tag for tgt {} and slot number {}",
+                                tgt.name(),
+                                slot,
+                            )
+                        },
+                        alloc_tgt.tag(),
+                        &alloc_tag,
+                    );
+                }
+                None => (),
+            }
+        }
+        Ok(())
+    }
+
     /// Create R1CS constraints for LEM given an evaluation valuation.
     ///
     /// As we find recursive (non-leaf) LEM operations, we stack them to be
@@ -765,118 +855,44 @@ impl LEM {
             return Err(anyhow!("Couldn't inputize the right number of outputs"));
         }
 
-        dbg!(hash_slots.hash2_stacks.max_slots_len);
-        dbg!(hash_slots.hash3_stacks.max_slots_len);
+        let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
 
         /////////////////////////////////////////////////////////////////////////
         ///////////////////////////// Hash2 /////////////////////////////////////
         /////////////////////////////////////////////////////////////////////////
 
         // Create hash constraints for each stacked slot
-        let mut concrete_slots_hash2_len = 0;
-        let mut hash2_slots: HashMap<usize, AllocatedNum<F>> = HashMap::default();
-        while let Some((slot, alloc_car, alloc_cdr)) = hash_slots.hash2_alloc.pop() {
-            let alloc_hash = hash_poseidon(
-                &mut cs.namespace(|| format!("hash2_{}", slot)),
-                vec![
-                    alloc_car.tag().clone(),
-                    alloc_car.hash().clone(),
-                    alloc_cdr.tag().clone(),
-                    alloc_cdr.hash().clone(),
-                ],
-                store.poseidon_cache.constants.c4(),
-            )?;
-            hash2_slots.insert(slot, alloc_hash);
-            concrete_slots_hash2_len += 1;
-        }
-
-        let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
-
-        // complete hash slot with dummies
-        for s in concrete_slots_hash2_len..hash_slots.hash2_stacks.max_slots_len {
-            hash2_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
-        }
-
-        // Create hash implications
-        while let Some((concrete_path, slot, tgt, tag)) =
-            hash_slots.hash2_stacks.implies_stack.pop()
         {
-            // get alloc_tgt from tgt
-            let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
-                bail!("{} not allocated", tgt.name());
-            };
-
-            // get slot_hash from slot name
-            let Some(slot_hash) = hash2_slots.get(&slot) else {
-                bail!("Slot {} not allocated", slot)
-            };
-
-            implies_equal(
-                &mut cs
-                    .namespace(|| format!("implies equal hash2 for {} and {}", slot, tgt.name())),
-                &concrete_path,
-                alloc_tgt.hash(),
-                slot_hash,
-            )?;
-
-            match tag {
-                Some(tag) => {
-                    let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
-                    implies_equal(
-                        &mut cs.namespace(|| {
-                            format!("implies equal tag for {} and {} in hash2", slot, tgt.name())
-                        }),
-                        &concrete_path,
-                        alloc_tgt.tag(),
-                        &alloc_tag,
-                    )?;
-                }
-                None => (),
+            let mut concrete_slots_hash2_len = 0;
+            let mut hash2_slots = HashMap::default();
+            while let Some((slot, alloc_car, alloc_cdr)) = hash_slots.hash2_alloc.pop() {
+                let alloc_hash = hash_poseidon(
+                    &mut cs.namespace(|| format!("hash2_{}", slot)),
+                    vec![
+                        alloc_car.tag().clone(),
+                        alloc_car.hash().clone(),
+                        alloc_cdr.tag().clone(),
+                        alloc_cdr.hash().clone(),
+                    ],
+                    store.poseidon_cache.constants.c4(),
+                )?;
+                hash2_slots.insert(slot, alloc_hash);
+                concrete_slots_hash2_len += 1;
             }
-        }
 
-        // Create hash enforce
-        while let Some((slot, tgt, tag)) = hash_slots.hash2_stacks.enforce_stack.pop() {
-            // get alloc_tgt from tgt
-            let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
-                bail!("{} not allocated", tgt.name());
-            };
+            // complete hash slot with dummies
+            for s in concrete_slots_hash2_len..hash_slots.hash2_stacks.max_slots_len {
+                hash2_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
+            }
 
-            // get slot_hash from slot name
-            let Some(slot_hash) = hash2_slots.get(&slot) else {
-                bail!("Slot number {} not allocated", slot)
-            };
-
-            enforce_equal(
+            Self::create_slot_constraints(
                 cs,
-                || {
-                    format!(
-                        "enforce equal hash for tgt {} and slot number {}",
-                        tgt.name(),
-                        slot,
-                    )
-                },
-                alloc_tgt.hash(),
-                slot_hash,
-            );
-            match tag {
-                Some(tag) => {
-                    let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
-                    enforce_equal(
-                        cs,
-                        || {
-                            format!(
-                                "enforce equal tag for tgt {} and slot number {}",
-                                tgt.name(),
-                                slot,
-                            )
-                        },
-                        alloc_tgt.tag(),
-                        &alloc_tag,
-                    );
-                }
-                None => (),
-            }
+                &alloc_ptrs,
+                &mut hash_slots.hash2_stacks.implies_stack,
+                &mut hash_slots.hash2_stacks.enforce_stack,
+                &hash2_slots,
+                &mut alloc_manager,
+            )?;
         }
 
         /////////////////////////////////////////////////////////////////////////
@@ -884,125 +900,86 @@ impl LEM {
         /////////////////////////////////////////////////////////////////////////
 
         // Create hash constraints for each stacked slot
-        let mut concrete_slots_hash3_len = 0;
-        let mut hash3_slots: HashMap<usize, AllocatedNum<F>> = HashMap::default();
-        while let Some((slot, alloc_input1, alloc_input2, alloc_input3)) =
-            hash_slots.hash3_alloc.pop()
         {
-            let alloc_hash = hash_poseidon(
-                &mut cs.namespace(|| format!("hash3_{}", slot)),
-                vec![
-                    alloc_input1.tag().clone(),
-                    alloc_input1.hash().clone(),
-                    alloc_input2.tag().clone(),
-                    alloc_input2.hash().clone(),
-                    alloc_input3.tag().clone(),
-                    alloc_input3.hash().clone(),
-                ],
-                store.poseidon_cache.constants.c6(),
-            )?;
-            hash3_slots.insert(slot, alloc_hash);
-            concrete_slots_hash3_len += 1;
-        }
-
-        // complete hash slot with dummies
-        for s in concrete_slots_hash3_len..hash_slots.hash3_stacks.max_slots_len {
-            hash3_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
-        }
-
-        // Create hash implications
-        while let Some((concrete_path, slot, tgt, tag)) =
-            hash_slots.hash3_stacks.implies_stack.pop()
-        {
-            // get alloc_tgt from tgt
-            let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
-                bail!("{} not allocated", tgt.name());
-            };
-
-            // get slot_hash from slot name
-            let Some(slot_hash) = hash3_slots.get(&slot) else {
-                bail!("Slot {} not allocated", slot)
-            };
-
-            implies_equal(
-                &mut cs.namespace(|| {
-                    format!(
-                        "implies equal hash for {} and {} in hash3",
-                        slot,
-                        tgt.name()
-                    )
-                }),
-                &concrete_path,
-                alloc_tgt.hash(),
-                slot_hash,
-            )?;
-
-            match tag {
-                Some(tag) => {
-                    let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
-                    implies_equal(
-                        &mut cs.namespace(|| {
-                            format!("implies equal tag for {} and {} in hash3", slot, tgt.name())
-                        }),
-                        &concrete_path,
-                        alloc_tgt.tag(),
-                        &alloc_tag,
-                    )?;
-                }
-                None => (),
+            let mut concrete_slots_hash3_len = 0;
+            let mut hash3_slots = HashMap::default();
+            while let Some((slot, alloc_input1, alloc_input2, alloc_input3)) =
+                hash_slots.hash3_alloc.pop()
+            {
+                let alloc_hash = hash_poseidon(
+                    &mut cs.namespace(|| format!("hash3_{}", slot)),
+                    vec![
+                        alloc_input1.tag().clone(),
+                        alloc_input1.hash().clone(),
+                        alloc_input2.tag().clone(),
+                        alloc_input2.hash().clone(),
+                        alloc_input3.tag().clone(),
+                        alloc_input3.hash().clone(),
+                    ],
+                    store.poseidon_cache.constants.c6(),
+                )?;
+                hash3_slots.insert(slot, alloc_hash);
+                concrete_slots_hash3_len += 1;
             }
-        }
 
-        // Create hash enforce
-        while let Some((slot, tgt, tag)) = hash_slots.hash3_stacks.enforce_stack.pop() {
-            // get alloc_tgt from tgt
-            let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
-                bail!("{} not allocated", tgt.name());
-            };
+            // complete hash slot with dummies
+            for s in concrete_slots_hash3_len..hash_slots.hash3_stacks.max_slots_len {
+                hash3_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
+            }
 
-            // get slot_hash from slot name
-            let Some(slot_hash) = hash3_slots.get(&slot) else {
-                bail!("Slot hash3 number {} not allocated", slot)
-            };
-
-            enforce_equal(
+            Self::create_slot_constraints(
                 cs,
-                || {
-                    format!(
-                        "enforce equal hash for tgt {} and slot hash3 number {}",
-                        tgt.name(),
-                        slot,
-                    )
-                },
-                alloc_tgt.hash(),
-                slot_hash,
-            );
-
-            match tag {
-                Some(tag) => {
-                    let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
-                    enforce_equal(
-                        cs,
-                        || {
-                            format!(
-                                "enforce equal tag for tgt {} and slot hash3 number {}",
-                                tgt.name(),
-                                slot,
-                            )
-                        },
-                        alloc_tgt.tag(),
-                        &alloc_tag,
-                    );
-                }
-                None => (),
-            }
+                &alloc_ptrs,
+                &mut hash_slots.hash3_stacks.implies_stack,
+                &mut hash_slots.hash3_stacks.enforce_stack,
+                &hash3_slots,
+                &mut alloc_manager,
+            )?;
         }
 
         /////////////////////////////////////////////////////////////////////////
         ///////////////////////////// Hash4 /////////////////////////////////////
         /////////////////////////////////////////////////////////////////////////
 
-        // TODO
+        // Create hash constraints for each stacked slot
+        {
+            let mut concrete_slots_hash4_len = 0;
+            let mut hash4_slots = HashMap::default();
+            while let Some((slot, alloc_input1, alloc_input2, alloc_input3, alloc_input4)) =
+                hash_slots.hash4_alloc.pop()
+            {
+                let alloc_hash = hash_poseidon(
+                    &mut cs.namespace(|| format!("hash4_{}", slot)),
+                    vec![
+                        alloc_input1.tag().clone(),
+                        alloc_input1.hash().clone(),
+                        alloc_input2.tag().clone(),
+                        alloc_input2.hash().clone(),
+                        alloc_input3.tag().clone(),
+                        alloc_input3.hash().clone(),
+                        alloc_input4.tag().clone(),
+                        alloc_input4.hash().clone(),
+                    ],
+                    store.poseidon_cache.constants.c8(),
+                )?;
+                hash4_slots.insert(slot, alloc_hash);
+                concrete_slots_hash4_len += 1;
+            }
+
+            // complete hash slot with dummies
+            for s in concrete_slots_hash4_len..hash_slots.hash4_stacks.max_slots_len {
+                hash4_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
+            }
+
+            Self::create_slot_constraints(
+                cs,
+                &alloc_ptrs,
+                &mut hash_slots.hash4_stacks.implies_stack,
+                &mut hash_slots.hash4_stacks.enforce_stack,
+                &hash4_slots,
+                &mut alloc_manager,
+            )?;
+        }
 
         Ok(())
     }
