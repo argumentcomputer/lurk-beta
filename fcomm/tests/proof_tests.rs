@@ -232,7 +232,6 @@ fn test_function_aux(
 
         let proof = Proof::<S1>::read_from_path(&proof_path).expect("read proof");
         let opening = proof.claim.opening().expect("expected opening claim");
-        //dbg!(&opening);
 
         let mut store = Store::<S1>::default();
 

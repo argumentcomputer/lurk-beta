@@ -305,6 +305,7 @@ mod test {
     ////     assert!(false)
     //// }
 
+    // TODO: Proptest the Store/ZStore roundtrip with two distinct syntaxes
     //#[test]
     //fn syntax_full_roundtrip(x in any::<Syntax<Fr>>()) {
     //    let mut store1 = Store::<Fr>::default();

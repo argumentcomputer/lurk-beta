@@ -27,7 +27,6 @@ use crate::{
     store::Store,
     tag::ExprTag,
     writer::Write,
-    z_data::{from_z_data, to_z_data, ZData},
     z_expr::ZExpr,
     z_ptr::ZExprPtr,
     z_store::ZStore,
@@ -613,7 +612,6 @@ impl<F: LurkField + Serialize + DeserializeOwned> LurkPtr<F> {
     pub fn ptr(&self, s: &mut Store<F>, limit: usize, lang: &Lang<F, Coproc<F>>) -> Ptr<F> {
         match self {
             LurkPtr::Source(source) => {
-                println!("What's the source here? {:?}", source);
                 let ptr = s.read(source).expect("could not read source");
                 assert!(!ptr.raw.is_opaque());
                 let (out, _) = evaluate(s, ptr, None, limit, lang).unwrap();
@@ -805,13 +803,9 @@ impl<'a> Opening<S1> {
         chain: bool,
         lang: &Lang<S1, Coproc<S1>>,
     ) -> Result<Claim<S1>, Error> {
-        println!("Constructing fun app");
         let (commitment, expression) =
             Commitment::construct_with_fun_application(s, function, input, limit, lang)?;
-        println!("Finished fun app");
         let (public_output, _iterations) = evaluate(s, expression, None, limit, lang)?;
-
-        println!("Finished eval");
 
         let (new_commitment, output_expr) = if chain {
             let cons = public_output.expr;
@@ -944,7 +938,6 @@ impl<'a> Proof<'a, S1> {
             Claim::PtrEvaluation(e) => (e.expr.ptr(s, limit, &lang), e.env.ptr(s, limit, &lang)),
             Claim::Opening(o) => {
                 let commitment = o.commitment;
-                println!("Failing commitment: {:?}", o.commitment);
 
                 // In order to prove the opening, we need access to the original function.
                 let function = function_map
@@ -1167,13 +1160,10 @@ pub fn evaluate<F: LurkField>(
     limit: usize,
     lang: &Lang<F, Coproc<F>>,
 ) -> Result<(IO<F>, usize), Error> {
-    dbg!(store.fetch(&expr));
     let env = supplied_env.unwrap_or_else(|| empty_sym_env(store));
     let mut evaluator = Evaluator::new(expr, env, store, limit, lang);
-    dbg!((expr, env, limit, lang));
 
     let (io, iterations, _) = evaluator.eval().map_err(Error::EvaluationFailure)?;
-    dbg!((io, iterations));
 
     assert!(<crate::eval::IO<F> as Evaluable<
         F,
@@ -1403,7 +1393,6 @@ mod test {
             let function_map = committed_expression_store();
 
             let commitment = if let Some(secret) = function.secret {
-                println!("Should not be a secret");
                 Commitment::from_ptr_and_secret(s, &fun_ptr, secret)
             } else {
                 let (commitment, secret) = Commitment::from_ptr_with_hiding(s, &fun_ptr);
@@ -1411,7 +1400,6 @@ mod test {
                 commitment
             };
             function.commitment = Some(commitment);
-            println!("My commitment: {:?}", function);
 
             function_map
                 .set(commitment, &function)
@@ -1523,8 +1511,6 @@ mod test {
                     input(s, input_path, eval_input, limit, self.quote_input, lang).expect("input");
                 let lang_rc = Arc::new(lang.clone());
 
-                println!("Applying and proving with the following input");
-                println!("Input: {:?}, function: {:?}", input, function);
                 if let Some(out_path) = &self.proof {
                     let proof = Opening::apply_and_prove(
                         s, input, function, limit, self.chain, false, &prover, &pp, lang_rc,

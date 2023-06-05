@@ -1399,14 +1399,10 @@ impl<F: LurkField> Store<F> {
             ExprTag::Nil => Ok((self.get_nil(), self.get_nil())),
             ExprTag::Cons => match self.fetch(ptr) {
                 Some(Expression::Cons(car, cdr)) => Ok((car, cdr)),
-                e => {
-                    dbg!(self.get_opaque_ptr(*ptr));
-                    dbg!(self.z_expr_ptr_map.get(&self.get_opaque_ptr(*ptr).unwrap()));
-                    Err(Error(format!(
-                        "Can only extract car_cdr from known Cons, instead got {:?} {:?}",
-                        ptr, e,
-                    )))
-                }
+                e => Err(Error(format!(
+                    "Can only extract car_cdr from known Cons, instead got {:?} {:?}",
+                    ptr, e,
+                ))),
             },
             ExprTag::Str => match self.fetch(ptr) {
                 Some(Expression::StrCons(car, cdr)) => Ok((car, cdr)),
@@ -1532,7 +1528,7 @@ impl<F: LurkField> Store<F> {
                     self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
-                (ExprTag::Str, Some(SymNil)) => {
+                (ExprTag::Sym, Some(SymNil)) => {
                     let ptr = self.intern_symnil(false);
                     self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
@@ -1594,7 +1590,10 @@ impl<F: LurkField> Store<F> {
                     self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
-                _ => None,
+                _ => {
+                    //println!("Failed to get ptr for zptr: {:?}", z_ptr);
+                    None
+                }
             }
         }
     }
@@ -1990,54 +1989,6 @@ pub mod test {
     use blstrs::Scalar as Fr;
 
     use super::*;
-
-    // proptest! {
-    //   #[test]
-    //   fn test_scalar_ptr_ipld(x in any::<ZExprPtr<Fr>>())  {
-    //     let to_ipld = to_ipld(x).unwrap();
-    //     let from_ipld = from_ipld(to_ipld).unwrap();
-    //     assert_eq!(x, from_ipld);
-    //   }
-
-    //   #[test]
-    //   fn prop_scalar_cont_ptr_ipld(x in any::<ZContPtr<Fr>>()) {
-    //       let to_ipld = to_ipld(x).unwrap();
-    //           let from_ipld = from_ipld(to_ipld).unwrap();
-    //           assert_eq!(x, from_ipld);
-
-    //   }
-    //   #[test]
-    //   fn prop_op1_ipld(x in any::<Op1>())  {
-    //       let to_ipld = to_ipld(x).unwrap();
-    //       let from_ipld = from_ipld(to_ipld).unwrap();
-    //       assert_eq!(x, from_ipld);
-    //   }
-    // }
-
-    // #[test]
-    // fn unit_op1_ipld() {
-    //     assert_eq!(
-    //         to_ipld(Op1::Car).unwrap(),
-    //         Ipld::Integer(0b0010_0000_0000_0000_i128)
-    //     );
-    // }
-
-    // proptest! {
-    //   #[test]
-    //   fn prop_op2_ipld(x in any::<Op1>())  {
-    //       let to_ipld = to_ipld(x).unwrap();
-    //       let from_ipld = from_ipld(to_ipld).unwrap();
-    //       assert_eq!(x, from_ipld);
-    //   }
-    // }
-
-    // #[test]
-    // fn unit_op2_ipld() {
-    //     assert_eq!(
-    //         to_ipld(Op2::Sum).unwrap(),
-    //         Ipld::Integer(0b0011_0000_0000_0000_i128)
-    //     );
-    // }
 
     #[test]
     fn test_print_num() {
