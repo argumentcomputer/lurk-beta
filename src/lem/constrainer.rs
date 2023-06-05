@@ -95,9 +95,9 @@ enum AllocHashPreimage<F: LurkField> {
 
 #[derive(Default, Clone)]
 pub struct SlotsIndices {
-    hash2_idx: usize,
-    hash3_idx: usize,
-    hash4_idx: usize,
+    pub hash2_idx: usize,
+    pub hash3_idx: usize,
+    pub hash4_idx: usize,
 }
 
 impl LEM {
@@ -788,6 +788,9 @@ impl LEM {
                             LEMOP::Hash3(..) => {
                                 next_slots.hash3_idx += 1;
                             }
+                            LEMOP::Hash4(..) => {
+                                next_slots.hash4_idx += 1;
+                            }
                             _ => (),
                         }
                         (
@@ -801,6 +804,8 @@ impl LEM {
                         std::cmp::max(hash_slots.hash2_stacks.max_slots_len, next_slots.hash2_idx);
                     hash_slots.hash3_stacks.max_slots_len =
                         std::cmp::max(hash_slots.hash3_stacks.max_slots_len, next_slots.hash3_idx);
+                    hash_slots.hash4_stacks.max_slots_len =
+                        std::cmp::max(hash_slots.hash4_stacks.max_slots_len, next_slots.hash4_idx);
                 }
                 LEMOP::Return(outputs) => {
                     let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
@@ -856,13 +861,25 @@ impl LEM {
 
         if let Some(max_slots_indices) = max_slots_allowed {
             if max_slots_indices.hash2_idx > hash_slots.hash2_stacks.max_slots_len {
-                bail!("Too many slots allocated for Hash2/Unhash2");
+                bail!(
+                    "Too many slots allocated for Hash2/Unhash2: {}, {}",
+                    max_slots_indices.hash2_idx,
+                    hash_slots.hash2_stacks.max_slots_len
+                );
             }
             if max_slots_indices.hash3_idx > hash_slots.hash3_stacks.max_slots_len {
-                bail!("Too many slots allocated for Hash3/Unhash3");
+                bail!(
+                    "Too many slots allocated for Hash3/Unhash3: {}, {}",
+                    max_slots_indices.hash2_idx,
+                    hash_slots.hash2_stacks.max_slots_len
+                );
             }
             if max_slots_indices.hash4_idx > hash_slots.hash4_stacks.max_slots_len {
-                bail!("Too many slots allocated for Hash4/Unhash4");
+                bail!(
+                    "Too many slots allocated for Hash4/Unhash4: {}, {}",
+                    max_slots_indices.hash2_idx,
+                    hash_slots.hash2_stacks.max_slots_len
+                );
             }
         }
 
