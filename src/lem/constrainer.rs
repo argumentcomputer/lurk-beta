@@ -819,16 +819,19 @@ impl LEM {
                 slot_hash,
             )?;
 
-            if tag.is_some() {
-                let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.unwrap().to_field())?;
-                implies_equal(
-                    &mut cs.namespace(|| {
-                        format!("implies equal tag for {} and {} in hash2", slot, tgt.name())
-                    }),
-                    &concrete_path,
-                    alloc_tgt.tag(),
-                    &alloc_tag,
-                )?;
+            match tag {
+                Some(tag) => {
+                    let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
+                    implies_equal(
+                        &mut cs.namespace(|| {
+                            format!("implies equal tag for {} and {} in hash2", slot, tgt.name())
+                        }),
+                        &concrete_path,
+                        alloc_tgt.tag(),
+                        &alloc_tag,
+                    )?;
+                }
+                None => (),
             }
         }
 
@@ -856,20 +859,23 @@ impl LEM {
                 alloc_tgt.hash(),
                 slot_hash,
             );
-            if tag.is_some() {
-                let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.unwrap().to_field())?;
-                enforce_equal(
-                    cs,
-                    || {
-                        format!(
-                            "enforce equal tag for tgt {} and slot number {}",
-                            tgt.name(),
-                            slot,
-                        )
-                    },
-                    alloc_tgt.tag(),
-                    &alloc_tag,
-                );
+            match tag {
+                Some(tag) => {
+                    let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
+                    enforce_equal(
+                        cs,
+                        || {
+                            format!(
+                                "enforce equal tag for tgt {} and slot number {}",
+                                tgt.name(),
+                                slot,
+                            )
+                        },
+                        alloc_tgt.tag(),
+                        &alloc_tag,
+                    );
+                }
+                None => (),
             }
         }
 
@@ -931,16 +937,19 @@ impl LEM {
                 slot_hash,
             )?;
 
-            if tag.is_some() {
-                let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.unwrap().to_field())?;
-                implies_equal(
-                    &mut cs.namespace(|| {
-                        format!("implies equal tag for {} and {} in hash3", slot, tgt.name())
-                    }),
-                    &concrete_path,
-                    alloc_tgt.tag(),
-                    &alloc_tag,
-                )?;
+            match tag {
+                Some(tag) => {
+                    let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
+                    implies_equal(
+                        &mut cs.namespace(|| {
+                            format!("implies equal tag for {} and {} in hash3", slot, tgt.name())
+                        }),
+                        &concrete_path,
+                        alloc_tgt.tag(),
+                        &alloc_tag,
+                    )?;
+                }
+                None => (),
             }
         }
 
@@ -968,20 +977,24 @@ impl LEM {
                 alloc_tgt.hash(),
                 slot_hash,
             );
-            if tag.is_some() {
-                let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.unwrap().to_field())?;
-                enforce_equal(
-                    cs,
-                    || {
-                        format!(
-                            "enforce equal tag for tgt {} and slot hash3 number {}",
-                            tgt.name(),
-                            slot,
-                        )
-                    },
-                    alloc_tgt.tag(),
-                    &alloc_tag,
-                );
+
+            match tag {
+                Some(tag) => {
+                    let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
+                    enforce_equal(
+                        cs,
+                        || {
+                            format!(
+                                "enforce equal tag for tgt {} and slot hash3 number {}",
+                                tgt.name(),
+                                slot,
+                            )
+                        },
+                        alloc_tgt.tag(),
+                        &alloc_tag,
+                    );
+                }
+                None => (),
             }
         }
 
