@@ -230,7 +230,9 @@ pub struct ZStorePtr<F: LurkField> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum LurkPtr<F: LurkField> {
     Source(String),
-    Bytes(ZBytes),
+    //Bytes(ZBytes),
+    //#[serde(skip)]
+    //ZData(ZData),
     ZStorePtr(ZStorePtr<F>),
 }
 
@@ -301,16 +303,18 @@ impl<F: LurkField + Serialize + for<'de> Deserialize<'de>> Claim<F> {
             Claim::PtrEvaluation(ptr_eval) => {
                 let expr_in: ZExprPtr<F> = match &ptr_eval.expr {
                     LurkPtr::Source(source) => ZExprPtr::<F>::try_from(source)?,
-                    LurkPtr::Bytes(bytes) =>
-                    //todo!(),
-                    {
-                        from_z_data(&ZData::from_bytes(&bytes.z_ptr)?)?
-                    }
+                    //LurkPtr::ZData(zdata) => from_z_data(&zdata)?,
+                    //LurkPtr::Bytes(bytes) =>
+                    ////todo!(),
+                    //{
+                    //    from_z_data(&ZData::from_bytes(&bytes.z_ptr)?)?
+                    //}
                     LurkPtr::ZStorePtr(zsp) => zsp.z_ptr,
                 };
                 let expr_out = match &ptr_eval.expr_out {
                     LurkPtr::Source(source) => ZExprPtr::<F>::try_from(source)?,
-                    LurkPtr::Bytes(bytes) => from_z_data(&ZData::from_bytes(&bytes.z_ptr)?)?,
+                    //LurkPtr::Bytes(bytes) => from_z_data(&ZData::from_bytes(&bytes.z_ptr)?)?,
+                    //LurkPtr::ZData(zdata) => from_z_data(&zdata)?,
                     LurkPtr::ZStorePtr(zsp) => zsp.z_ptr,
                 };
                 let expr = ZExpr::Cons(expr_in, expr_out);
@@ -417,11 +421,23 @@ where
     }
 
     fn read_from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
-        let file = File::open(path)?;
-        let reader = BufReader::new(file);
-        bincode::deserialize_from(reader)
-            .map_err(|e| Error::CacheError(format!("Cache deserialization error: {}", e)))
+        use std::io::Read;
+        // FIXME: due to an bug in bincode, we must first copy out
+        // all the bytes before passing to `bincode::deserialize`.
+        // See: https://github.com/bincode-org/bincode/issues/633
+        let mut file = File::open(path)?;
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes).unwrap();
+        bincode::deserialize(&bytes).map_err(|e| {
+            eprintln!("{}", e);
+            Error::CacheError(e.to_string())
+        })
     }
+    //    let file = File::open(path)?;
+    //    let reader = BufReader::new(file);
+    //    bincode::deserialize_from(reader)
+    //        .map_err(|e| Error::CacheError(format!("Cache deserialization error: {}", e)))
+    //}
 
     fn read_from_stdin() -> Result<Self, Error> {
         let reader = BufReader::new(io::stdin());
@@ -597,27 +613,31 @@ impl<F: LurkField + Serialize + DeserializeOwned> LurkPtr<F> {
     pub fn ptr(&self, s: &mut Store<F>, limit: usize, lang: &Lang<F, Coproc<F>>) -> Ptr<F> {
         match self {
             LurkPtr::Source(source) => {
+                println!("What's the source here? {:?}", source);
                 let ptr = s.read(source).expect("could not read source");
+                assert!(!ptr.raw.is_opaque());
                 let (out, _) = evaluate(s, ptr, None, limit, lang).unwrap();
 
                 out.expr
             }
-            LurkPtr::Bytes(bytes) => {
-                let z_store_data =
-                    ZData::from_bytes(&bytes.z_store).expect("could not read opaque zstore");
-                let z_ptr_data =
-                    ZData::from_bytes(&bytes.z_ptr).expect("could not read opaque zstore");
+            // Are we actually reading ZData bytes or is it something else like bincode?
+            //LurkPtr::Bytes(bytes) => {
+            //    let z_store_data =
+            //        ZData::from_bytes(&bytes.z_store).expect("could not read opaque zstore");
+            //    let z_ptr_data =
+            //        ZData::from_bytes(&bytes.z_ptr).expect("could not read opaque zstore");
 
-                let z_store: ZStore<F> =
-                    from_z_data(&z_store_data).expect("could not read opaque zstore");
-                let z_ptr: ZExprPtr<F> =
-                    from_z_data(&z_ptr_data).expect("could not read opaque zptr");
+            //    let z_store: ZStore<F> =
+            //        from_z_data(&z_store_data).expect("could not read opaque zstore");
+            //    let z_ptr: ZExprPtr<F> =
+            //        from_z_data(&z_ptr_data).expect("could not read opaque zptr");
 
-                let lurk_ptr = LurkPtr::ZStorePtr(ZStorePtr { z_store, z_ptr });
+            //    let lurk_ptr = LurkPtr::ZStorePtr(ZStorePtr { z_store, z_ptr });
 
-                lurk_ptr.ptr(s, limit, lang)
-            }
+            //    lurk_ptr.ptr(s, limit, lang)
+            //}
             LurkPtr::ZStorePtr(z_store_ptr) => {
+                // This is where the error is happening I think
                 let z_store = &z_store_ptr.z_store;
                 let z_ptr = z_store_ptr.z_ptr;
                 s.intern_z_expr_ptr(z_ptr, z_store)
@@ -629,17 +649,21 @@ impl<F: LurkField + Serialize + DeserializeOwned> LurkPtr<F> {
     pub fn from_ptr(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
         let (z_store, z_ptr) = ZStore::new_with_expr(s, ptr);
         let z_ptr = z_ptr.unwrap();
+        Self::ZStorePtr(ZStorePtr { z_store, z_ptr })
 
-        let z_store_ser = to_z_data(z_store).unwrap();
-        let z_ptr_ser = to_z_data(z_ptr).unwrap();
+        //let z_store_ser = to_z_data(z_store).unwrap();
+        //let z_ptr_ser = to_z_data(z_ptr).unwrap();
 
-        let again: ZExprPtr<F> = from_z_data(&z_ptr_ser).unwrap();
-        assert_eq!(&z_ptr, &again);
+        //let again: ZExprPtr<F> = from_z_data(&z_ptr_ser).unwrap();
+        //assert_eq!(&z_ptr, &again);
 
-        Self::Bytes(ZBytes {
-            z_store: ZData::to_bytes(&z_store_ser),
-            z_ptr: ZData::to_bytes(&z_ptr_ser),
-        })
+        //Self::Bytes(ZBytes {
+        //    z_store: ZData::to_bytes(&z_store_ser),
+        //    z_ptr: ZData::to_bytes(&z_ptr_ser),
+        //})
+        //Self::ZData(ZData {
+        //	z_store
+        //})
     }
 }
 
@@ -812,6 +836,7 @@ impl<'a> Opening<S1> {
 
             let function_map = committed_expression_store();
             function_map.set(new_commitment, &new_function)?;
+            assert_eq!(new_function, function_map.get(&new_commitment).unwrap());
 
             (Some(new_commitment), result_expr)
         } else {
@@ -919,6 +944,7 @@ impl<'a> Proof<'a, S1> {
             Claim::PtrEvaluation(e) => (e.expr.ptr(s, limit, &lang), e.env.ptr(s, limit, &lang)),
             Claim::Opening(o) => {
                 let commitment = o.commitment;
+                println!("Failing commitment: {:?}", o.commitment);
 
                 // In order to prove the opening, we need access to the original function.
                 let function = function_map
@@ -1141,6 +1167,7 @@ pub fn evaluate<F: LurkField>(
     limit: usize,
     lang: &Lang<F, Coproc<F>>,
 ) -> Result<(IO<F>, usize), Error> {
+    dbg!(store.fetch(&expr));
     let env = supplied_env.unwrap_or_else(|| empty_sym_env(store));
     let mut evaluator = Evaluator::new(expr, env, store, limit, lang);
     dbg!((expr, env, limit, lang));
@@ -1346,6 +1373,7 @@ mod test {
     impl Commit {
         fn commit(&self, limit: usize, lang: &Lang<S1, Coproc<S1>>) {
             let s = &mut Store::<S1>::default();
+            let function_source = "(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))";
 
             let mut function = if self.lurk {
                 let path = env::current_dir()
@@ -1353,19 +1381,29 @@ mod test {
                     .join(&self.function);
                 let src = read_to_string(path).expect("src read_to_string");
 
+                assert_eq!(src, function_source);
                 CommittedExpression {
                     expr: LurkPtr::Source(src),
                     secret: None,
                     commitment: None,
                 }
             } else {
-                CommittedExpression::read_from_path(&self.function)
-                    .expect("committed expression read_from_path")
+                let comm1 = CommittedExpression {
+                    expr: LurkPtr::Source(function_source.into()),
+                    secret: None,
+                    commitment: None,
+                };
+                let comm2 = CommittedExpression::read_from_path(&self.function)
+                    .expect("committed expression read_from_path");
+                assert_eq!(comm1, comm2);
+                comm2
             };
             let fun_ptr = function.expr_ptr(s, limit, lang).expect("fun_ptr");
+            assert!(!fun_ptr.raw.is_opaque());
             let function_map = committed_expression_store();
 
             let commitment = if let Some(secret) = function.secret {
+                println!("Should not be a secret");
                 Commitment::from_ptr_and_secret(s, &fun_ptr, secret)
             } else {
                 let (commitment, secret) = Commitment::from_ptr_with_hiding(s, &fun_ptr);
@@ -1379,9 +1417,18 @@ mod test {
                 .set(commitment, &function)
                 .expect("function_map set");
             function.write_to_path(&self.function);
+            assert_eq!(
+                function,
+                CommittedExpression::<S1>::read_from_path(&self.function).unwrap()
+            );
+            assert_eq!(function, function_map.get(&commitment).unwrap());
 
             if let Some(commitment_path) = &self.commitment {
                 commitment.write_to_path(commitment_path);
+                assert_eq!(
+                    commitment,
+                    Commitment::<S1>::read_from_path(&commitment_path).unwrap()
+                );
             } else {
                 serde_json::to_writer(io::stdout(), &commitment).expect("serde_json to_writer");
             }
@@ -1476,7 +1523,8 @@ mod test {
                     input(s, input_path, eval_input, limit, self.quote_input, lang).expect("input");
                 let lang_rc = Arc::new(lang.clone());
 
-                println!("Applying and proving");
+                println!("Applying and proving with the following input");
+                println!("Input: {:?}, function: {:?}", input, function);
                 if let Some(out_path) = &self.proof {
                     let proof = Opening::apply_and_prove(
                         s, input, function, limit, self.chain, false, &prover, &pp, lang_rc,
@@ -1548,6 +1596,10 @@ mod test {
         assert!(env::set_current_dir(&tmp_dir_path).is_ok());
 
         function.write_to_path(&function_path);
+        assert_eq!(
+            function,
+            CommittedExpression::<S1>::read_from_path(&function_path).unwrap()
+        );
 
         let commit = Commit {
             function: function_path.clone().into(),
@@ -1560,6 +1612,7 @@ mod test {
         let mut commitment: Commitment<S1> =
             Commitment::read_from_path(&commitment_path).expect("read commitment");
 
+        //assert_eq!()
         for (function_input, expected_output) in io {
             let mut input_file = File::create(&input_path).expect("create file");
 
@@ -1569,8 +1622,7 @@ mod test {
                 input: Some(input_path.clone()),
                 proof: Some(proof_path.clone()),
                 reduction_count: 10,
-                //commitment: Some("0de31ec962623ed9eaf747f9ce3e3ac3e5c700b24bb719d133ee79c6f4f1edc2"
-                //    .into()),
+                //commitment: Some("0de31ec962623ed9eaf747f9ce3e3ac3e5c700b24bb719d133ee79c6f4f1edc2".into()),
                 commitment: Some(commitment.to_string()),
                 function: None,
                 request: None,
@@ -1633,7 +1685,7 @@ mod test {
                 src
             }
         };
-
+        assert!(!input.raw.is_opaque());
         Ok(input)
     }
 
@@ -1713,7 +1765,6 @@ fn tmp_chained_no_io() {
     let io = expected_io.iter();
 
     let fun_ptr = function.expr_ptr(s, limit, &lang).expect("fun_ptr");
-    //let function_map = committed_expression_store();
 
     let mut commitment = if let Some(secret) = function.secret {
         Commitment::from_ptr_and_secret(s, &fun_ptr, secret)
@@ -1724,7 +1775,11 @@ fn tmp_chained_no_io() {
         commitment
     };
     function.commitment = Some(commitment);
-    println!("My commitment: {:?}", function);
+    let function_map = committed_expression_store();
+    function_map
+        .set(commitment, &function)
+        .expect("function_map set");
+    println!("No IO commitment: {:?}", function);
 
     for (function_input, _expected_output) in io {
         let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
@@ -1734,7 +1789,8 @@ fn tmp_chained_no_io() {
 
         println!("Input ptr: {:?}", input);
 
-        println!("Applying and proving");
+        println!("Applying and proving with the following input");
+        println!("Input {:?}, function: {:?}", input, function);
         let proof = Opening::apply_and_prove(
             s,
             input,
@@ -1749,7 +1805,7 @@ fn tmp_chained_no_io() {
         .expect("apply and prove");
 
         println!("Finished Applying and proving");
-        proof.verify(&pp, &lang).expect("Failed to verify");
+        proof.verify(&pp, &lang_rc).expect("Failed to verify");
 
         let opening = proof.claim.opening().expect("expected opening claim");
 
