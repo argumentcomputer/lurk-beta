@@ -857,6 +857,7 @@ impl LEM {
                 slot_hash,
             );
             if tag.is_some() {
+                let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.unwrap().to_field())?;
                 enforce_equal(
                     cs,
                     || {
@@ -866,8 +867,8 @@ impl LEM {
                             slot,
                         )
                     },
-                    alloc_tgt.hash(),
-                    slot_hash,
+                    alloc_tgt.tag(),
+                    &alloc_tag,
                 );
             }
         }
@@ -968,6 +969,7 @@ impl LEM {
                 slot_hash,
             );
             if tag.is_some() {
+                let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.unwrap().to_field())?;
                 enforce_equal(
                     cs,
                     || {
@@ -977,8 +979,8 @@ impl LEM {
                             slot,
                         )
                     },
-                    alloc_tgt.hash(),
-                    slot_hash,
+                    alloc_tgt.tag(),
+                    &alloc_tag,
                 );
             }
         }
