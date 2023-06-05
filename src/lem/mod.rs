@@ -445,18 +445,12 @@ mod tests {
         lem: &LEM,
         store: &mut Store<Fr>,
         valuations: &Vec<Valuation<Fr>>,
-        max_indices: Option<SlotsIndices>,
+        max_indices: &SlotsIndices,
     ) {
         for v in valuations {
             let mut cs = TestConstraintSystem::<Fr>::new();
-            match max_indices {
-                Some(ref m) => {
-                    lem.constrain_limited(&mut cs, store, v, &m).unwrap();
-                }
-                None => {
-                    lem.constrain(&mut cs, store, v).unwrap();
-                }
-            }
+            lem.constrain_limited(&mut cs, store, v, max_indices)
+                .unwrap();
             assert!(cs.is_satisfied());
         }
     }
@@ -500,7 +494,7 @@ mod tests {
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
-        constrain_test_helper(&lem, &mut store, &valuations, None);
+        constrain_test_helper(&lem, &mut store, &valuations, &SlotsIndices::default());
     }
 
     #[test]
@@ -527,7 +521,7 @@ mod tests {
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
-        constrain_test_helper(&lem, &mut store, &valuations, None);
+        constrain_test_helper(&lem, &mut store, &valuations, &SlotsIndices::default());
     }
 
     #[test]
@@ -551,7 +545,7 @@ mod tests {
             hash3_idx: 0,
             hash4_idx: 0,
         };
-        constrain_test_helper(&lem, &mut store, &valuations, Some(max_indices));
+        constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
 
     #[test]
@@ -576,7 +570,7 @@ mod tests {
             hash3_idx: 0,
             hash4_idx: 0,
         };
-        constrain_test_helper(&lem, &mut store, &valuations, Some(max_indices));
+        constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
 
     #[test]
@@ -608,7 +602,7 @@ mod tests {
             hash3_idx: 0,
             hash4_idx: 0,
         };
-        constrain_test_helper(&lem, &mut store, &valuations, Some(max_indices));
+        constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
 
     #[test]
@@ -653,7 +647,7 @@ mod tests {
             hash3_idx: 0,
             hash4_idx: 0,
         };
-        constrain_test_helper(&lem, &mut store, &valuations, Some(max_indices));
+        constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
 
     #[test]
@@ -674,7 +668,7 @@ mod tests {
             hash3_idx: 0,
             hash4_idx: 0,
         };
-        constrain_test_helper(&lem, &mut store, &valuations, Some(max_indices));
+        constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
 
     #[test]
@@ -698,7 +692,7 @@ mod tests {
             hash3_idx: 1,
             hash4_idx: 0,
         };
-        constrain_test_helper(&lem, &mut store, &valuations, Some(max_indices));
+        constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
 
     #[test]
@@ -723,7 +717,7 @@ mod tests {
             hash3_idx: 1,
             hash4_idx: 0,
         };
-        constrain_test_helper(&lem, &mut store, &valuations, Some(max_indices));
+        constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
 
     #[test]
@@ -755,7 +749,7 @@ mod tests {
             hash3_idx: 3,
             hash4_idx: 0,
         };
-        constrain_test_helper(&lem, &mut store, &valuations, Some(max_indices));
+        constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
 
     #[test]
@@ -800,7 +794,7 @@ mod tests {
             hash3_idx: 7,
             hash4_idx: 0,
         };
-        constrain_test_helper(&lem, &mut store, &valuations, Some(max_indices));
+        constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
 
     #[test]
@@ -821,7 +815,7 @@ mod tests {
             hash3_idx: 2,
             hash4_idx: 0,
         };
-        constrain_test_helper(&lem, &mut store, &valuations, Some(max_indices));
+        constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
 
     #[test]
@@ -845,7 +839,7 @@ mod tests {
             hash3_idx: 0,
             hash4_idx: 1,
         };
-        constrain_test_helper(&lem, &mut store, &valuations, Some(max_indices));
+        constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
 
     #[test]
@@ -870,7 +864,7 @@ mod tests {
             hash3_idx: 0,
             hash4_idx: 1,
         };
-        constrain_test_helper(&lem, &mut store, &valuations, Some(max_indices));
+        constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
 
     #[test]
@@ -902,7 +896,7 @@ mod tests {
             hash3_idx: 0,
             hash4_idx: 3,
         };
-        constrain_test_helper(&lem, &mut store, &valuations, Some(max_indices));
+        constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
 
     #[test]
@@ -947,7 +941,7 @@ mod tests {
             hash3_idx: 0,
             hash4_idx: 7,
         };
-        constrain_test_helper(&lem, &mut store, &valuations, Some(max_indices));
+        constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
 
     #[test]
@@ -968,6 +962,6 @@ mod tests {
             hash3_idx: 0,
             hash4_idx: 2,
         };
-        constrain_test_helper(&lem, &mut store, &valuations, Some(max_indices));
+        constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
 }
