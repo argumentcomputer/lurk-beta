@@ -10,10 +10,10 @@ use proptest::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
 
-#[cfg(not(target_arch = "wasm32"))]
-use crate::field::FWrap;
 use crate::coprocessor::Coprocessor;
 use crate::error::ReductionError;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::field::FWrap;
 use crate::{
     circuit::ToInputs,
     eval::{
@@ -1343,69 +1343,68 @@ mod test {
       }
     }
 
+    // Temporary minimal chained functional commitment test
+    // TODO: Set temporary path for caches
+    #[test]
+    fn lurk_chained_functional_commitment() {
+        let function_source = "(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))";
+        let expected_io = vec![("5", "5"), ("3", "8")];
 
-  // Temporary minimal chained functional commitment test
-  // TODO: Set temporary path for caches
-  #[test]
-  fn lurk_chained_functional_commitment() {
-    let function_source = "(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))";
-    let expected_io = vec![("5", "5"), ("3", "8")];
-    
-    let mut function = CommittedExpression::<S1> {
-      expr: LurkPtr::Source(function_source.into()),
-      secret: None,
-      commitment: None,
-    };
-    
-    let limit = 1000;
-    let lang = Lang::new();
-    let lang_rc = Arc::new(lang.clone());
-    let rc = ReductionCount::Ten;
-    let pp = public_params(rc.count(), lang_rc.clone()).expect("public params");
-    let chained = true;
-    let s = &mut Store::<S1>::default();
-    
-    let io = expected_io.iter();
-    
-    let fun_ptr = function.expr_ptr(s, limit, &lang).expect("fun_ptr");
-    
-    let (mut commitment, secret) = Commitment::from_ptr_with_hiding(s, &fun_ptr);
-    
-    function.secret = Some(secret);
-    function.commitment = Some(commitment);
-    
-    let function_map = committed_expression_store();
-    function_map
-      .set(commitment, &function)
-      .expect("function_map set");
-    
-    for (function_input, _expected_output) in io {
-      let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
-      
-      let input = s.read(function_input).expect("Read error");
-      
-      let proof = Opening::apply_and_prove(
-        s,
-        input,
-        function.clone(),
-        limit,
-        chained,
-        false,
-        &prover,
-        &pp,
-        lang_rc.clone(),
-      )
-        .expect("apply and prove");
-      
-      proof.verify(&pp, &lang_rc).expect("Failed to verify");
-      
-      let opening = proof.claim.opening().expect("expected opening claim");
-      
-      match opening.new_commitment {
-        Some(c) => commitment = c,
-        _ => panic!("new commitment missing"),
-      }
-      println!("Commitment: {:?}", commitment);
+        let mut function = CommittedExpression::<S1> {
+            expr: LurkPtr::Source(function_source.into()),
+            secret: None,
+            commitment: None,
+        };
+
+        let limit = 1000;
+        let lang = Lang::new();
+        let lang_rc = Arc::new(lang.clone());
+        let rc = ReductionCount::Ten;
+        let pp = public_params(rc.count(), lang_rc.clone()).expect("public params");
+        let chained = true;
+        let s = &mut Store::<S1>::default();
+
+        let io = expected_io.iter();
+
+        let fun_ptr = function.expr_ptr(s, limit, &lang).expect("fun_ptr");
+
+        let (mut commitment, secret) = Commitment::from_ptr_with_hiding(s, &fun_ptr);
+
+        function.secret = Some(secret);
+        function.commitment = Some(commitment);
+
+        let function_map = committed_expression_store();
+        function_map
+            .set(commitment, &function)
+            .expect("function_map set");
+
+        for (function_input, _expected_output) in io {
+            let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
+
+            let input = s.read(function_input).expect("Read error");
+
+            let proof = Opening::apply_and_prove(
+                s,
+                input,
+                function.clone(),
+                limit,
+                chained,
+                false,
+                &prover,
+                &pp,
+                lang_rc.clone(),
+            )
+            .expect("apply and prove");
+
+            proof.verify(&pp, &lang_rc).expect("Failed to verify");
+
+            let opening = proof.claim.opening().expect("expected opening claim");
+
+            match opening.new_commitment {
+                Some(c) => commitment = c,
+                _ => panic!("new commitment missing"),
+            }
+            println!("Commitment: {:?}", commitment);
+        }
     }
-  }
 }
