@@ -5,8 +5,18 @@ use lurk::field::LanguageField;
 use lurk::repl::{repl_cli, ReplState};
 use pasta_curves::{pallas, vesta};
 
+mod version {
+    include!(concat!(env!("OUT_DIR"), "/version.rs"));
+}
+
 fn main() -> Result<()> {
     pretty_env_logger::init();
+
+    println!(
+        "commit: {} {}",
+        version::commit_date(),
+        version::short_sha()
+    );
 
     let default_field = LanguageField::Pallas;
     let field = if let Ok(lurk_field) = std::env::var("LURK_FIELD") {

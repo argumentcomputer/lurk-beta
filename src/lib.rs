@@ -6,6 +6,7 @@
 extern crate alloc;
 
 pub mod circuit;
+pub mod config;
 pub mod cont;
 pub mod coprocessor;
 pub mod eval;

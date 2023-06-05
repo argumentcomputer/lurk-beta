@@ -14,15 +14,16 @@ anyhow = "1.0.69"
 base64 = "0.13.1"
 hex = { version = "0.4.3", features = ["serde"] }
 thiserror = "1.0.38"
-bellperson = "0.25"
+bellperson = { git = "https://github.com/lurk-lab/bellperson", branch = "icfp-benchmarks" }
 blstrs = "0.7.0"
+crossbeam = "0.8.2"
 ff = "0.13"
 generic-array = "0.14.6"
 itertools = "0.9"
 log = "0.4.17"
 lurk-macros = { path = "lurk-macros" }
-neptune = { git = "https://github.com/winston-h-zhang/neptune.git", branch = "hz/unsafe_serde", features = ["arity2","arity4","arity8","arity16","pasta","bls"] }
-nova = { package = "nova-snark", git = "https://github.com/winston-h-zhang/Nova.git", branch = "hz/unsafe_serde", default-features = false }
+neptune = { git = "https://github.com/lurk-lab/neptune", branch = "icfp-benchmarks" }
+nova = { package = "nova-snark", git = "https://github.com/lurk-lab/nova", branch = "icfp-benchmarks", default-features = false }
 once_cell = "1.17.1"
 pairing_lib = { version = "0.23", package = "pairing" }
 peekmore = "1.1.0"
@@ -44,6 +45,7 @@ libipld = { package = "lurk-ipld", version = "0.3.0", default-features = false, 
 cid = { version = "0.8.6", default-features = false, features = ["alloc", "serde-codec"]}
 multihash = { version = "0.16.3", default-features = false, features = ["alloc", "blake3"] }
 num-bigint = "0.4.3"
+num_cpus = "1.10.1"
 num-integer = "0.1.45"
 num-traits = "0.2.15"
 nom = "7.1.3"
@@ -70,7 +72,7 @@ rustyline = { version = "11.0", features = ["derive"], default-features = false 
 [features]
 default = []
 opencl = ["neptune/opencl"]
-cuda = ["neptune/cuda"]
+cuda = ["neptune/cuda", "nova/cuda"]
 # compile without ISA extensions
 portable = ["blstrs/portable", "pasta-msm/portable"]
 flamegraph = ["pprof/flamegraph", "pprof/criterion"]
@@ -85,6 +87,9 @@ assert_cmd = "2.0.8"
 tempfile = "3.5.0"
 pprof = { version = "0.11" }
 cfg-if = "1.0.0"
+
+[build-dependencies]
+vergen = "0.1"
 
 [workspace]
 members = [

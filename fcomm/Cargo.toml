@@ -13,8 +13,6 @@ path = "src/bin/fcomm.rs"
 
 [dependencies]
 base64 = "0.13.1"
-bellperson = "0.25"
-blstrs = "0.7.0"
 clap = { version = "3.2", features = ["derive"] }
 clap-verbosity-flag = "1.0"
 ff = "0.13"
