@@ -82,13 +82,6 @@ struct HashSlots<F: LurkField> {
     hash4_stacks: SlotStacks,
 }
 
-#[derive(Default, Clone)]
-struct SlotsIndices {
-    hash2_idx: usize,
-    hash3_idx: usize,
-    hash4_idx: usize,
-}
-
 enum AllocHashPreimage<F: LurkField> {
     A2(AllocatedPtr<F>, AllocatedPtr<F>),
     A3(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>),
@@ -98,6 +91,13 @@ enum AllocHashPreimage<F: LurkField> {
         AllocatedPtr<F>,
         AllocatedPtr<F>,
     ),
+}
+
+#[derive(Default, Clone)]
+pub struct SlotsIndices {
+    hash2_idx: usize,
+    hash3_idx: usize,
+    hash4_idx: usize,
 }
 
 impl LEM {
@@ -338,23 +338,21 @@ impl LEM {
                 alloc_tgt.hash(),
                 slot_hash,
             );
-            match tag {
-                Some(tag) => {
-                    let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
-                    enforce_equal(
-                        cs,
-                        || {
-                            format!(
-                                "enforce equal tag for tgt {} and slot number {}",
-                                tgt.name(),
-                                slot,
-                            )
-                        },
-                        alloc_tgt.tag(),
-                        &alloc_tag,
-                    );
-                }
-                None => (),
+
+            if let Some(tag) = tag {
+                let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
+                enforce_equal(
+                    cs,
+                    || {
+                        format!(
+                            "enforce equal tag for tgt {} and slot number {}",
+                            tgt.name(),
+                            slot,
+                        )
+                    },
+                    alloc_tgt.tag(),
+                    &alloc_tag,
+                );
             }
         }
         Ok(())
@@ -383,11 +381,12 @@ impl LEM {
     /// implications on both virtual and concrete paths to make sure that the
     /// circuit structure is always the same, independently of the valuation. The
     /// premise is precicely `concrete_path`.
-    pub fn constrain<F: LurkField, CS: ConstraintSystem<F>>(
+    pub fn constrain_aux<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         store: &mut Store<F>,
         valuation: &Valuation<F>,
+        max_slots_allowed: Option<&SlotsIndices>,
     ) -> Result<()> {
         let mut alloc_ptrs: HashMap<&String, AllocatedPtr<F>> = HashMap::default();
 
@@ -855,6 +854,18 @@ impl LEM {
             return Err(anyhow!("Couldn't inputize the right number of outputs"));
         }
 
+        if let Some(max_slots_indices) = max_slots_allowed {
+            if max_slots_indices.hash2_idx > hash_slots.hash2_stacks.max_slots_len {
+                bail!("Too many slots allocated for Hash2/Unhash2");
+            }
+            if max_slots_indices.hash3_idx > hash_slots.hash3_stacks.max_slots_len {
+                bail!("Too many slots allocated for Hash3/Unhash3");
+            }
+            if max_slots_indices.hash4_idx > hash_slots.hash4_stacks.max_slots_len {
+                bail!("Too many slots allocated for Hash4/Unhash4");
+            }
+        }
+
         let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
 
         /////////////////////////////////////////////////////////////////////////
@@ -982,5 +993,26 @@ impl LEM {
         }
 
         Ok(())
+    }
+
+    #[inline]
+    pub fn constrain<F: LurkField, CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        store: &mut Store<F>,
+        valuation: &Valuation<F>,
+    ) -> Result<()> {
+        self.constrain_aux(cs, store, valuation, None)
+    }
+
+    #[inline]
+    pub fn constrain_limited<F: LurkField, CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        store: &mut Store<F>,
+        valuation: &Valuation<F>,
+        limits: &SlotsIndices,
+    ) -> Result<()> {
+        self.constrain_aux(cs, store, valuation, Some(limits))
     }
 }
