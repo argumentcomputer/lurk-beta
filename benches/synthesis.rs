@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
-use bellperson::{util_cs::test_cs::TestConstraintSystem, Circuit};
+use bellperson::util_cs::witness_cs::WitnessCS;
+use bellperson::{Circuit, ConstraintSystem};
 use criterion::{
     black_box, criterion_group, criterion_main, measurement, BatchSize, BenchmarkGroup,
     BenchmarkId, Criterion, SamplingMode,
@@ -61,12 +62,13 @@ fn synthesize<M: measurement::Measurement>(
                 .unwrap();
 
             let multiframe =
-                MultiFrame::from_frames(*reduction_count, &frames, &store, &lang_rc)[0].clone();
+                MultiFrame::from_frames(*reduction_count, &frames, &store, lang_rc.clone())[0]
+                    .clone();
 
             b.iter_batched(
                 || (multiframe.clone()), // avoid cloning the frames in the benchmark
                 |multiframe| {
-                    let mut cs = TestConstraintSystem::new();
+                    let mut cs = WitnessCS::new();
                     let result = multiframe.synthesize(&mut cs);
                     let _ = black_box(result);
                 },
