@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use abomonation::{Abomonation, encode};
+use abomonation::{encode, Abomonation};
 
 use crate::public_parameters::error::Error;
 use crate::public_parameters::FileStore;

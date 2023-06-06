@@ -69,17 +69,20 @@ pub struct PublicParams<'c, C: Coprocessor<S1>> {
 }
 
 impl<'c, C: Coprocessor<S1>> Abomonation for PublicParams<'c, C> {
-    unsafe fn entomb<W: std::io::Write>(&self, bytes: &mut W) -> std::io::Result<()> { 
+    unsafe fn entomb<W: std::io::Write>(&self, bytes: &mut W) -> std::io::Result<()> {
         self.pp.entomb(bytes)?;
         self.pk.entomb(bytes)?;
         self.vk.entomb(bytes)?;
-        Ok(()) 
+        Ok(())
     }
 
-    unsafe fn exhume<'a,'b>(&'a mut self, mut bytes: &'b mut [u8]) -> Option<&'b mut [u8]> {
-        let temp = bytes; bytes = self.pp.exhume(temp)?;
-        let temp = bytes; bytes = self.pk.exhume(temp)?;
-        let temp = bytes; bytes = self.vk.exhume(temp)?;
+    unsafe fn exhume<'a, 'b>(&'a mut self, mut bytes: &'b mut [u8]) -> Option<&'b mut [u8]> {
+        let temp = bytes;
+        bytes = self.pp.exhume(temp)?;
+        let temp = bytes;
+        bytes = self.pk.exhume(temp)?;
+        let temp = bytes;
+        bytes = self.vk.exhume(temp)?;
         Some(bytes)
     }
 

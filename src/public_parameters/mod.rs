@@ -89,10 +89,10 @@ where
     registry::CACHE_REG.get_coprocessor_or_update_with(rc, abomonated, f, lang)
 }
 
-/// Attempts to extract abomonated public parameters. 
+/// Attempts to extract abomonated public parameters.
 /// To avoid all copying overhead, we zerocopy all of the data within the file;
 /// this leads to extremely high performance, but restricts the lifetime of the data
-/// to the lifetime of the file. Thus, we cannot pass a reference out and must 
+/// to the lifetime of the file. Thus, we cannot pass a reference out and must
 /// rely on a closure to capture the data and continue the computation in `bind`.
 pub fn with_public_params<C, F, T>(rc: usize, lang: Arc<Lang<S1, C>>, bind: F) -> Result<T, Error>
 where
