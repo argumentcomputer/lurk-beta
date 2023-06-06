@@ -1,3 +1,4 @@
+use abomonation::decode;
 use log::info;
 use std::convert::TryFrom;
 use std::fs::File;
@@ -76,55 +77,62 @@ pub fn committed_expression_store() -> CommittedExpressionMap {
     FileMap::<Commitment<S1>, CommittedExpression<S1>>::new("committed_expressions").unwrap()
 }
 
-pub fn public_params<C, B, T>(rc: usize, quick: bool, lang: Arc<Lang<S1, C>>, bind: B) -> T
+pub fn public_params<C>(
+    rc: usize,
+    abomonated: bool,
+    lang: Arc<Lang<S1, C>>,
+) -> Result<Arc<PublicParams<'static, C>>, Error>
 where
     C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static,
-    B: Fn(PublicParams<'static, C>) -> T,
 {
     let f = |lang: Arc<Lang<S1, C>>| Arc::new(nova::public_params(rc, lang));
-    registry::CACHE_REG.get_coprocessor_or_update_with(rc, quick, f, lang)
+    registry::CACHE_REG.get_coprocessor_or_update_with(rc, abomonated, f, lang)
 }
 
-pub fn with_public_params<
+/// Attempts to extract abomonated public parameters. 
+/// To avoid all copying overhead, we zerocopy all of the data within the file;
+/// this leads to extremely high performance, but restricts the lifetime of the data
+/// to the lifetime of the file. Thus, we cannot pass a reference out and must 
+/// rely on a closure to capture the data and continue the computation in `bind`.
+pub fn with_public_params<C, F, T>(rc: usize, lang: Arc<Lang<S1, C>>, bind: F) -> Result<T, Error>
+where
     C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static,
-    T,
     F: FnOnce(&PublicParams<'static, C>) -> T,
->(
-    rc: usize,
-    lang: Arc<Lang<S1, C>>,
-    f: F,
-) {
-}
-
-pub fn public_params_quick<C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static>(
-    rc: usize,
-    lang: Arc<Lang<S1, C>>,
-) -> Result<PublicParams<'static, C>, Error> {
+{
     let disk_cache = file_map::FileIndex::new("public_params").unwrap();
     // use the cached language key
     let lang_key = lang.key();
     // Sanity-check: we're about to use a lang-dependent disk cache, which should be specialized
     // for this lang/coprocessor.
-    let key = format!("public-params-rc-{rc}-coproc-{lang_key}-quick");
-    if let Some(mut bytes) =
-        disk_cache.get_with_timing::<Vec<u8>>(&key, &"public params".to_string())
-    {
-        let (_, remaining) =
-            unsafe { abomonation::decode::<PublicParams<'static, C>>(bytes.as_mut()).unwrap() };
-        assert!(remaining.len() == 0);
-        let pp = std::mem::ManuallyDrop::new(bytes);
-        // this is extremely dangerous
-        let pp = unsafe { std::mem::transmute_copy(&pp) };
-        Ok(pp)
-    } else {
-        let pp = nova::public_params(rc, lang);
-        let mut bytes = Vec::new();
-        unsafe { abomonation::encode(&pp, &mut bytes)? };
-        // maybe just directly write
-        disk_cache
-            .set_with_timing::<Vec<u8>>(&key, &bytes, &"public params".to_string())
-            .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
-        Ok(pp)
+    let key = format!("public-params-rc-{rc}-coproc-{lang_key}-abomonated");
+
+    match disk_cache.get_raw_bytes(&key) {
+        Ok(mut bytes) => {
+            if let Some((pp, remaining)) = unsafe { decode(&mut bytes) } {
+                assert!(remaining.is_empty());
+                eprintln!("Using disk-cached public params for lang {}", lang_key);
+                Ok(bind(pp))
+            } else {
+                eprintln!("failed to decode bytes");
+                let pp = nova::public_params(rc, lang);
+                let mut bytes = Vec::new();
+                unsafe { abomonation::encode(&pp, &mut bytes)? };
+                // maybe just directly write
+                disk_cache
+                    .set_abomonated(&key, &pp)
+                    .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+                Ok(bind(&pp))
+            }
+        }
+        Err(e) => {
+            eprintln!("{e}");
+            let pp = nova::public_params(rc, lang);
+            // maybe just directly write
+            disk_cache
+                .set_abomonated(&key, &pp)
+                .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+            Ok(bind(&pp))
+        }
     }
 }
 
@@ -449,8 +457,7 @@ where
     fn read_from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
-        bincode::deserialize_from(reader)
-            .map_err(|e| Error::CacheError(format!("Cache deserialization error: {}", e)))
+        bincode::deserialize_from(reader).map_err(|e| Error::CacheError(format!("{}", e)))
     }
 
     fn read_from_stdin() -> Result<Self, Error> {
