@@ -301,7 +301,7 @@ impl ClutchState<F, Coproc<F>> {
 
         let (evaled, _, _, _) = self.repl_state.eval_expr(expr, store)?;
 
-        let commitment = Commitment::from_ptr_and_secret(store, &evaled, secret);
+        let commitment = Commitment::from_ptr_and_secret(store, &evaled, secret)?;
 
         let committed_expression = CommittedExpression {
             expr: LurkPtr::from_ptr(store, &evaled),
@@ -353,7 +353,7 @@ impl ClutchState<F, Coproc<F>> {
             .open(new_comm)
             .ok_or_else(|| anyhow!("opening missing"))?;
 
-        let new_commitment = Commitment::from_comm(store, &new_comm);
+        let new_commitment = Commitment::from_comm(store, &new_comm)?;
 
         let expr = LurkPtr::from_ptr(store, &new_fun);
 
@@ -390,7 +390,7 @@ impl ClutchState<F, Coproc<F>> {
 
         let (output, new_commitment) = if chain {
             let (output, new_comm) = store.car_cdr(&result)?;
-            (output, Some(Commitment::from_comm(store, &new_comm)))
+            (output, Some(Commitment::from_comm(store, &new_comm)?))
         } else {
             (result, None)
         };
@@ -430,7 +430,7 @@ impl ClutchState<F, Coproc<F>> {
             }
         };
 
-        let commitment = Commitment::from_comm(store, &comm);
+        let commitment = Commitment::from_comm(store, &comm)?;
 
         if let Ok((_secret, value)) = store.open_mut(maybe_comm) {
             return Ok((commitment, Some(value)));

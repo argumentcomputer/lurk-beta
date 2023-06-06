@@ -1183,11 +1183,11 @@ mod test {
     use super::*;
     use std::path::Path;
     use std::sync::Arc;
+    use tempfile::Builder;
 
     use crate::eval::lang::{Coproc, Lang};
     use crate::proof::{nova::NovaProver, Prover};
     use crate::z_data::{from_z_data, to_z_data};
-    use tempfile::Builder;
 
     //#[test]
     //fn test_cert_serialization() {
@@ -1213,6 +1213,76 @@ mod test {
     //    assert_eq!(cert, cert_again);
     //}
 
+    // Minimal chained functional commitment test
+    #[test]
+    fn lurk_chained_functional_commitment() {
+        let fcomm_path_key = "FCOMM_DATA_PATH";
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
+        let tmp_dir_path = Path::new(tmp_dir.path());
+        let fcomm_path_val = tmp_dir_path.join("fcomm_data");
+        std::env::set_var(fcomm_path_key, fcomm_path_val.clone());
+        assert_eq!(std::env::var(fcomm_path_key), Ok(fcomm_path_val.into_os_string().into_string().unwrap()));
+
+        let function_source = "(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))";
+        let expected_io = vec![("5", "5"), ("3", "8")];
+
+        let mut function = CommittedExpression::<S1> {
+            expr: LurkPtr::Source(function_source.into()),
+            secret: None,
+            commitment: None,
+        };
+
+        let limit = 1000;
+        let lang = Lang::new();
+        let lang_rc = Arc::new(lang.clone());
+        let rc = ReductionCount::One;
+        let pp = public_params(rc.count(), lang_rc.clone()).expect("public params");
+        let chained = true;
+        let s = &mut Store::<S1>::default();
+
+        let io = expected_io.iter();
+
+        let fun_ptr = function.expr_ptr(s, limit, &lang).expect("fun_ptr");
+
+        let (mut commitment, secret) = Commitment::from_ptr_with_hiding(s, &fun_ptr).unwrap();
+
+        function.secret = Some(secret);
+        function.commitment = Some(commitment);
+
+        let function_map = committed_expression_store();
+        function_map
+            .set(commitment, &function)
+            .expect("function_map set");
+
+        for (function_input, _expected_output) in io {
+            let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
+
+            let input = s.read(function_input).expect("Read error");
+
+            let proof = Opening::apply_and_prove(
+                s,
+                input,
+                function.clone(),
+                limit,
+                chained,
+                false,
+                &prover,
+                &pp,
+                lang_rc.clone(),
+            )
+            .expect("apply and prove");
+
+            proof.verify(&pp, &lang_rc).expect("Failed to verify");
+
+            let opening = proof.claim.opening().expect("expected opening claim");
+
+            match opening.new_commitment {
+                Some(c) => commitment = c,
+                _ => panic!("new commitment missing"),
+            }
+            println!("Commitment: {:?}", commitment);
+        }
+    }
     proptest! {
       #[test]
       fn prop_z_bytes(x in any::<ZBytes>()) {
@@ -1344,125 +1414,5 @@ mod test {
       x.write_to_path(&claim_path);
       assert_eq!(x, Claim::<S1>::read_from_path(&claim_path).unwrap());
       }
-    }
-
-    #[test]
-    fn z_store_commit_secrecy() {
-        let two = "(+ 1 1)";
-        let three = "(+ 1 2)";
-
-        let mut f2 = CommittedExpression::<S1> {
-            expr: LurkPtr::Source(two.into()),
-            secret: None,
-            commitment: None,
-        };
-
-        let mut f3 = CommittedExpression::<S1> {
-            expr: LurkPtr::Source(three.into()),
-            secret: None,
-            commitment: None,
-        };
-
-        let s = &mut Store::<S1>::default();
-        let limit = 1000;
-        let lang = Lang::new();
-
-        let fun_ptr2 = f2.expr_ptr(s, limit, &lang).expect("fun_ptr");
-        let fun_ptr3 = f3.expr_ptr(s, limit, &lang).expect("fun_ptr");
-
-        let (comm2, secret2) = Commitment::from_ptr_with_hiding(s, &fun_ptr2).unwrap();
-        let (comm3, secret3) = Commitment::from_ptr_with_hiding(s, &fun_ptr3).unwrap();
-
-        f2.secret = Some(secret2);
-        f2.commitment = Some(comm2);
-
-        f3.secret = Some(secret3);
-        f3.commitment = Some(comm3);
-
-        let comm_ptr2 = comm2.ptr(s);
-        let comm_ptr3 = comm3.ptr(s);
-
-        let init_comm = Commitment::from_comm(s, &comm_ptr2).unwrap();
-        assert_eq!(init_comm, comm2);
-        println!("Initial Commit: {:?}", init_comm);
-
-        // Store/ZStore roundtrip conversion
-        s.hydrate_scalar_cache();
-        let (z_store, z_ptr) = ZStore::new_with_expr(s, &comm_ptr2);
-        let z_ptr = z_ptr.unwrap();
-
-        let (mut store, _ptr) = z_store.to_store_with_z_ptr(&z_ptr).unwrap();
-
-        let rt_comm = Commitment::from_comm(&mut store, &comm_ptr2).unwrap();
-        assert_eq!(rt_comm, comm2);
-        println!("Roundtrip commit: {:?}", rt_comm);
-
-        let insecure_comm = Commitment::from_comm(&mut store, &comm_ptr3);
-        assert!(insecure_comm.is_err());
-    }
-
-    // Minimal chained functional commitment test
-    // TODO: Set temporary path for caches
-    #[test]
-    fn lurk_chained_functional_commitment() {
-        let function_source = "(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))";
-        let expected_io = vec![("5", "5"), ("3", "8")];
-
-        let mut function = CommittedExpression::<S1> {
-            expr: LurkPtr::Source(function_source.into()),
-            secret: None,
-            commitment: None,
-        };
-
-        let limit = 1000;
-        let lang = Lang::new();
-        let lang_rc = Arc::new(lang.clone());
-        let rc = ReductionCount::Ten;
-        let pp = public_params(rc.count(), lang_rc.clone()).expect("public params");
-        let chained = true;
-        let s = &mut Store::<S1>::default();
-
-        let io = expected_io.iter();
-
-        let fun_ptr = function.expr_ptr(s, limit, &lang).expect("fun_ptr");
-
-        let (mut commitment, secret) = Commitment::from_ptr_with_hiding(s, &fun_ptr).unwrap();
-
-        function.secret = Some(secret);
-        function.commitment = Some(commitment);
-
-        let function_map = committed_expression_store();
-        function_map
-            .set(commitment, &function)
-            .expect("function_map set");
-
-        for (function_input, _expected_output) in io {
-            let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
-
-            let input = s.read(function_input).expect("Read error");
-
-            let proof = Opening::apply_and_prove(
-                s,
-                input,
-                function.clone(),
-                limit,
-                chained,
-                false,
-                &prover,
-                &pp,
-                lang_rc.clone(),
-            )
-            .expect("apply and prove");
-
-            proof.verify(&pp, &lang_rc).expect("Failed to verify");
-
-            let opening = proof.claim.opening().expect("expected opening claim");
-
-            match opening.new_commitment {
-                Some(c) => commitment = c,
-                _ => panic!("new commitment missing"),
-            }
-            println!("Commitment: {:?}", commitment);
-        }
     }
 }

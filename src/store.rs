@@ -1982,6 +1982,8 @@ impl<F: LurkField> ZStore<F> {
 
 #[cfg(test)]
 pub mod test {
+    use super::*;
+
     use crate::writer::Write;
     use crate::{
         eval::{
@@ -1994,8 +1996,9 @@ pub mod test {
     use crate::{list, num, symbol};
 
     use blstrs::Scalar as Fr;
-
-    use super::*;
+    use ff::Field;
+    use pasta_curves::pallas::Scalar as S1;
+    use rand::rngs::OsRng;
 
     #[test]
     fn test_print_num() {
@@ -2501,5 +2504,37 @@ pub mod test {
             format!("<Opaque Comm {}>", Expression::Num(num).fmt_to_string(s)),
             opaque_comm.fmt_to_string(s),
         );
+    }
+
+    fn commit_and_open(store: &mut Store<S1>, expr: Ptr<S1>) -> Ptr<S1> {
+        let secret = <S1>::random(OsRng);
+        let comm = store.hide(secret, expr);
+        println!("Initial Commit: {:?}", comm);
+
+        let (_, new_ptr) = store.open(comm).unwrap();
+        assert_eq!(expr, new_ptr);
+        comm
+    }
+
+    #[test]
+    fn commitment_z_store_roundtrip() {
+        let store = &mut Store::<S1>::default();
+        let two = store.read("(+ 1 1)").unwrap();
+        let three = store.read("(+ 1 2)").unwrap();
+
+        let comm2 = commit_and_open(store, two);
+        let comm3 = commit_and_open(store, three);
+
+        // Store/ZStore roundtrip conversion
+        store.hydrate_scalar_cache();
+        let (z_store, z_ptr) = ZStore::new_with_expr(store, &comm2);
+        let z_ptr = z_ptr.unwrap();
+
+        let (store, _ptr) = z_store.to_store_with_z_ptr(&z_ptr).unwrap();
+
+        let (_, two_opened) = store.open(comm2).unwrap();
+        assert_eq!(two, two_opened);
+
+        assert!(store.open(comm3).is_none());
     }
 }
