@@ -29,7 +29,7 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
 
     fn evaluate(&self, s: &mut Store<F>, env: Ptr<F>, cont: ContPtr<F>) -> IO<F> {
         let len = self.eval_arity();
-        let Some(argv) = s.fetch_list_truncate(len, &env) else {
+        let Some(argv) = s.fetch_env_truncate(len, &env) else {
             return IO {
                 // TODO: instead of `env` put coprocessor symbol
                 expr: env,

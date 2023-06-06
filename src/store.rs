@@ -1065,21 +1065,25 @@ impl<F: LurkField> Store<F> {
         Some(list)
     }
 
-    pub fn fetch_list_truncate(&self, len: usize, ptr: &Ptr<F>) -> Option<Vec<Ptr<F>>> {
+    pub fn fetch_env_truncate(&self, len: usize, ptr: &Ptr<F>) -> Option<Vec<Ptr<F>>> {
         let mut list = Vec::new();
         let mut p = *ptr;
 
         for _ in 0..len {
             match self.fetch(&p) {
                 Some(Expression::Cons(car, cdr)) => {
-                    list.push(car);
-                    p = cdr;
+                    match self.fetch(&car) {
+                        Some(Expression::Cons(_sym, val)) => {
+                            list.push(val);
+                            p = cdr;
+                        },
+                        _ => return None,
+                    }
                 }
                 _ => return None,
             }
         }
-
-        Some(list)
+        Some(list.into_iter().rev().collect())
     }
 
     pub fn fetch_cont(&self, ptr: &ContPtr<F>) -> Option<Continuation<F>> {
