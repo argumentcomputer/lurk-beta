@@ -48,7 +48,7 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
                 }
             }
 
-            fn evaluate(&self, s: &mut lurk::store::Store<F>, args: lurk::ptr::Ptr<F>, env: lurk::ptr::Ptr<F>, cont: lurk::ptr::ContPtr<F>) -> lurk::eval::IO<F> {
+            fn evaluate(&self, s: &mut lurk::store::Store<F>, env: lurk::ptr::Ptr<F>, cont: lurk::ptr::ContPtr<F>) -> lurk::eval::IO<F> {
                 match self {
                     #evaluate_arms
                 }
@@ -112,7 +112,7 @@ fn evaluate_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenS
         let variant_ident = &variant.ident;
 
         match_arms.extend(quote! {
-            #name::#variant_ident(coprocessor) => coprocessor.evaluate(s, args, env, cont),
+            #name::#variant_ident(coprocessor) => coprocessor.evaluate(s, env, cont),
         });
     }
     match_arms

@@ -104,6 +104,17 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
 
                         // CIRCUIT: sym_is_self_evaluating
                         Control::ApplyContinuation(expr, env, cont)
+
+                        // NOTE: Any Coprocessor found will take precedence, which means coprocessor bindings cannot be shadowed.
+                    } else if let Some((coprocessor, _scalar_ptr)) = lang.lookup(store, expr) {
+                        let IO { expr, env, cont } =
+                            coprocessor.evaluate(store, env, cont);
+
+                        return Ok((
+                            Control::ApplyContinuation(expr, env, cont),
+                            closure_to_extend,
+                        ));
+
                     } else {
                         // Otherwise, look for a matching binding in env.
 
@@ -544,19 +555,6 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                         // (fn . args)
                         let fun_form = head;
                         let args = rest;
-
-                        // NOTE: Any Coprocessor found will take precedence, which means coprocessor bindings cannot be shadowed.
-                        if let Some((coprocessor, _scalar_ptr)) = lang.lookup(store, head) {
-                            let (_arg, _more_args) = car_cdr_named!(ConsName::ExprCdr, &args)?;
-
-                            let IO { expr, env, cont } =
-                                coprocessor.evaluate(store, args, env, cont);
-
-                            return Ok((
-                                Control::ApplyContinuation(expr, env, cont),
-                                closure_to_extend,
-                            ));
-                        };
 
                         // `fun_form` must be a function or potentially evaluate to one.
                         if !fun_form.is_potentially(ExprTag::Fun) {

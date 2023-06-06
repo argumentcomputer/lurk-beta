@@ -27,18 +27,12 @@ pub mod trie;
 pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> {
     fn eval_arity(&self) -> usize;
 
-    fn evaluate(&self, s: &mut Store<F>, args: Ptr<F>, env: Ptr<F>, cont: ContPtr<F>) -> IO<F> {
-        let Some(argv) = s.fetch_list(&args) else {
+    fn evaluate(&self, s: &mut Store<F>, env: Ptr<F>, cont: ContPtr<F>) -> IO<F> {
+        let len = self.eval_arity();
+        let Some(argv) = s.fetch_list_truncate(len, &env) else {
             return IO {
-                expr: args,
-                env,
-                cont: s.intern_cont_error(),
-            };
-        };
-
-        if argv.len() != self.eval_arity() {
-            return IO {
-                expr: args,
+                // TODO: instead of `env` put coprocessor symbol
+                expr: env,
                 env,
                 cont: s.intern_cont_error(),
             };
