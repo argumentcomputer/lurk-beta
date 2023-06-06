@@ -409,10 +409,9 @@ impl LEMOP {
     }
 }
 
-/// A `Witness` carries the data that results from interpreting LEM. That is,
+/// A `Valuation` carries the data that results from interpreting LEM. That is,
 /// it contains all the assignments resulting from running one iteration.
 #[derive(Clone)]
-#[allow(dead_code)]
 pub struct Valuation<F: LurkField> {
     input: [Ptr<F>; 3],
     output: [Ptr<F>; 3],
@@ -434,6 +433,7 @@ impl LEM {
 
 #[cfg(test)]
 mod tests {
+    use super::constrainer::AllocationManager;
     use super::{store::Store, *};
     use crate::lem::constrainer::SlotsIndices;
     use crate::{lem, lem::pointers::Ptr};
@@ -446,9 +446,10 @@ mod tests {
         valuations: &Vec<Valuation<Fr>>,
         max_indices: &SlotsIndices,
     ) {
+        let mut alloc_manager = AllocationManager::default();
         for v in valuations {
             let mut cs = TestConstraintSystem::<Fr>::new();
-            lem.constrain_limited(&mut cs, store, v, max_indices)
+            lem.constrain_limited(&mut cs, &mut alloc_manager, store, v, max_indices)
                 .unwrap();
             assert!(cs.is_satisfied());
         }

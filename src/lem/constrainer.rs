@@ -19,9 +19,9 @@ use crate::field::{FWrap, LurkField};
 
 use super::{pointers::ZPtr, store::Store, MetaPtr, Tag, Valuation, LEM, LEMOP};
 
-/// Manages allocations for numeric variables in a constraint system
+/// Manages global allocations for constants in a constraint system
 #[derive(Default)]
-struct AllocationManager<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);
+pub struct AllocationManager<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);
 
 impl<F: LurkField> AllocationManager<F> {
     /// Checks if the allocation for a numeric variable has already been cached.
@@ -61,7 +61,7 @@ impl<F: LurkField> AllocationManager<F> {
 
 #[derive(Default)]
 struct SlotStacks {
-    max_slots_len: usize,
+    max_slots: usize,
     implies_stack: Vec<(Boolean, usize, MetaPtr, Option<Tag>)>,
     enforce_stack: Vec<(usize, MetaPtr, Option<Tag>)>,
 }
@@ -98,6 +98,17 @@ pub struct SlotsIndices {
     pub hash2_idx: usize,
     pub hash3_idx: usize,
     pub hash4_idx: usize,
+}
+
+/// Encodes whether we're certainly on a concrete LEM path or on a path that
+/// might be concrete or virtual depending on what happened on interpretation.
+#[derive(Clone)]
+enum PathKind {
+    /// No logical branches have happened in the LEM so far
+    Concrete,
+    /// We're on a logical LEM path, which might be *virtual* or *concrete*
+    /// depending on what happened during interpretation.
+    MaybeConcrete(Boolean),
 }
 
 impl LEM {
@@ -139,22 +150,22 @@ impl LEM {
         Ok(())
     }
 
-    fn on_concrete_path(concrete_path: &Option<Boolean>) -> Result<bool> {
+    fn on_concrete_path(concrete_path: &PathKind) -> Result<bool> {
         match concrete_path {
-            None => Ok(true),
-            Some(concrete_path) => concrete_path
+            PathKind::Concrete => Ok(true),
+            PathKind::MaybeConcrete(concrete_path) => concrete_path
                 .get_value()
                 .ok_or_else(|| anyhow!("Couldn't check whether we're on a concrete path")),
         }
     }
 
     fn z_ptr_from_valuation<F: LurkField>(
-        branch_path_info: &Option<Boolean>,
+        path_kind: &PathKind,
         valuation: &Valuation<F>,
         name: &String,
         store: &mut Store<F>,
     ) -> Result<ZPtr<F>> {
-        if Self::on_concrete_path(branch_path_info)? {
+        if Self::on_concrete_path(path_kind)? {
             let Some(ptr) = valuation.ptrs.get(name) else {
                 bail!("Couldn't retrieve {} from valuation", name);
             };
@@ -184,17 +195,17 @@ impl LEM {
     }
 
     fn stack_hash_slots<F: LurkField>(
-        branch_path_info: &Option<Boolean>,
+        path_kind: &PathKind,
         hash_slots: &mut HashSlots<F>,
         slots: &SlotsIndices,
         hash: MetaPtr,
         alloc_arity: AllocHashPreimage<F>,
         tag: Option<Tag>,
     ) -> Result<()> {
-        let is_concrete_path = Self::on_concrete_path(branch_path_info)?;
+        let is_concrete_path = Self::on_concrete_path(path_kind)?;
         match alloc_arity {
             AllocHashPreimage::A2(i0, i1) => {
-                if let Some(concrete_path) = branch_path_info {
+                if let PathKind::MaybeConcrete(concrete_path) = path_kind {
                     // if concrete_path is true, push to slots
                     if is_concrete_path {
                         hash_slots.hash2_alloc.push((slots.hash2_idx, i0, i1));
@@ -217,7 +228,7 @@ impl LEM {
                 };
             }
             AllocHashPreimage::A3(i0, i1, i2) => {
-                if let Some(concrete_path) = branch_path_info {
+                if let PathKind::MaybeConcrete(concrete_path) = path_kind {
                     // if concrete_path is true, push to slots
                     if is_concrete_path {
                         hash_slots.hash3_alloc.push((slots.hash3_idx, i0, i1, i2));
@@ -240,7 +251,7 @@ impl LEM {
                 };
             }
             AllocHashPreimage::A4(i0, i1, i2, i3) => {
-                if let Some(concrete_path) = branch_path_info {
+                if let PathKind::MaybeConcrete(concrete_path) = path_kind {
                     // if concrete_path is true, push to slots
                     if is_concrete_path {
                         hash_slots
@@ -373,26 +384,27 @@ impl LEM {
     /// constrained later, using hash maps to manage viariables and pointers in
     /// a way we can reference allocated variables that were previously created.
     ///
-    /// Notably, we use a variable `branch_path_info: Option<Boolean>` to encode
-    /// a three-way information:
+    /// Notably, we use a variable `path_kind: PathKind` to encode a three-way
+    /// information:
     ///
-    /// * If it's `None`, it means that no logical branches have happened in the
-    /// LEM so far, meaning that the evaluation algorithm must have gone through
+    /// * If it's `Concrete`, it means that no logical branches have happened in
+    /// the LEM so far, thus the evaluation algorithm must have gone through
     /// that operation. In this case, we use regular equality enforcements
     ///
-    /// * If it's `Some(concrete_path)`, it means that we're on a logical LEM
-    /// branch, which might be *virtual* or *concrete* depending on the valuation.
-    /// A virtual path is one that wasn't taken during evaluation and thus its
-    /// valuation pointers and variables weren't bound. A concrete path means that
-    /// evaluation took that path and the valuation data should be complete. For
-    /// virtual paths we need to create dummy bindings and relax the enforcements
-    /// with implications whose premises are false. So, in the end, we use
-    /// implications on both virtual and concrete paths to make sure that the
-    /// circuit structure is always the same, independently of the valuation. The
-    /// premise is precicely `concrete_path`.
+    /// * If it's `MaybeConcrete(concrete_path)`, it means that we're on a logical
+    /// LEM branch, which might be *virtual* or *concrete* depending on the
+    /// valuation. A virtual path is one that wasn't taken during evaluation and
+    /// thus its valuation pointers and variables weren't bound. A concrete path
+    /// means that evaluation took that path and the valuation data should be
+    /// complete. For virtual paths we need to create dummy bindings and relax the
+    /// enforcements with implications whose premises are false. So, in the end,
+    /// we use implications on both virtual and concrete paths to make sure that
+    /// the circuit structure is always the same, independently of the valuation.
+    /// The premise is precicely `concrete_path`.
     pub fn constrain_aux<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
+        alloc_manager: &mut AllocationManager<F>,
         store: &mut Store<F>,
         valuation: &Valuation<F>,
         max_slots_allowed: Option<&SlotsIndices>,
@@ -406,16 +418,14 @@ impl LEM {
 
         let mut num_inputized_outputs = 0;
 
-        let mut alloc_manager = AllocationManager::default();
-
         let mut hash_slots: HashSlots<F> = Default::default();
         let mut stack = vec![(
             &self.lem_op,
-            None::<Boolean>,
+            PathKind::Concrete,
             String::new(),
             SlotsIndices::default(),
         )];
-        while let Some((op, branch_path_info, path, slots)) = stack.pop() {
+        while let Some((op, path_kind, path, slots)) = stack.pop() {
             match op {
                 LEMOP::Hash2(hash, tag, preimg) => {
                     // Get preimage from allocated pointers
@@ -429,12 +439,7 @@ impl LEM {
                     // Allocate new pointer containing expected hash value
                     let alloc_hash = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_valuation(
-                            &branch_path_info,
-                            valuation,
-                            hash.name(),
-                            store,
-                        )?,
+                        &Self::z_ptr_from_valuation(&path_kind, valuation, hash.name(), store)?,
                         hash.name(),
                         &alloc_ptrs,
                     )?;
@@ -443,7 +448,7 @@ impl LEM {
                     // such that only concrete path hashes are indeed calculated in the next available
                     // hash slot.
                     Self::stack_hash_slots(
-                        &branch_path_info,
+                        &path_kind,
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
@@ -459,7 +464,7 @@ impl LEM {
                     let i1 = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_valuation(
-                            &branch_path_info,
+                            &path_kind,
                             valuation,
                             preimg[0].name(),
                             store,
@@ -471,7 +476,7 @@ impl LEM {
                     let i2 = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_valuation(
-                            &branch_path_info,
+                            &path_kind,
                             valuation,
                             preimg[1].name(),
                             store,
@@ -484,7 +489,7 @@ impl LEM {
                     // such that only concrete path hashes are indeed calculated in the next available
                     // hash slot.
                     Self::stack_hash_slots(
-                        &branch_path_info,
+                        &path_kind,
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
@@ -511,12 +516,7 @@ impl LEM {
                     // Allocate new pointer containing expected hash value
                     let alloc_hash = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_valuation(
-                            &branch_path_info,
-                            valuation,
-                            hash.name(),
-                            store,
-                        )?,
+                        &Self::z_ptr_from_valuation(&path_kind, valuation, hash.name(), store)?,
                         hash.name(),
                         &alloc_ptrs,
                     )?;
@@ -525,7 +525,7 @@ impl LEM {
                     // such that only concrete path hashes are indeed calculated in the next available
                     // hash slot.
                     Self::stack_hash_slots(
-                        &branch_path_info,
+                        &path_kind,
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
@@ -541,7 +541,7 @@ impl LEM {
                     let i1 = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_valuation(
-                            &branch_path_info,
+                            &path_kind,
                             valuation,
                             preimg[0].name(),
                             store,
@@ -553,7 +553,7 @@ impl LEM {
                     let i2 = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_valuation(
-                            &branch_path_info,
+                            &path_kind,
                             valuation,
                             preimg[1].name(),
                             store,
@@ -565,7 +565,7 @@ impl LEM {
                     let i3 = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_valuation(
-                            &branch_path_info,
+                            &path_kind,
                             valuation,
                             preimg[2].name(),
                             store,
@@ -578,7 +578,7 @@ impl LEM {
                     // such that only concrete path hashes are indeed calculated in the next available
                     // hash slot.
                     Self::stack_hash_slots(
-                        &branch_path_info,
+                        &path_kind,
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
@@ -609,12 +609,7 @@ impl LEM {
                     // Allocate new pointer containing expected hash value
                     let alloc_hash = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_valuation(
-                            &branch_path_info,
-                            valuation,
-                            hash.name(),
-                            store,
-                        )?,
+                        &Self::z_ptr_from_valuation(&path_kind, valuation, hash.name(), store)?,
                         hash.name(),
                         &alloc_ptrs,
                     )?;
@@ -623,7 +618,7 @@ impl LEM {
                     // such that only concrete path hashes are indeed calculated in the next available
                     // hash slot.
                     Self::stack_hash_slots(
-                        &branch_path_info,
+                        &path_kind,
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
@@ -639,7 +634,7 @@ impl LEM {
                     let i1 = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_valuation(
-                            &branch_path_info,
+                            &path_kind,
                             valuation,
                             preimg[0].name(),
                             store,
@@ -651,7 +646,7 @@ impl LEM {
                     let i2 = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_valuation(
-                            &branch_path_info,
+                            &path_kind,
                             valuation,
                             preimg[1].name(),
                             store,
@@ -663,7 +658,7 @@ impl LEM {
                     let i3 = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_valuation(
-                            &branch_path_info,
+                            &path_kind,
                             valuation,
                             preimg[2].name(),
                             store,
@@ -675,7 +670,7 @@ impl LEM {
                     let i4 = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_valuation(
-                            &branch_path_info,
+                            &path_kind,
                             valuation,
                             preimg[3].name(),
                             store,
@@ -688,7 +683,7 @@ impl LEM {
                     // such that only concrete path hashes are indeed calculated in the next available
                     // hash slot.
                     Self::stack_hash_slots(
-                        &branch_path_info,
+                        &path_kind,
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
@@ -705,20 +700,15 @@ impl LEM {
                 LEMOP::Null(tgt, tag) => {
                     let alloc_tgt = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_valuation(
-                            &branch_path_info,
-                            valuation,
-                            tgt.name(),
-                            store,
-                        )?,
+                        &Self::z_ptr_from_valuation(&path_kind, valuation, tgt.name(), store)?,
                         tgt.name(),
                         &alloc_ptrs,
                     )?;
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
                     let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
 
-                    // If `branch_path_info` is Some, then we constrain using "concrete implies ..." logic
-                    if let Some(concrete_path) = branch_path_info {
+                    // If `path_kind` is Some, then we constrain using "concrete implies ..." logic
+                    if let PathKind::MaybeConcrete(concrete_path) = path_kind {
                         implies_equal(
                             &mut cs.namespace(|| format!("implies equal for {}'s tag", tgt.name())),
                             &concrete_path,
@@ -742,7 +732,7 @@ impl LEM {
                             )
                         })?;
                     } else {
-                        // If `branch_path_info` is None, we just do regular constraining
+                        // If `path_kind` is None, we just do regular constraining
                         enforce_equal(
                             cs,
                             || {
@@ -777,7 +767,7 @@ impl LEM {
                         concrete_path_vec.push(alloc_has_match.clone());
 
                         let new_path_matchtag = format!("{}.{}", &path, tag);
-                        if let Some(concrete_path) = branch_path_info.clone() {
+                        if let PathKind::MaybeConcrete(concrete_path) = path_kind.clone() {
                             let concrete_path_and_has_match = and(
                                 &mut cs.namespace(|| format!("{path}.{tag}.and")),
                                 &concrete_path,
@@ -786,14 +776,14 @@ impl LEM {
                             .with_context(|| "failed to constrain `and`")?;
                             stack.push((
                                 op,
-                                Some(concrete_path_and_has_match),
+                                PathKind::MaybeConcrete(concrete_path_and_has_match),
                                 new_path_matchtag,
                                 slots.clone(),
                             ));
                         } else {
                             stack.push((
                                 op,
-                                Some(alloc_has_match),
+                                PathKind::MaybeConcrete(alloc_has_match),
                                 new_path_matchtag,
                                 slots.clone(),
                             ));
@@ -803,8 +793,8 @@ impl LEM {
                     // Now we need to enforce that at least one path was taken. We do that by constraining
                     // that the sum of the previously collected `Boolean`s is one
 
-                    // If `branch_path_info` is Some, then we constrain using "concrete implies ..." logic
-                    if let Some(concrete_path) = branch_path_info {
+                    // If `path_kind` is Some, then we constrain using "concrete implies ..." logic
+                    if let PathKind::MaybeConcrete(concrete_path) = path_kind {
                         enforce_selector_with_premise(
                             &mut cs.namespace(|| format!("{path}.enforce_selector_with_premise")),
                             &concrete_path,
@@ -812,7 +802,7 @@ impl LEM {
                         )
                         .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
                     } else {
-                        // If `branch_path_info` is None, we just do regular constraining
+                        // If `path_kind` is None, we just do regular constraining
                         enforce_popcount_one(
                             &mut cs.namespace(|| format!("{path}.enforce_popcount_one")),
                             &concrete_path_vec[..],
@@ -838,24 +828,19 @@ impl LEM {
                             }
                             _ => (),
                         }
-                        (
-                            op,
-                            branch_path_info.clone(),
-                            path.clone(),
-                            next_slots.clone(),
-                        )
+                        (op, path_kind.clone(), path.clone(), next_slots.clone())
                     }));
                     // If the slot indices are larger than a previously found value, we update
                     // the respective max indeces information.
-                    hash_slots.hash2_stacks.max_slots_len =
-                        std::cmp::max(hash_slots.hash2_stacks.max_slots_len, next_slots.hash2_idx);
-                    hash_slots.hash3_stacks.max_slots_len =
-                        std::cmp::max(hash_slots.hash3_stacks.max_slots_len, next_slots.hash3_idx);
-                    hash_slots.hash4_stacks.max_slots_len =
-                        std::cmp::max(hash_slots.hash4_stacks.max_slots_len, next_slots.hash4_idx);
+                    hash_slots.hash2_stacks.max_slots =
+                        std::cmp::max(hash_slots.hash2_stacks.max_slots, next_slots.hash2_idx);
+                    hash_slots.hash3_stacks.max_slots =
+                        std::cmp::max(hash_slots.hash3_stacks.max_slots, next_slots.hash3_idx);
+                    hash_slots.hash4_stacks.max_slots =
+                        std::cmp::max(hash_slots.hash4_stacks.max_slots, next_slots.hash4_idx);
                 }
                 LEMOP::Return(outputs) => {
-                    let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
+                    let is_concrete_path = Self::on_concrete_path(&path_kind)?;
                     for (i, output) in outputs.iter().enumerate() {
                         let Some(alloc_ptr_computed) = alloc_ptrs.get(output.name()) else {
                             bail!("Output {} not allocated", output.name())
@@ -864,7 +849,7 @@ impl LEM {
                         let alloc_ptr_expected = Self::allocate_ptr(
                             cs,
                             &Self::z_ptr_from_valuation(
-                                &branch_path_info,
+                                &path_kind,
                                 valuation,
                                 output.name(),
                                 store,
@@ -878,8 +863,8 @@ impl LEM {
                             num_inputized_outputs += 1;
                         }
 
-                        // If `branch_path_info` is Some, then we constrain using "concrete implies ..." logic
-                        if let Some(concrete_path) = branch_path_info.clone() {
+                        // If `path_kind` is Some, then we constrain using "concrete implies ..." logic
+                        if let PathKind::MaybeConcrete(concrete_path) = path_kind.clone() {
                             alloc_ptr_computed
                                 .implies_ptr_equal(
                                     &mut cs.namespace(|| {
@@ -890,7 +875,7 @@ impl LEM {
                                 )
                                 .with_context(|| "couldn't constrain `implies_ptr_equal`")?;
                         } else {
-                            // If `branch_path_info` is None, we just do regular constraining
+                            // If `path_kind` is None, we just do regular constraining
                             alloc_ptr_computed.enforce_equal(
                                 &mut cs.namespace(|| format!("enforce equal for {output_name}")),
                                 &alloc_ptr_expected,
@@ -907,25 +892,25 @@ impl LEM {
         }
 
         if let Some(max_slots_indices) = max_slots_allowed {
-            if max_slots_indices.hash2_idx > hash_slots.hash2_stacks.max_slots_len {
+            if max_slots_indices.hash2_idx > hash_slots.hash2_stacks.max_slots {
                 bail!(
                     "Too many slots allocated for Hash2/Unhash2: {}, {}",
                     max_slots_indices.hash2_idx,
-                    hash_slots.hash2_stacks.max_slots_len
+                    hash_slots.hash2_stacks.max_slots
                 );
             }
-            if max_slots_indices.hash3_idx > hash_slots.hash3_stacks.max_slots_len {
+            if max_slots_indices.hash3_idx > hash_slots.hash3_stacks.max_slots {
                 bail!(
                     "Too many slots allocated for Hash3/Unhash3: {}, {}",
                     max_slots_indices.hash2_idx,
-                    hash_slots.hash2_stacks.max_slots_len
+                    hash_slots.hash2_stacks.max_slots
                 );
             }
-            if max_slots_indices.hash4_idx > hash_slots.hash4_stacks.max_slots_len {
+            if max_slots_indices.hash4_idx > hash_slots.hash4_stacks.max_slots {
                 bail!(
                     "Too many slots allocated for Hash4/Unhash4: {}, {}",
                     max_slots_indices.hash2_idx,
-                    hash_slots.hash2_stacks.max_slots_len
+                    hash_slots.hash2_stacks.max_slots
                 );
             }
         }
@@ -956,7 +941,7 @@ impl LEM {
             }
 
             // In order to get uniform circuit, we fill empty hash slots with dummy values.
-            for s in concrete_slots_hash2_len..hash_slots.hash2_stacks.max_slots_len {
+            for s in concrete_slots_hash2_len..hash_slots.hash2_stacks.max_slots {
                 hash2_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
             }
 
@@ -966,7 +951,7 @@ impl LEM {
                 &mut hash_slots.hash2_stacks.implies_stack,
                 &mut hash_slots.hash2_stacks.enforce_stack,
                 &hash2_slots,
-                &mut alloc_manager,
+                alloc_manager,
             )?;
         }
 
@@ -998,7 +983,7 @@ impl LEM {
             }
 
             // In order to get uniform circuit, we fill empty hash slots with dummy values.
-            for s in concrete_slots_hash3_len..hash_slots.hash3_stacks.max_slots_len {
+            for s in concrete_slots_hash3_len..hash_slots.hash3_stacks.max_slots {
                 hash3_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
             }
 
@@ -1008,7 +993,7 @@ impl LEM {
                 &mut hash_slots.hash3_stacks.implies_stack,
                 &mut hash_slots.hash3_stacks.enforce_stack,
                 &hash3_slots,
-                &mut alloc_manager,
+                alloc_manager,
             )?;
         }
 
@@ -1042,7 +1027,7 @@ impl LEM {
             }
 
             // In order to get uniform circuit, we fill empty hash slots with dummy values.
-            for s in concrete_slots_hash4_len..hash_slots.hash4_stacks.max_slots_len {
+            for s in concrete_slots_hash4_len..hash_slots.hash4_stacks.max_slots {
                 hash4_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
             }
 
@@ -1052,7 +1037,7 @@ impl LEM {
                 &mut hash_slots.hash4_stacks.implies_stack,
                 &mut hash_slots.hash4_stacks.enforce_stack,
                 &hash4_slots,
-                &mut alloc_manager,
+                alloc_manager,
             )?;
         }
 
@@ -1063,20 +1048,22 @@ impl LEM {
     pub fn constrain<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
+        alloc_manager: &mut AllocationManager<F>,
         store: &mut Store<F>,
         valuation: &Valuation<F>,
     ) -> Result<()> {
-        self.constrain_aux(cs, store, valuation, None)
+        self.constrain_aux(cs, alloc_manager, store, valuation, None)
     }
 
     #[inline]
     pub fn constrain_limited<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
+        alloc_manager: &mut AllocationManager<F>,
         store: &mut Store<F>,
         valuation: &Valuation<F>,
         limits: &SlotsIndices,
     ) -> Result<()> {
-        self.constrain_aux(cs, store, valuation, Some(limits))
+        self.constrain_aux(cs, alloc_manager, store, valuation, Some(limits))
     }
 }

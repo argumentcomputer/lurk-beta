@@ -24,7 +24,7 @@ pub(crate) fn step() -> Result<LEM> {
 mod tests {
     use super::*;
     use crate::field::LurkField;
-    use crate::lem::constrainer::SlotsIndices;
+    use crate::lem::constrainer::{AllocationManager, SlotsIndices};
     use crate::lem::{pointers::Ptr, store::Store};
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
     use blstrs::Scalar as Fr;
@@ -45,10 +45,17 @@ mod tests {
                     == expr_out
             );
             store.hydrate_z_cache();
+            let mut alloc_manager = AllocationManager::default();
             for valuation in valuations {
                 let mut cs = TestConstraintSystem::<Fr>::new();
-                lem.constrain_limited(&mut cs, store, &valuation, &SlotsIndices::default())
-                    .unwrap();
+                lem.constrain_limited(
+                    &mut cs,
+                    &mut alloc_manager,
+                    store,
+                    &valuation,
+                    &SlotsIndices::default(),
+                )
+                .unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(cs.num_inputs(), NUM_INPUTS);
                 assert_eq!(cs.aux().len(), NUM_AUX);
