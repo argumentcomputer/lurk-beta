@@ -21,7 +21,7 @@ use crate::z_ptr::{ZContPtr, ZExprPtr, ZPtr};
 use crate::z_store::ZStore;
 use crate::{Num, UInt};
 
-use crate::hash::{HashConstants, PoseidonCache};
+use crate::hash::{HashConstants, InversePoseidonCache, PoseidonCache};
 
 type IndexSet<K> = indexmap::IndexSet<K, ahash::RandomState>;
 
@@ -62,6 +62,8 @@ pub struct Store<F: LurkField> {
 
     /// Caches poseidon hashes
     pub poseidon_cache: PoseidonCache<F>,
+    /// Caches poseidon preimages
+    pub inverse_poseidon_cache: InversePoseidonCache<F>,
     /// Contains Ptrs which have not yet been hydrated.
     pub dehydrated: Vec<Ptr<F>>,
     pub dehydrated_cont: Vec<ContPtr<F>>,
@@ -100,6 +102,7 @@ impl<F: LurkField> Default for Store<F> {
             z_expr_ptr_map: Default::default(),
             z_cont_ptr_map: Default::default(),
             poseidon_cache: Default::default(),
+            inverse_poseidon_cache: Default::default(),
             dehydrated: Default::default(),
             dehydrated_cont: Default::default(),
             symbol_cache: Default::default(),
