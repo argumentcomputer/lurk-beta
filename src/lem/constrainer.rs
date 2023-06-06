@@ -205,77 +205,83 @@ impl LEM {
         let is_concrete_path = Self::on_concrete_path(path_kind)?;
         match alloc_arity {
             AllocHashPreimage::A2(i0, i1) => {
-                if let PathKind::MaybeConcrete(concrete_path) = path_kind {
-                    // if concrete_path is true, push to slots
-                    if is_concrete_path {
-                        hash_slots.hash2_alloc.push((slots.hash2_idx, i0, i1));
-                        // only once per path
+                match path_kind {
+                    PathKind::Concrete => {
+                        hash_slots
+                            .hash2_stacks
+                            .enforce_stack
+                            .push((slots.hash2_idx, hash, tag));
+                        hash_slots.hash2_alloc.push((slots.hash2_idx, i0, i1))
                     }
-                    // concrete path implies alloc_tgt has the same value as in the current slot
-                    hash_slots.hash2_stacks.implies_stack.push((
-                        concrete_path.clone(),
-                        slots.hash2_idx,
-                        hash,
-                        tag,
-                    ));
-                // many
-                } else {
-                    hash_slots
-                        .hash2_stacks
-                        .enforce_stack
-                        .push((slots.hash2_idx, hash, tag));
-                    hash_slots.hash2_alloc.push((slots.hash2_idx, i0, i1))
-                };
+                    PathKind::MaybeConcrete(concrete_path) => {
+                        // if concrete_path is true, push to slots
+                        if is_concrete_path {
+                            hash_slots.hash2_alloc.push((slots.hash2_idx, i0, i1));
+                            // only once per path
+                        }
+                        // concrete path implies alloc_tgt has the same value as in the current slot
+                        hash_slots.hash2_stacks.implies_stack.push((
+                            concrete_path.clone(),
+                            slots.hash2_idx,
+                            hash,
+                            tag,
+                        ));
+                    }
+                }
             }
             AllocHashPreimage::A3(i0, i1, i2) => {
-                if let PathKind::MaybeConcrete(concrete_path) = path_kind {
-                    // if concrete_path is true, push to slots
-                    if is_concrete_path {
-                        hash_slots.hash3_alloc.push((slots.hash3_idx, i0, i1, i2));
-                        // only once per path
+                match path_kind {
+                    PathKind::Concrete => {
+                        hash_slots
+                            .hash3_stacks
+                            .enforce_stack
+                            .push((slots.hash3_idx, hash, tag));
+                        hash_slots.hash3_alloc.push((slots.hash3_idx, i0, i1, i2))
                     }
-                    // concrete path implies alloc_tgt has the same value as in the current slot
-                    hash_slots.hash3_stacks.implies_stack.push((
-                        concrete_path.clone(),
-                        slots.hash3_idx,
-                        hash,
-                        tag,
-                    ));
-                // many
-                } else {
-                    hash_slots
-                        .hash3_stacks
-                        .enforce_stack
-                        .push((slots.hash3_idx, hash, tag));
-                    hash_slots.hash3_alloc.push((slots.hash3_idx, i0, i1, i2))
-                };
+                    PathKind::MaybeConcrete(concrete_path) => {
+                        // if concrete_path is true, push to slots
+                        if is_concrete_path {
+                            hash_slots.hash3_alloc.push((slots.hash3_idx, i0, i1, i2));
+                            // only once per path
+                        }
+                        // concrete path implies alloc_tgt has the same value as in the current slot
+                        hash_slots.hash3_stacks.implies_stack.push((
+                            concrete_path.clone(),
+                            slots.hash3_idx,
+                            hash,
+                            tag,
+                        ));
+                    }
+                }
             }
             AllocHashPreimage::A4(i0, i1, i2, i3) => {
-                if let PathKind::MaybeConcrete(concrete_path) = path_kind {
-                    // if concrete_path is true, push to slots
-                    if is_concrete_path {
+                match path_kind {
+                    PathKind::Concrete => {
+                        hash_slots
+                            .hash4_stacks
+                            .enforce_stack
+                            .push((slots.hash4_idx, hash, tag));
                         hash_slots
                             .hash4_alloc
-                            .push((slots.hash4_idx, i0, i1, i2, i3));
-                        // only once per path
+                            .push((slots.hash4_idx, i0, i1, i2, i3))
                     }
-                    // concrete path implies alloc_tgt has the same value as in the current slot
-                    hash_slots.hash4_stacks.implies_stack.push((
-                        concrete_path.clone(),
-                        slots.hash4_idx,
-                        hash,
-                        tag,
-                    ));
-                // many
-                } else {
-                    hash_slots
-                        .hash4_stacks
-                        .enforce_stack
-                        .push((slots.hash4_idx, hash, tag));
-                    hash_slots
-                        .hash4_alloc
-                        .push((slots.hash4_idx, i0, i1, i2, i3))
-                };
+                    PathKind::MaybeConcrete(concrete_path) => {
+                        // if concrete_path is true, push to slots
+                        if is_concrete_path {
+                            hash_slots
+                                .hash4_alloc
+                                .push((slots.hash4_idx, i0, i1, i2, i3));
+                            // only once per path
+                        }
+                        // concrete path implies alloc_tgt has the same value as in the current slot
+                        hash_slots.hash4_stacks.implies_stack.push((
+                            concrete_path.clone(),
+                            slots.hash4_idx,
+                            hash,
+                            tag,
+                        ));
+                    }
+                }
             }
         }
         Ok(())
