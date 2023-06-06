@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use abomonation::{decode, encode};
+use abomonation::decode;
 use once_cell::sync::Lazy;
 use pasta_curves::pallas;
 use serde::{de::DeserializeOwned, Serialize};
