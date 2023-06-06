@@ -1547,16 +1547,9 @@ impl<F: LurkField> Store<F> {
                     self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
-                (ExprTag::Key, Some(SymNil)) => {
-                    let ptr = self.intern_symnil(true);
-                    self.create_z_expr_ptr(ptr, *z_ptr.value());
-                    Some(ptr)
-                }
-                // TODO: check if this is correctly returning a Tag::Key
-                (ExprTag::Key, Some(SymCons(keycar, keycdr))) => {
-                    let keycar = self.intern_z_expr_ptr(keycar, z_store)?;
-                    let keycdr = self.intern_z_expr_ptr(keycdr, z_store)?;
-                    let ptr = self.intern_symcons(keycar, keycdr);
+                (ExprTag::Key, Some(Key(sym_z_ptr))) => {
+                    let mut ptr = self.intern_z_expr_ptr(sym_z_ptr, z_store)?;
+                    ptr.tag = ExprTag::Key;
                     self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
