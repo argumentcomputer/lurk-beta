@@ -3631,4 +3631,25 @@ pub mod tests {
         );
         test_aux(s, &expr4, None, None, Some(error), None, 1, Some(lang));
     }
+
+    #[test]
+    fn test_issue426() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(33);
+        let terminal = s.get_cont_terminal();
+        test_aux::<Coproc<Fr>>(
+            s,
+            "(let ((f (lambda (x) nil))
+                (g (lambda (xs)
+                            (cons (f (car xs))
+                                (cdr xs)))))
+                (g \"0\"))",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            2,
+            None,
+        );
+    }
 }
