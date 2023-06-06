@@ -1,10 +1,12 @@
 use std::fs::{create_dir_all, File};
-use std::io::Error;
+use std::io::{BufReader, Read};
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
-use memmap::MmapMut;
 
+use abomonation::{Abomonation, encode};
+
+use crate::public_parameters::error::Error;
 use crate::public_parameters::FileStore;
 
 pub(crate) fn data_dir() -> PathBuf {
@@ -39,6 +41,14 @@ impl<K: ToString> FileIndex<K> {
         V::read_from_path(self.key_path(key)).ok()
     }
 
+    pub(crate) fn get_raw_bytes(&self, key: &K) -> Result<Vec<u8>, Error> {
+        let file = File::open(self.key_path(key))?;
+        let mut reader = BufReader::new(file);
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes)?;
+        Ok(bytes)
+    }
+
     #[allow(dead_code)]
     pub(crate) fn get_with_timing<V: FileStore>(&self, key: &K, discr: &String) -> Option<V> {
         let start = Instant::now();
@@ -56,17 +66,14 @@ impl<K: ToString> FileIndex<K> {
         }
     }
 
-    pub(crate) fn get_mmap_bytes_with_timing(&self, key: &K, discr: &String) -> Option<MmapMut> {
-        let start = Instant::now();
-        let file = File::open(self.key_path(key)).unwrap();
-        let mmap = unsafe { MmapMut::map_mut(&file).unwrap() };
-        let end = start.elapsed();
-        eprintln!("Reading {discr} from disk-cache in {:?}", end);
-        Some(mmap)
-    }
-
     pub(crate) fn set<V: FileStore>(&self, key: K, data: &V) -> Result<(), Error> {
         data.write_to_path(self.key_path(&key));
+        Ok(())
+    }
+
+    pub(crate) fn set_abomonated<V: Abomonation>(&self, key: &K, data: &V) -> Result<(), Error> {
+        let mut file = File::create(self.key_path(&key))?;
+        unsafe { encode(data, &mut file).expect("failed to encode") };
         Ok(())
     }
 
