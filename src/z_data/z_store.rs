@@ -53,13 +53,32 @@ impl<F: LurkField> ZStore<F> {
         zstore
     }
 
-    // TODO: Change this back to only convert subtree of Store
-    pub fn new_with_expr(store: &mut Store<F>, expr: &Ptr<F>) -> (Self, Option<ZExprPtr<F>>) {
-        let mut new = Self::to_z_store(store);
-        let z_ptr = store.hash_expr(expr).unwrap();
+    pub fn new_with_expr(store: &Store<F>, expr: &Ptr<F>) -> (Self, Option<ZExprPtr<F>>) {
+        let (mut new, z_ptr) = store.to_z_store_with_ptr(expr).unwrap();
         let z_expr = ZExpr::from_ptr(store, expr);
         new.expr_map.insert(z_ptr, z_expr);
         (new, Some(z_ptr))
+    }
+
+    // TODO: Remove when sure that get_z_expr with a ZStore inserts child ptrs
+    //pub fn child_z_ptrs(expr: &ZExpr<F>) -> Option<Vec<ZExprPtr<F>>> {
+    //    match expr {
+    //        ZExpr::Cons(car, cdr) => Some([*car, *cdr].into()),
+    //        ZExpr::Comm(_, payload) => Some([*payload].into()),
+    //        ZExpr::Fun {
+    //            arg,
+    //            body,
+    //            closed_env,
+    //        } => Some([*arg, *body, *closed_env].into()),
+    //        _ => None,
+    //    }
+    //}
+
+    pub fn insert_expr(&mut self, store: &Store<F>, expr: &Ptr<F>) -> Option<ZExprPtr<F>> {
+        let z_ptr = store.hash_expr(expr).unwrap();
+        let z_expr = ZExpr::from_ptr(store, expr);
+        self.expr_map.insert(z_ptr, z_expr);
+        Some(z_ptr)
     }
 
     pub fn immediate_z_expr(ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
@@ -89,7 +108,7 @@ impl<F: LurkField> ZStore<F> {
 
     /// if the entry is not present, or the pointer is immediate, return None,
     /// otherwise update the value and return the old value. If the
-    pub fn insert_expr(
+    pub fn insert_z_expr(
         &mut self,
         ptr: &ZExprPtr<F>,
         expr: Option<ZExpr<F>>,

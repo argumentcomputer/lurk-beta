@@ -196,7 +196,7 @@ impl Commit {
         let commitment = if let Some(secret) = function.secret {
             Commitment::from_ptr_and_secret(s, &fun_ptr, secret)
         } else {
-            let (commitment, secret) = Commitment::from_ptr_with_hiding(s, &fun_ptr);
+            let (commitment, secret) = Commitment::from_ptr_with_hiding(s, &fun_ptr).unwrap();
             function.secret = Some(secret);
             commitment
         };

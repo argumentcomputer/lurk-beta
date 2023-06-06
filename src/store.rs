@@ -166,7 +166,7 @@ impl<F: LurkField> Store<F> {
         let p = match ptr.tag {
             ExprTag::Comm => ptr,
             ExprTag::Num => {
-                let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar()).unwrap();
+                let scalar = self.fetch_num(&ptr).map(|x| x.into_scalar())?;
                 match self.get_maybe_opaque(ExprTag::Comm, scalar) {
                     Some(c) => c,
                     None => {
@@ -1176,7 +1176,7 @@ impl<F: LurkField> Store<F> {
                 stack.push(Cont(Box::new(move |store, z_store, _, ret_stack| {
                     let (z_ptr, z_expr) = ret_stack.last().expect("Implementation broken 1");
                     if let Some(z_store) = z_store {
-                        z_store.borrow_mut().insert_expr(z_ptr, z_expr.clone());
+                        z_store.borrow_mut().insert_z_expr(z_ptr, z_expr.clone());
                     };
                     store.z_expr_ptr_map.insert(*z_ptr, Box::new(ptr));
                     Ok(())
@@ -1360,8 +1360,7 @@ impl<F: LurkField> Store<F> {
     pub fn to_z_store_with_ptr(&self, ptr: &Ptr<F>) -> Result<(ZStore<F>, ZExprPtr<F>), Error> {
         let z_store = Rc::new(RefCell::new(ZStore::new()));
         let (z_ptr, _) = self.get_z_expr(ptr, Some(z_store.clone()))?;
-        // TODO: remove heinous clone
-        Ok((z_store.as_ref().clone().into_inner(), z_ptr))
+        Ok((Rc::try_unwrap(z_store).unwrap().into_inner(), z_ptr))
     }
 
     pub fn to_z_expr(&self, ptr: &Ptr<F>) -> Option<ZExpr<F>> {
@@ -1371,6 +1370,11 @@ impl<F: LurkField> Store<F> {
     pub fn hash_expr(&self, ptr: &Ptr<F>) -> Option<ZExprPtr<F>> {
         self.get_z_expr(ptr, None).ok().map(|x| x.0)
     }
+
+    // TODO: Add errors as below
+    //pub fn hash_expr(&self, ptr: &Ptr<F>) -> Result<ZExprPtr<F>, Error> {
+    //    self.get_z_expr(ptr, None).map(|x| x.0)
+    //}
 
     pub fn to_z_cont(&self, ptr: &ContPtr<F>) -> Option<ZCont<F>> {
         self.get_z_cont(ptr, None).ok()?.1

@@ -534,27 +534,30 @@ impl<F: LurkField + Serialize + DeserializeOwned> PtrEvaluation<F> {
 }
 
 impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
-    pub fn from_comm(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
-        let digest = *s.hash_expr(ptr).expect("couldn't hash ptr").value();
-
+    pub fn from_comm(s: &mut Store<F>, ptr: &Ptr<F>) -> Result<Self, Error> {
         assert_eq!(ExprTag::Comm, ptr.tag);
 
-        Commitment { comm: digest }
+        let digest = *s
+            .hash_expr(ptr)
+            .ok_or_else(|| Error::UnknownCommitment)?
+            .value();
+
+        Ok(Commitment { comm: digest })
     }
 
     pub fn ptr(&self, s: &mut Store<F>) -> Ptr<F> {
         s.intern_opaque_comm(self.comm)
     }
 
-    pub fn from_ptr_with_hiding(s: &mut Store<F>, ptr: &Ptr<F>) -> (Self, F) {
+    pub fn from_ptr_with_hiding(s: &mut Store<F>, ptr: &Ptr<F>) -> Result<(Self, F), Error> {
         let secret = F::random(OsRng);
 
-        let commitment = Self::from_ptr_and_secret(s, ptr, secret);
+        let commitment = Self::from_ptr_and_secret(s, ptr, secret)?;
 
-        (commitment, secret)
+        Ok((commitment, secret))
     }
 
-    pub fn from_ptr_and_secret(s: &mut Store<F>, ptr: &Ptr<F>, secret: F) -> Self {
+    pub fn from_ptr_and_secret(s: &mut Store<F>, ptr: &Ptr<F>, secret: F) -> Result<Self, Error> {
         let hidden = s.hide(secret, *ptr);
 
         Self::from_comm(s, &hidden)
@@ -571,7 +574,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
         let fun_ptr = function.expr_ptr(s, limit, lang)?;
         let secret = function.secret.expect("CommittedExpression secret missing");
 
-        let commitment = Self::from_ptr_and_secret(s, &fun_ptr, secret);
+        let commitment = Self::from_ptr_and_secret(s, &fun_ptr, secret)?;
 
         let open = s.lurk_sym("open");
         let comm_ptr = s.hide(secret, fun_ptr);
@@ -818,7 +821,7 @@ impl<'a> Opening<S1> {
             let new_secret = *s.hash_expr(&new_secret0).expect("hash missing").value();
 
             let (_, new_fun) = s.open(new_comm).expect("opening missing");
-            let new_commitment = Commitment::from_comm(s, &new_comm);
+            let new_commitment = Commitment::from_comm(s, &new_comm)?;
 
             s.hydrate_scalar_cache();
 
@@ -1343,7 +1346,62 @@ mod test {
       }
     }
 
-    // Temporary minimal chained functional commitment test
+    #[test]
+    fn z_store_commit_secrecy() {
+        let two = "(+ 1 1)";
+        let three = "(+ 1 2)";
+
+        let mut f2 = CommittedExpression::<S1> {
+            expr: LurkPtr::Source(two.into()),
+            secret: None,
+            commitment: None,
+        };
+
+        let mut f3 = CommittedExpression::<S1> {
+            expr: LurkPtr::Source(three.into()),
+            secret: None,
+            commitment: None,
+        };
+
+        let s = &mut Store::<S1>::default();
+        let limit = 1000;
+        let lang = Lang::new();
+
+        let fun_ptr2 = f2.expr_ptr(s, limit, &lang).expect("fun_ptr");
+        let fun_ptr3 = f3.expr_ptr(s, limit, &lang).expect("fun_ptr");
+
+        let (comm2, secret2) = Commitment::from_ptr_with_hiding(s, &fun_ptr2).unwrap();
+        let (comm3, secret3) = Commitment::from_ptr_with_hiding(s, &fun_ptr3).unwrap();
+
+        f2.secret = Some(secret2);
+        f2.commitment = Some(comm2);
+
+        f3.secret = Some(secret3);
+        f3.commitment = Some(comm3);
+
+        let comm_ptr2 = comm2.ptr(s);
+        let comm_ptr3 = comm3.ptr(s);
+
+        let init_comm = Commitment::from_comm(s, &comm_ptr2).unwrap();
+        assert_eq!(init_comm, comm2);
+        println!("Initial Commit: {:?}", init_comm);
+
+        // Store/ZStore roundtrip conversion
+        s.hydrate_scalar_cache();
+        let (z_store, z_ptr) = ZStore::new_with_expr(s, &comm_ptr2);
+        let z_ptr = z_ptr.unwrap();
+
+        let (mut store, _ptr) = z_store.to_store_with_z_ptr(&z_ptr).unwrap();
+
+        let rt_comm = Commitment::from_comm(&mut store, &comm_ptr2).unwrap();
+        assert_eq!(rt_comm, comm2);
+        println!("Roundtrip commit: {:?}", rt_comm);
+
+        let insecure_comm = Commitment::from_comm(&mut store, &comm_ptr3);
+        assert!(insecure_comm.is_err());
+    }
+
+    // Minimal chained functional commitment test
     // TODO: Set temporary path for caches
     #[test]
     fn lurk_chained_functional_commitment() {
@@ -1368,7 +1426,7 @@ mod test {
 
         let fun_ptr = function.expr_ptr(s, limit, &lang).expect("fun_ptr");
 
-        let (mut commitment, secret) = Commitment::from_ptr_with_hiding(s, &fun_ptr);
+        let (mut commitment, secret) = Commitment::from_ptr_with_hiding(s, &fun_ptr).unwrap();
 
         function.secret = Some(secret);
         function.commitment = Some(commitment);
