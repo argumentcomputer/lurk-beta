@@ -270,6 +270,15 @@ impl LEM {
         Ok(())
     }
 
+    /// Here we use the implies/enforce logic to contrain tag and hash values.
+    /// We pop stacked elements in order to get virtual path information. When
+    /// many branches are possible we will use the `implies_equal` gadget to
+    /// ensure only concrete paths are implied. Otherwise, only one path exists,
+    /// therefore it must be enforced.
+    /// Hence we use two distinct stacks, one for implications and another one
+    /// for enforcements.
+    /// Beyond that, we need to deal with the possibility of receiving no tag,
+    /// since Unhash operations don't require constraining tags.
     fn create_slot_constraints<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         alloc_ptrs: &HashMap<&String, AllocatedPtr<F>>,
@@ -409,6 +418,7 @@ impl LEM {
         while let Some((op, branch_path_info, path, slots)) = stack.pop() {
             match op {
                 LEMOP::Hash2(hash, tag, preimg) => {
+                    // Get preimage from allocated pointers
                     let Some(i1) = alloc_ptrs.get(preimg[0].name()) else {
                         bail!("{} not allocated", preimg[0].name());
                     };
@@ -416,6 +426,7 @@ impl LEM {
                         bail!("{} not allocated", preimg[1].name());
                     };
 
+                    // Allocate new pointer containing expected hash value
                     let alloc_hash = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_valuation(
@@ -428,6 +439,9 @@ impl LEM {
                         &alloc_ptrs,
                     )?;
 
+                    // Stack expected hash, preimage and tag, together with virtual path information,
+                    // such that only concrete path hashes are indeed calculated in the next available
+                    // hash slot.
                     Self::stack_hash_slots(
                         &branch_path_info,
                         &mut hash_slots,
@@ -437,9 +451,11 @@ impl LEM {
                         Some(*tag),
                     )?;
 
+                    // Insert hash value pointer in the HashMap
                     alloc_ptrs.insert(hash.name(), alloc_hash.clone());
                 }
                 LEMOP::Unhash2(preimg, hash) => {
+                    // Get preimage from allocated pointers
                     let i1 = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_valuation(
@@ -464,6 +480,9 @@ impl LEM {
                         &alloc_ptrs,
                     )?;
 
+                    // Stack expected hash, preimage and no tag, together with virtual path information,
+                    // such that only concrete path hashes are indeed calculated in the next available
+                    // hash slot.
                     Self::stack_hash_slots(
                         &branch_path_info,
                         &mut hash_slots,
@@ -473,10 +492,12 @@ impl LEM {
                         None,
                     )?;
 
+                    // Insert preimage pointers in the HashMap
                     alloc_ptrs.insert(preimg[0].name(), i1);
                     alloc_ptrs.insert(preimg[1].name(), i2);
                 }
                 LEMOP::Hash3(hash, tag, preimg) => {
+                    // Get preimage from allocated pointers
                     let Some(i1) = alloc_ptrs.get(preimg[0].name()) else {
                         bail!("{} not allocated", preimg[0].name());
                     };
@@ -487,6 +508,7 @@ impl LEM {
                         bail!("{} not allocated", preimg[2].name());
                     };
 
+                    // Allocate new pointer containing expected hash value
                     let alloc_hash = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_valuation(
@@ -499,6 +521,9 @@ impl LEM {
                         &alloc_ptrs,
                     )?;
 
+                    // Stack expected hash, preimage and tag, together with virtual path information,
+                    // such that only concrete path hashes are indeed calculated in the next available
+                    // hash slot.
                     Self::stack_hash_slots(
                         &branch_path_info,
                         &mut hash_slots,
@@ -508,9 +533,11 @@ impl LEM {
                         Some(*tag),
                     )?;
 
+                    // Insert hash value pointer in the HashMap
                     alloc_ptrs.insert(hash.name(), alloc_hash.clone());
                 }
                 LEMOP::Unhash3(preimg, hash) => {
+                    // Get preimage from allocated pointers
                     let i1 = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_valuation(
@@ -547,6 +574,9 @@ impl LEM {
                         &alloc_ptrs,
                     )?;
 
+                    // Stack expected hash, preimage and no tag, together with virtual path information,
+                    // such that only concrete path hashes are indeed calculated in the next available
+                    // hash slot.
                     Self::stack_hash_slots(
                         &branch_path_info,
                         &mut hash_slots,
@@ -556,11 +586,13 @@ impl LEM {
                         None,
                     )?;
 
+                    // Insert preimage pointers in the HashMap
                     alloc_ptrs.insert(preimg[0].name(), i1);
                     alloc_ptrs.insert(preimg[1].name(), i2);
                     alloc_ptrs.insert(preimg[2].name(), i3);
                 }
                 LEMOP::Hash4(hash, tag, preimg) => {
+                    // Get preimage from allocated pointers
                     let Some(i1) = alloc_ptrs.get(preimg[0].name()) else {
                         bail!("{} not allocated", preimg[0].name());
                     };
@@ -574,6 +606,7 @@ impl LEM {
                         bail!("{} not allocated", preimg[3].name());
                     };
 
+                    // Allocate new pointer containing expected hash value
                     let alloc_hash = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_valuation(
@@ -586,6 +619,9 @@ impl LEM {
                         &alloc_ptrs,
                     )?;
 
+                    // Stack expected hash, preimage and tag, together with virtual path information,
+                    // such that only concrete path hashes are indeed calculated in the next available
+                    // hash slot.
                     Self::stack_hash_slots(
                         &branch_path_info,
                         &mut hash_slots,
@@ -595,9 +631,11 @@ impl LEM {
                         Some(*tag),
                     )?;
 
+                    // Insert hash value pointer in the HashMap
                     alloc_ptrs.insert(hash.name(), alloc_hash.clone());
                 }
                 LEMOP::Unhash4(preimg, hash) => {
+                    // Get preimage from allocated pointers
                     let i1 = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_valuation(
@@ -646,6 +684,9 @@ impl LEM {
                         &alloc_ptrs,
                     )?;
 
+                    // Stack expected hash, preimage and no tag, together with virtual path information,
+                    // such that only concrete path hashes are indeed calculated in the next available
+                    // hash slot.
                     Self::stack_hash_slots(
                         &branch_path_info,
                         &mut hash_slots,
@@ -655,6 +696,7 @@ impl LEM {
                         None,
                     )?;
 
+                    // Insert preimage pointers in the HashMap
                     alloc_ptrs.insert(preimg[0].name(), i1);
                     alloc_ptrs.insert(preimg[1].name(), i2);
                     alloc_ptrs.insert(preimg[2].name(), i3);
@@ -779,6 +821,9 @@ impl LEM {
                     }
                 }
                 LEMOP::Seq(ops) => {
+                    // Seqs are the only place were multiple hashes can occur in LEM,
+                    // so here we need to count the number of times each type of Hash
+                    // is used, and accordingly update the slot indices information.
                     let mut next_slots = slots.clone();
                     stack.extend(ops.iter().rev().map(|op| {
                         match op {
@@ -800,6 +845,8 @@ impl LEM {
                             next_slots.clone(),
                         )
                     }));
+                    // If the slot indices are larger than a previously found value, we update
+                    // the respective max indeces information.
                     hash_slots.hash2_stacks.max_slots_len =
                         std::cmp::max(hash_slots.hash2_stacks.max_slots_len, next_slots.hash2_idx);
                     hash_slots.hash3_stacks.max_slots_len =
@@ -908,7 +955,7 @@ impl LEM {
                 concrete_slots_hash2_len += 1;
             }
 
-            // complete hash slot with dummies
+            // In order to get uniform circuit, we fill empty hash slots with dummy values.
             for s in concrete_slots_hash2_len..hash_slots.hash2_stacks.max_slots_len {
                 hash2_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
             }
@@ -950,7 +997,7 @@ impl LEM {
                 concrete_slots_hash3_len += 1;
             }
 
-            // complete hash slot with dummies
+            // In order to get uniform circuit, we fill empty hash slots with dummy values.
             for s in concrete_slots_hash3_len..hash_slots.hash3_stacks.max_slots_len {
                 hash3_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
             }
@@ -994,7 +1041,7 @@ impl LEM {
                 concrete_slots_hash4_len += 1;
             }
 
-            // complete hash slot with dummies
+            // In order to get uniform circuit, we fill empty hash slots with dummy values.
             for s in concrete_slots_hash4_len..hash_slots.hash4_stacks.max_slots_len {
                 hash4_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
             }
