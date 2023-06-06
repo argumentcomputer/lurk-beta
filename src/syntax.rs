@@ -39,18 +39,6 @@ impl<F: LurkField> Syntax<F> {
     pub fn nil(pos: Pos) -> Syntax<F> {
         Syntax::LurkSym(pos, LurkSym::Nil)
     }
-
-    pub fn loose_eq(self, other: Syntax<F>) -> bool {
-        match (self, other) {
-            (Syntax::Quote(_, x), Syntax::List(_, list)) => {
-                list == vec![Syntax::LurkSym(Pos::No, LurkSym::Quote), *x]
-            }
-            (Syntax::List(_, list), Syntax::Quote(_, x)) => {
-                list == vec![Syntax::LurkSym(Pos::No, LurkSym::Quote), *x]
-            }
-            (x, y) => x == y,
-        }
-    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -307,7 +295,8 @@ mod test {
             let (z_store, z_ptr) = store1.to_z_store_with_ptr(&ptr1).unwrap();
             let (store2, ptr2) = z_store.to_store_with_z_ptr(&z_ptr).unwrap();
             let y = store2.fetch_syntax(ptr2).unwrap();
-            assert!(x.loose_eq(y))
+            let ptr2 = store1.intern_syntax(y);
+            assert!(store1.ptr_eq(&ptr1, &ptr2).unwrap());
         }
     }
 }
