@@ -3,6 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use abomonation::{decode, encode};
 use once_cell::sync::Lazy;
 use pasta_curves::pallas;
 use serde::{de::DeserializeOwned, Serialize};
@@ -46,21 +47,42 @@ impl Registry {
         let disk_cache = FileIndex::new("public_params").unwrap();
         // use the cached language key
         let lang_key = lang.key();
-        let abomonated_suffix = if abomonated { "-abomonated" } else { "" };
+        let quick_suffix = if abomonated { "-abomonated" } else { "" };
         // Sanity-check: we're about to use a lang-dependent disk cache, which should be specialized
         // for this lang/coprocessor.
-        let key = format!("public-params-rc-{rc}-coproc-{lang_key}{abomonated_suffix}");
-        // read the file if it exists, otherwise initialize
-        if let Some(pp) = disk_cache.get::<PublicParams<'static, C>>(&key) {
-            eprintln!("Using disk-cached public params for lang {}", lang_key);
-            Ok(Arc::new(pp))
+        let key = format!("public-params-rc-{rc}-coproc-{lang_key}{quick_suffix}");
+        if abomonated {
+            match disk_cache.get_raw_bytes(&key) {
+                Ok(mut bytes) => {
+                    eprintln!("Using abomonated public params for lang {}", lang_key);
+                    let (pp, rest) = unsafe { decode::<PublicParams<'_, C>>(&mut bytes).unwrap() };
+                    assert!(rest.len() == 0);
+                    Ok(Arc::new(pp.clone())) // this clone is VERY expensive
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    let pp = default(lang);
+                    // maybe just directly write
+                    disk_cache
+                        .set_abomonated(&key, &*pp)
+                        .tap_ok(|_| eprintln!("Writing public params to disk-cache: {}", lang_key))
+                        .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+                    Ok(pp)
+                }
+            }
         } else {
-            let pp = default(lang);
-            disk_cache
-                .set(key, &*pp)
-                .tap_ok(|_| eprintln!("Writing public params to disk-cache: {}", lang_key))
-                .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
-            Ok(pp)
+            // read the file if it exists, otherwise initialize
+            if let Some(pp) = disk_cache.get::<PublicParams<'static, C>>(&key) {
+                eprintln!("Using disk-cached public params for lang {}", lang_key);
+                Ok(Arc::new(pp))
+            } else {
+                let pp = default(lang);
+                disk_cache
+                    .set(key, &*pp)
+                    .tap_ok(|_| eprintln!("Writing public params to disk-cache: {}", lang_key))
+                    .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+                Ok(pp)
+            }
         }
     }
 
@@ -89,6 +111,6 @@ impl Registry {
                 Ok(v.insert(val))
             }
         }
-        .cloned()
+        .cloned() // this clone is VERY expensive
     }
 }
