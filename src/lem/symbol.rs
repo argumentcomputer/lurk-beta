@@ -5,12 +5,12 @@ pub enum Symbol {
 }
 
 impl Symbol {
-    pub fn sym(path: Vec<&str>) -> Symbol {
-        Symbol::Sym(path.iter().map(|x| x.to_string()).collect())
+    pub fn sym(path: &[String]) -> Symbol {
+        Symbol::Sym(path.into())
     }
 
-    pub fn key(path: Vec<&str>) -> Symbol {
-        Symbol::Key(path.iter().map(|x| x.to_string()).collect())
+    pub fn key(path: &[String]) -> Symbol {
+        Symbol::Key(path.into())
     }
 
     #[inline]

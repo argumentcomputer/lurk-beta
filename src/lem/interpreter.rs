@@ -9,8 +9,10 @@ fn insert_into_ptrs<F: LurkField>(
     key: String,
     value: Ptr<F>,
 ) -> Result<()> {
-    if ptrs.insert(key.clone(), value).is_some() {
-        bail!("{} already defined", key);
+    let mut msg = "Key already defined: ".to_owned();
+    msg.push_str(&key);
+    if ptrs.insert(key, value).is_some() {
+        bail!("{msg}");
     }
     Ok(())
 }

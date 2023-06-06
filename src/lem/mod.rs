@@ -166,26 +166,26 @@ impl LEMOP {
     /// `LEM::new`, which is the API that should be used directly.
     pub fn deconflict(
         &self,
-        path: String,
-        dmap: &mut HashMap<String, String>, // name -> path/name
+        path: &str,
+        map: &mut HashMap<String, String>, // name -> path/name
     ) -> Result<Self> {
         match self {
             Self::Null(ptr, tag) => {
                 let new_name = format!("{}.{}", path, ptr.name());
-                if dmap.insert(ptr.name().clone(), new_name.clone()).is_some() {
+                if map.insert(ptr.name().clone(), new_name.clone()).is_some() {
                     bail!("{} already defined", ptr.name());
                 };
                 Ok(Self::Null(MetaPtr(new_name), *tag))
             }
             Self::Hash2(tgt, tag, src) => {
-                let Some(src0_path) = dmap.get(src[0].name()).cloned() else {
+                let Some(src0_path) = map.get(src[0].name()).cloned() else {
                     bail!("{} not defined", src[0].name());
                 };
-                let Some(src1_path) = dmap.get(src[1].name()).cloned() else {
+                let Some(src1_path) = map.get(src[1].name()).cloned() else {
                     bail!("{} not defined", src[1].name());
                 };
                 let new_name = format!("{}.{}", path, tgt.name());
-                if dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
+                if map.insert(tgt.name().clone(), new_name.clone()).is_some() {
                     bail!("{} already defined", tgt.name());
                 };
                 Ok(Self::Hash2(
@@ -195,17 +195,17 @@ impl LEMOP {
                 ))
             }
             Self::Hash3(tgt, tag, src) => {
-                let Some(src0_path) = dmap.get(src[0].name()).cloned() else {
+                let Some(src0_path) = map.get(src[0].name()).cloned() else {
                     bail!("{} not defined", src[0].name());
                 };
-                let Some(src1_path) = dmap.get(src[1].name()).cloned() else {
+                let Some(src1_path) = map.get(src[1].name()).cloned() else {
                     bail!("{} not defined", src[1].name());
                 };
-                let Some(src2_path) = dmap.get(src[2].name()).cloned() else {
+                let Some(src2_path) = map.get(src[2].name()).cloned() else {
                     bail!("{} not defined", src[2].name());
                 };
                 let new_name = format!("{}.{}", path, tgt.name());
-                if dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
+                if map.insert(tgt.name().clone(), new_name.clone()).is_some() {
                     bail!("{} already defined", tgt.name());
                 };
                 Ok(Self::Hash3(
@@ -215,20 +215,20 @@ impl LEMOP {
                 ))
             }
             Self::Hash4(tgt, tag, src) => {
-                let Some(src0_path) = dmap.get(src[0].name()).cloned() else {
+                let Some(src0_path) = map.get(src[0].name()).cloned() else {
                     bail!("{} not defined", src[0].name());
                 };
-                let Some(src1_path) = dmap.get(src[1].name()).cloned() else {
+                let Some(src1_path) = map.get(src[1].name()).cloned() else {
                     bail!("{} not defined", src[1].name());
                 };
-                let Some(src2_path) = dmap.get(src[2].name()).cloned() else {
+                let Some(src2_path) = map.get(src[2].name()).cloned() else {
                     bail!("{} not defined", src[2].name());
                 };
-                let Some(src3_path) = dmap.get(src[3].name()).cloned() else {
+                let Some(src3_path) = map.get(src[3].name()).cloned() else {
                     bail!("{} not defined", src[3].name());
                 };
                 let new_name = format!("{}.{}", path, tgt.name());
-                if dmap.insert(tgt.name().clone(), new_name.clone()).is_some() {
+                if map.insert(tgt.name().clone(), new_name.clone()).is_some() {
                     bail!("{} already defined", tgt.name());
                 };
                 Ok(Self::Hash4(
@@ -243,18 +243,18 @@ impl LEMOP {
                 ))
             }
             LEMOP::Unhash2(tgt, src) => {
-                let Some(src_path) = dmap.get(src.name()).cloned() else {
+                let Some(src_path) = map.get(src.name()).cloned() else {
                     bail!("{} not defined", src.name());
                 };
                 let tgt0_new_name = format!("{}.{}", path, tgt[0].name());
-                if dmap
+                if map
                     .insert(tgt[0].name().clone(), tgt0_new_name.clone())
                     .is_some()
                 {
                     bail!("{} already defined", tgt[0].name());
                 };
                 let tgt1_new_name = format!("{}.{}", path, tgt[1].name());
-                if dmap
+                if map
                     .insert(tgt[1].name().clone(), tgt1_new_name.clone())
                     .is_some()
                 {
@@ -266,25 +266,25 @@ impl LEMOP {
                 ))
             }
             LEMOP::Unhash3(tgt, src) => {
-                let Some(src_path) = dmap.get(src.name()).cloned() else {
+                let Some(src_path) = map.get(src.name()).cloned() else {
                     bail!("{} not defined", src.name());
                 };
                 let tgt0_new_name = format!("{}.{}", path, tgt[0].name());
-                if dmap
+                if map
                     .insert(tgt[0].name().clone(), tgt0_new_name.clone())
                     .is_some()
                 {
                     bail!("{} already defined", tgt[0].name());
                 };
                 let tgt1_new_name = format!("{}.{}", path, tgt[1].name());
-                if dmap
+                if map
                     .insert(tgt[1].name().clone(), tgt1_new_name.clone())
                     .is_some()
                 {
                     bail!("{} already defined", tgt[1].name());
                 };
                 let tgt2_new_name = format!("{}.{}", path, tgt[2].name());
-                if dmap
+                if map
                     .insert(tgt[2].name().clone(), tgt2_new_name.clone())
                     .is_some()
                 {
@@ -300,32 +300,32 @@ impl LEMOP {
                 ))
             }
             LEMOP::Unhash4(tgt, src) => {
-                let Some(src_path) = dmap.get(src.name()).cloned() else {
+                let Some(src_path) = map.get(src.name()).cloned() else {
                     bail!("{} not defined", src.name());
                 };
                 let tgt0_new_name = format!("{}.{}", path, tgt[0].name());
-                if dmap
+                if map
                     .insert(tgt[0].name().clone(), tgt0_new_name.clone())
                     .is_some()
                 {
                     bail!("{} already defined", tgt[0].name());
                 };
                 let tgt1_new_name = format!("{}.{}", path, tgt[1].name());
-                if dmap
+                if map
                     .insert(tgt[1].name().clone(), tgt1_new_name.clone())
                     .is_some()
                 {
                     bail!("{} already defined", tgt[1].name());
                 };
                 let tgt2_new_name = format!("{}.{}", path, tgt[2].name());
-                if dmap
+                if map
                     .insert(tgt[2].name().clone(), tgt2_new_name.clone())
                     .is_some()
                 {
                     bail!("{} already defined", tgt[2].name());
                 };
                 let tgt3_new_name = format!("{}.{}", path, tgt[3].name());
-                if dmap
+                if map
                     .insert(tgt[3].name().clone(), tgt3_new_name.clone())
                     .is_some()
                 {
@@ -342,14 +342,13 @@ impl LEMOP {
                 ))
             }
             LEMOP::MatchTag(ptr, cases) => {
-                let Some(ptr_path) = dmap.get(ptr.name()).cloned() else {
+                let Some(ptr_path) = map.get(ptr.name()).cloned() else {
                     bail!("{} not defined", ptr.name());
                 };
                 let mut new_cases = vec![];
                 for (tag, case) in cases {
-                    // each case needs it's own clone of `dmap`
-                    let new_case =
-                        case.deconflict(format!("{}.{}", &path, &tag), &mut dmap.clone())?;
+                    // each case needs it's own clone of `map`
+                    let new_case = case.deconflict(&format!("{path}.{tag}"), &mut map.clone())?;
                     new_cases.push((*tag, new_case));
                 }
                 Ok(LEMOP::MatchTag(
@@ -360,18 +359,18 @@ impl LEMOP {
             LEMOP::Seq(ops) => {
                 let mut new_ops = vec![];
                 for op in ops {
-                    new_ops.push(op.deconflict(path.clone(), dmap)?);
+                    new_ops.push(op.deconflict(path, map)?);
                 }
                 Ok(LEMOP::Seq(new_ops))
             }
             LEMOP::Return(o) => {
-                let Some(o0) = dmap.get(o[0].name()).cloned() else {
+                let Some(o0) = map.get(o[0].name()).cloned() else {
                     bail!("{} not defined", o[0].name());
                 };
-                let Some(o1) = dmap.get(o[1].name()).cloned() else {
+                let Some(o1) = map.get(o[1].name()).cloned() else {
                     bail!("{} not defined", o[1].name());
                 };
-                let Some(o2) = dmap.get(o[2].name()).cloned() else {
+                let Some(o2) = map.get(o[2].name()).cloned() else {
                     bail!("{} not defined", o[2].name());
                 };
                 Ok(LEMOP::Return([MetaPtr(o0), MetaPtr(o1), MetaPtr(o2)]))
@@ -425,10 +424,10 @@ impl LEM {
     /// to make sure that interpretation and constraining will be smooth.
     pub fn new(input: [&str; 3], lem_op: &LEMOP) -> Result<LEM> {
         lem_op.check()?;
-        let mut dmap = HashMap::from_iter(input.map(|i| (i.to_string(), i.to_string())));
+        let mut map = HashMap::from_iter(input.map(|i| (i.to_string(), i.to_string())));
         Ok(LEM {
             input: input.map(|i| i.to_string()),
-            lem_op: lem_op.deconflict(String::new(), &mut dmap)?,
+            lem_op: lem_op.deconflict("", &mut map)?,
         })
     }
 }
