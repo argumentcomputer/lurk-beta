@@ -166,13 +166,21 @@ impl fmt::Display for Symbol {
 
 impl From<&str> for Symbol {
     fn from(s: &str) -> Symbol {
-        Self::lurk_sym(s)
+        let sym_path = &s[1..s.len()].split(SYM_SEPARATOR).collect::<Vec<&str>>();
+        if s.starts_with(SYM_MARKER) {
+            Self::sym(sym_path.clone())
+        } else if s.starts_with(KEYWORD_MARKER) {
+            Self::key(sym_path.clone())
+        }
+        else {
+            panic!("Invalid starter char for Symbol")
+        }
     }
 }
 
 impl From<String> for Symbol {
     fn from(s: String) -> Symbol {
-        Self::lurk_sym(&s)
+        (&s as &str).into()
     }
 }
 
