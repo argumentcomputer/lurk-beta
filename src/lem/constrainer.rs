@@ -392,6 +392,22 @@ impl LEM {
             .collect::<Result<Vec<_>>>()
     }
 
+    fn get_alloc_preimage<'a, F: LurkField>(
+        preimg: &[MetaPtr],
+        alloc_ptrs: &'a HashMap<&String, AllocatedPtr<F>>,
+    ) -> Result<Vec<&'a AllocatedPtr<F>>> {
+        let mut res = vec![];
+        for i in preimg {
+            match alloc_ptrs.get(i.name()) {
+                None => bail!("{} not allocated", i.name()),
+                Some(alloc_ptr) => {
+                    res.push(alloc_ptr);
+                }
+            }
+        }
+        Ok(res)
+    }
+
     /// Create R1CS constraints for LEM given an evaluation valuation.
     ///
     /// As we find recursive (non-leaf) LEM operations, we stack them to be
@@ -443,12 +459,7 @@ impl LEM {
             match op {
                 LEMOP::Hash2(hash, tag, preimg) => {
                     // Get preimage from allocated pointers
-                    let Some(i1) = alloc_ptrs.get(preimg[0].name()) else {
-                        bail!("{} not allocated", preimg[0].name());
-                    };
-                    let Some(i2) = alloc_ptrs.get(preimg[1].name()) else {
-                        bail!("{} not allocated", preimg[1].name());
-                    };
+                    let preimg_vec = Self::get_alloc_preimage(preimg, &alloc_ptrs)?;
 
                     // Allocate new pointer containing expected hash value
                     let alloc_hash = Self::allocate_ptr(
@@ -466,7 +477,7 @@ impl LEM {
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
-                        AllocHashPreimage::A2(i1.clone(), i2.clone()),
+                        AllocHashPreimage::A2(preimg_vec[0].clone(), preimg_vec[1].clone()),
                         *tag,
                     )?;
 
@@ -497,21 +508,17 @@ impl LEM {
                     )?;
 
                     // Insert preimage pointers in the HashMap
-                    for i in 0..preimg_vec.len() {
-                        alloc_ptrs.insert(preimg[i].name(), preimg_vec[i].clone());
+                    for (name, preimg) in preimg
+                        .iter()
+                        .map(|pi| pi.name())
+                        .zip(preimg_vec.into_iter())
+                    {
+                        alloc_ptrs.insert(name, preimg);
                     }
                 }
                 LEMOP::Hash3(hash, tag, preimg) => {
                     // Get preimage from allocated pointers
-                    let Some(i1) = alloc_ptrs.get(preimg[0].name()) else {
-                        bail!("{} not allocated", preimg[0].name());
-                    };
-                    let Some(i2) = alloc_ptrs.get(preimg[1].name()) else {
-                        bail!("{} not allocated", preimg[1].name());
-                    };
-                    let Some(i3) = alloc_ptrs.get(preimg[2].name()) else {
-                        bail!("{} not allocated", preimg[2].name());
-                    };
+                    let preimg_vec = Self::get_alloc_preimage(preimg, &alloc_ptrs)?;
 
                     // Allocate new pointer containing expected hash value
                     let alloc_hash = Self::allocate_ptr(
@@ -529,7 +536,11 @@ impl LEM {
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
-                        AllocHashPreimage::A3(i1.clone(), i2.clone(), i3.clone()),
+                        AllocHashPreimage::A3(
+                            preimg_vec[0].clone(),
+                            preimg_vec[1].clone(),
+                            preimg_vec[2].clone(),
+                        ),
                         *tag,
                     )?;
 
@@ -564,24 +575,17 @@ impl LEM {
                     )?;
 
                     // Insert preimage pointers in the HashMap
-                    for i in 0..preimg_vec.len() {
-                        alloc_ptrs.insert(preimg[i].name(), preimg_vec[i].clone());
+                    for (name, preimg) in preimg
+                        .iter()
+                        .map(|pi| pi.name())
+                        .zip(preimg_vec.into_iter())
+                    {
+                        alloc_ptrs.insert(name, preimg);
                     }
                 }
                 LEMOP::Hash4(hash, tag, preimg) => {
                     // Get preimage from allocated pointers
-                    let Some(i1) = alloc_ptrs.get(preimg[0].name()) else {
-                        bail!("{} not allocated", preimg[0].name());
-                    };
-                    let Some(i2) = alloc_ptrs.get(preimg[1].name()) else {
-                        bail!("{} not allocated", preimg[1].name());
-                    };
-                    let Some(i3) = alloc_ptrs.get(preimg[2].name()) else {
-                        bail!("{} not allocated", preimg[2].name());
-                    };
-                    let Some(i4) = alloc_ptrs.get(preimg[3].name()) else {
-                        bail!("{} not allocated", preimg[3].name());
-                    };
+                    let preimg_vec = Self::get_alloc_preimage(preimg, &alloc_ptrs)?;
 
                     // Allocate new pointer containing expected hash value
                     let alloc_hash = Self::allocate_ptr(
@@ -599,7 +603,12 @@ impl LEM {
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
-                        AllocHashPreimage::A4(i1.clone(), i2.clone(), i3.clone(), i4.clone()),
+                        AllocHashPreimage::A4(
+                            preimg_vec[0].clone(),
+                            preimg_vec[1].clone(),
+                            preimg_vec[2].clone(),
+                            preimg_vec[3].clone(),
+                        ),
                         *tag,
                     )?;
 
@@ -635,8 +644,12 @@ impl LEM {
                     )?;
 
                     // Insert preimage pointers in the HashMap
-                    for i in 0..preimg_vec.len() {
-                        alloc_ptrs.insert(preimg[i].name(), preimg_vec[i].clone());
+                    for (name, preimg) in preimg
+                        .iter()
+                        .map(|pi| pi.name())
+                        .zip(preimg_vec.into_iter())
+                    {
+                        alloc_ptrs.insert(name, preimg);
                     }
                 }
                 LEMOP::Null(tgt, tag) => {
