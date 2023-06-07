@@ -62,8 +62,8 @@ impl<F: LurkField> AllocationManager<F> {
 #[derive(Default)]
 struct SlotData {
     max_slots: usize,
-    implies_data: Vec<(Boolean, usize, MetaPtr, Option<Tag>)>,
-    enforce_data: Vec<(usize, MetaPtr, Option<Tag>)>,
+    implies_data: Vec<(Boolean, usize, MetaPtr, Tag)>,
+    enforce_data: Vec<(usize, MetaPtr, Tag)>,
 }
 
 #[derive(Default)]
@@ -200,7 +200,7 @@ impl LEM {
         slots: &SlotsIndices,
         hash: MetaPtr,
         alloc_arity: AllocHashPreimage<F>,
-        tag: Option<Tag>,
+        tag: Tag,
     ) -> Result<()> {
         let is_concrete_path = Self::on_concrete_path(path_kind)?;
         match alloc_arity {
@@ -298,8 +298,8 @@ impl LEM {
     fn create_slot_constraints<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         alloc_ptrs: &HashMap<&String, AllocatedPtr<F>>,
-        implies_data: &Vec<(Boolean, usize, MetaPtr, Option<Tag>)>,
-        enforce_data: &Vec<(usize, MetaPtr, Option<Tag>)>,
+        implies_data: &Vec<(Boolean, usize, MetaPtr, Tag)>,
+        enforce_data: &Vec<(usize, MetaPtr, Tag)>,
         hash_slots: &HashMap<usize, AllocatedNum<F>>,
         alloc_manager: &mut AllocationManager<F>,
     ) -> Result<()> {
@@ -323,20 +323,15 @@ impl LEM {
                 slot_hash,
             )?;
 
-            match tag {
-                Some(tag) => {
-                    let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
-                    implies_equal(
-                        &mut cs.namespace(|| {
-                            format!("implies equal tag for {} and {} in hash2", slot, tgt.name())
-                        }),
-                        concrete_path,
-                        alloc_tgt.tag(),
-                        &alloc_tag,
-                    )?;
-                }
-                None => (),
-            }
+            let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
+            implies_equal(
+                &mut cs.namespace(|| {
+                    format!("implies equal tag for {} and {} in hash2", slot, tgt.name())
+                }),
+                concrete_path,
+                alloc_tgt.tag(),
+                &alloc_tag,
+            )?;
         }
 
         // Create hash enforce
@@ -364,21 +359,19 @@ impl LEM {
                 slot_hash,
             );
 
-            if let Some(tag) = tag {
-                let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
-                enforce_equal(
-                    cs,
-                    || {
-                        format!(
-                            "enforce equal tag for tgt {} and slot number {}",
-                            tgt.name(),
-                            slot,
-                        )
-                    },
-                    alloc_tgt.tag(),
-                    &alloc_tag,
-                );
-            }
+            let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
+            enforce_equal(
+                cs,
+                || {
+                    format!(
+                        "enforce equal tag for tgt {} and slot number {}",
+                        tgt.name(),
+                        slot,
+                    )
+                },
+                alloc_tgt.tag(),
+                &alloc_tag,
+            );
         }
         Ok(())
     }
@@ -476,13 +469,13 @@ impl LEM {
                         &slots,
                         hash.clone(),
                         AllocHashPreimage::A2(i1.clone(), i2.clone()),
-                        Some(*tag),
+                        *tag,
                     )?;
 
                     // Insert hash value pointer in the HashMap
                     alloc_ptrs.insert(hash.name(), alloc_hash.clone());
                 }
-                LEMOP::Unhash2(preimg, hash) => {
+                LEMOP::Unhash2(preimg, hash, tag) => {
                     // Get preimage from allocated pointers
                     let preimg_vec = Self::alloc_preimage(
                         cs,
@@ -502,7 +495,7 @@ impl LEM {
                         &slots,
                         hash.clone(),
                         AllocHashPreimage::A2(preimg_vec[0].clone(), preimg_vec[1].clone()),
-                        None,
+                        *tag,
                     )?;
 
                     // Insert preimage pointers in the HashMap
@@ -539,13 +532,13 @@ impl LEM {
                         &slots,
                         hash.clone(),
                         AllocHashPreimage::A3(i1.clone(), i2.clone(), i3.clone()),
-                        Some(*tag),
+                        *tag,
                     )?;
 
                     // Insert hash value pointer in the HashMap
                     alloc_ptrs.insert(hash.name(), alloc_hash.clone());
                 }
-                LEMOP::Unhash3(preimg, hash) => {
+                LEMOP::Unhash3(preimg, hash, tag) => {
                     // Get preimage from allocated pointers
                     let preimg_vec = Self::alloc_preimage(
                         cs,
@@ -569,7 +562,7 @@ impl LEM {
                             preimg_vec[1].clone(),
                             preimg_vec[2].clone(),
                         ),
-                        None,
+                        *tag,
                     )?;
 
                     // Insert preimage pointers in the HashMap
@@ -609,13 +602,13 @@ impl LEM {
                         &slots,
                         hash.clone(),
                         AllocHashPreimage::A4(i1.clone(), i2.clone(), i3.clone(), i4.clone()),
-                        Some(*tag),
+                        *tag,
                     )?;
 
                     // Insert hash value pointer in the HashMap
                     alloc_ptrs.insert(hash.name(), alloc_hash.clone());
                 }
-                LEMOP::Unhash4(preimg, hash) => {
+                LEMOP::Unhash4(preimg, hash, tag) => {
                     // Get preimage from allocated pointers
                     let preimg_vec = Self::alloc_preimage(
                         cs,
@@ -640,7 +633,7 @@ impl LEM {
                             preimg_vec[2].clone(),
                             preimg_vec[3].clone(),
                         ),
-                        None,
+                        *tag,
                     )?;
 
                     // Insert preimage pointers in the HashMap

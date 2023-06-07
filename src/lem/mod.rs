@@ -119,11 +119,11 @@ pub enum LEMOP {
     /// `Hash4(x, t, is)` binds `x` to a `Ptr` with tag `t` and 4 children `is`
     Hash4(MetaPtr, Tag, [MetaPtr; 4]),
     /// `Unhash2([a, b], x)` binds `a` and `b` to the 2 children of `x`
-    Unhash2([MetaPtr; 2], MetaPtr),
+    Unhash2([MetaPtr; 2], MetaPtr, Tag),
     /// `Unhash3([a, b, c], x)` binds `a` and `b` to the 3 children of `x`
-    Unhash3([MetaPtr; 3], MetaPtr),
+    Unhash3([MetaPtr; 3], MetaPtr, Tag),
     /// `Unhash4([a, b, c, d], x)` binds `a` and `b` to the 4 children of `x`
-    Unhash4([MetaPtr; 4], MetaPtr),
+    Unhash4([MetaPtr; 4], MetaPtr, Tag),
     /// `Hide(x, s, p)` binds `x` to a (comm) `Ptr` resulting from hiding the
     /// payload `p` with (num) secret `s`
     Hide(MetaPtr, MetaPtr, MetaPtr),
@@ -242,7 +242,7 @@ impl LEMOP {
                     ],
                 ))
             }
-            LEMOP::Unhash2(tgt, src) => {
+            LEMOP::Unhash2(tgt, src, tag) => {
                 let Some(src_path) = map.get(src.name()).cloned() else {
                     bail!("{} not defined", src.name());
                 };
@@ -263,9 +263,10 @@ impl LEMOP {
                 Ok(Self::Unhash2(
                     [MetaPtr(tgt0_new_name), MetaPtr(tgt1_new_name)],
                     MetaPtr(src_path),
+                    *tag,
                 ))
             }
-            LEMOP::Unhash3(tgt, src) => {
+            LEMOP::Unhash3(tgt, src, tag) => {
                 let Some(src_path) = map.get(src.name()).cloned() else {
                     bail!("{} not defined", src.name());
                 };
@@ -297,9 +298,10 @@ impl LEMOP {
                         MetaPtr(tgt2_new_name),
                     ],
                     MetaPtr(src_path),
+                    *tag,
                 ))
             }
-            LEMOP::Unhash4(tgt, src) => {
+            LEMOP::Unhash4(tgt, src, tag) => {
                 let Some(src_path) = map.get(src.name()).cloned() else {
                     bail!("{} not defined", src.name());
                 };
@@ -339,6 +341,7 @@ impl LEMOP {
                         MetaPtr(tgt3_new_name),
                     ],
                     MetaPtr(src_path),
+                    *tag,
                 ))
             }
             LEMOP::MatchTag(ptr, cases) => {
