@@ -880,7 +880,7 @@ impl LEM {
         {
             let mut concrete_slots_hash2_len = 0;
             let mut hash2_slots = HashMap::default();
-            while let Some((slot, alloc_car, alloc_cdr)) = hash_slots.hash2_alloc.pop() {
+            for (slot, alloc_car, alloc_cdr) in hash_slots.hash2_alloc {
                 let alloc_hash = hash_poseidon(
                     &mut cs.namespace(|| format!("hash2_{}", slot)),
                     vec![
@@ -918,9 +918,7 @@ impl LEM {
         {
             let mut concrete_slots_hash3_len = 0;
             let mut hash3_slots = HashMap::default();
-            while let Some((slot, alloc_input1, alloc_input2, alloc_input3)) =
-                hash_slots.hash3_alloc.pop()
-            {
+            for (slot, alloc_input1, alloc_input2, alloc_input3) in hash_slots.hash3_alloc {
                 let alloc_hash = hash_poseidon(
                     &mut cs.namespace(|| format!("hash3_{}", slot)),
                     vec![
@@ -960,9 +958,7 @@ impl LEM {
         {
             let mut concrete_slots_hash4_len = 0;
             let mut hash4_slots = HashMap::default();
-            while let Some((slot, alloc_input1, alloc_input2, alloc_input3, alloc_input4)) =
-                hash_slots.hash4_alloc.pop()
-            {
+            for (slot, alloc_input1, alloc_input2, alloc_input3, alloc_input4) in hash_slots.hash4_alloc {
                 let alloc_hash = hash_poseidon(
                     &mut cs.namespace(|| format!("hash4_{}", slot)),
                     vec![
