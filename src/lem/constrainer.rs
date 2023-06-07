@@ -60,18 +60,18 @@ impl<F: LurkField> AllocationManager<F> {
 }
 
 #[derive(Default)]
-struct SlotStacks {
+struct SlotData {
     max_slots: usize,
-    implies_stack: Vec<(Boolean, usize, MetaPtr, Option<Tag>)>,
-    enforce_stack: Vec<(usize, MetaPtr, Option<Tag>)>,
+    implies_data: Vec<(Boolean, usize, MetaPtr, Option<Tag>)>,
+    enforce_data: Vec<(usize, MetaPtr, Option<Tag>)>,
 }
 
 #[derive(Default)]
 struct HashSlots<F: LurkField> {
     hash2_alloc: Vec<(usize, AllocatedPtr<F>, AllocatedPtr<F>)>,
-    hash2_stacks: SlotStacks,
+    hash2_data: SlotData,
     hash3_alloc: Vec<(usize, AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>)>,
-    hash3_stacks: SlotStacks,
+    hash3_data: SlotData,
     hash4_alloc: Vec<(
         usize,
         AllocatedPtr<F>,
@@ -79,7 +79,7 @@ struct HashSlots<F: LurkField> {
         AllocatedPtr<F>,
         AllocatedPtr<F>,
     )>,
-    hash4_stacks: SlotStacks,
+    hash4_data: SlotData,
 }
 
 enum AllocHashPreimage<F: LurkField> {
@@ -194,7 +194,7 @@ impl LEM {
         Ok(())
     }
 
-    fn stack_hash_slots<F: LurkField>(
+    fn acc_hash_slots_data<F: LurkField>(
         path_kind: &PathKind,
         hash_slots: &mut HashSlots<F>,
         slots: &SlotsIndices,
@@ -208,8 +208,8 @@ impl LEM {
                 match path_kind {
                     PathKind::Concrete => {
                         hash_slots
-                            .hash2_stacks
-                            .enforce_stack
+                            .hash2_data
+                            .enforce_data
                             .push((slots.hash2_idx, hash, tag));
                         hash_slots.hash2_alloc.push((slots.hash2_idx, i0, i1))
                     }
@@ -220,7 +220,7 @@ impl LEM {
                             // only once per path
                         }
                         // concrete path implies alloc_tgt has the same value as in the current slot
-                        hash_slots.hash2_stacks.implies_stack.push((
+                        hash_slots.hash2_data.implies_data.push((
                             concrete_path.clone(),
                             slots.hash2_idx,
                             hash,
@@ -233,8 +233,8 @@ impl LEM {
                 match path_kind {
                     PathKind::Concrete => {
                         hash_slots
-                            .hash3_stacks
-                            .enforce_stack
+                            .hash3_data
+                            .enforce_data
                             .push((slots.hash3_idx, hash, tag));
                         hash_slots.hash3_alloc.push((slots.hash3_idx, i0, i1, i2))
                     }
@@ -245,7 +245,7 @@ impl LEM {
                             // only once per path
                         }
                         // concrete path implies alloc_tgt has the same value as in the current slot
-                        hash_slots.hash3_stacks.implies_stack.push((
+                        hash_slots.hash3_data.implies_data.push((
                             concrete_path.clone(),
                             slots.hash3_idx,
                             hash,
@@ -258,8 +258,8 @@ impl LEM {
                 match path_kind {
                     PathKind::Concrete => {
                         hash_slots
-                            .hash4_stacks
-                            .enforce_stack
+                            .hash4_data
+                            .enforce_data
                             .push((slots.hash4_idx, hash, tag));
                         hash_slots
                             .hash4_alloc
@@ -274,7 +274,7 @@ impl LEM {
                             // only once per path
                         }
                         // concrete path implies alloc_tgt has the same value as in the current slot
-                        hash_slots.hash4_stacks.implies_stack.push((
+                        hash_slots.hash4_data.implies_data.push((
                             concrete_path.clone(),
                             slots.hash4_idx,
                             hash,
@@ -288,24 +288,23 @@ impl LEM {
     }
 
     /// Here we use the implies/enforce logic to contrain tag and hash values.
-    /// We pop stacked elements in order to get virtual path information. When
-    /// many branches are possible we will use the `implies_equal` gadget to
-    /// ensure only concrete paths are implied. Otherwise, only one path exists,
-    /// therefore it must be enforced.
-    /// Hence we use two distinct stacks, one for implications and another one
-    /// for enforcements.
+    /// When many branches are possible we will use the `implies_equal` gadget
+    /// to ensure only concrete paths are implied. Otherwise, only one path
+    /// exists, therefore it must be enforced. Hence we use two distinct data
+    /// vectors, one for implications and another one for enforcements.
+    ///
     /// Beyond that, we need to deal with the possibility of receiving no tag,
     /// since Unhash operations don't require constraining tags.
     fn create_slot_constraints<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         alloc_ptrs: &HashMap<&String, AllocatedPtr<F>>,
-        implies_stack: &Vec<(Boolean, usize, MetaPtr, Option<Tag>)>,
-        enforce_stack: &Vec<(usize, MetaPtr, Option<Tag>)>,
+        implies_data: &Vec<(Boolean, usize, MetaPtr, Option<Tag>)>,
+        enforce_data: &Vec<(usize, MetaPtr, Option<Tag>)>,
         hash_slots: &HashMap<usize, AllocatedNum<F>>,
         alloc_manager: &mut AllocationManager<F>,
     ) -> Result<()> {
         // Create hash implications
-        for (concrete_path, slot, tgt, tag) in implies_stack {
+        for (concrete_path, slot, tgt, tag) in implies_data {
             // get alloc_tgt from tgt
             let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
                 bail!("{} not allocated", tgt.name());
@@ -341,7 +340,7 @@ impl LEM {
         }
 
         // Create hash enforce
-        for (slot, tgt, tag) in enforce_stack {
+        for (slot, tgt, tag) in enforce_data {
             // get alloc_tgt from tgt
             let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
                 bail!("{} not allocated", tgt.name());
@@ -471,7 +470,7 @@ impl LEM {
                     // Stack expected hash, preimage and tag, together with virtual path information,
                     // such that only concrete path hashes are indeed calculated in the next available
                     // hash slot.
-                    Self::stack_hash_slots(
+                    Self::acc_hash_slots_data(
                         &path_kind,
                         &mut hash_slots,
                         &slots,
@@ -497,7 +496,7 @@ impl LEM {
                     // Stack expected hash, preimage and no tag, together with virtual path information,
                     // such that only concrete path hashes are indeed calculated in the next available
                     // hash slot.
-                    Self::stack_hash_slots(
+                    Self::acc_hash_slots_data(
                         &path_kind,
                         &mut hash_slots,
                         &slots,
@@ -534,7 +533,7 @@ impl LEM {
                     // Stack expected hash, preimage and tag, together with virtual path information,
                     // such that only concrete path hashes are indeed calculated in the next available
                     // hash slot.
-                    Self::stack_hash_slots(
+                    Self::acc_hash_slots_data(
                         &path_kind,
                         &mut hash_slots,
                         &slots,
@@ -560,7 +559,7 @@ impl LEM {
                     // Stack expected hash, preimage and no tag, together with virtual path information,
                     // such that only concrete path hashes are indeed calculated in the next available
                     // hash slot.
-                    Self::stack_hash_slots(
+                    Self::acc_hash_slots_data(
                         &path_kind,
                         &mut hash_slots,
                         &slots,
@@ -604,7 +603,7 @@ impl LEM {
                     // Stack expected hash, preimage and tag, together with virtual path information,
                     // such that only concrete path hashes are indeed calculated in the next available
                     // hash slot.
-                    Self::stack_hash_slots(
+                    Self::acc_hash_slots_data(
                         &path_kind,
                         &mut hash_slots,
                         &slots,
@@ -630,7 +629,7 @@ impl LEM {
                     // Stack expected hash, preimage and no tag, together with virtual path information,
                     // such that only concrete path hashes are indeed calculated in the next available
                     // hash slot.
-                    Self::stack_hash_slots(
+                    Self::acc_hash_slots_data(
                         &path_kind,
                         &mut hash_slots,
                         &slots,
@@ -784,12 +783,12 @@ impl LEM {
                     }));
                     // If the slot indices are larger than a previously found value, we update
                     // the respective max indeces information.
-                    hash_slots.hash2_stacks.max_slots =
-                        std::cmp::max(hash_slots.hash2_stacks.max_slots, next_slots.hash2_idx);
-                    hash_slots.hash3_stacks.max_slots =
-                        std::cmp::max(hash_slots.hash3_stacks.max_slots, next_slots.hash3_idx);
-                    hash_slots.hash4_stacks.max_slots =
-                        std::cmp::max(hash_slots.hash4_stacks.max_slots, next_slots.hash4_idx);
+                    hash_slots.hash2_data.max_slots =
+                        std::cmp::max(hash_slots.hash2_data.max_slots, next_slots.hash2_idx);
+                    hash_slots.hash3_data.max_slots =
+                        std::cmp::max(hash_slots.hash3_data.max_slots, next_slots.hash3_idx);
+                    hash_slots.hash4_data.max_slots =
+                        std::cmp::max(hash_slots.hash4_data.max_slots, next_slots.hash4_idx);
                 }
                 LEMOP::Return(outputs) => {
                     let is_concrete_path = Self::on_concrete_path(&path_kind)?;
@@ -844,25 +843,25 @@ impl LEM {
         }
 
         if let Some(max_slots_indices) = max_slots_allowed {
-            if max_slots_indices.hash2_idx > hash_slots.hash2_stacks.max_slots {
+            if max_slots_indices.hash2_idx > hash_slots.hash2_data.max_slots {
                 bail!(
                     "Too many slots allocated for Hash2/Unhash2: {}, {}",
                     max_slots_indices.hash2_idx,
-                    hash_slots.hash2_stacks.max_slots
+                    hash_slots.hash2_data.max_slots
                 );
             }
-            if max_slots_indices.hash3_idx > hash_slots.hash3_stacks.max_slots {
+            if max_slots_indices.hash3_idx > hash_slots.hash3_data.max_slots {
                 bail!(
                     "Too many slots allocated for Hash3/Unhash3: {}, {}",
                     max_slots_indices.hash2_idx,
-                    hash_slots.hash2_stacks.max_slots
+                    hash_slots.hash2_data.max_slots
                 );
             }
-            if max_slots_indices.hash4_idx > hash_slots.hash4_stacks.max_slots {
+            if max_slots_indices.hash4_idx > hash_slots.hash4_data.max_slots {
                 bail!(
                     "Too many slots allocated for Hash4/Unhash4: {}, {}",
                     max_slots_indices.hash2_idx,
-                    hash_slots.hash2_stacks.max_slots
+                    hash_slots.hash2_data.max_slots
                 );
             }
         }
@@ -893,15 +892,15 @@ impl LEM {
             }
 
             // In order to get uniform circuit, we fill empty hash slots with dummy values.
-            for s in concrete_slots_hash2_len..hash_slots.hash2_stacks.max_slots {
+            for s in concrete_slots_hash2_len..hash_slots.hash2_data.max_slots {
                 hash2_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
             }
 
             Self::create_slot_constraints(
                 cs,
                 &alloc_ptrs,
-                &hash_slots.hash2_stacks.implies_stack,
-                &hash_slots.hash2_stacks.enforce_stack,
+                &hash_slots.hash2_data.implies_data,
+                &hash_slots.hash2_data.enforce_data,
                 &hash2_slots,
                 alloc_manager,
             )?;
@@ -935,15 +934,15 @@ impl LEM {
             }
 
             // In order to get uniform circuit, we fill empty hash slots with dummy values.
-            for s in concrete_slots_hash3_len..hash_slots.hash3_stacks.max_slots {
+            for s in concrete_slots_hash3_len..hash_slots.hash3_data.max_slots {
                 hash3_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
             }
 
             Self::create_slot_constraints(
                 cs,
                 &alloc_ptrs,
-                &hash_slots.hash3_stacks.implies_stack,
-                &hash_slots.hash3_stacks.enforce_stack,
+                &hash_slots.hash3_data.implies_data,
+                &hash_slots.hash3_data.enforce_data,
                 &hash3_slots,
                 alloc_manager,
             )?;
@@ -979,15 +978,15 @@ impl LEM {
             }
 
             // In order to get uniform circuit, we fill empty hash slots with dummy values.
-            for s in concrete_slots_hash4_len..hash_slots.hash4_stacks.max_slots {
+            for s in concrete_slots_hash4_len..hash_slots.hash4_data.max_slots {
                 hash4_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
             }
 
             Self::create_slot_constraints(
                 cs,
                 &alloc_ptrs,
-                &hash_slots.hash4_stacks.implies_stack,
-                &hash_slots.hash4_stacks.enforce_stack,
+                &hash_slots.hash4_data.implies_data,
+                &hash_slots.hash4_data.enforce_data,
                 &hash4_slots,
                 alloc_manager,
             )?;
