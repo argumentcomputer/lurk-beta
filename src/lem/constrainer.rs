@@ -179,21 +179,15 @@ impl LEM {
     }
 
     /// Accumulates slot data that will be used later to generate the constraints.
-    ///
-    /// If we're definitely on a concrete path, then we accumulate data to be
-    /// constrained with regular enforcements.
-    ///
-    /// If we're probably on a concrete path, then we accumulate data to be
-    /// constrained with implications.
     fn acc_hash_slots_data<F: LurkField>(
-        concrete_path: &Boolean,
+        concrete_path: Boolean,
         hash_slots: &mut HashSlots<F>,
         slots: &SlotsIndices,
         hash: MetaPtr,
         alloc_arity: AllocHashPreimage<F>,
         tag: Tag,
     ) -> Result<()> {
-        let is_concrete_path = Self::on_concrete_path(concrete_path)?;
+        let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
         match alloc_arity {
             AllocHashPreimage::A2(i0, i1) => {
                 if is_concrete_path {
@@ -201,7 +195,7 @@ impl LEM {
                     hash_slots.hash2_alloc.push((slots.hash2_idx, i0, i1));
                 }
                 hash_slots.hash2_data.constraints_data.push((
-                    concrete_path.clone(),
+                    concrete_path,
                     slots.hash2_idx,
                     hash,
                     tag,
@@ -213,7 +207,7 @@ impl LEM {
                     hash_slots.hash3_alloc.push((slots.hash3_idx, i0, i1, i2));
                 }
                 hash_slots.hash3_data.constraints_data.push((
-                    concrete_path.clone(),
+                    concrete_path,
                     slots.hash3_idx,
                     hash,
                     tag,
@@ -227,7 +221,7 @@ impl LEM {
                         .push((slots.hash4_idx, i0, i1, i2, i3));
                 }
                 hash_slots.hash4_data.constraints_data.push((
-                    concrete_path.clone(),
+                    concrete_path,
                     slots.hash4_idx,
                     hash,
                     tag,
@@ -237,16 +231,13 @@ impl LEM {
         Ok(())
     }
 
-    /// Here we use the implies/enforce logic to contrain tag and hash values.
-    /// When many branches are possible we will use the `implies_equal` gadget
-    /// to ensure only concrete paths are implied. Otherwise, only one path
-    /// exists, therefore it must be enforced. Hence we use two distinct data
-    /// vectors, one for implications and another one for enforcements.
+    /// Use the implies logic to contrain tag and hash values for accumulated
+    /// slot data
     fn create_slot_constraints<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         alloc_ptrs: &HashMap<&String, AllocatedPtr<F>>,
         constraints_data: &Vec<(Boolean, usize, MetaPtr, Tag)>,
-        hash_slots: &Vec<Option<AllocatedNum<F>>>,
+        hash_slots: &[Option<AllocatedNum<F>>],
         alloc_manager: &mut AllocationManager<F>,
     ) -> Result<()> {
         for (concrete_path, slot, tgt, tag) in constraints_data {
@@ -321,23 +312,13 @@ impl LEM {
     /// constrained later, using hash maps to manage viariables and pointers in
     /// a way we can reference allocated variables that were previously created.
     ///
-    /// Notably, we use a variable `path_kind: PathKind` to encode a three-way
-    /// information:
-    ///
-    /// * If it's `Concrete`, it means that no logical branches have happened in
-    /// the LEM so far, thus the evaluation algorithm must have gone through
-    /// that operation. In this case, we use regular equality enforcements
-    ///
-    /// * If it's `MaybeConcrete(concrete_path)`, it means that we're on a logical
-    /// LEM branch, which might be *virtual* or *concrete* depending on the
-    /// valuation. A virtual path is one that wasn't taken during evaluation and
-    /// thus its valuation pointers and variables weren't bound. A concrete path
-    /// means that evaluation took that path and the valuation data should be
-    /// complete. For virtual paths we need to create dummy bindings and relax the
-    /// enforcements with implications whose premises are false. So, in the end,
-    /// we use implications on both virtual and concrete paths to make sure that
-    /// the circuit structure is always the same, independently of the valuation.
-    /// The premise is precicely `concrete_path`.
+    /// Notably, we use a variable `concrete_path: Boolean` to encode whether we
+    /// are on a *concrete* or *virtual* path. A virtual path is one that wasn't
+    /// taken during evaluation and thus its valuation pointers weren't bound. A
+    /// concrete path means that evaluation took that path and the valuation data
+    /// should be complete. For virtual paths we need to create dummy bindings
+    /// and relax the implications with false premises. The premise is precicely
+    /// `concrete_path`.
     pub fn constrain_aux<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -376,11 +357,11 @@ impl LEM {
                         &alloc_ptrs,
                     )?;
 
-                    // Stack expected hash, preimage and tag, together with virtual path information,
-                    // such that only concrete path hashes are indeed calculated in the next available
-                    // hash slot.
+                    // Accumulate expected hash, preimage and tag, together with
+                    // path information, such that only concrete path hashes are
+                    // indeed calculated in the next available hash slot.
                     Self::acc_hash_slots_data(
-                        &concrete_path,
+                        concrete_path,
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
@@ -402,11 +383,11 @@ impl LEM {
                         &alloc_ptrs,
                     )?;
 
-                    // Stack expected hash, preimage and no tag, together with virtual path information,
-                    // such that only concrete path hashes are indeed calculated in the next available
-                    // hash slot.
+                    // Accumulate expected hash, preimage and tag, together with
+                    // path information, such that only concrete path hashes are
+                    // indeed calculated in the next available hash slot.
                     Self::acc_hash_slots_data(
-                        &concrete_path,
+                        concrete_path,
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
@@ -435,11 +416,11 @@ impl LEM {
                         &alloc_ptrs,
                     )?;
 
-                    // Stack expected hash, preimage and tag, together with virtual path information,
-                    // such that only concrete path hashes are indeed calculated in the next available
-                    // hash slot.
+                    // Accumulate expected hash, preimage and tag, together with
+                    // path information, such that only concrete path hashes are
+                    // indeed calculated in the next available hash slot.
                     Self::acc_hash_slots_data(
-                        &concrete_path,
+                        concrete_path,
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
@@ -465,11 +446,11 @@ impl LEM {
                         &alloc_ptrs,
                     )?;
 
-                    // Stack expected hash, preimage and no tag, together with virtual path information,
-                    // such that only concrete path hashes are indeed calculated in the next available
-                    // hash slot.
+                    // Accumulate expected hash, preimage and tag, together with
+                    // path information, such that only concrete path hashes are
+                    // indeed calculated in the next available hash slot.
                     Self::acc_hash_slots_data(
-                        &concrete_path,
+                        concrete_path,
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
@@ -502,11 +483,11 @@ impl LEM {
                         &alloc_ptrs,
                     )?;
 
-                    // Stack expected hash, preimage and tag, together with virtual path information,
-                    // such that only concrete path hashes are indeed calculated in the next available
-                    // hash slot.
+                    // Accumulate expected hash, preimage and tag, together with
+                    // path information, such that only concrete path hashes are
+                    // indeed calculated in the next available hash slot.
                     Self::acc_hash_slots_data(
-                        &concrete_path,
+                        concrete_path,
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
@@ -533,11 +514,11 @@ impl LEM {
                         &alloc_ptrs,
                     )?;
 
-                    // Stack expected hash, preimage and no tag, together with virtual path information,
-                    // such that only concrete path hashes are indeed calculated in the next available
-                    // hash slot.
+                    // Accumulate expected hash, preimage and tag, together with
+                    // path information, such that only concrete path hashes are
+                    // indeed calculated in the next available hash slot.
                     Self::acc_hash_slots_data(
-                        &concrete_path,
+                        concrete_path,
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
@@ -635,7 +616,7 @@ impl LEM {
                     // Seqs are the only place were multiple hashes can occur in LEM,
                     // so here we need to count the number of times each type of Hash
                     // is used, and accordingly update the slot indices information.
-                    let mut next_slots = slots.clone();
+                    let mut next_slots = slots;
                     stack.extend(ops.iter().rev().map(|op| {
                         match op {
                             LEMOP::Hash2(..) => {
