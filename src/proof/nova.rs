@@ -3635,12 +3635,12 @@ pub mod tests {
     #[test]
     fn test_issue424() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.nil();
+        let expected = s.num(5);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
             "(letrec ((char2int (lambda (digit)
-                           (if (eq #\0 digit) 0 1)))
+                           (if (eq #\\0 digit) 0 1)))
          (str2int (letrec ((inner (lambda (acc xs)
                                           (if (eq xs \"\") acc
                                               (inner (+ (* 2 acc)
@@ -3652,7 +3652,7 @@ pub mod tests {
             None,
             Some(terminal),
             None,
-            4,
+            147,
             None,
         );
     }
@@ -3660,7 +3660,9 @@ pub mod tests {
     #[test]
     fn test_issue426() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.nil();
+        let nil = s.nil();
+        let strnil = s.str("");
+        let expected = s.cons(nil, strnil);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -3673,7 +3675,7 @@ pub mod tests {
             None,
             Some(terminal),
             None,
-            4,
+            21,
             None,
         );
     }
