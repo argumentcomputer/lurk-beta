@@ -171,8 +171,7 @@ impl From<&str> for Symbol {
             Self::sym(sym_path.clone())
         } else if s.starts_with(KEYWORD_MARKER) {
             Self::key(sym_path.clone())
-        }
-        else {
+        } else {
             panic!("Invalid starter char for Symbol")
         }
     }

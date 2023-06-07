@@ -1180,7 +1180,10 @@ mod test {
         let tmp_dir_path = Path::new(tmp_dir.path());
         let fcomm_path_val = tmp_dir_path.join("fcomm_data");
         std::env::set_var(fcomm_path_key, fcomm_path_val.clone());
-        assert_eq!(std::env::var(fcomm_path_key), Ok(fcomm_path_val.into_os_string().into_string().unwrap()));
+        assert_eq!(
+            std::env::var(fcomm_path_key),
+            Ok(fcomm_path_val.into_os_string().into_string().unwrap())
+        );
 
         let function_source = "(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))";
         let expected_io = vec![("5", "5"), ("3", "8")];
