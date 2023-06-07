@@ -3507,6 +3507,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             let cont_is_call2_and_not_dummy_and_not_dummy_args =
                 and!(cs, &cont_is_call2_and_not_dummy, &args_is_not_dummy)?;
 
+            let body_t_is_nil = body_t.is_nil(&mut cs.namespace(|| "body_t_is_nil"), g)?;
+
             let (body_form, end) = car_cdr_named(
                 &mut cs.namespace(|| "body_form"),
                 g,
@@ -3517,9 +3519,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
                 store,
             )?;
 
-            let body_form_is_nil = body_form.is_nil(&mut cs.namespace(|| "body_form_is_nil"), g)?;
             let end_is_nil = end.is_nil(&mut cs.namespace(|| "end_is_nil"), g)?;
-            let body_is_well_formed = and!(cs, &body_form_is_nil.not(), &end_is_nil)?;
+            let body_is_well_formed = and!(cs, &body_t_is_nil.not(), &end_is_nil)?;
 
             let extend_not_dummy = and!(
                 cs,

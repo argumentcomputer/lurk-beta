@@ -3644,7 +3644,7 @@ pub mod tests {
             None,
             Some(terminal),
             None,
-            2,
+            4,
             None,
         );
     }
