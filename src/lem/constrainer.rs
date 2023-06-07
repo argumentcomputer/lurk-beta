@@ -59,11 +59,15 @@ impl<F: LurkField> AllocationManager<F> {
     }
 }
 
+enum ConstraintData {
+    Enforce(usize, MetaPtr, Tag),
+    Implies(Boolean, usize, MetaPtr, Tag),
+}
+
 #[derive(Default)]
 struct SlotData {
     max_slots: usize,
-    implies_data: Vec<(Boolean, usize, MetaPtr, Tag)>,
-    enforce_data: Vec<(usize, MetaPtr, Tag)>,
+    constraints_data: Vec<ConstraintData>,
 }
 
 #[derive(Default)]
@@ -216,8 +220,8 @@ impl LEM {
                     PathKind::Concrete => {
                         hash_slots
                             .hash2_data
-                            .enforce_data
-                            .push((slots.hash2_idx, hash, tag));
+                            .constraints_data
+                            .push(ConstraintData::Enforce(slots.hash2_idx, hash, tag));
                         hash_slots.hash2_alloc.push((slots.hash2_idx, i0, i1))
                     }
                     PathKind::MaybeConcrete(concrete_path) => {
@@ -225,12 +229,15 @@ impl LEM {
                             // only once per path
                             hash_slots.hash2_alloc.push((slots.hash2_idx, i0, i1));
                         }
-                        hash_slots.hash2_data.implies_data.push((
-                            concrete_path.clone(),
-                            slots.hash2_idx,
-                            hash,
-                            tag,
-                        ));
+                        hash_slots
+                            .hash2_data
+                            .constraints_data
+                            .push(ConstraintData::Implies(
+                                concrete_path.clone(),
+                                slots.hash2_idx,
+                                hash,
+                                tag,
+                            ));
                     }
                 }
             }
@@ -239,8 +246,8 @@ impl LEM {
                     PathKind::Concrete => {
                         hash_slots
                             .hash3_data
-                            .enforce_data
-                            .push((slots.hash3_idx, hash, tag));
+                            .constraints_data
+                            .push(ConstraintData::Enforce(slots.hash3_idx, hash, tag));
                         hash_slots.hash3_alloc.push((slots.hash3_idx, i0, i1, i2))
                     }
                     PathKind::MaybeConcrete(concrete_path) => {
@@ -248,12 +255,15 @@ impl LEM {
                             // only once per path
                             hash_slots.hash3_alloc.push((slots.hash3_idx, i0, i1, i2));
                         }
-                        hash_slots.hash3_data.implies_data.push((
-                            concrete_path.clone(),
-                            slots.hash3_idx,
-                            hash,
-                            tag,
-                        ));
+                        hash_slots
+                            .hash3_data
+                            .constraints_data
+                            .push(ConstraintData::Implies(
+                                concrete_path.clone(),
+                                slots.hash3_idx,
+                                hash,
+                                tag,
+                            ));
                     }
                 }
             }
@@ -262,8 +272,8 @@ impl LEM {
                     PathKind::Concrete => {
                         hash_slots
                             .hash4_data
-                            .enforce_data
-                            .push((slots.hash4_idx, hash, tag));
+                            .constraints_data
+                            .push(ConstraintData::Enforce(slots.hash4_idx, hash, tag));
                         hash_slots
                             .hash4_alloc
                             .push((slots.hash4_idx, i0, i1, i2, i3))
@@ -275,12 +285,15 @@ impl LEM {
                                 .hash4_alloc
                                 .push((slots.hash4_idx, i0, i1, i2, i3));
                         }
-                        hash_slots.hash4_data.implies_data.push((
-                            concrete_path.clone(),
-                            slots.hash4_idx,
-                            hash,
-                            tag,
-                        ));
+                        hash_slots
+                            .hash4_data
+                            .constraints_data
+                            .push(ConstraintData::Implies(
+                                concrete_path.clone(),
+                                slots.hash4_idx,
+                                hash,
+                                tag,
+                            ));
                     }
                 }
             }
@@ -296,80 +309,81 @@ impl LEM {
     fn create_slot_constraints<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         alloc_ptrs: &HashMap<&String, AllocatedPtr<F>>,
-        implies_data: &Vec<(Boolean, usize, MetaPtr, Tag)>,
-        enforce_data: &Vec<(usize, MetaPtr, Tag)>,
+        constraints_data: &Vec<ConstraintData>,
         hash_slots: &HashMap<usize, AllocatedNum<F>>,
         alloc_manager: &mut AllocationManager<F>,
     ) -> Result<()> {
-        // Create hash implications
-        for (concrete_path, slot, tgt, tag) in implies_data {
-            // get alloc_tgt from tgt
-            let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
-                bail!("{} not allocated", tgt.name());
-            };
+        for constraint_data in constraints_data {
+            match constraint_data {
+                ConstraintData::Enforce(slot, tgt, tag) => {
+                    // get alloc_tgt from tgt
+                    let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
+                        bail!("{} not allocated", tgt.name());
+                    };
 
-            // get slot_hash from slot name
-            let Some(slot_hash) = hash_slots.get(slot) else {
-                bail!("Slot {} not allocated", slot)
-            };
+                    // get slot_hash from slot name
+                    let Some(slot_hash) = hash_slots.get(slot) else {
+                        bail!("Slot number {} not allocated", slot)
+                    };
 
-            implies_equal(
-                &mut cs
-                    .namespace(|| format!("implies equal hash2 for {} and {}", slot, tgt.name())),
-                concrete_path,
-                alloc_tgt.hash(),
-                slot_hash,
-            )?;
+                    enforce_equal(
+                        cs,
+                        || {
+                            format!(
+                                "enforce equal hash for tgt {} and slot number {}",
+                                tgt.name(),
+                                slot,
+                            )
+                        },
+                        alloc_tgt.hash(),
+                        slot_hash,
+                    );
 
-            let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
-            implies_equal(
-                &mut cs.namespace(|| {
-                    format!("implies equal tag for {} and {} in hash2", slot, tgt.name())
-                }),
-                concrete_path,
-                alloc_tgt.tag(),
-                &alloc_tag,
-            )?;
-        }
+                    let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
+                    enforce_equal(
+                        cs,
+                        || {
+                            format!(
+                                "enforce equal tag for tgt {} and slot number {}",
+                                tgt.name(),
+                                slot,
+                            )
+                        },
+                        alloc_tgt.tag(),
+                        &alloc_tag,
+                    );
+                }
+                ConstraintData::Implies(concrete_path, slot, tgt, tag) => {
+                    // get alloc_tgt from tgt
+                    let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
+                        bail!("{} not allocated", tgt.name());
+                    };
 
-        // Create hash enforce
-        for (slot, tgt, tag) in enforce_data {
-            // get alloc_tgt from tgt
-            let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
-                bail!("{} not allocated", tgt.name());
-            };
+                    // get slot_hash from slot name
+                    let Some(slot_hash) = hash_slots.get(slot) else {
+                        bail!("Slot {} not allocated", slot)
+                    };
 
-            // get slot_hash from slot name
-            let Some(slot_hash) = hash_slots.get(slot) else {
-                bail!("Slot number {} not allocated", slot)
-            };
+                    implies_equal(
+                        &mut cs.namespace(|| {
+                            format!("implies equal hash2 for {} and {}", slot, tgt.name())
+                        }),
+                        concrete_path,
+                        alloc_tgt.hash(),
+                        slot_hash,
+                    )?;
 
-            enforce_equal(
-                cs,
-                || {
-                    format!(
-                        "enforce equal hash for tgt {} and slot number {}",
-                        tgt.name(),
-                        slot,
-                    )
-                },
-                alloc_tgt.hash(),
-                slot_hash,
-            );
-
-            let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
-            enforce_equal(
-                cs,
-                || {
-                    format!(
-                        "enforce equal tag for tgt {} and slot number {}",
-                        tgt.name(),
-                        slot,
-                    )
-                },
-                alloc_tgt.tag(),
-                &alloc_tag,
-            );
+                    let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
+                    implies_equal(
+                        &mut cs.namespace(|| {
+                            format!("implies equal tag for {} and {} in hash2", slot, tgt.name())
+                        }),
+                        concrete_path,
+                        alloc_tgt.tag(),
+                        &alloc_tag,
+                    )?;
+                }
+            }
         }
         Ok(())
     }
@@ -903,8 +917,7 @@ impl LEM {
             Self::create_slot_constraints(
                 cs,
                 &alloc_ptrs,
-                &hash_slots.hash2_data.implies_data,
-                &hash_slots.hash2_data.enforce_data,
+                &hash_slots.hash2_data.constraints_data,
                 &hash2_slots,
                 alloc_manager,
             )?;
@@ -943,8 +956,7 @@ impl LEM {
             Self::create_slot_constraints(
                 cs,
                 &alloc_ptrs,
-                &hash_slots.hash3_data.implies_data,
-                &hash_slots.hash3_data.enforce_data,
+                &hash_slots.hash3_data.constraints_data,
                 &hash3_slots,
                 alloc_manager,
             )?;
@@ -987,8 +999,7 @@ impl LEM {
             Self::create_slot_constraints(
                 cs,
                 &alloc_ptrs,
-                &hash_slots.hash4_data.implies_data,
-                &hash_slots.hash4_data.enforce_data,
+                &hash_slots.hash4_data.constraints_data,
                 &hash4_slots,
                 alloc_manager,
             )?;
