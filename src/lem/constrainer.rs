@@ -299,27 +299,27 @@ impl LEM {
     fn create_slot_constraints<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         alloc_ptrs: &HashMap<&String, AllocatedPtr<F>>,
-        implies_stack: &mut Vec<(Boolean, usize, MetaPtr, Option<Tag>)>,
-        enforce_stack: &mut Vec<(usize, MetaPtr, Option<Tag>)>,
+        implies_stack: &Vec<(Boolean, usize, MetaPtr, Option<Tag>)>,
+        enforce_stack: &Vec<(usize, MetaPtr, Option<Tag>)>,
         hash_slots: &HashMap<usize, AllocatedNum<F>>,
         alloc_manager: &mut AllocationManager<F>,
     ) -> Result<()> {
         // Create hash implications
-        while let Some((concrete_path, slot, tgt, tag)) = implies_stack.pop() {
+        for (concrete_path, slot, tgt, tag) in implies_stack {
             // get alloc_tgt from tgt
             let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
                 bail!("{} not allocated", tgt.name());
             };
 
             // get slot_hash from slot name
-            let Some(slot_hash) = hash_slots.get(&slot) else {
+            let Some(slot_hash) = hash_slots.get(slot) else {
                 bail!("Slot {} not allocated", slot)
             };
 
             implies_equal(
                 &mut cs
                     .namespace(|| format!("implies equal hash2 for {} and {}", slot, tgt.name())),
-                &concrete_path,
+                concrete_path,
                 alloc_tgt.hash(),
                 slot_hash,
             )?;
@@ -331,7 +331,7 @@ impl LEM {
                         &mut cs.namespace(|| {
                             format!("implies equal tag for {} and {} in hash2", slot, tgt.name())
                         }),
-                        &concrete_path,
+                        concrete_path,
                         alloc_tgt.tag(),
                         &alloc_tag,
                     )?;
@@ -341,14 +341,14 @@ impl LEM {
         }
 
         // Create hash enforce
-        while let Some((slot, tgt, tag)) = enforce_stack.pop() {
+        for (slot, tgt, tag) in enforce_stack {
             // get alloc_tgt from tgt
             let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
                 bail!("{} not allocated", tgt.name());
             };
 
             // get slot_hash from slot name
-            let Some(slot_hash) = hash_slots.get(&slot) else {
+            let Some(slot_hash) = hash_slots.get(slot) else {
                 bail!("Slot number {} not allocated", slot)
             };
 
@@ -900,8 +900,8 @@ impl LEM {
             Self::create_slot_constraints(
                 cs,
                 &alloc_ptrs,
-                &mut hash_slots.hash2_stacks.implies_stack,
-                &mut hash_slots.hash2_stacks.enforce_stack,
+                &hash_slots.hash2_stacks.implies_stack,
+                &hash_slots.hash2_stacks.enforce_stack,
                 &hash2_slots,
                 alloc_manager,
             )?;
@@ -942,8 +942,8 @@ impl LEM {
             Self::create_slot_constraints(
                 cs,
                 &alloc_ptrs,
-                &mut hash_slots.hash3_stacks.implies_stack,
-                &mut hash_slots.hash3_stacks.enforce_stack,
+                &hash_slots.hash3_stacks.implies_stack,
+                &hash_slots.hash3_stacks.enforce_stack,
                 &hash3_slots,
                 alloc_manager,
             )?;
@@ -986,8 +986,8 @@ impl LEM {
             Self::create_slot_constraints(
                 cs,
                 &alloc_ptrs,
-                &mut hash_slots.hash4_stacks.implies_stack,
-                &mut hash_slots.hash4_stacks.enforce_stack,
+                &hash_slots.hash4_stacks.implies_stack,
+                &hash_slots.hash4_stacks.enforce_stack,
                 &hash4_slots,
                 alloc_manager,
             )?;
