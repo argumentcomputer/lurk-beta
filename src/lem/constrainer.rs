@@ -194,6 +194,13 @@ impl LEM {
         Ok(())
     }
 
+    /// Accumulates slot data that will be used later to generate the constraints.
+    ///
+    /// If we're definitely on a concrete path, then we accumulate data to be
+    /// constrained with regular enforcements.
+    ///
+    /// If we're probably on a concrete path, then we accumulate data to be
+    /// constrained with implications.
     fn acc_hash_slots_data<F: LurkField>(
         path_kind: &PathKind,
         hash_slots: &mut HashSlots<F>,
@@ -214,12 +221,10 @@ impl LEM {
                         hash_slots.hash2_alloc.push((slots.hash2_idx, i0, i1))
                     }
                     PathKind::MaybeConcrete(concrete_path) => {
-                        // if concrete_path is true, push to slots
                         if is_concrete_path {
-                            hash_slots.hash2_alloc.push((slots.hash2_idx, i0, i1));
                             // only once per path
+                            hash_slots.hash2_alloc.push((slots.hash2_idx, i0, i1));
                         }
-                        // concrete path implies alloc_tgt has the same value as in the current slot
                         hash_slots.hash2_data.implies_data.push((
                             concrete_path.clone(),
                             slots.hash2_idx,
@@ -239,12 +244,10 @@ impl LEM {
                         hash_slots.hash3_alloc.push((slots.hash3_idx, i0, i1, i2))
                     }
                     PathKind::MaybeConcrete(concrete_path) => {
-                        // if concrete_path is true, push to slots
                         if is_concrete_path {
-                            hash_slots.hash3_alloc.push((slots.hash3_idx, i0, i1, i2));
                             // only once per path
+                            hash_slots.hash3_alloc.push((slots.hash3_idx, i0, i1, i2));
                         }
-                        // concrete path implies alloc_tgt has the same value as in the current slot
                         hash_slots.hash3_data.implies_data.push((
                             concrete_path.clone(),
                             slots.hash3_idx,
@@ -266,14 +269,12 @@ impl LEM {
                             .push((slots.hash4_idx, i0, i1, i2, i3))
                     }
                     PathKind::MaybeConcrete(concrete_path) => {
-                        // if concrete_path is true, push to slots
                         if is_concrete_path {
+                            // only once per path
                             hash_slots
                                 .hash4_alloc
                                 .push((slots.hash4_idx, i0, i1, i2, i3));
-                            // only once per path
                         }
-                        // concrete path implies alloc_tgt has the same value as in the current slot
                         hash_slots.hash4_data.implies_data.push((
                             concrete_path.clone(),
                             slots.hash4_idx,
@@ -292,9 +293,6 @@ impl LEM {
     /// to ensure only concrete paths are implied. Otherwise, only one path
     /// exists, therefore it must be enforced. Hence we use two distinct data
     /// vectors, one for implications and another one for enforcements.
-    ///
-    /// Beyond that, we need to deal with the possibility of receiving no tag,
-    /// since Unhash operations don't require constraining tags.
     fn create_slot_constraints<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         alloc_ptrs: &HashMap<&String, AllocatedPtr<F>>,
@@ -865,7 +863,7 @@ impl LEM {
         ///////////////////////////// Hash2 /////////////////////////////////////
         /////////////////////////////////////////////////////////////////////////
 
-        // Create hash constraints for each stacked slot
+        // Create hash constraints for each slot
         {
             let mut concrete_slots_hash2_len = 0;
             let mut hash2_slots = HashMap::default();
@@ -903,7 +901,7 @@ impl LEM {
         ///////////////////////////// Hash3 /////////////////////////////////////
         /////////////////////////////////////////////////////////////////////////
 
-        // Create hash constraints for each stacked slot
+        // Create hash constraints for each slot
         {
             let mut concrete_slots_hash3_len = 0;
             let mut hash3_slots = HashMap::default();
@@ -945,7 +943,7 @@ impl LEM {
         ///////////////////////////// Hash4 /////////////////////////////////////
         /////////////////////////////////////////////////////////////////////////
 
-        // Create hash constraints for each stacked slot
+        // Create hash constraints for each slot
         {
             let mut concrete_slots_hash4_len = 0;
             let mut hash4_slots = HashMap::default();
