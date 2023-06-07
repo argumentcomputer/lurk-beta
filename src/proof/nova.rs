@@ -1331,7 +1331,16 @@ pub mod tests {
     fn test_prove_lambda_empty_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<Coproc<Fr>>(s, "((lambda (x)) 0)", None, None, Some(error), None, 3, None,);
+        test_aux::<Coproc<Fr>>(
+            s,
+            "((lambda (x)) 0)",
+            None,
+            None,
+            Some(error),
+            None,
+            3,
+            None,
+        );
     }
 
     #[test]
