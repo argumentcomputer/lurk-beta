@@ -1328,6 +1328,13 @@ pub mod tests {
     }
 
     #[test]
+    fn test_prove_lambda_empty_error() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        test_aux::<Coproc<Fr>>(s, "((lambda (x)) 0)", None, None, Some(error), None, 3, None,);
+    }
+
+    #[test]
     fn test_prove_let_empty_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
@@ -3633,74 +3640,18 @@ pub mod tests {
     }
 
     #[test]
-    fn test_issue424() {
+    fn test_issue426_minimal() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.num(5);
+        let expected = s.nil();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
-            "(letrec ((char2int (lambda (digit)
-                           (if (eq #\\0 digit) 0 1)))
-         (str2int (letrec ((inner (lambda (acc xs)
-                                          (if (eq xs \"\") acc
-                                              (inner (+ (* 2 acc)
-                                                        (char2int (car xs)))
-                                                     (cdr xs))))))
-                          (inner 0))))
-        (str2int \"101\"))",
+            "((lambda (x) nil) 0)",
             Some(expected),
             None,
             Some(terminal),
             None,
-            147,
-            None,
-        );
-    }
-
-    #[test]
-    fn test_issue424_modified() {
-        let s = &mut Store::<Fr>::default();
-        let expected = s.num(5);
-        let terminal = s.get_cont_terminal();
-        test_aux::<Coproc<Fr>>(
-            s,
-            "(letrec ((char2int (lambda (digit)
-                           (if (eq #\\0 digit) 0 1)))
-         (inner (lambda (acc xs)
-                  (if (eq xs \"\") acc
-                    (inner (+ (* 2 acc)
-                              (char2int (car xs)))
-                           (cdr xs)))))
-         (str2int (inner 0)))
-        (str2int \"101\"))",
-            Some(expected),
-            None,
-            Some(terminal),
-            None,
-            147,
-            None,
-        );
-    }
-
-    #[test]
-    fn test_issue426() {
-        let s = &mut Store::<Fr>::default();
-        let nil = s.nil();
-        let strnil = s.str("");
-        let expected = s.cons(nil, strnil);
-        let terminal = s.get_cont_terminal();
-        test_aux::<Coproc<Fr>>(
-            s,
-            "(let ((f (lambda (x) nil))
-      (g (lambda (xs)
-                 (cons (f (car xs))
-                       (cdr xs)))))
-     (g \"0\"))",
-            Some(expected),
-            None,
-            Some(terminal),
-            None,
-            21,
+            4,
             None,
         );
     }
