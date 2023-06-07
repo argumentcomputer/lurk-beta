@@ -231,9 +231,6 @@ pub struct ZStorePtr<F: LurkField> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum LurkPtr<F: LurkField> {
     Source(String),
-    //Bytes(ZBytes),
-    //#[serde(skip)]
-    //ZData(ZData),
     ZStorePtr(ZStorePtr<F>),
 }
 
@@ -304,24 +301,16 @@ impl<F: LurkField + Serialize + for<'de> Deserialize<'de>> Claim<F> {
             Claim::PtrEvaluation(ptr_eval) => {
                 let expr_in: ZExprPtr<F> = match &ptr_eval.expr {
                     LurkPtr::Source(source) => ZExprPtr::<F>::try_from(source)?,
-                    //LurkPtr::ZData(zdata) => from_z_data(&zdata)?,
-                    //LurkPtr::Bytes(bytes) =>
-                    ////todo!(),
-                    //{
-                    //    from_z_data(&ZData::from_bytes(&bytes.z_ptr)?)?
-                    //}
                     LurkPtr::ZStorePtr(zsp) => zsp.z_ptr,
                 };
                 let expr_out = match &ptr_eval.expr_out {
                     LurkPtr::Source(source) => ZExprPtr::<F>::try_from(source)?,
-                    //LurkPtr::Bytes(bytes) => from_z_data(&ZData::from_bytes(&bytes.z_ptr)?)?,
-                    //LurkPtr::ZData(zdata) => from_z_data(&zdata)?,
                     LurkPtr::ZStorePtr(zsp) => zsp.z_ptr,
                 };
                 let expr = ZExpr::Cons(expr_in, expr_out);
                 Ok(expr.z_ptr(&PoseidonCache::default()))
             }
-            // TODO: Change this the the commited value?
+            // TODO: Is this an appropriate key for commitments?
             Claim::Opening(open) => {
                 let expr_in = ZExprPtr::<F>::try_from(&open.input)?;
                 let expr_out = ZExprPtr::<F>::try_from(&open.output)?;
@@ -623,22 +612,6 @@ impl<F: LurkField + Serialize + DeserializeOwned> LurkPtr<F> {
 
                 out.expr
             }
-            // Are we actually reading ZData bytes or is it something else like bincode?
-            //LurkPtr::Bytes(bytes) => {
-            //    let z_store_data =
-            //        ZData::from_bytes(&bytes.z_store).expect("could not read opaque zstore");
-            //    let z_ptr_data =
-            //        ZData::from_bytes(&bytes.z_ptr).expect("could not read opaque zstore");
-
-            //    let z_store: ZStore<F> =
-            //        from_z_data(&z_store_data).expect("could not read opaque zstore");
-            //    let z_ptr: ZExprPtr<F> =
-            //        from_z_data(&z_ptr_data).expect("could not read opaque zptr");
-
-            //    let lurk_ptr = LurkPtr::ZStorePtr(ZStorePtr { z_store, z_ptr });
-
-            //    lurk_ptr.ptr(s, limit, lang)
-            //}
             LurkPtr::ZStorePtr(z_store_ptr) => {
                 // This is where the error is happening I think
                 let z_store = &z_store_ptr.z_store;
@@ -653,20 +626,6 @@ impl<F: LurkField + Serialize + DeserializeOwned> LurkPtr<F> {
         let (z_store, z_ptr) = ZStore::new_with_expr(s, ptr);
         let z_ptr = z_ptr.unwrap();
         Self::ZStorePtr(ZStorePtr { z_store, z_ptr })
-
-        //let z_store_ser = to_z_data(z_store).unwrap();
-        //let z_ptr_ser = to_z_data(z_ptr).unwrap();
-
-        //let again: ZExprPtr<F> = from_z_data(&z_ptr_ser).unwrap();
-        //assert_eq!(&z_ptr, &again);
-
-        //Self::Bytes(ZBytes {
-        //    z_store: ZData::to_bytes(&z_store_ser),
-        //    z_ptr: ZData::to_bytes(&z_ptr_ser),
-        //})
-        //Self::ZData(ZData {
-        //	z_store
-        //})
     }
 }
 
