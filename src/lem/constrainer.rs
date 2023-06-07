@@ -246,7 +246,7 @@ impl LEM {
         cs: &mut CS,
         alloc_ptrs: &HashMap<&String, AllocatedPtr<F>>,
         constraints_data: &Vec<(Boolean, usize, MetaPtr, Tag)>,
-        hash_slots: &HashMap<usize, AllocatedNum<F>>,
+        hash_slots: &Vec<Option<AllocatedNum<F>>>,
         alloc_manager: &mut AllocationManager<F>,
     ) -> Result<()> {
         for (concrete_path, slot, tgt, tag) in constraints_data {
@@ -256,7 +256,7 @@ impl LEM {
             };
 
             // get slot_hash from slot name
-            let Some(slot_hash) = hash_slots.get(slot) else {
+            let Some(ref slot_hash) = hash_slots[*slot] else {
                 bail!("Slot {} not allocated", slot)
             };
 
@@ -734,8 +734,8 @@ impl LEM {
 
         // Create hash constraints for each slot
         {
-            let mut concrete_slots_hash2_len = 0;
-            let mut hash2_slots = HashMap::default();
+            let mut hash2_slots =
+                vec![Some(alloc_dummy_ptr.hash().clone()); hash_slots.hash2_data.max_slots + 1];
             for (slot, alloc_car, alloc_cdr) in hash_slots.hash2_alloc {
                 let alloc_hash = hash_poseidon(
                     &mut cs.namespace(|| format!("hash2_{}", slot)),
@@ -747,13 +747,7 @@ impl LEM {
                     ],
                     store.poseidon_cache.constants.c4(),
                 )?;
-                hash2_slots.insert(slot, alloc_hash);
-                concrete_slots_hash2_len += 1;
-            }
-
-            // In order to get uniform circuit, we fill empty hash slots with dummy values.
-            for s in concrete_slots_hash2_len..hash_slots.hash2_data.max_slots {
-                hash2_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
+                hash2_slots[slot] = Some(alloc_hash);
             }
 
             Self::create_slot_constraints(
@@ -771,8 +765,8 @@ impl LEM {
 
         // Create hash constraints for each slot
         {
-            let mut concrete_slots_hash3_len = 0;
-            let mut hash3_slots = HashMap::default();
+            let mut hash3_slots =
+                vec![Some(alloc_dummy_ptr.hash().clone()); hash_slots.hash3_data.max_slots + 1];
             for (slot, alloc_input1, alloc_input2, alloc_input3) in hash_slots.hash3_alloc {
                 let alloc_hash = hash_poseidon(
                     &mut cs.namespace(|| format!("hash3_{}", slot)),
@@ -786,13 +780,7 @@ impl LEM {
                     ],
                     store.poseidon_cache.constants.c6(),
                 )?;
-                hash3_slots.insert(slot, alloc_hash);
-                concrete_slots_hash3_len += 1;
-            }
-
-            // In order to get uniform circuit, we fill empty hash slots with dummy values.
-            for s in concrete_slots_hash3_len..hash_slots.hash3_data.max_slots {
-                hash3_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
+                hash3_slots[slot] = Some(alloc_hash);
             }
 
             Self::create_slot_constraints(
@@ -810,8 +798,8 @@ impl LEM {
 
         // Create hash constraints for each slot
         {
-            let mut concrete_slots_hash4_len = 0;
-            let mut hash4_slots = HashMap::default();
+            let mut hash4_slots =
+                vec![Some(alloc_dummy_ptr.hash().clone()); hash_slots.hash4_data.max_slots + 1];
             for (slot, alloc_input1, alloc_input2, alloc_input3, alloc_input4) in
                 hash_slots.hash4_alloc
             {
@@ -829,13 +817,7 @@ impl LEM {
                     ],
                     store.poseidon_cache.constants.c8(),
                 )?;
-                hash4_slots.insert(slot, alloc_hash);
-                concrete_slots_hash4_len += 1;
-            }
-
-            // In order to get uniform circuit, we fill empty hash slots with dummy values.
-            for s in concrete_slots_hash4_len..hash_slots.hash4_data.max_slots {
-                hash4_slots.insert(s + 1, alloc_dummy_ptr.hash().clone());
+                hash4_slots[slot] = Some(alloc_hash);
             }
 
             Self::create_slot_constraints(
