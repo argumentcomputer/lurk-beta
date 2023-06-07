@@ -958,7 +958,9 @@ impl LEM {
         {
             let mut concrete_slots_hash4_len = 0;
             let mut hash4_slots = HashMap::default();
-            for (slot, alloc_input1, alloc_input2, alloc_input3, alloc_input4) in hash_slots.hash4_alloc {
+            for (slot, alloc_input1, alloc_input2, alloc_input3, alloc_input4) in
+                hash_slots.hash4_alloc
+            {
                 let alloc_hash = hash_poseidon(
                     &mut cs.namespace(|| format!("hash4_{}", slot)),
                     vec![
