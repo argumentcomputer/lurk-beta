@@ -8,8 +8,7 @@ use bellperson::{
 
 use crate::circuit::gadgets::{
     constraints::{
-        alloc_equal_const, and, enforce_equal, enforce_equal_zero, enforce_popcount_one,
-        enforce_selector_with_premise, implies_equal, implies_equal_zero,
+        alloc_equal_const, and, enforce_selector_with_premise, implies_equal, implies_equal_zero,
     },
     data::hash_poseidon,
     pointer::AllocatedPtr,
@@ -59,15 +58,10 @@ impl<F: LurkField> AllocationManager<F> {
     }
 }
 
-enum ConstraintData {
-    Enforce(usize, MetaPtr, Tag),
-    Implies(Boolean, usize, MetaPtr, Tag),
-}
-
 #[derive(Default)]
 struct SlotData {
     max_slots: usize,
-    constraints_data: Vec<ConstraintData>,
+    constraints_data: Vec<(Boolean, usize, MetaPtr, Tag)>,
 }
 
 #[derive(Default)]
@@ -102,17 +96,6 @@ pub struct SlotsIndices {
     pub hash2_idx: usize,
     pub hash3_idx: usize,
     pub hash4_idx: usize,
-}
-
-/// Encodes whether we're certainly on a concrete LEM path or on a path that
-/// might be concrete or virtual depending on what happened on interpretation.
-#[derive(Clone)]
-enum PathKind {
-    /// No logical branches have happened in the LEM so far
-    Concrete,
-    /// We're on a logical LEM path, which might be *virtual* or *concrete*
-    /// depending on what happened during interpretation.
-    MaybeConcrete(Boolean),
 }
 
 impl LEM {
@@ -154,22 +137,19 @@ impl LEM {
         Ok(())
     }
 
-    fn on_concrete_path(concrete_path: &PathKind) -> Result<bool> {
-        match concrete_path {
-            PathKind::Concrete => Ok(true),
-            PathKind::MaybeConcrete(concrete_path) => concrete_path
-                .get_value()
-                .ok_or_else(|| anyhow!("Couldn't check whether we're on a concrete path")),
-        }
+    fn on_concrete_path(concrete_path: &Boolean) -> Result<bool> {
+        concrete_path
+            .get_value()
+            .ok_or_else(|| anyhow!("Couldn't check whether we're on a concrete path"))
     }
 
     fn z_ptr_from_valuation<F: LurkField>(
-        path_kind: &PathKind,
+        concrete_path: &Boolean,
         valuation: &Valuation<F>,
         name: &String,
         store: &mut Store<F>,
     ) -> Result<ZPtr<F>> {
-        if Self::on_concrete_path(path_kind)? {
+        if Self::on_concrete_path(concrete_path)? {
             let Some(ptr) = valuation.ptrs.get(name) else {
                 bail!("Couldn't retrieve {} from valuation", name);
             };
@@ -206,96 +186,52 @@ impl LEM {
     /// If we're probably on a concrete path, then we accumulate data to be
     /// constrained with implications.
     fn acc_hash_slots_data<F: LurkField>(
-        path_kind: &PathKind,
+        concrete_path: &Boolean,
         hash_slots: &mut HashSlots<F>,
         slots: &SlotsIndices,
         hash: MetaPtr,
         alloc_arity: AllocHashPreimage<F>,
         tag: Tag,
     ) -> Result<()> {
-        let is_concrete_path = Self::on_concrete_path(path_kind)?;
+        let is_concrete_path = Self::on_concrete_path(concrete_path)?;
         match alloc_arity {
             AllocHashPreimage::A2(i0, i1) => {
-                match path_kind {
-                    PathKind::Concrete => {
-                        hash_slots
-                            .hash2_data
-                            .constraints_data
-                            .push(ConstraintData::Enforce(slots.hash2_idx, hash, tag));
-                        hash_slots.hash2_alloc.push((slots.hash2_idx, i0, i1))
-                    }
-                    PathKind::MaybeConcrete(concrete_path) => {
-                        if is_concrete_path {
-                            // only once per path
-                            hash_slots.hash2_alloc.push((slots.hash2_idx, i0, i1));
-                        }
-                        hash_slots
-                            .hash2_data
-                            .constraints_data
-                            .push(ConstraintData::Implies(
-                                concrete_path.clone(),
-                                slots.hash2_idx,
-                                hash,
-                                tag,
-                            ));
-                    }
+                if is_concrete_path {
+                    // only once per path
+                    hash_slots.hash2_alloc.push((slots.hash2_idx, i0, i1));
                 }
+                hash_slots.hash2_data.constraints_data.push((
+                    concrete_path.clone(),
+                    slots.hash2_idx,
+                    hash,
+                    tag,
+                ));
             }
             AllocHashPreimage::A3(i0, i1, i2) => {
-                match path_kind {
-                    PathKind::Concrete => {
-                        hash_slots
-                            .hash3_data
-                            .constraints_data
-                            .push(ConstraintData::Enforce(slots.hash3_idx, hash, tag));
-                        hash_slots.hash3_alloc.push((slots.hash3_idx, i0, i1, i2))
-                    }
-                    PathKind::MaybeConcrete(concrete_path) => {
-                        if is_concrete_path {
-                            // only once per path
-                            hash_slots.hash3_alloc.push((slots.hash3_idx, i0, i1, i2));
-                        }
-                        hash_slots
-                            .hash3_data
-                            .constraints_data
-                            .push(ConstraintData::Implies(
-                                concrete_path.clone(),
-                                slots.hash3_idx,
-                                hash,
-                                tag,
-                            ));
-                    }
+                if is_concrete_path {
+                    // only once per path
+                    hash_slots.hash3_alloc.push((slots.hash3_idx, i0, i1, i2));
                 }
+                hash_slots.hash3_data.constraints_data.push((
+                    concrete_path.clone(),
+                    slots.hash3_idx,
+                    hash,
+                    tag,
+                ));
             }
             AllocHashPreimage::A4(i0, i1, i2, i3) => {
-                match path_kind {
-                    PathKind::Concrete => {
-                        hash_slots
-                            .hash4_data
-                            .constraints_data
-                            .push(ConstraintData::Enforce(slots.hash4_idx, hash, tag));
-                        hash_slots
-                            .hash4_alloc
-                            .push((slots.hash4_idx, i0, i1, i2, i3))
-                    }
-                    PathKind::MaybeConcrete(concrete_path) => {
-                        if is_concrete_path {
-                            // only once per path
-                            hash_slots
-                                .hash4_alloc
-                                .push((slots.hash4_idx, i0, i1, i2, i3));
-                        }
-                        hash_slots
-                            .hash4_data
-                            .constraints_data
-                            .push(ConstraintData::Implies(
-                                concrete_path.clone(),
-                                slots.hash4_idx,
-                                hash,
-                                tag,
-                            ));
-                    }
+                if is_concrete_path {
+                    // only once per path
+                    hash_slots
+                        .hash4_alloc
+                        .push((slots.hash4_idx, i0, i1, i2, i3));
                 }
+                hash_slots.hash4_data.constraints_data.push((
+                    concrete_path.clone(),
+                    slots.hash4_idx,
+                    hash,
+                    tag,
+                ));
             }
         }
         Ok(())
@@ -309,81 +245,38 @@ impl LEM {
     fn create_slot_constraints<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         alloc_ptrs: &HashMap<&String, AllocatedPtr<F>>,
-        constraints_data: &Vec<ConstraintData>,
+        constraints_data: &Vec<(Boolean, usize, MetaPtr, Tag)>,
         hash_slots: &HashMap<usize, AllocatedNum<F>>,
         alloc_manager: &mut AllocationManager<F>,
     ) -> Result<()> {
-        for constraint_data in constraints_data {
-            match constraint_data {
-                ConstraintData::Enforce(slot, tgt, tag) => {
-                    // get alloc_tgt from tgt
-                    let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
-                        bail!("{} not allocated", tgt.name());
-                    };
+        for (concrete_path, slot, tgt, tag) in constraints_data {
+            // get alloc_tgt from tgt
+            let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
+                bail!("{} not allocated", tgt.name());
+            };
 
-                    // get slot_hash from slot name
-                    let Some(slot_hash) = hash_slots.get(slot) else {
-                        bail!("Slot number {} not allocated", slot)
-                    };
+            // get slot_hash from slot name
+            let Some(slot_hash) = hash_slots.get(slot) else {
+                bail!("Slot {} not allocated", slot)
+            };
 
-                    enforce_equal(
-                        cs,
-                        || {
-                            format!(
-                                "enforce equal hash for tgt {} and slot number {}",
-                                tgt.name(),
-                                slot,
-                            )
-                        },
-                        alloc_tgt.hash(),
-                        slot_hash,
-                    );
+            implies_equal(
+                &mut cs
+                    .namespace(|| format!("implies equal hash2 for {} and {}", slot, tgt.name())),
+                concrete_path,
+                alloc_tgt.hash(),
+                slot_hash,
+            )?;
 
-                    let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
-                    enforce_equal(
-                        cs,
-                        || {
-                            format!(
-                                "enforce equal tag for tgt {} and slot number {}",
-                                tgt.name(),
-                                slot,
-                            )
-                        },
-                        alloc_tgt.tag(),
-                        &alloc_tag,
-                    );
-                }
-                ConstraintData::Implies(concrete_path, slot, tgt, tag) => {
-                    // get alloc_tgt from tgt
-                    let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
-                        bail!("{} not allocated", tgt.name());
-                    };
-
-                    // get slot_hash from slot name
-                    let Some(slot_hash) = hash_slots.get(slot) else {
-                        bail!("Slot {} not allocated", slot)
-                    };
-
-                    implies_equal(
-                        &mut cs.namespace(|| {
-                            format!("implies equal hash2 for {} and {}", slot, tgt.name())
-                        }),
-                        concrete_path,
-                        alloc_tgt.hash(),
-                        slot_hash,
-                    )?;
-
-                    let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
-                    implies_equal(
-                        &mut cs.namespace(|| {
-                            format!("implies equal tag for {} and {} in hash2", slot, tgt.name())
-                        }),
-                        concrete_path,
-                        alloc_tgt.tag(),
-                        &alloc_tag,
-                    )?;
-                }
-            }
+            let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
+            implies_equal(
+                &mut cs.namespace(|| {
+                    format!("implies equal tag for {} and {} in hash2", slot, tgt.name())
+                }),
+                concrete_path,
+                alloc_tgt.tag(),
+                &alloc_tag,
+            )?;
         }
         Ok(())
     }
@@ -391,7 +284,7 @@ impl LEM {
     fn alloc_preimage<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         preimg: &[MetaPtr],
-        path_kind: &PathKind,
+        concrete_path: &Boolean,
         valuation: &Valuation<F>,
         store: &mut Store<F>,
         alloc_ptrs: &HashMap<&String, AllocatedPtr<F>>,
@@ -400,7 +293,7 @@ impl LEM {
             .iter()
             .map(|pre| {
                 let name = pre.name();
-                let res_ptr = Self::z_ptr_from_valuation(path_kind, valuation, name, store);
+                let res_ptr = Self::z_ptr_from_valuation(concrete_path, valuation, name, store);
                 res_ptr.and_then(|ref ptr| Self::allocate_ptr(cs, ptr, name, alloc_ptrs))
             })
             .collect::<Result<Vec<_>>>()
@@ -465,11 +358,11 @@ impl LEM {
         let mut hash_slots: HashSlots<F> = Default::default();
         let mut stack = vec![(
             &self.lem_op,
-            PathKind::Concrete,
+            Boolean::Constant(true),
             String::new(),
             SlotsIndices::default(),
         )];
-        while let Some((op, path_kind, path, slots)) = stack.pop() {
+        while let Some((op, concrete_path, path, slots)) = stack.pop() {
             match op {
                 LEMOP::Hash2(hash, tag, preimg) => {
                     // Get preimage from allocated pointers
@@ -478,7 +371,7 @@ impl LEM {
                     // Allocate new pointer containing expected hash value
                     let alloc_hash = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_valuation(&path_kind, valuation, hash.name(), store)?,
+                        &Self::z_ptr_from_valuation(&concrete_path, valuation, hash.name(), store)?,
                         hash.name(),
                         &alloc_ptrs,
                     )?;
@@ -487,7 +380,7 @@ impl LEM {
                     // such that only concrete path hashes are indeed calculated in the next available
                     // hash slot.
                     Self::acc_hash_slots_data(
-                        &path_kind,
+                        &concrete_path,
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
@@ -503,7 +396,7 @@ impl LEM {
                     let preimg_vec = Self::alloc_preimage(
                         cs,
                         preimg,
-                        &path_kind,
+                        &concrete_path,
                         valuation,
                         store,
                         &alloc_ptrs,
@@ -513,7 +406,7 @@ impl LEM {
                     // such that only concrete path hashes are indeed calculated in the next available
                     // hash slot.
                     Self::acc_hash_slots_data(
-                        &path_kind,
+                        &concrete_path,
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
@@ -537,7 +430,7 @@ impl LEM {
                     // Allocate new pointer containing expected hash value
                     let alloc_hash = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_valuation(&path_kind, valuation, hash.name(), store)?,
+                        &Self::z_ptr_from_valuation(&concrete_path, valuation, hash.name(), store)?,
                         hash.name(),
                         &alloc_ptrs,
                     )?;
@@ -546,7 +439,7 @@ impl LEM {
                     // such that only concrete path hashes are indeed calculated in the next available
                     // hash slot.
                     Self::acc_hash_slots_data(
-                        &path_kind,
+                        &concrete_path,
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
@@ -566,7 +459,7 @@ impl LEM {
                     let preimg_vec = Self::alloc_preimage(
                         cs,
                         preimg,
-                        &path_kind,
+                        &concrete_path,
                         valuation,
                         store,
                         &alloc_ptrs,
@@ -576,7 +469,7 @@ impl LEM {
                     // such that only concrete path hashes are indeed calculated in the next available
                     // hash slot.
                     Self::acc_hash_slots_data(
-                        &path_kind,
+                        &concrete_path,
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
@@ -604,7 +497,7 @@ impl LEM {
                     // Allocate new pointer containing expected hash value
                     let alloc_hash = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_valuation(&path_kind, valuation, hash.name(), store)?,
+                        &Self::z_ptr_from_valuation(&concrete_path, valuation, hash.name(), store)?,
                         hash.name(),
                         &alloc_ptrs,
                     )?;
@@ -613,7 +506,7 @@ impl LEM {
                     // such that only concrete path hashes are indeed calculated in the next available
                     // hash slot.
                     Self::acc_hash_slots_data(
-                        &path_kind,
+                        &concrete_path,
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
@@ -634,7 +527,7 @@ impl LEM {
                     let preimg_vec = Self::alloc_preimage(
                         cs,
                         preimg,
-                        &path_kind,
+                        &concrete_path,
                         valuation,
                         store,
                         &alloc_ptrs,
@@ -644,7 +537,7 @@ impl LEM {
                     // such that only concrete path hashes are indeed calculated in the next available
                     // hash slot.
                     Self::acc_hash_slots_data(
-                        &path_kind,
+                        &concrete_path,
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
@@ -669,57 +562,34 @@ impl LEM {
                 LEMOP::Null(tgt, tag) => {
                     let alloc_tgt = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_valuation(&path_kind, valuation, tgt.name(), store)?,
+                        &Self::z_ptr_from_valuation(&concrete_path, valuation, tgt.name(), store)?,
                         tgt.name(),
                         &alloc_ptrs,
                     )?;
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
                     let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
 
-                    // If `path_kind` is Some, then we constrain using "concrete implies ..." logic
-                    if let PathKind::MaybeConcrete(concrete_path) = path_kind {
-                        implies_equal(
-                            &mut cs.namespace(|| format!("implies equal for {}'s tag", tgt.name())),
-                            &concrete_path,
-                            alloc_tgt.tag(),
-                            &alloc_tag,
+                    implies_equal(
+                        &mut cs.namespace(|| format!("implies equal for {}'s tag", tgt.name())),
+                        &concrete_path,
+                        alloc_tgt.tag(),
+                        &alloc_tag,
+                    )
+                    .with_context(|| {
+                        format!("couldn't enforce implies equal for {}'s tag", tgt.name())
+                    })?;
+                    implies_equal_zero(
+                        &mut cs
+                            .namespace(|| format!("implies equal zero for {}'s hash", tgt.name())),
+                        &concrete_path,
+                        alloc_tgt.hash(),
+                    )
+                    .with_context(|| {
+                        format!(
+                            "couldn't enforce implies equal zero for {}'s hash",
+                            tgt.name()
                         )
-                        .with_context(|| {
-                            format!("couldn't enforce implies equal for {}'s tag", tgt.name())
-                        })?;
-                        implies_equal_zero(
-                            &mut cs.namespace(|| {
-                                format!("implies equal zero for {}'s hash", tgt.name())
-                            }),
-                            &concrete_path,
-                            alloc_tgt.hash(),
-                        )
-                        .with_context(|| {
-                            format!(
-                                "couldn't enforce implies equal zero for {}'s hash",
-                                tgt.name()
-                            )
-                        })?;
-                    } else {
-                        // If `path_kind` is None, we just do regular constraining
-                        enforce_equal(
-                            cs,
-                            || {
-                                format!(
-                                    "{}'s tag is {}",
-                                    tgt.name(),
-                                    tag.to_field::<F>().hex_digits()
-                                )
-                            },
-                            alloc_tgt.tag(),
-                            &alloc_tag,
-                        );
-                        enforce_equal_zero(
-                            cs,
-                            || format!("{}'s hash is zero", tgt.name()),
-                            alloc_tgt.hash(),
-                        );
-                    }
+                    })?;
                 }
                 LEMOP::MatchTag(match_ptr, cases) => {
                     let Some(alloc_match_ptr) = alloc_ptrs.get(match_ptr.name()) else {
@@ -736,48 +606,30 @@ impl LEM {
                         concrete_path_vec.push(alloc_has_match.clone());
 
                         let new_path_matchtag = format!("{}.{}", &path, tag);
-                        if let PathKind::MaybeConcrete(concrete_path) = path_kind.clone() {
-                            let concrete_path_and_has_match = and(
-                                &mut cs.namespace(|| format!("{path}.{tag}.and")),
-                                &concrete_path,
-                                &alloc_has_match,
-                            )
-                            .with_context(|| "failed to constrain `and`")?;
-                            stack.push((
-                                op,
-                                PathKind::MaybeConcrete(concrete_path_and_has_match),
-                                new_path_matchtag,
-                                slots.clone(),
-                            ));
-                        } else {
-                            stack.push((
-                                op,
-                                PathKind::MaybeConcrete(alloc_has_match),
-                                new_path_matchtag,
-                                slots.clone(),
-                            ));
-                        }
+                        let concrete_path_and_has_match = and(
+                            &mut cs.namespace(|| format!("{path}.{tag}.and")),
+                            &concrete_path,
+                            &alloc_has_match,
+                        )
+                        .with_context(|| "failed to constrain `and`")?;
+
+                        stack.push((
+                            op,
+                            concrete_path_and_has_match,
+                            new_path_matchtag,
+                            slots.clone(),
+                        ));
                     }
 
                     // Now we need to enforce that at least one path was taken. We do that by constraining
                     // that the sum of the previously collected `Boolean`s is one
 
-                    // If `path_kind` is Some, then we constrain using "concrete implies ..." logic
-                    if let PathKind::MaybeConcrete(concrete_path) = path_kind {
-                        enforce_selector_with_premise(
-                            &mut cs.namespace(|| format!("{path}.enforce_selector_with_premise")),
-                            &concrete_path,
-                            &concrete_path_vec,
-                        )
-                        .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
-                    } else {
-                        // If `path_kind` is None, we just do regular constraining
-                        enforce_popcount_one(
-                            &mut cs.namespace(|| format!("{path}.enforce_popcount_one")),
-                            &concrete_path_vec[..],
-                        )
-                        .with_context(|| "couldn't enforce `popcount_one`")?;
-                    }
+                    enforce_selector_with_premise(
+                        &mut cs.namespace(|| format!("{path}.enforce_selector_with_premise")),
+                        &concrete_path,
+                        &concrete_path_vec,
+                    )
+                    .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
                 }
                 LEMOP::Seq(ops) => {
                     // Seqs are the only place were multiple hashes can occur in LEM,
@@ -797,7 +649,7 @@ impl LEM {
                             }
                             _ => (),
                         }
-                        (op, path_kind.clone(), path.clone(), next_slots.clone())
+                        (op, concrete_path.clone(), path.clone(), next_slots.clone())
                     }));
                     // If the slot indices are larger than a previously found value, we update
                     // the respective max indeces information.
@@ -809,7 +661,7 @@ impl LEM {
                         std::cmp::max(hash_slots.hash4_data.max_slots, next_slots.hash4_idx);
                 }
                 LEMOP::Return(outputs) => {
-                    let is_concrete_path = Self::on_concrete_path(&path_kind)?;
+                    let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
                     for (i, output) in outputs.iter().enumerate() {
                         let Some(alloc_ptr_computed) = alloc_ptrs.get(output.name()) else {
                             bail!("Output {} not allocated", output.name())
@@ -818,7 +670,7 @@ impl LEM {
                         let alloc_ptr_expected = Self::allocate_ptr(
                             cs,
                             &Self::z_ptr_from_valuation(
-                                &path_kind,
+                                &concrete_path,
                                 valuation,
                                 output.name(),
                                 store,
@@ -832,24 +684,14 @@ impl LEM {
                             num_inputized_outputs += 1;
                         }
 
-                        // If `path_kind` is Some, then we constrain using "concrete implies ..." logic
-                        if let PathKind::MaybeConcrete(concrete_path) = path_kind.clone() {
-                            alloc_ptr_computed
-                                .implies_ptr_equal(
-                                    &mut cs.namespace(|| {
-                                        format!("enforce imply equal for {output_name}")
-                                    }),
-                                    &concrete_path,
-                                    &alloc_ptr_expected,
-                                )
-                                .with_context(|| "couldn't constrain `implies_ptr_equal`")?;
-                        } else {
-                            // If `path_kind` is None, we just do regular constraining
-                            alloc_ptr_computed.enforce_equal(
-                                &mut cs.namespace(|| format!("enforce equal for {output_name}")),
+                        alloc_ptr_computed
+                            .implies_ptr_equal(
+                                &mut cs
+                                    .namespace(|| format!("enforce imply equal for {output_name}")),
+                                &concrete_path,
                                 &alloc_ptr_expected,
-                            );
-                        }
+                            )
+                            .with_context(|| "couldn't constrain `implies_ptr_equal`")?;
                     }
                 }
                 _ => todo!(),
