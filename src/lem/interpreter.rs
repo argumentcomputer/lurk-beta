@@ -62,10 +62,7 @@ impl LEM {
                 LEMOP::Unhash2(tgts, src, tag) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
                     if src_ptr.tag() != tag {
-                        bail!(
-                            "{} has invalid tag",
-                            src.name()
-                        );
+                        bail!("{} has invalid tag", src.name());
                     }
                     let Some(idx) = src_ptr.get_index2() else {
                         bail!(
@@ -82,10 +79,7 @@ impl LEM {
                 LEMOP::Unhash3(tgts, src, tag) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
                     if src_ptr.tag() != tag {
-                        bail!(
-                            "{} has invalid tag",
-                            src.name()
-                        );
+                        bail!("{} has invalid tag", src.name());
                     }
                     let Some(idx) = src_ptr.get_index3() else {
                         bail!(
@@ -103,10 +97,7 @@ impl LEM {
                 LEMOP::Unhash4(tgts, src, tag) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
                     if src_ptr.tag() != tag {
-                        bail!(
-                            "{} has invalid tag",
-                            src.name()
-                        );
+                        bail!("{} has invalid tag", src.name());
                     }
                     let Some(idx) = src_ptr.get_index4() else {
                         bail!(

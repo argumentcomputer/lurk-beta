@@ -557,7 +557,7 @@ mod tests {
             match_tag expr_in {
                 Num => {
                     let expr_out: Cons = hash2(expr_in, expr_in);
-                    let (expr_car, expr_cdr) = unhash2(expr_out);
+                    let (expr_car, expr_cdr) = unhash2(expr_out: Cons);
                     let cont_out_terminal: Terminal;
                     return (expr_car, env_in, cont_out_terminal);
                 }
@@ -704,7 +704,7 @@ mod tests {
             match_tag expr_in {
                 Num => {
                     let expr_out: Cons = hash3(expr_in, expr_in, expr_in);
-                    let (expr_input1, expr_input2, expr_input3) = unhash3(expr_out);
+                    let (expr_input1, expr_input2, expr_input3) = unhash3(expr_out: Cons);
                     let cont_out_terminal: Terminal;
                     return (expr_input1, env_in, cont_out_terminal);
                 }
@@ -851,7 +851,7 @@ mod tests {
             match_tag expr_in {
                 Num => {
                     let expr_out: Cons = hash4(expr_in, expr_in, expr_in, expr_in);
-                    let (expr_input1, expr_input2, expr_input3, expr_input4) = unhash4(expr_out);
+                    let (expr_input1, expr_input2, expr_input3, expr_input4) = unhash4(expr_out: Cons);
                     let cont_out_terminal: Terminal;
                     return (expr_input1, env_in, cont_out_terminal);
                 }

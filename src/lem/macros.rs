@@ -40,25 +40,28 @@ macro_rules! lemop {
         $crate::lem::LEMOP::Hash4(
             $crate::metaptr!($tgt),
             $crate::lem::Tag::$tag,
-            $crate::metaptrs!( $src1, $src2, $src3, $src4),
+            $crate::metaptrs!($src1, $src2, $src3, $src4),
         )
     };
-    ( let ($tgt1:ident, $tgt2:ident) = unhash2($src:ident) ) => {
+    ( let ($tgt1:ident, $tgt2:ident) = unhash2($src:ident : $tag:ident) ) => {
         $crate::lem::LEMOP::Unhash2(
-            $crate::metaptrs!( $tgt1, $tgt2),
+            $crate::metaptrs!($tgt1, $tgt2),
             $crate::lem::MetaPtr(stringify!($src).to_string()),
+            $crate::lem::Tag::$tag,
         )
     };
-    ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = unhash3($src:ident) ) => {
+    ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = unhash3($src:ident : $tag:ident) ) => {
         $crate::lem::LEMOP::Unhash3(
-            $crate::metaptrs!( $tgt1, $tgt2, $tgt3),
-            $crate::metaptr!( $src),
+            $crate::metaptrs!($tgt1, $tgt2, $tgt3),
+            $crate::metaptr!($src),
+            $crate::lem::Tag::$tag,
         )
     };
-    ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident, $tgt4:ident) = unhash4($src:ident) ) => {
+    ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident, $tgt4:ident) = unhash4($src:ident : $tag:ident) ) => {
         $crate::lem::LEMOP::Unhash4(
-            $crate::metaptrs!( $tgt1, $tgt2, $tgt3, $tgt4),
-            $crate::metaptr!( $src),
+            $crate::metaptrs!($tgt1, $tgt2, $tgt3, $tgt4),
+            $crate::metaptr!($src),
+            $crate::lem::Tag::$tag,
         )
     };
     ( let $tgt:ident = hide($sec:ident, $src:ident) ) => {
@@ -148,32 +151,32 @@ macro_rules! lemop {
             $($tail)*
         )
     };
-    (@seq {$($limbs:tt)*}, let ($tgt1:ident, $tgt2:ident) = unhash2($src:ident) ; $($tail:tt)*) => {
+    (@seq {$($limbs:tt)*}, let ($tgt1:ident, $tgt2:ident) = unhash2($src:ident : $tag:ident) ; $($tail:tt)*) => {
         $crate::lemop! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!(let ($tgt1, $tgt2) = unhash2($src) ),
+                $crate::lemop!(let ($tgt1, $tgt2) = unhash2($src: $tag) ),
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:tt)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = unhash3($src:ident) ; $($tail:tt)*) => {
+    (@seq {$($limbs:tt)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = unhash3($src:ident : $tag:ident) ; $($tail:tt)*) => {
         $crate::lemop! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!(let ($tgt1, $tgt2, $tgt3) = unhash3($src) ),
+                $crate::lemop!(let ($tgt1, $tgt2, $tgt3) = unhash3($src: $tag) ),
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:tt)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident, $tgt4:ident) = unhash4($src:ident) ; $($tail:tt)*) => {
+    (@seq {$($limbs:tt)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident, $tgt4:ident) = unhash4($src:ident : $tag:ident) ; $($tail:tt)*) => {
         $crate::lemop! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!(let ($tgt1, $tgt2, $tgt3, $tgt4) = unhash4($src) ),
+                $crate::lemop!(let ($tgt1, $tgt2, $tgt3, $tgt4) = unhash4($src: $tag) ),
             },
             $($tail)*
         )
@@ -259,11 +262,16 @@ mod tests {
                 Tag::Char,
                 [mptr("bar"), mptr("baz"), mptr("bazz"), mptr("baxx")],
             ),
-            LEMOP::Unhash2([mptr("foo"), mptr("goo")], mptr("aaa")),
-            LEMOP::Unhash3([mptr("foo"), mptr("goo"), mptr("moo")], mptr("aaa")),
+            LEMOP::Unhash2([mptr("foo"), mptr("goo")], mptr("aaa"), Tag::Num),
+            LEMOP::Unhash3(
+                [mptr("foo"), mptr("goo"), mptr("moo")],
+                mptr("aaa"),
+                Tag::Num,
+            ),
             LEMOP::Unhash4(
                 [mptr("foo"), mptr("goo"), mptr("moo"), mptr("noo")],
                 mptr("aaa"),
+                Tag::Num,
             ),
             LEMOP::Hide(mptr("bar"), mptr("baz"), mptr("bazz")),
             LEMOP::Open(mptr("bar"), mptr("baz"), mptr("bazz")),
@@ -274,9 +282,9 @@ mod tests {
             lemop!(let foo: Char = hash2(bar, baz)),
             lemop!(let foo: Char = hash3(bar, baz, bazz)),
             lemop!(let foo: Char = hash4(bar, baz, bazz, baxx)),
-            lemop!(let (foo, goo) = unhash2(aaa)),
-            lemop!(let (foo, goo, moo) = unhash3(aaa)),
-            lemop!(let (foo, goo, moo, noo) = unhash4(aaa)),
+            lemop!(let (foo, goo) = unhash2(aaa: Num)),
+            lemop!(let (foo, goo, moo) = unhash3(aaa: Num)),
+            lemop!(let (foo, goo, moo, noo) = unhash4(aaa: Num)),
             lemop!(let bar = hide(baz, bazz)),
             lemop!(let (bar, baz) = open(bazz)),
             lemop!(return (bar, baz, bazz)),
@@ -291,9 +299,9 @@ mod tests {
             let foo: Char = hash2(bar, baz);
             let foo: Char = hash3(bar, baz, bazz);
             let foo: Char = hash4(bar, baz, bazz, baxx);
-            let (foo, goo) = unhash2(aaa);
-            let (foo, goo, moo) = unhash3(aaa);
-            let (foo, goo, moo, noo) = unhash4(aaa);
+            let (foo, goo) = unhash2(aaa: Num);
+            let (foo, goo, moo) = unhash3(aaa: Num);
+            let (foo, goo, moo, noo) = unhash4(aaa: Num);
             let bar = hide(baz, bazz);
             let (bar, baz) = open(bazz);
             return (bar, baz, bazz);
