@@ -179,16 +179,15 @@ impl LEM {
         hash_slots: &mut HashSlots<F>,
         slots: &SlotsIndices,
         hash: MetaPtr,
-        alloc_arity: AllocHashPreimage<'_, F>,
+        preimg_vec: Vec<AllocatedPtr<F>>,
     ) -> Result<()> {
-        match alloc_arity {
-            AllocHashPreimage::A2(i0, i1) => {
-                let input_vec = vec![
-                    i0.tag().clone(),
-                    i0.hash().clone(),
-                    i1.tag().clone(),
-                    i1.hash().clone(),
-                ];
+        match preimg_vec.len() {
+            2 => {
+                let mut input_vec = Vec::new();
+                for elem in preimg_vec {
+                    input_vec.push(elem.tag().clone());
+                    input_vec.push(elem.hash().clone());
+                }
                 hash_slots.hash2_data.constraints_data.push((
                     concrete_path,
                     slots.hash2_idx,
@@ -196,15 +195,12 @@ impl LEM {
                     hash,
                 ));
             }
-            AllocHashPreimage::A3(i0, i1, i2) => {
-                let input_vec = vec![
-                    i0.tag().clone(),
-                    i0.hash().clone(),
-                    i1.tag().clone(),
-                    i1.hash().clone(),
-                    i2.tag().clone(),
-                    i2.hash().clone(),
-                ];
+            3 => {
+                let mut input_vec = Vec::new();
+                for elem in preimg_vec {
+                    input_vec.push(elem.tag().clone());
+                    input_vec.push(elem.hash().clone());
+                }
                 hash_slots.hash3_data.constraints_data.push((
                     concrete_path,
                     slots.hash3_idx,
@@ -212,17 +208,12 @@ impl LEM {
                     hash,
                 ));
             }
-            AllocHashPreimage::A4(i0, i1, i2, i3) => {
-                let input_vec = vec![
-                    i0.tag().clone(),
-                    i0.hash().clone(),
-                    i1.tag().clone(),
-                    i1.hash().clone(),
-                    i2.tag().clone(),
-                    i2.hash().clone(),
-                    i3.tag().clone(),
-                    i3.hash().clone(),
-                ];
+            4 => {
+                let mut input_vec = Vec::new();
+                for elem in preimg_vec {
+                    input_vec.push(elem.tag().clone());
+                    input_vec.push(elem.hash().clone());
+                }
                 hash_slots.hash4_data.constraints_data.push((
                     concrete_path,
                     slots.hash4_idx,
@@ -444,7 +435,7 @@ impl LEM {
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
-                        AllocHashPreimage::A2(preimg_vec[0], preimg_vec[1]),
+                        preimg_vec,
                     )?;
 
                     // Insert hash value pointer in the HashMap
@@ -469,7 +460,7 @@ impl LEM {
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
-                        AllocHashPreimage::A2(&preimg_vec[0], &preimg_vec[1]),
+                        preimg_vec,
                     )?;
 
                     // Insert preimage pointers in the HashMap
@@ -509,7 +500,7 @@ impl LEM {
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
-                        AllocHashPreimage::A3(preimg_vec[0], preimg_vec[1], preimg_vec[2]),
+                        preimg_vec,
                     )?;
 
                     // Insert hash value pointer in the HashMap
@@ -534,7 +525,7 @@ impl LEM {
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
-                        AllocHashPreimage::A3(&preimg_vec[0], &preimg_vec[1], &preimg_vec[2]),
+                        preimg_vec,
                     )?;
 
                     // Insert preimage pointers in the HashMap
@@ -574,12 +565,7 @@ impl LEM {
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
-                        AllocHashPreimage::A4(
-                            preimg_vec[0],
-                            preimg_vec[1],
-                            preimg_vec[2],
-                            preimg_vec[3],
-                        ),
+                        preimg_vec,
                     )?;
 
                     // Insert hash value pointer in the HashMap
@@ -604,12 +590,7 @@ impl LEM {
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
-                        AllocHashPreimage::A4(
-                            &preimg_vec[0],
-                            &preimg_vec[1],
-                            &preimg_vec[2],
-                            &preimg_vec[3],
-                        ),
+                        preimg_vec,
                     )?;
 
                     // Insert preimage pointers in the HashMap
