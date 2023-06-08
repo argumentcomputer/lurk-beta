@@ -1,8 +1,14 @@
 name: Benchmark pull requests
-on: [pull_request]
+on:
+  pull_request:
+   types: [opened, synchronize, reopened, ready_for_review]
 
 env:
   CARGO_TERM_COLOR: always
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   runBenchmark:
