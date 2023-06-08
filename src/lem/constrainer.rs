@@ -66,17 +66,8 @@ struct SlotData<F: LurkField> {
 
 #[derive(Default)]
 struct HashSlots<F: LurkField> {
-    hash2_alloc: Vec<(usize, AllocatedPtr<F>, AllocatedPtr<F>)>,
     hash2_data: SlotData<F>,
-    hash3_alloc: Vec<(usize, AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>)>,
     hash3_data: SlotData<F>,
-    hash4_alloc: Vec<(
-        usize,
-        AllocatedPtr<F>,
-        AllocatedPtr<F>,
-        AllocatedPtr<F>,
-        AllocatedPtr<F>,
-    )>,
     hash4_data: SlotData<F>,
 }
 
@@ -186,21 +177,36 @@ impl LEM {
         hash: MetaPtr,
         alloc_arity: AllocHashPreimage<F>,
     ) -> Result<()> {
-        let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
         match alloc_arity {
             AllocHashPreimage::A2(i0, i1) => {
-                let input_vec = vec![i0.tag().clone(), i0.hash().clone(), i1.tag().clone(), i1.hash().clone()];
-                hash_slots
-                    .hash2_data
-                    .constraints_data
-                    .push((concrete_path, slots.hash2_idx, input_vec, hash));
+                let input_vec = vec![
+                    i0.tag().clone(),
+                    i0.hash().clone(),
+                    i1.tag().clone(),
+                    i1.hash().clone(),
+                ];
+                hash_slots.hash2_data.constraints_data.push((
+                    concrete_path,
+                    slots.hash2_idx,
+                    input_vec,
+                    hash,
+                ));
             }
             AllocHashPreimage::A3(i0, i1, i2) => {
-                let input_vec = vec![i0.tag().clone(), i0.hash().clone(), i1.tag().clone(), i1.hash().clone(), i2.tag().clone(), i2.hash().clone()];
-                hash_slots
-                    .hash3_data
-                    .constraints_data
-                    .push((concrete_path, slots.hash3_idx, input_vec, hash));
+                let input_vec = vec![
+                    i0.tag().clone(),
+                    i0.hash().clone(),
+                    i1.tag().clone(),
+                    i1.hash().clone(),
+                    i2.tag().clone(),
+                    i2.hash().clone(),
+                ];
+                hash_slots.hash3_data.constraints_data.push((
+                    concrete_path,
+                    slots.hash3_idx,
+                    input_vec,
+                    hash,
+                ));
             }
             AllocHashPreimage::A4(i0, i1, i2, i3) => {
                 let input_vec = vec![
@@ -213,10 +219,12 @@ impl LEM {
                     i3.tag().clone(),
                     i3.hash().clone(),
                 ];
-                hash_slots
-                    .hash4_data
-                    .constraints_data
-                    .push((concrete_path, slots.hash4_idx, input_vec, hash));
+                hash_slots.hash4_data.constraints_data.push((
+                    concrete_path,
+                    slots.hash4_idx,
+                    input_vec,
+                    hash,
+                ));
             }
         }
         Ok(())
@@ -231,7 +239,6 @@ impl LEM {
         store: &mut Store<F>,
         alloc_manager: &mut AllocationManager<F>,
     ) -> Result<()> {
-
         // Vectors fulls of dummies, so that it will not be required to fill with dummies later
         let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
         let mut hash2_slots =
@@ -782,13 +789,7 @@ impl LEM {
             }
         }
 
-        Self::create_slot_constraints(
-            cs,
-            &alloc_ptrs,
-            hash_slots,
-            store,
-            alloc_manager,
-        )?;
+        Self::create_slot_constraints(cs, &alloc_ptrs, hash_slots, store, alloc_manager)?;
 
         Ok(())
     }

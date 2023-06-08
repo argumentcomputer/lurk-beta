@@ -270,7 +270,11 @@ mod tests {
 
     #[inline]
     fn match_sym_path(i: MetaPtr, cases: Vec<(Vec<String>, LEMOP)>, def: LEMOP) -> LEMOP {
-        LEMOP::MatchSymPath(i, std::collections::HashMap::from_iter(cases), Box::new(def))
+        LEMOP::MatchSymPath(
+            i,
+            std::collections::HashMap::from_iter(cases),
+            Box::new(def),
+        )
     }
 
     #[test]
@@ -386,7 +390,10 @@ mod tests {
             moo == match_sym_path(
                 mptr("www"),
                 vec![
-                    (vec!["a".to_string(), "b".to_string()], LEMOP::Null(mptr("foo"), Tag::Num)),
+                    (
+                        vec!["a".to_string(), "b".to_string()],
+                        LEMOP::Null(mptr("foo"), Tag::Num)
+                    ),
                     (
                         vec!["c".to_string(), "d".to_string()],
                         LEMOP::Seq(vec![
