@@ -53,7 +53,7 @@ jobs:
       - name: cargo test
         # TODO: --all-features
         run: |
-          cargo nextest run --release
+          cargo nextest run --profile ci --workspace --cargo-profile dev-ci --run-ignored all -E 'all() - test(groth16::tests::outer_prove_recursion) - test(test_make_fcomm_examples) - test(test_functional_commitments_demo) - test(test_chained_functional_commitments_demo)'
       - name: Doctests
         run: |
           cargo test --doc
