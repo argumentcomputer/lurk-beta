@@ -71,14 +71,18 @@ struct HashSlots<F: LurkField> {
     hash4_data: SlotData<F>,
 }
 
-enum AllocHashPreimage<F: LurkField> {
-    A2(AllocatedPtr<F>, AllocatedPtr<F>),
-    A3(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>),
+enum AllocHashPreimage<'a, F: LurkField> {
+    A2(&'a AllocatedPtr<F>, &'a AllocatedPtr<F>),
+    A3(
+        &'a AllocatedPtr<F>,
+        &'a AllocatedPtr<F>,
+        &'a AllocatedPtr<F>,
+    ),
     A4(
-        AllocatedPtr<F>,
-        AllocatedPtr<F>,
-        AllocatedPtr<F>,
-        AllocatedPtr<F>,
+        &'a AllocatedPtr<F>,
+        &'a AllocatedPtr<F>,
+        &'a AllocatedPtr<F>,
+        &'a AllocatedPtr<F>,
     ),
 }
 
@@ -175,7 +179,7 @@ impl LEM {
         hash_slots: &mut HashSlots<F>,
         slots: &SlotsIndices,
         hash: MetaPtr,
-        alloc_arity: AllocHashPreimage<F>,
+        alloc_arity: AllocHashPreimage<'_, F>,
     ) -> Result<()> {
         match alloc_arity {
             AllocHashPreimage::A2(i0, i1) => {
@@ -440,7 +444,7 @@ impl LEM {
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
-                        AllocHashPreimage::A2(preimg_vec[0].clone(), preimg_vec[1].clone()),
+                        AllocHashPreimage::A2(preimg_vec[0], preimg_vec[1]),
                     )?;
 
                     // Insert hash value pointer in the HashMap
@@ -465,7 +469,7 @@ impl LEM {
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
-                        AllocHashPreimage::A2(preimg_vec[0].clone(), preimg_vec[1].clone()),
+                        AllocHashPreimage::A2(&preimg_vec[0], &preimg_vec[1]),
                     )?;
 
                     // Insert preimage pointers in the HashMap
@@ -505,11 +509,7 @@ impl LEM {
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
-                        AllocHashPreimage::A3(
-                            preimg_vec[0].clone(),
-                            preimg_vec[1].clone(),
-                            preimg_vec[2].clone(),
-                        ),
+                        AllocHashPreimage::A3(preimg_vec[0], preimg_vec[1], preimg_vec[2]),
                     )?;
 
                     // Insert hash value pointer in the HashMap
@@ -534,11 +534,7 @@ impl LEM {
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
-                        AllocHashPreimage::A3(
-                            preimg_vec[0].clone(),
-                            preimg_vec[1].clone(),
-                            preimg_vec[2].clone(),
-                        ),
+                        AllocHashPreimage::A3(&preimg_vec[0], &preimg_vec[1], &preimg_vec[2]),
                     )?;
 
                     // Insert preimage pointers in the HashMap
@@ -579,10 +575,10 @@ impl LEM {
                         &slots,
                         hash.clone(),
                         AllocHashPreimage::A4(
-                            preimg_vec[0].clone(),
-                            preimg_vec[1].clone(),
-                            preimg_vec[2].clone(),
-                            preimg_vec[3].clone(),
+                            preimg_vec[0],
+                            preimg_vec[1],
+                            preimg_vec[2],
+                            preimg_vec[3],
                         ),
                     )?;
 
@@ -609,10 +605,10 @@ impl LEM {
                         &slots,
                         hash.clone(),
                         AllocHashPreimage::A4(
-                            preimg_vec[0].clone(),
-                            preimg_vec[1].clone(),
-                            preimg_vec[2].clone(),
-                            preimg_vec[3].clone(),
+                            &preimg_vec[0],
+                            &preimg_vec[1],
+                            &preimg_vec[2],
+                            &preimg_vec[3],
                         ),
                     )?;
 
