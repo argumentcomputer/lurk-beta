@@ -59,11 +59,8 @@ impl LEM {
                     let tgt_ptr = store.intern_4_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3, src_ptr4);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
                 }
-                LEMOP::Unhash2(tgts, src, tag) => {
+                LEMOP::Unhash2(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
-                    if src_ptr.tag() != tag {
-                        bail!("{} has invalid tag", src.name());
-                    }
                     let Some(idx) = src_ptr.get_index2() else {
                         bail!(
                             "{} isn't a Tree2 pointer",
@@ -76,11 +73,8 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
                     insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
                 }
-                LEMOP::Unhash3(tgts, src, tag) => {
+                LEMOP::Unhash3(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
-                    if src_ptr.tag() != tag {
-                        bail!("{} has invalid tag", src.name());
-                    }
                     let Some(idx) = src_ptr.get_index3() else {
                         bail!(
                             "{} isn't a Tree3 pointer",
@@ -94,11 +88,8 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
                     insert_into_ptrs(&mut ptrs, tgts[2].name().clone(), *c)?;
                 }
-                LEMOP::Unhash4(tgts, src, tag) => {
+                LEMOP::Unhash4(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
-                    if src_ptr.tag() != tag {
-                        bail!("{} has invalid tag", src.name());
-                    }
                     let Some(idx) = src_ptr.get_index4() else {
                         bail!(
                             "{} isn't a Tree4 pointer",
