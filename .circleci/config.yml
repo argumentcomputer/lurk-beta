@@ -334,6 +334,7 @@ workflows:
           filters:
             branches:
                 ignore: 
+                  - master
                   - gh-pages
                   - staging.tmp
                   - trying.tmp
@@ -342,6 +343,7 @@ workflows:
           filters:
             branches:
                 ignore: 
+                  - master
                   - gh-pages
                   - staging.tmp
                   - trying.tmp
@@ -350,6 +352,7 @@ workflows:
           filters:
             branches:
                 ignore: 
+                  - master
                   - gh-pages
                   - staging.tmp
                   - trying.tmp
@@ -360,6 +363,7 @@ workflows:
           filters:
             branches:
                 ignore: 
+                  - master
                   - gh-pages
                   - staging.tmp
                   - trying.tmp
@@ -370,6 +374,7 @@ workflows:
           filters:
             branches:
                 ignore: 
+                  - master
                   - gh-pages
                   - staging.tmp
                   - trying.tmp
@@ -380,6 +385,7 @@ workflows:
           filters:
             branches:
                 ignore: 
+                  - master
                   - gh-pages
                   - staging.tmp
                   - trying.tmp
