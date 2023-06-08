@@ -252,7 +252,7 @@ impl LEM {
             let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
             if is_concrete_path {
                 let alloc_hash = hash_poseidon(
-                    &mut cs.namespace(|| format!("hash3_{}", slot)),
+                    &mut cs.namespace(|| format!("hash2_{}", slot)),
                     input_vec.to_vec(),
                     store.poseidon_cache.constants.c4(),
                 )?;
@@ -299,7 +299,7 @@ impl LEM {
 
             implies_equal(
                 &mut cs
-                    .namespace(|| format!("implies equal hash2 for {} and {}", slot, tgt.name())),
+                    .namespace(|| format!("implies equal hash3 for {} and {}", slot, tgt.name())),
                 &concrete_path,
                 alloc_tgt.hash(),
                 slot_hash,
@@ -327,7 +327,7 @@ impl LEM {
 
             implies_equal(
                 &mut cs
-                    .namespace(|| format!("implies equal hash2 for {} and {}", slot, tgt.name())),
+                    .namespace(|| format!("implies equal hash4 for {} and {}", slot, tgt.name())),
                 &concrete_path,
                 alloc_tgt.hash(),
                 slot_hash,
@@ -358,16 +358,14 @@ impl LEM {
         preimg: &[MetaPtr],
         alloc_ptrs: &'a HashMap<&String, AllocatedPtr<F>>,
     ) -> Result<Vec<&'a AllocatedPtr<F>>> {
-        let mut res = vec![];
-        for i in preimg {
-            match alloc_ptrs.get(i.name()) {
-                None => bail!("{} not allocated", i.name()),
-                Some(alloc_ptr) => {
-                    res.push(alloc_ptr);
-                }
-            }
-        }
-        Ok(res)
+        preimg
+            .iter()
+            .map(|pi| {
+                alloc_ptrs
+                    .get(pi.name())
+                    .ok_or_else(|| anyhow!("{} not allocated", pi.name()))
+            })
+            .collect::<Result<Vec<_>>>()
     }
 
     /// Create R1CS constraints for LEM given an evaluation valuation.
@@ -383,13 +381,18 @@ impl LEM {
     /// should be complete. For virtual paths we need to create dummy bindings
     /// and relax the implications with false premises. The premise is precicely
     /// `concrete_path`.
-    pub fn constrain_aux<F: LurkField, CS: ConstraintSystem<F>>(
+    pub fn constrain_limited<
+        'a,
+        F: LurkField,
+        CS: ConstraintSystem<F>,
+        T: Into<Option<&'a SlotsIndices>>,
+    >(
         &self,
         cs: &mut CS,
         alloc_manager: &mut AllocationManager<F>,
         store: &mut Store<F>,
         valuation: &Valuation<F>,
-        max_slots_allowed: Option<&SlotsIndices>,
+        max_slots_allowed: T,
     ) -> Result<()> {
         let mut alloc_ptrs: HashMap<&String, AllocatedPtr<F>> = HashMap::default();
 
@@ -765,7 +768,7 @@ impl LEM {
             return Err(anyhow!("Couldn't inputize the right number of outputs"));
         }
 
-        if let Some(max_slots_indices) = max_slots_allowed {
+        if let Some(max_slots_indices) = max_slots_allowed.into() {
             if max_slots_indices.hash2_idx > hash_slots.hash2_data.max_slots {
                 bail!(
                     "Too many slots allocated for Hash2/Unhash2: {}, {}",
@@ -802,18 +805,6 @@ impl LEM {
         store: &mut Store<F>,
         valuation: &Valuation<F>,
     ) -> Result<()> {
-        self.constrain_aux(cs, alloc_manager, store, valuation, None)
-    }
-
-    #[inline]
-    pub fn constrain_limited<F: LurkField, CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        alloc_manager: &mut AllocationManager<F>,
-        store: &mut Store<F>,
-        valuation: &Valuation<F>,
-        limits: &SlotsIndices,
-    ) -> Result<()> {
-        self.constrain_aux(cs, alloc_manager, store, valuation, Some(limits))
+        self.constrain_limited(cs, alloc_manager, store, valuation, None)
     }
 }
