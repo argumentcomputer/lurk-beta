@@ -71,18 +71,32 @@ macro_rules! lemop {
             $crate::metaptr!($sec), $crate::metaptr!($src), $crate::metaptr!($hash),
         )
     };
-    ( match_tag $sii:ident { $( $case:ident => $case_ops:tt ),* $(,)? } ) => {
+    ( match_tag $sii:ident { $( $tag:ident => $case_ops:tt ),* $(,)? } ) => {
         {
             let mut cases = std::collections::HashMap::new();
             $(
                 if cases.insert(
-                    $crate::lem::Tag::$case,
+                    $crate::lem::Tag::$tag,
                     $crate::lemop!( $case_ops ),
                 ).is_some() {
                     panic!("Repeated tag on `match_tag`");
                 };
             )*
             $crate::lem::LEMOP::MatchTag($crate::metaptr!($sii), cases)
+        }
+    };
+    ( match_sym_path $sii:ident { $( $sym_path:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } ) => {
+        {
+            let mut cases = std::collections::HashMap::new();
+            $(
+                if cases.insert(
+                    $sym_path.iter().map(|s| s.to_string()).collect::<Vec<String>>(),
+                    $crate::lemop!( $case_ops ),
+                ).is_some() {
+                    panic!("Repeated path on `match_sym_path`");
+                };
+            )*
+            $crate::lem::LEMOP::MatchSymPath($crate::metaptr!($sii), cases, Box::new($crate::lemop!( $def )))
         }
     };
     ( return ($src1:ident, $src2:ident, $src3:ident) ) => {
@@ -198,12 +212,22 @@ macro_rules! lemop {
             $($tail)*
         )
     };
-    (@seq {$($limbs:tt)*}, match_tag $sii:ident { $( $case:ident => $case_ops:tt ),* $(,)? } ; $($tail:tt)*) => {
+    (@seq {$($limbs:tt)*}, match_tag $sii:ident { $( $tag:ident => $case_ops:tt ),* $(,)? } ; $($tail:tt)*) => {
         $crate::lemop! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!( match_tag $sii { $( $case => $case_ops ),* } ),
+                $crate::lemop!( match_tag $sii { $( $tag => $case_ops ),* } ),
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:tt)*}, match_sym_path $sii:ident { $( $sym_path:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } ; $($tail:tt)*) => {
+        $crate::lemop! (
+            @seq
+            {
+                $($limbs)*
+                $crate::lemop!( match_sym_path $sii { $( $sym_path => $case_ops ),* , _ => $def, } ),
             },
             $($tail)*
         )
@@ -242,6 +266,11 @@ mod tests {
     #[inline]
     fn match_tag(i: MetaPtr, cases: Vec<(Tag, LEMOP)>) -> LEMOP {
         LEMOP::MatchTag(i, std::collections::HashMap::from_iter(cases))
+    }
+
+    #[inline]
+    fn match_sym_path(i: MetaPtr, cases: Vec<(Vec<String>, LEMOP)>, def: LEMOP) -> LEMOP {
+        LEMOP::MatchSymPath(i, std::collections::HashMap::from_iter(cases), Box::new(def))
     }
 
     #[test]
@@ -336,6 +365,37 @@ mod tests {
                         ])
                     )
                 ]
+            )
+        );
+
+        let moo = lemop!(
+            match_sym_path www {
+                ["a", "b"] => {
+                    let foo: Num; // a single LEMOP will not turn into a Seq
+                },
+                ["c", "d"] => {
+                    let foo: Num;
+                    let goo: Char;
+                },
+                _ => {
+                    let xoo: Str;
+                },
+            }
+        );
+        assert!(
+            moo == match_sym_path(
+                mptr("www"),
+                vec![
+                    (vec!["a".to_string(), "b".to_string()], LEMOP::Null(mptr("foo"), Tag::Num)),
+                    (
+                        vec!["c".to_string(), "d".to_string()],
+                        LEMOP::Seq(vec![
+                            LEMOP::Null(mptr("foo"), Tag::Num),
+                            LEMOP::Null(mptr("goo"), Tag::Char)
+                        ])
+                    ),
+                ],
+                LEMOP::Null(mptr("xoo"), Tag::Str)
             )
         );
     }

@@ -356,6 +356,22 @@ impl LEMOP {
                     HashMap::from_iter(new_cases),
                 ))
             }
+            LEMOP::MatchSymPath(ptr, cases, def) => {
+                let Some(ptr_path) = map.get(ptr.name()).cloned() else {
+                    bail!("{} not defined", ptr.name());
+                };
+                let mut new_cases = vec![];
+                for (case_name, case) in cases {
+                    // each case needs it's own clone of `map`
+                    let new_case = case.deconflict(&format!("{path}.{}", case_name.join("|")), &mut map.clone())?;
+                    new_cases.push((case_name.clone(), new_case));
+                }
+                Ok(LEMOP::MatchSymPath(
+                    MetaPtr(ptr_path),
+                    HashMap::from_iter(new_cases),
+                    Box::new(def.deconflict(&format!("{path}.DEFAULT"), &mut map.clone())?)
+                ))
+            }
             LEMOP::Seq(ops) => {
                 let mut new_ops = vec![];
                 for op in ops {
