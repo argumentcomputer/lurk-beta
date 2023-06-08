@@ -733,9 +733,6 @@ impl LEM {
             return Err(anyhow!("Couldn't inputize the right number of outputs"));
         }
 
-        hash_slots.hash2_data.max_slots += 1; // TODO: max was pointing to the last used, then must increment to get this information
-        hash_slots.hash3_data.max_slots += 1; // TODO: max was pointing to the last used, then must increment to get this information
-        hash_slots.hash4_data.max_slots += 1; // TODO: max was pointing to the last used, then must increment to get this information
         if let Some(max_slots_indices) = max_slots_allowed.into() {
             if max_slots_indices.hash2_idx > hash_slots.hash2_data.max_slots {
                 bail!(
