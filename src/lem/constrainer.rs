@@ -59,17 +59,17 @@ impl<F: LurkField> AllocationManager<F> {
 }
 
 #[derive(Default)]
-struct SlotData {
+struct SlotData<F: LurkField> {
     max_slots: usize,
-    constraints_data: Vec<(Boolean, usize, MetaPtr)>,
+    constraints_data: Vec<(Boolean, usize, Vec<AllocatedNum<F>>, MetaPtr)>,
 }
 
 #[derive(Default)]
 struct HashSlots<F: LurkField> {
     hash2_alloc: Vec<(usize, AllocatedPtr<F>, AllocatedPtr<F>)>,
-    hash2_data: SlotData,
+    hash2_data: SlotData<F>,
     hash3_alloc: Vec<(usize, AllocatedPtr<F>, AllocatedPtr<F>, AllocatedPtr<F>)>,
-    hash3_data: SlotData,
+    hash3_data: SlotData<F>,
     hash4_alloc: Vec<(
         usize,
         AllocatedPtr<F>,
@@ -77,7 +77,7 @@ struct HashSlots<F: LurkField> {
         AllocatedPtr<F>,
         AllocatedPtr<F>,
     )>,
-    hash4_data: SlotData,
+    hash4_data: SlotData<F>,
 }
 
 enum AllocHashPreimage<F: LurkField> {
@@ -189,36 +189,34 @@ impl LEM {
         let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
         match alloc_arity {
             AllocHashPreimage::A2(i0, i1) => {
-                if is_concrete_path {
-                    // only once per path
-                    hash_slots.hash2_alloc.push((slots.hash2_idx, i0, i1));
-                }
+                let input_vec = vec![i0.tag().clone(), i0.hash().clone(), i1.tag().clone(), i1.hash().clone()];
                 hash_slots
                     .hash2_data
                     .constraints_data
-                    .push((concrete_path, slots.hash2_idx, hash));
+                    .push((concrete_path, slots.hash2_idx, input_vec, hash));
             }
             AllocHashPreimage::A3(i0, i1, i2) => {
-                if is_concrete_path {
-                    // only once per path
-                    hash_slots.hash3_alloc.push((slots.hash3_idx, i0, i1, i2));
-                }
+                let input_vec = vec![i0.tag().clone(), i0.hash().clone(), i1.tag().clone(), i1.hash().clone(), i2.tag().clone(), i2.hash().clone()];
                 hash_slots
                     .hash3_data
                     .constraints_data
-                    .push((concrete_path, slots.hash3_idx, hash));
+                    .push((concrete_path, slots.hash3_idx, input_vec, hash));
             }
             AllocHashPreimage::A4(i0, i1, i2, i3) => {
-                if is_concrete_path {
-                    // only once per path
-                    hash_slots
-                        .hash4_alloc
-                        .push((slots.hash4_idx, i0, i1, i2, i3));
-                }
+                let input_vec = vec![
+                    i0.tag().clone(),
+                    i0.hash().clone(),
+                    i1.tag().clone(),
+                    i1.hash().clone(),
+                    i2.tag().clone(),
+                    i2.hash().clone(),
+                    i3.tag().clone(),
+                    i3.hash().clone(),
+                ];
                 hash_slots
                     .hash4_data
                     .constraints_data
-                    .push((concrete_path, slots.hash4_idx, hash));
+                    .push((concrete_path, slots.hash4_idx, input_vec, hash));
             }
         }
         Ok(())
@@ -229,24 +227,101 @@ impl LEM {
     fn create_slot_constraints<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         alloc_ptrs: &HashMap<&String, AllocatedPtr<F>>,
-        constraints_data: &Vec<(Boolean, usize, MetaPtr)>,
-        hash_slots: &[Option<AllocatedNum<F>>],
+        hash_slots: HashSlots<F>,
+        store: &mut Store<F>,
+        alloc_manager: &mut AllocationManager<F>,
     ) -> Result<()> {
-        for (concrete_path, slot, tgt) in constraints_data {
+
+        // Vectors fulls of dummies, so that it will not be required to fill with dummies later
+        let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
+        let mut hash2_slots =
+            vec![Some(alloc_dummy_ptr.hash().clone()); hash_slots.hash2_data.max_slots + 1];
+        let mut hash3_slots =
+            vec![Some(alloc_dummy_ptr.hash().clone()); hash_slots.hash3_data.max_slots + 1];
+        let mut hash4_slots =
+            vec![Some(alloc_dummy_ptr.hash().clone()); hash_slots.hash4_data.max_slots + 1];
+
+        for (concrete_path, slot, input_vec, tgt) in hash_slots.hash2_data.constraints_data {
+            let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
+            if is_concrete_path {
+                let alloc_hash = hash_poseidon(
+                    &mut cs.namespace(|| format!("hash3_{}", slot)),
+                    input_vec.to_vec(),
+                    store.poseidon_cache.constants.c4(),
+                )?;
+                hash2_slots[slot] = Some(alloc_hash);
+            }
+
             // get alloc_tgt from tgt
             let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
                 bail!("{} not allocated", tgt.name());
             };
 
             // get slot_hash from slot name
-            let Some(ref slot_hash) = hash_slots[*slot] else {
+            let Some(ref slot_hash) = hash2_slots[slot] else {
                 bail!("Slot {} not allocated", slot)
             };
 
             implies_equal(
                 &mut cs
                     .namespace(|| format!("implies equal hash2 for {} and {}", slot, tgt.name())),
-                concrete_path,
+                &concrete_path,
+                alloc_tgt.hash(),
+                slot_hash,
+            )?;
+        }
+        for (concrete_path, slot, input_vec, tgt) in hash_slots.hash3_data.constraints_data {
+            let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
+            if is_concrete_path {
+                let alloc_hash = hash_poseidon(
+                    &mut cs.namespace(|| format!("hash3_{}", slot)),
+                    input_vec.to_vec(),
+                    store.poseidon_cache.constants.c6(),
+                )?;
+                hash3_slots[slot] = Some(alloc_hash);
+            }
+            // get alloc_tgt from tgt
+            let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
+                bail!("{} not allocated", tgt.name());
+            };
+
+            // get slot_hash from slot name
+            let Some(ref slot_hash) = hash3_slots[slot] else {
+                bail!("Slot {} not allocated", slot)
+            };
+
+            implies_equal(
+                &mut cs
+                    .namespace(|| format!("implies equal hash2 for {} and {}", slot, tgt.name())),
+                &concrete_path,
+                alloc_tgt.hash(),
+                slot_hash,
+            )?;
+        }
+        for (concrete_path, slot, input_vec, tgt) in hash_slots.hash4_data.constraints_data {
+            let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
+            if is_concrete_path {
+                let alloc_hash = hash_poseidon(
+                    &mut cs.namespace(|| format!("hash4_{}", slot)),
+                    input_vec.to_vec(),
+                    store.poseidon_cache.constants.c8(),
+                )?;
+                hash4_slots[slot] = Some(alloc_hash);
+            }
+            // get alloc_tgt from tgt
+            let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
+                bail!("{} not allocated", tgt.name());
+            };
+
+            // get slot_hash from slot name
+            let Some(ref slot_hash) = hash4_slots[slot] else {
+                bail!("Slot {} not allocated", slot)
+            };
+
+            implies_equal(
+                &mut cs
+                    .namespace(|| format!("implies equal hash2 for {} and {}", slot, tgt.name())),
+                &concrete_path,
                 alloc_tgt.hash(),
                 slot_hash,
             )?;
@@ -707,105 +782,13 @@ impl LEM {
             }
         }
 
-        let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
-
-        /////////////////////////////////////////////////////////////////////////
-        ///////////////////////////// Hash2 /////////////////////////////////////
-        /////////////////////////////////////////////////////////////////////////
-
-        // Create hash constraints for each slot
-        {
-            let mut hash2_slots =
-                vec![Some(alloc_dummy_ptr.hash().clone()); hash_slots.hash2_data.max_slots + 1];
-            for (slot, alloc_car, alloc_cdr) in hash_slots.hash2_alloc {
-                let alloc_hash = hash_poseidon(
-                    &mut cs.namespace(|| format!("hash2_{}", slot)),
-                    vec![
-                        alloc_car.tag().clone(),
-                        alloc_car.hash().clone(),
-                        alloc_cdr.tag().clone(),
-                        alloc_cdr.hash().clone(),
-                    ],
-                    store.poseidon_cache.constants.c4(),
-                )?;
-                hash2_slots[slot] = Some(alloc_hash);
-            }
-
-            Self::create_slot_constraints(
-                cs,
-                &alloc_ptrs,
-                &hash_slots.hash2_data.constraints_data,
-                &hash2_slots,
-            )?;
-        }
-
-        /////////////////////////////////////////////////////////////////////////
-        ///////////////////////////// Hash3 /////////////////////////////////////
-        /////////////////////////////////////////////////////////////////////////
-
-        // Create hash constraints for each slot
-        {
-            let mut hash3_slots =
-                vec![Some(alloc_dummy_ptr.hash().clone()); hash_slots.hash3_data.max_slots + 1];
-            for (slot, alloc_input1, alloc_input2, alloc_input3) in hash_slots.hash3_alloc {
-                let alloc_hash = hash_poseidon(
-                    &mut cs.namespace(|| format!("hash3_{}", slot)),
-                    vec![
-                        alloc_input1.tag().clone(),
-                        alloc_input1.hash().clone(),
-                        alloc_input2.tag().clone(),
-                        alloc_input2.hash().clone(),
-                        alloc_input3.tag().clone(),
-                        alloc_input3.hash().clone(),
-                    ],
-                    store.poseidon_cache.constants.c6(),
-                )?;
-                hash3_slots[slot] = Some(alloc_hash);
-            }
-
-            Self::create_slot_constraints(
-                cs,
-                &alloc_ptrs,
-                &hash_slots.hash3_data.constraints_data,
-                &hash3_slots,
-            )?;
-        }
-
-        /////////////////////////////////////////////////////////////////////////
-        ///////////////////////////// Hash4 /////////////////////////////////////
-        /////////////////////////////////////////////////////////////////////////
-
-        // Create hash constraints for each slot
-        {
-            let mut hash4_slots =
-                vec![Some(alloc_dummy_ptr.hash().clone()); hash_slots.hash4_data.max_slots + 1];
-            for (slot, alloc_input1, alloc_input2, alloc_input3, alloc_input4) in
-                hash_slots.hash4_alloc
-            {
-                let alloc_hash = hash_poseidon(
-                    &mut cs.namespace(|| format!("hash4_{}", slot)),
-                    vec![
-                        alloc_input1.tag().clone(),
-                        alloc_input1.hash().clone(),
-                        alloc_input2.tag().clone(),
-                        alloc_input2.hash().clone(),
-                        alloc_input3.tag().clone(),
-                        alloc_input3.hash().clone(),
-                        alloc_input4.tag().clone(),
-                        alloc_input4.hash().clone(),
-                    ],
-                    store.poseidon_cache.constants.c8(),
-                )?;
-                hash4_slots[slot] = Some(alloc_hash);
-            }
-
-            Self::create_slot_constraints(
-                cs,
-                &alloc_ptrs,
-                &hash_slots.hash4_data.constraints_data,
-                &hash4_slots,
-            )?;
-        }
+        Self::create_slot_constraints(
+            cs,
+            &alloc_ptrs,
+            hash_slots,
+            store,
+            alloc_manager,
+        )?;
 
         Ok(())
     }
