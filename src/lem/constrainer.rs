@@ -71,21 +71,6 @@ struct HashSlots<F: LurkField> {
     hash4_data: SlotData<F>,
 }
 
-enum AllocHashPreimage<'a, F: LurkField> {
-    A2(&'a AllocatedPtr<F>, &'a AllocatedPtr<F>),
-    A3(
-        &'a AllocatedPtr<F>,
-        &'a AllocatedPtr<F>,
-        &'a AllocatedPtr<F>,
-    ),
-    A4(
-        &'a AllocatedPtr<F>,
-        &'a AllocatedPtr<F>,
-        &'a AllocatedPtr<F>,
-        &'a AllocatedPtr<F>,
-    ),
-}
-
 #[derive(Default, Clone)]
 pub struct SlotsIndices {
     pub hash2_idx: usize,
@@ -179,7 +164,7 @@ impl LEM {
         hash_slots: &mut HashSlots<F>,
         slots: &SlotsIndices,
         hash: MetaPtr,
-        preimg_vec: Vec<AllocatedPtr<F>>,
+        preimg_vec: Vec<&AllocatedPtr<F>>,
     ) -> Result<()> {
         match preimg_vec.len() {
             2 => {
@@ -221,6 +206,7 @@ impl LEM {
                     hash,
                 ));
             }
+            _ => todo!(),
         }
         Ok(())
     }
@@ -460,7 +446,7 @@ impl LEM {
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
-                        preimg_vec,
+                        preimg_vec.iter().collect::<Vec<&AllocatedPtr<F>>>(),
                     )?;
 
                     // Insert preimage pointers in the HashMap
@@ -525,7 +511,7 @@ impl LEM {
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
-                        preimg_vec,
+                        preimg_vec.iter().collect::<Vec<&AllocatedPtr<F>>>(),
                     )?;
 
                     // Insert preimage pointers in the HashMap
@@ -590,7 +576,7 @@ impl LEM {
                         &mut hash_slots,
                         &slots,
                         hash.clone(),
-                        preimg_vec,
+                        preimg_vec.iter().collect::<Vec<&AllocatedPtr<F>>>(),
                     )?;
 
                     // Insert preimage pointers in the HashMap
