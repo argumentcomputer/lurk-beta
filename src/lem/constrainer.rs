@@ -61,7 +61,7 @@ impl<F: LurkField> AllocationManager<F> {
 #[derive(Default)]
 struct SlotData<F: LurkField> {
     max_slots: usize,
-    constraints_data: Vec<(Boolean, usize, Vec<AllocatedNum<F>>, MetaPtr)>,
+    constraints_data: Vec<(Boolean, Vec<AllocatedNum<F>>, MetaPtr)>,
 }
 
 #[derive(Default)]
@@ -162,7 +162,6 @@ impl LEM {
     fn acc_hash_slots_data<F: LurkField>(
         concrete_path: Boolean,
         hash_slots: &mut HashSlots<F>,
-        slots: &SlotsIndices,
         hash: MetaPtr,
         preimg_vec: Vec<&AllocatedPtr<F>>,
     ) -> Result<()> {
@@ -175,7 +174,6 @@ impl LEM {
                 }
                 hash_slots.hash2_data.constraints_data.push((
                     concrete_path,
-                    slots.hash2_idx,
                     input_vec,
                     hash,
                 ));
@@ -188,7 +186,6 @@ impl LEM {
                 }
                 hash_slots.hash3_data.constraints_data.push((
                     concrete_path,
-                    slots.hash3_idx,
                     input_vec,
                     hash,
                 ));
@@ -201,7 +198,6 @@ impl LEM {
                 }
                 hash_slots.hash4_data.constraints_data.push((
                     concrete_path,
-                    slots.hash4_idx,
                     input_vec,
                     hash,
                 ));
@@ -223,21 +219,24 @@ impl LEM {
         // Vectors fulls of dummies, so that it will not be required to fill with dummies later
         let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
         let mut hash2_slots =
-            vec![Some(alloc_dummy_ptr.hash().clone()); hash_slots.hash2_data.max_slots + 1];
+            vec![Some(alloc_dummy_ptr.hash().clone()); hash_slots.hash2_data.max_slots];
         let mut hash3_slots =
-            vec![Some(alloc_dummy_ptr.hash().clone()); hash_slots.hash3_data.max_slots + 1];
+            vec![Some(alloc_dummy_ptr.hash().clone()); hash_slots.hash3_data.max_slots];
         let mut hash4_slots =
-            vec![Some(alloc_dummy_ptr.hash().clone()); hash_slots.hash4_data.max_slots + 1];
+            vec![Some(alloc_dummy_ptr.hash().clone()); hash_slots.hash4_data.max_slots];
 
-        for (concrete_path, slot, input_vec, tgt) in hash_slots.hash2_data.constraints_data {
+        let mut slot_hash2 = 0;
+        let mut slot_hash3 = 0;
+        let mut slot_hash4 = 0;
+        for (concrete_path, input_vec, tgt) in hash_slots.hash2_data.constraints_data {
             let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
             if is_concrete_path {
                 let alloc_hash = hash_poseidon(
-                    &mut cs.namespace(|| format!("hash2_{}", slot)),
+                    &mut cs.namespace(|| format!("hash2_{}", slot_hash2)),
                     input_vec.to_vec(),
                     store.poseidon_cache.constants.c4(),
                 )?;
-                hash2_slots[slot] = Some(alloc_hash);
+                hash2_slots[slot_hash2] = Some(alloc_hash);
             }
 
             // get alloc_tgt from tgt
@@ -246,27 +245,30 @@ impl LEM {
             };
 
             // get slot_hash from slot name
-            let Some(ref slot_hash) = hash2_slots[slot] else {
-                bail!("Slot {} not allocated", slot)
+            let Some(ref slot_hash) = hash2_slots[slot_hash2] else {
+                bail!("Slot {} not allocated", slot_hash2)
             };
 
             implies_equal(
                 &mut cs
-                    .namespace(|| format!("implies equal hash2 for {} and {}", slot, tgt.name())),
+                    .namespace(|| format!("implies equal hash2 for {} and {}", slot_hash2, tgt.name())),
                 &concrete_path,
                 alloc_tgt.hash(),
                 slot_hash,
             )?;
+            if is_concrete_path {
+                slot_hash2 += 1;
+            }
         }
-        for (concrete_path, slot, input_vec, tgt) in hash_slots.hash3_data.constraints_data {
+        for (concrete_path, input_vec, tgt) in hash_slots.hash3_data.constraints_data {
             let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
             if is_concrete_path {
                 let alloc_hash = hash_poseidon(
-                    &mut cs.namespace(|| format!("hash3_{}", slot)),
+                    &mut cs.namespace(|| format!("hash3_{}", slot_hash3)),
                     input_vec.to_vec(),
                     store.poseidon_cache.constants.c6(),
                 )?;
-                hash3_slots[slot] = Some(alloc_hash);
+                hash3_slots[slot_hash3] = Some(alloc_hash);
             }
             // get alloc_tgt from tgt
             let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
@@ -274,27 +276,30 @@ impl LEM {
             };
 
             // get slot_hash from slot name
-            let Some(ref slot_hash) = hash3_slots[slot] else {
-                bail!("Slot {} not allocated", slot)
+            let Some(ref slot_hash) = hash3_slots[slot_hash3] else {
+                bail!("Slot {} not allocated", slot_hash3)
             };
 
             implies_equal(
                 &mut cs
-                    .namespace(|| format!("implies equal hash3 for {} and {}", slot, tgt.name())),
+                    .namespace(|| format!("implies equal hash3 for {} and {}", slot_hash3, tgt.name())),
                 &concrete_path,
                 alloc_tgt.hash(),
                 slot_hash,
             )?;
+            if is_concrete_path {
+                slot_hash3 += 1;
+            }
         }
-        for (concrete_path, slot, input_vec, tgt) in hash_slots.hash4_data.constraints_data {
+        for (concrete_path, input_vec, tgt) in hash_slots.hash4_data.constraints_data {
             let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
             if is_concrete_path {
                 let alloc_hash = hash_poseidon(
-                    &mut cs.namespace(|| format!("hash4_{}", slot)),
+                    &mut cs.namespace(|| format!("hash4_{}", slot_hash4)),
                     input_vec.to_vec(),
                     store.poseidon_cache.constants.c8(),
                 )?;
-                hash4_slots[slot] = Some(alloc_hash);
+                hash4_slots[slot_hash4] = Some(alloc_hash);
             }
             // get alloc_tgt from tgt
             let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
@@ -302,17 +307,20 @@ impl LEM {
             };
 
             // get slot_hash from slot name
-            let Some(ref slot_hash) = hash4_slots[slot] else {
-                bail!("Slot {} not allocated", slot)
+            let Some(ref slot_hash) = hash4_slots[slot_hash4] else {
+                bail!("Slot {} not allocated", slot_hash4)
             };
 
             implies_equal(
                 &mut cs
-                    .namespace(|| format!("implies equal hash4 for {} and {}", slot, tgt.name())),
+                    .namespace(|| format!("implies equal hash4 for {} and {}", slot_hash4, tgt.name())),
                 &concrete_path,
                 alloc_tgt.hash(),
                 slot_hash,
             )?;
+            if is_concrete_path {
+                slot_hash4 += 1;
+            }
         }
         Ok(())
     }
@@ -419,7 +427,6 @@ impl LEM {
                     Self::acc_hash_slots_data(
                         concrete_path,
                         &mut hash_slots,
-                        &slots,
                         hash.clone(),
                         preimg_vec,
                     )?;
@@ -444,7 +451,6 @@ impl LEM {
                     Self::acc_hash_slots_data(
                         concrete_path,
                         &mut hash_slots,
-                        &slots,
                         hash.clone(),
                         preimg_vec.iter().collect::<Vec<&AllocatedPtr<F>>>(),
                     )?;
@@ -484,7 +490,6 @@ impl LEM {
                     Self::acc_hash_slots_data(
                         concrete_path,
                         &mut hash_slots,
-                        &slots,
                         hash.clone(),
                         preimg_vec,
                     )?;
@@ -509,7 +514,6 @@ impl LEM {
                     Self::acc_hash_slots_data(
                         concrete_path,
                         &mut hash_slots,
-                        &slots,
                         hash.clone(),
                         preimg_vec.iter().collect::<Vec<&AllocatedPtr<F>>>(),
                     )?;
@@ -549,7 +553,6 @@ impl LEM {
                     Self::acc_hash_slots_data(
                         concrete_path,
                         &mut hash_slots,
-                        &slots,
                         hash.clone(),
                         preimg_vec,
                     )?;
@@ -574,7 +577,6 @@ impl LEM {
                     Self::acc_hash_slots_data(
                         concrete_path,
                         &mut hash_slots,
-                        &slots,
                         hash.clone(),
                         preimg_vec.iter().collect::<Vec<&AllocatedPtr<F>>>(),
                     )?;
@@ -667,13 +669,13 @@ impl LEM {
                     let mut next_slots = slots;
                     stack.extend(ops.iter().rev().map(|op| {
                         match op {
-                            LEMOP::Hash2(..) => {
+                            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => {
                                 next_slots.hash2_idx += 1;
                             }
-                            LEMOP::Hash3(..) => {
+                            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => {
                                 next_slots.hash3_idx += 1;
                             }
-                            LEMOP::Hash4(..) => {
+                            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => {
                                 next_slots.hash4_idx += 1;
                             }
                             _ => (),
@@ -731,6 +733,9 @@ impl LEM {
             return Err(anyhow!("Couldn't inputize the right number of outputs"));
         }
 
+        hash_slots.hash2_data.max_slots += 1; // TODO: max was pointing to the last used, then must increment to get this information
+        hash_slots.hash3_data.max_slots += 1; // TODO: max was pointing to the last used, then must increment to get this information
+        hash_slots.hash4_data.max_slots += 1; // TODO: max was pointing to the last used, then must increment to get this information
         if let Some(max_slots_indices) = max_slots_allowed.into() {
             if max_slots_indices.hash2_idx > hash_slots.hash2_data.max_slots {
                 bail!(
