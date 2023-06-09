@@ -64,8 +64,8 @@ cfg_if::cfg_if! {
     }
 }
 
-/// To run these benchmarks, first download `criterion` with `cargo install cargo install cargo-criterion`.
-/// Then `cargo criterion --bench public_params`. The results are located in `target/criterion/data/<name-of-benchmark>`.
-/// For flamegraphs, run `cargo criterion --bench public_params --features flamegraph -- --profile-time <secs>`.
-/// The results are located in `target/criterion/profile/<name-of-benchmark>`.
+// To run these benchmarks, first download `criterion` with `cargo install cargo install cargo-criterion`.
+// Then `cargo criterion --bench public_params`. The results are located in `target/criterion/data/<name-of-benchmark>`.
+// For flamegraphs, run `cargo criterion --bench public_params --features flamegraph -- --profile-time <secs>`.
+// The results are located in `target/criterion/profile/<name-of-benchmark>`.
 criterion_main!(benches);
