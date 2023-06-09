@@ -65,10 +65,7 @@ enum HashArity {
     A4,
 }
 
-#[derive(Default)]
-struct HashSlots<F: LurkField> {
-    hash_data: Vec<(HashArity, Boolean, Vec<AllocatedNum<F>>, MetaPtr)>,
-}
+type SlotsData<F> = Vec<(HashArity, Boolean, Vec<AllocatedNum<F>>, MetaPtr)>;
 
 impl LEM {
     fn allocate_ptr<F: LurkField, CS: ConstraintSystem<F>>(
@@ -151,9 +148,9 @@ impl LEM {
     }
 
     /// Accumulates slot data that will be used later to generate the constraints.
-    fn acc_hash_slots_data<F: LurkField>(
+    fn acc_slots_data_data<F: LurkField>(
         concrete_path: Boolean,
-        hash_slots: &mut HashSlots<F>,
+        slots_data: &mut SlotsData<F>,
         hash: MetaPtr,
         preimg_vec: Vec<&AllocatedPtr<F>>,
     ) {
@@ -168,9 +165,7 @@ impl LEM {
             input_vec.push(elem.tag().clone());
             input_vec.push(elem.hash().clone());
         }
-        hash_slots
-            .hash_data
-            .push((arity, concrete_path, input_vec, hash));
+        slots_data.push((arity, concrete_path, input_vec, hash));
     }
 
     /// Use the implies logic to contrain tag and hash values for accumulated
@@ -178,17 +173,17 @@ impl LEM {
     fn create_slot_constraints<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         alloc_ptrs: &HashMap<&String, AllocatedPtr<F>>,
-        hash_slots: &HashSlots<F>,
+        slots_data: &SlotsData<F>,
         store: &mut Store<F>,
         alloc_manager: &mut AllocationManager<F>,
-        slots_max: usize,
+        num_hash_slots: usize,
     ) -> Result<()> {
         // Vectors fulls of dummies, so that it will not be required to fill with dummies later
         let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
-        let mut hashes = vec![Some(alloc_dummy_ptr.hash().clone()); slots_max];
+        let mut hashes = vec![Some(alloc_dummy_ptr.hash().clone()); num_hash_slots];
 
         let mut hash_index = 0;
-        for (arity, concrete_path, input_vec, tgt) in hash_slots.hash_data.iter() {
+        for (arity, concrete_path, input_vec, tgt) in slots_data.iter() {
             let is_concrete_path = Self::on_concrete_path(concrete_path)?;
             if is_concrete_path {
                 let alloc_hash = match arity {
@@ -281,19 +276,13 @@ impl LEM {
     /// should be complete. For virtual paths we need to create dummy bindings
     /// and relax the implications with false premises. The premise is precicely
     /// `concrete_path`.
-    pub fn constrain_limited<
-        'a,
-        F: LurkField,
-        CS: ConstraintSystem<F>,
-        T: Into<Option<&'a usize>>,
-    >(
+    pub fn constrain<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         alloc_manager: &mut AllocationManager<F>,
         store: &mut Store<F>,
         valuation: &Valuation<F>,
-        max_slots_computed: &usize,
-        max_slots_allowed: T,
+        num_hash_slots: usize,
     ) -> Result<()> {
         let mut alloc_ptrs: HashMap<&String, AllocatedPtr<F>> = HashMap::default();
 
@@ -304,7 +293,7 @@ impl LEM {
 
         let mut num_inputized_outputs = 0;
 
-        let mut hash_slots: HashSlots<F> = Default::default();
+        let mut slots_data = SlotsData::default();
         let mut stack = vec![(&self.lem_op, Boolean::Constant(true), String::new())];
 
         while let Some((op, concrete_path, path)) = stack.pop() {
@@ -331,12 +320,7 @@ impl LEM {
                 // Accumulate expected hash, wl preimage and tag, together with
                 // path information, such that only concrete path hashes are
                 // indeed calculated in the next available hash slot.
-                Self::acc_hash_slots_data(
-                    concrete_path.clone(),
-                    &mut hash_slots,
-                    hash,
-                    preimg_vec,
-                );
+                Self::acc_slots_data_data(concrete_path.clone(), &mut slots_data, hash, preimg_vec);
 
                 // Insert hash value pointer in the HashMap
                 Ok(alloc_hash)
@@ -368,9 +352,9 @@ impl LEM {
                     // Accumulate expected hash, preimage and tag, together with
                     // path information, such that only concrete path hashes are
                     // indeed calculated in the next available hash slot.
-                    Self::acc_hash_slots_data(
+                    Self::acc_slots_data_data(
                         concrete_path,
-                        &mut hash_slots,
+                        &mut slots_data,
                         hash.clone(),
                         preimg_vec.iter().collect::<Vec<&AllocatedPtr<F>>>(),
                     );
@@ -398,9 +382,9 @@ impl LEM {
                     // Accumulate expected hash, preimage and tag, together with
                     // path information, such that only concrete path hashes are
                     // indeed calculated in the next available hash slot.
-                    Self::acc_hash_slots_data(
+                    Self::acc_slots_data_data(
                         concrete_path,
-                        &mut hash_slots,
+                        &mut slots_data,
                         hash.clone(),
                         preimg_vec.iter().collect::<Vec<&AllocatedPtr<F>>>(),
                     );
@@ -428,9 +412,9 @@ impl LEM {
                     // Accumulate expected hash, preimage and tag, together with
                     // path information, such that only concrete path hashes are
                     // indeed calculated in the next available hash slot.
-                    Self::acc_hash_slots_data(
+                    Self::acc_slots_data_data(
                         concrete_path,
-                        &mut hash_slots,
+                        &mut slots_data,
                         hash.clone(),
                         preimg_vec.iter().collect::<Vec<&AllocatedPtr<F>>>(),
                     );
@@ -560,38 +544,15 @@ impl LEM {
             return Err(anyhow!("Couldn't inputize the right number of outputs"));
         }
 
-        // TODO: maybe receive a `bool` instead of `max_slots_allowed`
-        if let Some(max_slots_allowed) = max_slots_allowed.into() {
-            if max_slots_computed > max_slots_allowed {
-                bail!(
-                    "Too many slots allocated for Hash2/Unhash2: {}/{}",
-                    max_slots_computed,
-                    max_slots_allowed,
-                );
-            }
-        }
-
         Self::create_slot_constraints(
             cs,
             &alloc_ptrs,
-            &hash_slots,
+            &slots_data,
             store,
             alloc_manager,
-            *max_slots_computed,
+            num_hash_slots,
         )?;
 
         Ok(())
-    }
-
-    #[inline]
-    pub fn constrain<F: LurkField, CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        alloc_manager: &mut AllocationManager<F>,
-        store: &mut Store<F>,
-        max_slots: &usize,
-        valuation: &Valuation<F>,
-    ) -> Result<()> {
-        self.constrain_limited(cs, alloc_manager, store, valuation, max_slots, None)
     }
 }

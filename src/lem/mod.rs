@@ -155,7 +155,7 @@ impl LEMOP {
         Ok(())
     }
 
-    pub fn compute_max_hashes(&self) -> usize {
+    pub fn num_hash_slots(&self) -> usize {
         match self {
             LEMOP::Hash2(..)
             | LEMOP::Unhash2(..)
@@ -164,21 +164,19 @@ impl LEMOP {
             | LEMOP::Hash4(..)
             | LEMOP::Unhash4(..) => 1,
             LEMOP::MatchTag(_, cases) => cases.values().fold(0, |mut acc, op: &LEMOP| {
-                let case_max = op.compute_max_hashes();
+                let case_max = op.num_hash_slots();
                 acc = max(case_max, acc);
                 acc
             }),
             LEMOP::MatchSymPath(_, cases, def) => {
-                cases
-                    .values()
-                    .fold(def.compute_max_hashes(), |mut acc, op| {
-                        let case_max = op.compute_max_hashes();
-                        acc = max(case_max, acc);
-                        acc
-                    })
+                cases.values().fold(def.num_hash_slots(), |mut acc, op| {
+                    let case_max = op.num_hash_slots();
+                    acc = max(case_max, acc);
+                    acc
+                })
             }
             LEMOP::Seq(ops) => ops.iter().fold(0, |mut acc, op| {
-                let op_max = op.compute_max_hashes();
+                let op_max = op.num_hash_slots();
                 acc += op_max;
                 acc
             }),
@@ -495,21 +493,16 @@ mod tests {
         lem: &LEM,
         store: &mut Store<Fr>,
         valuations: &Vec<Valuation<Fr>>,
-        slots_max: usize,
+        expected_num_hash_slots: usize,
     ) {
+        let num_hash_slots = lem.lem_op.num_hash_slots();
+        assert_eq!(num_hash_slots, expected_num_hash_slots);
+
         let mut alloc_manager = AllocationManager::default();
-        let max_slots_computed = lem.lem_op.compute_max_hashes();
         for v in valuations {
             let mut cs = TestConstraintSystem::<Fr>::new();
-            lem.constrain_limited(
-                &mut cs,
-                &mut alloc_manager,
-                store,
-                v,
-                &max_slots_computed,
-                &slots_max,
-            )
-            .unwrap();
+            lem.constrain(&mut cs, &mut alloc_manager, store, v, num_hash_slots)
+                .unwrap();
             assert!(cs.is_satisfied());
         }
     }

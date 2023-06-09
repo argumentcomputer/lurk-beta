@@ -32,9 +32,13 @@ mod tests {
     const NUM_INPUTS: usize = 13;
     const NUM_AUX: usize = 22;
     const NUM_CONSTRAINTS: usize = 29;
+    const NUM_HASH_SLOTS: usize = 0;
 
     fn test_eval_and_constrain_aux(store: &mut Store<Fr>, pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>) {
         let lem = step().unwrap();
+        let num_hash_slots = lem.lem_op.num_hash_slots();
+        assert_eq!(num_hash_slots, NUM_HASH_SLOTS);
+
         for (expr_in, expr_out) in pairs {
             let valuations = lem.eval(expr_in, store).unwrap();
             assert!(
@@ -46,16 +50,14 @@ mod tests {
             );
             store.hydrate_z_cache();
             let mut alloc_manager = AllocationManager::default();
-            let slots_max = 0;
             for valuation in valuations {
                 let mut cs = TestConstraintSystem::<Fr>::new();
-                lem.constrain_limited(
+                lem.constrain(
                     &mut cs,
                     &mut alloc_manager,
                     store,
                     &valuation,
-                    &slots_max,
-                    &slots_max,
+                    num_hash_slots,
                 )
                 .unwrap();
                 assert!(cs.is_satisfied());
