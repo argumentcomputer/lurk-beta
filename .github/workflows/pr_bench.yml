@@ -1,6 +1,8 @@
 name: Benchmark pull requests
 on:
-  workflow_dispatch
+  issue_comment:
+    types: [created]
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -12,6 +14,11 @@ jobs:
   runBenchmark:
     name: run benchmark
     runs-on: [self-hosted, bench]
+    if:
+      (github.event.comment.author_association = 'MEMBER'
+      || github.event.comment.author_association = 'OWNER')
+      && github.event.issue.pull_request
+      && contains(github.event.comment.body, '!benchmark')
     steps:
       - uses: actions/checkout@v3
       # Set the Rust env vars
