@@ -164,44 +164,19 @@ impl LEM {
         hash_slots: &mut HashSlots<F>,
         hash: MetaPtr,
         preimg_vec: Vec<&AllocatedPtr<F>>,
-    ) -> Result<()> {
-        match preimg_vec.len() {
-            2 => {
-                let mut input_vec = Vec::new();
-                for elem in preimg_vec {
-                    input_vec.push(elem.tag().clone());
-                    input_vec.push(elem.hash().clone());
-                }
-                hash_slots
-                    .hash2_data
-                    .constraints_data
-                    .push((concrete_path, input_vec, hash));
-            }
-            3 => {
-                let mut input_vec = Vec::new();
-                for elem in preimg_vec {
-                    input_vec.push(elem.tag().clone());
-                    input_vec.push(elem.hash().clone());
-                }
-                hash_slots
-                    .hash3_data
-                    .constraints_data
-                    .push((concrete_path, input_vec, hash));
-            }
-            4 => {
-                let mut input_vec = Vec::new();
-                for elem in preimg_vec {
-                    input_vec.push(elem.tag().clone());
-                    input_vec.push(elem.hash().clone());
-                }
-                hash_slots
-                    .hash4_data
-                    .constraints_data
-                    .push((concrete_path, input_vec, hash));
-            }
+    ) {
+        let constraints_data = match preimg_vec.len() {
+            2 => &mut hash_slots.hash2_data.constraints_data,
+            3 => &mut hash_slots.hash3_data.constraints_data,
+            4 => &mut hash_slots.hash4_data.constraints_data,
             _ => unreachable!(),
+        };
+        let mut input_vec = Vec::new();
+        for elem in preimg_vec {
+            input_vec.push(elem.tag().clone());
+            input_vec.push(elem.hash().clone());
         }
-        Ok(())
+        constraints_data.push((concrete_path, input_vec, hash));
     }
 
     /// Use the implies logic to contrain tag and hash values for accumulated
@@ -424,7 +399,7 @@ impl LEM {
                         &mut hash_slots,
                         hash.clone(),
                         preimg_vec,
-                    )?;
+                    );
 
                     // Insert hash value pointer in the HashMap
                     alloc_ptrs.insert(hash.name(), alloc_hash.clone());
@@ -449,7 +424,7 @@ impl LEM {
                         &mut hash_slots,
                         hash.clone(),
                         preimg_vec.iter().collect::<Vec<&AllocatedPtr<F>>>(),
-                    )?;
+                    );
 
                     // Insert preimage pointers in the HashMap
                     for (name, preimg) in preimg
@@ -490,7 +465,7 @@ impl LEM {
                         &mut hash_slots,
                         hash.clone(),
                         preimg_vec,
-                    )?;
+                    );
 
                     // Insert hash value pointer in the HashMap
                     alloc_ptrs.insert(hash.name(), alloc_hash.clone());
@@ -515,7 +490,7 @@ impl LEM {
                         &mut hash_slots,
                         hash.clone(),
                         preimg_vec.iter().collect::<Vec<&AllocatedPtr<F>>>(),
-                    )?;
+                    );
 
                     // Insert preimage pointers in the HashMap
                     for (name, preimg) in preimg
@@ -555,7 +530,7 @@ impl LEM {
                         &mut hash_slots,
                         hash.clone(),
                         preimg_vec,
-                    )?;
+                    );
 
                     // Insert hash value pointer in the HashMap
                     alloc_ptrs.insert(hash.name(), alloc_hash.clone());
@@ -580,7 +555,7 @@ impl LEM {
                         &mut hash_slots,
                         hash.clone(),
                         preimg_vec.iter().collect::<Vec<&AllocatedPtr<F>>>(),
-                    )?;
+                    );
 
                     // Insert preimage pointers in the HashMap
                     for (name, preimg) in preimg
