@@ -165,18 +165,18 @@ impl LEMOP {
     pub fn compute_max_hashes(&self) -> SlotsMax {
         let mut result = SlotsMax::default();
         match self {
-            LEMOP::Hash2(_, _, _) | LEMOP::Unhash2(_, _) => {
+            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => {
                 result.hash2 += 1;
             }
-            LEMOP::Hash3(_, _, _) | LEMOP::Unhash3(_, _) => {
+            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => {
                 result.hash3 += 1;
             }
-            LEMOP::Hash4(_, _, _) | LEMOP::Unhash4(_, _) => {
+            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => {
                 result.hash4 += 1;
             }
             LEMOP::MatchTag(_, cases) => {
                 // max from branches
-                for (_, op) in cases {
+                for op in cases.values() {
                     let case_max = op.compute_max_hashes();
                     result.hash2 = max(case_max.hash2, result.hash2);
                     result.hash3 = max(case_max.hash3, result.hash3);
@@ -185,7 +185,7 @@ impl LEMOP {
             }
             LEMOP::MatchSymPath(_, cases, def) => {
                 // max from branches
-                for (_, op) in cases {
+                for op in cases.values() {
                     let case_max = op.compute_max_hashes();
                     result.hash2 = max(case_max.hash2, result.hash2);
                     result.hash3 = max(case_max.hash3, result.hash3);
@@ -195,7 +195,6 @@ impl LEMOP {
                 result.hash2 = max(def_max.hash2, result.hash2);
                 result.hash3 = max(def_max.hash3, result.hash3);
                 result.hash4 = max(def_max.hash4, result.hash4);
-
             }
             LEMOP::Seq(ops) => {
                 // add all

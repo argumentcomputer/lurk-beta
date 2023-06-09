@@ -168,7 +168,9 @@ impl LEM {
             input_vec.push(elem.tag().clone());
             input_vec.push(elem.hash().clone());
         }
-        hash_slots.hash_data.push((arity, concrete_path, input_vec, hash));
+        hash_slots
+            .hash_data
+            .push((arity, concrete_path, input_vec, hash));
     }
 
     /// Use the implies logic to contrain tag and hash values for accumulated
@@ -183,35 +185,31 @@ impl LEM {
     ) -> Result<()> {
         // Vectors fulls of dummies, so that it will not be required to fill with dummies later
         let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
-        let mut hashes = vec![Some(alloc_dummy_ptr.hash().clone()); slots_max.hash2 + slots_max.hash3 + slots_max.hash4];
+        let mut hashes = vec![
+            Some(alloc_dummy_ptr.hash().clone());
+            slots_max.hash2 + slots_max.hash3 + slots_max.hash4
+        ];
 
         let mut hash_index = 0;
         for (arity, concrete_path, input_vec, tgt) in hash_slots.hash_data {
             let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
             if is_concrete_path {
-
                 let alloc_hash = match arity {
-                    HashArity::A2 => {
-                        hash_poseidon(
-                            &mut cs.namespace(|| format!("hash2_{}", hash_index)),
-                            input_vec.to_vec(),
-                            store.poseidon_cache.constants.c4(),
-                        )?
-                    }
-                    HashArity::A3 => {
-                        hash_poseidon(
-                            &mut cs.namespace(|| format!("hash3_{}", hash_index)),
-                            input_vec.to_vec(),
-                            store.poseidon_cache.constants.c6(),
-                        )?
-                    }
-                    HashArity::A4 => {
-                        hash_poseidon(
-                            &mut cs.namespace(|| format!("hash4_{}", hash_index)),
-                            input_vec.to_vec(),
-                            store.poseidon_cache.constants.c8(),
-                        )?
-                    }
+                    HashArity::A2 => hash_poseidon(
+                        &mut cs.namespace(|| format!("hash2_{}", hash_index)),
+                        input_vec.to_vec(),
+                        store.poseidon_cache.constants.c4(),
+                    )?,
+                    HashArity::A3 => hash_poseidon(
+                        &mut cs.namespace(|| format!("hash3_{}", hash_index)),
+                        input_vec.to_vec(),
+                        store.poseidon_cache.constants.c6(),
+                    )?,
+                    HashArity::A4 => hash_poseidon(
+                        &mut cs.namespace(|| format!("hash4_{}", hash_index)),
+                        input_vec.to_vec(),
+                        store.poseidon_cache.constants.c8(),
+                    )?,
                 };
                 hashes[hash_index] = Some(alloc_hash);
             }
