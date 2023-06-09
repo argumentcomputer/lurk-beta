@@ -355,7 +355,7 @@ struct ResultFrame<'a, F: LurkField, C: Coprocessor<F>>(
 impl<'a, F: LurkField, C: Coprocessor<F>> Iterator for ResultFrame<'a, F, C> {
     type Item = Result<Frame<IO<F>, Witness<F>, C>, ReductionError>;
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-        let mut frame_it = match &mut self.0 {
+        let frame_it = match &mut self.0 {
             Ok(f) => f,
             Err(e) => return Some(Err(e.clone())),
         };

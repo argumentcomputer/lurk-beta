@@ -675,7 +675,7 @@ mod test {
 
             let fresh_p = PoseidonCache::<Fr>::default();
             let verified = proof.verify(root, key, Fr::zero(), &fresh_p);
-            assert_eq!(true, verified);
+            assert!(verified);
         }
     }
 
@@ -734,38 +734,38 @@ mod test {
 
                 let fresh_p = PoseidonCache::<Fr>::default();
                 let verified = proof.verify(root, key, Fr::zero(), &fresh_p);
-                assert_eq!(true, verified);
+                assert!(verified);
             }
 
             let old_root = t3.root;
             let (insert_proof, inserted) = t3.prove_insert(key, val).unwrap();
 
-            assert_eq!(true, inserted);
+            assert!(inserted);
 
             {
                 let root = t3.root;
                 let fresh_p = PoseidonCache::<Fr>::default();
 
                 let verified = insert_proof.verify(old_root, root, key, None, val, &fresh_p);
-                assert_eq!(true, verified);
+                assert!(verified);
 
                 {
                     let proof = t3.prove_lookup(key).unwrap();
 
                     let verified = proof.verify(root, key, val, &fresh_p);
-                    assert_eq!(true, verified);
+                    assert!(verified);
                 }
                 {
                     let proof2 = t3.prove_lookup(key2).unwrap();
 
                     let verified = proof2.verify(root, key2, Fr::zero(), &fresh_p);
-                    assert_eq!(true, verified);
+                    assert!(verified);
                 }
             }
 
             let old_root = t3.root;
             let (insert_proof2, inserted2) = t3.prove_insert(key2, val2).unwrap();
-            assert_eq!(true, inserted2);
+            assert!(inserted2);
 
             {
                 let root = t3.root;
@@ -773,7 +773,7 @@ mod test {
 
                 {
                     let verified = insert_proof2.verify(old_root, root, key2, None, val2, &fresh_p);
-                    assert_eq!(true, verified);
+                    assert!(verified);
                 }
                 {
                     let proof = t3.prove_lookup(key).unwrap();
@@ -781,7 +781,7 @@ mod test {
 
                     let fresh_p = PoseidonCache::<Fr>::default();
                     let verified = proof.verify(root, key, val, &fresh_p);
-                    assert_eq!(true, verified);
+                    assert!(verified);
                 }
                 {
                     let proof2 = t3.prove_lookup(key2).unwrap();
@@ -789,32 +789,32 @@ mod test {
 
                     let fresh_p = PoseidonCache::<Fr>::default();
                     let verified = proof2.verify(root, key2, val2, &fresh_p);
-                    assert_eq!(true, verified);
+                    assert!(verified);
                 }
             }
             let (_, inserted2a) = t3.prove_insert(key2, val2).unwrap();
-            assert_eq!(false, inserted2a);
+            assert!(!inserted2a);
 
             let old_root = t3.root;
             let (insert_proof3, inserted3) = t3.prove_insert(key2, val3).unwrap();
-            assert_eq!(true, inserted3);
+            assert!(inserted3);
             {
                 let root = t3.root;
                 let fresh_p = PoseidonCache::<Fr>::default();
 
                 let verified =
                     insert_proof3.verify(old_root, root, key2, Some(val2), val3, &fresh_p);
-                assert_eq!(true, verified);
+                assert!(verified);
 
                 {
                     let proof = t3.prove_lookup(key).unwrap();
                     let verified = proof.verify(root, key, val, &fresh_p);
-                    assert_eq!(true, verified);
+                    assert!(verified);
                 }
                 {
                     let proof2 = t3.prove_lookup(key2).unwrap();
                     let verified = proof2.verify(root, key2, val3, &fresh_p);
-                    assert_eq!(true, verified);
+                    assert!(verified);
                 }
             }
         }
