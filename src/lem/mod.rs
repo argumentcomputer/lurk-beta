@@ -560,9 +560,9 @@ mod tests {
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
         let max_indices = SlotsIndices {
-            hash2_idx: 1,
-            hash3_idx: 0,
-            hash4_idx: 0,
+            hash2: 1,
+            hash3: 0,
+            hash4: 0,
         };
         constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
@@ -585,9 +585,9 @@ mod tests {
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
         let max_indices = SlotsIndices {
-            hash2_idx: 1,
-            hash3_idx: 0,
-            hash4_idx: 0,
+            hash2: 1,
+            hash3: 0,
+            hash4: 0,
         };
         constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
@@ -617,9 +617,9 @@ mod tests {
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
         let max_indices = SlotsIndices {
-            hash2_idx: 3,
-            hash3_idx: 0,
-            hash4_idx: 0,
+            hash2: 3,
+            hash3: 0,
+            hash4: 0,
         };
         constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
@@ -662,9 +662,9 @@ mod tests {
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
         let max_indices = SlotsIndices {
-            hash2_idx: 7,
-            hash3_idx: 0,
-            hash4_idx: 0,
+            hash2: 7,
+            hash3: 0,
+            hash4: 0,
         };
         constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
@@ -683,9 +683,9 @@ mod tests {
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
         let max_indices = SlotsIndices {
-            hash2_idx: 2,
-            hash3_idx: 0,
-            hash4_idx: 0,
+            hash2: 2,
+            hash3: 0,
+            hash4: 0,
         };
         constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
@@ -707,9 +707,9 @@ mod tests {
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
         let max_indices = SlotsIndices {
-            hash2_idx: 0,
-            hash3_idx: 1,
-            hash4_idx: 0,
+            hash2: 0,
+            hash3: 1,
+            hash4: 0,
         };
         constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
@@ -732,9 +732,9 @@ mod tests {
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
         let max_indices = SlotsIndices {
-            hash2_idx: 0,
-            hash3_idx: 1,
-            hash4_idx: 0,
+            hash2: 0,
+            hash3: 1,
+            hash4: 0,
         };
         constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
@@ -764,9 +764,9 @@ mod tests {
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
         let max_indices = SlotsIndices {
-            hash2_idx: 0,
-            hash3_idx: 3,
-            hash4_idx: 0,
+            hash2: 0,
+            hash3: 3,
+            hash4: 0,
         };
         constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
@@ -809,9 +809,9 @@ mod tests {
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
         let max_indices = SlotsIndices {
-            hash2_idx: 0,
-            hash3_idx: 7,
-            hash4_idx: 0,
+            hash2: 0,
+            hash3: 7,
+            hash4: 0,
         };
         constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
@@ -830,9 +830,9 @@ mod tests {
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
         let max_indices = SlotsIndices {
-            hash2_idx: 0,
-            hash3_idx: 2,
-            hash4_idx: 0,
+            hash2: 0,
+            hash3: 2,
+            hash4: 0,
         };
         constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
@@ -854,9 +854,9 @@ mod tests {
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
         let max_indices = SlotsIndices {
-            hash2_idx: 0,
-            hash3_idx: 0,
-            hash4_idx: 1,
+            hash2: 0,
+            hash3: 0,
+            hash4: 1,
         };
         constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
@@ -879,9 +879,9 @@ mod tests {
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
         let max_indices = SlotsIndices {
-            hash2_idx: 0,
-            hash3_idx: 0,
-            hash4_idx: 1,
+            hash2: 0,
+            hash3: 0,
+            hash4: 1,
         };
         constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
@@ -911,9 +911,9 @@ mod tests {
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
         let max_indices = SlotsIndices {
-            hash2_idx: 0,
-            hash3_idx: 0,
-            hash4_idx: 3,
+            hash2: 0,
+            hash3: 0,
+            hash4: 3,
         };
         constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
@@ -956,9 +956,9 @@ mod tests {
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
         let max_indices = SlotsIndices {
-            hash2_idx: 0,
-            hash3_idx: 0,
-            hash4_idx: 7,
+            hash2: 0,
+            hash3: 0,
+            hash4: 7,
         };
         constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
@@ -977,9 +977,9 @@ mod tests {
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
         let max_indices = SlotsIndices {
-            hash2_idx: 0,
-            hash3_idx: 0,
-            hash4_idx: 2,
+            hash2: 0,
+            hash3: 0,
+            hash4: 2,
         };
         constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }

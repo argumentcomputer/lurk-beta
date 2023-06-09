@@ -58,24 +58,24 @@ impl<F: LurkField> AllocationManager<F> {
     }
 }
 
-#[derive(Default)]
-struct SlotData<F: LurkField> {
-    max_slots: usize,
-    constraints_data: Vec<(Boolean, Vec<AllocatedNum<F>>, MetaPtr)>,
+enum HashArity {
+    A2,
+    A3,
+    A4,
 }
 
 #[derive(Default)]
 struct HashSlots<F: LurkField> {
-    hash2_data: SlotData<F>,
-    hash3_data: SlotData<F>,
-    hash4_data: SlotData<F>,
+    hash2_data: Vec<(HashArity, Boolean, Vec<AllocatedNum<F>>, MetaPtr)>,
+    hash3_data: Vec<(HashArity, Boolean, Vec<AllocatedNum<F>>, MetaPtr)>,
+    hash4_data: Vec<(HashArity, Boolean, Vec<AllocatedNum<F>>, MetaPtr)>,
 }
 
 #[derive(Default, Clone)]
 pub struct SlotsIndices {
-    pub hash2_idx: usize,
-    pub hash3_idx: usize,
-    pub hash4_idx: usize,
+    pub hash2: usize,
+    pub hash3: usize,
+    pub hash4: usize,
 }
 
 impl LEM {
@@ -165,10 +165,10 @@ impl LEM {
         hash: MetaPtr,
         preimg_vec: Vec<&AllocatedPtr<F>>,
     ) {
-        let constraints_data = match preimg_vec.len() {
-            2 => &mut hash_slots.hash2_data.constraints_data,
-            3 => &mut hash_slots.hash3_data.constraints_data,
-            4 => &mut hash_slots.hash4_data.constraints_data,
+        let (arity, constraints_data) = match preimg_vec.len() {
+            2 => (HashArity::A2, &mut hash_slots.hash2_data),
+            3 => (HashArity::A3, &mut hash_slots.hash3_data),
+            4 => (HashArity::A4, &mut hash_slots.hash4_data),
             _ => unreachable!(),
         };
         let mut input_vec = Vec::new();
@@ -176,7 +176,7 @@ impl LEM {
             input_vec.push(elem.tag().clone());
             input_vec.push(elem.hash().clone());
         }
-        constraints_data.push((concrete_path, input_vec, hash));
+        constraints_data.push((arity, concrete_path, input_vec, hash));
     }
 
     /// Use the implies logic to contrain tag and hash values for accumulated
@@ -187,20 +187,19 @@ impl LEM {
         hash_slots: HashSlots<F>,
         store: &mut Store<F>,
         alloc_manager: &mut AllocationManager<F>,
+        max_slots_indices: &SlotsIndices,
     ) -> Result<()> {
         // Vectors fulls of dummies, so that it will not be required to fill with dummies later
         let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
-        let mut hash2_slots =
-            vec![Some(alloc_dummy_ptr.hash().clone()); hash_slots.hash2_data.max_slots];
-        let mut hash3_slots =
-            vec![Some(alloc_dummy_ptr.hash().clone()); hash_slots.hash3_data.max_slots];
-        let mut hash4_slots =
-            vec![Some(alloc_dummy_ptr.hash().clone()); hash_slots.hash4_data.max_slots];
+        let mut hash2_slots = vec![Some(alloc_dummy_ptr.hash().clone()); max_slots_indices.hash2];
+        let mut hash3_slots = vec![Some(alloc_dummy_ptr.hash().clone()); max_slots_indices.hash3];
+        let mut hash4_slots = vec![Some(alloc_dummy_ptr.hash().clone()); max_slots_indices.hash4];
 
         let mut slot_hash2 = 0;
         let mut slot_hash3 = 0;
         let mut slot_hash4 = 0;
-        for (concrete_path, input_vec, tgt) in hash_slots.hash2_data.constraints_data {
+        // TODO: do a single `for`
+        for (_, concrete_path, input_vec, tgt) in hash_slots.hash2_data {
             let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
             if is_concrete_path {
                 let alloc_hash = hash_poseidon(
@@ -233,7 +232,7 @@ impl LEM {
                 slot_hash2 += 1;
             }
         }
-        for (concrete_path, input_vec, tgt) in hash_slots.hash3_data.constraints_data {
+        for (_, concrete_path, input_vec, tgt) in hash_slots.hash3_data {
             let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
             if is_concrete_path {
                 let alloc_hash = hash_poseidon(
@@ -265,7 +264,7 @@ impl LEM {
                 slot_hash3 += 1;
             }
         }
-        for (concrete_path, input_vec, tgt) in hash_slots.hash4_data.constraints_data {
+        for (_, concrete_path, input_vec, tgt) in hash_slots.hash4_data {
             let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
             if is_concrete_path {
                 let alloc_hash = hash_poseidon(
@@ -368,6 +367,7 @@ impl LEM {
         let mut num_inputized_outputs = 0;
 
         let mut hash_slots: HashSlots<F> = Default::default();
+        let mut max_slots_indices = SlotsIndices::default();
         let mut stack = vec![(&self.lem_op, Boolean::Constant(true), String::new())];
         while let Some((op, concrete_path, path)) = stack.pop() {
             match op {
@@ -403,7 +403,7 @@ impl LEM {
 
                     // Insert hash value pointer in the HashMap
                     alloc_ptrs.insert(hash.name(), alloc_hash.clone());
-                    hash_slots.hash2_data.max_slots += 1;
+                    max_slots_indices.hash2 += 1;
                 }
                 LEMOP::Unhash2(preimg, hash) => {
                     // Get preimage from allocated pointers
@@ -435,7 +435,7 @@ impl LEM {
                         alloc_ptrs.insert(name, preimg);
                     }
 
-                    hash_slots.hash2_data.max_slots += 1;
+                    max_slots_indices.hash2 += 1;
                 }
                 LEMOP::Hash3(hash, tag, preimg) => {
                     // Get preimage from allocated pointers
@@ -469,7 +469,7 @@ impl LEM {
 
                     // Insert hash value pointer in the HashMap
                     alloc_ptrs.insert(hash.name(), alloc_hash.clone());
-                    hash_slots.hash3_data.max_slots += 1;
+                    max_slots_indices.hash3 += 1;
                 }
                 LEMOP::Unhash3(preimg, hash) => {
                     // Get preimage from allocated pointers
@@ -500,7 +500,7 @@ impl LEM {
                     {
                         alloc_ptrs.insert(name, preimg);
                     }
-                    hash_slots.hash3_data.max_slots += 1;
+                    max_slots_indices.hash3 += 1;
                 }
                 LEMOP::Hash4(hash, tag, preimg) => {
                     // Get preimage from allocated pointers
@@ -534,7 +534,7 @@ impl LEM {
 
                     // Insert hash value pointer in the HashMap
                     alloc_ptrs.insert(hash.name(), alloc_hash.clone());
-                    hash_slots.hash4_data.max_slots += 1;
+                    max_slots_indices.hash4 += 1;
                 }
                 LEMOP::Unhash4(preimg, hash) => {
                     // Get preimage from allocated pointers
@@ -565,7 +565,7 @@ impl LEM {
                     {
                         alloc_ptrs.insert(name, preimg);
                     }
-                    hash_slots.hash4_data.max_slots += 1;
+                    max_slots_indices.hash4 += 1;
                 }
                 LEMOP::Null(tgt, tag) => {
                     let alloc_tgt = Self::allocate_ptr(
@@ -685,31 +685,38 @@ impl LEM {
 
         // TODO: compute `max_slots_indices` automatically and make
         // `constrain_limited` receive a `bool` instead
-        if let Some(max_slots_indices) = max_slots_allowed.into() {
-            if max_slots_indices.hash2_idx > hash_slots.hash2_data.max_slots {
+        if let Some(max_slots_allowed) = max_slots_allowed.into() {
+            if max_slots_indices.hash2 > max_slots_allowed.hash2 {
                 bail!(
-                    "Too many slots allocated for Hash2/Unhash2: {}, {}",
-                    max_slots_indices.hash2_idx,
-                    hash_slots.hash2_data.max_slots
+                    "Too many slots allocated for Hash2/Unhash2: {}/{}",
+                    max_slots_indices.hash2,
+                    max_slots_allowed.hash2,
                 );
             }
-            if max_slots_indices.hash3_idx > hash_slots.hash3_data.max_slots {
+            if max_slots_indices.hash3 > max_slots_allowed.hash3 {
                 bail!(
-                    "Too many slots allocated for Hash3/Unhash3: {}, {}",
-                    max_slots_indices.hash2_idx,
-                    hash_slots.hash2_data.max_slots
+                    "Too many slots allocated for Hash3/Unhash3: {}/{}",
+                    max_slots_indices.hash3,
+                    max_slots_allowed.hash3,
                 );
             }
-            if max_slots_indices.hash4_idx > hash_slots.hash4_data.max_slots {
+            if max_slots_indices.hash4 > max_slots_allowed.hash4 {
                 bail!(
-                    "Too many slots allocated for Hash4/Unhash4: {}, {}",
-                    max_slots_indices.hash2_idx,
-                    hash_slots.hash2_data.max_slots
+                    "Too many slots allocated for Hash4/Unhash4: {}/{}",
+                    max_slots_indices.hash4,
+                    max_slots_allowed.hash4,
                 );
             }
         }
 
-        Self::create_slot_constraints(cs, &alloc_ptrs, hash_slots, store, alloc_manager)?;
+        Self::create_slot_constraints(
+            cs,
+            &alloc_ptrs,
+            hash_slots,
+            store,
+            alloc_manager,
+            &max_slots_indices,
+        )?;
 
         Ok(())
     }
