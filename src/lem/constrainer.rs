@@ -352,9 +352,6 @@ impl LEM {
         max_slots_allowed: T,
     ) -> Result<()> {
         let max_hashes = self.lem_op.compute_max_hashes();
-        dbg!(max_hashes.hash2);
-        dbg!(max_hashes.hash3);
-        dbg!(max_hashes.hash4);
 
         let mut alloc_ptrs: HashMap<&String, AllocatedPtr<F>> = HashMap::default();
 
@@ -366,7 +363,6 @@ impl LEM {
         let mut num_inputized_outputs = 0;
 
         let mut hash_slots: HashSlots<F> = Default::default();
-        //let mut max_slots_indices = SlotsIndices::default();
         let mut stack = vec![(&self.lem_op, Boolean::Constant(true), String::new())];
         while let Some((op, concrete_path, path)) = stack.pop() {
             match op {
