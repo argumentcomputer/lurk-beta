@@ -163,51 +163,49 @@ impl LEMOP {
     }
 
     pub fn compute_max_hashes(&self) -> SlotsMax {
-        let mut result = SlotsMax::default();
         match self {
-            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => {
-                result.hash2 += 1;
-            }
-            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => {
-                result.hash3 += 1;
-            }
-            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => {
-                result.hash4 += 1;
-            }
-            LEMOP::MatchTag(_, cases) => {
-                // max from branches
-                for op in cases.values() {
-                    let case_max = op.compute_max_hashes();
-                    result.hash2 = max(case_max.hash2, result.hash2);
-                    result.hash3 = max(case_max.hash3, result.hash3);
-                    result.hash4 = max(case_max.hash4, result.hash4);
-                }
-            }
+            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => SlotsMax {
+                hash2: 1,
+                hash3: 0,
+                hash4: 0,
+            },
+            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => SlotsMax {
+                hash2: 0,
+                hash3: 1,
+                hash4: 0,
+            },
+            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => SlotsMax {
+                hash2: 0,
+                hash3: 0,
+                hash4: 1,
+            },
+            LEMOP::MatchTag(_, cases) => cases.values().fold(SlotsMax::default(), |mut acc, op| {
+                let case_max = op.compute_max_hashes();
+                acc.hash2 = max(case_max.hash2, acc.hash2);
+                acc.hash3 = max(case_max.hash3, acc.hash3);
+                acc.hash4 = max(case_max.hash4, acc.hash4);
+                acc
+            }),
             LEMOP::MatchSymPath(_, cases, def) => {
-                // max from branches
-                for op in cases.values() {
-                    let case_max = op.compute_max_hashes();
-                    result.hash2 = max(case_max.hash2, result.hash2);
-                    result.hash3 = max(case_max.hash3, result.hash3);
-                    result.hash4 = max(case_max.hash4, result.hash4);
-                }
-                let def_max = def.compute_max_hashes();
-                result.hash2 = max(def_max.hash2, result.hash2);
-                result.hash3 = max(def_max.hash3, result.hash3);
-                result.hash4 = max(def_max.hash4, result.hash4);
+                cases
+                    .values()
+                    .fold(def.compute_max_hashes(), |mut acc, op| {
+                        let case_max = op.compute_max_hashes();
+                        acc.hash2 = max(case_max.hash2, acc.hash2);
+                        acc.hash3 = max(case_max.hash3, acc.hash3);
+                        acc.hash4 = max(case_max.hash4, acc.hash4);
+                        acc
+                    })
             }
-            LEMOP::Seq(ops) => {
-                // add all
-                for op in ops {
-                    let op_max = op.compute_max_hashes();
-                    result.hash2 += op_max.hash2;
-                    result.hash3 += op_max.hash3;
-                    result.hash4 += op_max.hash4;
-                }
-            }
-            _ => {}
-        };
-        result
+            LEMOP::Seq(ops) => ops.iter().fold(SlotsMax::default(), |mut acc, op| {
+                let op_max = op.compute_max_hashes();
+                acc.hash2 += op_max.hash2;
+                acc.hash3 += op_max.hash3;
+                acc.hash4 += op_max.hash4;
+                acc
+            }),
+            _ => SlotsMax::default(),
+        }
     }
 
     /// Removes conflicting names in parallel logical LEM paths. While these
