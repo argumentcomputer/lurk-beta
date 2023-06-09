@@ -722,7 +722,7 @@ impl<F: LurkField> Store<F> {
             )
         };
 
-        if let Some(ptr) = self.sym_store.0.get(&symbol_name) {
+        if let Some(ptr) = self.sym_store.0.get(symbol_name) {
             Ptr::index(tag, ptr.to_usize())
         } else {
             let ptr = self.sym_store.0.get(symbol_name).unwrap();
@@ -749,7 +749,7 @@ impl<F: LurkField> Store<F> {
             )
         };
 
-        if let Some(ptr) = self.sym_store.0.get(&symbol_name) {
+        if let Some(ptr) = self.sym_store.0.get(symbol_name) {
             Ptr::index(tag, ptr.to_usize())
         } else {
             // We need to intern each of the path segments individually, so they will be in the store.

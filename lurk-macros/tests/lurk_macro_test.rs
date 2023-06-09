@@ -77,7 +77,7 @@ mod test {
             },
             iterations,
             _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(&s_), s_, limit, &lang)
+        ) = Evaluator::new(expr, empty_sym_env(s_), s_, limit, &lang)
             .eval()
             .unwrap();
 
@@ -102,7 +102,7 @@ mod test {
             },
             iterations,
             _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(&s_), s_, limit, &lang)
+        ) = Evaluator::new(expr, empty_sym_env(s_), s_, limit, &lang)
             .eval()
             .unwrap();
 
