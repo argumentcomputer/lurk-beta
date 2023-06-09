@@ -7141,8 +7141,8 @@
         <span class="kw-2">&amp;</span>with_cons_binding_unmatched
     )<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>output_expr_should_be_val = with_sym_binding_matched.clone();
-    <span class="kw">let </span>output_expr_should_be_val_to_use = with_cons_binding_matched.clone();
+    <span class="kw">let </span>output_expr_should_be_val = <span class="kw-2">&amp;</span>with_sym_binding_matched;
+    <span class="kw">let </span>output_expr_should_be_val_to_use = <span class="kw-2">&amp;</span>with_cons_binding_matched;
 
     <span class="comment">// env
     </span><span class="kw">let </span>output_env_should_be_env = <span class="macro">or!</span>(
@@ -7179,10 +7179,10 @@
 
     // expr
     </span><span class="macro">implies!</span>(cs, <span class="kw-2">&amp;</span>output_expr_should_be_expr, <span class="kw-2">&amp;</span>output_expr_is_expr);
-    <span class="macro">implies!</span>(cs, <span class="kw-2">&amp;</span>output_expr_should_be_val, <span class="kw-2">&amp;</span>output_expr_is_val);
+    <span class="macro">implies!</span>(cs, output_expr_should_be_val, <span class="kw-2">&amp;</span>output_expr_is_val);
     <span class="macro">implies!</span>(
         cs,
-        <span class="kw-2">&amp;</span>output_expr_should_be_val_to_use,
+        output_expr_should_be_val_to_use,
         <span class="kw-2">&amp;</span>output_expr_is_val_to_use
     );
     <span class="macro">implies!</span>(cs, <span class="kw-2">&amp;</span>output_cont_should_be_error, <span class="kw-2">&amp;</span>output_expr_is_expr);

@@ -3405,7 +3405,7 @@
             )
         };
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(ptr) = <span class="self">self</span>.sym_store.<span class="number">0</span>.get(<span class="kw-2">&amp;</span>symbol_name) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(ptr) = <span class="self">self</span>.sym_store.<span class="number">0</span>.get(symbol_name) {
             Ptr::index(tag, ptr.to_usize())
         } <span class="kw">else </span>{
             <span class="kw">let </span>ptr = <span class="self">self</span>.sym_store.<span class="number">0</span>.get(symbol_name).unwrap();
@@ -3432,7 +3432,7 @@
             )
         };
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(ptr) = <span class="self">self</span>.sym_store.<span class="number">0</span>.get(<span class="kw-2">&amp;</span>symbol_name) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(ptr) = <span class="self">self</span>.sym_store.<span class="number">0</span>.get(symbol_name) {
             Ptr::index(tag, ptr.to_usize())
         } <span class="kw">else </span>{
             <span class="comment">// We need to intern each of the path segments individually, so they will be in the store.
