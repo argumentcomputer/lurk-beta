@@ -13,6 +13,8 @@ use std::collections::HashMap;
 
 use self::{pointers::Ptr, store::Store, tag::Tag};
 
+use std::cmp::max;
+
 /// ## Lurk Evaluation Model (LEM)
 ///
 /// A LEM is a description of Lurk's evaluation algorithm, encoded as data. In
@@ -143,6 +145,13 @@ pub enum LEMOP {
     Return([MetaPtr; 3]),
 }
 
+#[derive(Default, Clone)]
+pub struct SlotsMax {
+    pub hash2: usize,
+    pub hash3: usize,
+    pub hash4: usize,
+}
+
 impl LEMOP {
     /// Performs the static checks of correctness described in `LEM`.
     ///
@@ -151,6 +160,42 @@ impl LEMOP {
     pub fn check(&self) -> Result<()> {
         // TODO
         Ok(())
+    }
+
+    pub fn compute_max_hashes(&self) -> SlotsMax {
+        let mut result = SlotsMax::default();
+        match self {
+            LEMOP::Hash2(_, _, _) | LEMOP::Unhash2(_, _) => {
+                result.hash2 += 1;
+            }
+            LEMOP::Hash3(_, _, _) | LEMOP::Unhash3(_, _) => {
+                result.hash3 += 1;
+            }
+            LEMOP::Hash4(_, _, _) | LEMOP::Unhash4(_, _) => {
+                result.hash4 += 1;
+            }
+            LEMOP::MatchTag(_, cases) => {
+                // max from branches
+                //let mut res = (0, 0, 0);
+                for (_, op) in cases {
+                    let case_max = op.compute_max_hashes();
+                    result.hash2 = max(case_max.hash2, result.hash2);
+                    result.hash3 = max(case_max.hash3, result.hash3);
+                    result.hash4 = max(case_max.hash4, result.hash4);
+                }
+            }
+            LEMOP::Seq(ops) => {
+                // add all
+                for op in ops {
+                    let op_max = op.compute_max_hashes();
+                    result.hash2 += op_max.hash2;
+                    result.hash3 += op_max.hash3;
+                    result.hash4 += op_max.hash4;
+                }
+            }
+            _ => {}
+        };
+        result
     }
 
     /// Removes conflicting names in parallel logical LEM paths. While these
@@ -454,7 +499,6 @@ impl LEM {
 mod tests {
     use super::constrainer::AllocationManager;
     use super::{store::Store, *};
-    use crate::lem::constrainer::SlotsIndices;
     use crate::{lem, lem::pointers::Ptr};
     use bellperson::util_cs::test_cs::TestConstraintSystem;
     use blstrs::Scalar as Fr;
@@ -463,12 +507,12 @@ mod tests {
         lem: &LEM,
         store: &mut Store<Fr>,
         valuations: &Vec<Valuation<Fr>>,
-        max_indices: &SlotsIndices,
+        slots_max: &SlotsMax,
     ) {
         let mut alloc_manager = AllocationManager::default();
         for v in valuations {
             let mut cs = TestConstraintSystem::<Fr>::new();
-            lem.constrain_limited(&mut cs, &mut alloc_manager, store, v, max_indices)
+            lem.constrain_limited(&mut cs, &mut alloc_manager, store, v, slots_max)
                 .unwrap();
             assert!(cs.is_satisfied());
         }
@@ -513,7 +557,7 @@ mod tests {
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
-        constrain_test_helper(&lem, &mut store, &valuations, &SlotsIndices::default());
+        constrain_test_helper(&lem, &mut store, &valuations, &SlotsMax::default());
     }
 
     #[test]
@@ -540,7 +584,7 @@ mod tests {
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
-        constrain_test_helper(&lem, &mut store, &valuations, &SlotsIndices::default());
+        constrain_test_helper(&lem, &mut store, &valuations, &SlotsMax::default());
     }
 
     #[test]
@@ -559,12 +603,12 @@ mod tests {
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
-        let max_indices = SlotsIndices {
+        let slots_max = SlotsMax {
             hash2: 1,
             hash3: 0,
             hash4: 0,
         };
-        constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
+        constrain_test_helper(&lem, &mut store, &valuations, &slots_max);
     }
 
     #[test]
@@ -584,12 +628,12 @@ mod tests {
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
-        let max_indices = SlotsIndices {
-            hash2: 1,
+        let slots_max = SlotsMax {
+            hash2: 2,
             hash3: 0,
             hash4: 0,
         };
-        constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
+        constrain_test_helper(&lem, &mut store, &valuations, &slots_max);
     }
 
     #[test]
@@ -616,7 +660,7 @@ mod tests {
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
-        let max_indices = SlotsIndices {
+        let max_indices = SlotsMax {
             hash2: 3,
             hash3: 0,
             hash4: 0,
@@ -661,7 +705,7 @@ mod tests {
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
-        let max_indices = SlotsIndices {
+        let max_indices = SlotsMax {
             hash2: 7,
             hash3: 0,
             hash4: 0,
@@ -682,7 +726,7 @@ mod tests {
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
-        let max_indices = SlotsIndices {
+        let max_indices = SlotsMax {
             hash2: 2,
             hash3: 0,
             hash4: 0,
@@ -706,7 +750,7 @@ mod tests {
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
-        let max_indices = SlotsIndices {
+        let max_indices = SlotsMax {
             hash2: 0,
             hash3: 1,
             hash4: 0,
@@ -731,9 +775,9 @@ mod tests {
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
-        let max_indices = SlotsIndices {
+        let max_indices = SlotsMax {
             hash2: 0,
-            hash3: 1,
+            hash3: 2,
             hash4: 0,
         };
         constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
@@ -763,7 +807,7 @@ mod tests {
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
-        let max_indices = SlotsIndices {
+        let max_indices = SlotsMax {
             hash2: 0,
             hash3: 3,
             hash4: 0,
@@ -808,7 +852,7 @@ mod tests {
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
-        let max_indices = SlotsIndices {
+        let max_indices = SlotsMax {
             hash2: 0,
             hash3: 7,
             hash4: 0,
@@ -829,7 +873,7 @@ mod tests {
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
-        let max_indices = SlotsIndices {
+        let max_indices = SlotsMax {
             hash2: 0,
             hash3: 2,
             hash4: 0,
@@ -853,7 +897,7 @@ mod tests {
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
-        let max_indices = SlotsIndices {
+        let max_indices = SlotsMax {
             hash2: 0,
             hash3: 0,
             hash4: 1,
@@ -878,10 +922,10 @@ mod tests {
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
-        let max_indices = SlotsIndices {
+        let max_indices = SlotsMax {
             hash2: 0,
             hash3: 0,
-            hash4: 1,
+            hash4: 2,
         };
         constrain_test_helper(&lem, &mut store, &valuations, &max_indices);
     }
@@ -910,7 +954,7 @@ mod tests {
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
-        let max_indices = SlotsIndices {
+        let max_indices = SlotsMax {
             hash2: 0,
             hash3: 0,
             hash4: 3,
@@ -955,7 +999,7 @@ mod tests {
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
-        let max_indices = SlotsIndices {
+        let max_indices = SlotsMax {
             hash2: 0,
             hash3: 0,
             hash4: 7,
@@ -976,7 +1020,7 @@ mod tests {
         let expr = Ptr::num(Fr::from_u64(42));
         let mut store = Store::default();
         let valuations = lem.eval(expr, &mut store).unwrap();
-        let max_indices = SlotsIndices {
+        let max_indices = SlotsMax {
             hash2: 0,
             hash3: 0,
             hash4: 2,

@@ -24,7 +24,8 @@ pub(crate) fn step() -> Result<LEM> {
 mod tests {
     use super::*;
     use crate::field::LurkField;
-    use crate::lem::constrainer::{AllocationManager, SlotsIndices};
+    use crate::lem::constrainer::AllocationManager;
+    use crate::lem::SlotsMax;
     use crate::lem::{pointers::Ptr, store::Store};
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
     use blstrs::Scalar as Fr;
@@ -53,7 +54,7 @@ mod tests {
                     &mut alloc_manager,
                     store,
                     &valuation,
-                    &SlotsIndices::default(),
+                    &SlotsMax::default(),
                 )
                 .unwrap();
                 assert!(cs.is_satisfied());
