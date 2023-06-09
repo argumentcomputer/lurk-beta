@@ -1188,8 +1188,8 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
         &with_cons_binding_unmatched
     )?;
 
-    let output_expr_should_be_val = with_sym_binding_matched.clone();
-    let output_expr_should_be_val_to_use = with_cons_binding_matched.clone();
+    let output_expr_should_be_val = &with_sym_binding_matched;
+    let output_expr_should_be_val_to_use = &with_cons_binding_matched;
 
     // env
     let output_env_should_be_env = or!(
@@ -1226,10 +1226,10 @@ fn reduce_sym<F: LurkField, CS: ConstraintSystem<F>>(
 
     // expr
     implies!(cs, &output_expr_should_be_expr, &output_expr_is_expr);
-    implies!(cs, &output_expr_should_be_val, &output_expr_is_val);
+    implies!(cs, output_expr_should_be_val, &output_expr_is_val);
     implies!(
         cs,
-        &output_expr_should_be_val_to_use,
+        output_expr_should_be_val_to_use,
         &output_expr_is_val_to_use
     );
     implies!(cs, &output_cont_should_be_error, &output_expr_is_expr);
