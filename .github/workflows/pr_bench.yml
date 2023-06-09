@@ -1,8 +1,6 @@
 name: Benchmark pull requests
 on:
-  pull_request:
-   types: [opened, synchronize, reopened, ready_for_review]
-
+  workflow_dispatch
 env:
   CARGO_TERM_COLOR: always
 
@@ -16,12 +14,8 @@ jobs:
     runs-on: [self-hosted, bench]
     steps:
       - uses: actions/checkout@v3
-      # Sets the Rust env vars
+      # Set the Rust env vars
       - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-      # Correct the toolchain version if needed
-      - run: rustup show
       - uses: Swatinem/rust-cache@v2
       - uses: boa-dev/criterion-compare-action@v3
         with:
