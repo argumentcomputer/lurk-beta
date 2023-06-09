@@ -154,7 +154,7 @@ impl LEM {
         let mut stack = vec![(&self.lem_op, None::<Boolean>, String::new())];
         while let Some((op, branch_path_info, path)) = stack.pop() {
             match op {
-                LEMOP::MkNull(tgt, tag) => {
+                LEMOP::Null(tgt, tag) => {
                     if alloc_ptrs.contains_key(tgt.name()) {
                         bail!("{} already allocated", tgt.name());
                     };
@@ -274,7 +274,7 @@ impl LEM {
                         .rev()
                         .map(|op| (op, branch_path_info.clone(), path.clone())),
                 ),
-                LEMOP::SetReturn(outputs) => {
+                LEMOP::Return(outputs) => {
                     let is_concrete_path = Self::on_concrete_path(&branch_path_info)?;
                     for (i, output) in outputs.iter().enumerate() {
                         let Some(alloc_ptr_computed) = alloc_ptrs.get(output.name()) else {

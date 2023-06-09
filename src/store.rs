@@ -19,7 +19,7 @@ use crate::sym::Sym;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
 use crate::{Num, UInt};
 
-use crate::hash::{HashConstants, IntoHashComponents, PoseidonCache};
+use crate::hash::{HashConstants, IntoHashComponents, InversePoseidonCache, PoseidonCache};
 
 #[derive(Clone, Copy, Debug)]
 pub enum HashScalar {
@@ -87,6 +87,8 @@ pub struct Store<F: LurkField> {
 
     /// Caches poseidon hashes
     pub poseidon_cache: PoseidonCache<F>,
+    /// Caches poseidon preimages
+    pub inverse_poseidon_cache: InversePoseidonCache<F>,
     /// Contains Ptrs which have not yet been hydrated.
     pub dehydrated: Vec<Ptr<F>>,
     pub dehydrated_cont: Vec<ContPtr<F>>,
@@ -142,6 +144,7 @@ impl<F: LurkField> Default for Store<F> {
             scalar_ptr_map: Default::default(),
             scalar_ptr_cont_map: Default::default(),
             poseidon_cache: Default::default(),
+            inverse_poseidon_cache: Default::default(),
             dehydrated: Default::default(),
             dehydrated_cont: Default::default(),
             pointer_scalar_ptr_cache: Default::default(),
