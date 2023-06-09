@@ -172,11 +172,10 @@ impl LEM {
                     input_vec.push(elem.tag().clone());
                     input_vec.push(elem.hash().clone());
                 }
-                hash_slots.hash2_data.constraints_data.push((
-                    concrete_path,
-                    input_vec,
-                    hash,
-                ));
+                hash_slots
+                    .hash2_data
+                    .constraints_data
+                    .push((concrete_path, input_vec, hash));
             }
             3 => {
                 let mut input_vec = Vec::new();
@@ -184,11 +183,10 @@ impl LEM {
                     input_vec.push(elem.tag().clone());
                     input_vec.push(elem.hash().clone());
                 }
-                hash_slots.hash3_data.constraints_data.push((
-                    concrete_path,
-                    input_vec,
-                    hash,
-                ));
+                hash_slots
+                    .hash3_data
+                    .constraints_data
+                    .push((concrete_path, input_vec, hash));
             }
             4 => {
                 let mut input_vec = Vec::new();
@@ -196,13 +194,12 @@ impl LEM {
                     input_vec.push(elem.tag().clone());
                     input_vec.push(elem.hash().clone());
                 }
-                hash_slots.hash4_data.constraints_data.push((
-                    concrete_path,
-                    input_vec,
-                    hash,
-                ));
+                hash_slots
+                    .hash4_data
+                    .constraints_data
+                    .push((concrete_path, input_vec, hash));
             }
-            _ => todo!(),
+            _ => unreachable!(),
         }
         Ok(())
     }
@@ -250,8 +247,9 @@ impl LEM {
             };
 
             implies_equal(
-                &mut cs
-                    .namespace(|| format!("implies equal hash2 for {} and {}", slot_hash2, tgt.name())),
+                &mut cs.namespace(|| {
+                    format!("implies equal hash2 for {} and {}", slot_hash2, tgt.name())
+                }),
                 &concrete_path,
                 alloc_tgt.hash(),
                 slot_hash,
@@ -281,8 +279,9 @@ impl LEM {
             };
 
             implies_equal(
-                &mut cs
-                    .namespace(|| format!("implies equal hash3 for {} and {}", slot_hash3, tgt.name())),
+                &mut cs.namespace(|| {
+                    format!("implies equal hash3 for {} and {}", slot_hash3, tgt.name())
+                }),
                 &concrete_path,
                 alloc_tgt.hash(),
                 slot_hash,
@@ -312,8 +311,9 @@ impl LEM {
             };
 
             implies_equal(
-                &mut cs
-                    .namespace(|| format!("implies equal hash4 for {} and {}", slot_hash4, tgt.name())),
+                &mut cs.namespace(|| {
+                    format!("implies equal hash4 for {} and {}", slot_hash4, tgt.name())
+                }),
                 &concrete_path,
                 alloc_tgt.hash(),
                 slot_hash,
@@ -393,13 +393,8 @@ impl LEM {
         let mut num_inputized_outputs = 0;
 
         let mut hash_slots: HashSlots<F> = Default::default();
-        let mut stack = vec![(
-            &self.lem_op,
-            Boolean::Constant(true),
-            String::new(),
-            SlotsIndices::default(),
-        )];
-        while let Some((op, concrete_path, path, slots)) = stack.pop() {
+        let mut stack = vec![(&self.lem_op, Boolean::Constant(true), String::new())];
+        while let Some((op, concrete_path, path)) = stack.pop() {
             match op {
                 LEMOP::Hash2(hash, tag, preimg) => {
                     // Get preimage from allocated pointers
@@ -433,6 +428,7 @@ impl LEM {
 
                     // Insert hash value pointer in the HashMap
                     alloc_ptrs.insert(hash.name(), alloc_hash.clone());
+                    hash_slots.hash2_data.max_slots += 1;
                 }
                 LEMOP::Unhash2(preimg, hash) => {
                     // Get preimage from allocated pointers
@@ -463,6 +459,8 @@ impl LEM {
                     {
                         alloc_ptrs.insert(name, preimg);
                     }
+
+                    hash_slots.hash2_data.max_slots += 1;
                 }
                 LEMOP::Hash3(hash, tag, preimg) => {
                     // Get preimage from allocated pointers
@@ -496,6 +494,7 @@ impl LEM {
 
                     // Insert hash value pointer in the HashMap
                     alloc_ptrs.insert(hash.name(), alloc_hash.clone());
+                    hash_slots.hash3_data.max_slots += 1;
                 }
                 LEMOP::Unhash3(preimg, hash) => {
                     // Get preimage from allocated pointers
@@ -526,6 +525,7 @@ impl LEM {
                     {
                         alloc_ptrs.insert(name, preimg);
                     }
+                    hash_slots.hash3_data.max_slots += 1;
                 }
                 LEMOP::Hash4(hash, tag, preimg) => {
                     // Get preimage from allocated pointers
@@ -559,6 +559,7 @@ impl LEM {
 
                     // Insert hash value pointer in the HashMap
                     alloc_ptrs.insert(hash.name(), alloc_hash.clone());
+                    hash_slots.hash4_data.max_slots += 1;
                 }
                 LEMOP::Unhash4(preimg, hash) => {
                     // Get preimage from allocated pointers
@@ -589,6 +590,7 @@ impl LEM {
                     {
                         alloc_ptrs.insert(name, preimg);
                     }
+                    hash_slots.hash4_data.max_slots += 1;
                 }
                 LEMOP::Null(tgt, tag) => {
                     let alloc_tgt = Self::allocate_ptr(
@@ -644,12 +646,7 @@ impl LEM {
                         )
                         .with_context(|| "failed to constrain `and`")?;
 
-                        stack.push((
-                            op,
-                            concrete_path_and_has_match,
-                            new_path_matchtag,
-                            slots.clone(),
-                        ));
+                        stack.push((op, concrete_path_and_has_match, new_path_matchtag));
                     }
 
                     // Now we need to enforce that at least one path was taken. We do that by constraining
@@ -663,33 +660,11 @@ impl LEM {
                     .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
                 }
                 LEMOP::Seq(ops) => {
-                    // Seqs are the only place were multiple hashes can occur in LEM,
-                    // so here we need to count the number of times each type of Hash
-                    // is used, and accordingly update the slot indices information.
-                    let mut next_slots = slots;
-                    stack.extend(ops.iter().rev().map(|op| {
-                        match op {
-                            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => {
-                                next_slots.hash2_idx += 1;
-                            }
-                            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => {
-                                next_slots.hash3_idx += 1;
-                            }
-                            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => {
-                                next_slots.hash4_idx += 1;
-                            }
-                            _ => (),
-                        }
-                        (op, concrete_path.clone(), path.clone(), next_slots.clone())
-                    }));
-                    // If the slot indices are larger than a previously found value, we update
-                    // the respective max indeces information.
-                    hash_slots.hash2_data.max_slots =
-                        std::cmp::max(hash_slots.hash2_data.max_slots, next_slots.hash2_idx);
-                    hash_slots.hash3_data.max_slots =
-                        std::cmp::max(hash_slots.hash3_data.max_slots, next_slots.hash3_idx);
-                    hash_slots.hash4_data.max_slots =
-                        std::cmp::max(hash_slots.hash4_data.max_slots, next_slots.hash4_idx);
+                    stack.extend(
+                        ops.iter()
+                            .rev()
+                            .map(|op| (op, concrete_path.clone(), path.clone())),
+                    );
                 }
                 LEMOP::Return(outputs) => {
                     let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
@@ -733,6 +708,8 @@ impl LEM {
             return Err(anyhow!("Couldn't inputize the right number of outputs"));
         }
 
+        // TODO: compute `max_slots_indices` automatically and make
+        // `constrain_limited` receive a `bool` instead
         if let Some(max_slots_indices) = max_slots_allowed.into() {
             if max_slots_indices.hash2_idx > hash_slots.hash2_data.max_slots {
                 bail!(
