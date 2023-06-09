@@ -25,7 +25,6 @@ mod tests {
     use super::*;
     use crate::field::LurkField;
     use crate::lem::constrainer::AllocationManager;
-    use crate::lem::SlotsMax;
     use crate::lem::{pointers::Ptr, store::Store};
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
     use blstrs::Scalar as Fr;
@@ -47,6 +46,7 @@ mod tests {
             );
             store.hydrate_z_cache();
             let mut alloc_manager = AllocationManager::default();
+            let slots_max = 0;
             for valuation in valuations {
                 let mut cs = TestConstraintSystem::<Fr>::new();
                 lem.constrain_limited(
@@ -54,8 +54,8 @@ mod tests {
                     &mut alloc_manager,
                     store,
                     &valuation,
-                    &SlotsMax::default(),
-                    &SlotsMax::default(),
+                    &slots_max,
+                    &slots_max,
                 )
                 .unwrap();
                 assert!(cs.is_satisfied());

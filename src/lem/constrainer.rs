@@ -17,7 +17,6 @@ use crate::circuit::gadgets::{
 use crate::field::{FWrap, LurkField};
 
 use super::{pointers::ZPtr, store::Store, MetaPtr, Valuation, LEM, LEMOP};
-use crate::lem::SlotsMax;
 use crate::lem::Tag;
 
 /// Manages global allocations for constants in a constraint system
@@ -182,14 +181,11 @@ impl LEM {
         hash_slots: &HashSlots<F>,
         store: &mut Store<F>,
         alloc_manager: &mut AllocationManager<F>,
-        slots_max: &SlotsMax,
+        slots_max: usize,
     ) -> Result<()> {
         // Vectors fulls of dummies, so that it will not be required to fill with dummies later
         let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
-        let mut hashes = vec![
-            Some(alloc_dummy_ptr.hash().clone());
-            slots_max.hash2 + slots_max.hash3 + slots_max.hash4
-        ];
+        let mut hashes = vec![Some(alloc_dummy_ptr.hash().clone()); slots_max];
 
         let mut hash_index = 0;
         for (arity, concrete_path, input_vec, tgt) in hash_slots.hash_data.iter() {
@@ -289,14 +285,14 @@ impl LEM {
         'a,
         F: LurkField,
         CS: ConstraintSystem<F>,
-        T: Into<Option<&'a SlotsMax>>,
+        T: Into<Option<&'a usize>>,
     >(
         &self,
         cs: &mut CS,
         alloc_manager: &mut AllocationManager<F>,
         store: &mut Store<F>,
         valuation: &Valuation<F>,
-        max_slots_computed: &SlotsMax,
+        max_slots_computed: &usize,
         max_slots_allowed: T,
     ) -> Result<()> {
         let mut alloc_ptrs: HashMap<&String, AllocatedPtr<F>> = HashMap::default();
@@ -338,7 +334,7 @@ impl LEM {
                 Self::acc_hash_slots_data(
                     concrete_path.clone(),
                     &mut hash_slots,
-                    hash.clone(),
+                    hash,
                     preimg_vec,
                 );
 
@@ -347,6 +343,14 @@ impl LEM {
             };
             match op {
                 LEMOP::Hash2(hash, tag, preimg) => {
+                    let alloc_hash = constrain_hash(hash.clone(), *tag, preimg)?;
+                    alloc_ptrs.insert(hash.name(), alloc_hash.clone());
+                }
+                LEMOP::Hash3(hash, tag, preimg) => {
+                    let alloc_hash = constrain_hash(hash.clone(), *tag, preimg)?;
+                    alloc_ptrs.insert(hash.name(), alloc_hash.clone());
+                }
+                LEMOP::Hash4(hash, tag, preimg) => {
                     let alloc_hash = constrain_hash(hash.clone(), *tag, preimg)?;
                     alloc_ptrs.insert(hash.name(), alloc_hash.clone());
                 }
@@ -380,10 +384,6 @@ impl LEM {
                         alloc_ptrs.insert(name, preimg);
                     }
                 }
-                LEMOP::Hash3(hash, tag, preimg) => {
-                    let alloc_hash = constrain_hash(hash.clone(), *tag, preimg)?;
-                    alloc_ptrs.insert(hash.name(), alloc_hash.clone());
-                }
                 LEMOP::Unhash3(preimg, hash) => {
                     // Get preimage from allocated pointers
                     let preimg_vec = Self::alloc_preimage(
@@ -413,10 +413,6 @@ impl LEM {
                     {
                         alloc_ptrs.insert(name, preimg);
                     }
-                }
-                LEMOP::Hash4(hash, tag, preimg) => {
-                    let alloc_hash = constrain_hash(hash.clone(), *tag, preimg)?;
-                    alloc_ptrs.insert(hash.name(), alloc_hash.clone());
                 }
                 LEMOP::Unhash4(preimg, hash) => {
                     // Get preimage from allocated pointers
@@ -566,25 +562,11 @@ impl LEM {
 
         // TODO: maybe receive a `bool` instead of `max_slots_allowed`
         if let Some(max_slots_allowed) = max_slots_allowed.into() {
-            if max_slots_computed.hash2 > max_slots_allowed.hash2 {
+            if max_slots_computed > max_slots_allowed {
                 bail!(
                     "Too many slots allocated for Hash2/Unhash2: {}/{}",
-                    max_slots_computed.hash2,
-                    max_slots_allowed.hash2,
-                );
-            }
-            if max_slots_computed.hash3 > max_slots_allowed.hash3 {
-                bail!(
-                    "Too many slots allocated for Hash3/Unhash3: {}/{}",
-                    max_slots_computed.hash3,
-                    max_slots_allowed.hash3,
-                );
-            }
-            if max_slots_computed.hash4 > max_slots_allowed.hash4 {
-                bail!(
-                    "Too many slots allocated for Hash4/Unhash4: {}/{}",
-                    max_slots_computed.hash4,
-                    max_slots_allowed.hash4,
+                    max_slots_computed,
+                    max_slots_allowed,
                 );
             }
         }
@@ -595,7 +577,7 @@ impl LEM {
             &hash_slots,
             store,
             alloc_manager,
-            max_slots_computed,
+            *max_slots_computed,
         )?;
 
         Ok(())
@@ -607,7 +589,7 @@ impl LEM {
         cs: &mut CS,
         alloc_manager: &mut AllocationManager<F>,
         store: &mut Store<F>,
-        max_slots: &SlotsMax,
+        max_slots: &usize,
         valuation: &Valuation<F>,
     ) -> Result<()> {
         self.constrain_limited(cs, alloc_manager, store, valuation, max_slots, None)
