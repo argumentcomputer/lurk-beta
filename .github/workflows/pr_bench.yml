@@ -3,6 +3,9 @@ on:
   issue_comment:
     types: [created]
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -13,12 +16,14 @@ concurrency:
 jobs:
   runBenchmark:
     name: run benchmark
+    permissions:
+      pull-requests: read
     runs-on: [self-hosted, bench]
     if:
-      (github.event.comment.author_association = 'MEMBER'
-      || github.event.comment.author_association = 'OWNER')
-      && github.event.issue.pull_request
+      github.event.issue.pull_request
       && contains(github.event.comment.body, '!benchmark')
+      && (github.event.comment.author_association = 'MEMBER'
+      || github.event.comment.author_association = 'OWNER')
     steps:
       - uses: actions/checkout@v3
       # Set the Rust env vars
