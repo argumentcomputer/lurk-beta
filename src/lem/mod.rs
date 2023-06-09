@@ -176,13 +176,26 @@ impl LEMOP {
             }
             LEMOP::MatchTag(_, cases) => {
                 // max from branches
-                //let mut res = (0, 0, 0);
                 for (_, op) in cases {
                     let case_max = op.compute_max_hashes();
                     result.hash2 = max(case_max.hash2, result.hash2);
                     result.hash3 = max(case_max.hash3, result.hash3);
                     result.hash4 = max(case_max.hash4, result.hash4);
                 }
+            }
+            LEMOP::MatchSymPath(_, cases, def) => {
+                // max from branches
+                for (_, op) in cases {
+                    let case_max = op.compute_max_hashes();
+                    result.hash2 = max(case_max.hash2, result.hash2);
+                    result.hash3 = max(case_max.hash3, result.hash3);
+                    result.hash4 = max(case_max.hash4, result.hash4);
+                }
+                let def_max = def.compute_max_hashes();
+                result.hash2 = max(def_max.hash2, result.hash2);
+                result.hash3 = max(def_max.hash3, result.hash3);
+                result.hash4 = max(def_max.hash4, result.hash4);
+
             }
             LEMOP::Seq(ops) => {
                 // add all
