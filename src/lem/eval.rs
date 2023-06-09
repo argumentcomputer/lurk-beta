@@ -55,6 +55,7 @@ mod tests {
                     store,
                     &valuation,
                     &SlotsMax::default(),
+                    &SlotsMax::default(),
                 )
                 .unwrap();
                 assert!(cs.is_satisfied());

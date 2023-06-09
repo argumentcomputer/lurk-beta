@@ -522,10 +522,18 @@ mod tests {
         slots_max: &SlotsMax,
     ) {
         let mut alloc_manager = AllocationManager::default();
+        let max_slots_computed = lem.lem_op.compute_max_hashes();
         for v in valuations {
             let mut cs = TestConstraintSystem::<Fr>::new();
-            lem.constrain_limited(&mut cs, &mut alloc_manager, store, v, slots_max)
-                .unwrap();
+            lem.constrain_limited(
+                &mut cs,
+                &mut alloc_manager,
+                store,
+                v,
+                &max_slots_computed,
+                slots_max,
+            )
+            .unwrap();
             assert!(cs.is_satisfied());
         }
     }

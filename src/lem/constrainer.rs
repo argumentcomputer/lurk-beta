@@ -178,7 +178,7 @@ impl LEM {
     fn create_slot_constraints<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         alloc_ptrs: &HashMap<&String, AllocatedPtr<F>>,
-        hash_slots: HashSlots<F>,
+        hash_slots: &HashSlots<F>,
         store: &mut Store<F>,
         alloc_manager: &mut AllocationManager<F>,
         slots_max: &SlotsMax,
@@ -191,8 +191,8 @@ impl LEM {
         ];
 
         let mut hash_index = 0;
-        for (arity, concrete_path, input_vec, tgt) in hash_slots.hash_data {
-            let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
+        for (arity, concrete_path, input_vec, tgt) in hash_slots.hash_data.iter() {
+            let is_concrete_path = Self::on_concrete_path(concrete_path)?;
             if is_concrete_path {
                 let alloc_hash = match arity {
                     HashArity::A2 => hash_poseidon(
@@ -228,7 +228,7 @@ impl LEM {
                 &mut cs.namespace(|| {
                     format!("implies equal hash for {} and {}", hash_index, tgt.name())
                 }),
-                &concrete_path,
+                concrete_path,
                 alloc_tgt.hash(),
                 slot_hash,
             )?;
@@ -295,10 +295,9 @@ impl LEM {
         alloc_manager: &mut AllocationManager<F>,
         store: &mut Store<F>,
         valuation: &Valuation<F>,
+        max_slots_computed: &SlotsMax,
         max_slots_allowed: T,
     ) -> Result<()> {
-        let max_hashes = self.lem_op.compute_max_hashes();
-
         let mut alloc_ptrs: HashMap<&String, AllocatedPtr<F>> = HashMap::default();
 
         // Allocate inputs
@@ -617,27 +616,26 @@ impl LEM {
             return Err(anyhow!("Couldn't inputize the right number of outputs"));
         }
 
-        // TODO: compute `max_slots_indices` automatically and make
-        // `constrain_limited` receive a `bool` instead
+        // TODO: maybe receive a `bool` instead of `max_slots_allowed`
         if let Some(max_slots_allowed) = max_slots_allowed.into() {
-            if max_hashes.hash2 > max_slots_allowed.hash2 {
+            if max_slots_computed.hash2 > max_slots_allowed.hash2 {
                 bail!(
                     "Too many slots allocated for Hash2/Unhash2: {}/{}",
-                    max_hashes.hash2,
+                    max_slots_computed.hash2,
                     max_slots_allowed.hash2,
                 );
             }
-            if max_hashes.hash3 > max_slots_allowed.hash3 {
+            if max_slots_computed.hash3 > max_slots_allowed.hash3 {
                 bail!(
                     "Too many slots allocated for Hash3/Unhash3: {}/{}",
-                    max_hashes.hash3,
+                    max_slots_computed.hash3,
                     max_slots_allowed.hash3,
                 );
             }
-            if max_hashes.hash4 > max_slots_allowed.hash4 {
+            if max_slots_computed.hash4 > max_slots_allowed.hash4 {
                 bail!(
                     "Too many slots allocated for Hash4/Unhash4: {}/{}",
-                    max_hashes.hash4,
+                    max_slots_computed.hash4,
                     max_slots_allowed.hash4,
                 );
             }
@@ -646,10 +644,10 @@ impl LEM {
         Self::create_slot_constraints(
             cs,
             &alloc_ptrs,
-            hash_slots,
+            &hash_slots,
             store,
             alloc_manager,
-            &max_hashes,
+            max_slots_computed,
         )?;
 
         Ok(())
@@ -661,8 +659,9 @@ impl LEM {
         cs: &mut CS,
         alloc_manager: &mut AllocationManager<F>,
         store: &mut Store<F>,
+        max_slots: &SlotsMax,
         valuation: &Valuation<F>,
     ) -> Result<()> {
-        self.constrain_limited(cs, alloc_manager, store, valuation, None)
+        self.constrain_limited(cs, alloc_manager, store, valuation, max_slots, None)
     }
 }
