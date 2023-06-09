@@ -17,7 +17,6 @@ use crate::circuit::gadgets::{
 use crate::field::{FWrap, LurkField};
 
 use super::{pointers::ZPtr, store::Store, MetaPtr, Valuation, LEM, LEMOP};
-use crate::lem::Tag;
 
 /// Manages global allocations for constants in a constraint system
 #[derive(Default)]
@@ -297,136 +296,93 @@ impl LEM {
         let mut stack = vec![(&self.lem_op, Boolean::Constant(true), String::new())];
 
         while let Some((op, concrete_path, path)) = stack.pop() {
-            let mut constrain_hash = |hash: MetaPtr, tag: Tag, preimg| -> Result<AllocatedPtr<F>> {
-                // Get preimage from allocated pointers
-                let preimg_vec = Self::get_alloc_preimage(preimg, &alloc_ptrs)?;
+            macro_rules! acc_hash_data {
+                ($hash: expr, $tag: expr, $preimg: expr) => {
+                    // Get preimage from allocated pointers
+                    let preimg_vec = Self::get_alloc_preimage($preimg, &alloc_ptrs)?;
 
-                // Allocate new pointer containing expected hash value
-                let alloc_hash = Self::allocate_ptr(
-                    cs,
-                    &Self::z_ptr_from_valuation(&concrete_path, valuation, hash.name(), store)?,
-                    hash.name(),
-                    &alloc_ptrs,
-                )?;
+                    // Allocate new pointer containing expected hash value
+                    let alloc_hash = Self::allocate_ptr(
+                        cs,
+                        &Self::z_ptr_from_valuation(
+                            &concrete_path,
+                            valuation,
+                            $hash.name(),
+                            store,
+                        )?,
+                        $hash.name(),
+                        &alloc_ptrs,
+                    )?;
 
-                let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
-                implies_equal(
-                    &mut cs.namespace(|| format!("implies equal for {}'s tag", hash.name())),
-                    &concrete_path,
-                    alloc_hash.tag(),
-                    &alloc_tag,
-                )?;
+                    let alloc_tag = alloc_manager.get_or_alloc_num(cs, $tag.to_field())?;
+                    implies_equal(
+                        &mut cs.namespace(|| format!("implies equal for {}'s tag", $hash.name())),
+                        &concrete_path,
+                        alloc_hash.tag(),
+                        &alloc_tag,
+                    )?;
 
-                // Accumulate expected hash, wl preimage and tag, together with
-                // path information, such that only concrete path hashes are
-                // indeed calculated in the next available hash slot.
-                Self::acc_slots_data_data(concrete_path.clone(), &mut slots_data, hash, preimg_vec);
+                    // Accumulate expected hash, wl preimage and tag, together with
+                    // path information, such that only concrete path hashes are
+                    // indeed calculated in the next available hash slot.
+                    Self::acc_slots_data_data(
+                        concrete_path.clone(),
+                        &mut slots_data,
+                        $hash.clone(),
+                        preimg_vec,
+                    );
+                    alloc_ptrs.insert($hash.name(), alloc_hash.clone());
+                };
+                ($preimg: expr, $hash: expr) => {
+                    // Get preimage from allocated pointers
+                    let preimg_vec = Self::alloc_preimage(
+                        cs,
+                        $preimg,
+                        &concrete_path,
+                        valuation,
+                        store,
+                        &alloc_ptrs,
+                    )?;
 
-                // Insert hash value pointer in the HashMap
-                Ok(alloc_hash)
-            };
+                    // Accumulate expected hash, preimage and tag, together with
+                    // path information, such that only concrete path hashes are
+                    // indeed calculated in the next available hash slot.
+                    Self::acc_slots_data_data(
+                        concrete_path,
+                        &mut slots_data,
+                        $hash.clone(),
+                        preimg_vec.iter().collect::<Vec<&AllocatedPtr<F>>>(),
+                    );
+
+                    // Insert preimage pointers in the HashMap
+                    for (name, preimg) in $preimg
+                        .iter()
+                        .map(|pi| pi.name())
+                        .zip(preimg_vec.into_iter())
+                    {
+                        alloc_ptrs.insert(name, preimg);
+                    }
+                };
+            }
+
             match op {
                 LEMOP::Hash2(hash, tag, preimg) => {
-                    let alloc_hash = constrain_hash(hash.clone(), *tag, preimg)?;
-                    alloc_ptrs.insert(hash.name(), alloc_hash.clone());
+                    acc_hash_data!(hash, tag, preimg);
                 }
                 LEMOP::Hash3(hash, tag, preimg) => {
-                    let alloc_hash = constrain_hash(hash.clone(), *tag, preimg)?;
-                    alloc_ptrs.insert(hash.name(), alloc_hash.clone());
+                    acc_hash_data!(hash, tag, preimg);
                 }
                 LEMOP::Hash4(hash, tag, preimg) => {
-                    let alloc_hash = constrain_hash(hash.clone(), *tag, preimg)?;
-                    alloc_ptrs.insert(hash.name(), alloc_hash.clone());
+                    acc_hash_data!(hash, tag, preimg);
                 }
                 LEMOP::Unhash2(preimg, hash) => {
-                    // Get preimage from allocated pointers
-                    let preimg_vec = Self::alloc_preimage(
-                        cs,
-                        preimg,
-                        &concrete_path,
-                        valuation,
-                        store,
-                        &alloc_ptrs,
-                    )?;
-
-                    // Accumulate expected hash, preimage and tag, together with
-                    // path information, such that only concrete path hashes are
-                    // indeed calculated in the next available hash slot.
-                    Self::acc_slots_data_data(
-                        concrete_path,
-                        &mut slots_data,
-                        hash.clone(),
-                        preimg_vec.iter().collect::<Vec<&AllocatedPtr<F>>>(),
-                    );
-
-                    // Insert preimage pointers in the HashMap
-                    for (name, preimg) in preimg
-                        .iter()
-                        .map(|pi| pi.name())
-                        .zip(preimg_vec.into_iter())
-                    {
-                        alloc_ptrs.insert(name, preimg);
-                    }
+                    acc_hash_data!(preimg, hash);
                 }
                 LEMOP::Unhash3(preimg, hash) => {
-                    // Get preimage from allocated pointers
-                    let preimg_vec = Self::alloc_preimage(
-                        cs,
-                        preimg,
-                        &concrete_path,
-                        valuation,
-                        store,
-                        &alloc_ptrs,
-                    )?;
-
-                    // Accumulate expected hash, preimage and tag, together with
-                    // path information, such that only concrete path hashes are
-                    // indeed calculated in the next available hash slot.
-                    Self::acc_slots_data_data(
-                        concrete_path,
-                        &mut slots_data,
-                        hash.clone(),
-                        preimg_vec.iter().collect::<Vec<&AllocatedPtr<F>>>(),
-                    );
-
-                    // Insert preimage pointers in the HashMap
-                    for (name, preimg) in preimg
-                        .iter()
-                        .map(|pi| pi.name())
-                        .zip(preimg_vec.into_iter())
-                    {
-                        alloc_ptrs.insert(name, preimg);
-                    }
+                    acc_hash_data!(preimg, hash);
                 }
                 LEMOP::Unhash4(preimg, hash) => {
-                    // Get preimage from allocated pointers
-                    let preimg_vec = Self::alloc_preimage(
-                        cs,
-                        preimg,
-                        &concrete_path,
-                        valuation,
-                        store,
-                        &alloc_ptrs,
-                    )?;
-
-                    // Accumulate expected hash, preimage and tag, together with
-                    // path information, such that only concrete path hashes are
-                    // indeed calculated in the next available hash slot.
-                    Self::acc_slots_data_data(
-                        concrete_path,
-                        &mut slots_data,
-                        hash.clone(),
-                        preimg_vec.iter().collect::<Vec<&AllocatedPtr<F>>>(),
-                    );
-
-                    // Insert preimage pointers in the HashMap
-                    for (name, preimg) in preimg
-                        .iter()
-                        .map(|pi| pi.name())
-                        .zip(preimg_vec.into_iter())
-                    {
-                        alloc_ptrs.insert(name, preimg);
-                    }
+                    acc_hash_data!(preimg, hash);
                 }
                 LEMOP::Null(tgt, tag) => {
                     let alloc_tgt = Self::allocate_ptr(
