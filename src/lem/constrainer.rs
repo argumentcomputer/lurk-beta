@@ -67,9 +67,7 @@ enum HashArity {
 
 #[derive(Default)]
 struct HashSlots<F: LurkField> {
-    hash2_data: Vec<(HashArity, Boolean, Vec<AllocatedNum<F>>, MetaPtr)>,
-    hash3_data: Vec<(HashArity, Boolean, Vec<AllocatedNum<F>>, MetaPtr)>,
-    hash4_data: Vec<(HashArity, Boolean, Vec<AllocatedNum<F>>, MetaPtr)>,
+    hash_data: Vec<(HashArity, Boolean, Vec<AllocatedNum<F>>, MetaPtr)>,
 }
 
 impl LEM {
@@ -159,10 +157,10 @@ impl LEM {
         hash: MetaPtr,
         preimg_vec: Vec<&AllocatedPtr<F>>,
     ) {
-        let (arity, constraints_data) = match preimg_vec.len() {
-            2 => (HashArity::A2, &mut hash_slots.hash2_data),
-            3 => (HashArity::A3, &mut hash_slots.hash3_data),
-            4 => (HashArity::A4, &mut hash_slots.hash4_data),
+        let arity = match preimg_vec.len() {
+            2 => HashArity::A2,
+            3 => HashArity::A3,
+            4 => HashArity::A4,
             _ => unreachable!(),
         };
         let mut input_vec = Vec::new();
@@ -170,7 +168,7 @@ impl LEM {
             input_vec.push(elem.tag().clone());
             input_vec.push(elem.hash().clone());
         }
-        constraints_data.push((arity, concrete_path, input_vec, hash));
+        hash_slots.hash_data.push((arity, concrete_path, input_vec, hash));
     }
 
     /// Use the implies logic to contrain tag and hash values for accumulated
@@ -185,23 +183,37 @@ impl LEM {
     ) -> Result<()> {
         // Vectors fulls of dummies, so that it will not be required to fill with dummies later
         let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
-        let mut hash2_slots = vec![Some(alloc_dummy_ptr.hash().clone()); slots_max.hash2];
-        let mut hash3_slots = vec![Some(alloc_dummy_ptr.hash().clone()); slots_max.hash3];
-        let mut hash4_slots = vec![Some(alloc_dummy_ptr.hash().clone()); slots_max.hash4];
+        let mut hashes = vec![Some(alloc_dummy_ptr.hash().clone()); slots_max.hash2 + slots_max.hash3 + slots_max.hash4];
 
-        let mut slot_hash2 = 0;
-        let mut slot_hash3 = 0;
-        let mut slot_hash4 = 0;
-        // TODO: do a single `for`
-        for (_, concrete_path, input_vec, tgt) in hash_slots.hash2_data {
+        let mut hash_index = 0;
+        for (arity, concrete_path, input_vec, tgt) in hash_slots.hash_data {
             let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
             if is_concrete_path {
-                let alloc_hash = hash_poseidon(
-                    &mut cs.namespace(|| format!("hash2_{}", slot_hash2)),
-                    input_vec.to_vec(),
-                    store.poseidon_cache.constants.c4(),
-                )?;
-                hash2_slots[slot_hash2] = Some(alloc_hash);
+
+                let alloc_hash = match arity {
+                    HashArity::A2 => {
+                        hash_poseidon(
+                            &mut cs.namespace(|| format!("hash2_{}", hash_index)),
+                            input_vec.to_vec(),
+                            store.poseidon_cache.constants.c4(),
+                        )?
+                    }
+                    HashArity::A3 => {
+                        hash_poseidon(
+                            &mut cs.namespace(|| format!("hash3_{}", hash_index)),
+                            input_vec.to_vec(),
+                            store.poseidon_cache.constants.c6(),
+                        )?
+                    }
+                    HashArity::A4 => {
+                        hash_poseidon(
+                            &mut cs.namespace(|| format!("hash4_{}", hash_index)),
+                            input_vec.to_vec(),
+                            store.poseidon_cache.constants.c8(),
+                        )?
+                    }
+                };
+                hashes[hash_index] = Some(alloc_hash);
             }
 
             // get alloc_tgt from tgt
@@ -210,84 +222,20 @@ impl LEM {
             };
 
             // get slot_hash from slot name
-            let Some(ref slot_hash) = hash2_slots[slot_hash2] else {
-                bail!("Slot {} not allocated", slot_hash2)
+            let Some(ref slot_hash) = hashes[hash_index] else {
+                bail!("Slot {} not allocated", hash_index)
             };
 
             implies_equal(
                 &mut cs.namespace(|| {
-                    format!("implies equal hash2 for {} and {}", slot_hash2, tgt.name())
+                    format!("implies equal hash for {} and {}", hash_index, tgt.name())
                 }),
                 &concrete_path,
                 alloc_tgt.hash(),
                 slot_hash,
             )?;
             if is_concrete_path {
-                slot_hash2 += 1;
-            }
-        }
-        for (_, concrete_path, input_vec, tgt) in hash_slots.hash3_data {
-            let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
-            if is_concrete_path {
-                let alloc_hash = hash_poseidon(
-                    &mut cs.namespace(|| format!("hash3_{}", slot_hash3)),
-                    input_vec.to_vec(),
-                    store.poseidon_cache.constants.c6(),
-                )?;
-                hash3_slots[slot_hash3] = Some(alloc_hash);
-            }
-            // get alloc_tgt from tgt
-            let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
-                bail!("{} not allocated", tgt.name());
-            };
-
-            // get slot_hash from slot name
-            let Some(ref slot_hash) = hash3_slots[slot_hash3] else {
-                bail!("Slot {} not allocated", slot_hash3)
-            };
-
-            implies_equal(
-                &mut cs.namespace(|| {
-                    format!("implies equal hash3 for {} and {}", slot_hash3, tgt.name())
-                }),
-                &concrete_path,
-                alloc_tgt.hash(),
-                slot_hash,
-            )?;
-            if is_concrete_path {
-                slot_hash3 += 1;
-            }
-        }
-        for (_, concrete_path, input_vec, tgt) in hash_slots.hash4_data {
-            let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
-            if is_concrete_path {
-                let alloc_hash = hash_poseidon(
-                    &mut cs.namespace(|| format!("hash4_{}", slot_hash4)),
-                    input_vec.to_vec(),
-                    store.poseidon_cache.constants.c8(),
-                )?;
-                hash4_slots[slot_hash4] = Some(alloc_hash);
-            }
-            // get alloc_tgt from tgt
-            let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
-                bail!("{} not allocated", tgt.name());
-            };
-
-            // get slot_hash from slot name
-            let Some(ref slot_hash) = hash4_slots[slot_hash4] else {
-                bail!("Slot {} not allocated", slot_hash4)
-            };
-
-            implies_equal(
-                &mut cs.namespace(|| {
-                    format!("implies equal hash4 for {} and {}", slot_hash4, tgt.name())
-                }),
-                &concrete_path,
-                alloc_tgt.hash(),
-                slot_hash,
-            )?;
-            if is_concrete_path {
-                slot_hash4 += 1;
+                hash_index += 1;
             }
         }
         Ok(())
