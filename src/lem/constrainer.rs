@@ -191,81 +191,42 @@ impl LEM {
         for (arity, concrete_path, input_vec, tgt) in slots_data.iter() {
             let is_concrete_path = Self::on_concrete_path(concrete_path)?;
             if is_concrete_path {
+                macro_rules! constrain_slot {
+                    ($hash_index: expr, $constants: expr) => {
+                        let alloc_hash = hash_poseidon(
+                            &mut cs.namespace(|| format!("hash{}", $hash_index)),
+                            input_vec.to_vec(),
+                            $constants,
+                        )?;
+                        hashes[$hash_index] = Some(alloc_hash);
+                        // get alloc_tgt from tgt
+                        let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
+                                                    bail!("{} not allocated", tgt.name());
+                                                };
+                        // get slot_hash from slot name
+                        let Some(ref slot_hash) = hashes[$hash_index] else {
+                                                    bail!("Slot {} not allocated", $hash_index)
+                                                };
+                        implies_equal(
+                            &mut cs.namespace(|| {
+                                format!("implies equal hash for {} and {}", $hash_index, tgt.name())
+                            }),
+                            concrete_path,
+                            alloc_tgt.hash(),
+                            slot_hash,
+                        )?;
+                        $hash_index += 1;
+                    };
+                }
                 match arity {
                     HashArity::A2 => {
-                        let alloc_hash = hash_poseidon(
-                            &mut cs.namespace(|| format!("hash2_{}", hash2_index)),
-                            input_vec.to_vec(),
-                            store.poseidon_cache.constants.c4(),
-                        )?;
-                        hashes[hash2_index] = Some(alloc_hash);
-                        // get alloc_tgt from tgt
-                        let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
-                            bail!("{} not allocated", tgt.name());
-                        };
-                        // get slot_hash from slot name
-                        let Some(ref slot_hash) = hashes[hash2_index] else {
-                            bail!("Slot {} not allocated", hash2_index)
-                        };
-                        implies_equal(
-                            &mut cs.namespace(|| {
-                                format!("implies equal hash for {} and {}", hash2_index, tgt.name())
-                            }),
-                            concrete_path,
-                            alloc_tgt.hash(),
-                            slot_hash,
-                        )?;
-                        hash2_index += 1;
+                        constrain_slot!(hash2_index, store.poseidon_cache.constants.c4());
                     }
                     HashArity::A3 => {
-                        let alloc_hash = hash_poseidon(
-                            &mut cs.namespace(|| format!("hash3_{}", hash3_index)),
-                            input_vec.to_vec(),
-                            store.poseidon_cache.constants.c6(),
-                        )?;
-                        hashes[hash3_index] = Some(alloc_hash);
-                        // get alloc_tgt from tgt
-                        let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
-                            bail!("{} not allocated", tgt.name());
-                        };
-                        // get slot_hash from slot name
-                        let Some(ref slot_hash) = hashes[hash3_index] else {
-                            bail!("Slot {} not allocated", hash3_index)
-                        };
-                        implies_equal(
-                            &mut cs.namespace(|| {
-                                format!("implies equal hash for {} and {}", hash3_index, tgt.name())
-                            }),
-                            concrete_path,
-                            alloc_tgt.hash(),
-                            slot_hash,
-                        )?;
-                        hash3_index += 1;
+                        constrain_slot!(hash3_index, store.poseidon_cache.constants.c6());
                     }
                     HashArity::A4 => {
-                        let alloc_hash = hash_poseidon(
-                            &mut cs.namespace(|| format!("hash4_{}", hash4_index)),
-                            input_vec.to_vec(),
-                            store.poseidon_cache.constants.c8(),
-                        )?;
-                        hashes[hash4_index] = Some(alloc_hash);
-                        // get alloc_tgt from tgt
-                        let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
-                            bail!("{} not allocated", tgt.name());
-                        };
-                        // get slot_hash from slot name
-                        let Some(ref slot_hash) = hashes[hash4_index] else {
-                            bail!("Slot {} not allocated", hash4_index)
-                        };
-                        implies_equal(
-                            &mut cs.namespace(|| {
-                                format!("implies equal hash for {} and {}", hash4_index, tgt.name())
-                            }),
-                            concrete_path,
-                            alloc_tgt.hash(),
-                            slot_hash,
-                        )?;
-                        hash4_index += 1;
+                        constrain_slot!(hash4_index, store.poseidon_cache.constants.c8());
                     }
                 };
             }
