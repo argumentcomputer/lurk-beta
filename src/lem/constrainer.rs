@@ -185,6 +185,7 @@ impl LEM {
             num_hash_slots.hash2 + num_hash_slots.hash3 + num_hash_slots.hash4
         ];
 
+        // In order to get a uniform circuit each type of hash has its own constant-size subvector
         let mut hash2_index = 0;
         let mut hash3_index = num_hash_slots.hash2;
         let mut hash4_index = num_hash_slots.hash3;
@@ -198,6 +199,7 @@ impl LEM {
                             input_vec.to_vec(),
                             $constants,
                         )?;
+                        // Replace dummy by allocated hash
                         hashes[$hash_index] = Some(alloc_hash);
                         // get alloc_tgt from tgt
                         let Some(alloc_tgt) = alloc_ptrs.get(tgt.name()) else {
