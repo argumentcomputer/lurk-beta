@@ -16,8 +16,7 @@ use crate::circuit::gadgets::{
 
 use crate::field::{FWrap, LurkField};
 
-use super::{pointers::ZPtr, store::Store, MetaPtr, Valuation, LEM, LEMOP};
-use crate::lem::SlotsMax;
+use super::{pointers::ZPtr, store::Store, MetaPtr, NumSlots, Valuation, LEM, LEMOP};
 
 /// Manages global allocations for constants in a constraint system
 #[derive(Default)]
@@ -176,7 +175,7 @@ impl LEM {
         slots_data: &SlotsData<F>,
         store: &mut Store<F>,
         alloc_manager: &mut AllocationManager<F>,
-        num_hash_slots: SlotsMax,
+        num_hash_slots: NumSlots,
     ) -> Result<()> {
         // Vectors fulls of dummies, so that it will not be required to fill with dummies later
         let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
@@ -287,7 +286,7 @@ impl LEM {
         alloc_manager: &mut AllocationManager<F>,
         store: &mut Store<F>,
         valuation: &Valuation<F>,
-        num_hash_slots: SlotsMax,
+        num_hash_slots: NumSlots,
     ) -> Result<()> {
         let mut alloc_ptrs: HashMap<&String, AllocatedPtr<F>> = HashMap::default();
 
