@@ -108,6 +108,13 @@ impl MetaPtr {
     }
 }
 
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct SlotsMax {
+    pub hash2: usize,
+    pub hash3: usize,
+    pub hash4: usize,
+}
+
 /// The basic building blocks of LEMs.
 #[non_exhaustive]
 #[derive(Clone, PartialEq)]
@@ -155,32 +162,47 @@ impl LEMOP {
         Ok(())
     }
 
-    pub fn num_hash_slots(&self) -> usize {
+    pub fn num_hash_slots(&self) -> SlotsMax {
         match self {
-            LEMOP::Hash2(..)
-            | LEMOP::Unhash2(..)
-            | LEMOP::Hash3(..)
-            | LEMOP::Unhash3(..)
-            | LEMOP::Hash4(..)
-            | LEMOP::Unhash4(..) => 1,
-            LEMOP::MatchTag(_, cases) => cases.values().fold(0, |mut acc, op: &LEMOP| {
+            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => SlotsMax {
+                hash2: 1,
+                hash3: 0,
+                hash4: 0,
+            },
+            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => SlotsMax {
+                hash2: 0,
+                hash3: 1,
+                hash4: 0,
+            },
+            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => SlotsMax {
+                hash2: 0,
+                hash3: 0,
+                hash4: 1,
+            },
+            LEMOP::MatchTag(_, cases) => cases.values().fold(SlotsMax::default(), |mut acc, op| {
                 let case_max = op.num_hash_slots();
-                acc = max(case_max, acc);
+                acc.hash2 = max(case_max.hash2, acc.hash2);
+                acc.hash3 = max(case_max.hash3, acc.hash3);
+                acc.hash4 = max(case_max.hash4, acc.hash4);
                 acc
             }),
             LEMOP::MatchSymPath(_, cases, def) => {
                 cases.values().fold(def.num_hash_slots(), |mut acc, op| {
                     let case_max = op.num_hash_slots();
-                    acc = max(case_max, acc);
+                    acc.hash2 = max(case_max.hash2, acc.hash2);
+                    acc.hash3 = max(case_max.hash3, acc.hash3);
+                    acc.hash4 = max(case_max.hash4, acc.hash4);
                     acc
                 })
             }
-            LEMOP::Seq(ops) => ops.iter().fold(0, |mut acc, op| {
+            LEMOP::Seq(ops) => ops.iter().fold(SlotsMax::default(), |mut acc, op| {
                 let op_max = op.num_hash_slots();
-                acc += op_max;
+                acc.hash2 += op_max.hash2;
+                acc.hash3 += op_max.hash3;
+                acc.hash4 += op_max.hash4;
                 acc
             }),
-            _ => 0,
+            _ => SlotsMax::default(),
         }
     }
 
@@ -489,7 +511,7 @@ mod tests {
     use bellperson::util_cs::test_cs::TestConstraintSystem;
     use blstrs::Scalar as Fr;
 
-    fn constrain_test_helper(lem: &LEM, expr: &Ptr<Fr>, expected_num_hash_slots: usize) {
+    fn constrain_test_helper(lem: &LEM, expr: &Ptr<Fr>, expected_num_hash_slots: SlotsMax) {
         let num_hash_slots = lem.lem_op.num_hash_slots();
         assert_eq!(num_hash_slots, expected_num_hash_slots);
 
@@ -499,7 +521,7 @@ mod tests {
         let mut alloc_manager = AllocationManager::default();
         for v in valuations {
             let mut cs = TestConstraintSystem::<Fr>::new();
-            lem.constrain(&mut cs, &mut alloc_manager, &mut store, &v, num_hash_slots)
+            lem.constrain(&mut cs, &mut alloc_manager, &mut store, &v, num_hash_slots.clone())
                 .unwrap();
             assert!(cs.is_satisfied());
         }
@@ -541,7 +563,7 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), 0);
+        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), SlotsMax::default());
     }
 
     #[test]
@@ -565,7 +587,7 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), 0);
+        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), SlotsMax::default());
     }
 
     #[test]
@@ -581,7 +603,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), 1);
+        let expected = SlotsMax {
+            hash2: 1,
+            hash3: 0,
+            hash4: 0,
+        };
+        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), expected);
     }
 
     #[test]
@@ -598,7 +625,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), 2);
+        let expected = SlotsMax {
+            hash2: 2,
+            hash3: 0,
+            hash4: 0,
+        };
+        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), expected);
     }
 
     #[test]
@@ -622,7 +654,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), 3);
+        let expected = SlotsMax {
+            hash2: 3,
+            hash3: 0,
+            hash4: 0,
+        };
+        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), expected);
     }
 
     #[test]
@@ -659,7 +696,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), 7);
+        let expected = SlotsMax {
+            hash2: 7,
+            hash3: 0,
+            hash4: 0,
+        };
+        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), expected);
     }
 
     #[test]
@@ -672,7 +714,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), 2);
+        let expected = SlotsMax {
+            hash2: 2,
+            hash3: 0,
+            hash4: 0,
+        };
+        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), expected);
     }
 
     #[test]
@@ -688,7 +735,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), 1);
+        let expected = SlotsMax {
+            hash2: 0,
+            hash3: 1,
+            hash4: 0,
+        };
+        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), expected);
     }
 
     #[test]
@@ -705,7 +757,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), 2);
+        let expected = SlotsMax {
+            hash2: 0,
+            hash3: 2,
+            hash4: 0,
+        };
+        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), expected);
     }
 
     #[test]
@@ -729,7 +786,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), 3);
+        let expected = SlotsMax {
+            hash2: 0,
+            hash3: 3,
+            hash4: 0,
+        };
+        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), expected);
     }
 
     #[test]
@@ -766,7 +828,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), 7);
+        let expected = SlotsMax {
+            hash2: 0,
+            hash3: 7,
+            hash4: 0,
+        };
+        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), expected);
     }
 
     #[test]
@@ -779,7 +846,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), 2);
+        let expected = SlotsMax {
+            hash2: 0,
+            hash3: 2,
+            hash4: 0,
+        };
+        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), expected);
     }
 
     #[test]
@@ -795,7 +867,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), 1);
+        let expected = SlotsMax {
+            hash2: 0,
+            hash3: 0,
+            hash4: 1,
+        };
+        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), expected);
     }
 
     #[test]
@@ -812,7 +889,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), 2);
+        let expected = SlotsMax {
+            hash2: 0,
+            hash3: 0,
+            hash4: 2,
+        };
+        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), expected);
     }
 
     #[test]
@@ -836,7 +918,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), 3);
+        let expected = SlotsMax {
+            hash2: 0,
+            hash3: 0,
+            hash4: 3,
+        };
+        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), expected);
     }
 
     #[test]
@@ -873,7 +960,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), 7);
+        let expected = SlotsMax {
+            hash2: 0,
+            hash3: 0,
+            hash4: 7,
+        };
+        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), expected);
     }
 
     #[test]
@@ -886,6 +978,11 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), 2);
+        let expected = SlotsMax {
+            hash2: 0,
+            hash3: 0,
+            hash4: 2,
+        };
+        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), expected);
     }
 }
