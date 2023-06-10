@@ -19,7 +19,6 @@ use crate::field::{FWrap, LurkField};
 use super::{pointers::ZPtr, store::Store, MetaPtr, Valuation, LEM, LEMOP};
 use crate::lem::SlotsMax;
 
-
 /// Manages global allocations for constants in a constraint system
 #[derive(Default)]
 pub struct AllocationManager<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);
@@ -181,7 +180,10 @@ impl LEM {
     ) -> Result<()> {
         // Vectors fulls of dummies, so that it will not be required to fill with dummies later
         let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
-        let mut hashes = vec![Some(alloc_dummy_ptr.hash().clone()); num_hash_slots.hash2 + num_hash_slots.hash3 + num_hash_slots.hash4];
+        let mut hashes = vec![
+            Some(alloc_dummy_ptr.hash().clone());
+            num_hash_slots.hash2 + num_hash_slots.hash3 + num_hash_slots.hash4
+        ];
 
         let mut hash2_index = 0;
         let mut hash3_index = num_hash_slots.hash2;

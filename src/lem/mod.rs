@@ -521,8 +521,14 @@ mod tests {
         let mut alloc_manager = AllocationManager::default();
         for v in valuations {
             let mut cs = TestConstraintSystem::<Fr>::new();
-            lem.constrain(&mut cs, &mut alloc_manager, &mut store, &v, num_hash_slots.clone())
-                .unwrap();
+            lem.constrain(
+                &mut cs,
+                &mut alloc_manager,
+                &mut store,
+                &v,
+                num_hash_slots.clone(),
+            )
+            .unwrap();
             assert!(cs.is_satisfied());
         }
     }
