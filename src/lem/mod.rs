@@ -144,7 +144,7 @@ pub enum LEMOP {
 }
 
 /// Structure used to hold the number of slots needed for a `LEMOP`
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
 pub struct NumSlots {
     pub hash2: usize,
     pub hash3: usize,
@@ -178,6 +178,11 @@ impl NumSlots {
             self.hash3 + other.hash3,
             self.hash4 + other.hash4,
         ))
+    }
+
+    #[inline]
+    pub fn total(&self) -> usize {
+        self.hash2 + self.hash3 + self.hash4
     }
 }
 
@@ -527,14 +532,8 @@ mod tests {
         let mut alloc_manager = AllocationManager::default();
         for v in valuations {
             let mut cs = TestConstraintSystem::<Fr>::new();
-            lem.constrain(
-                &mut cs,
-                &mut alloc_manager,
-                &mut store,
-                &v,
-                num_hash_slots.clone(),
-            )
-            .unwrap();
+            lem.constrain(&mut cs, &mut alloc_manager, &mut store, &v, &num_hash_slots)
+                .unwrap();
             assert!(cs.is_satisfied());
         }
     }

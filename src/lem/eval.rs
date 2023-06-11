@@ -62,7 +62,7 @@ mod tests {
                     &mut alloc_manager,
                     store,
                     &valuation,
-                    num_hash_slots.clone(),
+                    &num_hash_slots,
                 )
                 .unwrap();
                 assert!(cs.is_satisfied());

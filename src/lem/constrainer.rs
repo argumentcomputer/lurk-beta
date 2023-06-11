@@ -175,14 +175,11 @@ impl LEM {
         slots_data: &SlotsData<F>,
         store: &mut Store<F>,
         alloc_manager: &mut AllocationManager<F>,
-        num_hash_slots: NumSlots,
+        num_hash_slots: &NumSlots,
     ) -> Result<()> {
         // Vectors fulls of dummies, so that it will not be required to fill with dummies later
         let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
-        let mut hashes = vec![
-            Some(alloc_dummy_ptr.hash().clone());
-            num_hash_slots.hash2 + num_hash_slots.hash3 + num_hash_slots.hash4
-        ];
+        let mut hashes = vec![Some(alloc_dummy_ptr.hash().clone()); num_hash_slots.total()];
 
         // In order to get a uniform circuit each type of hash has its own constant-size subvector
         let mut hash2_index = 0;
@@ -286,7 +283,7 @@ impl LEM {
         alloc_manager: &mut AllocationManager<F>,
         store: &mut Store<F>,
         valuation: &Valuation<F>,
-        num_hash_slots: NumSlots,
+        num_hash_slots: &NumSlots,
     ) -> Result<()> {
         let mut alloc_ptrs: HashMap<&String, AllocatedPtr<F>> = HashMap::default();
 
