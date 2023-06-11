@@ -244,22 +244,6 @@ impl<F: LurkField> Store<F> {
     /// depth limit. This limitation is circumvented by calling `hydrate_z_cache`.
     pub fn hydrate_ptr(&self, ptr: &Ptr<F>) -> Result<ZPtr<F>> {
         match ptr {
-            Ptr::Leaf(Tag::Comm, hash) => match self.z_cache.get(ptr) {
-                Some(z_ptr) => Ok(*z_ptr),
-                None => {
-                    let Some((secret, ptr)) = self.comms.get(&FWrap(*hash)) else {
-                            bail!("Hash {} not found", hash.hex_digits())
-                        };
-                    let z_ptr = ZPtr {
-                        tag: Tag::Comm,
-                        hash: *hash,
-                    };
-                    self.z_dag
-                        .insert(z_ptr, ZChildren::Comm(*secret, self.hydrate_ptr(ptr)?));
-                    self.z_cache.insert(*ptr, z_ptr);
-                    Ok(z_ptr)
-                }
-            },
             Ptr::Leaf(tag, x) => Ok(ZPtr {
                 tag: *tag,
                 hash: *x,

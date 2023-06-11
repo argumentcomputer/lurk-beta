@@ -119,7 +119,6 @@ pub(crate) enum ZChildren<F: LurkField> {
     Tree2(ZPtr<F>, ZPtr<F>),
     Tree3(ZPtr<F>, ZPtr<F>, ZPtr<F>),
     Tree4(ZPtr<F>, ZPtr<F>, ZPtr<F>, ZPtr<F>),
-    Comm(F, ZPtr<F>), // secret, src
 }
 
 impl<F: LurkField> ZPtr<F> {
