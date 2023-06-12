@@ -65,10 +65,15 @@ enum HashArity {
 }
 
 type SlotsData<F> = Vec<(
+    /// Arity of the hash
     HashArity,
+    /// Variable that indicates if we are in a concrete path or not
     Boolean,
+    /// Hash preimage
     Vec<AllocatedNum<F>>,
+    /// Hash value
     AllocatedNum<F>,
+    /// Allocated pointer name containing the result of the hash
     String,
 )>;
 
@@ -188,8 +193,11 @@ impl LEM {
         let mut hashes = vec![Some(alloc_dummy_ptr.hash().clone()); num_hash_slots.total()];
 
         // In order to get a uniform circuit each type of hash has its own constant-size subvector
+        // Hash2 uses subvector from 0 to num_hash_slots.hash2
         let mut hash2_index = 0;
+        // Hash3 uses subvector from num_hash_slots.hash2 to num_hash+slots.hash3
         let mut hash3_index = num_hash_slots.hash2;
+        // Hash4 uses subvector from num_hash_slots.hash3 to num_hash+slots.hash4
         let mut hash4_index = num_hash_slots.hash3;
         for (arity, concrete_path, preimg_vec, img, img_name) in slots_data.iter() {
             let is_concrete_path = Self::on_concrete_path(concrete_path)?;
@@ -208,6 +216,7 @@ impl LEM {
                         let Some(ref slot_hash) = hashes[$hash_index] else {
                                                     bail!("Slot {} not allocated", $hash_index)
                                                 };
+                        // if on cocnrete path then img must be equal to hash in slot
                         implies_equal(
                             &mut cs.namespace(|| {
                                 format!("implies equal hash for {} and {}", $hash_index, img_name)
@@ -321,7 +330,7 @@ impl LEM {
                         &alloc_tag,
                     )?;
 
-                    // Accumulate expected hash, wl preimage and tag, together with
+                    // Accumulate expected hash, preimage and tag, together with
                     // path information, such that only concrete path hashes are
                     // indeed calculated in the next available hash slot.
                     Self::acc_slots_data_data(
