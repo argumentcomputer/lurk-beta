@@ -149,7 +149,7 @@ pub(crate) mod test {
             result += *b_num;
             let x = s.intern_num(result);
 
-            return x;
+            x
         }
 
         fn has_circuit(&self) -> bool {

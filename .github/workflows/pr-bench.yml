@@ -1,0 +1,32 @@
+name: Benchmark pull requests
+on:
+  issue_comment:
+    types: [created]
+
+env:
+  CARGO_TERM_COLOR: always
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  runBenchmark:
+    name: run benchmark
+    runs-on: [self-hosted, bench]
+    if:
+      github.event.issue.pull_request
+      && contains(github.event.comment.body, '!benchmark')
+      && (github.event.comment.author_association == 'MEMBER'
+      || github.event.comment.author_association == 'OWNER')
+    steps:
+      - uses: actions/checkout@v3
+      # Set the Rust env vars
+      - uses: actions-rs/toolchain@v1
+      - uses: Swatinem/rust-cache@v2
+      - uses: boa-dev/criterion-compare-action@v3
+        with:
+          # Optional. Compare only this benchmark target
+          benchName: "end2end"
+          # Needed. The name of the branch to compare with. This default uses the branch which is being pulled against
+          branchName: ${{ github.ref }}

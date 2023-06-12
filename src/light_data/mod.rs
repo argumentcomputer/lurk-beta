@@ -298,9 +298,9 @@ pub mod tests {
     #[test]
     fn unit_trimmed_bytes() {
         assert_eq!(LightData::to_trimmed_le_bytes(43411), vec![147, 169]);
-        assert_eq!(43411, LightData::read_size_bytes(&vec![147, 169]).unwrap());
+        assert_eq!(43411, LightData::read_size_bytes(&[147, 169]).unwrap());
         assert_eq!(LightData::to_trimmed_le_bytes(37801), vec![169, 147]);
-        assert_eq!(37801, LightData::read_size_bytes(&vec![169, 147]).unwrap());
+        assert_eq!(37801, LightData::read_size_bytes(&[169, 147]).unwrap());
     }
 
     #[test]
