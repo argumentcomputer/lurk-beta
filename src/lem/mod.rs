@@ -89,7 +89,7 @@ pub struct LEM {
 }
 
 /// Named references to be bound to `Ptr`s.
-#[derive(PartialEq, Clone, Eq, Hash)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct MetaPtr(String);
 
 impl MetaPtr {
@@ -233,6 +233,46 @@ impl LEMOP {
         path: &str,
         map: &mut HashMap<String, String>, // name -> path/name
     ) -> Result<Self> {
+        let insert_many =
+            |map: &mut HashMap<String, String>, ptr: &[MetaPtr]| -> Result<Vec<MetaPtr>> {
+                ptr.iter()
+                    .map(|ptr| {
+                        let new_name = format!("{}.{}", path, ptr.name());
+                        if map.insert(ptr.name().clone(), new_name.clone()).is_some() {
+                            bail!("{} already defined", ptr.name());
+                        };
+                        Ok(MetaPtr(new_name))
+                    })
+                    .collect::<Result<Vec<_>>>()
+            };
+
+        let insert_one = |map: &mut HashMap<String, String>, ptr: &MetaPtr| -> Result<MetaPtr> {
+            let new_name = format!("{}.{}", path, ptr.name());
+            if map.insert(ptr.name().clone(), new_name.clone()).is_some() {
+                bail!("{} already defined", ptr.name());
+            };
+            Ok(MetaPtr(new_name))
+        };
+
+        let retrieve_many =
+            |map: &HashMap<String, String>, args: &[MetaPtr]| -> Result<Vec<MetaPtr>> {
+                args.iter()
+                    .map(|ptr| {
+                        let Some(src_path) = map.get(ptr.name()).cloned() else {
+                        bail!("{} not defined", ptr.name());
+                    };
+                        Ok(MetaPtr(src_path))
+                    })
+                    .collect::<Result<Vec<_>>>()
+            };
+
+        let retrieve_one = |map: &HashMap<String, String>, ptr: &MetaPtr| -> Result<MetaPtr> {
+            let Some(src_path) = map.get(ptr.name()).cloned() else {
+                bail!("{} not defined", ptr.name());
+            };
+            Ok(MetaPtr(src_path))
+        };
+
         match self {
             Self::Null(ptr, tag) => {
                 let new_name = format!("{}.{}", path, ptr.name());
@@ -241,169 +281,35 @@ impl LEMOP {
                 };
                 Ok(Self::Null(MetaPtr(new_name), *tag))
             }
-            Self::Hash2(tgt, tag, src) => {
-                let Some(src0_path) = map.get(src[0].name()).cloned() else {
-                    bail!("{} not defined", src[0].name());
-                };
-                let Some(src1_path) = map.get(src[1].name()).cloned() else {
-                    bail!("{} not defined", src[1].name());
-                };
-                let new_name = format!("{}.{}", path, tgt.name());
-                if map.insert(tgt.name().clone(), new_name.clone()).is_some() {
-                    bail!("{} already defined", tgt.name());
-                };
-                Ok(Self::Hash2(
-                    MetaPtr(new_name),
-                    *tag,
-                    [MetaPtr(src0_path), MetaPtr(src1_path)],
-                ))
+            Self::Hash2(img, tag, preimg) => {
+                let preimg = retrieve_many(map, preimg)?.try_into().unwrap();
+                let img = insert_one(map, img)?;
+                Ok(Self::Hash2(img, *tag, preimg))
             }
-            Self::Hash3(tgt, tag, src) => {
-                let Some(src0_path) = map.get(src[0].name()).cloned() else {
-                    bail!("{} not defined", src[0].name());
-                };
-                let Some(src1_path) = map.get(src[1].name()).cloned() else {
-                    bail!("{} not defined", src[1].name());
-                };
-                let Some(src2_path) = map.get(src[2].name()).cloned() else {
-                    bail!("{} not defined", src[2].name());
-                };
-                let new_name = format!("{}.{}", path, tgt.name());
-                if map.insert(tgt.name().clone(), new_name.clone()).is_some() {
-                    bail!("{} already defined", tgt.name());
-                };
-                Ok(Self::Hash3(
-                    MetaPtr(new_name),
-                    *tag,
-                    [MetaPtr(src0_path), MetaPtr(src1_path), MetaPtr(src2_path)],
-                ))
+            Self::Hash3(img, tag, preimg) => {
+                let preimg = retrieve_many(map, preimg)?.try_into().unwrap();
+                let img = insert_one(map, img)?;
+                Ok(Self::Hash3(img, *tag, preimg))
             }
-            Self::Hash4(tgt, tag, src) => {
-                let Some(src0_path) = map.get(src[0].name()).cloned() else {
-                    bail!("{} not defined", src[0].name());
-                };
-                let Some(src1_path) = map.get(src[1].name()).cloned() else {
-                    bail!("{} not defined", src[1].name());
-                };
-                let Some(src2_path) = map.get(src[2].name()).cloned() else {
-                    bail!("{} not defined", src[2].name());
-                };
-                let Some(src3_path) = map.get(src[3].name()).cloned() else {
-                    bail!("{} not defined", src[3].name());
-                };
-                let new_name = format!("{}.{}", path, tgt.name());
-                if map.insert(tgt.name().clone(), new_name.clone()).is_some() {
-                    bail!("{} already defined", tgt.name());
-                };
-                Ok(Self::Hash4(
-                    MetaPtr(new_name),
-                    *tag,
-                    [
-                        MetaPtr(src0_path),
-                        MetaPtr(src1_path),
-                        MetaPtr(src2_path),
-                        MetaPtr(src3_path),
-                    ],
-                ))
+            Self::Hash4(img, tag, preimg) => {
+                let preimg = retrieve_many(map, preimg)?.try_into().unwrap();
+                let img = insert_one(map, img)?;
+                Ok(Self::Hash4(img, *tag, preimg))
             }
-            LEMOP::Unhash2(tgt, src) => {
-                let Some(src_path) = map.get(src.name()).cloned() else {
-                    bail!("{} not defined", src.name());
-                };
-                let tgt0_new_name = format!("{}.{}", path, tgt[0].name());
-                if map
-                    .insert(tgt[0].name().clone(), tgt0_new_name.clone())
-                    .is_some()
-                {
-                    bail!("{} already defined", tgt[0].name());
-                };
-                let tgt1_new_name = format!("{}.{}", path, tgt[1].name());
-                if map
-                    .insert(tgt[1].name().clone(), tgt1_new_name.clone())
-                    .is_some()
-                {
-                    bail!("{} already defined", tgt[1].name());
-                };
-                Ok(Self::Unhash2(
-                    [MetaPtr(tgt0_new_name), MetaPtr(tgt1_new_name)],
-                    MetaPtr(src_path),
-                ))
+            LEMOP::Unhash2(preimg, img) => {
+                let img = retrieve_one(map, img)?;
+                let preimg = insert_many(map, preimg)?;
+                Ok(Self::Unhash2(preimg.try_into().unwrap(), img))
             }
-            LEMOP::Unhash3(tgt, src) => {
-                let Some(src_path) = map.get(src.name()).cloned() else {
-                    bail!("{} not defined", src.name());
-                };
-                let tgt0_new_name = format!("{}.{}", path, tgt[0].name());
-                if map
-                    .insert(tgt[0].name().clone(), tgt0_new_name.clone())
-                    .is_some()
-                {
-                    bail!("{} already defined", tgt[0].name());
-                };
-                let tgt1_new_name = format!("{}.{}", path, tgt[1].name());
-                if map
-                    .insert(tgt[1].name().clone(), tgt1_new_name.clone())
-                    .is_some()
-                {
-                    bail!("{} already defined", tgt[1].name());
-                };
-                let tgt2_new_name = format!("{}.{}", path, tgt[2].name());
-                if map
-                    .insert(tgt[2].name().clone(), tgt2_new_name.clone())
-                    .is_some()
-                {
-                    bail!("{} already defined", tgt[2].name());
-                };
-                Ok(Self::Unhash3(
-                    [
-                        MetaPtr(tgt0_new_name),
-                        MetaPtr(tgt1_new_name),
-                        MetaPtr(tgt2_new_name),
-                    ],
-                    MetaPtr(src_path),
-                ))
+            LEMOP::Unhash3(preimg, img) => {
+                let img = retrieve_one(map, img)?;
+                let preimg = insert_many(map, preimg)?;
+                Ok(Self::Unhash3(preimg.try_into().unwrap(), img))
             }
-            LEMOP::Unhash4(tgt, src) => {
-                let Some(src_path) = map.get(src.name()).cloned() else {
-                    bail!("{} not defined", src.name());
-                };
-                let tgt0_new_name = format!("{}.{}", path, tgt[0].name());
-                if map
-                    .insert(tgt[0].name().clone(), tgt0_new_name.clone())
-                    .is_some()
-                {
-                    bail!("{} already defined", tgt[0].name());
-                };
-                let tgt1_new_name = format!("{}.{}", path, tgt[1].name());
-                if map
-                    .insert(tgt[1].name().clone(), tgt1_new_name.clone())
-                    .is_some()
-                {
-                    bail!("{} already defined", tgt[1].name());
-                };
-                let tgt2_new_name = format!("{}.{}", path, tgt[2].name());
-                if map
-                    .insert(tgt[2].name().clone(), tgt2_new_name.clone())
-                    .is_some()
-                {
-                    bail!("{} already defined", tgt[2].name());
-                };
-                let tgt3_new_name = format!("{}.{}", path, tgt[3].name());
-                if map
-                    .insert(tgt[3].name().clone(), tgt3_new_name.clone())
-                    .is_some()
-                {
-                    bail!("{} already defined", tgt[3].name());
-                };
-                Ok(Self::Unhash4(
-                    [
-                        MetaPtr(tgt0_new_name),
-                        MetaPtr(tgt1_new_name),
-                        MetaPtr(tgt2_new_name),
-                        MetaPtr(tgt3_new_name),
-                    ],
-                    MetaPtr(src_path),
-                ))
+            LEMOP::Unhash4(preimg, img) => {
+                let img = retrieve_one(map, img)?;
+                let preimg = insert_many(map, preimg)?;
+                Ok(Self::Unhash4(preimg.try_into().unwrap(), img))
             }
             LEMOP::MatchTag(ptr, cases) => {
                 let Some(ptr_path) = map.get(ptr.name()).cloned() else {
