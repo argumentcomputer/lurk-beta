@@ -186,7 +186,7 @@ impl LEM {
         });
     }
 
-    /// Use the implies logic to contrain tag and hash values for accumulated
+    /// Use the implies logic to constrain tag and hash values for accumulated
     /// slot data
     fn create_slot_constraints<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
