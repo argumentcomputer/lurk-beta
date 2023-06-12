@@ -64,7 +64,13 @@ enum HashArity {
     A4,
 }
 
-type SlotsData<F> = Vec<(HashArity, Boolean, Vec<AllocatedNum<F>>, MetaPtr)>;
+type SlotsData<F> = Vec<(
+    HashArity,
+    Boolean,
+    Vec<AllocatedNum<F>>,
+    AllocatedNum<F>,
+    String,
+)>;
 
 impl LEM {
     fn allocate_ptr<F: LurkField, CS: ConstraintSystem<F>>(
@@ -150,7 +156,8 @@ impl LEM {
     fn acc_slots_data_data<F: LurkField>(
         concrete_path: Boolean,
         slots_data: &mut SlotsData<F>,
-        img: MetaPtr,
+        img: AllocatedNum<F>,
+        img_name: String,
         preimg_vec: Vec<&AllocatedPtr<F>>,
     ) {
         let arity = match preimg_vec.len() {
@@ -164,14 +171,13 @@ impl LEM {
             input_vec.push(elem.tag().clone());
             input_vec.push(elem.hash().clone());
         }
-        slots_data.push((arity, concrete_path, input_vec, img));
+        slots_data.push((arity, concrete_path, input_vec, img, img_name));
     }
 
     /// Use the implies logic to contrain tag and hash values for accumulated
     /// slot data
     fn create_slot_constraints<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        alloc_ptrs: &HashMap<&String, AllocatedPtr<F>>,
         slots_data: &SlotsData<F>,
         store: &mut Store<F>,
         alloc_manager: &mut AllocationManager<F>,
@@ -185,7 +191,7 @@ impl LEM {
         let mut hash2_index = 0;
         let mut hash3_index = num_hash_slots.hash2;
         let mut hash4_index = num_hash_slots.hash3;
-        for (arity, concrete_path, preimg_vec, img) in slots_data.iter() {
+        for (arity, concrete_path, preimg_vec, img, img_name) in slots_data.iter() {
             let is_concrete_path = Self::on_concrete_path(concrete_path)?;
             if is_concrete_path {
                 macro_rules! constrain_slot {
@@ -197,20 +203,17 @@ impl LEM {
                         )?;
                         // Replace dummy by allocated hash
                         hashes[$hash_index] = Some(alloc_hash);
-                        // get alloc_tgt from img
-                        let Some(alloc_img) = alloc_ptrs.get(img.name()) else {
-                                                    bail!("{} not allocated", img.name());
-                                                };
+
                         // get slot_hash from slot name
                         let Some(ref slot_hash) = hashes[$hash_index] else {
                                                     bail!("Slot {} not allocated", $hash_index)
                                                 };
                         implies_equal(
                             &mut cs.namespace(|| {
-                                format!("implies equal hash for {} and {}", $hash_index, img.name())
+                                format!("implies equal hash for {} and {}", $hash_index, img_name)
                             }),
                             concrete_path,
-                            alloc_img.hash(),
+                            img,
                             slot_hash,
                         )?;
                         $hash_index += 1;
@@ -303,7 +306,7 @@ impl LEM {
                     let preimg_vec = Self::get_alloc_preimage($preimg, &alloc_ptrs)?;
 
                     // Allocate new pointer containing expected hash value
-                    let alloc_hash = Self::allocate_ptr(
+                    let alloc_img = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_valuation(&concrete_path, valuation, $img.name(), store)?,
                         $img.name(),
@@ -314,7 +317,7 @@ impl LEM {
                     implies_equal(
                         &mut cs.namespace(|| format!("implies equal for {}'s tag", $img.name())),
                         &concrete_path,
-                        alloc_hash.tag(),
+                        alloc_img.tag(),
                         &alloc_tag,
                     )?;
 
@@ -324,10 +327,11 @@ impl LEM {
                     Self::acc_slots_data_data(
                         concrete_path.clone(),
                         &mut slots_data,
-                        $img.clone(),
+                        alloc_img.hash().clone(),
+                        $img.name().clone(),
                         preimg_vec,
                     );
-                    alloc_ptrs.insert($img.name(), alloc_hash.clone());
+                    alloc_ptrs.insert($img.name(), alloc_img.clone());
                 };
                 ($preimg: expr, $img: expr) => {
                     // Get preimage from allocated pointers
@@ -340,13 +344,19 @@ impl LEM {
                         &alloc_ptrs,
                     )?;
 
+                    // get alloc_tgt from img
+                    let Some(alloc_img) = alloc_ptrs.get($img.name()) else {
+                                            bail!("{} not allocated", $img.name());
+                                        };
+
                     // Accumulate expected hash, preimage and tag, together with
                     // path information, such that only concrete path hashes are
                     // indeed calculated in the next available hash slot.
                     Self::acc_slots_data_data(
                         concrete_path,
                         &mut slots_data,
-                        $img.clone(),
+                        alloc_img.hash().clone(),
+                        $img.name().clone(),
                         preimg_vec.iter().collect::<Vec<&AllocatedPtr<F>>>(),
                     );
 
@@ -496,14 +506,7 @@ impl LEM {
             return Err(anyhow!("Couldn't inputize the right number of outputs"));
         }
 
-        Self::create_slot_constraints(
-            cs,
-            &alloc_ptrs,
-            &slots_data,
-            store,
-            alloc_manager,
-            num_hash_slots,
-        )?;
+        Self::create_slot_constraints(cs, &slots_data, store, alloc_manager, num_hash_slots)?;
 
         Ok(())
     }
