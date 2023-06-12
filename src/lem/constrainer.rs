@@ -64,16 +64,17 @@ enum HashArity {
     A4,
 }
 
+/// Information needed to constrain each hash slot
 type SlotsData<F> = Vec<(
-    /// Arity of the hash
+    // Arity of the hash
     HashArity,
-    /// Variable that indicates if we are in a concrete path or not
+    // Variable that indicates if we are in a concrete path or not
     Boolean,
-    /// Hash preimage
+    // Hash preimage
     Vec<AllocatedNum<F>>,
-    /// Hash value
+    // Hash value
     AllocatedNum<F>,
-    /// Allocated pointer name containing the result of the hash
+    // Allocated pointer name containing the result of the hash
     String,
 )>;
 
