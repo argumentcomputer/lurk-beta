@@ -3,9 +3,6 @@ on:
   issue_comment:
     types: [created]
 
-permissions:
-  contents: read
-
 env:
   CARGO_TERM_COLOR: always
 
@@ -16,8 +13,6 @@ concurrency:
 jobs:
   runBenchmark:
     name: run benchmark
-    permissions:
-      pull-requests: read
     runs-on: [self-hosted, bench]
     if:
       github.event.issue.pull_request
@@ -34,4 +29,4 @@ jobs:
           # Optional. Compare only this benchmark target
           benchName: "end2end"
           # Needed. The name of the branch to compare with. This default uses the branch which is being pulled against
-          branchName: ${{ github.base_ref }}
+          branchName: ${{ github.ref }}
