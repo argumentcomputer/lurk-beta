@@ -42,6 +42,8 @@ jobs:
       RUSTFLAGS: -D warnings
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - uses: actions-rs/toolchain@v1
       - uses: taiki-e/install-action@nextest
       - uses: Swatinem/rust-cache@v2
@@ -61,6 +63,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - uses: actions-rs/toolchain@v1
         with:
           components: clippy
@@ -73,6 +77,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - uses: actions-rs/toolchain@v1
         with:
           components: rustfmt
