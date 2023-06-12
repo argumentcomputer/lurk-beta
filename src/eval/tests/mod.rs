@@ -70,7 +70,7 @@ fn test_aux2<C: Coprocessor<Fr>>(
         },
         iterations,
         emitted,
-    ) = Evaluator::new(*expr, env, s, limit, &lang).eval().unwrap();
+    ) = Evaluator::new(*expr, env, s, limit, lang).eval().unwrap();
 
     if let Some(expected_result) = expected_result {
         dbg!(expected_result.fmt_to_string(s), &new_expr.fmt_to_string(s));
@@ -2592,8 +2592,8 @@ pub(crate) mod coproc {
         let res = s.num(89);
         let error = s.get_cont_error();
 
-        test_aux(s, &expr, Some(res), None, None, None, 1, Some(&lang));
-        test_aux(s, &expr2, Some(res), None, None, None, 3, Some(&lang));
-        test_aux(s, &expr3, None, None, Some(error), None, 1, Some(&lang));
+        test_aux(s, expr, Some(res), None, None, None, 1, Some(&lang));
+        test_aux(s, expr2, Some(res), None, None, None, 3, Some(&lang));
+        test_aux(s, expr3, None, None, Some(error), None, 1, Some(&lang));
     }
 }
