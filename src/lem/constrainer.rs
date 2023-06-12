@@ -214,34 +214,34 @@ impl LEM {
             img_name,
         } in slots_data
         {
-            let is_concrete_path = Self::on_concrete_path(concrete_path)?;
-            if is_concrete_path {
-                macro_rules! constrain_slot {
-                    ($hash_index: expr, $constants: expr) => {
-                        let alloc_hash = hash_poseidon(
-                            &mut cs.namespace(|| format!("hash{}", $hash_index)),
-                            preimg.to_vec(),
-                            $constants,
-                        )?;
-                        // Replace dummy by allocated hash
-                        hashes[$hash_index] = Some(alloc_hash);
+            macro_rules! constrain_slot {
+                ($hash_index: expr, $constants: expr) => {
+                    let alloc_hash = hash_poseidon(
+                        &mut cs.namespace(|| format!("hash{}", $hash_index)),
+                        preimg.to_vec(),
+                        $constants,
+                    )?;
+                    // Replace dummy by allocated hash
+                    hashes[$hash_index] = Some(alloc_hash);
 
-                        // get slot_hash from slot name
-                        let Some(ref slot_hash) = hashes[$hash_index] else {
-                                                    bail!("Slot {} not allocated", $hash_index)
-                                                };
-                        // if on cocnrete path then img must be equal to hash in slot
-                        implies_equal(
-                            &mut cs.namespace(|| {
-                                format!("implies equal hash for {} and {}", $hash_index, img_name)
-                            }),
-                            concrete_path,
-                            img,
-                            slot_hash,
-                        )?;
-                        $hash_index += 1;
-                    };
-                }
+                    // get slot_hash from slot name
+                    let Some(ref slot_hash) = hashes[$hash_index] else {
+                                                bail!("Slot {} not allocated", $hash_index)
+                                            };
+                    // if on cocnrete path then img must be equal to hash in slot
+                    implies_equal(
+                        &mut cs.namespace(|| {
+                            format!("implies equal hash for {} and {}", $hash_index, img_name)
+                        }),
+                        concrete_path,
+                        img,
+                        slot_hash,
+                    )?;
+                    $hash_index += 1;
+                };
+            }
+
+            if Self::on_concrete_path(concrete_path)? {
                 match arity {
                     HashArity::A2 => {
                         constrain_slot!(hash2_index, store.poseidon_cache.constants.c4());
