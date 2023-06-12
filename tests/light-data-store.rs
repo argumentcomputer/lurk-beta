@@ -29,17 +29,18 @@ use lurk::{
 fn test_light_store_deserialization() {
     let directory = "tests/ldstores";
 
-    for entry in fs::read_dir(directory).expect("Failed to read directory") {
-        if let Ok(entry) = entry {
-            let path = entry.path();
-            if let Some(extension) = path.extension() {
-                if extension == "ldstore" {
-                    let file_path = path.to_str().unwrap();
-                    let file_bytes = fs::read(file_path).expect("Failed to read file");
-                    let ld = LightData::de(&file_bytes).unwrap();
-                    let ldstore: LightStore<Fr> = Encodable::de(&ld).unwrap();
-                    let _scalar_store: ScalarStore<Fr> = ldstore.try_into().unwrap();
-                }
+    for entry in fs::read_dir(directory)
+        .expect("Failed to read directory")
+        .flatten()
+    {
+        let path = entry.path();
+        if let Some(extension) = path.extension() {
+            if extension == "ldstore" {
+                let file_path = path.to_str().unwrap();
+                let file_bytes = fs::read(file_path).expect("Failed to read file");
+                let ld = LightData::de(&file_bytes).unwrap();
+                let ldstore: LightStore<Fr> = Encodable::de(&ld).unwrap();
+                let _scalar_store: ScalarStore<Fr> = ldstore.try_into().unwrap();
             }
         }
     }
