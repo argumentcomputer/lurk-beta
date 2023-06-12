@@ -65,18 +65,18 @@ enum HashArity {
 }
 
 /// Information needed to constrain each hash slot
-type SlotsData<F> = Vec<(
+struct SlotData<F: LurkField> {
     // Arity of the hash
-    HashArity,
+    arity: HashArity,
     // Variable that indicates if we are in a concrete path or not
-    Boolean,
+    concrete_path: Boolean,
     // Hash preimage
-    Vec<AllocatedNum<F>>,
+    preimg: Vec<AllocatedNum<F>>,
     // Hash value
-    AllocatedNum<F>,
+    img: AllocatedNum<F>,
     // Allocated pointer name containing the result of the hash
-    String,
-)>;
+    img_name: String,
+}
 
 impl LEM {
     fn allocate_ptr<F: LurkField, CS: ConstraintSystem<F>>(
@@ -161,7 +161,7 @@ impl LEM {
     /// Accumulates slot data that will be used later to generate the constraints.
     fn acc_slots_data_data<F: LurkField>(
         concrete_path: Boolean,
-        slots_data: &mut SlotsData<F>,
+        slots_data: &mut Vec<SlotData<F>>,
         img: AllocatedNum<F>,
         img_name: String,
         preimg_vec: Vec<&AllocatedPtr<F>>,
@@ -172,19 +172,25 @@ impl LEM {
             4 => HashArity::A4,
             _ => unreachable!(),
         };
-        let mut input_vec = Vec::new();
+        let mut preimg = Vec::with_capacity(preimg_vec.len() * 2);
         for elem in preimg_vec {
-            input_vec.push(elem.tag().clone());
-            input_vec.push(elem.hash().clone());
+            preimg.push(elem.tag().clone());
+            preimg.push(elem.hash().clone());
         }
-        slots_data.push((arity, concrete_path, input_vec, img, img_name));
+        slots_data.push(SlotData {
+            arity,
+            concrete_path,
+            preimg,
+            img,
+            img_name,
+        });
     }
 
     /// Use the implies logic to contrain tag and hash values for accumulated
     /// slot data
     fn create_slot_constraints<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        slots_data: &SlotsData<F>,
+        slots_data: &Vec<SlotData<F>>,
         store: &mut Store<F>,
         alloc_manager: &mut AllocationManager<F>,
         num_hash_slots: &NumSlots,
@@ -200,14 +206,21 @@ impl LEM {
         let mut hash3_index = num_hash_slots.hash2;
         // Hash4 uses subvector from num_hash_slots.hash3 to num_hash+slots.hash4
         let mut hash4_index = num_hash_slots.hash3;
-        for (arity, concrete_path, preimg_vec, img, img_name) in slots_data.iter() {
+        for SlotData {
+            arity,
+            concrete_path,
+            preimg,
+            img,
+            img_name,
+        } in slots_data
+        {
             let is_concrete_path = Self::on_concrete_path(concrete_path)?;
             if is_concrete_path {
                 macro_rules! constrain_slot {
                     ($hash_index: expr, $constants: expr) => {
                         let alloc_hash = hash_poseidon(
                             &mut cs.namespace(|| format!("hash{}", $hash_index)),
-                            preimg_vec.to_vec(),
+                            preimg.to_vec(),
                             $constants,
                         )?;
                         // Replace dummy by allocated hash
@@ -306,7 +319,7 @@ impl LEM {
 
         let mut num_inputized_outputs = 0;
 
-        let mut slots_data = SlotsData::default();
+        let mut slots_data = Vec::default();
         let mut stack = vec![(&self.lem_op, Boolean::Constant(true), String::new())];
 
         while let Some((op, concrete_path, path)) = stack.pop() {
