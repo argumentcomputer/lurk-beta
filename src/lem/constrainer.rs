@@ -44,6 +44,19 @@ impl<F: LurkField> AllocationManager<F> {
             }
         }
     }
+
+    /// Retrieves any allocated number. If there isn't any, allocate and return
+    /// `ZERO`
+    pub(crate) fn get_or_alloc_any<CS: ConstraintSystem<F>>(
+        &mut self,
+        cs: &mut CS,
+    ) -> Result<AllocatedNum<F>> {
+        if self.0.is_empty() {
+            self.get_or_alloc_num(cs, F::ZERO)
+        } else {
+            Ok(self.0.values().next().unwrap().to_owned())
+        }
+    }
 }
 
 enum HashArity {
@@ -54,13 +67,13 @@ enum HashArity {
 
 /// Information needed to constrain each hash slot
 struct SlotData<F: LurkField> {
-    // Arity of the hash
+    /// Arity of the hash
     arity: HashArity,
-    // Variable that indicates if we are in a concrete path or not
+    /// Variable that indicates if we are in a concrete path or not
     concrete_path: Boolean,
-    // Hash preimage
+    /// Hash preimage
     preimg: Vec<AllocatedNum<F>>,
-    // Hash value
+    /// Hash value
     img: AllocatedNum<F>,
 }
 
@@ -179,7 +192,7 @@ impl LEM {
         alloc_manager: &mut AllocationManager<F>,
         num_hash_slots: &NumSlots,
     ) -> Result<()> {
-        let alloc_dummy_hash = alloc_manager.get_or_alloc_num(cs, F::ZERO)?;
+        let alloc_dummy_hash = alloc_manager.get_or_alloc_any(cs)?;
 
         let mut hash2_count = 0;
         let mut hash3_count = 0;
