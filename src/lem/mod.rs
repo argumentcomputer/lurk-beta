@@ -870,4 +870,47 @@ mod tests {
 
         constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::new((5, 3, 2)));
     }
+
+    #[test]
+    fn test_hash_slots_max_concrete_path() {
+        let lem = lem!(expr_in env_in cont_in {
+            match_tag expr_in {
+                Num => {
+                    match_tag cont_in {
+                        Outermost => {
+                            let expr_comm: Cons = hash2(expr_in, expr_in);
+                            let expr_comm2: Cons = hash2(expr_comm, expr_comm);
+                            let expr_comm3: Cons = hash2(expr_comm, expr_comm2);
+                            let expr_comm4: Cons = hash3(expr_comm, expr_comm, expr_comm3);
+                            let expr_comm5: Cons = hash3(expr_comm, expr_comm, expr_comm4);
+                            let expr_comm6: Cons = hash4(expr_comm, expr_comm, expr_comm, expr_comm5);
+                        },
+                        Cons => {
+                            let expr_outer: Cons = hash2(expr_in, expr_in);
+                            let expr_outer2: Cons = hash2(expr_outer, expr_outer);
+                            let expr_outer3: Cons = hash3(expr_outer, expr_outer, expr_outer);
+                        }
+                    };
+                    let expr_aux: Cons = hash2(expr_in, expr_in);
+                    let expr_out: Cons = hash2(expr_aux, expr_aux);
+                    let expr_out3: Cons = hash3(expr_aux, expr_aux, expr_aux);
+                    let expr_out4: Cons = hash4(expr_aux, expr_aux, expr_aux, expr_aux);
+                    let cont_out_terminal: Terminal;
+                    return (expr_out4, env_in, cont_out_terminal);
+                },
+                Char => {
+                    let expr_aux: Cons = hash2(expr_in, expr_in);
+                    let expr_aux2: Cons = hash2(expr_aux, expr_aux);
+                    let expr_out: Cons = hash2(expr_aux2, expr_aux2);
+                    let expr_out3: Cons = hash3(expr_aux2, expr_aux2, expr_aux2);
+                    let expr_out4: Cons = hash4(expr_aux2, expr_aux2, expr_aux2, expr_aux2);
+                    let cont_out_terminal: Terminal;
+                    return (expr_out4, env_in, cont_out_terminal);
+                }
+            };
+        })
+        .unwrap();
+
+        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::new((5, 3, 2)));
+    }
 }

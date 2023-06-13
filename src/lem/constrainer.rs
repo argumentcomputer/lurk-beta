@@ -193,29 +193,27 @@ impl LEM {
     ) -> Result<()> {
         let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
 
-        let mut hash2_index = 0;
-        let mut hash3_index = 0;
-        let mut hash4_index = 0;
+        let mut hash2_count = 0;
+        let mut hash3_count = 0;
+        let mut hash4_count = 0;
 
         macro_rules! constrain_slot {
             (
                 $concrete_path: expr,
-                $hashes: expr,
-                $hashes_name: expr,
                 $hash_index: expr,
                 $preimg: expr,
                 $img: expr,
                 $constants: expr
             ) => {
                 let alloc_hash = hash_poseidon(
-                    &mut cs.namespace(|| format!("slot_{}_{}", $hashes_name, $hash_index)),
+                    &mut cs.namespace(|| format!("slot_hash{}_{}", $preimg.len()/2, $hash_index)),
                     $preimg.to_vec(),
                     $constants,
                 )?;
 
                 implies_equal(
                     &mut cs.namespace(|| {
-                        format!("implies equal hash for {}_{}", $hashes_name, $hash_index)
+                        format!("implies equal hash for hash{}_{}", $preimg.len()/2, $hash_index)
                     }),
                     $concrete_path,
                     $img,
@@ -238,48 +236,40 @@ impl LEM {
                     HashArity::A2 => {
                         constrain_slot!(
                             concrete_path,
-                            hashes2,
-                            "hashes2",
-                            hash2_index,
+                            hash2_count,
                             preimg,
                             img,
                             store.poseidon_cache.constants.c4()
                         );
-                        hash2_index += 1;
+                        hash2_count += 1;
                     }
                     HashArity::A3 => {
                         constrain_slot!(
                             concrete_path,
-                            hashes3,
-                            "hashes3",
-                            hash3_index,
+                            hash3_count,
                             preimg,
                             img,
                             store.poseidon_cache.constants.c6()
                         );
-                        hash3_index += 1;
+                        hash3_count += 1;
                     }
                     HashArity::A4 => {
                         constrain_slot!(
                             concrete_path,
-                            hashes4,
-                            "hashes4",
-                            hash4_index,
+                            hash4_count,
                             preimg,
                             img,
                             store.poseidon_cache.constants.c8()
                         );
-                        hash4_index += 1;
+                        hash4_count += 1;
                     }
                 };
             }
         }
         ///////////////// Fill with dummies: /////////////////
-        for item in hash2_index..num_hash_slots.hash2 {
+        for item in hash2_count..num_hash_slots.hash2 {
             constrain_slot!(
                 &Boolean::Constant(false),
-                hashes2,
-                "hashes2",
                 item,
                 vec![
                     alloc_dummy_ptr.tag().clone(),
@@ -291,11 +281,9 @@ impl LEM {
                 store.poseidon_cache.constants.c4()
             );
         }
-        for item in hash3_index..num_hash_slots.hash3 {
+        for item in hash3_count..num_hash_slots.hash3 {
             constrain_slot!(
                 &Boolean::Constant(false),
-                hashes3,
-                "hashes3",
                 item,
                 vec![
                     alloc_dummy_ptr.tag().clone(),
@@ -309,11 +297,9 @@ impl LEM {
                 store.poseidon_cache.constants.c6()
             );
         }
-        for item in hash4_index..num_hash_slots.hash4 {
+        for item in hash4_count..num_hash_slots.hash4 {
             constrain_slot!(
                 &Boolean::Constant(false),
-                hashes4,
-                "hashes4",
                 item,
                 vec![
                     alloc_dummy_ptr.tag().clone(),
