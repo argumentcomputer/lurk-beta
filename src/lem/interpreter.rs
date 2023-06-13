@@ -2,7 +2,7 @@ use crate::field::{FWrap, LurkField};
 use anyhow::{anyhow, bail, Result};
 use std::collections::HashMap;
 
-use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, Valuation, LEM, LEMOP};
+use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, Frame, LEM, LEMOP};
 
 fn insert_into_ptrs<F: LurkField>(
     ptrs: &mut HashMap<String, Ptr<F>>,
@@ -20,11 +20,7 @@ fn insert_into_ptrs<F: LurkField>(
 impl LEM {
     /// Interprets a LEM using a stack of operations to be popped and executed.
     /// It modifies a `Store` and assigns `Ptr`s to `MetaPtr`s as it goes.
-    pub fn run<F: LurkField>(
-        &self,
-        input: [Ptr<F>; 3],
-        store: &mut Store<F>,
-    ) -> Result<Valuation<F>> {
+    pub fn run<F: LurkField>(&self, input: [Ptr<F>; 3], store: &mut Store<F>) -> Result<Frame<F>> {
         // key/val pairs on this map should never be overwritten
         let mut ptrs = HashMap::default();
         ptrs.insert(self.input[0].clone(), input[0]);
@@ -170,7 +166,7 @@ impl LEM {
         let Some(output) = output else {
             return Err(anyhow!("Output not defined"));
         };
-        Ok(Valuation {
+        Ok(Frame {
             input,
             output,
             ptrs,
@@ -179,28 +175,24 @@ impl LEM {
 
     /// Calls `run` until the stop contidion is satisfied, using the output of one
     /// iteration as the input of the next one.
-    pub fn eval<F: LurkField>(
-        &self,
-        expr: Ptr<F>,
-        store: &mut Store<F>,
-    ) -> Result<Vec<Valuation<F>>> {
+    pub fn eval<F: LurkField>(&self, expr: Ptr<F>, store: &mut Store<F>) -> Result<Vec<Frame<F>>> {
         let mut expr = expr;
         let mut env = store.intern_symbol(&Symbol::lurk_sym("nil"));
         let mut cont = Ptr::null(Tag::Outermost);
-        let mut valuations = vec![];
+        let mut frames = vec![];
         let terminal = Ptr::null(Tag::Terminal);
         let error = Ptr::null(Tag::Error);
         // Assures that `MatchSymPath`s will work properly
         self.lem_op.intern_matched_sym_paths(store);
         loop {
-            let v = self.run([expr, env, cont], store)?;
-            valuations.push(v.clone());
-            if v.output[2] == terminal || v.output[2] == error {
+            let frame = self.run([expr, env, cont], store)?;
+            frames.push(frame.clone());
+            if frame.output[2] == terminal || frame.output[2] == error {
                 break;
             } else {
-                [expr, env, cont] = v.output;
+                [expr, env, cont] = frame.output;
             }
         }
-        Ok(valuations)
+        Ok(frames)
     }
 }

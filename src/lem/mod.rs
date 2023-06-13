@@ -398,10 +398,11 @@ impl LEMOP {
     }
 }
 
-/// A `Valuation` carries the data that results from interpreting LEM. That is,
-/// it contains all the assignments resulting from running one iteration.
+/// A `Frame` carries the data that results from interpreting LEM. That is,
+/// it contains the input, the output and all the assignments resulting from
+/// running one iteration.
 #[derive(Clone)]
-pub struct Valuation<F: LurkField> {
+pub struct Frame<F: LurkField> {
     input: [Ptr<F>; 3],
     output: [Ptr<F>; 3],
     ptrs: HashMap<String, Ptr<F>>,

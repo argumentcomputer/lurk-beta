@@ -31,7 +31,7 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 13;
-    const NUM_AUX: usize = 20;
+    const NUM_AUX: usize = 21;
     const NUM_CONSTRAINTS: usize = 29;
     const NUM_HASH_SLOTS: NumSlots = NumSlots {
         hash2: 0,
