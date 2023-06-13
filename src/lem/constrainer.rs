@@ -162,17 +162,12 @@ impl LEM {
         img: AllocatedNum<F>,
         preimg_ptrs: Vec<&AllocatedPtr<F>>,
     ) {
-        let num_pointers = preimg_ptrs.len();
-        let preimg = preimg_ptrs.iter().fold(
-            Vec::with_capacity(num_pointers * 2),
-            |mut acc, preimg_ptr| {
-                acc.push(preimg_ptr.tag().clone());
-                acc.push(preimg_ptr.hash().clone());
-                acc
-            },
-        );
+        let preimg = preimg_ptrs
+            .iter()
+            .flat_map(|x| [x.tag().clone(), x.hash().clone()])
+            .collect();
         slot_infos.push(SlotInfo {
-            arity: HashArity::from_num_ptrs(num_pointers),
+            arity: HashArity::from_num_ptrs(preimg_ptrs.len()),
             concrete_path,
             preimg,
             img,
@@ -183,7 +178,7 @@ impl LEM {
     /// slot data
     fn constrain_slots<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        slot_infos: &Vec<SlotInfo<F>>,
+        slot_infos: &[SlotInfo<F>],
         store: &mut Store<F>,
         alloc_manager: &mut AllocationManager<F>,
         num_hash_slots: &NumSlots,
