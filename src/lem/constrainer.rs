@@ -163,11 +163,14 @@ impl LEM {
         preimg_ptrs: Vec<&AllocatedPtr<F>>,
     ) {
         let num_pointers = preimg_ptrs.len();
-        let mut preimg = Vec::with_capacity(num_pointers * 2);
-        for preimg_ptr in preimg_ptrs {
-            preimg.push(preimg_ptr.tag().clone());
-            preimg.push(preimg_ptr.hash().clone());
-        }
+        let preimg = preimg_ptrs.iter().fold(
+            Vec::with_capacity(num_pointers * 2),
+            |mut acc, preimg_ptr| {
+                acc.push(preimg_ptr.tag().clone());
+                acc.push(preimg_ptr.hash().clone());
+                acc
+            },
+        );
         slots_data.push(SlotInfo {
             arity: HashArity::from_num_ptrs(num_pointers),
             concrete_path,
