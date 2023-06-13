@@ -191,7 +191,6 @@ impl LEM {
         alloc_manager: &mut AllocationManager<F>,
         num_hash_slots: &NumSlots,
     ) -> Result<()> {
-        // Vector fulls of dummies, and replace by hash values as we find them
         let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
 
         let mut hash2_index = 0;
@@ -213,20 +212,14 @@ impl LEM {
                     $preimg.to_vec(),
                     $constants,
                 )?;
-                // Replace dummy by allocated hash
 
-                // get slot_hash from slot name
-                let Some(ref slot_hash) = Some(alloc_hash) else {
-                                                    bail!("Slot {} not allocated", $hash_index)
-                                                };
-                // if on cocnrete path then img must be equal to hash in slot
                 implies_equal(
                     &mut cs.namespace(|| {
                         format!("implies equal hash for {}_{}", $hashes_name, $hash_index)
                     }),
                     $concrete_path,
                     $img,
-                    slot_hash,
+                    &alloc_hash,
                 )?;
             };
         }
