@@ -80,6 +80,7 @@ flamegraph = ["pprof/flamegraph", "pprof/criterion"]
 [dev-dependencies]
 assert_cmd = "2.0.8"
 cfg-if = "1.0.0"
+ascii_table = "4.0.2"
 criterion = "0.4"
 hex = "0.4.3"
 pprof = { version = "0.11" }
