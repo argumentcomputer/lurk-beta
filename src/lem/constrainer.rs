@@ -185,6 +185,17 @@ impl LEM {
     ) -> Result<()> {
         let dead_hash_walking = alloc_manager.get_or_alloc_num(cs, F::ZERO)?;
 
+        // Order is important for uniformity
+        let hash2_slots = slot_infos
+            .iter()
+            .filter(|s| matches!(s.arity, HashArity::A2));
+        let hash3_slots = slot_infos
+            .iter()
+            .filter(|s| matches!(s.arity, HashArity::A3));
+        let hash4_slots = slot_infos
+            .iter()
+            .filter(|s| matches!(s.arity, HashArity::A4));
+
         let mut hash2_count = 0;
         let mut hash3_count = 0;
         let mut hash4_count = 0;
@@ -217,20 +228,6 @@ impl LEM {
                 )?;
             };
         }
-
-        // Order is important for uniformity
-        let hash2_slots = slot_infos
-            .iter()
-            .filter(|s| matches!(s.arity, HashArity::A2));
-        let hash3_slots = slot_infos
-            .iter()
-            .filter(|s| matches!(s.arity, HashArity::A3));
-        let hash4_slots = slot_infos
-            .iter()
-            .filter(|s| matches!(s.arity, HashArity::A4));
-
-        // First we constrain concrete path hashes, later we
-        // fill with dummies in order to always use the same number of hashes.
         macro_rules! fill_real_slots {
             (
                 $slots: expr,
@@ -244,27 +241,13 @@ impl LEM {
                     img,
                 } in $slots
                 {
-                    constrain_slot!(concrete_path, $counter, preimg, img, $poseidon_constants);
-                    $counter += 1;
+                    if Self::on_concrete_path(concrete_path)? {
+                        constrain_slot!(concrete_path, $counter, preimg, img, $poseidon_constants);
+                        $counter += 1;
+                    }
                 }
             };
         }
-        fill_real_slots!(
-            hash2_slots,
-            hash2_count,
-            store.poseidon_cache.constants.c4()
-        );
-        fill_real_slots!(
-            hash3_slots,
-            hash3_count,
-            store.poseidon_cache.constants.c6()
-        );
-        fill_real_slots!(
-            hash4_slots,
-            hash4_count,
-            store.poseidon_cache.constants.c8()
-        );
-
         macro_rules! fill_dummies {
             (
                 $lower: expr,
@@ -283,6 +266,25 @@ impl LEM {
                 }
             };
         }
+
+        // First we constrain concrete path hashes, later we
+        // fill with dummies in order to always use the same number of hashes.
+        fill_real_slots!(
+            hash2_slots,
+            hash2_count,
+            store.poseidon_cache.constants.c4()
+        );
+        fill_real_slots!(
+            hash3_slots,
+            hash3_count,
+            store.poseidon_cache.constants.c6()
+        );
+        fill_real_slots!(
+            hash4_slots,
+            hash4_count,
+            store.poseidon_cache.constants.c8()
+        );
+
 
         ///////////////// Fill with dummies: /////////////////
         fill_dummies!(
