@@ -206,14 +206,18 @@ impl LEM {
                 $constants: expr
             ) => {
                 let alloc_hash = hash_poseidon(
-                    &mut cs.namespace(|| format!("slot_hash{}_{}", $preimg.len()/2, $hash_index)),
+                    &mut cs.namespace(|| format!("slot_hash{}_{}", $preimg.len() / 2, $hash_index)),
                     $preimg.to_vec(),
                     $constants,
                 )?;
 
                 implies_equal(
                     &mut cs.namespace(|| {
-                        format!("implies equal hash for hash{}_{}", $preimg.len()/2, $hash_index)
+                        format!(
+                            "implies equal hash for hash{}_{}",
+                            $preimg.len() / 2,
+                            $hash_index
+                        )
                     }),
                     $concrete_path,
                     $img,
@@ -266,55 +270,44 @@ impl LEM {
                 };
             }
         }
+        macro_rules! fill_dummies {
+            (
+                $lower: expr,
+                $upper: expr,
+                $preimg_size: expr,
+                $constants: expr
+            ) => {
+                for item in $lower..$upper {
+                    constrain_slot!(
+                        &Boolean::Constant(false),
+                        item,
+                        vec![alloc_dummy_ptr.hash().clone(); $preimg_size],
+                        alloc_dummy_ptr.hash(),
+                        $constants
+                    );
+                }
+            };
+        }
+
         ///////////////// Fill with dummies: /////////////////
-        for item in hash2_count..num_hash_slots.hash2 {
-            constrain_slot!(
-                &Boolean::Constant(false),
-                item,
-                vec![
-                    alloc_dummy_ptr.tag().clone(),
-                    alloc_dummy_ptr.hash().clone(),
-                    alloc_dummy_ptr.tag().clone(),
-                    alloc_dummy_ptr.hash().clone(),
-                ],
-                alloc_dummy_ptr.hash(),
-                store.poseidon_cache.constants.c4()
-            );
-        }
-        for item in hash3_count..num_hash_slots.hash3 {
-            constrain_slot!(
-                &Boolean::Constant(false),
-                item,
-                vec![
-                    alloc_dummy_ptr.tag().clone(),
-                    alloc_dummy_ptr.hash().clone(),
-                    alloc_dummy_ptr.tag().clone(),
-                    alloc_dummy_ptr.hash().clone(),
-                    alloc_dummy_ptr.tag().clone(),
-                    alloc_dummy_ptr.hash().clone(),
-                ],
-                alloc_dummy_ptr.hash(),
-                store.poseidon_cache.constants.c6()
-            );
-        }
-        for item in hash4_count..num_hash_slots.hash4 {
-            constrain_slot!(
-                &Boolean::Constant(false),
-                item,
-                vec![
-                    alloc_dummy_ptr.tag().clone(),
-                    alloc_dummy_ptr.hash().clone(),
-                    alloc_dummy_ptr.tag().clone(),
-                    alloc_dummy_ptr.hash().clone(),
-                    alloc_dummy_ptr.tag().clone(),
-                    alloc_dummy_ptr.hash().clone(),
-                    alloc_dummy_ptr.tag().clone(),
-                    alloc_dummy_ptr.hash().clone(),
-                ],
-                alloc_dummy_ptr.hash(),
-                store.poseidon_cache.constants.c8()
-            );
-        }
+        fill_dummies!(
+            hash2_count,
+            num_hash_slots.hash2,
+            4,
+            store.poseidon_cache.constants.c4()
+        );
+        fill_dummies!(
+            hash3_count,
+            num_hash_slots.hash3,
+            6,
+            store.poseidon_cache.constants.c6()
+        );
+        fill_dummies!(
+            hash4_count,
+            num_hash_slots.hash4,
+            8,
+            store.poseidon_cache.constants.c8()
+        );
         Ok(())
     }
 
