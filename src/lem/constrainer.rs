@@ -193,9 +193,6 @@ impl LEM {
     ) -> Result<()> {
         // Vector fulls of dummies, and replace by hash values as we find them
         let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
-        let mut hashes2 = vec![Some(alloc_dummy_ptr.hash().clone()); num_hash_slots.hash2];
-        let mut hashes3 = vec![Some(alloc_dummy_ptr.hash().clone()); num_hash_slots.hash3];
-        let mut hashes4 = vec![Some(alloc_dummy_ptr.hash().clone()); num_hash_slots.hash4];
 
         let mut hash2_index = 0;
         let mut hash3_index = 0;
@@ -217,10 +214,9 @@ impl LEM {
                     $constants,
                 )?;
                 // Replace dummy by allocated hash
-                $hashes[$hash_index] = Some(alloc_hash);
 
                 // get slot_hash from slot name
-                let Some(ref slot_hash) = $hashes[$hash_index] else {
+                let Some(ref slot_hash) = Some(alloc_hash) else {
                                                     bail!("Slot {} not allocated", $hash_index)
                                                 };
                 // if on cocnrete path then img must be equal to hash in slot
@@ -232,7 +228,6 @@ impl LEM {
                     $img,
                     slot_hash,
                 )?;
-                //$hash_index += 1;
             };
         }
 
