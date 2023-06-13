@@ -22,16 +22,17 @@ use lurk::light_data::{Encodable, LightData, LightExpr};
 fn test_light_exprs_deserialization() {
     let directory = "tests/exprs";
 
-    for entry in fs::read_dir(directory).expect("Failed to read directory") {
-        if let Ok(entry) = entry {
-            let path = entry.path();
-            if let Some(extension) = path.extension() {
-                if extension == "expr" {
-                    let file_path = path.to_str().unwrap();
-                    let file_bytes = fs::read(file_path).expect("Failed to read file");
-                    let ld = LightData::de(&file_bytes).unwrap();
-                    let _expr: LightExpr<Fr> = Encodable::de(&ld).unwrap();
-                }
+    for entry in fs::read_dir(directory)
+        .expect("Failed to read directory")
+        .flatten()
+    {
+        let path = entry.path();
+        if let Some(extension) = path.extension() {
+            if extension == "expr" {
+                let file_path = path.to_str().unwrap();
+                let file_bytes = fs::read(file_path).expect("Failed to read file");
+                let ld = LightData::de(&file_bytes).unwrap();
+                let _expr: LightExpr<Fr> = Encodable::de(&ld).unwrap();
             }
         }
     }
