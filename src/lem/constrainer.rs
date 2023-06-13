@@ -158,7 +158,7 @@ impl LEM {
     /// Accumulates slot data that will be used later to generate the constraints.
     fn push_slot_info<F: LurkField>(
         concrete_path: Boolean,
-        slots_data: &mut Vec<SlotInfo<F>>,
+        slot_infos: &mut Vec<SlotInfo<F>>,
         img: AllocatedNum<F>,
         preimg_ptrs: Vec<&AllocatedPtr<F>>,
     ) {
@@ -171,7 +171,7 @@ impl LEM {
                 acc
             },
         );
-        slots_data.push(SlotInfo {
+        slot_infos.push(SlotInfo {
             arity: HashArity::from_num_ptrs(num_pointers),
             concrete_path,
             preimg,
@@ -369,7 +369,7 @@ impl LEM {
 
         let mut num_inputized_outputs = 0;
 
-        let mut slots_data = Vec::default();
+        let mut slot_infos = Vec::default();
         let mut stack = vec![(&self.lem_op, Boolean::Constant(true), String::new())];
 
         while let Some((op, concrete_path, path)) = stack.pop() {
@@ -400,7 +400,7 @@ impl LEM {
                     // indeed calculated in the next available hash slot.
                     Self::push_slot_info(
                         concrete_path.clone(),
-                        &mut slots_data,
+                        &mut slot_infos,
                         allocated_img.hash().clone(),
                         preimg_vec,
                     );
@@ -427,7 +427,7 @@ impl LEM {
                     // indeed calculated in the next available hash slot.
                     Self::push_slot_info(
                         concrete_path,
-                        &mut slots_data,
+                        &mut slot_infos,
                         allocated_img.hash().clone(),
                         preimg_vec.iter().collect::<Vec<&AllocatedPtr<F>>>(),
                     );
@@ -576,7 +576,7 @@ impl LEM {
             return Err(anyhow!("Couldn't inputize the right number of outputs"));
         }
 
-        Self::constrain_slots(cs, &slots_data, store, alloc_manager, num_hash_slots)?;
+        Self::constrain_slots(cs, &slot_infos, store, alloc_manager, num_hash_slots)?;
 
         Ok(())
     }
