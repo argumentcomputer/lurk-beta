@@ -59,6 +59,21 @@ jobs:
         run: |
           cargo test --doc
 
+  test-gpu:
+    runs-on: [self-hosted, gpu]
+    env:
+      RUSTFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: actions-rs/toolchain@v1
+      - uses: taiki-e/install-action@nextest
+      - uses: Swatinem/rust-cache@v2
+      - name: gpu test
+        run: |
+          cargo nextest run --profile ci --cargo-profile dev-ci --features cuda,opencl
+
   clippy:
     runs-on: ubuntu-latest
     steps:
