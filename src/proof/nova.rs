@@ -1328,6 +1328,22 @@ pub mod tests {
     }
 
     #[test]
+    fn test_prove_lambda_empty_error() {
+        let s = &mut Store::<Fr>::default();
+        let error = s.get_cont_error();
+        test_aux::<Coproc<Fr>>(
+            s,
+            "((lambda (x)) 0)",
+            None,
+            None,
+            Some(error),
+            None,
+            3,
+            None,
+        );
+    }
+
+    #[test]
     fn test_prove_let_empty_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
@@ -3621,5 +3637,22 @@ pub mod tests {
             Some(lang.clone()),
         );
         test_aux(s, expr4, None, None, Some(error), None, 1, Some(lang));
+    }
+
+    #[test]
+    fn test_issue426_minimal() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.nil();
+        let terminal = s.get_cont_terminal();
+        test_aux::<Coproc<Fr>>(
+            s,
+            "((lambda (x) nil) 0)",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            4,
+            None,
+        );
     }
 }
