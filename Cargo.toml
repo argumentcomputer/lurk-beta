@@ -122,6 +122,3 @@ harness = false
 [[bench]]
 name = "public_params"
 harness = false
-
-[patch.crates-io]
-nova-snark = { git = "https://github.com/microsoft/Nova", branch = "main" }

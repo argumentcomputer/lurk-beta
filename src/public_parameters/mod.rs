@@ -411,23 +411,11 @@ where
     }
 
     fn read_from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
-        use std::io::Read;
-        // FIXME: due to an bug in bincode, we must first copy out
-        // all the bytes before passing to `bincode::deserialize`.
-        // See: https://github.com/bincode-org/bincode/issues/633
-        let mut file = File::open(path)?;
-        let mut bytes = Vec::new();
-        file.read_to_end(&mut bytes).unwrap();
-        bincode::deserialize(&bytes).map_err(|e| {
-            eprintln!("{}", e);
-            Error::CacheError(e.to_string())
-        })
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        bincode::deserialize_from(reader)
+            .map_err(|e| Error::CacheError(format!("Cache deserialization error: {}", e)))
     }
-    //    let file = File::open(path)?;
-    //    let reader = BufReader::new(file);
-    //    bincode::deserialize_from(reader)
-    //        .map_err(|e| Error::CacheError(format!("Cache deserialization error: {}", e)))
-    //}
 
     fn read_from_stdin() -> Result<Self, Error> {
         let reader = BufReader::new(io::stdin());
@@ -613,7 +601,6 @@ impl<F: LurkField + Serialize + DeserializeOwned> LurkPtr<F> {
                 out.expr
             }
             LurkPtr::ZStorePtr(z_store_ptr) => {
-                // This is where the error is happening I think
                 let z_store = &z_store_ptr.z_store;
                 let z_ptr = z_store_ptr.z_ptr;
                 s.intern_z_expr_ptr(z_ptr, z_store)
