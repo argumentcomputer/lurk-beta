@@ -74,8 +74,6 @@ struct SlotData<F: LurkField> {
     preimg: Vec<AllocatedNum<F>>,
     // Hash value
     img: AllocatedNum<F>,
-    // Allocated pointer name containing the result of the hash
-    img_name: String,
 }
 
 impl LEM {
@@ -163,7 +161,6 @@ impl LEM {
         concrete_path: Boolean,
         slots_data: &mut Vec<SlotData<F>>,
         img: AllocatedNum<F>,
-        img_name: String,
         preimg_vec: Vec<&AllocatedPtr<F>>,
     ) {
         let arity = match preimg_vec.len() {
@@ -182,7 +179,6 @@ impl LEM {
             concrete_path,
             preimg,
             img,
-            img_name,
         });
     }
 
@@ -195,65 +191,155 @@ impl LEM {
         alloc_manager: &mut AllocationManager<F>,
         num_hash_slots: &NumSlots,
     ) -> Result<()> {
-        // Vector fulls of dummies, so that it will not be required to fill with dummies later
+        // Vector fulls of dummies, and replace by hash values as we find them
         let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
-        let mut hashes = vec![Some(alloc_dummy_ptr.hash().clone()); num_hash_slots.total()];
+        let mut hashes2 = vec![Some(alloc_dummy_ptr.hash().clone()); num_hash_slots.hash2];
+        let mut hashes3 = vec![Some(alloc_dummy_ptr.hash().clone()); num_hash_slots.hash3];
+        let mut hashes4 = vec![Some(alloc_dummy_ptr.hash().clone()); num_hash_slots.hash4];
 
-        // In order to get a uniform circuit each type of hash has its own constant-size subvector
-        // Hash2 uses subvector from 0 to num_hash_slots.hash2
         let mut hash2_index = 0;
-        // Hash3 uses subvector from num_hash_slots.hash2 to num_hash_slots.hash3
-        let mut hash3_index = num_hash_slots.hash2;
-        // Hash4 uses subvector from num_hash_slots.hash3 to num_hash_slots.hash4
-        let mut hash4_index = num_hash_slots.hash3;
+        let mut hash3_index = 0;
+        let mut hash4_index = 0;
+
+        macro_rules! constrain_slot {
+            (
+                $concrete_path: expr,
+                $hashes: expr,
+                $hashes_name: expr,
+                $hash_index: expr,
+                $preimg: expr,
+                $img: expr,
+                $constants: expr
+            ) => {
+                let alloc_hash = hash_poseidon(
+                    &mut cs.namespace(|| format!("slot_{}_{}", $hashes_name, $hash_index)),
+                    $preimg.to_vec(),
+                    $constants,
+                )?;
+                // Replace dummy by allocated hash
+                $hashes[$hash_index] = Some(alloc_hash);
+
+                // get slot_hash from slot name
+                let Some(ref slot_hash) = $hashes[$hash_index] else {
+                                                    bail!("Slot {} not allocated", $hash_index)
+                                                };
+                // if on cocnrete path then img must be equal to hash in slot
+                implies_equal(
+                    &mut cs.namespace(|| {
+                        format!("implies equal hash for {}_{}", $hashes_name, $hash_index)
+                    }),
+                    $concrete_path,
+                    $img,
+                    slot_hash,
+                )?;
+                //$hash_index += 1;
+            };
+        }
+
         for SlotData {
             arity,
             concrete_path,
             preimg,
             img,
-            img_name,
         } in slots_data
         {
-            macro_rules! constrain_slot {
-                ($hash_index: expr, $constants: expr) => {
-                    let alloc_hash = hash_poseidon(
-                        &mut cs.namespace(|| format!("hash{}", $hash_index)),
-                        preimg.to_vec(),
-                        $constants,
-                    )?;
-                    // Replace dummy by allocated hash
-                    hashes[$hash_index] = Some(alloc_hash);
-
-                    // get slot_hash from slot name
-                    let Some(ref slot_hash) = hashes[$hash_index] else {
-                                                bail!("Slot {} not allocated", $hash_index)
-                                            };
-                    // if on cocnrete path then img must be equal to hash in slot
-                    implies_equal(
-                        &mut cs.namespace(|| {
-                            format!("implies equal hash for {} and {}", $hash_index, img_name)
-                        }),
-                        concrete_path,
-                        img,
-                        slot_hash,
-                    )?;
-                    $hash_index += 1;
-                };
-            }
-
+            // First we constrain concrete path hashes, later we
+            // fill with dummies in order to always use the same number of hashes.
             if Self::on_concrete_path(concrete_path)? {
                 match arity {
                     HashArity::A2 => {
-                        constrain_slot!(hash2_index, store.poseidon_cache.constants.c4());
+                        constrain_slot!(
+                            concrete_path,
+                            hashes2,
+                            "hashes2",
+                            hash2_index,
+                            preimg,
+                            img,
+                            store.poseidon_cache.constants.c4()
+                        );
+                        hash2_index += 1;
                     }
                     HashArity::A3 => {
-                        constrain_slot!(hash3_index, store.poseidon_cache.constants.c6());
+                        constrain_slot!(
+                            concrete_path,
+                            hashes3,
+                            "hashes3",
+                            hash3_index,
+                            preimg,
+                            img,
+                            store.poseidon_cache.constants.c6()
+                        );
+                        hash3_index += 1;
                     }
                     HashArity::A4 => {
-                        constrain_slot!(hash4_index, store.poseidon_cache.constants.c8());
+                        constrain_slot!(
+                            concrete_path,
+                            hashes4,
+                            "hashes4",
+                            hash4_index,
+                            preimg,
+                            img,
+                            store.poseidon_cache.constants.c8()
+                        );
+                        hash4_index += 1;
                     }
                 };
             }
+        }
+        ///////////////// Fill with dummies: /////////////////
+        for item in hash2_index..num_hash_slots.hash2 {
+            constrain_slot!(
+                &Boolean::Constant(false),
+                hashes2,
+                "hashes2",
+                item,
+                vec![
+                    alloc_dummy_ptr.tag().clone(),
+                    alloc_dummy_ptr.hash().clone(),
+                    alloc_dummy_ptr.tag().clone(),
+                    alloc_dummy_ptr.hash().clone(),
+                ],
+                alloc_dummy_ptr.hash(),
+                store.poseidon_cache.constants.c4()
+            );
+        }
+        for item in hash3_index..num_hash_slots.hash3 {
+            constrain_slot!(
+                &Boolean::Constant(false),
+                hashes3,
+                "hashes3",
+                item,
+                vec![
+                    alloc_dummy_ptr.tag().clone(),
+                    alloc_dummy_ptr.hash().clone(),
+                    alloc_dummy_ptr.tag().clone(),
+                    alloc_dummy_ptr.hash().clone(),
+                    alloc_dummy_ptr.tag().clone(),
+                    alloc_dummy_ptr.hash().clone(),
+                ],
+                alloc_dummy_ptr.hash(),
+                store.poseidon_cache.constants.c6()
+            );
+        }
+        for item in hash4_index..num_hash_slots.hash4 {
+            constrain_slot!(
+                &Boolean::Constant(false),
+                hashes4,
+                "hashes4",
+                item,
+                vec![
+                    alloc_dummy_ptr.tag().clone(),
+                    alloc_dummy_ptr.hash().clone(),
+                    alloc_dummy_ptr.tag().clone(),
+                    alloc_dummy_ptr.hash().clone(),
+                    alloc_dummy_ptr.tag().clone(),
+                    alloc_dummy_ptr.hash().clone(),
+                    alloc_dummy_ptr.tag().clone(),
+                    alloc_dummy_ptr.hash().clone(),
+                ],
+                alloc_dummy_ptr.hash(),
+                store.poseidon_cache.constants.c8()
+            );
         }
         Ok(())
     }
@@ -351,7 +437,6 @@ impl LEM {
                         concrete_path.clone(),
                         &mut slots_data,
                         alloc_img.hash().clone(),
-                        $img.name().clone(),
                         preimg_vec,
                     );
                     alloc_ptrs.insert($img.name(), alloc_img.clone());
@@ -379,7 +464,6 @@ impl LEM {
                         concrete_path,
                         &mut slots_data,
                         alloc_img.hash().clone(),
-                        $img.name().clone(),
                         preimg_vec.iter().collect::<Vec<&AllocatedPtr<F>>>(),
                     );
 
