@@ -44,18 +44,6 @@ impl<F: LurkField> AllocationManager<F> {
             }
         }
     }
-
-    /// Calls `get_or_alloc_num` to allocate tag and hash for a pointer.
-    pub(crate) fn get_or_alloc_ptr<CS: ConstraintSystem<F>>(
-        &mut self,
-        cs: &mut CS,
-        z_ptr: &ZPtr<F>,
-    ) -> Result<AllocatedPtr<F>> {
-        Ok(AllocatedPtr::from_parts(
-            &self.get_or_alloc_num(cs, z_ptr.tag.to_field())?,
-            &self.get_or_alloc_num(cs, z_ptr.hash)?,
-        ))
-    }
 }
 
 enum HashArity {
@@ -191,7 +179,7 @@ impl LEM {
         alloc_manager: &mut AllocationManager<F>,
         num_hash_slots: &NumSlots,
     ) -> Result<()> {
-        let alloc_dummy_ptr = alloc_manager.get_or_alloc_ptr(cs, &ZPtr::dummy())?;
+        let alloc_dummy_hash = alloc_manager.get_or_alloc_num(cs, F::ZERO)?;
 
         let mut hash2_count = 0;
         let mut hash3_count = 0;
@@ -281,8 +269,8 @@ impl LEM {
                     constrain_slot!(
                         &Boolean::Constant(false),
                         item,
-                        vec![alloc_dummy_ptr.hash().clone(); $preimg_size],
-                        alloc_dummy_ptr.hash(),
+                        vec![alloc_dummy_hash.clone(); $preimg_size],
+                        &alloc_dummy_hash,
                         $constants
                     );
                 }
@@ -389,6 +377,7 @@ impl LEM {
                         &alloc_ptrs,
                     )?;
 
+                    // Create constraint for the tag
                     let alloc_tag = alloc_manager.get_or_alloc_num(cs, $tag.to_field())?;
                     implies_equal(
                         &mut cs.namespace(|| format!("implies equal for {}'s tag", $img.name())),
@@ -419,7 +408,7 @@ impl LEM {
                         &alloc_ptrs,
                     )?;
 
-                    // get alloc_tgt from img
+                    // get alloc_img from img
                     let Some(alloc_img) = alloc_ptrs.get($img.name()) else {
                                             bail!("{} not allocated", $img.name());
                                         };
@@ -474,6 +463,7 @@ impl LEM {
                     alloc_ptrs.insert(tgt.name(), alloc_tgt.clone());
                     let alloc_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
 
+                    // Constrain tag
                     implies_equal(
                         &mut cs.namespace(|| format!("implies equal for {}'s tag", tgt.name())),
                         &concrete_path,
@@ -483,6 +473,8 @@ impl LEM {
                     .with_context(|| {
                         format!("couldn't enforce implies equal for {}'s tag", tgt.name())
                     })?;
+
+                    // Constrain hash
                     implies_equal_zero(
                         &mut cs
                             .namespace(|| format!("implies equal zero for {}'s hash", tgt.name())),
