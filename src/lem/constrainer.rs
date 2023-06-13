@@ -223,50 +223,53 @@ impl LEM {
             };
         }
 
-        for SlotInfo {
-            arity,
-            concrete_path,
-            preimg,
-            img,
-        } in slot_infos
-        {
-            // First we constrain concrete path hashes, later we
-            // fill with dummies in order to always use the same number of hashes.
-            if Self::on_concrete_path(concrete_path)? {
-                match arity {
-                    HashArity::A2 => {
-                        constrain_slot!(
-                            concrete_path,
-                            hash2_count,
-                            preimg,
-                            img,
-                            store.poseidon_cache.constants.c4()
-                        );
-                        hash2_count += 1;
-                    }
-                    HashArity::A3 => {
-                        constrain_slot!(
-                            concrete_path,
-                            hash3_count,
-                            preimg,
-                            img,
-                            store.poseidon_cache.constants.c6()
-                        );
-                        hash3_count += 1;
-                    }
-                    HashArity::A4 => {
-                        constrain_slot!(
-                            concrete_path,
-                            hash4_count,
-                            preimg,
-                            img,
-                            store.poseidon_cache.constants.c8()
-                        );
-                        hash4_count += 1;
-                    }
-                };
-            }
+        // Order is important for uniformity
+        let hash2_slots = slot_infos
+            .iter()
+            .filter(|s| matches!(s.arity, HashArity::A2));
+        let hash3_slots = slot_infos
+            .iter()
+            .filter(|s| matches!(s.arity, HashArity::A3));
+        let hash4_slots = slot_infos
+            .iter()
+            .filter(|s| matches!(s.arity, HashArity::A4));
+
+        // First we constrain concrete path hashes, later we
+        // fill with dummies in order to always use the same number of hashes.
+        macro_rules! fill_real_slots {
+            (
+                $slots: expr,
+                $counter: expr,
+                $poseidon_constants: expr
+            ) => {
+                for SlotInfo {
+                    arity: _,
+                    concrete_path,
+                    preimg,
+                    img,
+                } in $slots
+                {
+                    constrain_slot!(concrete_path, $counter, preimg, img, $poseidon_constants);
+                    $counter += 1;
+                }
+            };
         }
+        fill_real_slots!(
+            hash2_slots,
+            hash2_count,
+            store.poseidon_cache.constants.c4()
+        );
+        fill_real_slots!(
+            hash3_slots,
+            hash3_count,
+            store.poseidon_cache.constants.c6()
+        );
+        fill_real_slots!(
+            hash4_slots,
+            hash4_count,
+            store.poseidon_cache.constants.c8()
+        );
+
         macro_rules! fill_dummies {
             (
                 $lower: expr,
