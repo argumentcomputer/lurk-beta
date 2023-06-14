@@ -5308,9 +5308,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(12035, cs.num_constraints());
+            assert_eq!(12032, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(11690, cs.aux().len());
+            assert_eq!(11688, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
