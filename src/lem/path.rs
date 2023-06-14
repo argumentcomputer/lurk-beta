@@ -5,13 +5,6 @@ use crate::field::LurkField;
 
 use super::{interpreter::Frame, store::Store, tag::Tag, MetaPtr, LEMOP};
 
-#[derive(PartialEq, Eq, Hash)]
-enum PathNode {
-    Tag(Tag),
-    SymPath(Vec<String>),
-    Default,
-}
-
 impl LEMOP {
     /// Removes conflicting names in parallel logical LEM paths. While these
     /// conflicting names shouldn't be an issue for interpretation, they are
@@ -254,4 +247,12 @@ impl LEMOP {
         }
         Ok(all_paths.len())
     }
+}
+
+/// Nodes of a path meant to be used as intermediary data for `num_paths_taken`
+#[derive(PartialEq, Eq, Hash)]
+enum PathNode {
+    Tag(Tag),
+    SymPath(Vec<String>),
+    Default,
 }
