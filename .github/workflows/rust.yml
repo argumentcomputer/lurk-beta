@@ -49,20 +49,22 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       # make sure benches don't bit-rot
       - name: build benches
-        # TODO: --all-features
         run: cargo build --benches --release
       - name: cargo test
-        # TODO: --all-features
         run: |
           cargo nextest run --profile ci --workspace --cargo-profile dev-ci --run-ignored all -E 'all() - test(groth16::tests::outer_prove_recursion) - test(test_make_fcomm_examples) - test(test_functional_commitments_demo) - test(test_chained_functional_commitments_demo)'
       - name: Doctests
         run: |
           cargo test --doc
 
-  test-gpu:
+  # Runs the test suite on a self-hosted GPU machine with CUDA enabled
+  test-cuda:
+    name: Rust tests on CUDA
     runs-on: [self-hosted, gpu]
     env:
-      RUSTFLAGS: -D warnings
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITITES: compute,utility
+      EC_GPU_FRAMEWORK: cuda
     steps:
       - uses: actions/checkout@v3
         with:
@@ -70,7 +72,54 @@ jobs:
       - uses: actions-rs/toolchain@v1
       - uses: taiki-e/install-action@nextest
       - uses: Swatinem/rust-cache@v2
-      - name: gpu test
+      # Check we have access to the machine's Nvidia drivers
+      - run: nvidia-smi
+      # The `compute`/`sm` number corresponds to the Nvidia GPU architecture
+      # In this case, the self-hosted machine uses the Ampere architecture, but we want this to be configurable
+      # See https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/
+      - name: Set env for CUDA compute
+        run: echo "CUDA_ARCH=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | sed 's/\.//g')" >> $GITHUB_ENV
+      - name: set env for EC_GPU
+        run: echo 'EC_GPU_CUDA_NVCC_ARGS=--fatbin --gpu-architecture=sm_${{ env.CUDA_ARCH }} --generate-code=arch=compute_${{ env.CUDA_ARCH }},code=sm_${{ env.CUDA_ARCH }}' >> $GITHUB_ENV
+      - run: echo "${{ env.EC_GPU_CUDA_NVCC_ARGS}}"
+      # Check that CUDA is installed with a driver-compatible version
+      # This must also be compatible with the GPU architecture, see above link
+      - run: nvcc --version
+      - name: CUDA tests
+        run: |
+          cargo nextest run --profile ci --cargo-profile dev-ci --features cuda
+
+  # Runs the test suite on a self-hosted GPU machine with CUDA and OpenCL enabled (that is using the OpenCL backend for NVIDIA GPUs)
+  test-opencl:
+    name: Rust tests on OpenCL
+    runs-on: [self-hosted, gpu]
+    env:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITITES: compute,utility
+      EC_GPU_FRAMEWORK: opencl
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: actions-rs/toolchain@v1
+      - uses: taiki-e/install-action@nextest
+      - uses: Swatinem/rust-cache@v2
+      # Check we have access to the machine's Nvidia drivers
+      - run: nvidia-smi
+      # The `compute`/`sm` number corresponds to the Nvidia GPU architecture
+      # In this case, the self-hosted machine uses the Ampere architecture, but we want this to be configurable
+      # See https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/
+      - name: Set env for CUDA compute
+        run: echo "CUDA_ARCH=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | sed 's/\.//g')" >> $GITHUB_ENV
+      - name: set env for EC_GPU
+        run: echo 'EC_GPU_CUDA_NVCC_ARGS=--fatbin --gpu-architecture=sm_${{ env.CUDA_ARCH }} --generate-code=arch=compute_${{ env.CUDA_ARCH }},code=sm_${{ env.CUDA_ARCH }}' >> $GITHUB_ENV
+      - run: echo "${{ env.EC_GPU_CUDA_NVCC_ARGS}}"
+      # Check that CUDA is installed with a driver-compatible version
+      # This must also be compatible with the GPU architecture, see above link
+      - run: nvcc --version
+      # Check that we can access the OpenCL headers
+      - run: clinfo
+      - name: OpenCL tests
         run: |
           cargo nextest run --profile ci --cargo-profile dev-ci --features cuda,opencl
 
