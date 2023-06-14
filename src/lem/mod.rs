@@ -398,6 +398,7 @@ impl LEMOP {
     }
 }
 
+/// Stores the hash witnesses in the order they appear during interpretation
 #[derive(Clone)]
 pub enum HashWitness {
     Hash2([MetaPtr; 2], MetaPtr),

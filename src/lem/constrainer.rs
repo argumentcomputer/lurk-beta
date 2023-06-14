@@ -138,10 +138,11 @@ impl LEM {
     ) -> Result<()> {
         let virtual_hash = alloc_manager.get_or_alloc_num(cs, F::ZERO)?;
 
-        // Order is important for uniformity
-        let mut hash2_slots = Vec::new();
-        let mut hash3_slots = Vec::new();
-        let mut hash4_slots = Vec::new();
+        // We separate slots by arity to constrain them in a fixed order later,
+        // to keep the circuit always uniform
+        let mut hash2_slots = Vec::with_capacity(num_hash_slots.hash2);
+        let mut hash3_slots = Vec::with_capacity(num_hash_slots.hash3);
+        let mut hash4_slots = Vec::with_capacity(num_hash_slots.hash4);
         for h in hash_witness {
             match h {
                 HashWitness::Hash2(preimg, img) => {
@@ -155,10 +156,6 @@ impl LEM {
                 }
             }
         }
-
-        let mut hash2_count = 0;
-        let mut hash3_count = 0;
-        let mut hash4_count = 0;
 
         macro_rules! constrain_slot {
             (
@@ -236,6 +233,10 @@ impl LEM {
                 }
             };
         }
+
+        let mut hash2_count = 0;
+        let mut hash3_count = 0;
+        let mut hash4_count = 0;
 
         // First we constrain the hashes on the concrete path and then the ones
         // in the virtual path in order to always use the same number of hashes.
