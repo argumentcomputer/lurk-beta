@@ -327,7 +327,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    /// Hydrates `Ptr` trees from the bottom to the top, avoiding deep recursions
+    /// Hashes `Ptr` trees from the bottom to the top, avoiding deep recursions
     /// in `hash_ptr`.
     pub fn hydrate_z_cache(&mut self) {
         self.dehydrated.par_iter().for_each(|ptr| {

@@ -41,6 +41,7 @@ mod tests {
 
     fn test_eval_and_constrain_aux(store: &mut Store<Fr>, pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>) {
         let lem = step().unwrap();
+        lem.check();
         let num_hash_slots = lem.lem_op.num_hash_slots();
         assert_eq!(num_hash_slots, NUM_HASH_SLOTS);
 

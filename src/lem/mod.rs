@@ -187,15 +187,6 @@ impl NumSlots {
 }
 
 impl LEMOP {
-    /// Performs the static checks of correctness described in `LEM`.
-    ///
-    /// Note: this function is not supposed to be called manually. It's used by
-    /// `LEM::new`, which is the API that should be used directly.
-    pub fn check(&self) -> Result<()> {
-        // TODO
-        Ok(())
-    }
-
     /// STEP 1 from hash slots:
     /// Recursively computes the number of slots needed for a LEMOP
     /// This is the first LEM traversal.
@@ -426,10 +417,14 @@ pub struct Frame<F: LurkField> {
 }
 
 impl LEM {
-    /// Instantiates a `LEM` with the appropriate checks and transformations
-    /// to make sure that interpretation and constraining will be smooth.
+    /// Performs the static checks described in `LEM`'s docstring.
+    pub fn check(&self) {
+        // TODO
+    }
+
+    /// Instantiates a `LEM` with the appropriate transformations to make sure
+    /// that constraining will be smooth.
     pub fn new(input: [&str; 3], lem_op: &LEMOP) -> Result<LEM> {
-        lem_op.check()?;
         let mut map = HashMap::from_iter(input.map(|i| (i.to_string(), i.to_string())));
         Ok(LEM {
             input: input.map(|i| i.to_string()),
