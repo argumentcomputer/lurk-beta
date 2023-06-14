@@ -4240,7 +4240,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             env,
             &var,
             result,
-            ConsName::Env,
+            ConsName::ClosedEnv,
             allocated_cons_witness,
             &extended_env_not_dummy,
         )?;
@@ -5030,6 +5030,8 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
         not_dummy,
     )?;
 
+    let cons_branch_not_dummy = and!(cs, &var_or_binding_is_cons, not_dummy)?;
+    let non_cons_branch_not_dummy = and!(cs, &var_or_binding_is_cons.not(), not_dummy)?;
     let list = AllocatedPtr::construct_cons_named(
         &mut cs.namespace(|| "list cons"),
         g,
@@ -5037,7 +5039,7 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
         &g.nil_ptr,
         ConsName::NewRec,
         allocated_cons_witness,
-        not_dummy,
+        &non_cons_branch_not_dummy,
     )?;
 
     let new_env_if_sym_or_nil = AllocatedPtr::construct_cons_named(
@@ -5047,10 +5049,9 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
         env,
         ConsName::ExtendedRec,
         allocated_cons_witness,
-        not_dummy,
+        &non_cons_branch_not_dummy,
     )?;
 
-    let cons_branch_not_dummy = and!(cs, &var_or_binding_is_cons, not_dummy)?;
 
     let cons2 = AllocatedPtr::construct_cons_named(
         &mut cs.namespace(|| "cons cons binding_or_env"),
