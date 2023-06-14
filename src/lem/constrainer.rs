@@ -136,7 +136,7 @@ impl LEM {
         allocated_ptrs: &HashMap<&String, AllocatedPtr<F>>,
         num_hash_slots: &NumSlots,
     ) -> Result<()> {
-        let dead_hash_walking = alloc_manager.get_or_alloc_num(cs, F::ZERO)?;
+        let virtual_hash = alloc_manager.get_or_alloc_num(cs, F::ZERO)?;
 
         // Order is important for uniformity
         let mut hash2_slots = Vec::new();
@@ -188,7 +188,7 @@ impl LEM {
                 )?;
             };
         }
-        macro_rules! fill_real_slots {
+        macro_rules! constrain_concrete_slots {
             (
                 $slots: expr,
                 $counter: expr,
@@ -218,7 +218,7 @@ impl LEM {
                 }
             };
         }
-        macro_rules! fill_dummies {
+        macro_rules! constrain_virtual_slots {
             (
                 $lower: expr,
                 $upper: expr,
@@ -229,46 +229,46 @@ impl LEM {
                     constrain_slot!(
                         &Boolean::Constant(false),
                         item,
-                        vec![dead_hash_walking.clone(); $preimg_size],
-                        &dead_hash_walking,
+                        vec![virtual_hash.clone(); $preimg_size],
+                        &virtual_hash,
                         $constants
                     );
                 }
             };
         }
 
-        // First we constrain concrete path hashes, later we
-        // fill with dummies in order to always use the same number of hashes.
-        fill_real_slots!(
+        // First we constrain the hashes on the concrete path and then the ones
+        // in the virtual path in order to always use the same number of hashes.
+        constrain_concrete_slots!(
             hash2_slots,
             hash2_count,
             store.poseidon_cache.constants.c4()
         );
-        fill_real_slots!(
+        constrain_concrete_slots!(
             hash3_slots,
             hash3_count,
             store.poseidon_cache.constants.c6()
         );
-        fill_real_slots!(
+        constrain_concrete_slots!(
             hash4_slots,
             hash4_count,
             store.poseidon_cache.constants.c8()
         );
 
         ///////////////// Fill with dummies: /////////////////
-        fill_dummies!(
+        constrain_virtual_slots!(
             hash2_count,
             num_hash_slots.hash2,
             4,
             store.poseidon_cache.constants.c4()
         );
-        fill_dummies!(
+        constrain_virtual_slots!(
             hash3_count,
             num_hash_slots.hash3,
             6,
             store.poseidon_cache.constants.c6()
         );
-        fill_dummies!(
+        constrain_virtual_slots!(
             hash4_count,
             num_hash_slots.hash4,
             8,
@@ -342,10 +342,7 @@ impl LEM {
 
         while let Some((op, concrete_path, path)) = stack.pop() {
             macro_rules! hash_helper {
-                (
-                    $img: expr,
-                    $tag: expr
-                ) => {
+                ( $img: expr, $tag: expr ) => {
                     let allocated_img = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_frame(&concrete_path, frame, $img, store)?,
@@ -366,9 +363,7 @@ impl LEM {
                 };
             }
             macro_rules! unhash_helper {
-                (
-                    $preimg: expr
-                ) => {
+                ( $preimg: expr ) => {
                     // Get preimage from allocated pointers
                     let preimg_vec = Self::alloc_preimage(
                         cs,
@@ -391,22 +386,22 @@ impl LEM {
             }
 
             match op {
-                LEMOP::Hash2(img, tag, _preimg) => {
+                LEMOP::Hash2(img, tag, _) => {
                     hash_helper!(img, tag);
                 }
-                LEMOP::Hash3(img, tag, _preimg) => {
+                LEMOP::Hash3(img, tag, _) => {
                     hash_helper!(img, tag);
                 }
-                LEMOP::Hash4(img, tag, _preimg) => {
+                LEMOP::Hash4(img, tag, _) => {
                     hash_helper!(img, tag);
                 }
-                LEMOP::Unhash2(preimg, _img) => {
+                LEMOP::Unhash2(preimg, _) => {
                     unhash_helper!(preimg);
                 }
-                LEMOP::Unhash3(preimg, _img) => {
+                LEMOP::Unhash3(preimg, _) => {
                     unhash_helper!(preimg);
                 }
-                LEMOP::Unhash4(preimg, _img) => {
+                LEMOP::Unhash4(preimg, _) => {
                     unhash_helper!(preimg);
                 }
                 LEMOP::Null(tgt, tag) => {
