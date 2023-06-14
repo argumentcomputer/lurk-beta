@@ -5052,7 +5052,6 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
         &non_cons_branch_not_dummy,
     )?;
 
-
     let cons2 = AllocatedPtr::construct_cons_named(
         &mut cs.namespace(|| "cons cons binding_or_env"),
         g,
