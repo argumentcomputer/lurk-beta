@@ -18,6 +18,31 @@ use crate::field::{FWrap, LurkField};
 
 use super::{pointers::ZPtr, store::Store, Frame, HashWitness, MetaPtr, NumSlots, LEM, LEMOP};
 
+impl LEMOP {
+    /// STEP 1 from hash slots:
+    /// Computes the number of slots needed for a LEMOP
+    /// This is the first LEM traversal.
+    pub fn num_hash_slots(&self) -> NumSlots {
+        match self {
+            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => NumSlots::new((1, 0, 0)),
+            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => NumSlots::new((0, 1, 0)),
+            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => NumSlots::new((0, 0, 1)),
+            LEMOP::MatchTag(_, cases) => cases
+                .values()
+                .fold(NumSlots::default(), |acc, op| acc.max(&op.num_hash_slots())),
+            LEMOP::MatchSymPath(_, cases, def) => {
+                cases.values().fold(def.num_hash_slots(), |acc, op| {
+                    acc.max(&op.num_hash_slots())
+                })
+            }
+            LEMOP::Seq(ops) => ops
+                .iter()
+                .fold(NumSlots::default(), |acc, op| acc.add(&op.num_hash_slots())),
+            _ => NumSlots::default(),
+        }
+    }
+}
+
 /// Manages global allocations for constants in a constraint system
 #[derive(Default)]
 pub struct AllocationManager<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);

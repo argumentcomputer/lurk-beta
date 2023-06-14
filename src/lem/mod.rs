@@ -2,13 +2,14 @@ mod constrainer;
 mod eval;
 mod interpreter;
 mod macros;
+mod path;
 mod pointers;
 mod store;
 mod symbol;
 mod tag;
 
 use crate::field::LurkField;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use std::collections::HashMap;
 
 use self::{pointers::Ptr, store::Store, tag::Tag};
@@ -35,7 +36,7 @@ use self::{pointers::Ptr, store::Store, tag::Tag};
 ///
 /// The actual algorithm is encoded with a LEM operation (`LEMOP`). It's worth
 /// noting that one of the LEM operators is in fact a vector of operators, which
-/// allows imperative expressiveness.
+/// allows imperative/sequenced expressiveness.
 ///
 /// ### Interpretation
 ///
@@ -101,7 +102,7 @@ impl MetaPtr {
     pub fn get_ptr<F: LurkField>(&self, ptrs: &HashMap<String, Ptr<F>>) -> Result<Ptr<F>> {
         match ptrs.get(&self.0) {
             Some(ptr) => Ok(*ptr),
-            None => Err(anyhow!("Meta pointer {} not defined", self.0)),
+            None => bail!("Meta pointer {} not defined", self.0),
         }
     }
 }
@@ -187,180 +188,6 @@ impl NumSlots {
 }
 
 impl LEMOP {
-    /// STEP 1 from hash slots:
-    /// Recursively computes the number of slots needed for a LEMOP
-    /// This is the first LEM traversal.
-    pub fn num_hash_slots(&self) -> NumSlots {
-        match self {
-            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => NumSlots::new((1, 0, 0)),
-            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => NumSlots::new((0, 1, 0)),
-            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => NumSlots::new((0, 0, 1)),
-            LEMOP::MatchTag(_, cases) => cases
-                .values()
-                .fold(NumSlots::default(), |acc, op| acc.max(&op.num_hash_slots())),
-            LEMOP::MatchSymPath(_, cases, def) => {
-                cases.values().fold(def.num_hash_slots(), |acc, op| {
-                    acc.max(&op.num_hash_slots())
-                })
-            }
-            LEMOP::Seq(ops) => ops
-                .iter()
-                .fold(NumSlots::default(), |acc, op| acc.add(&op.num_hash_slots())),
-            _ => NumSlots::default(),
-        }
-    }
-
-    /// Removes conflicting names in parallel logical LEM paths. While these
-    /// conflicting names shouldn't be an issue for interpretation, they are
-    /// problematic when we want to generate the constraints for the LEM, since
-    /// conflicting names would cause different allocations to be bound the same
-    /// name.
-    ///
-    /// The conflict resolution is achieved by changing meta pointers so that
-    /// their names are prepended by the paths where they're declared.
-    ///
-    /// Note: this function is not supposed to be called manually. It's used by
-    /// `LEM::new`, which is the API that should be used directly.
-    pub fn deconflict(
-        &self,
-        path: &str,
-        map: &mut HashMap<String, String>, // name -> path/name
-    ) -> Result<Self> {
-        let insert_many =
-            |map: &mut HashMap<String, String>, ptr: &[MetaPtr]| -> Result<Vec<MetaPtr>> {
-                ptr.iter()
-                    .map(|ptr| {
-                        let new_name = format!("{}.{}", path, ptr.name());
-                        if map.insert(ptr.name().clone(), new_name.clone()).is_some() {
-                            bail!("{} already defined", ptr.name());
-                        };
-                        Ok(MetaPtr(new_name))
-                    })
-                    .collect::<Result<Vec<_>>>()
-            };
-
-        let insert_one = |map: &mut HashMap<String, String>, ptr: &MetaPtr| -> Result<MetaPtr> {
-            let new_name = format!("{}.{}", path, ptr.name());
-            if map.insert(ptr.name().clone(), new_name.clone()).is_some() {
-                bail!("{} already defined", ptr.name());
-            };
-            Ok(MetaPtr(new_name))
-        };
-
-        let retrieve_many =
-            |map: &HashMap<String, String>, args: &[MetaPtr]| -> Result<Vec<MetaPtr>> {
-                args.iter()
-                    .map(|ptr| {
-                        let Some(src_path) = map.get(ptr.name()).cloned() else {
-                        bail!("{} not defined", ptr.name());
-                    };
-                        Ok(MetaPtr(src_path))
-                    })
-                    .collect::<Result<Vec<_>>>()
-            };
-
-        let retrieve_one = |map: &HashMap<String, String>, ptr: &MetaPtr| -> Result<MetaPtr> {
-            let Some(src_path) = map.get(ptr.name()).cloned() else {
-                bail!("{} not defined", ptr.name());
-            };
-            Ok(MetaPtr(src_path))
-        };
-
-        match self {
-            Self::Null(ptr, tag) => {
-                let new_name = format!("{}.{}", path, ptr.name());
-                if map.insert(ptr.name().clone(), new_name.clone()).is_some() {
-                    bail!("{} already defined", ptr.name());
-                };
-                Ok(Self::Null(MetaPtr(new_name), *tag))
-            }
-            Self::Hash2(img, tag, preimg) => {
-                let preimg = retrieve_many(map, preimg)?.try_into().unwrap();
-                let img = insert_one(map, img)?;
-                Ok(Self::Hash2(img, *tag, preimg))
-            }
-            Self::Hash3(img, tag, preimg) => {
-                let preimg = retrieve_many(map, preimg)?.try_into().unwrap();
-                let img = insert_one(map, img)?;
-                Ok(Self::Hash3(img, *tag, preimg))
-            }
-            Self::Hash4(img, tag, preimg) => {
-                let preimg = retrieve_many(map, preimg)?.try_into().unwrap();
-                let img = insert_one(map, img)?;
-                Ok(Self::Hash4(img, *tag, preimg))
-            }
-            LEMOP::Unhash2(preimg, img) => {
-                let img = retrieve_one(map, img)?;
-                let preimg = insert_many(map, preimg)?;
-                Ok(Self::Unhash2(preimg.try_into().unwrap(), img))
-            }
-            LEMOP::Unhash3(preimg, img) => {
-                let img = retrieve_one(map, img)?;
-                let preimg = insert_many(map, preimg)?;
-                Ok(Self::Unhash3(preimg.try_into().unwrap(), img))
-            }
-            LEMOP::Unhash4(preimg, img) => {
-                let img = retrieve_one(map, img)?;
-                let preimg = insert_many(map, preimg)?;
-                Ok(Self::Unhash4(preimg.try_into().unwrap(), img))
-            }
-            LEMOP::MatchTag(ptr, cases) => {
-                let Some(ptr_path) = map.get(ptr.name()).cloned() else {
-                    bail!("{} not defined", ptr.name());
-                };
-                let mut new_cases = vec![];
-                for (tag, case) in cases {
-                    // each case needs it's own clone of `map`
-                    let new_case = case.deconflict(&format!("{path}.{tag}"), &mut map.clone())?;
-                    new_cases.push((*tag, new_case));
-                }
-                Ok(LEMOP::MatchTag(
-                    MetaPtr(ptr_path),
-                    HashMap::from_iter(new_cases),
-                ))
-            }
-            LEMOP::MatchSymPath(ptr, cases, def) => {
-                let Some(ptr_path) = map.get(ptr.name()).cloned() else {
-                    bail!("{} not defined", ptr.name());
-                };
-                let mut new_cases = vec![];
-                for (case_name, case) in cases {
-                    // each case needs it's own clone of `map`
-                    let new_case = case.deconflict(
-                        &format!("{path}.[{}]", case_name.join(".")),
-                        &mut map.clone(),
-                    )?;
-                    new_cases.push((case_name.clone(), new_case));
-                }
-                Ok(LEMOP::MatchSymPath(
-                    MetaPtr(ptr_path),
-                    HashMap::from_iter(new_cases),
-                    Box::new(def.deconflict(&format!("{path}.DEFAULT"), &mut map.clone())?),
-                ))
-            }
-            LEMOP::Seq(ops) => {
-                let mut new_ops = vec![];
-                for op in ops {
-                    new_ops.push(op.deconflict(path, map)?);
-                }
-                Ok(LEMOP::Seq(new_ops))
-            }
-            LEMOP::Return(o) => {
-                let Some(o0) = map.get(o[0].name()).cloned() else {
-                    bail!("{} not defined", o[0].name());
-                };
-                let Some(o1) = map.get(o[1].name()).cloned() else {
-                    bail!("{} not defined", o[1].name());
-                };
-                let Some(o2) = map.get(o[2].name()).cloned() else {
-                    bail!("{} not defined", o[2].name());
-                };
-                Ok(LEMOP::Return([MetaPtr(o0), MetaPtr(o1), MetaPtr(o2)]))
-            }
-            _ => todo!(),
-        }
-    }
-
     /// Intern all symbol paths that are matched on `MatchSymPath`s
     pub fn intern_matched_sym_paths<F: LurkField>(&self, store: &mut Store<F>) {
         let mut stack = vec![self];
