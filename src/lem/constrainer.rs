@@ -285,7 +285,6 @@ impl LEM {
             store.poseidon_cache.constants.c8()
         );
 
-
         ///////////////// Fill with dummies: /////////////////
         fill_dummies!(
             hash2_count,

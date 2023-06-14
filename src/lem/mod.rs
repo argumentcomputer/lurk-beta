@@ -398,6 +398,13 @@ impl LEMOP {
     }
 }
 
+#[derive(Clone)]
+pub enum HashWitness {
+    Hash2([MetaPtr; 2], MetaPtr),
+    Hash3([MetaPtr; 3], MetaPtr),
+    Hash4([MetaPtr; 4], MetaPtr),
+}
+
 /// A `Frame` carries the data that results from interpreting LEM. That is,
 /// it contains the input, the output and all the assignments resulting from
 /// running one iteration.
@@ -406,6 +413,7 @@ pub struct Frame<F: LurkField> {
     input: [Ptr<F>; 3],
     output: [Ptr<F>; 3],
     ptrs: HashMap<String, Ptr<F>>,
+    hash_witnesses: Vec<HashWitness>,
 }
 
 impl LEM {
