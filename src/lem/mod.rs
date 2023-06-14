@@ -99,9 +99,12 @@ impl MetaPtr {
         &self.0
     }
 
-    pub fn get_ptr<F: LurkField>(&self, ptrs: &HashMap<String, Ptr<F>>) -> Result<Ptr<F>> {
+    pub fn get_ptr<'a, F: LurkField>(
+        &'a self,
+        ptrs: &'a HashMap<String, Ptr<F>>,
+    ) -> Result<&Ptr<F>> {
         match ptrs.get(&self.0) {
-            Some(ptr) => Ok(*ptr),
+            Some(ptr) => Ok(ptr),
             None => bail!("Meta pointer {} not defined", self.0),
         }
     }
@@ -216,31 +219,6 @@ impl LEMOP {
             }
         }
     }
-}
-
-/// Contains preimage and image.
-/// REMARK: this structure will be populated in the second LEM traversal, which
-/// corresponds to STEP 2 of the hash slots mechanism. In particular, STEP 2
-/// happens during interpretation of LEM and stores the hash witnesses in the
-/// order they appear during interpretation
-#[derive(Clone)]
-pub enum HashWitness {
-    Hash2([MetaPtr; 2], MetaPtr),
-    Hash3([MetaPtr; 3], MetaPtr),
-    Hash4([MetaPtr; 4], MetaPtr),
-}
-
-/// A `Frame` carries the data that results from interpreting LEM. That is,
-/// it contains the input, the output and all the assignments resulting from
-/// running one iteration.
-/// It also contains a HashMap of pointers indexed by variable names.
-/// Finally, `hash_witness` contains all the meta information required compute hashes.
-#[derive(Clone)]
-pub struct Frame<F: LurkField> {
-    input: [Ptr<F>; 3],
-    output: [Ptr<F>; 3],
-    ptrs: HashMap<String, Ptr<F>>,
-    hash_witnesses: Vec<HashWitness>,
 }
 
 impl LEM {

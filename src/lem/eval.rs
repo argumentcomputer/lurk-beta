@@ -45,6 +45,8 @@ mod tests {
         let num_hash_slots = lem.lem_op.num_hash_slots();
         assert_eq!(num_hash_slots, NUM_HASH_SLOTS);
 
+        let mut all_frames = Vec::default();
+
         for (expr_in, expr_out) in pairs {
             let frames = lem.eval(expr_in, store).unwrap();
             assert!(
@@ -56,7 +58,7 @@ mod tests {
             );
             store.hydrate_z_cache();
             let mut alloc_manager = AllocationManager::default();
-            for frame in frames {
+            for frame in frames.clone() {
                 let mut cs = TestConstraintSystem::<Fr>::new();
                 lem.constrain(&mut cs, &mut alloc_manager, store, &frame, &num_hash_slots)
                     .unwrap();
@@ -65,7 +67,13 @@ mod tests {
                 assert_eq!(cs.aux().len(), NUM_AUX);
                 assert_eq!(cs.num_constraints(), NUM_CONSTRAINTS);
             }
+            all_frames.extend(frames);
         }
+
+        assert_eq!(
+            lem.lem_op.num_paths_taken(&all_frames, store).unwrap(),
+            lem.lem_op.num_paths()
+        );
     }
 
     fn expr_in_expr_out_pairs(_store: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {

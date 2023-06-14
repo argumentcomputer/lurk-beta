@@ -1,7 +1,16 @@
 use anyhow::{bail, Result};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use super::{MetaPtr, LEMOP};
+use crate::field::LurkField;
+
+use super::{interpreter::Frame, store::Store, tag::Tag, MetaPtr, LEMOP};
+
+#[derive(PartialEq, Eq, Hash)]
+enum PathNode {
+    Tag(Tag),
+    SymPath(Vec<String>),
+    Default,
+}
 
 impl LEMOP {
     /// Removes conflicting names in parallel logical LEM paths. While these
@@ -178,5 +187,71 @@ impl LEMOP {
             | Self::Open(..)
             | Self::Return(..) => 1,
         }
+    }
+
+    /// Computes the path taken through a `LEMOP` given a frame
+    fn path_taken<F: LurkField>(
+        &self,
+        frame: &Frame<F>,
+        store: &mut Store<F>,
+    ) -> Result<Vec<PathNode>> {
+        let mut path = Vec::default();
+        let mut stack = vec![self];
+        let ptrs = &frame.ptrs;
+        while let Some(op) = stack.pop() {
+            match op {
+                Self::MatchTag(match_ptr, cases) => {
+                    let ptr = match_ptr.get_ptr(ptrs)?;
+                    let tag = ptr.tag();
+                    let Some(op) = cases.get(tag) else {
+                        bail!("No match for tag {}", tag)
+                    };
+                    path.push(PathNode::Tag(*tag));
+                    stack.push(op);
+                }
+                Self::MatchSymPath(match_ptr, cases, def) => {
+                    let ptr = match_ptr.get_ptr(ptrs)?;
+                    let Some(sym_path) = store.fetch_sym_path(ptr) else {
+                        bail!("Symbol path not found for {}", match_ptr.name());
+                    };
+                    match cases.get(sym_path) {
+                        Some(op) => {
+                            path.push(PathNode::SymPath(sym_path.clone()));
+                            stack.push(op)
+                        }
+                        None => {
+                            path.push(PathNode::Default);
+                            stack.push(def)
+                        }
+                    }
+                }
+                Self::Seq(ops) => stack.extend(ops.iter().rev()),
+                // It's safer to be exaustive here and avoid missing new LEMOPs
+                Self::Null(..)
+                | Self::Hash2(..)
+                | Self::Hash3(..)
+                | Self::Hash4(..)
+                | Self::Unhash2(..)
+                | Self::Unhash3(..)
+                | Self::Unhash4(..)
+                | Self::Hide(..)
+                | Self::Open(..)
+                | Self::Return(..) => (),
+            }
+        }
+        Ok(path)
+    }
+
+    /// Computes the number of paths taken within a `LEMOP` given a set of frames
+    pub fn num_paths_taken<F: LurkField>(
+        &self,
+        frames: &Vec<Frame<F>>,
+        store: &mut Store<F>,
+    ) -> Result<usize> {
+        let mut all_paths: HashSet<Vec<PathNode>> = HashSet::default();
+        for frame in frames {
+            all_paths.insert(self.path_taken(frame, store)?);
+        }
+        Ok(all_paths.len())
     }
 }

@@ -16,7 +16,19 @@ use crate::circuit::gadgets::{
 
 use crate::field::{FWrap, LurkField};
 
-use super::{pointers::ZPtr, store::Store, Frame, HashWitness, MetaPtr, NumSlots, LEM, LEMOP};
+use super::{interpreter::Frame, pointers::ZPtr, store::Store, MetaPtr, NumSlots, LEM, LEMOP};
+
+/// Contains preimage and image.
+/// REMARK: this structure will be populated in the second LEM traversal, which
+/// corresponds to STEP 2 of the hash slots mechanism. In particular, STEP 2
+/// happens during interpretation of LEM and stores the hash witnesses in the
+/// order they appear during interpretation
+#[derive(Clone)]
+pub enum HashWitness {
+    Hash2([MetaPtr; 2], MetaPtr),
+    Hash3([MetaPtr; 3], MetaPtr),
+    Hash4([MetaPtr; 4], MetaPtr),
+}
 
 impl LEMOP {
     /// STEP 1 from hash slots:
@@ -142,10 +154,7 @@ impl LEM {
         store: &mut Store<F>,
     ) -> Result<ZPtr<F>> {
         if Self::on_concrete_path(concrete_path)? {
-            let Some(ptr) = frame.ptrs.get(mptr.name()) else {
-                bail!("Couldn't retrieve {} from frame", mptr.name());
-            };
-            store.hash_ptr(ptr)
+            store.hash_ptr(mptr.get_ptr(&frame.ptrs)?)
         } else {
             Ok(ZPtr::dummy())
         }

@@ -3,8 +3,22 @@ use anyhow::{anyhow, bail, Result};
 use std::collections::HashMap;
 
 use super::{
-    pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, Frame, HashWitness, LEM, LEMOP,
+    constrainer::HashWitness, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, LEM, LEMOP,
 };
+
+/// A `Frame` carries the data that results from interpreting LEM. That is,
+/// it contains the input, the output and all the assignments resulting from
+/// running one iteration as a HashMap of pointers indexed by variable names.
+///
+/// Finally, `hash_witnesses` contains the sequence of hash witnesses visited
+/// during interpretation. This information is needed to generate the witness.
+#[derive(Clone)]
+pub struct Frame<F: LurkField> {
+    pub input: [Ptr<F>; 3],
+    pub output: [Ptr<F>; 3],
+    pub ptrs: HashMap<String, Ptr<F>>,
+    pub hash_witnesses: Vec<HashWitness>,
+}
 
 fn insert_into_ptrs<F: LurkField>(
     ptrs: &mut HashMap<String, Ptr<F>>,
@@ -40,7 +54,7 @@ impl LEM {
                 LEMOP::Hash2(tgt, tag, src) => {
                     let src_ptr1 = src[0].get_ptr(&ptrs)?;
                     let src_ptr2 = src[1].get_ptr(&ptrs)?;
-                    let tgt_ptr = store.intern_2_ptrs(*tag, src_ptr1, src_ptr2);
+                    let tgt_ptr = store.intern_2_ptrs(*tag, *src_ptr1, *src_ptr2);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
                     hash_witnesses.push(HashWitness::Hash2(src.clone(), tgt.clone()));
                 }
@@ -48,7 +62,7 @@ impl LEM {
                     let src_ptr1 = src[0].get_ptr(&ptrs)?;
                     let src_ptr2 = src[1].get_ptr(&ptrs)?;
                     let src_ptr3 = src[2].get_ptr(&ptrs)?;
-                    let tgt_ptr = store.intern_3_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3);
+                    let tgt_ptr = store.intern_3_ptrs(*tag, *src_ptr1, *src_ptr2, *src_ptr3);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
                     hash_witnesses.push(HashWitness::Hash3(src.clone(), tgt.clone()));
                 }
@@ -57,7 +71,8 @@ impl LEM {
                     let src_ptr2 = src[1].get_ptr(&ptrs)?;
                     let src_ptr3 = src[2].get_ptr(&ptrs)?;
                     let src_ptr4 = src[3].get_ptr(&ptrs)?;
-                    let tgt_ptr = store.intern_4_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3, src_ptr4);
+                    let tgt_ptr =
+                        store.intern_4_ptrs(*tag, *src_ptr1, *src_ptr2, *src_ptr3, *src_ptr4);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
                     hash_witnesses.push(HashWitness::Hash4(src.clone(), tgt.clone()));
                 }
@@ -117,19 +132,19 @@ impl LEM {
                     let Ptr::Leaf(Tag::Num, secret) = sec.get_ptr(&ptrs)? else {
                         bail!("{} is not a numeric pointer", sec.name())
                     };
-                    let z_ptr = store.hash_ptr(&src_ptr)?;
+                    let z_ptr = store.hash_ptr(src_ptr)?;
                     let hash =
                         store
                             .poseidon_cache
-                            .hash3(&[secret, z_ptr.tag.to_field(), z_ptr.hash]);
+                            .hash3(&[*secret, z_ptr.tag.to_field(), z_ptr.hash]);
                     let tgt_ptr = Ptr::comm(hash);
-                    store.comms.insert(FWrap::<F>(hash), (secret, src_ptr));
+                    store.comms.insert(FWrap::<F>(hash), (*secret, *src_ptr));
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
                 }
                 LEMOP::Open(tgt_secret, tgt_ptr, comm_or_num) => {
                     match comm_or_num.get_ptr(&ptrs)? {
                         Ptr::Leaf(Tag::Num, hash) | Ptr::Leaf(Tag::Comm, hash) => {
-                            let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(hash)) else {
+                            let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
                                 bail!("No committed data for hash {}", &hash.hex_digits())
                             };
                             insert_into_ptrs(&mut ptrs, tgt_ptr.name().clone(), *ptr)?;
@@ -154,7 +169,7 @@ impl LEM {
                 }
                 LEMOP::MatchSymPath(match_ptr, cases, def) => {
                     let ptr = match_ptr.get_ptr(&ptrs)?;
-                    let Some(sym_path) = store.fetch_sym_path(&ptr) else {
+                    let Some(sym_path) = store.fetch_sym_path(ptr) else {
                         bail!("Symbol path not found for {}", match_ptr.name());
                     };
                     match cases.get(sym_path) {
@@ -168,9 +183,9 @@ impl LEM {
                         return Err(anyhow!("Tried to return twice"));
                     }
                     output = Some([
-                        o[0].get_ptr(&ptrs)?,
-                        o[1].get_ptr(&ptrs)?,
-                        o[2].get_ptr(&ptrs)?,
+                        *o[0].get_ptr(&ptrs)?,
+                        *o[1].get_ptr(&ptrs)?,
+                        *o[2].get_ptr(&ptrs)?,
                     ]);
                 }
             }
