@@ -170,6 +170,7 @@ impl LEM {
             input,
             output,
             ptrs,
+            preimages: todo!(),
         })
     }
 

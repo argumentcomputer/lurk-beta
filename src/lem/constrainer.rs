@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::{anyhow, bail, Context, Result};
 use bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
-    ConstraintSystem,
+    Circuit, ConstraintSystem, SynthesisError,
 };
 
 use crate::circuit::gadgets::{
@@ -13,7 +13,6 @@ use crate::circuit::gadgets::{
     data::hash_poseidon,
     pointer::AllocatedPtr,
 };
-
 use crate::field::{FWrap, LurkField};
 
 use super::{pointers::ZPtr, store::Store, Frame, MetaPtr, NumSlots, LEM, LEMOP};
@@ -284,7 +283,6 @@ impl LEM {
             hash4_count,
             store.poseidon_cache.constants.c8()
         );
-
 
         ///////////////// Fill with dummies: /////////////////
         fill_dummies!(
@@ -580,4 +578,136 @@ impl LEM {
 
         Ok(())
     }
+}
+
+struct LemFrame<F: LurkField> {
+    lem: LEM,
+    frame: Frame<F>,
+}
+
+impl<F: LurkField> Circuit<F> for LemFrame<F> {
+    fn synthesize<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
+        // Step 1: get the number of hash slots needed.
+        let num_slots = self.lem.lem_op.num_hash_slots();
+
+        // Sanity check to make sure we received a plausible number of collected preimages.
+        let all_preimages = &self.frame.preimages;
+        let hash2_count = all_preimages[0].len();
+        let hash3_count = all_preimages[1].len();
+        let hash4_count = all_preimages[2].len();
+
+        // We don't have too many actual preimages of any size.
+        assert!(hash2_count <= num_slots.hash2);
+        assert!(hash3_count <= num_slots.hash3);
+        assert!(hash4_count <= num_slots.hash4);
+
+        // Step 2: synthesize the hashes.
+        let mut allocated_hashes = [
+            Vec::with_capacity(num_slots.hash2),
+            Vec::with_capacity(num_slots.hash3),
+            Vec::with_capacity(num_slots.hash4),
+        ];
+        let mut allocated_preimages = [
+            Vec::with_capacity(num_slots.hash2),
+            Vec::with_capacity(num_slots.hash3),
+            Vec::with_capacity(num_slots.hash4),
+        ];
+
+        // Allocate all the hashes, in blocks, by arity.
+        for n in 0..=2 {
+            let l = n + 2;
+
+            // Allocate the real hashes from the concrete reduction.
+            for (i, preimage) in self.frame.preimages[n].iter().enumerate() {
+                let (allocated_hash, allocated_preimage) = synthesize_hash(
+                    &mut cs.namespace(|| format!("slot_hash{}_{}", l, i)),
+                    preimage,
+                )?;
+                allocated_hashes[n].push(allocated_hash);
+                allocated_preimages[n].push(allocated_preimage);
+            }
+
+            macro_rules! allocate_dummies {
+                ($l:expr, $count:ident, $field:ident) => {
+                    for i in $count..num_slots.$field {
+                        let (allocated_hash, allocated_preimage) = synthesize_hash(
+                            &mut cs.namespace(|| format!("slot_hash{}_{}", $l, i)),
+                            &[F::ZERO; $l * 2],
+                        )?;
+                        allocated_hashes[$count].push(allocated_hash);
+                        allocated_preimages[$count].push(allocated_preimage);
+                    }
+                };
+            }
+
+            // Allocate the remaining dummies.
+            match l {
+                2 => allocate_dummies!(2, hash2_count, hash2),
+                3 => allocate_dummies!(3, hash3_count, hash3),
+                4 => allocate_dummies!(4, hash4_count, hash4),
+                _ => unreachable!(),
+            }
+        }
+
+        let mut index = 0;
+        let mut _index_stack = vec![index]; // To save and restore index when traversing the LEM.
+
+        let next_hash = |is_concrete: Boolean,
+                         this_preimage: &[AllocatedNum<F>]|
+         -> Result<AllocatedNum<F>, SynthesisError> {
+            let l = this_preimage.len() / 2;
+            let n = l - 2;
+
+            let preallocated_hash: &AllocatedNum<F> = &allocated_hashes[n][index];
+            let preallocated_preimage: &Vec<AllocatedNum<F>> = &allocated_preimages[n][index];
+
+            index += 1;
+
+            assert_eq!(preallocated_preimage.len(), this_preimage.len());
+            for (a, b) in preallocated_preimage.iter().zip(this_preimage) {
+                implies_equal(&mut cs.namespace(|| "todo"), &is_concrete, &a, b)?;
+            }
+
+            Ok::<AllocatedNum<F>, SynthesisError>(preallocated_hash.clone())
+        };
+
+        // Step 3: synthesize the program.
+        // With all the foregoing taken care of, we can now just synthesize the circuit for this LEM in a straightforward way.
+        // This will be something like what `LEM.constrain()` does above.
+        //
+        // If you imagine inlining everything here, then whenever you need a hash, you can just call `next_hash()`
+        // above. You'll need maintain the index, so that it always has the right value. That means you need to save and
+        // restore it as you explore alternate branches; and everything needs to be traversed in the same order as it
+        // was when interpreting. If you do that, then you should always find the right hash+preimage.
+        //
+        // Instead of performing any complicated bookkeeping, just call `next_hash` along with the `concrete_path` at
+        // that point. This will add the implication constraints required.
+
+        todo!("synthesize the program");
+
+        // Future work:
+        //
+        // Hash coalescing: When we want to deduplicate hashes, we can augment the preimage vector to also take a
+        // preimage of canonical pointers (can't remember if these are your Ptr, or your MetaPtr). Then, when adding a
+        // preimage, scan (or lookup in an index) to see if the canonical preimage has already been hashed. If so, don't
+        // add it again. Instead (for example), add an entry referencing the index at which the existing preimage can be
+        // found. (You may need an enum for this, so you can have either preimages or forwarding pointers.)
+        //
+        // When synthesizing the hashes (Step 2 above), just ignore the forwarding pointers.
+        //
+        // Enhance `next_hash()` so that when synthesizing the program, if you find a forwarding pointer, you
+        // 'dereference it' first to get the real allocated preimage and allocated hash.
+
+        // Intentionally ignored here: unhashing. This sketch can be extended to handle it in exactly the same way. It's
+        // probably best to use the same data structure to hold the hashes and the unhashes, since the
+        // coalescing/deduplication will need to allow both 'directions' to share the same underlying hash constraints
+        // and allocated values.
+    }
+}
+
+fn synthesize_hash<CS: ConstraintSystem<F>, F: LurkField>(
+    _cs: &mut CS,
+    _preimage: &[F],
+) -> Result<(AllocatedNum<F>, Vec<AllocatedNum<F>>), SynthesisError> {
+    todo!()
 }

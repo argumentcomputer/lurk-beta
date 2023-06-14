@@ -398,6 +398,11 @@ impl LEMOP {
     }
 }
 
+// p[0] contains Hash2 preimages.
+// p[1] contains Hash3 preimages.
+// p[2] contains Hash4 preimages.
+pub type Preimages<F> = Vec<Vec<Vec<F>>>;
+
 /// A `Frame` carries the data that results from interpreting LEM. That is,
 /// it contains the input, the output and all the assignments resulting from
 /// running one iteration.
@@ -406,6 +411,7 @@ pub struct Frame<F: LurkField> {
     input: [Ptr<F>; 3],
     output: [Ptr<F>; 3],
     ptrs: HashMap<String, Ptr<F>>,
+    preimages: Preimages<F>,
 }
 
 impl LEM {
