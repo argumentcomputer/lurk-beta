@@ -114,7 +114,7 @@ impl LEM {
                     let Ptr::Leaf(Tag::Num, secret) = sec.get_ptr(&ptrs)? else {
                         bail!("{} is not a numeric pointer", sec.name())
                     };
-                    let z_ptr = store.hydrate_ptr(&src_ptr)?;
+                    let z_ptr = store.hash_ptr(&src_ptr)?;
                     let hash =
                         store
                             .poseidon_cache

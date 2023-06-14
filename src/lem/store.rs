@@ -40,6 +40,7 @@ pub struct Store<F: LurkField> {
     ptrs3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
     ptrs4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
 
+    // TODO: use shared references in these cache structures for efficiency
     str_tails_cache: HashMap<String, Ptr<F>>,
     sym_tails_cache: HashMap<Vec<String>, Ptr<F>>,
     sym_path_cache: HashMap<Ptr<F>, Vec<String>>,
@@ -242,7 +243,7 @@ impl<F: LurkField> Store<F> {
     ///
     /// Warning: without cache hits, this function might blow up Rust's recursion
     /// depth limit. This limitation is circumvented by calling `hydrate_z_cache`.
-    pub fn hydrate_ptr(&self, ptr: &Ptr<F>) -> Result<ZPtr<F>> {
+    pub fn hash_ptr(&self, ptr: &Ptr<F>) -> Result<ZPtr<F>> {
         match ptr {
             Ptr::Leaf(tag, x) => Ok(ZPtr {
                 tag: *tag,
@@ -254,8 +255,8 @@ impl<F: LurkField> Store<F> {
                     let Some((a, b)) = self.ptrs2.get_index(*idx) else {
                             bail!("Index {idx} not found on ptrs2")
                         };
-                    let a = self.hydrate_ptr(a)?;
-                    let b = self.hydrate_ptr(b)?;
+                    let a = self.hash_ptr(a)?;
+                    let b = self.hash_ptr(b)?;
                     let z_ptr = ZPtr {
                         tag: *tag,
                         hash: self.poseidon_cache.hash4(&[
@@ -276,9 +277,9 @@ impl<F: LurkField> Store<F> {
                     let Some((a, b, c)) = self.ptrs3.get_index(*idx) else {
                             bail!("Index {idx} not found on ptrs3")
                         };
-                    let a = self.hydrate_ptr(a)?;
-                    let b = self.hydrate_ptr(b)?;
-                    let c = self.hydrate_ptr(c)?;
+                    let a = self.hash_ptr(a)?;
+                    let b = self.hash_ptr(b)?;
+                    let c = self.hash_ptr(c)?;
                     let z_ptr = ZPtr {
                         tag: *tag,
                         hash: self.poseidon_cache.hash6(&[
@@ -301,10 +302,10 @@ impl<F: LurkField> Store<F> {
                     let Some((a, b, c, d)) = self.ptrs4.get_index(*idx) else {
                             bail!("Index {idx} not found on ptrs4")
                         };
-                    let a = self.hydrate_ptr(a)?;
-                    let b = self.hydrate_ptr(b)?;
-                    let c = self.hydrate_ptr(c)?;
-                    let d = self.hydrate_ptr(d)?;
+                    let a = self.hash_ptr(a)?;
+                    let b = self.hash_ptr(b)?;
+                    let c = self.hash_ptr(c)?;
+                    let d = self.hash_ptr(d)?;
                     let z_ptr = ZPtr {
                         tag: *tag,
                         hash: self.poseidon_cache.hash8(&[
@@ -327,10 +328,10 @@ impl<F: LurkField> Store<F> {
     }
 
     /// Hydrates `Ptr` trees from the bottom to the top, avoiding deep recursions
-    /// in `hydrate_ptr`.
+    /// in `hash_ptr`.
     pub fn hydrate_z_cache(&mut self) {
         self.dehydrated.par_iter().for_each(|ptr| {
-            self.hydrate_ptr(ptr).expect("failed to hydrate pointer");
+            self.hash_ptr(ptr).expect("failed to hydrate pointer");
         });
         self.dehydrated = Vec::new();
     }

@@ -95,7 +95,7 @@ impl LEM {
     ) -> Result<()> {
         let allocated_ptr = Self::allocate_ptr(
             cs,
-            &store.hydrate_ptr(&frame.input[input_idx])?,
+            &store.hash_ptr(&frame.input[input_idx])?,
             &self.input[input_idx],
             allocated_ptrs,
         )?;
@@ -120,7 +120,7 @@ impl LEM {
             let Some(ptr) = frame.ptrs.get(mptr.name()) else {
                 bail!("Couldn't retrieve {} from frame", mptr.name());
             };
-            store.hydrate_ptr(ptr)
+            store.hash_ptr(ptr)
         } else {
             Ok(ZPtr::dummy())
         }

@@ -45,26 +45,20 @@ mod tests {
         assert_eq!(num_hash_slots, NUM_HASH_SLOTS);
 
         for (expr_in, expr_out) in pairs {
-            let valuations = lem.eval(expr_in, store).unwrap();
+            let frames = lem.eval(expr_in, store).unwrap();
             assert!(
-                valuations
+                frames
                     .last()
-                    .expect("eval should add at least one step data")
+                    .expect("eval should add at least one frame")
                     .output[0]
                     == expr_out
             );
             store.hydrate_z_cache();
             let mut alloc_manager = AllocationManager::default();
-            for valuation in valuations {
+            for frame in frames {
                 let mut cs = TestConstraintSystem::<Fr>::new();
-                lem.constrain(
-                    &mut cs,
-                    &mut alloc_manager,
-                    store,
-                    &valuation,
-                    &num_hash_slots,
-                )
-                .unwrap();
+                lem.constrain(&mut cs, &mut alloc_manager, store, &frame, &num_hash_slots)
+                    .unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(cs.num_inputs(), NUM_INPUTS);
                 assert_eq!(cs.aux().len(), NUM_AUX);
