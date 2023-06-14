@@ -163,12 +163,12 @@ impl LEM {
                 $hash_index: expr,
                 $preimg: expr,
                 $img: expr,
-                $constants: expr
+                $poseidon_constants: expr
             ) => {
                 let allocated_hash = hash_poseidon(
                     &mut cs.namespace(|| format!("slot_hash{}_{}", $preimg.len() / 2, $hash_index)),
                     $preimg.to_vec(),
-                    $constants,
+                    $poseidon_constants,
                 )?;
 
                 implies_equal(
@@ -220,15 +220,15 @@ impl LEM {
                 $lower: expr,
                 $upper: expr,
                 $preimg_size: expr,
-                $constants: expr
+                $poseidon_constants: expr
             ) => {
-                for item in $lower..$upper {
+                for slot_index in $lower..$upper {
                     constrain_slot!(
                         &Boolean::Constant(false),
-                        item,
+                        slot_index,
                         vec![virtual_hash.clone(); $preimg_size],
                         &virtual_hash,
-                        $constants
+                        $poseidon_constants
                     );
                 }
             };
