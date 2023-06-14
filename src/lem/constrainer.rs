@@ -344,6 +344,7 @@ impl LEM {
         while let Some((op, concrete_path, path)) = stack.pop() {
             macro_rules! hash_helper {
                 ( $img: expr, $tag: expr ) => {
+                    // STEP 3: Allocate image
                     let allocated_img = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_frame(&concrete_path, frame, $img, store)?,
@@ -351,7 +352,7 @@ impl LEM {
                         &allocated_ptrs,
                     )?;
 
-                    // Create constraint for the tag
+                    // STEP 3: Create constraint for the tag
                     let allocated_tag = alloc_manager.get_or_alloc_num(cs, $tag.to_field())?;
                     implies_equal(
                         &mut cs.namespace(|| format!("implies equal for {}'s tag", $img.name())),
@@ -360,12 +361,13 @@ impl LEM {
                         &allocated_tag,
                     )?;
 
+                    // STEP 3: Insert allocated image into allocated pointers
                     allocated_ptrs.insert($img.name(), allocated_img.clone());
                 };
             }
             macro_rules! unhash_helper {
                 ( $preimg: expr ) => {
-                    // Get preimage from allocated pointers
+                    // STEP 3: Get preimage from allocated pointers
                     let preimg_vec = Self::alloc_preimage(
                         cs,
                         $preimg,
@@ -375,7 +377,7 @@ impl LEM {
                         &allocated_ptrs,
                     )?;
 
-                    // Insert preimage pointers in the HashMap
+                    // STEP 3: Insert preimage pointers in the HashMap
                     for (name, p) in $preimg
                         .iter()
                         .map(|pi| pi.name())
@@ -519,6 +521,10 @@ impl LEM {
             return Err(anyhow!("Couldn't inputize the right number of outputs"));
         }
 
+        // STEP 3 of hash slots system just finished. In this step we allocated
+        // all preimages and images based of information collected during STEP 2.
+        // Now that the third traversal of LEM finished we have constrained
+        // everything except for hashes and their implications, which we do next.
         Self::constrain_slots(
             cs,
             &frame.hash_witnesses,

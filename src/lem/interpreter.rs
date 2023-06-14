@@ -74,6 +74,7 @@ impl LEM {
                     };
                     insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
                     insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
+                    // STEP 2: Update hash_witness with preimage and image
                     hash_witnesses.push(HashWitness::Hash2(tgts.clone(), src.clone()));
                 }
                 LEMOP::Unhash3(tgts, src) => {
@@ -90,6 +91,7 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
                     insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
                     insert_into_ptrs(&mut ptrs, tgts[2].name().clone(), *c)?;
+                    // STEP 2: Update hash_witness with preimage and image
                     hash_witnesses.push(HashWitness::Hash3(tgts.clone(), src.clone()));
                 }
                 LEMOP::Unhash4(tgts, src) => {
@@ -107,6 +109,7 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
                     insert_into_ptrs(&mut ptrs, tgts[2].name().clone(), *c)?;
                     insert_into_ptrs(&mut ptrs, tgts[3].name().clone(), *d)?;
+                    // STEP 2: Update hash_witness with preimage and image
                     hash_witnesses.push(HashWitness::Hash4(tgts.clone(), src.clone()));
                 }
                 LEMOP::Hide(tgt, sec, src) => {

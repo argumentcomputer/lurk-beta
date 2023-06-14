@@ -196,7 +196,9 @@ impl LEMOP {
         Ok(())
     }
 
+    /// STEP 1 from hash slots:
     /// Recursively computes the number of slots needed for a LEMOP
+    /// This is the first LEM traversal.
     pub fn num_hash_slots(&self) -> NumSlots {
         match self {
             LEMOP::Hash2(..) | LEMOP::Unhash2(..) => NumSlots::new((1, 0, 0)),
@@ -398,7 +400,11 @@ impl LEMOP {
     }
 }
 
-/// Stores the hash witnesses in the order they appear during interpretation
+/// Contains preimage and image.
+/// REMARK: this structure will be populated in the second LEM traversal, which
+/// corresponds to STEP 2 of the hash slots mechanism. In particular, STEP 2
+/// happens during interpretation of LEM and stores the hash witnesses in the
+/// order they appear during interpretation
 #[derive(Clone)]
 pub enum HashWitness {
     Hash2([MetaPtr; 2], MetaPtr),
@@ -409,6 +415,8 @@ pub enum HashWitness {
 /// A `Frame` carries the data that results from interpreting LEM. That is,
 /// it contains the input, the output and all the assignments resulting from
 /// running one iteration.
+/// It also contains a HashMap of pointers indexed by variable names.
+/// Finally, `hash_witness` contains all the meta information required compute hashes.
 #[derive(Clone)]
 pub struct Frame<F: LurkField> {
     input: [Ptr<F>; 3],
