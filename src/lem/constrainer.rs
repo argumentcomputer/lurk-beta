@@ -277,6 +277,23 @@ impl LEM {
         Ok(())
     }
 
+    fn alloc_preimage<F: LurkField, CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        preimg: &[MetaPtr],
+        concrete_path: &Boolean,
+        frame: &Frame<F>,
+        store: &mut Store<F>,
+        allocated_ptrs: &HashMap<&String, AllocatedPtr<F>>,
+    ) -> Result<Vec<AllocatedPtr<F>>> {
+        preimg
+            .iter()
+            .map(|x| {
+                Self::z_ptr_from_frame(concrete_path, frame, x, store)
+                    .and_then(|ref ptr| Self::allocate_ptr(cs, ptr, x.name(), allocated_ptrs))
+            })
+            .collect::<Result<Vec<_>>>()
+    }
+
     fn get_allocated_preimage<'a, F: LurkField>(
         preimg: &[MetaPtr],
         allocated_ptrs: &'a HashMap<&String, AllocatedPtr<F>>,
@@ -323,45 +340,75 @@ impl LEM {
 
         let mut stack = vec![(&self.lem_op, Boolean::Constant(true), String::new())];
 
-        macro_rules! hash_helper {
-            (
-                $concrete_path: expr,
-                $img: expr,
-                $tag: expr
-            ) => {
-                let allocated_img = Self::allocate_ptr(
-                    cs,
-                    &Self::z_ptr_from_frame($concrete_path, frame, $img, store)?,
-                    $img.name(),
-                    &allocated_ptrs,
-                )?;
-
-                // Create constraint for the tag
-                let allocated_tag = alloc_manager.get_or_alloc_num(cs, $tag.to_field())?;
-                implies_equal(
-                    &mut cs.namespace(|| format!("implies equal for {}'s tag", $img.name())),
-                    $concrete_path,
-                    allocated_img.tag(),
-                    &allocated_tag,
-                )?;
-
-                allocated_ptrs.insert($img.name(), allocated_img.clone());
-            };
-        }
         while let Some((op, concrete_path, path)) = stack.pop() {
+            macro_rules! hash_helper {
+                (
+                    $img: expr,
+                    $tag: expr
+                ) => {
+                    let allocated_img = Self::allocate_ptr(
+                        cs,
+                        &Self::z_ptr_from_frame(&concrete_path, frame, $img, store)?,
+                        $img.name(),
+                        &allocated_ptrs,
+                    )?;
+
+                    // Create constraint for the tag
+                    let allocated_tag = alloc_manager.get_or_alloc_num(cs, $tag.to_field())?;
+                    implies_equal(
+                        &mut cs.namespace(|| format!("implies equal for {}'s tag", $img.name())),
+                        &concrete_path,
+                        allocated_img.tag(),
+                        &allocated_tag,
+                    )?;
+
+                    allocated_ptrs.insert($img.name(), allocated_img.clone());
+                };
+            }
+            macro_rules! unhash_helper {
+                (
+                    $preimg: expr
+                ) => {
+                    // Get preimage from allocated pointers
+                    let preimg_vec = Self::alloc_preimage(
+                        cs,
+                        $preimg,
+                        &concrete_path,
+                        frame,
+                        store,
+                        &allocated_ptrs,
+                    )?;
+
+                    // Insert preimage pointers in the HashMap
+                    for (name, p) in $preimg
+                        .iter()
+                        .map(|pi| pi.name())
+                        .zip(preimg_vec.into_iter())
+                    {
+                        allocated_ptrs.insert(name, p);
+                    }
+                };
+            }
+
             match op {
                 LEMOP::Hash2(img, tag, _preimg) => {
-                    hash_helper!(&concrete_path, img, tag);
+                    hash_helper!(img, tag);
                 }
                 LEMOP::Hash3(img, tag, _preimg) => {
-                    hash_helper!(&concrete_path, img, tag);
+                    hash_helper!(img, tag);
                 }
                 LEMOP::Hash4(img, tag, _preimg) => {
-                    hash_helper!(&concrete_path, img, tag);
+                    hash_helper!(img, tag);
                 }
-                LEMOP::Unhash2(_preimg, _img) => {}
-                LEMOP::Unhash3(_preimg, _img) => {}
-                LEMOP::Unhash4(_preimg, _img) => {}
+                LEMOP::Unhash2(preimg, _img) => {
+                    unhash_helper!(preimg);
+                }
+                LEMOP::Unhash3(preimg, _img) => {
+                    unhash_helper!(preimg);
+                }
+                LEMOP::Unhash4(preimg, _img) => {
+                    unhash_helper!(preimg);
+                }
                 LEMOP::Null(tgt, tag) => {
                     let allocated_tgt = Self::allocate_ptr(
                         cs,
