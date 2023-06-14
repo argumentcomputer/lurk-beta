@@ -323,64 +323,41 @@ impl LEM {
 
         let mut stack = vec![(&self.lem_op, Boolean::Constant(true), String::new())];
 
+        macro_rules! hash_helper {
+            (
+                $concrete_path: expr,
+                $img: expr,
+                $tag: expr
+            ) => {
+                let allocated_img = Self::allocate_ptr(
+                    cs,
+                    &Self::z_ptr_from_frame($concrete_path, frame, $img, store)?,
+                    $img.name(),
+                    &allocated_ptrs,
+                )?;
+
+                // Create constraint for the tag
+                let allocated_tag = alloc_manager.get_or_alloc_num(cs, $tag.to_field())?;
+                implies_equal(
+                    &mut cs.namespace(|| format!("implies equal for {}'s tag", $img.name())),
+                    $concrete_path,
+                    allocated_img.tag(),
+                    &allocated_tag,
+                )?;
+
+                allocated_ptrs.insert($img.name(), allocated_img.clone());
+            };
+        }
         while let Some((op, concrete_path, path)) = stack.pop() {
             match op {
                 LEMOP::Hash2(img, tag, _preimg) => {
-                    let allocated_img = Self::allocate_ptr(
-                        cs,
-                        &Self::z_ptr_from_frame(&concrete_path, frame, img, store)?,
-                        img.name(),
-                        &allocated_ptrs,
-                    )?;
-
-                    // Create constraint for the tag
-                    let allocated_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
-                    implies_equal(
-                        &mut cs.namespace(|| format!("implies equal for {}'s tag", img.name())),
-                        &concrete_path,
-                        allocated_img.tag(),
-                        &allocated_tag,
-                    )?;
-
-                    allocated_ptrs.insert(img.name(), allocated_img.clone());
+                    hash_helper!(&concrete_path, img, tag);
                 }
                 LEMOP::Hash3(img, tag, _preimg) => {
-                    let allocated_img = Self::allocate_ptr(
-                        cs,
-                        &Self::z_ptr_from_frame(&concrete_path, frame, img, store)?,
-                        img.name(),
-                        &allocated_ptrs,
-                    )?;
-
-                    // Create constraint for the tag
-                    let allocated_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
-                    implies_equal(
-                        &mut cs.namespace(|| format!("implies equal for {}'s tag", img.name())),
-                        &concrete_path,
-                        allocated_img.tag(),
-                        &allocated_tag,
-                    )?;
-
-                    allocated_ptrs.insert(img.name(), allocated_img.clone());
+                    hash_helper!(&concrete_path, img, tag);
                 }
                 LEMOP::Hash4(img, tag, _preimg) => {
-                    let allocated_img = Self::allocate_ptr(
-                        cs,
-                        &Self::z_ptr_from_frame(&concrete_path, frame, img, store)?,
-                        img.name(),
-                        &allocated_ptrs,
-                    )?;
-
-                    // Create constraint for the tag
-                    let allocated_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
-                    implies_equal(
-                        &mut cs.namespace(|| format!("implies equal for {}'s tag", img.name())),
-                        &concrete_path,
-                        allocated_img.tag(),
-                        &allocated_tag,
-                    )?;
-
-                    allocated_ptrs.insert(img.name(), allocated_img.clone());
+                    hash_helper!(&concrete_path, img, tag);
                 }
                 LEMOP::Unhash2(_preimg, _img) => {}
                 LEMOP::Unhash3(_preimg, _img) => {}
