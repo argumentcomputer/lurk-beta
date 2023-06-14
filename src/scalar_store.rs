@@ -400,7 +400,7 @@ mod test {
 
         #[test]
         fn prop_scalar_cont_ipld(x in any::<ScalarContinuation<Fr>>()) {
-            let to_ipld = to_ipld(x.clone()).unwrap();
+            let to_ipld = to_ipld(x).unwrap();
             let from_ipld = from_ipld(to_ipld).unwrap();
             assert_eq!(x, from_ipld);
         }

@@ -808,7 +808,7 @@ mod tests {
                 let mut cs = TestConstraintSystem::<Fr>::new();
                 let a_num = AllocatedNum::alloc(cs.namespace(|| "a_num"), || Ok(a)).unwrap();
                 let b_num = AllocatedNum::alloc(cs.namespace(|| "b_num"), || Ok(b)).unwrap();
-                let _ = enforce_equal(&mut cs, || "enforce equal", &a_num, &b_num);
+                enforce_equal(&mut cs, || "enforce equal", &a_num, &b_num);
                 assert_eq!(cs.is_satisfied(), a==b);
             };
 
@@ -825,7 +825,7 @@ mod tests {
             let test_num = |n: u64| {
                 let mut cs = TestConstraintSystem::<Fr>::new();
                 let num = AllocatedNum::alloc(cs.namespace(|| "zero"), || Ok(Fr::from(n))).unwrap();
-                let _ = enforce_equal_zero(&mut cs, || "enforce equal zero", &num);
+                enforce_equal_zero(&mut cs, || "enforce equal zero", &num);
                 assert_eq!(cs.is_satisfied(), n==0);
 
             };
@@ -869,8 +869,8 @@ mod tests {
 
             let test_a_b = |premise: bool, a, b, result: bool| {
                 let mut cs = TestConstraintSystem::<Fr>::new();
-                let a_num = AllocatedNum::alloc(cs.namespace(|| "a_num"), || Ok(Fr::from(a))).unwrap();
-                let b_num = AllocatedNum::alloc(cs.namespace(|| "b_num"), || Ok(Fr::from(b))).unwrap();
+                let a_num = AllocatedNum::alloc(cs.namespace(|| "a_num"), || Ok(a)).unwrap();
+                let b_num = AllocatedNum::alloc(cs.namespace(|| "b_num"), || Ok(b)).unwrap();
                 let pb = Boolean::constant(premise);
                 let _ = implies_equal(&mut cs.namespace(|| "implies equal"), &pb, &a_num, &b_num);
                 assert_eq!(cs.is_satisfied(), result);
@@ -1077,7 +1077,7 @@ mod tests {
             ).expect("alloc failed"));
 
             // Execute the function under test.
-            let _ = enforce_implication_lc(
+            enforce_implication_lc(
                 cs.namespace(|| "enforce_implication_lc"),
                 &premise,
                 |_| lc,
@@ -1107,7 +1107,7 @@ mod tests {
         );
 
         // Execute the function under test.
-        let _ = enforce_implication_lc(
+        enforce_implication_lc(
             cs.namespace(|| "enforce_implication_lc_big"),
             &premise_true,
             |_| test_lc_big.clone(),
@@ -1127,7 +1127,7 @@ mod tests {
         );
 
         // Execute the function under test.
-        let _ = enforce_implication_lc(
+        enforce_implication_lc(
             cs.namespace(|| "enforce_implication_lc_big_with_false"),
             &premise_false,
             |_| test_lc_big,
@@ -1153,7 +1153,7 @@ mod tests {
         test_lc_arb_num = test_lc_arb_num + (Fr::ONE, anum2.get_variable());
 
         // Execute the function under test.
-        let _ = enforce_implication_lc(
+        enforce_implication_lc(
             cs.namespace(|| "enforce_implication_lc_arb_num"),
             &premise_true,
             |_| test_lc_arb_num,
