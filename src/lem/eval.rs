@@ -58,7 +58,7 @@ mod tests {
                     .expect("eval should add at least one frame")
                     .get_output()
                     .unwrap()[0]
-                    == expr_out
+                    == &expr_out
             );
             store.hydrate_z_cache();
             let mut alloc_manager = AllocationManager::default();

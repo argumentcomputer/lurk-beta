@@ -21,13 +21,13 @@ pub struct Frame<F: LurkField> {
     pub hash_witnesses: Vec<HashWitness>,
 }
 
-impl<F: LurkField> Frame<F> {
-    pub fn get_output(&self) -> Result<[Ptr<F>; 3]> {
+impl<'a, F: LurkField> Frame<F> {
+    pub fn get_output(&'a self) -> Result<[&'a Ptr<F>; 3]> {
         let ptrs = &self.ptrs;
         Ok([
-            *self.output[0].get_ptr(ptrs)?,
-            *self.output[1].get_ptr(ptrs)?,
-            *self.output[2].get_ptr(ptrs)?,
+            self.output[0].get_ptr(ptrs)?,
+            self.output[1].get_ptr(ptrs)?,
+            self.output[2].get_ptr(ptrs)?,
         ])
     }
 }
@@ -209,8 +209,8 @@ impl LEM {
         let mut env = store.intern_symbol(&Symbol::lurk_sym("nil"));
         let mut cont = Ptr::null(Tag::Outermost);
         let mut frames = vec![];
-        let terminal = Ptr::null(Tag::Terminal);
-        let error = Ptr::null(Tag::Error);
+        let terminal = &Ptr::null(Tag::Terminal);
+        let error = &Ptr::null(Tag::Error);
         loop {
             let frame = self.run([expr, env, cont], store)?;
             frames.push(frame.clone());
@@ -218,7 +218,9 @@ impl LEM {
             if output[2] == terminal || output[2] == error {
                 break;
             } else {
-                [expr, env, cont] = output;
+                expr = *output[0];
+                env = *output[1];
+                cont = *output[2];
             }
         }
         Ok(frames)
