@@ -5,6 +5,37 @@ use crate::field::LurkField;
 
 use super::{interpreter::Frame, store::Store, tag::Tag, MetaPtr, LEMOP};
 
+#[derive(Default, Clone, PartialEq, Eq, Hash)]
+pub struct Path(String);
+
+impl std::fmt::Display for Path {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Path {
+    #[inline]
+    pub fn push_tag(&self, tag: &Tag) -> Path {
+        Path(format!("{self}.Tag({tag})"))
+    }
+
+    #[inline]
+    pub fn push_sym_path(&self, sym_path: &[String]) -> Path {
+        Path(format!("{self}.SymPath({})", sym_path.join(".")))
+    }
+
+    #[inline]
+    pub fn push_tag_inplace(&mut self, tag: &Tag) {
+        self.0 = format!("{self}.Tag({tag})");
+    }
+
+    #[inline]
+    pub fn push_sym_path_inplace(&mut self, sym_path: &[String]) {
+        self.0 = format!("{self}.SymPath({})", sym_path.join("."));
+    }
+}
+
 impl LEMOP {
     /// Removes conflicting names in parallel logical LEM paths. While these
     /// conflicting names shouldn't be an issue for interpretation, they are
@@ -19,7 +50,7 @@ impl LEMOP {
     /// `LEM::new`, which is the API that should be used directly.
     pub fn deconflict(
         &self,
-        path: &str,
+        path: &Path,
         map: &mut HashMap<String, String>, // name -> path/name
     ) -> Result<Self> {
         let insert_many =
@@ -107,7 +138,7 @@ impl LEMOP {
                 let mut new_cases = vec![];
                 for (tag, case) in cases {
                     // each case needs it's own clone of `map`
-                    let new_case = case.deconflict(&format!("{path}.{tag}"), &mut map.clone())?;
+                    let new_case = case.deconflict(&path.push_tag(tag), &mut map.clone())?;
                     new_cases.push((*tag, new_case));
                 }
                 Ok(LEMOP::MatchTag(
@@ -120,18 +151,16 @@ impl LEMOP {
                     bail!("{} not defined", ptr.name());
                 };
                 let mut new_cases = vec![];
-                for (case_name, case) in cases {
+                for (sym_path, case) in cases {
                     // each case needs it's own clone of `map`
-                    let new_case = case.deconflict(
-                        &format!("{path}.[{}]", case_name.join(".")),
-                        &mut map.clone(),
-                    )?;
-                    new_cases.push((case_name.clone(), new_case));
+                    let new_case =
+                        case.deconflict(&path.push_sym_path(sym_path), &mut map.clone())?;
+                    new_cases.push((sym_path.clone(), new_case));
                 }
                 Ok(LEMOP::MatchSymPath(
                     MetaPtr(ptr_path),
                     HashMap::from_iter(new_cases),
-                    Box::new(def.deconflict(&format!("{path}.DEFAULT"), &mut map.clone())?),
+                    Box::new(def.deconflict(&path.push_sym_path(&[]), &mut map.clone())?),
                 ))
             }
             LEMOP::Seq(ops) => {
@@ -183,12 +212,8 @@ impl LEMOP {
     }
 
     /// Computes the path taken through a `LEMOP` given a frame
-    fn path_taken<F: LurkField>(
-        &self,
-        frame: &Frame<F>,
-        store: &mut Store<F>,
-    ) -> Result<Vec<PathNode>> {
-        let mut path = Vec::default();
+    fn path_taken<F: LurkField>(&self, frame: &Frame<F>, store: &mut Store<F>) -> Result<Path> {
+        let mut path = Path::default();
         let mut stack = vec![self];
         let ptrs = &frame.ptrs;
         while let Some(op) = stack.pop() {
@@ -199,7 +224,7 @@ impl LEMOP {
                     let Some(op) = cases.get(tag) else {
                         bail!("No match for tag {}", tag)
                     };
-                    path.push(PathNode::Tag(*tag));
+                    path.push_tag_inplace(tag);
                     stack.push(op);
                 }
                 Self::MatchSymPath(match_ptr, cases, def) => {
@@ -207,15 +232,10 @@ impl LEMOP {
                     let Some(sym_path) = store.fetch_sym_path(ptr) else {
                         bail!("Symbol path not found for {}", match_ptr.name());
                     };
+                    path.push_sym_path_inplace(sym_path);
                     match cases.get(sym_path) {
-                        Some(op) => {
-                            path.push(PathNode::SymPath(sym_path.clone()));
-                            stack.push(op)
-                        }
-                        None => {
-                            path.push(PathNode::Default);
-                            stack.push(def)
-                        }
+                        Some(op) => stack.push(op),
+                        None => stack.push(def),
                     }
                 }
                 Self::Seq(ops) => stack.extend(ops.iter().rev()),
@@ -241,18 +261,10 @@ impl LEMOP {
         frames: &Vec<Frame<F>>,
         store: &mut Store<F>,
     ) -> Result<usize> {
-        let mut all_paths: HashSet<Vec<PathNode>> = HashSet::default();
+        let mut all_paths: HashSet<Path> = HashSet::default();
         for frame in frames {
             all_paths.insert(self.path_taken(frame, store)?);
         }
         Ok(all_paths.len())
     }
-}
-
-/// Nodes of a path meant to be used as intermediary data for `num_paths_taken`
-#[derive(PartialEq, Eq, Hash)]
-enum PathNode {
-    Tag(Tag),
-    SymPath(Vec<String>),
-    Default,
 }

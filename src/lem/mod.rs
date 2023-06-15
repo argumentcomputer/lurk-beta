@@ -12,7 +12,7 @@ use crate::field::LurkField;
 use anyhow::{bail, Result};
 use std::collections::HashMap;
 
-use self::{pointers::Ptr, store::Store, tag::Tag};
+use self::{path::Path, pointers::Ptr, store::Store, tag::Tag};
 
 /// ## Lurk Evaluation Model (LEM)
 ///
@@ -233,7 +233,7 @@ impl LEM {
         let mut map = HashMap::from_iter(input.map(|i| (i.to_string(), i.to_string())));
         Ok(LEM {
             input: input.map(|i| i.to_string()),
-            lem_op: lem_op.deconflict("", &mut map)?,
+            lem_op: lem_op.deconflict(&Path::default(), &mut map)?,
         })
     }
 }

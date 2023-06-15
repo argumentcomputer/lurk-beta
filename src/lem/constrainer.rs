@@ -16,7 +16,9 @@ use crate::circuit::gadgets::{
 
 use crate::field::{FWrap, LurkField};
 
-use super::{interpreter::Frame, pointers::ZPtr, store::Store, MetaPtr, NumSlots, LEM, LEMOP};
+use super::{
+    interpreter::Frame, path::Path, pointers::ZPtr, store::Store, MetaPtr, NumSlots, LEM, LEMOP,
+};
 
 /// Contains preimage and image.
 /// REMARK: this structure will be populated in the second LEM traversal, which
@@ -373,7 +375,7 @@ impl LEM {
 
         let mut num_inputized_outputs = 0;
 
-        let mut stack = vec![(&self.lem_op, Boolean::Constant(true), String::new())];
+        let mut stack = vec![(&self.lem_op, Boolean::Constant(true), Path::default())];
 
         while let Some((op, concrete_path, path)) = stack.pop() {
             macro_rules! hash_helper {
@@ -490,7 +492,6 @@ impl LEM {
                         .with_context(|| "couldn't allocate equal const")?;
                         concrete_path_vec.push(allocated_has_match.clone());
 
-                        let new_path_matchtag = format!("{}.{}", &path, tag);
                         let concrete_path_and_has_match = and(
                             &mut cs.namespace(|| format!("{path}.{tag}.and")),
                             &concrete_path,
@@ -498,7 +499,7 @@ impl LEM {
                         )
                         .with_context(|| "failed to constrain `and`")?;
 
-                        stack.push((op, concrete_path_and_has_match, new_path_matchtag));
+                        stack.push((op, concrete_path_and_has_match, path.push_tag(tag)));
                     }
 
                     // Now we need to enforce that at least one path was taken. We do that by constraining
