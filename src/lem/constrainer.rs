@@ -553,7 +553,7 @@ impl LEM {
         }
 
         if num_inputized_outputs != 3 {
-            return Err(anyhow!("Couldn't inputize the right number of outputs"));
+            bail!("Couldn't inputize the right number of outputs");
         }
 
         // STEP 3 of hash slots system just finished. In this step we allocated
