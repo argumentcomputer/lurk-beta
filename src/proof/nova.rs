@@ -3638,4 +3638,46 @@ pub mod tests {
         );
         test_aux(s, expr4, None, None, Some(error), None, 1, Some(lang));
     }
+
+    #[test]
+    fn test_issue426_minimal() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.nil();
+        let terminal = s.get_cont_terminal();
+        test_aux::<Coproc<Fr>>(
+            s,
+            "((lambda (x) nil) 0)",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            4,
+            None,
+        );
+    }
+
+    #[test]
+    fn test_issue424() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(5);
+        let terminal = s.get_cont_terminal();
+        test_aux::<Coproc<Fr>>(
+            s,
+            "(letrec ((char2int (lambda (digit)
+                           (if (eq #\\0 digit) 0 1)))
+         (str2int (letrec ((inner (lambda (acc xs)
+                                          (if (eq xs \"\") acc
+                                              (inner (+ (* 2 acc)
+                                                        (char2int (car xs)))
+                                                     (cdr xs))))))
+                          (inner 0))))
+        (str2int \"101\"))",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            147,
+            None,
+        );
+    }
 }
