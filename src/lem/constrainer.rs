@@ -484,6 +484,7 @@ impl LEM {
                     };
                     let mut concrete_path_vec = Vec::new();
                     for (tag, op) in cases {
+                        dbg!(tag);
                         let allocated_has_match = alloc_equal_const(
                             &mut cs.namespace(|| format!("{path}.{tag}.alloc_equal_const")),
                             allocated_match_ptr.tag(),
