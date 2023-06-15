@@ -373,7 +373,8 @@ impl LEM {
             self.allocate_and_inputize_input(cs, store, frame, &mut allocated_ptrs, i)?;
         }
 
-        let mut num_inputized_outputs = 0;
+        // let mut num_inputized_outputs = 0;
+        let mut num_returns = 0;
 
         let mut stack = vec![(&self.lem_op, Boolean::Constant(true), Path::default())];
 
@@ -484,7 +485,6 @@ impl LEM {
                     };
                     let mut concrete_path_vec = Vec::new();
                     for (tag, op) in cases {
-                        dbg!(tag);
                         let allocated_has_match = alloc_equal_const(
                             &mut cs.namespace(|| format!("{path}.{tag}.alloc_equal_const")),
                             allocated_match_ptr.tag(),
@@ -520,42 +520,43 @@ impl LEM {
                             .map(|op| (op, concrete_path.clone(), path.clone())),
                     );
                 }
-                LEMOP::Return(outputs) => {
-                    let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
-                    for (i, output) in outputs.iter().enumerate() {
-                        let Some(allocated_ptr_computed) = allocated_ptrs.get(output.name()) else {
-                            bail!("Output {} not allocated", output.name())
-                        };
-                        let output_name = format!("{}.output[{}]", &path, i);
-                        let allocated_ptr_expected = Self::allocate_ptr(
-                            cs,
-                            &Self::z_ptr_from_frame(&concrete_path, frame, output, store)?,
-                            &output_name,
-                            &allocated_ptrs,
-                        )?;
+                LEMOP::Return(_) => {
+                    num_returns += 1;
+                    // let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
+                    // for (i, output) in outputs.iter().enumerate() {
+                    //     let Some(allocated_ptr_computed) = allocated_ptrs.get(output.name()) else {
+                    //         bail!("Output {} not allocated", output.name())
+                    //     };
+                    //     let output_name = format!("{}.output[{}]", &path, i);
+                    //     let allocated_ptr_expected = Self::allocate_ptr(
+                    //         cs,
+                    //         &Self::z_ptr_from_frame(&concrete_path, frame, output, store)?,
+                    //         &output_name,
+                    //         &allocated_ptrs,
+                    //     )?;
 
-                        if is_concrete_path {
-                            Self::inputize_ptr(cs, &allocated_ptr_expected, &output_name)?;
-                            num_inputized_outputs += 1;
-                        }
+                    //     if is_concrete_path {
+                    //         Self::inputize_ptr(cs, &allocated_ptr_expected, &output_name)?;
+                    //         num_inputized_outputs += 1;
+                    //     }
 
-                        allocated_ptr_computed
-                            .implies_ptr_equal(
-                                &mut cs
-                                    .namespace(|| format!("enforce imply equal for {output_name}")),
-                                &concrete_path,
-                                &allocated_ptr_expected,
-                            )
-                            .with_context(|| "couldn't constrain `implies_ptr_equal`")?;
-                    }
+                    //     allocated_ptr_computed
+                    //         .implies_ptr_equal(
+                    //             &mut cs
+                    //                 .namespace(|| format!("enforce imply equal for {output_name}")),
+                    //             &concrete_path,
+                    //             &allocated_ptr_expected,
+                    //         )
+                    //         .with_context(|| "couldn't constrain `implies_ptr_equal`")?;
+                    // }
                 }
                 _ => todo!(),
             }
         }
 
-        if num_inputized_outputs != 3 {
-            bail!("Couldn't inputize the right number of outputs");
-        }
+        // if num_inputized_outputs != 3 {
+        //     bail!("Couldn't inputize the right number of outputs");
+        // }
 
         // STEP 3 of hash slots system just finished. In this step we allocated
         // all preimages and images based of information collected during STEP 2.

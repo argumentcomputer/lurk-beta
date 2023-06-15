@@ -188,15 +188,20 @@ impl LEMOP {
 
     /// Computes the number of possible paths in a `LEMOP`
     pub fn num_paths(&self) -> usize {
-        macro_rules! combine_num_paths {
+        macro_rules! mul_num_paths {
             ( $foldable_ops: expr ) => {
                 $foldable_ops.fold(1, |acc, op| acc * op.num_paths())
             };
         }
+        macro_rules! sum_num_paths {
+            ( $foldable_ops: expr ) => {
+                $foldable_ops.fold(0, |acc, op| acc + op.num_paths())
+            };
+        }
         match self {
-            LEMOP::MatchTag(_, cases) => combine_num_paths!(cases.values()),
-            LEMOP::MatchSymPath(_, cases, _) => combine_num_paths!(cases.values()),
-            LEMOP::Seq(ops) => combine_num_paths!(ops.iter()),
+            LEMOP::MatchTag(_, cases) => sum_num_paths!(cases.values()),
+            LEMOP::MatchSymPath(_, cases, _) => sum_num_paths!(cases.values()),
+            LEMOP::Seq(ops) => mul_num_paths!(ops.iter()),
             // It's safer to be exaustive here and avoid missing new LEMOPs
             Self::Null(..)
             | Self::Hash2(..)
