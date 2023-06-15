@@ -14,7 +14,7 @@ anyhow = "1.0.69"
 base64 = "0.13.1"
 hex = { version = "0.4.3", features = ["serde"] }
 thiserror = "1.0.38"
-bellperson = { git = "https://github.com/lurk-lab/bellperson", branch = "master" }
+bellperson = { git = "https://github.com/filecoin-project/bellperson", rev = "1cb42bfed9abab4dfb005e97bf2cce3b222b5102" }
 blstrs = "0.7.0"
 crossbeam = "0.8.2"
 ff = "0.13"

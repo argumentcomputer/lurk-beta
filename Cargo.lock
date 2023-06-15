@@ -229,7 +229,7 @@ checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 [[package]]
 name = "bellperson"
 version = "0.25.0"
-source = "git+https://github.com/lurk-lab/bellperson?branch=master#1cb42bfed9abab4dfb005e97bf2cce3b222b5102"
+source = "git+https://github.com/filecoin-project/bellperson?rev=1cb42bfed9abab4dfb005e97bf2cce3b222b5102#1cb42bfed9abab4dfb005e97bf2cce3b222b5102"
 dependencies = [
  "bincode",
  "blake2s_simd 1.0.1",
@@ -1713,7 +1713,7 @@ dependencies = [
 [[package]]
 name = "neptune"
 version = "10.0.0"
-source = "git+https://github.com/lurk-lab/neptune?branch=icfp-benchmarks#561aceef91f13def7a04a22b4f096fa3631075de"
+source = "git+https://github.com/lurk-lab/neptune?branch=icfp-benchmarks#0799ed84e39cf242eafabe1651ac3ef786fe5e06"
 dependencies = [
  "abomonation",
  "abomonation_derive",
@@ -1763,7 +1763,7 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 [[package]]
 name = "nova-snark"
 version = "0.21.0"
-source = "git+https://github.com/lurk-lab/nova?branch=icfp-benchmarks#b9cba099052b938369987ba21b502142acd982b5"
+source = "git+https://github.com/lurk-lab/nova?branch=icfp-benchmarks#37550310c05509b08814fbbc256a9b0b007af73e"
 dependencies = [
  "abomonation",
  "abomonation_derive",
