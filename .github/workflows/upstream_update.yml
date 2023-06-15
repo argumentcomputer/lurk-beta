@@ -1,0 +1,82 @@
+name: Check development branch accounts for upstream updates
+
+on:
+  schedule:
+    - cron: '5 * * * *' # every hour, 5 mins past the hour
+  workflow_dispatch: # manual trigger
+
+env:
+  ROOT: "master"
+  SCION: "dev"
+
+jobs:
+  check_branches:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0 # necessary to access all commits
+        ref: ${{ env.SCION }}
+    - run: git fetch origin
+    - name: Check if SCION is an extension of ROOT
+      id: check
+      run: |
+        ROOT_COMMIT=$(git rev-parse origin/${{ env.ROOT }})
+        SCION_COMMIT=$(git rev-parse HEAD)
+        if git merge-base --is-ancestor $ROOT_COMMIT HEAD; then
+          echo "status=true" >> $GITHUB_ENV
+          echo "message=$SCION is rebased on $ROOT as of $SCION_COMMIT" >> $GITHUB_ENV
+        else
+          echo "status=false" >> $GITHUB_ENV
+          echo "message=$SCION at $SCION_COMMIT does not include $ROOT at $ROOT_COMMIT" >> $GITHUB_ENV
+        fi
+      shell: bash
+
+    - name: Find the last report issue open
+      id: last_issue
+      uses: micalevisk/last-issue-action@v2
+      with:
+        state: open
+        labels: |
+          upstream
+          automated issue
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Debug
+      run: |
+        echo ${{ env.status }}
+        echo ${{ env.message }}
+        echo ${{ steps.last_issue.outputs.has-found }}
+        echo ${{ steps.last_issue.outputs.issue-number }}
+
+    - name: Close last report open issue
+      if: env.status == 'true' && steps.last_issue.outputs.has-found == 'true'
+      uses: peter-evans/close-issue@v2
+      with:
+        issue-number: ${{ steps.last_issue.outputs.issue-number }}
+        comment: ${{ env.message }}
+
+    - name: Update last report open issue
+      if: env.status == 'false' && steps.last_issue.outputs.has-found == 'true'
+      uses: peter-evans/create-or-update-comment@v1
+      with:
+        issue-number: ${{ steps.last_issue.outputs.issue-number }}
+        body: ${{ env.message }}
+        edit-mode: replace
+
+    - name: Create file for issue
+      if: env.status == 'false' && steps.last_issue.outputs.has-found != 'false'
+      run: echo "${{ env.message }}" > ./_body.md
+
+    - name: Create issue from report
+      if: env.status == 'false' && steps.last_issue.outputs.has-found != 'false'
+      uses: peter-evans/create-issue-from-file@v4
+      with:
+        title: ${{ env.SCION }} needs to be rebased on ${{ env.ROOT }}
+        content-filepath: ./_body.md
+        assignees: huitseeker
+        labels: |
+          upstream
+          automated issue
