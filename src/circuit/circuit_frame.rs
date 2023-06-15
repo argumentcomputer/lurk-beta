@@ -4278,12 +4278,12 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let body = AllocatedPtr::by_index(1, &continuation_components);
         let letrec_cont = AllocatedContPtr::by_index(3, &continuation_components);
 
-        let cont_is_letrec_cont = cont.alloc_tag_equal(
-            &mut cs.namespace(|| "letrec_cont_is_letrec_cont"),
+        let cont_is_letrec = cont.alloc_tag_equal(
+            &mut cs.namespace(|| "cont_is_letrec"),
             ContTag::LetRec.to_field(),
         )?;
 
-        let extend_rec_not_dummy = and!(cs, &cont_is_letrec_cont, not_dummy)?;
+        let extend_rec_not_dummy = and!(cs, &cont_is_letrec, not_dummy)?;
 
         let extended_env = extend_rec(
             &mut cs.namespace(|| "extend_rec env"),

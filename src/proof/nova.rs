@@ -3640,7 +3640,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_issue426_minimal() {
+    fn test_prove_lambda_body_nil() {
         let s = &mut Store::<Fr>::default();
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
@@ -3657,7 +3657,7 @@ pub mod tests {
     }
 
     #[test]
-    fn test_issue424() {
+    fn test_nested_letrec_regression() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(5);
         let terminal = s.get_cont_terminal();
