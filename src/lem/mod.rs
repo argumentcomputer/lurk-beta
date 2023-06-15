@@ -12,7 +12,7 @@ use crate::field::LurkField;
 use anyhow::{bail, Result};
 use std::collections::HashMap;
 
-use self::{path::Path, pointers::Ptr, store::Store, tag::Tag};
+use self::{interpreter::Frame, path::Path, pointers::Ptr, store::Store, tag::Tag};
 
 /// ## Lurk Evaluation Model (LEM)
 ///
@@ -236,6 +236,25 @@ impl LEM {
             lem_op: lem_op.deconflict(&Path::default(), &mut map)?,
         })
     }
+
+    /// Intern all symbol paths that are matched on `MatchSymPath`s
+    #[inline]
+    pub fn intern_matched_sym_paths<F: LurkField>(&self, store: &mut Store<F>) {
+        self.lem_op.intern_matched_sym_paths(store);
+    }
+
+    /// Asserts that all paths were visited by a set of frames. This is mostly
+    /// for testing purposes.
+    pub fn assert_all_paths_taken<F: LurkField>(
+        &self,
+        frames: &Vec<Frame<F>>,
+        store: &mut Store<F>,
+    ) {
+        assert_eq!(
+            self.lem_op.num_paths_taken(frames, store).unwrap(),
+            self.lem_op.num_paths()
+        );
+    }
 }
 
 #[cfg(test)]
@@ -246,19 +265,40 @@ mod tests {
     use bellperson::util_cs::test_cs::TestConstraintSystem;
     use blstrs::Scalar as Fr;
 
-    fn constrain_test_helper(lem: &LEM, expr: &Ptr<Fr>, expected_num_hash_slots: NumSlots) {
+    fn constrain_test_helper(
+        lem: &LEM,
+        exprs: &[Ptr<Fr>],
+        expected_num_hash_slots: NumSlots,
+        assert_all_paths_taken: bool,
+    ) {
         let num_hash_slots = lem.lem_op.num_hash_slots();
         assert_eq!(num_hash_slots, expected_num_hash_slots);
 
         let mut store = Store::default();
-        let valuations = lem.eval(*expr, &mut store).unwrap();
+        let mut all_frames = vec![];
 
-        let mut alloc_manager = AllocationManager::default();
-        for v in valuations {
-            let mut cs = TestConstraintSystem::<Fr>::new();
-            lem.constrain(&mut cs, &mut alloc_manager, &mut store, &v, &num_hash_slots)
+        for expr in exprs {
+            let frames = lem.eval(*expr, &mut store).unwrap();
+
+            let mut alloc_manager = AllocationManager::default();
+            for frame in frames.clone() {
+                let mut cs = TestConstraintSystem::<Fr>::new();
+                lem.constrain(
+                    &mut cs,
+                    &mut alloc_manager,
+                    &mut store,
+                    &frame,
+                    &num_hash_slots,
+                )
                 .unwrap();
-            assert!(cs.is_satisfied());
+                assert!(cs.is_satisfied());
+            }
+            if assert_all_paths_taken {
+                all_frames.extend(frames);
+            }
+        }
+        if assert_all_paths_taken {
+            lem.assert_all_paths_taken(&all_frames, &mut store);
         }
     }
 
@@ -298,7 +338,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::default());
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42))],
+            NumSlots::default(),
+            false,
+        );
     }
 
     #[test]
@@ -322,7 +367,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::default());
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42))],
+            NumSlots::default(),
+            false,
+        );
     }
 
     #[test]
@@ -338,7 +388,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::new((1, 0, 0)));
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42))],
+            NumSlots::new((1, 0, 0)),
+            false,
+        );
     }
 
     #[test]
@@ -355,7 +410,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::new((2, 0, 0)));
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42))],
+            NumSlots::new((2, 0, 0)),
+            false,
+        );
     }
 
     #[test]
@@ -379,7 +439,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::new((3, 0, 0)));
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42))],
+            NumSlots::new((3, 0, 0)),
+            false,
+        );
     }
 
     #[test]
@@ -416,7 +481,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::new((7, 0, 0)));
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42))],
+            NumSlots::new((7, 0, 0)),
+            false,
+        );
     }
 
     #[test]
@@ -429,7 +499,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::new((2, 0, 0)));
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42))],
+            NumSlots::new((2, 0, 0)),
+            false,
+        );
     }
 
     #[test]
@@ -445,7 +520,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::new((0, 1, 0)));
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42))],
+            NumSlots::new((0, 1, 0)),
+            false,
+        );
     }
 
     #[test]
@@ -462,7 +542,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::new((0, 2, 0)));
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42))],
+            NumSlots::new((0, 2, 0)),
+            false,
+        );
     }
 
     #[test]
@@ -486,7 +571,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::new((0, 3, 0)));
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42))],
+            NumSlots::new((0, 3, 0)),
+            false,
+        );
     }
 
     #[test]
@@ -523,7 +613,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::new((0, 7, 0)));
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42))],
+            NumSlots::new((0, 7, 0)),
+            false,
+        );
     }
 
     #[test]
@@ -536,7 +631,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::new((0, 2, 0)));
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42))],
+            NumSlots::new((0, 2, 0)),
+            false,
+        );
     }
 
     #[test]
@@ -552,7 +652,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::new((0, 0, 1)));
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42))],
+            NumSlots::new((0, 0, 1)),
+            false,
+        );
     }
 
     #[test]
@@ -569,7 +674,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::new((0, 0, 2)));
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42))],
+            NumSlots::new((0, 0, 2)),
+            false,
+        );
     }
 
     #[test]
@@ -593,7 +703,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::new((0, 0, 3)));
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42))],
+            NumSlots::new((0, 0, 3)),
+            false,
+        );
     }
 
     #[test]
@@ -630,7 +745,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::new((0, 0, 7)));
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42))],
+            NumSlots::new((0, 0, 7)),
+            false,
+        );
     }
 
     #[test]
@@ -643,7 +763,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::new((0, 0, 2)));
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42))],
+            NumSlots::new((0, 0, 2)),
+            false,
+        );
     }
 
     #[test]
@@ -686,7 +811,12 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::new((5, 3, 2)));
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42))],
+            NumSlots::new((5, 3, 2)),
+            false,
+        );
     }
 
     #[test]
@@ -729,6 +859,11 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &Ptr::num(Fr::from_u64(42)), NumSlots::new((5, 3, 2)));
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42))],
+            NumSlots::new((5, 3, 2)),
+            false,
+        );
     }
 }

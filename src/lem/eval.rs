@@ -45,6 +45,9 @@ mod tests {
         let num_hash_slots = lem.lem_op.num_hash_slots();
         assert_eq!(num_hash_slots, NUM_HASH_SLOTS);
 
+        // Assures that `MatchSymPath`s will work properly
+        lem.intern_matched_sym_paths(store);
+
         let mut all_frames = Vec::default();
 
         for (expr_in, expr_out) in pairs {
@@ -70,10 +73,7 @@ mod tests {
             all_frames.extend(frames);
         }
 
-        assert_eq!(
-            lem.lem_op.num_paths_taken(&all_frames, store).unwrap(),
-            lem.lem_op.num_paths()
-        );
+        lem.assert_all_paths_taken(&all_frames, store);
     }
 
     fn expr_in_expr_out_pairs(_store: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {

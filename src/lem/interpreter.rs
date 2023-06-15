@@ -36,7 +36,7 @@ fn insert_into_ptrs<F: LurkField>(
 impl LEM {
     /// Interprets a LEM using a stack of operations to be popped and executed.
     /// It modifies a `Store` and assigns `Ptr`s to `MetaPtr`s as it goes.
-    pub fn run<F: LurkField>(&self, input: [Ptr<F>; 3], store: &mut Store<F>) -> Result<Frame<F>> {
+    fn run<F: LurkField>(&self, input: [Ptr<F>; 3], store: &mut Store<F>) -> Result<Frame<F>> {
         // key/val pairs on this map should never be overwritten
         let mut ptrs = HashMap::default();
         ptrs.insert(self.input[0].clone(), input[0]);
@@ -210,8 +210,6 @@ impl LEM {
         let mut frames = vec![];
         let terminal = Ptr::null(Tag::Terminal);
         let error = Ptr::null(Tag::Error);
-        // Assures that `MatchSymPath`s will work properly
-        self.lem_op.intern_matched_sym_paths(store);
         loop {
             let frame = self.run([expr, env, cont], store)?;
             frames.push(frame.clone());
