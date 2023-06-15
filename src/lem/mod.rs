@@ -250,10 +250,10 @@ impl LEM {
         frames: &Vec<Frame<F>>,
         store: &mut Store<F>,
     ) {
-        //assert_eq!(
-        //    self.lem_op.num_paths_taken(frames, store).unwrap(),
-        //    self.lem_op.num_paths()
-        //);
+        assert_eq!(
+            self.lem_op.num_paths_taken(frames, store).unwrap(),
+            self.lem_op.num_paths()
+        );
     }
 }
 
@@ -262,9 +262,7 @@ mod tests {
     use super::constrainer::AllocationManager;
     use super::{store::Store, *};
     use crate::{lem, lem::pointers::Ptr};
-    use bellperson::{
-        util_cs::{test_cs::TestConstraintSystem, Comparable, Delta},
-    };
+    use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable, Delta};
     use blstrs::Scalar as Fr;
 
     fn constrain_test_helper(
@@ -279,11 +277,9 @@ mod tests {
         let mut store = Store::default();
         let mut all_frames = vec![];
 
-        let mut first = true;
-        let mut cs_prev = TestConstraintSystem::<Fr>::new();
+        let mut cs_prev = None;
         for expr in exprs {
             let frames = lem.eval(*expr, &mut store).unwrap();
-            dbg!(frames.len());
 
             let mut alloc_manager = AllocationManager::default();
             let mut cs = TestConstraintSystem::<Fr>::new();
@@ -298,18 +294,16 @@ mod tests {
                 .unwrap();
             }
             assert!(cs.is_satisfied());
+
             if assert_all_paths_taken {
                 all_frames.extend(frames);
             }
 
-            dbg!(cs.num_constraints());
-            if first {
-                first = false;
-            } else {
-                let delta = cs.delta(&cs_prev, true);
-                assert!(delta == Delta::Equal);
+            if let Some(cs_prev) = cs_prev {
+                assert!(cs.delta(&cs_prev, true) == Delta::Equal);
             }
-            cs_prev = cs;
+
+            cs_prev = Some(cs);
         }
         if assert_all_paths_taken {
             lem.assert_all_paths_taken(&all_frames, &mut store);
@@ -389,7 +383,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_simple_all_paths_delta() {
         let lem = lem!(expr_in env_in cont_in {
@@ -405,7 +398,6 @@ mod tests {
             true,
         );
     }
-
 
     #[test]
     fn test_match_all_paths_delta() {

@@ -1,9 +1,10 @@
 use crate::field::{FWrap, LurkField};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use std::collections::HashMap;
 
 use super::{
-    constrainer::HashWitness, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, LEM, LEMOP,
+    constrainer::HashWitness, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM,
+    LEMOP,
 };
 
 /// A `Frame` carries the data that results from interpreting LEM. That is,
@@ -15,9 +16,20 @@ use super::{
 #[derive(Clone)]
 pub struct Frame<F: LurkField> {
     pub input: [Ptr<F>; 3],
-    pub output: [Ptr<F>; 3],
+    pub output: [MetaPtr; 3],
     pub ptrs: HashMap<String, Ptr<F>>,
     pub hash_witnesses: Vec<HashWitness>,
+}
+
+impl<F: LurkField> Frame<F> {
+    pub fn get_output(&self) -> Result<[Ptr<F>; 3]> {
+        let ptrs = &self.ptrs;
+        Ok([
+            *self.output[0].get_ptr(ptrs)?,
+            *self.output[1].get_ptr(ptrs)?,
+            *self.output[2].get_ptr(ptrs)?,
+        ])
+    }
 }
 
 fn insert_into_ptrs<F: LurkField>(
@@ -42,7 +54,6 @@ impl LEM {
         ptrs.insert(self.input[0].clone(), input[0]);
         insert_into_ptrs(&mut ptrs, self.input[1].clone(), input[1])?;
         insert_into_ptrs(&mut ptrs, self.input[2].clone(), input[2])?;
-        let mut output = None;
         let mut hash_witnesses = vec![];
         let mut stack = vec![&self.lem_op];
         while let Some(op) = stack.pop() {
@@ -179,26 +190,16 @@ impl LEM {
                 }
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
                 LEMOP::Return(o) => {
-                    if output.is_some() {
-                        return Err(anyhow!("Tried to return twice"));
-                    }
-                    output = Some([
-                        *o[0].get_ptr(&ptrs)?,
-                        *o[1].get_ptr(&ptrs)?,
-                        *o[2].get_ptr(&ptrs)?,
-                    ]);
+                    return Ok(Frame {
+                        input,
+                        output: o.to_owned(),
+                        ptrs,
+                        hash_witnesses,
+                    })
                 }
             }
         }
-        let Some(output) = output else {
-            return Err(anyhow!("Output not defined"));
-        };
-        Ok(Frame {
-            input,
-            output,
-            ptrs,
-            hash_witnesses,
-        })
+        bail!("Output not reached");
     }
 
     /// Calls `run` until the stop contidion is satisfied, using the output of one
@@ -213,10 +214,11 @@ impl LEM {
         loop {
             let frame = self.run([expr, env, cont], store)?;
             frames.push(frame.clone());
-            if frame.output[2] == terminal || frame.output[2] == error {
+            let output = frame.get_output()?;
+            if output[2] == terminal || output[2] == error {
                 break;
             } else {
-                [expr, env, cont] = frame.output;
+                [expr, env, cont] = output;
             }
         }
         Ok(frames)

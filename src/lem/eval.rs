@@ -56,7 +56,8 @@ mod tests {
                 frames
                     .last()
                     .expect("eval should add at least one frame")
-                    .output[0]
+                    .get_output()
+                    .unwrap()[0]
                     == expr_out
             );
             store.hydrate_z_cache();
@@ -69,6 +70,7 @@ mod tests {
                 assert_eq!(cs.num_inputs(), NUM_INPUTS);
                 assert_eq!(cs.aux().len(), NUM_AUX);
                 assert_eq!(cs.num_constraints(), NUM_CONSTRAINTS);
+                // TODO: assert uniformity
             }
             all_frames.extend(frames);
         }
