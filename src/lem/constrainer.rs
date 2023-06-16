@@ -237,7 +237,6 @@ impl LEM {
             self.allocate_and_inputize_output(cs, store, frame, &allocated_ptrs)?;
 
         let dummy_val = alloc_manager.get_or_alloc_num(cs, F::ZERO)?;
-        // let dummy_ptr = AllocatedPtr::from_parts(&dummy_val, &dummy_val);
         let dummy_poseidon2 = hash_poseidon(
             &mut cs.namespace(|| format!("dummy hash 2")),
             vec![
@@ -578,24 +577,6 @@ impl LEM {
                 _ => todo!(),
             }
         }
-
-        // Filtrar apenas concrete path true
-        // Ordenar pelo index (?)
-        // chama a macro pra fazer constraint dos slots: hash, implies
-        // completar com dummies
-
-        // STEP 3 of hash slots system just finished. In this step we allocated
-        // all preimages and images based of information collected during STEP 2.
-        // Now that the third traversal of LEM finished we have constrained
-        // everything except for hashes and their implications, which we do next.
-        // Self::constrain_slots(
-        //     cs,
-        //     &frame.hash_witnesses,
-        //     store,
-        //     alloc_manager,
-        //     &allocated_ptrs,
-        //     num_hash_slots,
-        // )?;
 
         Ok(())
     }
