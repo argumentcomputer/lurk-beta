@@ -89,6 +89,7 @@ impl<F: LurkField> AllocationManager<F> {
 struct PathTracker(HashMap<Path, usize>);
 
 impl PathTracker {
+    // TODO: add new path from previous one
     pub(crate) fn next(&mut self, path: &Path) -> usize {
         match self.0.get(path) {
             Some(i) => {
