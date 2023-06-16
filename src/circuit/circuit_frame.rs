@@ -4231,12 +4231,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let cont_is_let =
             cont.alloc_tag_equal(&mut cs.namespace(|| "cont_is_let"), ContTag::Let.to_field())?;
-        let let_cont_is_let = let_cont.alloc_tag_equal(
-            &mut cs.namespace(|| "let_cont_is_let"),
-            ContTag::Let.to_field(),
-        )?;
 
-        let extended_env_not_dummy = and!(cs, &let_cont_is_let, not_dummy, &cont_is_let)?;
+        let extended_env_not_dummy = and!(cs, not_dummy, &cont_is_let)?;
 
         let extended_env = extend_named(
             &mut cs.namespace(|| "extend env"),
@@ -4244,7 +4240,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             env,
             &var,
             result,
-            ConsName::Env,
+            ConsName::ClosedEnv,
             allocated_cons_witness,
             &extended_env_not_dummy,
         )?;
@@ -4282,12 +4278,12 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let body = AllocatedPtr::by_index(1, &continuation_components);
         let letrec_cont = AllocatedContPtr::by_index(3, &continuation_components);
 
-        let letrec_cont_is_letrec_cont = letrec_cont.alloc_tag_equal(
-            &mut cs.namespace(|| "letrec_cont_is_letrec_cont"),
+        let cont_is_letrec = cont.alloc_tag_equal(
+            &mut cs.namespace(|| "cont_is_letrec"),
             ContTag::LetRec.to_field(),
         )?;
 
-        let extend_rec_not_dummy = and!(cs, &letrec_cont_is_letrec_cont, not_dummy)?;
+        let extend_rec_not_dummy = and!(cs, &cont_is_letrec, not_dummy)?;
 
         let extended_env = extend_rec(
             &mut cs.namespace(|| "extend_rec env"),
@@ -5034,6 +5030,8 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
         not_dummy,
     )?;
 
+    let cons_branch_not_dummy = and!(cs, &var_or_binding_is_cons, not_dummy)?;
+    let non_cons_branch_not_dummy = and!(cs, &var_or_binding_is_cons.not(), not_dummy)?;
     let list = AllocatedPtr::construct_cons_named(
         &mut cs.namespace(|| "list cons"),
         g,
@@ -5041,7 +5039,7 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
         &g.nil_ptr,
         ConsName::NewRec,
         allocated_cons_witness,
-        not_dummy,
+        &non_cons_branch_not_dummy,
     )?;
 
     let new_env_if_sym_or_nil = AllocatedPtr::construct_cons_named(
@@ -5051,10 +5049,8 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
         env,
         ConsName::ExtendedRec,
         allocated_cons_witness,
-        not_dummy,
+        &non_cons_branch_not_dummy,
     )?;
-
-    let cons_branch_not_dummy = and!(cs, &var_or_binding_is_cons, not_dummy)?;
 
     let cons2 = AllocatedPtr::construct_cons_named(
         &mut cs.namespace(|| "cons cons binding_or_env"),
@@ -5312,9 +5308,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
-            assert_eq!(12035, cs.num_constraints());
+            assert_eq!(12032, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(11690, cs.aux().len());
+            assert_eq!(11688, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
