@@ -590,17 +590,17 @@ impl LEM {
                     let preimg0 = Self::allocate_ptr(
                         cs,
                         &store.hash_ptr(preimg[0].get_ptr(&frame.ptrs)?)?,
-                        &format!("preallocated 2 0 {} {i}", preimg[0]),
+                        &format!("preallocated 2 0 {i}"),
                         &allocated_ptrs,
                     )?;
                     let preimg1 = Self::allocate_ptr(
                         cs,
                         &store.hash_ptr(preimg[1].get_ptr(&frame.ptrs)?)?,
-                        &format!("preallocated 2 1 {} {i}", preimg[1]),
+                        &format!("preallocated 2 1 {i}"),
                         &allocated_ptrs,
                     )?;
                     let allocated_hash = hash_poseidon(
-                        &mut cs.namespace(|| format!("poseidon for {:?}", preimg)),
+                        &mut cs.namespace(|| format!("poseidon2 for {i}")),
                         vec![
                             preimg0.tag().clone(),
                             preimg0.hash().clone(),
@@ -615,23 +615,23 @@ impl LEM {
                     let preimg0 = Self::allocate_ptr(
                         cs,
                         &store.hash_ptr(preimg[0].get_ptr(&frame.ptrs)?)?,
-                        &format!("preallocated 3 0 {} {i}", preimg[0]),
+                        &format!("preallocated 3 0 {i}"),
                         &allocated_ptrs,
                     )?;
                     let preimg1 = Self::allocate_ptr(
                         cs,
                         &store.hash_ptr(preimg[1].get_ptr(&frame.ptrs)?)?,
-                        &format!("preallocated 3 1 {} {i}", preimg[1]),
+                        &format!("preallocated 3 1 {i}"),
                         &allocated_ptrs,
                     )?;
                     let preimg2 = Self::allocate_ptr(
                         cs,
                         &store.hash_ptr(preimg[2].get_ptr(&frame.ptrs)?)?,
-                        &format!("preallocated 3 2 {} {i}", preimg[2]),
+                        &format!("preallocated 3 2 {i}"),
                         &allocated_ptrs,
                     )?;
                     let allocated_hash = hash_poseidon(
-                        &mut cs.namespace(|| format!("poseidon for {:?}", preimg)),
+                        &mut cs.namespace(|| format!("poseidon3 for {i}")),
                         vec![
                             preimg0.tag().clone(),
                             preimg0.hash().clone(),
@@ -648,29 +648,29 @@ impl LEM {
                     let preimg0 = Self::allocate_ptr(
                         cs,
                         &store.hash_ptr(preimg[0].get_ptr(&frame.ptrs)?)?,
-                        &format!("preallocated 4 0 {} {i}", preimg[0]),
+                        &format!("preallocated 4 0 {i}"),
                         &allocated_ptrs,
                     )?;
                     let preimg1 = Self::allocate_ptr(
                         cs,
                         &store.hash_ptr(preimg[1].get_ptr(&frame.ptrs)?)?,
-                        &format!("preallocated 4 1 {} {i}", preimg[1]),
+                        &format!("preallocated 4 1 {i}"),
                         &allocated_ptrs,
                     )?;
                     let preimg2 = Self::allocate_ptr(
                         cs,
                         &store.hash_ptr(preimg[2].get_ptr(&frame.ptrs)?)?,
-                        &format!("preallocated 4 2 {} {i}", preimg[2]),
+                        &format!("preallocated 4 2 {i}"),
                         &allocated_ptrs,
                     )?;
                     let preimg3 = Self::allocate_ptr(
                         cs,
                         &store.hash_ptr(preimg[3].get_ptr(&frame.ptrs)?)?,
-                        &format!("preallocated 4 3 {} {i}", preimg[3]),
+                        &format!("preallocated 4 3 {i}"),
                         &allocated_ptrs,
                     )?;
                     let allocated_hash = hash_poseidon(
-                        &mut cs.namespace(|| format!("poseidon for {:?}", preimg)),
+                        &mut cs.namespace(|| format!("poseidon4 for {i}")),
                         vec![
                             preimg0.tag().clone(),
                             preimg0.hash().clone(),
@@ -748,8 +748,8 @@ impl LEM {
                     implies_equal(
                         &mut cs.namespace(|| {
                             format!(
-                                "implies equal hash for hash{}", // TODO: find way to deduplicate namespace
-                                2,
+                                "implies equal hash for hash2{}",
+                                img.name(),
                             )
                         }),
                         &concrete_path,
@@ -768,8 +768,8 @@ impl LEM {
                     implies_equal(
                         &mut cs.namespace(|| {
                             format!(
-                                "implies equal hash for hash{}", // TODO: find way to deduplicate namespace
-                                3,
+                                "implies equal hash for hash3{}",
+                                img.name(),
                             )
                         }),
                         &concrete_path,
@@ -788,8 +788,8 @@ impl LEM {
                     implies_equal(
                         &mut cs.namespace(|| {
                             format!(
-                                "implies equal hash for hash{}", // TODO: find way to deduplicate namespace
-                                4,
+                                "implies equal hash for hash4{}",
+                                img.name(),
                             )
                         }),
                         &concrete_path,
