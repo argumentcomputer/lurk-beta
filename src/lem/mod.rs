@@ -439,6 +439,11 @@ mod tests {
                     let expr_out: Cons = hash2(expr_in, expr_in);
                     let cont_out_terminal: Terminal;
                     return (expr_out, env_in, cont_out_terminal);
+                },
+                Char => {
+                    let expr_out: Cons = hash2(expr_in, expr_in);
+                    let cont_out_terminal: Terminal;
+                    return (expr_out, env_in, cont_out_terminal);
                 }
             };
         })
@@ -446,9 +451,9 @@ mod tests {
 
         constrain_test_helper(
             &lem,
-            &[Ptr::num(Fr::from_u64(42))],
+            &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             NumSlots::new((1, 0, 0)),
-            false,
+            true,
         );
     }
 
