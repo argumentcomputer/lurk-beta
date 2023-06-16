@@ -85,6 +85,25 @@ impl<F: LurkField> AllocationManager<F> {
     }
 }
 
+#[derive(Default)]
+struct PathTracker(HashMap<Path, usize>);
+
+impl PathTracker {
+    pub(crate) fn next(&mut self, path: &Path) -> usize {
+        match self.0.get(path) {
+            Some(i) => {
+                let next = i + 1;
+                self.0.insert(path.clone(), next);
+                next
+            }
+            None => {
+                self.0.insert(path.clone(), 0);
+                0
+            }
+        }
+    }
+}
+
 impl LEM {
     fn allocate_ptr<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
@@ -274,9 +293,10 @@ impl LEM {
             store.poseidon_cache.constants.c8(),
         )?;
 
-        let mut slots2_map: HashMap<&[MetaPtr; 2], AllocatedNum<F>> = HashMap::default();
-        let mut slots3_map: HashMap<&[MetaPtr; 3], AllocatedNum<F>> = HashMap::default();
-        let mut slots4_map: HashMap<&[MetaPtr; 4], AllocatedNum<F>> = HashMap::default();
+        let mut slots2: Vec<AllocatedNum<F>> = Vec::default();
+        let mut slots3: Vec<AllocatedNum<F>> = Vec::default();
+        let mut slots4: Vec<AllocatedNum<F>> = Vec::default();
+
         for (i, hash_witness) in frame.hash_witnesses.iter().enumerate() {
             match hash_witness {
                 HashWitness::Hash2(preimg, _) => {
@@ -302,7 +322,7 @@ impl LEM {
                         ],
                         store.poseidon_cache.constants.c4(),
                     )?;
-                    slots2_map.insert(preimg, allocated_hash);
+                    slots2.push(allocated_hash);
                 }
                 HashWitness::Hash3(preimg, _) => {
                     let preimg0 = Self::allocate_ptr(
@@ -335,7 +355,7 @@ impl LEM {
                         ],
                         store.poseidon_cache.constants.c6(),
                     )?;
-                    slots3_map.insert(preimg, allocated_hash);
+                    slots3.push(allocated_hash);
                 }
                 HashWitness::Hash4(preimg, _) => {
                     let preimg0 = Self::allocate_ptr(
@@ -376,10 +396,30 @@ impl LEM {
                         ],
                         store.poseidon_cache.constants.c8(),
                     )?;
-                    slots4_map.insert(preimg, allocated_hash);
+                    slots4.push(allocated_hash);
                 }
             }
         }
+
+        // for i in slots2.len()..num_hash_slots.hash2 {
+        //     slots2.push(
+        //         hash_poseidon(
+        //             &mut cs.namespace(|| format!("poseidon 2")),
+        //             vec![
+        //                 dummy_val.clone(),
+        //                 dummy_val.clone(),
+        //                 dummy_val.clone(),
+        //                 dummy_val.clone(),
+        //             ],
+        //             store.poseidon_cache.constants.c4(),
+        //         )?
+        //     )
+        // }
+        
+        let mut path_tracker2 = PathTracker::default();
+        let mut path_tracker3 = PathTracker::default();
+        let mut path_tracker4 = PathTracker::default();
+
         let mut stack = vec![(&self.lem_op, Boolean::Constant(true), Path::default())];
         while let Some((op, concrete_path, path)) = stack.pop() {
             macro_rules! hash_helper {
@@ -430,52 +470,34 @@ impl LEM {
             }
 
             match op {
-                LEMOP::Hash2(img, tag, preimg) => {
+                LEMOP::Hash2(img, tag, _) => {
                     let allocated_img = hash_helper!(img, tag);
-                    let allocated_hash = {
-                        match slots2_map.get(preimg) {
-                            Some(hash) => hash,
-                            None => &dummy_poseidon2,
-                        }
-                    };
                     implies_equal(
                         &mut cs
                             .namespace(|| format!("implies equal hash for hash2{}", img.name(),)),
                         &concrete_path,
                         &allocated_img.hash(),
-                        allocated_hash,
+                        &slots2[path_tracker2.next(&path)],
                     )?;
                 }
-                LEMOP::Hash3(img, tag, preimg) => {
+                LEMOP::Hash3(img, tag, _) => {
                     let allocated_img = hash_helper!(img, tag);
-                    let allocated_hash = {
-                        match slots3_map.get(preimg) {
-                            Some(hash) => hash,
-                            None => &dummy_poseidon3,
-                        }
-                    };
                     implies_equal(
                         &mut cs
                             .namespace(|| format!("implies equal hash for hash3{}", img.name(),)),
                         &concrete_path,
                         &allocated_img.hash(),
-                        allocated_hash,
+                        &slots3[path_tracker3.next(&path)],
                     )?;
                 }
-                LEMOP::Hash4(img, tag, preimg) => {
+                LEMOP::Hash4(img, tag, _) => {
                     let allocated_img = hash_helper!(img, tag);
-                    let allocated_hash = {
-                        match slots4_map.get(preimg) {
-                            Some(hash) => hash,
-                            None => &dummy_poseidon4,
-                        }
-                    };
                     implies_equal(
                         &mut cs
                             .namespace(|| format!("implies equal hash for hash4{}", img.name(),)),
                         &concrete_path,
                         &allocated_img.hash(),
-                        allocated_hash,
+                        &slots4[path_tracker4.next(&path)],
                     )?;
                 }
                 LEMOP::Unhash2(preimg, _) => {
