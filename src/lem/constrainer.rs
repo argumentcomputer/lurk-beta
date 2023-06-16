@@ -25,7 +25,7 @@ use super::{
 /// corresponds to STEP 2 of the hash slots mechanism. In particular, STEP 2
 /// happens during interpretation of LEM and stores the hash witnesses in the
 /// order they appear during interpretation
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum HashWitness {
     Hash2([MetaPtr; 2], MetaPtr),
     Hash3([MetaPtr; 3], MetaPtr),
@@ -576,14 +576,16 @@ impl LEM {
             ))
         }
 
-        let mut stack = vec![(&self.lem_op, Boolean::Constant(true), Path::default())];
-
         let mut hash2_index = 0;
         let mut hash3_index = 0;
         let mut hash4_index = 0;
-        let mut slots2_map: HashMap<(&[MetaPtr; 2], &MetaPtr), usize> = HashMap::default();
-        let mut slots3_map: HashMap<(&[MetaPtr; 3], &MetaPtr), usize> = HashMap::default();
-        let mut slots4_map: HashMap<(&[MetaPtr; 4], &MetaPtr), usize> = HashMap::default();
+        let mut slots2_map: HashMap<(&[MetaPtr; 2], &MetaPtr), (Boolean, usize)> =
+            HashMap::default();
+        let mut slots3_map: HashMap<(&[MetaPtr; 3], &MetaPtr), (Boolean, usize)> =
+            HashMap::default();
+        let mut slots4_map: HashMap<(&[MetaPtr; 4], &MetaPtr), (Boolean, usize)> =
+            HashMap::default();
+        let mut stack = vec![(&self.lem_op, Boolean::Constant(true), Path::default())];
         while let Some((op, concrete_path, path)) = stack.pop() {
             // macro_rules! hash_helper {
             //     ( $img: expr, $tag: expr ) => {
@@ -633,28 +635,58 @@ impl LEM {
 
             match op {
                 LEMOP::Hash2(img, tag, preimg) => {
-                    slots2_map.insert((&preimg, &img), hash2_index);
-                    hash2_index += 1;
+                    slots2_map.insert((&preimg, &img), (concrete_path.clone(), hash2_index));
+                    if frame
+                        .hash_witnesses
+                        .contains(&HashWitness::Hash2(preimg.clone(), img.clone()))
+                    {
+                        hash2_index += 1;
+                    }
                 }
                 LEMOP::Hash3(img, tag, preimg) => {
-                    slots3_map.insert((&preimg, &img), hash3_index);
-                    hash3_index += 1;
+                    slots3_map.insert((&preimg, &img), (concrete_path, hash3_index));
+                    if frame
+                        .hash_witnesses
+                        .contains(&HashWitness::Hash3(preimg.clone(), img.clone()))
+                    {
+                        hash3_index += 1;
+                    }
                 }
                 LEMOP::Hash4(img, tag, preimg) => {
-                    slots4_map.insert((&preimg, &img), hash4_index);
-                    hash4_index += 1;
+                    slots4_map.insert((&preimg, &img), (concrete_path, hash4_index));
+                    if frame
+                        .hash_witnesses
+                        .contains(&HashWitness::Hash4(preimg.clone(), img.clone()))
+                    {
+                        hash4_index += 1;
+                    }
                 }
                 LEMOP::Unhash2(preimg, img) => {
-                    slots2_map.insert((&preimg, &img), hash2_index);
-                    hash2_index += 1;
+                    slots2_map.insert((&preimg, &img), (concrete_path, hash2_index));
+                    if frame
+                        .hash_witnesses
+                        .contains(&HashWitness::Hash2(preimg.clone(), img.clone()))
+                    {
+                        hash2_index += 1;
+                    }
                 }
                 LEMOP::Unhash3(preimg, img) => {
-                    slots3_map.insert((&preimg, &img), hash3_index);
-                    hash3_index += 1;
+                    slots3_map.insert((&preimg, &img), (concrete_path, hash3_index));
+                    if frame
+                        .hash_witnesses
+                        .contains(&HashWitness::Hash3(preimg.clone(), img.clone()))
+                    {
+                        hash3_index += 1;
+                    }
                 }
                 LEMOP::Unhash4(preimg, img) => {
-                    slots4_map.insert((&preimg, &img), hash4_index);
-                    hash4_index += 1;
+                    slots4_map.insert((&preimg, &img), (concrete_path, hash4_index));
+                    if frame
+                        .hash_witnesses
+                        .contains(&HashWitness::Hash4(preimg.clone(), img.clone()))
+                    {
+                        hash4_index += 1;
+                    }
                 }
                 LEMOP::Null(tgt, tag) => {
                     let allocated_tgt = Self::allocate_ptr(
