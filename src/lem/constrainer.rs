@@ -153,14 +153,10 @@ impl LEM {
     ) -> Result<[(String, AllocatedPtr<F>); 3]> {
         let output = frame.get_output()?;
         let mut allocated_output_ptrs = vec![];
-        for (i, mptr) in frame.output.iter().enumerate() {
-            let output_name = format!("{}[{}]", mptr.name(), i);
-            let allocated_ptr = Self::allocate_ptr(
-                cs,
-                &store.hash_ptr(output[i])?,
-                &output_name,
-                allocated_ptrs,
-            )?;
+        for (i, o) in output.iter().enumerate() {
+            let output_name = format!("output[{}]", i);
+            let allocated_ptr =
+                Self::allocate_ptr(cs, &store.hash_ptr(o)?, &output_name, allocated_ptrs)?;
             Self::inputize_ptr(cs, &allocated_ptr, &output_name)?;
             allocated_output_ptrs.push((output_name, allocated_ptr))
         }
@@ -542,13 +538,13 @@ impl LEM {
                 }
                 LEMOP::Return(outputs) => {
                     for (i, output) in outputs.iter().enumerate() {
-                        let Some(allocated_ptr_computed) = allocated_ptrs.get(output.name()) else {
+                        let Some(allocated_ptr) = allocated_ptrs.get(output.name()) else {
                             bail!("Output {} not allocated", output.name())
                         };
                         let (preallocated_output_name, preallocated_output) =
                             &preallocated_outputs[i];
 
-                        allocated_ptr_computed
+                        allocated_ptr
                             .implies_ptr_equal(
                                 &mut cs.namespace(|| {
                                     format!("{path}.implies_ptr_equal {preallocated_output_name}")
