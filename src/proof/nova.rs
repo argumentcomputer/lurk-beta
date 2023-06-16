@@ -3639,6 +3639,7 @@ pub mod tests {
         test_aux(s, expr4, None, None, Some(error), None, 1, Some(lang));
     }
 
+    // This is related to issue #426
     #[test]
     fn test_prove_lambda_body_nil() {
         let s = &mut Store::<Fr>::default();
@@ -3656,27 +3657,52 @@ pub mod tests {
         );
     }
 
+    // The following 3 tests are related to issue #424
     #[test]
-    fn test_nested_letrec_regression() {
+    fn test_letrec_let_nesting() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.num(5);
+        let expected = s.num(2);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
-            "(letrec ((char2int (lambda (digit)
-                           (if (eq #\\0 digit) 0 1)))
-         (str2int (letrec ((inner (lambda (acc xs)
-                                          (if (eq xs \"\") acc
-                                              (inner (+ (* 2 acc)
-                                                        (char2int (car xs)))
-                                                     (cdr xs))))))
-                          (inner 0))))
-        (str2int \"101\"))",
+            "(letrec ((x (let ((z 0)) 1))) 2)",
             Some(expected),
             None,
             Some(terminal),
             None,
-            147,
+            6,
+            None,
+        );
+    }
+    #[test]
+    fn test_let_sequencing() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(1);
+        let terminal = s.get_cont_terminal();
+        test_aux::<Coproc<Fr>>(
+            s,
+            "(let ((x 0) (y x)) 1)",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            5,
+            None,
+        );
+    }
+    #[test]
+    fn test_letrec_sequencing() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(3);
+        let terminal = s.get_cont_terminal();
+        test_aux::<Coproc<Fr>>(
+            s,
+            "(letrec ((x 0) (y (letrec ((inner 1)) 2))) 3)",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            8,
             None,
         );
     }
