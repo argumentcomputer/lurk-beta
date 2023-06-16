@@ -67,11 +67,11 @@ jobs:
         edit-mode: replace
 
     - name: Create file for issue
-      if: env.status == 'false' && steps.last_issue.outputs.has-found != 'false'
+      if: env.status == 'false' && steps.last_issue.outputs.has-found == 'false'
       run: echo "${{ env.message }}" > ./_body.md
 
     - name: Create issue from report
-      if: env.status == 'false' && steps.last_issue.outputs.has-found != 'false'
+      if: env.status == 'false' && steps.last_issue.outputs.has-found == 'false'
       uses: peter-evans/create-issue-from-file@v4
       with:
         title: ${{ env.SCION }} needs to be rebased on ${{ env.ROOT }}
