@@ -300,7 +300,9 @@ mod tests {
             }
 
             if let Some(cs_prev) = cs_prev {
-                assert!(cs.delta(&cs_prev, true) == Delta::Equal);
+                let delta = cs.delta(&cs_prev, true);
+                dbg!(&delta);
+                assert!(delta == Delta::Equal);
             }
 
             cs_prev = Some(cs);

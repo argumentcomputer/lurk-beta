@@ -130,17 +130,37 @@ impl LEM {
         store: &mut Store<F>,
         frame: &Frame<F>,
         allocated_ptrs: &mut HashMap<&'a String, AllocatedPtr<F>>,
-        input_idx: usize,
     ) -> Result<()> {
-        let allocated_ptr = Self::allocate_ptr(
-            cs,
-            &store.hash_ptr(&frame.input[input_idx])?,
-            &self.input[input_idx],
-            allocated_ptrs,
-        )?;
-        allocated_ptrs.insert(&self.input[input_idx], allocated_ptr.clone());
-        Self::inputize_ptr(cs, &allocated_ptr, &self.input[input_idx])?;
+        for i in 0..3 {
+            let allocated_ptr = Self::allocate_ptr(
+                cs,
+                &store.hash_ptr(&frame.input[i])?,
+                &self.input[i],
+                allocated_ptrs,
+            )?;
+            allocated_ptrs.insert(&self.input[i], allocated_ptr.clone());
+            Self::inputize_ptr(cs, &allocated_ptr, &self.input[i])?;
+        }
         Ok(())
+    }
+
+    fn allocate_and_inputize_output<'a, F: LurkField, CS: ConstraintSystem<F>>(
+        &'a self,
+        cs: &mut CS,
+        store: &mut Store<F>,
+        frame: &Frame<F>,
+        allocated_ptrs: &HashMap<&'a String, AllocatedPtr<F>>,
+    ) -> Result<[(String, AllocatedPtr<F>); 3]> {
+        let output = frame.get_output()?;
+        let mut allocated_output_ptrs = vec![];
+        for (i, o) in output.iter().enumerate() {
+            let output_name = format!("output[{}]", i);
+            let allocated_ptr =
+                Self::allocate_ptr(cs, &store.hash_ptr(o)?, &output_name, allocated_ptrs)?;
+            Self::inputize_ptr(cs, &allocated_ptr, &output_name)?;
+            allocated_output_ptrs.push((output_name, allocated_ptr))
+        }
+        Ok(allocated_output_ptrs.try_into().unwrap())
     }
 
     fn on_concrete_path(concrete_path: &Boolean) -> Result<bool> {
@@ -368,13 +388,9 @@ impl LEM {
     ) -> Result<()> {
         let mut allocated_ptrs: HashMap<&String, AllocatedPtr<F>> = HashMap::default();
 
-        // Allocate inputs
-        for i in 0..3 {
-            self.allocate_and_inputize_input(cs, store, frame, &mut allocated_ptrs, i)?;
-        }
-
-        // let mut num_inputized_outputs = 0;
-        let mut num_returns = 0;
+        self.allocate_and_inputize_input(cs, store, frame, &mut allocated_ptrs)?;
+        let preallocated_outputs =
+            self.allocate_and_inputize_output(cs, store, frame, &allocated_ptrs)?;
 
         let mut stack = vec![(&self.lem_op, Boolean::Constant(true), Path::default())];
 
@@ -520,43 +536,28 @@ impl LEM {
                             .map(|op| (op, concrete_path.clone(), path.clone())),
                     );
                 }
-                LEMOP::Return(_) => {
-                    num_returns += 1;
-                    // let is_concrete_path = Self::on_concrete_path(&concrete_path)?;
-                    // for (i, output) in outputs.iter().enumerate() {
-                    //     let Some(allocated_ptr_computed) = allocated_ptrs.get(output.name()) else {
-                    //         bail!("Output {} not allocated", output.name())
-                    //     };
-                    //     let output_name = format!("{}.output[{}]", &path, i);
-                    //     let allocated_ptr_expected = Self::allocate_ptr(
-                    //         cs,
-                    //         &Self::z_ptr_from_frame(&concrete_path, frame, output, store)?,
-                    //         &output_name,
-                    //         &allocated_ptrs,
-                    //     )?;
+                LEMOP::Return(outputs) => {
+                    for (i, output) in outputs.iter().enumerate() {
+                        let Some(allocated_ptr) = allocated_ptrs.get(output.name()) else {
+                            bail!("Output {} not allocated", output.name())
+                        };
+                        let (preallocated_output_name, preallocated_output) =
+                            &preallocated_outputs[i];
 
-                    //     if is_concrete_path {
-                    //         Self::inputize_ptr(cs, &allocated_ptr_expected, &output_name)?;
-                    //         num_inputized_outputs += 1;
-                    //     }
-
-                    //     allocated_ptr_computed
-                    //         .implies_ptr_equal(
-                    //             &mut cs
-                    //                 .namespace(|| format!("enforce imply equal for {output_name}")),
-                    //             &concrete_path,
-                    //             &allocated_ptr_expected,
-                    //         )
-                    //         .with_context(|| "couldn't constrain `implies_ptr_equal`")?;
-                    // }
+                        allocated_ptr
+                            .implies_ptr_equal(
+                                &mut cs.namespace(|| {
+                                    format!("{path}.implies_ptr_equal {preallocated_output_name}")
+                                }),
+                                &concrete_path,
+                                preallocated_output,
+                            )
+                            .with_context(|| "couldn't constrain `implies_ptr_equal`")?;
+                    }
                 }
                 _ => todo!(),
             }
         }
-
-        // if num_inputized_outputs != 3 {
-        //     bail!("Couldn't inputize the right number of outputs");
-        // }
 
         // STEP 3 of hash slots system just finished. In this step we allocated
         // all preimages and images based of information collected during STEP 2.
