@@ -8,7 +8,7 @@ jobs:
     name: Update epic issues
     steps:
       - name: Run epics action
-        uses: cloudaper/epics-action@v1.1.4
+        uses: cloudaper/epics-action@v1.1.6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           epic-label-name: epic
