@@ -178,158 +178,6 @@ impl LEM {
         }
     }
 
-    /// Use the implies logic to constrain tag and hash values for accumulated
-    /// slot data
-    fn constrain_slots<F: LurkField, CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        hash_witness: &Vec<HashWitness>,
-        store: &mut Store<F>,
-        alloc_manager: &mut AllocationManager<F>,
-        allocated_ptrs: &HashMap<&String, AllocatedPtr<F>>,
-        num_hash_slots: &NumSlots,
-    ) -> Result<()> {
-        let virtual_hash = alloc_manager.get_or_alloc_num(cs, F::ZERO)?;
-
-        // We separate slots by arity to constrain them in a fixed order later,
-        // to keep the circuit always uniform
-        let mut hash2_slots = Vec::with_capacity(num_hash_slots.hash2);
-        let mut hash3_slots = Vec::with_capacity(num_hash_slots.hash3);
-        let mut hash4_slots = Vec::with_capacity(num_hash_slots.hash4);
-        for h in hash_witness {
-            match h {
-                HashWitness::Hash2(preimg, img) => {
-                    hash2_slots.push((preimg, img));
-                }
-                HashWitness::Hash3(preimg, img) => {
-                    hash3_slots.push((preimg, img));
-                }
-                HashWitness::Hash4(preimg, img) => {
-                    hash4_slots.push((preimg, img));
-                }
-            }
-        }
-
-        macro_rules! constrain_slot {
-            (
-                $concrete_path: expr,
-                $hash_index: expr,
-                $preimg: expr,
-                $img: expr,
-                $poseidon_constants: expr
-            ) => {
-                let allocated_hash = hash_poseidon(
-                    &mut cs.namespace(|| format!("slot_hash{}_{}", $preimg.len() / 2, $hash_index)),
-                    $preimg.to_vec(),
-                    $poseidon_constants,
-                )?;
-
-                implies_equal(
-                    &mut cs.namespace(|| {
-                        format!(
-                            "implies equal hash for hash{}_{}",
-                            $preimg.len() / 2,
-                            $hash_index
-                        )
-                    }),
-                    $concrete_path,
-                    $img,
-                    &allocated_hash,
-                )?;
-            };
-        }
-        macro_rules! constrain_concrete_slots {
-            (
-                $slots: expr,
-                $counter: expr,
-                $poseidon_constants: expr
-            ) => {
-                for (preimg, img) in $slots {
-                    // Get preimage from allocated pointers
-                    let preimg_vec = Self::get_allocated_preimg(preimg, &allocated_ptrs)?;
-                    let preimg: Vec<AllocatedNum<F>> = preimg_vec
-                        .iter()
-                        .flat_map(|x| [x.tag().clone(), x.hash().clone()])
-                        .collect();
-
-                    // get allocated_img from img
-                    let Some(allocated_img) = allocated_ptrs.get(img.name()) else {
-                                                        bail!("{img} not allocated");
-                                                    };
-
-                    constrain_slot!(
-                        &Boolean::Constant(true),
-                        $counter,
-                        preimg,
-                        &allocated_img.hash(),
-                        $poseidon_constants
-                    );
-                    $counter += 1;
-                }
-            };
-        }
-        macro_rules! constrain_virtual_slots {
-            (
-                $lower: expr,
-                $upper: expr,
-                $preimg_size: expr,
-                $poseidon_constants: expr
-            ) => {
-                for slot_index in $lower..$upper {
-                    constrain_slot!(
-                        &Boolean::Constant(false),
-                        slot_index,
-                        vec![virtual_hash.clone(); $preimg_size],
-                        &virtual_hash,
-                        $poseidon_constants
-                    );
-                }
-            };
-        }
-
-        let mut hash2_count = 0;
-        let mut hash3_count = 0;
-        let mut hash4_count = 0;
-
-        // First we constrain the hashes on the concrete path and then the ones
-        // in the virtual path in order to always use the same number of hashes.
-        constrain_concrete_slots!(
-            hash2_slots,
-            hash2_count,
-            store.poseidon_cache.constants.c4()
-        );
-        constrain_concrete_slots!(
-            hash3_slots,
-            hash3_count,
-            store.poseidon_cache.constants.c6()
-        );
-        constrain_concrete_slots!(
-            hash4_slots,
-            hash4_count,
-            store.poseidon_cache.constants.c8()
-        );
-
-        ///////////////// Fill with dummies: /////////////////
-        constrain_virtual_slots!(
-            hash2_count,
-            num_hash_slots.hash2,
-            4,
-            store.poseidon_cache.constants.c4()
-        );
-        constrain_virtual_slots!(
-            hash3_count,
-            num_hash_slots.hash3,
-            6,
-            store.poseidon_cache.constants.c6()
-        );
-        constrain_virtual_slots!(
-            hash4_count,
-            num_hash_slots.hash4,
-            8,
-            store.poseidon_cache.constants.c8()
-        );
-        Ok(())
-    }
-
     fn alloc_preimg<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         preimg: &[MetaPtr],
@@ -388,126 +236,6 @@ impl LEM {
         let preallocated_outputs =
             self.allocate_and_inputize_output(cs, store, frame, &allocated_ptrs)?;
 
-        // let mut hash2_preallocations: Vec<(
-        //     [AllocatedPtr<F>; 2],
-        //     AllocatedPtr<F>,
-        //     AllocatedNum<F>,
-        // )> = Vec::default();
-        // let mut hash3_preallocations: Vec<(
-        //     [AllocatedPtr<F>; 3],
-        //     AllocatedPtr<F>,
-        //     AllocatedNum<F>,
-        // )> = Vec::default();
-        // let mut hash4_preallocations: Vec<(
-        //     [AllocatedPtr<F>; 4],
-        //     AllocatedPtr<F>,
-        //     AllocatedNum<F>,
-        // )> = Vec::default();
-
-        // for hash_witness in &frame.hash_witnesses {
-        //     match hash_witness {
-        //         HashWitness::Hash2(preimg, img) => {
-        //             let allocated_preimg = Self::alloc_preimg(
-        //                 cs,
-        //                 preimg,
-        //                 &Boolean::Constant(true),
-        //                 frame,
-        //                 store,
-        //                 &allocated_ptrs,
-        //             )?;
-        //             let allocated_img = Self::allocate_ptr(
-        //                 cs,
-        //                 &store.hash_ptr(img.get_ptr(&frame.ptrs)?)?,
-        //                 img.name(),
-        //                 &allocated_ptrs,
-        //             )?;
-        //             let allocated_hash = hash_poseidon(
-        //                 &mut cs.namespace(|| format!("")),
-        //                 vec![
-        //                     allocated_preimg[0].tag().clone(),
-        //                     allocated_preimg[0].hash().clone(),
-        //                     allocated_preimg[1].tag().clone(),
-        //                     allocated_preimg[1].hash().clone(),
-        //                 ],
-        //                 store.poseidon_cache.constants.c4(),
-        //             )?;
-        //             hash2_preallocations.push((
-        //                 allocated_preimg.try_into().unwrap(),
-        //                 allocated_img,
-        //                 allocated_hash,
-        //             ));
-        //         }
-        //         HashWitness::Hash3(preimg, img) => {
-        //             let allocated_preimg = Self::alloc_preimg(
-        //                 cs,
-        //                 preimg,
-        //                 &Boolean::Constant(true),
-        //                 frame,
-        //                 store,
-        //                 &allocated_ptrs,
-        //             )?;
-        //             let allocated_img = Self::allocate_ptr(
-        //                 cs,
-        //                 &store.hash_ptr(img.get_ptr(&frame.ptrs)?)?,
-        //                 img.name(),
-        //                 &allocated_ptrs,
-        //             )?;
-        //             let allocated_hash = hash_poseidon(
-        //                 &mut cs.namespace(|| format!("")),
-        //                 vec![
-        //                     allocated_preimg[0].tag().clone(),
-        //                     allocated_preimg[0].hash().clone(),
-        //                     allocated_preimg[1].tag().clone(),
-        //                     allocated_preimg[1].hash().clone(),
-        //                     allocated_preimg[2].tag().clone(),
-        //                     allocated_preimg[2].hash().clone(),
-        //                 ],
-        //                 store.poseidon_cache.constants.c6(),
-        //             )?;
-        //             hash3_preallocations.push((
-        //                 allocated_preimg.try_into().unwrap(),
-        //                 allocated_img,
-        //                 allocated_hash,
-        //             ));
-        //         }
-        //         HashWitness::Hash4(preimg, img) => {
-        //             let allocated_preimg = Self::alloc_preimg(
-        //                 cs,
-        //                 preimg,
-        //                 &Boolean::Constant(true),
-        //                 frame,
-        //                 store,
-        //                 &allocated_ptrs,
-        //             )?;
-        //             let allocated_img = Self::allocate_ptr(
-        //                 cs,
-        //                 &store.hash_ptr(img.get_ptr(&frame.ptrs)?)?,
-        //                 img.name(),
-        //                 &allocated_ptrs,
-        //             )?;
-        //             let allocated_hash = hash_poseidon(
-        //                 &mut cs.namespace(|| format!("")),
-        //                 vec![
-        //                     allocated_preimg[0].tag().clone(),
-        //                     allocated_preimg[0].hash().clone(),
-        //                     allocated_preimg[1].tag().clone(),
-        //                     allocated_preimg[1].hash().clone(),
-        //                     allocated_preimg[2].tag().clone(),
-        //                     allocated_preimg[2].hash().clone(),
-        //                     allocated_preimg[3].tag().clone(),
-        //                     allocated_preimg[3].hash().clone(),
-        //                 ],
-        //                 store.poseidon_cache.constants.c8(),
-        //             )?;
-        //             hash4_preallocations.push((
-        //                 allocated_preimg.try_into().unwrap(),
-        //                 allocated_img,
-        //                 allocated_hash,
-        //             ));
-        //         }
-        //     }
-        // }
-
         let dummy_val = alloc_manager.get_or_alloc_num(cs, F::ZERO)?;
         // let dummy_ptr = AllocatedPtr::from_parts(&dummy_val, &dummy_val);
         let dummy_poseidon2 = hash_poseidon(
@@ -547,40 +275,6 @@ impl LEM {
             store.poseidon_cache.constants.c8(),
         )?;
 
-        // for _ in hash2_preallocations.len()..num_hash_slots.hash2 {
-        //     hash2_preallocations.push((
-        //         [dummy_ptr.clone(), dummy_ptr.clone()],
-        //         dummy_ptr.clone(),
-        //         dummy_poseidon2.clone(),
-        //     ))
-        // }
-
-        // for _ in hash3_preallocations.len()..num_hash_slots.hash3 {
-        //     hash3_preallocations.push((
-        //         [dummy_ptr.clone(), dummy_ptr.clone(), dummy_ptr.clone()],
-        //         dummy_ptr.clone(),
-        //         dummy_poseidon3.clone(),
-        //     ))
-        // }
-
-        // for _ in hash4_preallocations.len()..num_hash_slots.hash4 {
-        //     hash4_preallocations.push((
-        //         [
-        //             dummy_ptr.clone(),
-        //             dummy_ptr.clone(),
-        //             dummy_ptr.clone(),
-        //             dummy_ptr.clone(),
-        //         ],
-        //         dummy_ptr.clone(),
-        //         dummy_poseidon4.clone(),
-        //     ))
-        // }
-
-        // let mut hash2_index = 0;
-        // let mut hash3_index = 0;
-        // let mut hash4_index = 0;
-        // let mut slots_map: HashMap<(Vec<MetaPtr>, &MetaPtr), (Boolean, usize)> =
-        //     HashMap::default();
         let mut slots2_map: HashMap<&[MetaPtr; 2], AllocatedNum<F>> = HashMap::default();
         let mut slots3_map: HashMap<&[MetaPtr; 3], AllocatedNum<F>> = HashMap::default();
         let mut slots4_map: HashMap<&[MetaPtr; 4], AllocatedNum<F>> = HashMap::default();
@@ -746,12 +440,8 @@ impl LEM {
                         }
                     };
                     implies_equal(
-                        &mut cs.namespace(|| {
-                            format!(
-                                "implies equal hash for hash2{}",
-                                img.name(),
-                            )
-                        }),
+                        &mut cs
+                            .namespace(|| format!("implies equal hash for hash2{}", img.name(),)),
                         &concrete_path,
                         &allocated_img.hash(),
                         allocated_hash,
@@ -766,12 +456,8 @@ impl LEM {
                         }
                     };
                     implies_equal(
-                        &mut cs.namespace(|| {
-                            format!(
-                                "implies equal hash for hash3{}",
-                                img.name(),
-                            )
-                        }),
+                        &mut cs
+                            .namespace(|| format!("implies equal hash for hash3{}", img.name(),)),
                         &concrete_path,
                         &allocated_img.hash(),
                         allocated_hash,
@@ -786,31 +472,21 @@ impl LEM {
                         }
                     };
                     implies_equal(
-                        &mut cs.namespace(|| {
-                            format!(
-                                "implies equal hash for hash4{}",
-                                img.name(),
-                            )
-                        }),
+                        &mut cs
+                            .namespace(|| format!("implies equal hash for hash4{}", img.name(),)),
                         &concrete_path,
                         &allocated_img.hash(),
                         allocated_hash,
                     )?;
                 }
-                LEMOP::Unhash2(preimg, img) => {
+                LEMOP::Unhash2(preimg, _) => {
                     unhash_helper!(preimg);
-                    //slots2_map.insert((&preimg, &img), (concrete_path, hash2_index));
-                    //hash2_index += 1;
                 }
-                LEMOP::Unhash3(preimg, img) => {
+                LEMOP::Unhash3(preimg, _) => {
                     unhash_helper!(preimg);
-                    //slots3_map.insert((&preimg, &img), (concrete_path, hash3_index));
-                    //hash3_index += 1;
                 }
-                LEMOP::Unhash4(preimg, img) => {
+                LEMOP::Unhash4(preimg, _) => {
                     unhash_helper!(preimg);
-                    //slots4_map.insert((&preimg, &img), (concrete_path, hash4_index));
-                    //hash4_index += 1;
                 }
                 LEMOP::Null(tgt, tag) => {
                     let allocated_tgt = Self::allocate_ptr(

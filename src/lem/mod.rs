@@ -928,7 +928,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_hash_slots_max_concrete_path_no_dummies() {
         let lem = lem!(expr_in env_in cont_in {
