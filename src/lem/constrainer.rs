@@ -131,15 +131,12 @@ impl LEM {
         frame: &Frame<F>,
         allocated_ptrs: &mut HashMap<&'a String, AllocatedPtr<F>>,
     ) -> Result<()> {
-        for i in 0..3 {
-            let allocated_ptr = Self::allocate_ptr(
-                cs,
-                &store.hash_ptr(&frame.input[i])?,
-                &self.input[i],
-                allocated_ptrs,
-            )?;
-            allocated_ptrs.insert(&self.input[i], allocated_ptr.clone());
-            Self::inputize_ptr(cs, &allocated_ptr, &self.input[i])?;
+        for (i, ptr) in frame.input.iter().enumerate() {
+            let name = &self.input[i];
+            let allocated_ptr =
+                Self::allocate_ptr(cs, &store.hash_ptr(ptr)?, name, allocated_ptrs)?;
+            Self::inputize_ptr(cs, &allocated_ptr, name)?;
+            allocated_ptrs.insert(name, allocated_ptr);
         }
         Ok(())
     }
@@ -150,15 +147,14 @@ impl LEM {
         store: &mut Store<F>,
         frame: &Frame<F>,
         allocated_ptrs: &HashMap<&'a String, AllocatedPtr<F>>,
-    ) -> Result<[(String, AllocatedPtr<F>); 3]> {
-        let output = frame.get_output()?;
+    ) -> Result<[AllocatedPtr<F>; 3]> {
         let mut allocated_output_ptrs = vec![];
-        for (i, o) in output.iter().enumerate() {
-            let output_name = format!("output[{}]", i);
+        for (i, ptr) in frame.output.iter().enumerate() {
+            let output_name = &format!("output[{}]", i);
             let allocated_ptr =
-                Self::allocate_ptr(cs, &store.hash_ptr(o)?, &output_name, allocated_ptrs)?;
-            Self::inputize_ptr(cs, &allocated_ptr, &output_name)?;
-            allocated_output_ptrs.push((output_name, allocated_ptr))
+                Self::allocate_ptr(cs, &store.hash_ptr(ptr)?, output_name, allocated_ptrs)?;
+            Self::inputize_ptr(cs, &allocated_ptr, output_name)?;
+            allocated_output_ptrs.push(allocated_ptr)
         }
         Ok(allocated_output_ptrs.try_into().unwrap())
     }
@@ -257,8 +253,8 @@ impl LEM {
 
                     // get allocated_img from img
                     let Some(allocated_img) = allocated_ptrs.get(img.name()) else {
-                                                            bail!("{} not allocated", img.name());
-                                                        };
+                                                        bail!("{img} not allocated");
+                                                    };
 
                     constrain_slot!(
                         &Boolean::Constant(true),
@@ -360,7 +356,7 @@ impl LEM {
             .map(|x| {
                 allocated_ptrs
                     .get(x.name())
-                    .ok_or_else(|| anyhow!("{} not allocated", x.name()))
+                    .ok_or_else(|| anyhow!("{x} not allocated"))
             })
             .collect::<Result<Vec<_>>>()
     }
@@ -472,32 +468,26 @@ impl LEM {
 
                     // Constrain tag
                     implies_equal(
-                        &mut cs.namespace(|| format!("implies equal for {}'s tag", tgt.name())),
+                        &mut cs.namespace(|| format!("implies equal for {tgt}'s tag")),
                         &concrete_path,
                         allocated_tgt.tag(),
                         &allocated_tag,
                     )
-                    .with_context(|| {
-                        format!("couldn't enforce implies equal for {}'s tag", tgt.name())
-                    })?;
+                    .with_context(|| format!("couldn't enforce implies equal for {tgt}'s tag"))?;
 
                     // Constrain hash
                     implies_equal_zero(
-                        &mut cs
-                            .namespace(|| format!("implies equal zero for {}'s hash", tgt.name())),
+                        &mut cs.namespace(|| format!("implies equal zero for {tgt}'s hash")),
                         &concrete_path,
                         allocated_tgt.hash(),
                     )
                     .with_context(|| {
-                        format!(
-                            "couldn't enforce implies equal zero for {}'s hash",
-                            tgt.name()
-                        )
+                        format!("couldn't enforce implies equal zero for {tgt}'s hash")
                     })?;
                 }
                 LEMOP::MatchTag(match_ptr, cases) => {
                     let Some(allocated_match_ptr) = allocated_ptrs.get(match_ptr.name()) else {
-                        bail!("{} not allocated", match_ptr.name());
+                        bail!("{match_ptr} not allocated");
                     };
                     let mut concrete_path_vec = Vec::new();
                     for (tag, op) in cases {
@@ -539,18 +529,16 @@ impl LEM {
                 LEMOP::Return(outputs) => {
                     for (i, output) in outputs.iter().enumerate() {
                         let Some(allocated_ptr) = allocated_ptrs.get(output.name()) else {
-                            bail!("Output {} not allocated", output.name())
+                            bail!("{output} not allocated")
                         };
-                        let (preallocated_output_name, preallocated_output) =
-                            &preallocated_outputs[i];
 
                         allocated_ptr
                             .implies_ptr_equal(
                                 &mut cs.namespace(|| {
-                                    format!("{path}.implies_ptr_equal {preallocated_output_name}")
+                                    format!("{path}.implies_ptr_equal {output} (output {i})")
                                 }),
                                 &concrete_path,
-                                preallocated_output,
+                                &preallocated_outputs[i],
                             )
                             .with_context(|| "couldn't constrain `implies_ptr_equal`")?;
                     }

@@ -3,8 +3,7 @@ use anyhow::{bail, Result};
 use std::collections::HashMap;
 
 use super::{
-    constrainer::HashWitness, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM,
-    LEMOP,
+    constrainer::HashWitness, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, LEM, LEMOP,
 };
 
 /// A `Frame` carries the data that results from interpreting LEM. That is,
@@ -16,30 +15,19 @@ use super::{
 #[derive(Clone)]
 pub struct Frame<F: LurkField> {
     pub input: [Ptr<F>; 3],
-    pub output: [MetaPtr; 3],
+    pub output: [Ptr<F>; 3],
     pub ptrs: HashMap<String, Ptr<F>>,
     pub hash_witnesses: Vec<HashWitness>,
 }
 
-impl<'a, F: LurkField> Frame<F> {
-    pub fn get_output(&'a self) -> Result<[&'a Ptr<F>; 3]> {
-        let ptrs = &self.ptrs;
-        Ok([
-            self.output[0].get_ptr(ptrs)?,
-            self.output[1].get_ptr(ptrs)?,
-            self.output[2].get_ptr(ptrs)?,
-        ])
-    }
-}
-
 fn insert_into_ptrs<F: LurkField>(
     ptrs: &mut HashMap<String, Ptr<F>>,
-    key: String,
-    value: Ptr<F>,
+    name: String,
+    ptr: Ptr<F>,
 ) -> Result<()> {
-    let mut msg = "Key already defined: ".to_owned();
-    msg.push_str(&key);
-    if ptrs.insert(key, value).is_some() {
+    let mut msg = "Already defined: ".to_owned();
+    msg.push_str(&name);
+    if ptrs.insert(name, ptr).is_some() {
         bail!("{msg}");
     }
     Ok(())
@@ -90,13 +78,10 @@ impl LEM {
                 LEMOP::Unhash2(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
                     let Some(idx) = src_ptr.get_index2() else {
-                        bail!(
-                            "{} isn't a Tree2 pointer",
-                            src.name()
-                        );
+                        bail!("{src} isn't a Tree2 pointer");
                     };
                     let Some((a, b)) = store.fetch_2_ptrs(idx) else {
-                        bail!("Couldn't fetch {}'s children", src.name())
+                        bail!("Couldn't fetch {src}'s children")
                     };
                     insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
                     insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
@@ -106,13 +91,10 @@ impl LEM {
                 LEMOP::Unhash3(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
                     let Some(idx) = src_ptr.get_index3() else {
-                        bail!(
-                            "{} isn't a Tree3 pointer",
-                            src.name()
-                        );
+                        bail!("{src} isn't a Tree3 pointer");
                     };
                     let Some((a, b, c)) = store.fetch_3_ptrs(idx) else {
-                        bail!("Couldn't fetch {}'s children", src.name())
+                        bail!("Couldn't fetch {src}'s children")
                     };
                     insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
                     insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
@@ -123,13 +105,10 @@ impl LEM {
                 LEMOP::Unhash4(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
                     let Some(idx) = src_ptr.get_index4() else {
-                        bail!(
-                            "{} isn't a Tree4 pointer",
-                            src.name()
-                        );
+                        bail!("{src} isn't a Tree4 pointer");
                     };
                     let Some((a, b, c, d)) = store.fetch_4_ptrs(idx) else {
-                        bail!("Couldn't fetch {}'s children", src.name())
+                        bail!("Couldn't fetch {src}'s children")
                     };
                     insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
                     insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
@@ -141,7 +120,7 @@ impl LEM {
                 LEMOP::Hide(tgt, sec, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
                     let Ptr::Leaf(Tag::Num, secret) = sec.get_ptr(&ptrs)? else {
-                        bail!("{} is not a numeric pointer", sec.name())
+                        bail!("{sec} is not a numeric pointer")
                     };
                     let z_ptr = store.hash_ptr(src_ptr)?;
                     let hash =
@@ -166,7 +145,7 @@ impl LEM {
                             )?;
                         }
                         _ => {
-                            bail!("{} is not a num/comm pointer", comm_or_num.name())
+                            bail!("{comm_or_num} is not a num/comm pointer")
                         }
                     }
                 }
@@ -181,7 +160,7 @@ impl LEM {
                 LEMOP::MatchSymPath(match_ptr, cases, def) => {
                     let ptr = match_ptr.get_ptr(&ptrs)?;
                     let Some(sym_path) = store.fetch_sym_path(ptr) else {
-                        bail!("Symbol path not found for {}", match_ptr.name());
+                        bail!("Symbol path not found for {match_ptr}");
                     };
                     match cases.get(sym_path) {
                         Some(op) => stack.push(op),
@@ -190,12 +169,17 @@ impl LEM {
                 }
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
                 LEMOP::Return(o) => {
+                    let output = [
+                        *o[0].get_ptr(&ptrs)?,
+                        *o[1].get_ptr(&ptrs)?,
+                        *o[2].get_ptr(&ptrs)?,
+                    ];
                     return Ok(Frame {
                         input,
-                        output: o.to_owned(),
+                        output,
                         ptrs,
                         hash_witnesses,
-                    })
+                    });
                 }
             }
         }
@@ -214,13 +198,10 @@ impl LEM {
         loop {
             let frame = self.run([expr, env, cont], store)?;
             frames.push(frame.clone());
-            let output = frame.get_output()?;
-            if output[2] == terminal || output[2] == error {
+            if &frame.output[2] == terminal || &frame.output[2] == error {
                 break;
             } else {
-                expr = *output[0];
-                env = *output[1];
-                cont = *output[2];
+                [expr, env, cont] = frame.output;
             }
         }
         Ok(frames)

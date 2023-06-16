@@ -93,6 +93,12 @@ pub struct LEM {
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct MetaPtr(String);
 
+impl std::fmt::Display for MetaPtr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 impl MetaPtr {
     #[inline]
     pub fn name(&self) -> &String {
@@ -105,7 +111,7 @@ impl MetaPtr {
     ) -> Result<&Ptr<F>> {
         match ptrs.get(&self.0) {
             Some(ptr) => Ok(ptr),
-            None => bail!("Meta pointer {} not defined", self.0),
+            None => bail!("Meta pointer {self} not defined"),
         }
     }
 }
