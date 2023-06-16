@@ -17,7 +17,7 @@ pub struct Frame<F: LurkField> {
     pub input: [Ptr<F>; 3],
     pub output: [Ptr<F>; 3],
     pub ptrs: HashMap<String, Ptr<F>>,
-    pub hash_witnesses: HashSet<HashWitness>,
+    pub hash_witnesses: Vec<HashWitness>,
 }
 
 fn insert_into_ptrs<F: LurkField>(
@@ -42,7 +42,7 @@ impl LEM {
         ptrs.insert(self.input[0].clone(), input[0]);
         insert_into_ptrs(&mut ptrs, self.input[1].clone(), input[1])?;
         insert_into_ptrs(&mut ptrs, self.input[2].clone(), input[2])?;
-        let mut hash_witnesses = HashSet::default();
+        let mut hash_witnesses = Vec::default();
         let mut stack = vec![&self.lem_op];
         while let Some(op) = stack.pop() {
             match op {
@@ -55,7 +55,7 @@ impl LEM {
                     let src_ptr2 = src[1].get_ptr(&ptrs)?;
                     let tgt_ptr = store.intern_2_ptrs(*tag, *src_ptr1, *src_ptr2);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
-                    hash_witnesses.insert(HashWitness::Hash2(src.clone(), tgt.clone()));
+                    hash_witnesses.push(HashWitness::Hash2(src.clone(), tgt.clone()));
                 }
                 LEMOP::Hash3(tgt, tag, src) => {
                     let src_ptr1 = src[0].get_ptr(&ptrs)?;
@@ -63,7 +63,7 @@ impl LEM {
                     let src_ptr3 = src[2].get_ptr(&ptrs)?;
                     let tgt_ptr = store.intern_3_ptrs(*tag, *src_ptr1, *src_ptr2, *src_ptr3);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
-                    hash_witnesses.insert(HashWitness::Hash3(src.clone(), tgt.clone()));
+                    hash_witnesses.push(HashWitness::Hash3(src.clone(), tgt.clone()));
                 }
                 LEMOP::Hash4(tgt, tag, src) => {
                     let src_ptr1 = src[0].get_ptr(&ptrs)?;
@@ -73,7 +73,7 @@ impl LEM {
                     let tgt_ptr =
                         store.intern_4_ptrs(*tag, *src_ptr1, *src_ptr2, *src_ptr3, *src_ptr4);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
-                    hash_witnesses.insert(HashWitness::Hash4(src.clone(), tgt.clone()));
+                    hash_witnesses.push(HashWitness::Hash4(src.clone(), tgt.clone()));
                 }
                 LEMOP::Unhash2(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
@@ -86,7 +86,7 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
                     insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
                     // STEP 2: Update hash_witness with preimage and image
-                    hash_witnesses.insert(HashWitness::Hash2(tgts.clone(), src.clone()));
+                    hash_witnesses.push(HashWitness::Hash2(tgts.clone(), src.clone()));
                 }
                 LEMOP::Unhash3(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
@@ -100,7 +100,7 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
                     insert_into_ptrs(&mut ptrs, tgts[2].name().clone(), *c)?;
                     // STEP 2: Update hash_witness with preimage and image
-                    hash_witnesses.insert(HashWitness::Hash3(tgts.clone(), src.clone()));
+                    hash_witnesses.push(HashWitness::Hash3(tgts.clone(), src.clone()));
                 }
                 LEMOP::Unhash4(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
@@ -115,7 +115,7 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[2].name().clone(), *c)?;
                     insert_into_ptrs(&mut ptrs, tgts[3].name().clone(), *d)?;
                     // STEP 2: Update hash_witness with preimage and image
-                    hash_witnesses.insert(HashWitness::Hash4(tgts.clone(), src.clone()));
+                    hash_witnesses.push(HashWitness::Hash4(tgts.clone(), src.clone()));
                 }
                 LEMOP::Hide(tgt, sec, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
