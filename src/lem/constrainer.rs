@@ -587,106 +587,82 @@ impl LEM {
             HashMap::default();
         let mut stack = vec![(&self.lem_op, Boolean::Constant(true), Path::default())];
         while let Some((op, concrete_path, path)) = stack.pop() {
-            // macro_rules! hash_helper {
-            //     ( $img: expr, $tag: expr ) => {
-            //         // STEP 3: Allocate image
-            //         let allocated_img = Self::allocate_ptr(
-            //             cs,
-            //             &Self::z_ptr_from_frame(&concrete_path, frame, $img, store)?,
-            //             $img.name(),
-            //             &allocated_ptrs,
-            //         )?;
+            macro_rules! hash_helper {
+                ( $img: expr, $tag: expr ) => {
+                    // STEP 3: Allocate image
+                    let allocated_img = Self::allocate_ptr(
+                        cs,
+                        &Self::z_ptr_from_frame(&concrete_path, frame, $img, store)?,
+                        $img.name(),
+                        &allocated_ptrs,
+                    )?;
 
-            //         // STEP 3: Create constraint for the tag
-            //         let allocated_tag = alloc_manager.get_or_alloc_num(cs, $tag.to_field())?;
-            //         implies_equal(
-            //             &mut cs.namespace(|| format!("implies equal for {}'s tag", $img.name())),
-            //             &concrete_path,
-            //             allocated_img.tag(),
-            //             &allocated_tag,
-            //         )?;
+                    // STEP 3: Create constraint for the tag
+                    let allocated_tag = alloc_manager.get_or_alloc_num(cs, $tag.to_field())?;
+                    implies_equal(
+                        &mut cs.namespace(|| format!("implies equal for {}'s tag", $img.name())),
+                        &concrete_path,
+                        allocated_img.tag(),
+                        &allocated_tag,
+                    )?;
 
-            //         // STEP 3: Insert allocated image into allocated pointers
-            //         allocated_ptrs.insert($img.name(), allocated_img.clone());
-            //     };
-            // }
-            // macro_rules! unhash_helper {
-            //     ( $preimg: expr ) => {
-            //         // STEP 3: Get preimage from allocated pointers
-            //         let preimg_vec = Self::alloc_preimage(
-            //             cs,
-            //             $preimg,
-            //             &concrete_path,
-            //             frame,
-            //             store,
-            //             &allocated_ptrs,
-            //         )?;
+                    // STEP 3: Insert allocated image into allocated pointers
+                    allocated_ptrs.insert($img.name(), allocated_img.clone());
+                };
+            }
+            macro_rules! unhash_helper {
+                ( $preimg: expr ) => {
+                    // STEP 3: Get preimage from allocated pointers
+                    let preimg_vec = Self::alloc_preimg(
+                        cs,
+                        $preimg,
+                        &concrete_path,
+                        frame,
+                        store,
+                        &allocated_ptrs,
+                    )?;
 
-            //         // STEP 3: Insert preimage pointers in the HashMap
-            //         for (name, p) in $preimg
-            //             .iter()
-            //             .map(|pi| pi.name())
-            //             .zip(preimg_vec.into_iter())
-            //         {
-            //             allocated_ptrs.insert(name, p);
-            //         }
-            //     };
-            // }
+                    // STEP 3: Insert preimage pointers in the HashMap
+                    for (name, p) in $preimg
+                        .iter()
+                        .map(|pi| pi.name())
+                        .zip(preimg_vec.into_iter())
+                    {
+                        allocated_ptrs.insert(name, p);
+                    }
+                };
+            }
 
             match op {
                 LEMOP::Hash2(img, tag, preimg) => {
-                    slots2_map.insert((&preimg, &img), (concrete_path.clone(), hash2_index));
-                    if frame
-                        .hash_witnesses
-                        .contains(&HashWitness::Hash2(preimg.clone(), img.clone()))
-                    {
-                        hash2_index += 1;
-                    }
+                    hash_helper!(img, tag);
+                    slots2_map.insert((&preimg, &img), (concrete_path, hash2_index));
+                    hash2_index += 1;
                 }
                 LEMOP::Hash3(img, tag, preimg) => {
+                    hash_helper!(img, tag);
                     slots3_map.insert((&preimg, &img), (concrete_path, hash3_index));
-                    if frame
-                        .hash_witnesses
-                        .contains(&HashWitness::Hash3(preimg.clone(), img.clone()))
-                    {
-                        hash3_index += 1;
-                    }
+                    hash3_index += 1;
                 }
                 LEMOP::Hash4(img, tag, preimg) => {
+                    hash_helper!(img, tag);
                     slots4_map.insert((&preimg, &img), (concrete_path, hash4_index));
-                    if frame
-                        .hash_witnesses
-                        .contains(&HashWitness::Hash4(preimg.clone(), img.clone()))
-                    {
-                        hash4_index += 1;
-                    }
+                    hash4_index += 1;
                 }
                 LEMOP::Unhash2(preimg, img) => {
+                    unhash_helper!(preimg);
                     slots2_map.insert((&preimg, &img), (concrete_path, hash2_index));
-                    if frame
-                        .hash_witnesses
-                        .contains(&HashWitness::Hash2(preimg.clone(), img.clone()))
-                    {
-                        hash2_index += 1;
-                    }
+                    hash2_index += 1;
                 }
                 LEMOP::Unhash3(preimg, img) => {
+                    unhash_helper!(preimg);
                     slots3_map.insert((&preimg, &img), (concrete_path, hash3_index));
-                    if frame
-                        .hash_witnesses
-                        .contains(&HashWitness::Hash3(preimg.clone(), img.clone()))
-                    {
-                        hash3_index += 1;
-                    }
+                    hash3_index += 1;
                 }
                 LEMOP::Unhash4(preimg, img) => {
+                    unhash_helper!(preimg);
                     slots4_map.insert((&preimg, &img), (concrete_path, hash4_index));
-                    if frame
-                        .hash_witnesses
-                        .contains(&HashWitness::Hash4(preimg.clone(), img.clone()))
-                    {
-                        hash4_index += 1;
-                    }
+                    hash4_index += 1;
                 }
                 LEMOP::Null(tgt, tag) => {
                     let allocated_tgt = Self::allocate_ptr(
