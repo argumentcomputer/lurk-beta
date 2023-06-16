@@ -578,6 +578,12 @@ impl LEM {
 
         let mut stack = vec![(&self.lem_op, Boolean::Constant(true), Path::default())];
 
+        let mut hash2_index = 0;
+        let mut hash3_index = 0;
+        let mut hash4_index = 0;
+        let mut slots2_map: HashMap<(&[MetaPtr; 2], &MetaPtr), usize> = HashMap::default();
+        let mut slots3_map: HashMap<(&[MetaPtr; 3], &MetaPtr), usize> = HashMap::default();
+        let mut slots4_map: HashMap<(&[MetaPtr; 4], &MetaPtr), usize> = HashMap::default();
         while let Some((op, concrete_path, path)) = stack.pop() {
             // macro_rules! hash_helper {
             //     ( $img: expr, $tag: expr ) => {
@@ -626,29 +632,29 @@ impl LEM {
             // }
 
             match op {
-                LEMOP::Hash2(img, tag, _) => {
-                    // hash_helper!(img, tag);
-                    todo!()
+                LEMOP::Hash2(img, tag, preimg) => {
+                    slots2_map.insert((&preimg, &img), hash2_index);
+                    hash2_index += 1;
                 }
-                LEMOP::Hash3(img, tag, _) => {
-                    // hash_helper!(img, tag);
-                    todo!()
+                LEMOP::Hash3(img, tag, preimg) => {
+                    slots3_map.insert((&preimg, &img), hash3_index);
+                    hash3_index += 1;
                 }
-                LEMOP::Hash4(img, tag, _) => {
-                    // hash_helper!(img, tag);
-                    todo!()
+                LEMOP::Hash4(img, tag, preimg) => {
+                    slots4_map.insert((&preimg, &img), hash4_index);
+                    hash4_index += 1;
                 }
-                LEMOP::Unhash2(preimg, _) => {
-                    // unhash_helper!(preimg);
-                    todo!()
+                LEMOP::Unhash2(preimg, img) => {
+                    slots2_map.insert((&preimg, &img), hash2_index);
+                    hash2_index += 1;
                 }
-                LEMOP::Unhash3(preimg, _) => {
-                    // unhash_helper!(preimg);
-                    todo!()
+                LEMOP::Unhash3(preimg, img) => {
+                    slots3_map.insert((&preimg, &img), hash3_index);
+                    hash3_index += 1;
                 }
-                LEMOP::Unhash4(preimg, _) => {
-                    // unhash_helper!(preimg);
-                    todo!()
+                LEMOP::Unhash4(preimg, img) => {
+                    slots4_map.insert((&preimg, &img), hash4_index);
+                    hash4_index += 1;
                 }
                 LEMOP::Null(tgt, tag) => {
                     let allocated_tgt = Self::allocate_ptr(
