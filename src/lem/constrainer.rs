@@ -606,6 +606,20 @@ impl LEM {
                         &allocated_tag,
                     )?;
 
+                    let magic_slot_value = slot2_map.get(preimg); // AllocatedNum
+                    implies_equal(
+                        &mut cs.namespace(|| {
+                            format!(
+                                "implies equal hash for hash{}", // TODO: find way to deduplicate namespace
+                                2,
+                            )
+                        }),
+                        &concrete_path,
+                        &allocated_img.hash(),
+                        &magic_slot_value,
+                    )?;
+
+
                     // STEP 3: Insert allocated image into allocated pointers
                     allocated_ptrs.insert($img.name(), allocated_img.clone());
                 };
@@ -636,33 +650,39 @@ impl LEM {
             match op {
                 LEMOP::Hash2(img, tag, preimg) => {
                     hash_helper!(img, tag);
-                    slots2_map.insert((&preimg, &img), (concrete_path, hash2_index));
-                    hash2_index += 1;
+                    //if frame.hash_witnesses.contains(&HashWitness::Hash2(preimg.clone(), img.clone())) {
+                    //    slots2_map.insert((&preimg, &img), (concrete_path, hash2_index));
+                    //    hash2_index += 1;
+                    //}
                 }
                 LEMOP::Hash3(img, tag, preimg) => {
                     hash_helper!(img, tag);
-                    slots3_map.insert((&preimg, &img), (concrete_path, hash3_index));
-                    hash3_index += 1;
+                    //if frame.hash_witnesses.contains(&HashWitness::Hash3(preimg.clone(), img.clone())) {
+                    //    slots3_map.insert((&preimg, &img), (concrete_path, hash3_index));
+                    //    hash3_index += 1;
+                    //}
                 }
                 LEMOP::Hash4(img, tag, preimg) => {
                     hash_helper!(img, tag);
-                    slots4_map.insert((&preimg, &img), (concrete_path, hash4_index));
-                    hash4_index += 1;
+                    //if frame.hash_witnesses.contains(&HashWitness::Hash4(preimg.clone(), img.clone())) {
+                    //    slots4_map.insert((&preimg, &img), (concrete_path, hash4_index));
+                    //    hash4_index += 1;
+                    //}
                 }
                 LEMOP::Unhash2(preimg, img) => {
                     unhash_helper!(preimg);
-                    slots2_map.insert((&preimg, &img), (concrete_path, hash2_index));
-                    hash2_index += 1;
+                    //slots2_map.insert((&preimg, &img), (concrete_path, hash2_index));
+                    //hash2_index += 1;
                 }
                 LEMOP::Unhash3(preimg, img) => {
                     unhash_helper!(preimg);
-                    slots3_map.insert((&preimg, &img), (concrete_path, hash3_index));
-                    hash3_index += 1;
+                    //slots3_map.insert((&preimg, &img), (concrete_path, hash3_index));
+                    //hash3_index += 1;
                 }
                 LEMOP::Unhash4(preimg, img) => {
                     unhash_helper!(preimg);
-                    slots4_map.insert((&preimg, &img), (concrete_path, hash4_index));
-                    hash4_index += 1;
+                    //slots4_map.insert((&preimg, &img), (concrete_path, hash4_index));
+                    //hash4_index += 1;
                 }
                 LEMOP::Null(tgt, tag) => {
                     let allocated_tgt = Self::allocate_ptr(
@@ -754,6 +774,11 @@ impl LEM {
                 _ => todo!(),
             }
         }
+
+        // Filtrar apenas concrete path true
+        // Ordenar pelo index (?)
+        // chama a macro pra fazer constraint dos slots: hash, implies
+        // completar com dummies
 
         // STEP 3 of hash slots system just finished. In this step we allocated
         // all preimages and images based of information collected during STEP 2.
