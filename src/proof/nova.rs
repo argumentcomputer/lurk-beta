@@ -3643,8 +3643,9 @@ pub mod tests {
         test_aux(s, expr4, None, None, Some(error), None, 1, Some(lang));
     }
 
+    // This is related to issue #426
     #[test]
-    fn test_issue426_minimal() {
+    fn test_prove_lambda_body_nil() {
         let s = &mut Store::<Fr>::default();
         let expected = s.nil();
         let terminal = s.get_cont_terminal();
@@ -3656,6 +3657,56 @@ pub mod tests {
             Some(terminal),
             None,
             4,
+            None,
+        );
+    }
+
+    // The following 3 tests are related to issue #424
+    #[test]
+    fn test_letrec_let_nesting() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(2);
+        let terminal = s.get_cont_terminal();
+        test_aux::<Coproc<Fr>>(
+            s,
+            "(letrec ((x (let ((z 0)) 1))) 2)",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            6,
+            None,
+        );
+    }
+    #[test]
+    fn test_let_sequencing() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(1);
+        let terminal = s.get_cont_terminal();
+        test_aux::<Coproc<Fr>>(
+            s,
+            "(let ((x 0) (y x)) 1)",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            5,
+            None,
+        );
+    }
+    #[test]
+    fn test_letrec_sequencing() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(3);
+        let terminal = s.get_cont_terminal();
+        test_aux::<Coproc<Fr>>(
+            s,
+            "(letrec ((x 0) (y (letrec ((inner 1)) 2))) 3)",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            8,
             None,
         );
     }

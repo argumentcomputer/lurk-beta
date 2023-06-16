@@ -831,7 +831,7 @@ fn apply_continuation<F: LurkField>(
                 continuation,
             } => {
                 let extended_env =
-                    cons_witness.extend_named(ConsName::Env, env, var, result, store);
+                    cons_witness.extend_named(ConsName::ClosedEnv, env, var, result, store);
                 let c = make_tail_continuation(saved_env, continuation, store, cont_witness);
 
                 Control::Return(body, extended_env, c)
@@ -1319,10 +1319,10 @@ fn extend_rec<F: LurkField>(
     let (binding_or_env, rest) = cons_witness.car_cdr_named(ConsName::Env, store, &env)?;
     let (var_or_binding, _val_or_more_bindings) =
         cons_witness.car_cdr_named(ConsName::EnvCar, store, &binding_or_env)?;
+    let cons = cons_witness.cons_named(ConsName::NewRecCadr, store, var, val);
     match var_or_binding.tag {
         // It's a var, so we are extending a simple env with a recursive env.
         ExprTag::Sym | ExprTag::Nil => {
-            let cons = cons_witness.cons_named(ConsName::NewRecCadr, store, var, val);
             let nil = store.nil();
             let list = cons_witness.cons_named(ConsName::NewRec, store, cons, nil);
             let res = cons_witness.cons_named(ConsName::ExtendedRec, store, list, env);
@@ -1331,7 +1331,6 @@ fn extend_rec<F: LurkField>(
         }
         // It's a binding, so we are extending a recursive env.
         ExprTag::Cons => {
-            let cons = cons_witness.cons_named(ConsName::NewRecCadr, store, var, val);
             let cons2 = cons_witness.cons_named(ConsName::NewRec, store, cons, binding_or_env);
             let res = cons_witness.cons_named(ConsName::ExtendedRec, store, cons2, rest);
 
