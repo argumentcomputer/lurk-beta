@@ -389,18 +389,29 @@ mod tests {
     }
 
     #[test]
-    fn test_hash2_slots_simple_pass() {
+    fn test_hash_slots() {
         let lem = lem!(expr_in env_in cont_in {
+            let x: Cons = hash2(expr_in, expr_in);
+            let y: Cons = hash3(env_in, env_in, env_in);
+            let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
             match_tag expr_in {
                 Num => {
-                    let expr_out: Cons = hash2(expr_in, expr_in);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out, env_in, cont_out_terminal);
+                    let m: Cons = hash2(expr_in, env_in);
+                    let n: Cons = hash3(expr_in, env_in, cont_in);
+                    let k: Cons = hash4(expr_in, env_in, cont_in, cont_in);
+                    return (m, n, k);
                 },
                 Char => {
-                    let expr_out: Cons = hash2(expr_in, expr_in);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out, env_in, cont_out_terminal);
+                    let p: Nil;
+                    return (p, p, p);
+                },
+                Cons => {
+                    let p: Nil;
+                    return (p, p, p);
+                },
+                Nil => {
+                    let p: Nil;
+                    return (p, p, p);
                 }
             };
         })
@@ -409,24 +420,39 @@ mod tests {
         constrain_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((1, 0, 0)),
-            true,
+            NumSlots::new((2, 2, 2)),
+            false,
         );
     }
 
     #[test]
-    fn test_hash2_slots_slot_collision() {
+    fn test_unhash_slots() {
         let lem = lem!(expr_in env_in cont_in {
+            let x: Cons = hash2(expr_in, env_in);
+            let y: Cons = hash3(expr_in, env_in, cont_in);
+            let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
+            let t: Terminal;
             match_tag expr_in {
                 Num => {
-                    let expr_out: Cons = hash2(expr_in, expr_in);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out, env_in, cont_out_terminal);
+                    let m: Cons = hash2(env_in, expr_in);
+                    let n: Cons = hash3(cont_in, env_in, expr_in);
+                    let k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                    let (m1, m2) = unhash2(m);
+                    let (n1, n2, n3) = unhash3(n);
+                    let (k1, k2, k3, k4) = unhash4(k);
+                    return (m, n, t);
                 },
                 Char => {
-                    let expr_out: Cons = hash2(env_in, env_in);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out, env_in, cont_out_terminal);
+                    let p: Nil;
+                    return (p, p, t);
+                },
+                Cons => {
+                    let p: Nil;
+                    return (p, p, p);
+                },
+                Nil => {
+                    let p: Nil;
+                    return (p, p, p);
                 }
             };
         })
@@ -435,49 +461,51 @@ mod tests {
         constrain_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((1, 0, 0)),
-            true,
-        );
-    }
-
-    #[test]
-    fn test_hash2_slots_unhash_simple() {
-        let lem = lem!(expr_in env_in cont_in {
-            match_tag expr_in {
-                Num => {
-                    let expr_out: Cons = hash2(expr_in, expr_in);
-                    let (expr_car, expr_cdr) = unhash2(expr_out);
-                    let cont_out_terminal: Terminal;
-                    return (expr_car, env_in, cont_out_terminal);
-                }
-            };
-        })
-        .unwrap();
-
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42))],
-            NumSlots::new((2, 0, 0)),
+            NumSlots::new((3, 3, 3)),
             false,
         );
     }
 
     #[test]
-    fn test_hash2_slots_many() {
+    fn test_unhash_nested_slots() {
         let lem = lem!(expr_in env_in cont_in {
+            let x: Cons = hash2(expr_in, env_in);
+            let y: Cons = hash3(expr_in, env_in, cont_in);
+            let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
+            let t: Terminal;
             match_tag expr_in {
                 Num => {
-                    let expr_aux: Cons = hash2(expr_in, expr_in);
-                    let expr_out: Cons = hash2(expr_aux, expr_aux);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out, env_in, cont_out_terminal);
+                    let m: Cons = hash2(env_in, expr_in);
+                    let n: Cons = hash3(cont_in, env_in, expr_in);
+                    let k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                    let (m1, m2) = unhash2(m);
+                    let (n1, n2, n3) = unhash3(n);
+                    let (k1, k2, k3, k4) = unhash4(k);
+                    match_tag cont_in {
+                        Outermost => {
+                            let a: Cons = hash2(env_in, expr_in);
+                            let b: Cons = hash3(cont_in, env_in, expr_in);
+                            let c: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                        },
+                        Cons => {
+                            let d: Cons = hash2(env_in, expr_in);
+                            let e: Cons = hash3(cont_in, env_in, expr_in);
+                            let f: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                        }
+                    };
+                    return (m, n, t);
                 },
                 Char => {
-                    let expr_aux: Cons = hash2(expr_in, expr_in);
-                    let expr_aux2: Cons = hash2(expr_aux, expr_aux);
-                    let expr_out: Cons = hash2(expr_aux2, expr_aux2);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out, env_in, cont_out_terminal);
+                    let p: Nil;
+                    return (p, p, t);
+                },
+                Cons => {
+                    let p: Nil;
+                    return (p, p, p);
+                },
+                Nil => {
+                    let p: Nil;
+                    return (p, p, p);
                 }
             };
         })
@@ -486,616 +514,7 @@ mod tests {
         constrain_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((3, 0, 0)),
-            true,
-        );
-    }
-
-    #[test]
-    fn test_hash2_slots_many_nested() {
-        let lem = lem!(expr_in env_in cont_in {
-            match_tag expr_in {
-                Num => {
-                    let expr_aux: Cons = hash2(expr_in, expr_in);
-                    let expr_out: Cons = hash2(expr_aux, expr_aux);
-                    let cont_out_terminal: Terminal;
-                    match_tag cont_in {
-                        Cons => {
-                            let expr_comm: Cons = hash2(expr_in, expr_in);
-                            let expr_comm2: Cons = hash2(expr_comm, expr_comm);
-                            let expr_comm3: Cons = hash2(expr_comm, expr_comm2);
-                            let expr_comm4: Cons = hash2(expr_comm, expr_comm3);
-                            let expr_comm5: Cons = hash2(expr_comm, expr_comm4);
-                        },
-                        Outermost => {
-                            let expr_outer: Cons = hash2(expr_in, expr_in);
-                            let expr_outer2: Cons = hash2(expr_outer, expr_outer);
-                        }
-                    };
-                    return (expr_out, env_in, cont_out_terminal);
-                },
-                Char => {
-                    let expr_aux: Cons = hash2(expr_in, expr_in);
-                    let expr_aux2: Cons = hash2(expr_aux, expr_aux);
-                    let expr_out: Cons = hash2(expr_aux2, expr_aux2);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out, env_in, cont_out_terminal);
-                }
-            };
-        })
-        .unwrap();
-
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42))],
-            NumSlots::new((7, 0, 0)),
-            false,
-        );
-    }
-
-    #[test]
-    fn test_hash2_slots_seq() {
-        let lem = lem!(expr_in env_in cont_in {
-            let expr_aux: Cons = hash2(expr_in, expr_in);
-            let expr_out: Cons = hash2(expr_aux, expr_aux);
-            let cont_out_terminal: Terminal;
-            return (expr_out, env_in, cont_out_terminal);
-        })
-        .unwrap();
-
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42))],
-            NumSlots::new((2, 0, 0)),
-            false,
-        );
-    }
-
-    #[test]
-    fn test_hash3_slots_simple() {
-        let lem = lem!(expr_in env_in cont_in {
-            match_tag expr_in {
-                Num => {
-                    let expr_out: Cons = hash3(expr_in, expr_in, expr_in);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out, env_in, cont_out_terminal);
-                }
-            };
-        })
-        .unwrap();
-
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42))],
-            NumSlots::new((0, 1, 0)),
-            false,
-        );
-    }
-
-    #[test]
-    fn test_hash3_slots_unhash_simple() {
-        let lem = lem!(expr_in env_in cont_in {
-            match_tag expr_in {
-                Num => {
-                    let expr_out: Cons = hash3(expr_in, expr_in, expr_in);
-                    let (expr_input1, expr_input2, expr_input3) = unhash3(expr_out);
-                    let cont_out_terminal: Terminal;
-                    return (expr_input1, env_in, cont_out_terminal);
-                }
-            };
-        })
-        .unwrap();
-
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42))],
-            NumSlots::new((0, 2, 0)),
-            false,
-        );
-    }
-
-    #[test]
-    fn test_hash3_slots_many() {
-        let lem = lem!(expr_in env_in cont_in {
-            match_tag expr_in {
-                Num => {
-                    let expr_aux: Cons = hash3(expr_in, expr_in, expr_in);
-                    let expr_out: Cons = hash3(expr_aux, expr_aux, expr_aux);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out, env_in, cont_out_terminal);
-                },
-                Char => {
-                    let expr_aux: Cons = hash3(expr_in, expr_in, expr_in);
-                    let expr_aux2: Cons = hash3(expr_aux, expr_aux, expr_aux);
-                    let expr_out: Cons = hash3(expr_aux2, expr_aux2, expr_aux2);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out, env_in, cont_out_terminal);
-                }
-            };
-        })
-        .unwrap();
-
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42))],
-            NumSlots::new((0, 3, 0)),
-            false,
-        );
-    }
-
-    #[test]
-    fn test_hash3_slots_many_nested() {
-        let lem = lem!(expr_in env_in cont_in {
-            match_tag expr_in {
-                Num => {
-                    let expr_aux: Cons = hash3(expr_in, expr_in, expr_in);
-                    let expr_out: Cons = hash3(expr_aux, expr_aux, expr_aux);
-                    let cont_out_terminal: Terminal;
-                    match_tag cont_in {
-                        Cons => {
-                            let expr_comm: Cons = hash3(expr_in, expr_in, expr_in);
-                            let expr_comm2: Cons = hash3(expr_comm, expr_comm, expr_comm);
-                            let expr_comm3: Cons = hash3(expr_comm, expr_comm2, expr_comm2);
-                            let expr_comm4: Cons = hash3(expr_comm, expr_comm3, expr_comm3);
-                            let expr_comm5: Cons = hash3(expr_comm, expr_comm4, expr_comm4);
-                        },
-                        Outermost => {
-                            let expr_outer: Cons = hash3(expr_in, expr_in, expr_in);
-                            let expr_outer2: Cons = hash3(expr_outer, expr_outer, expr_outer);
-                        }
-                    };
-                    return (expr_out, env_in, cont_out_terminal);
-                },
-                Char => {
-                    let expr_aux: Cons = hash3(expr_in, expr_in, expr_in);
-                    let expr_aux2: Cons = hash3(expr_aux, expr_aux, expr_aux);
-                    let expr_out: Cons = hash3(expr_aux2, expr_aux2, expr_aux2);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out, env_in, cont_out_terminal);
-                }
-            };
-        })
-        .unwrap();
-
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42))],
-            NumSlots::new((0, 7, 0)),
-            false,
-        );
-    }
-
-    #[test]
-    fn test_hash3_slots_seq() {
-        let lem = lem!(expr_in env_in cont_in {
-            let expr_aux: Cons = hash3(expr_in, expr_in, expr_in);
-            let expr_out: Cons = hash3(expr_aux, expr_aux, expr_aux);
-            let cont_out_terminal: Terminal;
-            return (expr_out, env_in, cont_out_terminal);
-        })
-        .unwrap();
-
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42))],
-            NumSlots::new((0, 2, 0)),
-            false,
-        );
-    }
-
-    #[test]
-    fn test_hash4_slots_simple() {
-        let lem = lem!(expr_in env_in cont_in {
-            match_tag expr_in {
-                Num => {
-                    let expr_out: Cons = hash4(expr_in, expr_in, expr_in, expr_in);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out, env_in, cont_out_terminal);
-                }
-            };
-        })
-        .unwrap();
-
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42))],
-            NumSlots::new((0, 0, 1)),
-            false,
-        );
-    }
-
-    #[test]
-    fn test_hash4_slots_unhash_simple() {
-        let lem = lem!(expr_in env_in cont_in {
-            match_tag expr_in {
-                Num => {
-                    let expr_out: Cons = hash4(expr_in, expr_in, expr_in, expr_in);
-                    let (expr_input1, expr_input2, expr_input3, expr_input4) = unhash4(expr_out);
-                    let cont_out_terminal: Terminal;
-                    return (expr_input1, env_in, cont_out_terminal);
-                }
-            };
-        })
-        .unwrap();
-
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42))],
-            NumSlots::new((0, 0, 2)),
-            false,
-        );
-    }
-
-    #[test]
-    fn test_hash4_slots_many() {
-        let lem = lem!(expr_in env_in cont_in {
-            match_tag expr_in {
-                Num => {
-                    let expr_aux: Cons = hash4(expr_in, expr_in, expr_in, expr_in);
-                    let expr_out: Cons = hash4(expr_aux, expr_aux, expr_aux, expr_aux);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out, env_in, cont_out_terminal);
-                },
-                Char => {
-                    let expr_aux: Cons = hash4(expr_in, expr_in, expr_in, expr_in);
-                    let expr_aux2: Cons = hash4(expr_aux, expr_aux, expr_aux, expr_aux);
-                    let expr_out: Cons = hash4(expr_aux2, expr_aux2, expr_aux2, expr_aux2);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out, env_in, cont_out_terminal);
-                }
-            };
-        })
-        .unwrap();
-
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42))],
-            NumSlots::new((0, 0, 3)),
-            false,
-        );
-    }
-
-    #[test]
-    fn test_hash4_slots_many_nested() {
-        let lem = lem!(expr_in env_in cont_in {
-            match_tag expr_in {
-                Num => {
-                    let expr_aux: Cons = hash4(expr_in, expr_in, expr_in, expr_in);
-                    let expr_out: Cons = hash4(expr_aux, expr_aux, expr_aux, expr_aux);
-                    let cont_out_terminal: Terminal;
-                    match_tag cont_in {
-                        Cons => {
-                            let expr_comm: Cons = hash4(expr_in, expr_in, expr_in, expr_in);
-                            let expr_comm2: Cons = hash4(expr_comm, expr_comm, expr_comm, expr_comm);
-                            let expr_comm3: Cons = hash4(expr_comm, expr_comm2, expr_comm2, expr_comm2);
-                            let expr_comm4: Cons = hash4(expr_comm, expr_comm3, expr_comm3, expr_comm3);
-                            let expr_comm5: Cons = hash4(expr_comm, expr_comm4, expr_comm4, expr_comm4);
-                        },
-                        Outermost => {
-                            let expr_outer: Cons = hash4(expr_in, expr_in, expr_in, expr_in);
-                            let expr_outer2: Cons = hash4(expr_outer, expr_outer, expr_outer, expr_outer);
-                        }
-                    };
-                    return (expr_out, env_in, cont_out_terminal);
-                },
-                Char => {
-                    let expr_aux: Cons = hash4(expr_in, expr_in, expr_in, expr_in);
-                    let expr_aux2: Cons = hash4(expr_aux, expr_aux, expr_aux, expr_aux);
-                    let expr_out: Cons = hash4(expr_aux2, expr_aux2, expr_aux2, expr_aux2);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out, env_in, cont_out_terminal);
-                }
-            };
-        })
-            .unwrap();
-
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42))],
-            NumSlots::new((0, 0, 7)),
-            false,
-        );
-    }
-
-    #[test]
-    fn test_hash4_slots_seq() {
-        let lem = lem!(expr_in env_in cont_in {
-            let expr_aux: Cons = hash4(expr_in, expr_in, expr_in, expr_in);
-            let expr_out: Cons = hash4(expr_aux, expr_aux, expr_aux, expr_aux);
-            let cont_out_terminal: Terminal;
-            return (expr_out, env_in, cont_out_terminal);
-        })
-        .unwrap();
-
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42))],
-            NumSlots::new((0, 0, 2)),
-            false,
-        );
-    }
-
-    #[test]
-    fn test_hash_slots_many_nested_mixed() {
-        let lem = lem!(expr_in env_in cont_in {
-            match_tag expr_in {
-                Num => {
-                    let expr_aux: Cons = hash2(expr_in, expr_in);
-                    let expr_out: Cons = hash2(expr_aux, expr_aux);
-                    let expr_out3: Cons = hash3(expr_aux, expr_aux, expr_aux);
-                    let expr_out4: Cons = hash4(expr_aux, expr_aux, expr_aux, expr_aux);
-                    let cont_out_terminal: Terminal;
-                    match_tag cont_in {
-                        Cons => {
-                            let expr_comm: Cons = hash2(expr_in, expr_in);
-                            let expr_comm2: Cons = hash2(expr_comm, expr_comm);
-                            let expr_comm3: Cons = hash2(expr_comm, expr_comm2);
-                            let expr_comm4: Cons = hash3(expr_comm, expr_comm, expr_comm3);
-                            let expr_comm5: Cons = hash3(expr_comm, expr_comm, expr_comm4);
-                            let expr_comm6: Cons = hash4(expr_comm, expr_comm, expr_comm, expr_comm5);
-                        },
-                        Outermost => {
-                            let expr_outer: Cons = hash2(expr_in, expr_in);
-                            let expr_outer2: Cons = hash2(expr_outer, expr_outer);
-                            let expr_outer3: Cons = hash3(expr_outer, expr_outer, expr_outer);
-                        }
-                    };
-                    return (expr_out4, env_in, cont_out_terminal);
-                },
-                Char => {
-                    let expr_aux: Cons = hash2(expr_in, expr_in);
-                    let expr_aux2: Cons = hash2(expr_aux, expr_aux);
-                    let expr_out: Cons = hash2(expr_aux2, expr_aux2);
-                    let expr_out3: Cons = hash3(expr_aux2, expr_aux2, expr_aux2);
-                    let expr_out4: Cons = hash4(expr_aux2, expr_aux2, expr_aux2, expr_aux2);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out4, env_in, cont_out_terminal);
-                }
-            };
-        })
-        .unwrap();
-
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42))],
-            NumSlots::new((5, 3, 2)),
-            false,
-        );
-    }
-
-    #[test]
-    fn test_hash_slots_max_concrete_path() {
-        let lem = lem!(expr_in env_in cont_in {
-            match_tag expr_in {
-                Num => {
-                    let expr_aux: Cons = hash2(expr_in, expr_in);
-                    let expr_out: Cons = hash2(expr_aux, expr_aux);
-                    let expr_out3: Cons = hash3(expr_aux, expr_aux, expr_aux);
-                    let expr_out4: Cons = hash4(expr_aux, expr_aux, expr_aux, expr_aux);
-                    let cont_out_terminal: Terminal;
-                    match_tag cont_in {
-                        Outermost => {
-                            let expr_comm: Cons = hash2(expr_in, expr_in);
-                            let expr_comm2: Cons = hash2(expr_comm, expr_comm);
-                            let expr_comm3: Cons = hash2(expr_comm, expr_comm2);
-                            let expr_comm4: Cons = hash3(expr_comm, expr_comm, expr_comm3);
-                            let expr_comm5: Cons = hash3(expr_comm, expr_comm, expr_comm4);
-                            let expr_comm6: Cons = hash4(expr_comm, expr_comm, expr_comm, expr_comm5);
-                        },
-                        Cons => {
-                            let expr_outer: Cons = hash2(expr_in, expr_in);
-                            let expr_outer2: Cons = hash2(expr_outer, expr_outer);
-                            let expr_outer3: Cons = hash3(expr_outer2, expr_outer2, expr_outer2);
-                        }
-                    };
-                    return (expr_out4, env_in, cont_out_terminal);
-                },
-                Char => {
-                    let expr_aux: Cons = hash2(expr_in, expr_in);
-                    let expr_aux2: Cons = hash2(expr_aux, expr_aux);
-                    let expr_out: Cons = hash2(expr_aux2, expr_aux2);
-                    let expr_out3: Cons = hash3(expr_aux2, expr_aux2, expr_aux2);
-                    let expr_out4: Cons = hash4(expr_aux2, expr_aux2, expr_aux2, expr_aux2);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out4, env_in, cont_out_terminal);
-                }
-            };
-        })
-        .unwrap();
-
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((5, 3, 2)),
-            false,
-        );
-    }
-
-    #[test]
-    fn test_hash_slots_not_max_concrete_path() {
-        let lem = lem!(expr_in env_in cont_in {
-            match_tag expr_in {
-                Num => {
-                    let expr_aux: Cons = hash2(expr_in, expr_in);
-                    let expr_out: Cons = hash2(expr_aux, expr_aux);
-                    let expr_out3: Cons = hash3(expr_aux, expr_aux, expr_aux);
-                    let expr_out4: Cons = hash4(expr_aux, expr_aux, expr_aux, expr_aux);
-                    let cont_out_terminal: Terminal;
-                    match_tag cont_in {
-                        Outermost => {
-                            let expr_outer: Cons = hash2(expr_in, expr_in);
-                            let expr_outer2: Cons = hash2(expr_outer, expr_outer);
-                            let expr_outer3: Cons = hash3(expr_outer2, expr_outer2, expr_outer2);
-                        },
-                        Cons => {
-                            let expr_comm: Cons = hash2(expr_in, expr_in);
-                            let expr_comm2: Cons = hash2(expr_comm, expr_comm);
-                            let expr_comm3: Cons = hash2(expr_comm, expr_comm2);
-                            let expr_comm4: Cons = hash3(expr_comm, expr_comm, expr_comm3);
-                            let expr_comm5: Cons = hash3(expr_comm, expr_comm, expr_comm4);
-                            let expr_comm6: Cons = hash4(expr_comm, expr_comm, expr_comm, expr_comm5);
-                        }
-                    };
-                    return (expr_out4, env_in, cont_out_terminal);
-                },
-                Char => {
-                    let expr_aux: Cons = hash2(expr_in, expr_in);
-                    let expr_aux2: Cons = hash2(expr_aux, expr_aux);
-                    let expr_out: Cons = hash2(expr_aux2, expr_aux2);
-                    let expr_out3: Cons = hash3(expr_aux2, expr_aux2, expr_aux2);
-                    let expr_out4: Cons = hash4(expr_aux2, expr_aux2, expr_aux2, expr_aux2);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out4, env_in, cont_out_terminal);
-                }
-            };
-        })
-        .unwrap();
-
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((5, 3, 2)),
-            false,
-        );
-    }
-
-    #[test]
-    fn test_hash_slots_max_concrete_path_no_dummies_hash2() {
-        let lem = lem!(expr_in env_in cont_in {
-            match_tag expr_in {
-                Num => {
-                    let expr_aux: Cons = hash3(expr_in, expr_in, expr_in);
-                    let expr_out3: Cons = hash3(expr_aux, expr_aux, expr_aux);
-                    let expr_out4: Cons = hash4(expr_aux, expr_aux, expr_aux, expr_aux);
-                    let cont_out_terminal: Terminal;
-                    match_tag cont_in {
-                        Outermost => {
-                            let expr_comm: Cons = hash2(expr_in, expr_in);
-                            let expr_comm2: Cons = hash2(expr_comm, expr_comm);
-                            let expr_comm3: Cons = hash2(expr_comm, expr_comm2);
-                            let expr_comm4: Cons = hash3(expr_comm, expr_comm, expr_comm3);
-                            let expr_comm5: Cons = hash3(expr_comm, expr_comm, expr_comm4);
-                            let expr_comm6: Cons = hash4(expr_comm, expr_comm, expr_comm, expr_comm5);
-                        },
-                        Cons => {
-                            let expr_outer: Cons = hash2(expr_in, expr_in);
-                            let expr_outer2: Cons = hash2(expr_outer, expr_outer);
-                            let expr_outer3: Cons = hash2(expr_outer2, expr_outer2);
-                            let expr_outer4: Cons = hash3(expr_outer3, expr_outer3, expr_outer3);
-                        }
-                    };
-                    return (expr_out4, env_in, cont_out_terminal);
-                },
-                Char => {
-                    let expr_aux: Cons = hash2(expr_in, expr_in);
-                    let expr_aux2: Cons = hash2(expr_aux, expr_aux);
-                    let expr_out: Cons = hash2(expr_aux2, expr_aux2);
-                    let expr_out3: Cons = hash3(expr_aux2, expr_aux2, expr_aux2);
-                    let expr_out4: Cons = hash4(expr_aux2, expr_aux2, expr_aux2, expr_aux2);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out4, env_in, cont_out_terminal);
-                }
-            };
-        })
-        .unwrap();
-
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((3, 4, 2)),
-            false,
-        );
-    }
-
-    #[test]
-    fn test_hash_slots_max_concrete_path_no_dummies() {
-        let lem = lem!(expr_in env_in cont_in {
-            match_tag expr_in {
-                Num => {
-                    let expr_aux: Cons = hash2(expr_in, expr_in);
-                    let expr_out: Cons = hash2(expr_aux, expr_aux);
-                    let cont_out_terminal: Terminal;
-                    match_tag cont_in {
-                        Outermost => {
-                            let expr_comm: Cons = hash2(expr_in, expr_in);
-                            let expr_comm2: Cons = hash2(expr_comm, expr_comm);
-                            let expr_comm3: Cons = hash2(expr_comm, expr_comm2);
-                        },
-                        Cons => {
-                            let expr_outer: Cons = hash2(expr_in, expr_in);
-                            let expr_outer2: Cons = hash2(expr_outer, expr_outer);
-                            let expr_outer3: Cons = hash2(expr_outer2, expr_outer2);
-                        }
-                    };
-                    return (expr_out, env_in, cont_out_terminal);
-                },
-                Char => {
-                    let expr_aux: Cons = hash2(expr_in, expr_in);
-                    let expr_aux2: Cons = hash2(expr_aux, expr_aux);
-                    let expr_out1: Cons = hash2(expr_aux2, expr_aux2);
-                    let expr_out2: Cons = hash2(expr_out1, expr_out1);
-                    let expr_out3: Cons = hash2(expr_out2, expr_out2);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out3, env_in, cont_out_terminal);
-                }
-            };
-        })
-        .unwrap();
-
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((5, 0, 0)),
-            false,
-        );
-    }
-
-    #[test]
-    fn test_hash_slots_unhash_nested() {
-        let lem = lem!(expr_in env_in cont_in {
-            match_tag expr_in {
-                Num => {
-                    let expr_aux: Cons = hash3(expr_in, expr_in, expr_in);
-                    let expr_out3: Cons = hash3(expr_aux, expr_aux, expr_aux);
-                    let expr_out4: Cons = hash4(expr_aux, expr_aux, expr_aux, expr_aux);
-                    let cont_out_terminal: Terminal;
-                    match_tag cont_in {
-                        Outermost => {
-                            let expr_comm: Cons = hash2(expr_in, expr_in);
-                            let (expr_unin_0, expr_unin_1) = unhash2(expr_comm);
-                            let expr_comm2: Cons = hash2(expr_comm, expr_comm);
-                            let expr_comm3: Cons = hash2(expr_comm, expr_comm2);
-                            let expr_comm4: Cons = hash3(expr_comm, expr_comm, expr_comm3);
-                            let (expr_uncomm4_0, expr_uncomm4_1, expr_uncomm4_2) = unhash3(expr_comm4);
-                            let expr_comm5: Cons = hash3(expr_comm, expr_comm, expr_comm4);
-                            let expr_comm6: Cons = hash4(expr_comm, expr_comm, expr_comm, expr_comm5);
-                        },
-                        Cons => {
-                            let expr_outer: Cons = hash2(expr_in, expr_in);
-                            let expr_outer2: Cons = hash2(expr_outer, expr_outer);
-                            let expr_outer3: Cons = hash2(expr_outer2, expr_outer2);
-                            let expr_outer4: Cons = hash3(expr_outer3, expr_outer3, expr_outer3);
-                        }
-                    };
-                    return (expr_out4, env_in, cont_out_terminal);
-                },
-                Char => {
-                    let expr_aux: Cons = hash2(expr_in, expr_in);
-                    let expr_aux2: Cons = hash2(expr_aux, expr_aux);
-                    let expr_out: Cons = hash2(expr_aux2, expr_aux2);
-                    let expr_out3: Cons = hash3(expr_aux2, expr_aux2, expr_aux2);
-                    let expr_out4: Cons = hash4(expr_aux2, expr_aux2, expr_aux2, expr_aux2);
-                    let cont_out_terminal: Terminal;
-                    return (expr_out4, env_in, cont_out_terminal);
-                }
-            };
-        })
-        .unwrap();
-
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((4, 5, 2)),
+            NumSlots::new((4, 4, 4)),
             false,
         );
     }

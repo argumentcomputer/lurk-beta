@@ -5,6 +5,7 @@ use crate::field::LurkField;
 #[derive(Clone, Copy, PartialEq, Debug, PartialOrd, Ord, Eq, Hash)]
 pub enum Tag {
     // expression tags
+    Nil,
     Num,
     U64,
     Char,
@@ -32,6 +33,7 @@ impl Tag {
 impl Display for Tag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Tag::Nil => write!(f, "Nil"),
             Tag::Dummy => write!(f, "Dummy"),
             Tag::Cons => write!(f, "Cons"),
             Tag::Char => write!(f, "Char"),
