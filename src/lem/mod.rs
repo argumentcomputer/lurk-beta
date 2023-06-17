@@ -153,49 +153,6 @@ pub enum LEMOP {
     Return([MetaPtr; 3]),
 }
 
-/// Structure used to hold the number of slots needed for a `LEMOP`
-#[derive(Debug, Default, PartialEq)]
-pub struct NumSlots {
-    pub hash2: usize,
-    pub hash3: usize,
-    pub hash4: usize,
-}
-
-impl NumSlots {
-    #[inline]
-    pub fn new(num_slots: (usize, usize, usize)) -> NumSlots {
-        NumSlots {
-            hash2: num_slots.0,
-            hash3: num_slots.1,
-            hash4: num_slots.2,
-        }
-    }
-
-    #[inline]
-    pub fn max(&self, other: &Self) -> Self {
-        use std::cmp::max;
-        Self::new((
-            max(self.hash2, other.hash2),
-            max(self.hash3, other.hash3),
-            max(self.hash4, other.hash4),
-        ))
-    }
-
-    #[inline]
-    pub fn add(&self, other: &Self) -> Self {
-        Self::new((
-            self.hash2 + other.hash2,
-            self.hash3 + other.hash3,
-            self.hash4 + other.hash4,
-        ))
-    }
-
-    #[inline]
-    pub fn total(&self) -> usize {
-        self.hash2 + self.hash3 + self.hash4
-    }
-}
-
 impl LEMOP {
     /// Intern all symbol paths that are matched on `MatchSymPath`s
     pub fn intern_matched_sym_paths<F: LurkField>(&self, store: &mut Store<F>) {
@@ -265,7 +222,7 @@ impl LEM {
 
 #[cfg(test)]
 mod tests {
-    use super::constrainer::AllocationManager;
+    use super::constrainer::{AllocationManager, NumSlots};
     use super::{store::Store, *};
     use crate::{lem, lem::pointers::Ptr};
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable, Delta};
@@ -1001,7 +958,6 @@ mod tests {
             false,
         );
     }
-
 
     #[test]
     fn test_hash_slots_max_concrete_path_no_dummies_hash2() {

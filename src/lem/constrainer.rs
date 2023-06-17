@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::{anyhow, bail, Context, Result};
 use bellperson::{
@@ -16,11 +16,74 @@ use crate::circuit::gadgets::{
 
 use crate::field::{FWrap, LurkField};
 
-use super::{
-    interpreter::Frame, path::Path, pointers::ZPtr, store::Store, MetaPtr, NumSlots, LEM, LEMOP,
-};
+use super::{interpreter::Frame, path::Path, pointers::ZPtr, store::Store, MetaPtr, LEM, LEMOP};
+
+/// Structure used to hold the number of slots needed for a `LEMOP`
+#[derive(Debug, Default, PartialEq)]
+pub struct NumSlots {
+    pub hash2: usize,
+    pub hash3: usize,
+    pub hash4: usize,
+}
+
+impl NumSlots {
+    #[inline]
+    pub fn new(num_slots: (usize, usize, usize)) -> NumSlots {
+        NumSlots {
+            hash2: num_slots.0,
+            hash3: num_slots.1,
+            hash4: num_slots.2,
+        }
+    }
+
+    #[inline]
+    pub fn max(&self, other: &Self) -> Self {
+        use std::cmp::max;
+        Self::new((
+            max(self.hash2, other.hash2),
+            max(self.hash3, other.hash3),
+            max(self.hash4, other.hash4),
+        ))
+    }
+
+    #[inline]
+    pub fn add(&self, other: &Self) -> Self {
+        Self::new((
+            self.hash2 + other.hash2,
+            self.hash3 + other.hash3,
+            self.hash4 + other.hash4,
+        ))
+    }
+
+    #[inline]
+    pub fn total(&self) -> usize {
+        self.hash2 + self.hash3 + self.hash4
+    }
+}
+
+#[derive(PartialEq, Eq, Hash)]
+enum Preimage {
+    Hash2([MetaPtr; 2]),
+    Hash3([MetaPtr; 3]),
+    Hash4([MetaPtr; 4]),
+}
 
 impl LEMOP {
+    fn push_preimage_set(&self, set: &mut HashSet<Preimage>) {
+        match self {
+            LEMOP::Hash2(.., preimg) | LEMOP::Unhash2(preimg, _) => {
+                set.insert(Preimage::Hash2(preimg.clone()));
+            }
+            LEMOP::Hash3(.., preimg) | LEMOP::Unhash3(preimg, _) => {
+                set.insert(Preimage::Hash3(preimg.clone()));
+            }
+            LEMOP::Hash4(.., preimg) | LEMOP::Unhash4(preimg, _) => {
+                set.insert(Preimage::Hash4(preimg.clone()));
+            }
+            _ => (),
+        }
+    }
+
     /// STEP 1 from hash slots:
     /// Computes the number of slots needed for a LEMOP
     /// This is the first LEM traversal.
@@ -281,7 +344,7 @@ impl LEM {
         dbg!(num_hash_slots.hash3);
         dbg!(num_hash_slots.hash4);
 
-        let dummy_val = alloc_manager.get_or_alloc_num(cs, F::ZERO)?;
+        let dummy_ptr = &ZPtr::dummy();
 
         for (i, preimg) in frame.preimages.hash2.iter().enumerate() {
             let preimg0 = Self::allocate_ptr(
@@ -318,13 +381,13 @@ impl LEM {
         for i in hash_slots2.len()..num_hash_slots.hash2 {
             let preimg0 = Self::allocate_ptr(
                 cs,
-                &ZPtr::dummy(),
+                dummy_ptr,
                 &format!("preallocated 2 0 {i}"),
                 &allocated_ptrs,
             )?;
             let preimg1 = Self::allocate_ptr(
                 cs,
-                &ZPtr::dummy(),
+                dummy_ptr,
                 &format!("preallocated 2 1 {i}"),
                 &allocated_ptrs,
             )?;
@@ -391,19 +454,19 @@ impl LEM {
         for i in hash_slots3.len()..num_hash_slots.hash3 {
             let preimg0 = Self::allocate_ptr(
                 cs,
-                &ZPtr::dummy(),
+                dummy_ptr,
                 &format!("preallocated 3 0 {i}"),
                 &allocated_ptrs,
             )?;
             let preimg1 = Self::allocate_ptr(
                 cs,
-                &ZPtr::dummy(),
+                dummy_ptr,
                 &format!("preallocated 3 1 {i}"),
                 &allocated_ptrs,
             )?;
             let preimg2 = Self::allocate_ptr(
                 cs,
-                &ZPtr::dummy(),
+                dummy_ptr,
                 &format!("preallocated 3 2 {i}"),
                 &allocated_ptrs,
             )?;
@@ -485,25 +548,25 @@ impl LEM {
         for i in hash_slots4.len()..num_hash_slots.hash4 {
             let preimg0 = Self::allocate_ptr(
                 cs,
-                &ZPtr::dummy(),
+                dummy_ptr,
                 &format!("preallocated 4 0 {i}"),
                 &allocated_ptrs,
             )?;
             let preimg1 = Self::allocate_ptr(
                 cs,
-                &ZPtr::dummy(),
+                dummy_ptr,
                 &format!("preallocated 4 1 {i}"),
                 &allocated_ptrs,
             )?;
             let preimg2 = Self::allocate_ptr(
                 cs,
-                &ZPtr::dummy(),
+                dummy_ptr,
                 &format!("preallocated 4 2 {i}"),
                 &allocated_ptrs,
             )?;
             let preimg3 = Self::allocate_ptr(
                 cs,
-                &ZPtr::dummy(),
+                dummy_ptr,
                 &format!("preallocated 4 3 {i}"),
                 &allocated_ptrs,
             )?;
