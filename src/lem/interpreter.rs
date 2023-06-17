@@ -9,11 +9,11 @@ use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM,
 /// corresponds to STEP 2 of the hash slots mechanism. In particular, STEP 2
 /// happens during interpretation of LEM and stores the hash witnesses in the
 /// order they appear during interpretation
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub enum Preimage {
-    Hash2([MetaPtr; 2]),
-    Hash3([MetaPtr; 3]),
-    Hash4([MetaPtr; 4]),
+#[derive(Clone, Default)]
+pub struct Preimages {
+    pub hash2: Vec<[MetaPtr; 2]>,
+    pub hash3: Vec<[MetaPtr; 3]>,
+    pub hash4: Vec<[MetaPtr; 4]>,
 }
 
 /// A `Frame` carries the data that results from interpreting LEM. That is,
@@ -27,7 +27,7 @@ pub struct Frame<F: LurkField> {
     pub input: [Ptr<F>; 3],
     pub output: [Ptr<F>; 3],
     pub ptrs: HashMap<String, Ptr<F>>,
-    pub preimages: Vec<Preimage>,
+    pub preimages: Preimages,
 }
 
 fn insert_into_ptrs<F: LurkField>(
@@ -52,7 +52,7 @@ impl LEM {
         ptrs.insert(self.input[0].clone(), input[0]);
         insert_into_ptrs(&mut ptrs, self.input[1].clone(), input[1])?;
         insert_into_ptrs(&mut ptrs, self.input[2].clone(), input[2])?;
-        let mut preimages = Vec::default();
+        let mut preimages = Preimages::default();
         let mut stack = vec![&self.lem_op];
         while let Some(op) = stack.pop() {
             match op {
@@ -65,7 +65,7 @@ impl LEM {
                     let src_ptr2 = src[1].get_ptr(&ptrs)?;
                     let tgt_ptr = store.intern_2_ptrs(*tag, *src_ptr1, *src_ptr2);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
-                    preimages.push(Preimage::Hash2(src.clone()));
+                    preimages.hash2.push(src.clone());
                 }
                 LEMOP::Hash3(tgt, tag, src) => {
                     let src_ptr1 = src[0].get_ptr(&ptrs)?;
@@ -73,7 +73,7 @@ impl LEM {
                     let src_ptr3 = src[2].get_ptr(&ptrs)?;
                     let tgt_ptr = store.intern_3_ptrs(*tag, *src_ptr1, *src_ptr2, *src_ptr3);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
-                    preimages.push(Preimage::Hash3(src.clone()));
+                    preimages.hash3.push(src.clone());
                 }
                 LEMOP::Hash4(tgt, tag, src) => {
                     let src_ptr1 = src[0].get_ptr(&ptrs)?;
@@ -83,7 +83,7 @@ impl LEM {
                     let tgt_ptr =
                         store.intern_4_ptrs(*tag, *src_ptr1, *src_ptr2, *src_ptr3, *src_ptr4);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
-                    preimages.push(Preimage::Hash4(src.clone()));
+                    preimages.hash4.push(src.clone());
                 }
                 LEMOP::Unhash2(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
@@ -96,7 +96,7 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
                     insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
                     // STEP 2: Update hash_witness with preimage and image
-                    preimages.push(Preimage::Hash2(tgts.clone()));
+                    preimages.hash2.push(tgts.clone());
                 }
                 LEMOP::Unhash3(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
@@ -110,7 +110,7 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
                     insert_into_ptrs(&mut ptrs, tgts[2].name().clone(), *c)?;
                     // STEP 2: Update hash_witness with preimage and image
-                    preimages.push(Preimage::Hash3(tgts.clone()));
+                    preimages.hash3.push(tgts.clone());
                 }
                 LEMOP::Unhash4(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
@@ -125,7 +125,7 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[2].name().clone(), *c)?;
                     insert_into_ptrs(&mut ptrs, tgts[3].name().clone(), *d)?;
                     // STEP 2: Update hash_witness with preimage and image
-                    preimages.push(Preimage::Hash4(tgts.clone()));
+                    preimages.hash4.push(tgts.clone());
                 }
                 LEMOP::Hide(tgt, sec, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
