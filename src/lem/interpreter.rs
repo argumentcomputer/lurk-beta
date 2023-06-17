@@ -1,23 +1,33 @@
 use crate::field::{FWrap, LurkField};
 use anyhow::{bail, Result};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-use super::{
-    constrainer::HashWitness, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, LEM, LEMOP,
-};
+use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM, LEMOP};
+
+/// Contains preimage and image.
+/// REMARK: this structure will be populated in the second LEM traversal, which
+/// corresponds to STEP 2 of the hash slots mechanism. In particular, STEP 2
+/// happens during interpretation of LEM and stores the hash witnesses in the
+/// order they appear during interpretation
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub enum Preimage {
+    Hash2([MetaPtr; 2]),
+    Hash3([MetaPtr; 3]),
+    Hash4([MetaPtr; 4]),
+}
 
 /// A `Frame` carries the data that results from interpreting LEM. That is,
 /// it contains the input, the output and all the assignments resulting from
 /// running one iteration as a HashMap of pointers indexed by variable names.
 ///
-/// Finally, `hash_witnesses` contains the sequence of hash witnesses visited
+/// Finally, `preimages` contains the sequence of hash witnesses visited
 /// during interpretation. This information is needed to generate the witness.
 #[derive(Clone)]
 pub struct Frame<F: LurkField> {
     pub input: [Ptr<F>; 3],
     pub output: [Ptr<F>; 3],
     pub ptrs: HashMap<String, Ptr<F>>,
-    pub hash_witnesses: Vec<HashWitness>,
+    pub preimages: Vec<Preimage>,
 }
 
 fn insert_into_ptrs<F: LurkField>(
@@ -42,7 +52,7 @@ impl LEM {
         ptrs.insert(self.input[0].clone(), input[0]);
         insert_into_ptrs(&mut ptrs, self.input[1].clone(), input[1])?;
         insert_into_ptrs(&mut ptrs, self.input[2].clone(), input[2])?;
-        let mut hash_witnesses = Vec::default();
+        let mut preimages = Vec::default();
         let mut stack = vec![&self.lem_op];
         while let Some(op) = stack.pop() {
             match op {
@@ -55,7 +65,7 @@ impl LEM {
                     let src_ptr2 = src[1].get_ptr(&ptrs)?;
                     let tgt_ptr = store.intern_2_ptrs(*tag, *src_ptr1, *src_ptr2);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
-                    hash_witnesses.push(HashWitness::Hash2(src.clone(), tgt.clone()));
+                    preimages.push(Preimage::Hash2(src.clone()));
                 }
                 LEMOP::Hash3(tgt, tag, src) => {
                     let src_ptr1 = src[0].get_ptr(&ptrs)?;
@@ -63,7 +73,7 @@ impl LEM {
                     let src_ptr3 = src[2].get_ptr(&ptrs)?;
                     let tgt_ptr = store.intern_3_ptrs(*tag, *src_ptr1, *src_ptr2, *src_ptr3);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
-                    hash_witnesses.push(HashWitness::Hash3(src.clone(), tgt.clone()));
+                    preimages.push(Preimage::Hash3(src.clone()));
                 }
                 LEMOP::Hash4(tgt, tag, src) => {
                     let src_ptr1 = src[0].get_ptr(&ptrs)?;
@@ -73,7 +83,7 @@ impl LEM {
                     let tgt_ptr =
                         store.intern_4_ptrs(*tag, *src_ptr1, *src_ptr2, *src_ptr3, *src_ptr4);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
-                    hash_witnesses.push(HashWitness::Hash4(src.clone(), tgt.clone()));
+                    preimages.push(Preimage::Hash4(src.clone()));
                 }
                 LEMOP::Unhash2(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
@@ -86,7 +96,7 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
                     insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
                     // STEP 2: Update hash_witness with preimage and image
-                    hash_witnesses.push(HashWitness::Hash2(tgts.clone(), src.clone()));
+                    preimages.push(Preimage::Hash2(tgts.clone()));
                 }
                 LEMOP::Unhash3(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
@@ -100,7 +110,7 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
                     insert_into_ptrs(&mut ptrs, tgts[2].name().clone(), *c)?;
                     // STEP 2: Update hash_witness with preimage and image
-                    hash_witnesses.push(HashWitness::Hash3(tgts.clone(), src.clone()));
+                    preimages.push(Preimage::Hash3(tgts.clone()));
                 }
                 LEMOP::Unhash4(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
@@ -115,7 +125,7 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[2].name().clone(), *c)?;
                     insert_into_ptrs(&mut ptrs, tgts[3].name().clone(), *d)?;
                     // STEP 2: Update hash_witness with preimage and image
-                    hash_witnesses.push(HashWitness::Hash4(tgts.clone(), src.clone()));
+                    preimages.push(Preimage::Hash4(tgts.clone()));
                 }
                 LEMOP::Hide(tgt, sec, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
@@ -178,7 +188,7 @@ impl LEM {
                         input,
                         output,
                         ptrs,
-                        hash_witnesses,
+                        preimages,
                     });
                 }
             }

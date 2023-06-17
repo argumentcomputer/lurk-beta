@@ -17,20 +17,12 @@ use crate::circuit::gadgets::{
 use crate::field::{FWrap, LurkField};
 
 use super::{
-    interpreter::Frame, path::Path, pointers::ZPtr, store::Store, MetaPtr, NumSlots, LEM, LEMOP,
+    interpreter::{Frame, Preimage},
+    path::Path,
+    pointers::ZPtr,
+    store::Store,
+    MetaPtr, NumSlots, LEM, LEMOP,
 };
-
-/// Contains preimage and image.
-/// REMARK: this structure will be populated in the second LEM traversal, which
-/// corresponds to STEP 2 of the hash slots mechanism. In particular, STEP 2
-/// happens during interpretation of LEM and stores the hash witnesses in the
-/// order they appear during interpretation
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub enum HashWitness {
-    Hash2([MetaPtr; 2], MetaPtr),
-    Hash3([MetaPtr; 3], MetaPtr),
-    Hash4([MetaPtr; 4], MetaPtr),
-}
 
 impl LEMOP {
     /// STEP 1 from hash slots:
@@ -86,22 +78,49 @@ impl<F: LurkField> AllocationManager<F> {
 }
 
 #[derive(Default)]
-struct PathTracker(HashMap<Path, usize>);
+struct PathTicker(HashMap<Path, usize>);
 
-impl PathTracker {
-    // TODO: add new path from previous one
-    pub(crate) fn next(&mut self, path: &Path) -> usize {
-        match self.0.get(path) {
+impl PathTicker {
+    pub(crate) fn next(&mut self, path: Path) -> usize {
+        let next = self.0.get(&path).unwrap_or(&0).to_owned();
+        self.0.insert(path, next + 1);
+        next
+    }
+
+    pub(crate) fn cont(&mut self, new: Path, from: &Path) {
+        match self.0.get(from) {
             Some(i) => {
-                let next = i + 1;
-                self.0.insert(path.clone(), next);
-                next
+                self.0.insert(new, *i);
             }
-            None => {
-                self.0.insert(path.clone(), 0);
-                0
-            }
+            None => (),
         }
+    }
+}
+
+#[derive(Default)]
+struct MultiPathTicker {
+    hash2: PathTicker,
+    hash3: PathTicker,
+    hash4: PathTicker,
+}
+
+impl MultiPathTicker {
+    pub(crate) fn next_hash2(&mut self, path: Path) -> usize {
+        self.hash2.next(path)
+    }
+
+    pub(crate) fn next_hash3(&mut self, path: Path) -> usize {
+        self.hash3.next(path)
+    }
+
+    pub(crate) fn next_hash4(&mut self, path: Path) -> usize {
+        self.hash4.next(path)
+    }
+
+    pub(crate) fn cont(&mut self, new: Path, from: &Path) {
+        self.hash2.cont(new.clone(), from);
+        self.hash3.cont(new.clone(), from);
+        self.hash4.cont(new, from);
     }
 }
 
@@ -256,51 +275,13 @@ impl LEM {
         let preallocated_outputs =
             self.allocate_and_inputize_output(cs, store, frame, &allocated_ptrs)?;
 
-        let dummy_val = alloc_manager.get_or_alloc_num(cs, F::ZERO)?;
-        let dummy_poseidon2 = hash_poseidon(
-            &mut cs.namespace(|| format!("dummy hash 2")),
-            vec![
-                dummy_val.clone(),
-                dummy_val.clone(),
-                dummy_val.clone(),
-                dummy_val.clone(),
-            ],
-            store.poseidon_cache.constants.c4(),
-        )?;
-        let dummy_poseidon3 = hash_poseidon(
-            &mut cs.namespace(|| format!("dummy hash 3")),
-            vec![
-                dummy_val.clone(),
-                dummy_val.clone(),
-                dummy_val.clone(),
-                dummy_val.clone(),
-                dummy_val.clone(),
-                dummy_val.clone(),
-            ],
-            store.poseidon_cache.constants.c6(),
-        )?;
-        let dummy_poseidon4 = hash_poseidon(
-            &mut cs.namespace(|| format!("dummy hash 4")),
-            vec![
-                dummy_val.clone(),
-                dummy_val.clone(),
-                dummy_val.clone(),
-                dummy_val.clone(),
-                dummy_val.clone(),
-                dummy_val.clone(),
-                dummy_val.clone(),
-                dummy_val.clone(),
-            ],
-            store.poseidon_cache.constants.c8(),
-        )?;
-
         let mut slots2: Vec<AllocatedNum<F>> = Vec::default();
         let mut slots3: Vec<AllocatedNum<F>> = Vec::default();
         let mut slots4: Vec<AllocatedNum<F>> = Vec::default();
 
-        for (i, hash_witness) in frame.hash_witnesses.iter().enumerate() {
-            match hash_witness {
-                HashWitness::Hash2(preimg, _) => {
+        for (i, preimage) in frame.preimages.iter().enumerate() {
+            match preimage {
+                Preimage::Hash2(preimg) => {
                     let preimg0 = Self::allocate_ptr(
                         cs,
                         &store.hash_ptr(preimg[0].get_ptr(&frame.ptrs)?)?,
@@ -325,7 +306,7 @@ impl LEM {
                     )?;
                     slots2.push(allocated_hash);
                 }
-                HashWitness::Hash3(preimg, _) => {
+                Preimage::Hash3(preimg) => {
                     let preimg0 = Self::allocate_ptr(
                         cs,
                         &store.hash_ptr(preimg[0].get_ptr(&frame.ptrs)?)?,
@@ -358,7 +339,7 @@ impl LEM {
                     )?;
                     slots3.push(allocated_hash);
                 }
-                HashWitness::Hash4(preimg, _) => {
+                Preimage::Hash4(preimg) => {
                     let preimg0 = Self::allocate_ptr(
                         cs,
                         &store.hash_ptr(preimg[0].get_ptr(&frame.ptrs)?)?,
@@ -416,10 +397,8 @@ impl LEM {
         //         )?
         //     )
         // }
-        
-        let mut path_tracker2 = PathTracker::default();
-        let mut path_tracker3 = PathTracker::default();
-        let mut path_tracker4 = PathTracker::default();
+
+        let mut multi_path_ticker = MultiPathTicker::default();
 
         let mut stack = vec![(&self.lem_op, Boolean::Constant(true), Path::default())];
         while let Some((op, concrete_path, path)) = stack.pop() {
@@ -477,8 +456,8 @@ impl LEM {
                         &mut cs
                             .namespace(|| format!("implies equal hash for hash2{}", img.name(),)),
                         &concrete_path,
-                        &allocated_img.hash(),
-                        &slots2[path_tracker2.next(&path)],
+                        allocated_img.hash(),
+                        &slots2[multi_path_ticker.next_hash2(path)],
                     )?;
                 }
                 LEMOP::Hash3(img, tag, _) => {
@@ -487,8 +466,8 @@ impl LEM {
                         &mut cs
                             .namespace(|| format!("implies equal hash for hash3{}", img.name(),)),
                         &concrete_path,
-                        &allocated_img.hash(),
-                        &slots3[path_tracker3.next(&path)],
+                        allocated_img.hash(),
+                        &slots3[multi_path_ticker.next_hash3(path)],
                     )?;
                 }
                 LEMOP::Hash4(img, tag, _) => {
@@ -497,8 +476,8 @@ impl LEM {
                         &mut cs
                             .namespace(|| format!("implies equal hash for hash4{}", img.name(),)),
                         &concrete_path,
-                        &allocated_img.hash(),
-                        &slots4[path_tracker4.next(&path)],
+                        allocated_img.hash(),
+                        &slots4[multi_path_ticker.next_hash4(path)],
                     )?;
                 }
                 LEMOP::Unhash2(preimg, _) => {
@@ -560,7 +539,9 @@ impl LEM {
                         )
                         .with_context(|| "failed to constrain `and`")?;
 
-                        stack.push((op, concrete_path_and_has_match, path.push_tag(tag)));
+                        let new_path = path.push_tag(tag);
+                        multi_path_ticker.cont(new_path.clone(), &path);
+                        stack.push((op, concrete_path_and_has_match, new_path));
                     }
 
                     // Now we need to enforce that at least one path was taken. We do that by constraining

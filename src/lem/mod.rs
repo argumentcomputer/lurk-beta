@@ -457,7 +457,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_hash2_slots_simple_fail() {
         let lem = lem!(expr_in env_in cont_in {
@@ -1046,5 +1045,4 @@ mod tests {
             false,
         );
     }
-
 }
