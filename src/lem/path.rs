@@ -132,9 +132,6 @@ impl LEMOP {
                 Ok(Self::Unhash4(preimg.try_into().unwrap(), img))
             }
             LEMOP::MatchTag(ptr, cases) => {
-                let Some(ptr_path) = map.get(ptr.name()).cloned() else {
-                    bail!("{} not defined", ptr.name());
-                };
                 let mut new_cases = vec![];
                 for (tag, case) in cases {
                     // each case needs it's own clone of `map`
@@ -142,14 +139,11 @@ impl LEMOP {
                     new_cases.push((*tag, new_case));
                 }
                 Ok(LEMOP::MatchTag(
-                    MetaPtr(ptr_path),
+                    retrieve_one(map, ptr)?,
                     HashMap::from_iter(new_cases),
                 ))
             }
             LEMOP::MatchSymPath(ptr, cases, def) => {
-                let Some(ptr_path) = map.get(ptr.name()).cloned() else {
-                    bail!("{} not defined", ptr.name());
-                };
                 let mut new_cases = vec![];
                 for (sym_path, case) in cases {
                     // each case needs it's own clone of `map`
@@ -158,7 +152,7 @@ impl LEMOP {
                     new_cases.push((sym_path.clone(), new_case));
                 }
                 Ok(LEMOP::MatchSymPath(
-                    MetaPtr(ptr_path),
+                    retrieve_one(map, ptr)?,
                     HashMap::from_iter(new_cases),
                     Box::new(def.deconflict(&path.push_sym_path(&[]), &mut map.clone())?),
                 ))
@@ -170,18 +164,7 @@ impl LEMOP {
                 }
                 Ok(LEMOP::Seq(new_ops))
             }
-            LEMOP::Return(o) => {
-                let Some(o0) = map.get(o[0].name()).cloned() else {
-                    bail!("{} not defined", o[0].name());
-                };
-                let Some(o1) = map.get(o[1].name()).cloned() else {
-                    bail!("{} not defined", o[1].name());
-                };
-                let Some(o2) = map.get(o[2].name()).cloned() else {
-                    bail!("{} not defined", o[2].name());
-                };
-                Ok(LEMOP::Return([MetaPtr(o0), MetaPtr(o1), MetaPtr(o2)]))
-            }
+            LEMOP::Return(o) => Ok(LEMOP::Return(retrieve_many(map, o)?.try_into().unwrap())),
             _ => todo!(),
         }
     }
