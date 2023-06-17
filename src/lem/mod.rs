@@ -907,7 +907,7 @@ mod tests {
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             NumSlots::new((5, 3, 2)),
-            true,
+            false,
         );
     }
 
@@ -1003,7 +1003,7 @@ mod tests {
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             NumSlots::new((3, 4, 2)),
-            true,
+            false,
         );
     }
 
@@ -1051,7 +1051,7 @@ mod tests {
     }
 
     #[test]
-    fn test_hash_slots_unhash_nested_failing() {
+    fn test_hash_slots_unhash_nested() {
         let lem = lem!(expr_in env_in cont_in {
             match_tag expr_in {
                 Num => {
