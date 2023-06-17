@@ -62,6 +62,7 @@ impl NumSlots {
 }
 
 #[derive(PartialEq, Eq, Hash)]
+#[allow(dead_code)]
 enum Preimage {
     Hash2([MetaPtr; 2]),
     Hash3([MetaPtr; 3]),
@@ -69,6 +70,7 @@ enum Preimage {
 }
 
 impl LEMOP {
+    #[allow(dead_code)]
     fn push_preimage_set(&self, set: &mut HashSet<Preimage>) {
         match self {
             LEMOP::Hash2(.., preimg) | LEMOP::Unhash2(preimg, _) => {
@@ -293,20 +295,6 @@ impl LEM {
             .collect::<Result<Vec<_>>>()
     }
 
-    // fn get_allocated_preimg<'a, F: LurkField>(
-    //     preimg: &[MetaPtr],
-    //     allocated_ptrs: &'a HashMap<&String, AllocatedPtr<F>>,
-    // ) -> Result<Vec<&'a AllocatedPtr<F>>> {
-    //     preimg
-    //         .iter()
-    //         .map(|x| {
-    //             allocated_ptrs
-    //                 .get(x.name())
-    //                 .ok_or_else(|| anyhow!("{x} not allocated"))
-    //         })
-    //         .collect::<Result<Vec<_>>>()
-    // }
-
     /// Create R1CS constraints for LEM given an evaluation frame.
     ///
     /// As we find recursive (non-leaf) LEM operations, we stack them to be
@@ -334,15 +322,9 @@ impl LEM {
         let preallocated_outputs =
             self.allocate_and_inputize_output(cs, store, frame, &allocated_ptrs)?;
 
-        let mut hash_slots2: Vec<AllocatedNum<F>> = Vec::default();
-        let mut hash_slots3: Vec<AllocatedNum<F>> = Vec::default();
-        let mut hash_slots4: Vec<AllocatedNum<F>> = Vec::default();
-        let mut unhash_slots2: Vec<[AllocatedNum<F>; 4]> = Vec::default();
-        let mut unhash_slots3: Vec<[AllocatedNum<F>; 6]> = Vec::default();
-        let mut unhash_slots4: Vec<[AllocatedNum<F>; 8]> = Vec::default();
-        dbg!(num_hash_slots.hash2);
-        dbg!(num_hash_slots.hash3);
-        dbg!(num_hash_slots.hash4);
+        let mut hash_slots2: Vec<([AllocatedNum<F>; 4], AllocatedNum<F>)> = Vec::default();
+        let mut hash_slots3: Vec<([AllocatedNum<F>; 6], AllocatedNum<F>)> = Vec::default();
+        let mut hash_slots4: Vec<([AllocatedNum<F>; 8], AllocatedNum<F>)> = Vec::default();
 
         let dummy_ptr = &ZPtr::dummy();
 
@@ -359,24 +341,18 @@ impl LEM {
                 &format!("preallocated 2 1 {i}"),
                 &allocated_ptrs,
             )?;
-            dbg!(i);
-            let allocated_hash = hash_poseidon(
-                &mut cs.namespace(|| format!("poseidon2 for {i}")),
-                vec![
-                    preimg0.tag().clone(),
-                    preimg0.hash().clone(),
-                    preimg1.tag().clone(),
-                    preimg1.hash().clone(),
-                ],
-                store.poseidon_cache.constants.c4(),
-            )?;
-            hash_slots2.push(allocated_hash);
-            unhash_slots2.push([
+            let allocated_preimg = [
                 preimg0.tag().clone(),
                 preimg0.hash().clone(),
                 preimg1.tag().clone(),
                 preimg1.hash().clone(),
-            ]);
+            ];
+            let allocated_hash = hash_poseidon(
+                &mut cs.namespace(|| format!("poseidon2 for {i}")),
+                allocated_preimg.to_vec(),
+                store.poseidon_cache.constants.c4(),
+            )?;
+            hash_slots2.push((allocated_preimg, allocated_hash));
         }
         for i in hash_slots2.len()..num_hash_slots.hash2 {
             let preimg0 = Self::allocate_ptr(
@@ -391,22 +367,18 @@ impl LEM {
                 &format!("preallocated 2 1 {i}"),
                 &allocated_ptrs,
             )?;
-            hash_slots2.push(hash_poseidon(
-                &mut cs.namespace(|| format!("poseidon2 for {i}")),
-                vec![
-                    preimg0.tag().clone(),
-                    preimg0.hash().clone(),
-                    preimg1.tag().clone(),
-                    preimg1.hash().clone(),
-                ],
-                store.poseidon_cache.constants.c4(),
-            )?);
-            unhash_slots2.push([
+            let allocated_preimg = [
                 preimg0.tag().clone(),
                 preimg0.hash().clone(),
                 preimg1.tag().clone(),
                 preimg1.hash().clone(),
-            ])
+            ];
+            let allocated_hash = hash_poseidon(
+                &mut cs.namespace(|| format!("poseidon2 for {i}")),
+                allocated_preimg.to_vec(),
+                store.poseidon_cache.constants.c4(),
+            )?;
+            hash_slots2.push((allocated_preimg, allocated_hash));
         }
 
         for (i, preimg) in frame.preimages.hash3.iter().enumerate() {
@@ -428,28 +400,20 @@ impl LEM {
                 &format!("preallocated 3 2 {i}"),
                 &allocated_ptrs,
             )?;
-            dbg!(i);
-            let allocated_hash = hash_poseidon(
-                &mut cs.namespace(|| format!("poseidon3 for {i}")),
-                vec![
-                    preimg0.tag().clone(),
-                    preimg0.hash().clone(),
-                    preimg1.tag().clone(),
-                    preimg1.hash().clone(),
-                    preimg2.tag().clone(),
-                    preimg2.hash().clone(),
-                ],
-                store.poseidon_cache.constants.c6(),
-            )?;
-            hash_slots3.push(allocated_hash);
-            unhash_slots3.push([
+            let allocated_preimg = [
                 preimg0.tag().clone(),
                 preimg0.hash().clone(),
                 preimg1.tag().clone(),
                 preimg1.hash().clone(),
                 preimg2.tag().clone(),
                 preimg2.hash().clone(),
-            ]);
+            ];
+            let allocated_hash = hash_poseidon(
+                &mut cs.namespace(|| format!("poseidon3 for {i}")),
+                allocated_preimg.to_vec(),
+                store.poseidon_cache.constants.c6(),
+            )?;
+            hash_slots3.push((allocated_preimg, allocated_hash));
         }
         for i in hash_slots3.len()..num_hash_slots.hash3 {
             let preimg0 = Self::allocate_ptr(
@@ -470,27 +434,20 @@ impl LEM {
                 &format!("preallocated 3 2 {i}"),
                 &allocated_ptrs,
             )?;
-            dbg!(i);
-            hash_slots3.push(hash_poseidon(
-                &mut cs.namespace(|| format!("poseidon3 for {i}")),
-                vec![
-                    preimg0.tag().clone(),
-                    preimg0.hash().clone(),
-                    preimg1.tag().clone(),
-                    preimg1.hash().clone(),
-                    preimg2.tag().clone(),
-                    preimg2.hash().clone(),
-                ],
-                store.poseidon_cache.constants.c6(),
-            )?);
-            unhash_slots3.push([
+            let allocated_preimg = [
                 preimg0.tag().clone(),
                 preimg0.hash().clone(),
                 preimg1.tag().clone(),
                 preimg1.hash().clone(),
                 preimg2.tag().clone(),
                 preimg2.hash().clone(),
-            ])
+            ];
+            let allocated_hash = hash_poseidon(
+                &mut cs.namespace(|| format!("poseidon3 for {i}")),
+                allocated_preimg.to_vec(),
+                store.poseidon_cache.constants.c6(),
+            )?;
+            hash_slots3.push((allocated_preimg, allocated_hash));
         }
 
         for (i, preimg) in frame.preimages.hash4.iter().enumerate() {
@@ -518,23 +475,7 @@ impl LEM {
                 &format!("preallocated 4 3 {i}"),
                 &allocated_ptrs,
             )?;
-            dbg!(i);
-            let allocated_hash = hash_poseidon(
-                &mut cs.namespace(|| format!("poseidon4 for {i}")),
-                vec![
-                    preimg0.tag().clone(),
-                    preimg0.hash().clone(),
-                    preimg1.tag().clone(),
-                    preimg1.hash().clone(),
-                    preimg2.tag().clone(),
-                    preimg2.hash().clone(),
-                    preimg3.tag().clone(),
-                    preimg3.hash().clone(),
-                ],
-                store.poseidon_cache.constants.c8(),
-            )?;
-            hash_slots4.push(allocated_hash);
-            unhash_slots4.push([
+            let allocated_preimg = [
                 preimg0.tag().clone(),
                 preimg0.hash().clone(),
                 preimg1.tag().clone(),
@@ -543,7 +484,13 @@ impl LEM {
                 preimg2.hash().clone(),
                 preimg3.tag().clone(),
                 preimg3.hash().clone(),
-            ]);
+            ];
+            let allocated_hash = hash_poseidon(
+                &mut cs.namespace(|| format!("poseidon4 for {i}")),
+                allocated_preimg.to_vec(),
+                store.poseidon_cache.constants.c8(),
+            )?;
+            hash_slots4.push((allocated_preimg, allocated_hash));
         }
         for i in hash_slots4.len()..num_hash_slots.hash4 {
             let preimg0 = Self::allocate_ptr(
@@ -570,21 +517,7 @@ impl LEM {
                 &format!("preallocated 4 3 {i}"),
                 &allocated_ptrs,
             )?;
-            hash_slots4.push(hash_poseidon(
-                &mut cs.namespace(|| format!("poseidon4 for {i}")),
-                vec![
-                    preimg0.tag().clone(),
-                    preimg0.hash().clone(),
-                    preimg1.tag().clone(),
-                    preimg1.hash().clone(),
-                    preimg2.tag().clone(),
-                    preimg2.hash().clone(),
-                    preimg3.tag().clone(),
-                    preimg3.hash().clone(),
-                ],
-                store.poseidon_cache.constants.c8(),
-            )?);
-            unhash_slots4.push([
+            let allocated_preimg = [
                 preimg0.tag().clone(),
                 preimg0.hash().clone(),
                 preimg1.tag().clone(),
@@ -593,7 +526,13 @@ impl LEM {
                 preimg2.hash().clone(),
                 preimg3.tag().clone(),
                 preimg3.hash().clone(),
-            ])
+            ];
+            let allocated_hash = hash_poseidon(
+                &mut cs.namespace(|| format!("poseidon4 for {i}")),
+                allocated_preimg.to_vec(),
+                store.poseidon_cache.constants.c8(),
+            )?;
+            hash_slots4.push((allocated_preimg, allocated_hash));
         }
 
         let mut multi_path_ticker = MultiPathTicker::default();
@@ -656,7 +595,7 @@ impl LEM {
                             .namespace(|| format!("implies equal hash for hash2{}", img.name(),)),
                         &concrete_path,
                         allocated_img.hash(),
-                        &hash_slots2[multi_path_ticker.next_hash2(path)],
+                        &hash_slots2[multi_path_ticker.next_hash2(path)].1,
                     )?;
                 }
                 LEMOP::Hash3(img, tag, _) => {
@@ -666,7 +605,7 @@ impl LEM {
                             .namespace(|| format!("implies equal hash for hash3{}", img.name(),)),
                         &concrete_path,
                         allocated_img.hash(),
-                        &hash_slots3[multi_path_ticker.next_hash3(path)],
+                        &hash_slots3[multi_path_ticker.next_hash3(path)].1,
                     )?;
                 }
                 LEMOP::Hash4(img, tag, _) => {
@@ -676,148 +615,164 @@ impl LEM {
                             .namespace(|| format!("implies equal hash for hash4{}", img.name(),)),
                         &concrete_path,
                         allocated_img.hash(),
-                        &hash_slots4[multi_path_ticker.next_hash4(path)],
+                        &hash_slots4[multi_path_ticker.next_hash4(path)].1,
                     )?;
                 }
                 LEMOP::Unhash2(preimg, _) => {
                     let allocated_preimg = unhash_helper!(preimg);
-                    let slot_index = multi_path_ticker.next_hash2(path.clone());
+                    let preimg_nums = &hash_slots2[multi_path_ticker.next_hash2(path)].0;
                     implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal unhash for hash2{} tag", preimg[0].name(),)),
+                        &mut cs.namespace(|| {
+                            format!("implies equal unhash for hash2{} tag", preimg[0].name(),)
+                        }),
                         &concrete_path,
                         allocated_preimg[0].tag(),
-                        &unhash_slots2[slot_index][0],
+                        &preimg_nums[0],
                     )?;
                     implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal unhash for hash2{} hash", preimg[0].name(),)),
+                        &mut cs.namespace(|| {
+                            format!("implies equal unhash for hash2{} hash", preimg[0].name(),)
+                        }),
                         &concrete_path,
                         allocated_preimg[0].hash(),
-                        &unhash_slots2[slot_index][1],
+                        &preimg_nums[1],
                     )?;
                     implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal unhash for hash2{} tag", preimg[1].name(),)),
+                        &mut cs.namespace(|| {
+                            format!("implies equal unhash for hash2{} tag", preimg[1].name(),)
+                        }),
                         &concrete_path,
                         allocated_preimg[1].tag(),
-                        &unhash_slots2[slot_index][2],
+                        &preimg_nums[2],
                     )?;
                     implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal unhash for hash2{} hash", preimg[1].name(),)),
+                        &mut cs.namespace(|| {
+                            format!("implies equal unhash for hash2{} hash", preimg[1].name(),)
+                        }),
                         &concrete_path,
                         allocated_preimg[1].hash(),
-                        &unhash_slots2[slot_index][3],
+                        &preimg_nums[3],
                     )?;
                 }
                 LEMOP::Unhash3(preimg, _) => {
                     let allocated_preimg = unhash_helper!(preimg);
-                    let slot_index = multi_path_ticker.next_hash3(path.clone());
+                    let preimg_nums = &hash_slots3[multi_path_ticker.next_hash3(path)].0;
                     implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal unhash for hash3{} tag", preimg[0].name(),)),
+                        &mut cs.namespace(|| {
+                            format!("implies equal unhash for hash3{} tag", preimg[0].name(),)
+                        }),
                         &concrete_path,
                         allocated_preimg[0].tag(),
-                        &unhash_slots3[slot_index][0],
+                        &preimg_nums[0],
                     )?;
                     implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal unhash for hash3{} hash", preimg[0].name(),)),
+                        &mut cs.namespace(|| {
+                            format!("implies equal unhash for hash3{} hash", preimg[0].name(),)
+                        }),
                         &concrete_path,
                         allocated_preimg[0].hash(),
-                        &unhash_slots3[slot_index][1],
+                        &preimg_nums[1],
                     )?;
                     implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal unhash for hash3{} tag", preimg[1].name(),)),
+                        &mut cs.namespace(|| {
+                            format!("implies equal unhash for hash3{} tag", preimg[1].name(),)
+                        }),
                         &concrete_path,
                         allocated_preimg[1].tag(),
-                        &unhash_slots3[slot_index][2],
+                        &preimg_nums[2],
                     )?;
                     implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal unhash for hash3{} hash", preimg[1].name(),)),
+                        &mut cs.namespace(|| {
+                            format!("implies equal unhash for hash3{} hash", preimg[1].name(),)
+                        }),
                         &concrete_path,
                         allocated_preimg[1].hash(),
-                        &unhash_slots3[slot_index][3],
+                        &preimg_nums[3],
                     )?;
                     implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal unhash for hash3{} tag", preimg[2].name(),)),
+                        &mut cs.namespace(|| {
+                            format!("implies equal unhash for hash3{} tag", preimg[2].name(),)
+                        }),
                         &concrete_path,
                         allocated_preimg[2].tag(),
-                        &unhash_slots3[slot_index][4],
+                        &preimg_nums[4],
                     )?;
                     implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal unhash for hash3{} hash", preimg[2].name(),)),
+                        &mut cs.namespace(|| {
+                            format!("implies equal unhash for hash3{} hash", preimg[2].name(),)
+                        }),
                         &concrete_path,
                         allocated_preimg[2].hash(),
-                        &unhash_slots3[slot_index][5],
+                        &preimg_nums[5],
                     )?;
-
                 }
                 LEMOP::Unhash4(preimg, _) => {
                     let allocated_preimg = unhash_helper!(preimg);
-                    let slot_index = multi_path_ticker.next_hash4(path.clone());
+                    let preimg_nums = &hash_slots4[multi_path_ticker.next_hash4(path)].0;
                     implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal unhash for hash4{} tag", preimg[0].name(),)),
+                        &mut cs.namespace(|| {
+                            format!("implies equal unhash for hash4{} tag", preimg[0].name(),)
+                        }),
                         &concrete_path,
                         allocated_preimg[0].tag(),
-                        &unhash_slots4[slot_index][0],
+                        &preimg_nums[0],
                     )?;
                     implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal unhash for hash4{} hash", preimg[0].name(),)),
+                        &mut cs.namespace(|| {
+                            format!("implies equal unhash for hash4{} hash", preimg[0].name(),)
+                        }),
                         &concrete_path,
                         allocated_preimg[0].hash(),
-                        &unhash_slots4[slot_index][1],
+                        &preimg_nums[1],
                     )?;
                     implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal unhash for hash4{} tag", preimg[1].name(),)),
+                        &mut cs.namespace(|| {
+                            format!("implies equal unhash for hash4{} tag", preimg[1].name(),)
+                        }),
                         &concrete_path,
                         allocated_preimg[1].tag(),
-                        &unhash_slots4[slot_index][2],
+                        &preimg_nums[2],
                     )?;
                     implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal unhash for hash4{} hash", preimg[1].name(),)),
+                        &mut cs.namespace(|| {
+                            format!("implies equal unhash for hash4{} hash", preimg[1].name(),)
+                        }),
                         &concrete_path,
                         allocated_preimg[1].hash(),
-                        &unhash_slots4[slot_index][3],
+                        &preimg_nums[3],
                     )?;
                     implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal unhash for hash4{} tag", preimg[2].name(),)),
+                        &mut cs.namespace(|| {
+                            format!("implies equal unhash for hash4{} tag", preimg[2].name(),)
+                        }),
                         &concrete_path,
                         allocated_preimg[2].tag(),
-                        &unhash_slots4[slot_index][4],
+                        &preimg_nums[4],
                     )?;
                     implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal unhash for hash4{} hash", preimg[2].name(),)),
+                        &mut cs.namespace(|| {
+                            format!("implies equal unhash for hash4{} hash", preimg[2].name(),)
+                        }),
                         &concrete_path,
                         allocated_preimg[2].hash(),
-                        &unhash_slots4[slot_index][5],
+                        &preimg_nums[5],
                     )?;
                     implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal unhash for hash4{} tag", preimg[3].name(),)),
+                        &mut cs.namespace(|| {
+                            format!("implies equal unhash for hash4{} tag", preimg[3].name(),)
+                        }),
                         &concrete_path,
                         allocated_preimg[3].tag(),
-                        &unhash_slots4[slot_index][6],
+                        &preimg_nums[6],
                     )?;
                     implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal unhash for hash4{} hash", preimg[3].name(),)),
+                        &mut cs.namespace(|| {
+                            format!("implies equal unhash for hash4{} hash", preimg[3].name(),)
+                        }),
                         &concrete_path,
                         allocated_preimg[3].hash(),
-                        &unhash_slots4[slot_index][7],
+                        &preimg_nums[7],
                     )?;
-
                 }
                 LEMOP::Null(tgt, tag) => {
                     let allocated_tgt = Self::allocate_ptr(

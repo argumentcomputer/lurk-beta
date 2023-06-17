@@ -1052,7 +1052,7 @@ mod tests {
 
     #[test]
     fn test_hash_slots_unhash_nested_failing() {
-let lem = lem!(expr_in env_in cont_in {
+        let lem = lem!(expr_in env_in cont_in {
             match_tag expr_in {
                 Num => {
                     let expr_aux: Cons = hash3(expr_in, expr_in, expr_in);
