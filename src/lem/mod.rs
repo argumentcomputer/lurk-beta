@@ -911,6 +911,11 @@ mod tests {
         let lem = lem!(expr_in env_in cont_in {
             match_tag expr_in {
                 Num => {
+                    let expr_aux: Cons = hash2(expr_in, expr_in);
+                    let expr_out: Cons = hash2(expr_aux, expr_aux);
+                    let expr_out3: Cons = hash3(expr_aux, expr_aux, expr_aux);
+                    let expr_out4: Cons = hash4(expr_aux, expr_aux, expr_aux, expr_aux);
+                    let cont_out_terminal: Terminal;
                     match_tag cont_in {
                         Outermost => {
                             let expr_comm: Cons = hash2(expr_in, expr_in);
@@ -926,11 +931,6 @@ mod tests {
                             let expr_outer3: Cons = hash3(expr_outer2, expr_outer2, expr_outer2);
                         }
                     };
-                    let expr_aux: Cons = hash2(expr_in, expr_in);
-                    let expr_out: Cons = hash2(expr_aux, expr_aux);
-                    let expr_out3: Cons = hash3(expr_aux, expr_aux, expr_aux);
-                    let expr_out4: Cons = hash4(expr_aux, expr_aux, expr_aux, expr_aux);
-                    let cont_out_terminal: Terminal;
                     return (expr_out4, env_in, cont_out_terminal);
                 },
                 Char => {
@@ -959,6 +959,10 @@ mod tests {
         let lem = lem!(expr_in env_in cont_in {
             match_tag expr_in {
                 Num => {
+                    let expr_aux: Cons = hash3(expr_in, expr_in, expr_in);
+                    let expr_out3: Cons = hash3(expr_aux, expr_aux, expr_aux);
+                    let expr_out4: Cons = hash4(expr_aux, expr_aux, expr_aux, expr_aux);
+                    let cont_out_terminal: Terminal;
                     match_tag cont_in {
                         Outermost => {
                             let expr_comm: Cons = hash2(expr_in, expr_in);
@@ -975,11 +979,6 @@ mod tests {
                             let expr_outer4: Cons = hash3(expr_outer3, expr_outer3, expr_outer3);
                         }
                     };
-                    let expr_aux: Cons = hash2(expr_in, expr_in);
-                    let expr_out: Cons = hash2(expr_aux, expr_aux);
-                    let expr_out3: Cons = hash3(expr_aux, expr_aux, expr_aux);
-                    let expr_out4: Cons = hash4(expr_aux, expr_aux, expr_aux, expr_aux);
-                    let cont_out_terminal: Terminal;
                     return (expr_out4, env_in, cont_out_terminal);
                 },
                 Char => {
@@ -998,7 +997,7 @@ mod tests {
         constrain_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((5, 3, 2)),
+            NumSlots::new((3, 4, 2)),
             true,
         );
     }
@@ -1008,6 +1007,9 @@ mod tests {
         let lem = lem!(expr_in env_in cont_in {
             match_tag expr_in {
                 Num => {
+                    let expr_aux: Cons = hash2(expr_in, expr_in);
+                    let expr_out: Cons = hash2(expr_aux, expr_aux);
+                    let cont_out_terminal: Terminal;
                     match_tag cont_in {
                         Outermost => {
                             let expr_comm: Cons = hash2(expr_in, expr_in);
@@ -1020,9 +1022,6 @@ mod tests {
                             let expr_outer3: Cons = hash2(expr_outer2, expr_outer2);
                         }
                     };
-                    let expr_aux: Cons = hash2(expr_in, expr_in);
-                    let expr_out: Cons = hash2(expr_aux, expr_aux);
-                    let cont_out_terminal: Terminal;
                     return (expr_out, env_in, cont_out_terminal);
                 },
                 Char => {
