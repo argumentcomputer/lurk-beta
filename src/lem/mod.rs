@@ -391,27 +391,26 @@ mod tests {
     #[test]
     fn test_hash_slots() {
         let lem = lem!(expr_in env_in cont_in {
-            let x: Cons = hash2(expr_in, expr_in);
-            let y: Cons = hash3(env_in, env_in, env_in);
+            let x: Cons = hash2(expr_in, env_in);
+            let y: Cons = hash3(expr_in, env_in, cont_in);
             let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
+            let t: Terminal;
+            let p: Nil;
             match_tag expr_in {
                 Num => {
-                    let m: Cons = hash2(expr_in, env_in);
-                    let n: Cons = hash3(expr_in, env_in, cont_in);
-                    let k: Cons = hash4(expr_in, env_in, cont_in, cont_in);
-                    return (m, n, k);
+                    let m: Cons = hash2(env_in, expr_in);
+                    let n: Cons = hash3(cont_in, env_in, expr_in);
+                    let k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                    return (m, n, t);
                 },
                 Char => {
-                    let p: Nil;
-                    return (p, p, p);
+                    return (p, p, t);
                 },
                 Cons => {
-                    let p: Nil;
-                    return (p, p, p);
+                    return (p, p, t);
                 },
                 Nil => {
-                    let p: Nil;
-                    return (p, p, p);
+                    return (p, p, t);
                 }
             };
         })
@@ -432,6 +431,7 @@ mod tests {
             let y: Cons = hash3(expr_in, env_in, cont_in);
             let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
             let t: Terminal;
+            let p: Nil;
             match_tag expr_in {
                 Num => {
                     let m: Cons = hash2(env_in, expr_in);
@@ -443,15 +443,12 @@ mod tests {
                     return (m, n, t);
                 },
                 Char => {
-                    let p: Nil;
                     return (p, p, t);
                 },
                 Cons => {
-                    let p: Nil;
                     return (p, p, p);
                 },
                 Nil => {
-                    let p: Nil;
                     return (p, p, p);
                 }
             };
@@ -473,6 +470,7 @@ mod tests {
             let y: Cons = hash3(expr_in, env_in, cont_in);
             let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
             let t: Terminal;
+            let p: Nil;
             match_tag expr_in {
                 Num => {
                     let m: Cons = hash2(env_in, expr_in);
@@ -496,15 +494,12 @@ mod tests {
                     return (m, n, t);
                 },
                 Char => {
-                    let p: Nil;
                     return (p, p, t);
                 },
                 Cons => {
-                    let p: Nil;
                     return (p, p, p);
                 },
                 Nil => {
-                    let p: Nil;
                     return (p, p, p);
                 }
             };

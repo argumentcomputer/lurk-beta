@@ -587,36 +587,29 @@ impl LEM {
                 }};
             }
 
+            macro_rules! hash_implies {
+                ( $name: expr, $leaf_hash: expr, $slot_hash: expr ) => {
+                    implies_equal(
+                        &mut cs
+                            .namespace(|| format!("implies equal hash for hash2{}", $name,)),
+                        &concrete_path,
+                        $leaf_hash,
+                        &$slot_hash
+                    )?;
+                };
+            }
             match op {
                 LEMOP::Hash2(img, tag, _) => {
                     let allocated_img = hash_helper!(img, tag);
-                    implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal hash for hash2{}", img.name(),)),
-                        &concrete_path,
-                        allocated_img.hash(),
-                        &hash_slots2[multi_path_ticker.next_hash2(path)].1,
-                    )?;
+                    hash_implies!(img.name(), allocated_img.hash(), hash_slots2[multi_path_ticker.next_hash2(path)].1);
                 }
                 LEMOP::Hash3(img, tag, _) => {
                     let allocated_img = hash_helper!(img, tag);
-                    implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal hash for hash3{}", img.name(),)),
-                        &concrete_path,
-                        allocated_img.hash(),
-                        &hash_slots3[multi_path_ticker.next_hash3(path)].1,
-                    )?;
+                    hash_implies!(img.name(), allocated_img.hash(), hash_slots3[multi_path_ticker.next_hash3(path)].1);
                 }
                 LEMOP::Hash4(img, tag, _) => {
                     let allocated_img = hash_helper!(img, tag);
-                    implies_equal(
-                        &mut cs
-                            .namespace(|| format!("implies equal hash for hash4{}", img.name(),)),
-                        &concrete_path,
-                        allocated_img.hash(),
-                        &hash_slots4[multi_path_ticker.next_hash4(path)].1,
-                    )?;
+                    hash_implies!(img.name(), allocated_img.hash(), hash_slots4[multi_path_ticker.next_hash4(path)].1);
                 }
                 LEMOP::Unhash2(preimg, _) => {
                     let allocated_preimg = unhash_helper!(preimg);
