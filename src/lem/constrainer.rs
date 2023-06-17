@@ -366,14 +366,34 @@ impl LEM {
             slots3.push(allocated_hash);
         }
         for i in slots3.len()..num_hash_slots.hash3 {
+            let preimg0 = Self::allocate_ptr(
+                cs,
+                &ZPtr::dummy(),
+                &format!("preallocated 3 0 {i}"),
+                &allocated_ptrs,
+            )?;
+            let preimg1 = Self::allocate_ptr(
+                cs,
+                &ZPtr::dummy(),
+                &format!("preallocated 3 1 {i}"),
+                &allocated_ptrs,
+            )?;
+            let preimg2 = Self::allocate_ptr(
+                cs,
+                &ZPtr::dummy(),
+                &format!("preallocated 3 2 {i}"),
+                &allocated_ptrs,
+            )?;
             dbg!(i);
             slots3.push(hash_poseidon(
                 &mut cs.namespace(|| format!("poseidon3 for {i}")),
                 vec![
-                    dummy_val.clone(),
-                    dummy_val.clone(),
-                    dummy_val.clone(),
-                    dummy_val.clone(),
+                    preimg0.tag().clone(),
+                    preimg0.hash().clone(),
+                    preimg1.tag().clone(),
+                    preimg1.hash().clone(),
+                    preimg2.tag().clone(),
+                    preimg2.hash().clone(),
                 ],
                 store.poseidon_cache.constants.c6(),
             )?)
@@ -422,13 +442,41 @@ impl LEM {
             slots4.push(allocated_hash);
         }
         for i in slots4.len()..num_hash_slots.hash4 {
+            let preimg0 = Self::allocate_ptr(
+                cs,
+                &ZPtr::dummy(),
+                &format!("preallocated 4 0 {i}"),
+                &allocated_ptrs,
+            )?;
+            let preimg1 = Self::allocate_ptr(
+                cs,
+                &ZPtr::dummy(),
+                &format!("preallocated 4 1 {i}"),
+                &allocated_ptrs,
+            )?;
+            let preimg2 = Self::allocate_ptr(
+                cs,
+                &ZPtr::dummy(),
+                &format!("preallocated 4 2 {i}"),
+                &allocated_ptrs,
+            )?;
+            let preimg3 = Self::allocate_ptr(
+                cs,
+                &ZPtr::dummy(),
+                &format!("preallocated 4 3 {i}"),
+                &allocated_ptrs,
+            )?;
             slots4.push(hash_poseidon(
                 &mut cs.namespace(|| format!("poseidon4 for {i}")),
                 vec![
-                    dummy_val.clone(),
-                    dummy_val.clone(),
-                    dummy_val.clone(),
-                    dummy_val.clone(),
+                    preimg0.tag().clone(),
+                    preimg0.hash().clone(),
+                    preimg1.tag().clone(),
+                    preimg1.hash().clone(),
+                    preimg2.tag().clone(),
+                    preimg2.hash().clone(),
+                    preimg3.tag().clone(),
+                    preimg3.hash().clone(),
                 ],
                 store.poseidon_cache.constants.c8(),
             )?)
