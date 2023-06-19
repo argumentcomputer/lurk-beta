@@ -13,8 +13,8 @@ path = "src/bin/fcomm.rs"
 
 [dependencies]
 base64 = "0.13.1"
-bellperson = "0.25"
-blstrs = "0.7.0"
+bellperson = { git = "https://github.com/lurk-lab/bellperson", branch = "dev" }
+blstrs = { git = "https://github.com/lurk-lab/blstrs", branch = "dev" }
 clap = { version = "3.2", features = ["derive"] }
 clap-verbosity-flag = "1.0"
 ff = "0.13"
@@ -29,7 +29,7 @@ rand = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 thiserror = "1.0.38"
-pasta_curves = { version = "0.5.1", features = ["repr-c", "serde"] }
+pasta_curves = { git = "https://github.com/lurk-lab/pasta_curves", branch = "dev", features = ["repr-c", "serde"] }
 
 [dev-dependencies]
 assert_cmd = "2.0.8"
