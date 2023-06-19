@@ -4,17 +4,27 @@ use std::collections::HashMap;
 
 use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM, LEMOP};
 
-/// Contains preimage and image.
-/// REMARK: this structure will be populated in the second LEM traversal, which
-/// corresponds to STEP 2 of the hash slots mechanism. In particular, STEP 2
-/// happens during interpretation of LEM and stores the hash witnesses in the
-/// order they appear during interpretation
-#[derive(Clone, Default)]
-pub struct Preimages {
-    pub hash2: Vec<[MetaPtr; 2]>,
-    pub hash3: Vec<[MetaPtr; 3]>,
-    pub hash4: Vec<[MetaPtr; 4]>,
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub enum SlotArity {
+    A2,
+    A3,
+    A4,
 }
+
+impl SlotArity {
+    pub(crate) fn preimg_size(&self) -> usize {
+        match self {
+            Self::A2 => 4,
+            Self::A3 => 6,
+            Self::A4 => 8,
+        }
+    }
+}
+
+/// This hashmap is populated during interpretation, telling which **slots** were
+/// visited. Knowing which LEMOPs were visited is not enough because different
+/// LEMOPs on parallel paths can ocupy the same slot
+pub type Visits<F> = HashMap<(SlotArity, i32), Vec<Ptr<F>>>;
 
 /// A `Frame` carries the data that results from interpreting LEM. That is,
 /// it contains the input, the output and all the assignments resulting from
@@ -27,7 +37,7 @@ pub struct Frame<F: LurkField> {
     pub input: [Ptr<F>; 3],
     pub output: [Ptr<F>; 3],
     pub ptrs: HashMap<String, Ptr<F>>,
-    pub preimages: Preimages,
+    pub visits: Visits<F>,
 }
 
 fn insert_into_ptrs<F: LurkField>(
@@ -46,13 +56,18 @@ fn insert_into_ptrs<F: LurkField>(
 impl LEM {
     /// Interprets a LEM using a stack of operations to be popped and executed.
     /// It modifies a `Store` and assigns `Ptr`s to `MetaPtr`s as it goes.
-    fn run<F: LurkField>(&self, input: [Ptr<F>; 3], store: &mut Store<F>) -> Result<Frame<F>> {
+    fn run<F: LurkField>(
+        &self,
+        input: [Ptr<F>; 3],
+        store: &mut Store<F>,
+        slots_indices: &HashMap<LEMOP, i32>,
+    ) -> Result<Frame<F>> {
         // key/val pairs on this map should never be overwritten
         let mut ptrs = HashMap::default();
         ptrs.insert(self.input[0].clone(), input[0]);
         insert_into_ptrs(&mut ptrs, self.input[1].clone(), input[1])?;
         insert_into_ptrs(&mut ptrs, self.input[2].clone(), input[2])?;
-        let mut preimages = Preimages::default();
+        let mut visits = Visits::default();
         let mut stack = vec![&self.lem_op];
         while let Some(op) = stack.pop() {
             match op {
@@ -61,29 +76,37 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
                 }
                 LEMOP::Hash2(tgt, tag, src) => {
-                    let src_ptr1 = src[0].get_ptr(&ptrs)?;
-                    let src_ptr2 = src[1].get_ptr(&ptrs)?;
-                    let tgt_ptr = store.intern_2_ptrs(*tag, *src_ptr1, *src_ptr2);
+                    let src_ptr1 = src[0].get_ptr(&ptrs)?.to_owned();
+                    let src_ptr2 = src[1].get_ptr(&ptrs)?.to_owned();
+                    let tgt_ptr = store.intern_2_ptrs(*tag, src_ptr1, src_ptr2);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
-                    preimages.hash2.push(src.clone());
+                    visits.insert(
+                        (SlotArity::A2, *slots_indices.get(op).unwrap()),
+                        vec![src_ptr1, src_ptr2],
+                    );
                 }
                 LEMOP::Hash3(tgt, tag, src) => {
-                    let src_ptr1 = src[0].get_ptr(&ptrs)?;
-                    let src_ptr2 = src[1].get_ptr(&ptrs)?;
-                    let src_ptr3 = src[2].get_ptr(&ptrs)?;
-                    let tgt_ptr = store.intern_3_ptrs(*tag, *src_ptr1, *src_ptr2, *src_ptr3);
+                    let src_ptr1 = src[0].get_ptr(&ptrs)?.to_owned();
+                    let src_ptr2 = src[1].get_ptr(&ptrs)?.to_owned();
+                    let src_ptr3 = src[2].get_ptr(&ptrs)?.to_owned();
+                    let tgt_ptr = store.intern_3_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
-                    preimages.hash3.push(src.clone());
+                    visits.insert(
+                        (SlotArity::A2, *slots_indices.get(op).unwrap()),
+                        vec![src_ptr1, src_ptr2, src_ptr3],
+                    );
                 }
                 LEMOP::Hash4(tgt, tag, src) => {
-                    let src_ptr1 = src[0].get_ptr(&ptrs)?;
-                    let src_ptr2 = src[1].get_ptr(&ptrs)?;
-                    let src_ptr3 = src[2].get_ptr(&ptrs)?;
-                    let src_ptr4 = src[3].get_ptr(&ptrs)?;
-                    let tgt_ptr =
-                        store.intern_4_ptrs(*tag, *src_ptr1, *src_ptr2, *src_ptr3, *src_ptr4);
+                    let src_ptr1 = src[0].get_ptr(&ptrs)?.to_owned();
+                    let src_ptr2 = src[1].get_ptr(&ptrs)?.to_owned();
+                    let src_ptr3 = src[2].get_ptr(&ptrs)?.to_owned();
+                    let src_ptr4 = src[3].get_ptr(&ptrs)?.to_owned();
+                    let tgt_ptr = store.intern_4_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3, src_ptr4);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
-                    preimages.hash4.push(src.clone());
+                    visits.insert(
+                        (SlotArity::A2, *slots_indices.get(op).unwrap()),
+                        vec![src_ptr1, src_ptr2, src_ptr3, src_ptr4],
+                    );
                 }
                 LEMOP::Unhash2(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
@@ -96,7 +119,10 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
                     insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
                     // STEP 2: Update hash_witness with preimage and image
-                    preimages.hash2.push(tgts.clone());
+                    visits.insert(
+                        (SlotArity::A2, *slots_indices.get(op).unwrap()),
+                        vec![*a, *b],
+                    );
                 }
                 LEMOP::Unhash3(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
@@ -110,7 +136,10 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
                     insert_into_ptrs(&mut ptrs, tgts[2].name().clone(), *c)?;
                     // STEP 2: Update hash_witness with preimage and image
-                    preimages.hash3.push(tgts.clone());
+                    visits.insert(
+                        (SlotArity::A2, *slots_indices.get(op).unwrap()),
+                        vec![*a, *b, *c],
+                    );
                 }
                 LEMOP::Unhash4(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
@@ -125,7 +154,10 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[2].name().clone(), *c)?;
                     insert_into_ptrs(&mut ptrs, tgts[3].name().clone(), *d)?;
                     // STEP 2: Update hash_witness with preimage and image
-                    preimages.hash4.push(tgts.clone());
+                    visits.insert(
+                        (SlotArity::A2, *slots_indices.get(op).unwrap()),
+                        vec![*a, *b, *c, *d],
+                    );
                 }
                 LEMOP::Hide(tgt, sec, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
@@ -188,7 +220,7 @@ impl LEM {
                         input,
                         output,
                         ptrs,
-                        preimages,
+                        visits,
                     });
                 }
             }
@@ -198,7 +230,12 @@ impl LEM {
 
     /// Calls `run` until the stop contidion is satisfied, using the output of one
     /// iteration as the input of the next one.
-    pub fn eval<F: LurkField>(&self, expr: Ptr<F>, store: &mut Store<F>) -> Result<Vec<Frame<F>>> {
+    pub fn eval<F: LurkField>(
+        &self,
+        expr: Ptr<F>,
+        store: &mut Store<F>,
+        slots_indices: &HashMap<LEMOP, i32>,
+    ) -> Result<Vec<Frame<F>>> {
         let mut expr = expr;
         let mut env = store.intern_symbol(&Symbol::lurk_sym("nil"));
         let mut cont = Ptr::null(Tag::Outermost);
@@ -206,7 +243,7 @@ impl LEM {
         let terminal = &Ptr::null(Tag::Terminal);
         let error = &Ptr::null(Tag::Error);
         loop {
-            let frame = self.run([expr, env, cont], store)?;
+            let frame = self.run([expr, env, cont], store, slots_indices)?;
             frames.push(frame.clone());
             if &frame.output[2] == terminal || &frame.output[2] == error {
                 break;

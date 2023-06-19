@@ -118,7 +118,7 @@ impl MetaPtr {
 
 /// The basic building blocks of LEMs.
 #[non_exhaustive]
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum LEMOP {
     /// `MkNull(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
     Null(MetaPtr, Tag),
@@ -151,6 +151,12 @@ pub enum LEMOP {
     Seq(Vec<LEMOP>),
     /// `Return([a, b, c])` sets the output as `[a, b, c]`
     Return([MetaPtr; 3]),
+}
+
+impl std::hash::Hash for LEMOP {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+    }
 }
 
 impl LEMOP {
@@ -234,6 +240,8 @@ mod tests {
         expected_num_hash_slots: NumSlots,
         assert_all_paths_taken: bool,
     ) {
+        let slots_indices = lem.lem_op.slots_indices();
+
         let num_hash_slots = lem.lem_op.num_hash_slots();
         assert_eq!(num_hash_slots, expected_num_hash_slots);
 
@@ -242,7 +250,7 @@ mod tests {
 
         let mut cs_prev = None;
         for expr in exprs {
-            let frames = lem.eval(*expr, &mut store).unwrap();
+            let frames = lem.eval(*expr, &mut store, &slots_indices).unwrap();
 
             let mut alloc_manager = AllocationManager::default();
             let mut cs = TestConstraintSystem::<Fr>::new();
@@ -252,7 +260,7 @@ mod tests {
                     &mut alloc_manager,
                     &mut store,
                     &frame,
-                    &num_hash_slots,
+                    &slots_indices,
                 )
                 .unwrap();
             }

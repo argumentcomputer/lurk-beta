@@ -41,6 +41,9 @@ mod tests {
     fn test_eval_and_constrain_aux(store: &mut Store<Fr>, pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>) {
         let lem = step().unwrap();
         lem.check();
+
+        let slots_indices = lem.lem_op.slots_indices();
+
         let num_hash_slots = lem.lem_op.num_hash_slots();
         assert_eq!(num_hash_slots, NUM_HASH_SLOTS);
 
@@ -50,7 +53,7 @@ mod tests {
         let mut all_frames = Vec::default();
 
         for (expr_in, expr_out) in pairs {
-            let frames = lem.eval(expr_in, store).unwrap();
+            let frames = lem.eval(expr_in, store, &slots_indices).unwrap();
             assert!(
                 frames
                     .last()
@@ -62,7 +65,7 @@ mod tests {
             let mut alloc_manager = AllocationManager::default();
             for frame in frames.clone() {
                 let mut cs = TestConstraintSystem::<Fr>::new();
-                lem.constrain(&mut cs, &mut alloc_manager, store, &frame, &num_hash_slots)
+                lem.constrain(&mut cs, &mut alloc_manager, store, &frame, &slots_indices)
                     .unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(cs.num_inputs(), NUM_INPUTS);
