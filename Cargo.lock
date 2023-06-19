@@ -3,6 +3,22 @@
 version = 3
 
 [[package]]
+name = "abomonation"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56e72913c99b1f927aa7bd59a41518fdd9995f63ffc8760f211609e0241c4fb2"
+
+[[package]]
+name = "abomonation_derive"
+version = "0.5.0"
+source = "git+https://github.com/winston-h-zhang/abomonation_derive.git#b2ce264619f64b6eebd18a43f7e68318e6f5533a"
+dependencies = [
+ "proc-macro2 1.0.59",
+ "quote 1.0.28",
+ "syn 2.0.17",
+]
+
+[[package]]
 name = "addchain"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -207,8 +223,7 @@ checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 [[package]]
 name = "bellperson"
 version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93eaee4b4753554139ae52ecf0e8b8c128cbc561b32e1bfaa32f70cba8518c1f"
+source = "git+https://github.com/lurk-lab/bellperson?branch=dev#34ff7cc3492c9f1a976e705917066d10fd14b964"
 dependencies = [
  "bincode",
  "blake2s_simd 1.0.1",
@@ -366,8 +381,7 @@ dependencies = [
 [[package]]
 name = "blstrs"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33149fccb7f93271f0192614b884430cf274e880506bbd171cbc8918dcc95b14"
+source = "git+https://github.com/lurk-lab/blstrs?branch=dev#e576fed8a161c10e8af98cf79142e66ee9d66b45"
 dependencies = [
  "blst",
  "byte-slice-cast",
@@ -853,14 +867,12 @@ checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 [[package]]
 name = "ec-gpu"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd63582de2b59ea1aa48d7c1941b5d87618d95484397521b3acdfa0e1e9f5e45"
+source = "git+https://github.com/lurk-lab/ec-gpu.git?branch=dev#6c0b962c8c65b4b4013887b9ae0d3d1f2a792ccd"
 
 [[package]]
 name = "ec-gpu-gen"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "892df2aa20abec5b816e15d5d6383892ca142077708efa3067dd3ac44b75c664"
+version = "0.7.0"
+source = "git+https://github.com/lurk-lab/ec-gpu.git?branch=dev#6c0b962c8c65b4b4013887b9ae0d3d1f2a792ccd"
 dependencies = [
  "bitvec",
  "crossbeam-channel",
@@ -1439,7 +1451,7 @@ dependencies = [
  "lurk-macros",
  "memmap2",
  "multihash",
- "neptune 10.0.0",
+ "neptune",
  "nom",
  "nova-snark",
  "num-bigint 0.4.3",
@@ -1639,29 +1651,11 @@ dependencies = [
 
 [[package]]
 name = "neptune"
-version = "9.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4227e5557caad6d2a910b7770f2479f0c9aeb8ddc1dc537623cb6ffec7f01d31"
-dependencies = [
- "bellperson",
- "blake2s_simd 0.5.11",
- "blstrs",
- "byteorder",
- "ff",
- "generic-array 0.14.7",
- "itertools 0.8.2",
- "log",
- "pasta_curves",
- "serde",
- "trait-set",
-]
-
-[[package]]
-name = "neptune"
 version = "10.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb9a64337e6d214e2a48db5714ef18cf1e5a7bbff9043838fdf6e57ce5659335"
+source = "git+https://github.com/lurk-lab/neptune?branch=dev#79d1b84c2d8ef8e593ad912bcb3b21408fe697c9"
 dependencies = [
+ "abomonation",
+ "abomonation_derive",
  "bellperson",
  "blake2s_simd 0.5.11",
  "blstrs",
@@ -1708,9 +1702,10 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 [[package]]
 name = "nova-snark"
 version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6247c61ab29e5da01c8f80403c25c40956045f0343d79793a2675bf7775dd80"
+source = "git+https://github.com/lurk-lab/nova?branch=dev#2c0f1afa821550c9ecbd2b4ac9cfa11ec1ce8c81"
 dependencies = [
+ "abomonation",
+ "abomonation_derive",
  "bellperson",
  "bincode",
  "bitvec",
@@ -1720,7 +1715,7 @@ dependencies = [
  "flate2",
  "generic-array 0.14.7",
  "itertools 0.9.0",
- "neptune 9.0.0",
+ "neptune",
  "num-bigint 0.4.3",
  "num-integer",
  "num-traits",
@@ -1886,8 +1881,7 @@ dependencies = [
 [[package]]
 name = "pasta-msm"
 version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e85d75eba3e7e9ee3bd11342b669185e194dadda3557934bc1000d9b87159d3"
+source = "git+https://github.com/lurk-lab/pasta-msm?branch=dev#182b971dd0f6dcc1a9a6bd5db8646bdd4600ed7e"
 dependencies = [
  "cc",
  "pasta_curves",
@@ -1899,8 +1893,7 @@ dependencies = [
 [[package]]
 name = "pasta_curves"
 version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3e57598f73cc7e1b2ac63c79c517b31a0877cd7c402cdcaa311b5208de7a095"
+source = "git+https://github.com/lurk-lab/pasta_curves?branch=dev#5ce91ad8b9e2ff9c6c522e5b46720ee4847a9f9b"
 dependencies = [
  "blake2b_simd",
  "ec-gpu",
