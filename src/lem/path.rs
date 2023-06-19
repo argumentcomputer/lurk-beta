@@ -26,6 +26,11 @@ impl Path {
     }
 
     #[inline]
+    pub fn push_default(&self) -> Path {
+        Path(format!("{self}.Default"))
+    }
+
+    #[inline]
     pub fn push_tag_inplace(&mut self, tag: &Tag) {
         self.0 = format!("{self}.Tag({tag})");
     }

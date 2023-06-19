@@ -153,8 +153,73 @@ impl LEMOP {
     pub fn slots_indices(&self) -> SlotsIndices {
         let mut slots_indices = HashMap::default();
         let mut multi_path_ticker = MultiPathTicker::default();
-        let mut stack = vec![self];
-        while let Some(op) = stack.pop() {}
+        let mut preimgs_map: HashMap<Vec<MetaPtr>, usize> = HashMap::default();
+
+        let mut stack = vec![(self, Path::default())];
+        while let Some((op, path)) = stack.pop() {
+            match op {
+                LEMOP::Hash2(.., preimg) | LEMOP::Unhash2(preimg, _) => {
+                    let preimg_vec = preimg.to_vec();
+                    match preimgs_map.get(&preimg_vec) {
+                        Some(slot_idx) => {
+                            slots_indices.insert(op.clone(), *slot_idx);
+                        },
+                        None => {
+                            let slot_idx = multi_path_ticker.next_hash2(path);
+                            slots_indices.insert(op.clone(), slot_idx);
+                            preimgs_map.insert(preimg_vec, slot_idx);
+                        },
+                    };
+                },
+                LEMOP::Hash3(.., preimg) | LEMOP::Unhash3(preimg, _) => {
+                    let preimg_vec = preimg.to_vec();
+                    match preimgs_map.get(&preimg_vec) {
+                        Some(slot_idx) => {
+                            slots_indices.insert(op.clone(), *slot_idx);
+                        },
+                        None => {
+                            let slot_idx = multi_path_ticker.next_hash3(path);
+                            slots_indices.insert(op.clone(), slot_idx);
+                            preimgs_map.insert(preimg_vec, slot_idx);
+                        },
+                    };
+                },
+                LEMOP::Hash4(.., preimg) | LEMOP::Unhash4(preimg, _) => {
+                    let preimg_vec = preimg.to_vec();
+                    match preimgs_map.get(&preimg_vec) {
+                        Some(slot_idx) => {
+                            slots_indices.insert(op.clone(), *slot_idx);
+                        },
+                        None => {
+                            let slot_idx = multi_path_ticker.next_hash4(path);
+                            slots_indices.insert(op.clone(), slot_idx);
+                            preimgs_map.insert(preimg_vec, slot_idx);
+                        },
+                    };
+                },
+                LEMOP::Seq(ops) => {
+                    stack.extend(ops.iter().rev().map(|op| (op, path.clone())));
+                },
+                LEMOP::MatchTag(_, cases) => {
+                    for (tag, op) in cases {
+                        let new_path = path.push_tag(&tag);
+                        multi_path_ticker.cont(new_path.clone(), &path);
+                        stack.push((op, new_path))
+                    }
+                },
+                LEMOP::MatchSymPath(_, cases, def) => {
+                    for (sym_path, op) in cases {
+                        let new_path = path.push_sym_path(&sym_path);
+                        multi_path_ticker.cont(new_path.clone(), &path);
+                        stack.push((op, new_path))
+                    }
+                    let new_path = path.push_default();
+                    multi_path_ticker.cont(new_path.clone(), &path);
+                    stack.push((def, new_path))
+                },
+                _ => {},
+            }
+        }
         slots_indices
     }
 
