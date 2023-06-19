@@ -230,6 +230,7 @@ impl LEM {
 mod tests {
     use super::constrainer::{AllocationManager, NumSlots};
     use super::{store::Store, *};
+    use crate::lem::constrainer::num_slots;
     use crate::{lem, lem::pointers::Ptr};
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable, Delta};
     use blstrs::Scalar as Fr;
@@ -237,13 +238,13 @@ mod tests {
     fn constrain_test_helper(
         lem: &LEM,
         exprs: &[Ptr<Fr>],
-        expected_num_hash_slots: NumSlots,
+        expected_num_slots: NumSlots,
         assert_all_paths_taken: bool,
     ) {
         let slots_indices = lem.lem_op.slots_indices();
 
-        let num_hash_slots = lem.lem_op.num_hash_slots();
-        assert_eq!(num_hash_slots, expected_num_hash_slots);
+        let num_slots = num_slots(&slots_indices);
+        assert_eq!(num_slots, expected_num_slots);
 
         let mut store = Store::default();
         let mut all_frames = vec![];

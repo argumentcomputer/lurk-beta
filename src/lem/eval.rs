@@ -24,7 +24,7 @@ pub(crate) fn step() -> Result<LEM> {
 mod tests {
     use super::*;
     use crate::field::LurkField;
-    use crate::lem::constrainer::{AllocationManager, NumSlots};
+    use crate::lem::constrainer::{num_slots, AllocationManager, NumSlots};
     use crate::lem::{pointers::Ptr, store::Store};
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
     use blstrs::Scalar as Fr;
@@ -32,7 +32,7 @@ mod tests {
     const NUM_INPUTS: usize = 13;
     const NUM_AUX: usize = 20;
     const NUM_CONSTRAINTS: usize = 29;
-    const NUM_HASH_SLOTS: NumSlots = NumSlots {
+    const NUM_SLOTS: NumSlots = NumSlots {
         hash2: 0,
         hash3: 0,
         hash4: 0,
@@ -43,9 +43,9 @@ mod tests {
         lem.check();
 
         let slots_indices = lem.lem_op.slots_indices();
+        let num_slots = num_slots(&slots_indices);
 
-        let num_hash_slots = lem.lem_op.num_hash_slots();
-        assert_eq!(num_hash_slots, NUM_HASH_SLOTS);
+        assert_eq!(num_slots, NUM_SLOTS);
 
         // Assures that `MatchSymPath`s will work properly
         lem.intern_matched_sym_paths(store);

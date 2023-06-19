@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::{anyhow, bail, Context, Result};
 use bellperson::{
@@ -42,29 +42,29 @@ impl NumSlots {
         }
     }
 
-    #[inline]
-    pub fn max(&self, other: &Self) -> Self {
-        use std::cmp::max;
-        Self::new((
-            max(self.hash2, other.hash2),
-            max(self.hash3, other.hash3),
-            max(self.hash4, other.hash4),
-        ))
-    }
+    // #[inline]
+    // pub fn max(&self, other: &Self) -> Self {
+    //     use std::cmp::max;
+    //     Self::new((
+    //         max(self.hash2, other.hash2),
+    //         max(self.hash3, other.hash3),
+    //         max(self.hash4, other.hash4),
+    //     ))
+    // }
 
-    #[inline]
-    pub fn add(&self, other: &Self) -> Self {
-        Self::new((
-            self.hash2 + other.hash2,
-            self.hash3 + other.hash3,
-            self.hash4 + other.hash4,
-        ))
-    }
+    // #[inline]
+    // pub fn add(&self, other: &Self) -> Self {
+    //     Self::new((
+    //         self.hash2 + other.hash2,
+    //         self.hash3 + other.hash3,
+    //         self.hash4 + other.hash4,
+    //     ))
+    // }
 
-    #[inline]
-    pub fn total(&self) -> usize {
-        self.hash2 + self.hash3 + self.hash4
-    }
+    // #[inline]
+    // pub fn total(&self) -> usize {
+    //     self.hash2 + self.hash3 + self.hash4
+    // }
 }
 
 #[derive(PartialEq, Eq, Hash)]
@@ -122,8 +122,35 @@ impl MultiPathTicker {
     }
 }
 
+pub(crate) type SlotsIndices = HashMap<LEMOP, usize>;
+
+pub(crate) fn num_slots(slots_indices: &SlotsIndices) -> NumSlots {
+    let mut slots2: HashSet<usize> = HashSet::default();
+    let mut slots3: HashSet<usize> = HashSet::default();
+    let mut slots4: HashSet<usize> = HashSet::default();
+
+    for (op, slot_idx) in slots_indices {
+        match op {
+            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => {
+                slots2.insert(*slot_idx);
+            }
+            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => {
+                slots3.insert(*slot_idx);
+            }
+            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => {
+                slots4.insert(*slot_idx);
+            }
+            _ => (),
+        }
+    }
+    NumSlots::new((slots2.len(), slots3.len(), slots4.len()))
+}
+
 impl LEMOP {
-    pub fn slots_indices(&self) -> HashMap<LEMOP, i32> {
+    /// STEP 1 from hash slots:
+    /// Computes the slots needed for a LEMOP
+    /// This is the first LEM traversal.
+    pub fn slots_indices(&self) -> SlotsIndices {
         let mut slots_indices = HashMap::default();
         let mut multi_path_ticker = MultiPathTicker::default();
         let mut stack = vec![self];
@@ -131,28 +158,25 @@ impl LEMOP {
         slots_indices
     }
 
-    /// STEP 1 from hash slots:
-    /// Computes the number of slots needed for a LEMOP
-    /// This is the first LEM traversal.
-    pub fn num_hash_slots(&self) -> NumSlots {
-        match self {
-            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => NumSlots::new((1, 0, 0)),
-            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => NumSlots::new((0, 1, 0)),
-            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => NumSlots::new((0, 0, 1)),
-            LEMOP::MatchTag(_, cases) => cases
-                .values()
-                .fold(NumSlots::default(), |acc, op| acc.max(&op.num_hash_slots())),
-            LEMOP::MatchSymPath(_, cases, def) => {
-                cases.values().fold(def.num_hash_slots(), |acc, op| {
-                    acc.max(&op.num_hash_slots())
-                })
-            }
-            LEMOP::Seq(ops) => ops
-                .iter()
-                .fold(NumSlots::default(), |acc, op| acc.add(&op.num_hash_slots())),
-            _ => NumSlots::default(),
-        }
-    }
+    // pub fn num_hash_slots(&self) -> NumSlots {
+    //     match self {
+    //         LEMOP::Hash2(..) | LEMOP::Unhash2(..) => NumSlots::new((1, 0, 0)),
+    //         LEMOP::Hash3(..) | LEMOP::Unhash3(..) => NumSlots::new((0, 1, 0)),
+    //         LEMOP::Hash4(..) | LEMOP::Unhash4(..) => NumSlots::new((0, 0, 1)),
+    //         LEMOP::MatchTag(_, cases) => cases
+    //             .values()
+    //             .fold(NumSlots::default(), |acc, op| acc.max(&op.num_hash_slots())),
+    //         LEMOP::MatchSymPath(_, cases, def) => {
+    //             cases.values().fold(def.num_hash_slots(), |acc, op| {
+    //                 acc.max(&op.num_hash_slots())
+    //             })
+    //         }
+    //         LEMOP::Seq(ops) => ops
+    //             .iter()
+    //             .fold(NumSlots::default(), |acc, op| acc.add(&op.num_hash_slots())),
+    //         _ => NumSlots::default(),
+    //     }
+    // }
 }
 
 /// Manages global allocations for constants in a constraint system
@@ -326,7 +350,7 @@ impl LEM {
         alloc_manager: &mut AllocationManager<F>,
         store: &mut Store<F>,
         frame: &Frame<F>,
-        slots_indices: &HashMap<LEMOP, i32>,
+        slots_indices: &SlotsIndices,
     ) -> Result<()> {
         let mut allocated_ptrs: HashMap<&String, AllocatedPtr<F>> = HashMap::default();
 

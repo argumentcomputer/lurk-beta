@@ -2,7 +2,9 @@ use crate::field::{FWrap, LurkField};
 use anyhow::{bail, Result};
 use std::collections::HashMap;
 
-use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM, LEMOP};
+use super::{
+    constrainer::SlotsIndices, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, LEM, LEMOP,
+};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum SlotArity {
@@ -24,7 +26,7 @@ impl SlotArity {
 /// This hashmap is populated during interpretation, telling which **slots** were
 /// visited. Knowing which LEMOPs were visited is not enough because different
 /// LEMOPs on parallel paths can ocupy the same slot
-pub type Visits<F> = HashMap<(SlotArity, i32), Vec<Ptr<F>>>;
+pub(crate) type Visits<F> = HashMap<(SlotArity, usize), Vec<Ptr<F>>>;
 
 /// A `Frame` carries the data that results from interpreting LEM. That is,
 /// it contains the input, the output and all the assignments resulting from
@@ -60,7 +62,7 @@ impl LEM {
         &self,
         input: [Ptr<F>; 3],
         store: &mut Store<F>,
-        slots_indices: &HashMap<LEMOP, i32>,
+        slots_indices: &SlotsIndices,
     ) -> Result<Frame<F>> {
         // key/val pairs on this map should never be overwritten
         let mut ptrs = HashMap::default();
@@ -234,7 +236,7 @@ impl LEM {
         &self,
         expr: Ptr<F>,
         store: &mut Store<F>,
-        slots_indices: &HashMap<LEMOP, i32>,
+        slots_indices: &SlotsIndices,
     ) -> Result<Vec<Frame<F>>> {
         let mut expr = expr;
         let mut env = store.intern_symbol(&Symbol::lurk_sym("nil"));
