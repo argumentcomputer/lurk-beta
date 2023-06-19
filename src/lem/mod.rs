@@ -5,7 +5,7 @@
 // mod macros;
 // mod path;
 mod pointers;
-// mod store;
+mod store;
 mod symbol;
 mod tag;
 
@@ -15,7 +15,7 @@ use std::collections::HashMap;
 
 // TODO
 // use self::{interpreter::Frame, path::Path, pointers::Ptr, store::Store, tag::Tag};
-use self::{pointers::Ptr, tag::Tag};
+use self::{pointers::Ptr, store::Store, tag::Tag};
 
 /// ## Lurk Evaluation Model (LEM)
 ///
@@ -89,7 +89,7 @@ use self::{pointers::Ptr, tag::Tag};
 /// defined" during interpretation or "x not allocated" during constraining.
 pub struct LEMPLUS {
     input: [String; 3],
-    lem_op: LEM,
+    lem: LEM,
 }
 
 /// Named references to be bound to `Ptr`s.
@@ -162,34 +162,21 @@ pub enum LEMOP {
 }
 
 impl LEM {
-    // /// Intern all symbol paths that are matched on `MatchSymPath`s
-    // pub fn intern_matched_sym_paths<F: LurkField>(&self, store: &mut Store<F>) {
-    //     let mut stack = vec![self];
-    //     while let Some(op) = stack.pop() {
-    //         match op {
-    //             Self::MatchSymPath(_, cases, def) => {
-    //                 for (path, op) in cases {
-    //                     store.intern_symbol_path(path);
-    //                     stack.push(op);
-    //                 }
-    //                 stack.push(def);
-    //             }
-    //             Self::MatchTag(_, cases) => cases.values().for_each(|op| stack.push(op)),
-    //             Self::Seq(ops) => stack.extend(ops),
-    //             // It's safer to be exaustive here and avoid missing new LEMOPs
-    //             Self::Null(..)
-    //             | Self::Hash2(..)
-    //             | Self::Hash3(..)
-    //             | Self::Hash4(..)
-    //             | Self::Unhash2(..)
-    //             | Self::Unhash3(..)
-    //             | Self::Unhash4(..)
-    //             | Self::Hide(..)
-    //             | Self::Open(..)
-    //             | Self::Return(..) => (),
-    //         }
-    //     }
-    // }
+    /// Intern all symbol paths that are matched on `MatchSymPath`s
+    pub fn intern_matched_sym_paths<F: LurkField>(&self, store: &mut Store<F>) {
+        match self {
+            Self::MatchSymPath(_, cases, def) => {
+                cases.iter().for_each(|(path, op)| {
+                    store.intern_symbol_path(path);
+                    op.intern_matched_sym_paths(store)
+                });
+                def.intern_matched_sym_paths(store);
+            },
+            Self::MatchTag(_, cases) => cases.values().for_each(|op| op.intern_matched_sym_paths(store)),
+            Self::Seq(_, rest) => rest.intern_matched_sym_paths(store),
+            Self::Return(..) => (),
+        }
+    }
 }
 
 impl LEMPLUS {
@@ -209,11 +196,11 @@ impl LEMPLUS {
         // })
     }
 
-    // /// Intern all symbol paths that are matched on `MatchSymPath`s
-    // #[inline]
-    // pub fn intern_matched_sym_paths<F: LurkField>(&self, store: &mut Store<F>) {
-    //     self.lem_op.intern_matched_sym_paths(store);
-    // }
+    /// Intern all symbol paths that are matched on `MatchSymPath`s
+    #[inline]
+    pub fn intern_matched_sym_paths<F: LurkField>(&self, store: &mut Store<F>) {
+        self.lem.intern_matched_sym_paths(store);
+    }
 
     // /// Asserts that all paths were visited by a set of frames. This is mostly
     // /// for testing purposes.
