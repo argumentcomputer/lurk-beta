@@ -2,7 +2,7 @@ use crate::field::{FWrap, LurkField};
 use anyhow::{bail, Result};
 use std::collections::HashMap;
 
-use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEMPLUS, LEM};
+use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEMPLUS, LEMOP, AString};
 
 /// Contains preimage and image.
 /// REMARK: this structure will be populated in the second LEM traversal, which
@@ -31,8 +31,8 @@ pub struct Frame<F: LurkField> {
 }
 
 fn insert_into_ptrs<F: LurkField>(
-    ptrs: &mut HashMap<String, Ptr<F>>,
-    name: String,
+    ptrs: &mut HashMap<AString, Ptr<F>>,
+    name: AString,
     ptr: Ptr<F>,
 ) -> Result<()> {
     let mut msg = "Already defined: ".to_owned();
@@ -52,155 +52,165 @@ impl LEMPLUS {
         ptrs.insert(self.input[0].clone(), input[0]);
         insert_into_ptrs(&mut ptrs, self.input[1].clone(), input[1])?;
         insert_into_ptrs(&mut ptrs, self.input[2].clone(), input[2])?;
-        let mut preimages = Preimages::default();
-        let mut stack = vec![&self.lem_op];
-        while let Some(op) = stack.pop() {
-            match op {
-                LEM::Null(tgt, tag) => {
-                    let tgt_ptr = Ptr::null(*tag);
-                    insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
-                }
-                LEM::Hash2(tgt, tag, src) => {
-                    let src_ptr1 = src[0].get_ptr(&ptrs)?;
-                    let src_ptr2 = src[1].get_ptr(&ptrs)?;
-                    let tgt_ptr = store.intern_2_ptrs(*tag, *src_ptr1, *src_ptr2);
-                    insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
-                    preimages.hash2.push(src.clone());
-                }
-                LEM::Hash3(tgt, tag, src) => {
-                    let src_ptr1 = src[0].get_ptr(&ptrs)?;
-                    let src_ptr2 = src[1].get_ptr(&ptrs)?;
-                    let src_ptr3 = src[2].get_ptr(&ptrs)?;
-                    let tgt_ptr = store.intern_3_ptrs(*tag, *src_ptr1, *src_ptr2, *src_ptr3);
-                    insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
-                    preimages.hash3.push(src.clone());
-                }
-                LEM::Hash4(tgt, tag, src) => {
-                    let src_ptr1 = src[0].get_ptr(&ptrs)?;
-                    let src_ptr2 = src[1].get_ptr(&ptrs)?;
-                    let src_ptr3 = src[2].get_ptr(&ptrs)?;
-                    let src_ptr4 = src[3].get_ptr(&ptrs)?;
-                    let tgt_ptr =
-                        store.intern_4_ptrs(*tag, *src_ptr1, *src_ptr2, *src_ptr3, *src_ptr4);
-                    insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
-                    preimages.hash4.push(src.clone());
-                }
-                LEM::Unhash2(tgts, src) => {
-                    let src_ptr = src.get_ptr(&ptrs)?;
-                    let Some(idx) = src_ptr.get_index2() else {
-                        bail!("{src} isn't a Tree2 pointer");
-                    };
-                    let Some((a, b)) = store.fetch_2_ptrs(idx) else {
-                        bail!("Couldn't fetch {src}'s children")
-                    };
-                    insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
-                    insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
-                    // STEP 2: Update hash_witness with preimage and image
-                    preimages.hash2.push(tgts.clone());
-                }
-                LEM::Unhash3(tgts, src) => {
-                    let src_ptr = src.get_ptr(&ptrs)?;
-                    let Some(idx) = src_ptr.get_index3() else {
-                        bail!("{src} isn't a Tree3 pointer");
-                    };
-                    let Some((a, b, c)) = store.fetch_3_ptrs(idx) else {
-                        bail!("Couldn't fetch {src}'s children")
-                    };
-                    insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
-                    insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
-                    insert_into_ptrs(&mut ptrs, tgts[2].name().clone(), *c)?;
-                    // STEP 2: Update hash_witness with preimage and image
-                    preimages.hash3.push(tgts.clone());
-                }
-                LEM::Unhash4(tgts, src) => {
-                    let src_ptr = src.get_ptr(&ptrs)?;
-                    let Some(idx) = src_ptr.get_index4() else {
-                        bail!("{src} isn't a Tree4 pointer");
-                    };
-                    let Some((a, b, c, d)) = store.fetch_4_ptrs(idx) else {
-                        bail!("Couldn't fetch {src}'s children")
-                    };
-                    insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
-                    insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
-                    insert_into_ptrs(&mut ptrs, tgts[2].name().clone(), *c)?;
-                    insert_into_ptrs(&mut ptrs, tgts[3].name().clone(), *d)?;
-                    // STEP 2: Update hash_witness with preimage and image
-                    preimages.hash4.push(tgts.clone());
-                }
-                LEM::Hide(tgt, sec, src) => {
-                    let src_ptr = src.get_ptr(&ptrs)?;
-                    let Ptr::Leaf(Tag::Num, secret) = sec.get_ptr(&ptrs)? else {
-                        bail!("{sec} is not a numeric pointer")
-                    };
-                    let z_ptr = store.hash_ptr(src_ptr)?;
-                    let hash =
-                        store
-                            .poseidon_cache
-                            .hash3(&[*secret, z_ptr.tag.to_field(), z_ptr.hash]);
-                    let tgt_ptr = Ptr::comm(hash);
-                    store.comms.insert(FWrap::<F>(hash), (*secret, *src_ptr));
-                    insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
-                }
-                LEM::Open(tgt_secret, tgt_ptr, comm_or_num) => {
-                    match comm_or_num.get_ptr(&ptrs)? {
-                        Ptr::Leaf(Tag::Num, hash) | Ptr::Leaf(Tag::Comm, hash) => {
-                            let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
-                                bail!("No committed data for hash {}", &hash.hex_digits())
-                            };
-                            insert_into_ptrs(&mut ptrs, tgt_ptr.name().clone(), *ptr)?;
-                            insert_into_ptrs(
-                                &mut ptrs,
-                                tgt_secret.name().clone(),
-                                Ptr::Leaf(Tag::Num, *secret),
-                            )?;
-                        }
-                        _ => {
-                            bail!("{comm_or_num} is not a num/comm pointer")
-                        }
-                    }
-                }
-                LEM::MatchTag(ptr, cases) => {
-                    let ptr = ptr.get_ptr(&ptrs)?;
-                    let ptr_tag = ptr.tag();
-                    match cases.get(ptr_tag) {
-                        Some(op) => stack.push(op),
-                        None => bail!("No match for tag {}", ptr_tag),
-                    }
-                }
-                LEM::MatchSymPath(match_ptr, cases, def) => {
-                    let ptr = match_ptr.get_ptr(&ptrs)?;
-                    let Some(sym_path) = store.fetch_sym_path(ptr) else {
-                        bail!("Symbol path not found for {match_ptr}");
-                    };
-                    match cases.get(sym_path) {
-                        Some(op) => stack.push(op),
-                        None => stack.push(def),
-                    }
-                }
-                LEM::Seq(ops) => stack.extend(ops.iter().rev()),
-                LEM::Return(o) => {
-                    let output = [
-                        *o[0].get_ptr(&ptrs)?,
-                        *o[1].get_ptr(&ptrs)?,
-                        *o[2].get_ptr(&ptrs)?,
-                    ];
-                    return Ok(Frame {
-                        input,
-                        output,
-                        ptrs,
-                        preimages,
-                    });
-                }
-            }
-        }
-        bail!("Output not reached");
+        todo!()
+        // // key/val pairs on this map should never be overwritten
+        // let mut ptrs = HashMap::default();
+        // ptrs.insert(self.input[0].clone(), input[0]);
+        // insert_into_ptrs(&mut ptrs, self.input[1].clone(), input[1])?;
+        // insert_into_ptrs(&mut ptrs, self.input[2].clone(), input[2])?;
+        // let mut preimages = Preimages::default();
+        // let mut stack = vec![&self.lem_op];
+        // while let Some(op) = stack.pop() {
+        //     match op {
+        //         LEM::Null(tgt, tag) => {
+        //             let tgt_ptr = Ptr::null(*tag);
+        //             insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
+        //         }
+        //         LEM::Hash2(tgt, tag, src) => {
+        //             let src_ptr1 = src[0].get_ptr(&ptrs)?;
+        //             let src_ptr2 = src[1].get_ptr(&ptrs)?;
+        //             let tgt_ptr = store.intern_2_ptrs(*tag, *src_ptr1, *src_ptr2);
+        //             insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
+        //             preimages.hash2.push(src.clone());
+        //         }
+        //         LEM::Hash3(tgt, tag, src) => {
+        //             let src_ptr1 = src[0].get_ptr(&ptrs)?;
+        //             let src_ptr2 = src[1].get_ptr(&ptrs)?;
+        //             let src_ptr3 = src[2].get_ptr(&ptrs)?;
+        //             let tgt_ptr = store.intern_3_ptrs(*tag, *src_ptr1, *src_ptr2, *src_ptr3);
+        //             insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
+        //             preimages.hash3.push(src.clone());
+        //         }
+        //         LEM::Hash4(tgt, tag, src) => {
+        //             let src_ptr1 = src[0].get_ptr(&ptrs)?;
+        //             let src_ptr2 = src[1].get_ptr(&ptrs)?;
+        //             let src_ptr3 = src[2].get_ptr(&ptrs)?;
+        //             let src_ptr4 = src[3].get_ptr(&ptrs)?;
+        //             let tgt_ptr =
+        //                 store.intern_4_ptrs(*tag, *src_ptr1, *src_ptr2, *src_ptr3, *src_ptr4);
+        //             insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
+        //             preimages.hash4.push(src.clone());
+        //         }
+        //         LEM::Unhash2(tgts, src) => {
+        //             let src_ptr = src.get_ptr(&ptrs)?;
+        //             let Some(idx) = src_ptr.get_index2() else {
+        //                 bail!("{src} isn't a Tree2 pointer");
+        //             };
+        //             let Some((a, b)) = store.fetch_2_ptrs(idx) else {
+        //                 bail!("Couldn't fetch {src}'s children")
+        //             };
+        //             insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
+        //             insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
+        //             // STEP 2: Update hash_witness with preimage and image
+        //             preimages.hash2.push(tgts.clone());
+        //         }
+        //         LEM::Unhash3(tgts, src) => {
+        //             let src_ptr = src.get_ptr(&ptrs)?;
+        //             let Some(idx) = src_ptr.get_index3() else {
+        //                 bail!("{src} isn't a Tree3 pointer");
+        //             };
+        //             let Some((a, b, c)) = store.fetch_3_ptrs(idx) else {
+        //                 bail!("Couldn't fetch {src}'s children")
+        //             };
+        //             insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
+        //             insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
+        //             insert_into_ptrs(&mut ptrs, tgts[2].name().clone(), *c)?;
+        //             // STEP 2: Update hash_witness with preimage and image
+        //             preimages.hash3.push(tgts.clone());
+        //         }
+        //         LEM::Unhash4(tgts, src) => {
+        //             let src_ptr = src.get_ptr(&ptrs)?;
+        //             let Some(idx) = src_ptr.get_index4() else {
+        //                 bail!("{src} isn't a Tree4 pointer");
+        //             };
+        //             let Some((a, b, c, d)) = store.fetch_4_ptrs(idx) else {
+        //                 bail!("Couldn't fetch {src}'s children")
+        //             };
+        //             insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
+        //             insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
+        //             insert_into_ptrs(&mut ptrs, tgts[2].name().clone(), *c)?;
+        //             insert_into_ptrs(&mut ptrs, tgts[3].name().clone(), *d)?;
+        //             // STEP 2: Update hash_witness with preimage and image
+        //             preimages.hash4.push(tgts.clone());
+        //         }
+        //         LEM::Hide(tgt, sec, src) => {
+        //             let src_ptr = src.get_ptr(&ptrs)?;
+        //             let Ptr::Leaf(Tag::Num, secret) = sec.get_ptr(&ptrs)? else {
+        //                 bail!("{sec} is not a numeric pointer")
+        //             };
+        //             let z_ptr = store.hash_ptr(src_ptr)?;
+        //             let hash =
+        //                 store
+        //                     .poseidon_cache
+        //                     .hash3(&[*secret, z_ptr.tag.to_field(), z_ptr.hash]);
+        //             let tgt_ptr = Ptr::comm(hash);
+        //             store.comms.insert(FWrap::<F>(hash), (*secret, *src_ptr));
+        //             insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
+        //         }
+        //         LEM::Open(tgt_secret, tgt_ptr, comm_or_num) => {
+        //             match comm_or_num.get_ptr(&ptrs)? {
+        //                 Ptr::Leaf(Tag::Num, hash) | Ptr::Leaf(Tag::Comm, hash) => {
+        //                     let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
+        //                         bail!("No committed data for hash {}", &hash.hex_digits())
+        //                     };
+        //                     insert_into_ptrs(&mut ptrs, tgt_ptr.name().clone(), *ptr)?;
+        //                     insert_into_ptrs(
+        //                         &mut ptrs,
+        //                         tgt_secret.name().clone(),
+        //                         Ptr::Leaf(Tag::Num, *secret),
+        //                     )?;
+        //                 }
+        //                 _ => {
+        //                     bail!("{comm_or_num} is not a num/comm pointer")
+        //                 }
+        //             }
+        //         }
+        //         LEM::MatchTag(ptr, cases) => {
+        //             let ptr = ptr.get_ptr(&ptrs)?;
+        //             let ptr_tag = ptr.tag();
+        //             match cases.get(ptr_tag) {
+        //                 Some(op) => stack.push(op),
+        //                 None => bail!("No match for tag {}", ptr_tag),
+        //             }
+        //         }
+        //         LEM::MatchSymPath(match_ptr, cases, def) => {
+        //             let ptr = match_ptr.get_ptr(&ptrs)?;
+        //             let Some(sym_path) = store.fetch_sym_path(ptr) else {
+        //                 bail!("Symbol path not found for {match_ptr}");
+        //             };
+        //             match cases.get(sym_path) {
+        //                 Some(op) => stack.push(op),
+        //                 None => stack.push(def),
+        //             }
+        //         }
+        //         LEM::Seq(ops) => stack.extend(ops.iter().rev()),
+        //         LEM::Return(o) => {
+        //             let output = [
+        //                 *o[0].get_ptr(&ptrs)?,
+        //                 *o[1].get_ptr(&ptrs)?,
+        //                 *o[2].get_ptr(&ptrs)?,
+        //             ];
+        //             return Ok(Frame {
+        //                 input,
+        //                 output,
+        //                 ptrs,
+        //                 preimages,
+        //             });
+        //         }
+        //     }
+        // }
+        // bail!("Output not reached");
+    }
+
+    fn run_aux<F: LurkField>(&self, input: [Ptr<F>; 3], store: &mut Store<F>) -> Result<Frame<F>> {
+        todo!()
     }
 
     /// Calls `run` until the stop contidion is satisfied, using the output of one
     /// iteration as the input of the next one.
     pub fn eval<F: LurkField>(&self, expr: Ptr<F>, store: &mut Store<F>) -> Result<Vec<Frame<F>>> {
         let mut expr = expr;
-        let mut env = store.intern_symbol(&Symbol::lurk_sym("nil"));
+        let mut env = store.intern_symbol(&Symbol::lurk_sym("nil".into()));
         let mut cont = Ptr::null(Tag::Outermost);
         let mut frames = vec![];
         let terminal = &Ptr::null(Tag::Terminal);

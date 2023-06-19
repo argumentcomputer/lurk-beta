@@ -1,9 +1,9 @@
 // TODO
 // mod constrainer;
 // mod eval;
-// mod interpreter;
+mod interpreter;
 // mod macros;
-// mod path;
+mod path;
 mod pointers;
 mod store;
 mod symbol;
@@ -12,10 +12,11 @@ mod tag;
 use crate::field::LurkField;
 use anyhow::{bail, Result};
 use std::collections::HashMap;
+use std::sync::Arc;
 
-// TODO
-// use self::{interpreter::Frame, path::Path, pointers::Ptr, store::Store, tag::Tag};
-use self::{pointers::Ptr, store::Store, tag::Tag};
+use self::{interpreter::Frame, path::Path, pointers::Ptr, store::Store, tag::Tag};
+
+pub type AString = Arc<str>;
 
 /// ## Lurk Evaluation Model (LEM)
 ///
@@ -88,13 +89,13 @@ use self::{pointers::Ptr, store::Store, tag::Tag};
 /// 4. Assign first, use later: this prevents obvious errors such as "x not
 /// defined" during interpretation or "x not allocated" during constraining.
 pub struct LEMPLUS {
-    input: [String; 3],
+    input: [AString; 3],
     lem: LEM,
 }
 
 /// Named references to be bound to `Ptr`s.
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
-pub struct MetaPtr(String);
+pub struct MetaPtr(AString);
 
 impl std::fmt::Display for MetaPtr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -104,13 +105,13 @@ impl std::fmt::Display for MetaPtr {
 
 impl MetaPtr {
     #[inline]
-    pub fn name(&self) -> &String {
+    pub fn name(&self) -> &AString {
         &self.0
     }
 
     pub fn get_ptr<'a, F: LurkField>(
         &'a self,
-        ptrs: &'a HashMap<String, Ptr<F>>,
+        ptrs: &'a HashMap<AString, Ptr<F>>,
     ) -> Result<&Ptr<F>> {
         match ptrs.get(&self.0) {
             Some(ptr) => Ok(ptr),
@@ -129,7 +130,7 @@ pub enum LEM {
     /// `MatchSymPath(x, cases, def)` checks whether `x` matches some symbol among
     /// the ones provided in `cases`. If so, run the corresponding `LEM`. Run
     /// The default `def` `LEM` otherwise
-    MatchSymPath(MetaPtr, HashMap<Vec<String>, LEM>, Box<LEM>),
+    MatchSymPath(MetaPtr, HashMap<Vec<AString>, LEM>, Box<LEM>),
     /// `Seq(op, lem)` executes `op: LEMOP` then `lem: LEM` sequentially
     Seq(LEMOP, Box<LEM>),
     /// `Return(rets)` sets the output to `rets`
@@ -187,13 +188,12 @@ impl LEMPLUS {
 
     /// Instantiates a `LEM` with the appropriate transformations to make sure
     /// that constraining will be smooth.
-    pub fn new(input: [&str; 3], lem_op: &LEM) -> Result<LEMPLUS> {
-        todo!()
-        // let mut map = HashMap::from_iter(input.map(|i| (i.to_string(), i.to_string())));
-        // Ok(LEMPLUS {
-        //     input: input.map(|i| i.to_string()),
-        //     lem_op: lem_op.deconflict(&Path::default(), &mut map)?,
-        // })
+    pub fn new(input: [AString; 3], lem: &LEM) -> Result<LEMPLUS> {
+        let mut map = HashMap::from_iter(input.iter().map(|i| (i.clone(), i.clone())));
+        Ok(LEMPLUS {
+            input,
+            lem: lem.deconflict(&Path::default(), &mut map)?,
+        })
     }
 
     /// Intern all symbol paths that are matched on `MatchSymPath`s
@@ -202,18 +202,18 @@ impl LEMPLUS {
         self.lem.intern_matched_sym_paths(store);
     }
 
-    // /// Asserts that all paths were visited by a set of frames. This is mostly
-    // /// for testing purposes.
-    // pub fn assert_all_paths_taken<F: LurkField>(
-    //     &self,
-    //     frames: &Vec<Frame<F>>,
-    //     store: &mut Store<F>,
-    // ) {
-    //     assert_eq!(
-    //         self.lem_op.num_paths_taken(frames, store).unwrap(),
-    //         self.lem_op.num_paths()
-    //     );
-    // }
+    /// Asserts that all paths were visited by a set of frames. This is mostly
+    /// for testing purposes.
+    pub fn assert_all_paths_taken<F: LurkField>(
+        &self,
+        frames: &Vec<Frame<F>>,
+        store: &mut Store<F>,
+    ) {
+        assert_eq!(
+            self.lem.num_paths_taken(frames, store).unwrap(),
+            self.lem.num_paths()
+        );
+    }
 }
 
 // #[cfg(test)]
@@ -230,7 +230,7 @@ impl LEMPLUS {
 //         expected_num_hash_slots: NumSlots,
 //         assert_all_paths_taken: bool,
 //     ) {
-//         let num_hash_slots = lem.lem_op.num_hash_slots();
+//         let num_hash_slots = lem.lem.num_hash_slots();
 //         assert_eq!(num_hash_slots, expected_num_hash_slots);
 
 //         let mut store = Store::default();

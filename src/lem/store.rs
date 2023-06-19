@@ -13,6 +13,7 @@ use indexmap::IndexSet;
 use super::{
     pointers::{Ptr, ZChildren, ZPtr},
     symbol::Symbol,
+    AString,
 };
 
 /// The `Store` is a crucial part of Lurk's implementation and tries to be a
@@ -40,10 +41,9 @@ pub struct Store<F: LurkField> {
     ptrs3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
     ptrs4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
 
-    // TODO: use shared references in these cache structures for efficiency
     str_tails_cache: HashMap<String, Ptr<F>>,
-    sym_tails_cache: HashMap<Vec<String>, Ptr<F>>,
-    sym_path_cache: HashMap<Ptr<F>, Vec<String>>,
+    sym_tails_cache: HashMap<Vec<AString>, Ptr<F>>,
+    sym_path_cache: HashMap<Ptr<F>, Vec<AString>>,
 
     pub poseidon_cache: PoseidonCache<F>,
     dehydrated: Vec<Ptr<F>>,
@@ -192,7 +192,7 @@ impl<F: LurkField> Store<F> {
     /// to the symbol paths `["cc"]`, `["bb", "cc"]` and `["aa", "bb", "cc"]`
     /// stored in `sym_tails_cache` as `["cc"]`, `["cc", "bb"]` and
     /// ["cc", "bb", "aa"]` respectively.
-    pub fn intern_symbol_path(&mut self, path: &[String]) -> Ptr<F> {
+    pub fn intern_symbol_path(&mut self, path: &[AString]) -> Ptr<F> {
         let mut tail = path.to_owned();
         tail.reverse();
         let mut ptr;
@@ -225,7 +225,7 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn fetch_sym_path(&self, ptr: &Ptr<F>) -> Option<&Vec<String>> {
+    pub fn fetch_sym_path(&self, ptr: &Ptr<F>) -> Option<&Vec<AString>> {
         self.sym_path_cache.get(ptr)
     }
 
