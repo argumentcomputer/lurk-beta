@@ -94,7 +94,7 @@ impl LEM {
                     let tgt_ptr = store.intern_3_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
                     visits.insert(
-                        (SlotArity::A2, *slots_indices.get(op).unwrap()),
+                        (SlotArity::A3, *slots_indices.get(op).unwrap()),
                         vec![src_ptr1, src_ptr2, src_ptr3],
                     );
                 }
@@ -106,7 +106,7 @@ impl LEM {
                     let tgt_ptr = store.intern_4_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3, src_ptr4);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
                     visits.insert(
-                        (SlotArity::A2, *slots_indices.get(op).unwrap()),
+                        (SlotArity::A4, *slots_indices.get(op).unwrap()),
                         vec![src_ptr1, src_ptr2, src_ptr3, src_ptr4],
                     );
                 }
@@ -139,7 +139,7 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[2].name().clone(), *c)?;
                     // STEP 2: Update hash_witness with preimage and image
                     visits.insert(
-                        (SlotArity::A2, *slots_indices.get(op).unwrap()),
+                        (SlotArity::A3, *slots_indices.get(op).unwrap()),
                         vec![*a, *b, *c],
                     );
                 }
@@ -157,7 +157,7 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgts[3].name().clone(), *d)?;
                     // STEP 2: Update hash_witness with preimage and image
                     visits.insert(
-                        (SlotArity::A2, *slots_indices.get(op).unwrap()),
+                        (SlotArity::A4, *slots_indices.get(op).unwrap()),
                         vec![*a, *b, *c, *d],
                     );
                 }

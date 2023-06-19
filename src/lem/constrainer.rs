@@ -26,45 +26,21 @@ use super::{
 
 /// Structure used to hold the number of slots needed for a `LEMOP`
 #[derive(Debug, Default, PartialEq)]
-pub struct NumSlots {
-    pub hash2: usize,
-    pub hash3: usize,
-    pub hash4: usize,
+pub(crate) struct NumSlots {
+    pub(crate) hash2: usize,
+    pub(crate) hash3: usize,
+    pub(crate) hash4: usize,
 }
 
 impl NumSlots {
     #[inline]
-    pub fn new(num_slots: (usize, usize, usize)) -> NumSlots {
+    pub(crate) fn new(num_slots: (usize, usize, usize)) -> NumSlots {
         NumSlots {
             hash2: num_slots.0,
             hash3: num_slots.1,
             hash4: num_slots.2,
         }
     }
-
-    // #[inline]
-    // pub fn max(&self, other: &Self) -> Self {
-    //     use std::cmp::max;
-    //     Self::new((
-    //         max(self.hash2, other.hash2),
-    //         max(self.hash3, other.hash3),
-    //         max(self.hash4, other.hash4),
-    //     ))
-    // }
-
-    // #[inline]
-    // pub fn add(&self, other: &Self) -> Self {
-    //     Self::new((
-    //         self.hash2 + other.hash2,
-    //         self.hash3 + other.hash3,
-    //         self.hash4 + other.hash4,
-    //     ))
-    // }
-
-    // #[inline]
-    // pub fn total(&self) -> usize {
-    //     self.hash2 + self.hash3 + self.hash4
-    // }
 }
 
 #[derive(PartialEq, Eq, Hash)]
@@ -124,6 +100,7 @@ impl MultiPathTicker {
 
 pub(crate) type SlotsIndices = HashMap<LEMOP, usize>;
 
+#[allow(dead_code)]
 pub(crate) fn num_slots(slots_indices: &SlotsIndices) -> NumSlots {
     let mut slots2: HashSet<usize> = HashSet::default();
     let mut slots3: HashSet<usize> = HashSet::default();
@@ -163,85 +140,65 @@ impl LEMOP {
                     match preimgs_map.get(&preimg_vec) {
                         Some(slot_idx) => {
                             slots_indices.insert(op.clone(), *slot_idx);
-                        },
+                        }
                         None => {
                             let slot_idx = multi_path_ticker.next_hash2(path);
                             slots_indices.insert(op.clone(), slot_idx);
                             preimgs_map.insert(preimg_vec, slot_idx);
-                        },
+                        }
                     };
-                },
+                }
                 LEMOP::Hash3(.., preimg) | LEMOP::Unhash3(preimg, _) => {
                     let preimg_vec = preimg.to_vec();
                     match preimgs_map.get(&preimg_vec) {
                         Some(slot_idx) => {
                             slots_indices.insert(op.clone(), *slot_idx);
-                        },
+                        }
                         None => {
                             let slot_idx = multi_path_ticker.next_hash3(path);
                             slots_indices.insert(op.clone(), slot_idx);
                             preimgs_map.insert(preimg_vec, slot_idx);
-                        },
+                        }
                     };
-                },
+                }
                 LEMOP::Hash4(.., preimg) | LEMOP::Unhash4(preimg, _) => {
                     let preimg_vec = preimg.to_vec();
                     match preimgs_map.get(&preimg_vec) {
                         Some(slot_idx) => {
                             slots_indices.insert(op.clone(), *slot_idx);
-                        },
+                        }
                         None => {
                             let slot_idx = multi_path_ticker.next_hash4(path);
                             slots_indices.insert(op.clone(), slot_idx);
                             preimgs_map.insert(preimg_vec, slot_idx);
-                        },
+                        }
                     };
-                },
+                }
                 LEMOP::Seq(ops) => {
                     stack.extend(ops.iter().rev().map(|op| (op, path.clone())));
-                },
+                }
                 LEMOP::MatchTag(_, cases) => {
                     for (tag, op) in cases {
-                        let new_path = path.push_tag(&tag);
+                        let new_path = path.push_tag(tag);
                         multi_path_ticker.cont(new_path.clone(), &path);
                         stack.push((op, new_path))
                     }
-                },
+                }
                 LEMOP::MatchSymPath(_, cases, def) => {
                     for (sym_path, op) in cases {
-                        let new_path = path.push_sym_path(&sym_path);
+                        let new_path = path.push_sym_path(sym_path);
                         multi_path_ticker.cont(new_path.clone(), &path);
                         stack.push((op, new_path))
                     }
                     let new_path = path.push_default();
                     multi_path_ticker.cont(new_path.clone(), &path);
                     stack.push((def, new_path))
-                },
-                _ => {},
+                }
+                _ => {}
             }
         }
         slots_indices
     }
-
-    // pub fn num_hash_slots(&self) -> NumSlots {
-    //     match self {
-    //         LEMOP::Hash2(..) | LEMOP::Unhash2(..) => NumSlots::new((1, 0, 0)),
-    //         LEMOP::Hash3(..) | LEMOP::Unhash3(..) => NumSlots::new((0, 1, 0)),
-    //         LEMOP::Hash4(..) | LEMOP::Unhash4(..) => NumSlots::new((0, 0, 1)),
-    //         LEMOP::MatchTag(_, cases) => cases
-    //             .values()
-    //             .fold(NumSlots::default(), |acc, op| acc.max(&op.num_hash_slots())),
-    //         LEMOP::MatchSymPath(_, cases, def) => {
-    //             cases.values().fold(def.num_hash_slots(), |acc, op| {
-    //                 acc.max(&op.num_hash_slots())
-    //             })
-    //         }
-    //         LEMOP::Seq(ops) => ops
-    //             .iter()
-    //             .fold(NumSlots::default(), |acc, op| acc.add(&op.num_hash_slots())),
-    //         _ => NumSlots::default(),
-    //     }
-    // }
 }
 
 /// Manages global allocations for constants in a constraint system
