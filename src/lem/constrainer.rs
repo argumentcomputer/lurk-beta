@@ -1,3 +1,50 @@
+//! # Constraint system for LEM
+//!
+//! Here we describe how we generate bellperson constraints for LEM,
+//! such that it can be used with Nova folding to implement the Lurk
+//! evaluation.
+//!
+//! ## Pattern matching and the implication system:
+//!
+//! LEM implements branching using `MatchTag`and `MatchSymPath`.
+//! By nesting `MatchTag`s and `MatchSymPath`s we create a set of
+//! paths that interpretation can follow. We call them **virtual
+//! paths**. In particular, the followed path is called **concrete
+//! path**. We use a Boolean variable to indicate which path is
+//! followed or not. This allows us to construct an **implication
+//! system**, which is responsible for ensuring that allocated
+//! variable in the concrete path are equal to their expected
+//! values.
+//!
+//! ## Hash slot system:
+//!
+//! Poseidon hash is a relatively expensive operation in the
+//! circuit, therefore we want to avoid wasting constraints with
+//! hash operations as much as possible. In order to achieve this
+//! goal we provide a sufficient number of hash slots, such that we
+//! can accomodate all hashes in the worst case, i.e. when the
+//! concrete path requires the maximum number of hashes. This
+//! optimization avoids constraining all hashes in all possible
+//! virtual paths.
+//!
+//! Shortly, we construct the hash slot system using the next steps:
+//!
+//! * STEP 1: Static analysis, when we traverse LEM for the first
+//! time and allocate slots for hashes in all virtual paths.
+//!
+//! * STEP 2: During interpretation (second traversal) we gather
+//! information related to each hash operation, namely we need to
+//! collect all possible images and preimages that can possibly
+//! occupy each slot.
+//!
+//! * STEP 3: During construction of constraints, we do the following:
+//!
+//! ** Preallocate images and preimages for each slot.
+//! ** Constrain Poseidon hash for each slot.
+//! ** While traversing LEM for the third time, we add implications to
+//! enforce concrete path variables are indeed glued to their respective
+//! slots.
+
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -321,6 +368,15 @@ impl LEM {
     /// should be complete. For virtual paths we need to create dummy bindings
     /// and relax the implications with false premises. The premise is precicely
     /// `concrete_path`.
+    ///
+    /// Hash constraints are added here, based on information gathered during
+    /// STEP 1 and STEP 2. Namely, We know exactly the slot where each hash
+    /// operation is allocated. In STEP 3 we first preallocate images and
+    /// preimages, since they may be needed for `Return` operations. Then we
+    /// compute all hashes in their respective slots.
+    /// During LEM traversal we add implications for images and preimages,
+    /// based on concrete path variable, such that it indeed corresponds
+    /// to the hash in that slot.
     pub fn constrain<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -468,6 +524,7 @@ impl LEM {
                         &allocated_tag,
                     )?;
 
+                    // STEP 3: Get allocate preimage
                     let allocated_preimg = Self::get_allocated_preimg($preimg, &allocated_ptrs)?;
 
                     constrain_slot!($preimg, $img, allocated_preimg, allocated_img);
@@ -478,10 +535,12 @@ impl LEM {
             }
             macro_rules! unhash_helper {
                 ( $preimg: expr, $img: expr ) => {
+                    // STEP 3: Get allocate image
                     let Some(allocated_img) = allocated_ptrs.get($img.name()) else {
                                                                 bail!("{} not allocated", $img)
                                                             };
 
+                    // STEP 3: Allocate preimage
                     let allocated_preimg = Self::alloc_preimg(
                         cs,
                         $preimg,
