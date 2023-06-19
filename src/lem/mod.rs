@@ -118,7 +118,7 @@ impl MetaPtr {
 
 /// The basic building blocks of LEMs.
 #[non_exhaustive]
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LEMOP {
     /// `MkNull(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
     Null(MetaPtr, Tag),
