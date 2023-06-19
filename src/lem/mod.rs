@@ -155,6 +155,7 @@ pub enum LEMOP {
 
 impl std::hash::Hash for LEMOP {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // TODO: this was generated automatically for me (Arthur). Is it efficient?
         core::mem::discriminant(self).hash(state);
     }
 }
@@ -272,9 +273,7 @@ mod tests {
             }
 
             if let Some(cs_prev) = cs_prev {
-                let delta = cs.delta(&cs_prev, true);
-                dbg!(&delta);
-                assert!(delta == Delta::Equal);
+                assert_eq!(cs.delta(&cs_prev, true), Delta::Equal);
             }
 
             cs_prev = Some(cs);

@@ -24,43 +24,22 @@ use super::{
     MetaPtr, LEM, LEMOP,
 };
 
-/// Structure used to hold the number of slots needed for a `LEMOP`
-#[derive(Debug, Default, PartialEq)]
-pub(crate) struct NumSlots {
-    pub(crate) hash2: usize,
-    pub(crate) hash3: usize,
-    pub(crate) hash4: usize,
-}
-
-impl NumSlots {
-    #[inline]
-    pub(crate) fn new(num_slots: (usize, usize, usize)) -> NumSlots {
-        NumSlots {
-            hash2: num_slots.0,
-            hash3: num_slots.1,
-            hash4: num_slots.2,
-        }
-    }
-}
-
-#[derive(PartialEq, Eq, Hash)]
-#[allow(dead_code)]
-enum Preimage {
-    Hash2([MetaPtr; 2]),
-    Hash3([MetaPtr; 3]),
-    Hash4([MetaPtr; 4]),
-}
-
+/// Holds a counter per path
 #[derive(Default)]
 struct PathTicker(HashMap<Path, usize>);
 
 impl PathTicker {
+    /// Increments the counter of a path. If the path wasn't tracked, returns
+    /// `0` and starts tracking it
     pub(crate) fn next(&mut self, path: Path) -> usize {
         let next = self.0.get(&path).unwrap_or(&0).to_owned();
         self.0.insert(path, next + 1);
         next
     }
 
+    /// Starts tracking a new path with a counter from another. If the reference
+    /// path wasn't being tracked, the new one won't be either, such that calling
+    /// `next` will return `0`.
     pub(crate) fn cont(&mut self, new: Path, from: &Path) {
         match self.0.get(from) {
             Some(i) => {
@@ -71,22 +50,26 @@ impl PathTicker {
     }
 }
 
+/// Keeps track of slots indices for each possible LEM path
 #[derive(Default)]
-struct MultiPathTicker {
+struct SlotsTicker {
     hash2: PathTicker,
     hash3: PathTicker,
     hash4: PathTicker,
 }
 
-impl MultiPathTicker {
+impl SlotsTicker {
+    #[inline]
     pub(crate) fn next_hash2(&mut self, path: Path) -> usize {
         self.hash2.next(path)
     }
 
+    #[inline]
     pub(crate) fn next_hash3(&mut self, path: Path) -> usize {
         self.hash3.next(path)
     }
 
+    #[inline]
     pub(crate) fn next_hash4(&mut self, path: Path) -> usize {
         self.hash4.next(path)
     }
@@ -100,36 +83,11 @@ impl MultiPathTicker {
 
 pub(crate) type SlotsIndices = HashMap<LEMOP, usize>;
 
-#[allow(dead_code)]
-pub(crate) fn num_slots(slots_indices: &SlotsIndices) -> NumSlots {
-    let mut slots2: HashSet<usize> = HashSet::default();
-    let mut slots3: HashSet<usize> = HashSet::default();
-    let mut slots4: HashSet<usize> = HashSet::default();
-
-    for (op, slot_idx) in slots_indices {
-        match op {
-            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => {
-                slots2.insert(*slot_idx);
-            }
-            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => {
-                slots3.insert(*slot_idx);
-            }
-            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => {
-                slots4.insert(*slot_idx);
-            }
-            _ => (),
-        }
-    }
-    NumSlots::new((slots2.len(), slots3.len(), slots4.len()))
-}
-
 impl LEMOP {
-    /// STEP 1 from hash slots:
-    /// Computes the slots needed for a LEMOP
-    /// This is the first LEM traversal.
+    /// STEP 1: compute the slot mapping on a first (and unique) traversal
     pub fn slots_indices(&self) -> SlotsIndices {
         let mut slots_indices = HashMap::default();
-        let mut multi_path_ticker = MultiPathTicker::default();
+        let mut slots_ticker = SlotsTicker::default();
         let mut preimgs2_map: HashMap<&[MetaPtr; 2], usize> = HashMap::default();
         let mut preimgs3_map: HashMap<&[MetaPtr; 3], usize> = HashMap::default();
         let mut preimgs4_map: HashMap<&[MetaPtr; 4], usize> = HashMap::default();
@@ -139,67 +97,59 @@ impl LEMOP {
 
         let mut stack = vec![(self, Path::default())];
         while let Some((op, path)) = stack.pop() {
+            macro_rules! populate_slots_indices {
+                ( $preimg: expr, $img: expr, $preimgs_map: expr, $imgs_map: expr, $ticker_fn: expr ) => {
+                    match ($preimgs_map.get($preimg), $imgs_map.get($img)) {
+                        (Some(slot_idx), _) | (_, Some(slot_idx)) => {
+                            slots_indices.insert(op.clone(), *slot_idx);
+                        }
+                        _ => {
+                            let slot_idx = $ticker_fn(path);
+                            slots_indices.insert(op.clone(), slot_idx);
+                            $preimgs_map.insert($preimg, slot_idx);
+                            $imgs_map.insert($img, slot_idx);
+                        }
+                    };
+                };
+            }
+
+            macro_rules! tick_and_stack {
+                ( $new_path: expr, $op_to_stack: expr ) => {
+                    slots_ticker.cont($new_path.clone(), &path);
+                    stack.push(($op_to_stack, $new_path))
+                };
+            }
             match op {
                 LEMOP::Hash2(img, _, preimg) | LEMOP::Unhash2(preimg, img) => {
-                    match (preimgs2_map.get(preimg), imgs2_map.get(img)) {
-                        (Some(slot_idx), _) | (_, Some(slot_idx)) => {
-                            slots_indices.insert(op.clone(), *slot_idx);
-                        }
-                        _ => {
-                            let slot_idx = multi_path_ticker.next_hash2(path);
-                            slots_indices.insert(op.clone(), slot_idx);
-                            preimgs2_map.insert(preimg, slot_idx);
-                            imgs2_map.insert(img, slot_idx);
-                        }
-                    };
+                    populate_slots_indices!(preimg, img, preimgs2_map, imgs2_map, |path| {
+                        slots_ticker.next_hash2(path)
+                    });
                 }
                 LEMOP::Hash3(img, _, preimg) | LEMOP::Unhash3(preimg, img) => {
-                    match (preimgs3_map.get(preimg), imgs3_map.get(img)) {
-                        (Some(slot_idx), _) | (_, Some(slot_idx)) => {
-                            slots_indices.insert(op.clone(), *slot_idx);
-                        }
-                        _ => {
-                            let slot_idx = multi_path_ticker.next_hash3(path);
-                            slots_indices.insert(op.clone(), slot_idx);
-                            preimgs3_map.insert(preimg, slot_idx);
-                            imgs3_map.insert(img, slot_idx);
-                        }
-                    };
+                    populate_slots_indices!(preimg, img, preimgs3_map, imgs3_map, |path| {
+                        slots_ticker.next_hash3(path)
+                    });
                 }
                 LEMOP::Hash4(img, _, preimg) | LEMOP::Unhash4(preimg, img) => {
-                    match (preimgs4_map.get(preimg), imgs4_map.get(img)) {
-                        (Some(slot_idx), _) | (_, Some(slot_idx)) => {
-                            slots_indices.insert(op.clone(), *slot_idx);
-                        }
-                        _ => {
-                            let slot_idx = multi_path_ticker.next_hash4(path);
-                            slots_indices.insert(op.clone(), slot_idx);
-                            preimgs4_map.insert(preimg, slot_idx);
-                            imgs4_map.insert(img, slot_idx);
-                        }
-                    };
+                    populate_slots_indices!(preimg, img, preimgs4_map, imgs4_map, |path| {
+                        slots_ticker.next_hash4(path)
+                    });
                 }
                 LEMOP::Seq(ops) => {
                     stack.extend(ops.iter().rev().map(|op| (op, path.clone())));
                 }
                 LEMOP::MatchTag(_, cases) => {
                     for (tag, op) in cases {
-                        let new_path = path.push_tag(tag);
-                        multi_path_ticker.cont(new_path.clone(), &path);
-                        stack.push((op, new_path))
+                        tick_and_stack!(path.push_tag(tag), op);
                     }
                 }
                 LEMOP::MatchSymPath(_, cases, def) => {
                     for (sym_path, op) in cases {
-                        let new_path = path.push_sym_path(sym_path);
-                        multi_path_ticker.cont(new_path.clone(), &path);
-                        stack.push((op, new_path))
+                        tick_and_stack!(path.push_sym_path(sym_path), op);
                     }
-                    let new_path = path.push_default();
-                    multi_path_ticker.cont(new_path.clone(), &path);
-                    stack.push((def, new_path))
+                    tick_and_stack!(path.push_default(), def);
                 }
-                _ => {}
+                _ => (),
             }
         }
         slots_indices
@@ -663,4 +613,48 @@ impl LEM {
 
         Ok(())
     }
+}
+
+/// Structure used to hold the number of slots we want for a `LEMOP`. It's mostly
+/// for testing purposes.
+#[derive(Debug, Default, PartialEq)]
+pub(crate) struct NumSlots {
+    pub(crate) hash2: usize,
+    pub(crate) hash3: usize,
+    pub(crate) hash4: usize,
+}
+
+impl NumSlots {
+    #[inline]
+    pub(crate) fn new(num_slots: (usize, usize, usize)) -> NumSlots {
+        NumSlots {
+            hash2: num_slots.0,
+            hash3: num_slots.1,
+            hash4: num_slots.2,
+        }
+    }
+}
+
+/// Computes the number of slots used for each category
+#[allow(dead_code)]
+pub(crate) fn num_slots(slots_indices: &SlotsIndices) -> NumSlots {
+    let mut slots2: HashSet<usize> = HashSet::default();
+    let mut slots3: HashSet<usize> = HashSet::default();
+    let mut slots4: HashSet<usize> = HashSet::default();
+
+    for (op, slot_idx) in slots_indices {
+        match op {
+            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => {
+                slots2.insert(*slot_idx);
+            }
+            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => {
+                slots3.insert(*slot_idx);
+            }
+            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => {
+                slots4.insert(*slot_idx);
+            }
+            _ => (),
+        }
+    }
+    NumSlots::new((slots2.len(), slots3.len(), slots4.len()))
 }

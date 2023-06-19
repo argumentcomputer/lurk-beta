@@ -24,8 +24,7 @@ impl SlotArity {
 }
 
 /// This hashmap is populated during interpretation, telling which **slots** were
-/// visited. Knowing which LEMOPs were visited is not enough because different
-/// LEMOPs on parallel paths can ocupy the same slot
+/// visited.
 pub(crate) type Visits<F> = HashMap<(SlotArity, usize), Vec<Ptr<F>>>;
 
 /// A `Frame` carries the data that results from interpreting LEM. That is,
@@ -57,7 +56,11 @@ fn insert_into_ptrs<F: LurkField>(
 
 impl LEM {
     /// Interprets a LEM using a stack of operations to be popped and executed.
-    /// It modifies a `Store` and assigns `Ptr`s to `MetaPtr`s as it goes.
+    /// It modifies a `Store` and binds `Ptr`s to `MetaPtr`s as it goes.
+    ///
+    /// We also want to collect which slots were visited, along with all the
+    /// data needed for the optimizations for the circuit generation. This is
+    /// better explained in the constrainer code.
     fn run<F: LurkField>(
         &self,
         input: [Ptr<F>; 3],
