@@ -478,7 +478,9 @@ impl LEM {
                         let ptr_idx = 2 * i;
                         implies_equal(
                             &mut cs.namespace(|| {
-                                format!("implies equal for {name}'s tag (LEMOP {lemop_idx}, pos {i})")
+                                format!(
+                                    "implies equal for {name}'s tag (LEMOP {lemop_idx}, pos {i})"
+                                )
                             }),
                             &concrete_path,
                             allocated_ptr.tag(),
@@ -486,7 +488,9 @@ impl LEM {
                         )?;
                         implies_equal(
                             &mut cs.namespace(|| {
-                                format!("implies equal for {name}'s hash (LEMOP {lemop_idx}, pos {i})")
+                                format!(
+                                    "implies equal for {name}'s hash (LEMOP {lemop_idx}, pos {i})"
+                                )
                             }),
                             &concrete_path,
                             allocated_ptr.hash(),
