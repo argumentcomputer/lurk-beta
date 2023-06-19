@@ -1,10 +1,11 @@
-mod constrainer;
-mod eval;
-mod interpreter;
-mod macros;
-mod path;
+// TODO
+// mod constrainer;
+// mod eval;
+// mod interpreter;
+// mod macros;
+// mod path;
 mod pointers;
-mod store;
+// mod store;
 mod symbol;
 mod tag;
 
@@ -12,7 +13,9 @@ use crate::field::LurkField;
 use anyhow::{bail, Result};
 use std::collections::HashMap;
 
-use self::{interpreter::Frame, path::Path, pointers::Ptr, store::Store, tag::Tag};
+// TODO
+// use self::{interpreter::Frame, path::Path, pointers::Ptr, store::Store, tag::Tag};
+use self::{pointers::Ptr, tag::Tag};
 
 /// ## Lurk Evaluation Model (LEM)
 ///
@@ -84,9 +87,9 @@ use self::{interpreter::Frame, path::Path, pointers::Ptr, store::Store, tag::Tag
 ///
 /// 4. Assign first, use later: this prevents obvious errors such as "x not
 /// defined" during interpretation or "x not allocated" during constraining.
-pub struct LEM {
+pub struct LEMPLUS {
     input: [String; 3],
-    lem_op: LEMOP,
+    lem_op: LEM,
 }
 
 /// Named references to be bound to `Ptr`s.
@@ -119,6 +122,22 @@ impl MetaPtr {
 /// The basic building blocks of LEMs.
 #[non_exhaustive]
 #[derive(Clone, PartialEq)]
+pub enum LEM {
+    /// `MatchTag(x, cases)` performs a match on the tag of `x`, considering only
+    /// the appropriate `LEM` among the ones provided in `cases`
+    MatchTag(MetaPtr, HashMap<Tag, LEM>),
+    /// `MatchSymPath(x, cases, def)` checks whether `x` matches some symbol among
+    /// the ones provided in `cases`. If so, run the corresponding `LEM`. Run
+    /// The default `def` `LEM` otherwise
+    MatchSymPath(MetaPtr, HashMap<Vec<String>, LEM>, Box<LEM>),
+    /// `Seq(op, lem)` executes `op: LEMOP` then `lem: LEM` sequentially
+    Seq(LEMOP, Box<LEM>),
+    /// `Return(rets)` sets the output to `rets`
+    Return([MetaPtr; 3]),
+}
+
+/// The atomic operations of LEMs.
+#[derive(Clone, PartialEq)]
 pub enum LEMOP {
     /// `MkNull(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
     Null(MetaPtr, Tag),
@@ -140,377 +159,367 @@ pub enum LEMOP {
     /// `Open(s, p, h)` binds `s` and `p` to the secret and payload (respectively)
     /// of the commitment that resulted on (num or comm) `h`
     Open(MetaPtr, MetaPtr, MetaPtr),
-    /// `MatchTag(x, cases)` performs a match on the tag of `x`, considering only
-    /// the appropriate `LEMOP` among the ones provided in `cases`
-    MatchTag(MetaPtr, HashMap<Tag, LEMOP>),
-    /// `MatchSymPath(x, cases, def)` checks whether `x` matches some symbol among
-    /// the ones provided in `cases`. If so, run the corresponding `LEMOP`. Run
-    /// The default `def` `LEMOP` otherwise
-    MatchSymPath(MetaPtr, HashMap<Vec<String>, LEMOP>, Box<LEMOP>),
-    /// `Seq(ops)` executes each `op: LEMOP` in `ops` sequentially
-    Seq(Vec<LEMOP>),
-    /// `Return([a, b, c])` sets the output as `[a, b, c]`
-    Return([MetaPtr; 3]),
-}
-
-impl LEMOP {
-    /// Intern all symbol paths that are matched on `MatchSymPath`s
-    pub fn intern_matched_sym_paths<F: LurkField>(&self, store: &mut Store<F>) {
-        let mut stack = vec![self];
-        while let Some(op) = stack.pop() {
-            match op {
-                Self::MatchSymPath(_, cases, def) => {
-                    for (path, op) in cases {
-                        store.intern_symbol_path(path);
-                        stack.push(op);
-                    }
-                    stack.push(def);
-                }
-                Self::MatchTag(_, cases) => cases.values().for_each(|op| stack.push(op)),
-                Self::Seq(ops) => stack.extend(ops),
-                // It's safer to be exaustive here and avoid missing new LEMOPs
-                Self::Null(..)
-                | Self::Hash2(..)
-                | Self::Hash3(..)
-                | Self::Hash4(..)
-                | Self::Unhash2(..)
-                | Self::Unhash3(..)
-                | Self::Unhash4(..)
-                | Self::Hide(..)
-                | Self::Open(..)
-                | Self::Return(..) => (),
-            }
-        }
-    }
 }
 
 impl LEM {
+    // /// Intern all symbol paths that are matched on `MatchSymPath`s
+    // pub fn intern_matched_sym_paths<F: LurkField>(&self, store: &mut Store<F>) {
+    //     let mut stack = vec![self];
+    //     while let Some(op) = stack.pop() {
+    //         match op {
+    //             Self::MatchSymPath(_, cases, def) => {
+    //                 for (path, op) in cases {
+    //                     store.intern_symbol_path(path);
+    //                     stack.push(op);
+    //                 }
+    //                 stack.push(def);
+    //             }
+    //             Self::MatchTag(_, cases) => cases.values().for_each(|op| stack.push(op)),
+    //             Self::Seq(ops) => stack.extend(ops),
+    //             // It's safer to be exaustive here and avoid missing new LEMOPs
+    //             Self::Null(..)
+    //             | Self::Hash2(..)
+    //             | Self::Hash3(..)
+    //             | Self::Hash4(..)
+    //             | Self::Unhash2(..)
+    //             | Self::Unhash3(..)
+    //             | Self::Unhash4(..)
+    //             | Self::Hide(..)
+    //             | Self::Open(..)
+    //             | Self::Return(..) => (),
+    //         }
+    //     }
+    // }
+}
+
+impl LEMPLUS {
     /// Performs the static checks described in `LEM`'s docstring.
     pub fn check(&self) {
-        // TODO
+        todo!()
     }
 
     /// Instantiates a `LEM` with the appropriate transformations to make sure
     /// that constraining will be smooth.
-    pub fn new(input: [&str; 3], lem_op: &LEMOP) -> Result<LEM> {
-        let mut map = HashMap::from_iter(input.map(|i| (i.to_string(), i.to_string())));
-        Ok(LEM {
-            input: input.map(|i| i.to_string()),
-            lem_op: lem_op.deconflict(&Path::default(), &mut map)?,
-        })
+    pub fn new(input: [&str; 3], lem_op: &LEM) -> Result<LEMPLUS> {
+        todo!()
+        // let mut map = HashMap::from_iter(input.map(|i| (i.to_string(), i.to_string())));
+        // Ok(LEMPLUS {
+        //     input: input.map(|i| i.to_string()),
+        //     lem_op: lem_op.deconflict(&Path::default(), &mut map)?,
+        // })
     }
 
-    /// Intern all symbol paths that are matched on `MatchSymPath`s
-    #[inline]
-    pub fn intern_matched_sym_paths<F: LurkField>(&self, store: &mut Store<F>) {
-        self.lem_op.intern_matched_sym_paths(store);
-    }
+    // /// Intern all symbol paths that are matched on `MatchSymPath`s
+    // #[inline]
+    // pub fn intern_matched_sym_paths<F: LurkField>(&self, store: &mut Store<F>) {
+    //     self.lem_op.intern_matched_sym_paths(store);
+    // }
 
-    /// Asserts that all paths were visited by a set of frames. This is mostly
-    /// for testing purposes.
-    pub fn assert_all_paths_taken<F: LurkField>(
-        &self,
-        frames: &Vec<Frame<F>>,
-        store: &mut Store<F>,
-    ) {
-        assert_eq!(
-            self.lem_op.num_paths_taken(frames, store).unwrap(),
-            self.lem_op.num_paths()
-        );
-    }
+    // /// Asserts that all paths were visited by a set of frames. This is mostly
+    // /// for testing purposes.
+    // pub fn assert_all_paths_taken<F: LurkField>(
+    //     &self,
+    //     frames: &Vec<Frame<F>>,
+    //     store: &mut Store<F>,
+    // ) {
+    //     assert_eq!(
+    //         self.lem_op.num_paths_taken(frames, store).unwrap(),
+    //         self.lem_op.num_paths()
+    //     );
+    // }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::constrainer::{AllocationManager, NumSlots};
-    use super::{store::Store, *};
-    use crate::{lem, lem::pointers::Ptr};
-    use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable, Delta};
-    use blstrs::Scalar as Fr;
+// #[cfg(test)]
+// mod tests {
+//     use super::constrainer::{AllocationManager, NumSlots};
+//     use super::{store::Store, *};
+//     use crate::{lem, lem::pointers::Ptr};
+//     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable, Delta};
+//     use blstrs::Scalar as Fr;
 
-    fn constrain_test_helper(
-        lem: &LEM,
-        exprs: &[Ptr<Fr>],
-        expected_num_hash_slots: NumSlots,
-        assert_all_paths_taken: bool,
-    ) {
-        let num_hash_slots = lem.lem_op.num_hash_slots();
-        assert_eq!(num_hash_slots, expected_num_hash_slots);
+//     fn constrain_test_helper(
+//         lem: &LEMPLUS,
+//         exprs: &[Ptr<Fr>],
+//         expected_num_hash_slots: NumSlots,
+//         assert_all_paths_taken: bool,
+//     ) {
+//         let num_hash_slots = lem.lem_op.num_hash_slots();
+//         assert_eq!(num_hash_slots, expected_num_hash_slots);
 
-        let mut store = Store::default();
-        let mut all_frames = vec![];
+//         let mut store = Store::default();
+//         let mut all_frames = vec![];
 
-        let mut cs_prev = None;
-        for expr in exprs {
-            let frames = lem.eval(*expr, &mut store).unwrap();
+//         let mut cs_prev = None;
+//         for expr in exprs {
+//             let frames = lem.eval(*expr, &mut store).unwrap();
 
-            let mut alloc_manager = AllocationManager::default();
-            let mut cs = TestConstraintSystem::<Fr>::new();
-            for frame in frames.clone() {
-                lem.constrain(
-                    &mut cs,
-                    &mut alloc_manager,
-                    &mut store,
-                    &frame,
-                    &num_hash_slots,
-                )
-                .unwrap();
-            }
-            assert!(cs.is_satisfied());
+//             let mut alloc_manager = AllocationManager::default();
+//             let mut cs = TestConstraintSystem::<Fr>::new();
+//             for frame in frames.clone() {
+//                 lem.constrain(
+//                     &mut cs,
+//                     &mut alloc_manager,
+//                     &mut store,
+//                     &frame,
+//                     &num_hash_slots,
+//                 )
+//                 .unwrap();
+//             }
+//             assert!(cs.is_satisfied());
 
-            if assert_all_paths_taken {
-                all_frames.extend(frames);
-            }
+//             if assert_all_paths_taken {
+//                 all_frames.extend(frames);
+//             }
 
-            if let Some(cs_prev) = cs_prev {
-                let delta = cs.delta(&cs_prev, true);
-                dbg!(&delta);
-                assert!(delta == Delta::Equal);
-            }
+//             if let Some(cs_prev) = cs_prev {
+//                 let delta = cs.delta(&cs_prev, true);
+//                 dbg!(&delta);
+//                 assert!(delta == Delta::Equal);
+//             }
 
-            cs_prev = Some(cs);
-        }
-        if assert_all_paths_taken {
-            lem.assert_all_paths_taken(&all_frames, &mut store);
-        }
-    }
+//             cs_prev = Some(cs);
+//         }
+//         if assert_all_paths_taken {
+//             lem.assert_all_paths_taken(&all_frames, &mut store);
+//         }
+//     }
 
-    #[test]
-    fn accepts_virtual_nested_match_tag() {
-        let lem = lem!(expr_in env_in cont_in {
-            match_tag expr_in {
-                Num => {
-                    let cont_out_terminal: Terminal;
-                    return (expr_in, env_in, cont_out_terminal);
-                },
-                Char => {
-                    match_tag expr_in {
-                        // This nested match excercises the need to pass on the
-                        // information that we are on a virtual branch, because a
-                        // constraint will be created for `cont_out_error` and it
-                        // will need to be relaxed by an implication with a false
-                        // premise.
-                        Num => {
-                            let cont_out_error: Error;
-                            return (expr_in, env_in, cont_out_error);
-                        }
-                    };
-                },
-                Sym => {
-                    match_tag expr_in {
-                        // This nested match exercises the need to relax `popcount`
-                        // because there is no match but it's on a virtual path, so
-                        // we don't want to be too restrictive and demand that at
-                        // least one path must be taken.
-                        Char => {
-                            return (expr_in, env_in, cont_in);
-                        }
-                    };
-                }
-            };
-        })
-        .unwrap();
+//     #[test]
+//     fn accepts_virtual_nested_match_tag() {
+//         let lem = lem!(expr_in env_in cont_in {
+//             match_tag expr_in {
+//                 Num => {
+//                     let cont_out_terminal: Terminal;
+//                     return (expr_in, env_in, cont_out_terminal);
+//                 },
+//                 Char => {
+//                     match_tag expr_in {
+//                         // This nested match excercises the need to pass on the
+//                         // information that we are on a virtual branch, because a
+//                         // constraint will be created for `cont_out_error` and it
+//                         // will need to be relaxed by an implication with a false
+//                         // premise.
+//                         Num => {
+//                             let cont_out_error: Error;
+//                             return (expr_in, env_in, cont_out_error);
+//                         }
+//                     };
+//                 },
+//                 Sym => {
+//                     match_tag expr_in {
+//                         // This nested match exercises the need to relax `popcount`
+//                         // because there is no match but it's on a virtual path, so
+//                         // we don't want to be too restrictive and demand that at
+//                         // least one path must be taken.
+//                         Char => {
+//                             return (expr_in, env_in, cont_in);
+//                         }
+//                     };
+//                 }
+//             };
+//         })
+//         .unwrap();
 
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42))],
-            NumSlots::default(),
-            false,
-        );
-    }
+//         constrain_test_helper(
+//             &lem,
+//             &[Ptr::num(Fr::from_u64(42))],
+//             NumSlots::default(),
+//             false,
+//         );
+//     }
 
-    #[test]
-    fn resolves_conflicts_of_clashing_names_in_parallel_branches() {
-        let lem = lem!(expr_in env_in cont_in {
-            match_tag expr_in {
-                // This match is creating `cont_out_terminal` on two different
-                // branches, which, in theory, would cause troubles at allocation
-                // time. We solve this problem by calling `LEMOP::deconflict`,
-                // which turns one into `Num.cont_out_terminal` and the other into
-                // `Char.cont_out_terminal`.
-                Num => {
-                    let cont_out_terminal: Terminal;
-                    return (expr_in, env_in, cont_out_terminal);
-                },
-                Char => {
-                    let cont_out_terminal: Terminal;
-                    return (expr_in, env_in, cont_out_terminal);
-                }
-            };
-        })
-        .unwrap();
+//     #[test]
+//     fn resolves_conflicts_of_clashing_names_in_parallel_branches() {
+//         let lem = lem!(expr_in env_in cont_in {
+//             match_tag expr_in {
+//                 // This match is creating `cont_out_terminal` on two different
+//                 // branches, which, in theory, would cause troubles at allocation
+//                 // time. We solve this problem by calling `LEMOP::deconflict`,
+//                 // which turns one into `Num.cont_out_terminal` and the other into
+//                 // `Char.cont_out_terminal`.
+//                 Num => {
+//                     let cont_out_terminal: Terminal;
+//                     return (expr_in, env_in, cont_out_terminal);
+//                 },
+//                 Char => {
+//                     let cont_out_terminal: Terminal;
+//                     return (expr_in, env_in, cont_out_terminal);
+//                 }
+//             };
+//         })
+//         .unwrap();
 
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42))],
-            NumSlots::default(),
-            false,
-        );
-    }
+//         constrain_test_helper(
+//             &lem,
+//             &[Ptr::num(Fr::from_u64(42))],
+//             NumSlots::default(),
+//             false,
+//         );
+//     }
 
-    #[test]
-    fn test_simple_all_paths_delta() {
-        let lem = lem!(expr_in env_in cont_in {
-            let cont_out_terminal: Terminal;
-            return (expr_in, env_in, cont_out_terminal);
-        })
-        .unwrap();
+//     #[test]
+//     fn test_simple_all_paths_delta() {
+//         let lem = lem!(expr_in env_in cont_in {
+//             let cont_out_terminal: Terminal;
+//             return (expr_in, env_in, cont_out_terminal);
+//         })
+//         .unwrap();
 
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((0, 0, 0)),
-            true,
-        );
-    }
+//         constrain_test_helper(
+//             &lem,
+//             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
+//             NumSlots::new((0, 0, 0)),
+//             true,
+//         );
+//     }
 
-    #[test]
-    fn test_match_all_paths_delta() {
-        let lem = lem!(expr_in env_in cont_in {
-            match_tag expr_in {
-                Num => {
-                    let cont_out_terminal: Terminal;
-                    return (expr_in, env_in, cont_out_terminal);
-                },
-                Char => {
-                    let cont_out_error: Error;
-                    return (expr_in, env_in, cont_out_error);
-                }
-            };
-        })
-        .unwrap();
+//     #[test]
+//     fn test_match_all_paths_delta() {
+//         let lem = lem!(expr_in env_in cont_in {
+//             match_tag expr_in {
+//                 Num => {
+//                     let cont_out_terminal: Terminal;
+//                     return (expr_in, env_in, cont_out_terminal);
+//                 },
+//                 Char => {
+//                     let cont_out_error: Error;
+//                     return (expr_in, env_in, cont_out_error);
+//                 }
+//             };
+//         })
+//         .unwrap();
 
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((0, 0, 0)),
-            true,
-        );
-    }
+//         constrain_test_helper(
+//             &lem,
+//             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
+//             NumSlots::new((0, 0, 0)),
+//             true,
+//         );
+//     }
 
-    #[test]
-    fn test_hash_slots() {
-        let lem = lem!(expr_in env_in cont_in {
-            let x: Cons = hash2(expr_in, env_in);
-            let y: Cons = hash3(expr_in, env_in, cont_in);
-            let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
-            let t: Terminal;
-            let p: Nil;
-            match_tag expr_in {
-                Num => {
-                    let m: Cons = hash2(env_in, expr_in);
-                    let n: Cons = hash3(cont_in, env_in, expr_in);
-                    let k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
-                    return (m, n, t);
-                },
-                Char => {
-                    return (p, p, t);
-                },
-                Cons => {
-                    return (p, p, t);
-                },
-                Nil => {
-                    return (p, p, t);
-                }
-            };
-        })
-        .unwrap();
+//     #[test]
+//     fn test_hash_slots() {
+//         let lem = lem!(expr_in env_in cont_in {
+//             let x: Cons = hash2(expr_in, env_in);
+//             let y: Cons = hash3(expr_in, env_in, cont_in);
+//             let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
+//             let t: Terminal;
+//             let p: Nil;
+//             match_tag expr_in {
+//                 Num => {
+//                     let m: Cons = hash2(env_in, expr_in);
+//                     let n: Cons = hash3(cont_in, env_in, expr_in);
+//                     let k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+//                     return (m, n, t);
+//                 },
+//                 Char => {
+//                     return (p, p, t);
+//                 },
+//                 Cons => {
+//                     return (p, p, t);
+//                 },
+//                 Nil => {
+//                     return (p, p, t);
+//                 }
+//             };
+//         })
+//         .unwrap();
 
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((2, 2, 2)),
-            false,
-        );
-    }
+//         constrain_test_helper(
+//             &lem,
+//             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
+//             NumSlots::new((2, 2, 2)),
+//             false,
+//         );
+//     }
 
-    #[test]
-    fn test_unhash_slots() {
-        let lem = lem!(expr_in env_in cont_in {
-            let x: Cons = hash2(expr_in, env_in);
-            let y: Cons = hash3(expr_in, env_in, cont_in);
-            let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
-            let t: Terminal;
-            let p: Nil;
-            match_tag expr_in {
-                Num => {
-                    let m: Cons = hash2(env_in, expr_in);
-                    let n: Cons = hash3(cont_in, env_in, expr_in);
-                    let k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
-                    let (m1, m2) = unhash2(m);
-                    let (n1, n2, n3) = unhash3(n);
-                    let (k1, k2, k3, k4) = unhash4(k);
-                    return (m, n, t);
-                },
-                Char => {
-                    return (p, p, t);
-                },
-                Cons => {
-                    return (p, p, p);
-                },
-                Nil => {
-                    return (p, p, p);
-                }
-            };
-        })
-        .unwrap();
+//     #[test]
+//     fn test_unhash_slots() {
+//         let lem = lem!(expr_in env_in cont_in {
+//             let x: Cons = hash2(expr_in, env_in);
+//             let y: Cons = hash3(expr_in, env_in, cont_in);
+//             let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
+//             let t: Terminal;
+//             let p: Nil;
+//             match_tag expr_in {
+//                 Num => {
+//                     let m: Cons = hash2(env_in, expr_in);
+//                     let n: Cons = hash3(cont_in, env_in, expr_in);
+//                     let k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+//                     let (m1, m2) = unhash2(m);
+//                     let (n1, n2, n3) = unhash3(n);
+//                     let (k1, k2, k3, k4) = unhash4(k);
+//                     return (m, n, t);
+//                 },
+//                 Char => {
+//                     return (p, p, t);
+//                 },
+//                 Cons => {
+//                     return (p, p, p);
+//                 },
+//                 Nil => {
+//                     return (p, p, p);
+//                 }
+//             };
+//         })
+//         .unwrap();
 
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((3, 3, 3)),
-            false,
-        );
-    }
+//         constrain_test_helper(
+//             &lem,
+//             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
+//             NumSlots::new((3, 3, 3)),
+//             false,
+//         );
+//     }
 
-    #[test]
-    fn test_unhash_nested_slots() {
-        let lem = lem!(expr_in env_in cont_in {
-            let x: Cons = hash2(expr_in, env_in);
-            let y: Cons = hash3(expr_in, env_in, cont_in);
-            let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
-            let t: Terminal;
-            let p: Nil;
-            match_tag expr_in {
-                Num => {
-                    let m: Cons = hash2(env_in, expr_in);
-                    let n: Cons = hash3(cont_in, env_in, expr_in);
-                    let k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
-                    let (m1, m2) = unhash2(m);
-                    let (n1, n2, n3) = unhash3(n);
-                    let (k1, k2, k3, k4) = unhash4(k);
-                    match_tag cont_in {
-                        Outermost => {
-                            let a: Cons = hash2(env_in, expr_in);
-                            let b: Cons = hash3(cont_in, env_in, expr_in);
-                            let c: Cons = hash4(expr_in, cont_in, env_in, expr_in);
-                        },
-                        Cons => {
-                            let d: Cons = hash2(env_in, expr_in);
-                            let e: Cons = hash3(cont_in, env_in, expr_in);
-                            let f: Cons = hash4(expr_in, cont_in, env_in, expr_in);
-                        }
-                    };
-                    return (m, n, t);
-                },
-                Char => {
-                    return (p, p, t);
-                },
-                Cons => {
-                    return (p, p, p);
-                },
-                Nil => {
-                    return (p, p, p);
-                }
-            };
-        })
-        .unwrap();
+//     #[test]
+//     fn test_unhash_nested_slots() {
+//         let lem = lem!(expr_in env_in cont_in {
+//             let x: Cons = hash2(expr_in, env_in);
+//             let y: Cons = hash3(expr_in, env_in, cont_in);
+//             let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
+//             let t: Terminal;
+//             let p: Nil;
+//             match_tag expr_in {
+//                 Num => {
+//                     let m: Cons = hash2(env_in, expr_in);
+//                     let n: Cons = hash3(cont_in, env_in, expr_in);
+//                     let k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+//                     let (m1, m2) = unhash2(m);
+//                     let (n1, n2, n3) = unhash3(n);
+//                     let (k1, k2, k3, k4) = unhash4(k);
+//                     match_tag cont_in {
+//                         Outermost => {
+//                             let a: Cons = hash2(env_in, expr_in);
+//                             let b: Cons = hash3(cont_in, env_in, expr_in);
+//                             let c: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+//                         },
+//                         Cons => {
+//                             let d: Cons = hash2(env_in, expr_in);
+//                             let e: Cons = hash3(cont_in, env_in, expr_in);
+//                             let f: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+//                         }
+//                     };
+//                     return (m, n, t);
+//                 },
+//                 Char => {
+//                     return (p, p, t);
+//                 },
+//                 Cons => {
+//                     return (p, p, p);
+//                 },
+//                 Nil => {
+//                     return (p, p, p);
+//                 }
+//             };
+//         })
+//         .unwrap();
 
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((4, 4, 4)),
-            false,
-        );
-    }
-}
+//         constrain_test_helper(
+//             &lem,
+//             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
+//             NumSlots::new((4, 4, 4)),
+//             false,
+//         );
+//     }
+// }

@@ -256,7 +256,7 @@ macro_rules! lem {
 
 #[cfg(test)]
 mod tests {
-    use crate::lem::{tag::Tag, MetaPtr, LEMOP};
+    use crate::lem::{tag::Tag, MetaPtr, LEM};
 
     #[inline]
     fn mptr(name: &str) -> MetaPtr {
@@ -264,13 +264,13 @@ mod tests {
     }
 
     #[inline]
-    fn match_tag(i: MetaPtr, cases: Vec<(Tag, LEMOP)>) -> LEMOP {
-        LEMOP::MatchTag(i, std::collections::HashMap::from_iter(cases))
+    fn match_tag(i: MetaPtr, cases: Vec<(Tag, LEM)>) -> LEM {
+        LEM::MatchTag(i, std::collections::HashMap::from_iter(cases))
     }
 
     #[inline]
-    fn match_sym_path(i: MetaPtr, cases: Vec<(Vec<String>, LEMOP)>, def: LEMOP) -> LEMOP {
-        LEMOP::MatchSymPath(
+    fn match_sym_path(i: MetaPtr, cases: Vec<(Vec<String>, LEM)>, def: LEM) -> LEM {
+        LEM::MatchSymPath(
             i,
             std::collections::HashMap::from_iter(cases),
             Box::new(def),
@@ -280,27 +280,27 @@ mod tests {
     #[test]
     fn test_macros() {
         let lemops = [
-            LEMOP::Null(mptr("foo"), Tag::Num),
-            LEMOP::Hash2(mptr("foo"), Tag::Char, [mptr("bar"), mptr("baz")]),
-            LEMOP::Hash3(
+            LEM::Null(mptr("foo"), Tag::Num),
+            LEM::Hash2(mptr("foo"), Tag::Char, [mptr("bar"), mptr("baz")]),
+            LEM::Hash3(
                 mptr("foo"),
                 Tag::Char,
                 [mptr("bar"), mptr("baz"), mptr("bazz")],
             ),
-            LEMOP::Hash4(
+            LEM::Hash4(
                 mptr("foo"),
                 Tag::Char,
                 [mptr("bar"), mptr("baz"), mptr("bazz"), mptr("baxx")],
             ),
-            LEMOP::Unhash2([mptr("foo"), mptr("goo")], mptr("aaa")),
-            LEMOP::Unhash3([mptr("foo"), mptr("goo"), mptr("moo")], mptr("aaa")),
-            LEMOP::Unhash4(
+            LEM::Unhash2([mptr("foo"), mptr("goo")], mptr("aaa")),
+            LEM::Unhash3([mptr("foo"), mptr("goo"), mptr("moo")], mptr("aaa")),
+            LEM::Unhash4(
                 [mptr("foo"), mptr("goo"), mptr("moo"), mptr("noo")],
                 mptr("aaa"),
             ),
-            LEMOP::Hide(mptr("bar"), mptr("baz"), mptr("bazz")),
-            LEMOP::Open(mptr("bar"), mptr("baz"), mptr("bazz")),
-            LEMOP::Return([mptr("bar"), mptr("baz"), mptr("bazz")]),
+            LEM::Hide(mptr("bar"), mptr("baz"), mptr("bazz")),
+            LEM::Open(mptr("bar"), mptr("baz"), mptr("bazz")),
+            LEM::Return([mptr("bar"), mptr("baz"), mptr("bazz")]),
         ];
         let lemops_macro = [
             lemop!(let foo: Num),
@@ -332,7 +332,7 @@ mod tests {
             return (bar, baz, bazz);
         });
 
-        assert!(LEMOP::Seq(lemops.to_vec()) == lemop_macro_seq);
+        assert!(LEM::Seq(lemops.to_vec()) == lemop_macro_seq);
 
         let foo = lemop!(
             match_tag www {
@@ -353,19 +353,19 @@ mod tests {
             foo == match_tag(
                 mptr("www"),
                 vec![
-                    (Tag::Num, LEMOP::Null(mptr("foo"), Tag::Num)),
+                    (Tag::Num, LEM::Null(mptr("foo"), Tag::Num)),
                     (
                         Tag::Str,
-                        LEMOP::Seq(vec![
-                            LEMOP::Null(mptr("foo"), Tag::Num),
-                            LEMOP::Null(mptr("goo"), Tag::Char)
+                        LEM::Seq(vec![
+                            LEM::Null(mptr("foo"), Tag::Num),
+                            LEM::Null(mptr("goo"), Tag::Char)
                         ])
                     ),
                     (
                         Tag::Char,
-                        LEMOP::Seq(vec![
-                            LEMOP::Null(mptr("foo"), Tag::Num),
-                            LEMOP::Null(mptr("goo"), Tag::Char)
+                        LEM::Seq(vec![
+                            LEM::Null(mptr("foo"), Tag::Num),
+                            LEM::Null(mptr("goo"), Tag::Char)
                         ])
                     )
                 ]
@@ -392,17 +392,17 @@ mod tests {
                 vec![
                     (
                         vec!["a".to_string(), "b".to_string()],
-                        LEMOP::Null(mptr("foo"), Tag::Num)
+                        LEM::Null(mptr("foo"), Tag::Num)
                     ),
                     (
                         vec!["c".to_string(), "d".to_string()],
-                        LEMOP::Seq(vec![
-                            LEMOP::Null(mptr("foo"), Tag::Num),
-                            LEMOP::Null(mptr("goo"), Tag::Char)
+                        LEM::Seq(vec![
+                            LEM::Null(mptr("foo"), Tag::Num),
+                            LEM::Null(mptr("goo"), Tag::Char)
                         ])
                     ),
                 ],
-                LEMOP::Null(mptr("xoo"), Tag::Str)
+                LEM::Null(mptr("xoo"), Tag::Str)
             )
         );
     }

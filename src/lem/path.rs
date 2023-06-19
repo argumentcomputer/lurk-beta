@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::field::LurkField;
 
-use super::{interpreter::Frame, store::Store, tag::Tag, MetaPtr, LEMOP};
+use super::{interpreter::Frame, store::Store, tag::Tag, MetaPtr, LEM};
 
 #[derive(Default, Clone, PartialEq, Eq, Hash)]
 pub struct Path(String);
@@ -36,7 +36,7 @@ impl Path {
     }
 }
 
-impl LEMOP {
+impl LEM {
     /// Removes conflicting names in parallel logical LEM paths. While these
     /// conflicting names shouldn't be an issue for interpretation, they are
     /// problematic when we want to generate the constraints for the LEM, since
@@ -116,34 +116,34 @@ impl LEMOP {
                 let img = insert_one(map, img)?;
                 Ok(Self::Hash4(img, *tag, preimg))
             }
-            LEMOP::Unhash2(preimg, img) => {
+            LEM::Unhash2(preimg, img) => {
                 let img = retrieve_one(map, img)?;
                 let preimg = insert_many(map, preimg)?;
                 Ok(Self::Unhash2(preimg.try_into().unwrap(), img))
             }
-            LEMOP::Unhash3(preimg, img) => {
+            LEM::Unhash3(preimg, img) => {
                 let img = retrieve_one(map, img)?;
                 let preimg = insert_many(map, preimg)?;
                 Ok(Self::Unhash3(preimg.try_into().unwrap(), img))
             }
-            LEMOP::Unhash4(preimg, img) => {
+            LEM::Unhash4(preimg, img) => {
                 let img = retrieve_one(map, img)?;
                 let preimg = insert_many(map, preimg)?;
                 Ok(Self::Unhash4(preimg.try_into().unwrap(), img))
             }
-            LEMOP::MatchTag(ptr, cases) => {
+            LEM::MatchTag(ptr, cases) => {
                 let mut new_cases = vec![];
                 for (tag, case) in cases {
                     // each case needs it's own clone of `map`
                     let new_case = case.deconflict(&path.push_tag(tag), &mut map.clone())?;
                     new_cases.push((*tag, new_case));
                 }
-                Ok(LEMOP::MatchTag(
+                Ok(LEM::MatchTag(
                     retrieve_one(map, ptr)?,
                     HashMap::from_iter(new_cases),
                 ))
             }
-            LEMOP::MatchSymPath(ptr, cases, def) => {
+            LEM::MatchSymPath(ptr, cases, def) => {
                 let mut new_cases = vec![];
                 for (sym_path, case) in cases {
                     // each case needs it's own clone of `map`
@@ -151,20 +151,20 @@ impl LEMOP {
                         case.deconflict(&path.push_sym_path(sym_path), &mut map.clone())?;
                     new_cases.push((sym_path.clone(), new_case));
                 }
-                Ok(LEMOP::MatchSymPath(
+                Ok(LEM::MatchSymPath(
                     retrieve_one(map, ptr)?,
                     HashMap::from_iter(new_cases),
                     Box::new(def.deconflict(&path.push_sym_path(&[]), &mut map.clone())?),
                 ))
             }
-            LEMOP::Seq(ops) => {
+            LEM::Seq(ops) => {
                 let mut new_ops = vec![];
                 for op in ops {
                     new_ops.push(op.deconflict(path, map)?);
                 }
-                Ok(LEMOP::Seq(new_ops))
+                Ok(LEM::Seq(new_ops))
             }
-            LEMOP::Return(o) => Ok(LEMOP::Return(retrieve_many(map, o)?.try_into().unwrap())),
+            LEM::Return(o) => Ok(LEM::Return(retrieve_many(map, o)?.try_into().unwrap())),
             _ => todo!(),
         }
     }
@@ -182,9 +182,9 @@ impl LEMOP {
             };
         }
         match self {
-            LEMOP::MatchTag(_, cases) => sum_num_paths!(cases.values()),
-            LEMOP::MatchSymPath(_, cases, _) => sum_num_paths!(cases.values()),
-            LEMOP::Seq(ops) => mul_num_paths!(ops.iter()),
+            LEM::MatchTag(_, cases) => sum_num_paths!(cases.values()),
+            LEM::MatchSymPath(_, cases, _) => sum_num_paths!(cases.values()),
+            LEM::Seq(ops) => mul_num_paths!(ops.iter()),
             // It's safer to be exaustive here and avoid missing new LEMOPs
             Self::Null(..)
             | Self::Hash2(..)

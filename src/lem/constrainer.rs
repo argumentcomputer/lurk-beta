@@ -16,7 +16,7 @@ use crate::circuit::gadgets::{
 
 use crate::field::{FWrap, LurkField};
 
-use super::{interpreter::Frame, path::Path, pointers::ZPtr, store::Store, MetaPtr, LEM, LEMOP};
+use super::{interpreter::Frame, path::Path, pointers::ZPtr, store::Store, MetaPtr, LEMPLUS, LEM};
 
 /// Structure used to hold the number of slots needed for a `LEMOP`
 #[derive(Debug, Default, PartialEq)]
@@ -69,17 +69,17 @@ enum Preimage {
     Hash4([MetaPtr; 4]),
 }
 
-impl LEMOP {
+impl LEM {
     #[allow(dead_code)]
     fn push_preimage_set(&self, set: &mut HashSet<Preimage>) {
         match self {
-            LEMOP::Hash2(.., preimg) | LEMOP::Unhash2(preimg, _) => {
+            LEM::Hash2(.., preimg) | LEM::Unhash2(preimg, _) => {
                 set.insert(Preimage::Hash2(preimg.clone()));
             }
-            LEMOP::Hash3(.., preimg) | LEMOP::Unhash3(preimg, _) => {
+            LEM::Hash3(.., preimg) | LEM::Unhash3(preimg, _) => {
                 set.insert(Preimage::Hash3(preimg.clone()));
             }
-            LEMOP::Hash4(.., preimg) | LEMOP::Unhash4(preimg, _) => {
+            LEM::Hash4(.., preimg) | LEM::Unhash4(preimg, _) => {
                 set.insert(Preimage::Hash4(preimg.clone()));
             }
             _ => (),
@@ -91,18 +91,18 @@ impl LEMOP {
     /// This is the first LEM traversal.
     pub fn num_hash_slots(&self) -> NumSlots {
         match self {
-            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => NumSlots::new((1, 0, 0)),
-            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => NumSlots::new((0, 1, 0)),
-            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => NumSlots::new((0, 0, 1)),
-            LEMOP::MatchTag(_, cases) => cases
+            LEM::Hash2(..) | LEM::Unhash2(..) => NumSlots::new((1, 0, 0)),
+            LEM::Hash3(..) | LEM::Unhash3(..) => NumSlots::new((0, 1, 0)),
+            LEM::Hash4(..) | LEM::Unhash4(..) => NumSlots::new((0, 0, 1)),
+            LEM::MatchTag(_, cases) => cases
                 .values()
                 .fold(NumSlots::default(), |acc, op| acc.max(&op.num_hash_slots())),
-            LEMOP::MatchSymPath(_, cases, def) => {
+            LEM::MatchSymPath(_, cases, def) => {
                 cases.values().fold(def.num_hash_slots(), |acc, op| {
                     acc.max(&op.num_hash_slots())
                 })
             }
-            LEMOP::Seq(ops) => ops
+            LEM::Seq(ops) => ops
                 .iter()
                 .fold(NumSlots::default(), |acc, op| acc.add(&op.num_hash_slots())),
             _ => NumSlots::default(),
@@ -185,7 +185,7 @@ impl MultiPathTicker {
     }
 }
 
-impl LEM {
+impl LEMPLUS {
     fn allocate_ptr<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         z_ptr: &ZPtr<F>,
@@ -588,7 +588,7 @@ impl LEM {
             }
 
             match op {
-                LEMOP::Hash2(img, tag, _) => {
+                LEM::Hash2(img, tag, _) => {
                     let allocated_img = hash_helper!(img, tag);
                     implies_equal(
                         &mut cs
@@ -598,7 +598,7 @@ impl LEM {
                         &hash_slots2[multi_path_ticker.next_hash2(path)].1,
                     )?;
                 }
-                LEMOP::Hash3(img, tag, _) => {
+                LEM::Hash3(img, tag, _) => {
                     let allocated_img = hash_helper!(img, tag);
                     implies_equal(
                         &mut cs
@@ -608,7 +608,7 @@ impl LEM {
                         &hash_slots3[multi_path_ticker.next_hash3(path)].1,
                     )?;
                 }
-                LEMOP::Hash4(img, tag, _) => {
+                LEM::Hash4(img, tag, _) => {
                     let allocated_img = hash_helper!(img, tag);
                     implies_equal(
                         &mut cs
@@ -618,7 +618,7 @@ impl LEM {
                         &hash_slots4[multi_path_ticker.next_hash4(path)].1,
                     )?;
                 }
-                LEMOP::Unhash2(preimg, _) => {
+                LEM::Unhash2(preimg, _) => {
                     let allocated_preimg = unhash_helper!(preimg);
                     let preimg_nums = &hash_slots2[multi_path_ticker.next_hash2(path)].0;
                     implies_equal(
@@ -654,7 +654,7 @@ impl LEM {
                         &preimg_nums[3],
                     )?;
                 }
-                LEMOP::Unhash3(preimg, _) => {
+                LEM::Unhash3(preimg, _) => {
                     let allocated_preimg = unhash_helper!(preimg);
                     let preimg_nums = &hash_slots3[multi_path_ticker.next_hash3(path)].0;
                     implies_equal(
@@ -706,7 +706,7 @@ impl LEM {
                         &preimg_nums[5],
                     )?;
                 }
-                LEMOP::Unhash4(preimg, _) => {
+                LEM::Unhash4(preimg, _) => {
                     let allocated_preimg = unhash_helper!(preimg);
                     let preimg_nums = &hash_slots4[multi_path_ticker.next_hash4(path)].0;
                     implies_equal(
@@ -774,7 +774,7 @@ impl LEM {
                         &preimg_nums[7],
                     )?;
                 }
-                LEMOP::Null(tgt, tag) => {
+                LEM::Null(tgt, tag) => {
                     let allocated_tgt = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_frame(&concrete_path, frame, tgt, store)?,
@@ -803,7 +803,7 @@ impl LEM {
                         format!("couldn't enforce implies equal zero for {tgt}'s hash")
                     })?;
                 }
-                LEMOP::MatchTag(match_ptr, cases) => {
+                LEM::MatchTag(match_ptr, cases) => {
                     let Some(allocated_match_ptr) = allocated_ptrs.get(match_ptr.name()) else {
                         bail!("{match_ptr} not allocated");
                     };
@@ -839,14 +839,14 @@ impl LEM {
                     )
                     .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
                 }
-                LEMOP::Seq(ops) => {
+                LEM::Seq(ops) => {
                     stack.extend(
                         ops.iter()
                             .rev()
                             .map(|op| (op, concrete_path.clone(), path.clone())),
                     );
                 }
-                LEMOP::Return(outputs) => {
+                LEM::Return(outputs) => {
                     for (i, output) in outputs.iter().enumerate() {
                         let Some(allocated_ptr) = allocated_ptrs.get(output.name()) else {
                             bail!("{output} not allocated")

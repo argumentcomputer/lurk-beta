@@ -2,7 +2,7 @@ use crate::field::{FWrap, LurkField};
 use anyhow::{bail, Result};
 use std::collections::HashMap;
 
-use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM, LEMOP};
+use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEMPLUS, LEM};
 
 /// Contains preimage and image.
 /// REMARK: this structure will be populated in the second LEM traversal, which
@@ -43,7 +43,7 @@ fn insert_into_ptrs<F: LurkField>(
     Ok(())
 }
 
-impl LEM {
+impl LEMPLUS {
     /// Interprets a LEM using a stack of operations to be popped and executed.
     /// It modifies a `Store` and assigns `Ptr`s to `MetaPtr`s as it goes.
     fn run<F: LurkField>(&self, input: [Ptr<F>; 3], store: &mut Store<F>) -> Result<Frame<F>> {
@@ -56,18 +56,18 @@ impl LEM {
         let mut stack = vec![&self.lem_op];
         while let Some(op) = stack.pop() {
             match op {
-                LEMOP::Null(tgt, tag) => {
+                LEM::Null(tgt, tag) => {
                     let tgt_ptr = Ptr::null(*tag);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
                 }
-                LEMOP::Hash2(tgt, tag, src) => {
+                LEM::Hash2(tgt, tag, src) => {
                     let src_ptr1 = src[0].get_ptr(&ptrs)?;
                     let src_ptr2 = src[1].get_ptr(&ptrs)?;
                     let tgt_ptr = store.intern_2_ptrs(*tag, *src_ptr1, *src_ptr2);
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
                     preimages.hash2.push(src.clone());
                 }
-                LEMOP::Hash3(tgt, tag, src) => {
+                LEM::Hash3(tgt, tag, src) => {
                     let src_ptr1 = src[0].get_ptr(&ptrs)?;
                     let src_ptr2 = src[1].get_ptr(&ptrs)?;
                     let src_ptr3 = src[2].get_ptr(&ptrs)?;
@@ -75,7 +75,7 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
                     preimages.hash3.push(src.clone());
                 }
-                LEMOP::Hash4(tgt, tag, src) => {
+                LEM::Hash4(tgt, tag, src) => {
                     let src_ptr1 = src[0].get_ptr(&ptrs)?;
                     let src_ptr2 = src[1].get_ptr(&ptrs)?;
                     let src_ptr3 = src[2].get_ptr(&ptrs)?;
@@ -85,7 +85,7 @@ impl LEM {
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
                     preimages.hash4.push(src.clone());
                 }
-                LEMOP::Unhash2(tgts, src) => {
+                LEM::Unhash2(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
                     let Some(idx) = src_ptr.get_index2() else {
                         bail!("{src} isn't a Tree2 pointer");
@@ -98,7 +98,7 @@ impl LEM {
                     // STEP 2: Update hash_witness with preimage and image
                     preimages.hash2.push(tgts.clone());
                 }
-                LEMOP::Unhash3(tgts, src) => {
+                LEM::Unhash3(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
                     let Some(idx) = src_ptr.get_index3() else {
                         bail!("{src} isn't a Tree3 pointer");
@@ -112,7 +112,7 @@ impl LEM {
                     // STEP 2: Update hash_witness with preimage and image
                     preimages.hash3.push(tgts.clone());
                 }
-                LEMOP::Unhash4(tgts, src) => {
+                LEM::Unhash4(tgts, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
                     let Some(idx) = src_ptr.get_index4() else {
                         bail!("{src} isn't a Tree4 pointer");
@@ -127,7 +127,7 @@ impl LEM {
                     // STEP 2: Update hash_witness with preimage and image
                     preimages.hash4.push(tgts.clone());
                 }
-                LEMOP::Hide(tgt, sec, src) => {
+                LEM::Hide(tgt, sec, src) => {
                     let src_ptr = src.get_ptr(&ptrs)?;
                     let Ptr::Leaf(Tag::Num, secret) = sec.get_ptr(&ptrs)? else {
                         bail!("{sec} is not a numeric pointer")
@@ -141,7 +141,7 @@ impl LEM {
                     store.comms.insert(FWrap::<F>(hash), (*secret, *src_ptr));
                     insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
                 }
-                LEMOP::Open(tgt_secret, tgt_ptr, comm_or_num) => {
+                LEM::Open(tgt_secret, tgt_ptr, comm_or_num) => {
                     match comm_or_num.get_ptr(&ptrs)? {
                         Ptr::Leaf(Tag::Num, hash) | Ptr::Leaf(Tag::Comm, hash) => {
                             let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
@@ -159,7 +159,7 @@ impl LEM {
                         }
                     }
                 }
-                LEMOP::MatchTag(ptr, cases) => {
+                LEM::MatchTag(ptr, cases) => {
                     let ptr = ptr.get_ptr(&ptrs)?;
                     let ptr_tag = ptr.tag();
                     match cases.get(ptr_tag) {
@@ -167,7 +167,7 @@ impl LEM {
                         None => bail!("No match for tag {}", ptr_tag),
                     }
                 }
-                LEMOP::MatchSymPath(match_ptr, cases, def) => {
+                LEM::MatchSymPath(match_ptr, cases, def) => {
                     let ptr = match_ptr.get_ptr(&ptrs)?;
                     let Some(sym_path) = store.fetch_sym_path(ptr) else {
                         bail!("Symbol path not found for {match_ptr}");
@@ -177,8 +177,8 @@ impl LEM {
                         None => stack.push(def),
                     }
                 }
-                LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
-                LEMOP::Return(o) => {
+                LEM::Seq(ops) => stack.extend(ops.iter().rev()),
+                LEM::Return(o) => {
                     let output = [
                         *o[0].get_ptr(&ptrs)?,
                         *o[1].get_ptr(&ptrs)?,
