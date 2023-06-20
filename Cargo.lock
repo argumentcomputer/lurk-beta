@@ -1652,7 +1652,7 @@ dependencies = [
 [[package]]
 name = "neptune"
 version = "10.0.0"
-source = "git+https://github.com/lurk-lab/neptune?branch=dev#79d1b84c2d8ef8e593ad912bcb3b21408fe697c9"
+source = "git+https://github.com/lurk-lab/neptune?branch=dev#cc094453b1752bf0edb8837facf8114c87061303"
 dependencies = [
  "abomonation",
  "abomonation_derive",
@@ -1702,7 +1702,7 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 [[package]]
 name = "nova-snark"
 version = "0.21.0"
-source = "git+https://github.com/lurk-lab/nova?branch=dev#2c0f1afa821550c9ecbd2b4ac9cfa11ec1ce8c81"
+source = "git+https://github.com/lurk-lab/nova?branch=dev#cb378bd3dcde76730bf9dc7214c91f48a691b4ab"
 dependencies = [
  "abomonation",
  "abomonation_derive",
