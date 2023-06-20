@@ -54,7 +54,10 @@ impl<F: LurkField> ZStore<F> {
     }
 
     pub fn new_with_expr(store: &Store<F>, expr: &Ptr<F>) -> (Self, Option<ZExprPtr<F>>) {
-        let (mut new, z_ptr) = store.to_z_store_with_ptr(expr).unwrap();
+        let (mut new, z_ptr) = match store.to_z_store_with_ptr(expr) {
+            Ok((new, z_ptr)) => (new, z_ptr),
+            _ => return (ZStore::new(), None),
+        };
         let z_expr = ZExpr::from_ptr(store, expr);
         new.expr_map.insert(z_ptr, z_expr);
         (new, Some(z_ptr))
@@ -99,11 +102,7 @@ impl<F: LurkField> ZStore<F> {
     }
 
     pub fn get_expr(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
-        if let Some(expr) = ZStore::immediate_z_expr(ptr) {
-            Some(expr)
-        } else {
-            self.expr_map.get(ptr).cloned()?
-        }
+        ZStore::immediate_z_expr(ptr).or_else(|| self.expr_map.get(ptr).cloned()?)
     }
 
     /// if the entry is not present, or the pointer is immediate, return None,
