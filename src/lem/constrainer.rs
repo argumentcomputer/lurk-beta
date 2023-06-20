@@ -52,6 +52,7 @@ use bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
     ConstraintSystem,
 };
+use indexmap::IndexMap;
 
 use crate::circuit::gadgets::{
     constraints::{
@@ -128,12 +129,12 @@ impl SlotsTicker {
     }
 }
 
-pub(crate) type SlotsIndices = HashMap<LEMOP, usize>;
+pub(crate) type SlotsIndices = IndexMap<LEMOP, usize>;
 
 impl LEMOP {
     /// STEP 1: compute the slot mapping on a first (and unique) traversal
     pub fn slots_indices(&self) -> SlotsIndices {
-        let mut slots_indices = HashMap::default();
+        let mut slots_indices = SlotsIndices::default();
         let mut slots_ticker = SlotsTicker::default();
         let mut preimgs2_map: HashMap<&[MetaPtr; 2], usize> = HashMap::default();
         let mut preimgs3_map: HashMap<&[MetaPtr; 3], usize> = HashMap::default();
