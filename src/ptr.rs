@@ -4,26 +4,37 @@ use std::marker::PhantomData;
 use crate::field::LurkField;
 use crate::tag::{ContTag, ExprTag};
 
+/// The internal untagged raw Store pointer
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum RawPtr {
+    /// Null is used to represent ZPtrs with hash digests of F::zero()
+    /// currently only ZExpr::StrNil and ZExpr::SymNil
     Null,
+    /// Opaque represents pointers to expressions whose hashes are known, but
+    /// whose preimages are unknown
     Opaque(usize),
+    /// Index represents a pointer into one of several possible `IndexSet`s in `Store`.
+    /// The specific IndexSet is determined by the `Ptr` `tag` field.
     Index(usize),
 }
 
 impl RawPtr {
+    /// Construct a new RawPtr, with default `Index` (as the most common)`
     pub fn new(p: usize) -> Self {
         Self::Index(p)
     }
 
+    /// check if a RawPtr is Opaque
     pub const fn is_opaque(&self) -> bool {
         matches!(self, Self::Opaque(_))
     }
 
+    /// check if a RawPtr is Null
     pub fn is_null(&self) -> bool {
         matches!(self, Self::Null)
     }
 
+    /// get the index of an Opaque RawPtr
     pub fn opaque_idx(&self) -> Option<usize> {
         match self {
             Self::Opaque(x) => Some(*x),
@@ -31,6 +42,7 @@ impl RawPtr {
         }
     }
 
+    /// get the index of a RawPtr
     pub fn idx(&self) -> Option<usize> {
         match self {
             Self::Index(x) => Some(*x),
@@ -39,6 +51,7 @@ impl RawPtr {
     }
 }
 
+/// A `Store` pointer
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Ptr<F: LurkField> {
     /// An expression tag
@@ -63,26 +76,34 @@ impl<F: LurkField> Ptr<F> {
     // TODO: Make these methods and the similar ones defined on expression consistent, probably including a shared trait.
 
     // NOTE: Although this could be a type predicate now, when NIL becomes a symbol, it won't be possible.
+    /// check if a Ptr is `Nil` pointer
     pub const fn is_nil(&self) -> bool {
         matches!(self.tag, ExprTag::Nil)
         // FIXME: check value also, probably
     }
+
+    /// check if a Ptr is a `Cons` pointer
     pub const fn is_cons(&self) -> bool {
         matches!(self.tag, ExprTag::Cons)
     }
 
+    // TODO: Is this still needed?
+    /// check if a Ptr is atomic pointer
     pub const fn is_atom(&self) -> bool {
         !self.is_cons()
     }
 
+    // check if a Ptr is a list pointer
     pub const fn is_list(&self) -> bool {
         matches!(self.tag, ExprTag::Nil | ExprTag::Cons)
     }
 
+    /// check if a Ptr is a list
     pub const fn is_opaque(&self) -> bool {
         self.raw.is_opaque()
     }
 
+    // TODO: Is this still needed?
     pub const fn as_cons(self) -> Option<Self> {
         if self.is_cons() {
             Some(self)
@@ -91,6 +112,7 @@ impl<F: LurkField> Ptr<F> {
         }
     }
 
+    // TODO: Is this still needed?
     pub const fn as_list(self) -> Option<Self> {
         if self.is_list() {
             Some(self)
@@ -99,6 +121,7 @@ impl<F: LurkField> Ptr<F> {
         }
     }
 
+    /// Construct a Ptr from an index
     pub fn index(tag: ExprTag, idx: usize) -> Self {
         Ptr {
             tag,
@@ -107,6 +130,7 @@ impl<F: LurkField> Ptr<F> {
         }
     }
 
+    /// Construct a Ptr from an opaque index
     pub fn opaque(tag: ExprTag, idx: usize) -> Self {
         Ptr {
             tag,
@@ -115,6 +139,7 @@ impl<F: LurkField> Ptr<F> {
         }
     }
 
+    /// Construct a null Ptr
     pub fn null(tag: ExprTag) -> Self {
         Ptr {
             tag,
@@ -134,6 +159,8 @@ impl<F: LurkField> From<char> for Ptr<F> {
     }
 }
 
+/// A pointer to a continuation. Logically this is the same a Ptr and should
+/// probably be combined with it in a future refactor
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct ContPtr<F: LurkField> {
     pub tag: ContTag,

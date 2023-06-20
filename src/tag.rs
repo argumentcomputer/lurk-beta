@@ -19,6 +19,7 @@ pub trait Tag: Into<u16> + TryFrom<u16> + Copy + Sized + Eq + fmt::Debug {
     }
 }
 
+/// A tag for expressions. Note that ExprTag, ContTag, Op1, Op2 all live in the same u16 namespace
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize_repr, Deserialize_repr)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
@@ -129,6 +130,7 @@ impl Tag for ExprTag {
     }
 }
 
+/// A tag for continuations. Note that ExprTag, ContTag, Op1, Op2 all live in the same u16 namespace
 #[derive(Serialize_repr, Deserialize_repr, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]

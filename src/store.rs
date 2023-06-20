@@ -32,11 +32,13 @@ pub struct Store<F: LurkField> {
 
     pub fun_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
 
+    /// Holds a SymCons, which is a string head and a symbol tail
     pub sym_store: IndexSet<(Ptr<F>, Ptr<F>)>,
 
     // Other sparse storage format without hashing is likely more efficient
     pub num_store: IndexSet<Num<F>>,
 
+    /// Holds a StrCons, which is a char head and a string tail
     pub str_store: IndexSet<(Ptr<F>, Ptr<F>)>,
     pub thunk_store: IndexSet<Thunk<F>>,
     pub call0_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
@@ -52,7 +54,9 @@ pub struct Store<F: LurkField> {
     pub letrec_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
     pub emit_store: IndexSet<ContPtr<F>>,
 
+    /// Holds opaque pointers
     pub opaque_ptrs: IndexSet<ZExprPtr<F>>,
+    /// Holds opaque continuation pointers
     pub opaque_cont_ptrs: IndexSet<ZContPtr<F>>,
 
     /// Holds a mapping of `ZExprPtr` -> `Ptr` for reverse lookups
