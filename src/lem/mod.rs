@@ -244,6 +244,7 @@ mod tests {
         expected_num_slots: NumSlots,
         expected_num_constraints: usize,
         assert_all_paths_taken: bool,
+        expected_num_constraints: Option<usize>,
     ) {
         let slots_info = lem.lem_op.slots_info();
 
@@ -264,6 +265,9 @@ mod tests {
                     .unwrap();
             }
             assert!(cs.is_satisfied());
+            if let Some(expected) = expected_num_constraints {
+                assert_eq!(expected, cs.num_constraints());
+            }
 
             if assert_all_paths_taken {
                 all_frames.extend(frames);
@@ -324,6 +328,7 @@ mod tests {
             NumSlots::default(),
             42,
             false,
+            None,
         );
     }
 
@@ -354,6 +359,7 @@ mod tests {
             NumSlots::default(),
             23,
             false,
+            None,
         );
     }
 
@@ -371,6 +377,7 @@ mod tests {
             NumSlots::new((0, 0, 0)),
             8,
             true,
+            None,
         );
     }
 
@@ -396,6 +403,7 @@ mod tests {
             NumSlots::new((0, 0, 0)),
             23,
             true,
+            None,
         );
     }
 
@@ -433,6 +441,7 @@ mod tests {
             NumSlots::new((2, 2, 2)),
             2117,
             false,
+            None,
         );
     }
 
@@ -473,6 +482,7 @@ mod tests {
             NumSlots::new((2, 2, 2)),
             2138,
             false,
+            None,
         );
     }
 
@@ -525,6 +535,65 @@ mod tests {
             NumSlots::new((2, 2, 2)),
             2195,
             false,
+            // Expected hash constraints: 2*(295+381+398) = 2148, then it was indeed optimized
+            Some(2195),
         );
     }
+
+    #[test]
+    fn test_hash2_num_constraints() {
+         let lem = lem!(expr_in env_in cont_in {
+            let t: Terminal;
+            let m: Cons = hash2(env_in, expr_in);
+            let n: Cons = hash2(m, expr_in);
+            return (n, env_in, t);
+         })
+        .unwrap();
+
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
+            NumSlots::new((2, 0, 0)),
+            false,
+            Some(598), // |hash2| = 295
+        );
+    }
+
+    #[test]
+    fn test_hash3_num_constraints() {
+         let lem = lem!(expr_in env_in cont_in {
+            let t: Terminal;
+            let m: Cons = hash3(env_in, expr_in, cont_in);
+            let n: Cons = hash3(m, expr_in, cont_in);
+            return (n, env_in, t);
+         })
+        .unwrap();
+
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
+            NumSlots::new((0, 2, 0)),
+            false,
+            Some(698), // |hash3| 345
+        );
+    }
+
+    #[test]
+    fn test_hash4_num_constraints() {
+         let lem = lem!(expr_in env_in cont_in {
+            let t: Terminal;
+            let m: Cons = hash4(env_in, expr_in, cont_in, cont_in);
+            return (m, env_in, t);
+         })
+        .unwrap();
+
+        constrain_test_helper(
+            &lem,
+            &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
+            NumSlots::new((0, 0, 1)),
+            false,
+            Some(804), // |hash3| 345
+        );
+    }
+
 }
