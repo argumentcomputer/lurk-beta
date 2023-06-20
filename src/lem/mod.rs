@@ -1,6 +1,6 @@
 // TODO
 // mod constrainer;
-// mod eval;
+mod eval;
 mod interpreter;
 mod macros;
 mod path;

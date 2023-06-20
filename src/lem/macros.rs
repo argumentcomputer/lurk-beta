@@ -253,10 +253,10 @@ macro_rules! lem {
 
 #[macro_export]
 macro_rules! lemplus {
-    ($in1:ident $in2:ident $in3:ident $lemop:tt) => {
-        $crate::lem::LEM::new(
-            [stringify!($in1), stringify!($in2), stringify!($in3)],
-            &$crate::lemop!($lemop),
+    ($in1:ident $in2:ident $in3:ident $lem:tt) => {
+        $crate::lem::LEMPLUS::new(
+            [stringify!($in1).into(), stringify!($in2).into(), stringify!($in3).into()],
+            &$crate::lem!($lem),
         )
     };
 }
