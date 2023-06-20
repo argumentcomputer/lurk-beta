@@ -1,48 +1,43 @@
 //! # Constraint system for LEM
 //!
-//! Here we describe how we generate bellperson constraints for LEM,
-//! such that it can be used with Nova folding to implement the Lurk
-//! evaluation.
+//! Here we describe how we generate bellperson constraints for LEM, such that
+//! it can be used with Nova folding to implement the Lurk evaluation.
 //!
 //! ## Pattern matching and the implication system:
 //!
-//! LEM implements branching using, for example, `MatchTag`and
-//! `MatchSymbol`. By nesting `MatchTag`s and `MatchSymbol`s we create
-//! a set of paths that interpretation can follow. We call them
-//! **virtual** and **contrete** paths. In particular, the followed path
-//! is the concrete one. We use a Boolean variable to indicate whether a
-//! path is followed or not. This allows us to construct an **implication
-//! system**, which is responsible for ensuring that allocated
-//! variable in the concrete path are equal to their expected
-//! values but such equalities on the virtul paths are irrelevant.
+//! LEM implements branching using, for example, `MatchTag` and `MatchSymbol`.
+//! By nesting `MatchTag`s and `MatchSymbol`s we create a set of paths that
+//! interpretation can follow. We call them **virtual** and **contrete** paths.
+//! In particular, the followed path is the concrete one. We use a Boolean
+//! variable to indicate whether a path is followed or not. This allows us to
+//! construct an **implication system**, which is responsible for ensuring that
+//! allocated variable in the concrete path are equal to their expected values
+//! but such equalities on the virtul paths are irrelevant.
 //!
 //! ## Hash slot system:
 //!
-//! Poseidon hash is a relatively expensive operation in the
-//! circuit, therefore we want to avoid wasting constraints with
-//! hash operations as much as possible. In order to achieve this
-//! goal we provide a sufficient number of hash slots, such that we
-//! can accomodate all hashes in the worst case, i.e. when the
-//! concrete path requires the maximum number of hashes. This
-//! optimization avoids constraining all hashes in all possible
-//! virtual paths.
+//! Poseidon hash is a relatively expensive operation in the circuit, therefore
+//! we want to avoid wasting constraints with hash operations as much as possible.
+//! In order to achieve this goal we provide a sufficient number of hash slots,
+//! such that we can accomodate all hashes in the worst case, i.e. when the
+//! concrete path requires the maximum number of hashes. This optimization avoids
+//! constraining all hashes in all possible virtual paths.
 //!
 //! Shortly, we construct the hash slot system using the next steps:
 //!
-//! * STEP 1: Static analysis, when we traverse LEM for the first
-//! time and allocate slots for hashes in all virtual paths.
+//! * STEP 1: Static analysis, when we traverse LEM for the first time and allocate
+//! slots for hashes in all virtual paths.
 //!
-//! * STEP 2: During interpretation (second traversal) we gather
-//! information related to each hash operation, namely we need to
-//! collect all possible preimages that can possibly occupy each slot.
+//! * STEP 2: During interpretation (second traversal) we gather information
+//! related to each hash operation, namely we need to collect all possible
+//! preimages that can possibly occupy each slot.
 //!
 //! * STEP 3: During construction of constraints, we do the following:
 //!
 //! 1. Preallocate images and preimages for each slot;
 //! 2. Constrain Poseidon hash for each slot;
-//! 3. While traversing LEM for the third time, we add implications to
-//! enforce concrete path variables are indeed glued to their respective
-//! slots.
+//! 3. While traversing LEM for the third time, we add implications to enforce
+//! concrete path variables are indeed glued to their respective slots.
 
 use std::collections::{HashMap, HashSet};
 
@@ -78,7 +73,7 @@ struct PathTicker(HashMap<Path, usize>);
 impl PathTicker {
     /// Increments the counter of a path. If the path wasn't tracked, returns
     /// `0` and starts tracking it
-    pub(crate) fn next(&mut self, path: Path) -> usize {
+    pub(crate) fn tick(&mut self, path: Path) -> usize {
         let next = self.0.get(&path).unwrap_or(&0).to_owned();
         self.0.insert(path, next + 1);
         next
@@ -97,28 +92,29 @@ impl PathTicker {
     }
 }
 
-/// Keeps track of slots indices for each possible LEM path
+/// Keeps track of previously used slots indices for each possible LEM path,
+/// being capable of informing the next slot index to be used
 #[derive(Default)]
-struct SlotsTicker {
+struct SlotsCounter {
     hash2: PathTicker,
     hash3: PathTicker,
     hash4: PathTicker,
 }
 
-impl SlotsTicker {
+impl SlotsCounter {
     #[inline]
     pub(crate) fn next_hash2(&mut self, path: Path) -> usize {
-        self.hash2.next(path)
+        self.hash2.tick(path)
     }
 
     #[inline]
     pub(crate) fn next_hash3(&mut self, path: Path) -> usize {
-        self.hash3.next(path)
+        self.hash3.tick(path)
     }
 
     #[inline]
     pub(crate) fn next_hash4(&mut self, path: Path) -> usize {
-        self.hash4.next(path)
+        self.hash4.tick(path)
     }
 
     pub(crate) fn cont(&mut self, new: Path, from: &Path) {
@@ -128,30 +124,58 @@ impl SlotsTicker {
     }
 }
 
+/// Maps `LEMOP`s that need slots to their slots indices. This map is not
+/// expected to be injective, as two or more `LEMOP`s can be mapped to the same
+/// slot index.
 pub(crate) type SlotsIndices = IndexMap<LEMOP, usize>;
 
 impl LEMOP {
     /// STEP 1: compute the slot mapping on a first (and unique) traversal
+    ///
+    /// While traversing parallel paths, we need to reuse compatible slots. For
+    /// example, on a `MatchTag` with two arms, such that each arm is a `Hash2`,
+    /// we want those hashes to occupy the same slot. We do this by using a
+    /// `SlotsCounter`, which can return the next index for a slot category
+    /// (`Hash2`, `Hash3` etc).
+    ///
+    /// Further, when we:
+    /// * Construct the same pointer twice
+    /// * Destruct the same pointer twice
+    /// * Construct a pointer that was previously destructed
+    /// * Destruct a pointer that was previously constructed
+    ///
+    /// We want to reuse the same slot as before. To accomplish this, we use
+    /// hashmaps that can recover the indices for slots that were previously
+    /// allocated, if needed.
     pub fn slots_indices(&self) -> SlotsIndices {
         let mut slots_indices = SlotsIndices::default();
-        let mut slots_ticker = SlotsTicker::default();
+        let mut slots_counter = SlotsCounter::default();
+
+        // these hashmaps keep track of slots that were allocated for preimages
         let mut preimgs2_map: HashMap<&[MetaPtr; 2], usize> = HashMap::default();
         let mut preimgs3_map: HashMap<&[MetaPtr; 3], usize> = HashMap::default();
         let mut preimgs4_map: HashMap<&[MetaPtr; 4], usize> = HashMap::default();
+
+        // these hashmaps keep track of slots that were allocated for images
         let mut imgs2_map: HashMap<&MetaPtr, usize> = HashMap::default();
         let mut imgs3_map: HashMap<&MetaPtr, usize> = HashMap::default();
         let mut imgs4_map: HashMap<&MetaPtr, usize> = HashMap::default();
 
         let mut stack = vec![(self, Path::default())];
         while let Some((op, path)) = stack.pop() {
+            /// Designates a slot index for a pair of preimage/image. If a slot
+            /// has already been allocated for one of them, reuses it. Otherwise,
+            /// allocates a new one.
             macro_rules! populate_slots_indices {
-                ( $preimg: expr, $img: expr, $preimgs_map: expr, $imgs_map: expr, $ticker_fn: expr ) => {
+                ( $preimg: expr, $img: expr, $preimgs_map: expr, $imgs_map: expr, $counter_fn: expr ) => {
                     match ($preimgs_map.get($preimg), $imgs_map.get($img)) {
                         (Some(slot_idx), _) | (_, Some(slot_idx)) => {
+                            // reusing a slot index
                             slots_indices.insert(op.clone(), *slot_idx);
                         }
                         _ => {
-                            let slot_idx = $ticker_fn(path);
+                            // allocating a new slot index
+                            let slot_idx = $counter_fn(path);
                             slots_indices.insert(op.clone(), slot_idx);
                             $preimgs_map.insert($preimg, slot_idx);
                             $imgs_map.insert($img, slot_idx);
@@ -160,26 +184,28 @@ impl LEMOP {
                 };
             }
 
+            /// Enqueues a `new_path` to be explored, inheriting the counters
+            /// from `path`
             macro_rules! cont_and_push {
                 ( $new_path: expr, $op_to_stack: expr ) => {
-                    slots_ticker.cont($new_path.clone(), &path);
+                    slots_counter.cont($new_path.clone(), &path);
                     stack.push(($op_to_stack, $new_path))
                 };
             }
             match op {
                 LEMOP::Hash2(img, _, preimg) | LEMOP::Unhash2(preimg, img) => {
                     populate_slots_indices!(preimg, img, preimgs2_map, imgs2_map, |path| {
-                        slots_ticker.next_hash2(path)
+                        slots_counter.next_hash2(path)
                     });
                 }
                 LEMOP::Hash3(img, _, preimg) | LEMOP::Unhash3(preimg, img) => {
                     populate_slots_indices!(preimg, img, preimgs3_map, imgs3_map, |path| {
-                        slots_ticker.next_hash3(path)
+                        slots_counter.next_hash3(path)
                     });
                 }
                 LEMOP::Hash4(img, _, preimg) | LEMOP::Unhash4(preimg, img) => {
                     populate_slots_indices!(preimg, img, preimgs4_map, imgs4_map, |path| {
-                        slots_ticker.next_hash4(path)
+                        slots_counter.next_hash4(path)
                     });
                 }
                 LEMOP::Seq(ops) => {
@@ -374,6 +400,8 @@ impl LEM {
         self.allocate_input(cs, store, frame, &mut allocated_ptrs)?;
         let preallocated_outputs = Self::allocate_output(cs, store, frame, &allocated_ptrs)?;
 
+        // We need to populate this hashmap with preimages and images of LEMOPs
+        // that require slots, such as `Hash2`, `Unhash2` etc.
         let mut preallocations: HashMap<&LEMOP, (usize, Vec<AllocatedNum<F>>, AllocatedNum<F>)> =
             HashMap::default();
 
