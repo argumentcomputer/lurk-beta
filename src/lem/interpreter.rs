@@ -37,8 +37,7 @@ impl std::fmt::Display for SlotType {
 /// This hashmap is populated during interpretation, telling which slots were
 /// visited and the pointers that were collected for each of them.
 ///
-/// The pair `(usize, SlotType)` can be referred to as the "slot blueprint". It's
-/// a pair of slot index and slot type:
+/// The pair `(usize, SlotType)` is a pair of slot index and slot type:
 ///
 ///```text
 ///            Slot index
@@ -114,10 +113,7 @@ impl LEM {
                     let src_ptr2 = src[1].get_ptr(&binds)?.to_owned();
                     let tgt_ptr = store.intern_2_ptrs(*tag, src_ptr1, src_ptr2);
                     bind(&mut binds, tgt.clone(), tgt_ptr)?;
-                    visits.insert(
-                        (*slots_indices.get(op).unwrap(), SlotType::Hash2),
-                        vec![src_ptr1, src_ptr2],
-                    );
+                    visits.insert(*slots_indices.get(op).unwrap(), vec![src_ptr1, src_ptr2]);
                 }
                 LEMOP::Hash3(tgt, tag, src) => {
                     let src_ptr1 = src[0].get_ptr(&binds)?.to_owned();
@@ -126,7 +122,7 @@ impl LEM {
                     let tgt_ptr = store.intern_3_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3);
                     bind(&mut binds, tgt.clone(), tgt_ptr)?;
                     visits.insert(
-                        (*slots_indices.get(op).unwrap(), SlotType::Hash3),
+                        *slots_indices.get(op).unwrap(),
                         vec![src_ptr1, src_ptr2, src_ptr3],
                     );
                 }
@@ -138,7 +134,7 @@ impl LEM {
                     let tgt_ptr = store.intern_4_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3, src_ptr4);
                     bind(&mut binds, tgt.clone(), tgt_ptr)?;
                     visits.insert(
-                        (*slots_indices.get(op).unwrap(), SlotType::Hash4),
+                        *slots_indices.get(op).unwrap(),
                         vec![src_ptr1, src_ptr2, src_ptr3, src_ptr4],
                     );
                 }
@@ -153,10 +149,7 @@ impl LEM {
                     bind(&mut binds, tgts[0].clone(), *a)?;
                     bind(&mut binds, tgts[1].clone(), *b)?;
                     // STEP 2: Update hash_witness with preimage and image
-                    visits.insert(
-                        (*slots_indices.get(op).unwrap(), SlotType::Hash2),
-                        vec![*a, *b],
-                    );
+                    visits.insert(*slots_indices.get(op).unwrap(), vec![*a, *b]);
                 }
                 LEMOP::Unhash3(tgts, src) => {
                     let src_ptr = src.get_ptr(&binds)?;
@@ -170,10 +163,7 @@ impl LEM {
                     bind(&mut binds, tgts[1].clone(), *b)?;
                     bind(&mut binds, tgts[2].clone(), *c)?;
                     // STEP 2: Update hash_witness with preimage and image
-                    visits.insert(
-                        (*slots_indices.get(op).unwrap(), SlotType::Hash3),
-                        vec![*a, *b, *c],
-                    );
+                    visits.insert(*slots_indices.get(op).unwrap(), vec![*a, *b, *c]);
                 }
                 LEMOP::Unhash4(tgts, src) => {
                     let src_ptr = src.get_ptr(&binds)?;
@@ -188,10 +178,7 @@ impl LEM {
                     bind(&mut binds, tgts[2].clone(), *c)?;
                     bind(&mut binds, tgts[3].clone(), *d)?;
                     // STEP 2: Update hash_witness with preimage and image
-                    visits.insert(
-                        (*slots_indices.get(op).unwrap(), SlotType::Hash4),
-                        vec![*a, *b, *c, *d],
-                    );
+                    visits.insert(*slots_indices.get(op).unwrap(), vec![*a, *b, *c, *d]);
                 }
                 LEMOP::Hide(tgt, sec, src) => {
                     let src_ptr = src.get_ptr(&binds)?;
