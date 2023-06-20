@@ -160,15 +160,12 @@ impl<F: LurkField> Store<F> {
                     ptr = cdr;
                 }
                 Expression::Nil => {
-                    if list.is_empty() {
-                        return Some(Syntax::LurkSym(Pos::No, LurkSym::Nil));
-                    } else if list.len() == 2 {
-                        if let Syntax::LurkSym(_, LurkSym::Quote) = list[0] {
-                            return Some(Syntax::Quote(Pos::No, Box::new(list[1].clone())));
+                    return match (list.len(), list.get(0)) {
+                        (0, _) => Some(Syntax::LurkSym(Pos::No, LurkSym::Nil)),
+                        (2, Some(Syntax::LurkSym(_, LurkSym::Quote))) => {
+                            Some(Syntax::Quote(Pos::No, Box::new(list[1].clone())))
                         }
-                        return Some(Syntax::List(Pos::No, list));
-                    } else {
-                        return Some(Syntax::List(Pos::No, list));
+                        _ => Some(Syntax::List(Pos::No, list)),
                     }
                 }
                 _ => {
