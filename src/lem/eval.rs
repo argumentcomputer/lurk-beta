@@ -29,7 +29,7 @@ mod tests {
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
     use blstrs::Scalar as Fr;
 
-    const NUM_INPUTS: usize = 13;
+    const NUM_INPUTS: usize = 1;
     const NUM_AUX: usize = 20;
     const NUM_CONSTRAINTS: usize = 29;
     const NUM_SLOTS: NumSlots = NumSlots {
