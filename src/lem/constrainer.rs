@@ -161,7 +161,7 @@ impl LEMOP {
                 };
             }
 
-            macro_rules! tick_and_stack {
+            macro_rules! cont_and_push {
                 ( $new_path: expr, $op_to_stack: expr ) => {
                     slots_ticker.cont($new_path.clone(), &path);
                     stack.push(($op_to_stack, $new_path))
@@ -188,14 +188,14 @@ impl LEMOP {
                 }
                 LEMOP::MatchTag(_, cases) => {
                     for (tag, op) in cases {
-                        tick_and_stack!(path.push_tag(tag), op);
+                        cont_and_push!(path.push_tag(tag), op);
                     }
                 }
                 LEMOP::MatchSymPath(_, cases, def) => {
                     for (sym_path, op) in cases {
-                        tick_and_stack!(path.push_sym_path(sym_path), op);
+                        cont_and_push!(path.push_sym_path(sym_path), op);
                     }
-                    tick_and_stack!(path.push_default(), def);
+                    cont_and_push!(path.push_default(), def);
                 }
                 _ => (),
             }
