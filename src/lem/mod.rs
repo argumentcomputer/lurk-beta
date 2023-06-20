@@ -17,6 +17,7 @@ use std::sync::Arc;
 use self::{interpreter::Frame, path::Path, pointers::Ptr, store::Store, tag::Tag};
 
 pub type AString = Arc<str>;
+pub type AVec<A> = Arc<[A]>;
 
 /// ## Lurk Evaluation Model (LEM)
 ///
