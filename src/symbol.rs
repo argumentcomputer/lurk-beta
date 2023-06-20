@@ -51,12 +51,13 @@ impl Symbol {
     }
 
     /// Creates a new Symbol with the path extended by the given vector of path segments.
-    pub fn extend(&self, path: &[String]) -> Self {
-        let mut new_path = Vec::with_capacity(self.path().len() + path.len());
-        for elt in self.path().iter() {
+    pub fn extend(&self, child: &[String]) -> Self {
+        let parent = self.path();
+        let mut new_path = Vec::with_capacity(parent.len() + child.len());
+        for elt in parent.iter() {
             new_path.push(elt.clone());
         }
-        for elt in path.iter() {
+        for elt in child.iter() {
             new_path.push(elt.clone());
         }
 
