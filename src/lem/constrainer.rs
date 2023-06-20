@@ -142,8 +142,7 @@ impl LEMOP {
     /// * Destruct a pointer that was previously constructed
     ///
     /// We want to reuse the same slot as before. To accomplish this, we use
-    /// hashmaps that can recover the indices for slots that were previously
-    /// allocated, if needed.
+    /// hashmaps that can recover the slots that were previously allocated.
     pub fn slots_indices(&self) -> SlotsIndices {
         let mut slots_indices = SlotsIndices::default();
         let mut slots_counter = SlotsCounter::default();
@@ -160,23 +159,24 @@ impl LEMOP {
 
         let mut stack = vec![(self, Path::default())];
         while let Some((op, path)) = stack.pop() {
-            /// Designates a slot index for a pair of preimage/image. If a slot
-            /// has already been allocated for one of them, reuses it. Otherwise,
-            /// allocates a new one.
+            /// Designates a slot for a pair of preimage/image. If a slot has
+            /// already been allocated for either the preimage or the image,
+            /// reuses it. Otherwise, allocates a new one.
             macro_rules! populate_slots_indices {
                 ( $preimg: expr, $img: expr, $preimgs_map: expr, $imgs_map: expr, $counter_fn: expr ) => {
                     match ($preimgs_map.get($preimg), $imgs_map.get($img)) {
                         (Some(slot), _) | (_, Some(slot)) => {
-                            // reusing a slot index
+                            // reusing a slot
                             slots_indices.insert(op.clone(), *slot);
                         }
                         _ => {
-                            // allocating a new slot index
+                            // allocating a new slot
                             let slot_idx = $counter_fn(path);
                             let slot_type = SlotType::from_lemop(op);
-                            slots_indices.insert(op.clone(), (slot_idx, slot_type));
-                            $preimgs_map.insert($preimg, (slot_idx, slot_type));
-                            $imgs_map.insert($img, (slot_idx, slot_type));
+                            let slot = (slot_idx, slot_type);
+                            slots_indices.insert(op.clone(), slot);
+                            $preimgs_map.insert($preimg, slot);
+                            $imgs_map.insert($img, slot);
                         }
                     };
                 };
@@ -398,7 +398,7 @@ impl LEM {
                         || Ok(F::ZERO),
                     )
                     .with_context(|| {
-                        format!("preimage {i} for LEMOP slot {slot_idx} (type {slot_type}) failed")
+                        format!("preimage {i} for slot {slot_idx} (type {slot_type}) failed")
                     })?;
 
                     preallocated_preimg.push(allocated_zero);
@@ -426,6 +426,7 @@ impl LEM {
 
                     preallocated_preimg.push(allocated_tag);
 
+                    // now we refer to the hash of the pointer
                     let i = i + 1;
 
                     // allocate hash
