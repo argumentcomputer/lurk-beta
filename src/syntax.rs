@@ -151,6 +151,11 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    /// Tries to fetch a syntactic list from an expression pointer, by looping over cons cells and
+    /// collecting their contents. If the ptr does not point to a cons or nil (i.e. not a list) we
+    /// return None. If after traversing zero or more cons cells we hit a `nil`, we return a proper
+    /// list (`Syntax::List`), otherwise an improper list (`Syntax::Improper`). If the proper list
+    /// is a quotation `(quote x)`, then we return the syntactic quotation `Syntax::Quote`
     fn fetch_syntax_list(&self, mut ptr: Ptr<F>) -> Option<Syntax<F>> {
         let mut list = vec![];
         loop {
