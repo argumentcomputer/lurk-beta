@@ -208,11 +208,11 @@ impl LEMOP {
     fn path_taken<F: LurkField>(&self, frame: &Frame<F>, store: &mut Store<F>) -> Result<Path> {
         let mut path = Path::default();
         let mut stack = vec![self];
-        let ptrs = &frame.ptrs;
+        let binds = &frame.binds;
         while let Some(op) = stack.pop() {
             match op {
                 Self::MatchTag(match_ptr, cases) => {
-                    let ptr = match_ptr.get_ptr(ptrs)?;
+                    let ptr = match_ptr.get_ptr(binds)?;
                     let tag = ptr.tag();
                     let Some(op) = cases.get(tag) else {
                         bail!("No match for tag {}", tag)
@@ -221,7 +221,7 @@ impl LEMOP {
                     stack.push(op);
                 }
                 Self::MatchSymPath(match_ptr, cases, def) => {
-                    let ptr = match_ptr.get_ptr(ptrs)?;
+                    let ptr = match_ptr.get_ptr(binds)?;
                     let Some(sym_path) = store.fetch_sym_path(ptr) else {
                         bail!("Symbol path not found for {}", match_ptr.name());
                     };

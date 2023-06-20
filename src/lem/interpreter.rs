@@ -3,7 +3,8 @@ use anyhow::{bail, Result};
 use std::collections::HashMap;
 
 use super::{
-    constrainer::SlotsIndices, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, LEM, LEMOP,
+    constrainer::SlotsIndices, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM,
+    LEMOP,
 };
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -37,18 +38,18 @@ pub(crate) type Visits<F> = HashMap<(SlotArity, usize), Vec<Ptr<F>>>;
 pub struct Frame<F: LurkField> {
     pub input: [Ptr<F>; 3],
     pub output: [Ptr<F>; 3],
-    pub ptrs: HashMap<String, Ptr<F>>,
+    pub binds: HashMap<MetaPtr, Ptr<F>>,
     pub visits: Visits<F>,
 }
 
-fn insert_into_ptrs<F: LurkField>(
-    ptrs: &mut HashMap<String, Ptr<F>>,
-    name: String,
+fn insert_into_binds<F: LurkField>(
+    binds: &mut HashMap<MetaPtr, Ptr<F>>,
+    mptr: MetaPtr,
     ptr: Ptr<F>,
 ) -> Result<()> {
     let mut msg = "Already defined: ".to_owned();
-    msg.push_str(&name);
-    if ptrs.insert(name, ptr).is_some() {
+    msg.push_str(mptr.name());
+    if binds.insert(mptr, ptr).is_some() {
         bail!("{msg}");
     }
     Ok(())
@@ -68,61 +69,61 @@ impl LEM {
         slots_indices: &SlotsIndices,
     ) -> Result<Frame<F>> {
         // key/val pairs on this map should never be overwritten
-        let mut ptrs = HashMap::default();
-        ptrs.insert(self.input[0].clone(), input[0]);
-        insert_into_ptrs(&mut ptrs, self.input[1].clone(), input[1])?;
-        insert_into_ptrs(&mut ptrs, self.input[2].clone(), input[2])?;
+        let mut binds = HashMap::default();
+        binds.insert(MetaPtr(self.input[0].clone()), input[0]);
+        insert_into_binds(&mut binds, MetaPtr(self.input[1].clone()), input[1])?;
+        insert_into_binds(&mut binds, MetaPtr(self.input[2].clone()), input[2])?;
         let mut visits = Visits::default();
         let mut stack = vec![&self.lem_op];
         while let Some(op) = stack.pop() {
             match op {
                 LEMOP::Null(tgt, tag) => {
                     let tgt_ptr = Ptr::null(*tag);
-                    insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
+                    insert_into_binds(&mut binds, tgt.clone(), tgt_ptr)?;
                 }
                 LEMOP::Hash2(tgt, tag, src) => {
-                    let src_ptr1 = src[0].get_ptr(&ptrs)?.to_owned();
-                    let src_ptr2 = src[1].get_ptr(&ptrs)?.to_owned();
+                    let src_ptr1 = src[0].get_ptr(&binds)?.to_owned();
+                    let src_ptr2 = src[1].get_ptr(&binds)?.to_owned();
                     let tgt_ptr = store.intern_2_ptrs(*tag, src_ptr1, src_ptr2);
-                    insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
+                    insert_into_binds(&mut binds, tgt.clone(), tgt_ptr)?;
                     visits.insert(
                         (SlotArity::A2, *slots_indices.get(op).unwrap()),
                         vec![src_ptr1, src_ptr2],
                     );
                 }
                 LEMOP::Hash3(tgt, tag, src) => {
-                    let src_ptr1 = src[0].get_ptr(&ptrs)?.to_owned();
-                    let src_ptr2 = src[1].get_ptr(&ptrs)?.to_owned();
-                    let src_ptr3 = src[2].get_ptr(&ptrs)?.to_owned();
+                    let src_ptr1 = src[0].get_ptr(&binds)?.to_owned();
+                    let src_ptr2 = src[1].get_ptr(&binds)?.to_owned();
+                    let src_ptr3 = src[2].get_ptr(&binds)?.to_owned();
                     let tgt_ptr = store.intern_3_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3);
-                    insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
+                    insert_into_binds(&mut binds, tgt.clone(), tgt_ptr)?;
                     visits.insert(
                         (SlotArity::A3, *slots_indices.get(op).unwrap()),
                         vec![src_ptr1, src_ptr2, src_ptr3],
                     );
                 }
                 LEMOP::Hash4(tgt, tag, src) => {
-                    let src_ptr1 = src[0].get_ptr(&ptrs)?.to_owned();
-                    let src_ptr2 = src[1].get_ptr(&ptrs)?.to_owned();
-                    let src_ptr3 = src[2].get_ptr(&ptrs)?.to_owned();
-                    let src_ptr4 = src[3].get_ptr(&ptrs)?.to_owned();
+                    let src_ptr1 = src[0].get_ptr(&binds)?.to_owned();
+                    let src_ptr2 = src[1].get_ptr(&binds)?.to_owned();
+                    let src_ptr3 = src[2].get_ptr(&binds)?.to_owned();
+                    let src_ptr4 = src[3].get_ptr(&binds)?.to_owned();
                     let tgt_ptr = store.intern_4_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3, src_ptr4);
-                    insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
+                    insert_into_binds(&mut binds, tgt.clone(), tgt_ptr)?;
                     visits.insert(
                         (SlotArity::A4, *slots_indices.get(op).unwrap()),
                         vec![src_ptr1, src_ptr2, src_ptr3, src_ptr4],
                     );
                 }
                 LEMOP::Unhash2(tgts, src) => {
-                    let src_ptr = src.get_ptr(&ptrs)?;
+                    let src_ptr = src.get_ptr(&binds)?;
                     let Some(idx) = src_ptr.get_index2() else {
                         bail!("{src} isn't a Tree2 pointer");
                     };
                     let Some((a, b)) = store.fetch_2_ptrs(idx) else {
                         bail!("Couldn't fetch {src}'s children")
                     };
-                    insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
-                    insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
+                    insert_into_binds(&mut binds, tgts[0].clone(), *a)?;
+                    insert_into_binds(&mut binds, tgts[1].clone(), *b)?;
                     // STEP 2: Update hash_witness with preimage and image
                     visits.insert(
                         (SlotArity::A2, *slots_indices.get(op).unwrap()),
@@ -130,16 +131,16 @@ impl LEM {
                     );
                 }
                 LEMOP::Unhash3(tgts, src) => {
-                    let src_ptr = src.get_ptr(&ptrs)?;
+                    let src_ptr = src.get_ptr(&binds)?;
                     let Some(idx) = src_ptr.get_index3() else {
                         bail!("{src} isn't a Tree3 pointer");
                     };
                     let Some((a, b, c)) = store.fetch_3_ptrs(idx) else {
                         bail!("Couldn't fetch {src}'s children")
                     };
-                    insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
-                    insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
-                    insert_into_ptrs(&mut ptrs, tgts[2].name().clone(), *c)?;
+                    insert_into_binds(&mut binds, tgts[0].clone(), *a)?;
+                    insert_into_binds(&mut binds, tgts[1].clone(), *b)?;
+                    insert_into_binds(&mut binds, tgts[2].clone(), *c)?;
                     // STEP 2: Update hash_witness with preimage and image
                     visits.insert(
                         (SlotArity::A3, *slots_indices.get(op).unwrap()),
@@ -147,17 +148,17 @@ impl LEM {
                     );
                 }
                 LEMOP::Unhash4(tgts, src) => {
-                    let src_ptr = src.get_ptr(&ptrs)?;
+                    let src_ptr = src.get_ptr(&binds)?;
                     let Some(idx) = src_ptr.get_index4() else {
                         bail!("{src} isn't a Tree4 pointer");
                     };
                     let Some((a, b, c, d)) = store.fetch_4_ptrs(idx) else {
                         bail!("Couldn't fetch {src}'s children")
                     };
-                    insert_into_ptrs(&mut ptrs, tgts[0].name().clone(), *a)?;
-                    insert_into_ptrs(&mut ptrs, tgts[1].name().clone(), *b)?;
-                    insert_into_ptrs(&mut ptrs, tgts[2].name().clone(), *c)?;
-                    insert_into_ptrs(&mut ptrs, tgts[3].name().clone(), *d)?;
+                    insert_into_binds(&mut binds, tgts[0].clone(), *a)?;
+                    insert_into_binds(&mut binds, tgts[1].clone(), *b)?;
+                    insert_into_binds(&mut binds, tgts[2].clone(), *c)?;
+                    insert_into_binds(&mut binds, tgts[3].clone(), *d)?;
                     // STEP 2: Update hash_witness with preimage and image
                     visits.insert(
                         (SlotArity::A4, *slots_indices.get(op).unwrap()),
@@ -165,8 +166,8 @@ impl LEM {
                     );
                 }
                 LEMOP::Hide(tgt, sec, src) => {
-                    let src_ptr = src.get_ptr(&ptrs)?;
-                    let Ptr::Leaf(Tag::Num, secret) = sec.get_ptr(&ptrs)? else {
+                    let src_ptr = src.get_ptr(&binds)?;
+                    let Ptr::Leaf(Tag::Num, secret) = sec.get_ptr(&binds)? else {
                         bail!("{sec} is not a numeric pointer")
                     };
                     let z_ptr = store.hash_ptr(src_ptr)?;
@@ -176,18 +177,18 @@ impl LEM {
                             .hash3(&[*secret, z_ptr.tag.to_field(), z_ptr.hash]);
                     let tgt_ptr = Ptr::comm(hash);
                     store.comms.insert(FWrap::<F>(hash), (*secret, *src_ptr));
-                    insert_into_ptrs(&mut ptrs, tgt.name().clone(), tgt_ptr)?;
+                    insert_into_binds(&mut binds, tgt.clone(), tgt_ptr)?;
                 }
                 LEMOP::Open(tgt_secret, tgt_ptr, comm_or_num) => {
-                    match comm_or_num.get_ptr(&ptrs)? {
+                    match comm_or_num.get_ptr(&binds)? {
                         Ptr::Leaf(Tag::Num, hash) | Ptr::Leaf(Tag::Comm, hash) => {
                             let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
                                 bail!("No committed data for hash {}", &hash.hex_digits())
                             };
-                            insert_into_ptrs(&mut ptrs, tgt_ptr.name().clone(), *ptr)?;
-                            insert_into_ptrs(
-                                &mut ptrs,
-                                tgt_secret.name().clone(),
+                            insert_into_binds(&mut binds, tgt_ptr.clone(), *ptr)?;
+                            insert_into_binds(
+                                &mut binds,
+                                tgt_secret.clone(),
                                 Ptr::Leaf(Tag::Num, *secret),
                             )?;
                         }
@@ -197,7 +198,7 @@ impl LEM {
                     }
                 }
                 LEMOP::MatchTag(ptr, cases) => {
-                    let ptr = ptr.get_ptr(&ptrs)?;
+                    let ptr = ptr.get_ptr(&binds)?;
                     let ptr_tag = ptr.tag();
                     match cases.get(ptr_tag) {
                         Some(op) => stack.push(op),
@@ -205,7 +206,7 @@ impl LEM {
                     }
                 }
                 LEMOP::MatchSymPath(match_ptr, cases, def) => {
-                    let ptr = match_ptr.get_ptr(&ptrs)?;
+                    let ptr = match_ptr.get_ptr(&binds)?;
                     let Some(sym_path) = store.fetch_sym_path(ptr) else {
                         bail!("Symbol path not found for {match_ptr}");
                     };
@@ -217,14 +218,14 @@ impl LEM {
                 LEMOP::Seq(ops) => stack.extend(ops.iter().rev()),
                 LEMOP::Return(o) => {
                     let output = [
-                        *o[0].get_ptr(&ptrs)?,
-                        *o[1].get_ptr(&ptrs)?,
-                        *o[2].get_ptr(&ptrs)?,
+                        *o[0].get_ptr(&binds)?,
+                        *o[1].get_ptr(&binds)?,
+                        *o[2].get_ptr(&binds)?,
                     ];
                     return Ok(Frame {
                         input,
                         output,
-                        ptrs,
+                        binds,
                         visits,
                     });
                 }

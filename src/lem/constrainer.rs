@@ -254,23 +254,7 @@ impl LEM {
         Ok(AllocatedPtr::from_parts(&allocated_tag, &allocated_hash))
     }
 
-    fn inputize_ptr<F: LurkField, CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        allocated_ptr: &AllocatedPtr<F>,
-        name: &String,
-    ) -> Result<()> {
-        allocated_ptr
-            .tag()
-            .inputize(cs.namespace(|| format!("inputize {}'s tag", name)))
-            .with_context(|| format!("couldn't inputize {name}'s tag"))?;
-        allocated_ptr
-            .hash()
-            .inputize(cs.namespace(|| format!("inputize {}'s hash", name)))
-            .with_context(|| format!("couldn't inputize {name}'s hash"))?;
-        Ok(())
-    }
-
-    fn allocate_and_inputize_input<'a, F: LurkField, CS: ConstraintSystem<F>>(
+    fn allocate_input<'a, F: LurkField, CS: ConstraintSystem<F>>(
         &'a self,
         cs: &mut CS,
         store: &mut Store<F>,
@@ -281,25 +265,25 @@ impl LEM {
             let name = &self.input[i];
             let allocated_ptr =
                 Self::allocate_ptr(cs, &store.hash_ptr(ptr)?, name, allocated_ptrs)?;
-            Self::inputize_ptr(cs, &allocated_ptr, name)?;
             allocated_ptrs.insert(name, allocated_ptr);
         }
         Ok(())
     }
 
-    fn allocate_and_inputize_output<'a, F: LurkField, CS: ConstraintSystem<F>>(
-        &'a self,
+    fn allocate_output<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         store: &mut Store<F>,
         frame: &Frame<F>,
-        allocated_ptrs: &HashMap<&'a String, AllocatedPtr<F>>,
+        allocated_ptrs: &HashMap<&String, AllocatedPtr<F>>,
     ) -> Result<[AllocatedPtr<F>; 3]> {
         let mut allocated_output_ptrs = vec![];
         for (i, ptr) in frame.output.iter().enumerate() {
-            let output_name = &format!("output[{}]", i);
-            let allocated_ptr =
-                Self::allocate_ptr(cs, &store.hash_ptr(ptr)?, output_name, allocated_ptrs)?;
-            Self::inputize_ptr(cs, &allocated_ptr, output_name)?;
+            let allocated_ptr = Self::allocate_ptr(
+                cs,
+                &store.hash_ptr(ptr)?,
+                &format!("output[{}]", i),
+                allocated_ptrs,
+            )?;
             allocated_output_ptrs.push(allocated_ptr)
         }
         Ok(allocated_output_ptrs.try_into().unwrap())
@@ -318,7 +302,7 @@ impl LEM {
         store: &mut Store<F>,
     ) -> Result<ZPtr<F>> {
         if Self::on_concrete_path(concrete_path)? {
-            store.hash_ptr(mptr.get_ptr(&frame.ptrs)?)
+            store.hash_ptr(mptr.get_ptr(&frame.binds)?)
         } else {
             Ok(ZPtr::dummy())
         }
@@ -387,9 +371,8 @@ impl LEM {
     ) -> Result<()> {
         let mut allocated_ptrs: HashMap<&String, AllocatedPtr<F>> = HashMap::default();
 
-        self.allocate_and_inputize_input(cs, store, frame, &mut allocated_ptrs)?;
-        let preallocated_outputs =
-            self.allocate_and_inputize_output(cs, store, frame, &allocated_ptrs)?;
+        self.allocate_input(cs, store, frame, &mut allocated_ptrs)?;
+        let preallocated_outputs = Self::allocate_output(cs, store, frame, &allocated_ptrs)?;
 
         let mut preallocations: HashMap<&LEMOP, (usize, Vec<AllocatedNum<F>>, AllocatedNum<F>)> =
             HashMap::default();
