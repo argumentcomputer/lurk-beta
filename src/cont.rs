@@ -12,8 +12,8 @@ pub enum Continuation<F: LurkField> {
         continuation: ContPtr<F>,
     },
     Call {
-        saved_env: Ptr<F>,
         unevaled_arg: Ptr<F>,
+        saved_env: Ptr<F>,
         continuation: ContPtr<F>,
     },
     Call2 {
