@@ -938,12 +938,10 @@ fn apply_continuation<F: LurkField>(
                             let scalar_ptr = store
                                 .hash_expr(&result)
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
-                            // TODO: what should the behavior be on u32s which are not valid chars?
-                            if let Some(c) = char::from_u32(scalar_ptr.value().to_u32_unchecked()) {
-                                store.intern_char(c)
-                            } else {
-                                return Ok(Control::Error(result, env));
-                            }
+                            Ptr::index(
+                                ExprTag::Char,
+                                scalar_ptr.value().to_u32_unchecked() as usize,
+                            )
                         }
                         _ => return Ok(Control::Error(result, env)),
                     },
