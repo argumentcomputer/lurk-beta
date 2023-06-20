@@ -7,26 +7,36 @@ use super::{
     LEMOP,
 };
 
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub enum SlotArity {
-    A2,
-    A3,
-    A4,
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SlotType {
+    Hash2,
+    Hash3,
+    Hash4,
 }
 
-impl SlotArity {
+impl SlotType {
     pub(crate) fn preimg_size(&self) -> usize {
         match self {
-            Self::A2 => 4,
-            Self::A3 => 6,
-            Self::A4 => 8,
+            Self::Hash2 => 4,
+            Self::Hash3 => 6,
+            Self::Hash4 => 8,
+        }
+    }
+}
+
+impl std::fmt::Display for SlotType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Hash2 => write!(f, "Hash2"),
+            Self::Hash3 => write!(f, "Hash3"),
+            Self::Hash4 => write!(f, "Hash4"),
         }
     }
 }
 
 /// This hashmap is populated during interpretation, telling which **slots** were
 /// visited.
-pub(crate) type Visits<F> = HashMap<(SlotArity, usize), Vec<Ptr<F>>>;
+pub(crate) type Visits<F> = HashMap<(usize, SlotType), Vec<Ptr<F>>>;
 
 /// A `Frame` carries the data that results from interpreting LEM. That is,
 /// it contains the input, the output and all the assignments resulting from
@@ -87,7 +97,7 @@ impl LEM {
                     let tgt_ptr = store.intern_2_ptrs(*tag, src_ptr1, src_ptr2);
                     insert_into_binds(&mut binds, tgt.clone(), tgt_ptr)?;
                     visits.insert(
-                        (SlotArity::A2, *slots_indices.get(op).unwrap()),
+                        (*slots_indices.get(op).unwrap(), SlotType::Hash2),
                         vec![src_ptr1, src_ptr2],
                     );
                 }
@@ -98,7 +108,7 @@ impl LEM {
                     let tgt_ptr = store.intern_3_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3);
                     insert_into_binds(&mut binds, tgt.clone(), tgt_ptr)?;
                     visits.insert(
-                        (SlotArity::A3, *slots_indices.get(op).unwrap()),
+                        (*slots_indices.get(op).unwrap(), SlotType::Hash3),
                         vec![src_ptr1, src_ptr2, src_ptr3],
                     );
                 }
@@ -110,7 +120,7 @@ impl LEM {
                     let tgt_ptr = store.intern_4_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3, src_ptr4);
                     insert_into_binds(&mut binds, tgt.clone(), tgt_ptr)?;
                     visits.insert(
-                        (SlotArity::A4, *slots_indices.get(op).unwrap()),
+                        (*slots_indices.get(op).unwrap(), SlotType::Hash4),
                         vec![src_ptr1, src_ptr2, src_ptr3, src_ptr4],
                     );
                 }
@@ -126,7 +136,7 @@ impl LEM {
                     insert_into_binds(&mut binds, tgts[1].clone(), *b)?;
                     // STEP 2: Update hash_witness with preimage and image
                     visits.insert(
-                        (SlotArity::A2, *slots_indices.get(op).unwrap()),
+                        (*slots_indices.get(op).unwrap(), SlotType::Hash2),
                         vec![*a, *b],
                     );
                 }
@@ -143,7 +153,7 @@ impl LEM {
                     insert_into_binds(&mut binds, tgts[2].clone(), *c)?;
                     // STEP 2: Update hash_witness with preimage and image
                     visits.insert(
-                        (SlotArity::A3, *slots_indices.get(op).unwrap()),
+                        (*slots_indices.get(op).unwrap(), SlotType::Hash3),
                         vec![*a, *b, *c],
                     );
                 }
@@ -161,7 +171,7 @@ impl LEM {
                     insert_into_binds(&mut binds, tgts[3].clone(), *d)?;
                     // STEP 2: Update hash_witness with preimage and image
                     visits.insert(
-                        (SlotArity::A4, *slots_indices.get(op).unwrap()),
+                        (*slots_indices.get(op).unwrap(), SlotType::Hash4),
                         vec![*a, *b, *c, *d],
                     );
                 }

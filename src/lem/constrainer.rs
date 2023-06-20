@@ -39,7 +39,7 @@
 //! 3. While traversing LEM for the third time, we add implications to enforce
 //! concrete path variables are indeed glued to their respective slots.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{hash_map::Entry, HashMap, HashSet};
 
 use anyhow::{anyhow, bail, Context, Result};
 use bellperson::{
@@ -59,7 +59,7 @@ use crate::circuit::gadgets::{
 use crate::field::{FWrap, LurkField};
 
 use super::{
-    interpreter::{Frame, SlotArity},
+    interpreter::{Frame, SlotType},
     path::Path,
     pointers::ZPtr,
     store::Store,
@@ -257,6 +257,17 @@ impl<F: LurkField> AllocationManager<F> {
     }
 }
 
+impl SlotType {
+    pub(crate) fn from_lemop(op: &LEMOP) -> Self {
+        match op {
+            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => SlotType::Hash2,
+            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => SlotType::Hash3,
+            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => SlotType::Hash4,
+            _ => panic!("Invalid LEMOP"),
+        }
+    }
+}
+
 impl LEM {
     fn allocate_ptr<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
@@ -365,6 +376,92 @@ impl LEM {
             .collect::<Result<Vec<_>>>()
     }
 
+    fn allocate_preimg_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        frame: &Frame<F>,
+        slot_blueprint: &(usize, SlotType),
+        store: &mut Store<F>,
+    ) -> Result<Vec<AllocatedNum<F>>> {
+        // TODO: avoid this destruction and implement proper display for slot blueprints
+        let (slot_idx, slot_type) = slot_blueprint;
+
+        let mut preallocated_preimg = vec![];
+
+        // We need to know whether we have data for that slot, which might have
+        // been collected during interpretation.
+        match frame.visits.get(slot_blueprint) {
+            Some(ptrs) => {
+                // In this case, interpretation visited the slot. We need to
+                // allocate the tag and hash for each pointer in the preimage
+                for (j, ptr) in ptrs.iter().enumerate() {
+                    let z_ptr = store.hash_ptr(ptr)?;
+                    let i = 2 * j;
+                    let allocated_tag = AllocatedNum::alloc(
+                        cs.namespace(|| {
+                            format!("preimage {i} for slot {slot_idx} (type {slot_type})")
+                        }),
+                        || Ok(z_ptr.tag.to_field()),
+                    )
+                    .with_context(|| {
+                        format!("preimage {i} for slot {slot_idx} (type {slot_type}) failed")
+                    })?;
+                    let allocated_hash = AllocatedNum::alloc(
+                        cs.namespace(|| {
+                            format!("preimage {} for slot {slot_idx} (type {slot_type})", i + 1)
+                        }),
+                        || Ok(z_ptr.hash),
+                    )
+                    .with_context(|| {
+                        format!(
+                            "preimage {} for slot {slot_idx} (type {slot_type}) failed",
+                            i + 1
+                        )
+                    })?;
+                    preallocated_preimg.push(allocated_tag);
+                    preallocated_preimg.push(allocated_hash);
+                }
+            }
+            None => {
+                // No data was collected for this slot. We can allocate zeros
+                for i in 0..slot_type.preimg_size() {
+                    let allocated_zero = AllocatedNum::alloc(
+                        cs.namespace(|| {
+                            format!("preimage {i} for slot {slot_idx} (type {slot_type})")
+                        }),
+                        || Ok(F::ZERO),
+                    )
+                    .with_context(|| {
+                        format!("preimage {i} for LEMOP slot {slot_idx} (type {slot_type}) failed")
+                    })?;
+                    preallocated_preimg.push(allocated_zero);
+                }
+            }
+        }
+        Ok(preallocated_preimg)
+    }
+
+    fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        slot_type: &SlotType,
+        preallocated_preimg: Vec<AllocatedNum<F>>,
+        store: &mut Store<F>,
+    ) -> Result<AllocatedNum<F>> {
+        let preallocated_img = {
+            match slot_type {
+                SlotType::Hash2 => {
+                    hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c4())?
+                }
+                SlotType::Hash3 => {
+                    hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c6())?
+                }
+                SlotType::Hash4 => {
+                    hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c8())?
+                }
+            }
+        };
+        Ok(preallocated_img)
+    }
+
     /// Create R1CS constraints for LEM given an evaluation frame.
     ///
     /// As we find recursive (non-leaf) LEM operations, we stack them to be
@@ -400,82 +497,39 @@ impl LEM {
         self.allocate_input(cs, store, frame, &mut allocated_ptrs)?;
         let preallocated_outputs = Self::allocate_output(cs, store, frame, &allocated_ptrs)?;
 
-        // We need to populate this hashmap with preimages and images of LEMOPs
-        // that require slots, such as `Hash2`, `Unhash2` etc.
-        let mut preallocations: HashMap<&LEMOP, (usize, Vec<AllocatedNum<F>>, AllocatedNum<F>)> =
-            HashMap::default();
+        // We need to populate this hashmap with preimages and images for each slot
+        let mut preallocations: HashMap<
+            (usize, SlotType),
+            (Vec<AllocatedNum<F>>, AllocatedNum<F>),
+        > = HashMap::default();
 
-        let poseidon_constants = &store.poseidon_cache.constants;
+        // This loop is guaranteed to always visit key/value pair in a fixed
+        // order for a particular LEM because it iterates on an `IndexMap`, which
+        // preserves the order in which data was added to it. That is the order
+        // in which `LEMOP::slots_indices` traverses the LEMOP.
+        for (op, slot_idx) in slots_indices {
+            let slot_type = SlotType::from_lemop(op);
 
-        for (lemop_idx, (op, slot_idx)) in slots_indices.iter().enumerate() {
-            let slot_arity = {
-                match op {
-                    LEMOP::Hash2(..) | LEMOP::Unhash2(..) => SlotArity::A2,
-                    LEMOP::Hash3(..) | LEMOP::Unhash3(..) => SlotArity::A3,
-                    LEMOP::Hash4(..) | LEMOP::Unhash4(..) => SlotArity::A4,
-                    _ => unreachable!(),
-                }
-            };
-            let mut preallocated_preimg = vec![];
-            match frame.visits.get(&(slot_arity.clone(), *slot_idx)) {
-                Some(ptrs) => {
-                    for (j, ptr) in ptrs.iter().enumerate() {
-                        let z_ptr = store.hash_ptr(ptr)?;
-                        let i = 2 * j;
-                        let allocated_tag = AllocatedNum::alloc(
-                            cs.namespace(|| format!("preimage {i} for LEMOP {lemop_idx}")),
-                            || Ok(z_ptr.tag.to_field()),
-                        )
-                        .with_context(|| format!("preimage {i} for LEMOP {lemop_idx} failed"))?;
-                        let allocated_hash = AllocatedNum::alloc(
-                            cs.namespace(|| format!("preimage {} for LEMOP {lemop_idx}", i + 1)),
-                            || Ok(z_ptr.hash),
-                        )
-                        .with_context(|| {
-                            format!("preimage {} for LEMOP {lemop_idx} failed", i + 1)
-                        })?;
-                        preallocated_preimg.push(allocated_tag);
-                        preallocated_preimg.push(allocated_hash);
-                    }
-                }
-                None => {
-                    for i in 0..slot_arity.preimg_size() {
-                        let allocated_zero = AllocatedNum::alloc(
-                            cs.namespace(|| format!("preimage {i} for LEMOP {lemop_idx}")),
-                            || Ok(F::ZERO),
-                        )
-                        .with_context(|| format!("preimage {i} for LEMOP {lemop_idx} failed"))?;
-                        preallocated_preimg.push(allocated_zero);
-                    }
-                }
+            let slot_blueprint = (*slot_idx, slot_type);
+
+            if let Entry::Vacant(e) = preallocations.entry(slot_blueprint) {
+                // We need to allocate the preimage and the image for the slots. We
+                // start by the preimage because the image depends on it (when we
+                // call `hash_poseidon`)
+                let preallocated_preimg =
+                    Self::allocate_preimg_for_slot(cs, frame, &slot_blueprint, store)?;
+
+                // For the image, we call `hash_poseidon` with the correct Poseidon
+                // constants
+                let preallocated_img = Self::allocate_img_for_slot(
+                    &mut cs
+                        .namespace(|| format!("poseidon for slot {slot_idx} (type {slot_type})")),
+                    &slot_type,
+                    preallocated_preimg.clone(),
+                    store,
+                )?;
+                e.insert((preallocated_preimg, preallocated_img));
             }
-            let namespace = &format!("poseidon for LEMOP {lemop_idx}");
-            let preallocated_img = {
-                match slot_arity {
-                    SlotArity::A2 => hash_poseidon(
-                        &mut cs.namespace(|| namespace),
-                        preallocated_preimg.clone(),
-                        poseidon_constants.c4(),
-                    )?,
-                    SlotArity::A3 => hash_poseidon(
-                        &mut cs.namespace(|| namespace),
-                        preallocated_preimg.clone(),
-                        poseidon_constants.c6(),
-                    )?,
-                    SlotArity::A4 => hash_poseidon(
-                        &mut cs.namespace(|| namespace),
-                        preallocated_preimg.clone(),
-                        poseidon_constants.c8(),
-                    )?,
-                }
-            };
-
-            if preallocations
-                .insert(op, (lemop_idx, preallocated_preimg, preallocated_img))
-                .is_some()
-            {
-                bail!("Duplicated LEMOP: {:?}", op);
-            };
         }
 
         let mut stack = vec![(&self.lem_op, Boolean::Constant(true), Path::default())];
@@ -483,12 +537,16 @@ impl LEM {
         while let Some((op, concrete_path, path)) = stack.pop() {
             macro_rules! constrain_slot {
                 ( $preimg: expr, $img: expr, $allocated_preimg: expr, $allocated_img: expr) => {
-                    let (lemop_idx, preallocated_preimg, preallocated_img) =
-                        preallocations.get(op).unwrap();
+                    let slot_index = slots_indices.get(op).unwrap();
+                    let slot_type = SlotType::from_lemop(op);
+                    let slot_blueprint = (*slot_index, slot_type);
+
+                    let (preallocated_preimg, preallocated_img) =
+                        preallocations.get(&slot_blueprint).unwrap();
 
                     implies_equal(
                         &mut cs.namespace(|| {
-                            format!("implies equal for {}'s hash (LEMOP {lemop_idx})", $img)
+                            format!("implies equal for {}'s hash (LEMOP {:?})", $img, &op)
                         }),
                         &concrete_path,
                         $allocated_img.hash(),
@@ -500,9 +558,7 @@ impl LEM {
                         let ptr_idx = 2 * i;
                         implies_equal(
                             &mut cs.namespace(|| {
-                                format!(
-                                    "implies equal for {name}'s tag (LEMOP {lemop_idx}, pos {i})"
-                                )
+                                format!("implies equal for {name}'s tag (LEMOP {:?}, pos {i})", &op)
                             }),
                             &concrete_path,
                             allocated_ptr.tag(),
@@ -511,7 +567,8 @@ impl LEM {
                         implies_equal(
                             &mut cs.namespace(|| {
                                 format!(
-                                    "implies equal for {name}'s hash (LEMOP {lemop_idx}, pos {i})"
+                                    "implies equal for {name}'s hash (LEMOP {:?}, pos {i})",
+                                    &op
                                 )
                             }),
                             &concrete_path,
