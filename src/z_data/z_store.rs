@@ -63,20 +63,6 @@ impl<F: LurkField> ZStore<F> {
         (new, Some(z_ptr))
     }
 
-    // TODO: Remove when sure that get_z_expr with a ZStore inserts child ptrs
-    //pub fn child_z_ptrs(expr: &ZExpr<F>) -> Option<Vec<ZExprPtr<F>>> {
-    //    match expr {
-    //        ZExpr::Cons(car, cdr) => Some([*car, *cdr].into()),
-    //        ZExpr::Comm(_, payload) => Some([*payload].into()),
-    //        ZExpr::Fun {
-    //            arg,
-    //            body,
-    //            closed_env,
-    //        } => Some([*arg, *body, *closed_env].into()),
-    //        _ => None,
-    //    }
-    //}
-
     pub fn insert_expr(&mut self, store: &Store<F>, expr: &Ptr<F>) -> Option<ZExprPtr<F>> {
         let z_ptr = store.hash_expr(expr).unwrap();
         let z_expr = ZExpr::from_ptr(store, expr);
