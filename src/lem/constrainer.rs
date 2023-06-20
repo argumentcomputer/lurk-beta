@@ -9,15 +9,15 @@
 //! By nesting `MatchTag`s and `MatchSymbol`s we create a set of paths that
 //! interpretation can follow. We call them **virtual** and **contrete** paths.
 //! In particular, the followed path is the concrete one. We use a Boolean
-//! variable to indicate whether a path is followed or not. This allows us to
+//! variable to indicate whether a path is concrete or not. This allows us to
 //! construct an **implication system**, which is responsible for ensuring that
 //! allocated variable in the concrete path are equal to their expected values
-//! but such equalities on the virtul paths are irrelevant.
+//! but such equalities on virtul paths are irrelevant.
 //!
-//! ## Hash slot system:
+//! ## Slot optimization:
 //!
-//! Poseidon hash is a relatively expensive operation in the circuit, therefore
-//! we want to avoid wasting constraints with hash operations as much as possible.
+//! Some operations like Poseidon hash can be relatively expensive in the circuit,
+//! therefore we want to avoid wasting constraints with them as much as possible.
 //! In order to achieve this goal we provide a sufficient number of hash slots,
 //! such that we can accomodate all hashes in the worst case, i.e. when the
 //! concrete path requires the maximum number of hashes. This optimization avoids
@@ -29,15 +29,12 @@
 //! slots for hashes in all virtual paths.
 //!
 //! * STEP 2: During interpretation (second traversal) we gather information
-//! related to each hash operation, namely we need to collect all possible
-//! preimages that can possibly occupy each slot.
+//! related to each visited slot
 //!
-//! * STEP 3: During construction of constraints, we do the following:
-//!
-//! 1. Preallocate images and preimages for each slot;
-//! 2. Constrain Poseidon hash for each slot;
-//! 3. While traversing LEM for the third time, we add implications to enforce
-//! concrete path variables are indeed glued to their respective slots.
+//! * STEP 3: During construction of constraints, we first preallocate the preimage
+//! and image for each slot and then we traverse the LEM (for the third time),
+//! adding implication constraints. This step is better explained in the `constrain`
+//! function.
 
 use std::collections::{hash_map::Entry, HashMap, HashSet};
 
@@ -548,13 +545,14 @@ impl LEM {
         while let Some((op, concrete_path, path)) = stack.pop() {
             macro_rules! constrain_slot {
                 ( $preimg: expr, $img: expr, $allocated_preimg: expr, $allocated_img: expr) => {
+                    // Retrieve the preallocated preimage and image
                     let slot_index = slots_indices.get(op).unwrap();
                     let slot_type = SlotType::from_lemop(op);
                     let slot_blueprint = (*slot_index, slot_type);
-
                     let (preallocated_preimg, preallocated_img) =
                         preallocations.get(&slot_blueprint).unwrap();
 
+                    // Add an implication constraint for the image
                     implies_equal(
                         &mut cs.namespace(|| {
                             format!("implies equal for {}'s hash (LEMOP {:?})", $img, &op)
@@ -564,6 +562,8 @@ impl LEM {
                         preallocated_img,
                     )?;
 
+                    // For each component of the preimage, add implication constraints
+                    // for its tag and hash
                     for (i, allocated_ptr) in $allocated_preimg.iter().enumerate() {
                         let name = $preimg[i].name();
                         let ptr_idx = 2 * i;
@@ -573,7 +573,7 @@ impl LEM {
                             }),
                             &concrete_path,
                             allocated_ptr.tag(),
-                            &preallocated_preimg[ptr_idx],
+                            &preallocated_preimg[ptr_idx], // tag index
                         )?;
                         implies_equal(
                             &mut cs.namespace(|| {
@@ -584,14 +584,14 @@ impl LEM {
                             }),
                             &concrete_path,
                             allocated_ptr.hash(),
-                            &preallocated_preimg[ptr_idx + 1],
+                            &preallocated_preimg[ptr_idx + 1], // hash index
                         )?;
                     }
                 };
             }
             macro_rules! hash_helper {
                 ( $img: expr, $tag: expr, $preimg: expr ) => {
-                    // STEP 3: Allocate image
+                    // Allocate image
                     let allocated_img = Self::allocate_ptr(
                         cs,
                         &Self::z_ptr_from_frame(&concrete_path, frame, $img, store)?,
@@ -599,7 +599,7 @@ impl LEM {
                         &allocated_ptrs,
                     )?;
 
-                    // STEP 3: Create constraint for the tag
+                    // Create constraint for the tag
                     let allocated_tag = alloc_manager.get_or_alloc_num(cs, $tag.to_field())?;
                     implies_equal(
                         &mut cs.namespace(|| format!("implies equal for {}'s tag", $img)),
@@ -608,23 +608,24 @@ impl LEM {
                         &allocated_tag,
                     )?;
 
-                    // STEP 3: Get allocate preimage
+                    // Retrieve allocate preimage
                     let allocated_preimg = Self::get_allocated_preimg($preimg, &allocated_ptrs)?;
 
+                    // Add the hash constraints
                     constrain_slot!($preimg, $img, allocated_preimg, allocated_img);
 
-                    // STEP 3: Insert allocated image into allocated pointers
+                    // Insert allocated image into `allocated_ptrs`
                     allocated_ptrs.insert($img.name(), allocated_img.clone());
                 };
             }
             macro_rules! unhash_helper {
                 ( $preimg: expr, $img: expr ) => {
-                    // STEP 3: Get allocate image
+                    // Retrieve allocated image
                     let Some(allocated_img) = allocated_ptrs.get($img.name()) else {
                                                                 bail!("{} not allocated", $img)
                                                             };
 
-                    // STEP 3: Allocate preimage
+                    // Allocate preimage
                     let allocated_preimg = Self::alloc_preimg(
                         cs,
                         $preimg,
@@ -634,9 +635,10 @@ impl LEM {
                         &allocated_ptrs,
                     )?;
 
+                    // Add the hash constraints
                     constrain_slot!($preimg, $img, allocated_preimg, allocated_img);
 
-                    // STEP 3: Insert preimage pointers in the HashMap
+                    // Insert allocated preimage into `allocated_ptrs`
                     for (mptr, allocated_ptr) in $preimg.iter().zip(allocated_preimg) {
                         allocated_ptrs.insert(mptr.name(), allocated_ptr);
                     }
