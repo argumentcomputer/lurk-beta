@@ -64,7 +64,7 @@ impl<F: LurkField> ZStore<F> {
     }
 
     pub fn insert_expr(&mut self, store: &Store<F>, expr: &Ptr<F>) -> Option<ZExprPtr<F>> {
-        let z_ptr = store.hash_expr(expr).unwrap();
+        let z_ptr = store.hash_expr(expr)?;
         let z_expr = ZExpr::from_ptr(store, expr);
         self.expr_map.insert(z_ptr, z_expr);
         Some(z_ptr)
