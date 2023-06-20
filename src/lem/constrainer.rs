@@ -390,37 +390,6 @@ impl LEM {
         // We need to know whether we have data for that slot, which might have
         // been collected during interpretation.
         match frame.visits.get(slot_blueprint) {
-            Some(ptrs) => {
-                // In this case, interpretation visited the slot. We need to
-                // allocate the tag and hash for each pointer in the preimage
-                for (j, ptr) in ptrs.iter().enumerate() {
-                    let z_ptr = store.hash_ptr(ptr)?;
-                    let i = 2 * j;
-                    let allocated_tag = AllocatedNum::alloc(
-                        cs.namespace(|| {
-                            format!("preimage {i} for slot {slot_idx} (type {slot_type})")
-                        }),
-                        || Ok(z_ptr.tag.to_field()),
-                    )
-                    .with_context(|| {
-                        format!("preimage {i} for slot {slot_idx} (type {slot_type}) failed")
-                    })?;
-                    let allocated_hash = AllocatedNum::alloc(
-                        cs.namespace(|| {
-                            format!("preimage {} for slot {slot_idx} (type {slot_type})", i + 1)
-                        }),
-                        || Ok(z_ptr.hash),
-                    )
-                    .with_context(|| {
-                        format!(
-                            "preimage {} for slot {slot_idx} (type {slot_type}) failed",
-                            i + 1
-                        )
-                    })?;
-                    preallocated_preimg.push(allocated_tag);
-                    preallocated_preimg.push(allocated_hash);
-                }
-            }
             None => {
                 // No data was collected for this slot. We can allocate zeros
                 for i in 0..slot_type.preimg_size() {
@@ -433,7 +402,46 @@ impl LEM {
                     .with_context(|| {
                         format!("preimage {i} for LEMOP slot {slot_idx} (type {slot_type}) failed")
                     })?;
+
                     preallocated_preimg.push(allocated_zero);
+                }
+            }
+            Some(ptrs) => {
+                // In this case, interpretation visited the slot. We need to
+                // allocate the tag and hash for each pointer in the preimage
+                for (j, ptr) in ptrs.iter().enumerate() {
+                    let z_ptr = store.hash_ptr(ptr)?;
+
+                    // `i = 2 * j` to mimic the namespaces from the `None` case
+                    let i = 2 * j;
+
+                    // allocate tag
+                    let allocated_tag = AllocatedNum::alloc(
+                        cs.namespace(|| {
+                            format!("preimage {i} for slot {slot_idx} (type {slot_type})")
+                        }),
+                        || Ok(z_ptr.tag.to_field()),
+                    )
+                    .with_context(|| {
+                        format!("preimage {i} for slot {slot_idx} (type {slot_type}) failed")
+                    })?;
+
+                    // allocte hash
+                    let allocated_hash = AllocatedNum::alloc(
+                        cs.namespace(|| {
+                            format!("preimage {} for slot {slot_idx} (type {slot_type})", i + 1)
+                        }),
+                        || Ok(z_ptr.hash),
+                    )
+                    .with_context(|| {
+                        format!(
+                            "preimage {} for slot {slot_idx} (type {slot_type}) failed",
+                            i + 1
+                        )
+                    })?;
+
+                    preallocated_preimg.push(allocated_tag);
+                    preallocated_preimg.push(allocated_hash);
                 }
             }
         }
@@ -478,8 +486,8 @@ impl LEM {
     ///
     /// Hash constraints are added here, based on information gathered during
     /// STEP 1 and STEP 2. Namely, We know exactly the slot where each hash
-    /// operation is allocated. In STEP 3 we first preallocate images and
-    /// preimages, since they may be needed for `Return` operations. Then we
+    /// operation is allocated. In STEP 3 we first preallocate preimages and
+    /// images, since they may be needed for `Return` operations. Then we
     /// compute all hashes in their respective slots.
     /// During LEM traversal we add implications for images and preimages,
     /// based on concrete path variable, such that it indeed corresponds
