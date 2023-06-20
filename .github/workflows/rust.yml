@@ -97,7 +97,7 @@ jobs:
         run: |
           cargo nextest run --profile ci --cargo-profile dev-ci --features cuda,opencl
 
-  clippy:
+  rustfmt_n_clippy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -105,24 +105,13 @@ jobs:
           submodules: recursive
       - uses: actions-rs/toolchain@v1
         with:
-          components: clippy
-      - uses: Swatinem/rust-cache@v2
-      # See '.cargo/config' for list of enabled/disabled clippy lints
-      - name: cargo clippy
-        run: cargo xclippy -D warnings
-
-  rustfmt:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - uses: actions-rs/toolchain@v1
-        with:
-          components: rustfmt
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - name: rustfmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all --check
+      # See '.cargo/config' for list of enabled/disabled clippy lints
+      - name: cargo clippy
+        run: cargo xclippy -D warnings
