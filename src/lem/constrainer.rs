@@ -426,21 +426,21 @@ impl LEM {
                         format!("preimage {i} for slot {slot_idx} (type {slot_type}) failed")
                     })?;
 
+                    preallocated_preimg.push(allocated_tag);
+
+                    let i = i + 1;
+
                     // allocte hash
                     let allocated_hash = AllocatedNum::alloc(
                         cs.namespace(|| {
-                            format!("preimage {} for slot {slot_idx} (type {slot_type})", i + 1)
+                            format!("preimage {i} for slot {slot_idx} (type {slot_type})")
                         }),
                         || Ok(z_ptr.hash),
                     )
                     .with_context(|| {
-                        format!(
-                            "preimage {} for slot {slot_idx} (type {slot_type}) failed",
-                            i + 1
-                        )
+                        format!("preimage {i} for slot {slot_idx} (type {slot_type}) failed")
                     })?;
 
-                    preallocated_preimg.push(allocated_tag);
                     preallocated_preimg.push(allocated_hash);
                 }
             }

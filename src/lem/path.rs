@@ -41,6 +41,48 @@ impl Path {
     }
 }
 
+fn insert_many(
+    map: &mut HashMap<String, String>,
+    ptr: &[MetaPtr],
+    path: &Path,
+) -> Result<Vec<MetaPtr>> {
+    ptr.iter()
+        .map(|ptr| {
+            let new_name = format!("{}.{}", path, ptr.name());
+            if map.insert(ptr.name().clone(), new_name.clone()).is_some() {
+                bail!("{} already defined", ptr.name());
+            };
+            Ok(MetaPtr(new_name))
+        })
+        .collect::<Result<Vec<_>>>()
+}
+
+fn insert_one(map: &mut HashMap<String, String>, ptr: &MetaPtr, path: &Path) -> Result<MetaPtr> {
+    let new_name = format!("{}.{}", path, ptr.name());
+    if map.insert(ptr.name().clone(), new_name.clone()).is_some() {
+        bail!("{} already defined", ptr.name());
+    };
+    Ok(MetaPtr(new_name))
+}
+
+fn retrieve_many(map: &HashMap<String, String>, args: &[MetaPtr]) -> Result<Vec<MetaPtr>> {
+    args.iter()
+        .map(|ptr| {
+            let Some(src_path) = map.get(ptr.name()).cloned() else {
+            bail!("{} not defined", ptr.name());
+        };
+            Ok(MetaPtr(src_path))
+        })
+        .collect::<Result<Vec<_>>>()
+}
+
+fn retrieve_one(map: &HashMap<String, String>, ptr: &MetaPtr) -> Result<MetaPtr> {
+    let Some(src_path) = map.get(ptr.name()).cloned() else {
+    bail!("{} not defined", ptr.name());
+};
+    Ok(MetaPtr(src_path))
+}
+
 impl LEMOP {
     /// Removes conflicting names in parallel logical LEM paths. While these
     /// conflicting names shouldn't be an issue for interpretation, they are
@@ -58,46 +100,6 @@ impl LEMOP {
         path: &Path,
         map: &mut HashMap<String, String>, // name -> path/name
     ) -> Result<Self> {
-        let insert_many =
-            |map: &mut HashMap<String, String>, ptr: &[MetaPtr]| -> Result<Vec<MetaPtr>> {
-                ptr.iter()
-                    .map(|ptr| {
-                        let new_name = format!("{}.{}", path, ptr.name());
-                        if map.insert(ptr.name().clone(), new_name.clone()).is_some() {
-                            bail!("{} already defined", ptr.name());
-                        };
-                        Ok(MetaPtr(new_name))
-                    })
-                    .collect::<Result<Vec<_>>>()
-            };
-
-        let insert_one = |map: &mut HashMap<String, String>, ptr: &MetaPtr| -> Result<MetaPtr> {
-            let new_name = format!("{}.{}", path, ptr.name());
-            if map.insert(ptr.name().clone(), new_name.clone()).is_some() {
-                bail!("{} already defined", ptr.name());
-            };
-            Ok(MetaPtr(new_name))
-        };
-
-        let retrieve_many =
-            |map: &HashMap<String, String>, args: &[MetaPtr]| -> Result<Vec<MetaPtr>> {
-                args.iter()
-                    .map(|ptr| {
-                        let Some(src_path) = map.get(ptr.name()).cloned() else {
-                        bail!("{} not defined", ptr.name());
-                    };
-                        Ok(MetaPtr(src_path))
-                    })
-                    .collect::<Result<Vec<_>>>()
-            };
-
-        let retrieve_one = |map: &HashMap<String, String>, ptr: &MetaPtr| -> Result<MetaPtr> {
-            let Some(src_path) = map.get(ptr.name()).cloned() else {
-                bail!("{} not defined", ptr.name());
-            };
-            Ok(MetaPtr(src_path))
-        };
-
         match self {
             Self::Null(ptr, tag) => {
                 let new_name = format!("{}.{}", path, ptr.name());
@@ -108,32 +110,32 @@ impl LEMOP {
             }
             Self::Hash2(img, tag, preimg) => {
                 let preimg = retrieve_many(map, preimg)?.try_into().unwrap();
-                let img = insert_one(map, img)?;
+                let img = insert_one(map, img, path)?;
                 Ok(Self::Hash2(img, *tag, preimg))
             }
             Self::Hash3(img, tag, preimg) => {
                 let preimg = retrieve_many(map, preimg)?.try_into().unwrap();
-                let img = insert_one(map, img)?;
+                let img = insert_one(map, img, path)?;
                 Ok(Self::Hash3(img, *tag, preimg))
             }
             Self::Hash4(img, tag, preimg) => {
                 let preimg = retrieve_many(map, preimg)?.try_into().unwrap();
-                let img = insert_one(map, img)?;
+                let img = insert_one(map, img, path)?;
                 Ok(Self::Hash4(img, *tag, preimg))
             }
             LEMOP::Unhash2(preimg, img) => {
                 let img = retrieve_one(map, img)?;
-                let preimg = insert_many(map, preimg)?;
+                let preimg = insert_many(map, preimg, path)?;
                 Ok(Self::Unhash2(preimg.try_into().unwrap(), img))
             }
             LEMOP::Unhash3(preimg, img) => {
                 let img = retrieve_one(map, img)?;
-                let preimg = insert_many(map, preimg)?;
+                let preimg = insert_many(map, preimg, path)?;
                 Ok(Self::Unhash3(preimg.try_into().unwrap(), img))
             }
             LEMOP::Unhash4(preimg, img) => {
                 let img = retrieve_one(map, img)?;
-                let preimg = insert_many(map, preimg)?;
+                let preimg = insert_many(map, preimg, path)?;
                 Ok(Self::Unhash4(preimg.try_into().unwrap(), img))
             }
             LEMOP::MatchTag(ptr, cases) => {

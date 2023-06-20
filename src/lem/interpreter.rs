@@ -34,16 +34,35 @@ impl std::fmt::Display for SlotType {
     }
 }
 
-/// This hashmap is populated during interpretation, telling which **slots** were
-/// visited.
+/// This hashmap is populated during interpretation, telling which slots were
+/// visited and the pointers that were collected for each of them.
+///
+/// The pair `(usize, SlotType)` can be referred to as the "slot blueprint". It's
+/// a pair of slot index and slot type:
+///
+///```text
+///            Slot index
+///      ┌────┬───┬───┬───┬───
+///      │    │ 0 │ 1 │ 2 │...
+///      ├────┼───┼───┼───┼───
+/// Slot │ H2 │ a │ b │   │...
+/// type ├────┼───┼───┼───┼───
+///      │ H3 │   │   │ c │...
+///      ├────┼───┼───┼───┼───
+///      │... │...│...│...│...
+///```
+///
+/// In the example above, we can see three visited slots:
+/// * The slots 0 and 1 for `Hash2`
+/// * The slot 2 for `Hash3`
 pub(crate) type Visits<F> = HashMap<(usize, SlotType), Vec<Ptr<F>>>;
 
-/// A `Frame` carries the data that results from interpreting LEM. That is,
+/// A `Frame` carries the data that results from interpreting a LEM. That is,
 /// it contains the input, the output and all the assignments resulting from
-/// running one iteration as a HashMap of pointers indexed by variable names.
+/// running one iteration as a HashMap of meta pointers to pointers.
 ///
-/// Finally, `preimages` contains the sequence of hash witnesses visited
-/// during interpretation. This information is needed to generate the witness.
+/// Finally, `visits` contains the data collected from visiting the slots. This
+/// information is used to generte the witness.
 #[derive(Clone)]
 pub struct Frame<F: LurkField> {
     pub input: [Ptr<F>; 3],
@@ -52,7 +71,7 @@ pub struct Frame<F: LurkField> {
     pub visits: Visits<F>,
 }
 
-fn insert_into_binds<F: LurkField>(
+fn bind<F: LurkField>(
     binds: &mut HashMap<MetaPtr, Ptr<F>>,
     mptr: MetaPtr,
     ptr: Ptr<F>,
@@ -67,11 +86,8 @@ fn insert_into_binds<F: LurkField>(
 
 impl LEM {
     /// Interprets a LEM using a stack of operations to be popped and executed.
-    /// It modifies a `Store` and binds `Ptr`s to `MetaPtr`s as it goes.
-    ///
-    /// We also want to collect which slots were visited, along with all the
-    /// data needed for the optimizations for the circuit generation. This is
-    /// better explained in the constrainer code.
+    /// It modifies a `Store` and binds `MetaPtr`s to `Ptr`s as it goes. We also
+    /// want to collect data from visited slots.
     fn run<F: LurkField>(
         &self,
         input: [Ptr<F>; 3],
@@ -81,21 +97,23 @@ impl LEM {
         // key/val pairs on this map should never be overwritten
         let mut binds = HashMap::default();
         binds.insert(MetaPtr(self.input[0].clone()), input[0]);
-        insert_into_binds(&mut binds, MetaPtr(self.input[1].clone()), input[1])?;
-        insert_into_binds(&mut binds, MetaPtr(self.input[2].clone()), input[2])?;
+        bind(&mut binds, MetaPtr(self.input[1].clone()), input[1])?;
+        bind(&mut binds, MetaPtr(self.input[2].clone()), input[2])?;
+
         let mut visits = Visits::default();
+
         let mut stack = vec![&self.lem_op];
         while let Some(op) = stack.pop() {
             match op {
                 LEMOP::Null(tgt, tag) => {
                     let tgt_ptr = Ptr::null(*tag);
-                    insert_into_binds(&mut binds, tgt.clone(), tgt_ptr)?;
+                    bind(&mut binds, tgt.clone(), tgt_ptr)?;
                 }
                 LEMOP::Hash2(tgt, tag, src) => {
                     let src_ptr1 = src[0].get_ptr(&binds)?.to_owned();
                     let src_ptr2 = src[1].get_ptr(&binds)?.to_owned();
                     let tgt_ptr = store.intern_2_ptrs(*tag, src_ptr1, src_ptr2);
-                    insert_into_binds(&mut binds, tgt.clone(), tgt_ptr)?;
+                    bind(&mut binds, tgt.clone(), tgt_ptr)?;
                     visits.insert(
                         (*slots_indices.get(op).unwrap(), SlotType::Hash2),
                         vec![src_ptr1, src_ptr2],
@@ -106,7 +124,7 @@ impl LEM {
                     let src_ptr2 = src[1].get_ptr(&binds)?.to_owned();
                     let src_ptr3 = src[2].get_ptr(&binds)?.to_owned();
                     let tgt_ptr = store.intern_3_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3);
-                    insert_into_binds(&mut binds, tgt.clone(), tgt_ptr)?;
+                    bind(&mut binds, tgt.clone(), tgt_ptr)?;
                     visits.insert(
                         (*slots_indices.get(op).unwrap(), SlotType::Hash3),
                         vec![src_ptr1, src_ptr2, src_ptr3],
@@ -118,7 +136,7 @@ impl LEM {
                     let src_ptr3 = src[2].get_ptr(&binds)?.to_owned();
                     let src_ptr4 = src[3].get_ptr(&binds)?.to_owned();
                     let tgt_ptr = store.intern_4_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3, src_ptr4);
-                    insert_into_binds(&mut binds, tgt.clone(), tgt_ptr)?;
+                    bind(&mut binds, tgt.clone(), tgt_ptr)?;
                     visits.insert(
                         (*slots_indices.get(op).unwrap(), SlotType::Hash4),
                         vec![src_ptr1, src_ptr2, src_ptr3, src_ptr4],
@@ -132,8 +150,8 @@ impl LEM {
                     let Some((a, b)) = store.fetch_2_ptrs(idx) else {
                         bail!("Couldn't fetch {src}'s children")
                     };
-                    insert_into_binds(&mut binds, tgts[0].clone(), *a)?;
-                    insert_into_binds(&mut binds, tgts[1].clone(), *b)?;
+                    bind(&mut binds, tgts[0].clone(), *a)?;
+                    bind(&mut binds, tgts[1].clone(), *b)?;
                     // STEP 2: Update hash_witness with preimage and image
                     visits.insert(
                         (*slots_indices.get(op).unwrap(), SlotType::Hash2),
@@ -148,9 +166,9 @@ impl LEM {
                     let Some((a, b, c)) = store.fetch_3_ptrs(idx) else {
                         bail!("Couldn't fetch {src}'s children")
                     };
-                    insert_into_binds(&mut binds, tgts[0].clone(), *a)?;
-                    insert_into_binds(&mut binds, tgts[1].clone(), *b)?;
-                    insert_into_binds(&mut binds, tgts[2].clone(), *c)?;
+                    bind(&mut binds, tgts[0].clone(), *a)?;
+                    bind(&mut binds, tgts[1].clone(), *b)?;
+                    bind(&mut binds, tgts[2].clone(), *c)?;
                     // STEP 2: Update hash_witness with preimage and image
                     visits.insert(
                         (*slots_indices.get(op).unwrap(), SlotType::Hash3),
@@ -165,10 +183,10 @@ impl LEM {
                     let Some((a, b, c, d)) = store.fetch_4_ptrs(idx) else {
                         bail!("Couldn't fetch {src}'s children")
                     };
-                    insert_into_binds(&mut binds, tgts[0].clone(), *a)?;
-                    insert_into_binds(&mut binds, tgts[1].clone(), *b)?;
-                    insert_into_binds(&mut binds, tgts[2].clone(), *c)?;
-                    insert_into_binds(&mut binds, tgts[3].clone(), *d)?;
+                    bind(&mut binds, tgts[0].clone(), *a)?;
+                    bind(&mut binds, tgts[1].clone(), *b)?;
+                    bind(&mut binds, tgts[2].clone(), *c)?;
+                    bind(&mut binds, tgts[3].clone(), *d)?;
                     // STEP 2: Update hash_witness with preimage and image
                     visits.insert(
                         (*slots_indices.get(op).unwrap(), SlotType::Hash4),
@@ -187,7 +205,7 @@ impl LEM {
                             .hash3(&[*secret, z_ptr.tag.to_field(), z_ptr.hash]);
                     let tgt_ptr = Ptr::comm(hash);
                     store.comms.insert(FWrap::<F>(hash), (*secret, *src_ptr));
-                    insert_into_binds(&mut binds, tgt.clone(), tgt_ptr)?;
+                    bind(&mut binds, tgt.clone(), tgt_ptr)?;
                 }
                 LEMOP::Open(tgt_secret, tgt_ptr, comm_or_num) => {
                     match comm_or_num.get_ptr(&binds)? {
@@ -195,12 +213,8 @@ impl LEM {
                             let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
                                 bail!("No committed data for hash {}", &hash.hex_digits())
                             };
-                            insert_into_binds(&mut binds, tgt_ptr.clone(), *ptr)?;
-                            insert_into_binds(
-                                &mut binds,
-                                tgt_secret.clone(),
-                                Ptr::Leaf(Tag::Num, *secret),
-                            )?;
+                            bind(&mut binds, tgt_ptr.clone(), *ptr)?;
+                            bind(&mut binds, tgt_secret.clone(), Ptr::Leaf(Tag::Num, *secret))?;
                         }
                         _ => {
                             bail!("{comm_or_num} is not a num/comm pointer")

@@ -1,37 +1,45 @@
+## Lurk Evaluation Model (LEM)
 
-LEM stands for Lurk Evaluation Model. Its main purpose is to represent Lurk step function such that we can both interpret and synthesize the circuit. 
+The main purpose of LEM is to represent Lurk's step function *as data*, which can
+be interpreted or used to synthesize the circuit.
 
-# Introduction
+### Pointer cycle
 
-Important concepts:
+The variables of a LEM are represented by *meta pointers*, which become bound to
+concrete pointers during interpretation. So a `MetaPtr` is a named reference to
+a `Ptr`.
 
-    * Meta pointers. During interpretation LEM generates named pointers, which later will become allocated pointer in the circuit, using the same names. 
+To synthesize the circuit, the `Ptr`s that come from interpretation are hashed
+and become `ZPtr`s, whose data can be allocated in the circuit to generate
+*allocated pointers* (`AllocatedPtr`).
 
 ```mermaid
-    graph MP;
-        MP[Meta Pointer] --> AP[Allocated Pointer];
-        HMP[HashMap<name, MetaPointer>] --> HMA[HashMap<name, AllocatedPointer>];
+graph LR;
+    MetaPtr --> Ptr
+    Ptr --> ZPtr
+    ZPtr --> AllocatedPtr
 ```
 
-# Check
+### Check
 
 We statically check the following properties:
 
-    * Static single assignments.
-    * Non-duplicated input labels.
-    * One return per LEM path.
-    * Assign first, use later.
-    * Ensure always return.
+* Static single assignments
+* Non-duplicated input labels
+* One return per LEM path
+* Assign first, use later
+* Ensure always return
 
-# Syntax
+### LEM macro syntax
 
 A summary of LEM syntax:
 
-    * let
-    * return
-    * match_tag
-    * match_symbol
-    * hash, unhash
+* `let`
+* `return`
+* `match_tag`
+* `match_symbol`
+* `hash`, `unhash`
+* `hide`, `open`
 
 # Static Analysis
 
@@ -83,16 +91,16 @@ The details of how the implication system works is presented in next section.
         ** use preallocated pointers to construct implications in Hash and Unhash operations
 
 ```mermaid
-        graph TD;
-        R1[Hash2] --> R2[Hash3];
-        R2 --> R3[Hash4];
-        R3 --> L[MatchTag];
-        L --> A[Tag1];
-        L --> B[Tag2];
-        A --> A1[Hash2];
-        A1 --> A2[Hash3];
-        A2 --> A3[Hash4];
-        B --> B1[Return];
+graph TD;
+    R1[Hash2] --> R2[Hash3];
+    R2 --> R3[Hash4];
+    R3 --> L[MatchTag];
+    L --> A[Tag1];
+    L --> B[Tag2];
+    A --> A1[Hash2];
+    A1 --> A2[Hash3];
+    A2 --> A3[Hash4];
+    B --> B1[Return];
 ```
 
 In this figure at most 2 slots is enough for every path, but on path given by `Tag2`, we need to **complete with dummies**. 
