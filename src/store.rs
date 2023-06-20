@@ -1504,22 +1504,22 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn z_expr_ptr_from_parts(&self, tag: F, value: F) -> Result<ZExprPtr<F>, Error> {
-        let tag = ExprTag::from_field(&tag).ok_or(Error(format!("ExprTag error")))?;
+        let tag = ExprTag::from_field(&tag).ok_or(Error("ExprTag error".to_string()))?;
         let zptr = ZPtr(tag, value);
-        if let Some(_) = self.z_expr_ptr_map.get(&zptr) {
+        if self.z_expr_ptr_map.get(&zptr).is_some() {
             Ok(zptr)
         } else {
-            Err(Error(format!("uncached z_expr_ptr")))
+            Err(Error("uncached z_expr_ptr".to_string()))
         }
     }
 
     pub fn z_cont_ptr_from_parts(&self, tag: F, value: F) -> Result<ZContPtr<F>, Error> {
-        let tag = ContTag::from_field(&tag).ok_or(Error(format!("ContTag error")))?;
+        let tag = ContTag::from_field(&tag).ok_or(Error("ContTag error".to_string()))?;
         let zptr = ZPtr(tag, value);
-        if let Some(_) = self.z_cont_ptr_map.get(&zptr) {
+        if self.z_cont_ptr_map.get(&zptr).is_some() {
             Ok(zptr)
         } else {
-            Err(Error(format!("uncached z_cont_ptr")))
+            Err(Error("uncached z_cont_ptr".to_string()))
         }
     }
 
