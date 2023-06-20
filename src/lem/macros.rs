@@ -85,18 +85,18 @@ macro_rules! lemop {
             $crate::lem::LEMOP::MatchTag($crate::metaptr!($sii), cases)
         }
     };
-    ( match_sym_path $sii:ident { $( $sym_path:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } ) => {
+    ( match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } ) => {
         {
             let mut cases = std::collections::HashMap::new();
             $(
                 if cases.insert(
-                    $sym_path.iter().map(|s| s.to_string()).collect::<Vec<String>>(),
+                    $symbol,
                     $crate::lemop!( $case_ops ),
                 ).is_some() {
-                    panic!("Repeated path on `match_sym_path`");
+                    panic!("Repeated path on `match_symbol`");
                 };
             )*
-            $crate::lem::LEMOP::MatchSymPath($crate::metaptr!($sii), cases, Box::new($crate::lemop!( $def )))
+            $crate::lem::LEMOP::MatchSymbol($crate::metaptr!($sii), cases, Box::new($crate::lemop!( $def )))
         }
     };
     ( return ($src1:ident, $src2:ident, $src3:ident) ) => {
@@ -222,12 +222,12 @@ macro_rules! lemop {
             $($tail)*
         )
     };
-    (@seq {$($limbs:tt)*}, match_sym_path $sii:ident { $( $sym_path:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } ; $($tail:tt)*) => {
+    (@seq {$($limbs:tt)*}, match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } ; $($tail:tt)*) => {
         $crate::lemop! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!( match_sym_path $sii { $( $sym_path => $case_ops ),* , _ => $def, } ),
+                $crate::lemop!( match_symbol $sii { $( $symbol => $case_ops ),* , _ => $def, } ),
             },
             $($tail)*
         )
@@ -256,7 +256,7 @@ macro_rules! lem {
 
 #[cfg(test)]
 mod tests {
-    use crate::lem::{tag::Tag, MetaPtr, LEMOP};
+    use crate::lem::{symbol::Symbol, tag::Tag, MetaPtr, LEMOP};
 
     #[inline]
     fn mptr(name: &str) -> MetaPtr {
@@ -269,8 +269,8 @@ mod tests {
     }
 
     #[inline]
-    fn match_sym_path(i: MetaPtr, cases: Vec<(Vec<String>, LEMOP)>, def: LEMOP) -> LEMOP {
-        LEMOP::MatchSymPath(
+    fn match_symbol(i: MetaPtr, cases: Vec<(Symbol, LEMOP)>, def: LEMOP) -> LEMOP {
+        LEMOP::MatchSymbol(
             i,
             std::collections::HashMap::from_iter(cases),
             Box::new(def),
@@ -373,11 +373,11 @@ mod tests {
         );
 
         let moo = lemop!(
-            match_sym_path www {
-                ["a", "b"] => {
+            match_symbol www {
+                Symbol::lurk_sym("nil") => {
                     let foo: Num; // a single LEMOP will not turn into a Seq
                 },
-                ["c", "d"] => {
+                Symbol::lurk_sym("cons") => {
                     let foo: Num;
                     let goo: Char;
                 },
@@ -387,15 +387,12 @@ mod tests {
             }
         );
         assert!(
-            moo == match_sym_path(
+            moo == match_symbol(
                 mptr("www"),
                 vec![
+                    (Symbol::lurk_sym("nil"), LEMOP::Null(mptr("foo"), Tag::Num)),
                     (
-                        vec!["a".to_string(), "b".to_string()],
-                        LEMOP::Null(mptr("foo"), Tag::Num)
-                    ),
-                    (
-                        vec!["c".to_string(), "d".to_string()],
+                        Symbol::lurk_sym("cons"),
                         LEMOP::Seq(vec![
                             LEMOP::Null(mptr("foo"), Tag::Num),
                             LEMOP::Null(mptr("goo"), Tag::Char)

@@ -6,15 +6,15 @@
 //!
 //! ## Pattern matching and the implication system:
 //!
-//! LEM implements branching using `MatchTag`and `MatchSymPath`.
-//! By nesting `MatchTag`s and `MatchSymPath`s we create a set of
-//! paths that interpretation can follow. We call them **virtual
-//! paths**. In particular, the followed path is called **concrete
-//! path**. We use a Boolean variable to indicate which path is
-//! followed or not. This allows us to construct an **implication
+//! LEM implements branching using, for example, `MatchTag`and
+//! `MatchSymbol`. By nesting `MatchTag`s and `MatchSymbol`s we create
+//! a set of paths that interpretation can follow. We call them
+//! **virtual** and **contrete** paths. In particular, the followed path
+//! is the concrete one. We use a Boolean variable to indicate whether a
+//! path is followed or not. This allows us to construct an **implication
 //! system**, which is responsible for ensuring that allocated
 //! variable in the concrete path are equal to their expected
-//! values.
+//! values but such equalities on the virtul paths are irrelevant.
 //!
 //! ## Hash slot system:
 //!
@@ -34,14 +34,13 @@
 //!
 //! * STEP 2: During interpretation (second traversal) we gather
 //! information related to each hash operation, namely we need to
-//! collect all possible images and preimages that can possibly
-//! occupy each slot.
+//! collect all possible preimages that can possibly occupy each slot.
 //!
 //! * STEP 3: During construction of constraints, we do the following:
 //!
-//! ** Preallocate images and preimages for each slot.
-//! ** Constrain Poseidon hash for each slot.
-//! ** While traversing LEM for the third time, we add implications to
+//! 1. Preallocate images and preimages for each slot;
+//! 2. Constrain Poseidon hash for each slot;
+//! 3. While traversing LEM for the third time, we add implications to
 //! enforce concrete path variables are indeed glued to their respective
 //! slots.
 
@@ -191,9 +190,9 @@ impl LEMOP {
                         cont_and_push!(path.push_tag(tag), op);
                     }
                 }
-                LEMOP::MatchSymPath(_, cases, def) => {
-                    for (sym_path, op) in cases {
-                        cont_and_push!(path.push_sym_path(sym_path), op);
+                LEMOP::MatchSymbol(_, cases, def) => {
+                    for (symbol, op) in cases {
+                        cont_and_push!(path.push_symbol(symbol), op);
                     }
                     cont_and_push!(path.push_default(), def);
                 }
@@ -443,7 +442,12 @@ impl LEM {
                 }
             };
 
-            preallocations.insert(op, (lemop_idx, preallocated_preimg, preallocated_img));
+            if preallocations
+                .insert(op, (lemop_idx, preallocated_preimg, preallocated_img))
+                .is_some()
+            {
+                bail!("Duplicated LEMOP: {:?}", op);
+            };
         }
 
         let mut stack = vec![(&self.lem_op, Boolean::Constant(true), Path::default())];

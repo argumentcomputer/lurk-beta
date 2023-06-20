@@ -205,12 +205,12 @@ impl LEM {
                         None => bail!("No match for tag {}", ptr_tag),
                     }
                 }
-                LEMOP::MatchSymPath(match_ptr, cases, def) => {
+                LEMOP::MatchSymbol(match_ptr, cases, def) => {
                     let ptr = match_ptr.get_ptr(&binds)?;
-                    let Some(sym_path) = store.fetch_sym_path(ptr) else {
-                        bail!("Symbol path not found for {match_ptr}");
+                    let Some(symbol) = store.fetch_symbol(ptr) else {
+                        bail!("Symbol not found for {match_ptr}");
                     };
-                    match cases.get(sym_path) {
+                    match cases.get(&symbol) {
                         Some(op) => stack.push(op),
                         None => stack.push(def),
                     }

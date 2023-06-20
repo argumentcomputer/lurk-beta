@@ -83,7 +83,7 @@ use crate::field::LurkField;
 use anyhow::{bail, Result};
 use std::collections::HashMap;
 
-use self::{interpreter::Frame, path::Path, pointers::Ptr, store::Store, tag::Tag};
+use self::{interpreter::Frame, path::Path, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag};
 
 /// A `LEM` has the name for the inputs and its characteristic `LEMOP`
 pub struct LEM {
@@ -145,10 +145,10 @@ pub enum LEMOP {
     /// `MatchTag(x, cases)` performs a match on the tag of `x`, considering only
     /// the appropriate `LEMOP` among the ones provided in `cases`
     MatchTag(MetaPtr, HashMap<Tag, LEMOP>),
-    /// `MatchSymPath(x, cases, def)` checks whether `x` matches some symbol among
+    /// `MatchSymbol(x, cases, def)` checks whether `x` matches some symbol among
     /// the ones provided in `cases`. If so, run the corresponding `LEMOP`. Run
     /// The default `def` `LEMOP` otherwise
-    MatchSymPath(MetaPtr, HashMap<Vec<String>, LEMOP>, Box<LEMOP>),
+    MatchSymbol(MetaPtr, HashMap<Symbol, LEMOP>, Box<LEMOP>),
     /// `Seq(ops)` executes each `op: LEMOP` in `ops` sequentially
     Seq(Vec<LEMOP>),
     /// `Return([a, b, c])` sets the output as `[a, b, c]`
@@ -163,14 +163,14 @@ impl std::hash::Hash for LEMOP {
 }
 
 impl LEMOP {
-    /// Intern all symbol paths that are matched on `MatchSymPath`s
-    pub fn intern_matched_sym_paths<F: LurkField>(&self, store: &mut Store<F>) {
+    /// Intern all symbols that are matched on `MatchSymbol`s
+    pub fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
         let mut stack = vec![self];
         while let Some(op) = stack.pop() {
             match op {
-                Self::MatchSymPath(_, cases, def) => {
-                    for (path, op) in cases {
-                        store.intern_symbol_path(path);
+                Self::MatchSymbol(_, cases, def) => {
+                    for (symbol, op) in cases {
+                        store.intern_symbol(symbol);
                         stack.push(op);
                     }
                     stack.push(def);
@@ -209,10 +209,10 @@ impl LEM {
         })
     }
 
-    /// Intern all symbol paths that are matched on `MatchSymPath`s
+    /// Intern all symbols that are matched on `MatchSymbol`s
     #[inline]
-    pub fn intern_matched_sym_paths<F: LurkField>(&self, store: &mut Store<F>) {
-        self.lem_op.intern_matched_sym_paths(store);
+    pub fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
+        self.lem_op.intern_matched_symbols(store);
     }
 
     /// Asserts that all paths were visited by a set of frames. This is mostly

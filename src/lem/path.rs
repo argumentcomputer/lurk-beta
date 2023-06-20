@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::field::LurkField;
 
-use super::{interpreter::Frame, store::Store, tag::Tag, MetaPtr, LEMOP};
+use super::{interpreter::Frame, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEMOP};
 
 #[derive(Default, Clone, PartialEq, Eq, Hash)]
 pub struct Path(String);
@@ -21,8 +21,8 @@ impl Path {
     }
 
     #[inline]
-    pub fn push_sym_path(&self, sym_path: &[String]) -> Path {
-        Path(format!("{self}.SymPath({})", sym_path.join(".")))
+    pub fn push_symbol(&self, symbol: &Symbol) -> Path {
+        Path(format!("{self}.Symbol({symbol})"))
     }
 
     #[inline]
@@ -36,8 +36,8 @@ impl Path {
     }
 
     #[inline]
-    pub fn push_sym_path_inplace(&mut self, sym_path: &[String]) {
-        self.0 = format!("{self}.SymPath({})", sym_path.join("."));
+    pub fn push_symbol_inplace(&mut self, symbol: &Symbol) {
+        self.0 = format!("{self}.Symbol({symbol})");
     }
 }
 
@@ -148,18 +148,17 @@ impl LEMOP {
                     HashMap::from_iter(new_cases),
                 ))
             }
-            LEMOP::MatchSymPath(ptr, cases, def) => {
+            LEMOP::MatchSymbol(ptr, cases, def) => {
                 let mut new_cases = vec![];
-                for (sym_path, case) in cases {
+                for (symbol, case) in cases {
                     // each case needs it's own clone of `map`
-                    let new_case =
-                        case.deconflict(&path.push_sym_path(sym_path), &mut map.clone())?;
-                    new_cases.push((sym_path.clone(), new_case));
+                    let new_case = case.deconflict(&path.push_symbol(symbol), &mut map.clone())?;
+                    new_cases.push((symbol.clone(), new_case));
                 }
-                Ok(LEMOP::MatchSymPath(
+                Ok(LEMOP::MatchSymbol(
                     retrieve_one(map, ptr)?,
                     HashMap::from_iter(new_cases),
-                    Box::new(def.deconflict(&path.push_sym_path(&[]), &mut map.clone())?),
+                    Box::new(def.deconflict(&path.push_default(), &mut map.clone())?),
                 ))
             }
             LEMOP::Seq(ops) => {
@@ -188,7 +187,7 @@ impl LEMOP {
         }
         match self {
             LEMOP::MatchTag(_, cases) => sum_num_paths!(cases.values()),
-            LEMOP::MatchSymPath(_, cases, _) => sum_num_paths!(cases.values()),
+            LEMOP::MatchSymbol(_, cases, _) => sum_num_paths!(cases.values()),
             LEMOP::Seq(ops) => mul_num_paths!(ops.iter()),
             // It's safer to be exaustive here and avoid missing new LEMOPs
             Self::Null(..)
@@ -220,13 +219,13 @@ impl LEMOP {
                     path.push_tag_inplace(tag);
                     stack.push(op);
                 }
-                Self::MatchSymPath(match_ptr, cases, def) => {
+                Self::MatchSymbol(match_ptr, cases, def) => {
                     let ptr = match_ptr.get_ptr(binds)?;
-                    let Some(sym_path) = store.fetch_sym_path(ptr) else {
-                        bail!("Symbol path not found for {}", match_ptr.name());
+                    let Some(symbol) = store.fetch_symbol(ptr) else {
+                        bail!("Symbol not found for {}", match_ptr.name());
                     };
-                    path.push_sym_path_inplace(sym_path);
-                    match cases.get(sym_path) {
+                    path.push_symbol_inplace(&symbol);
+                    match cases.get(&symbol) {
                         Some(op) => stack.push(op),
                         None => stack.push(def),
                     }

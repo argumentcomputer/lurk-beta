@@ -47,8 +47,8 @@ mod tests {
 
         assert_eq!(num_slots, NUM_SLOTS);
 
-        // Assures that `MatchSymPath`s will work properly
-        lem.intern_matched_sym_paths(store);
+        // Assures that `MatchSymbol`s will work properly
+        lem.intern_matched_symbols(store);
 
         let mut all_frames = Vec::default();
 
