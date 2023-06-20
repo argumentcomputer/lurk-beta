@@ -175,8 +175,8 @@ impl LEM {
     /// Computes the number of possible paths in a `LEMOP`
     pub fn num_paths(&self) -> usize {
         match self {
-            LEM::MatchTag(_, cases) => cases.values().fold(0, |acc, op| acc + op.num_paths()),
-            LEM::MatchSymPath(_, cases, _) => cases.values().fold(0, |acc, op| acc + op.num_paths()),
+            LEM::MatchTag(_, cases) => cases.values().fold(0, |acc, code| acc + code.num_paths()),
+            LEM::MatchSymPath(_, cases, _) => cases.values().fold(0, |acc, code| acc + code.num_paths()),
             LEM::Seq(_, rest) => rest.num_paths(),
             LEM::Return(..) => 1,
         }
@@ -184,47 +184,36 @@ impl LEM {
 
     /// Computes the path taken through a `LEMOP` given a frame
     fn path_taken<F: LurkField>(&self, frame: &Frame<F>, store: &mut Store<F>) -> Result<Path> {
-        // let mut path = Path::default();
-        // let mut stack = vec![self];
-        // let ptrs = &frame.ptrs;
-        // while let Some(op) = stack.pop() {
-        //     match op {
-        //         Self::MatchTag(match_ptr, cases) => {
-        //             let ptr = match_ptr.get_ptr(ptrs)?;
-        //             let tag = ptr.tag();
-        //             let Some(op) = cases.get(tag) else {
-        //                 bail!("No match for tag {}", tag)
-        //             };
-        //             path.push_tag_inplace(tag);
-        //             stack.push(op);
-        //         }
-        //         Self::MatchSymPath(match_ptr, cases, def) => {
-        //             let ptr = match_ptr.get_ptr(ptrs)?;
-        //             let Some(sym_path) = store.fetch_sym_path(ptr) else {
-        //                 bail!("Symbol path not found for {}", match_ptr.name());
-        //             };
-        //             path.push_sym_path_inplace(sym_path);
-        //             match cases.get(sym_path) {
-        //                 Some(op) => stack.push(op),
-        //                 None => stack.push(def),
-        //             }
-        //         }
-        //         Self::Seq(ops) => stack.extend(ops.iter().rev()),
-        //         // It's safer to be exaustive here and avoid missing new LEMOPs
-        //         Self::Null(..)
-        //         | Self::Hash2(..)
-        //         | Self::Hash3(..)
-        //         | Self::Hash4(..)
-        //         | Self::Unhash2(..)
-        //         | Self::Unhash3(..)
-        //         | Self::Unhash4(..)
-        //         | Self::Hide(..)
-        //         | Self::Open(..)
-        //         | Self::Return(..) => (),
-        //     }
-        // }
-        // Ok(path)
-        todo!()
+        let mut path = Path::default();
+        let mut stack = vec![self];
+        let ptrs = &frame.ptrs;
+        while let Some(code) = stack.pop() {
+            match code {
+                Self::MatchTag(match_ptr, cases) => {
+                    let ptr = match_ptr.get_ptr(ptrs)?;
+                    let tag = ptr.tag();
+                    let Some(code) = cases.get(tag) else {
+                        bail!("No match for tag {}", tag)
+                    };
+                    path.push_tag_inplace(tag);
+                    stack.push(code);
+                }
+                Self::MatchSymPath(match_ptr, cases, def) => {
+                    let ptr = match_ptr.get_ptr(ptrs)?;
+                    let Some(sym_path) = store.fetch_sym_path(ptr) else {
+                        bail!("Symbol path not found for {}", match_ptr.name());
+                    };
+                    path.push_sym_path_inplace(sym_path);
+                    match cases.get(&**sym_path) {
+                        Some(code) => stack.push(code),
+                        None => stack.push(def),
+                    }
+                }
+                Self::Seq(_, rest) => stack.push(rest),
+                Self::Return(..) => (),
+            }
+        }
+        Ok(path)
     }
 
     /// Computes the number of paths taken within a `LEMOP` given a set of frames
