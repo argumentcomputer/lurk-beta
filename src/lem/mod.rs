@@ -2,7 +2,7 @@
 // mod constrainer;
 // mod eval;
 mod interpreter;
-// mod macros;
+mod macros;
 mod path;
 mod pointers;
 mod store;
