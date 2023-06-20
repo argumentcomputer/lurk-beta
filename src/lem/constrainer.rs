@@ -450,10 +450,14 @@ impl LEM {
 
     fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        slot_type: &SlotType,
+        slot_blueprint: &(usize, SlotType),
         preallocated_preimg: Vec<AllocatedNum<F>>,
         store: &mut Store<F>,
     ) -> Result<AllocatedNum<F>> {
+        // TODO: avoid this destruction and implement proper display for slot blueprints
+        let (slot_idx, slot_type) = slot_blueprint;
+
+        let cs = &mut cs.namespace(|| format!("poseidon for slot {slot_idx} (type {slot_type})"));
         let preallocated_img = {
             match slot_type {
                 SlotType::Hash2 => {
@@ -530,9 +534,8 @@ impl LEM {
                 // For the image, we call `hash_poseidon` with the correct Poseidon
                 // constants
                 let preallocated_img = Self::allocate_img_for_slot(
-                    &mut cs
-                        .namespace(|| format!("poseidon for slot {slot_idx} (type {slot_type})")),
-                    &slot_type,
+                    cs,
+                    &slot_blueprint,
                     preallocated_preimg.clone(),
                     store,
                 )?;
