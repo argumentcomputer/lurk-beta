@@ -375,12 +375,6 @@ fn evaluate_num_equal() {
     {
         let expr = "(= 5 5)";
 
-        // TODO: Consider special-casing t, like nil, and force it to the
-        // immediate value 1 (with Symbol type-tag). That way boolean logic
-        // will work out. It might be more consistent to have an explicit
-        // boolean type (like Scheme), though. Otherwise we will have to
-        // think about handling of symbol names (if made explicit), since
-        // neither t/nil as 1/0 will *not* be hashes of their symbol names.
         let expected = s.t();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
