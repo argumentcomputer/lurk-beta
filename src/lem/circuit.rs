@@ -177,60 +177,6 @@ impl LEMCTL {
         let mut img_map = ImgMap::default();
         let mut slots_counter = SlotsCounter::default();
 
-        fn populate_with_op<'a>(
-            op: &'a LEMOP, path: Path, img_map: &mut ImgMap<'a>, slots_counter: &mut SlotsCounter, slots_info: &mut SlotsInfo
-        ) -> Result<()> {
-            /// Designates a slot for a pair of preimage/image. If a slot has
-            /// already been allocated for either the preimage or the image,
-            /// reuses it. Otherwise, allocates a new one.
-            macro_rules! populate_slots_map {
-                ( $preimg: expr, $img: expr, $preimgs_map: expr, $imgs_map: expr, $counter_fn: expr ) => {
-                    match ($preimgs_map.get($preimg), $imgs_map.get($img)) {
-                        (Some(slot), _) | (_, Some(slot)) => {
-                            // reusing a slot
-                            if slots_info.slots_map.insert(op.clone(), *slot).is_some() {
-                                bail!("Duplicated LEMOP: {:?}", op)
-                            }
-                        }
-                        (None, None) => {
-                            // allocating a new slot
-                            let slot_idx = $counter_fn(path);
-                            let slot_type = SlotType::from_lemop(op);
-                            let slot = (slot_idx, slot_type);
-                            if slots_info.slots_map.insert(op.clone(), slot).is_some() {
-                                bail!("Duplicated LEMOP: {:?}", op)
-                            }
-                            slots_info.slots.insert(slot);
-
-                            // memoize
-                            $preimgs_map.insert($preimg, slot);
-                            $imgs_map.insert($img, slot);
-                        }
-                    };
-                };
-            }
-            match op {
-                LEMOP::Hash2(img, _, preimg) | LEMOP::Unhash2(preimg, img) => {
-                    populate_slots_map!(preimg, img, img_map.pre2, img_map.img2, |path| {
-                        slots_counter.next_hash2(path)
-                    });
-                    Ok(())
-                }
-                LEMOP::Hash3(img, _, preimg) | LEMOP::Unhash3(preimg, img) => {
-                    populate_slots_map!(preimg, img, img_map.pre3, img_map.img3, |path| {
-                        slots_counter.next_hash3(path)
-                    });
-                    Ok(())
-                }
-                LEMOP::Hash4(img, _, preimg) | LEMOP::Unhash4(preimg, img) => {
-                    populate_slots_map!(preimg, img, img_map.pre4, img_map.img4, |path| {
-                        slots_counter.next_hash4(path)
-                    });
-                    Ok(())
-                }
-                _ => Ok(())
-            }
-        }
         fn recurse<'a>(
             code: &'a LEMCTL, path: Path, img_map: &mut ImgMap<'a>, slots_counter: &mut SlotsCounter, slots_info: &mut SlotsInfo
         ) -> Result<()> {
@@ -254,7 +200,53 @@ impl LEMCTL {
                     recurse(def, new_path, img_map, slots_counter, slots_info)
                 }
                 LEMCTL::Seq(op, rest) => {
-                    populate_with_op(op, path.clone(), img_map, slots_counter, slots_info)?;
+                    /// Designates a slot for a pair of preimage/image. If a slot has
+                    /// already been allocated for either the preimage or the image,
+                    /// reuses it. Otherwise, allocates a new one.
+                    macro_rules! populate_slots_map {
+                        ( $preimg: expr, $img: expr, $preimgs_map: expr, $imgs_map: expr, $counter_fn: expr ) => {
+                            match ($preimgs_map.get($preimg), $imgs_map.get($img)) {
+                                (Some(slot), _) | (_, Some(slot)) => {
+                                    // reusing a slot
+                                    if slots_info.slots_map.insert(op.clone(), *slot).is_some() {
+                                        bail!("Duplicated LEMOP: {:?}", op)
+                                    }
+                                }
+                                (None, None) => {
+                                    // allocating a new slot
+                                    let slot_idx = $counter_fn(path.clone());
+                                    let slot_type = SlotType::from_lemop(op);
+                                    let slot = (slot_idx, slot_type);
+                                    if slots_info.slots_map.insert(op.clone(), slot).is_some() {
+                                        bail!("Duplicated LEMOP: {:?}", op)
+                                    }
+                                    slots_info.slots.insert(slot);
+
+                                    // memoize
+                                    $preimgs_map.insert($preimg, slot);
+                                    $imgs_map.insert($img, slot);
+                                }
+                            };
+                        };
+                    }
+                    match op {
+                        LEMOP::Hash2(img, _, preimg) | LEMOP::Unhash2(preimg, img) => {
+                            populate_slots_map!(preimg, img, img_map.pre2, img_map.img2, |path| {
+                                slots_counter.next_hash2(path)
+                            });
+                        }
+                        LEMOP::Hash3(img, _, preimg) | LEMOP::Unhash3(preimg, img) => {
+                            populate_slots_map!(preimg, img, img_map.pre3, img_map.img3, |path| {
+                                slots_counter.next_hash3(path)
+                            });
+                        }
+                        LEMOP::Hash4(img, _, preimg) | LEMOP::Unhash4(preimg, img) => {
+                            populate_slots_map!(preimg, img, img_map.pre4, img_map.img4, |path| {
+                                slots_counter.next_hash4(path)
+                            });
+                        }
+                        _ => ()
+                    };
                     recurse(rest, path, img_map, slots_counter, slots_info)
                 },
                 LEMCTL::Return(..) => Ok(()),
@@ -618,7 +610,7 @@ impl LEM {
                             // Retrieve the preallocated preimage and image for this slot
                             let slot = slots_info.get_slot(op)?;
                             let (preallocated_preimg, preallocated_img) = preallocations.get(slot).unwrap();
-                            
+
                             // Add the implication constraint for the image
                             implies_equal(
                                 &mut cs.namespace(|| {
@@ -628,7 +620,7 @@ impl LEM {
                                 $allocated_img.hash(),
                                 preallocated_img,
                             )?;
-                            
+
                             // For each component of the preimage, add implication constraints
                             // for its tag and hash
                             for (i, allocated_ptr) in $allocated_preimg.iter().enumerate() {
@@ -665,10 +657,10 @@ impl LEM {
                                 $img.name(),
                                 &allocated_ptrs,
                             )?;
-                            
+
                             // Retrieve allocated preimage
                             let allocated_preimg = Self::get_allocated_preimg($preimg, &allocated_ptrs)?;
-                            
+
                             // Create constraint for the tag
                             let allocated_tag = alloc_manager.get_or_alloc_num(cs, $tag.to_field())?;
                             implies_equal(
@@ -677,10 +669,10 @@ impl LEM {
                                 allocated_img.tag(),
                                 &allocated_tag,
                             )?;
-                            
+
                             // Add the hash constraints
                             constrain_slot!($preimg, $img, allocated_preimg, allocated_img);
-                            
+
                             // Insert allocated image into `allocated_ptrs`
                             allocated_ptrs.insert($img.name(), allocated_img.clone());
                         };
@@ -691,7 +683,7 @@ impl LEM {
                             let Some(allocated_img) = allocated_ptrs.get($img.name()) else {
                                 bail!("{} not allocated", $img)
                             };
-                            
+
                             // Allocate preimage
                             let allocated_preimg = Self::alloc_preimg(
                                 cs,
@@ -701,10 +693,10 @@ impl LEM {
                                 store,
                                 &allocated_ptrs,
                             )?;
-                            
+
                             // Add the hash constraints
                             constrain_slot!($preimg, $img, allocated_preimg, allocated_img);
-                            
+
                             // Insert allocated preimage into `allocated_ptrs`
                             for (mptr, allocated_ptr) in $preimg.iter().zip(allocated_preimg) {
                                 allocated_ptrs.insert(mptr.name(), allocated_ptr);
@@ -740,7 +732,7 @@ impl LEM {
                             )?;
                             allocated_ptrs.insert(tgt.name(), allocated_tgt.clone());
                             let allocated_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
-                            
+
                             // Constrain tag
                             implies_equal(
                                 &mut cs.namespace(|| format!("implies equal for {tgt}'s tag")),
@@ -749,7 +741,7 @@ impl LEM {
                                 &allocated_tag,
                             )
                                 .with_context(|| format!("couldn't enforce implies equal for {tgt}'s tag"))?;
-                            
+
                             // Constrain hash
                             implies_equal_zero(
                                 &mut cs.namespace(|| format!("implies equal zero for {tgt}'s hash")),
