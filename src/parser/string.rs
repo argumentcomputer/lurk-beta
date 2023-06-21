@@ -142,7 +142,7 @@ pub fn parse_fragment<'a, F: LurkField>(
     }
 }
 
-/// Parse a string. Use a loop of parse_fragment and push all of the fragments
+/// Parse a non-empty string. Use a loop of parse_fragment and push all of the fragments
 /// into an output string.
 pub fn parse_string_inner1<'a, F: LurkField>(
     delim: char,

@@ -16,6 +16,8 @@ pub enum Pos {
     },
 }
 
+// This is so we can easily use derive(PartialEq) on datatypes like `Syntax` which contain `Pos`,
+// since the source position an AST node comes from doesn't effect its equality
 impl PartialEq for Pos {
     fn eq(&self, _other: &Self) -> bool {
         true

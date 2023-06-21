@@ -56,7 +56,6 @@ pub fn parse_symbol_limb<F: LurkField>(
                 tag("|"),
             ),
             string::parse_string_inner1(symbol::SYM_SEPARATOR, false, symbol::ESCAPE_CHARS),
-            string::parse_string_inner1(symbol::SYM_SEPARATOR, false, symbol::ESCAPE_CHARS),
             value(String::from(""), peek(tag("."))),
         ))(from)?;
         Ok((i, s))
@@ -84,6 +83,7 @@ pub fn parse_symbol_inner<F: LurkField>(
         } else if is_root && mark == sym_mark {
             Ok((i, Symbol::Sym(vec![])))
         } else {
+            // <limb><sep><limb><sep>.....<limb>(<sep>?)
             let (i, path) = separated_list1(char(sym_sep), parse_symbol_limb())(i)?;
             let (upto, _) = opt(tag("."))(i)?;
             if mark == key_mark {
@@ -530,6 +530,7 @@ pub mod tests {
         assert!(test(parse_char(), "'a'", Some(char!('a'))));
         assert!(test(parse_char(), "'b'", Some(char!('b'))));
         assert!(test(parse_char(), "'\\u{8f}'", Some(char!('\u{8f}'))));
+        assert!(test(parse_char(), "'\\t'", Some(char!('\t'))));
         assert!(test(parse_char(), "'('", None));
         assert!(test(parse_char(), "'\\('", Some(char!('('))));
     }
