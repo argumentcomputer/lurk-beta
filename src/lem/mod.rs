@@ -244,7 +244,7 @@ mod tests {
         let num_slots = num_slots(&slots_info);
         assert_eq!(num_slots, expected_num_slots);
 
-        let estimated_num_constraints = lem.estimated_num_constrains(&slots_info);
+        let computed_num_constraints = lem.num_constraints(&slots_info);
 
         let mut store = Store::default();
 
@@ -261,7 +261,7 @@ mod tests {
 
             assert!(cs.is_satisfied());
 
-            assert_eq!(estimated_num_constraints, cs.num_constraints());
+            assert_eq!(computed_num_constraints, cs.num_constraints());
 
             if let Some(cs_prev) = cs_prev {
                 assert_eq!(cs.delta(&cs_prev, true), Delta::Equal);
@@ -288,7 +288,7 @@ mod tests {
                         // premise.
                         Num => {
                             let cont_out_error: Error;
-                            return (expr_in, env_in, cont_out_error);
+                            return (env_in, expr_in, cont_out_error);
                         }
                     };
                 },
@@ -299,7 +299,7 @@ mod tests {
                         // we don't want to be too restrictive and demand that at
                         // least one path must be taken.
                         Char => {
-                            return (expr_in, env_in, cont_in);
+                            return (cont_in, cont_in, cont_in);
                         }
                     };
                 }

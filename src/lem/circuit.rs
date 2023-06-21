@@ -773,25 +773,25 @@ impl LEM {
         Ok(())
     }
 
-    pub fn estimated_num_constrains(&self, slots_info: &SlotsInfo) -> usize {
+    pub fn num_constraints(&self, slots_info: &SlotsInfo) -> usize {
         let mut num_constraints = 0;
 
         for (_, slot_type) in &slots_info.slots {
             match slot_type {
                 SlotType::Hash2 => {
-                    num_constraints += 295;
+                    num_constraints += 289;
                 }
                 SlotType::Hash3 => {
-                    num_constraints += 345;
+                    num_constraints += 337;
                 }
                 SlotType::Hash4 => {
-                    num_constraints += 398;
+                    num_constraints += 388;
                 }
             }
         }
 
-        let mut stack = vec![&self.lem_op];
-        while let Some(op) = stack.pop() {
+        let mut stack = vec![(&self.lem_op, false)];
+        while let Some((op, nested)) = stack.pop() {
             match op {
                 LEMOP::Null(..) => {
                     num_constraints += 2;
@@ -818,13 +818,17 @@ impl LEM {
                     num_constraints += 6;
                 }
                 LEMOP::MatchTag(_, cases) => {
-                    num_constraints += 3 * cases.len() + 1;
-                    for (_, op) in cases {
-                        stack.push(op);
+                    if nested {
+                        num_constraints += 4 * cases.len() + 1;
+                    } else {
+                        num_constraints += 3 * cases.len() + 1;
+                    };
+                    for op in cases.values() {
+                        stack.push((op, nested));
                     }
                 }
                 LEMOP::Seq(ops) => {
-                    stack.extend(ops);
+                    stack.extend(ops.iter().map(|op| (op, nested)));
                 }
                 _ => todo!(),
             }

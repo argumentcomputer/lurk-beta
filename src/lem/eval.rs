@@ -47,7 +47,7 @@ mod tests {
 
         assert_eq!(num_slots, NUM_SLOTS);
 
-        let estimated_num_constraints = lem.estimated_num_constrains(&slots_info);
+        let computed_num_constraints = lem.num_constraints(&slots_info);
 
         // Assures that `MatchSymbol`s will work properly
         lem.intern_matched_symbols(store);
@@ -74,7 +74,7 @@ mod tests {
                 assert_eq!(cs.aux().len(), NUM_AUX);
 
                 let num_constraints = cs.num_constraints();
-                assert_eq!(estimated_num_constraints, num_constraints);
+                assert_eq!(computed_num_constraints, num_constraints);
                 assert_eq!(num_constraints, NUM_CONSTRAINTS);
                 // TODO: assert uniformity
             }
