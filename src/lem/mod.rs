@@ -242,7 +242,6 @@ mod tests {
         lem: &LEM,
         exprs: &[Ptr<Fr>],
         expected_num_slots: NumSlots,
-        expected_num_constraints: usize,
         assert_all_paths_taken: bool,
         expected_num_constraints: Option<usize>,
     ) {
@@ -276,8 +275,6 @@ mod tests {
             if let Some(cs_prev) = cs_prev {
                 assert_eq!(cs.delta(&cs_prev, true), Delta::Equal);
             }
-
-            assert_eq!(cs.num_constraints(), expected_num_constraints);
 
             cs_prev = Some(cs);
         }
@@ -326,9 +323,8 @@ mod tests {
             &lem,
             &[Ptr::num(Fr::from_u64(42))],
             NumSlots::default(),
-            42,
             false,
-            None,
+            Some(42),
         );
     }
 
@@ -357,9 +353,8 @@ mod tests {
             &lem,
             &[Ptr::num(Fr::from_u64(42))],
             NumSlots::default(),
-            23,
             false,
-            None,
+            Some(23),
         );
     }
 
@@ -375,9 +370,8 @@ mod tests {
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             NumSlots::new((0, 0, 0)),
-            8,
             true,
-            None,
+            Some(8),
         );
     }
 
@@ -401,9 +395,8 @@ mod tests {
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             NumSlots::new((0, 0, 0)),
-            23,
             true,
-            None,
+            Some(23),
         );
     }
 
@@ -439,9 +432,8 @@ mod tests {
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             NumSlots::new((2, 2, 2)),
-            2117,
             false,
-            None,
+            Some(2117),
         );
     }
 
@@ -480,9 +472,8 @@ mod tests {
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             NumSlots::new((2, 2, 2)),
-            2138,
             false,
-            None,
+            Some(2138),
         );
     }
 
@@ -533,7 +524,6 @@ mod tests {
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             NumSlots::new((2, 2, 2)),
-            2195,
             false,
             // Expected hash constraints: 2*(295+381+398) = 2148, then it was indeed optimized
             Some(2195),
