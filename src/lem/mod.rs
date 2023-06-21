@@ -69,7 +69,7 @@
 //! 4. Assign first, use later: this prevents obvious errors such as "x not
 //! defined" during interpretation or "x not allocated" during constraining.
 
-mod constrainer;
+mod circuit;
 mod eval;
 mod interpreter;
 mod macros;
@@ -231,9 +231,9 @@ impl LEM {
 
 #[cfg(test)]
 mod tests {
-    use super::constrainer::{AllocationManager, NumSlots};
+    use super::circuit::{AllocationManager, NumSlots};
     use super::{store::Store, *};
-    use crate::lem::constrainer::num_slots;
+    use crate::lem::circuit::num_slots;
     use crate::{lem, lem::pointers::Ptr};
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable, Delta};
     use blstrs::Scalar as Fr;

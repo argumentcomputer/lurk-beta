@@ -3,7 +3,7 @@ use anyhow::{bail, Result};
 use std::collections::HashMap;
 
 use super::{
-    constrainer::SlotsInfo, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM,
+    circuit::SlotsInfo, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM,
     LEMOP,
 };
 
