@@ -514,14 +514,15 @@ impl LEM {
     /// Regarding the slot optimizations, STEP 3 uses information gathered during
     /// STEPs 1 and 2. So at this point we know:
     ///
-    /// 1. Which LEMOPs map to which slots, should they need slots;
+    /// 1. Which LEMOPs map to which slots. Since LEMOPs can be deduplicated, it
+    /// is possible a LEMOP has no slot at all;
     /// 2. The slots (and their respective preimages) that were visited during
     /// interpretation.
     ///
     /// So we proceed by first allocating preimages and images for each slot and
     /// then, as we traverse the LEMOP, we add constraints to make sure that the
     /// witness satisfies the arithmetic equations for the corresponding slots.
-    pub fn constrain<F: LurkField, CS: ConstraintSystem<F>>(
+    pub fn synthesize<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         alloc_manager: &mut AllocationManager<F>,
