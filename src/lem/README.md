@@ -107,9 +107,9 @@ flowchart LR
         C[Circuit]
         LSF -- Synthesize --> C
     end
-    subgraph HS[Hash Slots STEPs]
-        S1 -- 1 time --> S2
-        S2 -- N times --> S3
+    subgraph HS[LEM Pipelines]
+        S1 ~~~ S2
+        S2 ~~~ S3
     end
 ```
 

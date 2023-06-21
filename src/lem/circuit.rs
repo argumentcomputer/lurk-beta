@@ -3,11 +3,11 @@
 //! Here we describe how we generate bellperson constraints for LEM, such that
 //! it can be used with Nova folding to implement the Lurk evaluation.
 //!
-//! ## Pattern matching and the implication system:
+//! ## LEM paths and the implications:
 //!
-//! LEM implements branching using, for example, `MatchTag` and `MatchSymbol`.
-//! By nesting `MatchTag`s and `MatchSymbol`s we create a set of paths that
-//! interpretation can follow. We call them **virtual** and **concrete** paths.
+//! LEM implements logical branching using some specific LEMOPs such as `MatchTag`
+//! and `MatchSymbol`. By nesting them we create a set of paths that interpretation
+//! can follow. We call them **virtual** and **concrete** paths.
 //! In particular, the followed path is the concrete one. We use a Boolean
 //! variable to indicate whether a path is concrete or not. This allows us to
 //! construct an **implication system**, which is responsible for ensuring that
@@ -125,9 +125,7 @@ impl SlotsCounter {
 
 /// Contains a `slots_map` that maps `LEMOP`s to their slots. This map is not
 /// expected to be injective, as two or more `LEMOP`s can be mapped to the same
-/// slot.
-///
-/// The `slots` attribute is derived from `slots_map` by iterating on its values.
+/// slot. The `slots` attribute is an set of all slots present on `slots_map`.
 pub struct SlotsInfo {
     slots_map: IndexMap<LEMOP, (usize, SlotType)>,
     slots: IndexSet<(usize, SlotType)>,
@@ -348,29 +346,20 @@ impl LEM {
         Ok(allocated_output_ptrs.try_into().unwrap())
     }
 
-    fn on_concrete_path(concrete_path: &Boolean) -> Result<bool> {
-        concrete_path
-            .get_value()
-            .ok_or_else(|| anyhow!("Couldn't check whether we're on a concrete path"))
-    }
-
-    fn z_ptr_from_frame<F: LurkField>(
-        concrete_path: &Boolean,
-        frame: &Frame<F>,
+    fn zptr_from_mptr<F: LurkField>(
         mptr: &MetaPtr,
+        frame: &Frame<F>,
         store: &mut Store<F>,
     ) -> Result<ZPtr<F>> {
-        if Self::on_concrete_path(concrete_path)? {
-            store.hash_ptr(mptr.get_ptr(&frame.binds)?)
-        } else {
-            Ok(ZPtr::dummy())
+        match frame.binds.get(mptr) {
+            Some(ptr) => store.hash_ptr(ptr),
+            None => Ok(ZPtr::dummy()),
         }
     }
 
     fn alloc_preimg<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         preimg: &[MetaPtr],
-        concrete_path: &Boolean,
         frame: &Frame<F>,
         store: &mut Store<F>,
         allocated_ptrs: &HashMap<&String, AllocatedPtr<F>>,
@@ -378,7 +367,7 @@ impl LEM {
         preimg
             .iter()
             .map(|x| {
-                Self::z_ptr_from_frame(concrete_path, frame, x, store)
+                Self::zptr_from_mptr(x, frame, store)
                     .and_then(|ref ptr| Self::allocate_ptr(cs, ptr, x.name(), allocated_ptrs))
             })
             .collect::<Result<Vec<_>>>()
@@ -609,7 +598,7 @@ impl LEM {
                     // Allocate image
                     let allocated_img = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_frame(&concrete_path, frame, $img, store)?,
+                        &Self::zptr_from_mptr($img, frame, store)?,
                         $img.name(),
                         &allocated_ptrs,
                     )?;
@@ -644,7 +633,6 @@ impl LEM {
                     let allocated_preimg = Self::alloc_preimg(
                         cs,
                         $preimg,
-                        &concrete_path,
                         frame,
                         store,
                         &allocated_ptrs,
@@ -682,7 +670,7 @@ impl LEM {
                 LEMOP::Null(tgt, tag) => {
                     let allocated_tgt = Self::allocate_ptr(
                         cs,
-                        &Self::z_ptr_from_frame(&concrete_path, frame, tgt, store)?,
+                        &Self::zptr_from_mptr(tgt, frame, store)?,
                         tgt.name(),
                         &allocated_ptrs,
                     )?;
