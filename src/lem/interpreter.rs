@@ -70,6 +70,20 @@ pub struct Frame<F: LurkField> {
     pub visits: Visits<F>,
 }
 
+fn retrieve_many<F: LurkField>(
+    map: &HashMap<MetaPtr, Ptr<F>>,
+    args: &[MetaPtr],
+) -> Result<Vec<Ptr<F>>> {
+    args.iter()
+        .map(|mptr| {
+            let Some(ptr) = map.get(mptr).cloned() else {
+            bail!("{} not defined", mptr.name());
+        };
+            Ok(ptr)
+        })
+        .collect::<Result<Vec<_>>>()
+}
+
 impl LEM {
     /// Interprets a LEM using a stack of operations to be popped and executed.
     /// It modifies a `Store` and binds `MetaPtr`s to `Ptr`s as it goes. We also
@@ -103,77 +117,72 @@ impl LEM {
                     let tgt_ptr = Ptr::null(*tag);
                     bind!(tgt.clone(), tgt_ptr);
                 }
-                LEMOP::Hash2(tgt, tag, src) => {
-                    let src_ptr1 = src[0].get_ptr(&binds)?.to_owned();
-                    let src_ptr2 = src[1].get_ptr(&binds)?.to_owned();
-                    let tgt_ptr = store.intern_2_ptrs(*tag, src_ptr1, src_ptr2);
-                    bind!(tgt.clone(), tgt_ptr);
-                    visits.insert(*slots_info.get_slot(op)?, vec![src_ptr1, src_ptr2]);
+                LEMOP::Hash2(img, tag, preimg) => {
+                    let preimg_ptrs = retrieve_many(&binds, preimg)?;
+                    let tgt_ptr = store.intern_2_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1]);
+                    bind!(img.clone(), tgt_ptr);
+                    visits.insert(*slots_info.get_slot(op)?, preimg_ptrs);
                 }
-                LEMOP::Hash3(tgt, tag, src) => {
-                    let src_ptr1 = src[0].get_ptr(&binds)?.to_owned();
-                    let src_ptr2 = src[1].get_ptr(&binds)?.to_owned();
-                    let src_ptr3 = src[2].get_ptr(&binds)?.to_owned();
-                    let tgt_ptr = store.intern_3_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3);
-                    bind!(tgt.clone(), tgt_ptr);
-                    visits.insert(
-                        *slots_info.get_slot(op)?,
-                        vec![src_ptr1, src_ptr2, src_ptr3],
+                LEMOP::Hash3(img, tag, preimg) => {
+                    let preimg_ptrs = retrieve_many(&binds, preimg)?;
+                    let tgt_ptr =
+                        store.intern_3_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]);
+                    bind!(img.clone(), tgt_ptr);
+                    visits.insert(*slots_info.get_slot(op)?, preimg_ptrs);
+                }
+                LEMOP::Hash4(img, tag, preimg) => {
+                    let preimg_ptrs = retrieve_many(&binds, preimg)?;
+                    let tgt_ptr = store.intern_4_ptrs(
+                        *tag,
+                        preimg_ptrs[0],
+                        preimg_ptrs[1],
+                        preimg_ptrs[2],
+                        preimg_ptrs[3],
                     );
+                    bind!(img.clone(), tgt_ptr);
+                    visits.insert(*slots_info.get_slot(op)?, preimg_ptrs);
                 }
-                LEMOP::Hash4(tgt, tag, src) => {
-                    let src_ptr1 = src[0].get_ptr(&binds)?.to_owned();
-                    let src_ptr2 = src[1].get_ptr(&binds)?.to_owned();
-                    let src_ptr3 = src[2].get_ptr(&binds)?.to_owned();
-                    let src_ptr4 = src[3].get_ptr(&binds)?.to_owned();
-                    let tgt_ptr = store.intern_4_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3, src_ptr4);
-                    bind!(tgt.clone(), tgt_ptr);
-                    visits.insert(
-                        *slots_info.get_slot(op)?,
-                        vec![src_ptr1, src_ptr2, src_ptr3, src_ptr4],
-                    );
-                }
-                LEMOP::Unhash2(tgts, src) => {
-                    let src_ptr = src.get_ptr(&binds)?;
-                    let Some(idx) = src_ptr.get_index2() else {
-                        bail!("{src} isn't a Tree2 pointer");
+                LEMOP::Unhash2(preimg, img) => {
+                    let img_ptr = img.get_ptr(&binds)?;
+                    let Some(idx) = img_ptr.get_index2() else {
+                        bail!("{img} isn't a Tree2 pointer");
                     };
                     let Some((a, b)) = store.fetch_2_ptrs(idx) else {
-                        bail!("Couldn't fetch {src}'s children")
+                        bail!("Couldn't fetch {img}'s children")
                     };
-                    bind!(tgts[0].clone(), *a);
-                    bind!(tgts[1].clone(), *b);
-                    // STEP 2: Update hash_witness with preimage and image
-                    visits.insert(*slots_info.get_slot(op)?, vec![*a, *b]);
+                    let vec = vec![*a, *b];
+                    for (mptr, ptr) in preimg.iter().zip(vec.iter()) {
+                        bind!(mptr.clone(), *ptr);
+                    }
+                    visits.insert(*slots_info.get_slot(op)?, vec);
                 }
-                LEMOP::Unhash3(tgts, src) => {
-                    let src_ptr = src.get_ptr(&binds)?;
-                    let Some(idx) = src_ptr.get_index3() else {
-                        bail!("{src} isn't a Tree3 pointer");
+                LEMOP::Unhash3(preimg, img) => {
+                    let img_ptr = img.get_ptr(&binds)?;
+                    let Some(idx) = img_ptr.get_index3() else {
+                        bail!("{img} isn't a Tree3 pointer");
                     };
                     let Some((a, b, c)) = store.fetch_3_ptrs(idx) else {
-                        bail!("Couldn't fetch {src}'s children")
+                        bail!("Couldn't fetch {img}'s children")
                     };
-                    bind!(tgts[0].clone(), *a);
-                    bind!(tgts[1].clone(), *b);
-                    bind!(tgts[2].clone(), *c);
-                    // STEP 2: Update hash_witness with preimage and image
-                    visits.insert(*slots_info.get_slot(op)?, vec![*a, *b, *c]);
+                    let vec = vec![*a, *b, *c];
+                    for (mptr, ptr) in preimg.iter().zip(vec.iter()) {
+                        bind!(mptr.clone(), *ptr);
+                    }
+                    visits.insert(*slots_info.get_slot(op)?, vec);
                 }
-                LEMOP::Unhash4(tgts, src) => {
-                    let src_ptr = src.get_ptr(&binds)?;
-                    let Some(idx) = src_ptr.get_index4() else {
-                        bail!("{src} isn't a Tree4 pointer");
+                LEMOP::Unhash4(preimg, img) => {
+                    let img_ptr = img.get_ptr(&binds)?;
+                    let Some(idx) = img_ptr.get_index4() else {
+                        bail!("{img} isn't a Tree4 pointer");
                     };
                     let Some((a, b, c, d)) = store.fetch_4_ptrs(idx) else {
-                        bail!("Couldn't fetch {src}'s children")
+                        bail!("Couldn't fetch {img}'s children")
                     };
-                    bind!(tgts[0].clone(), *a);
-                    bind!(tgts[1].clone(), *b);
-                    bind!(tgts[2].clone(), *c);
-                    bind!(tgts[3].clone(), *d);
-                    // STEP 2: Update hash_witness with preimage and image
-                    visits.insert(*slots_info.get_slot(op)?, vec![*a, *b, *c, *d]);
+                    let vec = vec![*a, *b, *c, *d];
+                    for (mptr, ptr) in preimg.iter().zip(vec.iter()) {
+                        bind!(mptr.clone(), *ptr);
+                    }
+                    visits.insert(*slots_info.get_slot(op)?, vec);
                 }
                 LEMOP::Hide(tgt, sec, src) => {
                     let src_ptr = src.get_ptr(&binds)?;
