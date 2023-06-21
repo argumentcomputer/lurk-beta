@@ -242,6 +242,7 @@ mod tests {
         lem: &LEM,
         exprs: &[Ptr<Fr>],
         expected_num_slots: NumSlots,
+        expected_num_constraints: usize,
         assert_all_paths_taken: bool,
     ) {
         let slots_info = lem.lem_op.slots_info();
@@ -271,6 +272,8 @@ mod tests {
             if let Some(cs_prev) = cs_prev {
                 assert_eq!(cs.delta(&cs_prev, true), Delta::Equal);
             }
+
+            assert_eq!(cs.num_constraints(), expected_num_constraints);
 
             cs_prev = Some(cs);
         }
@@ -319,6 +322,7 @@ mod tests {
             &lem,
             &[Ptr::num(Fr::from_u64(42))],
             NumSlots::default(),
+            42,
             false,
         );
     }
@@ -348,6 +352,7 @@ mod tests {
             &lem,
             &[Ptr::num(Fr::from_u64(42))],
             NumSlots::default(),
+            23,
             false,
         );
     }
@@ -364,6 +369,7 @@ mod tests {
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             NumSlots::new((0, 0, 0)),
+            8,
             true,
         );
     }
@@ -388,6 +394,7 @@ mod tests {
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             NumSlots::new((0, 0, 0)),
+            23,
             true,
         );
     }
@@ -424,6 +431,7 @@ mod tests {
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             NumSlots::new((2, 2, 2)),
+            2117,
             false,
         );
     }
@@ -463,6 +471,7 @@ mod tests {
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             NumSlots::new((2, 2, 2)),
+            2138,
             false,
         );
     }
@@ -514,6 +523,7 @@ mod tests {
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             NumSlots::new((2, 2, 2)),
+            2195,
             false,
         );
     }
