@@ -14,10 +14,10 @@ and become `ZPtr`s, whose data can be allocated in the circuit to generate
 *allocated pointers* (`AllocatedPtr`).
 
 ```mermaid
-graph TD;
-    M[MetaPtr] --> P[Ptr];
-    P --> Z[ZPtr];
-    Z --> A[AllocatedPtr];
+graph LR
+    M[MetaPtr] --> P[Ptr]
+    P --> Z[ZPtr]
+    Z --> A[AllocatedPtr]
 ```
 
 ### Check
@@ -47,7 +47,7 @@ The first traversal of LEM is the static analysis phase, where we allocate hash 
 
 ## STEP 1
 
-    * calculate hash slots for all virtual paths.
+* calculate hash slots for all virtual paths.
 
 # Interpretation
 
@@ -55,7 +55,7 @@ The second traversal occurs during interpretation of LEM. Given as input an expr
 
 ## STEP 2
 
-    * calculate all preimages and images for all virtual paths.
+* calculate all preimages and images for all virtual paths.
 
 # Synthesis
 
@@ -79,16 +79,52 @@ Next we summarize the synthesis process:
     * use preallocated pointers to construct implications in Hash and Unhash operations
 
 ```mermaid
-graph TD;
-    R1[Hash2] --> R2[Hash3];
-    R2 --> R3[Hash4];
-    R3 --> L[MatchTag];
-    L --> A[Tag1];
-    L --> B[Tag2];
-    A --> A1[Hash2];
-    A1 --> A2[Hash3];
-    A2 --> A3[Hash4];
-    B --> B1[Return];
+flowchart LR
+    subgraph S1[Static Analysis]
+        direction LR
+        LEM[LEM] 
+        SI[SlotsInfo]
+        LEM --> SI
+    end
+    subgraph S2[Interpretation]
+        direction LR
+        LSI["`LEM
+        +
+        SlotsInfo
+        +
+        Input`"]
+    F[Frame]
+    LSI -- Interpret --> F
+    end
+    subgraph S3[Synthesis]
+        direction LR
+        LSF["`LEM
+        +
+        SlotsInfo
+        +
+        Frame
+        `"]
+        C[Circuit]
+        LSF -- Synthesize --> C
+    end
+    subgraph HS[Hash Slots STEPs]
+        S1 -- 1 time --> S2
+        S2 -- N times --> S3
+    end
+```
+
+## Example
+
+```mermaid
+graph TD
+    R1[Hash2] --> R2[Hash3]
+    R2 --> R3[Hash4]
+    R3 --> A[MatchTag.Tag1]
+    R3 --> B[MatchTag.Tag2]
+    A --> A1[Hash2]
+    A1 --> A2[Hash3]
+    A2 --> A3[Hash4]
+    B --> B1[Return]
 ```
 
 In this figure at most 2 slots is enough for every path, but on path given by `Tag2`, we need to **complete with dummies**. 
