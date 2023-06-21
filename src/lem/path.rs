@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::field::LurkField;
 
-use super::{interpreter::Frame, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM, LEMOP, AString};
+use super::{interpreter::Frame, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEMCTL, LEMOP, AString};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Path(AString);
@@ -44,7 +44,7 @@ impl Path {
     }
 }
 
-impl LEM {
+impl LEMCTL {
     /// Removes conflicting names in parallel logical LEM paths. While these
     /// conflicting names shouldn't be an issue for interpretation, they are
     /// problematic when we want to generate the constraints for the LEM, since
@@ -144,46 +144,46 @@ impl LEM {
         }
 
         match self {
-            LEM::MatchTag(ptr, cases) => {
+            LEMCTL::MatchTag(ptr, cases) => {
                 let mut new_cases = vec![];
                 for (tag, case) in cases {
                     let new_case = case.deconflict(&path.push_tag(tag), &mut map.clone())?;
                     new_cases.push((*tag, new_case));
                 }
-                Ok(LEM::MatchTag(
+                Ok(LEMCTL::MatchTag(
                     retrieve_one(map, ptr)?,
                     HashMap::from_iter(new_cases),
                 ))
             }
-            LEM::MatchSymbol(ptr, cases, def) => {
+            LEMCTL::MatchSymbol(ptr, cases, def) => {
                 let mut new_cases = vec![];
                 for (symbol, case) in cases {
                     let new_case =
                         case.deconflict(&path.push_symbol(symbol), &mut map.clone())?;
                     new_cases.push((symbol.clone(), new_case));
                 }
-                Ok(LEM::MatchSymbol(
+                Ok(LEMCTL::MatchSymbol(
                     retrieve_one(map, ptr)?,
                     HashMap::from_iter(new_cases),
                     Box::new(def.deconflict(&path.push_default(), &mut map.clone())?),
                 ))
             }
-            LEM::Seq(op, rest) => {
+            LEMCTL::Seq(op, rest) => {
                 let new_op = deconflict_op(map, &path.0, op)?;
                 let new_rest = Box::new(rest.deconflict(path, map)?);
-                Ok(LEM::Seq(new_op, new_rest))
+                Ok(LEMCTL::Seq(new_op, new_rest))
             }
-            LEM::Return(o) => Ok(LEM::Return(retrieve_many(map, o)?.try_into().unwrap())),
+            LEMCTL::Return(o) => Ok(LEMCTL::Return(retrieve_many(map, o)?.try_into().unwrap())),
         }
     }
 
     /// Computes the number of possible paths in a `LEMOP`
     pub fn num_paths(&self) -> usize {
         match self {
-            LEM::MatchTag(_, cases) => cases.values().fold(0, |acc, code| acc + code.num_paths()),
-            LEM::MatchSymbol(_, cases, _) => cases.values().fold(0, |acc, code| acc + code.num_paths()),
-            LEM::Seq(_, rest) => rest.num_paths(),
-            LEM::Return(..) => 1,
+            LEMCTL::MatchTag(_, cases) => cases.values().fold(0, |acc, code| acc + code.num_paths()),
+            LEMCTL::MatchSymbol(_, cases, _) => cases.values().fold(0, |acc, code| acc + code.num_paths()),
+            LEMCTL::Seq(_, rest) => rest.num_paths(),
+            LEMCTL::Return(..) => 1,
        }
     }
 

@@ -62,7 +62,7 @@ use super::{
     path::Path,
     pointers::ZPtr,
     store::Store,
-    MetaPtr, LEM, LEMOP,
+    MetaPtr, LEMCTL, LEMOP,
 };
 
 /// Holds a counter per path

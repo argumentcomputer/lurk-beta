@@ -1,11 +1,11 @@
 use crate::lemplus;
 
-use super::LEMPLUS;
+use super::LEM;
 use anyhow::Result;
 
 /// Lurk's step function encoded as a LEM
 #[allow(dead_code)]
-pub(crate) fn step() -> Result<LEMPLUS> {
+pub(crate) fn step() -> Result<LEM> {
     lemplus!(expr_in env_in cont_in {
         match_tag expr_in {
             Num => {

@@ -3,7 +3,7 @@ use anyhow::{bail, Result};
 use std::collections::HashMap;
 
 use super::{
-    circuit::SlotsInfo, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEMPLUS, LEM, LEMOP,
+    circuit::SlotsInfo, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM, LEMCTL, LEMOP,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -209,7 +209,7 @@ impl LEMOP {
     }
 }
 
-impl LEM {
+impl LEMCTL {
     /// Interprets a LEM using a stack of operations to be popped and executed.
     /// It modifies a `Store` and binds `MetaPtr`s to `Ptr`s as it goes. We also
     /// want to collect data from visited slots.
@@ -222,7 +222,7 @@ impl LEM {
         slots_info: &SlotsInfo,
     ) -> Result<Frame<F>> {
         match self {
-            LEM::MatchTag(ptr, cases) => {
+            LEMCTL::MatchTag(ptr, cases) => {
                 let ptr = ptr.get_ptr(&binds)?;
                 let ptr_tag = ptr.tag();
                 match cases.get(ptr_tag) {
@@ -230,7 +230,7 @@ impl LEM {
                     None => bail!("No match for tag {}", ptr_tag),
                 }
             }
-            LEM::MatchSymbol(match_ptr, cases, def) => {
+            LEMCTL::MatchSymbol(match_ptr, cases, def) => {
                 let ptr = match_ptr.get_ptr(&binds)?;
                 let Some(symbol) = store.fetch_symbol(ptr) else {
                     bail!("Symbol not found for {match_ptr}");
@@ -240,11 +240,11 @@ impl LEM {
                     None => def.run(input, store, binds, visits, slots_info),
                 }
             }
-            LEM::Seq(op, rest) => {
+            LEMCTL::Seq(op, rest) => {
                 op.run(store, &mut binds, &mut visits, slots_info)?;
                 rest.run(input, store, binds, visits, slots_info)
             },
-            LEM::Return(o) => {
+            LEMCTL::Return(o) => {
                 let output = [
                     *o[0].get_ptr(&binds)?,
                     *o[1].get_ptr(&binds)?,
@@ -261,7 +261,7 @@ impl LEM {
     }
 }
 
-impl LEMPLUS {
+impl LEM {
     /// Calls `run` until the stop contidion is satisfied, using the output of one
     /// iteration as the input of the next one.
     pub fn eval<F: LurkField>(
@@ -283,7 +283,7 @@ impl LEMPLUS {
         loop {
             // Map of names to pointers (its key/val pairs should never be overwritten)
             let mut binds = HashMap::default();
-            for (i, name) in self.input.iter().enumerate() {
+            for (i, name) in self.input_vars.iter().enumerate() {
                 bind(&mut binds, MetaPtr(name.clone()), input[i])?;
             }
 

@@ -91,9 +91,9 @@ pub type AString = Arc<str>;
 pub type AVec<A> = Arc<[A]>;
 
 /// A `LEM` has the name for the inputs and its characteristic `LEMOP`
-pub struct LEMPLUS {
-    input: [AString; 3],
-    lem: LEM,
+pub struct LEM {
+    input_vars: [AString; 3],
+    lem: LEMCTL,
 }
 
 
@@ -127,16 +127,16 @@ impl MetaPtr {
 /// The basic building blocks of LEMs.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum LEM {
+pub enum LEMCTL {
     /// `MatchTag(x, cases)` performs a match on the tag of `x`, considering only
     /// the appropriate `LEM` among the ones provided in `cases`
-    MatchTag(MetaPtr, HashMap<Tag, LEM>),
+    MatchTag(MetaPtr, HashMap<Tag, LEMCTL>),
     /// `MatchSymPath(x, cases, def)` checks whether `x` matches some symbol among
     /// the ones provided in `cases`. If so, run the corresponding `LEM`. Run
     /// The default `def` `LEM` otherwise
-    MatchSymbol(MetaPtr, HashMap<Symbol, LEM>, Box<LEM>),
+    MatchSymbol(MetaPtr, HashMap<Symbol, LEMCTL>, Box<LEMCTL>),
     /// `Seq(op, lem)` executes `op: LEMOP` then `lem: LEM` sequentially
-    Seq(LEMOP, Box<LEM>),
+    Seq(LEMOP, Box<LEMCTL>),
     /// `Return(rets)` sets the output to `rets`
     Return([MetaPtr; 3]),
 }
@@ -166,7 +166,7 @@ pub enum LEMOP {
     Open(MetaPtr, MetaPtr, MetaPtr),
 }
 
-impl LEM {
+impl LEMCTL {
     /// Intern all symbol paths that are matched on `MatchSymPath`s
     pub fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
         match self {
@@ -184,7 +184,7 @@ impl LEM {
     }
 }
 
-impl LEMPLUS {
+impl LEM {
     /// Performs the static checks described in `LEM`'s docstring.
     pub fn check(&self) {
         todo!()
@@ -192,10 +192,10 @@ impl LEMPLUS {
 
     /// Instantiates a `LEM` with the appropriate transformations to make sure
     /// that constraining will be smooth.
-    pub fn new(input: [AString; 3], lem: &LEM) -> Result<LEMPLUS> {
+    pub fn new(input: [AString; 3], lem: &LEMCTL) -> Result<LEM> {
         let mut map = HashMap::from_iter(input.iter().map(|i| (i.clone(), i.clone())));
-        Ok(LEMPLUS {
-            input,
+        Ok(LEM {
+            input_vars: input,
             lem: lem.deconflict(&Path::default(), &mut map)?,
         })
     }

@@ -86,7 +86,7 @@ macro_rules! lem {
                     panic!("Repeated tag on `match_tag`");
                 };
             )*
-            $crate::lem::LEM::MatchTag($crate::metaptr!($sii), cases)
+            $crate::lem::LEMCTL::MatchTag($crate::metaptr!($sii), cases)
         }
     };
     ( match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } ) => {
@@ -100,11 +100,11 @@ macro_rules! lem {
                     panic!("Repeated path on `match_symbol`");
                 };
             )*
-            $crate::lem::LEM::MatchSymbol($crate::metaptr!($sii), cases, Box::new($crate::lem!( $def )))
+            $crate::lem::LEMCTL::MatchSymbol($crate::metaptr!($sii), cases, Box::new($crate::lem!( $def )))
         }
     };
     ( return ($src1:ident, $src2:ident, $src3:ident) ) => {
-        $crate::lem::LEM::Return(
+        $crate::lem::LEMCTL::Return(
             $crate::metaptrs!($src1, $src2, $src3)
         )
     };
@@ -244,7 +244,7 @@ macro_rules! lem {
         {
             let code = $cont;
             $(
-                let code = $crate::lem::LEM::Seq($limbs, Box::new(code));
+                let code = $crate::lem::LEMCTL::Seq($limbs, Box::new(code));
             )*
             code
         }
@@ -254,7 +254,7 @@ macro_rules! lem {
 #[macro_export]
 macro_rules! lemplus {
     ($in1:ident $in2:ident $in3:ident $lem:tt) => {
-        $crate::lem::LEMPLUS::new(
+        $crate::lem::LEM::new(
             [stringify!($in1).into(), stringify!($in2).into(), stringify!($in3).into()],
             &$crate::lem!($lem),
         )
@@ -263,7 +263,7 @@ macro_rules! lemplus {
 
 #[cfg(test)]
 mod tests {
-    use crate::lem::{symbol::Symbol, tag::Tag, MetaPtr, LEM, LEMOP};
+    use crate::lem::{symbol::Symbol, tag::Tag, MetaPtr, LEMCTL, LEMOP};
 
     #[inline]
     fn mptr(name: &str) -> MetaPtr {
@@ -271,13 +271,13 @@ mod tests {
     }
 
     #[inline]
-    fn match_tag(i: MetaPtr, cases: Vec<(Tag, LEM)>) -> LEM {
-        LEM::MatchTag(i, std::collections::HashMap::from_iter(cases))
+    fn match_tag(i: MetaPtr, cases: Vec<(Tag, LEMCTL)>) -> LEMCTL {
+        LEMCTL::MatchTag(i, std::collections::HashMap::from_iter(cases))
     }
 
     #[inline]
-    fn match_symbol(i: MetaPtr, cases: Vec<(Symbol, LEM)>, def: LEM) -> LEM {
-        LEM::MatchSymbol(
+    fn match_symbol(i: MetaPtr, cases: Vec<(Symbol, LEMCTL)>, def: LEMCTL) -> LEMCTL {
+        LEMCTL::MatchSymbol(
             i,
             std::collections::HashMap::from_iter(cases),
             Box::new(def),
@@ -324,9 +324,9 @@ mod tests {
             assert!(lemops[i] == lemops_macro[i]);
         }
 
-        let ret = LEM::Return([mptr("bar"), mptr("baz"), mptr("bazz")]);
+        let ret = LEMCTL::Return([mptr("bar"), mptr("baz"), mptr("bazz")]);
         let code = lemops.into_iter().rev().fold(ret,|acc, op| {
-            LEM::Seq(op, Box::new(acc))
+            LEMCTL::Seq(op, Box::new(acc))
         });
         let lem_macro_seq = lem!({
             let foo: Num;
