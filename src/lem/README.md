@@ -14,10 +14,10 @@ and become `ZPtr`s, whose data can be allocated in the circuit to generate
 *allocated pointers* (`AllocatedPtr`).
 
 ```mermaid
-graph LR;
-    MetaPtr --> Ptr
-    Ptr --> ZPtr
-    ZPtr --> AllocatedPtr
+graph TD;
+    M[MetaPtr] --> P[Ptr];
+    P --> Z[ZPtr];
+    Z --> A[AllocatedPtr];
 ```
 
 ### Check
@@ -43,15 +43,15 @@ A summary of LEM syntax:
 
 # Static Analysis
 
+The first traversal of LEM is the static analysis phase, where we allocate hash slots already considering deduplication. 
+
 ## STEP 1
 
     * calculate hash slots for all virtual paths.
 
 # Interpretation
 
-## Store
-
-## Traversal
+The second traversal occurs during interpretation of LEM. Given as input an expression, an environment and a continuation, the concrete path is followed by the interpreter, computing the output. 
 
 ## STEP 2
 
@@ -59,36 +59,24 @@ A summary of LEM syntax:
 
 # Synthesis
 
-Before traversal we have we preallocate variables that were visited during interpretation, such as output variables and all preimages and images for the hash slots.
+Before traversal we preallocate variables that were visited during interpretation, such as output variables and all preimages and images for the hash slots. Also before traversal we constrain all hash slots.
 
-Also before traversal we constrain all hash slots.
+As we traverse LEM, we push operations to a stack. As we pop from stack, we synthesize each operation, possibly creating new allocated pointers, which are inserted in the hash map of allocations. Those variables can be accessed later, avoiding unnecessary copies inside the circuit. We use an allocation manager component to avoid allocating constants multiples times.
 
-As we traverse LEM, we push operations to a stack.
-
-As we pop from stack, we synthesize each operation, possibly creating new allocated pointers, which are inserted in the hash map. Those variables can be accessed later, avoiding unnecessary copies inside the circuit.
-
-We use an allocation manager component to avoid allocating constants multiples times.
-
-Branches in LEM are constructed using `MatchTag` or `MatchSymbol`, which can be nested into each other, creating a tree of virtual paths.
-
-We constrain only one path is followed, namely the concrete path, by enforcing a selector variable is correctly computed. A selector is a vector of Booleans representing a match between the given tag or symbol with the selected one. We show that only one Boolean, and exactly one, is true.
-
-Later on, for any operation following a certain branch, instead of just enforcing each operation, we use an implication that can generically be stated as:
+Branches in LEM are constructed using `MatchTag` or `MatchSymbol`, which can be nested into each other, creating a tree of virtual paths. We constrain only one path is followed, namely the concrete path, by enforcing a selector variable is correctly computed. A selector is a vector of Booleans representing a match between the given tag or symbol with the selected one. We show that only one Boolean, and exactly one, is true. Later on, for any operation following a certain branch, instead of just enforcing each operation, we use an implication that can generically be stated as:
 
 ** A LEM operation in a concrete path implies this operation is enforced. **
 
-The details of how the implication system works is presented in next section.
-
-## Implications
-
 ## Hash slots
 
-    * before traversal:
-        ** preallocate all preimages and images
-        ** synthesize slots
-    * during traversal:
-        ** use preallocated pointers in `Return` operations
-        ** use preallocated pointers to construct implications in Hash and Unhash operations
+Next we summarize the synthesis process:
+
+* before traversal:
+    * preallocate all preimages and images
+    * synthesize slots
+* during traversal:
+    * use preallocated pointers in `Return` operations
+    * use preallocated pointers to construct implications in Hash and Unhash operations
 
 ```mermaid
 graph TD;
