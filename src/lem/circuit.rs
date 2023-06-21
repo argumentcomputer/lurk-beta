@@ -62,7 +62,7 @@ use super::{
     path::Path,
     pointers::ZPtr,
     store::Store,
-    MetaPtr, LEMCTL, LEMOP,
+    MetaPtr, LEM, LEMCTL, LEMOP, AString
 };
 
 /// Holds a counter per path
@@ -304,13 +304,12 @@ impl SlotType {
     }
 }
 
-/*
 impl LEM {
     fn allocate_ptr<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         z_ptr: &ZPtr<F>,
-        name: &String,
-        allocated_ptrs: &HashMap<&String, AllocatedPtr<F>>,
+        name: &AString,
+        allocated_ptrs: &HashMap<&AString, AllocatedPtr<F>>,
     ) -> Result<AllocatedPtr<F>> {
         if allocated_ptrs.contains_key(name) {
             bail!("{} already allocated", name);
@@ -333,10 +332,10 @@ impl LEM {
         cs: &mut CS,
         store: &mut Store<F>,
         frame: &Frame<F>,
-        allocated_ptrs: &mut HashMap<&'a String, AllocatedPtr<F>>,
+        allocated_ptrs: &mut HashMap<&'a AString, AllocatedPtr<F>>,
     ) -> Result<()> {
         for (i, ptr) in frame.input.iter().enumerate() {
-            let name = &self.input[i];
+            let name = &self.input_vars[i];
             let allocated_ptr =
                 Self::allocate_ptr(cs, &store.hash_ptr(ptr)?, name, allocated_ptrs)?;
             allocated_ptrs.insert(name, allocated_ptr);
@@ -348,14 +347,14 @@ impl LEM {
         cs: &mut CS,
         store: &mut Store<F>,
         frame: &Frame<F>,
-        allocated_ptrs: &HashMap<&String, AllocatedPtr<F>>,
+        allocated_ptrs: &HashMap<&AString, AllocatedPtr<F>>,
     ) -> Result<[AllocatedPtr<F>; 3]> {
         let mut allocated_output_ptrs = vec![];
         for (i, ptr) in frame.output.iter().enumerate() {
             let allocated_ptr = Self::allocate_ptr(
                 cs,
                 &store.hash_ptr(ptr)?,
-                &format!("output[{}]", i),
+                &format!("output[{}]", i).into(),
                 allocated_ptrs,
             )?;
             allocated_output_ptrs.push(allocated_ptr)
@@ -388,7 +387,7 @@ impl LEM {
         concrete_path: &Boolean,
         frame: &Frame<F>,
         store: &mut Store<F>,
-        allocated_ptrs: &HashMap<&String, AllocatedPtr<F>>,
+        allocated_ptrs: &HashMap<&AString, AllocatedPtr<F>>,
     ) -> Result<Vec<AllocatedPtr<F>>> {
         preimg
             .iter()
@@ -401,7 +400,7 @@ impl LEM {
 
     fn get_allocated_preimg<'a, F: LurkField>(
         preimg: &[MetaPtr],
-        allocated_ptrs: &'a HashMap<&String, AllocatedPtr<F>>,
+        allocated_ptrs: &'a HashMap<&AString, AllocatedPtr<F>>,
     ) -> Result<Vec<&'a AllocatedPtr<F>>> {
         preimg
             .iter()
@@ -545,6 +544,7 @@ impl LEM {
         frame: &Frame<F>,
         slots_info: &SlotsInfo,
     ) -> Result<()> {
+/*
         let mut allocated_ptrs: HashMap<&String, AllocatedPtr<F>> = HashMap::default();
 
         self.allocate_input(cs, store, frame, &mut allocated_ptrs)?;
@@ -785,6 +785,7 @@ impl LEM {
                 _ => todo!(),
             }
         }
+*/
         Ok(())
     }
 
@@ -793,6 +794,7 @@ impl LEM {
     /// grow.
     pub fn num_constraints(&self, slots_info: &SlotsInfo) -> usize {
         let mut num_constraints = 0;
+/*
 
         // fixed cost for each slot
         for (_, slot_type) in &slots_info.slots {
@@ -869,6 +871,7 @@ impl LEM {
             }
         }
 
+*/
         num_constraints
     }
 }
@@ -915,4 +918,3 @@ pub(crate) fn num_slots(slots_info: &SlotsInfo) -> NumSlots {
     }
     NumSlots::new((slots2.len(), slots3.len(), slots4.len()))
 }
-*/

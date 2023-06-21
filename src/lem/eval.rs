@@ -1,4 +1,4 @@
-use crate::lemplus;
+use crate::lem;
 
 use super::LEM;
 use anyhow::Result;
@@ -6,7 +6,7 @@ use anyhow::Result;
 /// Lurk's step function encoded as a LEM
 #[allow(dead_code)]
 pub(crate) fn step() -> Result<LEM> {
-    lemplus!(expr_in env_in cont_in {
+    lem!(expr_in env_in cont_in {
         match_tag expr_in {
             Num => {
                 match_tag cont_in {
@@ -20,7 +20,6 @@ pub(crate) fn step() -> Result<LEM> {
     })
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -43,7 +42,7 @@ mod tests {
         let lem = step().unwrap();
         lem.check();
 
-        let slots_info = lem.lem_op.slots_info().unwrap();
+        let slots_info = lem.lem.slots_info().unwrap();
         let num_slots = num_slots(&slots_info);
 
         assert_eq!(num_slots, NUM_SLOTS);
@@ -97,4 +96,3 @@ mod tests {
         test_eval_and_constrain_aux(&mut store, pairs);
     }
 }
-*/

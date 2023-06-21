@@ -226,7 +226,6 @@ impl LEM {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use super::circuit::{AllocationManager, NumSlots};
@@ -237,7 +236,7 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     fn constrain_test_helper(lem: &LEM, exprs: &[Ptr<Fr>], expected_num_slots: NumSlots) {
-        let slots_info = lem.lem_op.slots_info().unwrap();
+        let slots_info = lem.lem.slots_info().unwrap();
 
         let num_slots = num_slots(&slots_info);
         assert_eq!(num_slots, expected_num_slots);
@@ -464,14 +463,15 @@ mod tests {
                             let a: Cons = hash2(env_in, expr_in);
                             let b: Cons = hash3(cont_in, env_in, expr_in);
                             let c: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                            return (m, n, t);
                         },
                         Cons => {
                             let d: Cons = hash2(env_in, expr_in);
                             let e: Cons = hash3(cont_in, env_in, expr_in);
                             let f: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                            return (m, n, t);
                         }
                     };
-                    return (m, n, t);
                 },
                 Char => {
                     return (p, p, t);
@@ -493,5 +493,3 @@ mod tests {
         );
     }
 }
-
-*/
