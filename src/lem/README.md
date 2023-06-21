@@ -14,10 +14,10 @@ and become `ZPtr`s, whose data can be allocated in the circuit to generate
 *allocated pointers* (`AllocatedPtr`).
 
 ```mermaid
-graph TD;
-    M[MetaPtr] --> P[Ptr];
-    P --> Z[ZPtr];
-    Z --> A[AllocatedPtr];
+graph LR
+    M[MetaPtr] --> P[Ptr]
+    P --> Z[ZPtr]
+    Z --> A[AllocatedPtr]
 ```
 
 ### Check
@@ -47,7 +47,7 @@ The first traversal of LEM is the static analysis phase, where we allocate hash 
 
 ## STEP 1
 
-    * calculate hash slots for all virtual paths.
+* calculate hash slots for all virtual paths.
 
 # Interpretation
 
@@ -116,16 +116,15 @@ flowchart LR
 ## Example
 
 ```mermaid
-graph TD;
-    R1[Hash2] --> R2[Hash3];
-    R2 --> R3[Hash4];
-    R3 --> L[MatchTag];
-    L --> A[Tag1];
-    L --> B[Tag2];
-    A --> A1[Hash2];
-    A1 --> A2[Hash3];
-    A2 --> A3[Hash4];
-    B --> B1[Return];
+graph TD
+    R1[Hash2] --> R2[Hash3]
+    R2 --> R3[Hash4]
+    R3 --> A[MatchTag.Tag1]
+    R3 --> B[MatchTag.Tag2]
+    A --> A1[Hash2]
+    A1 --> A2[Hash3]
+    A2 --> A3[Hash4]
+    B --> B1[Return]
 ```
 
 In this figure at most 2 slots is enough for every path, but on path given by `Tag2`, we need to **complete with dummies**. 
