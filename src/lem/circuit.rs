@@ -782,7 +782,7 @@ impl LEM {
                     num_constraints += 295;
                 }
                 SlotType::Hash3 => {
-                    num_constraints += 381;
+                    num_constraints += 345;
                 }
                 SlotType::Hash4 => {
                     num_constraints += 398;
@@ -793,6 +793,39 @@ impl LEM {
         let mut stack = vec![&self.lem_op];
         while let Some(op) = stack.pop() {
             match op {
+                LEMOP::Null(..) => {
+                    num_constraints += 2;
+                }
+                LEMOP::Hash2(..) => {
+                    num_constraints += 6;
+                }
+                LEMOP::Hash3(..) => {
+                    num_constraints += 8;
+                }
+                LEMOP::Hash4(..) => {
+                    num_constraints += 10;
+                }
+                LEMOP::Unhash2(..) => {
+                    num_constraints += 5;
+                }
+                LEMOP::Unhash3(..) => {
+                    num_constraints += 7;
+                }
+                LEMOP::Unhash4(..) => {
+                    num_constraints += 9;
+                }
+                LEMOP::Return(..) => {
+                    num_constraints += 6;
+                }
+                LEMOP::MatchTag(_, cases) => {
+                    num_constraints += 3 * cases.len() + 1;
+                    for (_, op) in cases {
+                        stack.push(op);
+                    }
+                }
+                LEMOP::Seq(ops) => {
+                    stack.extend(ops);
+                }
                 _ => todo!(),
             }
         }
