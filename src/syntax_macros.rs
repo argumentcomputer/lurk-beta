@@ -68,33 +68,6 @@ macro_rules! symbol {
 
 #[allow(unused_macros)]
 #[macro_export]
-macro_rules! lurksymbol {
-    ([$( $x:expr ),*]) => {
-        {
-            #[allow(unused_mut)]
-            let mut temp_vec = Vec::new();
-            temp_vec.push("lurk".to_string());
-            $(
-                temp_vec.push($x.to_string());
-            )*
-            $crate::syntax::Syntax::Symbol(Pos::No, $crate::symbol::Symbol::Sym(temp_vec))
-        }
-    };
-    ($f:ty, [$( $x:expr ),*] ) => {
-        {
-            #[allow(unused_mut)]
-            let mut temp_vec = Vec::new();
-            temp_vec.push("lurk".to_string());
-            $(
-                temp_vec.push($x.to_string());
-            )*
-            $crate::syntax::Syntax::<$f>::Symbol(Pos::No, $crate::symbol::Symbol::Sym(temp_vec))
-        }
-    };
-}
-
-#[allow(unused_macros)]
-#[macro_export]
 macro_rules! sym {
     [$( $x:expr ),*] => {
         {

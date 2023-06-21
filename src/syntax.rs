@@ -21,7 +21,7 @@ pub enum Syntax<F: LurkField> {
     UInt(Pos, UInt),
     // A hierarchical symbol foo, foo.bar.baz or keyword :foo
     Symbol(Pos, Symbol),
-    // A hierarchical symbol foo, foo.bar.baz or keyword :foo
+    // Temporary shim until packages are correctly implemented
     LurkSym(Pos, LurkSym),
     // A string literal: "foobar", "foo\nbar"
     String(Pos, String),
@@ -31,7 +31,7 @@ pub enum Syntax<F: LurkField> {
     Quote(Pos, Box<Syntax<F>>),
     // A nil-terminated cons-list of expressions: (1 2 3)
     List(Pos, Vec<Syntax<F>>),
-    // An imprpoer cons-list of expressions: (1 2 . 3)
+    // An improper cons-list of expressions: (1 2 . 3)
     Improper(Pos, Vec<Syntax<F>>, Box<Syntax<F>>),
 }
 
