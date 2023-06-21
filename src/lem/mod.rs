@@ -193,7 +193,7 @@ impl LEMCTL {
 impl LEM {
     /// Performs the static checks described in `LEM`'s docstring.
     pub fn check(&self) {
-        todo!()
+        // TODO
     }
 
     /// Instantiates a `LEM` with the appropriate transformations to make sure
