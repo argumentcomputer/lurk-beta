@@ -52,11 +52,7 @@ impl<F: LurkField> Write<F> for ContPtr<F> {
     }
 }
 
-fn write_symbol<F: LurkField, W: io::Write>(
-    w: &mut W,
-    _store: &Store<F>,
-    sym: &Symbol,
-) -> io::Result<()> {
+fn write_symbol<F: LurkField, W: io::Write>(w: &mut W, sym: &Symbol) -> io::Result<()> {
     let lurk_syms = Symbol::lurk_syms();
     if let Some(sym) = lurk_syms.get(sym) {
         write!(w, "{}", sym)
@@ -71,11 +67,11 @@ impl<F: LurkField> Write<F> for Expression<F> {
 
         match self {
             Nil => write!(w, "nil"),
-            RootSym => write_symbol::<F, _>(w, store, &Symbol::root()),
+            RootSym => write_symbol::<F, _>(w, &Symbol::root()),
             Sym(car, cdr) => {
                 let head = store.fetch_string(car).expect("missing symbol head");
                 let tail = store.fetch_sym(cdr).expect("missing symbol tail");
-                write_symbol::<F, _>(w, store, &tail.extend(&[head]))
+                write_symbol::<F, _>(w, &tail.extend(&[head]))
             }
             EmptyStr => write!(w, "\"\""),
             Str(car, cdr) => {
@@ -85,7 +81,7 @@ impl<F: LurkField> Write<F> for Expression<F> {
             }
             Key(sym) => {
                 let symbol = store.fetch_symbol(sym).expect("missing symbol");
-                write_symbol::<F, _>(w, store, &Symbol::Key(symbol.path()))
+                write_symbol::<F, _>(w, &Symbol::Key(symbol.path()))
             }
             Fun(arg, body, _closed_env) => {
                 let is_zero_arg = *arg == store.get_lurk_sym("_").expect("dummy_arg (_) missing");
