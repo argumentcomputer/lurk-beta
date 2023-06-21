@@ -55,7 +55,7 @@ The second traversal occurs during interpretation of LEM. Given as input an expr
 
 ## STEP 2
 
-    * calculate all preimages and images for all virtual paths.
+* calculate all preimages and images for all virtual paths.
 
 # Synthesis
 
@@ -77,6 +77,43 @@ Next we summarize the synthesis process:
 * during traversal:
     * use preallocated pointers in `Return` operations
     * use preallocated pointers to construct implications in Hash and Unhash operations
+
+```mermaid
+flowchart LR
+    subgraph S1[Static Analysis]
+        direction LR
+        LEM[LEM] 
+        SI[SlotsInfo]
+        LEM --> SI
+    end
+    subgraph S2[Interpretation]
+        direction LR
+        LSI["`LEM
+        +
+        SlotsInfo
+        +
+        Input`"]
+    F[Frame]
+    LSI -- Interpret --> F
+    end
+    subgraph S3[Synthesis]
+        direction LR
+        LSF["`LEM
+        +
+        SlotsInfo
+        +
+        Frame
+        `"]
+        C[Circuit]
+        LSF -- Synthesize --> C
+    end
+    subgraph HS[Hash Slots STEPs]
+        S1 -- 1 time --> S2
+        S2 -- N times --> S3
+    end
+```
+
+## Example
 
 ```mermaid
 graph TD;
