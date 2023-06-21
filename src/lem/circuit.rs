@@ -824,7 +824,7 @@ impl LEM {
                         num_constraints += 3 * cases.len() + 1;
                     };
                     for op in cases.values() {
-                        stack.push((op, nested));
+                        stack.push((op, true));
                     }
                 }
                 LEMOP::Seq(ops) => {
