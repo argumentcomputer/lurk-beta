@@ -32,13 +32,13 @@ pub struct Store<F: LurkField> {
 
     pub fun_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
 
-    /// Holds a SymCons, which is a string head and a symbol tail
+    /// Holds a Sym, which is a string head and a symbol tail
     pub sym_store: IndexSet<(Ptr<F>, Ptr<F>)>,
 
     // Other sparse storage format without hashing is likely more efficient
     pub num_store: IndexSet<Num<F>>,
 
-    /// Holds a StrCons, which is a char head and a string tail
+    /// Holds a Str, which is a char head and a string tail
     pub str_store: IndexSet<(Ptr<F>, Ptr<F>)>,
     pub thunk_store: IndexSet<Thunk<F>>,
     pub call0_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
@@ -764,10 +764,10 @@ impl<F: LurkField> Store<F> {
             ExprTag::Nil => Some(Expression::Nil),
             ExprTag::Cons => self.fetch_cons(ptr).map(|(a, b)| Expression::Cons(*a, *b)),
             ExprTag::Comm => self.fetch_comm(ptr).map(|(a, b)| Expression::Comm(a.0, *b)),
-            ExprTag::Sym if ptr.raw.is_null() => Some(Expression::SymNil),
+            ExprTag::Sym if ptr.raw.is_null() => Some(Expression::RootSym),
             ExprTag::Sym => self
                 .fetch_symcons(ptr)
-                .map(|(car, cdr)| Expression::SymCons(car, cdr)),
+                .map(|(car, cdr)| Expression::Sym(car, cdr)),
             ExprTag::Key => Some(Expression::Key(Ptr {
                 tag: ExprTag::Sym,
                 raw: ptr.raw,
@@ -778,10 +778,10 @@ impl<F: LurkField> Store<F> {
                 .fetch_fun(ptr)
                 .map(|(a, b, c)| Expression::Fun(*a, *b, *c)),
             ExprTag::Thunk => self.fetch_thunk(ptr).map(|thunk| Expression::Thunk(*thunk)),
-            ExprTag::Str if ptr.raw.is_null() => Some(Expression::StrNil),
+            ExprTag::Str if ptr.raw.is_null() => Some(Expression::EmptyStr),
             ExprTag::Str => self
                 .fetch_strcons(ptr)
-                .map(|(car, cdr)| Expression::StrCons(car, cdr)),
+                .map(|(car, cdr)| Expression::Str(car, cdr)),
             ExprTag::Char => self.fetch_char(ptr).map(Expression::Char),
             ExprTag::U64 => self.fetch_uint(ptr).map(Expression::UInt),
         }
@@ -1287,20 +1287,20 @@ impl<F: LurkField> Store<F> {
                             Ok(())
                         })));
                     }
-                    Some(Expression::StrNil) => {
+                    Some(Expression::EmptyStr) => {
                         stack.push(Cont(Box::new(|store, _, _, ret_stack| {
                             ret_stack.push((
-                                ZExpr::StrNil.z_ptr(&store.poseidon_cache),
-                                Some(ZExpr::StrNil),
+                                ZExpr::EmptyStr.z_ptr(&store.poseidon_cache),
+                                Some(ZExpr::EmptyStr),
                             ));
                             Ok(())
                         })));
                     }
-                    Some(Expression::StrCons(car, cdr)) => {
+                    Some(Expression::Str(car, cdr)) => {
                         stack.push(Cont(Box::new(|store, _, _, ret_stack| {
                             let (z_car, _) = ret_stack.pop().ok_or(Error("broken".into()))?;
                             let (z_cdr, _) = ret_stack.pop().ok_or(Error("broken".into()))?;
-                            let z_expr = ZExpr::StrCons(z_car, z_cdr);
+                            let z_expr = ZExpr::Str(z_car, z_cdr);
                             ret_stack.push((z_expr.z_ptr(&store.poseidon_cache), Some(z_expr)));
                             Ok(())
                         })));
@@ -1311,20 +1311,20 @@ impl<F: LurkField> Store<F> {
                             step(cdr, store, z_store, stack, ret_stack)
                         })));
                     }
-                    Some(Expression::SymNil) => {
+                    Some(Expression::RootSym) => {
                         stack.push(Cont(Box::new(|store, _, _, ret_stack| {
                             ret_stack.push((
-                                ZExpr::SymNil.z_ptr(&store.poseidon_cache),
-                                Some(ZExpr::SymNil),
+                                ZExpr::RootSym.z_ptr(&store.poseidon_cache),
+                                Some(ZExpr::RootSym),
                             ));
                             Ok(())
                         })));
                     }
-                    Some(Expression::SymCons(car, cdr)) => {
+                    Some(Expression::Sym(car, cdr)) => {
                         stack.push(Cont(Box::new(|store, _, _, ret_stack| {
                             let (z_car, _) = ret_stack.pop().ok_or(Error("broken".into()))?;
                             let (z_cdr, _) = ret_stack.pop().ok_or(Error("broken".into()))?;
-                            let z_expr = ZExpr::SymCons(z_car, z_cdr);
+                            let z_expr = ZExpr::Sym(z_car, z_cdr);
                             ret_stack.push((z_expr.z_ptr(&store.poseidon_cache), Some(z_expr)));
                             Ok(())
                         })));
@@ -1416,8 +1416,8 @@ impl<F: LurkField> Store<F> {
                 ))),
             },
             ExprTag::Str => match self.fetch(ptr) {
-                Some(Expression::StrCons(car, cdr)) => Ok((car, cdr)),
-                Some(Expression::StrNil) => Ok((self.get_nil(), self.strnil())),
+                Some(Expression::Str(car, cdr)) => Ok((car, cdr)),
+                Some(Expression::EmptyStr) => Ok((self.get_nil(), self.strnil())),
                 _ => unreachable!(),
             },
             _ => Err(Error("Can only extract car_cdr from Cons".into())),
@@ -1547,24 +1547,24 @@ impl<F: LurkField> Store<F> {
                     self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
-                (ExprTag::Str, Some(StrNil)) => {
+                (ExprTag::Str, Some(EmptyStr)) => {
                     let ptr = self.intern_strnil();
                     self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
-                (ExprTag::Str, Some(StrCons(strcar, strcdr))) => {
+                (ExprTag::Str, Some(Str(strcar, strcdr))) => {
                     let strcar = self.intern_z_expr_ptr(strcar, z_store)?;
                     let strcdr = self.intern_z_expr_ptr(strcdr, z_store)?;
                     let ptr = self.intern_strcons(strcar, strcdr);
                     self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
-                (ExprTag::Sym, Some(SymNil)) => {
+                (ExprTag::Sym, Some(RootSym)) => {
                     let ptr = self.intern_symnil(false);
                     self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
-                (ExprTag::Sym, Some(SymCons(symcar, symcdr))) => {
+                (ExprTag::Sym, Some(Sym(symcar, symcdr))) => {
                     let symcar = self.intern_z_expr_ptr(symcar, z_store)?;
                     let symcdr = self.intern_z_expr_ptr(symcdr, z_store)?;
                     let ptr = self.intern_symcons(symcar, symcdr);
@@ -1762,8 +1762,8 @@ impl<F: LurkField> Expression<F> {
 
     pub const fn as_str(&self) -> Option<&str> {
         match self {
-            Expression::StrCons(_, _) => todo!(),
-            Expression::StrNil => Some(""),
+            Expression::Str(_, _) => todo!(),
+            Expression::EmptyStr => Some(""),
             _ => None,
         }
     }
@@ -1805,7 +1805,7 @@ impl<F: LurkField> Expression<F> {
     }
 
     pub const fn is_sym(&self) -> bool {
-        matches!(self, Self::SymCons(..) | Self::SymNil)
+        matches!(self, Self::Sym(..) | Self::RootSym)
     }
     pub const fn is_fun(&self) -> bool {
         matches!(self, Self::Fun(_, _, _))
@@ -1815,7 +1815,7 @@ impl<F: LurkField> Expression<F> {
         matches!(self, Self::Num(_))
     }
     pub const fn is_str(&self) -> bool {
-        matches!(self, Self::StrCons(..) | Self::StrNil)
+        matches!(self, Self::Str(..) | Self::EmptyStr)
     }
 
     pub const fn is_thunk(&self) -> bool {

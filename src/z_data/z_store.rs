@@ -81,8 +81,8 @@ impl<F: LurkField> ZStore<F> {
                 Some(ZExpr::Char(x))
             }
             ZPtr(ExprTag::Num, val) => Some(ZExpr::Num(*val)),
-            ZPtr(ExprTag::Str, val) if *val == F::ZERO => Some(ZExpr::StrNil),
-            ZPtr(ExprTag::Sym, val) if *val == F::ZERO => Some(ZExpr::SymNil),
+            ZPtr(ExprTag::Str, val) if *val == F::ZERO => Some(ZExpr::EmptyStr),
+            ZPtr(ExprTag::Sym, val) if *val == F::ZERO => Some(ZExpr::RootSym),
             _ => None,
         }
     }
@@ -119,10 +119,10 @@ impl<F: LurkField> ZStore<F> {
         string: String,
         poseidon_cache: &PoseidonCache<F>,
     ) -> (ZExprPtr<F>, ZExpr<F>) {
-        let mut expr = ZExpr::StrNil;
+        let mut expr = ZExpr::EmptyStr;
         let mut ptr = expr.z_ptr(poseidon_cache);
         for c in string.chars().rev() {
-            expr = ZExpr::StrCons(ZPtr(ExprTag::Char, F::from_char(c)), ptr);
+            expr = ZExpr::Str(ZPtr(ExprTag::Char, F::from_char(c)), ptr);
             ptr = expr.z_ptr(poseidon_cache);
         }
         (ptr, expr)
@@ -133,11 +133,11 @@ impl<F: LurkField> ZStore<F> {
         sym: Symbol,
         poseidon_cache: &PoseidonCache<F>,
     ) -> (ZExprPtr<F>, ZExpr<F>) {
-        let mut expr = ZExpr::SymNil;
+        let mut expr = ZExpr::RootSym;
         let mut ptr = expr.z_ptr(poseidon_cache);
         for s in sym.path().iter().rev() {
             let (str_ptr, _) = self.put_string(s.clone(), poseidon_cache);
-            expr = ZExpr::SymCons(str_ptr, ptr);
+            expr = ZExpr::Sym(str_ptr, ptr);
             ptr = expr.z_ptr(poseidon_cache);
         }
         (ptr, expr)

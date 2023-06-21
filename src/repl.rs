@@ -391,7 +391,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
 
         let res = match expr {
             Expression::Cons(car, rest) => match &store.fetch(&car).unwrap() {
-                Expression::SymCons(..) => {
+                Expression::Sym(..) => {
                     let s: Symbol = store
                         .fetch_sym(&car)
                         .ok_or(Error::msg("handle_meta fetch symbol"))?;
@@ -521,7 +521,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                         "load" => {
                             let car = &store.car(&rest)?;
                             match store.fetch(car).unwrap() {
-                                Expression::StrCons(..) => {
+                                Expression::Str(..) => {
                                     let path: String = store
                                         .fetch_string(car)
                                         .ok_or(Error::msg("handle_meta fetch_string"))?;

@@ -32,8 +32,8 @@ pub enum ZExpr<F: LurkField> {
         )
     )]
     Comm(F, ZExprPtr<F>),
-    SymNil,
-    SymCons(ZExprPtr<F>, ZExprPtr<F>),
+    RootSym,
+    Sym(ZExprPtr<F>, ZExprPtr<F>),
     Key(ZExprPtr<F>),
     Fun {
         arg: ZExprPtr<F>,
@@ -45,9 +45,9 @@ pub enum ZExpr<F: LurkField> {
         proptest(strategy = "any::<FWrap<F>>().prop_map(|x| Self::Num(x.0))")
     )]
     Num(F),
-    StrNil,
+    EmptyStr,
     /// Contains a string and a pointer to the tail.
-    StrCons(ZExprPtr<F>, ZExprPtr<F>),
+    Str(ZExprPtr<F>, ZExprPtr<F>),
     Thunk(ZExprPtr<F>, ZContPtr<F>),
     Char(char),
     UInt(UInt),
@@ -57,14 +57,14 @@ impl<F: LurkField> std::fmt::Display for ZExpr<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ZExpr::Cons(x, y) => write!(f, "({} . {})", x, y),
-            ZExpr::StrCons(x, y) => write!(f, "('{}' str. {})", x, y),
-            ZExpr::SymCons(x, y) => write!(f, "({} sym. {})", x, y),
+            ZExpr::Str(x, y) => write!(f, "('{}' str. {})", x, y),
+            ZExpr::Sym(x, y) => write!(f, "({} sym. {})", x, y),
             ZExpr::Comm(ff, x) => {
                 write!(f, "({} comm. {})", ff.trimmed_hex_digits(), x)
             }
             ZExpr::Nil => write!(f, "nil"),
-            ZExpr::StrNil => write!(f, "strnil"),
-            ZExpr::SymNil => write!(f, "symnil"),
+            ZExpr::EmptyStr => write!(f, "strnil"),
+            ZExpr::RootSym => write!(f, "symnil"),
             _ => todo!(),
         }
     }
@@ -79,8 +79,8 @@ impl<F: LurkField> ZExpr<F> {
                 cache.hash4(&[x.0.to_field(), x.1, y.0.to_field(), y.1]),
             ),
             ZExpr::Comm(f, x) => ZPtr(ExprTag::Comm, cache.hash3(&[*f, x.0.to_field(), x.1])),
-            ZExpr::SymNil => ZPtr(ExprTag::Sym, F::ZERO),
-            ZExpr::SymCons(x, y) => ZPtr(
+            ZExpr::RootSym => ZPtr(ExprTag::Sym, F::ZERO),
+            ZExpr::Sym(x, y) => ZPtr(
                 ExprTag::Sym,
                 cache.hash4(&[x.0.to_field(), x.1, y.0.to_field(), y.1]),
             ),
@@ -101,8 +101,8 @@ impl<F: LurkField> ZExpr<F> {
                 ]),
             ),
             ZExpr::Num(f) => ZPtr(ExprTag::Num, *f),
-            ZExpr::StrNil => ZPtr(ExprTag::Str, F::ZERO),
-            ZExpr::StrCons(x, y) => ZPtr(
+            ZExpr::EmptyStr => ZPtr(ExprTag::Str, F::ZERO),
+            ZExpr::Str(x, y) => ZPtr(
                 ExprTag::Str,
                 cache.hash4(&[x.0.to_field(), x.1, y.0.to_field(), y.1]),
             ),
@@ -134,7 +134,7 @@ impl<F: LurkField> ZExpr<F> {
             }),
             ExprTag::Sym => store.fetch_symcons(ptr).and_then(|(tag, val)| {
                 if let (Some(tag), Some(val)) = (store.hash_expr(&tag), store.hash_expr(&val)) {
-                    Some(ZExpr::SymCons(tag, val))
+                    Some(ZExpr::Sym(tag, val))
                 } else {
                     None
                 }
@@ -161,7 +161,7 @@ impl<F: LurkField> ZExpr<F> {
             }),
             ExprTag::Str => store.fetch_strcons(ptr).and_then(|(tag, val)| {
                 if let (Some(tag), Some(val)) = (store.hash_expr(&tag), store.hash_expr(&val)) {
-                    Some(ZExpr::StrCons(tag, val))
+                    Some(ZExpr::Str(tag, val))
                 } else {
                     None
                 }

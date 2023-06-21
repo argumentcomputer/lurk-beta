@@ -93,8 +93,8 @@ mod tests {
         zexpr_roundtrip(ZExpr::Nil);
         zexpr_roundtrip(ZExpr::Cons(zep, zep));
         zexpr_roundtrip(ZExpr::Comm(f, zep));
-        zexpr_roundtrip(ZExpr::SymNil);
-        zexpr_roundtrip(ZExpr::SymCons(zep, zep));
+        zexpr_roundtrip(ZExpr::RootSym);
+        zexpr_roundtrip(ZExpr::Sym(zep, zep));
         zexpr_roundtrip(ZExpr::Key(zep));
         zexpr_roundtrip(ZExpr::Fun {
             arg: zep,
@@ -102,8 +102,8 @@ mod tests {
             closed_env: zep,
         });
         zexpr_roundtrip(ZExpr::Num(f));
-        zexpr_roundtrip(ZExpr::StrNil);
-        zexpr_roundtrip(ZExpr::StrCons(zep, zep));
+        zexpr_roundtrip(ZExpr::EmptyStr);
+        zexpr_roundtrip(ZExpr::Str(zep, zep));
         zexpr_roundtrip(ZExpr::Thunk(zep, zcp));
         zexpr_roundtrip(ZExpr::Char('a'));
         zexpr_roundtrip(ZExpr::UInt(UInt::U64(0)));

@@ -204,7 +204,7 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
 
         let res: Option<Ptr<F>> = match expr {
             Expression::Cons(car, rest) => match &store.fetch(&car).unwrap() {
-                Expression::SymCons(_, _) => {
+                Expression::Sym(_, _) => {
                     let s: Symbol = store
                         .fetch_sym(&car)
                         .ok_or(Error::msg("handle_meta fetch symbol"))?;

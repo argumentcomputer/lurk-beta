@@ -196,10 +196,10 @@ impl<F: LurkField> Store<F> {
             Expression::Char(_) => Some(Syntax::Char(Pos::No, self.fetch_char(&ptr)?)),
             Expression::UInt(_) => Some(Syntax::UInt(Pos::No, self.fetch_uint(&ptr)?)),
             Expression::Nil | Expression::Cons(..) => self.fetch_syntax_list(ptr),
-            Expression::StrNil => Some(Syntax::String(Pos::No, "".to_string())),
-            Expression::StrCons(..) => Some(Syntax::String(Pos::No, self.fetch_string(&ptr)?)),
-            Expression::SymNil => Some(Syntax::Symbol(Pos::No, Symbol::root())),
-            Expression::SymCons(..) => {
+            Expression::EmptyStr => Some(Syntax::String(Pos::No, "".to_string())),
+            Expression::Str(..) => Some(Syntax::String(Pos::No, self.fetch_string(&ptr)?)),
+            Expression::RootSym => Some(Syntax::Symbol(Pos::No, Symbol::root())),
+            Expression::Sym(..) => {
                 let sym = self.fetch_symbol(&ptr)?;
                 if let Some(sym) = lurk_syms.get(&sym) {
                     Some(Syntax::LurkSym(Pos::No, *sym))
