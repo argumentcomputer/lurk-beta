@@ -614,6 +614,9 @@ impl LEM {
                         &allocated_ptrs,
                     )?;
 
+                    // Retrieve allocated preimage
+                    let allocated_preimg = Self::get_allocated_preimg($preimg, &allocated_ptrs)?;
+
                     // Create constraint for the tag
                     let allocated_tag = alloc_manager.get_or_alloc_num(cs, $tag.to_field())?;
                     implies_equal(
@@ -622,9 +625,6 @@ impl LEM {
                         allocated_img.tag(),
                         &allocated_tag,
                     )?;
-
-                    // Retrieve allocate preimage
-                    let allocated_preimg = Self::get_allocated_preimg($preimg, &allocated_ptrs)?;
 
                     // Add the hash constraints
                     constrain_slot!($preimg, $img, allocated_preimg, allocated_img);
@@ -773,9 +773,13 @@ impl LEM {
         Ok(())
     }
 
+    /// Computes the number of constraints that `synthesize` should create. It's
+    /// also an explicit way to document and attest how the number of constraints
+    /// grow.
     pub fn num_constraints(&self, slots_info: &SlotsInfo) -> usize {
         let mut num_constraints = 0;
 
+        // fixed cost for each slot
         for (_, slot_type) in &slots_info.slots {
             match slot_type {
                 SlotType::Hash2 => {
@@ -794,40 +798,56 @@ impl LEM {
         while let Some((op, nested)) = stack.pop() {
             match op {
                 LEMOP::Null(..) => {
+                    // constrain tag and hash
                     num_constraints += 2;
                 }
                 LEMOP::Hash2(..) => {
+                    // tag and hash for 3 pointers: 1 image + 2 from preimage
                     num_constraints += 6;
                 }
                 LEMOP::Hash3(..) => {
+                    // tag and hash for 4 pointers: 1 image + 3 from preimage
                     num_constraints += 8;
                 }
                 LEMOP::Hash4(..) => {
+                    // tag and hash for 5 pointers: 1 image + 4 from preimage
                     num_constraints += 10;
                 }
                 LEMOP::Unhash2(..) => {
+                    // one constraint for the image's hash
+                    // tag and hash for 2 pointers from preimage
                     num_constraints += 5;
                 }
                 LEMOP::Unhash3(..) => {
+                    // one constraint for the image's hash
+                    // tag and hash for 3 pointers from preimage
                     num_constraints += 7;
                 }
                 LEMOP::Unhash4(..) => {
+                    // one constraint for the image's hash
+                    // tag and hash for 4 pointers from preimage
                     num_constraints += 9;
                 }
                 LEMOP::Return(..) => {
+                    // tag and hash for 3 pointers
                     num_constraints += 6;
                 }
                 LEMOP::MatchTag(_, cases) => {
-                    if nested {
-                        num_constraints += 4 * cases.len() + 1;
-                    } else {
-                        num_constraints += 3 * cases.len() + 1;
-                    };
+                    // `alloc_equal_const` adds 3 constraints for each case and
+                    // the `and` is free for non-nested `MatchTag`s, since we
+                    // start `concrete_path` with a constant `true`
+                    let multiplier = if nested { 4 } else { 3 };
+
+                    // then we add 1 constraint from `enforce_selector_with_premise`
+                    num_constraints += multiplier * cases.len() + 1;
+
+                    // stacked ops are now nested
                     for op in cases.values() {
                         stack.push((op, true));
                     }
                 }
                 LEMOP::Seq(ops) => {
+                    // no constraints added here
                     stack.extend(ops.iter().map(|op| (op, nested)));
                 }
                 _ => todo!(),

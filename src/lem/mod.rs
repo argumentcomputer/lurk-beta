@@ -311,7 +311,7 @@ mod tests {
     }
 
     #[test]
-    fn resolves_conflicts_of_clashing_names_in_pallel_branches() {
+    fn resolves_conflicts_of_clashing_names_in_parallel_branches() {
         let lem = lem!(expr_in env_in cont_in {
             match_tag expr_in {
                 // This match is creating `cont_out_terminal` on two different
