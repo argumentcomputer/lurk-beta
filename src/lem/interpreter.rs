@@ -3,8 +3,7 @@ use anyhow::{bail, Result};
 use std::collections::HashMap;
 
 use super::{
-    circuit::SlotsInfo, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM,
-    LEMOP,
+    circuit::SlotsInfo, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM, LEMOP,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
