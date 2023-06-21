@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::field::LurkField;
 
-use super::{interpreter::Frame, store::Store, tag::Tag, MetaPtr, LEM, LEMOP, AString};
+use super::{interpreter::Frame, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM, LEMOP, AString};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Path(AString);
@@ -24,8 +24,13 @@ impl Path {
     }
 
     #[inline]
-    pub fn push_sym_path(&self, sym_path: &[AString]) -> Path {
-        Path(format!("{self}.SymPath({})", sym_path.join(".")).into())
+    pub fn push_symbol(&self, symbol: &Symbol) -> Path {
+        Path(format!("{self}.Symbol({symbol})").into())
+    }
+
+    #[inline]
+    pub fn push_default(&self) -> Path {
+        Path(format!("{self}.Default").into())
     }
 
     #[inline]
@@ -34,8 +39,8 @@ impl Path {
     }
 
     #[inline]
-    pub fn push_sym_path_inplace(&mut self, sym_path: &[AString]) {
-        self.0 = format!("{self}.SymPath({})", sym_path.join(".")).into();
+    pub fn push_symbol_inplace(&mut self, symbol: &Symbol) {
+        self.0 = format!("{self}.Symbol({symbol})").into();
     }
 }
 
@@ -150,17 +155,17 @@ impl LEM {
                     HashMap::from_iter(new_cases),
                 ))
             }
-            LEM::MatchSymPath(ptr, cases, def) => {
+            LEM::MatchSymbol(ptr, cases, def) => {
                 let mut new_cases = vec![];
-                for (sym_path, case) in cases {
+                for (symbol, case) in cases {
                     let new_case =
-                        case.deconflict(&path.push_sym_path(sym_path), &mut map.clone())?;
-                    new_cases.push((sym_path.clone(), new_case));
+                        case.deconflict(&path.push_symbol(symbol), &mut map.clone())?;
+                    new_cases.push((symbol.clone(), new_case));
                 }
-                Ok(LEM::MatchSymPath(
+                Ok(LEM::MatchSymbol(
                     retrieve_one(map, ptr)?,
                     HashMap::from_iter(new_cases),
-                    Box::new(def.deconflict(&path.push_sym_path(&[]), &mut map.clone())?),
+                    Box::new(def.deconflict(&path.push_default(), &mut map.clone())?),
                 ))
             }
             LEM::Seq(op, rest) => {
@@ -176,21 +181,21 @@ impl LEM {
     pub fn num_paths(&self) -> usize {
         match self {
             LEM::MatchTag(_, cases) => cases.values().fold(0, |acc, code| acc + code.num_paths()),
-            LEM::MatchSymPath(_, cases, _) => cases.values().fold(0, |acc, code| acc + code.num_paths()),
+            LEM::MatchSymbol(_, cases, _) => cases.values().fold(0, |acc, code| acc + code.num_paths()),
             LEM::Seq(_, rest) => rest.num_paths(),
             LEM::Return(..) => 1,
-        }
+       }
     }
 
     /// Computes the path taken through a `LEMOP` given a frame
     fn path_taken<F: LurkField>(&self, frame: &Frame<F>, store: &mut Store<F>) -> Result<Path> {
         let mut path = Path::default();
         let mut stack = vec![self];
-        let ptrs = &frame.ptrs;
+        let binds = &frame.binds;
         while let Some(code) = stack.pop() {
             match code {
                 Self::MatchTag(match_ptr, cases) => {
-                    let ptr = match_ptr.get_ptr(ptrs)?;
+                    let ptr = match_ptr.get_ptr(binds)?;
                     let tag = ptr.tag();
                     let Some(code) = cases.get(tag) else {
                         bail!("No match for tag {}", tag)
@@ -198,13 +203,13 @@ impl LEM {
                     path.push_tag_inplace(tag);
                     stack.push(code);
                 }
-                Self::MatchSymPath(match_ptr, cases, def) => {
-                    let ptr = match_ptr.get_ptr(ptrs)?;
-                    let Some(sym_path) = store.fetch_sym_path(ptr) else {
-                        bail!("Symbol path not found for {}", match_ptr.name());
+                Self::MatchSymbol(match_ptr, cases, def) => {
+                    let ptr = match_ptr.get_ptr(binds)?;
+                    let Some(symbol) = store.fetch_symbol(ptr) else {
+                        bail!("Symbol not found for {}", match_ptr.name());
                     };
-                    path.push_sym_path_inplace(sym_path);
-                    match cases.get(&**sym_path) {
+                    path.push_symbol_inplace(&symbol);
+                    match cases.get(&symbol) {
                         Some(code) => stack.push(code),
                         None => stack.push(def),
                     }

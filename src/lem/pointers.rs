@@ -46,11 +46,19 @@ impl<F: LurkField> Ptr<F> {
         }
     }
 
-    pub fn sym_to_key(self) -> Self {
+    pub fn sym_to_key(&self) -> Self {
         match self {
-            Ptr::Leaf(Tag::Sym, f) => Ptr::Leaf(Tag::Key, f),
-            Ptr::Tree2(Tag::Sym, x) => Ptr::Tree2(Tag::Key, x),
+            Ptr::Leaf(Tag::Sym, f) => Ptr::Leaf(Tag::Key, *f),
+            Ptr::Tree2(Tag::Sym, x) => Ptr::Tree2(Tag::Key, *x),
             _ => panic!("Malformed sym pointer"),
+        }
+    }
+
+    pub fn key_to_sym(&self) -> Self {
+        match self {
+            Ptr::Leaf(Tag::Key, f) => Ptr::Leaf(Tag::Sym, *f),
+            Ptr::Tree2(Tag::Key, x) => Ptr::Tree2(Tag::Sym, *x),
+            _ => panic!("Malformed key pointer"),
         }
     }
 

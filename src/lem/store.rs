@@ -198,6 +198,15 @@ impl<F: LurkField> Store<F> {
         self.sym_path_cache.get(ptr)
     }
 
+    #[inline]
+    pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<Symbol> {
+        match ptr.tag() {
+            Tag::Sym => Some(Symbol::sym(self.fetch_sym_path(ptr)?)),
+            Tag::Key => Some(Symbol::key(self.fetch_sym_path(&ptr.key_to_sym())?)),
+            _ => None,
+        }
+    }
+
     pub fn intern_symbol(&mut self, s: &Symbol) -> Ptr<F> {
         match s {
             Symbol::Sym(path) => self.intern_symbol_path(path),

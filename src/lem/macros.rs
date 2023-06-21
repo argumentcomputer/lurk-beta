@@ -89,18 +89,18 @@ macro_rules! lem {
             $crate::lem::LEM::MatchTag($crate::metaptr!($sii), cases)
         }
     };
-    ( match_sym_path $sii:ident { $( $sym_path:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } ) => {
+    ( match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } ) => {
         {
             let mut cases = std::collections::HashMap::new();
             $(
                 if cases.insert(
-                    $sym_path.iter().map(|s| s.to_string()).collect::<Vec<String>>(),
+                    $symbol,
                     $crate::lem!( $case_ops ),
                 ).is_some() {
-                    panic!("Repeated path on `match_sym_path`");
+                    panic!("Repeated path on `match_symbol`");
                 };
             )*
-            $crate::lem::LEM::MatchSymPath($crate::metaptr!($sii), cases, Box::new($crate::lem!( $def )))
+            $crate::lem::LEM::MatchSymbol($crate::metaptr!($sii), cases, Box::new($crate::lem!( $def )))
         }
     };
     ( return ($src1:ident, $src2:ident, $src3:ident) ) => {
@@ -215,13 +215,13 @@ macro_rules! lem {
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, match_sym_path $sii:ident { $( $sym_path:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } $($tail:tt)*) => {
         $crate::lem! (
             @end
             {
                 $($limbs)*
             },
-            $crate::lem!( match_sym_path $sii { $( $sym_path => $case_ops ),* , _ => $def, } ),
+            $crate::lem!( match_symbol $sii { $( $symbol => $case_ops ),* , _ => $def, } ),
             $($tail)*
         )
     };
@@ -263,7 +263,7 @@ macro_rules! lemplus {
 
 #[cfg(test)]
 mod tests {
-    use crate::lem::{tag::Tag, MetaPtr, LEM, LEMOP, AString};
+    use crate::lem::{symbol::Symbol, tag::Tag, MetaPtr, LEM, LEMOP};
 
     #[inline]
     fn mptr(name: &str) -> MetaPtr {
@@ -276,8 +276,8 @@ mod tests {
     }
 
     #[inline]
-    fn match_sym_path(i: MetaPtr, cases: Vec<(Vec<AString>, LEM)>, def: LEM) -> LEM {
-        LEM::MatchSymPath(
+    fn match_symbol(i: MetaPtr, cases: Vec<(Symbol, LEM)>, def: LEM) -> LEM {
+        LEM::MatchSymbol(
             i,
             std::collections::HashMap::from_iter(cases),
             Box::new(def),
@@ -347,14 +347,17 @@ mod tests {
         //     match_tag www {
         //         Num => {
         //             let foo: Num; // a single LEMOP will not turn into a Seq
+        //             return (foo, foo, foo);
         //         },
         //         Str => {
         //             let foo: Num;
         //             let goo: Char;
+        //             return (foo, foo, goo);
         //         },
         //         Char => {
         //             let foo: Num;
         //             let goo: Char;
+        //             return (foo, goo, goo);
         //         }
         //     }
         // );
@@ -381,37 +384,37 @@ mod tests {
         //     )
         // );
 
-        // let moo = lemop!(
-        //     match_sym_path www {
-        //         ["a", "b"] => {
+        // let moo = lem!(
+        //     match_symbol www {
+        //         Symbol::lurk_sym("nil") => {
         //             let foo: Num; // a single LEMOP will not turn into a Seq
+        //             return (foo, foo, foo);
         //         },
-        //         ["c", "d"] => {
+        //         Symbol::lurk_sym("cons") => {
         //             let foo: Num;
         //             let goo: Char;
+        //             return (foo, foo, goo);
         //         },
         //         _ => {
         //             let xoo: Str;
+        //             return (xoo, xoo, xoo);
         //         },
         //     }
         // );
         // assert!(
-        //     moo == match_sym_path(
+        //     moo == match_symbol(
         //         mptr("www"),
         //         vec![
+        //             (Symbol::lurk_sym("nil"), LEMOP::Null(mptr("foo"), Tag::Num)),
         //             (
-        //                 vec!["a".to_string(), "b".to_string()],
-        //                 LEM::Null(mptr("foo"), Tag::Num)
-        //             ),
-        //             (
-        //                 vec!["c".to_string(), "d".to_string()],
-        //                 LEM::Seq(vec![
-        //                     LEM::Null(mptr("foo"), Tag::Num),
-        //                     LEM::Null(mptr("goo"), Tag::Char)
+        //                 Symbol::lurk_sym("cons"),
+        //                 LEMOP::Seq(vec![
+        //                     LEMOP::Null(mptr("foo"), Tag::Num),
+        //                     LEMOP::Null(mptr("goo"), Tag::Char)
         //                 ])
         //             ),
         //         ],
-        //         LEM::Null(mptr("xoo"), Tag::Str)
+        //         LEMOP::Null(mptr("xoo"), Tag::Str)
         //     )
         // );
     }
