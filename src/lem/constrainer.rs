@@ -157,9 +157,9 @@ impl LEMOP {
     ///
     /// We want to reuse the same slot as before. To accomplish this, we use
     /// hashmaps that can recover the slots that were previously allocated.
-    pub fn slots_info(&self) -> SlotsInfo {
+    pub fn slots_info(&self) -> Result<SlotsInfo> {
         let mut slots_map = IndexMap::default();
-        let mut slots_counter = SlotsCounter::default();
+        let mut slots = IndexSet::default();
 
         // these hashmaps keep track of slots that were allocated for preimages
         let mut preimgs2_map: HashMap<&[MetaPtr; 2], (usize, SlotType)> = HashMap::default();
@@ -171,6 +171,7 @@ impl LEMOP {
         let mut imgs3_map: HashMap<&MetaPtr, (usize, SlotType)> = HashMap::default();
         let mut imgs4_map: HashMap<&MetaPtr, (usize, SlotType)> = HashMap::default();
 
+        let mut slots_counter = SlotsCounter::default();
         let mut stack = vec![(self, Path::default())];
         while let Some((op, path)) = stack.pop() {
             /// Designates a slot for a pair of preimage/image. If a slot has
@@ -181,14 +182,21 @@ impl LEMOP {
                     match ($preimgs_map.get($preimg), $imgs_map.get($img)) {
                         (Some(slot), _) | (_, Some(slot)) => {
                             // reusing a slot
-                            slots_map.insert(op.clone(), *slot);
+                            if slots_map.insert(op.clone(), *slot).is_some() {
+                                bail!("Duplicated LEMOP: {:?}", op)
+                            }
                         }
-                        _ => {
+                        (None, None) => {
                             // allocating a new slot
                             let slot_idx = $counter_fn(path);
                             let slot_type = SlotType::from_lemop(op);
                             let slot = (slot_idx, slot_type);
-                            slots_map.insert(op.clone(), slot);
+                            if slots_map.insert(op.clone(), slot).is_some() {
+                                bail!("Duplicated LEMOP: {:?}", op)
+                            }
+                            slots.insert(slot);
+
+                            // memoize
                             $preimgs_map.insert($preimg, slot);
                             $imgs_map.insert($img, slot);
                         }
@@ -237,10 +245,7 @@ impl LEMOP {
                 _ => (),
             }
         }
-        SlotsInfo {
-            slots: IndexSet::from_iter(slots_map.values().cloned()),
-            slots_map,
-        }
+        Ok(SlotsInfo { slots_map, slots })
     }
 }
 
@@ -762,8 +767,34 @@ impl LEM {
                 _ => todo!(),
             }
         }
-
         Ok(())
+    }
+
+    pub fn estimated_num_constrains(&self, slots_info: &SlotsInfo) -> usize {
+        let mut num_constraints = 0;
+
+        for (_, slot_type) in &slots_info.slots {
+            match slot_type {
+                SlotType::Hash2 => {
+                    num_constraints += 295;
+                }
+                SlotType::Hash3 => {
+                    num_constraints += 381;
+                }
+                SlotType::Hash4 => {
+                    num_constraints += 398;
+                }
+            }
+        }
+
+        let mut stack = vec![&self.lem_op];
+        while let Some(op) = stack.pop() {
+            match op {
+                _ => todo!(),
+            }
+        }
+
+        num_constraints
     }
 }
 

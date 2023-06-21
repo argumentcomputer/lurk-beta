@@ -42,10 +42,12 @@ mod tests {
         let lem = step().unwrap();
         lem.check();
 
-        let slots_info = lem.lem_op.slots_info();
+        let slots_info = lem.lem_op.slots_info().unwrap();
         let num_slots = num_slots(&slots_info);
 
         assert_eq!(num_slots, NUM_SLOTS);
+
+        let estimated_num_constraints = lem.estimated_num_constrains(&slots_info);
 
         // Assures that `MatchSymbol`s will work properly
         lem.intern_matched_symbols(store);
@@ -70,7 +72,10 @@ mod tests {
                 assert!(cs.is_satisfied());
                 assert_eq!(cs.num_inputs(), NUM_INPUTS);
                 assert_eq!(cs.aux().len(), NUM_AUX);
-                assert_eq!(cs.num_constraints(), NUM_CONSTRAINTS);
+
+                let num_constraints = cs.num_constraints();
+                assert_eq!(estimated_num_constraints, num_constraints);
+                assert_eq!(num_constraints, NUM_CONSTRAINTS);
                 // TODO: assert uniformity
             }
             all_frames.extend(frames);

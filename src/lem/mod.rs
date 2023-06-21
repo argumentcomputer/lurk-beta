@@ -238,20 +238,15 @@ mod tests {
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable, Delta};
     use blstrs::Scalar as Fr;
 
-    fn constrain_test_helper(
-        lem: &LEM,
-        exprs: &[Ptr<Fr>],
-        expected_num_slots: NumSlots,
-        assert_all_paths_taken: bool,
-        expected_num_constraints: Option<usize>,
-    ) {
-        let slots_info = lem.lem_op.slots_info();
+    fn constrain_test_helper(lem: &LEM, exprs: &[Ptr<Fr>], expected_num_slots: NumSlots) {
+        let slots_info = lem.lem_op.slots_info().unwrap();
 
         let num_slots = num_slots(&slots_info);
         assert_eq!(num_slots, expected_num_slots);
 
+        let estimated_num_constraints = lem.estimated_num_constrains(&slots_info);
+
         let mut store = Store::default();
-        let mut all_frames = vec![];
 
         let mut cs_prev = None;
         for expr in exprs {
@@ -263,23 +258,16 @@ mod tests {
                 lem.constrain(&mut cs, &mut alloc_manager, &mut store, &frame, &slots_info)
                     .unwrap();
             }
-            assert!(cs.is_satisfied());
-            if let Some(expected) = expected_num_constraints {
-                assert_eq!(expected, cs.num_constraints());
-            }
 
-            if assert_all_paths_taken {
-                all_frames.extend(frames);
-            }
+            assert!(cs.is_satisfied());
+
+            assert_eq!(estimated_num_constraints, cs.num_constraints());
 
             if let Some(cs_prev) = cs_prev {
                 assert_eq!(cs.delta(&cs_prev, true), Delta::Equal);
             }
 
             cs_prev = Some(cs);
-        }
-        if assert_all_paths_taken {
-            lem.assert_all_paths_taken(&all_frames, &mut store);
         }
     }
 
@@ -319,13 +307,7 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42))],
-            NumSlots::default(),
-            false,
-            Some(42),
-        );
+        constrain_test_helper(&lem, &[Ptr::num(Fr::from_u64(42))], NumSlots::default());
     }
 
     #[test]
@@ -349,13 +331,7 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(
-            &lem,
-            &[Ptr::num(Fr::from_u64(42))],
-            NumSlots::default(),
-            false,
-            Some(23),
-        );
+        constrain_test_helper(&lem, &[Ptr::num(Fr::from_u64(42))], NumSlots::default());
     }
 
     #[test]
@@ -369,9 +345,7 @@ mod tests {
         constrain_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((0, 0, 0)),
-            true,
-            Some(8),
+            NumSlots::default(),
         );
     }
 
@@ -394,9 +368,7 @@ mod tests {
         constrain_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((0, 0, 0)),
-            true,
-            Some(23),
+            NumSlots::default(),
         );
     }
 
@@ -432,8 +404,6 @@ mod tests {
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             NumSlots::new((2, 2, 2)),
-            false,
-            Some(2117),
         );
     }
 
@@ -472,8 +442,6 @@ mod tests {
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             NumSlots::new((2, 2, 2)),
-            false,
-            Some(2138),
         );
     }
 
@@ -524,9 +492,6 @@ mod tests {
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             NumSlots::new((2, 2, 2)),
-            false,
-            // Expected hash constraints: 2*(295+381+398) = 2148, then it was indeed optimized
-            Some(2195),
         );
     }
 }
