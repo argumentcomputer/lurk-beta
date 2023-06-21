@@ -42,8 +42,8 @@ mod tests {
         let lem = step().unwrap();
         lem.check();
 
-        let slots_indices = lem.lem_op.slots_indices();
-        let num_slots = num_slots(&slots_indices);
+        let slots_info = lem.lem_op.slots_info();
+        let num_slots = num_slots(&slots_info);
 
         assert_eq!(num_slots, NUM_SLOTS);
 
@@ -53,7 +53,7 @@ mod tests {
         let mut all_frames = Vec::default();
 
         for (expr_in, expr_out) in pairs {
-            let frames = lem.eval(expr_in, store, &slots_indices).unwrap();
+            let frames = lem.eval(expr_in, store, &slots_info).unwrap();
             assert!(
                 frames
                     .last()
@@ -65,7 +65,7 @@ mod tests {
             let mut alloc_manager = AllocationManager::default();
             for frame in frames.clone() {
                 let mut cs = TestConstraintSystem::<Fr>::new();
-                lem.constrain(&mut cs, &mut alloc_manager, store, &frame, &slots_indices)
+                lem.constrain(&mut cs, &mut alloc_manager, store, &frame, &slots_info)
                     .unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(cs.num_inputs(), NUM_INPUTS);

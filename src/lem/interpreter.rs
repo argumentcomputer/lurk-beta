@@ -3,7 +3,7 @@ use anyhow::{bail, Result};
 use std::collections::HashMap;
 
 use super::{
-    constrainer::SlotsIndices, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM,
+    constrainer::SlotsInfo, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM,
     LEMOP,
 };
 
@@ -37,7 +37,7 @@ impl std::fmt::Display for SlotType {
 /// This hashmap is populated during interpretation, telling which slots were
 /// visited and the pointers that were collected for each of them.
 ///
-/// The pair `(usize, SlotType)` is a pair of slot index and slot type:
+/// `(usize, SlotType)` is a pair of slot index and slot type, as shown below:
 ///
 ///```text
 ///            Slot index
@@ -46,14 +46,14 @@ impl std::fmt::Display for SlotType {
 ///      ├────┼───┼───┼───┼───
 /// Slot │ H2 │ a │ b │   │...
 /// type ├────┼───┼───┼───┼───
-///      │ H3 │   │   │ c │...
+///      │ H3 │   │ c │ d │...
 ///      ├────┼───┼───┼───┼───
 ///      │... │...│...│...│...
 ///```
 ///
 /// In the example above, we can see three visited slots:
-/// * The slots 0 and 1 for `Hash2`
-/// * The slot 2 for `Hash3`
+/// * The slots indices 0 and 1 for `Hash2`
+/// * The slots indices 1 and 2 for `Hash3`
 pub(crate) type Visits<F> = HashMap<(usize, SlotType), Vec<Ptr<F>>>;
 
 /// A `Frame` carries the data that results from interpreting a LEM. That is,
@@ -78,7 +78,7 @@ impl LEM {
         &self,
         input: [Ptr<F>; 3],
         store: &mut Store<F>,
-        slots_indices: &SlotsIndices,
+        slots_info: &SlotsInfo,
     ) -> Result<Frame<F>> {
         // key/val pairs on this map should never be overwritten
         let mut binds = HashMap::default();
@@ -108,7 +108,7 @@ impl LEM {
                     let src_ptr2 = src[1].get_ptr(&binds)?.to_owned();
                     let tgt_ptr = store.intern_2_ptrs(*tag, src_ptr1, src_ptr2);
                     bind!(tgt.clone(), tgt_ptr);
-                    visits.insert(*slots_indices.get(op).unwrap(), vec![src_ptr1, src_ptr2]);
+                    visits.insert(*slots_info.get_slot(op)?, vec![src_ptr1, src_ptr2]);
                 }
                 LEMOP::Hash3(tgt, tag, src) => {
                     let src_ptr1 = src[0].get_ptr(&binds)?.to_owned();
@@ -117,7 +117,7 @@ impl LEM {
                     let tgt_ptr = store.intern_3_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3);
                     bind!(tgt.clone(), tgt_ptr);
                     visits.insert(
-                        *slots_indices.get(op).unwrap(),
+                        *slots_info.get_slot(op)?,
                         vec![src_ptr1, src_ptr2, src_ptr3],
                     );
                 }
@@ -129,7 +129,7 @@ impl LEM {
                     let tgt_ptr = store.intern_4_ptrs(*tag, src_ptr1, src_ptr2, src_ptr3, src_ptr4);
                     bind!(tgt.clone(), tgt_ptr);
                     visits.insert(
-                        *slots_indices.get(op).unwrap(),
+                        *slots_info.get_slot(op)?,
                         vec![src_ptr1, src_ptr2, src_ptr3, src_ptr4],
                     );
                 }
@@ -144,7 +144,7 @@ impl LEM {
                     bind!(tgts[0].clone(), *a);
                     bind!(tgts[1].clone(), *b);
                     // STEP 2: Update hash_witness with preimage and image
-                    visits.insert(*slots_indices.get(op).unwrap(), vec![*a, *b]);
+                    visits.insert(*slots_info.get_slot(op)?, vec![*a, *b]);
                 }
                 LEMOP::Unhash3(tgts, src) => {
                     let src_ptr = src.get_ptr(&binds)?;
@@ -158,7 +158,7 @@ impl LEM {
                     bind!(tgts[1].clone(), *b);
                     bind!(tgts[2].clone(), *c);
                     // STEP 2: Update hash_witness with preimage and image
-                    visits.insert(*slots_indices.get(op).unwrap(), vec![*a, *b, *c]);
+                    visits.insert(*slots_info.get_slot(op)?, vec![*a, *b, *c]);
                 }
                 LEMOP::Unhash4(tgts, src) => {
                     let src_ptr = src.get_ptr(&binds)?;
@@ -173,7 +173,7 @@ impl LEM {
                     bind!(tgts[2].clone(), *c);
                     bind!(tgts[3].clone(), *d);
                     // STEP 2: Update hash_witness with preimage and image
-                    visits.insert(*slots_indices.get(op).unwrap(), vec![*a, *b, *c, *d]);
+                    visits.insert(*slots_info.get_slot(op)?, vec![*a, *b, *c, *d]);
                 }
                 LEMOP::Hide(tgt, sec, src) => {
                     let src_ptr = src.get_ptr(&binds)?;
@@ -246,7 +246,7 @@ impl LEM {
         &self,
         expr: Ptr<F>,
         store: &mut Store<F>,
-        slots_indices: &SlotsIndices,
+        slots_info: &SlotsInfo,
     ) -> Result<Vec<Frame<F>>> {
         let mut expr = expr;
         let mut env = store.intern_symbol(&Symbol::lurk_sym("nil"));
@@ -255,7 +255,7 @@ impl LEM {
         let terminal = &Ptr::null(Tag::Terminal);
         let error = &Ptr::null(Tag::Error);
         loop {
-            let frame = self.run([expr, env, cont], store, slots_indices)?;
+            let frame = self.run([expr, env, cont], store, slots_info)?;
             frames.push(frame.clone());
             if &frame.output[2] == terminal || &frame.output[2] == error {
                 break;

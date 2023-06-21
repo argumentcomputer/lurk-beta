@@ -244,9 +244,9 @@ mod tests {
         expected_num_slots: NumSlots,
         assert_all_paths_taken: bool,
     ) {
-        let slots_indices = lem.lem_op.slots_indices();
+        let slots_info = lem.lem_op.slots_info();
 
-        let num_slots = num_slots(&slots_indices);
+        let num_slots = num_slots(&slots_info);
         assert_eq!(num_slots, expected_num_slots);
 
         let mut store = Store::default();
@@ -254,19 +254,13 @@ mod tests {
 
         let mut cs_prev = None;
         for expr in exprs {
-            let frames = lem.eval(*expr, &mut store, &slots_indices).unwrap();
+            let frames = lem.eval(*expr, &mut store, &slots_info).unwrap();
 
             let mut alloc_manager = AllocationManager::default();
             let mut cs = TestConstraintSystem::<Fr>::new();
             for frame in frames.clone() {
-                lem.constrain(
-                    &mut cs,
-                    &mut alloc_manager,
-                    &mut store,
-                    &frame,
-                    &slots_indices,
-                )
-                .unwrap();
+                lem.constrain(&mut cs, &mut alloc_manager, &mut store, &frame, &slots_info)
+                    .unwrap();
             }
             assert!(cs.is_satisfied());
 

@@ -121,10 +121,24 @@ impl SlotsCounter {
     }
 }
 
-/// Maps `LEMOP`s that need slots to their slots indices. This map is not
+/// Contains a `slots_map` that maps `LEMOP`s to their slots. This map is not
 /// expected to be injective, as two or more `LEMOP`s can be mapped to the same
-/// slot index.
-pub(crate) type SlotsIndices = IndexMap<LEMOP, (usize, SlotType)>;
+/// slot.
+///
+/// The `slots` attribute is derived from `slots_map` by iterating on its values.
+pub struct SlotsInfo {
+    slots_map: IndexMap<LEMOP, (usize, SlotType)>,
+    slots: IndexSet<(usize, SlotType)>,
+}
+
+impl SlotsInfo {
+    #[inline]
+    pub fn get_slot(&self, op: &LEMOP) -> Result<&(usize, SlotType)> {
+        self.slots_map
+            .get(op)
+            .ok_or_else(|| anyhow!("Slot not found for LEMOP {:?}", op))
+    }
+}
 
 impl LEMOP {
     /// STEP 1: compute the slot mapping on a first (and unique) traversal
@@ -143,8 +157,8 @@ impl LEMOP {
     ///
     /// We want to reuse the same slot as before. To accomplish this, we use
     /// hashmaps that can recover the slots that were previously allocated.
-    pub fn slots_indices(&self) -> SlotsIndices {
-        let mut slots_indices = SlotsIndices::default();
+    pub fn slots_info(&self) -> SlotsInfo {
+        let mut slots_map = IndexMap::default();
         let mut slots_counter = SlotsCounter::default();
 
         // these hashmaps keep track of slots that were allocated for preimages
@@ -162,19 +176,19 @@ impl LEMOP {
             /// Designates a slot for a pair of preimage/image. If a slot has
             /// already been allocated for either the preimage or the image,
             /// reuses it. Otherwise, allocates a new one.
-            macro_rules! populate_slots_indices {
+            macro_rules! populate_slots_map {
                 ( $preimg: expr, $img: expr, $preimgs_map: expr, $imgs_map: expr, $counter_fn: expr ) => {
                     match ($preimgs_map.get($preimg), $imgs_map.get($img)) {
                         (Some(slot), _) | (_, Some(slot)) => {
                             // reusing a slot
-                            slots_indices.insert(op.clone(), *slot);
+                            slots_map.insert(op.clone(), *slot);
                         }
                         _ => {
                             // allocating a new slot
                             let slot_idx = $counter_fn(path);
                             let slot_type = SlotType::from_lemop(op);
                             let slot = (slot_idx, slot_type);
-                            slots_indices.insert(op.clone(), slot);
+                            slots_map.insert(op.clone(), slot);
                             $preimgs_map.insert($preimg, slot);
                             $imgs_map.insert($img, slot);
                         }
@@ -192,17 +206,17 @@ impl LEMOP {
             }
             match op {
                 LEMOP::Hash2(img, _, preimg) | LEMOP::Unhash2(preimg, img) => {
-                    populate_slots_indices!(preimg, img, preimgs2_map, imgs2_map, |path| {
+                    populate_slots_map!(preimg, img, preimgs2_map, imgs2_map, |path| {
                         slots_counter.next_hash2(path)
                     });
                 }
                 LEMOP::Hash3(img, _, preimg) | LEMOP::Unhash3(preimg, img) => {
-                    populate_slots_indices!(preimg, img, preimgs3_map, imgs3_map, |path| {
+                    populate_slots_map!(preimg, img, preimgs3_map, imgs3_map, |path| {
                         slots_counter.next_hash3(path)
                     });
                 }
                 LEMOP::Hash4(img, _, preimg) | LEMOP::Unhash4(preimg, img) => {
-                    populate_slots_indices!(preimg, img, preimgs4_map, imgs4_map, |path| {
+                    populate_slots_map!(preimg, img, preimgs4_map, imgs4_map, |path| {
                         slots_counter.next_hash4(path)
                     });
                 }
@@ -223,7 +237,10 @@ impl LEMOP {
                 _ => (),
             }
         }
-        slots_indices
+        SlotsInfo {
+            slots: IndexSet::from_iter(slots_map.values().cloned()),
+            slots_map,
+        }
     }
 }
 
@@ -496,14 +513,14 @@ impl LEM {
     ///
     /// So we proceed by first allocating preimages and images for each slot and
     /// then, as we traverse the LEMOP, we add constraints to make sure that the
-    /// witness satisfies the arithmetic equations in the corresponding slots.
+    /// witness satisfies the arithmetic equations for the corresponding slots.
     pub fn constrain<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         alloc_manager: &mut AllocationManager<F>,
         store: &mut Store<F>,
         frame: &Frame<F>,
-        slots_indices: &SlotsIndices,
+        slots_info: &SlotsInfo,
     ) -> Result<()> {
         let mut allocated_ptrs: HashMap<&String, AllocatedPtr<F>> = HashMap::default();
 
@@ -516,16 +533,13 @@ impl LEM {
             (Vec<AllocatedNum<F>>, AllocatedNum<F>),
         > = HashMap::default();
 
-        let slots: IndexSet<&(usize, SlotType)> = IndexSet::from_iter(slots_indices.values());
-
         // This loop is guaranteed to always visit slots in a fixed order for a
-        // particular LEM because it iterates on an `IndexMap`, which preserves
+        // particular LEM because it iterates on an `IndexSet`, which preserves
         // the order in which data was added to it. That is the order in which
-        // `LEMOP::slots_indices` traverses the LEMOP.
-        for slot in slots {
+        // `LEMOP::slots_info` traverses the LEMOP.
+        for slot in &slots_info.slots {
             // We need to allocate the preimage and the image for the slots. We
-            // start by the preimage because the image depends on it (when we
-            // call `hash_poseidon`)
+            // start by the preimage because the image depends on it
             let preallocated_preimg = Self::allocate_preimg_for_slot(cs, frame, slot, store)?;
 
             // Then we allocate the image by calling the arithmetic function
@@ -541,11 +555,11 @@ impl LEM {
         while let Some((op, concrete_path, path)) = stack.pop() {
             macro_rules! constrain_slot {
                 ( $preimg: expr, $img: expr, $allocated_preimg: expr, $allocated_img: expr) => {
-                    // Retrieve the preallocated preimage and image
-                    let slot = slots_indices.get(op).unwrap();
+                    // Retrieve the preallocated preimage and image for this slot
+                    let slot = slots_info.get_slot(op)?;
                     let (preallocated_preimg, preallocated_img) = preallocations.get(slot).unwrap();
 
-                    // Add an implication constraint for the image
+                    // Add the implication constraint for the image
                     implies_equal(
                         &mut cs.namespace(|| {
                             format!("implies equal for {}'s hash (LEMOP {:?})", $img, &op)
@@ -775,12 +789,12 @@ impl NumSlots {
 
 /// Computes the number of slots used for each category
 #[allow(dead_code)]
-pub(crate) fn num_slots(slots_indices: &SlotsIndices) -> NumSlots {
+pub(crate) fn num_slots(slots_info: &SlotsInfo) -> NumSlots {
     let mut slots2: HashSet<usize> = HashSet::default();
     let mut slots3: HashSet<usize> = HashSet::default();
     let mut slots4: HashSet<usize> = HashSet::default();
 
-    for (slot_idx, slot_type) in slots_indices.values() {
+    for (slot_idx, slot_type) in &slots_info.slots {
         match slot_type {
             SlotType::Hash2 => {
                 slots2.insert(*slot_idx);
