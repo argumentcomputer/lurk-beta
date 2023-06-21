@@ -256,8 +256,8 @@ mod tests {
         for expr in exprs {
             let frames = lem.eval(*expr, &mut store, &slots_info).unwrap();
 
-            let mut alloc_manager = AllocationManager::default();
             let mut cs = TestConstraintSystem::<Fr>::new();
+            let mut alloc_manager = AllocationManager::default();
             for frame in frames.clone() {
                 lem.constrain(&mut cs, &mut alloc_manager, &mut store, &frame, &slots_info)
                     .unwrap();

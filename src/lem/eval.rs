@@ -62,9 +62,9 @@ mod tests {
                     == expr_out
             );
             store.hydrate_z_cache();
-            let mut alloc_manager = AllocationManager::default();
             for frame in frames.clone() {
                 let mut cs = TestConstraintSystem::<Fr>::new();
+                let mut alloc_manager = AllocationManager::default();
                 lem.constrain(&mut cs, &mut alloc_manager, store, &frame, &slots_info)
                     .unwrap();
                 assert!(cs.is_satisfied());
