@@ -11,8 +11,8 @@
 //! In particular, the followed path is the concrete one. We use a Boolean
 //! variable to indicate whether a path is concrete or not. This allows us to
 //! construct an **implication system**, which is responsible for ensuring that
-//! allocated variable in the concrete path are equal to their expected values
-//! but such equalities on virtul paths are irrelevant.
+//! allocated variables in the concrete path are equal to their expected values
+//! but such equalities on virtual paths are irrelevant.
 //!
 //! ## Slot optimization:
 //!
@@ -20,21 +20,23 @@
 //! therefore we want to avoid wasting constraints with them as much as possible.
 //! In order to achieve this goal, we only add constraints to a limited number of
 //! *slots* that correspond to a maximum number of such expensive operations that
-//! may occurr during in a single interpretation round. This optimization avoids
-//! constraining every expensive operation on every possible paths.
+//! may occurr in a single interpretation round. This optimization avoids
+//! constraining every expensive operation on every possible path.
 //!
 //! Shortly, we construct the hash slot system using the next steps:
 //!
 //! * STEP 1: Static analysis, when we traverse LEM for the first time and allocate
-//! slots for hashes in all virtual paths.
+//! slots for hashes in all virtual paths. We only add hashes that where not yet
+//! previously added, therefore ensuring deduplication of hashes in different
+//! branches.
 //!
 //! * STEP 2: During interpretation (second traversal) we gather information
-//! related to each visited slot
+//! related to each visited slot.
 //!
 //! * STEP 3: During construction of constraints, we first preallocate the preimage
-//! and image for each slot and then we traverse the LEM (for the third time),
-//! adding implication constraints. This step is better explained in the `constrain`
-//! function.
+//! and image for each slot; then we synthesize all slots; and finally we traverse
+//! LEM (for the third time), adding implication constraints, glueing together all the
+//! information. This step is better explained in the `synthesize` function.
 
 use std::collections::{HashMap, HashSet};
 
