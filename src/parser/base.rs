@@ -71,9 +71,8 @@ impl LitBase {
     }
 
     pub fn is_digit(&self, x: char) -> bool {
-        self.base_digits()
-            .chars()
-            .any(|y| x.to_ascii_lowercase() == y)
+        let x = x.to_ascii_lowercase();
+        self.base_digits().chars().any(|y| x == y)
     }
 
     pub fn encode<I: AsRef<[u8]>>(&self, input: I) -> String {
