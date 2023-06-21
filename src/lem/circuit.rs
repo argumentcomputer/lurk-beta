@@ -58,7 +58,7 @@ use crate::circuit::gadgets::{
 use crate::field::{FWrap, LurkField};
 
 use super::{
-    interpreter::{Frame, SlotType},
+    interpreter::{Frame, Slot, SlotType},
     path::Path,
     pointers::ZPtr,
     store::Store,
@@ -128,13 +128,13 @@ impl SlotsCounter {
 /// expected to be injective, as two or more `LEMOP`s can be mapped to the same
 /// slot. The `slots` attribute is an set of all slots present on `slots_map`.
 pub struct SlotsInfo {
-    slots_map: IndexMap<LEMOP, (usize, SlotType)>,
-    slots: IndexSet<(usize, SlotType)>,
+    slots_map: IndexMap<LEMOP, Slot>,
+    slots: IndexSet<Slot>,
 }
 
 impl SlotsInfo {
     #[inline]
-    pub fn get_slot(&self, op: &LEMOP) -> Result<&(usize, SlotType)> {
+    pub fn get_slot(&self, op: &LEMOP) -> Result<&Slot> {
         self.slots_map
             .get(op)
             .ok_or_else(|| anyhow!("Slot not found for LEMOP {:?}", op))
@@ -144,7 +144,7 @@ impl SlotsInfo {
 impl LEMOP {
     /// STEP 1: compute the slot mapping on a first (and unique) traversal
     ///
-    /// While traversing parallel paths, we need to reuse compatible slots. For
+    /// While traversing alternate paths, we need to reuse compatible slots. For
     /// example, on a `MatchTag` with two arms, such that each arm is a `Hash2`,
     /// we want those hashes to occupy the same slot. We do this by using a
     /// `SlotsCounter`, which can return the next index for a slot category
@@ -152,9 +152,9 @@ impl LEMOP {
     ///
     /// Further, when we:
     /// * Construct the same pointer twice
-    /// * Destruct the same pointer twice
-    /// * Construct a pointer that was previously destructed
-    /// * Destruct a pointer that was previously constructed
+    /// * Deconstruct the same pointer twice
+    /// * Construct a pointer that was previously deconstructed
+    /// * Deconstruct a pointer that was previously constructed
     ///
     /// We want to reuse the same slot as before. To accomplish this, we use
     /// hashmaps that can recover the slots that were previously allocated.
@@ -163,14 +163,14 @@ impl LEMOP {
         let mut slots = IndexSet::default();
 
         // these hashmaps keep track of slots that were allocated for preimages
-        let mut preimgs2_map: HashMap<&[MetaPtr; 2], (usize, SlotType)> = HashMap::default();
-        let mut preimgs3_map: HashMap<&[MetaPtr; 3], (usize, SlotType)> = HashMap::default();
-        let mut preimgs4_map: HashMap<&[MetaPtr; 4], (usize, SlotType)> = HashMap::default();
+        let mut preimgs2_map: HashMap<&[MetaPtr; 2], Slot> = HashMap::default();
+        let mut preimgs3_map: HashMap<&[MetaPtr; 3], Slot> = HashMap::default();
+        let mut preimgs4_map: HashMap<&[MetaPtr; 4], Slot> = HashMap::default();
 
         // these hashmaps keep track of slots that were allocated for images
-        let mut imgs2_map: HashMap<&MetaPtr, (usize, SlotType)> = HashMap::default();
-        let mut imgs3_map: HashMap<&MetaPtr, (usize, SlotType)> = HashMap::default();
-        let mut imgs4_map: HashMap<&MetaPtr, (usize, SlotType)> = HashMap::default();
+        let mut imgs2_map: HashMap<&MetaPtr, Slot> = HashMap::default();
+        let mut imgs3_map: HashMap<&MetaPtr, Slot> = HashMap::default();
+        let mut imgs4_map: HashMap<&MetaPtr, Slot> = HashMap::default();
 
         let mut slots_counter = SlotsCounter::default();
         let mut stack = vec![(self, Path::default())];
@@ -191,7 +191,10 @@ impl LEMOP {
                             // allocating a new slot
                             let slot_idx = $counter_fn(path);
                             let slot_type = SlotType::from_lemop(op);
-                            let slot = (slot_idx, slot_type);
+                            let slot = Slot {
+                                idx: slot_idx,
+                                typ: slot_type,
+                            };
                             if slots_map.insert(op.clone(), slot).is_some() {
                                 bail!("Duplicated LEMOP: {:?}", op)
                             }
@@ -391,11 +394,9 @@ impl LEM {
     fn allocate_preimg_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         frame: &Frame<F>,
-        slot: &(usize, SlotType),
+        slot: &Slot,
         store: &mut Store<F>,
     ) -> Result<Vec<AllocatedNum<F>>> {
-        let (slot_idx, slot_type) = slot;
-
         let mut preallocated_preimg = vec![];
 
         // We need to know whether we have data for that slot, which might have
@@ -403,16 +404,12 @@ impl LEM {
         match frame.visits.get(slot) {
             None => {
                 // No data was collected for this slot. We can allocate zeros
-                for i in 0..slot_type.preimg_size() {
+                for i in 0..slot.typ.preimg_size() {
                     let allocated_zero = AllocatedNum::alloc(
-                        cs.namespace(|| {
-                            format!("preimage {i} for slot {slot_idx} (type {slot_type})")
-                        }),
+                        cs.namespace(|| format!("preimage {i} for slot {slot}")),
                         || Ok(F::ZERO),
                     )
-                    .with_context(|| {
-                        format!("preimage {i} for slot {slot_idx} (type {slot_type}) failed")
-                    })?;
+                    .with_context(|| format!("preimage {i} for {slot} failed"))?;
 
                     preallocated_preimg.push(allocated_zero);
                 }
@@ -428,14 +425,10 @@ impl LEM {
 
                     // allocate tag
                     let allocated_tag = AllocatedNum::alloc(
-                        cs.namespace(|| {
-                            format!("preimage {i} for slot {slot_idx} (type {slot_type})")
-                        }),
+                        cs.namespace(|| format!("preimage {i} for slot {slot}")),
                         || Ok(z_ptr.tag.to_field()),
                     )
-                    .with_context(|| {
-                        format!("preimage {i} for slot {slot_idx} (type {slot_type}) failed")
-                    })?;
+                    .with_context(|| format!("preimage {i} for slot {slot}"))?;
 
                     preallocated_preimg.push(allocated_tag);
 
@@ -444,14 +437,10 @@ impl LEM {
 
                     // allocate hash
                     let allocated_hash = AllocatedNum::alloc(
-                        cs.namespace(|| {
-                            format!("preimage {i} for slot {slot_idx} (type {slot_type})")
-                        }),
+                        cs.namespace(|| format!("preimage {i} for slot {slot}")),
                         || Ok(z_ptr.hash),
                     )
-                    .with_context(|| {
-                        format!("preimage {i} for slot {slot_idx} (type {slot_type}) failed")
-                    })?;
+                    .with_context(|| format!("preimage {i} for slot {slot} failed"))?;
 
                     preallocated_preimg.push(allocated_hash);
                 }
@@ -462,15 +451,13 @@ impl LEM {
 
     fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        slot: &(usize, SlotType),
+        slot: &Slot,
         preallocated_preimg: Vec<AllocatedNum<F>>,
         store: &mut Store<F>,
     ) -> Result<AllocatedNum<F>> {
-        let (slot_idx, slot_type) = slot;
-
-        let cs = &mut cs.namespace(|| format!("poseidon for slot {slot_idx} (type {slot_type})"));
+        let cs = &mut cs.namespace(|| format!("poseidon for slot {slot}"));
         let preallocated_img = {
-            match slot_type {
+            match slot.typ {
                 SlotType::Hash2 => {
                     hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c4())?
                 }
@@ -524,10 +511,8 @@ impl LEM {
         let preallocated_outputs = Self::allocate_output(cs, store, frame, &allocated_ptrs)?;
 
         // We need to populate this hashmap with preimages and images for each slot
-        let mut preallocations: HashMap<
-            (usize, SlotType),
-            (Vec<AllocatedNum<F>>, AllocatedNum<F>),
-        > = HashMap::default();
+        let mut preallocations: HashMap<Slot, (Vec<AllocatedNum<F>>, AllocatedNum<F>)> =
+            HashMap::default();
 
         // This loop is guaranteed to always visit slots in a fixed order for a
         // particular LEM because it iterates on an `IndexSet`, which preserves
@@ -767,7 +752,11 @@ impl LEM {
         let mut num_constraints = 0;
 
         // fixed cost for each slot
-        for (_, slot_type) in &slots_info.slots {
+        for Slot {
+            idx: _,
+            typ: slot_type,
+        } in &slots_info.slots
+        {
             match slot_type {
                 SlotType::Hash2 => {
                     num_constraints += 289;
@@ -872,7 +861,11 @@ pub(crate) fn num_slots(slots_info: &SlotsInfo) -> NumSlots {
     let mut slots3: HashSet<usize> = HashSet::default();
     let mut slots4: HashSet<usize> = HashSet::default();
 
-    for (slot_idx, slot_type) in &slots_info.slots {
+    for Slot {
+        idx: slot_idx,
+        typ: slot_type,
+    } in &slots_info.slots
+    {
         match slot_type {
             SlotType::Hash2 => {
                 slots2.insert(*slot_idx);
