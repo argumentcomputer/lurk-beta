@@ -128,6 +128,7 @@ impl SlotsCounter {
 /// slot.
 ///
 /// The `slots` attribute is derived from `slots_map` by iterating on its values.
+#[derive(Clone, Eq, PartialEq, Default)]
 pub struct SlotsInfo {
     slots_map: IndexMap<LEMOP, (usize, SlotType)>,
     slots: IndexSet<(usize, SlotType)>,
@@ -142,8 +143,19 @@ impl SlotsInfo {
     }
 }
 
-/*
-impl LEMOP {
+#[derive(Clone, Eq, PartialEq, Default)]
+struct ImgMap<'a>{
+    // these hashmaps keep track of slots that were allocated for images
+    img2: HashMap<&'a MetaPtr, (usize, SlotType)>,
+    img3: HashMap<&'a MetaPtr, (usize, SlotType)>,
+    img4: HashMap<&'a MetaPtr, (usize, SlotType)>,
+    // these hashmaps keep track of slots that were allocated for preimages
+    pre2: HashMap<&'a [MetaPtr; 2], (usize, SlotType)>,
+    pre3: HashMap<&'a [MetaPtr; 3], (usize, SlotType)>,
+    pre4: HashMap<&'a [MetaPtr; 4], (usize, SlotType)>,
+}
+
+impl LEMCTL {
     /// STEP 1: compute the slot mapping on a first (and unique) traversal
     ///
     /// While traversing parallel paths, we need to reuse compatible slots. For
@@ -161,22 +173,13 @@ impl LEMOP {
     /// We want to reuse the same slot as before. To accomplish this, we use
     /// hashmaps that can recover the slots that were previously allocated.
     pub fn slots_info(&self) -> Result<SlotsInfo> {
-        let mut slots_map = IndexMap::default();
-        let mut slots = IndexSet::default();
-
-        // these hashmaps keep track of slots that were allocated for preimages
-        let mut preimgs2_map: HashMap<&[MetaPtr; 2], (usize, SlotType)> = HashMap::default();
-        let mut preimgs3_map: HashMap<&[MetaPtr; 3], (usize, SlotType)> = HashMap::default();
-        let mut preimgs4_map: HashMap<&[MetaPtr; 4], (usize, SlotType)> = HashMap::default();
-
-        // these hashmaps keep track of slots that were allocated for images
-        let mut imgs2_map: HashMap<&MetaPtr, (usize, SlotType)> = HashMap::default();
-        let mut imgs3_map: HashMap<&MetaPtr, (usize, SlotType)> = HashMap::default();
-        let mut imgs4_map: HashMap<&MetaPtr, (usize, SlotType)> = HashMap::default();
-
+        let mut slots_info = SlotsInfo::default();
+        let mut img_map = ImgMap::default();
         let mut slots_counter = SlotsCounter::default();
-        let mut stack = vec![(self, Path::default())];
-        while let Some((op, path)) = stack.pop() {
+
+        fn populate_with_op<'a>(
+            op: &'a LEMOP, path: Path, img_map: &mut ImgMap<'a>, slots_counter: &mut SlotsCounter, slots_info: &mut SlotsInfo
+        ) -> Result<()> {
             /// Designates a slot for a pair of preimage/image. If a slot has
             /// already been allocated for either the preimage or the image,
             /// reuses it. Otherwise, allocates a new one.
@@ -185,7 +188,7 @@ impl LEMOP {
                     match ($preimgs_map.get($preimg), $imgs_map.get($img)) {
                         (Some(slot), _) | (_, Some(slot)) => {
                             // reusing a slot
-                            if slots_map.insert(op.clone(), *slot).is_some() {
+                            if slots_info.slots_map.insert(op.clone(), *slot).is_some() {
                                 bail!("Duplicated LEMOP: {:?}", op)
                             }
                         }
@@ -194,10 +197,10 @@ impl LEMOP {
                             let slot_idx = $counter_fn(path);
                             let slot_type = SlotType::from_lemop(op);
                             let slot = (slot_idx, slot_type);
-                            if slots_map.insert(op.clone(), slot).is_some() {
+                            if slots_info.slots_map.insert(op.clone(), slot).is_some() {
                                 bail!("Duplicated LEMOP: {:?}", op)
                             }
-                            slots.insert(slot);
+                            slots_info.slots.insert(slot);
 
                             // memoize
                             $preimgs_map.insert($preimg, slot);
@@ -206,49 +209,59 @@ impl LEMOP {
                     };
                 };
             }
-
-            /// Enqueues a `new_path` to be explored, inheriting the slot counters
-            /// from `path`
-            macro_rules! cont_and_push {
-                ( $new_path: expr, $op_to_stack: expr ) => {
-                    slots_counter.cont($new_path.clone(), &path);
-                    stack.push(($op_to_stack, $new_path))
-                };
-            }
             match op {
                 LEMOP::Hash2(img, _, preimg) | LEMOP::Unhash2(preimg, img) => {
-                    populate_slots_map!(preimg, img, preimgs2_map, imgs2_map, |path| {
+                    populate_slots_map!(preimg, img, img_map.pre2, img_map.img2, |path| {
                         slots_counter.next_hash2(path)
                     });
+                    Ok(())
                 }
                 LEMOP::Hash3(img, _, preimg) | LEMOP::Unhash3(preimg, img) => {
-                    populate_slots_map!(preimg, img, preimgs3_map, imgs3_map, |path| {
+                    populate_slots_map!(preimg, img, img_map.pre3, img_map.img3, |path| {
                         slots_counter.next_hash3(path)
                     });
+                    Ok(())
                 }
                 LEMOP::Hash4(img, _, preimg) | LEMOP::Unhash4(preimg, img) => {
-                    populate_slots_map!(preimg, img, preimgs4_map, imgs4_map, |path| {
+                    populate_slots_map!(preimg, img, img_map.pre4, img_map.img4, |path| {
                         slots_counter.next_hash4(path)
                     });
+                    Ok(())
                 }
-                LEMOP::Seq(ops) => {
-                    stack.extend(ops.iter().rev().map(|op| (op, path.clone())));
-                }
-                LEMOP::MatchTag(_, cases) => {
-                    for (tag, op) in cases {
-                        cont_and_push!(path.push_tag(tag), op);
-                    }
-                }
-                LEMOP::MatchSymbol(_, cases, def) => {
-                    for (symbol, op) in cases {
-                        cont_and_push!(path.push_symbol(symbol), op);
-                    }
-                    cont_and_push!(path.push_default(), def);
-                }
-                _ => (),
+                _ => Ok(())
             }
         }
-        Ok(SlotsInfo { slots_map, slots })
+        fn recurse<'a>(
+            code: &'a LEMCTL, path: Path, img_map: &mut ImgMap<'a>, slots_counter: &mut SlotsCounter, slots_info: &mut SlotsInfo
+        ) -> Result<()> {
+            match code {
+                LEMCTL::MatchTag(_, cases) => {
+                    for (tag, code) in cases {
+                        let new_path = path.push_tag(tag);
+                        slots_counter.cont(new_path.clone(), &path);
+                        recurse(code, new_path, img_map, slots_counter, slots_info)?;
+                    }
+                    Ok(())
+                }
+                LEMCTL::MatchSymbol(_, cases, def) => {
+                    for (symbol, code) in cases {
+                        let new_path = path.push_symbol(symbol);
+                        slots_counter.cont(new_path.clone(), &path);
+                        recurse(code, new_path, img_map, slots_counter, slots_info)?;
+                    }
+                    let new_path = path.push_default();
+                    slots_counter.cont(new_path.clone(), &path);
+                    recurse(def, new_path, img_map, slots_counter, slots_info)
+                }
+                LEMCTL::Seq(op, rest) => {
+                    populate_with_op(op, path.clone(), img_map, slots_counter, slots_info)?;
+                    recurse(rest, path, img_map, slots_counter, slots_info)
+                },
+                LEMCTL::Return(..) => Ok(()),
+            }
+        }
+        recurse(&self, Path::default(), &mut img_map, &mut slots_counter, &mut slots_info)?;
+        Ok(slots_info)
     }
 }
 
@@ -291,6 +304,7 @@ impl SlotType {
     }
 }
 
+/*
 impl LEM {
     fn allocate_ptr<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,

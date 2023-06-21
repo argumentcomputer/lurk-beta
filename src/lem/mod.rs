@@ -84,7 +84,6 @@ use anyhow::{bail, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-// TODO
 use self::{interpreter::Frame, path::Path, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag};
 
 pub type AString = Arc<str>;
@@ -139,6 +138,13 @@ pub enum LEMCTL {
     Seq(LEMOP, Box<LEMCTL>),
     /// `Return(rets)` sets the output to `rets`
     Return([MetaPtr; 3]),
+}
+
+impl std::hash::Hash for LEMCTL {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // TODO: this was generated automatically for me (Arthur). Is it efficient?
+        core::mem::discriminant(self).hash(state);
+    }
 }
 
 /// The atomic operations of LEMs.
