@@ -20,13 +20,13 @@
 //! therefore we want to avoid wasting constraints with them as much as possible.
 //! In order to achieve this goal, we only add constraints to a limited number of
 //! *slots* that correspond to a maximum number of such expensive operations that
-//! may occurr in a single interpretation round. This optimization avoids
+//! may occur in a single interpretation round. This optimization avoids
 //! constraining every expensive operation on every possible path.
 //!
 //! Shortly, we construct the hash slot system using the next steps:
 //!
 //! * STEP 1: Static analysis, when we traverse LEM for the first time and allocate
-//! slots for hashes in all virtual paths. We only add hashes that where not yet
+//! slots for hashes in all virtual paths. We only add hashes that were not yet
 //! previously added, therefore ensuring deduplication of hashes in different
 //! branches.
 //!
@@ -65,7 +65,8 @@ use super::{
     MetaPtr, LEM, LEMOP,
 };
 
-/// Holds a counter per path
+/// Holds a counter per path. We want to use this to count the number of slots
+/// that have already been used on each LEM path.
 #[derive(Default)]
 struct PathTicker(HashMap<Path, usize>);
 
@@ -393,7 +394,6 @@ impl LEM {
         slot: &(usize, SlotType),
         store: &mut Store<F>,
     ) -> Result<Vec<AllocatedNum<F>>> {
-        // TODO: avoid this destruction and implement proper display for slot blueprints
         let (slot_idx, slot_type) = slot;
 
         let mut preallocated_preimg = vec![];
@@ -466,7 +466,6 @@ impl LEM {
         preallocated_preimg: Vec<AllocatedNum<F>>,
         store: &mut Store<F>,
     ) -> Result<AllocatedNum<F>> {
-        // TODO: avoid this destruction and implement proper display for slot blueprints
         let (slot_idx, slot_type) = slot;
 
         let cs = &mut cs.namespace(|| format!("poseidon for slot {slot_idx} (type {slot_type})"));
@@ -489,7 +488,7 @@ impl LEM {
     /// Create R1CS constraints for LEM given an evaluation frame.
     ///
     /// As we find recursive (non-leaf) LEM operations, we stack them to be
-    /// constrained later, using hash maps to manage viariables and pointers in
+    /// constrained later, using hash maps to manage variables and pointers in
     /// a way we can reference allocated variables that were previously created.
     ///
     /// Notably, we use a variable `concrete_path: Boolean` to encode whether we
