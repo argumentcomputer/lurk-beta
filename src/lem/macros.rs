@@ -78,7 +78,7 @@ macro_rules! lemop {
 macro_rules! lem_code {
     ( match_tag $sii:ident { $( $tag:ident => $case_ops:tt ),* $(,)? } ) => {
         {
-            let mut cases = std::collections::HashMap::new();
+            let mut cases = indexmap::IndexMap::new();
             $(
                 if cases.insert(
                     $crate::lem::Tag::$tag,
@@ -92,7 +92,7 @@ macro_rules! lem_code {
     };
     ( match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } ) => {
         {
-            let mut cases = std::collections::HashMap::new();
+            let mut cases = indexmap::IndexMap::new();
             $(
                 if cases.insert(
                     $symbol,
@@ -275,16 +275,12 @@ mod tests {
 
     #[inline]
     fn match_tag(i: MetaPtr, cases: Vec<(Tag, LEMCTL)>) -> LEMCTL {
-        LEMCTL::MatchTag(i, std::collections::HashMap::from_iter(cases))
+        LEMCTL::MatchTag(i, indexmap::IndexMap::from_iter(cases))
     }
 
     #[inline]
     fn match_symbol(i: MetaPtr, cases: Vec<(Symbol, LEMCTL)>, def: LEMCTL) -> LEMCTL {
-        LEMCTL::MatchSymbol(
-            i,
-            std::collections::HashMap::from_iter(cases),
-            Box::new(def),
-        )
+        LEMCTL::MatchSymbol(i, indexmap::IndexMap::from_iter(cases), Box::new(def))
     }
 
     #[test]

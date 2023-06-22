@@ -26,7 +26,7 @@
 //! will need as many iterations as it takes to evaluate the Lurk expression and
 //! so will STEP 3.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use anyhow::{anyhow, bail, Context, Result};
 use bellperson::{
@@ -53,32 +53,60 @@ use super::{
     AString, MetaPtr, LEM, LEMCTL, LEMOP,
 };
 
-/// Keeps track of previously used slots indices for each possible LEM path,
-/// being capable of informing the next slot index to be used
-#[derive(Default, Clone)]
-struct SlotsCounter {
-    hash2: usize,
-    hash3: usize,
-    hash4: usize,
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SlotsCounter {
+    pub hash2: usize,
+    pub hash3: usize,
+    pub hash4: usize,
 }
 
 impl SlotsCounter {
+    /// This interface is mostly for testing
+    #[allow(dead_code)]
     #[inline]
-    pub(crate) fn consume_hash2(&mut self) -> usize {
-        self.hash2 += 1;
-        self.hash2
+    pub(crate) fn new(num_slots: (usize, usize, usize)) -> Self {
+        Self {
+            hash2: num_slots.0,
+            hash3: num_slots.1,
+            hash4: num_slots.2,
+        }
     }
 
     #[inline]
-    pub(crate) fn consume_hash3(&mut self) -> usize {
-        self.hash3 += 1;
-        self.hash3
+    pub(crate) fn next_hash2(&self) -> Self {
+        Self {
+            hash2: self.hash2 + 1,
+            hash3: self.hash3,
+            hash4: self.hash4,
+        }
     }
 
     #[inline]
-    pub(crate) fn consume_hash4(&mut self) -> usize {
-        self.hash4 += 1;
-        self.hash4
+    pub(crate) fn next_hash3(&self) -> Self {
+        Self {
+            hash2: self.hash2,
+            hash3: self.hash3 + 1,
+            hash4: self.hash4,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn next_hash4(&self) -> Self {
+        Self {
+            hash2: self.hash2,
+            hash3: self.hash3,
+            hash4: self.hash4 + 1,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn max(&self, other: Self) -> Self {
+        use std::cmp::max;
+        Self {
+            hash2: max(self.hash2, other.hash2),
+            hash3: max(self.hash3, other.hash3),
+            hash4: max(self.hash4, other.hash4),
+        }
     }
 }
 
@@ -87,8 +115,9 @@ impl SlotsCounter {
 #[derive(Clone, Eq, PartialEq, Default)]
 /// slot. The `slots` attribute is an set of all slots present on `slots_map`.
 pub struct SlotsInfo {
-    slots_map: IndexMap<LEMOP, Slot>,
-    slots: IndexSet<Slot>,
+    pub slots_map: IndexMap<LEMOP, Slot>,
+    pub slots: IndexSet<Slot>,
+    pub counts: SlotsCounter,
 }
 
 impl SlotsInfo {
@@ -109,51 +138,68 @@ impl LEMCTL {
     /// `SlotsCounter`, which can return the next index for a slot category
     /// (`Hash2`, `Hash3` etc).
     pub fn slots_info(&self) -> Result<SlotsInfo> {
-        let mut slots_info = SlotsInfo::default();
-        let mut slots_counter = SlotsCounter::default();
+        let mut slots_map = IndexMap::default();
 
         fn recurse(
             code: &LEMCTL,
-            slots_counter: &mut SlotsCounter,
-            slots_info: &mut SlotsInfo,
-        ) -> Result<()> {
+            slots_map: &mut IndexMap<LEMOP, Slot>,
+            mut slots_counter: SlotsCounter,
+        ) -> Result<SlotsCounter> {
             match code {
                 LEMCTL::MatchTag(_, cases) => {
-                    for code in cases.values() {
-                        recurse(code, &mut slots_counter.clone(), slots_info)?;
-                    }
-                    Ok(())
+                    cases.values().try_fold(slots_counter, |acc, code| {
+                        Ok(acc.max(recurse(code, slots_map, slots_counter)?))
+                    })
                 }
                 LEMCTL::MatchSymbol(_, cases, def) => {
-                    for code in cases.values() {
-                        recurse(code, &mut slots_counter.clone(), slots_info)?;
-                    }
-                    recurse(def, slots_counter, slots_info)
+                    let init = recurse(def, slots_map, slots_counter)?;
+                    cases.values().try_fold(init, |acc, code| {
+                        Ok(acc.max(recurse(code, slots_map, slots_counter)?))
+                    })
                 }
                 LEMCTL::Seq(ops, rest) => {
                     for op in ops {
-                        let slot_idx = match op {
-                            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => slots_counter.consume_hash2(),
-                            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => slots_counter.consume_hash3(),
-                            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => slots_counter.consume_hash4(),
+                        let slot = match op {
+                            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => {
+                                slots_counter = slots_counter.next_hash2();
+                                Slot {
+                                    idx: slots_counter.hash2,
+                                    typ: SlotType::Hash2,
+                                }
+                            }
+                            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => {
+                                slots_counter = slots_counter.next_hash3();
+                                Slot {
+                                    idx: slots_counter.hash3,
+                                    typ: SlotType::Hash3,
+                                }
+                            }
+                            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => {
+                                slots_counter = slots_counter.next_hash4();
+                                Slot {
+                                    idx: slots_counter.hash4,
+                                    typ: SlotType::Hash4,
+                                }
+                            }
                             _ => continue,
                         };
-                        let slot = Slot {
-                            idx: slot_idx,
-                            typ: SlotType::from_lemop(op),
+                        if slots_map.insert(op.clone(), slot).is_some() {
+                            bail!("Duplicated LEMOP")
                         };
-                        if slots_info.slots_map.insert(op.clone(), slot).is_some() {
-                            bail!("Duplicated LEMOP: {:?}", op)
-                        }
-                        slots_info.slots.insert(slot);
                     }
-                    recurse(rest, slots_counter, slots_info)
+                    recurse(rest, slots_map, slots_counter)
                 }
-                LEMCTL::Return(..) => Ok(()),
+                LEMCTL::Return(..) => Ok(slots_counter),
             }
         }
-        recurse(self, &mut slots_counter, &mut slots_info)?;
-        Ok(slots_info)
+
+        let counts = recurse(self, &mut slots_map, SlotsCounter::default())?;
+        let slots = IndexSet::from_iter(slots_map.values().cloned());
+        Ok(SlotsInfo {
+            slots_map,
+            slots,
+            counts,
+        })
     }
 }
 
@@ -181,17 +227,6 @@ impl<F: LurkField> AllocationManager<F> {
                 self.0.insert(wrap, allocated_num.clone());
                 Ok(allocated_num)
             }
-        }
-    }
-}
-
-impl SlotType {
-    pub(crate) fn from_lemop(op: &LEMOP) -> Self {
-        match op {
-            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => SlotType::Hash2,
-            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => SlotType::Hash3,
-            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => SlotType::Hash4,
-            _ => panic!("Invalid LEMOP"),
         }
     }
 }
@@ -746,51 +781,4 @@ impl LEM {
 
         num_constraints
     }
-}
-
-/// Structure used to hold the number of slots we want for a `LEMOP`. It's mostly
-/// for testing purposes.
-#[derive(Debug, Default, PartialEq)]
-pub(crate) struct NumSlots {
-    pub(crate) hash2: usize,
-    pub(crate) hash3: usize,
-    pub(crate) hash4: usize,
-}
-
-impl NumSlots {
-    #[inline]
-    pub(crate) fn new(num_slots: (usize, usize, usize)) -> NumSlots {
-        NumSlots {
-            hash2: num_slots.0,
-            hash3: num_slots.1,
-            hash4: num_slots.2,
-        }
-    }
-}
-
-/// Computes the number of slots used for each category
-#[allow(dead_code)]
-pub(crate) fn num_slots(slots_info: &SlotsInfo) -> NumSlots {
-    let mut slots2: HashSet<usize> = HashSet::default();
-    let mut slots3: HashSet<usize> = HashSet::default();
-    let mut slots4: HashSet<usize> = HashSet::default();
-
-    for Slot {
-        idx: slot_idx,
-        typ: slot_type,
-    } in &slots_info.slots
-    {
-        match slot_type {
-            SlotType::Hash2 => {
-                slots2.insert(*slot_idx);
-            }
-            SlotType::Hash3 => {
-                slots3.insert(*slot_idx);
-            }
-            SlotType::Hash4 => {
-                slots4.insert(*slot_idx);
-            }
-        }
-    }
-    NumSlots::new((slots2.len(), slots3.len(), slots4.len()))
 }
