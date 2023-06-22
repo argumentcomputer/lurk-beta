@@ -237,23 +237,29 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     fn constrain_test_helper(lem: &LEM, exprs: &[Ptr<Fr>], expected_num_slots: SlotsCounter) {
-        let slots_info = lem.lem.slots_info().unwrap();
+        let slots_count = lem.lem.count_slots();
 
-        assert_eq!(slots_info.counts, expected_num_slots);
+        assert_eq!(slots_count, expected_num_slots);
 
-        let computed_num_constraints = lem.num_constraints(&slots_info);
+        let computed_num_constraints = lem.num_constraints(&slots_count);
 
         let mut store = Store::default();
 
         let mut cs_prev = None;
         for expr in exprs {
-            let frames = lem.eval(*expr, &mut store, &slots_info).unwrap();
+            let frames = lem.eval(*expr, &mut store).unwrap();
 
             let mut cs = TestConstraintSystem::<Fr>::new();
             let mut alloc_manager = AllocationManager::default();
             for frame in frames.clone() {
-                lem.synthesize(&mut cs, &mut alloc_manager, &mut store, &frame, &slots_info)
-                    .unwrap();
+                lem.synthesize(
+                    &mut cs,
+                    &mut alloc_manager,
+                    &mut store,
+                    &frame,
+                    &slots_count,
+                )
+                .unwrap();
             }
 
             assert!(cs.is_satisfied());

@@ -2,81 +2,21 @@ use crate::field::{FWrap, LurkField};
 use anyhow::{bail, Result};
 use std::collections::HashMap;
 
-use super::{
-    circuit::SlotsInfo, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM,
-    LEMCTL, LEMOP,
-};
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub enum SlotType {
-    Hash2,
-    Hash3,
-    Hash4,
-}
-
-impl SlotType {
-    pub(crate) fn preimg_size(&self) -> usize {
-        match self {
-            Self::Hash2 => 4,
-            Self::Hash3 => 6,
-            Self::Hash4 => 8,
-        }
-    }
-}
-
-impl std::fmt::Display for SlotType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Hash2 => write!(f, "Hash2"),
-            Self::Hash3 => write!(f, "Hash3"),
-            Self::Hash4 => write!(f, "Hash4"),
-        }
-    }
-}
-
-/// A `Slot` is characterized by an index and a type
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Slot {
-    pub idx: usize,
-    pub typ: SlotType,
-}
-
-impl std::fmt::Display for Slot {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Slot({}, {})", self.idx, self.typ)
-    }
-}
+use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM, LEMCTL, LEMOP};
 
 #[derive(Clone, Default)]
 pub struct Preimages<F: LurkField> {
-    hash2: Vec<[Ptr<F>; 2]>,
-    hash3: Vec<[Ptr<F>; 3]>,
-    hash4: Vec<[Ptr<F>; 4]>,
+    pub hash2: Vec<Vec<Ptr<F>>>,
+    pub hash3: Vec<Vec<Ptr<F>>>,
+    pub hash4: Vec<Vec<Ptr<F>>>,
 }
-/// This hashmap is populated during interpretation, telling which slots were
-/// visited and the data that was collected for each of them. The example below
-/// has 5 slots, 3 of which have been visited during interpretation.
-///
-///```text
-///            Slot index
-///      ┌┬┬┬┬┬───┬───┬───┐
-///      ├┼┼┼┼┤ 0 │ 1 │ 2 │
-///      ├┴┴┴┴┼───┼───┼───┤
-/// Slot │ H2 │ a │ b │   │
-/// type ├────┼───┼───┼───┘
-///      │ H3 │ c │   │
-///      └────┴───┴───┘
-///```
-/// `a`, `b` and `c` are the `Vec<Ptr<F>>` that were collected. The slots that
-/// weren't visited don't have key/value pairs present on `Visits`.
-pub(crate) type Visits<F> = HashMap<Slot, Vec<Ptr<F>>>;
 
 /// A `Frame` carries the data that results from interpreting a LEM. That is,
 /// it contains the input, the output and all the assignments resulting from
 /// running one iteration as a HashMap of meta pointers to pointers.
 ///
-/// Finally, `visits` contains the data collected from visiting the slots. This
-/// information is used to generte the witness.
+/// Finally, `preimages` contains the data collected from visiting the slots.
+/// This information is used to generte the witness.
 #[derive(Clone)]
 pub struct Frame<F: LurkField> {
     pub input: [Ptr<F>; 3],
@@ -117,7 +57,6 @@ impl LEMOP {
         store: &mut Store<F>,
         binds: &mut HashMap<MetaPtr, Ptr<F>>,
         preimages: &mut Preimages<F>,
-        slots_info: &SlotsInfo,
     ) -> Result<()> {
         match self {
             LEMOP::Null(tgt, tag) => {
@@ -128,7 +67,7 @@ impl LEMOP {
                 let preimg_ptrs = retrieve_many(binds, preimg)?;
                 let tgt_ptr = store.intern_2_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1]);
                 bind(binds, img.clone(), tgt_ptr)?;
-                preimages.hash2.push(preimg_ptrs.try_into().unwrap());
+                preimages.hash2.push(preimg_ptrs);
                 Ok(())
             }
             LEMOP::Hash3(img, tag, preimg) => {
@@ -136,7 +75,7 @@ impl LEMOP {
                 let tgt_ptr =
                     store.intern_3_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]);
                 bind(binds, img.clone(), tgt_ptr)?;
-                preimages.hash3.push(preimg_ptrs.try_into().unwrap());
+                preimages.hash3.push(preimg_ptrs);
                 Ok(())
             }
             LEMOP::Hash4(img, tag, preimg) => {
@@ -149,7 +88,7 @@ impl LEMOP {
                     preimg_ptrs[3],
                 );
                 bind(binds, img.clone(), tgt_ptr)?;
-                preimages.hash4.push(preimg_ptrs.try_into().unwrap());
+                preimages.hash4.push(preimg_ptrs);
                 Ok(())
             }
             LEMOP::Unhash2(preimg, img) => {
@@ -164,7 +103,7 @@ impl LEMOP {
                 for (mptr, ptr) in preimg.iter().zip(vec.iter()) {
                     bind(binds, mptr.clone(), *ptr)?;
                 }
-                preimages.hash2.push(vec);
+                preimages.hash2.push(vec.to_vec());
                 Ok(())
             }
             LEMOP::Unhash3(preimg, img) => {
@@ -179,7 +118,7 @@ impl LEMOP {
                 for (mptr, ptr) in preimg.iter().zip(vec.iter()) {
                     bind(binds, mptr.clone(), *ptr)?;
                 }
-                preimages.hash3.push(vec);
+                preimages.hash3.push(vec.to_vec());
                 Ok(())
             }
             LEMOP::Unhash4(preimg, img) => {
@@ -194,7 +133,7 @@ impl LEMOP {
                 for (mptr, ptr) in preimg.iter().zip(vec.iter()) {
                     bind(binds, mptr.clone(), *ptr)?;
                 }
-                preimages.hash4.push(vec);
+                preimages.hash4.push(vec.to_vec());
                 Ok(())
             }
             LEMOP::Hide(tgt, sec, src) => {
@@ -236,14 +175,13 @@ impl LEMCTL {
         store: &mut Store<F>,
         mut binds: HashMap<MetaPtr, Ptr<F>>,
         mut preimages: Preimages<F>,
-        slots_info: &SlotsInfo,
     ) -> Result<Frame<F>> {
         match self {
             LEMCTL::MatchTag(ptr, cases) => {
                 let ptr = ptr.get_ptr(&binds)?;
                 let ptr_tag = ptr.tag();
                 match cases.get(ptr_tag) {
-                    Some(op) => op.run(input, store, binds, preimages, slots_info),
+                    Some(op) => op.run(input, store, binds, preimages),
                     None => bail!("No match for tag {}", ptr_tag),
                 }
             }
@@ -253,15 +191,15 @@ impl LEMCTL {
                     bail!("Symbol not found for {match_ptr}");
                 };
                 match cases.get(&symbol) {
-                    Some(op) => op.run(input, store, binds, preimages, slots_info),
-                    None => def.run(input, store, binds, preimages, slots_info),
+                    Some(op) => op.run(input, store, binds, preimages),
+                    None => def.run(input, store, binds, preimages),
                 }
             }
             LEMCTL::Seq(ops, rest) => {
                 for op in ops {
-                    op.run(store, &mut binds, &mut preimages, slots_info)?;
+                    op.run(store, &mut binds, &mut preimages)?;
                 }
-                rest.run(input, store, binds, preimages, slots_info)
+                rest.run(input, store, binds, preimages)
             }
             LEMCTL::Return(o) => {
                 let output = [
@@ -283,12 +221,7 @@ impl LEMCTL {
 impl LEM {
     /// Calls `run` until the stop contidion is satisfied, using the output of one
     /// iteration as the input of the next one.
-    pub fn eval<F: LurkField>(
-        &self,
-        expr: Ptr<F>,
-        store: &mut Store<F>,
-        slots_info: &SlotsInfo,
-    ) -> Result<Vec<Frame<F>>> {
+    pub fn eval<F: LurkField>(&self, expr: Ptr<F>, store: &mut Store<F>) -> Result<Vec<Frame<F>>> {
         // Lurk constants
         let outermost = Ptr::null(Tag::Outermost);
         let terminal = &Ptr::null(Tag::Terminal);
@@ -307,7 +240,7 @@ impl LEM {
             }
 
             let preimages = Preimages::default();
-            let frame = self.lem.run(input, store, binds, preimages, slots_info)?;
+            let frame = self.lem.run(input, store, binds, preimages)?;
             if &frame.output[2] == terminal || &frame.output[2] == error {
                 frames.push(frame);
                 break;

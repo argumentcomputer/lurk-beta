@@ -42,11 +42,11 @@ mod tests {
         let lem = step().unwrap();
         lem.check();
 
-        let slots_info = lem.lem.slots_info().unwrap();
+        let slots_count = lem.lem.count_slots();
 
-        assert_eq!(slots_info.counts, NUM_SLOTS);
+        assert_eq!(slots_count, NUM_SLOTS);
 
-        let computed_num_constraints = lem.num_constraints(&slots_info);
+        let computed_num_constraints = lem.num_constraints(&slots_count);
 
         // Assures that `MatchSymbol`s will work properly
         lem.intern_matched_symbols(store);
@@ -54,7 +54,7 @@ mod tests {
         let mut all_frames = Vec::default();
 
         for (expr_in, expr_out) in pairs {
-            let frames = lem.eval(expr_in, store, &slots_info).unwrap();
+            let frames = lem.eval(expr_in, store).unwrap();
             assert!(
                 frames
                     .last()
@@ -66,7 +66,7 @@ mod tests {
             for frame in frames.clone() {
                 let mut cs = TestConstraintSystem::<Fr>::new();
                 let mut alloc_manager = AllocationManager::default();
-                lem.synthesize(&mut cs, &mut alloc_manager, store, &frame, &slots_info)
+                lem.synthesize(&mut cs, &mut alloc_manager, store, &frame, &slots_count)
                     .unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(cs.num_inputs(), NUM_INPUTS);
