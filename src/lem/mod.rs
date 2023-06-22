@@ -34,7 +34,7 @@
 //! 2. Actually, such logic to collect data is a natural consequence of the fact
 //! that we're on a higher level of abstraction. Relevant data is not simply
 //! stored on rust variables that die after the function ends. On the contrary,
-//! all relevant data lives on `HashMap`s that are also a product of the
+//! all relevant data lives on data structures that are also a product of the
 //! interpreted LEM.
 //!
 //! ### Constraining
@@ -150,19 +150,19 @@ impl std::hash::Hash for LEMCTL {
 /// The atomic operations of LEMs.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum LEMOP {
-    /// `MkNull(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
+    /// `Null(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
     Null(MetaPtr, Tag),
-    /// `Hash2(x, t, is)` binds `x` to a `Ptr` with tag `t` and 2 children `is`
+    /// `Hash2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
     Hash2(MetaPtr, Tag, [MetaPtr; 2]),
-    /// `Hash3(x, t, is)` binds `x` to a `Ptr` with tag `t` and 3 children `is`
+    /// `Hash3(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 3 children `ys`
     Hash3(MetaPtr, Tag, [MetaPtr; 3]),
-    /// `Hash4(x, t, is)` binds `x` to a `Ptr` with tag `t` and 4 children `is`
+    /// `Hash4(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 4 children `ys`
     Hash4(MetaPtr, Tag, [MetaPtr; 4]),
     /// `Unhash2([a, b], x)` binds `a` and `b` to the 2 children of `x`
     Unhash2([MetaPtr; 2], MetaPtr),
-    /// `Unhash3([a, b, c], x)` binds `a` and `b` to the 3 children of `x`
+    /// `Unhash3([a, b, c], x)` binds `a`, `b` and `c` to the 3 children of `x`
     Unhash3([MetaPtr; 3], MetaPtr),
-    /// `Unhash4([a, b, c, d], x)` binds `a` and `b` to the 4 children of `x`
+    /// `Unhash4([a, b, c, d], x)` binds `a`, `b`, `c` and `d` to the 4 children of `x`
     Unhash4([MetaPtr; 4], MetaPtr),
     /// `Hide(x, s, p)` binds `x` to a (comm) `Ptr` resulting from hiding the
     /// payload `p` with (num) secret `s`
@@ -438,7 +438,7 @@ mod tests {
         constrain_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((2, 2, 2)),
+            NumSlots::new((3, 3, 3)),
         );
     }
 
@@ -489,7 +489,7 @@ mod tests {
         constrain_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((2, 2, 2)),
+            NumSlots::new((4, 4, 4)),
         );
     }
 }

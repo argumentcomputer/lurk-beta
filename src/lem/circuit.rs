@@ -1,42 +1,30 @@
-//! # Constraint system for LEM
+//! ## Constraint system for LEM
 //!
-//! Here we describe how we generate bellperson constraints for LEM, such that
-//! it can be used with Nova folding to implement the Lurk evaluation.
+//! This is a high level description of how we generate bellperson constraints for
+//! LEM, such that it can be used with Nova folding to implement the Lurk
+//! evaluation.
 //!
-//! ## Pattern matching and the implication system:
+//! Some LEMOPs require expensive gadgets, such as Poseidon hashing. So we use
+//! the concept of "slots" to avoid wasting constraints.
 //!
-//! LEM implements branching using, for example, `MatchTag` and `MatchSymbol`.
-//! By nesting `MatchTag`s and `MatchSymbol`s we create a set of paths that
-//! interpretation can follow. We call them **virtual** and **concrete** paths.
-//! In particular, the followed path is the concrete one. We use a Boolean
-//! variable to indicate whether a path is concrete or not. This allows us to
-//! construct an **implication system**, which is responsible for ensuring that
-//! allocated variables in the concrete path are equal to their expected values
-//! but such equalities on virtual paths are irrelevant.
+//! We've separated the process in three steps:
 //!
-//! ## Slot optimization:
+//! 1. Perform a static analysis to compute the slots that are needed as well as
+//! the mapping from LEMOPs to their respective slots. This piece of information
+//! will live on a `SlotsInfo` structure, which is populated by the function
+//! `LEMOP::slots_info`;
 //!
-//! Some operations like Poseidon hash can be relatively expensive in the circuit,
-//! therefore we want to avoid wasting constraints with them as much as possible.
-//! In order to achieve this goal, we only add constraints to a limited number of
-//! *slots* that correspond to a maximum number of such expensive operations that
-//! may occurr in a single interpretation round. This optimization avoids
-//! constraining every expensive operation on every possible path.
+//! 2. Interpret the LEM and collect the data that was generated on each visited
+//! slot, along with all bindings from `MetaPtr`s to `Ptr`s. This piece of
+//! information will live on a `Frame` structure;
 //!
-//! Shortly, we construct the hash slot system using the next steps:
+//! 3. Finally build the circuit with `SlotsInfo` and `Frame` at hand. This step
+//! is explained in more details in the `LEMOP::synthesize` function.
 //!
-//! * STEP 1: Static analysis, when we traverse LEM for the first time and allocate
-//! slots for hashes in all virtual paths. We only add hashes that where not yet
-//! previously added, therefore ensuring deduplication of hashes in different
-//! branches.
-//!
-//! * STEP 2: During interpretation (second traversal) we gather information
-//! related to each visited slot.
-//!
-//! * STEP 3: During construction of constraints, we first preallocate the preimage
-//! and image for each slot; then we synthesize all slots; and finally we traverse
-//! LEM (for the third time), adding implication constraints, glueing together all the
-//! information. This step is better explained in the `synthesize` function.
+//! The 3 steps above will be further referred to as *STEP 1*, *STEP 2* and
+//! *STEP 3* respectively. STEP 1 should be performed once per slot. Then STEP 2
+//! will need as many iterations as it takes to evaluate the Lurk expression and
+//! so will STEP 3.
 
 use std::collections::{HashMap, HashSet};
 
@@ -58,14 +46,17 @@ use crate::circuit::gadgets::{
 use crate::field::{FWrap, LurkField};
 
 use super::{
-    interpreter::{Frame, SlotType},
+    interpreter::{Frame, Slot, SlotType},
     path::Path,
     pointers::ZPtr,
     store::Store,
+    symbol::Symbol,
+    tag::Tag,
     MetaPtr, LEM, LEMCTL, LEMOP, AString
 };
 
-/// Holds a counter per path
+/// Holds a counter per path. We want to use this to count the number of slots
+/// that have already been used on each LEM path.
 #[derive(Default)]
 struct PathTicker(HashMap<Path, usize>);
 
@@ -116,143 +107,107 @@ impl SlotsCounter {
         self.hash4.tick(path)
     }
 
-    pub(crate) fn cont(&mut self, new: Path, from: &Path) {
+    pub(crate) fn cont_with_tag(&mut self, from: &Path, tag: &Tag) -> Path {
+        let new = from.push_tag(tag);
         self.hash2.cont(new.clone(), from);
         self.hash3.cont(new.clone(), from);
-        self.hash4.cont(new, from);
+        self.hash4.cont(new.clone(), from);
+        new
+    }
+
+    pub(crate) fn cont_with_symbol(&mut self, from: &Path, symbol: &Symbol) -> Path {
+        let new = from.push_symbol(symbol);
+        self.hash2.cont(new.clone(), from);
+        self.hash3.cont(new.clone(), from);
+        self.hash4.cont(new.clone(), from);
+        new
+    }
+
+    pub(crate) fn cont_with_default(&mut self, from: &Path) -> Path {
+        let new = from.push_default();
+        self.hash2.cont(new.clone(), from);
+        self.hash3.cont(new.clone(), from);
+        self.hash4.cont(new.clone(), from);
+        new
     }
 }
 
 /// Contains a `slots_map` that maps `LEMOP`s to their slots. This map is not
 /// expected to be injective, as two or more `LEMOP`s can be mapped to the same
-/// slot.
-///
-/// The `slots` attribute is derived from `slots_map` by iterating on its values.
 #[derive(Clone, Eq, PartialEq, Default)]
+/// slot. The `slots` attribute is an set of all slots present on `slots_map`.
 pub struct SlotsInfo {
-    slots_map: IndexMap<LEMOP, (usize, SlotType)>,
-    slots: IndexSet<(usize, SlotType)>,
+    slots_map: IndexMap<LEMOP, Slot>,
+    slots: IndexSet<Slot>,
 }
 
 impl SlotsInfo {
     #[inline]
-    pub fn get_slot(&self, op: &LEMOP) -> Result<&(usize, SlotType)> {
+    pub fn get_slot(&self, op: &LEMOP) -> Result<&Slot> {
         self.slots_map
             .get(op)
             .ok_or_else(|| anyhow!("Slot not found for LEMOP {:?}", op))
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Default)]
-struct ImgMap<'a>{
-    // these hashmaps keep track of slots that were allocated for images
-    img2: HashMap<&'a MetaPtr, (usize, SlotType)>,
-    img3: HashMap<&'a MetaPtr, (usize, SlotType)>,
-    img4: HashMap<&'a MetaPtr, (usize, SlotType)>,
-    // these hashmaps keep track of slots that were allocated for preimages
-    pre2: HashMap<&'a [MetaPtr; 2], (usize, SlotType)>,
-    pre3: HashMap<&'a [MetaPtr; 3], (usize, SlotType)>,
-    pre4: HashMap<&'a [MetaPtr; 4], (usize, SlotType)>,
-}
-
 impl LEMCTL {
     /// STEP 1: compute the slot mapping on a first (and unique) traversal
     ///
-    /// While traversing parallel paths, we need to reuse compatible slots. For
+    /// While traversing alternate paths, we need to reuse compatible slots. For
     /// example, on a `MatchTag` with two arms, such that each arm is a `Hash2`,
     /// we want those hashes to occupy the same slot. We do this by using a
     /// `SlotsCounter`, which can return the next index for a slot category
     /// (`Hash2`, `Hash3` etc).
-    ///
-    /// Further, when we:
-    /// * Construct the same pointer twice
-    /// * Destruct the same pointer twice
-    /// * Construct a pointer that was previously destructed
-    /// * Destruct a pointer that was previously constructed
-    ///
-    /// We want to reuse the same slot as before. To accomplish this, we use
-    /// hashmaps that can recover the slots that were previously allocated.
     pub fn slots_info(&self) -> Result<SlotsInfo> {
         let mut slots_info = SlotsInfo::default();
-        let mut img_map = ImgMap::default();
         let mut slots_counter = SlotsCounter::default();
 
         fn recurse<'a>(
-            code: &'a LEMCTL, path: Path, img_map: &mut ImgMap<'a>, slots_counter: &mut SlotsCounter, slots_info: &mut SlotsInfo
+            code: &'a LEMCTL, path: Path, slots_counter: &mut SlotsCounter, slots_info: &mut SlotsInfo
         ) -> Result<()> {
             match code {
                 LEMCTL::MatchTag(_, cases) => {
                     for (tag, code) in cases {
-                        let new_path = path.push_tag(tag);
-                        slots_counter.cont(new_path.clone(), &path);
-                        recurse(code, new_path, img_map, slots_counter, slots_info)?;
+                        let new_path = slots_counter.cont_with_tag(&path, tag);
+                        recurse(code, new_path, slots_counter, slots_info)?;
                     }
                     Ok(())
                 }
                 LEMCTL::MatchSymbol(_, cases, def) => {
                     for (symbol, code) in cases {
-                        let new_path = path.push_symbol(symbol);
-                        slots_counter.cont(new_path.clone(), &path);
-                        recurse(code, new_path, img_map, slots_counter, slots_info)?;
+                        let new_path = slots_counter.cont_with_symbol(&path, symbol);
+                        recurse(code, new_path, slots_counter, slots_info)?;
                     }
-                    let new_path = path.push_default();
-                    slots_counter.cont(new_path.clone(), &path);
-                    recurse(def, new_path, img_map, slots_counter, slots_info)
+                    let new_path = slots_counter.cont_with_default(&path);
+                    recurse(def, new_path, slots_counter, slots_info)
                 }
                 LEMCTL::Seq(op, rest) => {
-                    /// Designates a slot for a pair of preimage/image. If a slot has
-                    /// already been allocated for either the preimage or the image,
-                    /// reuses it. Otherwise, allocates a new one.
-                    macro_rules! populate_slots_map {
-                        ( $preimg: expr, $img: expr, $preimgs_map: expr, $imgs_map: expr, $counter_fn: expr ) => {
-                            match ($preimgs_map.get($preimg), $imgs_map.get($img)) {
-                                (Some(slot), _) | (_, Some(slot)) => {
-                                    // reusing a slot
-                                    if slots_info.slots_map.insert(op.clone(), *slot).is_some() {
-                                        bail!("Duplicated LEMOP: {:?}", op)
-                                    }
-                                }
-                                (None, None) => {
-                                    // allocating a new slot
-                                    let slot_idx = $counter_fn(path.clone());
-                                    let slot_type = SlotType::from_lemop(op);
-                                    let slot = (slot_idx, slot_type);
-                                    if slots_info.slots_map.insert(op.clone(), slot).is_some() {
-                                        bail!("Duplicated LEMOP: {:?}", op)
-                                    }
-                                    slots_info.slots.insert(slot);
-
-                                    // memoize
-                                    $preimgs_map.insert($preimg, slot);
-                                    $imgs_map.insert($img, slot);
-                                }
-                            };
-                        };
-                    }
-                    match op {
-                        LEMOP::Hash2(img, _, preimg) | LEMOP::Unhash2(preimg, img) => {
-                            populate_slots_map!(preimg, img, img_map.pre2, img_map.img2, |path| {
-                                slots_counter.next_hash2(path)
-                            });
+                    let slot_idx = match op {
+                        LEMOP::Hash2(..) | LEMOP::Unhash2(..) => {
+                            slots_counter.next_hash2(path.clone())
                         }
-                        LEMOP::Hash3(img, _, preimg) | LEMOP::Unhash3(preimg, img) => {
-                            populate_slots_map!(preimg, img, img_map.pre3, img_map.img3, |path| {
-                                slots_counter.next_hash3(path)
-                            });
+                        LEMOP::Hash3(..) | LEMOP::Unhash3(..) => {
+                            slots_counter.next_hash3(path.clone())
                         }
-                        LEMOP::Hash4(img, _, preimg) | LEMOP::Unhash4(preimg, img) => {
-                            populate_slots_map!(preimg, img, img_map.pre4, img_map.img4, |path| {
-                                slots_counter.next_hash4(path)
-                            });
+                        LEMOP::Hash4(..) | LEMOP::Unhash4(..) => {
+                            slots_counter.next_hash4(path.clone())
                         }
-                        _ => ()
+                        _ => return recurse(rest, path, slots_counter, slots_info)
                     };
-                    recurse(rest, path, img_map, slots_counter, slots_info)
+                    let slot = Slot {
+                        idx: slot_idx,
+                        typ: SlotType::from_lemop(op),
+                    };
+                    if slots_info.slots_map.insert(op.clone(), slot).is_some() {
+                        bail!("Duplicated LEMOP: {:?}", op)
+                    }
+                    slots_info.slots.insert(slot);
+                    recurse(rest, path, slots_counter, slots_info)
                 },
                 LEMCTL::Return(..) => Ok(()),
             }
         }
-        recurse(&self, Path::default(), &mut img_map, &mut slots_counter, &mut slots_info)?;
+        recurse(&self, Path::default(), &mut slots_counter, &mut slots_info)?;
         Ok(slots_info)
     }
 }
@@ -354,29 +309,20 @@ impl LEM {
         Ok(allocated_output_ptrs.try_into().unwrap())
     }
 
-    fn on_concrete_path(concrete_path: &Boolean) -> Result<bool> {
-        concrete_path
-            .get_value()
-            .ok_or_else(|| anyhow!("Couldn't check whether we're on a concrete path"))
-    }
-
-    fn z_ptr_from_frame<F: LurkField>(
-        concrete_path: &Boolean,
-        frame: &Frame<F>,
+    fn zptr_from_mptr<F: LurkField>(
         mptr: &MetaPtr,
+        frame: &Frame<F>,
         store: &mut Store<F>,
     ) -> Result<ZPtr<F>> {
-        if Self::on_concrete_path(concrete_path)? {
-            store.hash_ptr(mptr.get_ptr(&frame.binds)?)
-        } else {
-            Ok(ZPtr::dummy())
+        match frame.binds.get(mptr) {
+            Some(ptr) => store.hash_ptr(ptr),
+            None => Ok(ZPtr::dummy()),
         }
     }
 
     fn alloc_preimg<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         preimg: &[MetaPtr],
-        concrete_path: &Boolean,
         frame: &Frame<F>,
         store: &mut Store<F>,
         allocated_ptrs: &HashMap<&AString, AllocatedPtr<F>>,
@@ -384,7 +330,7 @@ impl LEM {
         preimg
             .iter()
             .map(|x| {
-                Self::z_ptr_from_frame(concrete_path, frame, x, store)
+                Self::zptr_from_mptr(x, frame, store)
                     .and_then(|ref ptr| Self::allocate_ptr(cs, ptr, x.name(), allocated_ptrs))
             })
             .collect::<Result<Vec<_>>>()
@@ -407,12 +353,9 @@ impl LEM {
     fn allocate_preimg_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         frame: &Frame<F>,
-        slot: &(usize, SlotType),
+        slot: &Slot,
         store: &mut Store<F>,
     ) -> Result<Vec<AllocatedNum<F>>> {
-        // TODO: avoid this destruction and implement proper display for slot blueprints
-        let (slot_idx, slot_type) = slot;
-
         let mut preallocated_preimg = vec![];
 
         // We need to know whether we have data for that slot, which might have
@@ -420,16 +363,12 @@ impl LEM {
         match frame.visits.get(slot) {
             None => {
                 // No data was collected for this slot. We can allocate zeros
-                for i in 0..slot_type.preimg_size() {
+                for i in 0..slot.typ.preimg_size() {
                     let allocated_zero = AllocatedNum::alloc(
-                        cs.namespace(|| {
-                            format!("preimage {i} for slot {slot_idx} (type {slot_type})")
-                        }),
+                        cs.namespace(|| format!("preimage {i} for slot {slot}")),
                         || Ok(F::ZERO),
                     )
-                    .with_context(|| {
-                        format!("preimage {i} for slot {slot_idx} (type {slot_type}) failed")
-                    })?;
+                    .with_context(|| format!("preimage {i} for {slot} failed"))?;
 
                     preallocated_preimg.push(allocated_zero);
                 }
@@ -445,14 +384,10 @@ impl LEM {
 
                     // allocate tag
                     let allocated_tag = AllocatedNum::alloc(
-                        cs.namespace(|| {
-                            format!("preimage {i} for slot {slot_idx} (type {slot_type})")
-                        }),
+                        cs.namespace(|| format!("preimage {i} for slot {slot}")),
                         || Ok(z_ptr.tag.to_field()),
                     )
-                    .with_context(|| {
-                        format!("preimage {i} for slot {slot_idx} (type {slot_type}) failed")
-                    })?;
+                    .with_context(|| format!("preimage {i} for slot {slot}"))?;
 
                     preallocated_preimg.push(allocated_tag);
 
@@ -461,14 +396,10 @@ impl LEM {
 
                     // allocate hash
                     let allocated_hash = AllocatedNum::alloc(
-                        cs.namespace(|| {
-                            format!("preimage {i} for slot {slot_idx} (type {slot_type})")
-                        }),
+                        cs.namespace(|| format!("preimage {i} for slot {slot}")),
                         || Ok(z_ptr.hash),
                     )
-                    .with_context(|| {
-                        format!("preimage {i} for slot {slot_idx} (type {slot_type}) failed")
-                    })?;
+                    .with_context(|| format!("preimage {i} for slot {slot} failed"))?;
 
                     preallocated_preimg.push(allocated_hash);
                 }
@@ -479,16 +410,13 @@ impl LEM {
 
     fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        slot: &(usize, SlotType),
+        slot: &Slot,
         preallocated_preimg: Vec<AllocatedNum<F>>,
         store: &mut Store<F>,
     ) -> Result<AllocatedNum<F>> {
-        // TODO: avoid this destruction and implement proper display for slot blueprints
-        let (slot_idx, slot_type) = slot;
-
-        let cs = &mut cs.namespace(|| format!("poseidon for slot {slot_idx} (type {slot_type})"));
+        let cs = &mut cs.namespace(|| format!("poseidon for slot {slot}"));
         let preallocated_img = {
-            match slot_type {
+            match slot.typ {
                 SlotType::Hash2 => {
                     hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c4())?
                 }
@@ -503,31 +431,32 @@ impl LEM {
         Ok(preallocated_img)
     }
 
-    /// Create R1CS constraints for LEM given an evaluation frame.
+    /// Create R1CS constraints for LEM given an evaluation frame. This function
+    /// implements the STEP 3 mentioned above.
     ///
-    /// As we find recursive (non-leaf) LEM operations, we stack them to be
-    /// constrained later, using hash maps to manage viariables and pointers in
-    /// a way we can reference allocated variables that were previously created.
+    /// We use a stack to keep track of the LEMOPs that need to be constrained
+    /// and a hashmap to map meta pointers to their respective allocated pointers.
     ///
-    /// Notably, we use a variable `concrete_path: Boolean` to encode whether we
-    /// are on a *concrete* or *virtual* path. A virtual path is one that wasn't
-    /// taken during evaluation and thus its frame pointers weren't bound. A
-    /// concrete path means that evaluation took that path and the frame data
-    /// should be complete. For virtual paths we need to create dummy bindings
-    /// and relax the implications with false premises. The premise is precicely
-    /// `concrete_path`.
+    /// Notably, one of the variables that we push to the stack is a
+    /// `concrete_path: Boolean`, which encodes whether we are on a *concrete* or
+    /// *virtual* path. A virtual path is one that wasn't taken during
+    /// interpretation and thus its frame pointers weren't bound. A concrete path
+    /// means that interpretation went down that road and the frame data should
+    /// be complete for the variables and the slots on that path. For virtual
+    /// paths we need to create dummy bindings for the meta pointers and relax the
+    /// implications with false premises. The premise is precicely `concrete_path`.
     ///
     /// Regarding the slot optimizations, STEP 3 uses information gathered during
     /// STEPs 1 and 2. So at this point we know:
     ///
-    /// 1. Which LEMOPs map to which slots. Since LEMOPs can be deduplicated, it
-    /// is possible a LEMOP has no slot at all;
+    /// 1. Which LEMOPs map to which slots;
     /// 2. The slots (and their respective preimages) that were visited during
     /// interpretation.
     ///
     /// So we proceed by first allocating preimages and images for each slot and
     /// then, as we traverse the LEMOP, we add constraints to make sure that the
     /// witness satisfies the arithmetic equations for the corresponding slots.
+
     pub fn synthesize<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -542,10 +471,8 @@ impl LEM {
         let preallocated_outputs = Self::allocate_output(cs, store, frame, &allocated_ptrs)?;
 
         // We need to populate this hashmap with preimages and images for each slot
-        let mut preallocations: HashMap<
-            (usize, SlotType),
-            (Vec<AllocatedNum<F>>, AllocatedNum<F>),
-        > = HashMap::default();
+        let mut preallocations: HashMap<Slot, (Vec<AllocatedNum<F>>, AllocatedNum<F>)> =
+            HashMap::default();
 
         // This loop is guaranteed to always visit slots in a fixed order for a
         // particular LEM because it iterates on an `IndexSet`, which preserves
@@ -603,7 +530,6 @@ impl LEM {
                     )
                     .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
                 }
-                LEMCTL::MatchSymbol(..) => todo!(),
                 LEMCTL::Seq(op, rest) => {
                     macro_rules! constrain_slot {
                         ( $preimg: expr, $img: expr, $allocated_preimg: expr, $allocated_img: expr) => {
@@ -653,7 +579,7 @@ impl LEM {
                             // Allocate image
                             let allocated_img = Self::allocate_ptr(
                                 cs,
-                                &Self::z_ptr_from_frame(&concrete_path, frame, $img, store)?,
+                                &Self::zptr_from_mptr($img, frame, store)?,
                                 $img.name(),
                                 &allocated_ptrs,
                             )?;
@@ -688,7 +614,6 @@ impl LEM {
                             let allocated_preimg = Self::alloc_preimg(
                                 cs,
                                 $preimg,
-                                &concrete_path,
                                 frame,
                                 store,
                                 &allocated_ptrs,
@@ -726,7 +651,7 @@ impl LEM {
                         LEMOP::Null(tgt, tag) => {
                             let allocated_tgt = Self::allocate_ptr(
                                 cs,
-                                &Self::z_ptr_from_frame(&concrete_path, frame, tgt, store)?,
+                                &Self::zptr_from_mptr(tgt, frame, store)?,
                                 tgt.name(),
                                 &allocated_ptrs,
                             )?;
@@ -754,7 +679,6 @@ impl LEM {
                         }
                         _ => todo!(),
                     }
-
                     stack.push((rest, concrete_path, path));
                 }
                 LEMCTL::Return(outputs) => {
@@ -774,6 +698,7 @@ impl LEM {
                             .with_context(|| "couldn't constrain `implies_ptr_equal`")?;
                     }
                 }
+                _ => todo!(),
             }
         }
         Ok(())
@@ -786,7 +711,11 @@ impl LEM {
         let mut num_constraints = 0;
 
         // fixed cost for each slot
-        for (_, slot_type) in &slots_info.slots {
+        for Slot {
+            idx: _,
+            typ: slot_type,
+        } in &slots_info.slots
+        {
             match slot_type {
                 SlotType::Hash2 => {
                     num_constraints += 289;
@@ -894,7 +823,11 @@ pub(crate) fn num_slots(slots_info: &SlotsInfo) -> NumSlots {
     let mut slots3: HashSet<usize> = HashSet::default();
     let mut slots4: HashSet<usize> = HashSet::default();
 
-    for (slot_idx, slot_type) in &slots_info.slots {
+    for Slot {
+        idx: slot_idx,
+        typ: slot_type,
+    } in &slots_info.slots
+    {
         match slot_type {
             SlotType::Hash2 => {
                 slots2.insert(*slot_idx);

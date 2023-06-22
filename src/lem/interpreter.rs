@@ -33,27 +33,36 @@ impl std::fmt::Display for SlotType {
     }
 }
 
+/// A `Slot` is characterized by an index and a type
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Slot {
+    pub idx: usize,
+    pub typ: SlotType,
+}
+
+impl std::fmt::Display for Slot {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Slot({}, {})", self.idx, self.typ)
+    }
+}
+
 /// This hashmap is populated during interpretation, telling which slots were
-/// visited and the pointers that were collected for each of them.
-///
-/// `(usize, SlotType)` is a pair of slot index and slot type, as shown below:
+/// visited and the data that was collected for each of them. The example below
+/// has 5 slots, 3 of which have been visited during interpretation.
 ///
 ///```text
 ///            Slot index
-///      ┌────┬───┬───┬───┬───
-///      │    │ 0 │ 1 │ 2 │...
-///      ├────┼───┼───┼───┼───
-/// Slot │ H2 │ a │ b │   │...
-/// type ├────┼───┼───┼───┼───
-///      │ H3 │   │ c │ d │...
-///      ├────┼───┼───┼───┼───
-///      │... │...│...│...│...
+///      ┌┬┬┬┬┬───┬───┬───┐
+///      ├┼┼┼┼┤ 0 │ 1 │ 2 │
+///      ├┴┴┴┴┼───┼───┼───┤
+/// Slot │ H2 │ a │ b │   │
+/// type ├────┼───┼───┼───┘
+///      │ H3 │ c │   │
+///      └────┴───┴───┘
 ///```
-///
-/// In the example above, we can see three visited slots:
-/// * The slots indices 0 and 1 for `Hash2`
-/// * The slots indices 1 and 2 for `Hash3`
-pub(crate) type Visits<F> = HashMap<(usize, SlotType), Vec<Ptr<F>>>;
+/// `a`, `b` and `c` are the `Vec<Ptr<F>>` that were collected. The slots that
+/// weren't visited don't have key/value pairs present on `Visits`.
+pub(crate) type Visits<F> = HashMap<Slot, Vec<Ptr<F>>>;
 
 /// A `Frame` carries the data that results from interpreting a LEM. That is,
 /// it contains the input, the output and all the assignments resulting from
@@ -76,8 +85,8 @@ fn retrieve_many<F: LurkField>(
     args.iter()
         .map(|mptr| {
             let Some(ptr) = map.get(mptr).cloned() else {
-            bail!("{} not defined", mptr.name());
-        };
+                bail!("{} not defined", mptr.name());
+            };
             Ok(ptr)
         })
         .collect::<Result<Vec<_>>>()
