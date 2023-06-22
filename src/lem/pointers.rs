@@ -13,7 +13,7 @@ use super::tag::Tag;
 /// children a pointer has. However, LEMs require extra flexibility because LEM
 /// hashing operations can plug any tag to the resulting pointer. Thus, the
 /// number of children have to be made explicit as the `Ptr` enum.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Ptr<F: LurkField> {
     Leaf(Tag, F),
     Tree2(Tag, usize),

@@ -47,6 +47,12 @@ impl std::fmt::Display for Slot {
     }
 }
 
+#[derive(Clone, Default)]
+pub struct Preimages<F: LurkField> {
+    hash2: Vec<[Ptr<F>; 2]>,
+    hash3: Vec<[Ptr<F>; 3]>,
+    hash4: Vec<[Ptr<F>; 4]>,
+}
 /// This hashmap is populated during interpretation, telling which slots were
 /// visited and the data that was collected for each of them. The example below
 /// has 5 slots, 3 of which have been visited during interpretation.
@@ -76,7 +82,7 @@ pub struct Frame<F: LurkField> {
     pub input: [Ptr<F>; 3],
     pub output: [Ptr<F>; 3],
     pub binds: HashMap<MetaPtr, Ptr<F>>,
-    pub visits: Visits<F>,
+    pub preimages: Preimages<F>,
 }
 
 fn retrieve_many<F: LurkField>(
@@ -110,7 +116,7 @@ impl LEMOP {
         &self,
         store: &mut Store<F>,
         binds: &mut HashMap<MetaPtr, Ptr<F>>,
-        visits: &mut Visits<F>,
+        preimages: &mut Preimages<F>,
         slots_info: &SlotsInfo,
     ) -> Result<()> {
         match self {
@@ -122,7 +128,7 @@ impl LEMOP {
                 let preimg_ptrs = retrieve_many(binds, preimg)?;
                 let tgt_ptr = store.intern_2_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1]);
                 bind(binds, img.clone(), tgt_ptr)?;
-                visits.insert(*slots_info.get_slot(self)?, preimg_ptrs);
+                preimages.hash2.push(preimg_ptrs.try_into().unwrap());
                 Ok(())
             }
             LEMOP::Hash3(img, tag, preimg) => {
@@ -130,7 +136,7 @@ impl LEMOP {
                 let tgt_ptr =
                     store.intern_3_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]);
                 bind(binds, img.clone(), tgt_ptr)?;
-                visits.insert(*slots_info.get_slot(self)?, preimg_ptrs);
+                preimages.hash3.push(preimg_ptrs.try_into().unwrap());
                 Ok(())
             }
             LEMOP::Hash4(img, tag, preimg) => {
@@ -143,7 +149,7 @@ impl LEMOP {
                     preimg_ptrs[3],
                 );
                 bind(binds, img.clone(), tgt_ptr)?;
-                visits.insert(*slots_info.get_slot(self)?, preimg_ptrs);
+                preimages.hash4.push(preimg_ptrs.try_into().unwrap());
                 Ok(())
             }
             LEMOP::Unhash2(preimg, img) => {
@@ -154,11 +160,11 @@ impl LEMOP {
                 let Some((a, b)) = store.fetch_2_ptrs(idx) else {
                     bail!("Couldn't fetch {img}'s children")
                 };
-                let vec = vec![*a, *b];
+                let vec = [*a, *b];
                 for (mptr, ptr) in preimg.iter().zip(vec.iter()) {
                     bind(binds, mptr.clone(), *ptr)?;
                 }
-                visits.insert(*slots_info.get_slot(self)?, vec);
+                preimages.hash2.push(vec);
                 Ok(())
             }
             LEMOP::Unhash3(preimg, img) => {
@@ -169,11 +175,11 @@ impl LEMOP {
                 let Some((a, b, c)) = store.fetch_3_ptrs(idx) else {
                     bail!("Couldn't fetch {img}'s children")
                 };
-                let vec = vec![*a, *b, *c];
+                let vec = [*a, *b, *c];
                 for (mptr, ptr) in preimg.iter().zip(vec.iter()) {
                     bind(binds, mptr.clone(), *ptr)?;
                 }
-                visits.insert(*slots_info.get_slot(self)?, vec);
+                preimages.hash3.push(vec);
                 Ok(())
             }
             LEMOP::Unhash4(preimg, img) => {
@@ -184,11 +190,11 @@ impl LEMOP {
                 let Some((a, b, c, d)) = store.fetch_4_ptrs(idx) else {
                     bail!("Couldn't fetch {img}'s children")
                 };
-                let vec = vec![*a, *b, *c, *d];
+                let vec = [*a, *b, *c, *d];
                 for (mptr, ptr) in preimg.iter().zip(vec.iter()) {
                     bind(binds, mptr.clone(), *ptr)?;
                 }
-                visits.insert(*slots_info.get_slot(self)?, vec);
+                preimages.hash4.push(vec);
                 Ok(())
             }
             LEMOP::Hide(tgt, sec, src) => {
@@ -229,7 +235,7 @@ impl LEMCTL {
         input: [Ptr<F>; 3],
         store: &mut Store<F>,
         mut binds: HashMap<MetaPtr, Ptr<F>>,
-        mut visits: Visits<F>,
+        mut preimages: Preimages<F>,
         slots_info: &SlotsInfo,
     ) -> Result<Frame<F>> {
         match self {
@@ -237,7 +243,7 @@ impl LEMCTL {
                 let ptr = ptr.get_ptr(&binds)?;
                 let ptr_tag = ptr.tag();
                 match cases.get(ptr_tag) {
-                    Some(op) => op.run(input, store, binds, visits, slots_info),
+                    Some(op) => op.run(input, store, binds, preimages, slots_info),
                     None => bail!("No match for tag {}", ptr_tag),
                 }
             }
@@ -247,15 +253,15 @@ impl LEMCTL {
                     bail!("Symbol not found for {match_ptr}");
                 };
                 match cases.get(&symbol) {
-                    Some(op) => op.run(input, store, binds, visits, slots_info),
-                    None => def.run(input, store, binds, visits, slots_info),
+                    Some(op) => op.run(input, store, binds, preimages, slots_info),
+                    None => def.run(input, store, binds, preimages, slots_info),
                 }
             }
             LEMCTL::Seq(ops, rest) => {
                 for op in ops {
-                    op.run(store, &mut binds, &mut visits, slots_info)?;
+                    op.run(store, &mut binds, &mut preimages, slots_info)?;
                 }
-                rest.run(input, store, binds, visits, slots_info)
+                rest.run(input, store, binds, preimages, slots_info)
             }
             LEMCTL::Return(o) => {
                 let output = [
@@ -267,7 +273,7 @@ impl LEMCTL {
                     input,
                     output,
                     binds,
-                    visits,
+                    preimages,
                 })
             }
         }
@@ -300,8 +306,8 @@ impl LEM {
                 bind(&mut binds, MetaPtr(name.clone()), input[i])?;
             }
 
-            let visits = Visits::default();
-            let frame = self.lem.run(input, store, binds, visits, slots_info)?;
+            let preimages = Preimages::default();
+            let frame = self.lem.run(input, store, binds, preimages, slots_info)?;
             if &frame.output[2] == terminal || &frame.output[2] == error {
                 frames.push(frame);
                 break;

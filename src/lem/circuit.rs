@@ -62,7 +62,6 @@ pub struct SlotsCounter {
 
 impl SlotsCounter {
     /// This interface is mostly for testing
-    #[allow(dead_code)]
     #[inline]
     pub(crate) fn new(num_slots: (usize, usize, usize)) -> Self {
         Self {
@@ -108,6 +107,15 @@ impl SlotsCounter {
             hash4: max(self.hash4, other.hash4),
         }
     }
+
+    #[inline]
+    pub(crate) fn add(&self, other: Self) -> Self {
+        Self {
+            hash2: self.hash2 + other.hash2,
+            hash3: self.hash3 + other.hash3,
+            hash4: self.hash4 + other.hash4,
+        }
+    }
 }
 
 /// Contains a `slots_map` that maps `LEMOP`s to their slots. This map is not
@@ -130,6 +138,36 @@ impl SlotsInfo {
 }
 
 impl LEMCTL {
+    pub fn count_slots(&self) -> SlotsCounter {
+        match self {
+            LEMCTL::MatchTag(_, cases) => {
+                cases.values().fold(SlotsCounter::default(), |acc, code| {
+                    acc.max(code.count_slots())
+                })
+            }
+            LEMCTL::MatchSymbol(_, cases, def) => {
+                cases.values().fold(def.count_slots(), |acc, code| {
+                    acc.max(code.count_slots())
+                })
+            }
+            LEMCTL::Return(..) => {
+                SlotsCounter::default()
+            }
+            LEMCTL::Seq(ops, rest) => {
+                let ops_slots = ops.iter().fold(SlotsCounter::default(), |acc, op| {
+                    let val = match op {
+                        LEMOP::Hash2(..) | LEMOP::Unhash2(..) => SlotsCounter::new((1, 0, 0)),
+                        LEMOP::Hash3(..) | LEMOP::Unhash3(..) => SlotsCounter::new((0, 1, 0)),
+                        LEMOP::Hash4(..) | LEMOP::Unhash4(..) => SlotsCounter::new((0, 0, 1)),
+                        _ => SlotsCounter::default(),
+                    };
+                    acc.add(val)
+                });
+                ops_slots.add(rest.count_slots())
+            }
+        }
+    }
+
     /// STEP 1: compute the slot mapping on a first (and unique) traversal
     ///
     /// While traversing alternate paths, we need to reuse compatible slots. For
