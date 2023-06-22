@@ -12,19 +12,17 @@ use nom::{
     multi::fold_many0,
     multi::fold_many1,
     sequence::{delimited, preceded},
-    IResult,
 };
 
 use crate::parser::{
     error::{ParseError, ParseErrorKind},
-    Span,
+    ParseResult, Span,
 };
 
 /// Parse a unicode sequence, of the form u{XXXX}, where XXXX is 1 to 6
 /// hexadecimal numerals. We will combine this later with parse_escaped_char
 /// to parse sequences like \u{00AC}.
-pub fn parse_unicode<'a, F: LurkField>(
-) -> impl Fn(Span<'a>) -> IResult<Span<'a>, char, ParseError<Span<'a>, F>> {
+pub fn parse_unicode<'a, F: LurkField>() -> impl Fn(Span<'a>) -> ParseResult<'a, F, char> {
     move |from: Span<'a>| {
         let (i, hex) = preceded(
             char('u'),
@@ -49,7 +47,7 @@ pub fn parse_unicode<'a, F: LurkField>(
 pub fn parse_escaped_char<'a, F: LurkField>(
     delim: char,
     must_escape: &'static str,
-) -> impl Fn(Span<'a>) -> IResult<Span<'a>, char, ParseError<Span<'a>, F>> {
+) -> impl Fn(Span<'a>) -> ParseResult<'a, F, char> {
     move |from: Span<'a>| {
         let (i, _) = char('\\')(from)?;
         let (i, esc) = alt((
@@ -73,7 +71,7 @@ pub fn parse_escaped_char<'a, F: LurkField>(
 /// Parse a backslash, followed by any amount of whitespace. This is used
 /// later to discard any escaped whitespace.
 pub fn parse_escaped_whitespace<'a, F: LurkField>(
-) -> impl Fn(Span<'a>) -> IResult<Span<'a>, Span<'a>, ParseError<Span<'a>, F>> {
+) -> impl Fn(Span<'a>) -> ParseResult<'a, F, Span<'a>> {
     move |from: Span<'a>| preceded(char('\\'), multispace1)(from)
 }
 
@@ -82,7 +80,7 @@ pub fn parse_literal<'a, F: LurkField>(
     delim: char,
     whitespace: bool,
     must_escape: &'static str,
-) -> impl Fn(Span<'a>) -> IResult<Span<'a>, Span<'a>, ParseError<Span<'a>, F>> {
+) -> impl Fn(Span<'a>) -> ParseResult<'a, F, Span<'a>> {
     move |from: Span<'a>| {
         let mut s = String::from(must_escape);
         s.push(delim);
@@ -113,7 +111,7 @@ pub fn parse_fragment<'a, F: LurkField>(
     delim: char,
     whitespace: bool,
     must_escape: &'static str,
-) -> impl Fn(Span<'a>) -> IResult<Span<'a>, StringFragment<'a>, ParseError<Span<'a>, F>> {
+) -> impl Fn(Span<'a>) -> ParseResult<'a, F, StringFragment<'a>> {
     move |from: Span<'a>| {
         if whitespace {
             alt((
@@ -148,7 +146,7 @@ pub fn parse_string_inner1<'a, F: LurkField>(
     delim: char,
     whitespace: bool,
     must_escape: &'static str,
-) -> impl Fn(Span<'a>) -> IResult<Span<'a>, String, ParseError<Span<'a>, F>> {
+) -> impl Fn(Span<'a>) -> ParseResult<'a, F, String> {
     move |from: Span<'a>| {
         fold_many1(
             parse_fragment(delim, whitespace, must_escape),
@@ -171,7 +169,7 @@ pub fn parse_string_inner<'a, F: LurkField>(
     delim: char,
     whitespace: bool,
     must_escape: &'static str,
-) -> impl Fn(Span<'a>) -> IResult<Span<'a>, String, ParseError<Span<'a>, F>> {
+) -> impl Fn(Span<'a>) -> ParseResult<'a, F, String> {
     move |from: Span<'a>| {
         fold_many0(
             parse_fragment(delim, whitespace, must_escape),
@@ -191,7 +189,7 @@ pub fn parse_string_inner<'a, F: LurkField>(
 /// Parse a string with the outer delimiter characters
 pub fn parse_string<'a, F: LurkField>(
     delim: char,
-) -> impl Fn(Span<'a>) -> IResult<Span<'a>, String, ParseError<Span<'a>, F>> {
+) -> impl Fn(Span<'a>) -> ParseResult<'a, F, String> {
     move |from: Span<'a>| {
         delimited(
             char(delim),

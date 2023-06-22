@@ -12,6 +12,7 @@ pub mod string;
 pub mod syntax;
 
 pub type Span<'a> = nom_locate::LocatedSpan<&'a str>;
+pub type ParseResult<'a, F, T> = nom::IResult<Span<'a>, T, error::ParseError<Span<'a>, F>>;
 
 // see https://github.com/sg16-unicode/sg16/issues/69
 pub static LURK_WHITESPACE: [char; 27] = [

@@ -7,7 +7,6 @@ use nom::{
     error::context,
     multi::{many0, separated_list1},
     sequence::{delimited, preceded, terminated},
-    IResult,
 };
 
 use crate::{
@@ -16,7 +15,7 @@ use crate::{
         base,
         error::{ParseError, ParseErrorKind},
         position::Pos,
-        string, Span,
+        string, ParseResult, Span,
     },
     symbol,
     symbol::Symbol,
@@ -24,30 +23,24 @@ use crate::{
     uint::UInt,
 };
 
-pub fn parse_line_comment<F: LurkField>(
-    i: Span<'_>,
-) -> IResult<Span<'_>, Span<'_>, ParseError<Span<'_>, F>> {
+pub fn parse_line_comment<F: LurkField>(i: Span<'_>) -> ParseResult<'_, F, Span<'_>> {
     let (i, _) = tag(";;")(i)?;
     let (i, com) = take_till(|c| c == '\n')(i)?;
     Ok((i, com))
 }
-pub fn parse_space<F: LurkField>(
-    i: Span<'_>,
-) -> IResult<Span<'_>, Vec<Span<'_>>, ParseError<Span<'_>, F>> {
+pub fn parse_space<F: LurkField>(i: Span<'_>) -> ParseResult<'_, F, Vec<Span<'_>>> {
     let (i, _) = multispace0(i)?;
     let (i, com) = many0(terminated(parse_line_comment, multispace1))(i)?;
     Ok((i, com))
 }
-pub fn parse_space1<F: LurkField>(
-    i: Span<'_>,
-) -> IResult<Span<'_>, Vec<Span<'_>>, ParseError<Span<'_>, F>> {
+
+pub fn parse_space1<F: LurkField>(i: Span<'_>) -> ParseResult<'_, F, Vec<Span<'_>>> {
     let (i, _) = multispace1(i)?;
     let (i, com) = many0(terminated(parse_line_comment, multispace1))(i)?;
     Ok((i, com))
 }
 
-pub fn parse_symbol_limb<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, String, ParseError<Span<'_>, F>> {
+pub fn parse_symbol_limb<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, String> {
     move |from: Span<'_>| {
         let (i, s) = alt((
             delimited(
@@ -62,8 +55,7 @@ pub fn parse_symbol_limb<F: LurkField>(
     }
 }
 
-pub fn parse_symbol_inner<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Symbol, ParseError<Span<'_>, F>> {
+pub fn parse_symbol_inner<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Symbol> {
     move |from: Span<'_>| {
         let key_mark = symbol::KEYWORD_MARKER;
         let sym_mark = symbol::SYM_MARKER;
@@ -95,8 +87,7 @@ pub fn parse_symbol_inner<F: LurkField>(
     }
 }
 
-pub fn parse_symbol<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
+pub fn parse_symbol<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
         let (upto, sym) = parse_symbol_inner()(from)?;
         let pos = Pos::from_upto(from, upto);
@@ -108,8 +99,7 @@ pub fn parse_symbol<F: LurkField>(
     }
 }
 
-pub fn parse_uint<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
+pub fn parse_uint<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
         let (i, base) = alt((
             preceded(tag("0"), base::parse_litbase_code()),
@@ -150,7 +140,7 @@ fn f_from_le_bytes<F: LurkField>(bs: &[u8]) -> F {
 
 pub fn parse_num_inner<F: LurkField>(
     base: base::LitBase,
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Num<F>, ParseError<Span<'_>, F>> {
+) -> impl Fn(Span<'_>) -> ParseResult<'_, F, Num<F>> {
     move |from: Span<'_>| {
         let (upto, bytes): (Span<'_>, Vec<u8>) = base::parse_litbase_le_bytes(base)(from)?;
         let max_bytes = (F::ZERO - F::ONE).to_bytes();
@@ -171,8 +161,7 @@ pub fn parse_num_inner<F: LurkField>(
     }
 }
 
-pub fn parse_num<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
+pub fn parse_num<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
         let (i, neg) = opt(tag("-"))(from)?;
         let (i, base) = alt((
@@ -195,8 +184,7 @@ pub fn parse_num<F: LurkField>(
     }
 }
 
-pub fn parse_string<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
+pub fn parse_string<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
         let (upto, s) = string::parse_string('"')(from)?;
         let pos = Pos::from_upto(from, upto);
@@ -205,8 +193,7 @@ pub fn parse_string<F: LurkField>(
 }
 
 // hash syntax for chars
-pub fn parse_hash_char<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
+pub fn parse_hash_char<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     |from: Span<'_>| {
         let (i, _) = tag("#\\")(from)?;
         let (upto, c) = alt((string::parse_unicode(), anychar))(i)?;
@@ -215,8 +202,7 @@ pub fn parse_hash_char<F: LurkField>(
     }
 }
 
-pub fn parse_char<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
+pub fn parse_char<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
         let (i, _) = tag("'")(from)?;
         let (i, s) = string::parse_string_inner1('\'', true, "()'")(i)?;
@@ -232,8 +218,7 @@ pub fn parse_char<F: LurkField>(
     }
 }
 
-pub fn parse_list<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
+pub fn parse_list<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
         let (i, _) = tag("(")(from)?;
         //let (i, _) = parse_space(i)?;
@@ -253,8 +238,7 @@ pub fn parse_list<F: LurkField>(
     }
 }
 
-pub fn parse_quote<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
+pub fn parse_quote<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
         let (i, c) = opt(parse_char())(from)?;
         if let Some(c) = c {
@@ -269,8 +253,7 @@ pub fn parse_quote<F: LurkField>(
 }
 
 // top-level syntax parser
-pub fn parse_syntax<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Syntax<F>, ParseError<Span<'_>, F>> {
+pub fn parse_syntax<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
         alt((
             parse_hash_char(),
@@ -285,7 +268,7 @@ pub fn parse_syntax<F: LurkField>(
 }
 
 pub fn parse_maybe_meta<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Option<(bool, Syntax<F>)>, ParseError<Span<'_>, F>> {
+) -> impl Fn(Span<'_>) -> ParseResult<'_, F, Option<(bool, Syntax<F>)>> {
     move |from: Span<'_>| {
         let (_, is_eof) = opt(nom::combinator::eof)(from)?;
         if is_eof.is_some() {

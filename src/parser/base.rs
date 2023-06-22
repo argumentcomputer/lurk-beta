@@ -8,12 +8,12 @@ use nom::{
     character::complete::satisfy,
     combinator::value,
     error::context,
-    IResult, InputTakeAtPosition,
+    InputTakeAtPosition,
 };
 
 use crate::parser::{
     error::{map_parse_err, ParseError, ParseErrorKind},
-    Span,
+    ParseResult, Span,
 };
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
@@ -31,9 +31,7 @@ impl Default for LitBase {
 }
 
 impl LitBase {
-    pub fn parse_code<F: LurkField>(
-        i: Span<'_>,
-    ) -> IResult<Span<'_>, Self, ParseError<Span<'_>, F>> {
+    pub fn parse_code<F: LurkField>(i: Span<'_>) -> ParseResult<'_, F, Self> {
         alt((
             value(Self::Bin, tag("b")),
             value(Self::Oct, tag("o")),
@@ -79,10 +77,7 @@ impl LitBase {
         base_x::encode(self.base_digits(), input.as_ref())
     }
 
-    pub fn decode<'a, F: LurkField>(
-        &self,
-        input: Span<'a>,
-    ) -> IResult<Span<'a>, Vec<u8>, ParseError<Span<'a>, F>> {
+    pub fn decode<'a, F: LurkField>(&self, input: Span<'a>) -> ParseResult<'a, F, Vec<u8>> {
         let (i, o) = input.split_at_position_complete(|x| !self.is_digit(x))?;
         match base_x::decode(self.base_digits(), o.fragment()) {
             Ok(bytes) => Ok((i, bytes)),
@@ -96,8 +91,7 @@ impl LitBase {
 
 macro_rules! define_parse_digits {
     ($name:ident, $base:ident, $digit_str:expr, $digits_str:expr, $map_fn:expr) => {
-        pub fn $name<F: LurkField>(
-        ) -> impl Fn(Span<'_>) -> IResult<Span<'_>, String, ParseError<Span<'_>, F>> {
+        pub fn $name<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, String> {
             move |from: Span<'_>| {
                 let (i, d) = context($digit_str, satisfy(|x| LitBase::$base.is_digit(x)))(from)?;
                 let (i, ds) = context(
@@ -138,8 +132,7 @@ define_parse_digits!(
     |x| x.to_ascii_lowercase()
 );
 
-pub fn parse_litbase_code<F: LurkField>(
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, LitBase, ParseError<Span<'_>, F>> {
+pub fn parse_litbase_code<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, LitBase> {
     move |from: Span<'_>| {
         map_parse_err(
             alt((
@@ -156,7 +149,7 @@ pub fn parse_litbase_code<F: LurkField>(
 #[allow(clippy::type_complexity)]
 pub fn parse_litbase_digits<F: LurkField>(
     base: LitBase,
-) -> Box<dyn Fn(Span<'_>) -> IResult<Span<'_>, String, ParseError<Span<'_>, F>>> {
+) -> Box<dyn Fn(Span<'_>) -> ParseResult<'_, F, String>> {
     Box::new(move |from: Span<'_>| match base {
         LitBase::Bin => parse_bin_digits()(from),
         LitBase::Oct => parse_oct_digits()(from),
@@ -167,7 +160,7 @@ pub fn parse_litbase_digits<F: LurkField>(
 
 pub fn parse_litbase_be_bytes<F: LurkField>(
     base: LitBase,
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Vec<u8>, ParseError<Span<'_>, F>> {
+) -> impl Fn(Span<'_>) -> ParseResult<'_, F, Vec<u8>> {
     move |from: Span<'_>| {
         let (i, o): (Span<'_>, String) = parse_litbase_digits(base)(from)?;
         match base_x::decode(base.base_digits(), &o) {
@@ -182,7 +175,7 @@ pub fn parse_litbase_be_bytes<F: LurkField>(
 
 pub fn parse_litbase_le_bytes<F: LurkField>(
     base: LitBase,
-) -> impl Fn(Span<'_>) -> IResult<Span<'_>, Vec<u8>, ParseError<Span<'_>, F>> {
+) -> impl Fn(Span<'_>) -> ParseResult<'_, F, Vec<u8>> {
     move |from: Span<'_>| {
         let (i, bytes) = parse_litbase_be_bytes(base)(from)?;
         Ok((i, bytes.into_iter().rev().collect()))
