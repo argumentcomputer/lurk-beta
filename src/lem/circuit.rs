@@ -163,20 +163,18 @@ impl LEMOP {
                 });
                 Ok(slots_counter.next_hash4())
             }
-            LEMOP::MatchTag(_, cases) => {
-                cases.values().try_fold(slots_counter, |acc, op| {
-                    Ok(acc.max(op.slots_info_rec(slots_map, slots_counter)?))
-                })
-            }
+            LEMOP::MatchTag(_, cases) => cases.values().try_fold(slots_counter, |acc, op| {
+                Ok(acc.max(op.slots_info_rec(slots_map, slots_counter)?))
+            }),
             LEMOP::MatchSymbol(_, cases, def) => {
                 let init = def.slots_info_rec(slots_map, slots_counter)?;
                 cases.values().try_fold(init, |acc, op| {
                     Ok(acc.max(op.slots_info_rec(slots_map, slots_counter)?))
                 })
             }
-            LEMOP::Seq(ops) => ops.iter().try_fold(slots_counter, |acc, op| {
-                Ok(op.slots_info_rec(slots_map, acc)?)
-            }),
+            LEMOP::Seq(ops) => ops
+                .iter()
+                .try_fold(slots_counter, |acc, op| op.slots_info_rec(slots_map, acc)),
             _ => Ok(slots_counter),
         }
     }
