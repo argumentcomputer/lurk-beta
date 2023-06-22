@@ -441,7 +441,7 @@ mod tests {
         constrain_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((2, 2, 2)),
+            NumSlots::new((3, 3, 3)),
         );
     }
 
@@ -491,7 +491,7 @@ mod tests {
         constrain_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((2, 2, 2)),
+            NumSlots::new((4, 4, 4)),
         );
     }
 }

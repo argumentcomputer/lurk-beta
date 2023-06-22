@@ -5,39 +5,66 @@ use crate::field::LurkField;
 
 use super::{interpreter::Frame, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEMOP};
 
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub(crate) enum PathNode {
+    Tag(Tag),
+    Symbol(Symbol),
+    Default,
+}
+
+impl std::fmt::Display for PathNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Tag(tag) => write!(f, "Tag({})", tag),
+            Self::Symbol(symbol) => write!(f, "Symbol({})", symbol),
+            Self::Default => write!(f, "Default"),
+        }
+    }
+}
+
 #[derive(Default, Clone, PartialEq, Eq, Hash)]
-pub struct Path(String);
+pub struct Path(Vec<PathNode>);
 
 impl std::fmt::Display for Path {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        let strings = self.0.iter().map(|x| format!("{}", x)).collect::<Vec<_>>();
+        write!(f, "{}", strings.join("."))
     }
 }
 
 impl Path {
-    #[inline]
     pub fn push_tag(&self, tag: &Tag) -> Path {
-        Path(format!("{self}.Tag({tag})"))
+        let mut path = self.0.clone();
+        path.push(PathNode::Tag(*tag));
+        Path(path)
     }
 
-    #[inline]
     pub fn push_symbol(&self, symbol: &Symbol) -> Path {
-        Path(format!("{self}.Symbol({symbol})"))
+        let mut path = self.0.clone();
+        path.push(PathNode::Symbol(symbol.clone()));
+        Path(path)
     }
 
     #[inline]
     pub fn push_default(&self) -> Path {
-        Path(format!("{self}.Default"))
+        let mut path = self.0.clone();
+        path.push(PathNode::Default);
+        Path(path)
     }
 
     #[inline]
     pub fn push_tag_inplace(&mut self, tag: &Tag) {
-        self.0 = format!("{self}.Tag({tag})");
+        self.0.push(PathNode::Tag(*tag));
     }
 
     #[inline]
     pub fn push_symbol_inplace(&mut self, symbol: &Symbol) {
-        self.0 = format!("{self}.Symbol({symbol})");
+        self.0.push(PathNode::Symbol(symbol.clone()));
+    }
+
+    #[inline]
+    pub fn push_default_inplace(&mut self) {
+        self.0.push(PathNode::Default);
     }
 }
 
@@ -226,10 +253,15 @@ impl LEMOP {
                     let Some(symbol) = store.fetch_symbol(ptr) else {
                         bail!("Symbol not found for {}", match_ptr.name());
                     };
-                    path.push_symbol_inplace(&symbol);
                     match cases.get(&symbol) {
-                        Some(op) => stack.push(op),
-                        None => stack.push(def),
+                        Some(op) => {
+                            path.push_symbol_inplace(&symbol);
+                            stack.push(op);
+                        }
+                        None => {
+                            path.push_default_inplace();
+                            stack.push(def)
+                        }
                     }
                 }
                 Self::Seq(ops) => stack.extend(ops.iter().rev()),

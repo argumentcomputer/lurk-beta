@@ -149,62 +149,23 @@ impl LEMOP {
     /// we want those hashes to occupy the same slot. We do this by using a
     /// `SlotsCounter`, which can return the next index for a slot category
     /// (`Hash2`, `Hash3` etc).
-    ///
-    /// Further, when we:
-    /// * Construct the same pointer twice
-    /// * Deconstruct the same pointer twice
-    /// * Construct a pointer that was previously deconstructed
-    /// * Deconstruct a pointer that was previously constructed
-    ///
-    /// We want to reuse the same slot as before. To accomplish this, we use
-    /// hashmaps that can recover the slots that were previously allocated.
     pub fn slots_info(&self) -> Result<SlotsInfo> {
         let mut slots_map = IndexMap::default();
         let mut slots = IndexSet::default();
 
-        // these hashmaps keep track of slots that were allocated for preimages
-        let mut preimgs2_map: HashMap<&[MetaPtr; 2], Slot> = HashMap::default();
-        let mut preimgs3_map: HashMap<&[MetaPtr; 3], Slot> = HashMap::default();
-        let mut preimgs4_map: HashMap<&[MetaPtr; 4], Slot> = HashMap::default();
-
-        // these hashmaps keep track of slots that were allocated for images
-        let mut imgs2_map: HashMap<&MetaPtr, Slot> = HashMap::default();
-        let mut imgs3_map: HashMap<&MetaPtr, Slot> = HashMap::default();
-        let mut imgs4_map: HashMap<&MetaPtr, Slot> = HashMap::default();
-
         let mut slots_counter = SlotsCounter::default();
         let mut stack = vec![(self, Path::default())];
         while let Some((op, path)) = stack.pop() {
-            /// Designates a slot for a pair of preimage/image. If a slot has
-            /// already been allocated for either the preimage or the image,
-            /// reuses it. Otherwise, allocates a new one.
-            macro_rules! populate_slots_map {
-                ( $preimg: expr, $img: expr, $preimgs_map: expr, $imgs_map: expr, $counter_fn: expr ) => {
-                    match ($preimgs_map.get($preimg), $imgs_map.get($img)) {
-                        (Some(slot), _) | (_, Some(slot)) => {
-                            // reusing a slot
-                            if slots_map.insert(op.clone(), *slot).is_some() {
-                                bail!("Duplicated LEMOP: {:?}", op)
-                            }
-                        }
-                        (None, None) => {
-                            // allocating a new slot
-                            let slot_idx = $counter_fn(path);
-                            let slot_type = SlotType::from_lemop(op);
-                            let slot = Slot {
-                                idx: slot_idx,
-                                typ: slot_type,
-                            };
-                            if slots_map.insert(op.clone(), slot).is_some() {
-                                bail!("Duplicated LEMOP: {:?}", op)
-                            }
-                            slots.insert(slot);
-
-                            // memoize
-                            $preimgs_map.insert($preimg, slot);
-                            $imgs_map.insert($img, slot);
-                        }
+            macro_rules! populate_slots_info {
+                ( $slot_idx: expr ) => {
+                    let slot = Slot {
+                        idx: $slot_idx,
+                        typ: SlotType::from_lemop(op),
                     };
+                    if slots_map.insert(op.clone(), slot).is_some() {
+                        bail!("Duplicated LEMOP: {:?}", op)
+                    }
+                    slots.insert(slot);
                 };
             }
 
@@ -217,20 +178,14 @@ impl LEMOP {
                 };
             }
             match op {
-                LEMOP::Hash2(img, _, preimg) | LEMOP::Unhash2(preimg, img) => {
-                    populate_slots_map!(preimg, img, preimgs2_map, imgs2_map, |path| {
-                        slots_counter.next_hash2(path)
-                    });
+                LEMOP::Hash2(..) | LEMOP::Unhash2(..) => {
+                    populate_slots_info!(slots_counter.next_hash2(path));
                 }
-                LEMOP::Hash3(img, _, preimg) | LEMOP::Unhash3(preimg, img) => {
-                    populate_slots_map!(preimg, img, preimgs3_map, imgs3_map, |path| {
-                        slots_counter.next_hash3(path)
-                    });
+                LEMOP::Hash3(..) | LEMOP::Unhash3(..) => {
+                    populate_slots_info!(slots_counter.next_hash3(path));
                 }
-                LEMOP::Hash4(img, _, preimg) | LEMOP::Unhash4(preimg, img) => {
-                    populate_slots_map!(preimg, img, preimgs4_map, imgs4_map, |path| {
-                        slots_counter.next_hash4(path)
-                    });
+                LEMOP::Hash4(..) | LEMOP::Unhash4(..) => {
+                    populate_slots_info!(slots_counter.next_hash4(path));
                 }
                 LEMOP::Seq(ops) => {
                     stack.extend(ops.iter().rev().map(|op| (op, path.clone())));
