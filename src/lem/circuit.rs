@@ -62,6 +62,8 @@ use super::{
     path::Path,
     pointers::ZPtr,
     store::Store,
+    symbol::Symbol,
+    tag::Tag,
     MetaPtr, LEM, LEMOP,
 };
 
@@ -117,10 +119,28 @@ impl SlotsCounter {
         self.hash4.tick(path)
     }
 
-    pub(crate) fn cont(&mut self, new: Path, from: &Path) {
+    pub(crate) fn cont_with_tag(&mut self, from: &Path, tag: &Tag) -> Path {
+        let new = from.push_tag(tag);
         self.hash2.cont(new.clone(), from);
         self.hash3.cont(new.clone(), from);
-        self.hash4.cont(new, from);
+        self.hash4.cont(new.clone(), from);
+        new
+    }
+
+    pub(crate) fn cont_with_symbol(&mut self, from: &Path, symbol: &Symbol) -> Path {
+        let new = from.push_symbol(symbol);
+        self.hash2.cont(new.clone(), from);
+        self.hash3.cont(new.clone(), from);
+        self.hash4.cont(new.clone(), from);
+        new
+    }
+
+    pub(crate) fn cont_with_default(&mut self, from: &Path) -> Path {
+        let new = from.push_default();
+        self.hash2.cont(new.clone(), from);
+        self.hash3.cont(new.clone(), from);
+        self.hash4.cont(new.clone(), from);
+        new
     }
 }
 
@@ -168,15 +188,6 @@ impl LEMOP {
                     slots.insert(slot);
                 };
             }
-
-            /// Enqueues a `new_path` to be explored, inheriting the slot counters
-            /// from `path`
-            macro_rules! cont_and_push {
-                ( $new_path: expr, $op_to_stack: expr ) => {
-                    slots_counter.cont($new_path.clone(), &path);
-                    stack.push(($op_to_stack, $new_path))
-                };
-            }
             match op {
                 LEMOP::Hash2(..) | LEMOP::Unhash2(..) => {
                     populate_slots_info!(slots_counter.next_hash2(path));
@@ -192,14 +203,14 @@ impl LEMOP {
                 }
                 LEMOP::MatchTag(_, cases) => {
                     for (tag, op) in cases {
-                        cont_and_push!(path.push_tag(tag), op);
+                        stack.push((op, slots_counter.cont_with_tag(&path, tag)));
                     }
                 }
                 LEMOP::MatchSymbol(_, cases, def) => {
                     for (symbol, op) in cases {
-                        cont_and_push!(path.push_symbol(symbol), op);
+                        stack.push((op, slots_counter.cont_with_symbol(&path, symbol)));
                     }
-                    cont_and_push!(path.push_default(), def);
+                    stack.push((def, slots_counter.cont_with_default(&path)));
                 }
                 _ => (),
             }
