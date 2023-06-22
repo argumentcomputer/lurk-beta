@@ -50,85 +50,35 @@ use super::{
     path::Path,
     pointers::ZPtr,
     store::Store,
-    symbol::Symbol,
-    tag::Tag,
     MetaPtr, LEM, LEMCTL, LEMOP, AString
 };
 
-/// Holds a counter per path. We want to use this to count the number of slots
-/// that have already been used on each LEM path.
-#[derive(Default)]
-struct PathTicker(HashMap<Path, usize>);
-
-impl PathTicker {
-    /// Increments the counter of a path. If the path wasn't tracked, returns
-    /// `0` and starts tracking it
-    pub(crate) fn tick(&mut self, path: Path) -> usize {
-        let next = self.0.get(&path).unwrap_or(&0).to_owned();
-        self.0.insert(path, next + 1);
-        next
-    }
-
-    /// Starts tracking a new path with a counter from another. If the reference
-    /// path wasn't being tracked, the new one won't be either, such that calling
-    /// `next` will return `0`.
-    pub(crate) fn cont(&mut self, new: Path, from: &Path) {
-        match self.0.get(from) {
-            Some(i) => {
-                self.0.insert(new, *i);
-            }
-            None => (),
-        }
-    }
-}
-
 /// Keeps track of previously used slots indices for each possible LEM path,
 /// being capable of informing the next slot index to be used
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct SlotsCounter {
-    hash2: PathTicker,
-    hash3: PathTicker,
-    hash4: PathTicker,
+    hash2: usize,
+    hash3: usize,
+    hash4: usize,
 }
 
 impl SlotsCounter {
     #[inline]
-    pub(crate) fn next_hash2(&mut self, path: Path) -> usize {
-        self.hash2.tick(path)
+    pub(crate) fn consume_hash2(&mut self) -> usize {
+        self.hash2 = self.hash2 + 1;
+        self.hash2
     }
 
     #[inline]
-    pub(crate) fn next_hash3(&mut self, path: Path) -> usize {
-        self.hash3.tick(path)
+    pub(crate) fn consume_hash3(&mut self) -> usize {
+        self.hash3 = self.hash3 + 1;
+        self.hash3
     }
 
     #[inline]
-    pub(crate) fn next_hash4(&mut self, path: Path) -> usize {
-        self.hash4.tick(path)
-    }
-
-    pub(crate) fn cont_with_tag(&mut self, from: &Path, tag: &Tag) -> Path {
-        let new = from.push_tag(tag);
-        self.hash2.cont(new.clone(), from);
-        self.hash3.cont(new.clone(), from);
-        self.hash4.cont(new.clone(), from);
-        new
-    }
-
-    pub(crate) fn cont_with_symbol(&mut self, from: &Path, symbol: &Symbol) -> Path {
-        let new = from.push_symbol(symbol);
-        self.hash2.cont(new.clone(), from);
-        self.hash3.cont(new.clone(), from);
-        self.hash4.cont(new.clone(), from);
-        new
-    }
-
-    pub(crate) fn cont_with_default(&mut self, from: &Path) -> Path {
-        let new = from.push_default();
-        self.hash2.cont(new.clone(), from);
-        self.hash3.cont(new.clone(), from);
-        self.hash4.cont(new.clone(), from);
-        new
+    pub(crate) fn consume_hash4(&mut self) -> usize {
+        self.hash4 = self.hash4 + 1;
+        self.hash4
     }
 }
 
@@ -163,36 +113,35 @@ impl LEMCTL {
         let mut slots_counter = SlotsCounter::default();
 
         fn recurse<'a>(
-            code: &'a LEMCTL, path: Path, slots_counter: &mut SlotsCounter, slots_info: &mut SlotsInfo
+            code: &'a LEMCTL, slots_counter: &mut SlotsCounter, slots_info: &mut SlotsInfo
         ) -> Result<()> {
             match code {
                 LEMCTL::MatchTag(_, cases) => {
-                    for (tag, code) in cases {
-                        let new_path = slots_counter.cont_with_tag(&path, tag);
-                        recurse(code, new_path, slots_counter, slots_info)?;
+                    for (_, code) in cases {
+                        let mut save_counter = slots_counter.clone();
+                        recurse(code, &mut save_counter, slots_info)?;
                     }
                     Ok(())
                 }
                 LEMCTL::MatchSymbol(_, cases, def) => {
-                    for (symbol, code) in cases {
-                        let new_path = slots_counter.cont_with_symbol(&path, symbol);
-                        recurse(code, new_path, slots_counter, slots_info)?;
+                    for (_, code) in cases {
+                        let mut save_counter = slots_counter.clone();
+                        recurse(code, &mut save_counter, slots_info)?;
                     }
-                    let new_path = slots_counter.cont_with_default(&path);
-                    recurse(def, new_path, slots_counter, slots_info)
+                    recurse(def, slots_counter, slots_info)
                 }
                 LEMCTL::Seq(op, rest) => {
                     let slot_idx = match op {
                         LEMOP::Hash2(..) | LEMOP::Unhash2(..) => {
-                            slots_counter.next_hash2(path.clone())
+                            slots_counter.consume_hash2()
                         }
                         LEMOP::Hash3(..) | LEMOP::Unhash3(..) => {
-                            slots_counter.next_hash3(path.clone())
+                            slots_counter.consume_hash3()
                         }
                         LEMOP::Hash4(..) | LEMOP::Unhash4(..) => {
-                            slots_counter.next_hash4(path.clone())
+                            slots_counter.consume_hash4()
                         }
-                        _ => return recurse(rest, path, slots_counter, slots_info)
+                        _ => return recurse(rest, slots_counter, slots_info)
                     };
                     let slot = Slot {
                         idx: slot_idx,
@@ -202,12 +151,12 @@ impl LEMCTL {
                         bail!("Duplicated LEMOP: {:?}", op)
                     }
                     slots_info.slots.insert(slot);
-                    recurse(rest, path, slots_counter, slots_info)
+                    recurse(rest, slots_counter, slots_info)
                 },
                 LEMCTL::Return(..) => Ok(()),
             }
         }
-        recurse(&self, Path::default(), &mut slots_counter, &mut slots_info)?;
+        recurse(&self, &mut slots_counter, &mut slots_info)?;
         Ok(slots_info)
     }
 }
