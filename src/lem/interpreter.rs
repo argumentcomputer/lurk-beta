@@ -84,8 +84,8 @@ fn retrieve_many<F: LurkField>(
     args.iter()
         .map(|mptr| {
             let Some(ptr) = map.get(mptr).cloned() else {
-            bail!("{} not defined", mptr.name());
-        };
+                bail!("{} not defined", mptr.name());
+            };
             Ok(ptr)
         })
         .collect::<Result<Vec<_>>>()

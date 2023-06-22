@@ -45,7 +45,6 @@ impl Path {
         Path(path)
     }
 
-    #[inline]
     pub fn push_default(&self) -> Path {
         let mut path = self.0.clone();
         path.push(PathNode::Default);
@@ -96,8 +95,8 @@ fn retrieve_many(map: &HashMap<String, String>, args: &[MetaPtr]) -> Result<Vec<
     args.iter()
         .map(|ptr| {
             let Some(src_path) = map.get(ptr.name()).cloned() else {
-            bail!("{} not defined", ptr.name());
-        };
+                bail!("{} not defined", ptr.name());
+            };
             Ok(MetaPtr(src_path))
         })
         .collect::<Result<Vec<_>>>()
@@ -105,8 +104,8 @@ fn retrieve_many(map: &HashMap<String, String>, args: &[MetaPtr]) -> Result<Vec<
 
 fn retrieve_one(map: &HashMap<String, String>, ptr: &MetaPtr) -> Result<MetaPtr> {
     let Some(src_path) = map.get(ptr.name()).cloned() else {
-    bail!("{} not defined", ptr.name());
-};
+        bail!("{} not defined", ptr.name());
+    };
     Ok(MetaPtr(src_path))
 }
 
