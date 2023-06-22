@@ -3,7 +3,8 @@ use anyhow::{bail, Result};
 use std::collections::HashMap;
 
 use super::{
-    circuit::SlotsInfo, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM, LEMCTL, LEMOP,
+    circuit::SlotsInfo, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM,
+    LEMCTL, LEMOP,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -93,7 +94,11 @@ fn retrieve_many<F: LurkField>(
 }
 
 #[inline(always)]
-fn bind<F: LurkField>(binds: &mut HashMap<MetaPtr, Ptr<F>>, mptr: MetaPtr, ptr: Ptr<F>) -> Result<()> {
+fn bind<F: LurkField>(
+    binds: &mut HashMap<MetaPtr, Ptr<F>>,
+    mptr: MetaPtr,
+    ptr: Ptr<F>,
+) -> Result<()> {
     if binds.insert(mptr.clone(), ptr).is_some() {
         bail!("{} already defined", mptr)
     }
@@ -192,28 +197,25 @@ impl LEMOP {
                     bail!("{sec} is not a numeric pointer")
                 };
                 let z_ptr = store.hash_ptr(src_ptr)?;
-                let hash =
-                    store
-                        .poseidon_cache
-                        .hash3(&[*secret, z_ptr.tag.to_field(), z_ptr.hash]);
+                let hash = store
+                    .poseidon_cache
+                    .hash3(&[*secret, z_ptr.tag.to_field(), z_ptr.hash]);
                 let tgt_ptr = Ptr::comm(hash);
                 store.comms.insert(FWrap::<F>(hash), (*secret, *src_ptr));
                 bind(binds, tgt.clone(), tgt_ptr)
             }
-            LEMOP::Open(tgt_secret, tgt_ptr, comm_or_num) => {
-                match comm_or_num.get_ptr(&binds)? {
-                    Ptr::Leaf(Tag::Num, hash) | Ptr::Leaf(Tag::Comm, hash) => {
-                        let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
+            LEMOP::Open(tgt_secret, tgt_ptr, comm_or_num) => match comm_or_num.get_ptr(&binds)? {
+                Ptr::Leaf(Tag::Num, hash) | Ptr::Leaf(Tag::Comm, hash) => {
+                    let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
                             bail!("No committed data for hash {}", &hash.hex_digits())
                         };
-                        bind(binds, tgt_ptr.clone(), *ptr)?;
-                        bind(binds, tgt_secret.clone(), Ptr::Leaf(Tag::Num, *secret))
-                    }
-                    _ => {
-                        bail!("{comm_or_num} is not a num/comm pointer")
-                    }
+                    bind(binds, tgt_ptr.clone(), *ptr)?;
+                    bind(binds, tgt_secret.clone(), Ptr::Leaf(Tag::Num, *secret))
                 }
-            }
+                _ => {
+                    bail!("{comm_or_num} is not a num/comm pointer")
+                }
+            },
         }
     }
 }
@@ -254,7 +256,7 @@ impl LEMCTL {
                     op.run(store, &mut binds, &mut visits, slots_info)?;
                 }
                 rest.run(input, store, binds, visits, slots_info)
-            },
+            }
             LEMCTL::Return(o) => {
                 let output = [
                     *o[0].get_ptr(&binds)?,

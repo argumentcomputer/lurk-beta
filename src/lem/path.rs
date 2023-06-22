@@ -3,7 +3,9 @@ use std::collections::{HashMap, HashSet};
 
 use crate::field::LurkField;
 
-use super::{interpreter::Frame, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEMCTL, LEMOP, AString};
+use super::{
+    interpreter::Frame, store::Store, symbol::Symbol, tag::Tag, AString, MetaPtr, LEMCTL, LEMOP,
+};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) enum PathNode {
@@ -67,7 +69,11 @@ impl Path {
     }
 }
 
-fn insert_many(map: &mut HashMap<AString, AString>, path: &Path, ptr: &[MetaPtr]) -> Result<Vec<MetaPtr>> {
+fn insert_many(
+    map: &mut HashMap<AString, AString>,
+    path: &Path,
+    ptr: &[MetaPtr],
+) -> Result<Vec<MetaPtr>> {
     ptr.iter()
         .map(|ptr| {
             let new_name: AString = format!("{}.{}", path, ptr.name()).into();
@@ -105,7 +111,6 @@ fn retrieve_one(map: &HashMap<AString, AString>, ptr: &MetaPtr) -> Result<MetaPt
     Ok(MetaPtr(src_path))
 }
 
-
 impl LEMCTL {
     /// Removes conflicting names in parallel logical LEM paths. While these
     /// conflicting names shouldn't be an issue for interpretation, they are
@@ -138,8 +143,7 @@ impl LEMCTL {
             LEMCTL::MatchSymbol(ptr, cases, def) => {
                 let mut new_cases = vec![];
                 for (symbol, case) in cases {
-                    let new_case =
-                        case.deconflict(&path.push_symbol(symbol), &mut map.clone())?;
+                    let new_case = case.deconflict(&path.push_symbol(symbol), &mut map.clone())?;
                     new_cases.push((symbol.clone(), new_case));
                 }
                 Ok(LEMCTL::MatchSymbol(
@@ -149,7 +153,7 @@ impl LEMCTL {
                 ))
             }
             LEMCTL::Seq(ops, rest) => {
-                let mut new_ops = vec!();
+                let mut new_ops = vec![];
                 for op in ops {
                     match op {
                         LEMOP::Null(ptr, tag) => {
@@ -203,11 +207,15 @@ impl LEMCTL {
     /// Computes the number of possible paths in a `LEMOP`
     pub fn num_paths(&self) -> usize {
         match self {
-            LEMCTL::MatchTag(_, cases) => cases.values().fold(0, |acc, code| acc + code.num_paths()),
-            LEMCTL::MatchSymbol(_, cases, _) => cases.values().fold(0, |acc, code| acc + code.num_paths()),
+            LEMCTL::MatchTag(_, cases) => {
+                cases.values().fold(0, |acc, code| acc + code.num_paths())
+            }
+            LEMCTL::MatchSymbol(_, cases, _) => {
+                cases.values().fold(0, |acc, code| acc + code.num_paths())
+            }
             LEMCTL::Seq(_, rest) => rest.num_paths(),
             LEMCTL::Return(..) => 1,
-       }
+        }
     }
 
     /// Computes the path taken through a `LEMOP` given a frame

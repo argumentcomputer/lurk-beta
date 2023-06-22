@@ -17,10 +17,7 @@ macro_rules! metaptrs {
 #[macro_export]
 macro_rules! lemop {
     ( let $tgt:ident : $tag:ident ) => {
-        $crate::lem::LEMOP::Null(
-            $crate::metaptr!($tgt),
-            $crate::lem::Tag::$tag,
-        )
+        $crate::lem::LEMOP::Null($crate::metaptr!($tgt), $crate::lem::Tag::$tag)
     };
     ( let $tgt:ident : $tag:ident = hash2($src1:ident, $src2:ident) ) => {
         $crate::lem::LEMOP::Hash2(
@@ -63,12 +60,16 @@ macro_rules! lemop {
     };
     ( let $tgt:ident = hide($sec:ident, $src:ident) ) => {
         $crate::lem::LEMOP::Hide(
-           $crate::metaptr!($tgt), $crate::metaptr!($sec), $crate::metaptr!($src),
+            $crate::metaptr!($tgt),
+            $crate::metaptr!($sec),
+            $crate::metaptr!($src),
         )
     };
     ( let ($sec:ident, $src:ident) = open($hash:ident) ) => {
         $crate::lem::LEMOP::Open(
-            $crate::metaptr!($sec), $crate::metaptr!($src), $crate::metaptr!($hash),
+            $crate::metaptr!($sec),
+            $crate::metaptr!($src),
+            $crate::metaptr!($hash),
         )
     };
 }
@@ -253,7 +254,11 @@ macro_rules! lem_code {
 macro_rules! lem {
     ($in1:ident $in2:ident $in3:ident $lem:tt) => {
         $crate::lem::LEM::new(
-            [stringify!($in1).into(), stringify!($in2).into(), stringify!($in3).into()],
+            [
+                stringify!($in1).into(),
+                stringify!($in2).into(),
+                stringify!($in3).into(),
+            ],
             &$crate::lem_code!($lem),
         )
     };
@@ -306,7 +311,8 @@ mod tests {
             LEMOP::Hide(mptr("bar"), mptr("baz"), mptr("bazz")),
             LEMOP::Open(mptr("bar"), mptr("baz"), mptr("bazz")),
         ];
-        let lemops_macro = vec!(lemop!(let foo: Num),
+        let lemops_macro = vec![
+            lemop!(let foo: Num),
             lemop!(let foo: Char = hash2(bar, baz)),
             lemop!(let foo: Char = hash3(bar, baz, bazz)),
             lemop!(let foo: Char = hash4(bar, baz, bazz, baxx)),
@@ -315,7 +321,7 @@ mod tests {
             lemop!(let (foo, goo, moo, noo) = unhash4(aaa)),
             lemop!(let bar = hide(baz, bazz)),
             lemop!(let (bar, baz) = open(bazz)),
-        );
+        ];
 
         for i in 0..9 {
             assert!(lemops[i] == lemops_macro[i]);

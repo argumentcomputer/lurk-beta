@@ -1,4 +1,3 @@
-
 use rayon::prelude::*;
 use std::collections::HashMap;
 
@@ -15,8 +14,7 @@ use std::sync::Arc;
 use super::{
     pointers::{Ptr, ZChildren, ZPtr},
     symbol::Symbol,
-    AString,
-    AVec,
+    AString, AVec,
 };
 
 /// The `Store` is a crucial part of Lurk's implementation and tries to be a
@@ -152,14 +150,14 @@ impl<F: LurkField> Store<F> {
     /// Interns a string recursively
     pub fn intern_string(&mut self, s: &str) -> Ptr<F> {
         if s.is_empty() {
-            return Ptr::null(Tag::Str)
+            return Ptr::null(Tag::Str);
         }
 
         let head = s.chars().nth(0).unwrap();
         let tail = &s[1..s.len()];
         match self.str_tails_cache.get(tail) {
             Some(ptr_cache) => return *ptr_cache,
-            None => ()
+            None => (),
         }
 
         let tail_ptr = self.intern_string(tail);
@@ -174,14 +172,14 @@ impl<F: LurkField> Store<F> {
         if path.is_empty() {
             let ptr = Ptr::null(Tag::Sym);
             self.sym_path_cache.insert(ptr, Arc::new([]));
-            return ptr
+            return ptr;
         }
 
         let head = &path[0];
         let tail = &path[1..path.len()];
         match self.sym_tails_cache.get(tail) {
             Some(ptr_cache) => return *ptr_cache,
-            None => ()
+            None => (),
         }
 
         let head_ptr = self.intern_string(&head);

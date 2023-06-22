@@ -50,7 +50,7 @@ use super::{
     path::Path,
     pointers::ZPtr,
     store::Store,
-    MetaPtr, LEM, LEMCTL, LEMOP, AString
+    AString, MetaPtr, LEM, LEMCTL, LEMOP,
 };
 
 /// Keeps track of previously used slots indices for each possible LEM path,
@@ -113,7 +113,9 @@ impl LEMCTL {
         let mut slots_counter = SlotsCounter::default();
 
         fn recurse<'a>(
-            code: &'a LEMCTL, slots_counter: &mut SlotsCounter, slots_info: &mut SlotsInfo
+            code: &'a LEMCTL,
+            slots_counter: &mut SlotsCounter,
+            slots_info: &mut SlotsInfo,
         ) -> Result<()> {
             match code {
                 LEMCTL::MatchTag(_, cases) => {
@@ -131,16 +133,10 @@ impl LEMCTL {
                 LEMCTL::Seq(ops, rest) => {
                     for op in ops {
                         let slot_idx = match op {
-                            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => {
-                                slots_counter.consume_hash2()
-                            }
-                            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => {
-                                slots_counter.consume_hash3()
-                            }
-                            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => {
-                                slots_counter.consume_hash4()
-                            }
-                            _ => continue
+                            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => slots_counter.consume_hash2(),
+                            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => slots_counter.consume_hash3(),
+                            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => slots_counter.consume_hash4(),
+                            _ => continue,
                         };
                         let slot = Slot {
                             idx: slot_idx,
@@ -152,7 +148,7 @@ impl LEMCTL {
                         slots_info.slots.insert(slot);
                     }
                     recurse(rest, slots_counter, slots_info)
-                },
+                }
                 LEMCTL::Return(..) => Ok(()),
             }
         }
@@ -486,7 +482,7 @@ impl LEM {
                                 // Retrieve the preallocated preimage and image for this slot
                                 let slot = slots_info.get_slot(op)?;
                                 let (preallocated_preimg, preallocated_img) = preallocations.get(slot).unwrap();
-                                
+
                                 // Add the implication constraint for the image
                                 implies_equal(
                                     &mut cs.namespace(|| {
@@ -496,7 +492,7 @@ impl LEM {
                                     $allocated_img.hash(),
                                     preallocated_img,
                                 )?;
-                                
+
                                 // For each component of the preimage, add implication constraints
                                 // for its tag and hash
                                 for (i, allocated_ptr) in $allocated_preimg.iter().enumerate() {
@@ -533,22 +529,25 @@ impl LEM {
                                     $img.name(),
                                     &allocated_ptrs,
                                 )?;
-                                
+
                                 // Retrieve allocated preimage
-                                let allocated_preimg = Self::get_allocated_preimg($preimg, &allocated_ptrs)?;
-                                
+                                let allocated_preimg =
+                                    Self::get_allocated_preimg($preimg, &allocated_ptrs)?;
+
                                 // Create constraint for the tag
-                                let allocated_tag = alloc_manager.get_or_alloc_num(cs, $tag.to_field())?;
+                                let allocated_tag =
+                                    alloc_manager.get_or_alloc_num(cs, $tag.to_field())?;
                                 implies_equal(
-                                    &mut cs.namespace(|| format!("implies equal for {}'s tag", $img)),
+                                    &mut cs
+                                        .namespace(|| format!("implies equal for {}'s tag", $img)),
                                     &concrete_path,
                                     allocated_img.tag(),
                                     &allocated_tag,
                                 )?;
-                                
+
                                 // Add the hash constraints
                                 constrain_slot!($preimg, $img, allocated_preimg, allocated_img);
-                                
+
                                 // Insert allocated image into `allocated_ptrs`
                                 allocated_ptrs.insert($img.name(), allocated_img.clone());
                             };
@@ -557,28 +556,23 @@ impl LEM {
                             ( $preimg: expr, $img: expr ) => {
                                 // Retrieve allocated image
                                 let Some(allocated_img) = allocated_ptrs.get($img.name()) else {
-                                    bail!("{} not allocated", $img)
-                                };
-                                
+                                                                    bail!("{} not allocated", $img)
+                                                                };
+
                                 // Allocate preimage
-                                let allocated_preimg = Self::alloc_preimg(
-                                    cs,
-                                    $preimg,
-                                    frame,
-                                    store,
-                                    &allocated_ptrs,
-                                )?;
-                                
+                                let allocated_preimg =
+                                    Self::alloc_preimg(cs, $preimg, frame, store, &allocated_ptrs)?;
+
                                 // Add the hash constraints
                                 constrain_slot!($preimg, $img, allocated_preimg, allocated_img);
-                                
+
                                 // Insert allocated preimage into `allocated_ptrs`
                                 for (mptr, allocated_ptr) in $preimg.iter().zip(allocated_preimg) {
                                     allocated_ptrs.insert(mptr.name(), allocated_ptr);
                                 }
                             };
                         }
-                        
+
                         match op {
                             LEMOP::Hash2(img, tag, preimg) => {
                                 hash_helper!(img, tag, preimg);
@@ -606,8 +600,9 @@ impl LEM {
                                     &allocated_ptrs,
                                 )?;
                                 allocated_ptrs.insert(tgt.name(), allocated_tgt.clone());
-                                let allocated_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
-                                
+                                let allocated_tag =
+                                    alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
+
                                 // Constrain tag
                                 implies_equal(
                                     &mut cs.namespace(|| format!("implies equal for {tgt}'s tag")),
@@ -615,17 +610,21 @@ impl LEM {
                                     allocated_tgt.tag(),
                                     &allocated_tag,
                                 )
-                                    .with_context(|| format!("couldn't enforce implies equal for {tgt}'s tag"))?;
-                                
+                                .with_context(|| {
+                                    format!("couldn't enforce implies equal for {tgt}'s tag")
+                                })?;
+
                                 // Constrain hash
                                 implies_equal_zero(
-                                    &mut cs.namespace(|| format!("implies equal zero for {tgt}'s hash")),
+                                    &mut cs.namespace(|| {
+                                        format!("implies equal zero for {tgt}'s hash")
+                                    }),
                                     &concrete_path,
                                     allocated_tgt.hash(),
                                 )
-                                    .with_context(|| {
-                                        format!("couldn't enforce implies equal zero for {tgt}'s hash")
-                                    })?;
+                                .with_context(|| {
+                                    format!("couldn't enforce implies equal zero for {tgt}'s hash")
+                                })?;
                             }
                             _ => todo!(),
                         }

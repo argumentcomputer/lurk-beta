@@ -95,7 +95,6 @@ pub struct LEM {
     lem: LEMCTL,
 }
 
-
 /// Named references to be bound to `Ptr`s.
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct MetaPtr(AString);
@@ -182,8 +181,10 @@ impl LEMCTL {
                     code.intern_matched_symbols(store)
                 });
                 def.intern_matched_symbols(store);
-            },
-            Self::MatchTag(_, cases) => cases.values().for_each(|code| code.intern_matched_symbols(store)),
+            }
+            Self::MatchTag(_, cases) => cases
+                .values()
+                .for_each(|code| code.intern_matched_symbols(store)),
             Self::Seq(_, rest) => rest.intern_matched_symbols(store),
             Self::Return(..) => (),
         }
