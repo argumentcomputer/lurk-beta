@@ -161,25 +161,28 @@ impl LEMCTL {
                     for op in ops {
                         let slot = match op {
                             LEMOP::Hash2(..) | LEMOP::Unhash2(..) => {
-                                slots_counter = slots_counter.next_hash2();
-                                Slot {
+                                let slot = Slot {
                                     idx: slots_counter.hash2,
                                     typ: SlotType::Hash2,
-                                }
+                                };
+                                slots_counter = slots_counter.next_hash2();
+                                slot
                             }
                             LEMOP::Hash3(..) | LEMOP::Unhash3(..) => {
-                                slots_counter = slots_counter.next_hash3();
-                                Slot {
+                                let slot = Slot {
                                     idx: slots_counter.hash3,
                                     typ: SlotType::Hash3,
-                                }
+                                };
+                                slots_counter = slots_counter.next_hash3();
+                                slot
                             }
                             LEMOP::Hash4(..) | LEMOP::Unhash4(..) => {
-                                slots_counter = slots_counter.next_hash4();
-                                Slot {
+                                let slot = Slot {
                                     idx: slots_counter.hash4,
                                     typ: SlotType::Hash4,
-                                }
+                                };
+                                slots_counter = slots_counter.next_hash4();
+                                slot
                             }
                             _ => continue,
                         };

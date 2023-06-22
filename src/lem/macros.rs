@@ -241,10 +241,15 @@ macro_rules! lem_code {
             compile_error!("You must provide LEM with a return at each path!");
         }
     };
-    (@end {$($limbs:expr)*}, $cont:expr,  $(;)?) => {
+    (@end { }, $cont:expr,  $(;)?) => {
+        {
+            $cont
+        }
+    };
+    (@end {$($limbs:expr)+}, $cont:expr,  $(;)?) => {
         {
             let code = $cont;
-            let ops = vec!($($limbs),*);
+            let ops = vec!($($limbs),+);
             $crate::lem::LEMCTL::Seq(ops, Box::new(code))
         }
     }
@@ -340,80 +345,64 @@ mod tests {
 
         assert!(code == lem_macro_seq);
 
-        // TODO: Fix these tests
-        // let foo = lem!(
-        //     match_tag www {
-        //         Num => {
-        //             let foo: Num; // a single LEMOP will not turn into a Seq
-        //             return (foo, foo, foo);
-        //         },
-        //         Str => {
-        //             let foo: Num;
-        //             let goo: Char;
-        //             return (foo, foo, goo);
-        //         },
-        //         Char => {
-        //             let foo: Num;
-        //             let goo: Char;
-        //             return (foo, goo, goo);
-        //         }
-        //     }
-        // );
-        // assert!(
-        //     foo == match_tag(
-        //         mptr("www"),
-        //         vec![
-        //             (Tag::Num, LEM::Null(mptr("foo"), Tag::Num)),
-        //             (
-        //                 Tag::Str,
-        //                 LEM::Seq(vec![
-        //                     LEM::Null(mptr("foo"), Tag::Num),
-        //                     LEM::Null(mptr("goo"), Tag::Char)
-        //                 ])
-        //             ),
-        //             (
-        //                 Tag::Char,
-        //                 LEM::Seq(vec![
-        //                     LEM::Null(mptr("foo"), Tag::Num),
-        //                     LEM::Null(mptr("goo"), Tag::Char)
-        //                 ])
-        //             )
-        //         ]
-        //     )
-        // );
+        let foo = lem_code!(
+            match_tag www {
+                Num => {
+                    return (foo, foo, foo); // a single LEMCTL will not turn into a Seq
+                },
+                Str => {
+                    let foo: Num;
+                    return (foo, foo, foo);
+                },
+                Char => {
+                    let foo: Num;
+                    let goo: Char;
+                    return (foo, goo, goo);
+                }
+            }
+        );
+        assert!(
+            foo == match_tag(
+                mptr("www"),
+                vec![(Tag::Num, LEMCTL::Return([mptr("foo"), mptr("foo"), mptr("foo")])),
+                     (Tag::Str,
+                      LEMCTL::Seq(
+                          vec![LEMOP::Null(mptr("foo"), Tag::Num)],
+                          Box::new(LEMCTL::Return([mptr("foo"), mptr("foo"), mptr("foo")])))),
+                     (Tag::Char,
+                      LEMCTL::Seq(
+                          vec![LEMOP::Null(mptr("foo"), Tag::Num),
+                               LEMOP::Null(mptr("goo"), Tag::Char)],
+                          Box::new(LEMCTL::Return([mptr("foo"), mptr("goo"), mptr("goo")]))))]));
 
-        // let moo = lem!(
-        //     match_symbol www {
-        //         Symbol::lurk_sym("nil") => {
-        //             let foo: Num; // a single LEMOP will not turn into a Seq
-        //             return (foo, foo, foo);
-        //         },
-        //         Symbol::lurk_sym("cons") => {
-        //             let foo: Num;
-        //             let goo: Char;
-        //             return (foo, foo, goo);
-        //         },
-        //         _ => {
-        //             let xoo: Str;
-        //             return (xoo, xoo, xoo);
-        //         },
-        //     }
-        // );
-        // assert!(
-        //     moo == match_symbol(
-        //         mptr("www"),
-        //         vec![
-        //             (Symbol::lurk_sym("nil"), LEMOP::Null(mptr("foo"), Tag::Num)),
-        //             (
-        //                 Symbol::lurk_sym("cons"),
-        //                 LEMOP::Seq(vec![
-        //                     LEMOP::Null(mptr("foo"), Tag::Num),
-        //                     LEMOP::Null(mptr("goo"), Tag::Char)
-        //                 ])
-        //             ),
-        //         ],
-        //         LEMOP::Null(mptr("xoo"), Tag::Str)
-        //     )
-        // );
+        let moo = lem_code!(
+            match_symbol www {
+                Symbol::lurk_sym("nil") => {
+                    return (foo, foo, foo); // a single LEMCTL will not turn into a Seq
+                },
+                Symbol::lurk_sym("cons") => {
+                    let foo: Num;
+                    let goo: Char;
+                    return (foo, goo, goo);
+                },
+                _ => {
+                    let xoo: Str;
+                    return (xoo, xoo, xoo);
+                },
+            }
+        );
+
+        assert!(
+            moo == match_symbol(
+                mptr("www"),
+                vec![(Symbol::lurk_sym("nil"), LEMCTL::Return([mptr("foo"), mptr("foo"), mptr("foo")])),
+                     (Symbol::lurk_sym("cons"),
+                      LEMCTL::Seq(
+                          vec![LEMOP::Null(mptr("foo"), Tag::Num),
+                               LEMOP::Null(mptr("goo"), Tag::Char)],
+                          Box::new(LEMCTL::Return([mptr("foo"), mptr("goo"), mptr("goo")]))))],
+                    LEMCTL::Seq(
+                          vec![LEMOP::Null(mptr("xoo"), Tag::Str)],
+                          Box::new(LEMCTL::Return([mptr("xoo"), mptr("xoo"), mptr("xoo")])))));
     }
 }
