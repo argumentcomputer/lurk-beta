@@ -364,16 +364,31 @@ mod tests {
         assert!(
             foo == match_tag(
                 mptr("www"),
-                vec![(Tag::Num, LEMCTL::Return([mptr("foo"), mptr("foo"), mptr("foo")])),
-                     (Tag::Str,
-                      LEMCTL::Seq(
-                          vec![LEMOP::Null(mptr("foo"), Tag::Num)],
-                          Box::new(LEMCTL::Return([mptr("foo"), mptr("foo"), mptr("foo")])))),
-                     (Tag::Char,
-                      LEMCTL::Seq(
-                          vec![LEMOP::Null(mptr("foo"), Tag::Num),
-                               LEMOP::Null(mptr("goo"), Tag::Char)],
-                          Box::new(LEMCTL::Return([mptr("foo"), mptr("goo"), mptr("goo")]))))]));
+                vec![
+                    (
+                        Tag::Num,
+                        LEMCTL::Return([mptr("foo"), mptr("foo"), mptr("foo")])
+                    ),
+                    (
+                        Tag::Str,
+                        LEMCTL::Seq(
+                            vec![LEMOP::Null(mptr("foo"), Tag::Num)],
+                            Box::new(LEMCTL::Return([mptr("foo"), mptr("foo"), mptr("foo")]))
+                        )
+                    ),
+                    (
+                        Tag::Char,
+                        LEMCTL::Seq(
+                            vec![
+                                LEMOP::Null(mptr("foo"), Tag::Num),
+                                LEMOP::Null(mptr("goo"), Tag::Char)
+                            ],
+                            Box::new(LEMCTL::Return([mptr("foo"), mptr("goo"), mptr("goo")]))
+                        )
+                    )
+                ]
+            )
+        );
 
         let moo = lem_code!(
             match_symbol www {
@@ -395,14 +410,27 @@ mod tests {
         assert!(
             moo == match_symbol(
                 mptr("www"),
-                vec![(Symbol::lurk_sym("nil"), LEMCTL::Return([mptr("foo"), mptr("foo"), mptr("foo")])),
-                     (Symbol::lurk_sym("cons"),
-                      LEMCTL::Seq(
-                          vec![LEMOP::Null(mptr("foo"), Tag::Num),
-                               LEMOP::Null(mptr("goo"), Tag::Char)],
-                          Box::new(LEMCTL::Return([mptr("foo"), mptr("goo"), mptr("goo")]))))],
-                    LEMCTL::Seq(
-                          vec![LEMOP::Null(mptr("xoo"), Tag::Str)],
-                          Box::new(LEMCTL::Return([mptr("xoo"), mptr("xoo"), mptr("xoo")])))));
+                vec![
+                    (
+                        Symbol::lurk_sym("nil"),
+                        LEMCTL::Return([mptr("foo"), mptr("foo"), mptr("foo")])
+                    ),
+                    (
+                        Symbol::lurk_sym("cons"),
+                        LEMCTL::Seq(
+                            vec![
+                                LEMOP::Null(mptr("foo"), Tag::Num),
+                                LEMOP::Null(mptr("goo"), Tag::Char)
+                            ],
+                            Box::new(LEMCTL::Return([mptr("foo"), mptr("goo"), mptr("goo")]))
+                        )
+                    )
+                ],
+                LEMCTL::Seq(
+                    vec![LEMOP::Null(mptr("xoo"), Tag::Str)],
+                    Box::new(LEMCTL::Return([mptr("xoo"), mptr("xoo"), mptr("xoo")]))
+                )
+            )
+        );
     }
 }
