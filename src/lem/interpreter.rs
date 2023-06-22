@@ -249,8 +249,10 @@ impl LEMCTL {
                     None => def.run(input, store, binds, visits, slots_info),
                 }
             }
-            LEMCTL::Seq(op, rest) => {
-                op.run(store, &mut binds, &mut visits, slots_info)?;
+            LEMCTL::Seq(ops, rest) => {
+                for op in ops {
+                    op.run(store, &mut binds, &mut visits, slots_info)?;
+                }
                 rest.run(input, store, binds, visits, slots_info)
             },
             LEMCTL::Return(o) => {

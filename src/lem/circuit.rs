@@ -118,39 +118,39 @@ impl LEMCTL {
             match code {
                 LEMCTL::MatchTag(_, cases) => {
                     for (_, code) in cases {
-                        let mut save_counter = slots_counter.clone();
-                        recurse(code, &mut save_counter, slots_info)?;
+                        recurse(code, &mut slots_counter.clone(), slots_info)?;
                     }
                     Ok(())
                 }
                 LEMCTL::MatchSymbol(_, cases, def) => {
                     for (_, code) in cases {
-                        let mut save_counter = slots_counter.clone();
-                        recurse(code, &mut save_counter, slots_info)?;
+                        recurse(code, &mut slots_counter.clone(), slots_info)?;
                     }
                     recurse(def, slots_counter, slots_info)
                 }
-                LEMCTL::Seq(op, rest) => {
-                    let slot_idx = match op {
-                        LEMOP::Hash2(..) | LEMOP::Unhash2(..) => {
-                            slots_counter.consume_hash2()
+                LEMCTL::Seq(ops, rest) => {
+                    for op in ops {
+                        let slot_idx = match op {
+                            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => {
+                                slots_counter.consume_hash2()
+                            }
+                            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => {
+                                slots_counter.consume_hash3()
+                            }
+                            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => {
+                                slots_counter.consume_hash4()
+                            }
+                            _ => continue
+                        };
+                        let slot = Slot {
+                            idx: slot_idx,
+                            typ: SlotType::from_lemop(op),
+                        };
+                        if slots_info.slots_map.insert(op.clone(), slot).is_some() {
+                            bail!("Duplicated LEMOP: {:?}", op)
                         }
-                        LEMOP::Hash3(..) | LEMOP::Unhash3(..) => {
-                            slots_counter.consume_hash3()
-                        }
-                        LEMOP::Hash4(..) | LEMOP::Unhash4(..) => {
-                            slots_counter.consume_hash4()
-                        }
-                        _ => return recurse(rest, slots_counter, slots_info)
-                    };
-                    let slot = Slot {
-                        idx: slot_idx,
-                        typ: SlotType::from_lemop(op),
-                    };
-                    if slots_info.slots_map.insert(op.clone(), slot).is_some() {
-                        bail!("Duplicated LEMOP: {:?}", op)
+                        slots_info.slots.insert(slot);
                     }
-                    slots_info.slots.insert(slot);
                     recurse(rest, slots_counter, slots_info)
                 },
                 LEMCTL::Return(..) => Ok(()),
@@ -479,154 +479,156 @@ impl LEM {
                     )
                     .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
                 }
-                LEMCTL::Seq(op, rest) => {
-                    macro_rules! constrain_slot {
-                        ( $preimg: expr, $img: expr, $allocated_preimg: expr, $allocated_img: expr) => {
-                            // Retrieve the preallocated preimage and image for this slot
-                            let slot = slots_info.get_slot(op)?;
-                            let (preallocated_preimg, preallocated_img) = preallocations.get(slot).unwrap();
-
-                            // Add the implication constraint for the image
-                            implies_equal(
-                                &mut cs.namespace(|| {
-                                    format!("implies equal for {}'s hash (LEMOP {:?})", $img, &op)
-                                }),
-                                &concrete_path,
-                                $allocated_img.hash(),
-                                preallocated_img,
-                            )?;
-
-                            // For each component of the preimage, add implication constraints
-                            // for its tag and hash
-                            for (i, allocated_ptr) in $allocated_preimg.iter().enumerate() {
-                                let name = $preimg[i].name();
-                                let ptr_idx = 2 * i;
+                LEMCTL::Seq(ops, rest) => {
+                    for op in ops {
+                        macro_rules! constrain_slot {
+                            ( $preimg: expr, $img: expr, $allocated_preimg: expr, $allocated_img: expr) => {
+                                // Retrieve the preallocated preimage and image for this slot
+                                let slot = slots_info.get_slot(op)?;
+                                let (preallocated_preimg, preallocated_img) = preallocations.get(slot).unwrap();
+                                
+                                // Add the implication constraint for the image
                                 implies_equal(
                                     &mut cs.namespace(|| {
-                                        format!("implies equal for {name}'s tag (LEMOP {:?}, pos {i})", &op)
+                                        format!("implies equal for {}'s hash (LEMOP {:?})", $img, &op)
                                     }),
                                     &concrete_path,
-                                    allocated_ptr.tag(),
-                                    &preallocated_preimg[ptr_idx], // tag index
+                                    $allocated_img.hash(),
+                                    preallocated_img,
                                 )?;
-                                implies_equal(
-                                    &mut cs.namespace(|| {
-                                        format!(
-                                            "implies equal for {name}'s hash (LEMOP {:?}, pos {i})",
-                                            &op
-                                        )
-                                    }),
-                                    &concrete_path,
-                                    allocated_ptr.hash(),
-                                    &preallocated_preimg[ptr_idx + 1], // hash index
-                                )?;
-                            }
-                        };
-                    }
-                    macro_rules! hash_helper {
-                        ( $img: expr, $tag: expr, $preimg: expr ) => {
-                            // Allocate image
-                            let allocated_img = Self::allocate_ptr(
-                                cs,
-                                &Self::zptr_from_mptr($img, frame, store)?,
-                                $img.name(),
-                                &allocated_ptrs,
-                            )?;
-
-                            // Retrieve allocated preimage
-                            let allocated_preimg = Self::get_allocated_preimg($preimg, &allocated_ptrs)?;
-
-                            // Create constraint for the tag
-                            let allocated_tag = alloc_manager.get_or_alloc_num(cs, $tag.to_field())?;
-                            implies_equal(
-                                &mut cs.namespace(|| format!("implies equal for {}'s tag", $img)),
-                                &concrete_path,
-                                allocated_img.tag(),
-                                &allocated_tag,
-                            )?;
-
-                            // Add the hash constraints
-                            constrain_slot!($preimg, $img, allocated_preimg, allocated_img);
-
-                            // Insert allocated image into `allocated_ptrs`
-                            allocated_ptrs.insert($img.name(), allocated_img.clone());
-                        };
-                    }
-                    macro_rules! unhash_helper {
-                        ( $preimg: expr, $img: expr ) => {
-                            // Retrieve allocated image
-                            let Some(allocated_img) = allocated_ptrs.get($img.name()) else {
-                                bail!("{} not allocated", $img)
+                                
+                                // For each component of the preimage, add implication constraints
+                                // for its tag and hash
+                                for (i, allocated_ptr) in $allocated_preimg.iter().enumerate() {
+                                    let name = $preimg[i].name();
+                                    let ptr_idx = 2 * i;
+                                    implies_equal(
+                                        &mut cs.namespace(|| {
+                                            format!("implies equal for {name}'s tag (LEMOP {:?}, pos {i})", &op)
+                                        }),
+                                        &concrete_path,
+                                        allocated_ptr.tag(),
+                                        &preallocated_preimg[ptr_idx], // tag index
+                                    )?;
+                                    implies_equal(
+                                        &mut cs.namespace(|| {
+                                            format!(
+                                                "implies equal for {name}'s hash (LEMOP {:?}, pos {i})",
+                                                &op
+                                            )
+                                        }),
+                                        &concrete_path,
+                                        allocated_ptr.hash(),
+                                        &preallocated_preimg[ptr_idx + 1], // hash index
+                                    )?;
+                                }
                             };
-
-                            // Allocate preimage
-                            let allocated_preimg = Self::alloc_preimg(
-                                cs,
-                                $preimg,
-                                frame,
-                                store,
-                                &allocated_ptrs,
-                            )?;
-
-                            // Add the hash constraints
-                            constrain_slot!($preimg, $img, allocated_preimg, allocated_img);
-
-                            // Insert allocated preimage into `allocated_ptrs`
-                            for (mptr, allocated_ptr) in $preimg.iter().zip(allocated_preimg) {
-                                allocated_ptrs.insert(mptr.name(), allocated_ptr);
+                        }
+                        macro_rules! hash_helper {
+                            ( $img: expr, $tag: expr, $preimg: expr ) => {
+                                // Allocate image
+                                let allocated_img = Self::allocate_ptr(
+                                    cs,
+                                    &Self::zptr_from_mptr($img, frame, store)?,
+                                    $img.name(),
+                                    &allocated_ptrs,
+                                )?;
+                                
+                                // Retrieve allocated preimage
+                                let allocated_preimg = Self::get_allocated_preimg($preimg, &allocated_ptrs)?;
+                                
+                                // Create constraint for the tag
+                                let allocated_tag = alloc_manager.get_or_alloc_num(cs, $tag.to_field())?;
+                                implies_equal(
+                                    &mut cs.namespace(|| format!("implies equal for {}'s tag", $img)),
+                                    &concrete_path,
+                                    allocated_img.tag(),
+                                    &allocated_tag,
+                                )?;
+                                
+                                // Add the hash constraints
+                                constrain_slot!($preimg, $img, allocated_preimg, allocated_img);
+                                
+                                // Insert allocated image into `allocated_ptrs`
+                                allocated_ptrs.insert($img.name(), allocated_img.clone());
+                            };
+                        }
+                        macro_rules! unhash_helper {
+                            ( $preimg: expr, $img: expr ) => {
+                                // Retrieve allocated image
+                                let Some(allocated_img) = allocated_ptrs.get($img.name()) else {
+                                    bail!("{} not allocated", $img)
+                                };
+                                
+                                // Allocate preimage
+                                let allocated_preimg = Self::alloc_preimg(
+                                    cs,
+                                    $preimg,
+                                    frame,
+                                    store,
+                                    &allocated_ptrs,
+                                )?;
+                                
+                                // Add the hash constraints
+                                constrain_slot!($preimg, $img, allocated_preimg, allocated_img);
+                                
+                                // Insert allocated preimage into `allocated_ptrs`
+                                for (mptr, allocated_ptr) in $preimg.iter().zip(allocated_preimg) {
+                                    allocated_ptrs.insert(mptr.name(), allocated_ptr);
+                                }
+                            };
+                        }
+                        
+                        match op {
+                            LEMOP::Hash2(img, tag, preimg) => {
+                                hash_helper!(img, tag, preimg);
                             }
-                        };
-                    }
-
-                    match op {
-                        LEMOP::Hash2(img, tag, preimg) => {
-                            hash_helper!(img, tag, preimg);
+                            LEMOP::Hash3(img, tag, preimg) => {
+                                hash_helper!(img, tag, preimg);
+                            }
+                            LEMOP::Hash4(img, tag, preimg) => {
+                                hash_helper!(img, tag, preimg);
+                            }
+                            LEMOP::Unhash2(preimg, img) => {
+                                unhash_helper!(preimg, img);
+                            }
+                            LEMOP::Unhash3(preimg, img) => {
+                                unhash_helper!(preimg, img);
+                            }
+                            LEMOP::Unhash4(preimg, img) => {
+                                unhash_helper!(preimg, img);
+                            }
+                            LEMOP::Null(tgt, tag) => {
+                                let allocated_tgt = Self::allocate_ptr(
+                                    cs,
+                                    &Self::zptr_from_mptr(tgt, frame, store)?,
+                                    tgt.name(),
+                                    &allocated_ptrs,
+                                )?;
+                                allocated_ptrs.insert(tgt.name(), allocated_tgt.clone());
+                                let allocated_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
+                                
+                                // Constrain tag
+                                implies_equal(
+                                    &mut cs.namespace(|| format!("implies equal for {tgt}'s tag")),
+                                    &concrete_path,
+                                    allocated_tgt.tag(),
+                                    &allocated_tag,
+                                )
+                                    .with_context(|| format!("couldn't enforce implies equal for {tgt}'s tag"))?;
+                                
+                                // Constrain hash
+                                implies_equal_zero(
+                                    &mut cs.namespace(|| format!("implies equal zero for {tgt}'s hash")),
+                                    &concrete_path,
+                                    allocated_tgt.hash(),
+                                )
+                                    .with_context(|| {
+                                        format!("couldn't enforce implies equal zero for {tgt}'s hash")
+                                    })?;
+                            }
+                            _ => todo!(),
                         }
-                        LEMOP::Hash3(img, tag, preimg) => {
-                            hash_helper!(img, tag, preimg);
-                        }
-                        LEMOP::Hash4(img, tag, preimg) => {
-                            hash_helper!(img, tag, preimg);
-                        }
-                        LEMOP::Unhash2(preimg, img) => {
-                            unhash_helper!(preimg, img);
-                        }
-                        LEMOP::Unhash3(preimg, img) => {
-                            unhash_helper!(preimg, img);
-                        }
-                        LEMOP::Unhash4(preimg, img) => {
-                            unhash_helper!(preimg, img);
-                        }
-                        LEMOP::Null(tgt, tag) => {
-                            let allocated_tgt = Self::allocate_ptr(
-                                cs,
-                                &Self::zptr_from_mptr(tgt, frame, store)?,
-                                tgt.name(),
-                                &allocated_ptrs,
-                            )?;
-                            allocated_ptrs.insert(tgt.name(), allocated_tgt.clone());
-                            let allocated_tag = alloc_manager.get_or_alloc_num(cs, tag.to_field())?;
-
-                            // Constrain tag
-                            implies_equal(
-                                &mut cs.namespace(|| format!("implies equal for {tgt}'s tag")),
-                                &concrete_path,
-                                allocated_tgt.tag(),
-                                &allocated_tag,
-                            )
-                                .with_context(|| format!("couldn't enforce implies equal for {tgt}'s tag"))?;
-
-                            // Constrain hash
-                            implies_equal_zero(
-                                &mut cs.namespace(|| format!("implies equal zero for {tgt}'s hash")),
-                                &concrete_path,
-                                allocated_tgt.hash(),
-                            )
-                                .with_context(|| {
-                                    format!("couldn't enforce implies equal zero for {tgt}'s hash")
-                                })?;
-                        }
-                        _ => todo!(),
                     }
                     stack.push((rest, concrete_path, path));
                 }
@@ -700,40 +702,42 @@ impl LEM {
                     }
                 }
                 LEMCTL::MatchSymbol(..) => todo!(),
-                LEMCTL::Seq(op, rest) => {
-                    match op {
-                        LEMOP::Null(..) => {
-                            // constrain tag and hash
-                            num_constraints += 2;
+                LEMCTL::Seq(ops, rest) => {
+                    for op in ops {
+                        match op {
+                            LEMOP::Null(..) => {
+                                // constrain tag and hash
+                                num_constraints += 2;
+                            }
+                            LEMOP::Hash2(..) => {
+                                // tag and hash for 3 pointers: 1 image + 2 from preimage
+                                num_constraints += 6;
+                            }
+                            LEMOP::Hash3(..) => {
+                                // tag and hash for 4 pointers: 1 image + 3 from preimage
+                                num_constraints += 8;
+                            }
+                            LEMOP::Hash4(..) => {
+                                // tag and hash for 5 pointers: 1 image + 4 from preimage
+                                num_constraints += 10;
+                            }
+                            LEMOP::Unhash2(..) => {
+                                // one constraint for the image's hash
+                                // tag and hash for 2 pointers from preimage
+                                num_constraints += 5;
+                            }
+                            LEMOP::Unhash3(..) => {
+                                // one constraint for the image's hash
+                                // tag and hash for 3 pointers from preimage
+                                num_constraints += 7;
+                            }
+                            LEMOP::Unhash4(..) => {
+                                // one constraint for the image's hash
+                                // tag and hash for 4 pointers from preimage
+                                num_constraints += 9;
+                            }
+                            _ => todo!(),
                         }
-                        LEMOP::Hash2(..) => {
-                            // tag and hash for 3 pointers: 1 image + 2 from preimage
-                            num_constraints += 6;
-                        }
-                        LEMOP::Hash3(..) => {
-                            // tag and hash for 4 pointers: 1 image + 3 from preimage
-                            num_constraints += 8;
-                        }
-                        LEMOP::Hash4(..) => {
-                            // tag and hash for 5 pointers: 1 image + 4 from preimage
-                            num_constraints += 10;
-                        }
-                        LEMOP::Unhash2(..) => {
-                            // one constraint for the image's hash
-                            // tag and hash for 2 pointers from preimage
-                            num_constraints += 5;
-                        }
-                        LEMOP::Unhash3(..) => {
-                            // one constraint for the image's hash
-                            // tag and hash for 3 pointers from preimage
-                            num_constraints += 7;
-                        }
-                        LEMOP::Unhash4(..) => {
-                            // one constraint for the image's hash
-                            // tag and hash for 4 pointers from preimage
-                            num_constraints += 9;
-                        }
-                        _ => todo!(),
                     }
                     // no constraints added here
                     stack.push((rest, nested))

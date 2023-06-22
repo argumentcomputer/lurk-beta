@@ -134,8 +134,8 @@ pub enum LEMCTL {
     /// the ones provided in `cases`. If so, run the corresponding `LEM`. Run
     /// The default `def` `LEM` otherwise
     MatchSymbol(MetaPtr, HashMap<Symbol, LEMCTL>, Box<LEMCTL>),
-    /// `Seq(op, lem)` executes `op: LEMOP` then `lem: LEM` sequentially
-    Seq(LEMOP, Box<LEMCTL>),
+    /// `Seq(ops, lem)` executes `ops: Vec<LEMOP>` then `lem: LEM` sequentially
+    Seq(Vec<LEMOP>, Box<LEMCTL>),
     /// `Return(rets)` sets the output to `rets`
     Return([MetaPtr; 3]),
 }

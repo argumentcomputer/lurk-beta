@@ -119,8 +119,8 @@ macro_rules! lem_code {
         $crate::lem_code! (
             @seq
             {
-                $crate::lemop!(let $tgt: $tag)
                 $($limbs)*
+                $crate::lemop!(let $tgt: $tag)
             },
             $($tail)*
         )
@@ -129,8 +129,8 @@ macro_rules! lem_code {
         $crate::lem_code! (
             @seq
             {
-                $crate::lemop!(let $tgt: $tag = hash2($src1, $src2) )
                 $($limbs)*
+                $crate::lemop!(let $tgt: $tag = hash2($src1, $src2) )
             },
             $($tail)*
         )
@@ -139,8 +139,8 @@ macro_rules! lem_code {
         $crate::lem_code! (
             @seq
             {
-                $crate::lemop!(let $tgt: $tag = hash3($src1, $src2, $src3) )
                 $($limbs)*
+                $crate::lemop!(let $tgt: $tag = hash3($src1, $src2, $src3) )
             },
             $($tail)*
         )
@@ -149,8 +149,8 @@ macro_rules! lem_code {
         $crate::lem_code! (
             @seq
             {
-                $crate::lemop!(let $tgt: $tag = hash4($src1, $src2, $src3, $src4))
                 $($limbs)*
+                $crate::lemop!(let $tgt: $tag = hash4($src1, $src2, $src3, $src4))
             },
             $($tail)*
         )
@@ -159,8 +159,8 @@ macro_rules! lem_code {
         $crate::lem_code! (
             @seq
             {
-                $crate::lemop!(let ($tgt1, $tgt2) = unhash2($src) )
                 $($limbs)*
+                $crate::lemop!(let ($tgt1, $tgt2) = unhash2($src) )
             },
             $($tail)*
         )
@@ -169,8 +169,8 @@ macro_rules! lem_code {
         $crate::lem_code! (
             @seq
             {
-                $crate::lemop!(let ($tgt1, $tgt2, $tgt3) = unhash3($src) )
                 $($limbs)*
+                $crate::lemop!(let ($tgt1, $tgt2, $tgt3) = unhash3($src) )
             },
             $($tail)*
         )
@@ -179,8 +179,8 @@ macro_rules! lem_code {
         $crate::lem_code! (
             @seq
             {
-                $crate::lemop!(let ($tgt1, $tgt2, $tgt3, $tgt4) = unhash4($src) )
                 $($limbs)*
+                $crate::lemop!(let ($tgt1, $tgt2, $tgt3, $tgt4) = unhash4($src) )
             },
             $($tail)*
         )
@@ -189,8 +189,8 @@ macro_rules! lem_code {
         $crate::lem_code! (
             @seq
             {
-                $crate::lemop!(let $tgt = hide($sec, $src) )
                 $($limbs)*
+                $crate::lemop!(let $tgt = hide($sec, $src) )
             },
             $($tail)*
         )
@@ -199,8 +199,8 @@ macro_rules! lem_code {
         $crate::lem_code! (
             @seq
             {
-                $crate::lemop!(let ($sec, $src) = open($hash) )
                 $($limbs)*
+                $crate::lemop!(let ($sec, $src) = open($hash) )
             },
             $($tail)*
         )
@@ -237,16 +237,14 @@ macro_rules! lem_code {
     };
     (@seq {$($limbs:expr)*}, $(;)? ) => {
         {
-            compile_error!("You must provide lem with a return!");
+            compile_error!("You must provide LEM with a return at each path!");
         }
     };
     (@end {$($limbs:expr)*}, $cont:expr,  $(;)?) => {
         {
             let code = $cont;
-            $(
-                let code = $crate::lem::LEMCTL::Seq($limbs, Box::new(code));
-            )*
-            code
+            let ops = vec!($($limbs),*);
+            $crate::lem::LEMCTL::Seq(ops, Box::new(code))
         }
     }
 }
@@ -308,8 +306,7 @@ mod tests {
             LEMOP::Hide(mptr("bar"), mptr("baz"), mptr("bazz")),
             LEMOP::Open(mptr("bar"), mptr("baz"), mptr("bazz")),
         ];
-        let lemops_macro = [
-            lemop!(let foo: Num),
+        let lemops_macro = vec!(lemop!(let foo: Num),
             lemop!(let foo: Char = hash2(bar, baz)),
             lemop!(let foo: Char = hash3(bar, baz, bazz)),
             lemop!(let foo: Char = hash4(bar, baz, bazz, baxx)),
@@ -318,16 +315,14 @@ mod tests {
             lemop!(let (foo, goo, moo, noo) = unhash4(aaa)),
             lemop!(let bar = hide(baz, bazz)),
             lemop!(let (bar, baz) = open(bazz)),
-        ];
+        );
 
         for i in 0..9 {
             assert!(lemops[i] == lemops_macro[i]);
         }
 
         let ret = LEMCTL::Return([mptr("bar"), mptr("baz"), mptr("bazz")]);
-        let code = lemops.into_iter().rev().fold(ret,|acc, op| {
-            LEMCTL::Seq(op, Box::new(acc))
-        });
+        let code = LEMCTL::Seq(lemops_macro, Box::new(ret));
         let lem_macro_seq = lem_code!({
             let foo: Num;
             let foo: Char = hash2(bar, baz);

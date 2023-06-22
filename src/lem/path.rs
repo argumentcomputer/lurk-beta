@@ -148,50 +148,53 @@ impl LEMCTL {
                     Box::new(def.deconflict(&path.push_default(), &mut map.clone())?),
                 ))
             }
-            LEMCTL::Seq(op, rest) => {
-                let new_op: Result<LEMOP> = match op {
-                    LEMOP::Null(ptr, tag) => {
-                        let new_name: AString = format!("{}.{}", path, ptr.name()).into();
-                        if map.insert(ptr.name().clone(), new_name.clone()).is_some() {
-                            bail!("{} already defined", ptr.name());
-                        };
-                        Ok(LEMOP::Null(MetaPtr(new_name), *tag))
+            LEMCTL::Seq(ops, rest) => {
+                let mut new_ops = vec!();
+                for op in ops {
+                    match op {
+                        LEMOP::Null(ptr, tag) => {
+                            let new_name: AString = format!("{}.{}", path, ptr.name()).into();
+                            if map.insert(ptr.name().clone(), new_name.clone()).is_some() {
+                                bail!("{} already defined", ptr.name());
+                            };
+                            new_ops.push(LEMOP::Null(MetaPtr(new_name), *tag))
+                        }
+                        LEMOP::Hash2(img, tag, preimg) => {
+                            let preimg = retrieve_many(map, preimg)?.try_into().unwrap();
+                            let img = insert_one(map, path, img)?;
+                            new_ops.push(LEMOP::Hash2(img, *tag, preimg))
+                        }
+                        LEMOP::Hash3(img, tag, preimg) => {
+                            let preimg = retrieve_many(map, preimg)?.try_into().unwrap();
+                            let img = insert_one(map, path, img)?;
+                            new_ops.push(LEMOP::Hash3(img, *tag, preimg))
+                        }
+                        LEMOP::Hash4(img, tag, preimg) => {
+                            let preimg = retrieve_many(map, preimg)?.try_into().unwrap();
+                            let img = insert_one(map, path, img)?;
+                            new_ops.push(LEMOP::Hash4(img, *tag, preimg))
+                        }
+                        LEMOP::Unhash2(preimg, img) => {
+                            let img = retrieve_one(map, img)?;
+                            let preimg = insert_many(map, path, preimg)?;
+                            new_ops.push(LEMOP::Unhash2(preimg.try_into().unwrap(), img))
+                        }
+                        LEMOP::Unhash3(preimg, img) => {
+                            let img = retrieve_one(map, img)?;
+                            let preimg = insert_many(map, path, preimg)?;
+                            new_ops.push(LEMOP::Unhash3(preimg.try_into().unwrap(), img))
+                        }
+                        LEMOP::Unhash4(preimg, img) => {
+                            let img = retrieve_one(map, img)?;
+                            let preimg = insert_many(map, path, preimg)?;
+                            new_ops.push(LEMOP::Unhash4(preimg.try_into().unwrap(), img))
+                        }
+                        LEMOP::Hide(..) => todo!(),
+                        LEMOP::Open(..) => todo!(),
                     }
-                    LEMOP::Hash2(img, tag, preimg) => {
-                        let preimg = retrieve_many(map, preimg)?.try_into().unwrap();
-                        let img = insert_one(map, path, img)?;
-                        Ok(LEMOP::Hash2(img, *tag, preimg))
-                    }
-                    LEMOP::Hash3(img, tag, preimg) => {
-                        let preimg = retrieve_many(map, preimg)?.try_into().unwrap();
-                        let img = insert_one(map, path, img)?;
-                        Ok(LEMOP::Hash3(img, *tag, preimg))
-                    }
-                    LEMOP::Hash4(img, tag, preimg) => {
-                        let preimg = retrieve_many(map, preimg)?.try_into().unwrap();
-                        let img = insert_one(map, path, img)?;
-                        Ok(LEMOP::Hash4(img, *tag, preimg))
-                    }
-                    LEMOP::Unhash2(preimg, img) => {
-                        let img = retrieve_one(map, img)?;
-                        let preimg = insert_many(map, path, preimg)?;
-                        Ok(LEMOP::Unhash2(preimg.try_into().unwrap(), img))
-                    }
-                    LEMOP::Unhash3(preimg, img) => {
-                        let img = retrieve_one(map, img)?;
-                        let preimg = insert_many(map, path, preimg)?;
-                        Ok(LEMOP::Unhash3(preimg.try_into().unwrap(), img))
-                    }
-                    LEMOP::Unhash4(preimg, img) => {
-                        let img = retrieve_one(map, img)?;
-                        let preimg = insert_many(map, path, preimg)?;
-                        Ok(LEMOP::Unhash4(preimg.try_into().unwrap(), img))
-                    }
-                    LEMOP::Hide(..) => todo!(),
-                    LEMOP::Open(..) => todo!(),
-                };
+                }
                 let new_rest = Box::new(rest.deconflict(path, map)?);
-                Ok(LEMCTL::Seq(new_op?, new_rest))
+                Ok(LEMCTL::Seq(new_ops, new_rest))
             }
             LEMCTL::Return(o) => Ok(LEMCTL::Return(retrieve_many(map, o)?.try_into().unwrap())),
         }
