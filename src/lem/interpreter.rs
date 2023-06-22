@@ -119,14 +119,14 @@ impl LEMOP {
                 bind(binds, tgt.clone(), tgt_ptr)
             }
             LEMOP::Hash2(img, tag, preimg) => {
-                let preimg_ptrs = retrieve_many(&binds, preimg)?;
+                let preimg_ptrs = retrieve_many(binds, preimg)?;
                 let tgt_ptr = store.intern_2_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1]);
                 bind(binds, img.clone(), tgt_ptr)?;
                 visits.insert(*slots_info.get_slot(self)?, preimg_ptrs);
                 Ok(())
             }
             LEMOP::Hash3(img, tag, preimg) => {
-                let preimg_ptrs = retrieve_many(&binds, preimg)?;
+                let preimg_ptrs = retrieve_many(binds, preimg)?;
                 let tgt_ptr =
                     store.intern_3_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]);
                 bind(binds, img.clone(), tgt_ptr)?;
@@ -134,7 +134,7 @@ impl LEMOP {
                 Ok(())
             }
             LEMOP::Hash4(img, tag, preimg) => {
-                let preimg_ptrs = retrieve_many(&binds, preimg)?;
+                let preimg_ptrs = retrieve_many(binds, preimg)?;
                 let tgt_ptr = store.intern_4_ptrs(
                     *tag,
                     preimg_ptrs[0],
@@ -147,7 +147,7 @@ impl LEMOP {
                 Ok(())
             }
             LEMOP::Unhash2(preimg, img) => {
-                let img_ptr = img.get_ptr(&binds)?;
+                let img_ptr = img.get_ptr(binds)?;
                 let Some(idx) = img_ptr.get_index2() else {
                     bail!("{img} isn't a Tree2 pointer");
                 };
@@ -162,7 +162,7 @@ impl LEMOP {
                 Ok(())
             }
             LEMOP::Unhash3(preimg, img) => {
-                let img_ptr = img.get_ptr(&binds)?;
+                let img_ptr = img.get_ptr(binds)?;
                 let Some(idx) = img_ptr.get_index3() else {
                     bail!("{img} isn't a Tree3 pointer");
                 };
@@ -177,7 +177,7 @@ impl LEMOP {
                 Ok(())
             }
             LEMOP::Unhash4(preimg, img) => {
-                let img_ptr = img.get_ptr(&binds)?;
+                let img_ptr = img.get_ptr(binds)?;
                 let Some(idx) = img_ptr.get_index4() else {
                     bail!("{img} isn't a Tree4 pointer");
                 };
@@ -192,8 +192,8 @@ impl LEMOP {
                 Ok(())
             }
             LEMOP::Hide(tgt, sec, src) => {
-                let src_ptr = src.get_ptr(&binds)?;
-                let Ptr::Leaf(Tag::Num, secret) = sec.get_ptr(&binds)? else {
+                let src_ptr = src.get_ptr(binds)?;
+                let Ptr::Leaf(Tag::Num, secret) = sec.get_ptr(binds)? else {
                     bail!("{sec} is not a numeric pointer")
                 };
                 let z_ptr = store.hash_ptr(src_ptr)?;
@@ -204,7 +204,7 @@ impl LEMOP {
                 store.comms.insert(FWrap::<F>(hash), (*secret, *src_ptr));
                 bind(binds, tgt.clone(), tgt_ptr)
             }
-            LEMOP::Open(tgt_secret, tgt_ptr, comm_or_num) => match comm_or_num.get_ptr(&binds)? {
+            LEMOP::Open(tgt_secret, tgt_ptr, comm_or_num) => match comm_or_num.get_ptr(binds)? {
                 Ptr::Leaf(Tag::Num, hash) | Ptr::Leaf(Tag::Comm, hash) => {
                     let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
                             bail!("No committed data for hash {}", &hash.hex_digits())

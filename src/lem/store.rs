@@ -153,12 +153,12 @@ impl<F: LurkField> Store<F> {
             return Ptr::null(Tag::Str);
         }
 
-        let head = s.chars().nth(0).unwrap();
         let tail = &s[1..s.len()];
         match self.str_tails_cache.get(tail) {
             Some(ptr_cache) => return *ptr_cache,
             None => (),
         }
+        let head = s.chars().next().unwrap();
 
         let tail_ptr = self.intern_string(tail);
         let s_ptr = self.intern_2_ptrs(Tag::Str, Ptr::char(head), tail_ptr);
@@ -175,14 +175,14 @@ impl<F: LurkField> Store<F> {
             return ptr;
         }
 
-        let head = &path[0];
         let tail = &path[1..path.len()];
         match self.sym_tails_cache.get(tail) {
             Some(ptr_cache) => return *ptr_cache,
             None => (),
         }
+        let head = &path[0];
 
-        let head_ptr = self.intern_string(&head);
+        let head_ptr = self.intern_string(head);
         let tail_ptr = self.intern_symbol_path(tail);
         let path_ptr = self.intern_2_ptrs(Tag::Sym, head_ptr, tail_ptr);
 

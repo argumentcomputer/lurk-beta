@@ -65,19 +65,19 @@ struct SlotsCounter {
 impl SlotsCounter {
     #[inline]
     pub(crate) fn consume_hash2(&mut self) -> usize {
-        self.hash2 = self.hash2 + 1;
+        self.hash2 += 1;
         self.hash2
     }
 
     #[inline]
     pub(crate) fn consume_hash3(&mut self) -> usize {
-        self.hash3 = self.hash3 + 1;
+        self.hash3 += 1;
         self.hash3
     }
 
     #[inline]
     pub(crate) fn consume_hash4(&mut self) -> usize {
-        self.hash4 = self.hash4 + 1;
+        self.hash4 += 1;
         self.hash4
     }
 }
@@ -112,20 +112,20 @@ impl LEMCTL {
         let mut slots_info = SlotsInfo::default();
         let mut slots_counter = SlotsCounter::default();
 
-        fn recurse<'a>(
-            code: &'a LEMCTL,
+        fn recurse(
+            code: &LEMCTL,
             slots_counter: &mut SlotsCounter,
             slots_info: &mut SlotsInfo,
         ) -> Result<()> {
             match code {
                 LEMCTL::MatchTag(_, cases) => {
-                    for (_, code) in cases {
+                    for code in cases.values() {
                         recurse(code, &mut slots_counter.clone(), slots_info)?;
                     }
                     Ok(())
                 }
                 LEMCTL::MatchSymbol(_, cases, def) => {
-                    for (_, code) in cases {
+                    for code in cases.values() {
                         recurse(code, &mut slots_counter.clone(), slots_info)?;
                     }
                     recurse(def, slots_counter, slots_info)
@@ -152,7 +152,7 @@ impl LEMCTL {
                 LEMCTL::Return(..) => Ok(()),
             }
         }
-        recurse(&self, &mut slots_counter, &mut slots_info)?;
+        recurse(self, &mut slots_counter, &mut slots_info)?;
         Ok(slots_info)
     }
 }
