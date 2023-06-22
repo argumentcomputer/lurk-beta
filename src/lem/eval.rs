@@ -24,7 +24,7 @@ pub(crate) fn step() -> Result<LEM> {
 mod tests {
     use super::*;
     use crate::field::LurkField;
-    use crate::lem::circuit::{num_slots, AllocationManager, NumSlots};
+    use crate::lem::circuit::{AllocationManager, SlotsCounter};
     use crate::lem::{pointers::Ptr, store::Store};
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
     use blstrs::Scalar as Fr;
@@ -32,7 +32,7 @@ mod tests {
     const NUM_INPUTS: usize = 1;
     const NUM_AUX: usize = 20;
     const NUM_CONSTRAINTS: usize = 17;
-    const NUM_SLOTS: NumSlots = NumSlots {
+    const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 0,
         hash3: 0,
         hash4: 0,
@@ -43,9 +43,8 @@ mod tests {
         lem.check();
 
         let slots_info = lem.lem_op.slots_info().unwrap();
-        let num_slots = num_slots(&slots_info);
 
-        assert_eq!(num_slots, NUM_SLOTS);
+        assert_eq!(slots_info.counts, NUM_SLOTS);
 
         let computed_num_constraints = lem.num_constraints(&slots_info);
 

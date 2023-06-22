@@ -3,10 +3,10 @@
 //! This is a high level description of how we generate bellperson constraints for
 //! LEM, such that it can be used with Nova folding to implement the Lurk
 //! evaluation.
-//! 
+//!
 //! Some LEMOPs require expensive gadgets, such as Poseidon hashing. So we use
 //! the concept of "slots" to avoid wasting constraints.
-//! 
+//!
 //! We've separated the process in three steps:
 //!
 //! 1. Perform a static analysis to compute the slots that are needed as well as
@@ -17,7 +17,7 @@
 //! 2. Interpret the LEM and collect the data that was generated on each visited
 //! slot, along with all bindings from `MetaPtr`s to `Ptr`s. This piece of
 //! information will live on a `Frame` structure;
-//! 
+//!
 //! 3. Finally build the circuit with `SlotsInfo` and `Frame` at hand. This step
 //! is explained in more details in the `LEMOP::synthesize` function.
 //!
@@ -26,7 +26,7 @@
 //! will need as many iterations as it takes to evaluate the Lurk expression and
 //! so will STEP 3.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use anyhow::{anyhow, bail, Context, Result};
 use bellperson::{
@@ -50,85 +50,63 @@ use super::{
     path::Path,
     pointers::ZPtr,
     store::Store,
-    symbol::Symbol,
-    tag::Tag,
     MetaPtr, LEM, LEMOP,
 };
 
-/// Holds a counter per path. We want to use this to count the number of slots
-/// that have already been used on each LEM path.
-#[derive(Default)]
-struct PathTicker(HashMap<Path, usize>);
-
-impl PathTicker {
-    /// Increments the counter of a path. If the path wasn't tracked, returns
-    /// `0` and starts tracking it
-    pub(crate) fn tick(&mut self, path: Path) -> usize {
-        let next = self.0.get(&path).unwrap_or(&0).to_owned();
-        self.0.insert(path, next + 1);
-        next
-    }
-
-    /// Starts tracking a new path with a counter from another. If the reference
-    /// path wasn't being tracked, the new one won't be either, such that calling
-    /// `next` will return `0`.
-    pub(crate) fn cont(&mut self, new: Path, from: &Path) {
-        match self.0.get(from) {
-            Some(i) => {
-                self.0.insert(new, *i);
-            }
-            None => (),
-        }
-    }
-}
-
-/// Keeps track of previously used slots indices for each possible LEM path,
-/// being capable of informing the next slot index to be used
-#[derive(Default)]
-struct SlotsCounter {
-    hash2: PathTicker,
-    hash3: PathTicker,
-    hash4: PathTicker,
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SlotsCounter {
+    pub hash2: usize,
+    pub hash3: usize,
+    pub hash4: usize,
 }
 
 impl SlotsCounter {
+    /// This interface is mostly for testing
     #[inline]
-    pub(crate) fn next_hash2(&mut self, path: Path) -> usize {
-        self.hash2.tick(path)
+    #[allow(dead_code)]
+    pub(crate) fn new(num_slots: (usize, usize, usize)) -> Self {
+        Self {
+            hash2: num_slots.0,
+            hash3: num_slots.1,
+            hash4: num_slots.2,
+        }
     }
 
     #[inline]
-    pub(crate) fn next_hash3(&mut self, path: Path) -> usize {
-        self.hash3.tick(path)
+    pub(crate) fn next_hash2(&self) -> Self {
+        Self {
+            hash2: self.hash2 + 1,
+            hash3: self.hash3,
+            hash4: self.hash4,
+        }
     }
 
     #[inline]
-    pub(crate) fn next_hash4(&mut self, path: Path) -> usize {
-        self.hash4.tick(path)
+    pub(crate) fn next_hash3(&self) -> Self {
+        Self {
+            hash2: self.hash2,
+            hash3: self.hash3 + 1,
+            hash4: self.hash4,
+        }
     }
 
-    pub(crate) fn cont_with_tag(&mut self, from: &Path, tag: &Tag) -> Path {
-        let new = from.push_tag(tag);
-        self.hash2.cont(new.clone(), from);
-        self.hash3.cont(new.clone(), from);
-        self.hash4.cont(new.clone(), from);
-        new
+    #[inline]
+    pub(crate) fn next_hash4(&self) -> Self {
+        Self {
+            hash2: self.hash2,
+            hash3: self.hash3,
+            hash4: self.hash4 + 1,
+        }
     }
 
-    pub(crate) fn cont_with_symbol(&mut self, from: &Path, symbol: &Symbol) -> Path {
-        let new = from.push_symbol(symbol);
-        self.hash2.cont(new.clone(), from);
-        self.hash3.cont(new.clone(), from);
-        self.hash4.cont(new.clone(), from);
-        new
-    }
-
-    pub(crate) fn cont_with_default(&mut self, from: &Path) -> Path {
-        let new = from.push_default();
-        self.hash2.cont(new.clone(), from);
-        self.hash3.cont(new.clone(), from);
-        self.hash4.cont(new.clone(), from);
-        new
+    #[inline]
+    pub(crate) fn max(&self, other: Self) -> Self {
+        use std::cmp::max;
+        Self {
+            hash2: max(self.hash2, other.hash2),
+            hash3: max(self.hash3, other.hash3),
+            hash4: max(self.hash4, other.hash4),
+        }
     }
 }
 
@@ -136,8 +114,9 @@ impl SlotsCounter {
 /// expected to be injective, as two or more `LEMOP`s can be mapped to the same
 /// slot. The `slots` attribute is an set of all slots present on `slots_map`.
 pub struct SlotsInfo {
-    slots_map: IndexMap<LEMOP, Slot>,
-    slots: IndexSet<Slot>,
+    pub slots_map: IndexMap<LEMOP, Slot>,
+    pub slots: IndexSet<Slot>,
+    pub counts: SlotsCounter,
 }
 
 impl SlotsInfo {
@@ -150,6 +129,58 @@ impl SlotsInfo {
 }
 
 impl LEMOP {
+    fn slots_info_rec(
+        &self,
+        slots_map: &mut IndexMap<LEMOP, Slot>,
+        slots_counter: SlotsCounter,
+    ) -> Result<SlotsCounter> {
+        macro_rules! map_slot {
+            ( $slot: expr ) => {
+                if slots_map.insert(self.clone(), $slot).is_some() {
+                    bail!("Duplicated LEMOP")
+                };
+            };
+        }
+        match self {
+            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => {
+                map_slot!(Slot {
+                    idx: slots_counter.hash2,
+                    typ: SlotType::Hash2,
+                });
+                Ok(slots_counter.next_hash2())
+            }
+            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => {
+                map_slot!(Slot {
+                    idx: slots_counter.hash3,
+                    typ: SlotType::Hash3,
+                });
+                Ok(slots_counter.next_hash3())
+            }
+            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => {
+                map_slot!(Slot {
+                    idx: slots_counter.hash4,
+                    typ: SlotType::Hash4,
+                });
+                Ok(slots_counter.next_hash4())
+            }
+            LEMOP::MatchTag(_, cases) => {
+                cases.values().try_fold(slots_counter, |acc, op| {
+                    Ok(acc.max(op.slots_info_rec(slots_map, slots_counter)?))
+                })
+            }
+            LEMOP::MatchSymbol(_, cases, def) => {
+                let init = def.slots_info_rec(slots_map, slots_counter)?;
+                cases.values().try_fold(init, |acc, op| {
+                    Ok(acc.max(op.slots_info_rec(slots_map, slots_counter)?))
+                })
+            }
+            LEMOP::Seq(ops) => ops.iter().try_fold(slots_counter, |acc, op| {
+                Ok(op.slots_info_rec(slots_map, acc)?)
+            }),
+            _ => Ok(slots_counter),
+        }
+    }
+
     /// STEP 1: compute the slot mapping on a first (and unique) traversal
     ///
     /// While traversing alternate paths, we need to reuse compatible slots. For
@@ -159,51 +190,15 @@ impl LEMOP {
     /// (`Hash2`, `Hash3` etc).
     pub fn slots_info(&self) -> Result<SlotsInfo> {
         let mut slots_map = IndexMap::default();
-        let mut slots = IndexSet::default();
 
-        let mut slots_counter = SlotsCounter::default();
-        let mut stack = vec![(self, Path::default())];
-        while let Some((op, path)) = stack.pop() {
-            macro_rules! populate_slots_info {
-                ( $slot_idx: expr ) => {
-                    let slot = Slot {
-                        idx: $slot_idx,
-                        typ: SlotType::from_lemop(op),
-                    };
-                    if slots_map.insert(op.clone(), slot).is_some() {
-                        bail!("Duplicated LEMOP: {:?}", op)
-                    }
-                    slots.insert(slot);
-                };
-            }
-            match op {
-                LEMOP::Hash2(..) | LEMOP::Unhash2(..) => {
-                    populate_slots_info!(slots_counter.next_hash2(path));
-                }
-                LEMOP::Hash3(..) | LEMOP::Unhash3(..) => {
-                    populate_slots_info!(slots_counter.next_hash3(path));
-                }
-                LEMOP::Hash4(..) | LEMOP::Unhash4(..) => {
-                    populate_slots_info!(slots_counter.next_hash4(path));
-                }
-                LEMOP::Seq(ops) => {
-                    stack.extend(ops.iter().rev().map(|op| (op, path.clone())));
-                }
-                LEMOP::MatchTag(_, cases) => {
-                    for (tag, op) in cases {
-                        stack.push((op, slots_counter.cont_with_tag(&path, tag)));
-                    }
-                }
-                LEMOP::MatchSymbol(_, cases, def) => {
-                    for (symbol, op) in cases {
-                        stack.push((op, slots_counter.cont_with_symbol(&path, symbol)));
-                    }
-                    stack.push((def, slots_counter.cont_with_default(&path)));
-                }
-                _ => (),
-            }
-        }
-        Ok(SlotsInfo { slots_map, slots })
+        let counts = self.slots_info_rec(&mut slots_map, SlotsCounter::default())?;
+
+        let slots = IndexSet::from_iter(slots_map.values().cloned());
+        Ok(SlotsInfo {
+            slots_map,
+            slots,
+            counts,
+        })
     }
 }
 
@@ -231,17 +226,6 @@ impl<F: LurkField> AllocationManager<F> {
                 self.0.insert(wrap, allocated_num.clone());
                 Ok(allocated_num)
             }
-        }
-    }
-}
-
-impl SlotType {
-    pub(crate) fn from_lemop(op: &LEMOP) -> Self {
-        match op {
-            LEMOP::Hash2(..) | LEMOP::Unhash2(..) => SlotType::Hash2,
-            LEMOP::Hash3(..) | LEMOP::Unhash3(..) => SlotType::Hash3,
-            LEMOP::Hash4(..) | LEMOP::Unhash4(..) => SlotType::Hash4,
-            _ => panic!("Invalid LEMOP"),
         }
     }
 }
@@ -786,51 +770,4 @@ impl LEM {
 
         num_constraints
     }
-}
-
-/// Structure used to hold the number of slots we want for a `LEMOP`. It's mostly
-/// for testing purposes.
-#[derive(Debug, Default, PartialEq)]
-pub(crate) struct NumSlots {
-    pub(crate) hash2: usize,
-    pub(crate) hash3: usize,
-    pub(crate) hash4: usize,
-}
-
-impl NumSlots {
-    #[inline]
-    pub(crate) fn new(num_slots: (usize, usize, usize)) -> NumSlots {
-        NumSlots {
-            hash2: num_slots.0,
-            hash3: num_slots.1,
-            hash4: num_slots.2,
-        }
-    }
-}
-
-/// Computes the number of slots used for each category
-#[allow(dead_code)]
-pub(crate) fn num_slots(slots_info: &SlotsInfo) -> NumSlots {
-    let mut slots2: HashSet<usize> = HashSet::default();
-    let mut slots3: HashSet<usize> = HashSet::default();
-    let mut slots4: HashSet<usize> = HashSet::default();
-
-    for Slot {
-        idx: slot_idx,
-        typ: slot_type,
-    } in &slots_info.slots
-    {
-        match slot_type {
-            SlotType::Hash2 => {
-                slots2.insert(*slot_idx);
-            }
-            SlotType::Hash3 => {
-                slots3.insert(*slot_idx);
-            }
-            SlotType::Hash4 => {
-                slots4.insert(*slot_idx);
-            }
-        }
-    }
-    NumSlots::new((slots2.len(), slots3.len(), slots4.len()))
 }

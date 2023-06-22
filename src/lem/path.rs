@@ -1,4 +1,5 @@
 use anyhow::{bail, Result};
+use indexmap::IndexMap;
 use std::collections::{HashMap, HashSet};
 
 use crate::field::LurkField;
@@ -173,7 +174,7 @@ impl LEMOP {
                 }
                 Ok(LEMOP::MatchTag(
                     retrieve_one(map, ptr)?,
-                    HashMap::from_iter(new_cases),
+                    IndexMap::from_iter(new_cases),
                 ))
             }
             LEMOP::MatchSymbol(ptr, cases, def) => {
@@ -185,7 +186,7 @@ impl LEMOP {
                 }
                 Ok(LEMOP::MatchSymbol(
                     retrieve_one(map, ptr)?,
-                    HashMap::from_iter(new_cases),
+                    IndexMap::from_iter(new_cases),
                     Box::new(def.deconflict(&path.push_default(), &mut map.clone())?),
                 ))
             }

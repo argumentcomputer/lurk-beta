@@ -81,6 +81,7 @@ mod tag;
 
 use crate::field::LurkField;
 use anyhow::{bail, Result};
+use indexmap::IndexMap;
 use std::collections::HashMap;
 
 use self::{interpreter::Frame, path::Path, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag};
@@ -144,11 +145,11 @@ pub enum LEMOP {
     Open(MetaPtr, MetaPtr, MetaPtr),
     /// `MatchTag(x, cases)` performs a match on the tag of `x`, considering only
     /// the appropriate `LEMOP` among the ones provided in `cases`
-    MatchTag(MetaPtr, HashMap<Tag, LEMOP>),
+    MatchTag(MetaPtr, IndexMap<Tag, LEMOP>),
     /// `MatchSymbol(x, cases, def)` checks whether `x` matches some symbol among
     /// the ones provided in `cases`. If so, run the corresponding `LEMOP`. Run
     /// The default `def` `LEMOP` otherwise
-    MatchSymbol(MetaPtr, HashMap<Symbol, LEMOP>, Box<LEMOP>),
+    MatchSymbol(MetaPtr, IndexMap<Symbol, LEMOP>, Box<LEMOP>),
     /// `Seq(ops)` executes each `op: LEMOP` in `ops` sequentially
     Seq(Vec<LEMOP>),
     /// `Return([a, b, c])` sets the output as `[a, b, c]`
@@ -231,18 +232,16 @@ impl LEM {
 
 #[cfg(test)]
 mod tests {
-    use super::circuit::{AllocationManager, NumSlots};
+    use super::circuit::{AllocationManager, SlotsCounter};
     use super::{store::Store, *};
-    use crate::lem::circuit::num_slots;
     use crate::{lem, lem::pointers::Ptr};
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable, Delta};
     use blstrs::Scalar as Fr;
 
-    fn constrain_test_helper(lem: &LEM, exprs: &[Ptr<Fr>], expected_num_slots: NumSlots) {
+    fn constrain_test_helper(lem: &LEM, exprs: &[Ptr<Fr>], expected_num_slots: SlotsCounter) {
         let slots_info = lem.lem_op.slots_info().unwrap();
 
-        let num_slots = num_slots(&slots_info);
-        assert_eq!(num_slots, expected_num_slots);
+        assert_eq!(slots_info.counts, expected_num_slots);
 
         let computed_num_constraints = lem.num_constraints(&slots_info);
 
@@ -307,7 +306,7 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &[Ptr::num(Fr::from_u64(42))], NumSlots::default());
+        constrain_test_helper(&lem, &[Ptr::num(Fr::from_u64(42))], SlotsCounter::default());
     }
 
     #[test]
@@ -331,7 +330,7 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &[Ptr::num(Fr::from_u64(42))], NumSlots::default());
+        constrain_test_helper(&lem, &[Ptr::num(Fr::from_u64(42))], SlotsCounter::default());
     }
 
     #[test]
@@ -345,7 +344,7 @@ mod tests {
         constrain_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::default(),
+            SlotsCounter::default(),
         );
     }
 
@@ -368,7 +367,7 @@ mod tests {
         constrain_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::default(),
+            SlotsCounter::default(),
         );
     }
 
@@ -403,7 +402,7 @@ mod tests {
         constrain_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((2, 2, 2)),
+            SlotsCounter::new((2, 2, 2)),
         );
     }
 
@@ -441,7 +440,7 @@ mod tests {
         constrain_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((3, 3, 3)),
+            SlotsCounter::new((3, 3, 3)),
         );
     }
 
@@ -491,7 +490,7 @@ mod tests {
         constrain_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
-            NumSlots::new((4, 4, 4)),
+            SlotsCounter::new((4, 4, 4)),
         );
     }
 }
