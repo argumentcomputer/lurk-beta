@@ -1,42 +1,30 @@
-//! # Constraint system for LEM
+//! ## Constraint system for LEM
 //!
-//! Here we describe how we generate bellperson constraints for LEM, such that
-//! it can be used with Nova folding to implement the Lurk evaluation.
+//! This is a high level description of how we generate bellperson constraints for
+//! LEM, such that it can be used with Nova folding to implement the Lurk
+//! evaluation.
+//! 
+//! Some LEMOPs require expensive gadgets, such as Poseidon hashing. So we use
+//! the concept of "slots" to avoid wasting constraints.
+//! 
+//! We've separated the process in three steps:
 //!
-//! ## LEM paths and the implications:
+//! 1. Perform a static analysis to compute the slots that are needed as well as
+//! the mapping from LEMOPs to their respective slots. This piece of information
+//! will live on a `SlotsInfo` structure, which is populated by the function
+//! `LEMOP::slots_info`;
 //!
-//! LEM implements logical branching using some specific LEMOPs such as `MatchTag`
-//! and `MatchSymbol`. By nesting them we create a set of paths that interpretation
-//! can follow. We call them **virtual** and **concrete** paths.
-//! In particular, the followed path is the concrete one. We use a Boolean
-//! variable to indicate whether a path is concrete or not. This allows us to
-//! construct an **implication system**, which is responsible for ensuring that
-//! allocated variables in the concrete path are equal to their expected values
-//! but such equalities on virtual paths are irrelevant.
+//! 2. Interpret the LEM and collect the data that was generated on each visited
+//! slot, along with all bindings from `MetaPtr`s to `Ptr`s. This piece of
+//! information will live on a `Frame` structure;
+//! 
+//! 3. Finally build the circuit with `SlotsInfo` and `Frame` at hand. This step
+//! is explained in more details in the `LEMOP::synthesize` function.
 //!
-//! ## Slot optimization:
-//!
-//! Some operations like Poseidon hash can be relatively expensive in the circuit,
-//! therefore we want to avoid wasting constraints with them as much as possible.
-//! In order to achieve this goal, we only add constraints to a limited number of
-//! *slots* that correspond to a maximum number of such expensive operations that
-//! may occur in a single interpretation round. This optimization avoids
-//! constraining every expensive operation on every possible path.
-//!
-//! Shortly, we construct the hash slot system using the next steps:
-//!
-//! * STEP 1: Static analysis, when we traverse LEM for the first time and allocate
-//! slots for hashes in all virtual paths. We only add hashes that were not yet
-//! previously added, therefore ensuring deduplication of hashes in different
-//! branches.
-//!
-//! * STEP 2: During interpretation (second traversal) we gather information
-//! related to each visited slot.
-//!
-//! * STEP 3: During construction of constraints, we first preallocate the preimage
-//! and image for each slot; then we synthesize all slots; and finally we traverse
-//! LEM (for the third time), adding implication constraints, glueing together all the
-//! information. This step is better explained in the `synthesize` function.
+//! The 3 steps above will be further referred to as *STEP 1*, *STEP 2* and
+//! *STEP 3* respectively. STEP 1 should be performed once per slot. Then STEP 2
+//! will need as many iterations as it takes to evaluate the Lurk expression and
+//! so will STEP 3.
 
 use std::collections::{HashMap, HashSet};
 
@@ -438,25 +426,25 @@ impl LEM {
         Ok(preallocated_img)
     }
 
-    /// Create R1CS constraints for LEM given an evaluation frame.
+    /// Create R1CS constraints for LEM given an evaluation frame. This function
+    /// implements the STEP 3 mentioned above.
     ///
-    /// As we find recursive (non-leaf) LEM operations, we stack them to be
-    /// constrained later, using hash maps to manage variables and pointers in
-    /// a way we can reference allocated variables that were previously created.
+    /// We use a stack to keep track of the LEMOPs that need to be constrained
+    /// and a hashmap to map meta pointers to their respective allocated pointers.
     ///
-    /// Notably, we use a variable `concrete_path: Boolean` to encode whether we
-    /// are on a *concrete* or *virtual* path. A virtual path is one that wasn't
-    /// taken during evaluation and thus its frame pointers weren't bound. A
-    /// concrete path means that evaluation took that path and the frame data
-    /// should be complete. For virtual paths we need to create dummy bindings
-    /// and relax the implications with false premises. The premise is precicely
-    /// `concrete_path`.
+    /// Notably, one of the variables that we push to the stack is a
+    /// `concrete_path: Boolean`, which encodes whether we are on a *concrete* or
+    /// *virtual* path. A virtual path is one that wasn't taken during
+    /// interpretation and thus its frame pointers weren't bound. A concrete path
+    /// means that interpretation went down that road and the frame data should
+    /// be complete for the variables and the slots on that path. For virtual
+    /// paths we need to create dummy bindings for the meta pointers and relax the
+    /// implications with false premises. The premise is precicely `concrete_path`.
     ///
     /// Regarding the slot optimizations, STEP 3 uses information gathered during
     /// STEPs 1 and 2. So at this point we know:
     ///
-    /// 1. Which LEMOPs map to which slots. Since LEMOPs can be deduplicated, it
-    /// is possible a LEMOP has no slot at all;
+    /// 1. Which LEMOPs map to which slots;
     /// 2. The slots (and their respective preimages) that were visited during
     /// interpretation.
     ///

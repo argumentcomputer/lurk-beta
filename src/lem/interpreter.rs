@@ -47,8 +47,8 @@ impl std::fmt::Display for Slot {
 }
 
 /// This hashmap is populated during interpretation, telling which slots were
-/// visited and the pointers that were collected for each of them. The example
-/// below has 5 slots, 3 of which have been visited during interpretation.
+/// visited and the data that was collected for each of them. The example below
+/// has 5 slots, 3 of which have been visited during interpretation.
 ///
 ///```text
 ///            Slot index
@@ -60,7 +60,8 @@ impl std::fmt::Display for Slot {
 ///      │ H3 │ c │   │
 ///      └────┴───┴───┘
 ///```
-/// `a`, `b` and `c` are the `Vec<Ptr<F>>` that were collected.
+/// `a`, `b` and `c` are the `Vec<Ptr<F>>` that were collected. The slots that
+/// weren't visited don't have key/value pairs present on `Visits`.
 pub(crate) type Visits<F> = HashMap<Slot, Vec<Ptr<F>>>;
 
 /// A `Frame` carries the data that results from interpreting a LEM. That is,
