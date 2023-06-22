@@ -252,7 +252,7 @@ impl<F: LurkField> AllocatedPtr<F> {
 
     pub fn ptr(&self, store: &Store<F>) -> Option<Ptr<F>> {
         let scalar_ptr = self.scalar_ptr(store)?;
-        store.fetch_scalar(&scalar_ptr)
+        store.fetch_z_expr_ptr(&scalar_ptr)
     }
 
     pub fn scalar_ptr(&self, store: &Store<F>) -> Option<ZExprPtr<F>> {
@@ -272,8 +272,9 @@ impl<F: LurkField> AllocatedPtr<F> {
         store: &Store<F>,
     ) -> Result<(AllocatedNum<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         let maybe_thunk = if let Some(ptr) = self.scalar_ptr(store) {
-            if let Some(Expression::Thunk(thunk)) =
-                store.fetch_scalar(&ptr).and_then(|ptr| store.fetch(&ptr))
+            if let Some(Expression::Thunk(thunk)) = store
+                .fetch_z_expr_ptr(&ptr)
+                .and_then(|ptr| store.fetch(&ptr))
             {
                 Some(thunk)
             } else {
@@ -671,7 +672,7 @@ impl<F: LurkField> AllocatedContPtr<F> {
 
     pub fn get_cont_ptr(&self, store: &Store<F>) -> Option<ContPtr<F>> {
         let scalar_ptr = self.get_scalar_ptr_cont(store)?;
-        store.fetch_scalar_cont(&scalar_ptr)
+        store.fetch_z_cont_ptr(&scalar_ptr)
     }
 
     pub fn get_scalar_ptr_cont(&self, store: &Store<F>) -> Option<ZContPtr<F>> {

@@ -198,6 +198,7 @@ impl<F: LurkField> Store<F> {
             Expression::Nil | Expression::Cons(..) => self.fetch_syntax_list(ptr),
             Expression::EmptyStr => Some(Syntax::String(Pos::No, "".to_string())),
             Expression::Str(..) => Some(Syntax::String(Pos::No, self.fetch_string(&ptr)?)),
+            Expression::RootKey => Some(Syntax::Symbol(Pos::No, Symbol::Key(vec![]))),
             Expression::RootSym => Some(Syntax::Symbol(Pos::No, Symbol::root())),
             Expression::Sym(..) => {
                 let sym = self.fetch_symbol(&ptr)?;
@@ -286,6 +287,32 @@ mod test {
         let expr = improper!(sym!(x), sym!(y), sym!(nil));
         let output = s.fetch_syntax(expr).unwrap();
         assert_eq!("(x y)".to_string(), format!("{}", output));
+    }
+
+    #[test]
+    fn syntax_key_roundtrip() {
+        let mut store1 = Store::<Fr>::default();
+        let ptr1 = store1.intern_syntax(Syntax::Symbol(Pos::No, Symbol::Key(vec![])));
+        let (z_store, z_ptr) = store1.to_z_store_with_ptr(&ptr1).unwrap();
+        let (store2, ptr2) = z_store.to_store_with_z_ptr(&z_ptr).unwrap();
+        let y = store2.fetch_syntax(ptr2).unwrap();
+        let ptr2 = store1.intern_syntax(y);
+        assert!(store1.ptr_eq(&ptr1, &ptr2).unwrap());
+    }
+    #[test]
+    fn syntax_key_roundtrip2() {
+        let mut store1 = Store::<Fr>::default();
+        let ptr1 = store1.intern_syntax(Syntax::Symbol(Pos::No, Symbol::Key(vec!["".to_string()])));
+        println!("ptr1 {:?}", ptr1);
+        let (z_store, z_ptr) = store1.to_z_store_with_ptr(&ptr1).unwrap();
+        println!("z_ptr {:?}", z_ptr);
+        let (store2, ptr2) = z_store.to_store_with_z_ptr(&z_ptr).unwrap();
+        println!("ptr2 {:?}", ptr2);
+        let y = store2.fetch_syntax(ptr2).unwrap();
+        println!("y {:?}", y);
+        let ptr2 = store1.intern_syntax(y);
+        println!("ptr2 {:?}", ptr2);
+        assert!(store1.ptr_eq(&ptr1, &ptr2).unwrap());
     }
 
     proptest! {

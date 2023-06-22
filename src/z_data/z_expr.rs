@@ -34,7 +34,8 @@ pub enum ZExpr<F: LurkField> {
     Comm(F, ZExprPtr<F>),
     RootSym,
     Sym(ZExprPtr<F>, ZExprPtr<F>),
-    Key(ZExprPtr<F>),
+    RootKey,
+    Key(ZExprPtr<F>, ZExprPtr<F>),
     Fun {
         arg: ZExprPtr<F>,
         body: ZExprPtr<F>,
@@ -57,15 +58,25 @@ impl<F: LurkField> std::fmt::Display for ZExpr<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ZExpr::Cons(x, y) => write!(f, "({} . {})", x, y),
-            ZExpr::Str(x, y) => write!(f, "('{}' str. {})", x, y),
-            ZExpr::Sym(x, y) => write!(f, "({} sym. {})", x, y),
+            ZExpr::Str(x, y) => write!(f, "(str {} {})", x, y),
+            ZExpr::Sym(x, y) => write!(f, "(sym {} {})", x, y),
+            ZExpr::Key(x, y) => write!(f, "(key {} {})", x, y),
             ZExpr::Comm(ff, x) => {
-                write!(f, "({} comm. {})", ff.trimmed_hex_digits(), x)
+                write!(f, "(comm {} {})", ff.trimmed_hex_digits(), x)
             }
             ZExpr::Nil => write!(f, "nil"),
-            ZExpr::EmptyStr => write!(f, "strnil"),
-            ZExpr::RootSym => write!(f, "symnil"),
-            _ => todo!(),
+            ZExpr::EmptyStr => write!(f, "emptystr"),
+            ZExpr::RootSym => write!(f, "rootsym"),
+            ZExpr::RootKey => write!(f, "rootkey"),
+            ZExpr::Thunk(val, cont) => write!(f, "(thunk {} {})", val, cont),
+            ZExpr::Fun {
+                arg,
+                body,
+                closed_env,
+            } => write!(f, "(fun {} {} {})", arg, body, closed_env),
+            ZExpr::Char(x) => write!(f, "(char {})", x),
+            ZExpr::Num(x) => write!(f, "(num  {:?})", x),
+            ZExpr::UInt(x) => write!(f, "(uint {})", x),
         }
     }
 }
@@ -80,11 +91,15 @@ impl<F: LurkField> ZExpr<F> {
             ),
             ZExpr::Comm(f, x) => ZPtr(ExprTag::Comm, cache.hash3(&[*f, x.0.to_field(), x.1])),
             ZExpr::RootSym => ZPtr(ExprTag::Sym, F::ZERO),
+            ZExpr::RootKey => ZPtr(ExprTag::Key, F::ZERO),
             ZExpr::Sym(x, y) => ZPtr(
                 ExprTag::Sym,
                 cache.hash4(&[x.0.to_field(), x.1, y.0.to_field(), y.1]),
             ),
-            ZExpr::Key(sym) => ZPtr(ExprTag::Key, sym.1),
+            ZExpr::Key(x, y) => ZPtr(
+                ExprTag::Key,
+                cache.hash4(&[x.0.to_field(), x.1, y.0.to_field(), y.1]),
+            ),
             ZExpr::Fun {
                 arg,
                 body,
@@ -139,7 +154,13 @@ impl<F: LurkField> ZExpr<F> {
                     None
                 }
             }),
-            ExprTag::Key => store.hash_expr(ptr).map(ZExpr::Key),
+            ExprTag::Key => store.fetch_symcons(ptr).and_then(|(tag, val)| {
+                if let (Some(tag), Some(val)) = (store.hash_expr(&tag), store.hash_expr(&val)) {
+                    Some(ZExpr::Key(tag, val))
+                } else {
+                    None
+                }
+            }),
             ExprTag::Fun => store.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
                 if let (Some(arg), Some(body), Some(closed_env)) = (
                     store.hash_expr(arg),

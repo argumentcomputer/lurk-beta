@@ -95,7 +95,7 @@ mod tests {
         zexpr_roundtrip(ZExpr::Comm(f, zep));
         zexpr_roundtrip(ZExpr::RootSym);
         zexpr_roundtrip(ZExpr::Sym(zep, zep));
-        zexpr_roundtrip(ZExpr::Key(zep));
+        zexpr_roundtrip(ZExpr::Key(zep, zep));
         zexpr_roundtrip(ZExpr::Fun {
             arg: zep,
             body: zep,
