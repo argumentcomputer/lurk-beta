@@ -723,19 +723,19 @@ impl<F: LurkField> Store<F> {
 
     pub fn fetch_string(&self, ptr: &Ptr<F>) -> Option<String> {
         let mut string = String::new();
-        if *ptr == self.strnil() {
-            return Some(string);
-        }
-        let mut strcons = self.fetch_strcons(ptr);
-        if let Some(..) = strcons {
-            while let Some((car, cdr)) = strcons {
-                let chr = self.fetch_char(&car)?;
-                string.push(chr);
-                strcons = self.fetch_strcons(&cdr)
+        let mut ptr = ptr;
+        loop {
+            match (ptr.tag, ptr.raw) {
+                (ExprTag::Str, RawPtr::Null) => return Some(string),
+                (ExprTag::Str, RawPtr::Index(x)) => {
+                    let (car, cdr) = self.str_store.get_index(x)?;
+                    let chr = self.fetch_char(&car)?;
+                    string.push(chr);
+                    ptr = cdr
+                }
+                _ => return None,
             }
-            return Some(string);
         }
-        None
     }
 
     pub fn fetch_char(&self, ptr: &Ptr<F>) -> Option<char> {
