@@ -729,7 +729,7 @@ impl<F: LurkField> Store<F> {
                 (ExprTag::Str, RawPtr::Null) => return Some(string),
                 (ExprTag::Str, RawPtr::Index(x)) => {
                     let (car, cdr) = self.str_store.get_index(x)?;
-                    let chr = self.fetch_char(&car)?;
+                    let chr = self.fetch_char(car)?;
                     string.push(chr);
                     ptr = cdr
                 }
