@@ -374,9 +374,9 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn get_maybe_opaque(&self, tag: ExprTag, hash: F) -> Option<Ptr<F>> {
-        let scalar_ptr = ZExprPtr::from_parts(tag, hash);
+        let z_ptr = ZExprPtr::from_parts(tag, hash);
 
-        let ptr = self.z_expr_ptr_map.get(&scalar_ptr);
+        let ptr = self.z_expr_ptr_map.get(&z_ptr);
         if let Some(p) = ptr {
             return Some(*p);
         }

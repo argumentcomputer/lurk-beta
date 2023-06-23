@@ -1,12 +1,11 @@
-use serde::{Deserialize, Serialize};
-
+#[cfg(not(target_arch = "wasm32"))]
+use proptest::prelude::BoxedStrategy;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
-#[cfg(not(target_arch = "wasm32"))]
-use proptest_derive::Arbitrary;
+use serde::{Deserialize, Serialize};
 
-#[cfg(not(target_arch = "wasm32"))]
 use crate::field::FWrap;
+use crate::field::LurkField;
 use crate::hash::PoseidonCache;
 use crate::num::Num;
 use crate::ptr::Ptr;
@@ -16,10 +15,6 @@ use crate::z_ptr::{ZContPtr, ZExprPtr, ZPtr};
 use crate::z_store::ZStore;
 use crate::UInt;
 
-use crate::field::LurkField;
-
-#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
-#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// A `ZExpr` is the content-addressed representation of a Lurk expression, which enables
 /// efficient serialization and sharing of hashed Lurk data via associated `ZExprPtr`s.
@@ -28,12 +23,6 @@ pub enum ZExpr<F: LurkField> {
     Nil,
     /// A cons list of `ZExprPtr`s
     Cons(ZExprPtr<F>, ZExprPtr<F>),
-    #[cfg_attr(
-        not(target_arch = "wasm32"),
-        proptest(
-            strategy = "any::<(FWrap<F>, ZExprPtr<F>)>().prop_map(|(x, y)| Self::Comm(x.0, y))"
-        )
-    )]
     /// A commitment, which contains an opaque value and a pointer to the hidden data in the `ZStore`
     Comm(F, ZExprPtr<F>),
     RootSym,
@@ -46,10 +35,6 @@ pub enum ZExpr<F: LurkField> {
         body: ZExprPtr<F>,
         closed_env: ZExprPtr<F>,
     },
-    #[cfg_attr(
-        not(target_arch = "wasm32"),
-        proptest(strategy = "any::<FWrap<F>>().prop_map(|x| Self::Num(x.0))")
-    )]
     /// A field element representing a number
     Num(F),
     EmptyStr,
@@ -89,7 +74,7 @@ impl<F: LurkField> std::fmt::Display for ZExpr<F> {
 }
 
 impl<F: LurkField> ZExpr<F> {
-    /// Constructs a `ZExprPtr` from a `ZExpr`, constructing a Poseidon hash
+    /// Constructs a `ZExprPtr` from a `ZExpr`, creating a Poseidon hash
     /// from the consituent elements if needed
     pub fn z_ptr(&self, cache: &PoseidonCache<F>) -> ZExprPtr<F> {
         match self {
@@ -141,7 +126,7 @@ impl<F: LurkField> ZExpr<F> {
         }
     }
 
-    /// Construct a `ZExpr` by fetching `ptr`'s expression from the store and hashing it
+    /// Constructs a `ZExpr` by fetching `ptr`'s expression from the store and hashing it
     pub fn from_ptr(store: &Store<F>, ptr: &Ptr<F>) -> Option<Self> {
         match ptr.tag {
             ExprTag::Nil => Some(ZExpr::Nil),
@@ -183,22 +168,82 @@ impl<F: LurkField> ZExpr<F> {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+impl<F: LurkField> Arbitrary for ZExpr<F> {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        prop_oneof![
+            Just(ZExpr::Nil),
+            any::<(ZExprPtr<F>, ZExprPtr<F>)>().prop_map(|(x, y)| ZExpr::Cons(x, y)),
+            any::<(FWrap<F>, ZExprPtr<F>)>().prop_map(|(x, y)| Self::Comm(x.0, y)),
+            Just(ZExpr::RootSym),
+            any::<(ZExprPtr<F>, ZExprPtr<F>)>().prop_map(|(x, y)| ZExpr::Sym(x, y)),
+            Just(ZExpr::RootKey),
+            any::<(ZExprPtr<F>, ZExprPtr<F>)>().prop_map(|(x, y)| ZExpr::Key(x, y)),
+            any::<(ZExprPtr<F>, ZExprPtr<F>, ZExprPtr<F>)>().prop_map(|(arg, body, closed_env)| {
+                ZExpr::Fun {
+                    arg,
+                    body,
+                    closed_env,
+                }
+            }),
+            any::<FWrap<F>>().prop_map(|x| Self::Num(x.0)),
+            Just(ZExpr::EmptyStr),
+            any::<(ZExprPtr<F>, ZExprPtr<F>)>().prop_map(|(x, y)| ZExpr::Str(x, y)),
+            any::<(ZExprPtr<F>, ZContPtr<F>)>().prop_map(|(x, y)| ZExpr::Thunk(x, y)),
+            any::<char>().prop_map(|x| Self::Char(x)),
+            any::<u64>().prop_map(|x| Self::UInt(UInt::U64(x))),
+        ]
+        .boxed()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::syntax::Syntax;
     use crate::z_data::{from_z_data, to_z_data};
     use pasta_curves::pallas::Scalar;
 
     proptest! {
-          #[test]
-          fn prop_z_expr(x in any::<ZExpr<Scalar>>()) {
-              let ser = to_z_data(&x).expect("write ZExpr");
-              let de: ZExpr<Scalar> = from_z_data(&ser).expect("read ZExpr");
-              assert_eq!(x, de);
+        #[test]
+        fn prop_serde_z_expr(x in any::<ZExpr<Scalar>>()) {
+            let ser = to_z_data(&x).expect("write ZExpr");
+            let de: ZExpr<Scalar> = from_z_data(&ser).expect("read ZExpr");
+            assert_eq!(x, de);
 
-      let ser: Vec<u8> = bincode::serialize(&x).expect("write ZExpr");
-      let de: ZExpr<Scalar> = bincode::deserialize(&ser).expect("read ZExpr");
-      assert_eq!(x, de);
-          }
+            let ser: Vec<u8> = bincode::serialize(&x).expect("write ZExpr");
+            let de: ZExpr<Scalar> = bincode::deserialize(&ser).expect("read ZExpr");
+            assert_eq!(x, de);
+        }
+
+        #[test]
+        // Note: slow in non-release mode (~3 mins)
+        fn prop_expr_z_expr_roundtrip(x in any::<Syntax<Scalar>>()) {
+            let mut store = Store::<Scalar>::default();
+            let ptr = store.intern_syntax(x);
+            let expr = store.fetch(&ptr).unwrap();
+            // Create a ZExpr and ZExprPtr, interning the latter into the Store
+            let z_expr = ZExpr::from_ptr(&store, &ptr).unwrap();
+            let z_ptr = ZExpr::z_ptr(&z_expr, &PoseidonCache::default());
+            let ptr_new = store.fetch_z_expr_ptr(&z_ptr).unwrap();
+            
+            assert_eq!(expr, store.fetch(&ptr_new).unwrap());
+            assert_eq!(ptr, ptr_new);
+        }
+    }
+
+    #[test]
+    fn unit_expr_z_expr() {
+        let mut store = Store::<Scalar>::default();
+        let x = "(+ 1 1)";
+        let ptr = store.read(x).unwrap();
+        let expr = store.fetch(&ptr).unwrap();
+        let z_expr = ZExpr::from_ptr(&store, &ptr).unwrap();
+        let z_ptr = ZExpr::z_ptr(&z_expr, &PoseidonCache::default());
+        let ptr = store.fetch_z_expr_ptr(&z_ptr).unwrap();
+        assert_eq!(expr, store.fetch(&ptr).unwrap());
     }
 }

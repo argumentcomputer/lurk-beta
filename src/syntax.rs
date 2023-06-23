@@ -320,7 +320,7 @@ mod test {
         #[test]
         fn syntax_full_roundtrip(x in any::<Syntax<Fr>>()) {
             let mut store1 = Store::<Fr>::default();
-            let ptr1 = store1.intern_syntax(x.clone());
+            let ptr1 = store1.intern_syntax(x);
             let (z_store, z_ptr) = store1.to_z_store_with_ptr(&ptr1).unwrap();
             let (store2, ptr2) = z_store.to_store_with_z_ptr(&z_ptr).unwrap();
             let y = store2.fetch_syntax(ptr2).unwrap();

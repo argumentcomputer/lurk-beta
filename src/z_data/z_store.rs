@@ -177,14 +177,14 @@ mod tests {
 
     proptest! {
         #[test]
-        fn prop_z_store(s in any::<ZStore<Scalar>>()) {
+        fn prop_serde_z_store(s in any::<ZStore<Scalar>>()) {
             let ser = to_z_data(&s).expect("write ZStore");
             let de: ZStore<Scalar> = from_z_data(&ser).expect("read ZStore");
             assert_eq!(s, de);
 
-        let ser: Vec<u8> = bincode::serialize(&s).expect("write ZStore");
-        let de: ZStore<Scalar> = bincode::deserialize(&ser).expect("read ZStore");
-        assert_eq!(s, de);
+            let ser: Vec<u8> = bincode::serialize(&s).expect("write ZStore");
+            let de: ZStore<Scalar> = bincode::deserialize(&ser).expect("read ZStore");
+            assert_eq!(s, de);
         }
     }
 }

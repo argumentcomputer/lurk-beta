@@ -42,10 +42,6 @@ impl<'a> StructSerializer<'a> {
         Ok(())
     }
 
-    fn skip_field_inner(&mut self, _: &'static str) -> Result<(), SerdeError> {
-        Ok(())
-    }
-
     fn end_inner(self) -> Result<Vec<ZData>, SerdeError> {
         Ok(self.cell)
     }
@@ -377,7 +373,6 @@ impl ser::SerializeMap for SerializeMap {
             .next_key
             .take()
             .expect("serialize_value called before serialize_key");
-        //self.cell.push(ta::Cell(vec![key, value.serialize(&Serializer)?]));
         self.cell.extend(vec![key, value.serialize(&Serializer)?]);
         Ok(())
     }
@@ -398,10 +393,6 @@ impl<'a> ser::SerializeStruct for StructSerializer<'a> {
         self.serialize_field_inner(key, value)
     }
 
-    fn skip_field(&mut self, key: &'static str) -> Result<(), Self::Error> {
-        self.skip_field_inner(key)
-    }
-
     fn end(self) -> Result<Self::Ok, Self::Error> {
         Ok(ZData::Cell(self.end_inner()?))
     }
@@ -416,10 +407,6 @@ impl<'a> ser::SerializeStructVariant for StructSerializer<'a> {
         T: ser::Serialize + ?Sized,
     {
         self.serialize_field_inner(key, value)
-    }
-
-    fn skip_field(&mut self, key: &'static str) -> Result<(), Self::Error> {
-        self.skip_field_inner(key)
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {

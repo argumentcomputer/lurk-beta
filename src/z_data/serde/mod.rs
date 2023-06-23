@@ -32,8 +32,7 @@ mod tests {
     use crate::z_data::{from_z_data, to_z_data};
     use pasta_curves::pallas::Scalar;
     use proptest::prelude::*;
-    use serde::Deserialize;
-    use serde::Serialize;
+    use serde::{Deserialize, Serialize};
     use std::collections::BTreeMap;
 
     fn test_roundtrip<T>(zd: T)
@@ -56,19 +55,19 @@ mod tests {
             (String::from("World"), 1u8),
         ]));
         let f = FWrap(Scalar::one());
-        let ser = to_z_data(&f).unwrap();
+        let ser = to_z_data(f).unwrap();
         assert_eq!(f, from_z_data(&ser).unwrap());
     }
 
     proptest! {
-      #[test]
-      fn ser_err_isize(x in any::<isize>()) {
-        assert!(to_z_data(x).is_err());
-      }
+        #[test]
+        fn ser_err_isize(x in any::<isize>()) {
+            assert!(to_z_data(x).is_err());
+        }
 
-      #[test]
-      fn ser_err_f32(x in any::<f32>()) {
-        assert!(to_z_data(x).is_err());
-      }
+        #[test]
+        fn ser_err_f32(x in any::<f32>()) {
+            assert!(to_z_data(x).is_err());
+        }
     }
 }

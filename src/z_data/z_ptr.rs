@@ -145,7 +145,7 @@ mod tests {
     use pasta_curves::pallas::Scalar;
     use serde::de::DeserializeOwned;
 
-    fn test_z_ptr_conversion<
+    fn test_serde_z_ptr<
         P: Arbitrary + IntoHashComponents<Scalar> + PartialEq + Eq + Serialize + DeserializeOwned,
     >(
         x: P,
@@ -160,27 +160,25 @@ mod tests {
     }
 
     proptest! {
-      #[test]
-      fn prop_z_expr_ptr(x in any::<ZExprPtr<Scalar>>()) {
-        test_z_ptr_conversion(x);
-      }
+        #[test]
+        fn prop_serde_z_expr_ptr(x in any::<ZExprPtr<Scalar>>()) {
+            test_serde_z_ptr(x);
+        }
 
-      #[test]
-      fn prop_z_cont_ptr(x in any::<ZContPtr<Scalar>>()) {
-        test_z_ptr_conversion(x);
-      }
+        #[test]
+        fn prop_serde_z_cont_ptr(x in any::<ZContPtr<Scalar>>()) {
+            test_serde_z_ptr(x);
+        }
+
+        #[test]
+        fn prop_base32_z_expr_ptr(x in any::<ZExprPtr<Scalar>>()) {
+            assert_eq!(x, ZPtr::from_base32(&x.to_base32()).unwrap());
+        }
     }
 
     #[test]
-    fn unit_z_expr_ptr_base32() {
+    fn unit_base32_z_expr_ptr() {
         let zptr = ZExprPtr::from_parts(ExprTag::Nil, Scalar::zero());
         assert_eq!(zptr, ZPtr::from_base32(&zptr.to_base32()).unwrap());
-    }
-
-    proptest! {
-      #[test]
-      fn prop_z_expr_ptr_base32(x in any::<ZExprPtr<Scalar>>()) {
-        assert_eq!(x, ZPtr::from_base32(&x.to_base32()).unwrap());
-      }
     }
 }
