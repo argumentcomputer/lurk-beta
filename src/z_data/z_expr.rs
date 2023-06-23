@@ -136,60 +136,39 @@ impl<F: LurkField> ZExpr<F> {
         match ptr.tag {
             ExprTag::Nil => Some(ZExpr::Nil),
             ExprTag::Cons => store.fetch_cons(ptr).and_then(|(car, cdr)| {
-                if let (Some(car), Some(cdr)) = (store.hash_expr(car), store.hash_expr(cdr)) {
-                    Some(ZExpr::Cons(car, cdr))
-                } else {
-                    None
-                }
+                Some(ZExpr::Cons(store.hash_expr(car)?, store.hash_expr(cdr)?))
             }),
             ExprTag::Comm => store.fetch_comm(ptr).and_then(|(secret, payload)| {
-                store
-                    .hash_expr(payload)
-                    .map(|payload| ZExpr::Comm(secret.0, payload))
+                Some(ZExpr::Comm(secret.0, store.hash_expr(payload)?))
             }),
             ExprTag::Sym => store.fetch_symcons(ptr).and_then(|(tag, val)| {
-                if let (Some(tag), Some(val)) = (store.hash_expr(&tag), store.hash_expr(&val)) {
-                    Some(ZExpr::Sym(tag, val))
-                } else {
-                    None
-                }
+                Some(ZExpr::Sym(store.hash_expr(&tag)?, store.hash_expr(&val)?))
             }),
             ExprTag::Key => store.fetch_symcons(ptr).and_then(|(tag, val)| {
-                if let (Some(tag), Some(val)) = (store.hash_expr(&tag), store.hash_expr(&val)) {
-                    Some(ZExpr::Key(tag, val))
-                } else {
-                    None
-                }
+                Some(ZExpr::Key(store.hash_expr(&tag)?, store.hash_expr(&val)?))
             }),
             ExprTag::Fun => store.fetch_fun(ptr).and_then(|(arg, body, closed_env)| {
-                if let (Some(arg), Some(body), Some(closed_env)) = (
-                    store.hash_expr(arg),
-                    store.hash_expr(body),
-                    store.hash_expr(closed_env),
-                ) {
-                    Some(ZExpr::Fun {
-                        arg,
-                        body,
-                        closed_env,
-                    })
-                } else {
-                    None
-                }
+                Some(ZExpr::Fun {
+                    arg: store.hash_expr(arg)?,
+                    body: store.hash_expr(body)?,
+                    closed_env: store.hash_expr(closed_env)?,
+                })
             }),
             ExprTag::Num => store.fetch_num(ptr).map(|num| match num {
                 Num::U64(x) => ZExpr::Num((*x).into()),
                 Num::Scalar(x) => ZExpr::Num(*x),
             }),
             ExprTag::Str => store.fetch_strcons(ptr).and_then(|(tag, val)| {
-                if let (Some(tag), Some(val)) = (store.hash_expr(&tag), store.hash_expr(&val)) {
-                    Some(ZExpr::Str(tag, val))
-                } else {
-                    None
-                }
+                Some(ZExpr::Str(store.hash_expr(&tag)?, store.hash_expr(&val)?))
             }),
             ExprTag::Char => store.fetch_char(ptr).map(ZExpr::Char),
             ExprTag::U64 => store.fetch_uint(ptr).map(ZExpr::UInt),
-            ExprTag::Thunk => unimplemented!(),
+            ExprTag::Thunk => store.fetch_thunk(ptr).and_then(|thunk| {
+                Some(ZExpr::Thunk(
+                    store.hash_expr(&thunk.value)?,
+                    store.hash_cont(&thunk.continuation)?,
+                ))
+            }),
         }
     }
 }

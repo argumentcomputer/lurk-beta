@@ -776,7 +776,7 @@ impl<F: LurkField> Store<F> {
         self.num_store.get_index(ptr.raw.idx()?)
     }
 
-    fn fetch_thunk(&self, ptr: &Ptr<F>) -> Option<&Thunk<F>> {
+    pub fn fetch_thunk(&self, ptr: &Ptr<F>) -> Option<&Thunk<F>> {
         debug_assert!(matches!(ptr.tag, ExprTag::Thunk));
         self.thunk_store.get_index(ptr.raw.idx()?)
     }
