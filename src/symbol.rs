@@ -28,16 +28,23 @@ impl Symbol {
     pub fn key(path: Vec<&str>) -> Self {
         Symbol::Key(path.iter().map(|x| x.to_string()).collect())
     }
-    /// Creates a new Symbol with the root path `[""]`.
+
+    /// Creates a new Symbol::Sym with the root path `[]`.
+    #[inline]
     pub fn root() -> Self {
         Self::Sym(vec![])
     }
 
-    /// Returns true if the Symbol is the root sym or keyword, i.e. if it has a path of `[]`.
-    pub fn path(&self) -> Vec<String> {
+    /// Creates a new Symbol::Key with the root path `[]`.
+    #[inline]
+    pub fn key_root() -> Self {
+        Self::Key(vec![])
+    }
+
+    /// Retrieves the path of a `Symbol`
+    pub fn path(&self) -> &Vec<String> {
         match self {
-            Self::Sym(path) => path.clone(),
-            Self::Key(path) => path.clone(),
+            Self::Sym(path) | Self::Key(path) => path,
         }
     }
 
@@ -148,6 +155,40 @@ impl Symbol {
         "~#1234567890.:'[](){},\"\\".chars().any(|x| x == c)
             || char::is_whitespace(c)
             || char::is_control(c)
+    }
+
+    pub fn parent(&self) -> Option<Symbol> {
+        match self {
+            Self::Key(path) => {
+                if path.is_empty() {
+                    None
+                } else {
+                    Some(Self::Key(path[0..path.len() - 1].to_vec()))
+                }
+            }
+            Self::Sym(path) => {
+                if path.is_empty() {
+                    None
+                } else {
+                    Some(Self::Sym(path[0..path.len() - 1].to_vec()))
+                }
+            }
+        }
+    }
+
+    pub fn child(&self, child: &str) -> Symbol {
+        match self {
+            Self::Key(path) => {
+                let mut path = path.clone();
+                path.push(child.into());
+                Self::Key(path)
+            }
+            Self::Sym(path) => {
+                let mut path = path.clone();
+                path.push(child.into());
+                Self::Sym(path)
+            }
+        }
     }
 }
 
@@ -310,37 +351,37 @@ pub const LURK_SYMBOLS: &[LurkSym] = &[
 #[cfg(test)]
 pub mod test {
 
-    //use super::*;
+    use super::*;
 
-    //#[test]
-    //fn test_sym() {
-    //    let root = Sym::root();
-    //    dbg!(root.path());
-    //    let a = root.child("a".into());
-    //    let a_b = a.child("b".into());
-    //    let a_b_path = vec!["", "a", "b"];
+    #[test]
+    fn test_sym() {
+        let root = Symbol::root();
+        dbg!(root.path());
+        let a = root.child("a".into());
+        let a_b = a.child("b".into());
+        let a_b_path = vec!["a", "b"];
 
-    //    assert_eq!(".|a|", a.full_name());
-    //    assert_eq!(".|a|.|b|", a_b.full_name());
-    //    assert_eq!(&a_b_path, a_b.path());
-    //    assert_eq!(Some(a.clone()), a_b.parent());
-    //    assert_eq!(Some(root.clone()), a.parent());
-    //    assert_eq!(None, root.parent());
-    //}
+        assert_eq!("a", a.print_escape());
+        assert_eq!("a.b", a_b.print_escape());
+        assert_eq!(&a_b_path, a_b.path());
+        assert_eq!(Some(a.clone()), a_b.parent());
+        assert_eq!(Some(root.clone()), a.parent());
+        assert_eq!(None, root.parent());
+    }
 
-    //#[test]
-    //fn test_keywords() {
-    //    let root = Sym::root();
-    //    let key_root = Sym::key_root();
+    #[test]
+    fn test_keywords() {
+        let root = Symbol::root();
+        let key_root = Symbol::key_root();
 
-    //    let apple = root.child("APPLE".into());
-    //    let orange = key_root.child("ORANGE".into());
+        let apple = root.child("APPLE".into());
+        let orange = key_root.child("ORANGE".into());
 
-    //    assert_eq!("APPLE", apple.name());
-    //    assert_eq!("ORANGE", orange.name());
-    //    assert!(!apple.is_keyword());
-    //    assert!(orange.is_keyword());
-    //    assert_eq!(key_root, orange.parent().unwrap());
-    //    assert!(apple.parent().unwrap() != key_root);
-    //}
+        assert_eq!("APPLE", apple.print_escape());
+        assert_eq!(":ORANGE", orange.print_escape());
+        assert!(!apple.is_key());
+        assert!(orange.is_key());
+        assert_eq!(key_root, orange.parent().unwrap());
+        assert!(apple.parent().unwrap() != key_root);
+    }
 }

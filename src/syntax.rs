@@ -198,7 +198,7 @@ impl<F: LurkField> Store<F> {
             Expression::Nil | Expression::Cons(..) => self.fetch_syntax_list(ptr),
             Expression::EmptyStr => Some(Syntax::String(Pos::No, "".to_string())),
             Expression::Str(..) => Some(Syntax::String(Pos::No, self.fetch_string(&ptr)?)),
-            Expression::RootKey => Some(Syntax::Symbol(Pos::No, Symbol::Key(vec![]))),
+            Expression::RootKey => Some(Syntax::Symbol(Pos::No, Symbol::key_root())),
             Expression::RootSym => Some(Syntax::Symbol(Pos::No, Symbol::root())),
             Expression::Sym(..) => {
                 let sym = self.fetch_symbol(&ptr)?;

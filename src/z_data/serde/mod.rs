@@ -32,7 +32,6 @@ mod tests {
     use crate::z_data::{from_z_data, to_z_data};
     use pasta_curves::pallas::Scalar;
     use proptest::prelude::*;
-    use proptest_derive::Arbitrary;
     use serde::Deserialize;
     use serde::Serialize;
     use std::collections::BTreeMap;
