@@ -457,7 +457,7 @@ impl<F: LurkField> Store<F> {
                     let mut iter = path.iter().peekable();
                     while let Some(s) = iter.next() {
                         let str_ptr = self.intern_string(s);
-                        if let Some(_) = iter.peek() {
+                        if iter.peek().is_some() {
                             ptr = self.intern_symcons(str_ptr, ptr);
                         } else {
                             ptr = self.intern_keycons(str_ptr, ptr);
@@ -475,7 +475,7 @@ impl<F: LurkField> Store<F> {
                         let str_ptr = self.intern_string(s);
                         ptr = self.intern_symcons(str_ptr, ptr);
                     }
-                    if &sym == &Symbol::nil() {
+                    if sym == Symbol::nil() {
                         Ptr {
                             tag: ExprTag::Nil,
                             raw: ptr.raw,
