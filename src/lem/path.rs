@@ -4,9 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::field::LurkField;
 
-use super::{
-    interpreter::Frame, store::Store, symbol::Symbol, tag::Tag, AString, MetaPtr, LEMCTL, LEMOP,
-};
+use super::{interpreter::Frame, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEMCTL, LEMOP};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) enum PathNode {
@@ -70,46 +68,35 @@ impl Path {
     }
 }
 
+fn insert_one(map: &mut HashMap<MetaPtr, MetaPtr>, path: &Path, ptr: &MetaPtr) -> Result<MetaPtr> {
+    let new_ptr = MetaPtr(format!("{}.{}", path, ptr.name()).into());
+    if map.insert(ptr.clone(), new_ptr.clone()).is_some() {
+        bail!("{} already defined", ptr.name());
+    };
+    Ok(new_ptr)
+}
+
 fn insert_many(
-    map: &mut HashMap<AString, AString>,
+    map: &mut HashMap<MetaPtr, MetaPtr>,
     path: &Path,
     ptr: &[MetaPtr],
 ) -> Result<Vec<MetaPtr>> {
     ptr.iter()
-        .map(|ptr| {
-            let new_name: AString = format!("{}.{}", path, ptr.name()).into();
-            if map.insert(ptr.name().clone(), new_name.clone()).is_some() {
-                bail!("{} already defined", ptr.name());
-            };
-            Ok(MetaPtr(new_name))
-        })
+        .map(|ptr| insert_one(map, path, ptr))
         .collect::<Result<Vec<_>>>()
 }
 
-fn insert_one(map: &mut HashMap<AString, AString>, path: &Path, ptr: &MetaPtr) -> Result<MetaPtr> {
-    let new_name: AString = format!("{}.{}", path, ptr.name()).into();
-    if map.insert(ptr.name().clone(), new_name.clone()).is_some() {
-        bail!("{} already defined", ptr.name());
-    };
-    Ok(MetaPtr(new_name))
-}
-
-fn retrieve_many(map: &HashMap<AString, AString>, args: &[MetaPtr]) -> Result<Vec<MetaPtr>> {
-    args.iter()
-        .map(|ptr| {
-            let Some(src_path) = map.get(ptr.name()).cloned() else {
-                bail!("{} not defined", ptr.name());
-            };
-            Ok(MetaPtr(src_path))
-        })
-        .collect::<Result<Vec<_>>>()
-}
-
-fn retrieve_one(map: &HashMap<AString, AString>, ptr: &MetaPtr) -> Result<MetaPtr> {
-    let Some(src_path) = map.get(ptr.name()).cloned() else {
+fn retrieve_one(map: &HashMap<MetaPtr, MetaPtr>, ptr: &MetaPtr) -> Result<MetaPtr> {
+    let Some(new_ptr) = map.get(ptr).cloned() else {
         bail!("{} not defined", ptr.name());
     };
-    Ok(MetaPtr(src_path))
+    Ok(new_ptr)
+}
+
+fn retrieve_many(map: &HashMap<MetaPtr, MetaPtr>, args: &[MetaPtr]) -> Result<Vec<MetaPtr>> {
+    args.iter()
+        .map(|ptr| retrieve_one(map, ptr))
+        .collect::<Result<Vec<_>>>()
 }
 
 impl LEMCTL {
@@ -127,7 +114,8 @@ impl LEMCTL {
     pub fn deconflict(
         &self,
         path: &Path,
-        map: &mut HashMap<AString, AString>, // name -> path/name
+        // `map` keeps track of the updated names of meta pointers
+        map: &mut HashMap<MetaPtr, MetaPtr>, // name -> path.name
     ) -> Result<Self> {
         match self {
             LEMCTL::MatchTag(ptr, cases) => {
@@ -158,11 +146,7 @@ impl LEMCTL {
                 for op in ops {
                     match op {
                         LEMOP::Null(ptr, tag) => {
-                            let new_name: AString = format!("{}.{}", path, ptr.name()).into();
-                            if map.insert(ptr.name().clone(), new_name.clone()).is_some() {
-                                bail!("{} already defined", ptr.name());
-                            };
-                            new_ops.push(LEMOP::Null(MetaPtr(new_name), *tag))
+                            new_ops.push(LEMOP::Null(insert_one(map, path, ptr)?, *tag))
                         }
                         LEMOP::Hash2(img, tag, preimg) => {
                             let preimg = retrieve_many(map, preimg)?.try_into().unwrap();
@@ -223,11 +207,11 @@ impl LEMCTL {
     fn path_taken<F: LurkField>(&self, frame: &Frame<F>, store: &mut Store<F>) -> Result<Path> {
         let mut path = Path::default();
         let mut stack = vec![self];
-        let binds = &frame.binds;
+        let bindings = &frame.bindings;
         while let Some(code) = stack.pop() {
             match code {
                 Self::MatchTag(match_ptr, cases) => {
-                    let ptr = match_ptr.get_ptr(binds)?;
+                    let ptr = match_ptr.get_ptr(bindings)?;
                     let tag = ptr.tag();
                     let Some(code) = cases.get(tag) else {
                         bail!("No match for tag {}", tag)
@@ -236,7 +220,7 @@ impl LEMCTL {
                     stack.push(code);
                 }
                 Self::MatchSymbol(match_ptr, cases, def) => {
-                    let ptr = match_ptr.get_ptr(binds)?;
+                    let ptr = match_ptr.get_ptr(bindings)?;
                     let Some(symbol) = store.fetch_symbol(ptr) else {
                         bail!("Symbol not found for {}", match_ptr.name());
                     };

@@ -276,7 +276,7 @@ impl LEM {
         frame: &Frame<F>,
         store: &mut Store<F>,
     ) -> Result<ZPtr<F>> {
-        match frame.binds.get(mptr) {
+        match frame.bindings.get(mptr) {
             Some(ptr) => store.hash_ptr(ptr),
             None => Ok(ZPtr::dummy()),
         }

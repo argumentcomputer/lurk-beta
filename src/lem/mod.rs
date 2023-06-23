@@ -201,7 +201,11 @@ impl LEM {
     /// Instantiates a `LEM` with the appropriate transformations to make sure
     /// that constraining will be smooth.
     pub fn new(input: [AString; 3], lem: &LEMCTL) -> Result<LEM> {
-        let mut map = HashMap::from_iter(input.iter().map(|i| (i.clone(), i.clone())));
+        let mut map = HashMap::from_iter(
+            input
+                .iter()
+                .map(|i| (MetaPtr(i.clone()), MetaPtr(i.clone()))),
+        );
         Ok(LEM {
             input_vars: input,
             lem: lem.deconflict(&Path::default(), &mut map)?,
