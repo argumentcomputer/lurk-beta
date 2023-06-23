@@ -607,14 +607,6 @@ pub mod tests {
         tmp -= Num::U64(1u64);
         tmp /= Num::U64(2u64);
         assert!(test(parse_num(), "-1/2", Some(Syntax::Num(Pos::No, tmp))));
-        //assert!(test(
-        //    parse_num(),
-        //    "1/2",
-        //    Some(num!(
-        //        0x39f6d3a994cebea4199cec0404d0ec02a9ded2017fff2dff7fffffff80000001
-        //    ))
-        //));
-        //assert!(test(parse_num(), "-1/2", Some(num!(0))));
     }
 
     #[test]
