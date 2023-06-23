@@ -21,9 +21,12 @@ use crate::field::LurkField;
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-/// Enum to represent a z expression.
+/// A `ZExpr` is the content-addressed representation of a Lurk expression, which enables
+/// efficient serialization and sharing of hashed Lurk data via associated `ZExprPtr`s.
 pub enum ZExpr<F: LurkField> {
+    /// A null expression
     Nil,
+    /// A cons list of `ZExprPtr`s
     Cons(ZExprPtr<F>, ZExprPtr<F>),
     #[cfg_attr(
         not(target_arch = "wasm32"),
@@ -31,8 +34,10 @@ pub enum ZExpr<F: LurkField> {
             strategy = "any::<(FWrap<F>, ZExprPtr<F>)>().prop_map(|(x, y)| Self::Comm(x.0, y))"
         )
     )]
+    /// A commitment, which contains an opaque value and a pointer to the hidden data in the `ZStore`
     Comm(F, ZExprPtr<F>),
     RootSym,
+    /// Contains a symbol (a list of strings) and a pointer to the tail.
     Sym(ZExprPtr<F>, ZExprPtr<F>),
     RootKey,
     Key(ZExprPtr<F>, ZExprPtr<F>),
@@ -45,10 +50,12 @@ pub enum ZExpr<F: LurkField> {
         not(target_arch = "wasm32"),
         proptest(strategy = "any::<FWrap<F>>().prop_map(|x| Self::Num(x.0))")
     )]
+    /// A field element representing a number
     Num(F),
     EmptyStr,
     /// Contains a string and a pointer to the tail.
     Str(ZExprPtr<F>, ZExprPtr<F>),
+    /// An unevaluated expression and continuation
     Thunk(ZExprPtr<F>, ZContPtr<F>),
     Char(char),
     UInt(UInt),
@@ -57,6 +64,7 @@ pub enum ZExpr<F: LurkField> {
 impl<F: LurkField> std::fmt::Display for ZExpr<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            ZExpr::Nil => write!(f, "nil"),
             ZExpr::Cons(x, y) => write!(f, "({} . {})", x, y),
             ZExpr::Str(x, y) => write!(f, "(str {} {})", x, y),
             ZExpr::Sym(x, y) => write!(f, "(sym {} {})", x, y),
@@ -64,7 +72,6 @@ impl<F: LurkField> std::fmt::Display for ZExpr<F> {
             ZExpr::Comm(ff, x) => {
                 write!(f, "(comm {} {})", ff.trimmed_hex_digits(), x)
             }
-            ZExpr::Nil => write!(f, "nil"),
             ZExpr::EmptyStr => write!(f, "emptystr"),
             ZExpr::RootSym => write!(f, "rootsym"),
             ZExpr::RootKey => write!(f, "rootkey"),
@@ -82,6 +89,8 @@ impl<F: LurkField> std::fmt::Display for ZExpr<F> {
 }
 
 impl<F: LurkField> ZExpr<F> {
+    /// Constructs a `ZExprPtr` from a `ZExpr`, constructing a Poseidon hash
+    /// from the consituent elements if needed
     pub fn z_ptr(&self, cache: &PoseidonCache<F>) -> ZExprPtr<F> {
         match self {
             ZExpr::Nil => ZPtr(ExprTag::Nil, ZStore::new().nil_z_ptr(cache).1),
@@ -132,6 +141,7 @@ impl<F: LurkField> ZExpr<F> {
         }
     }
 
+    /// Construct a `ZExpr` by fetching `ptr`'s expression from the store and hashing it
     pub fn from_ptr(store: &Store<F>, ptr: &Ptr<F>) -> Option<Self> {
         match ptr.tag {
             ExprTag::Nil => Some(ZExpr::Nil),

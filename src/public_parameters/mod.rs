@@ -288,23 +288,23 @@ pub enum Claim<F: LurkField> {
 }
 
 impl<F: LurkField + Serialize + for<'de> Deserialize<'de>> Claim<F> {
-    // Returns the ZPtr corresponding to the claim
+    /// Returns the ZPtr corresponding to the claim
     pub fn proof_key(&self) -> Result<ZExprPtr<F>, Error> {
         match self {
             Claim::Evaluation(eval) => {
                 // Only keying on input and output for now
-                let expr_in = ZExprPtr::<F>::try_from(&eval.expr)?;
-                let expr_out = ZExprPtr::<F>::try_from(&eval.expr_out)?;
+                let expr_in = ZExprPtr::<F>::from_lurk_str(&eval.expr)?;
+                let expr_out = ZExprPtr::<F>::from_lurk_str(&eval.expr_out)?;
                 let expr = ZExpr::Cons(expr_in, expr_out);
                 Ok(expr.z_ptr(&PoseidonCache::default()))
             }
             Claim::PtrEvaluation(ptr_eval) => {
                 let expr_in: ZExprPtr<F> = match &ptr_eval.expr {
-                    LurkPtr::Source(source) => ZExprPtr::<F>::try_from(source)?,
+                    LurkPtr::Source(source) => ZExprPtr::<F>::from_lurk_str(source)?,
                     LurkPtr::ZStorePtr(zsp) => zsp.z_ptr,
                 };
                 let expr_out = match &ptr_eval.expr_out {
-                    LurkPtr::Source(source) => ZExprPtr::<F>::try_from(source)?,
+                    LurkPtr::Source(source) => ZExprPtr::<F>::from_lurk_str(source)?,
                     LurkPtr::ZStorePtr(zsp) => zsp.z_ptr,
                 };
                 let expr = ZExpr::Cons(expr_in, expr_out);
@@ -312,8 +312,8 @@ impl<F: LurkField + Serialize + for<'de> Deserialize<'de>> Claim<F> {
             }
             // TODO: Is this an appropriate key for commitments?
             Claim::Opening(open) => {
-                let expr_in = ZExprPtr::<F>::try_from(&open.input)?;
-                let expr_out = ZExprPtr::<F>::try_from(&open.output)?;
+                let expr_in = ZExprPtr::<F>::from_lurk_str(&open.input)?;
+                let expr_out = ZExprPtr::<F>::from_lurk_str(&open.output)?;
                 let expr = ZExpr::Cons(expr_in, expr_out);
                 Ok(expr.z_ptr(&PoseidonCache::default()))
             }

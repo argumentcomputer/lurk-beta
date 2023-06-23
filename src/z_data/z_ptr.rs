@@ -71,28 +71,35 @@ impl<E: Tag, F: LurkField> Hash for ZPtr<E, F> {
 }
 
 impl<E: Tag, F: LurkField> ZPtr<E, F> {
+    /// Creates a ZPtr from a tag and a value
     pub fn from_parts(tag: E, value: F) -> Self {
         ZPtr(tag, value)
     }
 
+    /// Returns the tag
     pub fn tag(&self) -> E {
         self.0
     }
 
+    /// Returns the tag in field representation
     pub fn tag_field(&self) -> F {
         self.0.to_field::<F>()
     }
 
+    /// Returns the value
     pub fn value(&self) -> &F {
         &self.1
     }
 
+    // TODO: Create a permanent format for ZPtr strings/ZIDs
+    /// Converts the ZPtr to a base32-encoded string
     pub fn to_base32(&self) -> String {
         let tag_b32 = Base32Unpadded::encode_string(&self.0.into().to_le_bytes());
         let val_b32 = Base32Unpadded::encode_string(self.1.to_repr().as_ref());
         format!("{}z{}", tag_b32, val_b32)
     }
 
+    /// Converts a base32-encoded string to a ZPtr
     pub fn from_base32(zptr: &str) -> Result<Self, anyhow::Error> {
         let tag_bytes = Base32Unpadded::decode_vec(&zptr[0..4])
             .map_err(|_| anyhow!("Failed to decode base32"))?;
@@ -105,15 +112,12 @@ impl<E: Tag, F: LurkField> ZPtr<E, F> {
     }
 }
 
+/// Alias for an expression pointer
 pub type ZExprPtr<F> = ZPtr<ExprTag, F>;
 
-// TODO: Remove this in favor of the idiomatic approach
-// Only used in public_parameters::proof_key
-// Parse string, intern Expr into store, then convert Ptr to ZPtr
-impl<F: LurkField> TryFrom<&String> for ZExprPtr<F> {
-    type Error = store::Error;
-
-    fn try_from(value: &String) -> Result<Self, Self::Error> {
+impl<F: LurkField> ZExprPtr<F> {
+    /// Parses and hashes a Lurk source string into a ZExprPtr
+    pub fn from_lurk_str(value: &str) -> Result<Self, store::Error> {
         let mut store = Store::<F>::default();
         let ptr = store
             .read(value)
@@ -131,6 +135,7 @@ impl<E: Tag, F: LurkField> IntoHashComponents<F> for ZPtr<E, F> {
     }
 }
 
+/// Alias for a continuation pointer
 pub type ZContPtr<F> = ZPtr<ContTag, F>;
 
 #[cfg(test)]
@@ -138,31 +143,32 @@ mod tests {
     use super::*;
     use crate::z_data::{from_z_data, to_z_data};
     use pasta_curves::pallas::Scalar;
+    use serde::de::DeserializeOwned;
 
-    proptest! {
-            #[test]
-            fn prop_z_expr_ptr(x in any::<ZExprPtr<Scalar>>()) {
-                let ser = to_z_data(x).expect("write ZExprPtr");
-                let de: ZExprPtr<Scalar> = from_z_data(&ser).expect("read ZExprPtr");
-                assert_eq!(x, de);
-
-        let ser: Vec<u8> = bincode::serialize(&x).expect("write ZExprPtr");
-        let de: ZExprPtr<Scalar> = bincode::deserialize(&ser).expect("read ZExprPtr");
+    fn test_z_ptr_conversion<
+        P: Arbitrary + IntoHashComponents<Scalar> + PartialEq + Eq + Serialize + DeserializeOwned,
+    >(
+        x: P,
+    ) {
+        let ser = to_z_data(&x).expect("write ZPtr");
+        let de: P = from_z_data(&ser).expect("read ZPtr");
         assert_eq!(x, de);
-            }
+
+        let ser: Vec<u8> = bincode::serialize(&x).expect("write ZPtr");
+        let de: P = bincode::deserialize(&ser).expect("read ZPtr");
+        assert_eq!(x, de);
     }
 
     proptest! {
-            #[test]
-            fn prop_z_cont_ptr(x in any::<ZContPtr<Scalar>>()) {
-                let ser = to_z_data(x).expect("write ZContPtr");
-                let de: ZContPtr<Scalar> = from_z_data(&ser).expect("read ZContPtr");
-                assert_eq!(x, de);
+      #[test]
+      fn prop_z_expr_ptr(x in any::<ZExprPtr<Scalar>>()) {
+        test_z_ptr_conversion(x);
+      }
 
-        let ser: Vec<u8> = bincode::serialize(&x).expect("write ZContPtr");
-        let de: ZContPtr<Scalar> = bincode::deserialize(&ser).expect("read ZContPtr");
-        assert_eq!(x, de);
-            }
+      #[test]
+      fn prop_z_cont_ptr(x in any::<ZContPtr<Scalar>>()) {
+        test_z_ptr_conversion(x);
+      }
     }
 
     #[test]

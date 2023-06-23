@@ -13,17 +13,23 @@ use crate::tag::Tag;
 use crate::z_ptr::{ZContPtr, ZExprPtr, ZPtr};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+/// A `ZCont` is the content-addressed representation of a Lurk continuation, which enables
+/// efficient serialization and sharing of hashed Lurk data via associated `ZContPtr`s.
 pub enum ZCont<F: LurkField> {
+    /// The outermost continuation, meaning no further computations will take place
     Outermost,
+    /// A function call with no arguments
     Call0 {
         saved_env: ZExprPtr<F>,
         continuation: ZContPtr<F>,
     },
+    /// A function call with one argument
     Call {
         saved_env: ZExprPtr<F>,
         unevaled_arg: ZExprPtr<F>,
         continuation: ZContPtr<F>,
     },
+    /// A nested function call
     Call2 {
         saved_env: ZExprPtr<F>,
         function: ZExprPtr<F>,
@@ -77,6 +83,7 @@ pub enum ZCont<F: LurkField> {
 }
 
 impl<F: LurkField> ZCont<F> {
+    /// Creates a list of field elements corresponding to the `ZCont` for hashing
     pub fn hash_components(&self) -> [F; 8] {
         match self {
             Self::Outermost => [F::ZERO; 8],
@@ -248,6 +255,7 @@ impl<F: LurkField> ZCont<F> {
         }
     }
 
+    /// Hashes the `ZCont` field representation and creates a corresponding `ZContPtr`
     pub fn z_ptr(&self, cache: &PoseidonCache<F>) -> ZContPtr<F> {
         let hash = cache.hash8(&self.hash_components());
         match self {
@@ -372,9 +380,9 @@ mod tests {
              let de: ZCont<Scalar> = from_z_data(&ser).expect("read ZCont");
               assert_eq!(x, de);
 
-      let ser: Vec<u8> = bincode::serialize(&x).expect("write ZCont");
-      let de: ZCont<Scalar> = bincode::deserialize(&ser).expect("read ZCont");
-      assert_eq!(x, de);
+        let ser: Vec<u8> = bincode::serialize(&x).expect("write ZCont");
+        let de: ZCont<Scalar> = bincode::deserialize(&ser).expect("read ZCont");
+        assert_eq!(x, de);
           }
     }
 }

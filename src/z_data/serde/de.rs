@@ -34,7 +34,10 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        Err(SerdeError::Function("Function not supported".into()))
+        Err(SerdeError::Function(format!(
+            "Function not supported: {}",
+            self.input
+        )))
     }
 
     #[inline]
@@ -46,9 +49,9 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             ZData::Atom(x) if x.len() == 1 => match x[0] {
                 0u8 => visitor.visit_bool(false),
                 1u8 => visitor.visit_bool(true),
-                _ => Err(SerdeError::Type("expected bool".into())),
+                err => Err(SerdeError::Type(format!("expected bool, got: {}", err))),
             },
-            _ => Err(SerdeError::Type("expected bool".into())),
+            err => Err(SerdeError::Type(format!("expected bool, got: {}", err))),
         }
     }
 
@@ -57,7 +60,10 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        Err(SerdeError::Type("Unsigned integers not supported".into()))
+        Err(SerdeError::Type(format!(
+            "Unsigned integers not supported: {}",
+            self.input
+        )))
     }
 
     #[inline]
@@ -65,21 +71,31 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        Err(SerdeError::Type("Unsigned integers not supported".into()))
+        Err(SerdeError::Type(format!(
+            "Unsigned integers not supported: {}",
+            self.input
+        )))
     }
+
     #[inline]
     fn deserialize_i32<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        Err(SerdeError::Type("Unsigned integers not supported".into()))
+        Err(SerdeError::Type(format!(
+            "Unsigned integers not supported: {}",
+            self.input
+        )))
     }
     #[inline]
     fn deserialize_i64<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        Err(SerdeError::Type("Unsigned integers not supported".into()))
+        Err(SerdeError::Type(format!(
+            "Unsigned integers not supported: {}",
+            self.input
+        )))
     }
 
     #[inline]
@@ -89,7 +105,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.input {
             ZData::Atom(x) if x.len() == 1 => visitor.visit_u8(x[0]),
-            _ => Err(SerdeError::Type("expected u8".into())),
+            err => Err(SerdeError::Type(format!("expected u8, got: {}", err))),
         }
     }
 
@@ -103,7 +119,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                 let a: [u8; 2] = x.clone().try_into().unwrap();
                 visitor.visit_u16(u16::from_le_bytes(a))
             }
-            _ => Err(SerdeError::Type("expected u16".into())),
+            err => Err(SerdeError::Type(format!("expected u16, got: {}", err))),
         }
     }
 
@@ -117,7 +133,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                 let a: [u8; 4] = x.clone().try_into().unwrap();
                 visitor.visit_u32(u32::from_le_bytes(a))
             }
-            _ => Err(SerdeError::Type("expected u32".into())),
+            err => Err(SerdeError::Type(format!("expected u32: got {}", err))),
         }
     }
 
@@ -131,7 +147,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                 let a: [u8; 8] = x.clone().try_into().unwrap();
                 visitor.visit_u64(u64::from_le_bytes(a))
             }
-            _ => Err(SerdeError::Type("expected u64".into())),
+            err => Err(SerdeError::Type(format!("expected u64: got {}", err))),
         }
     }
 
@@ -140,7 +156,10 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        Err(SerdeError::Type("Floats not supported".into()))
+        Err(SerdeError::Type(format!(
+            "Floats not supported: {}",
+            self.input
+        )))
     }
 
     #[inline]
@@ -148,7 +167,10 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        Err(SerdeError::Type("Floats not supported".into()))
+        Err(SerdeError::Type(format!(
+            "Floats not supported: {}",
+            self.input
+        )))
     }
 
     #[inline]
@@ -156,11 +178,14 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match char::from_u32(
-            u32::deserialize(self).map_err(|_| SerdeError::Type("expected char".into()))?,
-        ) {
+        let num = u32::deserialize(self)
+            .map_err(|e| SerdeError::Type(format!("expected char: {}", e)))?;
+        match char::from_u32(num) {
             Some(a) => visitor.visit_char(a),
-            None => Err(SerdeError::Type("expected char".into())),
+            None => Err(SerdeError::Type(format!(
+                "failed to get char from: {}",
+                num
+            ))),
         }
     }
 
@@ -177,11 +202,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
                         ZData::Atom(_atom) => {
                             v.push(char::deserialize(&mut Deserializer::from_z_data(zd))?)
                         }
-                        _ => return Err(SerdeError::Type("expected string".into())),
+                        err => {
+                            return Err(SerdeError::Type(format!("expected string, got: {}", err)))
+                        }
                     }
                 }
             }
-            _ => return Err(SerdeError::Type("expected string".into())),
+            err => return Err(SerdeError::Type(format!("expected string, got: {}", err))),
         }
         visitor.visit_str(&v.into_iter().collect::<String>())
     }
@@ -201,7 +228,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.input {
             ZData::Atom(x) => visitor.visit_bytes(x),
-            _ => Err(SerdeError::Type("expected bytes".into())),
+            err => Err(SerdeError::Type(format!("expected bytes, got: {}", err))),
         }
     }
 
@@ -221,11 +248,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         match self.input {
             ZData::Atom(x) => match x.as_slice() {
                 [] => visitor.visit_none(),
-                _ => Err(SerdeError::Type("expected Option".into())),
+                err => Err(SerdeError::Type(format!("expected Option, got: {:?}", err))),
             },
             ZData::Cell(xs) => match xs.as_slice() {
                 [a] => visitor.visit_some(&mut Deserializer::from_z_data(a)),
-                _ => Err(SerdeError::Type("expected Option".into())),
+                err => Err(SerdeError::Type(format!("expected Option, got: {:?}", err))),
             },
         }
     }
@@ -238,9 +265,12 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         match self.input {
             ZData::Atom(x) => match x.as_slice() {
                 [] => visitor.visit_none(),
-                _ => Err(SerdeError::Type("expected Unit ()".into())),
+                err => Err(SerdeError::Type(format!(
+                    "expected Unit (), got: {:?}",
+                    err
+                ))),
             },
-            _ => Err(SerdeError::Type("expected Unit ()".into())),
+            err => Err(SerdeError::Type(format!("expected Unit (), got: {}", err))),
         }
     }
 
@@ -275,7 +305,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.input {
             ZData::Cell(xs) => visitor.visit_seq(SeqAccess::new(xs, 0)),
-            _ => Err(SerdeError::Type("expected sequence".into())),
+            err => Err(SerdeError::Type(format!("expected sequence, got: {}", err))),
         }
     }
 
@@ -307,7 +337,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.input {
             ZData::Cell(xs) => visitor.visit_map(MapAccess::new(xs)),
-            _ => Err(SerdeError::Type("expected map".into())),
+            err => Err(SerdeError::Type(format!("expected map, got: {}", err))),
         }
     }
 
@@ -337,12 +367,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         match self.input {
             ZData::Cell(xs) if !xs.is_empty() => match &xs[0] {
                 ZData::Atom(idx_vec) if idx_vec.len() == 1 => {
+                    println!("Variants: {:?}", variants);
                     let variant = String::from(variants[idx_vec[0] as usize]);
                     visitor.visit_enum(Enum::new(self, variant, 1))
                 }
-                _ => Err(SerdeError::Type("expected enum".into())),
+                err => Err(SerdeError::Type(format!("expected enum, got: {}", err))),
             },
-            _ => Err(SerdeError::Type("expected enum".into())),
+            err => Err(SerdeError::Type(format!("expected enum, got: {}", err))),
         }
     }
 
@@ -359,7 +390,10 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        Err(SerdeError::Function("Function not supported".into()))
+        Err(SerdeError::Function(format!(
+            "Function not supported: {}",
+            self.input
+        )))
     }
 
     #[inline]
@@ -480,7 +514,12 @@ impl<'de, 'a> de::VariantAccess<'de> for Enum<'a, 'de> {
     {
         let mut newtype = match self.de.input {
             ZData::Cell(xs) if xs.len() > 1 => Deserializer::from_z_data(&xs[1]),
-            _ => return Err(SerdeError::Type("expected newtype variant".into())),
+            err => {
+                return Err(SerdeError::Type(format!(
+                    "expected newtype variant, got: {}",
+                    err
+                )))
+            }
         };
         seed.deserialize(&mut newtype)
     }
@@ -491,7 +530,7 @@ impl<'de, 'a> de::VariantAccess<'de> for Enum<'a, 'de> {
     {
         match self.de.input {
             ZData::Cell(xs) => visitor.visit_seq(SeqAccess::new(xs, self.index)),
-            _ => Err(SerdeError::Type("expected sequence".into())),
+            err => Err(SerdeError::Type(format!("expected sequence, got: {}", err))),
         }
     }
 

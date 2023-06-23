@@ -30,7 +30,7 @@ pub mod z_store;
 
 pub use self::serde::{from_z_data, to_z_data};
 
-/// `ZData` is a binary tree with two types of nodes: Atom and Cell.
+/// `ZData` is a binary tree with two types of nodes: `Atom` and `Cell`.
 ///
 /// # Examples
 ///
@@ -75,20 +75,6 @@ impl Display for ZData {
         }
         write!(f, "]")?;
         Ok(())
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-impl Arbitrary for ZData {
-    type Parameters = ();
-    type Strategy = BoxedStrategy<Self>;
-
-    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        let atom = prop::collection::vec(any::<u8>(), 0..256).prop_map(ZData::Atom);
-        atom.prop_recursive(16, 1024, 256, |inner| {
-            prop::collection::vec(inner, 0..256).prop_map(ZData::Cell)
-        })
-        .boxed()
     }
 }
 
@@ -221,6 +207,20 @@ impl ZData {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+impl Arbitrary for ZData {
+    type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        let atom = prop::collection::vec(any::<u8>(), 0..256).prop_map(ZData::Atom);
+        atom.prop_recursive(16, 1024, 256, |inner| {
+            prop::collection::vec(inner, 0..256).prop_map(ZData::Cell)
+        })
+        .boxed()
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use super::*;
@@ -248,7 +248,7 @@ pub mod tests {
     }
 
     #[test]
-    fn unit_z_data() {
+    fn unit_z_data_bytes() {
         let test = |zd: ZData, xs: Vec<u8>| {
             let ser = zd.to_bytes();
             println!("{:?}", ser);
@@ -298,7 +298,7 @@ pub mod tests {
 
     proptest! {
         #[test]
-        fn prop_z_data(x in any::<ZData>()) {
+        fn prop_z_data_bytes(x in any::<ZData>()) {
             let ser = x.to_bytes();
             let de  = ZData::from_bytes(&ser).expect("read ZData");
             eprintln!("x {}", x);

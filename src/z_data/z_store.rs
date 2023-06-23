@@ -23,12 +23,18 @@ use crate::field::LurkField;
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
+/// A `ZStore` is a content-addressed, serializable representation of a Lurk store
+///
+/// Whereas a `Store` contains caches of each type of Lurk data, a `ZStore`
+/// contains a generic map of pointers to expressions and a map of pointers to
+/// continuations that can each be retrieved by traversing their `ZPtr` DAG
 pub struct ZStore<F: LurkField> {
     pub expr_map: BTreeMap<ZExprPtr<F>, Option<ZExpr<F>>>,
     pub cont_map: BTreeMap<ZContPtr<F>, Option<ZCont<F>>>,
 }
 
 impl<F: LurkField> ZStore<F> {
+    /// Creates a new, empty `ZStore`
     pub fn new() -> Self {
         ZStore {
             expr_map: BTreeMap::new(),
@@ -36,7 +42,9 @@ impl<F: LurkField> ZStore<F> {
         }
     }
 
-    // Convert entire store to ZStore
+    /// Converts an entire store to a `ZStore`
+    /// WARNING: This will leak secrets used for opaque data in
+    /// `Store::comm_store`. Not for use with hiding commitments
     pub fn to_z_store(store: &mut Store<F>) -> Self {
         store.hydrate_scalar_cache();
         let mut zstore = ZStore::new();
@@ -53,6 +61,7 @@ impl<F: LurkField> ZStore<F> {
         zstore
     }
 
+    /// Creates a new `ZStore` and adds all `ZExprPtrs` reachable from the hashed `expr`
     pub fn new_with_expr(store: &Store<F>, expr: &Ptr<F>) -> (Self, Option<ZExprPtr<F>>) {
         let (mut new, z_ptr) = match store.to_z_store_with_ptr(expr) {
             Ok((new, z_ptr)) => (new, z_ptr),
@@ -63,6 +72,8 @@ impl<F: LurkField> ZStore<F> {
         (new, Some(z_ptr))
     }
 
+    /// Converts a Lurk expression to a `ZExpr` and stores it in the `ZStore`, returning
+    /// the resulting `ZExprPtr`
     pub fn insert_expr(&mut self, store: &Store<F>, expr: &Ptr<F>) -> Option<ZExprPtr<F>> {
         let z_ptr = store.hash_expr(expr)?;
         let z_expr = ZExpr::from_ptr(store, expr);
@@ -70,6 +81,13 @@ impl<F: LurkField> ZStore<F> {
         Some(z_ptr)
     }
 
+    /// Returns the `ZExpr` immediately corresponding to the `ZExprPtr`, where "immediate" means
+    /// that the `ZExprPtr`'s field element contains the literal value associated with the tag,
+    /// so we can return the value without needing to retrieve it from the ZStore.
+    ///
+    /// E.g. in `ZExprPtr { ExprTag::U64, F::zero() }`, the `F::zero()` is the field representation
+    /// of the number 0, displayed as `0x000000<...>`. Because we know the value's type is `ExprTag::U64`,
+    /// we can infer that this pointer refers to a `ZExpr::UInt(UInt::U64(0u64)))` and return it.
     pub fn immediate_z_expr(ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
         match ptr {
             ZPtr(ExprTag::U64, val) => {
@@ -87,12 +105,13 @@ impl<F: LurkField> ZStore<F> {
         }
     }
 
+    /// Returns the owned `ZExpr` corresponding to `ptr` if the former exists
     pub fn get_expr(&self, ptr: &ZExprPtr<F>) -> Option<ZExpr<F>> {
         ZStore::immediate_z_expr(ptr).or_else(|| self.expr_map.get(ptr).cloned()?)
     }
 
-    /// if the entry is not present, or the pointer is immediate, return None,
-    /// otherwise update the value and return the old value. If the
+    /// If the entry is not present, or the pointer is immediate, returns `None`,
+    /// otherwise updates the value in the `ZStore` and returns the old value.
     pub fn insert_z_expr(
         &mut self,
         ptr: &ZExprPtr<F>,
@@ -105,15 +124,18 @@ impl<F: LurkField> ZStore<F> {
         }
     }
 
+    /// Returns the owned `ZCont` corresponding to `ptr` if the former exists
     pub fn get_cont(&self, ptr: &ZContPtr<F>) -> Option<ZCont<F>> {
         self.cont_map.get(ptr).cloned()?
     }
 
+    /// Stores a null symbol in the `ZStore` and returns the resulting pointer
     pub fn nil_z_ptr(&mut self, poseidon_cache: &PoseidonCache<F>) -> ZExprPtr<F> {
         let z_ptr = self.put_symbol(Symbol::nil(), poseidon_cache).0;
         ZPtr(ExprTag::Nil, z_ptr.1)
     }
 
+    /// Stores a string in the `ZStore` and returns the resulting pointer and `ZExpr`
     pub fn put_string(
         &mut self,
         string: String,
@@ -125,9 +147,11 @@ impl<F: LurkField> ZStore<F> {
             expr = ZExpr::Str(ZPtr(ExprTag::Char, F::from_char(c)), ptr);
             ptr = expr.z_ptr(poseidon_cache);
         }
+        self.insert_z_expr(&ptr, Some(expr.clone()));
         (ptr, expr)
     }
 
+    /// Stores a symbol in the `ZStore` and returns the resulting pointer and `ZExpr`
     pub fn put_symbol(
         &mut self,
         sym: Symbol,
@@ -140,6 +164,7 @@ impl<F: LurkField> ZStore<F> {
             expr = ZExpr::Sym(str_ptr, ptr);
             ptr = expr.z_ptr(poseidon_cache);
         }
+        self.insert_z_expr(&ptr, Some(expr.clone()));
         (ptr, expr)
     }
 }
@@ -157,9 +182,9 @@ mod tests {
             let de: ZStore<Scalar> = from_z_data(&ser).expect("read ZStore");
             assert_eq!(s, de);
 
-      let ser: Vec<u8> = bincode::serialize(&s).expect("write ZStore");
-      let de: ZStore<Scalar> = bincode::deserialize(&ser).expect("read ZStore");
-      assert_eq!(s, de);
+        let ser: Vec<u8> = bincode::serialize(&s).expect("write ZStore");
+        let de: ZStore<Scalar> = bincode::deserialize(&ser).expect("read ZStore");
+        assert_eq!(s, de);
         }
     }
 }

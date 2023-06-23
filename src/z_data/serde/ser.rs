@@ -37,15 +37,12 @@ impl<'a> StructSerializer<'a> {
     where
         T: ?Sized + ser::Serialize,
     {
-        //self.ser.serialize_u32(self.variant_index)?;
         let val = value.serialize(self.ser)?;
         self.cell.push(val);
-        //self.variant_index += 1;
         Ok(())
     }
 
     fn skip_field_inner(&mut self, _: &'static str) -> Result<(), SerdeError> {
-        self.variant_index += 1;
         Ok(())
     }
 
