@@ -9,14 +9,11 @@ use crate::parser::{base, Span};
 pub enum ParseErrorKind<F: LurkField> {
     InvalidBase16EscapeSequence(String, Option<ParseIntError>),
     InvalidBaseEncoding(base::LitBase),
-    //    NumericSyntax(String),
-    // U64Error(F),
     NumError(String),
     NumLiteralTooBig(F, num_bigint::BigUint),
     UnknownBaseCode,
     ParseIntErr(ParseIntError),
     InvalidChar(String),
-    //    InvalidSymbol(String),
     Nom(ErrorKind),
 }
 
@@ -105,7 +102,8 @@ impl<'a, F: LurkField> fmt::Display for ParseError<Span<'a>, F> {
 
         let mut errs = self.errors.iter().filter(|x| !x.is_nom_err()).peekable();
         match errs.peek() {
-            // TODO: Nom verbose mode
+            // TODO: Better handling of Nom errors, such as by using nom_supreme:
+            // https://docs.rs/nom-supreme/latest/nom_supreme/ or similar
             None => writeln!(&mut res, "Internal parser error")?,
             Some(_) => {
                 writeln!(&mut res, "Reported errors:")?;
