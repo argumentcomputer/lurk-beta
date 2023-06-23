@@ -356,9 +356,8 @@ pub mod test {
     #[test]
     fn test_sym() {
         let root = Symbol::root();
-        dbg!(root.path());
-        let a = root.child("a".into());
-        let a_b = a.child("b".into());
+        let a = root.child("a");
+        let a_b = a.child("b");
         let a_b_path = vec!["a", "b"];
 
         assert_eq!("a", a.print_escape());
@@ -374,8 +373,8 @@ pub mod test {
         let root = Symbol::root();
         let key_root = Symbol::key_root();
 
-        let apple = root.child("APPLE".into());
-        let orange = key_root.child("ORANGE".into());
+        let apple = root.child("APPLE");
+        let orange = key_root.child("ORANGE");
 
         assert_eq!("APPLE", apple.print_escape());
         assert_eq!(":ORANGE", orange.print_escape());
