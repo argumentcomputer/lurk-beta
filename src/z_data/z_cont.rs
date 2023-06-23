@@ -21,7 +21,6 @@ pub enum ZCont<F: LurkField> {
     },
     Call {
         saved_env: ZExprPtr<F>,
-        // TODO: name should be arg or args?
         unevaled_arg: ZExprPtr<F>,
         continuation: ZContPtr<F>,
     },
