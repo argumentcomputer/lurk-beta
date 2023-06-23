@@ -3558,8 +3558,8 @@ pub mod tests {
 
         let hash_num = |s: &mut Store<Fr>, name| {
             let sym = s.lurk_sym(name);
-            let scalar_ptr = s.hash_expr(&sym).unwrap();
-            let hash = *scalar_ptr.value();
+            let z_ptr = s.hash_expr(&sym).unwrap();
+            let hash = *z_ptr.value();
             Num::Scalar(hash)
         };
         {

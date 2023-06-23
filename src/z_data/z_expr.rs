@@ -4,6 +4,7 @@ use proptest::prelude::BoxedStrategy;
 use proptest::prelude::*;
 use serde::{Deserialize, Serialize};
 
+#[cfg(not(target_arch = "wasm32"))]
 use crate::field::FWrap;
 use crate::field::LurkField;
 use crate::hash::PoseidonCache;
@@ -225,11 +226,11 @@ mod tests {
             let mut store = Store::<Scalar>::default();
             let ptr = store.intern_syntax(x);
             let expr = store.fetch(&ptr).unwrap();
-            // Create a ZExpr and ZExprPtr, interning the latter into the Store
             let z_expr = ZExpr::from_ptr(&store, &ptr).unwrap();
             let z_ptr = ZExpr::z_ptr(&z_expr, &PoseidonCache::default());
+            store.z_expr_ptr_map.insert(z_ptr, Box::new(ptr));
             let ptr_new = store.fetch_z_expr_ptr(&z_ptr).unwrap();
-            
+
             assert_eq!(expr, store.fetch(&ptr_new).unwrap());
             assert_eq!(ptr, ptr_new);
         }
@@ -243,6 +244,7 @@ mod tests {
         let expr = store.fetch(&ptr).unwrap();
         let z_expr = ZExpr::from_ptr(&store, &ptr).unwrap();
         let z_ptr = ZExpr::z_ptr(&z_expr, &PoseidonCache::default());
+        store.z_expr_ptr_map.insert(z_ptr, Box::new(ptr));
         let ptr = store.fetch_z_expr_ptr(&z_ptr).unwrap();
         assert_eq!(expr, store.fetch(&ptr).unwrap());
     }

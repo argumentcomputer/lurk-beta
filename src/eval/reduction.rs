@@ -546,7 +546,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                         let args = rest;
 
                         // NOTE: Any Coprocessor found will take precedence, which means coprocessor bindings cannot be shadowed.
-                        if let Some((coprocessor, _scalar_ptr)) = lang.lookup(store, head) {
+                        if let Some((coprocessor, _z_ptr)) = lang.lookup(store, head) {
                             let (_arg, _more_args) = car_cdr_named!(ConsName::ExprCdr, &args)?;
 
                             let IO { expr, env, cont } =
@@ -906,42 +906,39 @@ fn apply_continuation<F: LurkField>(
                     Op1::Commit => store.hide(F::ZERO, result),
                     Op1::Num => match result.tag {
                         ExprTag::Num | ExprTag::Comm | ExprTag::Char | ExprTag::U64 => {
-                            let scalar_ptr = store
+                            let z_ptr = store
                                 .hash_expr(&result)
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
-                            store.intern_num(crate::Num::Scalar::<F>(*scalar_ptr.value()))
+                            store.intern_num(crate::Num::Scalar::<F>(*z_ptr.value()))
                         }
                         _ => return Ok(Control::Error(result, env)),
                     },
                     Op1::U64 => match result.tag {
                         ExprTag::Num => {
-                            let scalar_ptr = store
+                            let z_ptr = store
                                 .hash_expr(&result)
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
 
-                            store.intern_u64(scalar_ptr.value().to_u64_unchecked())
+                            store.intern_u64(z_ptr.value().to_u64_unchecked())
                         }
                         ExprTag::U64 => result,
                         _ => return Ok(Control::Error(result, env)),
                     },
                     Op1::Comm => match result.tag {
                         ExprTag::Num | ExprTag::Comm => {
-                            let scalar_ptr = store
+                            let z_ptr = store
                                 .hash_expr(&result)
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
-                            store.intern_maybe_opaque_comm(*scalar_ptr.value())
+                            store.intern_maybe_opaque_comm(*z_ptr.value())
                         }
                         _ => return Ok(Control::Error(result, env)),
                     },
                     Op1::Char => match result.tag {
                         ExprTag::Num | ExprTag::Char => {
-                            let scalar_ptr = store
+                            let z_ptr = store
                                 .hash_expr(&result)
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
-                            Ptr::index(
-                                ExprTag::Char,
-                                scalar_ptr.value().to_u32_unchecked() as usize,
-                            )
+                            Ptr::index(ExprTag::Char, z_ptr.value().to_u32_unchecked() as usize)
                         }
                         _ => return Ok(Control::Error(result, env)),
                     },

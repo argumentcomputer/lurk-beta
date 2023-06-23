@@ -197,10 +197,8 @@ impl<F: LurkField> GlobalAllocations<F> {
 
         macro_rules! defsym {
             ($var:ident, $name:expr, $cname:ident) => {
-                let $var = AllocatedPtr::alloc_constant(
-                    &mut cs.namespace(|| $name),
-                    c.$cname.scalar_ptr(),
-                )?;
+                let $var =
+                    AllocatedPtr::alloc_constant(&mut cs.namespace(|| $name), c.$cname.z_ptr())?;
             };
         }
 

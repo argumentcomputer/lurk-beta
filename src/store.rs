@@ -392,11 +392,11 @@ impl<F: LurkField> Store<F> {
         return_non_opaque_if_existing: bool,
     ) -> Ptr<F> {
         self.hydrate_scalar_cache();
-        let scalar_ptr = ZExprPtr::from_parts(tag, hash);
+        let z_ptr = ZExprPtr::from_parts(tag, hash);
 
         // Scope the first immutable borrow.
         {
-            let ptr = self.z_expr_ptr_map.get(&scalar_ptr);
+            let ptr = self.z_expr_ptr_map.get(&z_ptr);
             if let Some(p) = ptr {
                 if return_non_opaque_if_existing || p.is_opaque() {
                     return *p;
@@ -404,7 +404,7 @@ impl<F: LurkField> Store<F> {
             }
         }
 
-        let (i, _) = self.opaque_ptrs.insert_full(scalar_ptr);
+        let (i, _) = self.opaque_ptrs.insert_full(z_ptr);
         Ptr::opaque(tag, i)
     }
 
@@ -1880,9 +1880,9 @@ pub struct ConstantPtrs<F: LurkField>(Option<ZExprPtr<F>>, Ptr<F>);
 
 impl<F: LurkField> ConstantPtrs<F> {
     pub fn value(&self) -> F {
-        *self.scalar_ptr().value()
+        *self.z_ptr().value()
     }
-    pub fn scalar_ptr(&self) -> ZExprPtr<F> {
+    pub fn z_ptr(&self) -> ZExprPtr<F> {
         self.0
             .expect("ZExprPtr missing; hydrate_scalar_cache should have been called.")
     }
@@ -2518,9 +2518,9 @@ pub mod test {
             s.hydrate_scalar_cache();
         };
 
-        let str2_scalar_ptr = s.hash_expr(&str2).unwrap();
+        let str2_z_ptr = s.hash_expr(&str2).unwrap();
 
-        let str2_again = s.fetch_z_expr_ptr(&str2_scalar_ptr).unwrap();
+        let str2_again = s.fetch_z_expr_ptr(&str2_z_ptr).unwrap();
 
         assert_eq!(str2, str2_again);
     }
@@ -2545,9 +2545,9 @@ pub mod test {
             s.hydrate_scalar_cache();
         };
 
-        let str_scalar_ptr = s.hash_expr(&str).unwrap();
+        let str_z_ptr = s.hash_expr(&str).unwrap();
 
-        let str_again = s.fetch_z_expr_ptr(&str_scalar_ptr).unwrap();
+        let str_again = s.fetch_z_expr_ptr(&str_z_ptr).unwrap();
 
         assert_eq!(str, str_again);
     }

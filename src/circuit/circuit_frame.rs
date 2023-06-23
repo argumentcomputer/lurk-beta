@@ -1397,13 +1397,13 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
 
     let mut head_is_coprocessor_bools = Vec::with_capacity(lang.coprocessors().len());
 
-    for (sym, (coproc, scalar_ptr)) in lang.coprocessors().iter() {
+    for (sym, (coproc, z_ptr)) in lang.coprocessors().iter() {
         if !coproc.has_circuit() {
             continue;
         };
         let cs = &mut cs.namespace(|| format!("head is {}", sym));
 
-        let allocated_boolean = head.alloc_hash_equal(cs, *scalar_ptr.value())?;
+        let allocated_boolean = head.alloc_hash_equal(cs, *z_ptr.value())?;
 
         head_is_coprocessor_bools.push(allocated_boolean);
     }
@@ -2623,7 +2623,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 &rest,
             )?;
 
-            for (sym, (coproc, scalar_ptr)) in lang.coprocessors().iter() {
+            for (sym, (coproc, z_ptr)) in lang.coprocessors().iter() {
                 if !coproc.has_circuit() {
                     continue;
                 };
@@ -2647,7 +2647,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     pick_cont_ptr!(cs, &arity_is_correct, &result_cont, &g.error_ptr_cont)?;
 
                 // We can't just call `results.add_clauses_cons` here because of lifetime issues.
-                coprocessor_results.push((scalar_ptr, new_expr, new_env, new_cont));
+                coprocessor_results.push((z_ptr, new_expr, new_env, new_cont));
             }
         }
     }
@@ -3757,8 +3757,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let args_equal_ptr = AllocatedPtr::pick_const(
             &mut cs.namespace(|| "args_equal_ptr"),
             &args_equal,
-            &c.t.scalar_ptr(),
-            &c.nil.scalar_ptr(),
+            &c.t.z_ptr(),
+            &c.nil.z_ptr(),
         )?;
 
         let not_dummy = cont.alloc_tag_equal(
@@ -4687,8 +4687,8 @@ fn comparison_helper<F: LurkField, CS: ConstraintSystem<F>>(
     let comp_val = AllocatedPtr::pick_const(
         &mut cs.namespace(|| "comp_val"),
         &comp_val_is_zero,
-        &c.nil.scalar_ptr(),
-        &c.t.scalar_ptr(),
+        &c.nil.z_ptr(),
+        &c.t.z_ptr(),
     )?;
 
     Ok((is_comparison_tag, comp_val, diff_is_negative))

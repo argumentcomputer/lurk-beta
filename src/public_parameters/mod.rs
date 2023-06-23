@@ -326,16 +326,14 @@ impl<F: LurkField + Serialize + for<'de> Deserialize<'de>> Claim<F> {
 // Although real proofs should be fast to verify, they will still be large relative to a small (auditable) bundle like
 // this. Even if not entirely realistic, something with this general *shape* is likely to play a role in a recursive
 // system where the ability to aggregate proof verification more soundly is possible.
-//#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-//pub struct Cert {
-//    #[serde(serialize_with = "cid_string", deserialize_with = "string_cid")]
-//    pub claim_cid: Cid,
-//    #[serde(serialize_with = "cid_string", deserialize_with = "string_cid")]
-//    pub proof_cid: Cid,
-//    pub verified: bool,
-//    pub verifier_id: String,
-//    pub signature: String,
-//}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct Cert<F: LurkField> {
+    pub claim_cid: ZExprPtr<F>,
+    pub proof_cid: ZExprPtr<F>,
+    pub verified: bool,
+    pub verifier_id: String,
+    pub signature: String,
+}
 
 #[allow(dead_code)]
 impl<F: LurkField> Claim<F> {
@@ -1135,29 +1133,29 @@ mod test {
     use crate::proof::{nova::NovaProver, Prover};
     use crate::z_data::{from_z_data, to_z_data};
 
-    //#[test]
-    //fn test_cert_serialization() {
-    //    use serde_json::json;
+    #[test]
+    fn test_cert_serialization() {
+        use serde_json::json;
 
-    //    let c = Commitment {
-    //        comm: S1::from(123),
-    //    };
+        let c = Commitment {
+            comm: S1::from(123),
+        };
 
-    //    let cid = c.cid();
-    //    let cert = Cert {
-    //        claim_cid: cid,
-    //        proof_cid: cid,
-    //        verified: true,
-    //        verifier_id: "asdf".to_string(),
-    //        signature: "fdsa".to_string(),
-    //    };
-    //    let json = json!(cert);
+        let cid = ZExprPtr::from_parts(ExprTag::Comm, c.comm);
+        let cert = Cert {
+            claim_cid: cid,
+            proof_cid: cid,
+            verified: true,
+            verifier_id: "asdf".to_string(),
+            signature: "fdsa".to_string(),
+        };
+        let json = json!(cert);
 
-    //    let string = json.to_string();
+        let string = json.to_string();
 
-    //    let cert_again: Cert = serde_json::from_str(&string).unwrap();
-    //    assert_eq!(cert, cert_again);
-    //}
+        let cert_again: Cert<S1> = serde_json::from_str(&string).unwrap();
+        assert_eq!(cert, cert_again);
+    }
 
     // Minimal chained functional commitment test
     #[test]

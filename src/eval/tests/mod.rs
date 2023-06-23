@@ -2323,10 +2323,10 @@ fn test_root_sym() {
     let sym = Symbol::root();
     let x = s.intern_symbol(sym);
 
-    let scalar_ptr = &s.hash_expr(&x).unwrap();
+    let z_ptr = &s.hash_expr(&x).unwrap();
 
-    assert_eq!(&Fr::zero(), scalar_ptr.value());
-    assert_eq!(ExprTag::Sym, scalar_ptr.tag());
+    assert_eq!(&Fr::zero(), z_ptr.value());
+    assert_eq!(ExprTag::Sym, z_ptr.tag());
 }
 
 #[test]
@@ -2360,27 +2360,24 @@ fn test_sym_hash_values() {
     let asdf = s.str("asdf");
     let consed_with_root = s.cons(asdf, root_sym);
 
-    let cons_scalar_ptr = &s.hash_expr(&new_expr).unwrap();
-    let sym_scalar_ptr = &s.hash_expr(&sym).unwrap();
-    let key_scalar_ptr = &s.hash_expr(&key).unwrap();
+    let cons_z_ptr = &s.hash_expr(&new_expr).unwrap();
+    let sym_z_ptr = &s.hash_expr(&sym).unwrap();
+    let key_z_ptr = &s.hash_expr(&key).unwrap();
 
-    let consed_with_root_scalar_ptr = &s.hash_expr(&consed_with_root).unwrap();
-    let toplevel_scalar_ptr = &s.hash_expr(&toplevel_sym).unwrap();
+    let consed_with_root_z_ptr = &s.hash_expr(&consed_with_root).unwrap();
+    let toplevel_z_ptr = &s.hash_expr(&toplevel_sym).unwrap();
 
     // Symbol and keyword scalar hash values are the same as
     // those of the name string consed onto the parent symbol.
-    assert_eq!(cons_scalar_ptr.value(), sym_scalar_ptr.value());
-    assert_eq!(cons_scalar_ptr.value(), key_scalar_ptr.value());
+    assert_eq!(cons_z_ptr.value(), sym_z_ptr.value());
+    assert_eq!(cons_z_ptr.value(), key_z_ptr.value());
 
     // Toplevel symbols also have this property, and their parent symbol is the root symbol.
-    assert_eq!(
-        consed_with_root_scalar_ptr.value(),
-        toplevel_scalar_ptr.value()
-    );
+    assert_eq!(consed_with_root_z_ptr.value(), toplevel_z_ptr.value());
 
     // The tags differ though.
-    assert_eq!(ExprTag::Sym, sym_scalar_ptr.tag());
-    assert_eq!(ExprTag::Key, key_scalar_ptr.tag());
+    assert_eq!(ExprTag::Sym, sym_z_ptr.tag());
+    assert_eq!(ExprTag::Key, key_z_ptr.tag());
 }
 
 #[test]
