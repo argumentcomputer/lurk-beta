@@ -98,7 +98,7 @@ impl<F: LurkField> Ptr<F> {
         matches!(self.tag, ExprTag::Nil | ExprTag::Cons)
     }
 
-    /// check if a Ptr is a list
+    /// check if a Ptr is an opaque pointer
     pub const fn is_opaque(&self) -> bool {
         self.raw.is_opaque()
     }
