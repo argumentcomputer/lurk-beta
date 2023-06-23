@@ -353,15 +353,21 @@ impl LEM {
         num_slots: usize,
         store: &mut Store<F>,
     ) -> Result<Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>> {
+        assert!(
+            preimgs.len() <= num_slots,
+            "collected preimages exceeded the number of available slots"
+        );
+
         let mut preallocations = vec![];
 
+        // First we perform the allocations for the slots containing data collected
+        // by the interpreter
         for (slot_idx, preimg) in preimgs.iter().enumerate() {
             let slot = Slot {
                 idx: slot_idx,
                 typ: slot_type,
             };
-            // We need to allocate the preimage and the image for the slots. We
-            // start by the preimage because the image depends on it
+            // Allocate the preimage because the image depends on it
             let mut preallocated_preimg = vec![];
 
             let mut component_idx = 0;
@@ -389,13 +395,15 @@ impl LEM {
                 component_idx += 1;
             }
 
-            // Then we allocate the image by calling the arithmetic function
-            // according to the slot type
+            // Allocate the image by calling the arithmetic function according
+            // to the slot type
             let preallocated_img =
                 Self::allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
 
             preallocations.push((preallocated_preimg, preallocated_img));
         }
+
+        // Then we do the same with dummies for the remaining slots
         for slot_idx in preallocations.len()..num_slots {
             let slot = Slot {
                 idx: slot_idx,
@@ -410,6 +418,10 @@ impl LEM {
                     F::ZERO,
                 )?);
             }
+            let preallocated_img =
+                Self::allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
+
+            preallocations.push((preallocated_preimg, preallocated_img));
         }
         Ok(preallocations)
     }
