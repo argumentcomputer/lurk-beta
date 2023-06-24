@@ -24,7 +24,7 @@ pub(crate) fn step() -> Result<LEM> {
 mod tests {
     use super::*;
     use crate::field::LurkField;
-    use crate::lem::circuit::{AllocationManager, SlotsCounter};
+    use crate::lem::circuit::SlotsCounter;
     use crate::lem::{pointers::Ptr, store::Store};
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
     use blstrs::Scalar as Fr;
@@ -65,9 +65,7 @@ mod tests {
             store.hydrate_z_cache();
             for frame in frames.clone() {
                 let mut cs = TestConstraintSystem::<Fr>::new();
-                let mut alloc_manager = AllocationManager::default();
-                lem.synthesize(&mut cs, &mut alloc_manager, store, &frame, &slots_count)
-                    .unwrap();
+                lem.synthesize(&mut cs, store, &frame).unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(cs.num_inputs(), NUM_INPUTS);
                 assert_eq!(cs.aux().len(), NUM_AUX);

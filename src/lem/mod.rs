@@ -234,7 +234,7 @@ impl LEM {
 
 #[cfg(test)]
 mod tests {
-    use super::circuit::{AllocationManager, SlotsCounter};
+    use super::circuit::SlotsCounter;
     use super::{store::Store, *};
     use crate::{lem, lem::pointers::Ptr};
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable, Delta};
@@ -254,16 +254,8 @@ mod tests {
             let frames = lem.eval(*expr, &mut store).unwrap();
 
             let mut cs = TestConstraintSystem::<Fr>::new();
-            let mut alloc_manager = AllocationManager::default();
             for frame in frames.clone() {
-                lem.synthesize(
-                    &mut cs,
-                    &mut alloc_manager,
-                    &mut store,
-                    &frame,
-                    &slots_count,
-                )
-                .unwrap();
+                lem.synthesize(&mut cs, &mut store, &frame).unwrap();
             }
 
             assert!(cs.is_satisfied());
