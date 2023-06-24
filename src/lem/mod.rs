@@ -60,13 +60,7 @@
 //! environment and continuation. If some label is repeated, it will fatally
 //! break property 1;
 //!
-//! 3. One return per LEM path: a LEM must always specify an output regardless
-//! of the logical path it takes at interpretation time, otherwise there would
-//! be a chance of the next step starting with an unknown input. Also, a LEM
-//! should not specify more than an output per logical path because it would
-//! risk setting conflicting constraints for the output;
-//!
-//! 4. Assign first, use later: this prevents obvious errors such as "x not
+//! 3. Assign first, use later: this prevents obvious errors such as "x not
 //! defined" during interpretation or "x not allocated" during constraining.
 
 mod circuit;
@@ -130,7 +124,7 @@ pub enum LEMCTL {
     /// `MatchTag(x, cases)` performs a match on the tag of `x`, considering only
     /// the appropriate `LEM` among the ones provided in `cases`
     MatchTag(MetaPtr, IndexMap<Tag, LEMCTL>),
-    /// `MatchSymPath(x, cases, def)` checks whether `x` matches some symbol among
+    /// `MatchSymbol(x, cases, def)` checks whether `x` matches some symbol among
     /// the ones provided in `cases`. If so, run the corresponding `LEM`. Run
     /// The default `def` `LEM` otherwise
     MatchSymbol(MetaPtr, IndexMap<Symbol, LEMCTL>, Box<LEMCTL>),

@@ -166,9 +166,9 @@ impl LEMOP {
 }
 
 impl LEMCTL {
-    /// Interprets a LEM using a stack of operations to be popped and executed.
-    /// It modifies a `Store` and binds `MetaPtr`s to `Ptr`s as it goes. We also
-    /// want to collect data from visited slots.
+    /// Interprets a LEM while i) modifying a `Store`, ii) binding `MetaPtr`s to
+    /// `Ptr`s and iii) collecting the preimages from visited slots (more on this
+    /// in `circuit.rs`)
     fn run<F: LurkField>(
         &self,
         input: [Ptr<F>; 3],

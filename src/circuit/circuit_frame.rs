@@ -3926,7 +3926,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &res_tag0,
         )?;
 
-        let res = AllocatedPtr::from_parts(&res_tag, &val);
+        let res = AllocatedPtr::from_parts(res_tag, val);
 
         let (is_comparison_tag, comp_val, diff_is_negative) = comparison_helper(
             &mut cs.namespace(|| "enforce comparison"),
@@ -3974,7 +3974,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             g,
             &field_arith_and_u64_diff_result,
         )?;
-        let coerce_to_u64_ptr = AllocatedPtr::from_parts(&g.u64_tag, &coerce_to_u64);
+        let coerce_to_u64_ptr = AllocatedPtr::from_parts(g.u64_tag.clone(), coerce_to_u64);
 
         let both_args_are_u64s_and_not_comparison = Boolean::and(
             &mut cs.namespace(|| "both_args_are_u64_and_not_comparison"),
@@ -3995,8 +3995,8 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &arg1,
             arg2,
         )?;
-        let alloc_q_ptr = AllocatedPtr::from_parts(&g.u64_tag, &alloc_q);
-        let alloc_r_ptr = AllocatedPtr::from_parts(&g.u64_tag, &alloc_r);
+        let alloc_q_ptr = AllocatedPtr::from_parts(g.u64_tag.clone(), alloc_q);
+        let alloc_r_ptr = AllocatedPtr::from_parts(g.u64_tag.clone(), alloc_r);
 
         let op2_is_div_and_args_are_u64s = Boolean::and(
             &mut cs.namespace(|| "op2 is div and args are u64s"),
@@ -4536,12 +4536,12 @@ fn hide<F: LurkField, CS: ConstraintSystem<F>>(
 
 // Return an AllocatedPtr representing a Num whose value is the same as x's.
 fn to_num<F: LurkField>(x: &AllocatedPtr<F>, g: &GlobalAllocations<F>) -> AllocatedPtr<F> {
-    AllocatedPtr::from_parts(&g.num_tag, x.hash())
+    AllocatedPtr::from_parts(g.num_tag.clone(), x.hash().clone())
 }
 
 // Return an AllocatedPtr representing a Comm whose value is the same as x's.
 fn to_comm<F: LurkField>(x: &AllocatedPtr<F>, g: &GlobalAllocations<F>) -> AllocatedPtr<F> {
-    AllocatedPtr::from_parts(&g.comm_tag, x.hash())
+    AllocatedPtr::from_parts(g.comm_tag.clone(), x.hash().clone())
 }
 
 fn get_named_components<F: LurkField, CS: ConstraintSystem<F>>(
@@ -5735,7 +5735,7 @@ mod tests {
         let s = &mut Store::<Fr>::default();
 
         let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
-        let alloc_pow2_64 = AllocatedPtr::from_parts(&g.num_tag, &g.power2_64_num);
+        let alloc_pow2_64 = AllocatedPtr::from_parts(g.num_tag.clone(), g.power2_64_num.clone());
 
         let a_u64 = to_u64(&mut cs.namespace(|| "u64 op"), &g, alloc_pow2_64.hash()).unwrap();
         assert!(cs.is_satisfied());

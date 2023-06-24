@@ -9,10 +9,9 @@
 //!
 //! We've separated the process in three steps:
 //!
-//! 1. Perform a static analysis to compute the slots that are needed as well as
-//! the mapping from LEMOPs to their respective slots. This piece of information
-//! will live on a `SlotsInfo` structure, which is populated by the function
-//! `LEMOP::slots_info`;
+//! 1. Perform a static analysis to compute number of slots (for each type of
+//! slot) that are needed. This piece of information will live on a `SlotsCounter`
+//! structure, which is populated by the function `LEMOP::count_slots`;
 //!
 //! 2. Interpret the LEM and collect the data that was generated on each visited
 //! slot, along with all bindings from `MetaPtr`s to `Ptr`s. This piece of
@@ -22,7 +21,7 @@
 //! is explained in more details in the `LEMOP::synthesize` function.
 //!
 //! The 3 steps above will be further referred to as *STEP 1*, *STEP 2* and
-//! *STEP 3* respectively. STEP 1 should be performed once per slot. Then STEP 2
+//! *STEP 3* respectively. STEP 1 should be performed once per LEM. Then STEP 2
 //! will need as many iterations as it takes to evaluate the Lurk expression and
 //! so will STEP 3.
 
@@ -140,6 +139,16 @@ impl LEMCTL {
 #[derive(Default)]
 pub(crate) struct AllocationManager<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);
 
+#[inline]
+fn allocate_num<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    namespace: &str,
+    value: F,
+) -> Result<AllocatedNum<F>> {
+    AllocatedNum::alloc(cs.namespace(|| namespace), || Ok(value))
+        .with_context(|| format!("allocation for '{namespace}' failed"))
+}
+
 impl<F: LurkField> AllocationManager<F> {
     /// Checks if the allocation for a numeric variable has already been cached.
     /// If so, return the cached allocation variable. Allocate, cache and return
@@ -153,10 +162,8 @@ impl<F: LurkField> AllocationManager<F> {
         match self.0.get(&wrap) {
             Some(allocated_num) => Ok(allocated_num.to_owned()),
             None => {
-                let digits = f.hex_digits();
                 let allocated_num =
-                    AllocatedNum::alloc(cs.namespace(|| format!("allocate {digits}")), || Ok(f))
-                        .with_context(|| format!("couldn't allocate {digits}"))?;
+                    allocate_num(cs, &format!("globally allocate {}", f.hex_digits()), f)?;
                 self.0.insert(wrap, allocated_num.clone());
                 Ok(allocated_num)
             }
@@ -215,16 +222,9 @@ impl LEM {
             bail!("{} already allocated", name);
         };
         let allocated_tag =
-            AllocatedNum::alloc(cs.namespace(|| format!("allocate {name}'s tag")), || {
-                Ok(z_ptr.tag.to_field())
-            })
-            .with_context(|| format!("couldn't allocate {name}'s tag"))?;
-        let allocated_hash =
-            AllocatedNum::alloc(cs.namespace(|| format!("allocate {name}'s hash")), || {
-                Ok(z_ptr.hash)
-            })
-            .with_context(|| format!("couldn't allocate {name}'s hash"))?;
-        let allocated_ptr = AllocatedPtr::from_parts(&allocated_tag, &allocated_hash);
+            allocate_num(cs, &format!("allocate {name}'s tag"), z_ptr.tag.to_field())?;
+        let allocated_hash = allocate_num(cs, &format!("allocate {name}'s hash"), z_ptr.hash)?;
+        let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
         allocated_ptrs.insert(name.clone(), allocated_ptr.clone());
         Ok(allocated_ptr)
     }
@@ -303,15 +303,18 @@ impl LEM {
             .collect::<Result<Vec<_>>>()
     }
 
+    #[inline]
     fn allocate_preimg_component_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         slot: &Slot,
         component_idx: usize,
         value: F,
     ) -> Result<AllocatedNum<F>> {
-        let namespace = &format!("component {component_idx} for slot {slot}");
-        AllocatedNum::alloc(cs.namespace(|| namespace), || Ok(value))
-            .with_context(|| format!("allocation for {namespace} failed"))
+        allocate_num(
+            cs,
+            &format!("component {component_idx} for slot {slot}"),
+            value,
+        )
     }
 
     fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
