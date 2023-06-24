@@ -448,9 +448,9 @@ impl LEM {
         store: &mut Store<F>,
         frame: &Frame<F>,
     ) -> Result<()> {
+        let alloc_manager = AllocationManager::default();
         let mut allocated_ptrs: HashMap<AString, AllocatedPtr<F>> = HashMap::default();
 
-        let mut alloc_manager = AllocationManager::default();
         let max_slots = self.lem.count_slots();
         self.allocate_input(cs, store, frame, &mut allocated_ptrs)?;
         let preallocated_outputs = LEM::allocate_output(cs, store, frame, &allocated_ptrs)?;
@@ -480,12 +480,12 @@ impl LEM {
         )?;
 
         struct Globals<'a, F: LurkField, CS: ConstraintSystem<F>> {
-            allocated_ptrs: &'a mut HashMap<AString, AllocatedPtr<F>>,
-            preallocated_outputs: &'a [AllocatedPtr<F>],
             cs: &'a mut CS,
-            alloc_manager: &'a mut AllocationManager<F>,
             store: &'a mut Store<F>,
             frame: &'a Frame<F>,
+            alloc_manager: AllocationManager<F>,
+            allocated_ptrs: HashMap<AString, AllocatedPtr<F>>,
+            preallocated_outputs: [AllocatedPtr<F>; 3],
             preallocated_hash2_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash3_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash4_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
@@ -613,7 +613,7 @@ impl LEM {
                                 // Allocate image
                                 let allocated_img = LEM::allocate_ptr(
                                     g.cs,
-                                    &LEM::zptr_from_mptr($img, g.frame, g.store)?,
+                                    &LEM::zptr_from_mptr($img, &g.frame, g.store)?,
                                     $img.name(),
                                     &g.allocated_ptrs,
                                 )?;
@@ -658,7 +658,7 @@ impl LEM {
 
                                 // Allocate preimage
                                 let allocated_preimg =
-                                    LEM::alloc_preimg(g.cs, $preimg, g.frame, g.store, &g.allocated_ptrs)?;
+                                    LEM::alloc_preimg(g.cs, $preimg, &g.frame, g.store, &g.allocated_ptrs)?;
 
                                 // Add the hash constraints
                                 constrain_slot!($preimg, $img, allocated_preimg, allocated_img, $slot);
@@ -694,7 +694,7 @@ impl LEM {
                                     g.cs,
                                     &LEM::zptr_from_mptr(tgt, g.frame, g.store)?,
                                     tgt.name(),
-                                    g.allocated_ptrs,
+                                    &g.allocated_ptrs,
                                 )?;
                                 g.allocated_ptrs
                                     .insert(tgt.name().clone(), allocated_tgt.clone());
@@ -740,12 +740,12 @@ impl LEM {
             Path::default(),
             &mut SlotsCounter::default(),
             &mut Globals {
-                allocated_ptrs: &mut allocated_ptrs,
-                preallocated_outputs: &preallocated_outputs,
                 cs,
-                alloc_manager: &mut alloc_manager,
                 store,
                 frame,
+                alloc_manager,
+                allocated_ptrs,
+                preallocated_outputs,
                 preallocated_hash2_slots,
                 preallocated_hash3_slots,
                 preallocated_hash4_slots,
