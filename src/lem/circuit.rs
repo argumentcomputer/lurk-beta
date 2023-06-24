@@ -209,7 +209,7 @@ impl LEM {
         cs: &mut CS,
         z_ptr: &ZPtr<F>,
         name: &AString,
-        allocated_ptrs: &HashMap<AString, AllocatedPtr<F>>,
+        allocated_ptrs: &mut HashMap<AString, AllocatedPtr<F>>,
     ) -> Result<AllocatedPtr<F>> {
         if allocated_ptrs.contains_key(name) {
             bail!("{} already allocated", name);
@@ -224,7 +224,9 @@ impl LEM {
                 Ok(z_ptr.hash)
             })
             .with_context(|| format!("couldn't allocate {name}'s hash"))?;
-        Ok(AllocatedPtr::from_parts(&allocated_tag, &allocated_hash))
+        let allocated_ptr = AllocatedPtr::from_parts(&allocated_tag, &allocated_hash);
+        allocated_ptrs.insert(name.clone(), allocated_ptr.clone());
+        Ok(allocated_ptr)
     }
 
     fn allocate_input<F: LurkField, CS: ConstraintSystem<F>>(
@@ -236,9 +238,7 @@ impl LEM {
     ) -> Result<()> {
         for (i, ptr) in frame.input.iter().enumerate() {
             let name = &self.input_vars[i];
-            let allocated_ptr =
-                Self::allocate_ptr(cs, &store.hash_ptr(ptr)?, name, allocated_ptrs)?;
-            allocated_ptrs.insert(name.clone(), allocated_ptr);
+            Self::allocate_ptr(cs, &store.hash_ptr(ptr)?, name, allocated_ptrs)?;
         }
         Ok(())
     }
@@ -247,7 +247,7 @@ impl LEM {
         cs: &mut CS,
         store: &mut Store<F>,
         frame: &Frame<F>,
-        allocated_ptrs: &HashMap<AString, AllocatedPtr<F>>,
+        allocated_ptrs: &mut HashMap<AString, AllocatedPtr<F>>,
     ) -> Result<[AllocatedPtr<F>; 3]> {
         let mut allocated_output_ptrs = vec![];
         for (i, ptr) in frame.output.iter().enumerate() {
@@ -278,7 +278,7 @@ impl LEM {
         preimg: &[MetaPtr],
         frame: &Frame<F>,
         store: &mut Store<F>,
-        allocated_ptrs: &HashMap<AString, AllocatedPtr<F>>,
+        allocated_ptrs: &mut HashMap<AString, AllocatedPtr<F>>,
     ) -> Result<Vec<AllocatedPtr<F>>> {
         preimg
             .iter()
@@ -453,7 +453,7 @@ impl LEM {
 
         let max_slots = self.lem.count_slots();
         self.allocate_input(cs, store, frame, &mut allocated_ptrs)?;
-        let preallocated_outputs = LEM::allocate_output(cs, store, frame, &allocated_ptrs)?;
+        let preallocated_outputs = LEM::allocate_output(cs, store, frame, &mut allocated_ptrs)?;
 
         let preallocated_hash2_slots = LEM::allocate_slots(
             cs,
@@ -615,7 +615,7 @@ impl LEM {
                                     g.cs,
                                     &LEM::zptr_from_mptr($img, &g.frame, g.store)?,
                                     $img.name(),
-                                    &g.allocated_ptrs,
+                                    &mut g.allocated_ptrs,
                                 )?;
 
                                 // Retrieve allocated preimage
@@ -642,31 +642,22 @@ impl LEM {
                                     allocated_img,
                                     $slot
                                 );
-
-                                // Insert allocated image into `allocated_ptrs`
-                                g.allocated_ptrs
-                                    .insert($img.name().clone(), allocated_img.clone());
                             };
                         }
 
                         macro_rules! unhash_helper {
                             ( $preimg: expr, $img: expr, $slot: expr ) => {
+                                // Allocate preimage
+                                let allocated_preimg =
+                                    LEM::alloc_preimg(g.cs, $preimg, &g.frame, g.store, &mut g.allocated_ptrs)?;
+
                                 // Retrieve allocated image
                                 let Some(allocated_img) = g.allocated_ptrs.get($img.name()) else {
                                                                     bail!("{} not allocated", $img)
                                                                 };
 
-                                // Allocate preimage
-                                let allocated_preimg =
-                                    LEM::alloc_preimg(g.cs, $preimg, &g.frame, g.store, &g.allocated_ptrs)?;
-
                                 // Add the hash constraints
                                 constrain_slot!($preimg, $img, allocated_preimg, allocated_img, $slot);
-
-                                // Insert allocated preimage into `allocated_ptrs`
-                                for (mptr, allocated_ptr) in $preimg.iter().zip(allocated_preimg) {
-                                    g.allocated_ptrs.insert(mptr.name().clone(), allocated_ptr);
-                                }
                             };
                         }
 
@@ -694,10 +685,8 @@ impl LEM {
                                     g.cs,
                                     &LEM::zptr_from_mptr(tgt, g.frame, g.store)?,
                                     tgt.name(),
-                                    &g.allocated_ptrs,
+                                    &mut g.allocated_ptrs,
                                 )?;
-                                g.allocated_ptrs
-                                    .insert(tgt.name().clone(), allocated_tgt.clone());
                                 let allocated_tag =
                                     g.alloc_manager.get_or_alloc_num(g.cs, tag.to_field())?;
 
