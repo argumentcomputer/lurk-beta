@@ -42,7 +42,7 @@ mod tests {
         let lem = step().unwrap();
         lem.check();
 
-        let slots_count = lem.lem.count_slots();
+        let slots_count = lem.ctl.count_slots();
 
         assert_eq!(slots_count, NUM_SLOTS);
 
@@ -65,7 +65,8 @@ mod tests {
             store.hydrate_z_cache();
             for frame in frames.clone() {
                 let mut cs = TestConstraintSystem::<Fr>::new();
-                lem.synthesize(&mut cs, store, &frame).unwrap();
+                lem.synthesize(&mut cs, store, &slots_count, &frame)
+                    .unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(cs.num_inputs(), NUM_INPUTS);
                 assert_eq!(cs.aux().len(), NUM_AUX);

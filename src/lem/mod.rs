@@ -84,10 +84,10 @@ use self::{interpreter::Frame, path::Path, pointers::Ptr, store::Store, symbol::
 pub type AString = Arc<str>;
 pub type AVec<A> = Arc<[A]>;
 
-/// A `LEM` has the name for the inputs and its characteristic `LEMOP`
+/// A `LEM` has the name for the inputs and its characteristic control node
 pub struct LEM {
     input_vars: [AString; 3],
-    lem: LEMCTL,
+    ctl: LEMCTL,
 }
 
 /// Named references to be bound to `Ptr`s.
@@ -117,7 +117,7 @@ impl MetaPtr {
     }
 }
 
-/// The basic building blocks of LEMs.
+/// The basic control nodes for LEM logical paths.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LEMCTL {
@@ -202,14 +202,14 @@ impl LEM {
         );
         Ok(LEM {
             input_vars: input,
-            lem: lem.deconflict(&Path::default(), &mut map)?,
+            ctl: lem.deconflict(&Path::default(), &mut map)?,
         })
     }
 
     /// Intern all symbols that are matched on `MatchSymbol`s
     #[inline]
     pub fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
-        self.lem.intern_matched_symbols(store);
+        self.ctl.intern_matched_symbols(store);
     }
 
     /// Asserts that all paths were visited by a set of frames. This is mostly
@@ -220,8 +220,8 @@ impl LEM {
         store: &mut Store<F>,
     ) {
         assert_eq!(
-            self.lem.num_paths_taken(frames, store).unwrap(),
-            self.lem.num_paths()
+            self.ctl.num_paths_taken(frames, store).unwrap(),
+            self.ctl.num_paths()
         );
     }
 }
@@ -235,7 +235,7 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     fn constrain_test_helper(lem: &LEM, exprs: &[Ptr<Fr>], expected_num_slots: SlotsCounter) {
-        let slots_count = lem.lem.count_slots();
+        let slots_count = lem.ctl.count_slots();
 
         assert_eq!(slots_count, expected_num_slots);
 
@@ -249,7 +249,8 @@ mod tests {
 
             let mut cs = TestConstraintSystem::<Fr>::new();
             for frame in frames.clone() {
-                lem.synthesize(&mut cs, &mut store, &frame).unwrap();
+                lem.synthesize(&mut cs, &mut store, &slots_count, &frame)
+                    .unwrap();
             }
 
             assert!(cs.is_satisfied());

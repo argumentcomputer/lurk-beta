@@ -1,24 +1,105 @@
 //! ## Constraint system for LEM
 //!
-//! This is a high level description of how we generate bellperson constraints for
-//! LEM, such that it can be used with Nova folding to implement the Lurk
-//! evaluation.
+//! This module implements the generation of bellperson constraints for LEM, such
+//! that it can be used with Nova folding to prove evaluations of Lurk expressions.
 //!
-//! Some LEMOPs require expensive gadgets, such as Poseidon hashing. So we use
-//! the concept of "slots" to avoid wasting constraints.
+//! Some LEMs may require expensive gadgets, such as Poseidon hashing. So we use
+//! the concept of "slots" to avoid wasting constraints. To explore this idea,
+//! let's use the following LEM as an example:
+//!
+//! ```
+//! a b c {
+//!     match_tag c {
+//!         Num => {
+//!             let x: Cons = hash2(a, b);
+//!             return (x, x, x);
+//!         },
+//!         Char => {
+//!             let m: Cons = hash2(b, a);
+//!             let n: Cons = hash2(c, a);
+//!             return (m, m, n);
+//!         }
+//!     }
+//! }
+//! ```
+//!
+//! On a first impression, one might think that we need to perform three hashing
+//! operations in the circuit when in fact we can get away with only two. That
+//! is so because interpretation can only follow one of the paths:
+//!
+//! * If it goes through `Num`, we need to get one hash right
+//! * If it goes through `Char`, we need to get two hashes right
+//!
+//! Either way, that's at most two hashes that we really care about. So we say
+//! that we need to allocate two slots. The first slot is for the the hash of `x`
+//! or `m` and the second slot if for the hash of `n`. Let's see a sketch of part
+//! of the circuit:
+//!
+//! ```text
+//!     ┌─────┐        ┌─────┐
+//! s0i0┤slot0├s0  s1i0┤slot1├s1
+//! s0i1┤hash2│    s1i1┤hash2│
+//!     └─────┘        └─────┘
+//! ...
+//! PNum = c.tag == Num
+//! PChar = c.tag == Char
+//! 
+//! PNum → a == s0i0
+//! PNum → b == s0i1
+//! PNum → x == s0
+//! 
+//! PChar → b == s0i0
+//! PChar → a == s0i1
+//! PChar → m == s0
+//! 
+//! PChar → c == s1i0
+//! PChar → a == s1i1
+//! PChar → n == s1
+//! ```
+//!
+//! `PNum` and `PChar` are boolean premises that indicate whether interpretation
+//! went through `Num` or `Char` respectively. They're used as inputs for gadgets
+//! that implement implications (hence the right arrows above). We will talk
+//! about "concrete" vs "virtual" paths later.
+//!
+//! Now we're able to feed the slots with the data that comes from interpretation:
+//!
+//! 1. If it goes through `Num`, we will collect `[[a, b]]` for the preimages of
+//! the slots. So we can feed the preimage of `slot0` with `[a, b]` and the
+//! preimage of `slot1` with anything (we call "dummy values")
+//!
+//! 2. If it goes through `Char`, we will collect `[[b, a], [c, a]]` for the
+//! preimages of the slots. So we can feed the preimage of `slot0` with `[b, a]`
+//! and the preimage of `slot1` with `[c, a]`.
+//!
+//! In the first case, `PNum` will be true, requiring that the conclusions of the
+//! implications for which it is the premise must also be true (which is fine!).
+//! `PChar`, on the other hand, will be false, making the conclusions of the
+//! implications for which it is the premise irrelevant. This is crucial because
+//! we won't have computed `m` nor `n` (for which we will use dummies), thus we
+//! don't expect to fulfill `m == s0` nor `n == s1`. In fact, we don't expect to
+//! fulfill any conclusion in the implications deriving from the `PChar` premise.
+//!
+//! Finally, we have an analogous situation for the second case, when
+//! interpretation goes through `Char`.
+//!
+//! This example explored slots type "hash2", but the same line of thought can
+//! be expanded to different types of slots, orthogonally.
+//!
+//! ### The algorithm
 //!
 //! We've separated the process in three steps:
 //!
-//! 1. Perform a static analysis to compute number of slots (for each type of
-//! slot) that are needed. This piece of information will live on a `SlotsCounter`
-//! structure, which is populated by the function `LEMOP::count_slots`;
+//! 1. Perform a static analysis to compute the number of slots (for each slot
+//! type) that are needed. This piece of information will live on a `SlotsCounter`
+//! structure, which is populated by the function `LEMCTL::count_slots`;
 //!
-//! 2. Interpret the LEM and collect the data that was generated on each visited
-//! slot, along with all bindings from `MetaPtr`s to `Ptr`s. This piece of
+//! 2. Interpret the LEM and collect the data that will be fed to some (or all)
+//! slots, along with all bindings from `MetaPtr`s to `Ptr`s. This piece of
 //! information will live on a `Frame` structure;
 //!
-//! 3. Finally build the circuit with `SlotsInfo` and `Frame` at hand. This step
-//! is explained in more details in the `LEMOP::synthesize` function.
+//! 3. Build the circuit with `SlotsCounter` and `Frame` at hand. This step is
+//! better explained in the `LEM::synthesize` function.
 //!
 //! The 3 steps above will be further referred to as *STEP 1*, *STEP 2* and
 //! *STEP 3* respectively. STEP 1 should be performed once per LEM. Then STEP 2
@@ -423,38 +504,30 @@ impl LEM {
     /// Create R1CS constraints for LEM given an evaluation frame. This function
     /// implements the STEP 3 mentioned above.
     ///
-    /// We use a stack to keep track of the LEMOPs that need to be constrained
-    /// and a hashmap to map meta pointers to their respective allocated pointers.
-    ///
-    /// Notably, one of the variables that we push to the stack is a
-    /// `concrete_path: Boolean`, which encodes whether we are on a *concrete* or
-    /// *virtual* path. A virtual path is one that wasn't taken during
-    /// interpretation and thus its frame pointers weren't bound. A concrete path
-    /// means that interpretation went down that road and the frame data should
-    /// be complete for the variables and the slots on that path. For virtual
-    /// paths we need to create dummy bindings for the meta pointers and relax the
-    /// implications with false premises. The premise is precicely `concrete_path`.
+    /// Notably, we recursively pass on a `concrete_path: Boolean` variable, which
+    /// encodes whether we are on a *concrete* or *virtual* path. A virtual path
+    /// is one that wasn't taken during interpretation and thus its frame pointers
+    /// weren't bound. A concrete path means that interpretation went down that
+    /// road and the frame data should be complete for the variables on that path.
+    /// For virtual paths we need to create dummy bindings for the meta pointers
+    /// and relax the implications with false premises. The premise is precicely
+    /// `concrete_path`.
     ///
     /// Regarding the slot optimizations, STEP 3 uses information gathered during
-    /// STEPs 1 and 2. So at this point we know:
-    ///
-    /// 1. Which LEMOPs map to which slots;
-    /// 2. The slots (and their respective preimages) that were visited during
-    /// interpretation.
-    ///
-    /// So we proceed by first allocating preimages and images for each slot and
-    /// then, as we traverse the LEMOP, we add constraints to make sure that the
-    /// witness satisfies the arithmetic equations for the corresponding slots.
+    /// STEPs 1 and 2. So we proceed by first allocating preimages and images for
+    /// each slot and then, as we traverse the LEM, we add constraints to make sure
+    /// that the witness satisfies the arithmetic equations for the corresponding
+    /// slots.
     pub fn synthesize<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         store: &mut Store<F>,
+        slots_count: &SlotsCounter,
         frame: &Frame<F>,
     ) -> Result<()> {
         let alloc_manager = AllocationManager::default();
         let mut allocated_ptrs: HashMap<AString, AllocatedPtr<F>> = HashMap::default();
 
-        let max_slots = self.lem.count_slots();
         self.allocate_input(cs, store, frame, &mut allocated_ptrs)?;
         let preallocated_outputs = LEM::allocate_output(cs, store, frame, &mut allocated_ptrs)?;
 
@@ -462,7 +535,7 @@ impl LEM {
             cs,
             &frame.preimages.hash2,
             SlotType::Hash2,
-            max_slots.hash2,
+            slots_count.hash2,
             store,
         )?;
 
@@ -470,7 +543,7 @@ impl LEM {
             cs,
             &frame.preimages.hash3,
             SlotType::Hash3,
-            max_slots.hash3,
+            slots_count.hash3,
             store,
         )?;
 
@@ -478,7 +551,7 @@ impl LEM {
             cs,
             &frame.preimages.hash4,
             SlotType::Hash4,
-            max_slots.hash4,
+            slots_count.hash4,
             store,
         )?;
 
@@ -535,7 +608,6 @@ impl LEM {
                             tag.to_field::<F>(),
                         )
                         .with_context(|| "couldn't allocate equal const")?;
-                        concrete_path_vec.push(allocated_has_match.clone());
 
                         let concrete_path_and_has_match = and(
                             &mut g.cs.namespace(|| format!("{path}.{tag}.and")),
@@ -544,13 +616,16 @@ impl LEM {
                         )
                         .with_context(|| "failed to constrain `and`")?;
 
+                        concrete_path_vec.push(allocated_has_match);
+
                         let new_path = path.push_tag(tag);
                         let saved_slot = &mut slots_count.clone();
                         recurse(op, concrete_path_and_has_match, new_path, saved_slot, g)?;
                     }
 
-                    // Now we need to enforce that at least one path was taken. We do that by constraining
-                    // that the sum of the previously collected `Boolean`s is one
+                    // Now we need to enforce that at exactly one path was taken. We do that by enforcing
+                    // that the sum of the previously collected `Boolean`s is one. But, of course, this
+                    // irrelevant if we're on a virtual path and thus we use an implication gadget.
                     enforce_selector_with_premise(
                         &mut g
                             .cs
@@ -727,7 +802,7 @@ impl LEM {
         }
 
         recurse(
-            &self.lem,
+            &self.ctl,
             Boolean::Constant(true),
             Path::default(),
             &mut SlotsCounter::default(),
@@ -753,7 +828,7 @@ impl LEM {
         let mut num_constraints =
             289 * slots_count.hash2 + 337 * slots_count.hash3 + 388 * slots_count.hash4;
 
-        let mut stack = vec![(&self.lem, false)];
+        let mut stack = vec![(&self.ctl, false)];
         while let Some((code, nested)) = stack.pop() {
             match code {
                 LEMCTL::Return(..) => {

@@ -240,7 +240,7 @@ impl LEM {
             }
 
             let preimages = Preimages::default();
-            let frame = self.lem.run(input, store, bindings, preimages)?;
+            let frame = self.ctl.run(input, store, bindings, preimages)?;
             if &frame.output[2] == terminal || &frame.output[2] == error {
                 frames.push(frame);
                 break;
