@@ -84,7 +84,7 @@
 //! Finally, we have an analogous situation for the second case, when
 //! interpretation goes through `Char`.
 //!
-//! This example explored slots type "hash2", but the same line of thought can
+//! This example explored slots of type "hash2", but the same line of thought can
 //! be expanded to different types of slots, orthogonally.
 //!
 //! ### The algorithm
