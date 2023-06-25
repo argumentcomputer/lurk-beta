@@ -46,15 +46,15 @@
 //! 
 //! PNum → a == s0i0
 //! PNum → b == s0i1
-//! PNum → x == s0
+//! PNum → x.hash == s0
 //! 
 //! PChar → b == s0i0
 //! PChar → a == s0i1
-//! PChar → m == s0
+//! PChar → m.hash == s0
 //! 
 //! PChar → c == s1i0
 //! PChar → a == s1i1
-//! PChar → n == s1
+//! PChar → n.hash == s1
 //! ```
 //!
 //! `PNum` and `PChar` are boolean premises that indicate whether interpretation
@@ -77,8 +77,9 @@
 //! `PChar`, on the other hand, will be false, making the conclusions of the
 //! implications for which it is the premise irrelevant. This is crucial because
 //! we won't have computed `m` nor `n` (for which we will use dummies), thus we
-//! don't expect to fulfill `m == s0` nor `n == s1`. In fact, we don't expect to
-//! fulfill any conclusion in the implications deriving from the `PChar` premise.
+//! don't expect to fulfill `m.hash == s0` nor `n.hash == s1`. In fact, we don't
+//! expect to fulfill any conclusion in the implications deriving from the `PChar`
+//! premise.
 //!
 //! Finally, we have an analogous situation for the second case, when
 //! interpretation goes through `Char`.
