@@ -204,7 +204,12 @@ impl LEMCTL {
     }
 
     /// Computes the path taken through a `LEMOP` given a frame
-    fn path_taken<F: LurkField>(&self, mut path: Path, frame: &Frame<F>, store: &mut Store<F>) -> Result<Path> {
+    fn path_taken<F: LurkField>(
+        &self,
+        mut path: Path,
+        frame: &Frame<F>,
+        store: &mut Store<F>,
+    ) -> Result<Path> {
         match self {
             Self::MatchTag(match_ptr, cases) => {
                 let ptr = match_ptr.get_ptr(&frame.bindings)?;
