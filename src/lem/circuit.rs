@@ -7,7 +7,7 @@
 //! the concept of "slots" to avoid wasting constraints. To explore this idea,
 //! let's use the following LEM as an example:
 //!
-//! ```
+//! ```text
 //! a b c {
 //!     match_tag c {
 //!         Num => {
