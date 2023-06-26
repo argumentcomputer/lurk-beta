@@ -694,6 +694,24 @@ pub(crate) fn enforce_implication_lc<
     Ok(())
 }
 
+/// Takes a boolean premise and a function that produces a `LinearCombination` (with same specification as `enforce`).
+/// Enforces the constraint that if `premise` is true, then the resulting linear combination evaluates to zero.
+pub(crate) fn enforce_implication_lc_zero<
+    CS: ConstraintSystem<F>,
+    F: PrimeField,
+    L: FnOnce(LinearCombination<F>) -> LinearCombination<F>,
+>(
+    mut cs: CS,
+    premise: &Boolean,
+    implication_lc: L,
+) -> Result<(), SynthesisError> {
+    let premise_a = premise.lc(CS::one(), F::ONE);
+    // premise * implication = zero
+    cs.enforce(|| "implication", |_| premise_a, implication_lc, |lc| lc);
+
+    Ok(())
+}
+
 /// Adds a constraint to CS, enforcing that the number of true bits in `Boolean` vector `v`
 /// is equal to one, if the premise is true.
 ///
@@ -726,9 +744,9 @@ pub(crate) fn implies_equal<CS: ConstraintSystem<F>, F: PrimeField>(
     a: &AllocatedNum<F>,
     b: &AllocatedNum<F>,
 ) -> Result<(), SynthesisError> {
-    enforce_implication_lc(cs, premise, |lc| {
-        // One iff `a` == `b`.
-        lc + CS::one() + a.get_variable() - b.get_variable()
+    enforce_implication_lc_zero(cs, premise, |lc| {
+        // Zero iff `a` == `b`.
+        lc + a.get_variable() - b.get_variable()
     })
 }
 
@@ -738,9 +756,7 @@ pub(crate) fn implies_equal_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     premise: &Boolean,
     a: &AllocatedNum<F>,
 ) -> Result<(), SynthesisError> {
-    enforce_implication_lc(cs, premise, |lc|
-                           // One iff `a` == zero.
-                           lc + CS::one() + a.get_variable())
+    enforce_implication_lc_zero(cs, premise, |lc| lc + a.get_variable())
 }
 
 pub(crate) fn or<CS: ConstraintSystem<F>, F: PrimeField>(
@@ -1091,12 +1107,12 @@ mod tests {
 
     #[test]
     fn edge_enforce_implication_lc() {
-        let mut cs = TestConstraintSystem::<Fr>::new();
-
         ////////////////////////////////////////////
         // Big lc
         // an lc > 1 should fail if premise is true.
         ////////////////////////////////////////////
+
+        let mut cs = TestConstraintSystem::<Fr>::new();
 
         let mut test_lc_big = LinearCombination::zero();
         test_lc_big = test_lc_big + (Fr::ONE + Fr::ONE, TestConstraintSystem::<Fr>::one());
@@ -1139,6 +1155,7 @@ mod tests {
         ///////////////////////////////////////////////////////////////////////
         // type constraints: lcs not made of booleans may incidentally pass. //
         ///////////////////////////////////////////////////////////////////////
+        let mut cs = TestConstraintSystem::<Fr>::new();
 
         let mut test_lc_arb_num = LinearCombination::zero();
 
@@ -1154,6 +1171,106 @@ mod tests {
 
         // Execute the function under test.
         enforce_implication_lc(
+            cs.namespace(|| "enforce_implication_lc_arb_num"),
+            &premise_true,
+            |_| test_lc_arb_num,
+        )
+        .expect("enforce_implication_lc failed");
+
+        assert!(cs.is_satisfied());
+    }
+
+    #[test]
+    fn edge_enforce_implication_lc_zero() {
+        ////////////////////////////////////////////
+        // Big lc
+        // an lc > 1 should fail if premise is true.
+        ////////////////////////////////////////////
+
+        let mut cs = TestConstraintSystem::<Fr>::new();
+
+        let mut test_lc_big = LinearCombination::zero();
+        test_lc_big = test_lc_big + (Fr::ONE + Fr::ONE, TestConstraintSystem::<Fr>::one());
+
+        let test_lc_one = LinearCombination::zero() + TestConstraintSystem::<Fr>::one();
+
+        // Allocate premise boolean.
+        let premise_true = Boolean::from(
+            AllocatedBit::alloc(cs.namespace(|| "premise_true"), Some(true)).expect("alloc failed"),
+        );
+
+        // Execute the function under test.
+        enforce_implication_lc_zero(
+            cs.namespace(|| "enforce_implication_lc_big"),
+            &premise_true,
+            |_| test_lc_big.clone(),
+        )
+        .expect("enforce_implication_lc failed");
+
+        assert!(!cs.is_satisfied());
+
+        ////////////////////////////////////////////
+
+        ////////////////////////////////////////////
+        // One lc
+        // an lc = 1 should fail if premise is true.
+        ////////////////////////////////////////////
+
+        let mut cs = TestConstraintSystem::<Fr>::new();
+
+        // Allocate premise boolean.
+        let premise_true = Boolean::from(
+            AllocatedBit::alloc(cs.namespace(|| "premise_true"), Some(true)).expect("alloc failed"),
+        );
+
+        // Execute the function under test.
+        enforce_implication_lc_zero(
+            cs.namespace(|| "enforce_implication_lc_one"),
+            &premise_true,
+            |_| test_lc_one.clone(),
+        )
+        .expect("enforce_implication_lc failed");
+
+        assert!(!cs.is_satisfied());
+
+        ////////////////////////////////////////////
+
+        let mut cs = TestConstraintSystem::<Fr>::new();
+
+        // an lc != 0 should pass if premise is false.
+        // Allocate premise boolean.
+        let premise_false = Boolean::from(
+            AllocatedBit::alloc(cs.namespace(|| "premise_false"), Some(false))
+                .expect("alloc failed"),
+        );
+
+        // Execute the function under test.
+        enforce_implication_lc_zero(
+            cs.namespace(|| "enforce_implication_lc_big_with_false"),
+            &premise_false,
+            |_| test_lc_big,
+        )
+        .expect("enforce_implication_lc failed");
+
+        assert!(cs.is_satisfied());
+
+        ///////////////////////////////////////////////////////////////////////
+        // type constraints: lcs not made of booleans may incidentally pass. //
+        ///////////////////////////////////////////////////////////////////////
+
+        let mut cs = TestConstraintSystem::<Fr>::new();
+
+        let mut test_lc_arb_num = LinearCombination::zero();
+
+        // Allocate a number that is zero, but not a Boolean.
+        let anum1 =
+            AllocatedNum::alloc(cs.namespace(|| "num1"), || Ok(Fr::ZERO)).expect("alloc failed");
+
+        // Add it to the lc
+        test_lc_arb_num = test_lc_arb_num + (Fr::ONE, anum1.get_variable());
+
+        // Execute the function under test.
+        enforce_implication_lc_zero(
             cs.namespace(|| "enforce_implication_lc_arb_num"),
             &premise_true,
             |_| test_lc_arb_num,
