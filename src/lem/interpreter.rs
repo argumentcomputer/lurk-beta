@@ -6,9 +6,9 @@ use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM,
 
 #[derive(Clone, Default)]
 pub struct Preimages<F: LurkField> {
-    pub hash2: Vec<Vec<Ptr<F>>>,
-    pub hash3: Vec<Vec<Ptr<F>>>,
-    pub hash4: Vec<Vec<Ptr<F>>>,
+    pub hash2_ptrs: Vec<Vec<Ptr<F>>>,
+    pub hash3_ptrs: Vec<Vec<Ptr<F>>>,
+    pub hash4_ptrs: Vec<Vec<Ptr<F>>>,
 }
 
 /// A `Frame` carries the data that results from interpreting a LEM. That is,
@@ -67,7 +67,7 @@ impl LEMOP {
                 let preimg_ptrs = retrieve_many(bindings, preimg)?;
                 let tgt_ptr = store.intern_2_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1]);
                 bind(bindings, img.clone(), tgt_ptr)?;
-                preimages.hash2.push(preimg_ptrs);
+                preimages.hash2_ptrs.push(preimg_ptrs);
                 Ok(())
             }
             LEMOP::Hash3(img, tag, preimg) => {
@@ -75,7 +75,7 @@ impl LEMOP {
                 let tgt_ptr =
                     store.intern_3_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]);
                 bind(bindings, img.clone(), tgt_ptr)?;
-                preimages.hash3.push(preimg_ptrs);
+                preimages.hash3_ptrs.push(preimg_ptrs);
                 Ok(())
             }
             LEMOP::Hash4(img, tag, preimg) => {
@@ -88,7 +88,7 @@ impl LEMOP {
                     preimg_ptrs[3],
                 );
                 bind(bindings, img.clone(), tgt_ptr)?;
-                preimages.hash4.push(preimg_ptrs);
+                preimages.hash4_ptrs.push(preimg_ptrs);
                 Ok(())
             }
             LEMOP::Unhash2(preimg, img) => {
@@ -99,11 +99,11 @@ impl LEMOP {
                 let Some((a, b)) = store.fetch_2_ptrs(idx) else {
                     bail!("Couldn't fetch {img}'s children")
                 };
-                let vec = [*a, *b];
-                for (mptr, ptr) in preimg.iter().zip(vec.iter()) {
+                let preimg_ptrs = [*a, *b];
+                for (mptr, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
                     bind(bindings, mptr.clone(), *ptr)?;
                 }
-                preimages.hash2.push(vec.to_vec());
+                preimages.hash2_ptrs.push(preimg_ptrs.to_vec());
                 Ok(())
             }
             LEMOP::Unhash3(preimg, img) => {
@@ -114,11 +114,11 @@ impl LEMOP {
                 let Some((a, b, c)) = store.fetch_3_ptrs(idx) else {
                     bail!("Couldn't fetch {img}'s children")
                 };
-                let vec = [*a, *b, *c];
-                for (mptr, ptr) in preimg.iter().zip(vec.iter()) {
+                let preimg_ptrs = [*a, *b, *c];
+                for (mptr, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
                     bind(bindings, mptr.clone(), *ptr)?;
                 }
-                preimages.hash3.push(vec.to_vec());
+                preimages.hash3_ptrs.push(preimg_ptrs.to_vec());
                 Ok(())
             }
             LEMOP::Unhash4(preimg, img) => {
@@ -129,11 +129,11 @@ impl LEMOP {
                 let Some((a, b, c, d)) = store.fetch_4_ptrs(idx) else {
                     bail!("Couldn't fetch {img}'s children")
                 };
-                let vec = [*a, *b, *c, *d];
-                for (mptr, ptr) in preimg.iter().zip(vec.iter()) {
+                let preimg_ptrs = [*a, *b, *c, *d];
+                for (mptr, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
                     bind(bindings, mptr.clone(), *ptr)?;
                 }
-                preimages.hash4.push(vec.to_vec());
+                preimages.hash4_ptrs.push(preimg_ptrs.to_vec());
                 Ok(())
             }
             LEMOP::Hide(tgt, sec, src) => {

@@ -534,7 +534,7 @@ impl LEM {
 
         let preallocated_hash2_slots = LEM::allocate_slots(
             cs,
-            &frame.preimages.hash2,
+            &frame.preimages.hash2_ptrs,
             SlotType::Hash2,
             slots_count.hash2,
             store,
@@ -542,7 +542,7 @@ impl LEM {
 
         let preallocated_hash3_slots = LEM::allocate_slots(
             cs,
-            &frame.preimages.hash3,
+            &frame.preimages.hash3_ptrs,
             SlotType::Hash3,
             slots_count.hash3,
             store,
@@ -550,7 +550,7 @@ impl LEM {
 
         let preallocated_hash4_slots = LEM::allocate_slots(
             cs,
-            &frame.preimages.hash4,
+            &frame.preimages.hash4_ptrs,
             SlotType::Hash4,
             slots_count.hash4,
             store,
