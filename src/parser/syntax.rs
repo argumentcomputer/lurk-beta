@@ -711,7 +711,7 @@ pub mod tests {
     fn test_minus_zero_symbol() {
         let x: Syntax<Scalar> = symbol!(["-0"]);
         let text = format!("{}", x);
-        let (_, res)  = parse_syntax()(Span::new(&text)).expect("valid parse");
+        let (_, res) = parse_syntax()(Span::new(&text)).expect("valid parse");
         eprintln!("------------------");
         eprintln!("{}", text);
         eprintln!("{} {:?}", x, x);
