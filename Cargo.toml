@@ -90,7 +90,7 @@ members = [
 ]
 
 [[bin]]
-name = "lurkrs"
+name = "lurk"
 path = "src/main.rs"
 
 [profile.dev-ci]

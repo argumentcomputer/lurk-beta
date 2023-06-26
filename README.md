@@ -85,7 +85,7 @@ cargo run --release
 Or use the wrapper script:
 
 ```
-bin/lurkrs
+bin/lurk
 ```
 
 Set the environment variable `LURK_FIELD` to specify the scalar field of the Lurk language instance:
@@ -94,7 +94,7 @@ Set the environment variable `LURK_FIELD` to specify the scalar field of the Lur
 - `LURK_FIELD=BLS12-381`: scalar field of BLS12-381
 
 ```
-➜  lurk-rs ✗ bin/lurkrs
+➜  lurk-rs ✗ bin/lurk
     Finished release [optimized] target(s) in 0.06s
      Running `target/release/examples/repl`
 Lurk REPL welcomes you.
@@ -105,7 +105,7 @@ Lurk REPL welcomes you.
 
 Or enable `info` log-level for a trace of reduction frames:
 ```
-➜  lurk-rs ✗ RUST_LOG=info bin/lurkrs
+➜  lurk-rs ✗ RUST_LOG=info bin/lurk
     Finished release [optimized] target(s) in 0.05s
      Running `target/release/examples/repl`
 Lurk REPL welcomes you.
@@ -156,7 +156,7 @@ INFO  lurk::eval > Frame: 9
 
 ## Install
 
-You can install the `lurkrs` Repl on your machine with
+You can install the `lurk` Repl on your machine with
 ```
 $ cargo install --path .
 ```

@@ -1,13 +1,13 @@
 use assert_cmd::prelude::*;
 use std::process::Command;
 
-fn lurkrs_cmd() -> std::process::Command {
-    Command::cargo_bin("lurkrs").unwrap()
+fn lurk_cmd() -> std::process::Command {
+    Command::cargo_bin("lurk").unwrap()
 }
 
 #[test]
 fn test_help_command() {
-    let mut cmd = lurkrs_cmd();
+    let mut cmd = lurk_cmd();
 
     cmd.arg("--help");
     cmd.assert().success();
