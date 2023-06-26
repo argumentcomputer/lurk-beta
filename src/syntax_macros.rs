@@ -173,7 +173,7 @@ macro_rules! list {
             $crate::syntax::Syntax::List(Pos::No, temp_vec)
         }
     };
-    ($f:ty,  [$( $x:expr ),*], $end:expr ) => {
+    ($f:ty, [$( $x:expr ),*], $end:expr ) => {
         {
             #[allow(unused_mut)]
             let mut temp_vec = Vec::new();
@@ -183,7 +183,7 @@ macro_rules! list {
             $crate::syntax::Syntax::<$f>::Improper(Pos::No, temp_vec, Box::new($end))
         }
     };
-    ($f:ty,  [$( $x:expr ),*] ) => {
+    ($f:ty, [$( $x:expr ),*] ) => {
         {
             #[allow(unused_mut)]
             let mut temp_vec = Vec::new();

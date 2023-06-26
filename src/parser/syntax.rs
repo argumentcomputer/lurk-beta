@@ -707,11 +707,23 @@ pub mod tests {
         ));
     }
 
+    #[test]
+    fn test_minus_zero_symbol() {
+        let x: Syntax<Scalar> = symbol!(["-0"]);
+        let text = format!("{}", x);
+        let (_, res)  = parse_syntax()(Span::new(&text)).expect("valid parse");
+        eprintln!("------------------");
+        eprintln!("{}", text);
+        eprintln!("{} {:?}", x, x);
+        eprintln!("{} {:?}", res, res);
+        assert_eq!(x, res)
+    }
+
     proptest! {
         #[test]
         fn prop_syntax(x in any::<Syntax<Scalar>>()) {
             let text = format!("{}", x);
-            let (_, res)  = parse_syntax()(Span::new(&text)).expect("valid parse");
+            let (_, res) = parse_syntax()(Span::new(&text)).expect("valid parse");
             eprintln!("------------------");
             eprintln!("x {} {:?}", x, x);
             eprintln!("res {} {:?}", res, res);
