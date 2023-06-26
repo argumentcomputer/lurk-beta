@@ -43,15 +43,15 @@
 //! ...
 //! PNum = c.tag == Num
 //! PChar = c.tag == Char
-//! 
+//!
 //! PNum → a == s0i0
 //! PNum → b == s0i1
 //! PNum → x.hash == s0
-//! 
+//!
 //! PChar → b == s0i0
 //! PChar → a == s0i1
 //! PChar → m.hash == s0
-//! 
+//!
 //! PChar → c == s1i0
 //! PChar → a == s1i1
 //! PChar → n.hash == s1
