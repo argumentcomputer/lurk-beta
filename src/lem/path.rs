@@ -193,10 +193,10 @@ impl LEMCTL {
     pub fn num_paths(&self) -> usize {
         match self {
             LEMCTL::MatchTag(_, cases) => {
-                cases.values().fold(0, |acc, code| acc + code.num_paths())
+                cases.values().fold(0, |acc, block| acc + block.num_paths())
             }
             LEMCTL::MatchSymbol(_, cases, _) => {
-                cases.values().fold(0, |acc, code| acc + code.num_paths())
+                cases.values().fold(0, |acc, block| acc + block.num_paths())
             }
             LEMCTL::Seq(_, rest) => rest.num_paths(),
             LEMCTL::Return(..) => 1,
@@ -204,42 +204,36 @@ impl LEMCTL {
     }
 
     /// Computes the path taken through a `LEMOP` given a frame
-    fn path_taken<F: LurkField>(&self, frame: &Frame<F>, store: &mut Store<F>) -> Result<Path> {
-        let mut path = Path::default();
-        let mut stack = vec![self];
-        let bindings = &frame.bindings;
-        while let Some(code) = stack.pop() {
-            match code {
-                Self::MatchTag(match_ptr, cases) => {
-                    let ptr = match_ptr.get_ptr(bindings)?;
-                    let tag = ptr.tag();
-                    let Some(code) = cases.get(tag) else {
-                        bail!("No match for tag {}", tag)
-                    };
-                    path.push_tag_inplace(tag);
-                    stack.push(code);
-                }
-                Self::MatchSymbol(match_ptr, cases, def) => {
-                    let ptr = match_ptr.get_ptr(bindings)?;
-                    let Some(symbol) = store.fetch_symbol(ptr) else {
-                        bail!("Symbol not found for {}", match_ptr.name());
-                    };
-                    match cases.get(&symbol) {
-                        Some(op) => {
-                            path.push_symbol_inplace(&symbol);
-                            stack.push(op);
-                        }
-                        None => {
-                            path.push_default_inplace();
-                            stack.push(def)
-                        }
+    fn path_taken<F: LurkField>(&self, mut path: Path, frame: &Frame<F>, store: &mut Store<F>) -> Result<Path> {
+        match self {
+            Self::MatchTag(match_ptr, cases) => {
+                let ptr = match_ptr.get_ptr(&frame.bindings)?;
+                let tag = ptr.tag();
+                let Some(block) = cases.get(tag) else {
+                    bail!("No match for tag {}", tag)
+                };
+                path.push_tag_inplace(tag);
+                block.path_taken(path, frame, store)
+            }
+            Self::MatchSymbol(match_ptr, cases, def) => {
+                let ptr = match_ptr.get_ptr(&frame.bindings)?;
+                let Some(symbol) = store.fetch_symbol(ptr) else {
+                    bail!("Symbol not found for {}", match_ptr.name());
+                };
+                match cases.get(&symbol) {
+                    Some(block) => {
+                        path.push_symbol_inplace(&symbol);
+                        block.path_taken(path, frame, store)
+                    }
+                    None => {
+                        path.push_default_inplace();
+                        def.path_taken(path, frame, store)
                     }
                 }
-                Self::Seq(_, rest) => stack.push(rest),
-                Self::Return(..) => (),
             }
+            Self::Seq(_, cont) => cont.path_taken(path, frame, store),
+            Self::Return(..) => Ok(path),
         }
-        Ok(path)
     }
 
     /// Computes the number of paths taken within a `LEMOP` given a set of frames
@@ -250,7 +244,7 @@ impl LEMCTL {
     ) -> Result<usize> {
         let mut all_paths: HashSet<Path> = HashSet::default();
         for frame in frames {
-            all_paths.insert(self.path_taken(frame, store)?);
+            all_paths.insert(self.path_taken(Path::default(), frame, store)?);
         }
         Ok(all_paths.len())
     }

@@ -171,15 +171,15 @@ impl LEMCTL {
     pub fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
         match self {
             Self::MatchSymbol(_, cases, def) => {
-                cases.iter().for_each(|(symbol, code)| {
+                cases.iter().for_each(|(symbol, block)| {
                     store.intern_symbol(symbol);
-                    code.intern_matched_symbols(store)
+                    block.intern_matched_symbols(store)
                 });
                 def.intern_matched_symbols(store);
             }
             Self::MatchTag(_, cases) => cases
                 .values()
-                .for_each(|code| code.intern_matched_symbols(store)),
+                .for_each(|block| block.intern_matched_symbols(store)),
             Self::Seq(_, rest) => rest.intern_matched_symbols(store),
             Self::Return(..) => (),
         }

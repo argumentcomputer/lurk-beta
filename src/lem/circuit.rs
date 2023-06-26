@@ -193,13 +193,13 @@ impl LEMCTL {
     pub fn count_slots(&self) -> SlotsCounter {
         match self {
             LEMCTL::MatchTag(_, cases) => {
-                cases.values().fold(SlotsCounter::default(), |acc, code| {
-                    acc.max(code.count_slots())
+                cases.values().fold(SlotsCounter::default(), |acc, block| {
+                    acc.max(block.count_slots())
                 })
             }
             LEMCTL::MatchSymbol(_, cases, def) => cases
                 .values()
-                .fold(def.count_slots(), |acc, code| acc.max(code.count_slots())),
+                .fold(def.count_slots(), |acc, block| acc.max(block.count_slots())),
             LEMCTL::Return(..) => SlotsCounter::default(),
             LEMCTL::Seq(ops, rest) => {
                 let ops_slots = ops.iter().fold(SlotsCounter::default(), |acc, op| {
@@ -569,13 +569,13 @@ impl LEM {
         }
 
         fn recurse<F: LurkField, CS: ConstraintSystem<F>>(
-            code: &LEMCTL,
+            block: &LEMCTL,
             concrete_path: Boolean,
             path: Path,
             slots_count: &mut SlotsCounter,
             g: &mut Globals<'_, F, CS>,
         ) -> Result<()> {
-            match code {
+            match block {
                 LEMCTL::Return(output_vars) => {
                     for (i, output_var) in output_vars.iter().enumerate() {
                         let Some(allocated_ptr) = g.allocated_ptrs.get(output_var.name()) else {
@@ -830,8 +830,8 @@ impl LEM {
             289 * slots_count.hash2 + 337 * slots_count.hash3 + 388 * slots_count.hash4;
 
         let mut stack = vec![(&self.ctl, false)];
-        while let Some((code, nested)) = stack.pop() {
-            match code {
+        while let Some((block, nested)) = stack.pop() {
+            match block {
                 LEMCTL::Return(..) => {
                     // tag and hash for 3 pointers
                     num_constraints += 6;
@@ -846,8 +846,8 @@ impl LEM {
                     num_constraints += multiplier * cases.len() + 1;
 
                     // stacked ops are now nested
-                    for code in cases.values() {
-                        stack.push((code, true));
+                    for block in cases.values() {
+                        stack.push((block, true));
                     }
                 }
                 LEMCTL::MatchSymbol(..) => todo!(),

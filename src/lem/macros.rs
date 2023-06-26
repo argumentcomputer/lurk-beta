@@ -248,9 +248,9 @@ macro_rules! lem_code {
     };
     (@end {$($limbs:expr)+}, $cont:expr,  $(;)?) => {
         {
-            let code = $cont;
+            let block = $cont;
             let ops = vec!($($limbs),+);
-            $crate::lem::LEMCTL::Seq(ops, Box::new(code))
+            $crate::lem::LEMCTL::Seq(ops, Box::new(block))
         }
     }
 }
@@ -329,7 +329,7 @@ mod tests {
         }
 
         let ret = LEMCTL::Return([mptr("bar"), mptr("baz"), mptr("bazz")]);
-        let code = LEMCTL::Seq(lemops_macro, Box::new(ret));
+        let block = LEMCTL::Seq(lemops_macro, Box::new(ret));
         let lem_macro_seq = lem_code!({
             let foo: Num;
             let foo: Char = hash2(bar, baz);
@@ -343,7 +343,7 @@ mod tests {
             return (bar, baz, bazz);
         });
 
-        assert!(code == lem_macro_seq);
+        assert!(block == lem_macro_seq);
 
         let foo = lem_code!(
             match_tag www {
