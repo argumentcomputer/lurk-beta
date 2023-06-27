@@ -76,10 +76,9 @@
 //! implications for which it is the premise must also be true (which is fine!).
 //! `PChar`, on the other hand, will be false, making the conclusions of the
 //! implications for which it is the premise irrelevant. This is crucial because
-//! interpretation won't even produce bindings for `m` or `n` (for which we will
-//! use dummies in the circuit), thus we don't expect to fulfill `m.hash == s0`
-//! nor `n.hash == s1`. In fact, we don't expect to fulfill any conclusion in the
-//! implications deriving from the `PChar` premise.
+//! interpretation won't even produce bindings for `m` or `n`, thus we don't
+//! expect to fulfill `m.hash == s0` nor `n.hash == s1`. In fact, we don't expect
+//! to fulfill any conclusion in the implications deriving from the `PChar` premise.
 //!
 //! Finally, we have an analogous situation for the second case, when
 //! interpretation goes through `Char`.
