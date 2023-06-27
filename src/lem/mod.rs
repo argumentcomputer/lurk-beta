@@ -230,7 +230,6 @@ impl LEM {
 mod tests {
     use super::circuit::SlotsCounter;
     use super::{store::Store, *};
-    use crate::lem::circuit::GlobalAllocator;
     use crate::{lem, lem::pointers::Ptr};
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable, Delta};
     use blstrs::Scalar as Fr;

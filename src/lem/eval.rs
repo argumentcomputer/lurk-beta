@@ -24,7 +24,7 @@ pub(crate) fn step() -> Result<LEM> {
 mod tests {
     use super::*;
     use crate::field::LurkField;
-    use crate::lem::circuit::{GlobalAllocator, SlotsCounter};
+    use crate::lem::circuit::SlotsCounter;
     use crate::lem::{pointers::Ptr, store::Store};
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
     use blstrs::Scalar as Fr;
