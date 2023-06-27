@@ -64,9 +64,8 @@ mod tests {
             );
             store.hydrate_z_cache();
             let mut cs = TestConstraintSystem::<Fr>::new();
-            let mut global_allocator = GlobalAllocator::default();
             for frame in frames.clone() {
-                lem.synthesize(&mut cs, store, &mut global_allocator, &slots_count, &frame)
+                lem.synthesize(&mut cs, store, &slots_count, &frame)
                     .unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(cs.num_inputs(), NUM_INPUTS);

@@ -238,7 +238,7 @@ impl LEMCTL {
 
 /// Manages global allocations for constants in a constraint system
 #[derive(Default)]
-pub struct GlobalAllocator<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);
+pub(crate) struct GlobalAllocator<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);
 
 #[inline]
 fn allocate_num<F: LurkField, CS: ConstraintSystem<F>>(
@@ -533,10 +533,10 @@ impl LEM {
         &self,
         cs: &mut CS,
         store: &mut Store<F>,
-        global_allocator: &mut GlobalAllocator<F>,
         slots_count: &SlotsCounter,
         frame: &Frame<F>,
     ) -> Result<()> {
+        let mut global_allocator = GlobalAllocator::default();
         let mut allocated_ptrs: HashMap<AString, AllocatedPtr<F>> = HashMap::default();
 
         self.allocate_input(cs, store, frame, &mut allocated_ptrs)?;
@@ -821,7 +821,7 @@ impl LEM {
                 cs,
                 store,
                 frame,
-                global_allocator,
+                global_allocator: &mut global_allocator,
                 allocated_ptrs,
                 preallocated_outputs,
                 preallocated_hash2_slots,

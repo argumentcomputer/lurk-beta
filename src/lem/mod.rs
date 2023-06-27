@@ -255,18 +255,11 @@ mod tests {
             let frames = lem.eval(*expr, &mut store).unwrap();
 
             let mut cs;
-            let mut global_allocator = GlobalAllocator::default();
 
             for frame in frames.clone() {
                 cs = TestConstraintSystem::<Fr>::new();
-                lem.synthesize(
-                    &mut cs,
-                    &mut store,
-                    &mut global_allocator,
-                    &slots_count,
-                    &frame,
-                )
-                .unwrap();
+                lem.synthesize(&mut cs, &mut store, &slots_count, &frame)
+                    .unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(computed_num_constraints, cs.num_constraints());
                 if let Some(cs_prev) = cs_prev {
