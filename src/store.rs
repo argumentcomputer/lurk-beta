@@ -72,8 +72,6 @@ pub struct Store<F: LurkField> {
     pub dehydrated: Vec<Ptr<F>>,
     pub dehydrated_cont: Vec<ContPtr<F>>,
 
-    // improve intern_str, intern_sym performance
-    //pub string_cache: CacheMap<String, Box<Ptr<F>>>,
     pub symbol_cache: CacheMap<Symbol, Box<Ptr<F>>>,
 
     pub constants: OnceCell<NamedConstants<F>>,

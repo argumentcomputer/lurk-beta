@@ -4,7 +4,6 @@ use crate::eval::lang::Coproc;
 use crate::eval::reduction::{extend, lookup, reduce};
 use crate::num::Num;
 use crate::tag::{ExprTag, Op, Op1, Op2};
-use crate::writer::Write;
 
 use lurk_macros::{let_store, lurk, Coproc};
 use pasta_curves::pallas::Scalar as Fr;
@@ -73,9 +72,6 @@ fn test_aux2<C: Coprocessor<Fr>>(
     ) = Evaluator::new(*expr, env, s, limit, lang).eval().unwrap();
 
     if let Some(expected_result) = expected_result {
-        dbg!(expected_result.fmt_to_string(s), &new_expr.fmt_to_string(s));
-        eprintln!("expected {:?}", expected_result);
-        eprintln!("new_expr {:?}", new_expr);
         assert!(s.ptr_eq(&expected_result, &new_expr).unwrap());
     }
     if let Some(expected_env) = expected_env {
@@ -2552,7 +2548,6 @@ pub(crate) mod coproc {
     use super::*;
     use crate::coprocessor::test::DumbCoprocessor;
     use crate::store::Store;
-    use crate::symbol::Symbol;
 
     #[derive(Clone, Debug, Coproc)]
     pub(crate) enum DumbCoproc<F: LurkField> {
@@ -2563,12 +2558,10 @@ pub(crate) mod coproc {
     fn test_dumb_lang() {
         let s = &mut Store::<Fr>::new();
 
-        let mut lang = Lang::<Fr, DumbCoproc<Fr>>::new();
-        let name = Symbol::sym(vec!["cproc".into(), "dumb".into()]);
-        let dumb = DumbCoprocessor::new();
-        let coproc = DumbCoproc::DC(dumb);
-
-        lang.add_coprocessor(name, coproc, s);
+        let lang = Lang::<Fr, DumbCoproc<Fr>>::new_with_bindings(
+            s,
+            vec![(".cproc.dumb", DumbCoprocessor::new().into())],
+        );
 
         // 9^2 + 8 = 89
         let expr = "(.cproc.dumb 9 8)";
