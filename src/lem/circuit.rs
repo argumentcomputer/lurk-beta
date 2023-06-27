@@ -3,6 +3,26 @@
 //! This module implements the generation of bellperson constraints for LEM, such
 //! that it can be used with Nova folding to prove evaluations of Lurk expressions.
 //!
+//! ### "Concrete" and "virtual" paths
+//!
+//! LEMs can implement logical branches with the use of some special `LEMCTL`
+//! nodes (such as `MatchTag`). But interpretation can only follow one path per
+//! iteration, which we call the *concrete path*. The other paths are called
+//! *virtual paths*. So we need a mechanism to safely "relax" the constraints
+//! for the virtual paths while also properly enforcing the correctness for what
+//! happens on the concrete path.
+//!
+//! We do that by using implication gadgets. An implication of the form `A → B`
+//! is trivially true if `A` is false. But if `A` is true, then the implication
+//! is true iff `B` is true. In other words, `B` is irrelevant if `A` is false,
+//! which is the behavior we want for the virtual paths.
+//!
+//! With that in mind, we can keep track of booleans that tell us whether we're
+//! on a concrete or a virtual path and use such booleans as the premises to build
+//! the constraints we care about with implication gadgets.
+//!
+//! ### Slot optimizations
+//!
 //! Some LEMs may require expensive gadgets, such as Poseidon hashing. So we use
 //! the concept of "slots" to avoid wasting constraints. To explore this idea,
 //! let's use the following LEM as an example:
@@ -86,7 +106,7 @@
 //! This example explored slots of type "hash2", but the same line of thought can
 //! be expanded to different types of slots, orthogonally.
 //!
-//! ### The algorithm
+//! #### The slot optimization algorithm
 //!
 //! We've separated the process in three steps:
 //!
@@ -503,15 +523,6 @@ impl LEM {
 
     /// Create R1CS constraints for LEM given an evaluation frame. This function
     /// implements the STEP 3 mentioned above.
-    ///
-    /// Notably, we recursively pass on a `concrete_path: Boolean` variable, which
-    /// encodes whether we are on a *concrete* or *virtual* path. A virtual path
-    /// is one that wasn't taken during interpretation and thus its frame pointers
-    /// weren't bound. A concrete path means that interpretation went down that
-    /// road and the frame data should be complete for the variables on that path.
-    /// For virtual paths we need to create dummy bindings for the meta pointers
-    /// and relax the implications with false premises. The premise is precicely
-    /// `concrete_path`.
     ///
     /// Regarding the slot optimizations, STEP 3 uses information gathered during
     /// STEPs 1 and 2. So we proceed by first allocating preimages and images for
