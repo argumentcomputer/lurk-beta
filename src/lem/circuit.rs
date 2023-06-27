@@ -32,8 +32,8 @@
 //!
 //! Either way, that's at most two hashes that we really care about. So we say
 //! that we need to allocate two slots. The first slot is for the the hash of `x`
-//! or `m` and the second slot if for the hash of `n`. Let's see a sketch of part
-//! of the circuit:
+//! or `m` and the second slot is for the hash of `n` (or a "dummy value", as
+//! explained ahead). Let's see a sketch of part of the circuit:
 //!
 //! ```text
 //!     ┌─────┐        ┌─────┐
@@ -60,13 +60,13 @@
 //! `PNum` and `PChar` are boolean premises that indicate whether interpretation
 //! went through `Num` or `Char` respectively. They're used as inputs for gadgets
 //! that implement implications (hence the right arrows above). We will talk
-//! about "concrete" vs "virtual" paths later.
+//! about "concrete" vs "virtual" paths elsewhere.
 //!
 //! Now we're able to feed the slots with the data that comes from interpretation:
 //!
 //! 1. If it goes through `Num`, we will collect `[[a, b]]` for the preimages of
 //! the slots. So we can feed the preimage of `slot0` with `[a, b]` and the
-//! preimage of `slot1` with anything (we call "dummy values")
+//! preimage of `slot1` with dummies
 //!
 //! 2. If it goes through `Char`, we will collect `[[b, a], [c, a]]` for the
 //! preimages of the slots. So we can feed the preimage of `slot0` with `[b, a]`
@@ -76,10 +76,10 @@
 //! implications for which it is the premise must also be true (which is fine!).
 //! `PChar`, on the other hand, will be false, making the conclusions of the
 //! implications for which it is the premise irrelevant. This is crucial because
-//! we won't have computed `m` nor `n` (for which we will use dummies), thus we
-//! don't expect to fulfill `m.hash == s0` nor `n.hash == s1`. In fact, we don't
-//! expect to fulfill any conclusion in the implications deriving from the `PChar`
-//! premise.
+//! interpretation won't even produce bindings for `m` or `n` (for which we will
+//! use dummies in the circuit), thus we don't expect to fulfill `m.hash == s0`
+//! nor `n.hash == s1`. In fact, we don't expect to fulfill any conclusion in the
+//! implications deriving from the `PChar` premise.
 //!
 //! Finally, we have an analogous situation for the second case, when
 //! interpretation goes through `Char`.
