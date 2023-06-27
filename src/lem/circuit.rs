@@ -146,7 +146,6 @@ use crate::field::{FWrap, LurkField};
 
 use super::{
     interpreter::Frame,
-    path::Path,
     pointers::{Ptr, ZPtr},
     store::Store,
     AString, MetaPtr, LEM, LEMCTL, LEMOP,
@@ -566,8 +565,7 @@ impl LEM {
             store,
         )?;
 
-        struct Globals<'a, F: LurkField, CS: ConstraintSystem<F>> {
-            cs: &'a mut CS,
+        struct Globals<'a, F: LurkField> {
             store: &'a mut Store<F>,
             frame: &'a Frame<F>,
             global_allocator: &'a mut GlobalAllocator<F>,
@@ -579,11 +577,11 @@ impl LEM {
         }
 
         fn recurse<F: LurkField, CS: ConstraintSystem<F>>(
+            cs: &mut CS,
             block: &LEMCTL,
             concrete_path: Boolean,
-            path: Path,
             slots_count: &mut SlotsCounter,
-            g: &mut Globals<'_, F, CS>,
+            g: &mut Globals<'_, F>,
         ) -> Result<()> {
             match block {
                 LEMCTL::Return(output_vars) => {
@@ -594,10 +592,8 @@ impl LEM {
 
                         allocated_ptr
                             .implies_ptr_equal(
-                                &mut g.cs.namespace(|| {
-                                    format!(
-                                        "{path}.implies_ptr_equal {output_var} (output_var {i})"
-                                    )
+                                &mut cs.namespace(|| {
+                                    format!("implies_ptr_equal {output_var} (output_var {i})")
                                 }),
                                 &concrete_path,
                                 &g.preallocated_outputs[i],
@@ -614,14 +610,14 @@ impl LEM {
                     let mut concrete_path_vec = Vec::new();
                     for (tag, op) in cases {
                         let allocated_has_match = alloc_equal_const(
-                            &mut g.cs.namespace(|| format!("{path}.{tag}.alloc_equal_const")),
+                            &mut cs.namespace(|| format!("{tag}.alloc_equal_const")),
                             &allocated_match_tag,
                             tag.to_field::<F>(),
                         )
                         .with_context(|| "couldn't allocate equal const")?;
 
                         let concrete_path_and_has_match = and(
-                            &mut g.cs.namespace(|| format!("{path}.{tag}.and")),
+                            &mut cs.namespace(|| format!("{tag}.and")),
                             &concrete_path,
                             &allocated_has_match,
                         )
@@ -629,18 +625,21 @@ impl LEM {
 
                         concrete_path_vec.push(allocated_has_match);
 
-                        let new_path = path.push_tag(tag);
                         let saved_slot = &mut slots_count.clone();
-                        recurse(op, concrete_path_and_has_match, new_path, saved_slot, g)?;
+                        recurse(
+                            &mut cs.namespace(|| format!("{}", tag)),
+                            op,
+                            concrete_path_and_has_match,
+                            saved_slot,
+                            g,
+                        )?;
                     }
 
                     // Now we need to enforce that at exactly one path was taken. We do that by enforcing
                     // that the sum of the previously collected `Boolean`s is one. But, of course, this
                     // irrelevant if we're on a virtual path and thus we use an implication gadget.
                     enforce_selector_with_premise(
-                        &mut g
-                            .cs
-                            .namespace(|| format!("{path}.enforce_selector_with_premise")),
+                        &mut cs.namespace(|| "enforce_selector_with_premise"),
                         &concrete_path,
                         &concrete_path_vec,
                     )
@@ -662,7 +661,7 @@ impl LEM {
 
                                 // Add the implication constraint for the image
                                 implies_equal(
-                                    &mut g.cs.namespace(|| {
+                                    &mut cs.namespace(|| {
                                         format!("implies equal for {}'s hash (LEMOP {:?})", $img, &op)
                                     }),
                                     &concrete_path,
@@ -676,7 +675,7 @@ impl LEM {
                                     let name = $preimg[i].name();
                                     let ptr_idx = 2 * i;
                                     implies_equal(
-                                        &mut g.cs.namespace(|| {
+                                        &mut cs.namespace(|| {
                                             format!("implies equal for {name}'s tag (LEMOP {:?}, pos {i})", &op)
                                         }),
                                         &concrete_path,
@@ -684,7 +683,7 @@ impl LEM {
                                         &preallocated_preimg[ptr_idx], // tag index
                                     )?;
                                     implies_equal(
-                                        &mut g.cs.namespace(|| {
+                                        &mut cs.namespace(|| {
                                             format!(
                                                 "implies equal for {name}'s hash (LEMOP {:?}, pos {i})",
                                                 &op
@@ -701,7 +700,7 @@ impl LEM {
                             ( $img: expr, $tag: expr, $preimg: expr, $slot: expr ) => {
                                 // Allocate image
                                 let allocated_img = LEM::allocate_ptr(
-                                    g.cs,
+                                    cs,
                                     &LEM::zptr_from_mptr($img, &g.frame, g.store)?,
                                     $img.name(),
                                     &mut g.allocated_ptrs,
@@ -713,10 +712,9 @@ impl LEM {
 
                                 // Create constraint for the tag
                                 let allocated_tag =
-                                    g.global_allocator.get_or_alloc_num(g.cs, $tag.to_field())?;
+                                    g.global_allocator.get_or_alloc_num(cs, $tag.to_field())?;
                                 implies_equal(
-                                    &mut g
-                                        .cs
+                                    &mut cs
                                         .namespace(|| format!("implies equal for {}'s tag", $img)),
                                     &concrete_path,
                                     allocated_img.tag(),
@@ -738,7 +736,7 @@ impl LEM {
                             ( $preimg: expr, $img: expr, $slot: expr ) => {
                                 // Allocate preimage
                                 let allocated_preimg =
-                                    LEM::alloc_preimg(g.cs, $preimg, &g.frame, g.store, &mut g.allocated_ptrs)?;
+                                    LEM::alloc_preimg(cs, $preimg, &g.frame, g.store, &mut g.allocated_ptrs)?;
 
                                 // Retrieve allocated image
                                 let Some(allocated_img) = g.allocated_ptrs.get($img.name()) else {
@@ -771,19 +769,17 @@ impl LEM {
                             }
                             LEMOP::Null(tgt, tag) => {
                                 let allocated_tgt = LEM::allocate_ptr(
-                                    g.cs,
+                                    cs,
                                     &LEM::zptr_from_mptr(tgt, g.frame, g.store)?,
                                     tgt.name(),
                                     &mut g.allocated_ptrs,
                                 )?;
                                 let allocated_tag =
-                                    g.global_allocator.get_or_alloc_num(g.cs, tag.to_field())?;
+                                    g.global_allocator.get_or_alloc_num(cs, tag.to_field())?;
 
                                 // Constrain tag
                                 implies_equal(
-                                    &mut g
-                                        .cs
-                                        .namespace(|| format!("implies equal for {tgt}'s tag")),
+                                    &mut cs.namespace(|| format!("implies equal for {tgt}'s tag")),
                                     &concrete_path,
                                     allocated_tgt.tag(),
                                     &allocated_tag,
@@ -794,7 +790,7 @@ impl LEM {
 
                                 // Constrain hash
                                 implies_equal_zero(
-                                    &mut g.cs.namespace(|| {
+                                    &mut cs.namespace(|| {
                                         format!("implies equal zero for {tgt}'s hash")
                                     }),
                                     &concrete_path,
@@ -807,18 +803,17 @@ impl LEM {
                             _ => todo!(),
                         }
                     }
-                    recurse(rest, concrete_path, path, slots_count, g)
+                    recurse(cs, rest, concrete_path, slots_count, g)
                 }
             }
         }
 
         recurse(
+            cs,
             &self.ctl,
             Boolean::Constant(true),
-            Path::default(),
             &mut SlotsCounter::default(),
             &mut Globals {
-                cs,
                 store,
                 frame,
                 global_allocator: &mut global_allocator,
