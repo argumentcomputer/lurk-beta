@@ -230,6 +230,7 @@ impl LEM {
 mod tests {
     use super::circuit::SlotsCounter;
     use super::{store::Store, *};
+    use crate::lem::circuit::GlobalAllocator;
     use crate::{lem, lem::pointers::Ptr};
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable, Delta};
     use blstrs::Scalar as Fr;
@@ -248,9 +249,16 @@ mod tests {
             let frames = lem.eval(*expr, &mut store).unwrap();
 
             let mut cs = TestConstraintSystem::<Fr>::new();
+            let mut global_allocator = GlobalAllocator::default();
             for frame in frames.clone() {
-                lem.synthesize(&mut cs, &mut store, &slots_count, &frame)
-                    .unwrap();
+                lem.synthesize(
+                    &mut cs,
+                    &mut store,
+                    &mut global_allocator,
+                    &slots_count,
+                    &frame,
+                )
+                .unwrap();
             }
 
             assert!(cs.is_satisfied());

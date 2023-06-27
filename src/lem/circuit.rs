@@ -219,7 +219,7 @@ impl LEMCTL {
 
 /// Manages global allocations for constants in a constraint system
 #[derive(Default)]
-pub(crate) struct AllocationManager<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);
+pub struct GlobalAllocator<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);
 
 #[inline]
 fn allocate_num<F: LurkField, CS: ConstraintSystem<F>>(
@@ -231,7 +231,7 @@ fn allocate_num<F: LurkField, CS: ConstraintSystem<F>>(
         .with_context(|| format!("allocation for '{namespace}' failed"))
 }
 
-impl<F: LurkField> AllocationManager<F> {
+impl<F: LurkField> GlobalAllocator<F> {
     /// Checks if the allocation for a numeric variable has already been cached.
     /// If so, return the cached allocation variable. Allocate, cache and return
     /// otherwise.
@@ -523,10 +523,10 @@ impl LEM {
         &self,
         cs: &mut CS,
         store: &mut Store<F>,
+        global_allocator: &mut GlobalAllocator<F>,
         slots_count: &SlotsCounter,
         frame: &Frame<F>,
     ) -> Result<()> {
-        let alloc_manager = AllocationManager::default();
         let mut allocated_ptrs: HashMap<AString, AllocatedPtr<F>> = HashMap::default();
 
         self.allocate_input(cs, store, frame, &mut allocated_ptrs)?;
@@ -560,7 +560,7 @@ impl LEM {
             cs: &'a mut CS,
             store: &'a mut Store<F>,
             frame: &'a Frame<F>,
-            alloc_manager: AllocationManager<F>,
+            global_allocator: &'a mut GlobalAllocator<F>,
             allocated_ptrs: HashMap<AString, AllocatedPtr<F>>,
             preallocated_outputs: [AllocatedPtr<F>; 3],
             preallocated_hash2_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
@@ -703,7 +703,7 @@ impl LEM {
 
                                 // Create constraint for the tag
                                 let allocated_tag =
-                                    g.alloc_manager.get_or_alloc_num(g.cs, $tag.to_field())?;
+                                    g.global_allocator.get_or_alloc_num(g.cs, $tag.to_field())?;
                                 implies_equal(
                                     &mut g
                                         .cs
@@ -767,7 +767,7 @@ impl LEM {
                                     &mut g.allocated_ptrs,
                                 )?;
                                 let allocated_tag =
-                                    g.alloc_manager.get_or_alloc_num(g.cs, tag.to_field())?;
+                                    g.global_allocator.get_or_alloc_num(g.cs, tag.to_field())?;
 
                                 // Constrain tag
                                 implies_equal(
@@ -811,7 +811,7 @@ impl LEM {
                 cs,
                 store,
                 frame,
-                alloc_manager,
+                global_allocator,
                 allocated_ptrs,
                 preallocated_outputs,
                 preallocated_hash2_slots,
