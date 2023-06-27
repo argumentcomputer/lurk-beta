@@ -42,8 +42,8 @@ pub struct Store<F: LurkField> {
     ptrs3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
     ptrs4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
 
-    str_tails_cache: HashMap<AString, Ptr<F>>,
-    sym_tails_cache: HashMap<AVec<AString>, Ptr<F>>,
+    str_cache: HashMap<AString, Ptr<F>>,
+    sym_cache: HashMap<AVec<AString>, Ptr<F>>,
     sym_path_cache: HashMap<Ptr<F>, AVec<AString>>,
 
     pub poseidon_cache: PoseidonCache<F>,
@@ -153,18 +153,17 @@ impl<F: LurkField> Store<F> {
             return Ptr::null(Tag::Str);
         }
 
-        let tail = &s[1..s.len()];
-        match self.str_tails_cache.get(tail) {
-            Some(ptr_cache) => return *ptr_cache,
-            None => (),
+        match self.str_cache.get(s) {
+            Some(ptr_cache) => *ptr_cache,
+            None => {
+                let tail = &s[1..s.len()];
+                let tail_ptr = self.intern_string(tail);
+                let head = s.chars().next().unwrap();
+                let s_ptr = self.intern_2_ptrs(Tag::Str, Ptr::char(head), tail_ptr);
+                self.str_cache.insert(s.into(), s_ptr);
+                s_ptr
+            }
         }
-        let head = s.chars().next().unwrap();
-
-        let tail_ptr = self.intern_string(tail);
-        let s_ptr = self.intern_2_ptrs(Tag::Str, Ptr::char(head), tail_ptr);
-
-        self.str_tails_cache.insert(tail.into(), s_ptr);
-        s_ptr
     }
 
     /// Interns a symbol path recursively
@@ -175,20 +174,20 @@ impl<F: LurkField> Store<F> {
             return ptr;
         }
 
-        let tail = &path[1..path.len()];
-        match self.sym_tails_cache.get(tail) {
-            Some(ptr_cache) => return *ptr_cache,
-            None => (),
+        match self.sym_cache.get(path) {
+            Some(ptr_cache) => *ptr_cache,
+            None => {
+                let tail = &path[1..path.len()];
+                let tail_ptr = self.intern_symbol_path(tail);
+                let head = &path[0];
+                let head_ptr = self.intern_string(head);
+                let path_ptr = self.intern_2_ptrs(Tag::Sym, head_ptr, tail_ptr);
+                let path: Arc<[Arc<str>]> = path.into();
+                self.sym_cache.insert(path.clone(), path_ptr);
+                self.sym_path_cache.insert(path_ptr, path);
+                path_ptr
+            }
         }
-        let head = &path[0];
-
-        let head_ptr = self.intern_string(head);
-        let tail_ptr = self.intern_symbol_path(tail);
-        let path_ptr = self.intern_2_ptrs(Tag::Sym, head_ptr, tail_ptr);
-
-        self.sym_tails_cache.insert(tail.into(), path_ptr);
-        self.sym_path_cache.insert(path_ptr, path.into());
-        path_ptr
     }
 
     #[inline]
