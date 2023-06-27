@@ -235,7 +235,13 @@ mod tests {
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable, Delta};
     use blstrs::Scalar as Fr;
 
-    fn constrain_test_helper(lem: &LEM, exprs: &[Ptr<Fr>], expected_num_slots: SlotsCounter) {
+    /// Helper function for testing circuit synthesis.
+    ///   - `lem` is the input LEM program.
+    ///   - `exprs` is a set of input expressions that can exercise different LEM paths,
+    ///   therefore this parameter can be used to test circuit uniformity among all the
+    ///   provided expressions.
+    ///   - `expected_slots` gives the number of expected slots for each type of hash.
+    fn synthesize_test_helper(lem: &LEM, exprs: &[Ptr<Fr>], expected_num_slots: SlotsCounter) {
         let slots_count = lem.ctl.count_slots();
 
         assert_eq!(slots_count, expected_num_slots);
@@ -248,9 +254,11 @@ mod tests {
         for expr in exprs {
             let frames = lem.eval(*expr, &mut store).unwrap();
 
-            let mut cs = TestConstraintSystem::<Fr>::new();
+            let mut cs;
             let mut global_allocator = GlobalAllocator::default();
+
             for frame in frames.clone() {
+                cs = TestConstraintSystem::<Fr>::new();
                 lem.synthesize(
                     &mut cs,
                     &mut store,
@@ -259,17 +267,14 @@ mod tests {
                     &frame,
                 )
                 .unwrap();
+                assert!(cs.is_satisfied());
+                assert_eq!(computed_num_constraints, cs.num_constraints());
+                if let Some(cs_prev) = cs_prev {
+                    // Check for all input expresssions that all frames are uniform.
+                    assert_eq!(cs.delta(&cs_prev, true), Delta::Equal);
+                }
+                cs_prev = Some(cs);
             }
-
-            assert!(cs.is_satisfied());
-
-            assert_eq!(computed_num_constraints, cs.num_constraints());
-
-            if let Some(cs_prev) = cs_prev {
-                assert_eq!(cs.delta(&cs_prev, true), Delta::Equal);
-            }
-
-            cs_prev = Some(cs);
         }
     }
 
@@ -309,7 +314,7 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &[Ptr::num(Fr::from_u64(42))], SlotsCounter::default());
+        synthesize_test_helper(&lem, &[Ptr::num(Fr::from_u64(42))], SlotsCounter::default());
     }
 
     #[test]
@@ -333,7 +338,7 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(&lem, &[Ptr::num(Fr::from_u64(42))], SlotsCounter::default());
+        synthesize_test_helper(&lem, &[Ptr::num(Fr::from_u64(42))], SlotsCounter::default());
     }
 
     #[test]
@@ -344,7 +349,7 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(
+        synthesize_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             SlotsCounter::default(),
@@ -367,7 +372,7 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(
+        synthesize_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             SlotsCounter::default(),
@@ -402,7 +407,7 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(
+        synthesize_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             SlotsCounter::new((2, 2, 2)),
@@ -440,7 +445,7 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(
+        synthesize_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             SlotsCounter::new((3, 3, 3)),
@@ -491,7 +496,7 @@ mod tests {
         })
         .unwrap();
 
-        constrain_test_helper(
+        synthesize_test_helper(
             &lem,
             &[Ptr::num(Fr::from_u64(42)), Ptr::char('c')],
             SlotsCounter::new((4, 4, 4)),
