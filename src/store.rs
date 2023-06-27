@@ -1,7 +1,9 @@
 use rayon::prelude::*;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::usize;
 use thiserror;
 
@@ -72,6 +74,7 @@ pub struct Store<F: LurkField> {
     pub dehydrated: Vec<Ptr<F>>,
     pub dehydrated_cont: Vec<ContPtr<F>>,
 
+    str_cache: HashMap<Arc<str>, Ptr<F>>,
     pub symbol_cache: CacheMap<Symbol, Box<Ptr<F>>>,
 
     pub constants: OnceCell<NamedConstants<F>>,
@@ -107,6 +110,7 @@ impl<F: LurkField> Default for Store<F> {
             inverse_poseidon_cache: Default::default(),
             dehydrated: Default::default(),
             dehydrated_cont: Default::default(),
+            str_cache: Default::default(),
             symbol_cache: Default::default(),
             constants: Default::default(),
         };
@@ -556,15 +560,24 @@ impl<F: LurkField> Store<F> {
         Ptr::index(ExprTag::U64, n as usize)
     }
 
-    // intern a string into the Store, which generates the cons'ed representation
-    // TODO: short-circuit interning if we hit the cache
+    /// Intern a string into the Store, which generates the cons'ed representation
     pub fn intern_string<T: AsRef<str>>(&mut self, s: T) -> Ptr<F> {
         let s: String = String::from(s.as_ref());
-        let mut ptr = self.strnil();
-        for c in s.chars().rev() {
-            ptr = self.intern_strcons(self.intern_char(c), ptr);
+        if s.is_empty() {
+            return self.strnil();
         }
-        ptr
+
+        let tail = &s[1..s.len()];
+        let tail_ptr = match self.str_cache.get(tail) {
+            Some(ptr_cache) => *ptr_cache,
+            None => self.intern_string(tail),
+        };
+        let head = s.chars().next().unwrap();
+
+        let s_ptr = self.intern_strcons(self.intern_char(head), tail_ptr);
+
+        self.str_cache.insert(s.into(), s_ptr);
+        s_ptr
     }
 
     pub fn intern_fun(&mut self, arg: Ptr<F>, body: Ptr<F>, closed_env: Ptr<F>) -> Ptr<F> {
