@@ -562,22 +562,22 @@ impl<F: LurkField> Store<F> {
 
     /// Intern a string into the Store, which generates the cons'ed representation
     pub fn intern_string<T: AsRef<str>>(&mut self, s: T) -> Ptr<F> {
-        let s: String = String::from(s.as_ref());
+        let s = s.as_ref();
         if s.is_empty() {
             return self.strnil();
         }
 
-        let tail = &s[1..s.len()];
-        let tail_ptr = match self.str_cache.get(tail) {
+        match self.str_cache.get(s) {
             Some(ptr_cache) => *ptr_cache,
-            None => self.intern_string(tail),
-        };
-        let head = s.chars().next().unwrap();
-
-        let s_ptr = self.intern_strcons(self.intern_char(head), tail_ptr);
-
-        self.str_cache.insert(s.into(), s_ptr);
-        s_ptr
+            None => {
+                let tail = &s[1..s.len()];
+                let tail_ptr = self.intern_string(tail);
+                let head = s.chars().next().unwrap();
+                let s_ptr = self.intern_strcons(self.intern_char(head), tail_ptr);
+                self.str_cache.insert(s.into(), s_ptr);
+                s_ptr
+            }
+        }
     }
 
     pub fn intern_fun(&mut self, arg: Ptr<F>, body: Ptr<F>, closed_env: Ptr<F>) -> Ptr<F> {
@@ -2178,7 +2178,6 @@ pub mod test {
         let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
         {
             let comparison_expr = store.list(&[eq, fun, opaque_fun]);
-            println!("comparison_expr: {}", comparison_expr.fmt_to_string(&store));
             let (result, _, _) =
                 Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
                     .eval()

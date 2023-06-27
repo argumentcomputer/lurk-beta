@@ -367,7 +367,6 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         match self.input {
             ZData::Cell(xs) if !xs.is_empty() => match &xs[0] {
                 ZData::Atom(idx_vec) if idx_vec.len() == 1 => {
-                    println!("Variants: {:?}", variants);
                     let variant = String::from(variants[idx_vec[0] as usize]);
                     visitor.visit_enum(Enum::new(self, variant, 1))
                 }
