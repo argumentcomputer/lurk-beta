@@ -32,7 +32,7 @@ mod tests {
 
     const NUM_INPUTS: usize = 1;
     const NUM_AUX: usize = 69;
-    const NUM_CONSTRAINTS: usize = 129;
+    const NUM_CONSTRAINTS: usize = 130;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 0,
         hash3: 0,

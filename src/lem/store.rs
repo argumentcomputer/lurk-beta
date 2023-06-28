@@ -156,7 +156,7 @@ impl<F: LurkField> Store<F> {
         match self.str_cache.get(s) {
             Some(ptr_cache) => *ptr_cache,
             None => {
-                let tail = &s[1..s.len()];
+                let tail = &s.chars().skip(1).collect::<String>();
                 let tail_ptr = self.intern_string(tail);
                 let head = s.chars().next().unwrap();
                 let s_ptr = self.intern_2_ptrs(Tag::Str, Ptr::char(head), tail_ptr);

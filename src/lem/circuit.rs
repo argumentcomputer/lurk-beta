@@ -126,7 +126,7 @@
 //! will need as many iterations as it takes to evaluate the Lurk expression and
 //! so will STEP 3.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::{anyhow, bail, Context, Result};
 use bellperson::{
@@ -138,7 +138,7 @@ use crate::circuit::gadgets::{
     constraints::{
         alloc_equal_const, and, enforce_selector_with_premise, implies_equal, implies_equal_zero,
     },
-    data::hash_poseidon,
+    data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
 };
 
@@ -148,6 +148,7 @@ use super::{
     interpreter::Frame,
     pointers::{Ptr, ZPtr},
     store::Store,
+    tag::Tag,
     AString, MetaPtr, LEM, LEMCTL, LEMOP,
 };
 
@@ -249,11 +250,21 @@ fn allocate_num<F: LurkField, CS: ConstraintSystem<F>>(
         .with_context(|| format!("allocation for '{namespace}' failed"))
 }
 
+#[inline]
+fn allocate_const<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    namespace: &str,
+    value: F,
+) -> Result<AllocatedNum<F>> {
+    allocate_constant(&mut cs.namespace(|| namespace), value)
+        .with_context(|| format!("allocation for '{namespace}' failed"))
+}
+
 impl<F: LurkField> GlobalAllocator<F> {
     /// Checks if the allocation for a numeric variable has already been cached.
-    /// If so, return the cached allocation variable. Allocate, cache and return
-    /// otherwise.
-    pub(crate) fn get_or_alloc_num<CS: ConstraintSystem<F>>(
+    /// If so, return the cached allocation variable. Allocate as a constant,
+    /// cache and return otherwise.
+    pub(crate) fn get_or_alloc_const<CS: ConstraintSystem<F>>(
         &mut self,
         cs: &mut CS,
         f: F,
@@ -263,7 +274,7 @@ impl<F: LurkField> GlobalAllocator<F> {
             Some(allocated_num) => Ok(allocated_num.to_owned()),
             None => {
                 let allocated_num =
-                    allocate_num(cs, &format!("globally allocate {}", f.hex_digits()), f)?;
+                    allocate_const(cs, &format!("allocate constant {}", f.hex_digits()), f)?;
                 self.0.insert(wrap, allocated_num.clone());
                 Ok(allocated_num)
             }
@@ -311,7 +322,17 @@ impl std::fmt::Display for Slot {
     }
 }
 
+impl MetaPtr {
+    fn to_zptr<F: LurkField>(&self, frame: &Frame<F>, store: &mut Store<F>) -> Result<ZPtr<F>> {
+        match frame.bindings.get(self) {
+            Some(ptr) => store.hash_ptr(ptr),
+            None => Ok(ZPtr::dummy()),
+        }
+    }
+}
+
 impl LEM {
+    /// Allocates an unconstrained pointer
     fn allocate_ptr<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         z_ptr: &ZPtr<F>,
@@ -329,6 +350,7 @@ impl LEM {
         Ok(allocated_ptr)
     }
 
+    /// Allocates an unconstrained pointer for each input of the frame
     fn allocate_input<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -343,12 +365,13 @@ impl LEM {
         Ok(())
     }
 
+    /// Allocates an unconstrained pointer for each output of the frame
     fn allocate_output<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         store: &mut Store<F>,
         frame: &Frame<F>,
         allocated_ptrs: &mut HashMap<AString, AllocatedPtr<F>>,
-    ) -> Result<[AllocatedPtr<F>; 3]> {
+    ) -> Result<Vec<AllocatedPtr<F>>> {
         let mut allocated_output_ptrs = vec![];
         for (i, ptr) in frame.output.iter().enumerate() {
             let allocated_ptr = Self::allocate_ptr(
@@ -359,21 +382,11 @@ impl LEM {
             )?;
             allocated_output_ptrs.push(allocated_ptr)
         }
-        Ok(allocated_output_ptrs.try_into().unwrap())
+        Ok(allocated_output_ptrs)
     }
 
-    fn zptr_from_mptr<F: LurkField>(
-        mptr: &MetaPtr,
-        frame: &Frame<F>,
-        store: &mut Store<F>,
-    ) -> Result<ZPtr<F>> {
-        match frame.bindings.get(mptr) {
-            Some(ptr) => store.hash_ptr(ptr),
-            None => Ok(ZPtr::dummy()),
-        }
-    }
-
-    fn alloc_preimg<F: LurkField, CS: ConstraintSystem<F>>(
+    /// Allocates an unconstrained pointer for each value of the preimage
+    fn allocate_preimg<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         preimg: &[MetaPtr],
         frame: &Frame<F>,
@@ -383,7 +396,7 @@ impl LEM {
         preimg
             .iter()
             .map(|x| {
-                Self::zptr_from_mptr(x, frame, store)
+                x.to_zptr(frame, store)
                     .and_then(|ref ptr| Self::allocate_ptr(cs, ptr, x.name(), allocated_ptrs))
             })
             .collect::<Result<Vec<_>>>()
@@ -440,6 +453,7 @@ impl LEM {
         Ok(preallocated_img)
     }
 
+    /// Allocates unconstrained slots
     fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         preimgs: &[Vec<Ptr<F>>],
@@ -538,9 +552,13 @@ impl LEM {
         let mut global_allocator = GlobalAllocator::default();
         let mut allocated_ptrs: HashMap<AString, AllocatedPtr<F>> = HashMap::default();
 
+        // Inputs are constrained by their usage inside LEM
         self.allocate_input(cs, store, frame, &mut allocated_ptrs)?;
+        // Outputs are constrained by return. All LEMs return
         let preallocated_outputs = LEM::allocate_output(cs, store, frame, &mut allocated_ptrs)?;
 
+        // Slots are constrained by their usage inside LEM. The ones not used in throughout the concrete path
+        // are effectively unconstrained, that's why they are filled with dummies
         let preallocated_hash2_slots = LEM::allocate_slots(
             cs,
             &frame.preimages.hash2_ptrs,
@@ -570,7 +588,7 @@ impl LEM {
             frame: &'a Frame<F>,
             global_allocator: &'a mut GlobalAllocator<F>,
             allocated_ptrs: HashMap<AString, AllocatedPtr<F>>,
-            preallocated_outputs: [AllocatedPtr<F>; 3],
+            preallocated_outputs: Vec<AllocatedPtr<F>>,
             preallocated_hash2_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash3_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash4_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
@@ -698,21 +716,16 @@ impl LEM {
                         }
                         macro_rules! hash_helper {
                             ( $img: expr, $tag: expr, $preimg: expr, $slot: expr ) => {
-                                // Allocate image
+                                // Allocate image. Its hash field is constrained by `constrain_slot!`
                                 let allocated_img = LEM::allocate_ptr(
                                     cs,
-                                    &LEM::zptr_from_mptr($img, &g.frame, g.store)?,
+                                    &$img.to_zptr(&g.frame, g.store)?,
                                     $img.name(),
                                     &mut g.allocated_ptrs,
                                 )?;
-
-                                // Retrieve allocated preimage
-                                let allocated_preimg =
-                                    LEM::get_allocated_preimg($preimg, &g.allocated_ptrs)?;
-
                                 // Create constraint for the tag
                                 let allocated_tag =
-                                    g.global_allocator.get_or_alloc_num(cs, $tag.to_field())?;
+                                    g.global_allocator.get_or_alloc_const(cs, $tag.to_field())?;
                                 implies_equal(
                                     &mut cs
                                         .namespace(|| format!("implies equal for {}'s tag", $img)),
@@ -720,6 +733,10 @@ impl LEM {
                                     allocated_img.tag(),
                                     &allocated_tag,
                                 )?;
+
+                                // Retrieve allocated preimage
+                                let allocated_preimg =
+                                    LEM::get_allocated_preimg($preimg, &g.allocated_ptrs)?;
 
                                 // Add the hash constraints
                                 constrain_slot!(
@@ -734,9 +751,9 @@ impl LEM {
 
                         macro_rules! unhash_helper {
                             ( $preimg: expr, $img: expr, $slot: expr ) => {
-                                // Allocate preimage
+                                // Allocate preimage to be constrained later by `constrain_slot!`
                                 let allocated_preimg =
-                                    LEM::alloc_preimg(cs, $preimg, &g.frame, g.store, &mut g.allocated_ptrs)?;
+                                    LEM::allocate_preimg(cs, $preimg, &g.frame, g.store, &mut g.allocated_ptrs)?;
 
                                 // Retrieve allocated image
                                 let Some(allocated_img) = g.allocated_ptrs.get($img.name()) else {
@@ -770,12 +787,12 @@ impl LEM {
                             LEMOP::Null(tgt, tag) => {
                                 let allocated_tgt = LEM::allocate_ptr(
                                     cs,
-                                    &LEM::zptr_from_mptr(tgt, g.frame, g.store)?,
+                                    &tgt.to_zptr(g.frame, g.store)?,
                                     tgt.name(),
                                     &mut g.allocated_ptrs,
                                 )?;
                                 let allocated_tag =
-                                    g.global_allocator.get_or_alloc_num(cs, tag.to_field())?;
+                                    g.global_allocator.get_or_alloc_const(cs, tag.to_field())?;
 
                                 // Constrain tag
                                 implies_equal(
@@ -834,6 +851,8 @@ impl LEM {
         let mut num_constraints =
             289 * slots_count.hash2 + 337 * slots_count.hash3 + 388 * slots_count.hash4;
 
+        let mut tags: HashSet<&Tag> = HashSet::default();
+
         let mut stack = vec![(&self.ctl, false)];
         while let Some((block, nested)) = stack.pop() {
             match block {
@@ -859,21 +878,25 @@ impl LEM {
                 LEMCTL::Seq(ops, rest) => {
                     for op in ops {
                         match op {
-                            LEMOP::Null(..) => {
+                            LEMOP::Null(_, tag) => {
                                 // constrain tag and hash
                                 num_constraints += 2;
+                                tags.insert(tag);
                             }
-                            LEMOP::Hash2(..) => {
+                            LEMOP::Hash2(_, tag, _) => {
                                 // tag and hash for 3 pointers: 1 image + 2 from preimage
                                 num_constraints += 6;
+                                tags.insert(tag);
                             }
-                            LEMOP::Hash3(..) => {
+                            LEMOP::Hash3(_, tag, _) => {
                                 // tag and hash for 4 pointers: 1 image + 3 from preimage
                                 num_constraints += 8;
+                                tags.insert(tag);
                             }
-                            LEMOP::Hash4(..) => {
+                            LEMOP::Hash4(_, tag, _) => {
                                 // tag and hash for 5 pointers: 1 image + 4 from preimage
                                 num_constraints += 10;
+                                tags.insert(tag);
                             }
                             LEMOP::Unhash2(..) => {
                                 // one constraint for the image's hash
@@ -899,6 +922,6 @@ impl LEM {
             }
         }
 
-        num_constraints
+        num_constraints + tags.len()
     }
 }
