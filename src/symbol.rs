@@ -16,7 +16,9 @@ pub const ESCAPE_CHARS: &str = "|(){}[],.:'\\\"";
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 /// Type for hierarchical symbol names
 pub enum Symbol {
+    /// Represents a hierarchical symbol whose path is a vector of strings
     Sym(Vec<String>),
+    /// Represents a hierarchical keyword whose path is a vector of strings
     Key(Vec<String>),
 }
 
