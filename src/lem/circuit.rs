@@ -323,11 +323,7 @@ impl std::fmt::Display for Slot {
 }
 
 impl MetaPtr {
-    fn to_mptr<F: LurkField>(
-        &self,
-        frame: &Frame<F>,
-        store: &mut Store<F>,
-    ) -> Result<ZPtr<F>> {
+    fn to_zptr<F: LurkField>(&self, frame: &Frame<F>, store: &mut Store<F>) -> Result<ZPtr<F>> {
         match frame.bindings.get(self) {
             Some(ptr) => store.hash_ptr(ptr),
             None => Ok(ZPtr::dummy()),
@@ -400,7 +396,7 @@ impl LEM {
         preimg
             .iter()
             .map(|x| {
-                x.to_mptr(frame, store)
+                x.to_zptr(frame, store)
                     .and_then(|ref ptr| Self::allocate_ptr(cs, ptr, x.name(), allocated_ptrs))
             })
             .collect::<Result<Vec<_>>>()
@@ -723,7 +719,7 @@ impl LEM {
                                 // Allocate image. Its hash field is constrained by `constrain_slot!`
                                 let allocated_img = LEM::allocate_ptr(
                                     cs,
-                                    &$img.to_mptr(&g.frame, g.store)?,
+                                    &$img.to_zptr(&g.frame, g.store)?,
                                     $img.name(),
                                     &mut g.allocated_ptrs,
                                 )?;
@@ -791,7 +787,7 @@ impl LEM {
                             LEMOP::Null(tgt, tag) => {
                                 let allocated_tgt = LEM::allocate_ptr(
                                     cs,
-                                    &tgt.to_mptr(g.frame, g.store)?,
+                                    &tgt.to_zptr(g.frame, g.store)?,
                                     tgt.name(),
                                     &mut g.allocated_ptrs,
                                 )?;
