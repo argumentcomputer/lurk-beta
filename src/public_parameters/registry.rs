@@ -56,7 +56,7 @@ impl Registry {
             let pp = default(lang);
             disk_cache
                 .set(key, &*pp)
-                .tap_ok(|_| ()) //eprintln!("Writing public params to disk-cache: {}", lang_key))
+                .tap_ok(|_| eprintln!("Writing public params to disk-cache: {}", lang_key))
                 .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
             Ok(pp)
         }
