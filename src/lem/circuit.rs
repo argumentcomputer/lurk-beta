@@ -126,7 +126,7 @@
 //! will need as many iterations as it takes to evaluate the Lurk expression and
 //! so will STEP 3.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::{anyhow, bail, Context, Result};
 use bellperson::{
@@ -148,6 +148,7 @@ use super::{
     interpreter::Frame,
     pointers::{Ptr, ZPtr},
     store::Store,
+    tag::Tag,
     AString, MetaPtr, LEM, LEMCTL, LEMOP,
 };
 
@@ -844,6 +845,8 @@ impl LEM {
         let mut num_constraints =
             289 * slots_count.hash2 + 337 * slots_count.hash3 + 388 * slots_count.hash4;
 
+        let mut tags: HashSet<&Tag> = HashSet::default();
+
         let mut stack = vec![(&self.ctl, false)];
         while let Some((block, nested)) = stack.pop() {
             match block {
@@ -869,21 +872,25 @@ impl LEM {
                 LEMCTL::Seq(ops, rest) => {
                     for op in ops {
                         match op {
-                            LEMOP::Null(..) => {
+                            LEMOP::Null(_, tag) => {
                                 // constrain tag and hash
                                 num_constraints += 2;
+                                tags.insert(tag);
                             }
-                            LEMOP::Hash2(..) => {
+                            LEMOP::Hash2(_, tag, _) => {
                                 // tag and hash for 3 pointers: 1 image + 2 from preimage
                                 num_constraints += 6;
+                                tags.insert(tag);
                             }
-                            LEMOP::Hash3(..) => {
+                            LEMOP::Hash3(_, tag, _) => {
                                 // tag and hash for 4 pointers: 1 image + 3 from preimage
                                 num_constraints += 8;
+                                tags.insert(tag);
                             }
-                            LEMOP::Hash4(..) => {
+                            LEMOP::Hash4(_, tag, _) => {
                                 // tag and hash for 5 pointers: 1 image + 4 from preimage
                                 num_constraints += 10;
+                                tags.insert(tag);
                             }
                             LEMOP::Unhash2(..) => {
                                 // one constraint for the image's hash
@@ -909,6 +916,6 @@ impl LEM {
             }
         }
 
-        num_constraints
+        num_constraints + tags.len()
     }
 }
