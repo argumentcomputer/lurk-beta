@@ -979,7 +979,6 @@ impl<F: LurkField> Store<F> {
         } else {
             let (z_ptr, z_expr) = match self.fetch(ptr) {
                 Some(Expression::Nil) => {
-                    // todo, add lurk_sym components
                     (ZExpr::Nil.z_ptr(&self.poseidon_cache), Some(ZExpr::Nil))
                 }
                 Some(Expression::Cons(car, cdr)) => {
@@ -1021,10 +1020,6 @@ impl<F: LurkField> Store<F> {
                     let z_expr = ZExpr::Thunk(z_value, z_cont);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
-                None => {
-                    let (z_ptr, _) = self.get_z_expr(ptr, z_store.clone())?;
-                    (z_ptr, None)
-                }
                 Some(Expression::Char(c)) => {
                     let z_expr = ZExpr::Char(c);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
@@ -1063,6 +1058,7 @@ impl<F: LurkField> Store<F> {
                     let z_expr = ZExpr::Key(z_car, z_cdr);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
+                None => return Err(Error("get_z_expr unknown opaque".into())),
             };
             if let Some(z_store) = z_store {
                 z_store.borrow_mut().insert_z_expr(&z_ptr, z_expr.clone());
@@ -2469,7 +2465,6 @@ pub mod test {
     fn commit_and_open(store: &mut Store<S1>, expr: Ptr<S1>) -> Ptr<S1> {
         let secret = <S1>::random(OsRng);
         let comm = store.hide(secret, expr);
-        println!("Initial Commit: {:?}", comm);
 
         let (_, new_ptr) = store.open(comm).unwrap();
         assert_eq!(expr, new_ptr);
