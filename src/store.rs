@@ -75,7 +75,7 @@ pub struct Store<F: LurkField> {
     pub dehydrated_cont: Vec<ContPtr<F>>,
 
     str_cache: HashMap<Arc<str>, Ptr<F>>,
-    pub symbol_cache: CacheMap<Symbol, Box<Ptr<F>>>,
+    symbol_cache: HashMap<Symbol, Box<Ptr<F>>>,
 
     pub constants: OnceCell<NamedConstants<F>>,
 }
@@ -502,7 +502,7 @@ impl<F: LurkField> Store<F> {
                 _f: ptr._f,
             })
         } else {
-            Some(ptr)
+            Some(*ptr)
         }
     }
 
