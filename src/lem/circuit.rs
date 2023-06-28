@@ -138,7 +138,7 @@ use crate::circuit::gadgets::{
     constraints::{
         alloc_equal_const, and, enforce_selector_with_premise, implies_equal, implies_equal_zero,
     },
-    data::hash_poseidon,
+    data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
 };
 
@@ -249,11 +249,21 @@ fn allocate_num<F: LurkField, CS: ConstraintSystem<F>>(
         .with_context(|| format!("allocation for '{namespace}' failed"))
 }
 
+#[inline]
+fn allocate_const<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    namespace: &str,
+    value: F,
+) -> Result<AllocatedNum<F>> {
+    allocate_constant(&mut cs.namespace(|| namespace), value)
+        .with_context(|| format!("allocation for '{namespace}' failed"))
+}
+
 impl<F: LurkField> GlobalAllocator<F> {
     /// Checks if the allocation for a numeric variable has already been cached.
-    /// If so, return the cached allocation variable. Allocate, cache and return
-    /// otherwise.
-    pub(crate) fn get_or_alloc_num<CS: ConstraintSystem<F>>(
+    /// If so, return the cached allocation variable. Allocate as a constant,
+    /// cache and return otherwise.
+    pub(crate) fn get_or_alloc_const<CS: ConstraintSystem<F>>(
         &mut self,
         cs: &mut CS,
         f: F,
@@ -263,7 +273,7 @@ impl<F: LurkField> GlobalAllocator<F> {
             Some(allocated_num) => Ok(allocated_num.to_owned()),
             None => {
                 let allocated_num =
-                    allocate_num(cs, &format!("globally allocate {}", f.hex_digits()), f)?;
+                    allocate_const(cs, &format!("allocate constant {}", f.hex_digits()), f)?;
                 self.0.insert(wrap, allocated_num.clone());
                 Ok(allocated_num)
             }
@@ -712,7 +722,7 @@ impl LEM {
 
                                 // Create constraint for the tag
                                 let allocated_tag =
-                                    g.global_allocator.get_or_alloc_num(cs, $tag.to_field())?;
+                                    g.global_allocator.get_or_alloc_const(cs, $tag.to_field())?;
                                 implies_equal(
                                     &mut cs
                                         .namespace(|| format!("implies equal for {}'s tag", $img)),
@@ -775,7 +785,7 @@ impl LEM {
                                     &mut g.allocated_ptrs,
                                 )?;
                                 let allocated_tag =
-                                    g.global_allocator.get_or_alloc_num(cs, tag.to_field())?;
+                                    g.global_allocator.get_or_alloc_const(cs, tag.to_field())?;
 
                                 // Constrain tag
                                 implies_equal(
