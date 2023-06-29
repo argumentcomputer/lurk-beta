@@ -135,9 +135,7 @@ use bellperson::{
 };
 
 use crate::circuit::gadgets::{
-    constraints::{
-        alloc_equal_const, and, enforce_selector_with_premise, implies_equal, implies_equal_zero,
-    },
+    constraints::{alloc_equal_const, and, enforce_selector_with_premise},
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
 };
@@ -148,7 +146,6 @@ use super::{
     interpreter::Frame,
     pointers::{Ptr, ZPtr},
     store::Store,
-    tag::Tag,
     Var, LEM, LEMCTL, LEMOP,
 };
 
@@ -322,17 +319,6 @@ impl std::fmt::Display for Slot {
     }
 }
 
-impl Var {
-    fn to_zptr<F: LurkField>(&self, frame: &Frame<F>, store: &mut Store<F>) -> Result<ZPtr<F>> {
-        match frame.bindings.get(self) {
-            Some(ptr) => store.hash_ptr(ptr),
-            None => Ok(ZPtr::dummy()),
-        }
-    }
-}
-
-// type BoundAllocations<F> = HashMap<Var, AllocatedPtr<F>>;
-
 #[derive(Default)]
 struct BoundAllocations<F: LurkField>(HashMap<Var, AllocatedPtr<F>>);
 
@@ -413,16 +399,6 @@ impl LEM {
             allocated_output_ptrs.push(allocated_ptr)
         }
         Ok(allocated_output_ptrs)
-    }
-
-    fn get_allocated_preimg<'a, F: LurkField>(
-        preimg: &[Var],
-        bound_allocations: &'a BoundAllocations<F>,
-    ) -> Vec<&'a AllocatedPtr<F>> {
-        preimg
-            .iter()
-            .map(|x| bound_allocations.get(x))
-            .collect::<Vec<_>>()
     }
 
     #[inline]
@@ -593,8 +569,6 @@ impl LEM {
         )?;
 
         struct Globals<'a, F: LurkField> {
-            store: &'a mut Store<F>,
-            frame: &'a Frame<F>,
             global_allocator: &'a mut GlobalAllocator<F>,
             bound_allocations: BoundAllocations<F>,
             preallocated_outputs: Vec<AllocatedPtr<F>>,
@@ -672,48 +646,24 @@ impl LEM {
                 LEMCTL::Seq(ops, rest) => {
                     for op in ops {
                         macro_rules! hash_helper {
-                            ( $img: expr, $tag: expr, $preimg: expr, $slot: expr ) => {
-                                // Retrieve allocated preimage
-                                let allocated_preimg =
-                                    LEM::get_allocated_preimg($preimg, &g.bound_allocations);
-
-                                // Retrieve the preallocated preimage and image for this slot
-                                let (preallocated_preimg, preallocated_img_hash) =
-                                    match $slot {
-                                        SlotType::Hash2 => &g.preallocated_hash2_slots[slots_count.consume_hash2()],
-                                        SlotType::Hash3 => &g.preallocated_hash3_slots[slots_count.consume_hash3()],
-                                        SlotType::Hash4 => &g.preallocated_hash4_slots[slots_count.consume_hash4()],
-                                    };
-
-                                // For each component of the preimage, add implication constraints
-                                // for its tag and hash
-                                for (i, allocated_ptr) in allocated_preimg.iter().enumerate() {
-                                    let var = &$preimg[i];
-                                    let ptr_idx = 2 * i;
-                                    implies_equal(
-                                        &mut cs.namespace(|| {
-                                            format!("implies equal for {var}'s tag (LEMOP {:?}, pos {i})", &op)
-                                        }),
-                                        &concrete_path,
-                                        allocated_ptr.tag(),
-                                        &preallocated_preimg[ptr_idx], // tag index
-                                    )?;
-                                    implies_equal(
-                                        &mut cs.namespace(|| {
-                                            format!(
-                                                "implies equal for {var}'s hash (LEMOP {:?}, pos {i})",
-                                                &op
-                                            )
-                                        }),
-                                        &concrete_path,
-                                        allocated_ptr.hash(),
-                                        &preallocated_preimg[ptr_idx + 1], // hash index
-                                    )?;
-                                }
+                            ( $img: expr, $tag: expr, $slot: expr ) => {
+                                // Retrieve the preallocated image for this slot
+                                let (_, preallocated_img_hash) = match $slot {
+                                    SlotType::Hash2 => {
+                                        &g.preallocated_hash2_slots[slots_count.consume_hash2()]
+                                    }
+                                    SlotType::Hash3 => {
+                                        &g.preallocated_hash3_slots[slots_count.consume_hash3()]
+                                    }
+                                    SlotType::Hash4 => {
+                                        &g.preallocated_hash4_slots[slots_count.consume_hash4()]
+                                    }
+                                };
 
                                 // Allocate the image tag if it hasn't been allocated before,
                                 // create the full image pointer and add it to bound allocations
-                                let img_tag = g.global_allocator.get_or_alloc_const(cs, $tag.to_field())?;
+                                let img_tag =
+                                    g.global_allocator.get_or_alloc_const(cs, $tag.to_field())?;
                                 let img_hash = preallocated_img_hash.clone();
                                 let img_ptr = AllocatedPtr::from_parts(img_tag, img_hash);
                                 g.bound_allocations.insert($img.clone(), img_ptr);
@@ -721,27 +671,14 @@ impl LEM {
                         }
 
                         macro_rules! unhash_helper {
-                            ( $preimg: expr, $img: expr, $slot: expr ) => {
-                                // Retrieve allocated image
-                                let allocated_img = g.bound_allocations.get($img);
-
-                                // Retrieve the preallocated preimage and image for this slot
-                                let (preallocated_preimg, preallocated_img) =
+                            ( $preimg: expr, $slot: expr ) => {
+                                // Retrieve the preallocated preimage for this slot
+                                let (preallocated_preimg, _) =
                                     match $slot {
                                         SlotType::Hash2 => &g.preallocated_hash2_slots[slots_count.consume_hash2()],
                                         SlotType::Hash3 => &g.preallocated_hash3_slots[slots_count.consume_hash3()],
                                         SlotType::Hash4 => &g.preallocated_hash4_slots[slots_count.consume_hash4()],
                                     };
-
-                                // Add the implication constraint for the image
-                                implies_equal(
-                                    &mut cs.namespace(|| {
-                                        format!("implies equal for {}'s hash (LEMOP {:?})", $img, &op)
-                                    }),
-                                    &concrete_path,
-                                    allocated_img.hash(),
-                                    &preallocated_img,
-                                )?;
 
                                 // Retrieve preimage hashes and tags create the full preimage pointers
                                 // and add them to bound allocations
@@ -755,46 +692,30 @@ impl LEM {
                         }
 
                         match op {
-                            LEMOP::Hash2(img, tag, preimg) => {
-                                hash_helper!(img, tag, preimg, SlotType::Hash2);
+                            LEMOP::Hash2(img, tag, _) => {
+                                hash_helper!(img, tag, SlotType::Hash2);
                             }
-                            LEMOP::Hash3(img, tag, preimg) => {
-                                hash_helper!(img, tag, preimg, SlotType::Hash3);
+                            LEMOP::Hash3(img, tag, _) => {
+                                hash_helper!(img, tag, SlotType::Hash3);
                             }
-                            LEMOP::Hash4(img, tag, preimg) => {
-                                hash_helper!(img, tag, preimg, SlotType::Hash4);
+                            LEMOP::Hash4(img, tag, _) => {
+                                hash_helper!(img, tag, SlotType::Hash4);
                             }
-                            LEMOP::Unhash2(preimg, img) => {
-                                unhash_helper!(preimg, img, SlotType::Hash2);
+                            LEMOP::Unhash2(preimg, _) => {
+                                unhash_helper!(preimg, SlotType::Hash2);
                             }
-                            LEMOP::Unhash3(preimg, img) => {
-                                unhash_helper!(preimg, img, SlotType::Hash3);
+                            LEMOP::Unhash3(preimg, _) => {
+                                unhash_helper!(preimg, SlotType::Hash3);
                             }
-                            LEMOP::Unhash4(preimg, img) => {
-                                unhash_helper!(preimg, img, SlotType::Hash4);
+                            LEMOP::Unhash4(preimg, _) => {
+                                unhash_helper!(preimg, SlotType::Hash4);
                             }
                             LEMOP::Null(tgt, tag) => {
-                                let allocated_tag =
-                                    g.global_allocator.get_or_alloc_const(cs, tag.to_field())?;
-                                let allocated_tgt = LEM::allocate_ptr_with_tag(
-                                    cs,
-                                    &tgt.to_zptr(g.frame, g.store)?,
-                                    tgt,
-                                    allocated_tag,
-                                    &mut g.bound_allocations,
-                                )?;
-
-                                // Constrain hash
-                                implies_equal_zero(
-                                    &mut cs.namespace(|| {
-                                        format!("implies equal zero for {tgt}'s hash")
-                                    }),
-                                    &concrete_path,
-                                    allocated_tgt.hash(),
-                                )
-                                .with_context(|| {
-                                    format!("couldn't enforce implies equal zero for {tgt}'s hash")
-                                })?;
+                                let allocated_ptr = AllocatedPtr::from_parts(
+                                    g.global_allocator.get_or_alloc_const(cs, tag.to_field())?,
+                                    g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
+                                );
+                                g.bound_allocations.insert(tgt.clone(), allocated_ptr);
                             }
                             _ => todo!(),
                         }
@@ -810,8 +731,6 @@ impl LEM {
             Boolean::Constant(true),
             &mut SlotsCounter::default(),
             &mut Globals {
-                store,
-                frame,
                 global_allocator: &mut global_allocator,
                 bound_allocations,
                 preallocated_outputs,
@@ -825,12 +744,12 @@ impl LEM {
     /// Computes the number of constraints that `synthesize` should create. It's
     /// also an explicit way to document and attest how the number of constraints
     /// grow.
-    pub fn num_constraints(&self, slots_count: &SlotsCounter) -> usize {
+    pub fn num_constraints<F: LurkField>(&self, slots_count: &SlotsCounter) -> usize {
         // fixed cost for each slot
         let mut num_constraints =
             289 * slots_count.hash2 + 337 * slots_count.hash3 + 388 * slots_count.hash4;
 
-        let mut tags: HashSet<&Tag> = HashSet::default();
+        let mut globals: HashSet<FWrap<F>> = HashSet::default();
 
         let mut stack = vec![(&self.ctl, false)];
         while let Some((block, nested)) = stack.pop() {
@@ -859,39 +778,15 @@ impl LEM {
                         match op {
                             LEMOP::Null(_, tag) => {
                                 // constrain tag and hash
-                                num_constraints += 2;
-                                tags.insert(tag);
+                                globals.insert(FWrap(tag.to_field()));
+                                globals.insert(FWrap(F::ZERO));
                             }
-                            LEMOP::Hash2(_, tag, _) => {
-                                // tag and hash for 3 pointers: 1 image + 2 from preimage
-                                num_constraints += 6;
-                                tags.insert(tag);
+                            LEMOP::Hash2(_, tag, _)
+                            | LEMOP::Hash3(_, tag, _)
+                            | LEMOP::Hash4(_, tag, _) => {
+                                globals.insert(FWrap(tag.to_field()));
                             }
-                            LEMOP::Hash3(_, tag, _) => {
-                                // tag and hash for 4 pointers: 1 image + 3 from preimage
-                                num_constraints += 8;
-                                tags.insert(tag);
-                            }
-                            LEMOP::Hash4(_, tag, _) => {
-                                // tag and hash for 5 pointers: 1 image + 4 from preimage
-                                num_constraints += 10;
-                                tags.insert(tag);
-                            }
-                            LEMOP::Unhash2(..) => {
-                                // one constraint for the image's hash
-                                // tag and hash for 2 pointers from preimage
-                                num_constraints += 5;
-                            }
-                            LEMOP::Unhash3(..) => {
-                                // one constraint for the image's hash
-                                // tag and hash for 3 pointers from preimage
-                                num_constraints += 7;
-                            }
-                            LEMOP::Unhash4(..) => {
-                                // one constraint for the image's hash
-                                // tag and hash for 4 pointers from preimage
-                                num_constraints += 9;
-                            }
+                            LEMOP::Unhash2(..) | LEMOP::Unhash3(..) | LEMOP::Unhash4(..) => (),
                             _ => todo!(),
                         }
                     }
@@ -901,6 +796,6 @@ impl LEM {
             }
         }
 
-        num_constraints + tags.len()
+        num_constraints + globals.len()
     }
 }
