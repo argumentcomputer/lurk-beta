@@ -12,28 +12,28 @@ name = "fcomm"
 path = "src/bin/fcomm.rs"
 
 [dependencies]
-base64 = "0.13.1"
-bellperson = "0.25"
-blstrs = "0.7.0"
+base64 = { workspace = true }
+bellperson = { workspace = true }
+blstrs = { workspace = true }
 clap = { version = "3.2", features = ["derive"] }
 clap-verbosity-flag = "1.0"
-ff = "0.13"
+ff = { workspace = true }
 hex = { version = "0.4.3", features = ["serde"] }
-log = "0.4.17"
-libipld = { package = "lurk-ipld", version = "0.3.0", default-features = false, features = ["dag-cbor", "dag-json", "serde-codec"] }
+libipld = { workspace = true, features = ["dag-cbor", "dag-json", "serde-codec"] }
+log = { workspace = true }
 lurk = { path = "../", package = "lurk" }
-once_cell = "1.17.1"
-pairing_lib = { version = "0.23", package = "pairing" }
-pretty_env_logger = "0.4"
-rand = "0.8"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0" }
-thiserror = "1.0.38"
-pasta_curves = { version = "0.5.1", features = ["repr-c", "serde"] }
+once_cell = { workspace = true }
+pairing_lib = { workspace = true }
+pasta_curves = { workspace = true, features = ["repr-c", "serde"] }
+pretty_env_logger = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = "2.0.8"
+camino = "1.1.4"
+num_cpus = "1.15.0"
 predicates = "2.1.5"
 tempfile = "3.5.0"
-num_cpus = "1.15.0"
-camino = "1.1.4"

@@ -57,6 +57,20 @@ jobs:
         run: |
           cargo test --doc
 
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install rustup
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install cargo-msrv
+        run: cargo install cargo-msrv
+      - name: Check Rust MSRV
+        run: cargo msrv verify
+
   # Runs the test suite on a self-hosted GPU machine with CUDA enabled
   test-gpu:
     name: Rust tests on CUDA

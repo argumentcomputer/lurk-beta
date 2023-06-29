@@ -11,10 +11,10 @@ repository = "https://github.com/lurk-lab/lurk-rs"
 proc-macro = true
 
 [dependencies]
-syn = { version = "1.0.64", features = ["derive", "extra-traits", "full"] }
-quote = "1.0.9"
 proc-macro2 = "1.0.24"
+quote = "1.0.9"
+syn = { version = "1.0.64", features = ["derive", "extra-traits", "full"] }
 
 [dev-dependencies]
 lurk_crate = { path = "../", package = "lurk" }
-pasta_curves = { version = "0.5.1", features = ["repr-c", "serde"] }
+pasta_curves = { workspace = true, features = ["repr-c", "serde"] }
