@@ -76,7 +76,7 @@ impl<'c, C: Coprocessor<S1>> Abomonation for PublicParams<'c, C> {
         Ok(())
     }
 
-    unsafe fn exhume<'a, 'b>(&'a mut self, mut bytes: &'b mut [u8]) -> Option<&'b mut [u8]> {
+    unsafe fn exhume<'b>(&mut self, mut bytes: &'b mut [u8]) -> Option<&'b mut [u8]> {
         let temp = bytes;
         bytes = self.pp.exhume(temp)?;
         let temp = bytes;

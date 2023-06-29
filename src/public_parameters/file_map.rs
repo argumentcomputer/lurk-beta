@@ -65,7 +65,7 @@ impl<K: ToString> FileIndex<K> {
     }
 
     pub(crate) fn set_abomonated<V: Abomonation>(&self, key: &K, data: &V) -> Result<(), Error> {
-        let mut file = File::create(self.key_path(&key))?;
+        let mut file = File::create(self.key_path(key))?;
         unsafe { encode(data, &mut file).expect("failed to encode") };
         Ok(())
     }

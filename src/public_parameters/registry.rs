@@ -56,7 +56,7 @@ impl Registry {
                 Ok(mut bytes) => {
                     eprintln!("Using abomonated public params for lang {}", lang_key);
                     let (pp, rest) = unsafe { decode::<PublicParams<'_, C>>(&mut bytes).unwrap() };
-                    assert!(rest.len() == 0);
+                    assert!(rest.is_empty());
                     Ok(Arc::new(pp.clone())) // this clone is VERY expensive
                 }
                 Err(e) => {
