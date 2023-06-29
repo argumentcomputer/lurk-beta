@@ -3,6 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use abomonation::decode;
 use once_cell::sync::Lazy;
 use pasta_curves::pallas;
 use serde::{de::DeserializeOwned, Serialize};
@@ -15,7 +16,7 @@ use super::file_map::FileIndex;
 
 type S1 = pallas::Scalar;
 type AnyMap = anymap::Map<dyn anymap::any::Any + Send + Sync>;
-type PublicParamMemCache<C> = HashMap<usize, Arc<PublicParams<'static, C>>>;
+type PublicParamMemCache<C> = HashMap<(usize, bool), Arc<PublicParams<'static, C>>>;
 
 /// This is a global registry for Coproc-specific parameters.
 /// It is used to cache parameters for each Coproc, so that they are not
@@ -38,6 +39,7 @@ impl Registry {
     >(
         &'static self,
         rc: usize,
+        abomonated: bool,
         default: F,
         lang: Arc<Lang<S1, C>>,
     ) -> Result<Arc<PublicParams<'static, C>>, Error> {
@@ -45,20 +47,42 @@ impl Registry {
         let disk_cache = FileIndex::new("public_params").unwrap();
         // use the cached language key
         let lang_key = lang.key();
+        let quick_suffix = if abomonated { "-abomonated" } else { "" };
         // Sanity-check: we're about to use a lang-dependent disk cache, which should be specialized
         // for this lang/coprocessor.
-        let key = format!("public-params-rc-{rc}-coproc-{lang_key}");
-        // read the file if it exists, otherwise initialize
-        if let Some(pp) = disk_cache.get::<PublicParams<'static, C>>(&key) {
-            eprintln!("Using disk-cached public params for lang {}", lang_key);
-            Ok(Arc::new(pp))
+        let key = format!("public-params-rc-{rc}-coproc-{lang_key}{quick_suffix}");
+        if abomonated {
+            match disk_cache.get_raw_bytes(&key) {
+                Ok(mut bytes) => {
+                    eprintln!("Using abomonated public params for lang {}", lang_key);
+                    let (pp, rest) = unsafe { decode::<PublicParams<'_, C>>(&mut bytes).unwrap() };
+                    assert!(rest.is_empty());
+                    Ok(Arc::new(pp.clone())) // this clone is VERY expensive
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    let pp = default(lang);
+                    // maybe just directly write
+                    disk_cache
+                        .set_abomonated(&key, &*pp)
+                        .tap_ok(|_| eprintln!("Writing public params to disk-cache: {}", lang_key))
+                        .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+                    Ok(pp)
+                }
+            }
         } else {
-            let pp = default(lang);
-            disk_cache
-                .set(key, &*pp)
-                .tap_ok(|_| eprintln!("Writing public params to disk-cache: {}", lang_key))
-                .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
-            Ok(pp)
+            // read the file if it exists, otherwise initialize
+            if let Some(pp) = disk_cache.get::<PublicParams<'static, C>>(&key) {
+                eprintln!("Using disk-cached public params for lang {}", lang_key);
+                Ok(Arc::new(pp))
+            } else {
+                let pp = default(lang);
+                disk_cache
+                    .set(key, &*pp)
+                    .tap_ok(|_| eprintln!("Writing public params to disk-cache: {}", lang_key))
+                    .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+                Ok(pp)
+            }
         }
     }
 
@@ -70,6 +94,7 @@ impl Registry {
     >(
         &'static self,
         rc: usize,
+        abomonated: bool,
         default: F,
         lang: Arc<Lang<S1, C>>,
     ) -> Result<Arc<PublicParams<'static, C>>, Error> {
@@ -79,13 +104,13 @@ impl Registry {
         let entry = registry.entry::<PublicParamMemCache<C>>();
         // deduce the map and populate it if needed
         let param_entry = entry.or_insert_with(HashMap::new);
-        match param_entry.entry(rc) {
+        match param_entry.entry((rc, abomonated)) {
             Entry::Occupied(o) => Ok(o.into_mut()),
             Entry::Vacant(v) => {
-                let val = self.get_from_file_cache_or_update_with(rc, default, lang)?;
+                let val = self.get_from_file_cache_or_update_with(rc, abomonated, default, lang)?;
                 Ok(v.insert(val))
             }
         }
-        .cloned()
+        .cloned() // this clone is VERY expensive
     }
 }

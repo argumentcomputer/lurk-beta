@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::sync::Arc;
 
 use crate::cache_map::CacheMap;
 use crate::field::{FWrap, LurkField};
@@ -36,7 +37,7 @@ pub enum HashConst<'a, F: LurkField> {
 }
 
 /// Holds the constants needed for poseidon hashing.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct HashConstants<F: LurkField> {
     c3: OnceCell<PoseidonConstants<F, U3>>,
     c4: OnceCell<PoseidonConstants<F, U4>>,
@@ -82,12 +83,12 @@ impl<F: LurkField> HashConstants<F> {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct PoseidonCache<F: LurkField> {
-    a3: CacheMap<CacheKey<F, 3>, F>,
-    a4: CacheMap<CacheKey<F, 4>, F>,
-    a6: CacheMap<CacheKey<F, 6>, F>,
-    a8: CacheMap<CacheKey<F, 8>, F>,
+    a3: Arc<CacheMap<CacheKey<F, 3>, F>>,
+    a4: Arc<CacheMap<CacheKey<F, 4>, F>>,
+    a6: Arc<CacheMap<CacheKey<F, 6>, F>>,
+    a8: Arc<CacheMap<CacheKey<F, 8>, F>>,
 
     pub constants: HashConstants<F>,
 }
@@ -112,7 +113,7 @@ impl<F: LurkField> PoseidonCache<F> {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct InversePoseidonCache<F: LurkField> {
     a3: HashMap<FWrap<F>, [F; 3]>,
     a4: HashMap<FWrap<F>, [F; 4]>,

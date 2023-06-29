@@ -226,7 +226,7 @@ impl Open {
         let rc = ReductionCount::try_from(self.reduction_count).expect("reduction count");
         let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
         let lang_rc = Arc::new(lang.clone());
-        let pp = public_params(rc.count(), lang_rc).expect("public params");
+        let pp = public_params(rc.count(), true, lang_rc).expect("public params");
         let function_map = committed_expression_store();
 
         let handle_proof = |out_path, proof: Proof<S1>| {
@@ -330,7 +330,7 @@ impl Prove {
         let rc = ReductionCount::try_from(self.reduction_count).unwrap();
         let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
         let lang_rc = Arc::new(lang.clone());
-        let pp = public_params(rc.count(), lang_rc.clone()).unwrap();
+        let pp = public_params(rc.count(), true, lang_rc.clone()).unwrap();
 
         let proof = match &self.claim {
             Some(claim) => {
@@ -376,7 +376,7 @@ impl Verify {
     fn verify(&self, cli_error: bool, lang: &Lang<S1, Coproc<S1>>) {
         let proof = proof(Some(&self.proof)).unwrap();
         let lang_rc = Arc::new(lang.clone());
-        let pp = public_params(proof.reduction_count.count(), lang_rc).unwrap();
+        let pp = public_params(proof.reduction_count.count(), true, lang_rc).unwrap();
         let result = proof.verify(&pp, lang).unwrap();
 
         serde_json::to_writer(io::stdout(), &result).unwrap();

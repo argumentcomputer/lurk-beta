@@ -1,8 +1,13 @@
-use std::fs::create_dir_all;
-use std::io::Error;
+use std::fs::{create_dir_all, File};
+use std::io::{BufReader, Read};
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
+use tap::TapFallible;
 
+use abomonation::{encode, Abomonation};
+
+use crate::public_parameters::error::Error;
 use crate::public_parameters::FileStore;
 
 pub(crate) fn data_dir() -> PathBuf {
@@ -34,12 +39,48 @@ impl<K: ToString> FileIndex<K> {
     }
 
     pub(crate) fn get<V: FileStore>(&self, key: &K) -> Option<V> {
-        self.key_path(key);
         V::read_from_path(self.key_path(key)).ok()
+    }
+
+    pub(crate) fn get_raw_bytes(&self, key: &K) -> Result<Vec<u8>, Error> {
+        let file = File::open(self.key_path(key))?;
+        let mut reader = BufReader::new(file);
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes)?;
+        Ok(bytes)
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn get_with_timing<V: FileStore>(&self, key: &K, discr: &String) -> Option<V> {
+        let start = Instant::now();
+        let result = V::read_from_path(self.key_path(key)).tap_err(|e| eprintln!("{e}"));
+        let end = start.elapsed();
+        eprintln!("Reading {discr} from disk-cache in {:?}", end);
+        result.ok()
     }
 
     pub(crate) fn set<V: FileStore>(&self, key: K, data: &V) -> Result<(), Error> {
         data.write_to_path(self.key_path(&key));
+        Ok(())
+    }
+
+    pub(crate) fn set_abomonated<V: Abomonation>(&self, key: &K, data: &V) -> Result<(), Error> {
+        let mut file = File::create(self.key_path(key))?;
+        unsafe { encode(data, &mut file).expect("failed to encode") };
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn set_with_timing<V: FileStore>(
+        &self,
+        key: &K,
+        data: &V,
+        discr: &String,
+    ) -> Result<(), Error> {
+        let start = Instant::now();
+        data.write_to_path(self.key_path(key));
+        let end = start.elapsed();
+        eprintln!("Writing {discr} to disk-cache in {:?}", end);
         Ok(())
     }
 }
