@@ -625,10 +625,10 @@ impl LEM {
                     }
                     Ok(())
                 }
-                LEMCTL::MatchTag(match_ptr, cases) => {
-                    let allocated_match_tag = match g.bound_allocations.get(match_ptr) {
-                        Some(allocated_match_ptr) => allocated_match_ptr.tag().clone(),
-                        None => bail!("{match_ptr} not allocated"),
+                LEMCTL::MatchTag(match_var, cases) => {
+                    let allocated_match_tag = match g.bound_allocations.get(match_var) {
+                        Some(allocated_match_var) => allocated_match_var.tag().clone(),
+                        None => bail!("{match_var} not allocated"),
                     };
                     let mut concrete_path_vec = Vec::new();
                     for (tag, op) in cases {

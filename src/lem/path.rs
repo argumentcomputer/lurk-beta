@@ -114,25 +114,25 @@ impl LEMCTL {
         map: &mut HashMap<Var, Var>, // name -> path.name
     ) -> Result<Self> {
         match self {
-            LEMCTL::MatchTag(ptr, cases) => {
+            LEMCTL::MatchTag(var, cases) => {
                 let mut new_cases = vec![];
                 for (tag, case) in cases {
                     let new_case = case.deconflict(&path.push_tag(tag), &mut map.clone())?;
                     new_cases.push((*tag, new_case));
                 }
                 Ok(LEMCTL::MatchTag(
-                    retrieve_one(map, ptr)?,
+                    retrieve_one(map, var)?,
                     IndexMap::from_iter(new_cases),
                 ))
             }
-            LEMCTL::MatchSymbol(ptr, cases, def) => {
+            LEMCTL::MatchSymbol(var, cases, def) => {
                 let mut new_cases = vec![];
                 for (symbol, case) in cases {
                     let new_case = case.deconflict(&path.push_symbol(symbol), &mut map.clone())?;
                     new_cases.push((symbol.clone(), new_case));
                 }
                 Ok(LEMCTL::MatchSymbol(
-                    retrieve_one(map, ptr)?,
+                    retrieve_one(map, var)?,
                     IndexMap::from_iter(new_cases),
                     Box::new(def.deconflict(&path.push_default(), &mut map.clone())?),
                 ))
@@ -207,8 +207,8 @@ impl LEMCTL {
         store: &mut Store<F>,
     ) -> Result<Path> {
         match self {
-            Self::MatchTag(match_ptr, cases) => {
-                let ptr = match_ptr.get_ptr(&frame.bindings)?;
+            Self::MatchTag(match_var, cases) => {
+                let ptr = match_var.get_ptr(&frame.bindings)?;
                 let tag = ptr.tag();
                 let Some(block) = cases.get(tag) else {
                     bail!("No match for tag {}", tag)
@@ -216,10 +216,10 @@ impl LEMCTL {
                 path.push_tag_inplace(tag);
                 block.path_taken(path, frame, store)
             }
-            Self::MatchSymbol(match_ptr, cases, def) => {
-                let ptr = match_ptr.get_ptr(&frame.bindings)?;
+            Self::MatchSymbol(match_var, cases, def) => {
+                let ptr = match_var.get_ptr(&frame.bindings)?;
                 let Some(symbol) = store.fetch_symbol(ptr) else {
-                    bail!("Symbol not found for {}", match_ptr.name());
+                    bail!("Symbol not found for {}", match_var.name());
                 };
                 match cases.get(&symbol) {
                     Some(block) => {

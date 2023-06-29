@@ -170,18 +170,18 @@ impl LEMCTL {
         mut preimages: Preimages<F>,
     ) -> Result<Frame<F>> {
         match self {
-            LEMCTL::MatchTag(ptr, cases) => {
-                let ptr = ptr.get_ptr(&bindings)?;
-                let ptr_tag = ptr.tag();
-                match cases.get(ptr_tag) {
+            LEMCTL::MatchTag(match_var, cases) => {
+                let ptr = match_var.get_ptr(&bindings)?;
+                let tag = ptr.tag();
+                match cases.get(tag) {
                     Some(op) => op.run(input, store, bindings, preimages),
-                    None => bail!("No match for tag {}", ptr_tag),
+                    None => bail!("No match for tag {}", tag),
                 }
             }
-            LEMCTL::MatchSymbol(match_ptr, cases, def) => {
-                let ptr = match_ptr.get_ptr(&bindings)?;
+            LEMCTL::MatchSymbol(match_var, cases, def) => {
+                let ptr = match_var.get_ptr(&bindings)?;
                 let Some(symbol) = store.fetch_symbol(ptr) else {
-                    bail!("Symbol not found for {match_ptr}");
+                    bail!("Symbol not found for {match_var}");
                 };
                 match cases.get(&symbol) {
                     Some(op) => op.run(input, store, bindings, preimages),
