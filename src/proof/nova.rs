@@ -87,11 +87,7 @@ impl<'c, C: Coprocessor<S1>> Abomonation for PublicParams<'c, C> {
     }
 
     fn extent(&self) -> usize {
-        let mut size = 0;
-        size += self.pp.extent();
-        size += self.pk.extent();
-        size += self.vk.extent();
-        size
+        self.pp.extent() + self.pk.extent() + self.vk.extent()
     }
 }
 

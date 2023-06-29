@@ -3,6 +3,7 @@ use std::io::{BufReader, Read};
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
+use tap::TapFallible;
 
 use abomonation::{encode, Abomonation};
 
@@ -52,18 +53,10 @@ impl<K: ToString> FileIndex<K> {
     #[allow(dead_code)]
     pub(crate) fn get_with_timing<V: FileStore>(&self, key: &K, discr: &String) -> Option<V> {
         let start = Instant::now();
-        let result = V::read_from_path(self.key_path(key));
+        let result = V::read_from_path(self.key_path(key)).tap_err(|e| eprintln!("{e}"));
         let end = start.elapsed();
-        match result {
-            Ok(result) => {
-                eprintln!("Reading {discr} from disk-cache in {:?}", end);
-                Some(result)
-            }
-            Err(e) => {
-                eprintln!("{e}");
-                None
-            }
-        }
+        eprintln!("Reading {discr} from disk-cache in {:?}", end);
+        result.ok()
     }
 
     pub(crate) fn set<V: FileStore>(&self, key: K, data: &V) -> Result<(), Error> {
