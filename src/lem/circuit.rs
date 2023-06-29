@@ -341,17 +341,30 @@ impl LEM {
         var: &Var,
         bound_allocations: &mut BoundAllocations<F>,
     ) -> Result<AllocatedPtr<F>> {
-        if bound_allocations.contains_key(var) {
+        let allocated_tag =
+            allocate_num(cs, &format!("allocate {var}'s tag"), z_ptr.tag.to_field())?;
+        Self::allocate_ptr_with_tag(cs, z_ptr, var, allocated_tag, bound_allocations)
+    }
+
+    /// Allocates an unconstrained pointer with an already allocated tag
+    fn allocate_ptr_with_tag<F: LurkField, CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        z_ptr: &ZPtr<F>,
+        var: &Var,
+        allocated_tag: AllocatedNum<F>,
+        bound_allocations: &mut BoundAllocations<F>,
+    ) -> Result<AllocatedPtr<F>> {
+        let allocated_hash = allocate_num(cs, &format!("allocate {var}'s hash"), z_ptr.hash)?;
+        let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
+        if bound_allocations
+            .insert(var.clone(), allocated_ptr.clone())
+            .is_some()
+        {
             bail!(
                 "Variable {} has previously been defined. LEMs are supposed to be SSA.",
                 var
             );
         };
-        let allocated_tag =
-            allocate_num(cs, &format!("allocate {var}'s tag"), z_ptr.tag.to_field())?;
-        let allocated_hash = allocate_num(cs, &format!("allocate {var}'s hash"), z_ptr.hash)?;
-        let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
-        bound_allocations.insert(var.clone(), allocated_ptr.clone());
         Ok(allocated_ptr)
     }
 
@@ -388,23 +401,6 @@ impl LEM {
             allocated_output_ptrs.push(allocated_ptr)
         }
         Ok(allocated_output_ptrs)
-    }
-
-    /// Allocates an unconstrained pointer for each value of the preimage
-    fn allocate_preimg<F: LurkField, CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        preimg: &[Var],
-        frame: &Frame<F>,
-        store: &mut Store<F>,
-        bound_allocations: &mut BoundAllocations<F>,
-    ) -> Result<Vec<AllocatedPtr<F>>> {
-        preimg
-            .iter()
-            .map(|x| {
-                x.to_zptr(frame, store)
-                    .and_then(|ref ptr| Self::allocate_ptr(cs, ptr, x, bound_allocations))
-            })
-            .collect::<Result<Vec<_>>>()
     }
 
     fn get_allocated_preimg<'a, F: LurkField>(
@@ -672,29 +668,23 @@ impl LEM {
                 LEMCTL::MatchSymbol(..) => Ok(()),
                 LEMCTL::Seq(ops, rest) => {
                     for op in ops {
-                        macro_rules! constrain_slot {
-                            ( $preimg: expr, $img: expr, $allocated_preimg: expr, $allocated_img: expr, $slot: expr ) => {
+                        macro_rules! hash_helper {
+                            ( $img: expr, $tag: expr, $preimg: expr, $slot: expr ) => {
+                                // Retrieve allocated preimage
+                                let allocated_preimg =
+                                    LEM::get_allocated_preimg($preimg, &g.bound_allocations)?;
+
                                 // Retrieve the preallocated preimage and image for this slot
-                                let (preallocated_preimg, preallocated_img) =
+                                let (preallocated_preimg, preallocated_img_hash) =
                                     match $slot {
                                         SlotType::Hash2 => &g.preallocated_hash2_slots[slots_count.consume_hash2()],
                                         SlotType::Hash3 => &g.preallocated_hash3_slots[slots_count.consume_hash3()],
                                         SlotType::Hash4 => &g.preallocated_hash4_slots[slots_count.consume_hash4()],
                                     };
 
-                                // Add the implication constraint for the image
-                                implies_equal(
-                                    &mut cs.namespace(|| {
-                                        format!("implies equal for {}'s hash (LEMOP {:?})", $img, &op)
-                                    }),
-                                    &concrete_path,
-                                    $allocated_img.hash(),
-                                    &preallocated_img,
-                                )?;
-
                                 // For each component of the preimage, add implication constraints
                                 // for its tag and hash
-                                for (i, allocated_ptr) in $allocated_preimg.iter().enumerate() {
+                                for (i, allocated_ptr) in allocated_preimg.iter().enumerate() {
                                     let var = &$preimg[i];
                                     let ptr_idx = 2 * i;
                                     implies_equal(
@@ -717,56 +707,60 @@ impl LEM {
                                         &preallocated_preimg[ptr_idx + 1], // hash index
                                     )?;
                                 }
-                            };
-                        }
-                        macro_rules! hash_helper {
-                            ( $img: expr, $tag: expr, $preimg: expr, $slot: expr ) => {
-                                // Allocate image. Its hash field is constrained by `constrain_slot!`
-                                let allocated_img = LEM::allocate_ptr(
-                                    cs,
-                                    &$img.to_zptr(&g.frame, g.store)?,
-                                    $img,
-                                    &mut g.bound_allocations,
-                                )?;
-                                // Create constraint for the tag
-                                let allocated_tag =
-                                    g.global_allocator.get_or_alloc_const(cs, $tag.to_field())?;
-                                implies_equal(
-                                    &mut cs
-                                        .namespace(|| format!("implies equal for {}'s tag", $img)),
-                                    &concrete_path,
-                                    allocated_img.tag(),
-                                    &allocated_tag,
-                                )?;
 
-                                // Retrieve allocated preimage
-                                let allocated_preimg =
-                                    LEM::get_allocated_preimg($preimg, &g.bound_allocations)?;
-
-                                // Add the hash constraints
-                                constrain_slot!(
-                                    $preimg,
-                                    $img,
-                                    allocated_preimg,
-                                    allocated_img,
-                                    $slot
-                                );
+                                // Allocate the image tag if it hasn't been allocated before,
+                                // create the full image pointer and add it to bound allocations
+                                let img_tag = g.global_allocator.get_or_alloc_const(cs, $tag.to_field())?;
+                                let img_hash = preallocated_img_hash.clone();
+                                let img_ptr = AllocatedPtr::from_parts(img_tag, img_hash);
+                                if g.bound_allocations.insert($img.clone(), img_ptr).is_some() {
+                                    bail!(
+                                        "Variable {} has previously been defined. LEMs are supposed to be SSA.",
+                                        $img
+                                    );
+                                };
                             };
                         }
 
                         macro_rules! unhash_helper {
                             ( $preimg: expr, $img: expr, $slot: expr ) => {
-                                // Allocate preimage to be constrained later by `constrain_slot!`
-                                let allocated_preimg =
-                                    LEM::allocate_preimg(cs, $preimg, &g.frame, g.store, &mut g.bound_allocations)?;
-
                                 // Retrieve allocated image
                                 let Some(allocated_img) = g.bound_allocations.get($img) else {
                                                                     bail!("{} not allocated", $img)
                                                                 };
 
-                                // Add the hash constraints
-                                constrain_slot!($preimg, $img, allocated_preimg, allocated_img, $slot);
+                                // Retrieve the preallocated preimage and image for this slot
+                                let (preallocated_preimg, preallocated_img) =
+                                    match $slot {
+                                        SlotType::Hash2 => &g.preallocated_hash2_slots[slots_count.consume_hash2()],
+                                        SlotType::Hash3 => &g.preallocated_hash3_slots[slots_count.consume_hash3()],
+                                        SlotType::Hash4 => &g.preallocated_hash4_slots[slots_count.consume_hash4()],
+                                    };
+
+                                // Add the implication constraint for the image
+                                implies_equal(
+                                    &mut cs.namespace(|| {
+                                        format!("implies equal for {}'s hash (LEMOP {:?})", $img, &op)
+                                    }),
+                                    &concrete_path,
+                                    allocated_img.hash(),
+                                    &preallocated_img,
+                                )?;
+
+                                // Retrieve preimage hashes and tags create the full preimage pointers
+                                // and add them to bound allocations
+                                for i in 0..preallocated_preimg.len()/2 {
+                                    let preimg_hash = &preallocated_preimg[i];
+                                    let preimg_tag = &preallocated_preimg[i+1];
+                                    let preimg_ptr = AllocatedPtr::from_parts(preimg_tag.clone(), preimg_hash.clone());
+                                    if g.bound_allocations.insert($preimg[i].clone(), preimg_ptr).is_some() {
+                                        bail!(
+                                            "Variable {} has previously been defined. LEMs are supposed to be SSA.",
+                                            $preimg[i]
+                                        );
+
+                                    };
+                                }
                             };
                         }
 
@@ -790,25 +784,15 @@ impl LEM {
                                 unhash_helper!(preimg, img, SlotType::Hash4);
                             }
                             LEMOP::Null(tgt, tag) => {
-                                let allocated_tgt = LEM::allocate_ptr(
+                                let allocated_tag =
+                                    g.global_allocator.get_or_alloc_const(cs, tag.to_field())?;
+                                let allocated_tgt = LEM::allocate_ptr_with_tag(
                                     cs,
                                     &tgt.to_zptr(g.frame, g.store)?,
                                     tgt,
+                                    allocated_tag,
                                     &mut g.bound_allocations,
                                 )?;
-                                let allocated_tag =
-                                    g.global_allocator.get_or_alloc_const(cs, tag.to_field())?;
-
-                                // Constrain tag
-                                implies_equal(
-                                    &mut cs.namespace(|| format!("implies equal for {tgt}'s tag")),
-                                    &concrete_path,
-                                    allocated_tgt.tag(),
-                                    &allocated_tag,
-                                )
-                                .with_context(|| {
-                                    format!("couldn't enforce implies equal for {tgt}'s tag")
-                                })?;
 
                                 // Constrain hash
                                 implies_equal_zero(
