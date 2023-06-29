@@ -128,7 +128,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result};
 use bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
     ConstraintSystem,
@@ -331,7 +331,27 @@ impl Var {
     }
 }
 
-type BoundAllocations<F> = HashMap<Var, AllocatedPtr<F>>;
+// type BoundAllocations<F> = HashMap<Var, AllocatedPtr<F>>;
+
+#[derive(Default)]
+struct BoundAllocations<F: LurkField>(HashMap<Var, AllocatedPtr<F>>);
+
+impl<F: LurkField> BoundAllocations<F> {
+    pub(crate) fn insert(&mut self, var: Var, allocated_ptr: AllocatedPtr<F>) {
+        let msg =
+            &format!("Variable {var} has previously been defined. LEMs are supposed to be SSA.");
+        if self.0.insert(var, allocated_ptr).is_some() {
+            panic!("{msg}");
+        };
+    }
+
+    pub(crate) fn get(&self, var: &Var) -> &AllocatedPtr<F> {
+        match self.0.get(var) {
+            Some(allocated_ptr) => allocated_ptr,
+            None => panic!("Variable {var} has not been allocated"),
+        }
+    }
+}
 
 impl LEM {
     /// Allocates an unconstrained pointer
@@ -356,15 +376,7 @@ impl LEM {
     ) -> Result<AllocatedPtr<F>> {
         let allocated_hash = allocate_num(cs, &format!("allocate {var}'s hash"), z_ptr.hash)?;
         let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
-        if bound_allocations
-            .insert(var.clone(), allocated_ptr.clone())
-            .is_some()
-        {
-            bail!(
-                "Variable {} has previously been defined. LEMs are supposed to be SSA.",
-                var
-            );
-        };
+        bound_allocations.insert(var.clone(), allocated_ptr.clone());
         Ok(allocated_ptr)
     }
 
@@ -406,15 +418,11 @@ impl LEM {
     fn get_allocated_preimg<'a, F: LurkField>(
         preimg: &[Var],
         bound_allocations: &'a BoundAllocations<F>,
-    ) -> Result<Vec<&'a AllocatedPtr<F>>> {
+    ) -> Vec<&'a AllocatedPtr<F>> {
         preimg
             .iter()
-            .map(|x| {
-                bound_allocations
-                    .get(x)
-                    .ok_or_else(|| anyhow!("{x} not allocated"))
-            })
-            .collect::<Result<Vec<_>>>()
+            .map(|x| bound_allocations.get(x))
+            .collect::<Vec<_>>()
     }
 
     #[inline]
@@ -551,7 +559,7 @@ impl LEM {
         frame: &Frame<F>,
     ) -> Result<()> {
         let mut global_allocator = GlobalAllocator::default();
-        let mut bound_allocations: BoundAllocations<F> = HashMap::default();
+        let mut bound_allocations = BoundAllocations::default();
 
         // Inputs are constrained by their usage inside LEM
         self.allocate_input(cs, store, frame, &mut bound_allocations)?;
@@ -605,9 +613,7 @@ impl LEM {
             match block {
                 LEMCTL::Return(output_vars) => {
                     for (i, output_var) in output_vars.iter().enumerate() {
-                        let Some(allocated_ptr) = g.bound_allocations.get(output_var) else {
-                            bail!("{output_var} not allocated")
-                        };
+                        let allocated_ptr = g.bound_allocations.get(output_var);
 
                         allocated_ptr
                             .implies_ptr_equal(
@@ -622,10 +628,7 @@ impl LEM {
                     Ok(())
                 }
                 LEMCTL::MatchTag(match_var, cases) => {
-                    let allocated_match_tag = match g.bound_allocations.get(match_var) {
-                        Some(allocated_match_var) => allocated_match_var.tag().clone(),
-                        None => bail!("{match_var} not allocated"),
-                    };
+                    let allocated_match_tag = g.bound_allocations.get(match_var).tag().clone();
                     let mut concrete_path_vec = Vec::new();
                     for (tag, op) in cases {
                         let allocated_has_match = alloc_equal_const(
@@ -672,7 +675,7 @@ impl LEM {
                             ( $img: expr, $tag: expr, $preimg: expr, $slot: expr ) => {
                                 // Retrieve allocated preimage
                                 let allocated_preimg =
-                                    LEM::get_allocated_preimg($preimg, &g.bound_allocations)?;
+                                    LEM::get_allocated_preimg($preimg, &g.bound_allocations);
 
                                 // Retrieve the preallocated preimage and image for this slot
                                 let (preallocated_preimg, preallocated_img_hash) =
@@ -713,21 +716,14 @@ impl LEM {
                                 let img_tag = g.global_allocator.get_or_alloc_const(cs, $tag.to_field())?;
                                 let img_hash = preallocated_img_hash.clone();
                                 let img_ptr = AllocatedPtr::from_parts(img_tag, img_hash);
-                                if g.bound_allocations.insert($img.clone(), img_ptr).is_some() {
-                                    bail!(
-                                        "Variable {} has previously been defined. LEMs are supposed to be SSA.",
-                                        $img
-                                    );
-                                };
+                                g.bound_allocations.insert($img.clone(), img_ptr);
                             };
                         }
 
                         macro_rules! unhash_helper {
                             ( $preimg: expr, $img: expr, $slot: expr ) => {
                                 // Retrieve allocated image
-                                let Some(allocated_img) = g.bound_allocations.get($img) else {
-                                                                    bail!("{} not allocated", $img)
-                                                                };
+                                let allocated_img = g.bound_allocations.get($img);
 
                                 // Retrieve the preallocated preimage and image for this slot
                                 let (preallocated_preimg, preallocated_img) =
@@ -753,13 +749,7 @@ impl LEM {
                                     let preimg_hash = &preallocated_preimg[i];
                                     let preimg_tag = &preallocated_preimg[i+1];
                                     let preimg_ptr = AllocatedPtr::from_parts(preimg_tag.clone(), preimg_hash.clone());
-                                    if g.bound_allocations.insert($preimg[i].clone(), preimg_ptr).is_some() {
-                                        bail!(
-                                            "Variable {} has previously been defined. LEMs are supposed to be SSA.",
-                                            $preimg[i]
-                                        );
-
-                                    };
+                                    g.bound_allocations.insert($preimg[i].clone(), preimg_ptr);
                                 }
                             };
                         }
