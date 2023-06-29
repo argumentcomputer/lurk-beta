@@ -221,14 +221,13 @@ mod tests {
         }
 
         #[test]
-        // Note: slow in non-release mode (~3 mins)
+        // TODO: Overflows stack in non-release mode
         fn prop_expr_z_expr_roundtrip(x in any::<Syntax<Scalar>>()) {
             let mut store = Store::<Scalar>::default();
             let ptr = store.intern_syntax(x);
             let expr = store.fetch(&ptr).unwrap();
-            let z_expr = ZExpr::from_ptr(&store, &ptr).unwrap();
-            let z_ptr = ZExpr::z_ptr(&z_expr, &PoseidonCache::default());
-            store.z_expr_ptr_map.insert(z_ptr, Box::new(ptr));
+
+            let z_ptr = store.hash_expr(&ptr).unwrap();
             let ptr_new = store.fetch_z_expr_ptr(&z_ptr).unwrap();
 
             assert_eq!(expr, store.fetch(&ptr_new).unwrap());
