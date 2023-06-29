@@ -36,6 +36,7 @@ pub(crate) fn enforce_equal<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
 /// Adds a constraint to CS, enforcing an equality relationship between an allocated number a and zero.
 ///
 /// a == zero
+#[allow(dead_code)]
 pub(crate) fn enforce_equal_zero<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     annotation: A,
@@ -129,6 +130,7 @@ pub(crate) fn popcount_equal<F: PrimeField, CS: ConstraintSystem<F>>(
 ///
 /// summation(v) = one
 #[inline]
+#[allow(dead_code)]
 pub(crate) fn enforce_popcount_one<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     v: &[Boolean],
@@ -751,6 +753,7 @@ pub(crate) fn implies_equal<CS: ConstraintSystem<F>, F: PrimeField>(
 }
 
 /// Enforce equality of two allocated numbers given an implication premise
+#[allow(dead_code)]
 pub(crate) fn implies_equal_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: &mut CS,
     premise: &Boolean,

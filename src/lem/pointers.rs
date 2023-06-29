@@ -13,7 +13,7 @@ use super::tag::Tag;
 /// children a pointer has. However, LEMs require extra flexibility because LEM
 /// hashing operations can plug any tag to the resulting pointer. Thus, the
 /// number of children have to be made explicit as the `Ptr` enum.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Ptr<F: LurkField> {
     Leaf(Tag, F),
     Tree2(Tag, usize),
@@ -42,11 +42,19 @@ impl<F: LurkField> Ptr<F> {
         }
     }
 
-    pub fn sym_to_key(self) -> Self {
+    pub fn sym_to_key(&self) -> Self {
         match self {
-            Ptr::Leaf(Tag::Sym, f) => Ptr::Leaf(Tag::Key, f),
-            Ptr::Tree2(Tag::Sym, x) => Ptr::Tree2(Tag::Key, x),
+            Ptr::Leaf(Tag::Sym, f) => Ptr::Leaf(Tag::Key, *f),
+            Ptr::Tree2(Tag::Sym, x) => Ptr::Tree2(Tag::Key, *x),
             _ => panic!("Malformed sym pointer"),
+        }
+    }
+
+    pub fn key_to_sym(&self) -> Self {
+        match self {
+            Ptr::Leaf(Tag::Key, f) => Ptr::Leaf(Tag::Sym, *f),
+            Ptr::Tree2(Tag::Key, x) => Ptr::Tree2(Tag::Sym, *x),
+            _ => panic!("Malformed key pointer"),
         }
     }
 
@@ -119,7 +127,6 @@ pub(crate) enum ZChildren<F: LurkField> {
     Tree2(ZPtr<F>, ZPtr<F>),
     Tree3(ZPtr<F>, ZPtr<F>, ZPtr<F>),
     Tree4(ZPtr<F>, ZPtr<F>, ZPtr<F>, ZPtr<F>),
-    Comm(F, ZPtr<F>), // secret, src
 }
 
 impl<F: LurkField> ZPtr<F> {

@@ -1,15 +1,15 @@
 #[macro_export]
-macro_rules! metaptr {
+macro_rules! var {
     ($variable:ident) => {
-        $crate::lem::MetaPtr(stringify!($variable).to_string())
+        $crate::lem::Var(stringify!($variable).into())
     };
 }
 
 #[macro_export]
-macro_rules! metaptrs {
+macro_rules! vars {
     ($($variable:ident),*) => {
         [
-            $($crate::metaptr!($variable)),*
+            $($crate::var!($variable)),*
         ]
     };
 }
@@ -17,231 +17,264 @@ macro_rules! metaptrs {
 #[macro_export]
 macro_rules! lemop {
     ( let $tgt:ident : $tag:ident ) => {
-        $crate::lem::LEMOP::Null(
-            $crate::metaptr!($tgt),
-            $crate::lem::Tag::$tag,
-        )
+        $crate::lem::LEMOP::Null($crate::var!($tgt), $crate::lem::Tag::$tag)
     };
     ( let $tgt:ident : $tag:ident = hash2($src1:ident, $src2:ident) ) => {
         $crate::lem::LEMOP::Hash2(
-            $crate::metaptr!($tgt),
+            $crate::var!($tgt),
             $crate::lem::Tag::$tag,
-            $crate::metaptrs!($src1, $src2),
+            $crate::vars!($src1, $src2),
         )
     };
     ( let $tgt:ident : $tag:ident = hash3($src1:ident, $src2:ident, $src3:ident) ) => {
         $crate::lem::LEMOP::Hash3(
-            $crate::metaptr!($tgt),
+            $crate::var!($tgt),
             $crate::lem::Tag::$tag,
-            $crate::metaptrs!($src1, $src2, $src3),
+            $crate::vars!($src1, $src2, $src3),
         )
     };
     ( let $tgt:ident : $tag:ident = hash4($src1:ident, $src2:ident, $src3:ident, $src4:ident) ) => {
         $crate::lem::LEMOP::Hash4(
-            $crate::metaptr!($tgt),
+            $crate::var!($tgt),
             $crate::lem::Tag::$tag,
-            $crate::metaptrs!( $src1, $src2, $src3, $src4),
+            $crate::vars!($src1, $src2, $src3, $src4),
         )
     };
     ( let ($tgt1:ident, $tgt2:ident) = unhash2($src:ident) ) => {
         $crate::lem::LEMOP::Unhash2(
-            $crate::metaptrs!( $tgt1, $tgt2),
-            $crate::lem::MetaPtr(stringify!($src).to_string()),
+            $crate::vars!($tgt1, $tgt2),
+            $crate::lem::Var(stringify!($src).into()),
         )
     };
     ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = unhash3($src:ident) ) => {
-        $crate::lem::LEMOP::Unhash3(
-            $crate::metaptrs!( $tgt1, $tgt2, $tgt3),
-            $crate::metaptr!( $src),
-        )
+        $crate::lem::LEMOP::Unhash3($crate::vars!($tgt1, $tgt2, $tgt3), $crate::var!($src))
     };
     ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident, $tgt4:ident) = unhash4($src:ident) ) => {
         $crate::lem::LEMOP::Unhash4(
-            $crate::metaptrs!( $tgt1, $tgt2, $tgt3, $tgt4),
-            $crate::metaptr!( $src),
+            $crate::vars!($tgt1, $tgt2, $tgt3, $tgt4),
+            $crate::var!($src),
         )
     };
     ( let $tgt:ident = hide($sec:ident, $src:ident) ) => {
-        $crate::lem::LEMOP::Hide(
-           $crate::metaptr!($tgt), $crate::metaptr!($sec), $crate::metaptr!($src),
-        )
+        $crate::lem::LEMOP::Hide($crate::var!($tgt), $crate::var!($sec), $crate::var!($src))
     };
     ( let ($sec:ident, $src:ident) = open($hash:ident) ) => {
-        $crate::lem::LEMOP::Open(
-            $crate::metaptr!($sec), $crate::metaptr!($src), $crate::metaptr!($hash),
-        )
+        $crate::lem::LEMOP::Open($crate::var!($sec), $crate::var!($src), $crate::var!($hash))
     };
-    ( match_tag $sii:ident { $( $case:ident => $case_ops:tt ),* $(,)? } ) => {
+}
+
+#[macro_export]
+macro_rules! lem_code {
+    ( match_tag $sii:ident { $( $tag:ident => $case_ops:tt ),* $(,)? } ) => {
         {
-            let mut cases = std::collections::HashMap::new();
+            let mut cases = indexmap::IndexMap::new();
             $(
                 if cases.insert(
-                    $crate::lem::Tag::$case,
-                    $crate::lemop!( $case_ops ),
+                    $crate::lem::Tag::$tag,
+                    $crate::lem_code!( $case_ops ),
                 ).is_some() {
                     panic!("Repeated tag on `match_tag`");
                 };
             )*
-            $crate::lem::LEMOP::MatchTag($crate::metaptr!($sii), cases)
+            $crate::lem::LEMCTL::MatchTag($crate::var!($sii), cases)
+        }
+    };
+    ( match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } ) => {
+        {
+            let mut cases = indexmap::IndexMap::new();
+            $(
+                if cases.insert(
+                    $symbol,
+                    $crate::lem_code!( $case_ops ),
+                ).is_some() {
+                    panic!("Repeated path on `match_symbol`");
+                };
+            )*
+            $crate::lem::LEMCTL::MatchSymbol($crate::var!($sii), cases, Box::new($crate::lem_code!( $def )))
         }
     };
     ( return ($src1:ident, $src2:ident, $src3:ident) ) => {
-        $crate::lem::LEMOP::Return(
-            $crate::metaptrs!($src1, $src2, $src3)
+        $crate::lem::LEMCTL::Return(
+            $crate::vars!($src1, $src2, $src3)
         )
     };
     // seq entry point, with a separate bracketing to differentiate
     ({ $($body:tt)+ }) => {
         {
-            $crate::lemop! ( @seq {}, $($body)* )
-        }
-    };
-    // termination rule: we run out of input modulo trailing semicolumn, so we construct the Seq
-    // Note the bracketed limbs pattern, which disambiguates wrt the last argument
-    (@seq {$($limbs:tt)*}, $(;)? ) => {
-        {
-            let temp_vec = vec!($( $limbs )*);
-            match &temp_vec[..] {
-                [x] => x.clone(),
-                _ => $crate::lem::LEMOP::Seq(temp_vec)
-            }
+            $crate::lem_code! ( @seq {}, $($body)* )
         }
     };
     // handle the recursion: as we see a statement, we push it to the limbs position in the pattern
-    (@seq {$($limbs:tt)*}, let $tgt:ident : $tag:ident ; $($tail:tt)*) => {
-        $crate::lemop! (
+    (@seq {$($limbs:expr)*}, let $tgt:ident : $tag:ident ; $($tail:tt)*) => {
+        $crate::lem_code! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!(let $tgt: $tag),
+                $crate::lemop!(let $tgt: $tag)
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:tt)*}, let $tgt:ident : $tag:ident = hash2($src1:ident, $src2:ident) ; $($tail:tt)*) => {
-        $crate::lemop! (
+    (@seq {$($limbs:expr)*}, let $tgt:ident : $tag:ident = hash2($src1:ident, $src2:ident) ; $($tail:tt)*) => {
+        $crate::lem_code! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!(let $tgt: $tag = hash2($src1, $src2) ),
+                $crate::lemop!(let $tgt: $tag = hash2($src1, $src2) )
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:tt)*}, let $tgt:ident : $tag:ident = hash3($src1:ident, $src2:ident, $src3:ident) ; $($tail:tt)*) => {
-        $crate::lemop! (
+    (@seq {$($limbs:expr)*}, let $tgt:ident : $tag:ident = hash3($src1:ident, $src2:ident, $src3:ident) ; $($tail:tt)*) => {
+        $crate::lem_code! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!(let $tgt: $tag = hash3($src1, $src2, $src3) ),
+                $crate::lemop!(let $tgt: $tag = hash3($src1, $src2, $src3) )
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:tt)*}, let $tgt:ident : $tag:ident = hash4($src1:ident, $src2:ident, $src3:ident, $src4:ident) ; $($tail:tt)*) => {
-        $crate::lemop! (
+    (@seq {$($limbs:expr)*}, let $tgt:ident : $tag:ident = hash4($src1:ident, $src2:ident, $src3:ident, $src4:ident) ; $($tail:tt)*) => {
+        $crate::lem_code! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!(let $tgt: $tag = hash4($src1, $src2, $src3, $src4)),
+                $crate::lemop!(let $tgt: $tag = hash4($src1, $src2, $src3, $src4))
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:tt)*}, let ($tgt1:ident, $tgt2:ident) = unhash2($src:ident) ; $($tail:tt)*) => {
-        $crate::lemop! (
+    (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident) = unhash2($src:ident) ; $($tail:tt)*) => {
+        $crate::lem_code! (
             @seq
             {
                 $($limbs)*
-                lemop!(let ($tgt1, $tgt2) = unhash2($src) ),
+                $crate::lemop!(let ($tgt1, $tgt2) = unhash2($src) )
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:tt)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = unhash3($src:ident) ; $($tail:tt)*) => {
-        $crate::lemop! (
+    (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = unhash3($src:ident) ; $($tail:tt)*) => {
+        $crate::lem_code! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!(let ($tgt1, $tgt2, $tgt3) = unhash3($src) ),
+                $crate::lemop!(let ($tgt1, $tgt2, $tgt3) = unhash3($src) )
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:tt)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident, $tgt4:ident) = unhash4($src:ident) ; $($tail:tt)*) => {
-        $crate::lemop! (
+    (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident, $tgt4:ident) = unhash4($src:ident) ; $($tail:tt)*) => {
+        $crate::lem_code! (
             @seq
             {
                 $($limbs)*
-                lemop!(let ($tgt1, $tgt2, $tgt3, $tgt4) = unhash4($src) ),
+                $crate::lemop!(let ($tgt1, $tgt2, $tgt3, $tgt4) = unhash4($src) )
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:tt)*}, let $tgt:ident = hide($sec:ident, $src:ident) ; $($tail:tt)*) => {
-        $crate::lemop! (
+    (@seq {$($limbs:expr)*}, let $tgt:ident = hide($sec:ident, $src:ident) ; $($tail:tt)*) => {
+        $crate::lem_code! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!(let $tgt = hide($sec, $src) ),
+                $crate::lemop!(let $tgt = hide($sec, $src) )
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:tt)*}, let ($sec:ident, $src:ident) = open($hash:ident) ; $($tail:tt)*) => {
-        $crate::lemop! (
+    (@seq {$($limbs:expr)*}, let ($sec:ident, $src:ident) = open($hash:ident) ; $($tail:tt)*) => {
+        $crate::lem_code! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!(let ($sec, $src) = open($hash) ),
+                $crate::lemop!(let ($sec, $src) = open($hash) )
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:tt)*}, match_tag $sii:ident { $( $case:ident => $case_ops:tt ),* $(,)? } ; $($tail:tt)*) => {
-        $crate::lemop! (
-            @seq
+    (@seq {$($limbs:expr)*}, match_tag $sii:ident { $( $tag:ident => $case_ops:tt ),* $(,)? } $($tail:tt)*) => {
+        $crate::lem_code! (
+            @end
             {
                 $($limbs)*
-                $crate::lemop!( match_tag $sii { $( $case => $case_ops ),* } ),
             },
+            $crate::lem_code!( match_tag $sii { $( $tag => $case_ops ),* } ),
             $($tail)*
         )
     };
-    (@seq {$($limbs:tt)*}, return ($src1:ident, $src2:ident, $src3:ident) ; $($tail:tt)*) => {
-        $crate::lemop! (
-            @seq
+    (@seq {$($limbs:expr)*}, match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } $($tail:tt)*) => {
+        $crate::lem_code! (
+            @end
             {
                 $($limbs)*
-                $crate::lemop!( return ($src1, $src2, $src3) ),
             },
+            $crate::lem_code!( match_symbol $sii { $( $symbol => $case_ops ),* , _ => $def, } ),
             $($tail)*
         )
     };
+    (@seq {$($limbs:expr)*}, return ($src1:ident, $src2:ident, $src3:ident) $($tail:tt)*) => {
+        $crate::lem_code! (
+            @end
+            {
+                $($limbs)*
+            },
+            $crate::lem_code!( return ($src1, $src2, $src3) ),
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, $(;)? ) => {
+        {
+            compile_error!("You must provide LEM with a return at each path!");
+        }
+    };
+    (@end { }, $cont:expr,  $(;)?) => {
+        {
+            $cont
+        }
+    };
+    (@end {$($limbs:expr)+}, $cont:expr,  $(;)?) => {
+        {
+            let block = $cont;
+            let ops = vec!($($limbs),+);
+            $crate::lem::LEMCTL::Seq(ops, Box::new(block))
+        }
+    }
 }
 
 #[macro_export]
 macro_rules! lem {
-    ($in1:ident $in2:ident $in3:ident $lemop:tt) => {
+    ($in1:ident $in2:ident $in3:ident $lem:tt) => {
         $crate::lem::LEM::new(
-            [stringify!($in1), stringify!($in2), stringify!($in3)],
-            $crate::lemop!($lemop),
+            [
+                $crate::lem::Var(stringify!($in1).into()),
+                $crate::lem::Var(stringify!($in2).into()),
+                $crate::lem::Var(stringify!($in3).into()),
+            ],
+            &$crate::lem_code!($lem),
         )
     };
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::lem::{tag::Tag, MetaPtr, LEMOP};
+    use crate::lem::{symbol::Symbol, tag::Tag, Var, LEMCTL, LEMOP};
 
     #[inline]
-    fn mptr(name: &str) -> MetaPtr {
-        MetaPtr(name.to_string())
+    fn mptr(name: &str) -> Var {
+        Var(name.into())
     }
 
     #[inline]
-    fn match_tag(i: MetaPtr, cases: Vec<(Tag, LEMOP)>) -> LEMOP {
-        LEMOP::MatchTag(i, std::collections::HashMap::from_iter(cases))
+    fn match_tag(i: Var, cases: Vec<(Tag, LEMCTL)>) -> LEMCTL {
+        LEMCTL::MatchTag(i, indexmap::IndexMap::from_iter(cases))
+    }
+
+    #[inline]
+    fn match_symbol(i: Var, cases: Vec<(Symbol, LEMCTL)>, def: LEMCTL) -> LEMCTL {
+        LEMCTL::MatchSymbol(i, indexmap::IndexMap::from_iter(cases), Box::new(def))
     }
 
     #[test]
@@ -267,9 +300,8 @@ mod tests {
             ),
             LEMOP::Hide(mptr("bar"), mptr("baz"), mptr("bazz")),
             LEMOP::Open(mptr("bar"), mptr("baz"), mptr("bazz")),
-            LEMOP::Return([mptr("bar"), mptr("baz"), mptr("bazz")]),
         ];
-        let lemops_macro = [
+        let lemops_macro = vec![
             lemop!(let foo: Num),
             lemop!(let foo: Char = hash2(bar, baz)),
             lemop!(let foo: Char = hash3(bar, baz, bazz)),
@@ -279,14 +311,15 @@ mod tests {
             lemop!(let (foo, goo, moo, noo) = unhash4(aaa)),
             lemop!(let bar = hide(baz, bazz)),
             lemop!(let (bar, baz) = open(bazz)),
-            lemop!(return (bar, baz, bazz)),
         ];
 
-        for i in 0..10 {
+        for i in 0..9 {
             assert!(lemops[i] == lemops_macro[i]);
         }
 
-        let lemop_macro_seq = lemop!({
+        let ret = LEMCTL::Return([mptr("bar"), mptr("baz"), mptr("bazz")]);
+        let block = LEMCTL::Seq(lemops_macro, Box::new(ret));
+        let lem_macro_seq = lem_code!({
             let foo: Num;
             let foo: Char = hash2(bar, baz);
             let foo: Char = hash3(bar, baz, bazz);
@@ -299,20 +332,21 @@ mod tests {
             return (bar, baz, bazz);
         });
 
-        assert!(LEMOP::Seq(lemops.to_vec()) == lemop_macro_seq);
+        assert!(block == lem_macro_seq);
 
-        let foo = lemop!(
+        let foo = lem_code!(
             match_tag www {
                 Num => {
-                    let foo: Num; // a single LEMOP will not turn into a Seq
+                    return (foo, foo, foo); // a single LEMCTL will not turn into a Seq
                 },
                 Str => {
                     let foo: Num;
-                    let goo: Char;
+                    return (foo, foo, foo);
                 },
                 Char => {
                     let foo: Num;
                     let goo: Char;
+                    return (foo, goo, goo);
                 }
             }
         );
@@ -320,22 +354,71 @@ mod tests {
             foo == match_tag(
                 mptr("www"),
                 vec![
-                    (Tag::Num, LEMOP::Null(mptr("foo"), Tag::Num)),
+                    (
+                        Tag::Num,
+                        LEMCTL::Return([mptr("foo"), mptr("foo"), mptr("foo")])
+                    ),
                     (
                         Tag::Str,
-                        LEMOP::Seq(vec![
-                            LEMOP::Null(mptr("foo"), Tag::Num),
-                            LEMOP::Null(mptr("goo"), Tag::Char)
-                        ])
+                        LEMCTL::Seq(
+                            vec![LEMOP::Null(mptr("foo"), Tag::Num)],
+                            Box::new(LEMCTL::Return([mptr("foo"), mptr("foo"), mptr("foo")]))
+                        )
                     ),
                     (
                         Tag::Char,
-                        LEMOP::Seq(vec![
-                            LEMOP::Null(mptr("foo"), Tag::Num),
-                            LEMOP::Null(mptr("goo"), Tag::Char)
-                        ])
+                        LEMCTL::Seq(
+                            vec![
+                                LEMOP::Null(mptr("foo"), Tag::Num),
+                                LEMOP::Null(mptr("goo"), Tag::Char)
+                            ],
+                            Box::new(LEMCTL::Return([mptr("foo"), mptr("goo"), mptr("goo")]))
+                        )
                     )
                 ]
+            )
+        );
+
+        let moo = lem_code!(
+            match_symbol www {
+                Symbol::lurk_sym("nil") => {
+                    return (foo, foo, foo); // a single LEMCTL will not turn into a Seq
+                },
+                Symbol::lurk_sym("cons") => {
+                    let foo: Num;
+                    let goo: Char;
+                    return (foo, goo, goo);
+                },
+                _ => {
+                    let xoo: Str;
+                    return (xoo, xoo, xoo);
+                },
+            }
+        );
+
+        assert!(
+            moo == match_symbol(
+                mptr("www"),
+                vec![
+                    (
+                        Symbol::lurk_sym("nil"),
+                        LEMCTL::Return([mptr("foo"), mptr("foo"), mptr("foo")])
+                    ),
+                    (
+                        Symbol::lurk_sym("cons"),
+                        LEMCTL::Seq(
+                            vec![
+                                LEMOP::Null(mptr("foo"), Tag::Num),
+                                LEMOP::Null(mptr("goo"), Tag::Char)
+                            ],
+                            Box::new(LEMCTL::Return([mptr("foo"), mptr("goo"), mptr("goo")]))
+                        )
+                    )
+                ],
+                LEMCTL::Seq(
+                    vec![LEMOP::Null(mptr("xoo"), Tag::Str)],
+                    Box::new(LEMCTL::Return([mptr("xoo"), mptr("xoo"), mptr("xoo")]))
+                )
             )
         );
     }
