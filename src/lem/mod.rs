@@ -14,9 +14,9 @@
 //!
 //! ### Data semantics
 //!
-//! A LEM describes how to handle pointers with "meta pointers", which are
+//! A LEM describes how to handle pointers with variables, which are
 //! basically named references. Instead of saying `let foo ...` in Rust, we
-//! use a `MetaPtr("foo")` in LEM.
+//! use a `Var("foo")` in LEM.
 //!
 //! The actual algorithm is encoded with a LEM operation (`LEMOP`). It's worth
 //! noting that one of the LEM operators is in fact a vector of operators, which
@@ -51,7 +51,7 @@
 //! (WIP) properties we want a LEM to have before we can adopt it as a proper
 //! Lurk step function:
 //!
-//! 1. Static single assignments: overwriting meta pointers would erase relevant
+//! 1. Static single assignments: overwriting variables would erase relevant
 //! data needed to feed the circuit at proving time. We don't want to lose any
 //! piece of information that the prover might know;
 //!
@@ -86,33 +86,30 @@ pub type AVec<A> = Arc<[A]>;
 
 /// A `LEM` has the name for the inputs and its characteristic control node
 pub struct LEM {
-    input_vars: [AString; 3],
+    input_vars: [Var; 3],
     ctl: LEMCTL,
 }
 
 /// Named references to be bound to `Ptr`s.
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
-pub struct MetaPtr(AString);
+pub struct Var(AString);
 
-impl std::fmt::Display for MetaPtr {
+impl std::fmt::Display for Var {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-impl MetaPtr {
+impl Var {
     #[inline]
     pub fn name(&self) -> &AString {
         &self.0
     }
 
-    pub fn get_ptr<'a, F: LurkField>(
-        &'a self,
-        ptrs: &'a HashMap<MetaPtr, Ptr<F>>,
-    ) -> Result<&Ptr<F>> {
+    pub fn get_ptr<'a, F: LurkField>(&'a self, ptrs: &'a HashMap<Var, Ptr<F>>) -> Result<&Ptr<F>> {
         match ptrs.get(self) {
             Some(ptr) => Ok(ptr),
-            None => bail!("Meta pointer {self} not defined"),
+            None => bail!("Variable {self} not defined"),
         }
     }
 }
@@ -123,15 +120,15 @@ impl MetaPtr {
 pub enum LEMCTL {
     /// `MatchTag(x, cases)` performs a match on the tag of `x`, considering only
     /// the appropriate `LEM` among the ones provided in `cases`
-    MatchTag(MetaPtr, IndexMap<Tag, LEMCTL>),
+    MatchTag(Var, IndexMap<Tag, LEMCTL>),
     /// `MatchSymbol(x, cases, def)` checks whether `x` matches some symbol among
     /// the ones provided in `cases`. If so, run the corresponding `LEM`. Run
     /// The default `def` `LEM` otherwise
-    MatchSymbol(MetaPtr, IndexMap<Symbol, LEMCTL>, Box<LEMCTL>),
+    MatchSymbol(Var, IndexMap<Symbol, LEMCTL>, Box<LEMCTL>),
     /// `Seq(ops, lem)` executes `ops: Vec<LEMOP>` then `lem: LEM` sequentially
     Seq(Vec<LEMOP>, Box<LEMCTL>),
     /// `Return(rets)` sets the output to `rets`
-    Return([MetaPtr; 3]),
+    Return([Var; 3]),
 }
 
 impl std::hash::Hash for LEMCTL {
@@ -145,25 +142,25 @@ impl std::hash::Hash for LEMCTL {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum LEMOP {
     /// `Null(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
-    Null(MetaPtr, Tag),
+    Null(Var, Tag),
     /// `Hash2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
-    Hash2(MetaPtr, Tag, [MetaPtr; 2]),
+    Hash2(Var, Tag, [Var; 2]),
     /// `Hash3(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 3 children `ys`
-    Hash3(MetaPtr, Tag, [MetaPtr; 3]),
+    Hash3(Var, Tag, [Var; 3]),
     /// `Hash4(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 4 children `ys`
-    Hash4(MetaPtr, Tag, [MetaPtr; 4]),
+    Hash4(Var, Tag, [Var; 4]),
     /// `Unhash2([a, b], x)` binds `a` and `b` to the 2 children of `x`
-    Unhash2([MetaPtr; 2], MetaPtr),
+    Unhash2([Var; 2], Var),
     /// `Unhash3([a, b, c], x)` binds `a`, `b` and `c` to the 3 children of `x`
-    Unhash3([MetaPtr; 3], MetaPtr),
+    Unhash3([Var; 3], Var),
     /// `Unhash4([a, b, c, d], x)` binds `a`, `b`, `c` and `d` to the 4 children of `x`
-    Unhash4([MetaPtr; 4], MetaPtr),
+    Unhash4([Var; 4], Var),
     /// `Hide(x, s, p)` binds `x` to a (comm) `Ptr` resulting from hiding the
     /// payload `p` with (num) secret `s`
-    Hide(MetaPtr, MetaPtr, MetaPtr),
+    Hide(Var, Var, Var),
     /// `Open(s, p, h)` binds `s` and `p` to the secret and payload (respectively)
     /// of the commitment that resulted on (num or comm) `h`
-    Open(MetaPtr, MetaPtr, MetaPtr),
+    Open(Var, Var, Var),
 }
 
 impl LEMCTL {
@@ -194,12 +191,8 @@ impl LEM {
 
     /// Instantiates a `LEM` with the appropriate transformations to make sure
     /// that constraining will be smooth.
-    pub fn new(input: [AString; 3], lem: &LEMCTL) -> Result<LEM> {
-        let mut map = HashMap::from_iter(
-            input
-                .iter()
-                .map(|i| (MetaPtr(i.clone()), MetaPtr(i.clone()))),
-        );
+    pub fn new(input: [Var; 3], lem: &LEMCTL) -> Result<LEM> {
+        let mut map = HashMap::from_iter(input.iter().map(|i| (i.clone(), i.clone())));
         Ok(LEM {
             input_vars: input,
             ctl: lem.deconflict(&Path::default(), &mut map)?,

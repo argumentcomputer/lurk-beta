@@ -2,7 +2,7 @@ use crate::field::{FWrap, LurkField};
 use anyhow::{bail, Result};
 use std::collections::HashMap;
 
-use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEM, LEMCTL, LEMOP};
+use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, Var, LEM, LEMCTL, LEMOP};
 
 #[derive(Clone, Default)]
 pub struct Preimages<F: LurkField> {
@@ -13,7 +13,7 @@ pub struct Preimages<F: LurkField> {
 
 /// A `Frame` carries the data that results from interpreting a LEM. That is,
 /// it contains the input, the output and all the assignments resulting from
-/// running one iteration as a HashMap of meta pointers to pointers.
+/// running one iteration as a HashMap of variables to pointers.
 ///
 /// Finally, `preimages` contains the data collected from visiting the slots.
 /// This information is used to generte the witness.
@@ -21,14 +21,11 @@ pub struct Preimages<F: LurkField> {
 pub struct Frame<F: LurkField> {
     pub input: [Ptr<F>; 3],
     pub output: [Ptr<F>; 3],
-    pub bindings: HashMap<MetaPtr, Ptr<F>>,
+    pub bindings: HashMap<Var, Ptr<F>>,
     pub preimages: Preimages<F>,
 }
 
-fn retrieve_many<F: LurkField>(
-    map: &HashMap<MetaPtr, Ptr<F>>,
-    args: &[MetaPtr],
-) -> Result<Vec<Ptr<F>>> {
+fn retrieve_many<F: LurkField>(map: &HashMap<Var, Ptr<F>>, args: &[Var]) -> Result<Vec<Ptr<F>>> {
     args.iter()
         .map(|mptr| {
             let Some(ptr) = map.get(mptr).cloned() else {
@@ -40,11 +37,7 @@ fn retrieve_many<F: LurkField>(
 }
 
 #[inline(always)]
-fn bind<F: LurkField>(
-    bindings: &mut HashMap<MetaPtr, Ptr<F>>,
-    mptr: MetaPtr,
-    ptr: Ptr<F>,
-) -> Result<()> {
+fn bind<F: LurkField>(bindings: &mut HashMap<Var, Ptr<F>>, mptr: Var, ptr: Ptr<F>) -> Result<()> {
     if bindings.insert(mptr.clone(), ptr).is_some() {
         bail!("{} already defined", mptr)
     }
@@ -55,7 +48,7 @@ impl LEMOP {
     fn run<F: LurkField>(
         &self,
         store: &mut Store<F>,
-        bindings: &mut HashMap<MetaPtr, Ptr<F>>,
+        bindings: &mut HashMap<Var, Ptr<F>>,
         preimages: &mut Preimages<F>,
     ) -> Result<()> {
         match self {
@@ -166,14 +159,14 @@ impl LEMOP {
 }
 
 impl LEMCTL {
-    /// Interprets a LEM while i) modifying a `Store`, ii) binding `MetaPtr`s to
+    /// Interprets a LEM while i) modifying a `Store`, ii) binding `Var`s to
     /// `Ptr`s and iii) collecting the preimages from visited slots (more on this
     /// in `circuit.rs`)
     fn run<F: LurkField>(
         &self,
         input: [Ptr<F>; 3],
         store: &mut Store<F>,
-        mut bindings: HashMap<MetaPtr, Ptr<F>>,
+        mut bindings: HashMap<Var, Ptr<F>>,
         mut preimages: Preimages<F>,
     ) -> Result<Frame<F>> {
         match self {
@@ -235,8 +228,8 @@ impl LEM {
         loop {
             // Map of names to pointers (its key/val pairs should never be overwritten)
             let mut bindings = HashMap::default();
-            for (i, name) in self.input_vars.iter().enumerate() {
-                bind(&mut bindings, MetaPtr(name.clone()), input[i])?;
+            for (i, var) in self.input_vars.iter().enumerate() {
+                bind(&mut bindings, var.clone(), input[i])?;
             }
 
             let preimages = Preimages::default();

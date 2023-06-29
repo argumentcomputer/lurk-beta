@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::field::LurkField;
 
-use super::{interpreter::Frame, store::Store, symbol::Symbol, tag::Tag, MetaPtr, LEMCTL, LEMOP};
+use super::{interpreter::Frame, store::Store, symbol::Symbol, tag::Tag, Var, LEMCTL, LEMOP};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) enum PathNode {
@@ -68,32 +68,28 @@ impl Path {
     }
 }
 
-fn insert_one(map: &mut HashMap<MetaPtr, MetaPtr>, path: &Path, ptr: &MetaPtr) -> Result<MetaPtr> {
-    let new_ptr = MetaPtr(format!("{}.{}", path, ptr.name()).into());
+fn insert_one(map: &mut HashMap<Var, Var>, path: &Path, ptr: &Var) -> Result<Var> {
+    let new_ptr = Var(format!("{}.{}", path, ptr.name()).into());
     if map.insert(ptr.clone(), new_ptr.clone()).is_some() {
         bail!("{} already defined", ptr.name());
     };
     Ok(new_ptr)
 }
 
-fn insert_many(
-    map: &mut HashMap<MetaPtr, MetaPtr>,
-    path: &Path,
-    ptr: &[MetaPtr],
-) -> Result<Vec<MetaPtr>> {
+fn insert_many(map: &mut HashMap<Var, Var>, path: &Path, ptr: &[Var]) -> Result<Vec<Var>> {
     ptr.iter()
         .map(|ptr| insert_one(map, path, ptr))
         .collect::<Result<Vec<_>>>()
 }
 
-fn retrieve_one(map: &HashMap<MetaPtr, MetaPtr>, ptr: &MetaPtr) -> Result<MetaPtr> {
+fn retrieve_one(map: &HashMap<Var, Var>, ptr: &Var) -> Result<Var> {
     let Some(new_ptr) = map.get(ptr).cloned() else {
         bail!("{} not defined", ptr.name());
     };
     Ok(new_ptr)
 }
 
-fn retrieve_many(map: &HashMap<MetaPtr, MetaPtr>, args: &[MetaPtr]) -> Result<Vec<MetaPtr>> {
+fn retrieve_many(map: &HashMap<Var, Var>, args: &[Var]) -> Result<Vec<Var>> {
     args.iter()
         .map(|ptr| retrieve_one(map, ptr))
         .collect::<Result<Vec<_>>>()
@@ -106,7 +102,7 @@ impl LEMCTL {
     /// conflicting names would cause different allocations to be bound the same
     /// name.
     ///
-    /// The conflict resolution is achieved by changing meta pointers so that
+    /// The conflict resolution is achieved by changing variables so that
     /// their names are prepended by the paths where they're declared.
     ///
     /// Note: this function is not supposed to be called manually. It's used by
@@ -114,8 +110,8 @@ impl LEMCTL {
     pub fn deconflict(
         &self,
         path: &Path,
-        // `map` keeps track of the updated names of meta pointers
-        map: &mut HashMap<MetaPtr, MetaPtr>, // name -> path.name
+        // `map` keeps track of the updated names of variables
+        map: &mut HashMap<Var, Var>, // name -> path.name
     ) -> Result<Self> {
         match self {
             LEMCTL::MatchTag(ptr, cases) => {

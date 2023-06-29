@@ -1,15 +1,15 @@
 #[macro_export]
-macro_rules! metaptr {
+macro_rules! var {
     ($variable:ident) => {
-        $crate::lem::MetaPtr(stringify!($variable).into())
+        $crate::lem::Var(stringify!($variable).into())
     };
 }
 
 #[macro_export]
-macro_rules! metaptrs {
+macro_rules! vars {
     ($($variable:ident),*) => {
         [
-            $($crate::metaptr!($variable)),*
+            $($crate::var!($variable)),*
         ]
     };
 }
@@ -17,60 +17,49 @@ macro_rules! metaptrs {
 #[macro_export]
 macro_rules! lemop {
     ( let $tgt:ident : $tag:ident ) => {
-        $crate::lem::LEMOP::Null($crate::metaptr!($tgt), $crate::lem::Tag::$tag)
+        $crate::lem::LEMOP::Null($crate::var!($tgt), $crate::lem::Tag::$tag)
     };
     ( let $tgt:ident : $tag:ident = hash2($src1:ident, $src2:ident) ) => {
         $crate::lem::LEMOP::Hash2(
-            $crate::metaptr!($tgt),
+            $crate::var!($tgt),
             $crate::lem::Tag::$tag,
-            $crate::metaptrs!($src1, $src2),
+            $crate::vars!($src1, $src2),
         )
     };
     ( let $tgt:ident : $tag:ident = hash3($src1:ident, $src2:ident, $src3:ident) ) => {
         $crate::lem::LEMOP::Hash3(
-            $crate::metaptr!($tgt),
+            $crate::var!($tgt),
             $crate::lem::Tag::$tag,
-            $crate::metaptrs!($src1, $src2, $src3),
+            $crate::vars!($src1, $src2, $src3),
         )
     };
     ( let $tgt:ident : $tag:ident = hash4($src1:ident, $src2:ident, $src3:ident, $src4:ident) ) => {
         $crate::lem::LEMOP::Hash4(
-            $crate::metaptr!($tgt),
+            $crate::var!($tgt),
             $crate::lem::Tag::$tag,
-            $crate::metaptrs!($src1, $src2, $src3, $src4),
+            $crate::vars!($src1, $src2, $src3, $src4),
         )
     };
     ( let ($tgt1:ident, $tgt2:ident) = unhash2($src:ident) ) => {
         $crate::lem::LEMOP::Unhash2(
-            $crate::metaptrs!($tgt1, $tgt2),
-            $crate::lem::MetaPtr(stringify!($src).into()),
+            $crate::vars!($tgt1, $tgt2),
+            $crate::lem::Var(stringify!($src).into()),
         )
     };
     ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = unhash3($src:ident) ) => {
-        $crate::lem::LEMOP::Unhash3(
-            $crate::metaptrs!($tgt1, $tgt2, $tgt3),
-            $crate::metaptr!($src),
-        )
+        $crate::lem::LEMOP::Unhash3($crate::vars!($tgt1, $tgt2, $tgt3), $crate::var!($src))
     };
     ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident, $tgt4:ident) = unhash4($src:ident) ) => {
         $crate::lem::LEMOP::Unhash4(
-            $crate::metaptrs!($tgt1, $tgt2, $tgt3, $tgt4),
-            $crate::metaptr!($src),
+            $crate::vars!($tgt1, $tgt2, $tgt3, $tgt4),
+            $crate::var!($src),
         )
     };
     ( let $tgt:ident = hide($sec:ident, $src:ident) ) => {
-        $crate::lem::LEMOP::Hide(
-            $crate::metaptr!($tgt),
-            $crate::metaptr!($sec),
-            $crate::metaptr!($src),
-        )
+        $crate::lem::LEMOP::Hide($crate::var!($tgt), $crate::var!($sec), $crate::var!($src))
     };
     ( let ($sec:ident, $src:ident) = open($hash:ident) ) => {
-        $crate::lem::LEMOP::Open(
-            $crate::metaptr!($sec),
-            $crate::metaptr!($src),
-            $crate::metaptr!($hash),
-        )
+        $crate::lem::LEMOP::Open($crate::var!($sec), $crate::var!($src), $crate::var!($hash))
     };
 }
 
@@ -87,7 +76,7 @@ macro_rules! lem_code {
                     panic!("Repeated tag on `match_tag`");
                 };
             )*
-            $crate::lem::LEMCTL::MatchTag($crate::metaptr!($sii), cases)
+            $crate::lem::LEMCTL::MatchTag($crate::var!($sii), cases)
         }
     };
     ( match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } ) => {
@@ -101,12 +90,12 @@ macro_rules! lem_code {
                     panic!("Repeated path on `match_symbol`");
                 };
             )*
-            $crate::lem::LEMCTL::MatchSymbol($crate::metaptr!($sii), cases, Box::new($crate::lem_code!( $def )))
+            $crate::lem::LEMCTL::MatchSymbol($crate::var!($sii), cases, Box::new($crate::lem_code!( $def )))
         }
     };
     ( return ($src1:ident, $src2:ident, $src3:ident) ) => {
         $crate::lem::LEMCTL::Return(
-            $crate::metaptrs!($src1, $src2, $src3)
+            $crate::vars!($src1, $src2, $src3)
         )
     };
     // seq entry point, with a separate bracketing to differentiate
@@ -260,9 +249,9 @@ macro_rules! lem {
     ($in1:ident $in2:ident $in3:ident $lem:tt) => {
         $crate::lem::LEM::new(
             [
-                stringify!($in1).into(),
-                stringify!($in2).into(),
-                stringify!($in3).into(),
+                $crate::lem::Var(stringify!($in1).into()),
+                $crate::lem::Var(stringify!($in2).into()),
+                $crate::lem::Var(stringify!($in3).into()),
             ],
             &$crate::lem_code!($lem),
         )
@@ -271,20 +260,20 @@ macro_rules! lem {
 
 #[cfg(test)]
 mod tests {
-    use crate::lem::{symbol::Symbol, tag::Tag, MetaPtr, LEMCTL, LEMOP};
+    use crate::lem::{symbol::Symbol, tag::Tag, Var, LEMCTL, LEMOP};
 
     #[inline]
-    fn mptr(name: &str) -> MetaPtr {
-        MetaPtr(name.into())
+    fn mptr(name: &str) -> Var {
+        Var(name.into())
     }
 
     #[inline]
-    fn match_tag(i: MetaPtr, cases: Vec<(Tag, LEMCTL)>) -> LEMCTL {
+    fn match_tag(i: Var, cases: Vec<(Tag, LEMCTL)>) -> LEMCTL {
         LEMCTL::MatchTag(i, indexmap::IndexMap::from_iter(cases))
     }
 
     #[inline]
-    fn match_symbol(i: MetaPtr, cases: Vec<(Symbol, LEMCTL)>, def: LEMCTL) -> LEMCTL {
+    fn match_symbol(i: Var, cases: Vec<(Symbol, LEMCTL)>, def: LEMCTL) -> LEMCTL {
         LEMCTL::MatchSymbol(i, indexmap::IndexMap::from_iter(cases), Box::new(def))
     }
 

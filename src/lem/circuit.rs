@@ -115,7 +115,7 @@
 //! structure, which is populated by the function `LEMCTL::count_slots`;
 //!
 //! 2. Interpret the LEM and collect the data that will be fed to some (or all)
-//! slots, along with all bindings from `MetaPtr`s to `Ptr`s. This piece of
+//! slots, along with all bindings from `Var`s to `Ptr`s. This piece of
 //! information will live on a `Frame` structure;
 //!
 //! 3. Build the circuit with `SlotsCounter` and `Frame` at hand. This step is
@@ -149,7 +149,7 @@ use super::{
     pointers::{Ptr, ZPtr},
     store::Store,
     tag::Tag,
-    AString, MetaPtr, LEM, LEMCTL, LEMOP,
+    Var, LEM, LEMCTL, LEMOP,
 };
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -322,7 +322,7 @@ impl std::fmt::Display for Slot {
     }
 }
 
-impl MetaPtr {
+impl Var {
     fn to_zptr<F: LurkField>(&self, frame: &Frame<F>, store: &mut Store<F>) -> Result<ZPtr<F>> {
         match frame.bindings.get(self) {
             Some(ptr) => store.hash_ptr(ptr),
@@ -331,22 +331,27 @@ impl MetaPtr {
     }
 }
 
+type BoundAllocations<F> = HashMap<Var, AllocatedPtr<F>>;
+
 impl LEM {
     /// Allocates an unconstrained pointer
     fn allocate_ptr<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         z_ptr: &ZPtr<F>,
-        name: &AString,
-        allocated_ptrs: &mut HashMap<AString, AllocatedPtr<F>>,
+        var: &Var,
+        allocated_ptrs: &mut BoundAllocations<F>,
     ) -> Result<AllocatedPtr<F>> {
-        if allocated_ptrs.contains_key(name) {
-            bail!("{} already allocated", name);
+        if allocated_ptrs.contains_key(var) {
+            bail!(
+                "Variable {} has previously been defined. LEMs are supposed to be SSA.",
+                var
+            );
         };
         let allocated_tag =
-            allocate_num(cs, &format!("allocate {name}'s tag"), z_ptr.tag.to_field())?;
-        let allocated_hash = allocate_num(cs, &format!("allocate {name}'s hash"), z_ptr.hash)?;
+            allocate_num(cs, &format!("allocate {var}'s tag"), z_ptr.tag.to_field())?;
+        let allocated_hash = allocate_num(cs, &format!("allocate {var}'s hash"), z_ptr.hash)?;
         let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
-        allocated_ptrs.insert(name.clone(), allocated_ptr.clone());
+        allocated_ptrs.insert(var.clone(), allocated_ptr.clone());
         Ok(allocated_ptr)
     }
 
@@ -356,11 +361,11 @@ impl LEM {
         cs: &mut CS,
         store: &mut Store<F>,
         frame: &Frame<F>,
-        allocated_ptrs: &mut HashMap<AString, AllocatedPtr<F>>,
+        allocated_ptrs: &mut BoundAllocations<F>,
     ) -> Result<()> {
         for (i, ptr) in frame.input.iter().enumerate() {
-            let name = &self.input_vars[i];
-            Self::allocate_ptr(cs, &store.hash_ptr(ptr)?, name, allocated_ptrs)?;
+            let var = &self.input_vars[i];
+            Self::allocate_ptr(cs, &store.hash_ptr(ptr)?, var, allocated_ptrs)?;
         }
         Ok(())
     }
@@ -370,14 +375,14 @@ impl LEM {
         cs: &mut CS,
         store: &mut Store<F>,
         frame: &Frame<F>,
-        allocated_ptrs: &mut HashMap<AString, AllocatedPtr<F>>,
+        allocated_ptrs: &mut BoundAllocations<F>,
     ) -> Result<Vec<AllocatedPtr<F>>> {
         let mut allocated_output_ptrs = vec![];
         for (i, ptr) in frame.output.iter().enumerate() {
             let allocated_ptr = Self::allocate_ptr(
                 cs,
                 &store.hash_ptr(ptr)?,
-                &format!("output[{}]", i).into(),
+                &Var(format!("output[{}]", i).into()),
                 allocated_ptrs,
             )?;
             allocated_output_ptrs.push(allocated_ptr)
@@ -388,29 +393,29 @@ impl LEM {
     /// Allocates an unconstrained pointer for each value of the preimage
     fn allocate_preimg<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        preimg: &[MetaPtr],
+        preimg: &[Var],
         frame: &Frame<F>,
         store: &mut Store<F>,
-        allocated_ptrs: &mut HashMap<AString, AllocatedPtr<F>>,
+        allocated_ptrs: &mut BoundAllocations<F>,
     ) -> Result<Vec<AllocatedPtr<F>>> {
         preimg
             .iter()
             .map(|x| {
                 x.to_zptr(frame, store)
-                    .and_then(|ref ptr| Self::allocate_ptr(cs, ptr, x.name(), allocated_ptrs))
+                    .and_then(|ref ptr| Self::allocate_ptr(cs, ptr, x, allocated_ptrs))
             })
             .collect::<Result<Vec<_>>>()
     }
 
     fn get_allocated_preimg<'a, F: LurkField>(
-        preimg: &[MetaPtr],
-        allocated_ptrs: &'a HashMap<AString, AllocatedPtr<F>>,
+        preimg: &[Var],
+        allocated_ptrs: &'a BoundAllocations<F>,
     ) -> Result<Vec<&'a AllocatedPtr<F>>> {
         preimg
             .iter()
             .map(|x| {
                 allocated_ptrs
-                    .get(x.name())
+                    .get(x)
                     .ok_or_else(|| anyhow!("{x} not allocated"))
             })
             .collect::<Result<Vec<_>>>()
@@ -550,7 +555,7 @@ impl LEM {
         frame: &Frame<F>,
     ) -> Result<()> {
         let mut global_allocator = GlobalAllocator::default();
-        let mut allocated_ptrs: HashMap<AString, AllocatedPtr<F>> = HashMap::default();
+        let mut allocated_ptrs: BoundAllocations<F> = HashMap::default();
 
         // Inputs are constrained by their usage inside LEM
         self.allocate_input(cs, store, frame, &mut allocated_ptrs)?;
@@ -587,7 +592,7 @@ impl LEM {
             store: &'a mut Store<F>,
             frame: &'a Frame<F>,
             global_allocator: &'a mut GlobalAllocator<F>,
-            allocated_ptrs: HashMap<AString, AllocatedPtr<F>>,
+            allocated_ptrs: BoundAllocations<F>,
             preallocated_outputs: Vec<AllocatedPtr<F>>,
             preallocated_hash2_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash3_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
@@ -604,7 +609,7 @@ impl LEM {
             match block {
                 LEMCTL::Return(output_vars) => {
                     for (i, output_var) in output_vars.iter().enumerate() {
-                        let Some(allocated_ptr) = g.allocated_ptrs.get(output_var.name()) else {
+                        let Some(allocated_ptr) = g.allocated_ptrs.get(output_var) else {
                             bail!("{output_var} not allocated")
                         };
 
@@ -621,7 +626,7 @@ impl LEM {
                     Ok(())
                 }
                 LEMCTL::MatchTag(match_ptr, cases) => {
-                    let allocated_match_tag = match g.allocated_ptrs.get(match_ptr.name()) {
+                    let allocated_match_tag = match g.allocated_ptrs.get(match_ptr) {
                         Some(allocated_match_ptr) => allocated_match_ptr.tag().clone(),
                         None => bail!("{match_ptr} not allocated"),
                     };
@@ -690,11 +695,11 @@ impl LEM {
                                 // For each component of the preimage, add implication constraints
                                 // for its tag and hash
                                 for (i, allocated_ptr) in $allocated_preimg.iter().enumerate() {
-                                    let name = $preimg[i].name();
+                                    let var = &$preimg[i];
                                     let ptr_idx = 2 * i;
                                     implies_equal(
                                         &mut cs.namespace(|| {
-                                            format!("implies equal for {name}'s tag (LEMOP {:?}, pos {i})", &op)
+                                            format!("implies equal for {var}'s tag (LEMOP {:?}, pos {i})", &op)
                                         }),
                                         &concrete_path,
                                         allocated_ptr.tag(),
@@ -703,7 +708,7 @@ impl LEM {
                                     implies_equal(
                                         &mut cs.namespace(|| {
                                             format!(
-                                                "implies equal for {name}'s hash (LEMOP {:?}, pos {i})",
+                                                "implies equal for {var}'s hash (LEMOP {:?}, pos {i})",
                                                 &op
                                             )
                                         }),
@@ -720,7 +725,7 @@ impl LEM {
                                 let allocated_img = LEM::allocate_ptr(
                                     cs,
                                     &$img.to_zptr(&g.frame, g.store)?,
-                                    $img.name(),
+                                    $img,
                                     &mut g.allocated_ptrs,
                                 )?;
                                 // Create constraint for the tag
@@ -756,7 +761,7 @@ impl LEM {
                                     LEM::allocate_preimg(cs, $preimg, &g.frame, g.store, &mut g.allocated_ptrs)?;
 
                                 // Retrieve allocated image
-                                let Some(allocated_img) = g.allocated_ptrs.get($img.name()) else {
+                                let Some(allocated_img) = g.allocated_ptrs.get($img) else {
                                                                     bail!("{} not allocated", $img)
                                                                 };
 
@@ -788,7 +793,7 @@ impl LEM {
                                 let allocated_tgt = LEM::allocate_ptr(
                                     cs,
                                     &tgt.to_zptr(g.frame, g.store)?,
-                                    tgt.name(),
+                                    tgt,
                                     &mut g.allocated_ptrs,
                                 )?;
                                 let allocated_tag =
