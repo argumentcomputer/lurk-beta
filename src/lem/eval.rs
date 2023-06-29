@@ -79,7 +79,7 @@ mod tests {
             all_frames.extend(frames);
         }
 
-        lem.assert_all_paths_taken(&all_frames, store);
+        lem.assert_all_paths_taken(&all_frames);
     }
 
     fn expr_in_expr_out_pairs(_store: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {

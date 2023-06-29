@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::field::LurkField;
 
-use super::{interpreter::Frame, store::Store, symbol::Symbol, tag::Tag, Var, LEMCTL, LEMOP};
+use super::{interpreter::Frame, symbol::Symbol, tag::Tag, Var, LEMCTL, LEMOP};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) enum PathNode {
@@ -199,54 +199,12 @@ impl LEMCTL {
         }
     }
 
-    /// Computes the path taken through a `LEMOP` given a frame
-    fn path_taken<F: LurkField>(
-        &self,
-        mut path: Path,
-        frame: &Frame<F>,
-        store: &mut Store<F>,
-    ) -> Result<Path> {
-        match self {
-            Self::MatchTag(match_var, cases) => {
-                let ptr = match_var.get_ptr(&frame.bindings)?;
-                let tag = ptr.tag();
-                let Some(block) = cases.get(tag) else {
-                    bail!("No match for tag {}", tag)
-                };
-                path.push_tag_inplace(tag);
-                block.path_taken(path, frame, store)
-            }
-            Self::MatchSymbol(match_var, cases, def) => {
-                let ptr = match_var.get_ptr(&frame.bindings)?;
-                let Some(symbol) = store.fetch_symbol(ptr) else {
-                    bail!("Symbol not found for {}", match_var.name());
-                };
-                match cases.get(&symbol) {
-                    Some(block) => {
-                        path.push_symbol_inplace(&symbol);
-                        block.path_taken(path, frame, store)
-                    }
-                    None => {
-                        path.push_default_inplace();
-                        def.path_taken(path, frame, store)
-                    }
-                }
-            }
-            Self::Seq(_, cont) => cont.path_taken(path, frame, store),
-            Self::Return(..) => Ok(path),
-        }
-    }
-
     /// Computes the number of paths taken within a `LEMOP` given a set of frames
-    pub fn num_paths_taken<F: LurkField>(
-        &self,
-        frames: &Vec<Frame<F>>,
-        store: &mut Store<F>,
-    ) -> Result<usize> {
+    pub fn num_paths_taken<F: LurkField>(&self, frames: &[Frame<F>]) -> Result<usize> {
         let mut all_paths: HashSet<Path> = HashSet::default();
-        for frame in frames {
-            all_paths.insert(self.path_taken(Path::default(), frame, store)?);
-        }
+        frames.iter().for_each(|frame| {
+            all_paths.insert(frame.path.clone());
+        });
         Ok(all_paths.len())
     }
 }

@@ -2,7 +2,9 @@ use crate::field::{FWrap, LurkField};
 use anyhow::{bail, Result};
 use std::collections::HashMap;
 
-use super::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, Var, LEM, LEMCTL, LEMOP};
+use super::{
+    path::Path, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, Var, LEM, LEMCTL, LEMOP,
+};
 
 #[derive(Clone, Default)]
 pub struct Preimages<F: LurkField> {
@@ -21,8 +23,8 @@ pub struct Preimages<F: LurkField> {
 pub struct Frame<F: LurkField> {
     pub input: [Ptr<F>; 3],
     pub output: [Ptr<F>; 3],
-    pub bindings: HashMap<Var, Ptr<F>>,
     pub preimages: Preimages<F>,
+    pub path: Path,
 }
 
 fn retrieve_many<F: LurkField>(map: &HashMap<Var, Ptr<F>>, args: &[Var]) -> Result<Vec<Ptr<F>>> {
@@ -168,13 +170,17 @@ impl LEMCTL {
         store: &mut Store<F>,
         mut bindings: HashMap<Var, Ptr<F>>,
         mut preimages: Preimages<F>,
+        mut path: Path,
     ) -> Result<Frame<F>> {
         match self {
             LEMCTL::MatchTag(match_var, cases) => {
                 let ptr = match_var.get_ptr(&bindings)?;
                 let tag = ptr.tag();
                 match cases.get(tag) {
-                    Some(op) => op.run(input, store, bindings, preimages),
+                    Some(op) => {
+                        path.push_tag_inplace(tag);
+                        op.run(input, store, bindings, preimages, path)
+                    }
                     None => bail!("No match for tag {}", tag),
                 }
             }
@@ -184,15 +190,21 @@ impl LEMCTL {
                     bail!("Symbol not found for {match_var}");
                 };
                 match cases.get(&symbol) {
-                    Some(op) => op.run(input, store, bindings, preimages),
-                    None => def.run(input, store, bindings, preimages),
+                    Some(op) => {
+                        path.push_symbol_inplace(&symbol);
+                        op.run(input, store, bindings, preimages, path)
+                    }
+                    None => {
+                        path.push_default_inplace();
+                        def.run(input, store, bindings, preimages, path)
+                    }
                 }
             }
             LEMCTL::Seq(ops, rest) => {
                 for op in ops {
                     op.run(store, &mut bindings, &mut preimages)?;
                 }
-                rest.run(input, store, bindings, preimages)
+                rest.run(input, store, bindings, preimages, path)
             }
             LEMCTL::Return(o) => {
                 let output = [
@@ -203,8 +215,8 @@ impl LEMCTL {
                 Ok(Frame {
                     input,
                     output,
-                    bindings,
                     preimages,
+                    path,
                 })
             }
         }
@@ -233,7 +245,9 @@ impl LEM {
             }
 
             let preimages = Preimages::default();
-            let frame = self.ctl.run(input, store, bindings, preimages)?;
+            let frame = self
+                .ctl
+                .run(input, store, bindings, preimages, Path::default())?;
             if &frame.output[2] == terminal || &frame.output[2] == error {
                 frames.push(frame);
                 break;

@@ -349,17 +349,6 @@ impl LEM {
     ) -> Result<AllocatedPtr<F>> {
         let allocated_tag =
             allocate_num(cs, &format!("allocate {var}'s tag"), z_ptr.tag.to_field())?;
-        Self::allocate_ptr_with_tag(cs, z_ptr, var, allocated_tag, bound_allocations)
-    }
-
-    /// Allocates an unconstrained pointer with an already allocated tag
-    fn allocate_ptr_with_tag<F: LurkField, CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        z_ptr: &ZPtr<F>,
-        var: &Var,
-        allocated_tag: AllocatedNum<F>,
-        bound_allocations: &mut BoundAllocations<F>,
-    ) -> Result<AllocatedPtr<F>> {
         let allocated_hash = allocate_num(cs, &format!("allocate {var}'s hash"), z_ptr.hash)?;
         let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
         bound_allocations.insert(var.clone(), allocated_ptr.clone());

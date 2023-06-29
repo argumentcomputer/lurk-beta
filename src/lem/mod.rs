@@ -207,13 +207,9 @@ impl LEM {
 
     /// Asserts that all paths were visited by a set of frames. This is mostly
     /// for testing purposes.
-    pub fn assert_all_paths_taken<F: LurkField>(
-        &self,
-        frames: &Vec<Frame<F>>,
-        store: &mut Store<F>,
-    ) {
+    pub fn assert_all_paths_taken<F: LurkField>(&self, frames: &[Frame<F>]) {
         assert_eq!(
-            self.ctl.num_paths_taken(frames, store).unwrap(),
+            self.ctl.num_paths_taken(frames).unwrap(),
             self.ctl.num_paths()
         );
     }
