@@ -135,9 +135,7 @@ use bellperson::{
 };
 
 use crate::circuit::gadgets::{
-    constraints::{
-        alloc_equal_const, and, enforce_selector_with_premise, implies_equal, implies_equal_zero,
-    },
+    constraints::{alloc_equal_const, and, enforce_selector_with_premise, implies_equal},
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
 };
@@ -148,7 +146,6 @@ use super::{
     interpreter::Frame,
     pointers::{Ptr, ZPtr},
     store::Store,
-    tag::Tag,
     Var, LEM, LEMCTL, LEMOP,
 };
 
@@ -321,17 +318,6 @@ impl std::fmt::Display for Slot {
         write!(f, "Slot({}, {})", self.idx, self.typ)
     }
 }
-
-impl Var {
-    fn to_zptr<F: LurkField>(&self, frame: &Frame<F>, store: &mut Store<F>) -> Result<ZPtr<F>> {
-        match frame.bindings.get(self) {
-            Some(ptr) => store.hash_ptr(ptr),
-            None => Ok(ZPtr::dummy()),
-        }
-    }
-}
-
-// type BoundAllocations<F> = HashMap<Var, AllocatedPtr<F>>;
 
 #[derive(Default)]
 struct BoundAllocations<F: LurkField>(HashMap<Var, AllocatedPtr<F>>);
@@ -593,8 +579,6 @@ impl LEM {
         )?;
 
         struct Globals<'a, F: LurkField> {
-            store: &'a mut Store<F>,
-            frame: &'a Frame<F>,
             global_allocator: &'a mut GlobalAllocator<F>,
             bound_allocations: BoundAllocations<F>,
             preallocated_outputs: Vec<AllocatedPtr<F>>,
@@ -774,27 +758,11 @@ impl LEM {
                                 unhash_helper!(preimg, img, SlotType::Hash4);
                             }
                             LEMOP::Null(tgt, tag) => {
-                                let allocated_tag =
-                                    g.global_allocator.get_or_alloc_const(cs, tag.to_field())?;
-                                let allocated_tgt = LEM::allocate_ptr_with_tag(
-                                    cs,
-                                    &tgt.to_zptr(g.frame, g.store)?,
-                                    tgt,
-                                    allocated_tag,
-                                    &mut g.bound_allocations,
-                                )?;
-
-                                // Constrain hash
-                                implies_equal_zero(
-                                    &mut cs.namespace(|| {
-                                        format!("implies equal zero for {tgt}'s hash")
-                                    }),
-                                    &concrete_path,
-                                    allocated_tgt.hash(),
-                                )
-                                .with_context(|| {
-                                    format!("couldn't enforce implies equal zero for {tgt}'s hash")
-                                })?;
+                                let allocated_ptr = AllocatedPtr::from_parts(
+                                    g.global_allocator.get_or_alloc_const(cs, tag.to_field())?,
+                                    g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
+                                );
+                                g.bound_allocations.insert(tgt.clone(), allocated_ptr);
                             }
                             _ => todo!(),
                         }
@@ -810,8 +778,6 @@ impl LEM {
             Boolean::Constant(true),
             &mut SlotsCounter::default(),
             &mut Globals {
-                store,
-                frame,
                 global_allocator: &mut global_allocator,
                 bound_allocations,
                 preallocated_outputs,
@@ -825,12 +791,12 @@ impl LEM {
     /// Computes the number of constraints that `synthesize` should create. It's
     /// also an explicit way to document and attest how the number of constraints
     /// grow.
-    pub fn num_constraints(&self, slots_count: &SlotsCounter) -> usize {
+    pub fn num_constraints<F: LurkField>(&self, slots_count: &SlotsCounter) -> usize {
         // fixed cost for each slot
         let mut num_constraints =
             289 * slots_count.hash2 + 337 * slots_count.hash3 + 388 * slots_count.hash4;
 
-        let mut tags: HashSet<&Tag> = HashSet::default();
+        let mut globals: HashSet<FWrap<F>> = HashSet::default();
 
         let mut stack = vec![(&self.ctl, false)];
         while let Some((block, nested)) = stack.pop() {
@@ -859,38 +825,30 @@ impl LEM {
                         match op {
                             LEMOP::Null(_, tag) => {
                                 // constrain tag and hash
-                                num_constraints += 2;
-                                tags.insert(tag);
+                                globals.insert(FWrap(tag.to_field()));
+                                globals.insert(FWrap(F::ZERO));
                             }
                             LEMOP::Hash2(_, tag, _) => {
-                                // tag and hash for 3 pointers: 1 image + 2 from preimage
-                                num_constraints += 6;
-                                tags.insert(tag);
+                                // tag for the image
+                                globals.insert(FWrap(tag.to_field()));
+                                // tag and hash for 2 preimage pointers
+                                num_constraints += 4;
                             }
                             LEMOP::Hash3(_, tag, _) => {
-                                // tag and hash for 4 pointers: 1 image + 3 from preimage
-                                num_constraints += 8;
-                                tags.insert(tag);
+                                // tag for the image
+                                globals.insert(FWrap(tag.to_field()));
+                                // tag and hash for 3 preimage pointers
+                                num_constraints += 6;
                             }
                             LEMOP::Hash4(_, tag, _) => {
-                                // tag and hash for 5 pointers: 1 image + 4 from preimage
-                                num_constraints += 10;
-                                tags.insert(tag);
+                                // tag for the image
+                                globals.insert(FWrap(tag.to_field()));
+                                // tag and hash for 4 preimage pointers
+                                num_constraints += 8;
                             }
-                            LEMOP::Unhash2(..) => {
+                            LEMOP::Unhash2(..) | LEMOP::Unhash3(..) | LEMOP::Unhash4(..) => {
                                 // one constraint for the image's hash
-                                // tag and hash for 2 pointers from preimage
-                                num_constraints += 5;
-                            }
-                            LEMOP::Unhash3(..) => {
-                                // one constraint for the image's hash
-                                // tag and hash for 3 pointers from preimage
-                                num_constraints += 7;
-                            }
-                            LEMOP::Unhash4(..) => {
-                                // one constraint for the image's hash
-                                // tag and hash for 4 pointers from preimage
-                                num_constraints += 9;
+                                num_constraints += 1;
                             }
                             _ => todo!(),
                         }
@@ -901,6 +859,6 @@ impl LEM {
             }
         }
 
-        num_constraints + tags.len()
+        num_constraints + globals.len()
     }
 }

@@ -735,6 +735,7 @@ pub(crate) fn implies_equal<CS: ConstraintSystem<F>, F: PrimeField>(
 }
 
 /// Enforce equality of two allocated numbers given an implication premise
+#[allow(dead_code)]
 pub(crate) fn implies_equal_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: &mut CS,
     premise: &Boolean,

@@ -238,7 +238,7 @@ mod tests {
 
         assert_eq!(slots_count, expected_num_slots);
 
-        let computed_num_constraints = lem.num_constraints(&slots_count);
+        let computed_num_constraints = lem.num_constraints::<Fr>(&slots_count);
 
         let mut store = Store::default();
 

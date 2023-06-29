@@ -46,7 +46,7 @@ mod tests {
 
         assert_eq!(slots_count, NUM_SLOTS);
 
-        let computed_num_constraints = lem.num_constraints(&slots_count);
+        let computed_num_constraints = lem.num_constraints::<Fr>(&slots_count);
 
         // Assures that `MatchSymbol`s will work properly
         lem.intern_matched_symbols(store);
