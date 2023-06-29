@@ -339,9 +339,9 @@ impl LEM {
         cs: &mut CS,
         z_ptr: &ZPtr<F>,
         var: &Var,
-        allocated_ptrs: &mut BoundAllocations<F>,
+        bound_allocations: &mut BoundAllocations<F>,
     ) -> Result<AllocatedPtr<F>> {
-        if allocated_ptrs.contains_key(var) {
+        if bound_allocations.contains_key(var) {
             bail!(
                 "Variable {} has previously been defined. LEMs are supposed to be SSA.",
                 var
@@ -351,7 +351,7 @@ impl LEM {
             allocate_num(cs, &format!("allocate {var}'s tag"), z_ptr.tag.to_field())?;
         let allocated_hash = allocate_num(cs, &format!("allocate {var}'s hash"), z_ptr.hash)?;
         let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
-        allocated_ptrs.insert(var.clone(), allocated_ptr.clone());
+        bound_allocations.insert(var.clone(), allocated_ptr.clone());
         Ok(allocated_ptr)
     }
 
@@ -361,11 +361,11 @@ impl LEM {
         cs: &mut CS,
         store: &mut Store<F>,
         frame: &Frame<F>,
-        allocated_ptrs: &mut BoundAllocations<F>,
+        bound_allocations: &mut BoundAllocations<F>,
     ) -> Result<()> {
         for (i, ptr) in frame.input.iter().enumerate() {
             let var = &self.input_vars[i];
-            Self::allocate_ptr(cs, &store.hash_ptr(ptr)?, var, allocated_ptrs)?;
+            Self::allocate_ptr(cs, &store.hash_ptr(ptr)?, var, bound_allocations)?;
         }
         Ok(())
     }
@@ -375,7 +375,7 @@ impl LEM {
         cs: &mut CS,
         store: &mut Store<F>,
         frame: &Frame<F>,
-        allocated_ptrs: &mut BoundAllocations<F>,
+        bound_allocations: &mut BoundAllocations<F>,
     ) -> Result<Vec<AllocatedPtr<F>>> {
         let mut allocated_output_ptrs = vec![];
         for (i, ptr) in frame.output.iter().enumerate() {
@@ -383,7 +383,7 @@ impl LEM {
                 cs,
                 &store.hash_ptr(ptr)?,
                 &Var(format!("output[{}]", i).into()),
-                allocated_ptrs,
+                bound_allocations,
             )?;
             allocated_output_ptrs.push(allocated_ptr)
         }
@@ -396,25 +396,25 @@ impl LEM {
         preimg: &[Var],
         frame: &Frame<F>,
         store: &mut Store<F>,
-        allocated_ptrs: &mut BoundAllocations<F>,
+        bound_allocations: &mut BoundAllocations<F>,
     ) -> Result<Vec<AllocatedPtr<F>>> {
         preimg
             .iter()
             .map(|x| {
                 x.to_zptr(frame, store)
-                    .and_then(|ref ptr| Self::allocate_ptr(cs, ptr, x, allocated_ptrs))
+                    .and_then(|ref ptr| Self::allocate_ptr(cs, ptr, x, bound_allocations))
             })
             .collect::<Result<Vec<_>>>()
     }
 
     fn get_allocated_preimg<'a, F: LurkField>(
         preimg: &[Var],
-        allocated_ptrs: &'a BoundAllocations<F>,
+        bound_allocations: &'a BoundAllocations<F>,
     ) -> Result<Vec<&'a AllocatedPtr<F>>> {
         preimg
             .iter()
             .map(|x| {
-                allocated_ptrs
+                bound_allocations
                     .get(x)
                     .ok_or_else(|| anyhow!("{x} not allocated"))
             })
@@ -555,12 +555,12 @@ impl LEM {
         frame: &Frame<F>,
     ) -> Result<()> {
         let mut global_allocator = GlobalAllocator::default();
-        let mut allocated_ptrs: BoundAllocations<F> = HashMap::default();
+        let mut bound_allocations: BoundAllocations<F> = HashMap::default();
 
         // Inputs are constrained by their usage inside LEM
-        self.allocate_input(cs, store, frame, &mut allocated_ptrs)?;
+        self.allocate_input(cs, store, frame, &mut bound_allocations)?;
         // Outputs are constrained by return. All LEMs return
-        let preallocated_outputs = LEM::allocate_output(cs, store, frame, &mut allocated_ptrs)?;
+        let preallocated_outputs = LEM::allocate_output(cs, store, frame, &mut bound_allocations)?;
 
         // Slots are constrained by their usage inside LEM. The ones not used in throughout the concrete path
         // are effectively unconstrained, that's why they are filled with dummies
@@ -592,7 +592,7 @@ impl LEM {
             store: &'a mut Store<F>,
             frame: &'a Frame<F>,
             global_allocator: &'a mut GlobalAllocator<F>,
-            allocated_ptrs: BoundAllocations<F>,
+            bound_allocations: BoundAllocations<F>,
             preallocated_outputs: Vec<AllocatedPtr<F>>,
             preallocated_hash2_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash3_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
@@ -609,7 +609,7 @@ impl LEM {
             match block {
                 LEMCTL::Return(output_vars) => {
                     for (i, output_var) in output_vars.iter().enumerate() {
-                        let Some(allocated_ptr) = g.allocated_ptrs.get(output_var) else {
+                        let Some(allocated_ptr) = g.bound_allocations.get(output_var) else {
                             bail!("{output_var} not allocated")
                         };
 
@@ -626,7 +626,7 @@ impl LEM {
                     Ok(())
                 }
                 LEMCTL::MatchTag(match_ptr, cases) => {
-                    let allocated_match_tag = match g.allocated_ptrs.get(match_ptr) {
+                    let allocated_match_tag = match g.bound_allocations.get(match_ptr) {
                         Some(allocated_match_ptr) => allocated_match_ptr.tag().clone(),
                         None => bail!("{match_ptr} not allocated"),
                     };
@@ -726,7 +726,7 @@ impl LEM {
                                     cs,
                                     &$img.to_zptr(&g.frame, g.store)?,
                                     $img,
-                                    &mut g.allocated_ptrs,
+                                    &mut g.bound_allocations,
                                 )?;
                                 // Create constraint for the tag
                                 let allocated_tag =
@@ -741,7 +741,7 @@ impl LEM {
 
                                 // Retrieve allocated preimage
                                 let allocated_preimg =
-                                    LEM::get_allocated_preimg($preimg, &g.allocated_ptrs)?;
+                                    LEM::get_allocated_preimg($preimg, &g.bound_allocations)?;
 
                                 // Add the hash constraints
                                 constrain_slot!(
@@ -758,10 +758,10 @@ impl LEM {
                             ( $preimg: expr, $img: expr, $slot: expr ) => {
                                 // Allocate preimage to be constrained later by `constrain_slot!`
                                 let allocated_preimg =
-                                    LEM::allocate_preimg(cs, $preimg, &g.frame, g.store, &mut g.allocated_ptrs)?;
+                                    LEM::allocate_preimg(cs, $preimg, &g.frame, g.store, &mut g.bound_allocations)?;
 
                                 // Retrieve allocated image
-                                let Some(allocated_img) = g.allocated_ptrs.get($img) else {
+                                let Some(allocated_img) = g.bound_allocations.get($img) else {
                                                                     bail!("{} not allocated", $img)
                                                                 };
 
@@ -794,7 +794,7 @@ impl LEM {
                                     cs,
                                     &tgt.to_zptr(g.frame, g.store)?,
                                     tgt,
-                                    &mut g.allocated_ptrs,
+                                    &mut g.bound_allocations,
                                 )?;
                                 let allocated_tag =
                                     g.global_allocator.get_or_alloc_const(cs, tag.to_field())?;
@@ -839,7 +839,7 @@ impl LEM {
                 store,
                 frame,
                 global_allocator: &mut global_allocator,
-                allocated_ptrs,
+                bound_allocations,
                 preallocated_outputs,
                 preallocated_hash2_slots,
                 preallocated_hash3_slots,
