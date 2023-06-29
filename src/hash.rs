@@ -110,7 +110,7 @@ impl<F: LurkField> PoseidonCache<F> {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct InversePoseidonCache<F: LurkField> {
     a3: HashMap<FWrap<F>, [F; 3]>,
     a4: HashMap<FWrap<F>, [F; 4]>,
