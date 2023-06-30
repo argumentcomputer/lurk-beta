@@ -9,7 +9,7 @@ use crate::field::FWrap;
 use crate::field::LurkField;
 use crate::hash::PoseidonCache;
 use crate::num::Num;
-use crate::ptr::Ptr;
+use crate::ptr::{Ptr, RawPtr};
 use crate::store::Store;
 use crate::tag::{ExprTag, Tag};
 use crate::z_ptr::{ZContPtr, ZExprPtr, ZPtr};
@@ -29,7 +29,6 @@ pub enum ZExpr<F: LurkField> {
     RootSym,
     /// Contains a symbol (a list of strings) and a pointer to the tail.
     Sym(ZExprPtr<F>, ZExprPtr<F>),
-    RootKey,
     Key(ZExprPtr<F>, ZExprPtr<F>),
     Fun {
         arg: ZExprPtr<F>,
@@ -60,7 +59,6 @@ impl<F: LurkField> std::fmt::Display for ZExpr<F> {
             }
             ZExpr::EmptyStr => write!(f, "emptystr"),
             ZExpr::RootSym => write!(f, "rootsym"),
-            ZExpr::RootKey => write!(f, "rootkey"),
             ZExpr::Thunk(val, cont) => write!(f, "(thunk {} {})", val, cont),
             ZExpr::Fun {
                 arg,
@@ -86,7 +84,6 @@ impl<F: LurkField> ZExpr<F> {
             ),
             ZExpr::Comm(f, x) => ZPtr(ExprTag::Comm, cache.hash3(&[*f, x.0.to_field(), x.1])),
             ZExpr::RootSym => ZPtr(ExprTag::Sym, F::ZERO),
-            ZExpr::RootKey => ZPtr(ExprTag::Key, F::ZERO),
             ZExpr::Sym(x, y) => ZPtr(
                 ExprTag::Sym,
                 cache.hash4(&[x.0.to_field(), x.1, y.0.to_field(), y.1]),
@@ -137,6 +134,7 @@ impl<F: LurkField> ZExpr<F> {
             ExprTag::Comm => store.fetch_comm(ptr).and_then(|(secret, payload)| {
                 Some(ZExpr::Comm(secret.0, store.hash_expr(payload)?))
             }),
+            ExprTag::Sym if ptr.raw == RawPtr::Null => Some(ZExpr::RootSym),
             ExprTag::Sym => store.fetch_symcons(ptr).and_then(|(tag, val)| {
                 Some(ZExpr::Sym(store.hash_expr(&tag)?, store.hash_expr(&val)?))
             }),
@@ -154,6 +152,7 @@ impl<F: LurkField> ZExpr<F> {
                 Num::U64(x) => ZExpr::Num((*x).into()),
                 Num::Scalar(x) => ZExpr::Num(*x),
             }),
+            ExprTag::Str if ptr.raw == RawPtr::Null => Some(ZExpr::EmptyStr),
             ExprTag::Str => store.fetch_strcons(ptr).and_then(|(tag, val)| {
                 Some(ZExpr::Str(store.hash_expr(&tag)?, store.hash_expr(&val)?))
             }),
@@ -181,7 +180,6 @@ impl<F: LurkField> Arbitrary for ZExpr<F> {
             any::<(FWrap<F>, ZExprPtr<F>)>().prop_map(|(x, y)| Self::Comm(x.0, y)),
             Just(ZExpr::RootSym),
             any::<(ZExprPtr<F>, ZExprPtr<F>)>().prop_map(|(x, y)| ZExpr::Sym(x, y)),
-            Just(ZExpr::RootKey),
             any::<(ZExprPtr<F>, ZExprPtr<F>)>().prop_map(|(x, y)| ZExpr::Key(x, y)),
             any::<(ZExprPtr<F>, ZExprPtr<F>, ZExprPtr<F>)>().prop_map(|(arg, body, closed_env)| {
                 ZExpr::Fun {
@@ -241,6 +239,17 @@ mod tests {
         let mut store = Store::<Scalar>::default();
         let x = "(+ 1 1)";
         let ptr = store.read(x).unwrap();
+        let expr = store.fetch(&ptr).unwrap();
+        let z_expr = ZExpr::from_ptr(&store, &ptr).unwrap();
+        let z_ptr = ZExpr::z_ptr(&z_expr, &PoseidonCache::default());
+        store.z_expr_ptr_map.insert(z_ptr, Box::new(ptr));
+        let ptr = store.fetch_z_expr_ptr(&z_ptr).unwrap();
+        assert_eq!(expr, store.fetch(&ptr).unwrap());
+    }
+    #[test]
+    fn unit_expr_z_expr_empty_string() {
+        let store = Store::<Scalar>::default();
+        let ptr = store.strnil();
         let expr = store.fetch(&ptr).unwrap();
         let z_expr = ZExpr::from_ptr(&store, &ptr).unwrap();
         let z_ptr = ZExpr::z_ptr(&z_expr, &PoseidonCache::default());

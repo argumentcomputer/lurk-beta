@@ -255,15 +255,15 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn lurk_sym<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        self.intern_symbol(Symbol::sym(vec!["lurk", name.as_ref()]))
+        self.intern_symbol(Symbol::new(&["lurk", name.as_ref()]))
     }
 
     pub fn sym<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        self.intern_symbol(Symbol::sym(vec![name.as_ref()]))
+        self.intern_symbol(Symbol::new(&[name.as_ref()]))
     }
 
     pub fn key<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        self.intern_symbol(Symbol::key(vec![name.as_ref()]))
+        self.intern_symbol(Symbol::new(&["keyword", name.as_ref()]))
     }
 
     pub fn car(&self, expr: &Ptr<F>) -> Result<Ptr<F>, Error> {
@@ -455,43 +455,28 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn intern_symbol(&mut self, sym: Symbol) -> Ptr<F> {
-        let ptr = match &sym {
-            Symbol::Key(path) => {
-                if path.is_empty() {
-                    Ptr::null(ExprTag::Key)
-                } else {
-                    let mut ptr = self.symnil();
-                    let mut iter = path.iter().peekable();
-                    while let Some(s) = iter.next() {
-                        let str_ptr = self.intern_string(s);
-                        if iter.peek().is_some() {
-                            ptr = self.intern_symcons(str_ptr, ptr);
-                        } else {
-                            ptr = self.intern_keycons(str_ptr, ptr);
-                        }
-                    }
-                    ptr
-                }
+        let ptr = if sym.path.is_empty() {
+            Ptr::null(ExprTag::Sym)
+        } else {
+            let mut ptr = self.symnil();
+            for s in sym.path.iter() {
+                let str_ptr = self.intern_string(s);
+                ptr = self.intern_symcons(str_ptr, ptr);
             }
-            Symbol::Sym(path) => {
-                if path.is_empty() {
-                    Ptr::null(ExprTag::Sym)
-                } else {
-                    let mut ptr = self.symnil();
-                    for s in path.iter() {
-                        let str_ptr = self.intern_string(s);
-                        ptr = self.intern_symcons(str_ptr, ptr);
-                    }
-                    if sym == Symbol::nil() {
-                        Ptr {
-                            tag: ExprTag::Nil,
-                            raw: ptr.raw,
-                            _f: ptr._f,
-                        }
-                    } else {
-                        ptr
-                    }
+            if sym == Symbol::nil() {
+                Ptr {
+                    tag: ExprTag::Nil,
+                    raw: ptr.raw,
+                    _f: ptr._f,
                 }
+            } else if sym.is_keyword() {
+                Ptr {
+                    tag: ExprTag::Key,
+                    raw: ptr.raw,
+                    _f: ptr._f,
+                }
+            } else {
+                ptr
             }
         };
         self.symbol_cache.insert(sym, Box::new(ptr));
@@ -692,7 +677,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn fetch_sym(&self, ptr: &Ptr<F>) -> Option<Symbol> {
         if ptr.tag == ExprTag::Sym {
-            self.fetch_path(ptr).map(Symbol::Sym)
+            self.fetch_symbol(ptr)
         } else {
             None
         }
@@ -700,13 +685,16 @@ impl<F: LurkField> Store<F> {
 
     pub fn fetch_key(&self, ptr: &Ptr<F>) -> Option<Symbol> {
         if ptr.tag == ExprTag::Key {
-            self.fetch_path(ptr).map(Symbol::Key)
+            self.fetch_symbol(ptr)
         } else {
             None
         }
     }
 
-    pub fn fetch_path(&self, ptr: &Ptr<F>) -> Option<Vec<String>> {
+    pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<Symbol> {
+        if ptr.tag == ExprTag::Nil {
+            return Some(Symbol::nil());
+        }
         let mut ptr = *ptr;
         let mut path = Vec::new();
         while let Some((car, cdr)) = self.fetch_symcons(&ptr) {
@@ -714,16 +702,9 @@ impl<F: LurkField> Store<F> {
             path.push(string);
             ptr = cdr
         }
-        Some(path.into_iter().rev().collect())
-    }
-
-    pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<Symbol> {
-        match ptr.tag {
-            ExprTag::Nil => Some(Symbol::nil()),
-            ExprTag::Key => self.fetch_path(ptr).map(Symbol::Key),
-            ExprTag::Sym => self.fetch_path(ptr).map(Symbol::Sym),
-            _ => None,
-        }
+        Some(Symbol {
+            path: path.into_iter().rev().collect(),
+        })
     }
 
     pub fn fetch_strcons(&self, ptr: &Ptr<F>) -> Option<(Ptr<F>, Ptr<F>)> {
@@ -818,7 +799,6 @@ impl<F: LurkField> Store<F> {
             ExprTag::Sym => self
                 .fetch_symcons(ptr)
                 .map(|(car, cdr)| Expression::Sym(car, cdr)),
-            ExprTag::Key if ptr.raw.is_null() => Some(Expression::RootKey),
             ExprTag::Key => self
                 .fetch_symcons(ptr)
                 .map(|(car, cdr)| Expression::Key(car, cdr)),
@@ -978,9 +958,7 @@ impl<F: LurkField> Store<F> {
             Ok((*z_ptr, z_expr.clone()))
         } else {
             let (z_ptr, z_expr) = match self.fetch(ptr) {
-                Some(Expression::Nil) => {
-                    (ZExpr::Nil.z_ptr(&self.poseidon_cache), Some(ZExpr::Nil))
-                }
+                Some(Expression::Nil) => (ZExpr::Nil.z_ptr(&self.poseidon_cache), Some(ZExpr::Nil)),
                 Some(Expression::Cons(car, cdr)) => {
                     let (z_car, _) = self.get_z_expr(&car, z_store.clone())?;
                     let (z_cdr, _) = self.get_z_expr(&cdr, z_store.clone())?;
@@ -1041,10 +1019,6 @@ impl<F: LurkField> Store<F> {
                 Some(Expression::RootSym) => (
                     ZExpr::RootSym.z_ptr(&self.poseidon_cache),
                     Some(ZExpr::RootSym),
-                ),
-                Some(Expression::RootKey) => (
-                    ZExpr::RootKey.z_ptr(&self.poseidon_cache),
-                    Some(ZExpr::RootKey),
                 ),
                 Some(Expression::Sym(car, cdr)) => {
                     let (z_car, _) = self.get_z_expr(&car, z_store.clone())?;
@@ -1502,11 +1476,6 @@ impl<F: LurkField> Store<F> {
                     let symcar = self.intern_z_expr_ptr(symcar, z_store)?;
                     let symcdr = self.intern_z_expr_ptr(symcdr, z_store)?;
                     let ptr = self.intern_symcons(symcar, symcdr);
-                    self.create_z_expr_ptr(ptr, *z_ptr.value());
-                    Some(ptr)
-                }
-                (ExprTag::Key, Some(RootKey)) => {
-                    let ptr = self.intern_symnil(true);
                     self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
@@ -2335,10 +2304,14 @@ pub mod test {
     fn sym_and_key_hashes() {
         let s = &mut Store::<Fr>::default();
 
-        let sym = s.sym("orange");
+        let root = s.intern_symbol(Symbol::root());
+        let str1 = s.str("keyword");
+        let sym1 = s.intern_symcons(str1, root);
+        let str2 = s.str("orange");
+        let sym2 = s.intern_symcons(str2, sym1);
         let key = s.key("orange");
 
-        let sym_ptr = s.hash_expr(&sym).unwrap();
+        let sym_ptr = s.hash_expr(&sym2).unwrap();
         let key_ptr = s.hash_expr(&key).unwrap();
         let sym_hash = sym_ptr.1;
         let key_hash = key_ptr.1;

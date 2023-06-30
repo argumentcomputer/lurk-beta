@@ -51,7 +51,7 @@ macro_rules! symbol {
             $(
                 temp_vec.push($x.to_string());
             )*
-            $crate::syntax::Syntax::Symbol(Pos::No, $crate::symbol::Symbol::Sym(temp_vec))
+            $crate::syntax::Syntax::Symbol(Pos::No, $crate::symbol::Symbol { path: temp_vec })
         }
     };
     ($f:ty, [$( $x:expr ),*] ) => {
@@ -61,7 +61,7 @@ macro_rules! symbol {
             $(
                 temp_vec.push($x.to_string());
             )*
-            $crate::syntax::Syntax::<$f>::Symbol(Pos::No, $crate::symbol::Symbol::Sym(temp_vec))
+            $crate::syntax::Syntax::<$f>::Symbol(Pos::No, $crate::symbol::Symbol {path: temp_vec})
         }
     };
 }
@@ -97,57 +97,26 @@ macro_rules! lurksym {
     };
 }
 
-#[allow(unused_macros)]
-#[macro_export]
-macro_rules! lurkkey {
-    [$( $x:expr ),*] => {
-        {
-            #[allow(unused_mut)]
-            let mut temp_vec = Vec::new();
-            temp_vec.push("lurk".to_string());
-            $(
-                temp_vec.push($x.to_string());
-            )*
-            $crate::symbol::Symbol::Key(temp_vec)
-        }
-    };
-}
-
-#[allow(unused_macros)]
-#[macro_export]
-macro_rules! key {
-    [$( $x:expr ),*] => {
-        {
-            #[allow(unused_mut)]
-            let mut temp_vec = Vec::new();
-            $(
-                temp_vec.push($x.to_string());
-            )*
-            $crate::symbol::Symbol::Key(temp_vec)
-        }
-    };
-}
-
 #[macro_export]
 macro_rules! keyword {
     ([$( $x:expr ),*]) => {
         {
             #[allow(unused_mut)]
-            let mut temp_vec = Vec::new();
+            let mut temp_vec = vec!["keyword"];
             $(
-                temp_vec.push($x.to_string());
+                temp_vec.push($x);
             )*
-            $crate::syntax::Syntax::Symbol(Pos::No, $crate::symbol::Symbol::Key(temp_vec))
+            $crate::syntax::Syntax::Keyword(Pos::No, $crate::symbol::Symbol::new(&temp_vec))
         }
     };
     ($f:ty, [$( $x:expr ),*]) => {
         {
             #[allow(unused_mut)]
-            let mut temp_vec = Vec::new();
+            let mut temp_vec = vec!["keyword"];
             $(
                 temp_vec.push($x.to_string());
             )*
-            $crate::syntax::Syntax::<$f>::Symbol(Pos::No, $crate::symbol::Symbol::Key(temp_vec))
+            $crate::syntax::Syntax::Keyword(Pos::No, $crate::symbol::Symbol {path: temp_vec})
         }
     };
 }

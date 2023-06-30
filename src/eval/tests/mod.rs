@@ -2332,7 +2332,8 @@ fn test_sym_hash_values() {
     let s = &mut Store::<Fr>::default();
 
     let sym = s.read(".asdf.fdsa").unwrap();
-    let key = s.read(":asdf.fdsa").unwrap();
+    // TODO: No longer true for keywords
+    //let key = s.read(":asdf.fdsa").unwrap();
     let expr = s.read("(cons \"fdsa\" 'asdf)").unwrap();
 
     let limit = 10;
@@ -2358,7 +2359,7 @@ fn test_sym_hash_values() {
 
     let cons_z_ptr = &s.hash_expr(&new_expr).unwrap();
     let sym_z_ptr = &s.hash_expr(&sym).unwrap();
-    let key_z_ptr = &s.hash_expr(&key).unwrap();
+    //let key_z_ptr = &s.hash_expr(&key).unwrap();
 
     let consed_with_root_z_ptr = &s.hash_expr(&consed_with_root).unwrap();
     let toplevel_z_ptr = &s.hash_expr(&toplevel_sym).unwrap();
@@ -2366,14 +2367,14 @@ fn test_sym_hash_values() {
     // Symbol and keyword scalar hash values are the same as
     // those of the name string consed onto the parent symbol.
     assert_eq!(cons_z_ptr.value(), sym_z_ptr.value());
-    assert_eq!(cons_z_ptr.value(), key_z_ptr.value());
+    //assert_eq!(cons_z_ptr.value(), key_z_ptr.value());
 
     // Toplevel symbols also have this property, and their parent symbol is the root symbol.
     assert_eq!(consed_with_root_z_ptr.value(), toplevel_z_ptr.value());
 
     // The tags differ though.
     assert_eq!(ExprTag::Sym, sym_z_ptr.tag());
-    assert_eq!(ExprTag::Key, key_z_ptr.tag());
+    //assert_eq!(ExprTag::Key, key_z_ptr.tag());
 }
 
 #[test]

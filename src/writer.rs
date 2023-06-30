@@ -73,7 +73,6 @@ impl<F: LurkField> Write<F> for Expression<F> {
                 let tail = store.fetch_sym(cdr).expect("missing symbol tail");
                 write_symbol(w, &tail.extend(&[head]))
             }
-            RootKey => write_symbol(w, &Symbol::Key(vec![])),
             Key(car, cdr) => {
                 let head = store.fetch_string(car).expect("missing keyword head");
                 let tail = store.fetch_sym(cdr).expect("missing keyword tail");
@@ -366,7 +365,7 @@ pub mod test {
     #[test]
     fn print_expr2() {
         let mut s = Store::<Fr>::default();
-        let expr = s.intern_symbol(Symbol::Sym(vec!["foo".into(), "bar".into(), "baz".into()]));
+        let expr = s.intern_symbol(Symbol::new(&["foo", "bar", "baz"]));
         let output = expr.fmt_to_string(&s);
 
         assert_eq!("foo.bar.baz".to_string(), output);

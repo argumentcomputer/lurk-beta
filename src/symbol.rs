@@ -15,81 +15,102 @@ pub const ESCAPE_CHARS: &str = "|(){}[],.:'\\\"";
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Hash)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 /// Type for hierarchical symbol names
-pub enum Symbol {
-    /// Represents a hierarchical symbol whose path is a vector of strings
-    Sym(Vec<String>),
-    /// Represents a hierarchical keyword whose path is a vector of strings
-    Key(Vec<String>),
+pub struct Symbol {
+    pub path: Vec<String>,
 }
 
 impl Symbol {
-    pub fn sym(path: Vec<&str>) -> Self {
-        Symbol::Sym(path.iter().map(|x| x.to_string()).collect())
-    }
-
-    pub fn key(path: Vec<&str>) -> Self {
-        Symbol::Key(path.iter().map(|x| x.to_string()).collect())
-    }
-
     /// Creates a new Symbol::Sym with the root path `[]`.
     #[inline]
     pub fn root() -> Self {
-        Self::Sym(vec![])
-    }
-
-    /// Creates a new Symbol::Key with the root path `[]`.
-    #[inline]
-    pub fn key_root() -> Self {
-        Self::Key(vec![])
-    }
-
-    /// Retrieves the path of a `Symbol`
-    pub fn path(&self) -> &Vec<String> {
-        match self {
-            Self::Sym(path) | Self::Key(path) => path,
-        }
+        Self { path: vec![] }
     }
 
     /// Returns true if the Symbol is the root sym or keyword, i.e. if it has a path of `[]`.
     pub fn is_root(&self) -> bool {
-        self.path().is_empty()
-    }
-
-    pub fn is_key(&self) -> bool {
-        matches!(self, Self::Key(_))
+        self.path.is_empty()
     }
 
     /// Creates a new Symbol with the path extended by the given vector of path segments.
-    pub fn extend(&self, child: &[String]) -> Self {
-        let parent = self.path();
-        let mut new_path = Vec::with_capacity(parent.len() + child.len());
-        for elt in parent.iter() {
-            new_path.push(elt.clone());
-        }
-        for elt in child.iter() {
-            new_path.push(elt.clone());
-        }
-
-        if self.is_key() {
-            Self::Key(new_path)
-        } else {
-            Self::Sym(new_path)
+    pub fn new<A: AsRef<str>>(path: &[A]) -> Self {
+        Self {
+            path: path.iter().map(|x| String::from(x.as_ref())).collect(),
         }
     }
 
-    pub fn marker(&self) -> char {
-        match self {
-            Self::Sym(_) => SYM_MARKER,
-            Self::Key(_) => KEYWORD_MARKER,
+    /// Creates a new Symbol with the path extended by the given vector of path segments.
+    pub fn extend<A: AsRef<str>>(&self, child: &[A]) -> Self {
+        let mut path = Vec::with_capacity(self.path.len() + child.len());
+        for elt in self.path.iter() {
+            path.push(elt.clone());
         }
+        for elt in child.iter() {
+            path.push(String::from(elt.as_ref()));
+        }
+        Self { path }
     }
 
     pub fn nil() -> Symbol {
-        Symbol::Sym(vec!["lurk".to_string(), "nil".to_string()])
+        Self::new(&["lurk", "nil"])
+    }
+
+    pub fn keyword<A: AsRef<str>>(key: &[A]) -> Symbol {
+        Self::new(&["keyword"]).extend(key)
+    }
+
+    pub fn has_parent(&self, parent: &Symbol) -> bool {
+        // parent paths can't be longer than child paths
+        if self.path.len() < parent.path.len() {
+            false
+        } else {
+            // zip returns an iterator only as long as the shortest path,
+            // in this case the parent
+            self.path
+                .iter()
+                .zip(parent.path.iter())
+                .all(|(a, b)| a == b)
+        }
+    }
+
+    pub fn as_child(&self, parent: &Symbol) -> Option<Symbol> {
+        // parent paths can't be longer than child paths
+        if self.path.len() < parent.path.len() {
+            None
+        } else {
+            let mut parent = parent.path.iter();
+            let mut child = self.path.iter().peekable();
+
+            // peek if there's more in the child path
+            while let Some(_) = child.peek() {
+                // if there's more in the parent path, step through both together
+                if let Some(next_parent) = parent.next() {
+                    let next_child = child.next().unwrap();
+                    // the parent path has to be a prefix of the child path
+                    if next_child != next_parent {
+                        return None;
+                    }
+                // if there's no more parent path
+                } else {
+                    let path = child.cloned().collect();
+                    // return the remaining child path
+                    return Some(Symbol { path });
+                }
+            }
+            // only reachable if self == parent
+            Some(Symbol::root())
+        }
+    }
+
+    pub fn is_keyword(&self) -> bool {
+        self == &Self::new(&["keyword"]) || self.has_parent(&Self::new(&["keyword"]))
     }
 
     pub fn lurk_sym(name: &str) -> Symbol {
-        Symbol::Sym(vec!["lurk".to_string(), name.to_string()])
+        Self::new(&["lurk", name])
+    }
+
+    pub fn is_lurk_sym(&self) -> bool {
+        self.has_parent(&Self::new(&["lurk"]))
     }
 
     pub fn lurk_syms() -> HashMap<Symbol, LurkSym> {
@@ -118,105 +139,99 @@ impl Symbol {
         res
     }
 
-    pub fn print_root(&self) -> String {
-        format!("#{}", self.marker())
-    }
-
-    pub fn print_escape(&self) -> String {
-        if self.is_root() {
-            return self.print_root();
-        }
+    pub fn print_path(&self) -> String {
         let mut res = String::new();
-        let xs = self.path();
-        if Self::sym_needs_marker(self) {
-            res.push(self.marker())
-        }
-        res.push_str(&Self::escape_symbol_element(&xs[0]));
-        for x in xs[1..].iter() {
-            res.push(SYM_SEPARATOR);
-            res.push_str(&Self::escape_symbol_element(x));
-        }
-        if xs[xs.len() - 1].is_empty() {
-            res.push(SYM_SEPARATOR);
+        let mut iter = self.path.iter().peekable();
+        while let Some(next) = iter.next() {
+            res.push_str(&Self::escape_symbol_element(next));
+            if iter.peek().is_some() || next.is_empty() {
+                res.push('.');
+            }
         }
         res
     }
 
-    pub fn sym_needs_marker(&self) -> bool {
-        let xs = self.path();
-        if self.is_root()
-            || self.is_key()
-            || xs[0].is_empty()
-            || xs[0] == "#"
-            || xs[0] == "~"
-            || xs[0] == self.print_root()
-        {
-            return true;
-        };
-        let c = xs[0].chars().next().unwrap();
-        "~#1234567890.:'[](){},\"\\".chars().any(|x| x == c)
-            || char::is_whitespace(c)
-            || char::is_control(c)
+    // TODO: needs some kind of whitespace escaping
+    pub fn print_raw(&self) -> String {
+        let mut res = String::from("~(");
+        let mut iter = self.path.iter().peekable();
+        while let Some(next) = iter.next() {
+            res.push_str(&next);
+            match iter.peek() {
+                Some(_) => res.push(' '),
+                None => res.push(')'),
+            }
+        }
+        res
     }
 
-    pub fn parent(&self) -> Option<Symbol> {
-        match self {
-            Self::Key(path) => {
-                if path.is_empty() {
-                    None
-                } else {
-                    Some(Self::Key(path[0..path.len() - 1].to_vec()))
-                }
-            }
-            Self::Sym(path) => {
-                if path.is_empty() {
-                    None
-                } else {
-                    Some(Self::Sym(path[0..path.len() - 1].to_vec()))
-                }
-            }
+    pub fn prints_as_absolute(&self) -> bool {
+        if self.path.is_empty() {
+            return false;
+        } else {
+            self.path[0].is_empty()
+                || self.path[0].starts_with(&[
+                    '~', '#', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '.', ':', '[', ']',
+                    '(', ')', '{', '}', '"', '\\',
+                ])
+                || self.path[0].starts_with("-1")
+                || self.path[0].starts_with("-2")
+                || self.path[0].starts_with("-3")
+                || self.path[0].starts_with("-4")
+                || self.path[0].starts_with("-5")
+                || self.path[0].starts_with("-6")
+                || self.path[0].starts_with("-7")
+                || self.path[0].starts_with("-8")
+                || self.path[0].starts_with("-9")
+                || self.path[0].starts_with("-0")
+                || self.path[0].starts_with(char::is_whitespace)
+                || self.path[0].starts_with(char::is_control)
         }
     }
 
-    pub fn child(&self, child: &str) -> Symbol {
-        match self {
-            Self::Key(path) => {
-                let mut path = path.clone();
-                path.push(child.into());
-                Self::Key(path)
-            }
-            Self::Sym(path) => {
-                let mut path = path.clone();
-                path.push(child.into());
-                Self::Sym(path)
-            }
+    pub fn direct_parent(&self) -> Option<Symbol> {
+        if self.path.is_empty() {
+            None
+        } else {
+            let mut path = self.path.clone();
+            path.pop();
+            Some(Self { path })
         }
+    }
+    pub fn direct_child(&self, child: &str) -> Symbol {
+        let mut path = self.path.clone();
+        path.push(child.into());
+        Self { path }
     }
 }
 
 impl fmt::Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Symbol::Sym(_) if self.is_root() => {
-                write!(f, "~()")
+        if let Some(child) = self.as_child(&Symbol::new(&["keyword"])) {
+            if child.path.is_empty() {
+                write!(f, ".keyword")?;
+            } else {
+                write!(f, ":{}", child.print_path())?;
             }
-            Symbol::Key(_) if self.is_root() => {
-                write!(f, "~:()")
-            }
-            _ => write!(f, "{}", self.print_escape()),
+        } else if self.is_root() {
+            write!(f, "~()")?;
+        } else if self.prints_as_absolute() {
+            write!(f, ".{}", self.print_path())?;
+        } else {
+            write!(f, "{}", self.print_path())?;
         }
+        Ok(())
     }
 }
 
 impl From<&str> for Symbol {
     fn from(s: &str) -> Symbol {
-        let sym_path = &s[1..s.len()].split(SYM_SEPARATOR).collect::<Vec<&str>>();
-        if s.starts_with(SYM_MARKER) {
-            Self::sym(sym_path.clone())
-        } else if s.starts_with(KEYWORD_MARKER) {
-            Self::key(sym_path.clone())
-        } else {
-            panic!("Invalid starter char for Symbol")
+        let sym_path = &s[1..s.len()]
+            .split(SYM_SEPARATOR)
+            .map(|x| x.to_owned())
+            .collect::<Vec<String>>();
+        Self {
+            path: sym_path.clone(),
         }
     }
 }
@@ -356,33 +371,126 @@ pub mod test {
     use super::*;
 
     #[test]
+    fn test_new() {
+        let a = Symbol::new(&["foo", "bar"]);
+        let b = Symbol {
+            path: vec!["foo".to_string(), "bar".to_string()],
+        };
+
+        assert_eq!(a, b)
+    }
+
+    #[test]
+    fn test_parent_child() {
+        let a = Symbol::new(&["foo", "bar"]);
+        let b = Symbol::new(&["baz", "bam"]);
+        let c = Symbol::new(&["foo", "bar", "baz", "bam"]);
+
+        assert_eq!(a.extend(&b.path), c);
+        assert!(c.has_parent(&a));
+        assert_eq!(c.as_child(&a), Some(b));
+        assert_eq!(
+            Symbol::new(&["a", "b"]).as_child(&Symbol::new(&["a"])),
+            Some(Symbol::new(&["b"]))
+        );
+        assert!(Symbol::new(&["a", "b"]).has_parent(&Symbol::new(&["a"])),);
+        assert_eq!(
+            Symbol::new(&["a", "b", "c"]).as_child(&Symbol::new(&["a"])),
+            Some(Symbol::new(&["b", "c"]))
+        );
+        assert!(Symbol::new(&["a", "b", "c"]).has_parent(&Symbol::new(&["a"])),);
+        assert_eq!(
+            Symbol::new(&["a"]).as_child(&Symbol::root()),
+            Some(Symbol::new(&["a"]))
+        );
+        assert!(Symbol::new(&["a"]).has_parent(&Symbol::new(&["a"])),);
+        assert_eq!(
+            Symbol::new(&["a"]).as_child(&Symbol::new(&["a"])),
+            Some(Symbol::root())
+        );
+        assert!(Symbol::root().has_parent(&Symbol::root(),));
+        assert_eq!(
+            Symbol::root().as_child(&Symbol::root()),
+            Some(Symbol::root())
+        );
+        assert_eq!(Symbol::new(&["a"]).as_child(&Symbol::new(&["b"])), None,);
+        assert!(!Symbol::new(&["a"]).has_parent(&Symbol::new(&["b"])));
+        assert_eq!(
+            Symbol::new(&["a"]).as_child(&Symbol::new(&["a,", "b"])),
+            None,
+        );
+        assert!(!Symbol::new(&["a"]).has_parent(&Symbol::new(&["a", "b"])));
+    }
+
+    #[test]
+    fn test_prints_as_absolute() {
+        assert!(!Symbol::root().prints_as_absolute());
+        assert!(Symbol::new(&[""]).prints_as_absolute());
+        assert!(Symbol::new(&["~"]).prints_as_absolute());
+        assert!(Symbol::new(&["#"]).prints_as_absolute());
+        assert!(Symbol::new(&["1"]).prints_as_absolute());
+        assert!(Symbol::new(&["2"]).prints_as_absolute());
+        assert!(Symbol::new(&["3"]).prints_as_absolute());
+        assert!(Symbol::new(&["4"]).prints_as_absolute());
+        assert!(Symbol::new(&["5"]).prints_as_absolute());
+        assert!(Symbol::new(&["6"]).prints_as_absolute());
+        assert!(Symbol::new(&["7"]).prints_as_absolute());
+        assert!(Symbol::new(&["8"]).prints_as_absolute());
+        assert!(Symbol::new(&["9"]).prints_as_absolute());
+        assert!(Symbol::new(&["0"]).prints_as_absolute());
+        assert!(Symbol::new(&["."]).prints_as_absolute());
+        assert!(Symbol::new(&[":"]).prints_as_absolute());
+        assert!(Symbol::new(&["["]).prints_as_absolute());
+        assert!(Symbol::new(&["]"]).prints_as_absolute());
+        assert!(Symbol::new(&["("]).prints_as_absolute());
+        assert!(Symbol::new(&[")"]).prints_as_absolute());
+        assert!(Symbol::new(&["{"]).prints_as_absolute());
+        assert!(Symbol::new(&["}"]).prints_as_absolute());
+        assert!(Symbol::new(&["\""]).prints_as_absolute());
+        assert!(Symbol::new(&["\\"]).prints_as_absolute());
+        assert!(Symbol::new(&["-1"]).prints_as_absolute());
+        assert!(Symbol::new(&["-2"]).prints_as_absolute());
+        assert!(Symbol::new(&["-3"]).prints_as_absolute());
+        assert!(Symbol::new(&["-4"]).prints_as_absolute());
+        assert!(Symbol::new(&["-5"]).prints_as_absolute());
+        assert!(Symbol::new(&["-6"]).prints_as_absolute());
+        assert!(Symbol::new(&["-7"]).prints_as_absolute());
+        assert!(Symbol::new(&["-8"]).prints_as_absolute());
+        assert!(Symbol::new(&["-9"]).prints_as_absolute());
+        assert!(Symbol::new(&["-0"]).prints_as_absolute());
+        assert!(Symbol::new(&[" "]).prints_as_absolute());
+        assert!(Symbol::new(&["\x00"]).prints_as_absolute());
+    }
+
+    #[test]
     fn test_sym() {
+        assert_eq!("a.b.c", format!("{}", Symbol::new(&["a", "b", "c"])));
         let root = Symbol::root();
-        let a = root.child("a");
-        let a_b = a.child("b");
+        let a = root.direct_child("a");
+        let a_b = a.direct_child("b");
         let a_b_path = vec!["a", "b"];
 
-        assert_eq!("a", a.print_escape());
-        assert_eq!("a.b", a_b.print_escape());
-        assert_eq!(&a_b_path, a_b.path());
-        assert_eq!(Some(a.clone()), a_b.parent());
-        assert_eq!(Some(root.clone()), a.parent());
-        assert_eq!(None, root.parent());
+        assert_eq!("a", format!("{}", a));
+        assert_eq!("a.b", format!("{}", a_b));
+        assert_eq!(&a_b_path, &a_b.path);
+        assert_eq!(Some(a.clone()), a_b.direct_parent());
+        assert_eq!(Some(root.clone()), a.direct_parent());
+        assert_eq!(None, root.direct_parent());
     }
 
     #[test]
     fn test_keywords() {
         let root = Symbol::root();
-        let key_root = Symbol::key_root();
+        let key_root = Symbol::new(&["keyword"]);
 
-        let apple = root.child("APPLE");
-        let orange = key_root.child("ORANGE");
+        let apple = root.direct_child("apple");
+        let orange = key_root.direct_child("orange");
 
-        assert_eq!("APPLE", apple.print_escape());
-        assert_eq!(":ORANGE", orange.print_escape());
-        assert!(!apple.is_key());
-        assert!(orange.is_key());
-        assert_eq!(key_root, orange.parent().unwrap());
-        assert!(apple.parent().unwrap() != key_root);
+        assert_eq!("apple", format!("{}", apple));
+        assert_eq!(":orange", format!("{}", orange));
+        assert!(!apple.is_keyword());
+        assert!(orange.is_keyword());
+        assert_eq!(key_root, orange.direct_parent().unwrap());
+        assert!(apple.direct_parent().unwrap() != key_root);
     }
 }

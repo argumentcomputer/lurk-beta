@@ -1,6 +1,27 @@
 use std::collections::HashSet;
 
+use crate::field::LurkField;
 use crate::symbol::Symbol;
+
+#[derive(Clone, Debug)]
+pub struct Path {
+    path: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Package<F: LurkField> {
+    pub name: Symbol,
+    // declares symbolic constants
+    // builtins like `.lurk.nil` are declared as themselves via the public
+    // keywords are `.keyword.foo` and have special syntax `:foo`
+    pub syms: HashMap<Symbol, F>,
+}
+
+// (.package .foo.bar
+//   ( (.foo.bar.baz 0xdead.beef...)
+//     (.foo.bar.bam 0xdead.beef...)
+//   )
+//  )
 
 #[derive(Clone, Debug)]
 pub struct Package {

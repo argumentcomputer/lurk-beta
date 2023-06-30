@@ -40,7 +40,9 @@ pub fn parse_space1<F: LurkField>(i: Span<'_>) -> ParseResult<'_, F, Vec<Span<'_
     Ok((i, com))
 }
 
-pub fn parse_symbol_limb<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, String> {
+pub fn parse_symbol_limb<F: LurkField>(
+    escape: &'static str,
+) -> impl Fn(Span<'_>) -> ParseResult<'_, F, String> {
     move |from: Span<'_>| {
         let (i, s) = alt((
             delimited(
@@ -48,51 +50,76 @@ pub fn parse_symbol_limb<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_,
                 string::parse_string_inner1('|', true, "|"),
                 tag("|"),
             ),
-            string::parse_string_inner1(symbol::SYM_SEPARATOR, false, symbol::ESCAPE_CHARS),
+            string::parse_string_inner1(symbol::SYM_SEPARATOR, false, escape),
             value(String::from(""), peek(tag("."))),
         ))(from)?;
         Ok((i, s))
     }
 }
 
-pub fn parse_symbol_inner<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Symbol> {
+pub fn parse_symbol_limbs<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Vec<String>> {
     move |from: Span<'_>| {
-        let key_mark = symbol::KEYWORD_MARKER;
-        let sym_mark = symbol::SYM_MARKER;
-        let sym_sep = symbol::SYM_SEPARATOR;
-        let (i, (is_root, mark)) = alt((
-            value((true, key_mark), tag("~:()")),
-            value((true, sym_mark), tag("~()")),
-            // .foo
-            value((false, sym_mark), char(sym_mark)),
-            // :foo
-            value((false, key_mark), char(key_mark)),
-            // foo
-            value((false, sym_mark), peek(none_of("',~#(){}[]1234567890"))),
+        let (i, path) = separated_list1(
+            char(symbol::SYM_SEPARATOR),
+            parse_symbol_limb(symbol::ESCAPE_CHARS),
+        )(from)?;
+        let (upto, _) = opt(tag("."))(i)?;
+        Ok((upto, path))
+    }
+}
+
+pub fn parse_absolute_symbol<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Symbol> {
+    move |from: Span<'_>| {
+        let (i, is_key) = alt((
+            value(false, char(symbol::SYM_MARKER)),
+            value(true, char(symbol::KEYWORD_MARKER)),
         ))(from)?;
-        if is_root && mark == key_mark {
-            Ok((i, Symbol::Key(vec![])))
-        } else if is_root && mark == sym_mark {
-            Ok((i, Symbol::Sym(vec![])))
+        let (upto, path) = parse_symbol_limbs()(i)?;
+        if is_key {
+            Ok((upto, Symbol::new(&["keyword"]).extend(&path)))
         } else {
-            // <limb><sep><limb><sep>.....<limb>(<sep>?)
-            let (i, path) = separated_list1(char(sym_sep), parse_symbol_limb())(i)?;
-            let (upto, _) = opt(tag("."))(i)?;
-            if mark == key_mark {
-                Ok((upto, Symbol::Key(path)))
-            } else {
-                Ok((upto, Symbol::Sym(path)))
-            }
+            Ok((upto, Symbol { path }))
         }
     }
 }
 
+pub fn parse_relative_symbol<F: LurkField>(
+    parent: Symbol,
+) -> impl Fn(Span<'_>) -> ParseResult<'_, F, Symbol> {
+    move |from: Span<'_>| {
+        let (i, _) = peek(none_of(",~#(){}[]1234567890."))(from)?;
+        let (upto, path) = parse_symbol_limbs()(i)?;
+        Ok((upto, parent.extend(&path)))
+    }
+}
+
+pub fn parse_raw_symbol<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Symbol> {
+    move |from: Span<'_>| {
+        let (i, _) = tag("~(")(from)?;
+        let (i, path) = many0(preceded(parse_space, parse_symbol_limb("|()")))(i)?;
+        let (upto, _) = tag(")")(i)?;
+        Ok((upto, Symbol { path }))
+    }
+}
+
+// raw: ~(foo bar baz) = .|foo|.|bar|.|baz|
+// absolute: .foo.bar.baz (escaped limbs: .|foo|.|bar|.|baz|)
+// keyword: :foo.bar = .keyword.foo.bar)
+// relative: foo.bar
+
 pub fn parse_symbol<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
-        let (upto, sym) = parse_symbol_inner()(from)?;
+        let (upto, sym) = alt((
+            parse_raw_symbol(),
+            parse_absolute_symbol(),
+            // temporary root argument until packages are reimplemented
+            parse_relative_symbol(Symbol::root()),
+        ))(from)?;
         let pos = Pos::from_upto(from, upto);
         if let Some(val) = Symbol::lurk_syms().get(&Symbol::lurk_sym(&format!("{}", sym))) {
             Ok((upto, Syntax::LurkSym(pos, *val)))
+        } else if sym.is_keyword() {
+            Ok((upto, Syntax::Keyword(pos, sym)))
         } else {
             Ok((upto, Syntax::Symbol(pos, sym)))
         }
@@ -297,9 +324,10 @@ pub mod tests {
     #[allow(unused_imports)]
     use crate::{char, keyword, list, num, str, symbol, uint};
 
-    fn test<'a, P>(mut p: P, i: &'a str, expected: Option<Syntax<Scalar>>) -> bool
+    fn test<'a, P, R>(mut p: P, i: &'a str, expected: Option<R>) -> bool
     where
-        P: Parser<Span<'a>, Syntax<Scalar>, ParseError<Span<'a>, Scalar>>,
+        P: Parser<Span<'a>, R, ParseError<Span<'a>, Scalar>>,
+        R: std::fmt::Display + std::fmt::Debug + Clone + Eq,
     {
         match (expected, p.parse(Span::<'a>::new(i))) {
             (Some(expected), Ok((_i, x))) if x == expected => true,
@@ -337,6 +365,9 @@ pub mod tests {
 
     #[test]
     fn unit_parse_symbol() {
+        assert!(test(parse_raw_symbol(), "", None));
+        assert!(test(parse_absolute_symbol(), "", None));
+        assert!(test(parse_relative_symbol(Symbol::root()), "", None));
         assert!(test(parse_symbol(), "", None));
         assert!(test(parse_symbol(), "~()", Some(symbol!([]))));
         assert!(test(parse_symbol(), ".", None));
@@ -399,11 +430,9 @@ pub mod tests {
     #[test]
     fn unit_parse_keyword() {
         assert!(test(parse_symbol(), "", None));
-        assert!(test(parse_symbol(), "~:()", Some(keyword!([]))));
         assert!(test(parse_symbol(), ":", None));
         assert!(test(parse_symbol(), ":.", Some(keyword!([""]))));
         assert!(test(parse_symbol(), ":foo", Some(keyword!(["foo"]))));
-        assert!(test(parse_symbol(), ":.foo", Some(keyword!(["", "foo"]))));
         assert!(test(parse_symbol(), ":foo.", Some(keyword!(["foo"]))));
         assert!(test(parse_symbol(), ":foo..", Some(keyword!(["foo", ""]))));
         assert!(test(
@@ -437,6 +466,7 @@ pub mod tests {
             Some(keyword!(["foo.bar"]))
         ));
     }
+
     #[test]
     fn unit_parse_list() {
         assert!(test(parse_list(), "()", Some(list!([]))));
@@ -654,7 +684,7 @@ pub mod tests {
         ));
         assert!(test(
             parse_syntax(),
-            "(~:() 11242421860377074631u64 . :\u{ae}\u{60500}\u{87}..)",
+            "(.keyword 11242421860377074631u64 . :\u{ae}\u{60500}\u{87}..)",
             Some(list!(
                 [keyword!([]), uint!(11242421860377074631)],
                 keyword!(["®\u{60500}\u{87}", ""])

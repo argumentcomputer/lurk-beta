@@ -395,7 +395,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                     let s: Symbol = store
                         .fetch_sym(&car)
                         .ok_or(Error::msg("handle_meta fetch symbol"))?;
-                    match s.print_escape().as_str() {
+                    match format!("{}", s).as_str() {
                         "assert" => {
                             let (first, rest) = store.car_cdr(&rest)?;
                             assert!(rest.is_nil());
