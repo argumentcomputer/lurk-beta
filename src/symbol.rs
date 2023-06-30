@@ -81,7 +81,7 @@ impl Symbol {
             let mut child = self.path.iter().peekable();
 
             // peek if there's more in the child path
-            while let Some(_) = child.peek() {
+            while child.peek().is_some() {
                 // if there's more in the parent path, step through both together
                 if let Some(next_parent) = parent.next() {
                     let next_child = child.next().unwrap();
@@ -156,7 +156,7 @@ impl Symbol {
         let mut res = String::from("~(");
         let mut iter = self.path.iter().peekable();
         while let Some(next) = iter.next() {
-            res.push_str(&next);
+            res.push_str(next);
             match iter.peek() {
                 Some(_) => res.push(' '),
                 None => res.push(')'),
@@ -167,10 +167,10 @@ impl Symbol {
 
     pub fn prints_as_absolute(&self) -> bool {
         if self.path.is_empty() {
-            return false;
+            false
         } else {
             self.path[0].is_empty()
-                || self.path[0].starts_with(&[
+                || self.path[0].starts_with([
                     '~', '#', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '.', ':', '[', ']',
                     '(', ')', '{', '}', '"', '\\',
                 ])
