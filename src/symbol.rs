@@ -14,19 +14,23 @@ pub const ESCAPE_CHARS: &str = "|(){}[],.:'\\\"";
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Hash)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
-/// Type for hierarchical symbol names
+/// Type for hierarchical symbol names.
+///
+/// The symbol path is encoded with a vector of strings. Keywords are symbols
+/// whose first path component is the string "keyword".
 pub struct Symbol {
     pub path: Vec<String>,
 }
 
 impl Symbol {
-    /// Creates a new Symbol::Sym with the root path `[]`.
+    /// Creates a new `Symbol` with an empty path.
     #[inline]
     pub fn root() -> Self {
         Self { path: vec![] }
     }
 
-    /// Returns true if the Symbol is the root sym or keyword, i.e. if it has a path of `[]`.
+    /// Returns true if the `Symbol` is the root symbol, i.e. if it has an empty path.
+    #[inline]
     pub fn is_root(&self) -> bool {
         self.path.is_empty()
     }
@@ -169,23 +173,24 @@ impl Symbol {
         if self.path.is_empty() {
             false
         } else {
-            self.path[0].is_empty()
-                || self.path[0].starts_with([
+            let head = &self.path[0];
+            head.is_empty()
+                || head.starts_with([
                     '~', '#', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '.', ':', '[', ']',
                     '(', ')', '{', '}', '"', '\\',
                 ])
-                || self.path[0].starts_with("-1")
-                || self.path[0].starts_with("-2")
-                || self.path[0].starts_with("-3")
-                || self.path[0].starts_with("-4")
-                || self.path[0].starts_with("-5")
-                || self.path[0].starts_with("-6")
-                || self.path[0].starts_with("-7")
-                || self.path[0].starts_with("-8")
-                || self.path[0].starts_with("-9")
-                || self.path[0].starts_with("-0")
-                || self.path[0].starts_with(char::is_whitespace)
-                || self.path[0].starts_with(char::is_control)
+                || head.starts_with("-1")
+                || head.starts_with("-2")
+                || head.starts_with("-3")
+                || head.starts_with("-4")
+                || head.starts_with("-5")
+                || head.starts_with("-6")
+                || head.starts_with("-7")
+                || head.starts_with("-8")
+                || head.starts_with("-9")
+                || head.starts_with("-0")
+                || head.starts_with(char::is_whitespace)
+                || head.starts_with(char::is_control)
         }
     }
 
@@ -193,11 +198,13 @@ impl Symbol {
         if self.path.is_empty() {
             None
         } else {
-            let mut path = self.path.clone();
-            path.pop();
-            Some(Self { path })
+            Some(Self {
+                // drop the last component of the path
+                path: self.path[0..self.path.len() - 1].to_vec(),
+            })
         }
     }
+
     pub fn direct_child(&self, child: &str) -> Symbol {
         let mut path = self.path.clone();
         path.push(child.into());
