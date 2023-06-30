@@ -9,10 +9,12 @@ use crate::{
 use anyhow::{bail, Result};
 use dashmap::DashMap;
 use indexmap::IndexSet;
+use std::sync::Arc;
 
 use super::{
     pointers::{Ptr, ZChildren, ZPtr},
     symbol::Symbol,
+    AString, AVec,
 };
 
 /// The `Store` is a crucial part of Lurk's implementation and tries to be a
@@ -24,7 +26,7 @@ use super::{
 /// by indices are fast.
 ///
 /// The `Store` also provides an infra to speed up interning strings and symbols.
-/// This data is saved in `vec_char_cache` and `vec_str_cache`, which are better
+/// This data is saved in `str_tails_cache` and `sym_tails_cache`, which are better
 /// explained in `intern_string` and `intern_symbol_path` respectively.
 ///
 /// There's also a process that we call "hydration", in which we use Poseidon
@@ -40,9 +42,9 @@ pub struct Store<F: LurkField> {
     ptrs3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
     ptrs4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
 
-    vec_char_cache: HashMap<String, Ptr<F>>,
-    vec_str_cache: HashMap<Vec<String>, Ptr<F>>,
-    sym_path_cache: HashMap<Ptr<F>, Vec<String>>,
+    str_cache: HashMap<AString, Ptr<F>>,
+    sym_cache: HashMap<AVec<AString>, Ptr<F>>,
+    sym_path_cache: HashMap<Ptr<F>, AVec<AString>>,
 
     pub poseidon_cache: PoseidonCache<F>,
     dehydrated: Vec<Ptr<F>>,
@@ -145,87 +147,61 @@ impl<F: LurkField> Store<F> {
         self.ptrs4.get_index(idx)
     }
 
-    /// Iterates on the tails of a string, interning all of them, eventually
-    /// interning the full string provided as input. If some tail has already
-    /// been interned (and cached), break the loop.
-    ///
-    /// Tails are cached as reversed vectors of `char`s because of how interning
-    /// and hashing works: from right to left. So, for example, after interning
-    /// the string `"abc"`, we will end up with cached pointers to the strings
-    /// `"c"`, `"bc"` and `"abc"` stored in `vec_char_cache` as `['c']`,
-    /// `['c', 'b']` and `['c', 'b', 'a']` respectively.
+    /// Interns a string recursively
     pub fn intern_string(&mut self, s: &str) -> Ptr<F> {
-        let mut chars = s.chars().rev().collect::<String>();
-        let mut ptr;
-        let mut heads = vec![];
-        loop {
-            // try a cache hit until no char is left while accumulating the heads
-            if chars.is_empty() {
-                ptr = Ptr::null(Tag::Str);
-                break;
-            }
-            match self.vec_char_cache.get(&chars) {
-                Some(ptr_cache) => {
-                    ptr = *ptr_cache;
-                    break;
-                }
-                None => heads.push(chars.pop().unwrap()),
+        if s.is_empty() {
+            return Ptr::null(Tag::Str);
+        }
+
+        match self.str_cache.get(s) {
+            Some(ptr_cache) => *ptr_cache,
+            None => {
+                let tail = &s.chars().skip(1).collect::<String>();
+                let tail_ptr = self.intern_string(tail);
+                let head = s.chars().next().unwrap();
+                let s_ptr = self.intern_2_ptrs(Tag::Str, Ptr::char(head), tail_ptr);
+                self.str_cache.insert(s.into(), s_ptr);
+                s_ptr
             }
         }
-        while let Some(head) = heads.pop() {
-            // use the accumulated heads to construct the pointers and populate the cache
-            ptr = self.intern_2_ptrs(Tag::Str, Ptr::char(head), ptr);
-            chars.push(head);
-            self.vec_char_cache.insert(chars.clone(), ptr);
-        }
-        ptr
     }
 
-    /// Iterates on the tails of a symbol path, interning all of them, eventually
-    /// interning the full symbol path provided as input. If some tail has already
-    /// been interned (and cached), break the loop.
-    ///
-    /// Tails are cached as reversed vectors of `String`s because of how interning
-    /// and hashing works: from right to left. So, for example, after interning
-    /// the symbol path `["aa", "bb", "cc"]`, we will end up with cached pointers
-    /// to the symbol paths `["cc"]`, `["bb", "cc"]` and `["aa", "bb", "cc"]`
-    /// stored in `vec_str_cache` as `["cc"]`, `["cc", "bb"]` and
-    /// ["cc", "bb", "aa"]` respectively.
-    pub fn intern_symbol_path(&mut self, path: &[String]) -> Ptr<F> {
-        let mut components = path.to_owned();
-        components.reverse();
-        let mut ptr;
-        let mut heads = vec![];
-        loop {
-            // try a cache hit until no char is left while accumulating the heads
-            if components.is_empty() {
-                ptr = Ptr::null(Tag::Sym);
-                self.sym_path_cache.insert(ptr, vec![]);
-                break;
-            }
-            match self.vec_str_cache.get(&components) {
-                Some(ptr_cache) => {
-                    ptr = *ptr_cache;
-                    break;
-                }
-                None => heads.push(components.pop().unwrap()),
+    /// Interns a symbol path recursively
+    pub fn intern_symbol_path(&mut self, path: &[AString]) -> Ptr<F> {
+        if path.is_empty() {
+            let ptr = Ptr::null(Tag::Sym);
+            self.sym_path_cache.insert(ptr, Arc::new([]));
+            return ptr;
+        }
+
+        match self.sym_cache.get(path) {
+            Some(ptr_cache) => *ptr_cache,
+            None => {
+                let tail = &path[1..path.len()];
+                let tail_ptr = self.intern_symbol_path(tail);
+                let head = &path[0];
+                let head_ptr = self.intern_string(head);
+                let path_ptr = self.intern_2_ptrs(Tag::Sym, head_ptr, tail_ptr);
+                let path: Arc<[Arc<str>]> = path.into();
+                self.sym_cache.insert(path.clone(), path_ptr);
+                self.sym_path_cache.insert(path_ptr, path);
+                path_ptr
             }
         }
-        while let Some(head) = heads.pop() {
-            // use the accumulated heads to construct the pointers and populate the cache
-            let head_ptr = self.intern_string(&head);
-            ptr = self.intern_2_ptrs(Tag::Sym, head_ptr, ptr);
-            components.push(head);
-            self.vec_str_cache.insert(components.clone(), ptr);
-            self.sym_path_cache
-                .insert(ptr, components.iter().rev().cloned().collect());
-        }
-        ptr
     }
 
     #[inline]
-    pub fn fetch_sym_path(&self, ptr: &Ptr<F>) -> Option<&Vec<String>> {
+    pub fn fetch_sym_path(&self, ptr: &Ptr<F>) -> Option<&AVec<AString>> {
         self.sym_path_cache.get(ptr)
+    }
+
+    #[inline]
+    pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<Symbol> {
+        match ptr.tag() {
+            Tag::Sym => Some(Symbol::sym(self.fetch_sym_path(ptr)?)),
+            Tag::Key => Some(Symbol::key(self.fetch_sym_path(&ptr.key_to_sym())?)),
+            _ => None,
+        }
     }
 
     pub fn intern_symbol(&mut self, s: &Symbol) -> Ptr<F> {
@@ -242,24 +218,8 @@ impl<F: LurkField> Store<F> {
     ///
     /// Warning: without cache hits, this function might blow up Rust's recursion
     /// depth limit. This limitation is circumvented by calling `hydrate_z_cache`.
-    pub fn hydrate_ptr(&self, ptr: &Ptr<F>) -> Result<ZPtr<F>> {
+    pub fn hash_ptr(&self, ptr: &Ptr<F>) -> Result<ZPtr<F>> {
         match ptr {
-            Ptr::Leaf(Tag::Comm, hash) => match self.z_cache.get(ptr) {
-                Some(z_ptr) => Ok(*z_ptr),
-                None => {
-                    let Some((secret, ptr)) = self.comms.get(&FWrap(*hash)) else {
-                            bail!("Hash {} not found", hash.hex_digits())
-                        };
-                    let z_ptr = ZPtr {
-                        tag: Tag::Comm,
-                        hash: *hash,
-                    };
-                    self.z_dag
-                        .insert(z_ptr, ZChildren::Comm(*secret, self.hydrate_ptr(ptr)?));
-                    self.z_cache.insert(*ptr, z_ptr);
-                    Ok(z_ptr)
-                }
-            },
             Ptr::Leaf(tag, x) => Ok(ZPtr {
                 tag: *tag,
                 hash: *x,
@@ -270,8 +230,8 @@ impl<F: LurkField> Store<F> {
                     let Some((a, b)) = self.ptrs2.get_index(*idx) else {
                             bail!("Index {idx} not found on ptrs2")
                         };
-                    let a = self.hydrate_ptr(a)?;
-                    let b = self.hydrate_ptr(b)?;
+                    let a = self.hash_ptr(a)?;
+                    let b = self.hash_ptr(b)?;
                     let z_ptr = ZPtr {
                         tag: *tag,
                         hash: self.poseidon_cache.hash4(&[
@@ -292,9 +252,9 @@ impl<F: LurkField> Store<F> {
                     let Some((a, b, c)) = self.ptrs3.get_index(*idx) else {
                             bail!("Index {idx} not found on ptrs3")
                         };
-                    let a = self.hydrate_ptr(a)?;
-                    let b = self.hydrate_ptr(b)?;
-                    let c = self.hydrate_ptr(c)?;
+                    let a = self.hash_ptr(a)?;
+                    let b = self.hash_ptr(b)?;
+                    let c = self.hash_ptr(c)?;
                     let z_ptr = ZPtr {
                         tag: *tag,
                         hash: self.poseidon_cache.hash6(&[
@@ -317,10 +277,10 @@ impl<F: LurkField> Store<F> {
                     let Some((a, b, c, d)) = self.ptrs4.get_index(*idx) else {
                             bail!("Index {idx} not found on ptrs4")
                         };
-                    let a = self.hydrate_ptr(a)?;
-                    let b = self.hydrate_ptr(b)?;
-                    let c = self.hydrate_ptr(c)?;
-                    let d = self.hydrate_ptr(d)?;
+                    let a = self.hash_ptr(a)?;
+                    let b = self.hash_ptr(b)?;
+                    let c = self.hash_ptr(c)?;
+                    let d = self.hash_ptr(d)?;
                     let z_ptr = ZPtr {
                         tag: *tag,
                         hash: self.poseidon_cache.hash8(&[
@@ -342,11 +302,11 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    /// Hydrates `Ptr` trees from the bottom to the top, avoiding deep recursions
-    /// in `hydrate_ptr`.
+    /// Hashes `Ptr` trees from the bottom to the top, avoiding deep recursions
+    /// in `hash_ptr`.
     pub fn hydrate_z_cache(&mut self) {
         self.dehydrated.par_iter().for_each(|ptr| {
-            self.hydrate_ptr(ptr).expect("failed to hydrate pointer");
+            self.hash_ptr(ptr).expect("failed to hydrate pointer");
         });
         self.dehydrated = Vec::new();
     }

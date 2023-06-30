@@ -57,6 +57,20 @@ jobs:
         run: |
           cargo test --doc
 
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install rustup
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install cargo-msrv
+        run: cargo install cargo-msrv
+      - name: Check Rust MSRV
+        run: cargo msrv verify
+
   # Runs the test suite on a self-hosted GPU machine with CUDA enabled
   test-gpu:
     name: Rust tests on CUDA
@@ -84,18 +98,21 @@ jobs:
       # Check that CUDA is installed with a driver-compatible version
       # This must also be compatible with the GPU architecture, see above link
       - run: nvcc --version
+      # The use of `gcc-10`/`g++-10` is a hack to work around a pasta-msm error with CUDA 11.5 and gcc 11.3:
+      # https://github.com/NVlabs/instant-ngp/issues/119#issuecomment-1231890237
+      # We could also update to CUDA 11.8+ but it breaks the self-hosted runner
       - name: CUDA tests
         env: 
           EC_GPU_FRAMEWORK: cuda
         run: |
-          cargo nextest run --profile ci --cargo-profile dev-ci --features cuda
+          CC=gcc-10 CXX=g++-10 cargo nextest run --profile ci --cargo-profile dev-ci --features cuda
       # Check that we can access the OpenCL headers
       - run: clinfo
       - name: OpenCL tests
         env:
           EC_GPU_FRAMEWORK: opencl
         run: |
-          cargo nextest run --profile ci --cargo-profile dev-ci --features cuda,opencl
+          CC=gcc-10 CXX=g++-10 cargo nextest run --profile ci --cargo-profile dev-ci --features cuda,opencl
 
   rustfmt_n_clippy:
     runs-on: ubuntu-latest

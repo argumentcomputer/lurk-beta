@@ -1390,6 +1390,7 @@ dependencies = [
  "pairing",
  "pasta-msm",
  "pasta_curves",
+ "peekmore",
  "pprof",
  "pretty_env_logger",
  "proptest",
@@ -1757,6 +1758,12 @@ dependencies = [
  "static_assertions",
  "subtle",
 ]
+
+[[package]]
+name = "peekmore"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9163e1259760e83d528d1b3171e5100c1767f10c52e1c4d6afad26e63d47d758"
 
 [[package]]
 name = "plotters"

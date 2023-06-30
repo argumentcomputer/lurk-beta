@@ -103,7 +103,8 @@ impl<F: LurkField> GlobalAllocations<F> {
             store,
             &store.get_cont_error(),
         )?;
-        let error_ptr = AllocatedPtr::from_parts(error_ptr_cont.tag(), error_ptr_cont.hash());
+        let error_ptr =
+            AllocatedPtr::from_parts(error_ptr_cont.tag().clone(), error_ptr_cont.hash().clone());
 
         let dummy_ptr = AllocatedContPtr::alloc_constant_cont_ptr(
             &mut cs.namespace(|| "dummy continuation"),
