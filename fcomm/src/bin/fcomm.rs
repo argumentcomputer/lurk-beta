@@ -147,7 +147,7 @@ struct Prove {
     #[clap(short = 'x', long, value_parser)]
     expression: Option<PathBuf>,
 
-    /// Path to proof input
+    /// Path to proof output
     #[clap(short, long, value_parser)]
     proof: PathBuf,
 

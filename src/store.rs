@@ -941,22 +941,13 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    // TODO: add cycle detection to avoid infinite recursions
+    // TODO: add cycle detection to avoid infinite recursion
     pub fn get_z_expr(
         &self,
         ptr: &Ptr<F>,
         z_store: Option<Rc<RefCell<ZStore<F>>>>,
     ) -> Result<(ZExprPtr<F>, Option<ZExpr<F>>), Error> {
-        if let Some(idx) = ptr.raw.opaque_idx() {
-            let z_ptr = self
-                .opaque_ptrs
-                .get_index(idx)
-                .ok_or(Error("get_z_expr unknown opaque".into()))?;
-            // TODO: should we try to dereference the opaque pointer?
-            Ok((*z_ptr, None))
-        } else if let Some((z_ptr, z_expr)) = self.z_expr_ptr_cache.get(ptr) {
-            Ok((*z_ptr, z_expr.clone()))
-        } else {
+        let get_z_expr_aux = || {
             let (z_ptr, z_expr) = match self.fetch(ptr) {
                 Some(Expression::Nil) => (ZExpr::Nil.z_ptr(&self.poseidon_cache), Some(ZExpr::Nil)),
                 Some(Expression::Cons(car, cdr)) => {
@@ -1034,13 +1025,30 @@ impl<F: LurkField> Store<F> {
                 }
                 None => return Err(Error("get_z_expr unknown opaque".into())),
             };
-            if let Some(z_store) = z_store {
-                z_store.borrow_mut().insert_z_expr(&z_ptr, z_expr.clone());
-            };
             self.z_expr_ptr_map.insert(z_ptr, Box::new(*ptr));
             self.z_expr_ptr_cache
                 .insert(*ptr, Box::new((z_ptr, z_expr.clone())));
             Ok((z_ptr, z_expr))
+        };
+        if let Some(idx) = ptr.raw.opaque_idx() {
+            let z_ptr = self
+                .opaque_ptrs
+                .get_index(idx)
+                .ok_or(Error("get_z_expr unknown opaque".into()))?;
+            // TODO: should we try to dereference the opaque pointer?
+            Ok((*z_ptr, None))
+        } else {
+            // Store all children reachable from Ptr in ZStore
+            if let Some(z_store) = z_store.clone() {
+                let (z_ptr, z_expr) = get_z_expr_aux()?;
+                z_store.borrow_mut().insert_z_expr(&z_ptr, z_expr.clone());
+                Ok((z_ptr, z_expr))
+            // Check the Ptr cache, used extensively in hydration
+            } else if let Some((z_ptr, z_expr)) = self.z_expr_ptr_cache.get(ptr) {
+                Ok((*z_ptr, z_expr.clone()))
+            } else {
+                get_z_expr_aux()
+            }
         }
     }
 
@@ -2453,15 +2461,16 @@ pub mod test {
         let comm2 = commit_and_open(store, two);
         let comm3 = commit_and_open(store, three);
 
-        // Store/ZStore roundtrip conversion
         store.hydrate_scalar_cache();
+
         let (z_store, z_ptr) = ZStore::new_with_expr(store, &comm2);
         let z_ptr = z_ptr.unwrap();
 
         let (store, _ptr) = z_store.to_store_with_z_ptr(&z_ptr).unwrap();
-
         let (_, two_opened) = store.open(comm2).unwrap();
-        assert_eq!(two, two_opened);
+        // The `cons_store` indices are scrambled when converting to a ZStore, so we
+        // hash each pointer to check equality
+        assert!(store.ptr_eq(&two, &two_opened).unwrap());
 
         assert!(store.open(comm3).is_none());
     }

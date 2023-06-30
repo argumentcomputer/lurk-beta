@@ -62,14 +62,14 @@ impl<F: LurkField> ZStore<F> {
     }
 
     /// Creates a new `ZStore` and adds all `ZExprPtrs` reachable from the hashed `expr`
+    /// Inserts child pointers into `ZStore` with `to_z_store_with_ptr`,
+    /// then inserts top level pointer
+    /// Discards errors and returns an empty `ZStore` instead
     pub fn new_with_expr(store: &Store<F>, expr: &Ptr<F>) -> (Self, Option<ZExprPtr<F>>) {
-        let (mut new, z_ptr) = match store.to_z_store_with_ptr(expr) {
-            Ok((new, z_ptr)) => (new, z_ptr),
-            _ => return (ZStore::new(), None),
-        };
-        let z_expr = ZExpr::from_ptr(store, expr);
-        new.expr_map.insert(z_ptr, z_expr);
-        (new, Some(z_ptr))
+        match store.to_z_store_with_ptr(expr) {
+            Ok((new, z_ptr)) => (new, Some(z_ptr)),
+            _ => (ZStore::new(), None),
+        }
     }
 
     /// Converts a Lurk expression to a `ZExpr` and stores it in the `ZStore`, returning
