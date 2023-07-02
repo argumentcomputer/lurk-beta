@@ -66,27 +66,19 @@ impl Path {
     }
 }
 
-fn insert_one(map: &mut VarMap<Var>, path: &Path, ptr: &Var) -> Var {
-    let new_ptr = Var(format!("{}.{}", path, ptr.name()).into());
-    map.insert(ptr.clone(), new_ptr.clone());
-    new_ptr
-}
-
-fn insert_many(map: &mut VarMap<Var>, path: &Path, ptr: &[Var]) -> Vec<Var> {
-    ptr.iter()
-        .map(|ptr| insert_one(map, path, ptr))
-        .collect::<Vec<_>>()
-}
-
 #[inline]
-fn retrieve_one(map: &VarMap<Var>, ptr: &Var) -> Var {
-    map.get(ptr).to_owned()
+fn insert_one(map: &mut VarMap<Var>, path: &Path, ptr: &Var) -> Result<Var> {
+    let new_ptr = Var(format!("{}.{}", path, ptr.name()).into());
+    map.insert(ptr.clone(), new_ptr.clone())?;
+    Ok(new_ptr)
 }
 
-fn retrieve_many(map: &VarMap<Var>, args: &[Var]) -> Vec<Var> {
-    args.iter()
-        .map(|ptr| retrieve_one(map, ptr))
-        .collect::<Vec<_>>()
+fn insert_many(map: &mut VarMap<Var>, path: &Path, ptrs: &[Var]) -> Result<Vec<Var>> {
+    let mut vec = vec![];
+    for ptr in ptrs {
+        vec.push(insert_one(map, path, ptr)?);
+    }
+    Ok(vec)
 }
 
 impl LEMCTL {
@@ -106,73 +98,73 @@ impl LEMCTL {
         path: &Path,
         // `map` keeps track of the updated names of variables
         map: &mut VarMap<Var>, // name -> path.name
-    ) -> Self {
+    ) -> Result<Self> {
         match self {
             LEMCTL::MatchTag(var, cases) => {
                 let mut new_cases = vec![];
                 for (tag, case) in cases {
-                    let new_case = case.deconflict(&path.push_tag(tag), &mut map.clone());
+                    let new_case = case.deconflict(&path.push_tag(tag), &mut map.clone())?;
                     new_cases.push((*tag, new_case));
                 }
-                LEMCTL::MatchTag(retrieve_one(map, var), IndexMap::from_iter(new_cases))
+                Ok(LEMCTL::MatchTag(map.get_cloned(var)?, IndexMap::from_iter(new_cases)))
             }
             LEMCTL::MatchSymbol(var, cases, def) => {
                 let mut new_cases = vec![];
                 for (symbol, case) in cases {
-                    let new_case = case.deconflict(&path.push_symbol(symbol), &mut map.clone());
+                    let new_case = case.deconflict(&path.push_symbol(symbol), &mut map.clone())?;
                     new_cases.push((symbol.clone(), new_case));
                 }
-                LEMCTL::MatchSymbol(
-                    retrieve_one(map, var),
+                Ok(LEMCTL::MatchSymbol(
+                    map.get_cloned(var)?,
                     IndexMap::from_iter(new_cases),
-                    Box::new(def.deconflict(&path.push_default(), &mut map.clone())),
-                )
+                    Box::new(def.deconflict(&path.push_default(), &mut map.clone())?),
+                ))
             }
             LEMCTL::Seq(ops, rest) => {
                 let mut new_ops = vec![];
                 for op in ops {
                     match op {
                         LEMOP::Null(ptr, tag) => {
-                            new_ops.push(LEMOP::Null(insert_one(map, path, ptr), *tag))
+                            new_ops.push(LEMOP::Null(insert_one(map, path, ptr)?, *tag))
                         }
                         LEMOP::Hash2(img, tag, preimg) => {
-                            let preimg = retrieve_many(map, preimg).try_into().unwrap();
-                            let img = insert_one(map, path, img);
+                            let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();
+                            let img = insert_one(map, path, img)?;
                             new_ops.push(LEMOP::Hash2(img, *tag, preimg))
                         }
                         LEMOP::Hash3(img, tag, preimg) => {
-                            let preimg = retrieve_many(map, preimg).try_into().unwrap();
-                            let img = insert_one(map, path, img);
+                            let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();
+                            let img = insert_one(map, path, img)?;
                             new_ops.push(LEMOP::Hash3(img, *tag, preimg))
                         }
                         LEMOP::Hash4(img, tag, preimg) => {
-                            let preimg = retrieve_many(map, preimg).try_into().unwrap();
-                            let img = insert_one(map, path, img);
+                            let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();
+                            let img = insert_one(map, path, img)?;
                             new_ops.push(LEMOP::Hash4(img, *tag, preimg))
                         }
                         LEMOP::Unhash2(preimg, img) => {
-                            let img = retrieve_one(map, img);
-                            let preimg = insert_many(map, path, preimg);
+                            let img = map.get_cloned(img)?;
+                            let preimg = insert_many(map, path, preimg)?;
                             new_ops.push(LEMOP::Unhash2(preimg.try_into().unwrap(), img))
                         }
                         LEMOP::Unhash3(preimg, img) => {
-                            let img = retrieve_one(map, img);
-                            let preimg = insert_many(map, path, preimg);
+                            let img = map.get_cloned(img)?;
+                            let preimg = insert_many(map, path, preimg)?;
                             new_ops.push(LEMOP::Unhash3(preimg.try_into().unwrap(), img))
                         }
                         LEMOP::Unhash4(preimg, img) => {
-                            let img = retrieve_one(map, img);
-                            let preimg = insert_many(map, path, preimg);
+                            let img = map.get_cloned(img)?;
+                            let preimg = insert_many(map, path, preimg)?;
                             new_ops.push(LEMOP::Unhash4(preimg.try_into().unwrap(), img))
                         }
                         LEMOP::Hide(..) => todo!(),
                         LEMOP::Open(..) => todo!(),
                     }
                 }
-                let new_rest = Box::new(rest.deconflict(path, map));
-                LEMCTL::Seq(new_ops, new_rest)
+                let new_rest = Box::new(rest.deconflict(path, map)?);
+                Ok(LEMCTL::Seq(new_ops, new_rest))
             }
-            LEMCTL::Return(o) => LEMCTL::Return(retrieve_many(map, o).try_into().unwrap()),
+            LEMCTL::Return(o) => Ok(LEMCTL::Return(map.get_many_cloned(o)?.try_into().unwrap())),
         }
     }
 

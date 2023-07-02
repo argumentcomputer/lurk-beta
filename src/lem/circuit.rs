@@ -334,7 +334,7 @@ impl LEM {
             allocate_num(cs, &format!("allocate {var}'s tag"), z_ptr.tag.to_field())?;
         let allocated_hash = allocate_num(cs, &format!("allocate {var}'s hash"), z_ptr.hash)?;
         let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
-        bound_allocations.insert(var.clone(), allocated_ptr.clone());
+        bound_allocations.insert(var.clone(), allocated_ptr.clone())?;
         Ok(allocated_ptr)
     }
 
@@ -378,11 +378,13 @@ impl LEM {
     fn get_allocated_preimg<'a, F: LurkField>(
         preimg: &[Var],
         bound_allocations: &'a BoundAllocations<F>,
-    ) -> Vec<&'a AllocatedPtr<F>> {
-        preimg
-            .iter()
-            .map(|x| bound_allocations.get(x))
-            .collect::<Vec<_>>()
+    ) -> Result<Vec<&'a AllocatedPtr<F>>> {
+        // TODO
+        bound_allocations.get_many(preimg)
+        // preimg
+        //     .iter()
+        //     .map(|x| bound_allocations.get(x))
+        //     .collect::<Vec<_>>()
     }
 
     #[inline]
@@ -568,7 +570,7 @@ impl LEM {
             match block {
                 LEMCTL::Return(output_vars) => {
                     for (i, output_var) in output_vars.iter().enumerate() {
-                        let allocated_ptr = g.bound_allocations.get(output_var);
+                        let allocated_ptr = g.bound_allocations.get(output_var)?;
 
                         allocated_ptr
                             .implies_ptr_equal(
@@ -583,7 +585,7 @@ impl LEM {
                     Ok(())
                 }
                 LEMCTL::MatchTag(match_var, cases) => {
-                    let allocated_match_tag = g.bound_allocations.get(match_var).tag().clone();
+                    let allocated_match_tag = g.bound_allocations.get(match_var)?.tag().clone();
                     let mut concrete_path_vec = Vec::new();
                     for (tag, op) in cases {
                         let allocated_has_match = alloc_equal_const(
@@ -630,7 +632,7 @@ impl LEM {
                             ( $img: expr, $tag: expr, $preimg: expr, $slot: expr ) => {
                                 // Retrieve allocated preimage
                                 let allocated_preimg =
-                                    LEM::get_allocated_preimg($preimg, &g.bound_allocations);
+                                    LEM::get_allocated_preimg($preimg, &g.bound_allocations)?;
 
                                 // Retrieve the preallocated preimage and image for this slot
                                 let (preallocated_preimg, preallocated_img_hash) =
@@ -671,14 +673,14 @@ impl LEM {
                                 let img_tag = g.global_allocator.get_or_alloc_const(cs, $tag.to_field())?;
                                 let img_hash = preallocated_img_hash.clone();
                                 let img_ptr = AllocatedPtr::from_parts(img_tag, img_hash);
-                                g.bound_allocations.insert($img, img_ptr);
+                                g.bound_allocations.insert($img, img_ptr)?;
                             };
                         }
 
                         macro_rules! unhash_helper {
                             ( $preimg: expr, $img: expr, $slot: expr ) => {
                                 // Retrieve allocated image
-                                let allocated_img = g.bound_allocations.get($img);
+                                let allocated_img = g.bound_allocations.get($img)?;
 
                                 // Retrieve the preallocated preimage and image for this slot
                                 let (preallocated_preimg, preallocated_img) =
@@ -704,7 +706,7 @@ impl LEM {
                                     let preimg_hash = &preallocated_preimg[i];
                                     let preimg_tag = &preallocated_preimg[i+1];
                                     let preimg_ptr = AllocatedPtr::from_parts(preimg_tag.clone(), preimg_hash.clone());
-                                    g.bound_allocations.insert($preimg[i].clone(), preimg_ptr);
+                                    g.bound_allocations.insert($preimg[i].clone(), preimg_ptr)?;
                                 }
                             };
                         }
@@ -733,7 +735,7 @@ impl LEM {
                                     g.global_allocator.get_or_alloc_const(cs, tag.to_field())?,
                                     g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
                                 );
-                                g.bound_allocations.insert(tgt.clone(), allocated_ptr);
+                                g.bound_allocations.insert(tgt.clone(), allocated_ptr)?;
                             }
                             _ => todo!(),
                         }

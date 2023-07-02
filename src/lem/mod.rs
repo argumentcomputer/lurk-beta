@@ -185,13 +185,13 @@ impl LEM {
     /// Instantiates a `LEM` with the appropriate transformations to make sure
     /// that constraining will be smooth.
     pub fn new(input: [Var; 3], lem: &LEMCTL) -> Result<LEM> {
-        let mut map = input.iter().fold(VarMap::new(), |mut acc, i| {
-            acc.insert(i.clone(), i.clone());
-            acc
-        });
+        let mut map = VarMap::new();
+        for i in input.iter() {
+            map.insert(i.clone(), i.clone())?
+        }
         Ok(LEM {
             input_vars: input,
-            ctl: lem.deconflict(&Path::default(), &mut map),
+            ctl: lem.deconflict(&Path::default(), &mut map)?,
         })
     }
 
