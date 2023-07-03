@@ -1047,7 +1047,7 @@ fn apply_continuation<F: LurkField>(
                 };
 
                 // The reason for matching the operator before trying to fetch is that, instead of the other way around,
-                // as it was before, is that opaque data can be tested for equality and consed without needing to be fetched
+                // as it was before, opaque data can be tested for equality and consed without needing to be fetched
                 // from the store
                 let result = match operator {
                     Op2::Equal => store.as_lurk_boolean(store.ptr_eq(&evaled_arg, &arg2)?),
