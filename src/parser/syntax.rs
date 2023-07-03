@@ -330,21 +330,21 @@ pub mod tests {
         R: std::fmt::Display + std::fmt::Debug + Clone + Eq,
     {
         match (expected, p.parse(Span::<'a>::new(i))) {
-            (Some(expected), Ok((_i, x))) if x == expected => true,
-            (Some(expected), Ok((_i, x))) => {
-                println!("input: {:?}", i);
-                println!("expected: {} {:?}", expected.clone(), expected);
-                println!("detected: {} {:?}", x.clone(), x);
+            (Some(expected), Ok((_, x))) if x == expected => true,
+            (Some(_), Ok(..)) => {
+                // println!("input: {:?}", i);
+                // println!("expected: {} {:?}", expected.clone(), expected);
+                // println!("detected: {} {:?}", x.clone(), x);
                 false
             }
             (Some(..), Err(e)) => {
                 println!("{}", e);
                 false
             }
-            (None, Ok((i, x))) => {
-                println!("input: {:?}", i);
-                println!("expected parse error");
-                println!("detected: {:?}", x);
+            (None, Ok(..)) => {
+                // println!("input: {:?}", i);
+                // println!("expected parse error");
+                // println!("detected: {:?}", x);
                 false
             }
             (None, Err(_e)) => true,
@@ -374,6 +374,7 @@ pub mod tests {
         assert!(test(parse_symbol(), "..", Some(symbol!([""]))));
         assert!(test(parse_symbol(), "foo", Some(symbol!(["foo"]))));
         assert!(test(parse_symbol(), "|foo|", Some(symbol!(["foo"]))));
+        assert!(test(parse_symbol(), "|Hi, bye|", Some(symbol!(["Hi, bye"]))));
         assert!(test(
             parse_symbol(),
             "|foo|.|bar|",
@@ -597,10 +598,14 @@ pub mod tests {
     #[test]
     fn unit_parse_num() {
         assert!(test(parse_num(), "0", Some(num!(0))));
+        assert!(test(parse_num(), "00", Some(num!(0))));
+        assert!(test(parse_num(), "001", Some(num!(1))));
         assert!(test(parse_num(), "0b0", Some(num!(0))));
         assert!(test(parse_num(), "0o0", Some(num!(0))));
         assert!(test(parse_num(), "0d0", Some(num!(0))));
         assert!(test(parse_num(), "0x0", Some(num!(0))));
+        assert!(test(parse_num(), "0xf", Some(num!(15))));
+        assert!(test(parse_num(), "0x0f", Some(num!(15))));
         assert!(test(
             parse_num(),
             "0xffff_ffff_ffff_ffff",
@@ -742,10 +747,10 @@ pub mod tests {
         let x: Syntax<Scalar> = symbol!(["-0"]);
         let text = format!("{}", x);
         let (_, res) = parse_syntax()(Span::new(&text)).expect("valid parse");
-        eprintln!("------------------");
-        eprintln!("{}", text);
-        eprintln!("{} {:?}", x, x);
-        eprintln!("{} {:?}", res, res);
+        // eprintln!("------------------");
+        // eprintln!("{}", text);
+        // eprintln!("{} {:?}", x, x);
+        // eprintln!("{} {:?}", res, res);
         assert_eq!(x, res)
     }
 
@@ -754,9 +759,9 @@ pub mod tests {
         fn prop_syntax(x in any::<Syntax<Scalar>>()) {
             let text = format!("{}", x);
             let (_, res) = parse_syntax()(Span::new(&text)).expect("valid parse");
-            eprintln!("------------------");
-            eprintln!("x {} {:?}", x, x);
-            eprintln!("res {} {:?}", res, res);
+            // eprintln!("------------------");
+            // eprintln!("x {} {:?}", x, x);
+            // eprintln!("res {} {:?}", res, res);
             assert_eq!(x, res)
         }
     }
