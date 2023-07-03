@@ -72,14 +72,14 @@ mod pointers;
 mod store;
 mod symbol;
 mod tag;
+mod var_map;
 
 use crate::field::LurkField;
-use anyhow::{bail, Result};
+use anyhow::Result;
 use indexmap::IndexMap;
-use std::collections::HashMap;
 use std::sync::Arc;
 
-use self::{interpreter::Frame, path::Path, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag};
+use self::{path::Path, store::Store, symbol::Symbol, tag::Tag, var_map::VarMap};
 
 pub type AString = Arc<str>;
 pub type AVec<A> = Arc<[A]>;
@@ -104,13 +104,6 @@ impl Var {
     #[inline]
     pub fn name(&self) -> &AString {
         &self.0
-    }
-
-    pub fn get_ptr<'a, F: LurkField>(&'a self, ptrs: &'a HashMap<Var, Ptr<F>>) -> Result<&Ptr<F>> {
-        match ptrs.get(self) {
-            Some(ptr) => Ok(ptr),
-            None => bail!("Variable {self} not defined"),
-        }
     }
 }
 
@@ -192,7 +185,10 @@ impl LEM {
     /// Instantiates a `LEM` with the appropriate transformations to make sure
     /// that constraining will be smooth.
     pub fn new(input: [Var; 3], lem: &LEMCTL) -> Result<LEM> {
-        let mut map = HashMap::from_iter(input.iter().map(|i| (i.clone(), i.clone())));
+        let mut map = VarMap::new();
+        for i in input.iter() {
+            map.insert(i.clone(), i.clone())?
+        }
         Ok(LEM {
             input_vars: input,
             ctl: lem.deconflict(&Path::default(), &mut map)?,
@@ -207,9 +203,9 @@ impl LEM {
 
     /// Asserts that all paths were visited by a set of frames. This is mostly
     /// for testing purposes.
-    pub fn assert_all_paths_taken<F: LurkField>(&self, frames: &[Frame<F>]) {
+    pub fn assert_all_paths_taken(&self, paths: &[Path]) {
         assert_eq!(
-            self.ctl.num_paths_taken(frames).unwrap(),
+            self.ctl.num_paths_taken(paths).unwrap(),
             self.ctl.num_paths()
         );
     }
@@ -240,7 +236,7 @@ mod tests {
 
         let mut cs_prev = None;
         for expr in exprs {
-            let frames = lem.eval(*expr, &mut store).unwrap();
+            let (frames, _) = lem.eval(*expr, &mut store).unwrap();
 
             let mut cs;
 

@@ -51,10 +51,10 @@ mod tests {
         // Assures that `MatchSymbol`s will work properly
         lem.intern_matched_symbols(store);
 
-        let mut all_frames = Vec::default();
+        let mut all_paths = vec![];
 
         for (expr_in, expr_out) in pairs {
-            let frames = lem.eval(expr_in, store).unwrap();
+            let (frames, paths) = lem.eval(expr_in, store).unwrap();
             assert!(
                 frames
                     .last()
@@ -64,9 +64,8 @@ mod tests {
             );
             store.hydrate_z_cache();
             let mut cs = TestConstraintSystem::<Fr>::new();
-            for frame in frames.clone() {
-                lem.synthesize(&mut cs, store, &slots_count, &frame)
-                    .unwrap();
+            for frame in frames.iter() {
+                lem.synthesize(&mut cs, store, &slots_count, frame).unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(cs.num_inputs(), NUM_INPUTS);
                 assert_eq!(cs.aux().len(), NUM_AUX);
@@ -74,12 +73,12 @@ mod tests {
                 let num_constraints = cs.num_constraints();
                 assert_eq!(computed_num_constraints, num_constraints);
                 assert_eq!(num_constraints, NUM_CONSTRAINTS);
-                // TODO: assert uniformity
+                // TODO: assert uniformity with `Delta` from bellperson
             }
-            all_frames.extend(frames);
+            all_paths.extend(paths);
         }
 
-        lem.assert_all_paths_taken(&all_frames);
+        lem.assert_all_paths_taken(&all_paths);
     }
 
     fn expr_in_expr_out_pairs(_store: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {

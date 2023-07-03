@@ -146,6 +146,7 @@ use super::{
     interpreter::Frame,
     pointers::{Ptr, ZPtr},
     store::Store,
+    var_map::VarMap,
     Var, LEM, LEMCTL, LEMOP,
 };
 
@@ -319,25 +320,7 @@ impl std::fmt::Display for Slot {
     }
 }
 
-#[derive(Default)]
-struct BoundAllocations<F: LurkField>(HashMap<Var, AllocatedPtr<F>>);
-
-impl<F: LurkField> BoundAllocations<F> {
-    pub(crate) fn insert(&mut self, var: Var, allocated_ptr: AllocatedPtr<F>) {
-        let msg =
-            &format!("Variable {var} has previously been defined. LEMs are supposed to be SSA.");
-        if self.0.insert(var, allocated_ptr).is_some() {
-            panic!("{msg}");
-        };
-    }
-
-    pub(crate) fn get(&self, var: &Var) -> &AllocatedPtr<F> {
-        match self.0.get(var) {
-            Some(allocated_ptr) => allocated_ptr,
-            None => panic!("Variable {var} has not been allocated"),
-        }
-    }
-}
+type BoundAllocations<F> = VarMap<AllocatedPtr<F>>;
 
 impl LEM {
     /// Allocates an unconstrained pointer
@@ -351,7 +334,7 @@ impl LEM {
             allocate_num(cs, &format!("allocate {var}'s tag"), z_ptr.tag.to_field())?;
         let allocated_hash = allocate_num(cs, &format!("allocate {var}'s hash"), z_ptr.hash)?;
         let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
-        bound_allocations.insert(var.clone(), allocated_ptr.clone());
+        bound_allocations.insert(var.clone(), allocated_ptr.clone())?;
         Ok(allocated_ptr)
     }
 
@@ -377,27 +360,19 @@ impl LEM {
         frame: &Frame<F>,
         bound_allocations: &mut BoundAllocations<F>,
     ) -> Result<Vec<AllocatedPtr<F>>> {
-        let mut allocated_output_ptrs = vec![];
-        for (i, ptr) in frame.output.iter().enumerate() {
-            let allocated_ptr = Self::allocate_ptr(
-                cs,
-                &store.hash_ptr(ptr)?,
-                &Var(format!("output[{}]", i).into()),
-                bound_allocations,
-            )?;
-            allocated_output_ptrs.push(allocated_ptr)
-        }
-        Ok(allocated_output_ptrs)
-    }
-
-    fn get_allocated_preimg<'a, F: LurkField>(
-        preimg: &[Var],
-        bound_allocations: &'a BoundAllocations<F>,
-    ) -> Vec<&'a AllocatedPtr<F>> {
-        preimg
+        frame
+            .output
             .iter()
-            .map(|x| bound_allocations.get(x))
-            .collect::<Vec<_>>()
+            .enumerate()
+            .map(|(i, ptr)| {
+                Self::allocate_ptr(
+                    cs,
+                    &store.hash_ptr(ptr)?,
+                    &Var(format!("output[{}]", i).into()),
+                    bound_allocations,
+                )
+            })
+            .collect::<Result<_>>()
     }
 
     #[inline]
@@ -450,7 +425,7 @@ impl LEM {
             "collected preimages exceeded the number of available slots"
         );
 
-        let mut preallocations = vec![];
+        let mut preallocations = Vec::with_capacity(num_slots);
 
         // First we perform the allocations for the slots containing data collected
         // by the interpreter
@@ -501,15 +476,12 @@ impl LEM {
                 idx: slot_idx,
                 typ: slot_type,
             };
-            let mut preallocated_preimg = vec![];
-            for component_idx in 0..slot_type.preimg_size() {
-                preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
-                    cs,
-                    &slot,
-                    component_idx,
-                    F::ZERO,
-                )?);
-            }
+            let preallocated_preimg: Vec<_> = (0..slot_type.preimg_size())
+                .map(|component_idx| {
+                    Self::allocate_preimg_component_for_slot(cs, &slot, component_idx, F::ZERO)
+                })
+                .collect::<Result<_, _>>()?;
+
             let preallocated_img =
                 Self::allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
 
@@ -534,7 +506,7 @@ impl LEM {
         frame: &Frame<F>,
     ) -> Result<()> {
         let mut global_allocator = GlobalAllocator::default();
-        let mut bound_allocations = BoundAllocations::default();
+        let mut bound_allocations = BoundAllocations::new();
 
         // Inputs are constrained by their usage inside LEM
         self.allocate_input(cs, store, frame, &mut bound_allocations)?;
@@ -586,7 +558,7 @@ impl LEM {
             match block {
                 LEMCTL::Return(output_vars) => {
                     for (i, output_var) in output_vars.iter().enumerate() {
-                        let allocated_ptr = g.bound_allocations.get(output_var);
+                        let allocated_ptr = g.bound_allocations.get(output_var)?;
 
                         allocated_ptr
                             .implies_ptr_equal(
@@ -601,7 +573,7 @@ impl LEM {
                     Ok(())
                 }
                 LEMCTL::MatchTag(match_var, cases) => {
-                    let allocated_match_tag = g.bound_allocations.get(match_var).tag().clone();
+                    let allocated_match_tag = g.bound_allocations.get(match_var)?.tag().clone();
                     let mut concrete_path_vec = Vec::new();
                     for (tag, op) in cases {
                         let allocated_has_match = alloc_equal_const(
@@ -648,7 +620,7 @@ impl LEM {
                             ( $img: expr, $tag: expr, $preimg: expr, $slot: expr ) => {
                                 // Retrieve allocated preimage
                                 let allocated_preimg =
-                                    LEM::get_allocated_preimg($preimg, &g.bound_allocations);
+                                    g.bound_allocations.get_many($preimg)?;
 
                                 // Retrieve the preallocated preimage and image for this slot
                                 let (preallocated_preimg, preallocated_img_hash) =
@@ -689,14 +661,14 @@ impl LEM {
                                 let img_tag = g.global_allocator.get_or_alloc_const(cs, $tag.to_field())?;
                                 let img_hash = preallocated_img_hash.clone();
                                 let img_ptr = AllocatedPtr::from_parts(img_tag, img_hash);
-                                g.bound_allocations.insert($img.clone(), img_ptr);
+                                g.bound_allocations.insert($img, img_ptr)?;
                             };
                         }
 
                         macro_rules! unhash_helper {
                             ( $preimg: expr, $img: expr, $slot: expr ) => {
                                 // Retrieve allocated image
-                                let allocated_img = g.bound_allocations.get($img);
+                                let allocated_img = g.bound_allocations.get($img)?;
 
                                 // Retrieve the preallocated preimage and image for this slot
                                 let (preallocated_preimg, preallocated_img) =
@@ -722,20 +694,20 @@ impl LEM {
                                     let preimg_hash = &preallocated_preimg[i];
                                     let preimg_tag = &preallocated_preimg[i+1];
                                     let preimg_ptr = AllocatedPtr::from_parts(preimg_tag.clone(), preimg_hash.clone());
-                                    g.bound_allocations.insert($preimg[i].clone(), preimg_ptr);
+                                    g.bound_allocations.insert($preimg[i].clone(), preimg_ptr)?;
                                 }
                             };
                         }
 
                         match op {
                             LEMOP::Hash2(img, tag, preimg) => {
-                                hash_helper!(img, tag, preimg, SlotType::Hash2);
+                                hash_helper!(img.clone(), tag, preimg, SlotType::Hash2);
                             }
                             LEMOP::Hash3(img, tag, preimg) => {
-                                hash_helper!(img, tag, preimg, SlotType::Hash3);
+                                hash_helper!(img.clone(), tag, preimg, SlotType::Hash3);
                             }
                             LEMOP::Hash4(img, tag, preimg) => {
-                                hash_helper!(img, tag, preimg, SlotType::Hash4);
+                                hash_helper!(img.clone(), tag, preimg, SlotType::Hash4);
                             }
                             LEMOP::Unhash2(preimg, img) => {
                                 unhash_helper!(preimg, img, SlotType::Hash2);
@@ -751,7 +723,7 @@ impl LEM {
                                     g.global_allocator.get_or_alloc_const(cs, tag.to_field())?,
                                     g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
                                 );
-                                g.bound_allocations.insert(tgt.clone(), allocated_ptr);
+                                g.bound_allocations.insert(tgt.clone(), allocated_ptr)?;
                             }
                             _ => todo!(),
                         }
