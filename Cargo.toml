@@ -90,7 +90,7 @@ tap = "1.0.1"
 tempfile = "3.5.0"
 
 [build-dependencies]
-vergen = "0.1"
+vergen = { version = "8", features = ["build", "git", "gitcl"] }
 
 [workspace]
 resolver = "2"

@@ -1,9 +1,5 @@
 use std::{sync::Arc, time::Duration};
 
-mod version {
-    include!(concat!(env!("OUT_DIR"), "/version.rs"));
-}
-
 use criterion::{
     black_box, criterion_group, criterion_main, measurement, BatchSize, BenchmarkGroup,
     BenchmarkId, Criterion, SamplingMode,
@@ -54,8 +50,8 @@ struct ProveParams {
 
 impl ProveParams {
     fn name(&self) -> String {
-        let date = version::commit_date();
-        let sha = version::short_sha();
+        let date = env!("VERGEN_GIT_COMMIT_DATE");
+        let sha = env!("VERGEN_GIT_SHA");
         format!("{date}:{sha}:Fibonacci-rc={}", self.reduction_count)
     }
 }

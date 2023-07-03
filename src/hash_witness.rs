@@ -12,7 +12,7 @@ use crate::hash::HashConst;
 use crate::ptr::{ContPtr, Ptr};
 use crate::store::{self, Store};
 use crate::tag::ExprTag;
-use crate::z_ptr::{ZExprPtr, ZContPtr};
+use crate::z_ptr::{ZContPtr, ZExprPtr};
 
 pub const MAX_CONSES_PER_REDUCTION: usize = 11;
 pub const MAX_CONTS_PER_REDUCTION: usize = 2;

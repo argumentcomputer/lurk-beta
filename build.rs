@@ -1,6 +1,8 @@
-extern crate vergen;
-use vergen::*;
+use std::error::Error;
+use vergen::EmitBuilder;
 
-fn main() {
-    vergen(SHORT_SHA | COMMIT_DATE).unwrap();
+fn main() -> Result<(), Box<dyn Error>> {
+    // Emit the instructions
+    EmitBuilder::builder().all_git().emit()?;
+    Ok(())
 }
