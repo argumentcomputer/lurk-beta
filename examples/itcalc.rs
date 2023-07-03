@@ -54,7 +54,7 @@ fn analyze_rcs(prog: Prog, n: usize, rcs: &[usize]) -> Vec<Opt<usize>> {
 }
 
 fn analyze_ncs_rcs(prog: Prog, ns: &[usize], rcs: &[usize]) -> Vec<Vec<Opt<usize>>> {
-    ns.iter().map(|n| analyze_rcs(prog, *n, &rcs)).collect()
+    ns.iter().map(|n| analyze_rcs(prog, *n, rcs)).collect()
 }
 
 /// Produces a table of 'real Lurk iterations' proved per loop-iteration/rc combination.

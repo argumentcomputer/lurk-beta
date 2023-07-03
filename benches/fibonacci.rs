@@ -15,7 +15,6 @@ use lurk::{
     eval::{
         empty_sym_env,
         lang::{Coproc, Lang},
-        Evaluator,
     },
     field::LurkField,
     proof::nova::NovaProver,
@@ -25,14 +24,14 @@ use lurk::{
     store::Store,
 };
 
-fn fib<F: LurkField>(store: &mut Store<F>, a: u64) -> Ptr<F> {
+fn fib<F: LurkField>(store: &mut Store<F>, _a: u64) -> Ptr<F> {
     let program = r#"
 (letrec ((next (lambda (a b) (next b (+ a b))))
            (fib (next 0 1)))
   (fib))
 "#;
 
-    store.read(&program).unwrap()
+    store.read(program).unwrap()
 }
 
 // The env output in the `fib_frame`th frame of the above, infinite Fibonacci computation will contain a binding of the
@@ -76,7 +75,7 @@ fn fibo_prove<M: measurement::Measurement>(prove_params: ProveParams, c: &mut Be
     c.bench_with_input(
         BenchmarkId::new(prove_params.name(), fib_n),
         &prove_params,
-        |b, prove_params| {
+        |b, _prove_params| {
             let mut store = Store::default();
 
             let env = empty_sym_env(&store);
@@ -90,8 +89,8 @@ fn fibo_prove<M: measurement::Measurement>(prove_params: ProveParams, c: &mut Be
             b.iter_batched(
                 || (frames, lang_rc.clone()),
                 |(frames, lang_rc)| {
-                    let result = prover.prove(&pp, &frames, &mut store, lang_rc);
-                    black_box(result);
+                    let result = prover.prove(&pp, frames, &mut store, lang_rc);
+                    let _ = black_box(result);
                 },
                 BatchSize::LargeInput,
             )

@@ -1,7 +1,7 @@
 use lurk::eval::{
     empty_sym_env,
     lang::{Coproc, Lang},
-    Evaluator, Frame, IO,
+    Evaluator,
 };
 use lurk::field::LurkField;
 use lurk::ptr::Ptr;
@@ -16,7 +16,7 @@ fn fib_expr<F: LurkField>(store: &mut Store<F>) -> Ptr<F> {
   (fib))
 "#;
 
-    store.read(&program).unwrap()
+    store.read(program).unwrap()
 }
 
 // The env output in the `fib_frame`th frame of the above, infinite Fibonacci computation contains a binding of the
@@ -26,12 +26,13 @@ fn fib_frame(n: usize) -> usize {
 }
 
 // Set the limit so the last step will be filled exactly, since Lurk currently only pads terminal/error continuations.
+#[allow(dead_code)]
 fn fib_limit(n: usize, rc: usize) -> usize {
     let frame = fib_frame(n);
     rc * (frame / rc + (frame % rc != 0) as usize)
 }
 
-fn lurk_fib(store: &mut Store<Scalar>, n: usize, rc: usize) -> Ptr<Scalar> {
+fn lurk_fib(store: &mut Store<Scalar>, n: usize, _rc: usize) -> Ptr<Scalar> {
     let lang = Lang::<Scalar, Coproc<Scalar>>::new();
     let frame_idx = fib_frame(n);
     // let limit = fib_limit(n, rc);

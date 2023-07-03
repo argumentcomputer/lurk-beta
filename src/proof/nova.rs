@@ -185,8 +185,7 @@ impl<C: Coprocessor<S1>> NovaProver<S1, C> {
     ) -> Result<(Proof<'_, C>, Vec<S1>, Vec<S1>, usize), ProofError> {
         let z0 = frames[0].input.to_vector(store)?;
         let zi = frames.last().unwrap().output.to_vector(store)?;
-        let circuits =
-            MultiFrame::from_frames(self.reduction_count(), &frames, store, lang.clone());
+        let circuits = MultiFrame::from_frames(self.reduction_count(), frames, store, lang.clone());
 
         let num_steps = circuits.len();
         let proof =
@@ -265,7 +264,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F>
                 let end = aux.len() - 6;
                 let inputs = &w.inputs_slice()[1..];
 
-                cs.extend_aux(&aux);
+                cs.extend_aux(aux);
                 cs.extend_inputs(inputs);
 
                 let scalars = &aux[end..];
@@ -293,10 +292,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F>
                 let s = self.store.expect("store missing");
                 let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?;
 
-                let res =
-                    self.synthesize_frames(cs, s, input_expr, input_env, input_cont, frames, &g);
-
-                res
+                self.synthesize_frames(cs, s, input_expr, input_env, input_cont, frames, &g)
             }
             None => {
                 assert!(self.store.is_none());

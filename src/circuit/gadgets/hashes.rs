@@ -130,7 +130,7 @@ impl<F: LurkField> AllocatedPtrHash<F> {
             .cloned()
             .collect();
 
-        let digest = constants.hash_with_witness(cs, pr, Some(&block))?;
+        let digest = constants.hash_with_witness(cs, pr, Some(block))?;
 
         Ok(Self { preimage, digest })
     }
@@ -161,7 +161,7 @@ impl<F: LurkField> AllocatedNumHash<F> {
 
         let pr: Vec<AllocatedNum<F>> = preimage.to_vec();
 
-        let digest = constants.hash_with_witness(cs, pr, Some(&block))?;
+        let digest = constants.hash_with_witness(cs, pr, Some(block))?;
 
         Ok(Self { preimage, digest })
     }
@@ -218,14 +218,14 @@ impl<'a, F: LurkField> HashConst<'a, F> {
         hash_circuit_witness_cache: Option<&mut HashCircuitWitnessCache<F>>,
     ) -> Result<AllocatedNum<F>, SynthesisError> {
         let witness_block = if cs.is_witness_generator() {
-            hash_circuit_witness_cache.and_then(|cache| {
+            hash_circuit_witness_cache.map(|cache| {
                 let key = preimage
                     .iter()
                     .map(|allocated| FWrap(allocated.get_value().unwrap()))
                     .collect::<Vec<_>>();
 
                 let cached = cache.get(&key).unwrap();
-                Some(cached)
+                cached
             })
         } else {
             None

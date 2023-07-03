@@ -320,13 +320,13 @@ impl<
                 } else {
                     let previous_frame = &frames[i * chunk_size];
                     let mut bogus_cs = WitnessCS::new();
-                    let x = previous_frame.input.unwrap().expr.clone();
+                    let x = previous_frame.input.unwrap().expr;
                     let input_expr =
                         AllocatedPtr::alloc_ptr(&mut bogus_cs, store, || Ok(&x)).unwrap();
-                    let y = previous_frame.input.unwrap().env.clone();
+                    let y = previous_frame.input.unwrap().env;
                     let input_env =
                         AllocatedPtr::alloc_ptr(&mut bogus_cs, store, || Ok(&y)).unwrap();
-                    let z = previous_frame.input.unwrap().cont.clone();
+                    let z = previous_frame.input.unwrap().cont;
                     let input_cont =
                         AllocatedContPtr::alloc_cont_ptr(&mut bogus_cs, store, || Ok(&z)).unwrap();
                     (input_expr, input_env, input_cont)
@@ -377,9 +377,9 @@ impl<
                 let output = self.synthesize_frames_sequential(
                     &mut cs,
                     store,
-                    input_expr.clone(),
-                    input_env.clone(),
-                    input_cont.clone(),
+                    input_expr,
+                    input_env,
+                    input_cont,
                     chunk,
                     Some(cons_and_cont_witnesses),
                     g,
@@ -395,7 +395,7 @@ impl<
             final_output = Some(output);
 
             let aux = frames_cs.aux_slice();
-            cs.extend_aux(&aux);
+            cs.extend_aux(aux);
         }
 
         final_output.unwrap()

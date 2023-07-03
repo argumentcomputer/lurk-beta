@@ -274,7 +274,7 @@ fn prove_benchmark(c: &mut Criterion) {
 
         b.iter(|| {
             let result = prover
-                .prove(&pp, frames.clone(), &mut store, lang_pallas_rc.clone())
+                .prove(&pp, &frames, &mut store, lang_pallas_rc.clone())
                 .unwrap();
             black_box(result);
         })
@@ -310,7 +310,7 @@ fn verify_benchmark(c: &mut Criterion) {
                 .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
                 .unwrap();
             let (proof, z0, zi, num_steps) = prover
-                .prove(&pp, frames, &mut store, lang_pallas_rc.clone())
+                .prove(&pp, &frames, &mut store, lang_pallas_rc.clone())
                 .unwrap();
 
             b.iter_batched(
@@ -356,7 +356,7 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
                 .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
                 .unwrap();
             let (proof, z0, zi, num_steps) = prover
-                .prove(&pp, frames, &mut store, lang_pallas_rc.clone())
+                .prove(&pp, &frames, &mut store, lang_pallas_rc.clone())
                 .unwrap();
 
             let compressed_proof = proof.compress(&pp).unwrap();

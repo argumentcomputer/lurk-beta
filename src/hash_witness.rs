@@ -414,7 +414,7 @@ where
     }
 }
 
-impl<'a, Name: HashName, T, const L: usize, F: LurkField> HashWitness<Name, T, L, F> {
+impl<Name: HashName, T, const L: usize, F: LurkField> HashWitness<Name, T, L, F> {
     pub fn length() -> usize {
         L
     }

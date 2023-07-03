@@ -2,7 +2,7 @@
 use anyhow::bail;
 use once_cell::sync::Lazy;
 
-pub static CONFIG: Lazy<Config> = Lazy::new(|| init_config());
+pub static CONFIG: Lazy<Config> = Lazy::new(init_config);
 
 fn canned_config_from_env() -> Option<CannedConfig> {
     if let Ok(x) = std::env::var("LURK_CANNED_CONFIG") {
@@ -47,9 +47,8 @@ impl Flow {
         } else {
             let num_threads = self.num_threads();
             let divides_evenly = total_n % num_threads == 0;
-            let chunk_size =
-                ((total_n / num_threads) as usize + !divides_evenly as usize).max(min_chunk_size);
-            chunk_size as usize
+
+            ((total_n / num_threads) + !divides_evenly as usize).max(min_chunk_size)
         }
     }
 }
@@ -62,19 +61,11 @@ pub struct ParallelConfig {
 }
 
 /// Should we use optimized witness-generation when possible?
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct WitnessGeneration {
     // NOTE: Neptune itself *will* do this transparently at the level of individual hashes, where possible.
     // so this configuration is only required for higher-level decisions.
     pub precompute_neptune: bool,
-}
-
-impl Default for WitnessGeneration {
-    fn default() -> Self {
-        Self {
-            precompute_neptune: false,
-        }
-    }
 }
 
 #[derive(Default, Debug)]
@@ -145,19 +136,17 @@ impl TryFrom<&str> for CannedConfig {
     type Error = anyhow::Error;
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        let config = match s {
+        match s {
             "FULLY-SEQUENTIAL" => Ok(Self::FullySequential),
             "MAX-PARALLEL-SIMPLE" => Ok(Self::MaxParallelSimple),
             "PARALLEL-STEPS-ONLY" => Ok(Self::ParallelStepsOnly),
             _ => bail!("Invalid CannedConfig: {s}"),
-        };
-
-        config
+        }
     }
 }
 
 fn init_config() -> Config {
     canned_config_from_env()
         .map(|x| x.into())
-        .unwrap_or_else(|| Config::fully_sequential())
+        .unwrap_or_else(Config::fully_sequential)
 }
