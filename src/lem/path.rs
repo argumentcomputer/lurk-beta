@@ -74,11 +74,7 @@ fn insert_one(map: &mut VarMap<Var>, path: &Path, ptr: &Var) -> Result<Var> {
 }
 
 fn insert_many(map: &mut VarMap<Var>, path: &Path, ptrs: &[Var]) -> Result<Vec<Var>> {
-    let mut vec = vec![];
-    for ptr in ptrs {
-        vec.push(insert_one(map, path, ptr)?);
-    }
-    Ok(vec)
+    ptrs.iter().map(|ptr| insert_one(map, path, ptr)).collect()
 }
 
 impl LEMCTL {

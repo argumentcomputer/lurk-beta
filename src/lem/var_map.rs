@@ -47,11 +47,7 @@ impl<V> VarMap<V> {
     }
 
     pub(crate) fn get_many(&self, args: &[Var]) -> Result<Vec<&V>> {
-        let mut vec = vec![];
-        for arg in args {
-            vec.push(self.get(arg)?);
-        }
-        Ok(vec)
+        args.iter().map(|arg| self.get(arg)).collect()
     }
 }
 
@@ -62,10 +58,6 @@ impl<V: Clone> VarMap<V> {
     }
 
     pub(crate) fn get_many_cloned(&self, args: &[Var]) -> Result<Vec<V>> {
-        let mut vec = vec![];
-        for arg in args {
-            vec.push(self.get_cloned(arg)?);
-        }
-        Ok(vec)
+        args.iter().map(|arg| self.get_cloned(arg)).collect()
     }
 }
