@@ -120,7 +120,7 @@ impl LEMCTL {
                 Ok(LEMCTL::MatchSymbol(
                     map.get_cloned(var)?,
                     IndexMap::from_iter(new_cases),
-                    Box::new(def.deconflict(&path.push_default(), &mut map.clone())?),
+                    Box::new(def.deconflict(&path.push_default(), map)?),
                 ))
             }
             LEMCTL::Seq(ops, rest) => {
