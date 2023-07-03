@@ -374,7 +374,11 @@ pub mod tests {
         assert!(test(parse_symbol(), "..", Some(symbol!([""]))));
         assert!(test(parse_symbol(), "foo", Some(symbol!(["foo"]))));
         assert!(test(parse_symbol(), "|foo|", Some(symbol!(["foo"]))));
-        assert!(test(parse_symbol(), "|Hi, bye|", Some(symbol!(["Hi, bye"]))));
+        assert!(test(
+            parse_symbol(),
+            "|Hi, bye|",
+            Some(symbol!(["Hi, bye"]))
+        ));
         assert!(test(
             parse_symbol(),
             "|foo|.|bar|",
