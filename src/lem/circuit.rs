@@ -375,18 +375,6 @@ impl LEM {
             .collect::<Result<_>>()
     }
 
-    fn get_allocated_preimg<'a, F: LurkField>(
-        preimg: &[Var],
-        bound_allocations: &'a BoundAllocations<F>,
-    ) -> Result<Vec<&'a AllocatedPtr<F>>> {
-        // TODO
-        bound_allocations.get_many(preimg)
-        // preimg
-        //     .iter()
-        //     .map(|x| bound_allocations.get(x))
-        //     .collect::<Vec<_>>()
-    }
-
     #[inline]
     fn allocate_preimg_component_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
@@ -632,7 +620,7 @@ impl LEM {
                             ( $img: expr, $tag: expr, $preimg: expr, $slot: expr ) => {
                                 // Retrieve allocated preimage
                                 let allocated_preimg =
-                                    LEM::get_allocated_preimg($preimg, &g.bound_allocations)?;
+                                    g.bound_allocations.get_many($preimg)?;
 
                                 // Retrieve the preallocated preimage and image for this slot
                                 let (preallocated_preimg, preallocated_img_hash) =
