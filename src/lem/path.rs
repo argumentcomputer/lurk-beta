@@ -106,7 +106,10 @@ impl LEMCTL {
                     let new_case = case.deconflict(&path.push_tag(tag), &mut map.clone())?;
                     new_cases.push((*tag, new_case));
                 }
-                Ok(LEMCTL::MatchTag(map.get_cloned(var)?, IndexMap::from_iter(new_cases)))
+                Ok(LEMCTL::MatchTag(
+                    map.get_cloned(var)?,
+                    IndexMap::from_iter(new_cases),
+                ))
             }
             LEMCTL::MatchSymbol(var, cases, def) => {
                 let mut new_cases = vec![];
