@@ -2,7 +2,7 @@ use assert_cmd::prelude::*;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-fn lurkrs_cmd() -> std::process::Command {
+fn lurk_cmd() -> std::process::Command {
     Command::cargo_bin("clutch").unwrap()
 }
 
@@ -16,14 +16,14 @@ fn demo_file(name: &str) -> PathBuf {
 
 #[test]
 fn test_help_command() {
-    let mut cmd = lurkrs_cmd();
+    let mut cmd = lurk_cmd();
 
     cmd.arg("--help");
     cmd.assert().success();
 }
 
 fn test_demo(name: &str) {
-    let mut cmd = lurkrs_cmd();
+    let mut cmd = lurk_cmd();
 
     cmd.arg(demo_file(name));
 

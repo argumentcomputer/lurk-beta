@@ -66,7 +66,7 @@ bin/lurk lurk-lib/example/fib.lurk  2.02s user 0.32s system 98% cpu 2.366 total
 
 ## `lurk-rs` (Rust), `(fib 5400)`
 ```
-➜  lurk-rs git:(spec) ✗ time bin/lurkrs ../lurk/lurk-lib/example/fib.lurk
+➜  lurk-rs git:(spec) ✗ time bin/lurk ../lurk/lurk-lib/example/fib.lurk
     Finished release [optimized] target(s) in 0.06s
      Running `target/release/examples/lurk ../lurk/lurk-lib/example/fib.lurk`
 Lurk REPL welcomes you.
@@ -83,7 +83,7 @@ Read from ../lurk/lurk-lib/example/fib.lurk: ;; (FIB TARGET) computes the elemen
         (fib 5400))
 
 Evaled: 0x1c5d87e5252b038cb7badf6ba7618014c7c16b1541ebece39ab9a40d4f030cbd
-bin/lurkrs ../lurk/lurk-lib/example/fib.lurk  0.21s user 0.04s system 74% cpu 0.335 total
+bin/lurk ../lurk/lurk-lib/example/fib.lurk  0.21s user 0.04s system 74% cpu 0.335 total
 ```
 
 Because it also highlights an important detail of the formal reduction algorithm, we note that `lurk-rs` evaluation
@@ -111,7 +111,7 @@ calls, or a tail call that SBCL cannot or has not optimized away.
 Meanwhile, `lurk-rs` happily computes `(fib 500000)` in 12 seconds.
 
 ```
-➜  lurk-rs git:(spec) ✗ time bin/lurkrs ../lurk/lurk-lib/example/fib.lurk
+➜  lurk-rs git:(spec) ✗ time bin/lurk ../lurk/lurk-lib/example/fib.lurk
     Finished release [optimized] target(s) in 0.06s
      Running `target/release/examples/lurk ../lurk/lurk-lib/example/fib.lurk`
 Lurk REPL welcomes you.
@@ -128,7 +128,7 @@ Read from ../lurk/lurk-lib/example/fib.lurk: ;; (FIB TARGET) computes the elemen
         (fib 500000))
 
 Evaled: 0x14b327ebbbdfbed3d6f26b3937196b3a7020b2e98c583832fe5fdb33e316aabb
-bin/lurkrs ../lurk/lurk-lib/example/fib.lurk  12.14s user 0.40s system 99% cpu 12.656 total
+bin/lurk ../lurk/lurk-lib/example/fib.lurk  12.14s user 0.40s system 99% cpu 12.656 total
 ```
 
 This example reveals the general structure of the canonical Lurk expression evaluation algorithm:
