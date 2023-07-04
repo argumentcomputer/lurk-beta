@@ -18,6 +18,9 @@ use pasta_curves::{pallas, vesta};
 use clap::{Args, Parser, Subcommand};
 use tap::TapOptional;
 
+const DEFAULT_FIELD: LanguageField = LanguageField::Pallas;
+const DEFAULT_LIMIT: usize = 100_000_000;
+
 #[derive(Parser, Debug)]
 #[clap(version, about, long_about = None)]
 struct Cli {
@@ -93,13 +96,10 @@ impl<F: LurkField, C: Coprocessor<F>> ReplState<F, C> {
         Ok(())
     }
 
-    pub fn verify_last_proof(&mut self) -> Result<()> {
+    pub fn verify(&mut self, proof_id: String) -> Result<()> {
         Ok(())
     }
 }
-
-const DEFAULT_FIELD: LanguageField = LanguageField::Pallas;
-const DEFAULT_LIMIT: usize = 100_000_000;
 
 fn get_field() -> Result<LanguageField> {
     if let Ok(lurk_field) = std::env::var("LURK_FIELD") {
@@ -132,6 +132,16 @@ fn get_store<F: LurkField + for<'a> serde::de::Deserialize<'a>>(
         .unwrap_or_default()
 }
 
+macro_rules! new_repl_state {
+    ( $cmd: expr, $field: path ) => {{
+        let limit = $cmd.limit.unwrap_or(DEFAULT_LIMIT);
+        let mut store = get_store(&$cmd.zstore);
+        let env = store.nil();
+        let repl_state = ReplState::<$field, Coproc<$field>>::new(store, env, limit);
+        repl_state
+    }};
+}
+
 fn main() -> Result<()> {
     pretty_env_logger::init();
 
@@ -139,70 +149,46 @@ fn main() -> Result<()> {
     // TODO: `lurk file.lurk` isn't parsed. is there a proper way to support it?
     match cli.command {
         None => Ok(()),
-        Some(Command::Repl(repl)) => {
-            let limit = repl.limit.unwrap_or(DEFAULT_LIMIT);
-            match get_field()? {
-                LanguageField::Pallas => {
-                    let mut store = get_store(&repl.zstore);
-                    let env = store.nil();
-                    let mut repl_state =
-                        ReplState::<pallas::Scalar, Coproc<pallas::Scalar>>::new(store, env, limit);
-                    repl_state.repl()
-                }
-                LanguageField::Vesta => {
-                    let mut store = get_store(&repl.zstore);
-                    let env = store.nil();
-                    let mut repl_state =
-                        ReplState::<vesta::Scalar, Coproc<vesta::Scalar>>::new(store, env, limit);
-                    repl_state.repl()
-                }
-                LanguageField::BLS12_381 => {
-                    let mut store = get_store(&repl.zstore);
-                    let env = store.nil();
-                    let mut repl_state =
-                        ReplState::<blstrs::Scalar, Coproc<blstrs::Scalar>>::new(store, env, limit);
-                    repl_state.repl()
-                }
+        Some(Command::Repl(cmd)) => match get_field()? {
+            LanguageField::Pallas => {
+                let mut repl_state = new_repl_state!(&cmd, pallas::Scalar);
+                repl_state.repl()
             }
-        }
-        Some(Command::Run(run)) => {
-            let limit = run.limit.unwrap_or(DEFAULT_LIMIT);
-            match get_field()? {
-                LanguageField::Pallas => {
-                    let mut store = get_store(&run.zstore);
-                    let env = store.nil();
-                    let mut repl_state =
-                        ReplState::<pallas::Scalar, Coproc<pallas::Scalar>>::new(store, env, limit);
-                    repl_state.load_file(&run.lurk_file)?;
-                    if run.prove {
-                        repl_state.prove_last_claim()?;
-                    }
-                    Ok(())
-                }
-                LanguageField::Vesta => {
-                    let mut store = get_store(&run.zstore);
-                    let env = store.nil();
-                    let mut repl_state =
-                        ReplState::<vesta::Scalar, Coproc<vesta::Scalar>>::new(store, env, limit);
-                    repl_state.load_file(&run.lurk_file)?;
-                    if run.prove {
-                        repl_state.prove_last_claim()?;
-                    }
-                    Ok(())
-                }
-                LanguageField::BLS12_381 => {
-                    let mut store = get_store(&run.zstore);
-                    let env = store.nil();
-                    let mut repl_state =
-                        ReplState::<blstrs::Scalar, Coproc<blstrs::Scalar>>::new(store, env, limit);
-                    repl_state.load_file(&run.lurk_file)?;
-                    if run.prove {
-                        repl_state.prove_last_claim()?;
-                    }
-                    Ok(())
-                }
+            LanguageField::Vesta => {
+                let mut repl_state = new_repl_state!(&cmd, vesta::Scalar);
+                repl_state.repl()
             }
-        }
+            LanguageField::BLS12_381 => {
+                let mut repl_state = new_repl_state!(&cmd, blstrs::Scalar);
+                repl_state.repl()
+            }
+        },
+        Some(Command::Run(cmd)) => match get_field()? {
+            LanguageField::Pallas => {
+                let mut repl_state = new_repl_state!(&cmd, pallas::Scalar);
+                repl_state.load_file(&cmd.lurk_file)?;
+                if cmd.prove {
+                    repl_state.prove_last_claim()?;
+                }
+                Ok(())
+            }
+            LanguageField::Vesta => {
+                let mut repl_state = new_repl_state!(&cmd, vesta::Scalar);
+                repl_state.load_file(&cmd.lurk_file)?;
+                if cmd.prove {
+                    repl_state.prove_last_claim()?;
+                }
+                Ok(())
+            }
+            LanguageField::BLS12_381 => {
+                let mut repl_state = new_repl_state!(&cmd, blstrs::Scalar);
+                repl_state.load_file(&cmd.lurk_file)?;
+                if cmd.prove {
+                    repl_state.prove_last_claim()?;
+                }
+                Ok(())
+            }
+        },
         Some(Command::Verify(verify)) => Ok(()),
     }
 }
