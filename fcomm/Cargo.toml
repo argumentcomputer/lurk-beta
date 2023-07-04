@@ -19,7 +19,6 @@ clap = { version = "3.2", features = ["derive"] }
 clap-verbosity-flag = "1.0"
 ff = { workspace = true }
 hex = { version = "0.4.3", features = ["serde"] }
-libipld = { workspace = true, features = ["dag-cbor", "dag-json", "serde-codec"] }
 log = { workspace = true }
 lurk = { path = "../", package = "lurk" }
 once_cell = { workspace = true }

@@ -38,6 +38,7 @@
           buildInputs = with pkgs; [
             ocl-icd
             toolchain
+            rust-analyzer
             clang
           ];
         };

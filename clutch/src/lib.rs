@@ -1,9 +1,9 @@
 #![doc = include_str!("../README.md")]
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Error, Result};
 use clap::{Arg, ArgAction, Command};
 use lurk::public_parameters::{
-    public_params, Claim, Commitment, CommittedExpression, CommittedExpressionMap, Id, LurkCont,
+    public_params, Claim, Commitment, CommittedExpression, CommittedExpressionMap, LurkCont,
     LurkPtr, NovaProofCache, Opening, Proof, PtrEvaluation,
 };
 use pasta_curves::pallas;
@@ -15,12 +15,11 @@ use lurk::eval::{
 };
 use lurk::expr::Expression;
 use lurk::field::LurkField;
-use lurk::package::Package;
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::ptr::Ptr;
 use lurk::repl::{ReplState, ReplTrait};
 use lurk::store::Store;
-use lurk::sym::Sym;
+use lurk::symbol::Symbol;
 use lurk::tag::ExprTag;
 use lurk::writer::Write;
 
@@ -193,31 +192,35 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
         &mut self,
         store: &mut Store<F>,
         expr_ptr: Ptr<F>,
-        package: &Package,
         p: P,
     ) -> Result<()> {
         let expr = store.fetch(&expr_ptr).unwrap();
 
         macro_rules! delegate {
             () => {
-                self.repl_state.handle_meta(store, expr_ptr, package, p)
+                self.repl_state.handle_meta(store, expr_ptr, p)
             };
         }
 
         let res: Option<Ptr<F>> = match expr {
             Expression::Cons(car, rest) => match &store.fetch(&car).unwrap() {
-                Expression::Sym(Sym::Sym(s)) => match s.name().as_str() {
-                    "CALL" => self.call(store, rest)?,
-                    "CHAIN" => self.chain(store, rest)?,
-                    "COMMIT" => self.commit(store, rest)?,
-                    "OPEN" => self.open(store, rest)?,
-                    "PROOF-IN-EXPR" => self.proof_in_expr(store, rest)?,
-                    "PROOF-OUT-EXPR" => self.proof_out_expr(store, rest)?,
-                    "PROOF-CLAIM" => self.proof_claim(store, rest)?,
-                    "PROVE" => self.prove(store, rest)?,
-                    "VERIFY" => self.verify(store, rest)?,
-                    _ => return delegate!(),
-                },
+                Expression::Sym(_, _) => {
+                    let s: Symbol = store
+                        .fetch_sym(&car)
+                        .ok_or(Error::msg("handle_meta fetch symbol"))?;
+                    match format!("{}", s).as_str() {
+                        "call" => self.call(store, rest)?,
+                        "chain" => self.chain(store, rest)?,
+                        "lurk.commit" => self.commit(store, rest)?,
+                        "lurk.open" => self.open(store, rest)?,
+                        "proof-in-expr" => self.proof_in_expr(store, rest)?,
+                        "proof-out-expr" => self.proof_out_expr(store, rest)?,
+                        "proof-claim" => self.proof_claim(store, rest)?,
+                        "prove" => self.prove(store, rest)?,
+                        "verify" => self.verify(store, rest)?,
+                        _ => return delegate!(),
+                    }
+                }
                 Expression::Comm(_, c) => {
                     // NOTE: this cannot happen from a text-based REPL, since there is not currrently a literal Comm syntax.
                     self.apply_comm(store, *c, rest)?
@@ -286,7 +289,7 @@ impl ClutchState<F, Coproc<F>> {
 
         let (expr, secret) = if rest.is_nil() {
             // TODO: also support Commitment::from_ptr_with_hiding (randomized secret at runtime).
-            (first, F::zero())
+            (first, <F as ff::Field>::ZERO)
         } else if let Expression::Num(n) = store
             .fetch(&second)
             .ok_or_else(|| anyhow!("second arg to !:COMMIT must be a number."))?
@@ -298,7 +301,7 @@ impl ClutchState<F, Coproc<F>> {
 
         let (evaled, _, _, _) = self.repl_state.eval_expr(expr, store)?;
 
-        let commitment = Commitment::from_ptr_and_secret(store, &evaled, secret);
+        let commitment = Commitment::from_ptr_and_secret(store, &evaled, secret)?;
 
         let committed_expression = CommittedExpression {
             expr: LurkPtr::from_ptr(store, &evaled),
@@ -341,7 +344,7 @@ impl ClutchState<F, Coproc<F>> {
             .ok_or_else(|| anyhow!("secret missing"))
             .and_then(|hash| {
                 store
-                    .get_expr_hash(&hash)
+                    .hash_expr(&hash)
                     .ok_or_else(|| anyhow!("hash missing"))
             })
             .map(|hash| *hash.value())?;
@@ -350,7 +353,7 @@ impl ClutchState<F, Coproc<F>> {
             .open(new_comm)
             .ok_or_else(|| anyhow!("opening missing"))?;
 
-        let new_commitment = Commitment::from_comm(store, &new_comm);
+        let new_commitment = Commitment::from_comm(store, &new_comm)?;
 
         let expr = LurkPtr::from_ptr(store, &new_fun);
 
@@ -387,7 +390,7 @@ impl ClutchState<F, Coproc<F>> {
 
         let (output, new_commitment) = if chain {
             let (output, new_comm) = store.car_cdr(&result)?;
-            (output, Some(Commitment::from_comm(store, &new_comm)))
+            (output, Some(Commitment::from_comm(store, &new_comm)?))
         } else {
             (result, None)
         };
@@ -427,7 +430,7 @@ impl ClutchState<F, Coproc<F>> {
             }
         };
 
-        let commitment = Commitment::from_comm(store, &comm);
+        let commitment = Commitment::from_comm(store, &comm)?;
 
         if let Ok((_secret, value)) = store.open_mut(maybe_comm) {
             return Ok((commitment, Some(value)));
@@ -476,19 +479,13 @@ impl ClutchState<F, Coproc<F>> {
 
     fn get_proof(&self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Proof<F>> {
         let (proof_cid, _rest1) = store.car_cdr(&rest)?;
-        let cid_string = if let Expression::Str(p) = store
-            .fetch(&proof_cid)
-            .ok_or_else(|| anyhow!("failed to fetch cid string"))?
-        {
-            p.to_string()
-        } else {
-            bail!("proof cid must be a string");
-        };
+        let zptr_string = store
+            .fetch_string(&proof_cid)
+            .ok_or_else(|| anyhow!("proof cid must be a string"))?;
 
-        let cid = lurk::public_parameters::cid_from_string(&cid_string)?;
         self.proof_map
-            .get(&cid)
-            .ok_or_else(|| anyhow!("proof not found: {cid}"))
+            .get(&zptr_string)
+            .ok_or_else(|| anyhow!("proof not found: {zptr_string}"))
     }
 
     fn prove(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
@@ -526,14 +523,18 @@ impl ClutchState<F, Coproc<F>> {
         }?;
 
         if proof.verify(&pp, &self.lang())?.verified {
-            let cid_str = proof.claim.cid().to_string();
+            let zptr_string = proof
+                .claim
+                .proof_key()
+                .map_err(|_| Error::msg("Failed to generate proof key"))?
+                .to_base32();
             match proof.claim {
                 Claim::Evaluation(_) | Claim::Opening(_) => println!("{0:#?}", proof.claim),
                 Claim::PtrEvaluation(_) => println!("Claim::PtrEvaluation elided."),
             }
 
-            let cid = store.str(cid_str);
-            Ok(Some(cid))
+            let zid = store.str(zptr_string);
+            Ok(Some(zid))
         } else {
             bail!("verification of new proof failed");
         }
@@ -541,20 +542,14 @@ impl ClutchState<F, Coproc<F>> {
     fn verify(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let (proof_cid, _) = store.car_cdr(&rest)?;
 
-        let cid_string = if let Expression::Str(p) = store
-            .fetch(&proof_cid)
-            .ok_or_else(|| anyhow!("failed to fetch cid string"))?
-        {
-            p.to_string()
-        } else {
-            bail!("proof cid must be a string");
-        };
+        let zptr_string = store
+            .fetch_string(&proof_cid)
+            .ok_or_else(|| anyhow!("failed to fetch zptr string"))?;
 
-        let cid = lurk::public_parameters::cid_from_string(&cid_string)?;
         let proof = self
             .proof_map
-            .get(&cid)
-            .ok_or_else(|| anyhow!("proof not found: {cid}"))?;
+            .get(&zptr_string)
+            .ok_or_else(|| anyhow!("proof not found: {zptr_string}"))?;
 
         let pp = public_params(self.reduction_count, self.lang())?;
         let result = proof.verify(&pp, &self.lang()).unwrap();

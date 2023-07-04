@@ -3,10 +3,17 @@ use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
-use std::str::FromStr;
 use std::sync::Arc;
 
+#[cfg(not(target_arch = "wasm32"))]
+use proptest::prelude::*;
+#[cfg(not(target_arch = "wasm32"))]
+use proptest_derive::Arbitrary;
+
 use crate::coprocessor::Coprocessor;
+use crate::error::ReductionError;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::field::FWrap;
 use crate::{
     circuit::ToInputs,
     eval::{
@@ -15,24 +22,19 @@ use crate::{
         Evaluable, Evaluator, Status, Witness, IO,
     },
     field::LurkField,
+    hash::PoseidonCache,
     proof::nova::{self, NovaProver, PublicParams},
     proof::Prover,
-    ptr::{ContPtr, Ptr, ScalarPtr},
-    scalar_store::ScalarStore,
+    ptr::{ContPtr, Ptr},
     store::Store,
     tag::ExprTag,
     writer::Write,
+    z_expr::ZExpr,
+    z_ptr::ZExprPtr,
+    z_store::ZStore,
 };
 use ff::PrimeField;
 use hex::FromHex;
-use libipld::{
-    cbor::DagCborCodec,
-    json::DagJsonCodec,
-    multihash::{Code, MultihashDigest},
-    prelude::Codec,
-    serde::{from_ipld, to_ipld},
-    Cid, Ipld,
-};
 use once_cell::sync::OnceCell;
 use pasta_curves::pallas;
 use rand::rngs::OsRng;
@@ -66,9 +68,9 @@ mod base64 {
     }
 }
 
-pub type NovaProofCache = FileMap<Cid, Proof<'static, S1>>;
+pub type NovaProofCache = FileMap<String, Proof<'static, S1>>;
 pub fn nova_proof_cache(reduction_count: usize) -> NovaProofCache {
-    FileMap::<Cid, Proof<'_, S1>>::new(format!("nova_proofs.{}", reduction_count)).unwrap()
+    FileMap::<String, Proof<'_, S1>>::new(format!("nova_proofs.{}", reduction_count)).unwrap()
 }
 
 pub type CommittedExpressionMap = FileMap<Commitment<S1>, CommittedExpression<S1>>;
@@ -93,6 +95,7 @@ pub enum ReductionCount {
     OneHundred,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
 pub struct Evaluation {
     pub expr: String,
@@ -105,27 +108,34 @@ pub struct Evaluation {
     pub iterations: Option<usize>,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
-pub struct PtrEvaluation {
-    pub expr: LurkPtr,
-    pub env: LurkPtr,
+pub struct PtrEvaluation<F: LurkField> {
+    pub expr: LurkPtr<F>,
+    pub env: LurkPtr<F>,
     pub cont: LurkCont,
-    pub expr_out: LurkPtr,
-    pub env_out: LurkPtr,
+    pub expr_out: LurkPtr<F>,
+    pub env_out: LurkPtr<F>,
     pub cont_out: LurkCont,
     pub status: Status,
     pub iterations: Option<usize>,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Commitment<F: LurkField> {
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        proptest(strategy = "any::<FWrap<F>>().prop_map(|x| x.0)")
+    )]
     pub comm: F,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct OpeningRequest<F: LurkField> {
     pub commitment: Commitment<F>,
-    pub input: Expression,
+    pub input: Expression<F>,
     pub chain: bool,
 }
 
@@ -184,10 +194,12 @@ impl<F: LurkField> FromHex for Commitment<F> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct Expression {
-    pub expr: LurkPtr,
+pub struct Expression<F: LurkField> {
+    pub expr: LurkPtr<F>,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct Opening<F: LurkField> {
     pub input: String,
@@ -197,27 +209,32 @@ pub struct Opening<F: LurkField> {
     pub new_commitment: Option<Commitment<F>>,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
-pub struct LurkScalarBytes {
+pub struct ZBytes {
     #[serde(with = "base64")]
-    scalar_store: Vec<u8>,
+    z_store: Vec<u8>,
     #[serde(with = "base64")]
-    scalar_ptr: Vec<u8>, // can also be a scalar_cont_ptr
+    z_ptr: Vec<u8>, // can also be a scalar_cont_ptr
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct LurkScalarIpld {
-    scalar_store: Ipld,
-    scalar_ptr: Ipld,
+pub struct ZStorePtr<F: LurkField> {
+    z_store: ZStore<F>,
+    z_ptr: ZExprPtr<F>,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub enum LurkPtr {
+pub enum LurkPtr<F: LurkField> {
     Source(String),
-    ScalarBytes(LurkScalarBytes),
-    Ipld(LurkScalarIpld),
+    ZStorePtr(ZStorePtr<F>),
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
 pub enum LurkCont {
     #[default]
@@ -226,17 +243,23 @@ pub enum LurkCont {
     Error,
 }
 
-impl Default for LurkPtr {
+impl<F: LurkField> Default for LurkPtr<F> {
     fn default() -> Self {
-        Self::Source("NIL".to_string())
+        Self::Source("nil".to_string())
     }
 }
 
-impl Eq for LurkPtr {}
+impl<F: LurkField> Eq for LurkPtr<F> {}
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct CommittedExpression<F: LurkField + Serialize> {
-    pub expr: LurkPtr,
+    pub expr: LurkPtr<F>,
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        proptest(strategy = "any::<FWrap<F>>().prop_map(|x| Some(x.0))")
+    )]
     pub secret: Option<F>,
     pub commitment: Option<Commitment<F>>,
 }
@@ -254,11 +277,48 @@ pub struct Proof<'a, F: LurkField> {
     pub reduction_count: ReductionCount,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Claim<F: LurkField> {
     Evaluation(Evaluation),
-    PtrEvaluation(PtrEvaluation),
+    // TODO: Add Expression type
+    PtrEvaluation(PtrEvaluation<F>),
     Opening(Opening<F>),
+}
+
+impl<F: LurkField + Serialize + for<'de> Deserialize<'de>> Claim<F> {
+    /// Returns the ZPtr corresponding to the claim
+    pub fn proof_key(&self) -> Result<ZExprPtr<F>, Error> {
+        match self {
+            Claim::Evaluation(eval) => {
+                // Only keying on input and output for now
+                let expr_in = ZExprPtr::<F>::from_lurk_str(&eval.expr)?;
+                let expr_out = ZExprPtr::<F>::from_lurk_str(&eval.expr_out)?;
+                let expr = ZExpr::Cons(expr_in, expr_out);
+                Ok(expr.z_ptr(&PoseidonCache::default()))
+            }
+            Claim::PtrEvaluation(ptr_eval) => {
+                let expr_in: ZExprPtr<F> = match &ptr_eval.expr {
+                    LurkPtr::Source(source) => ZExprPtr::<F>::from_lurk_str(source)?,
+                    LurkPtr::ZStorePtr(zsp) => zsp.z_ptr,
+                };
+                let expr_out = match &ptr_eval.expr_out {
+                    LurkPtr::Source(source) => ZExprPtr::<F>::from_lurk_str(source)?,
+                    LurkPtr::ZStorePtr(zsp) => zsp.z_ptr,
+                };
+                let expr = ZExpr::Cons(expr_in, expr_out);
+                Ok(expr.z_ptr(&PoseidonCache::default()))
+            }
+            // TODO: Is this an appropriate key for commitments?
+            Claim::Opening(open) => {
+                let expr_in = ZExprPtr::<F>::from_lurk_str(&open.input)?;
+                let expr_out = ZExprPtr::<F>::from_lurk_str(&open.output)?;
+                let expr = ZExpr::Cons(expr_in, expr_out);
+                Ok(expr.z_ptr(&PoseidonCache::default()))
+            }
+        }
+    }
 }
 
 // This is just a rough idea, mostly here so we can plumb it elsewhere. The idea is that a verifier can sign an
@@ -267,36 +327,12 @@ pub enum Claim<F: LurkField> {
 // this. Even if not entirely realistic, something with this general *shape* is likely to play a role in a recursive
 // system where the ability to aggregate proof verification more soundly is possible.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct Cert {
-    #[serde(serialize_with = "cid_string", deserialize_with = "string_cid")]
-    pub claim_cid: Cid,
-    #[serde(serialize_with = "cid_string", deserialize_with = "string_cid")]
-    pub proof_cid: Cid,
+pub struct Cert<F: LurkField> {
+    pub claim_cid: ZExprPtr<F>,
+    pub proof_cid: ZExprPtr<F>,
     pub verified: bool,
     pub verifier_id: String,
     pub signature: String,
-}
-
-fn cid_string<S>(c: &Cid, s: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    s.serialize_str(&c.to_string())
-}
-
-pub fn string_cid<'de, D>(d: D) -> Result<Cid, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    use serde::de::Error;
-
-    let string = String::deserialize(d)?;
-
-    Cid::from_str(&string).map_err(|e| D::Error::custom(e.to_string()))
-}
-
-pub fn cid_from_string(s: &str) -> Result<Cid, libipld::cid::Error> {
-    Cid::from_str(s)
 }
 
 #[allow(dead_code)]
@@ -313,7 +349,7 @@ impl<F: LurkField> Claim<F> {
             _ => None,
         }
     }
-    pub fn ptr_evaluation(&self) -> Option<PtrEvaluation> {
+    pub fn ptr_evaluation(&self) -> Option<PtrEvaluation<F>> {
         match self {
             Self::PtrEvaluation(e) => Some(e.clone()),
             _ => None,
@@ -352,36 +388,6 @@ impl ReductionCount {
     }
 }
 
-pub trait Id
-where
-    Self: Sized,
-{
-    fn id(&self) -> String;
-    fn cid(&self) -> Cid;
-    fn has_id(&self, id: String) -> bool;
-}
-
-impl<T: Serialize> Id for T
-where
-    for<'de> T: Deserialize<'de>,
-{
-    fn cid(&self) -> Cid {
-        let ipld = to_ipld(self).unwrap();
-        let dag_json = DagJsonCodec.encode(&ipld).unwrap();
-
-        let digest = Code::Blake3_256.digest(&dag_json);
-        Cid::new_v1(0x55, digest)
-    }
-
-    fn id(&self) -> String {
-        self.cid().to_string()
-    }
-
-    fn has_id(&self, id: String) -> bool {
-        self.id() == id
-    }
-}
-
 pub trait FileStore
 where
     Self: Sized,
@@ -393,7 +399,7 @@ where
 
 impl<T: Serialize> FileStore for T
 where
-    for<'de> T: Deserialize<'de>, // + Decode<DagJsonCodec>,
+    for<'de> T: Deserialize<'de>,
 {
     fn write_to_path<P: AsRef<Path>>(&self, path: P) {
         let file = File::create(path).expect("failed to create file");
@@ -470,14 +476,14 @@ impl Evaluation {
 
         let input = evaluator.initial();
 
-        let (output, iterations, _) = evaluator.eval().map_err(|_| Error::EvaluationFailure)?;
+        let (output, iterations, _) = evaluator.eval().map_err(Error::EvaluationFailure)?;
 
         Ok(Self::new(store, input, output, Some(iterations)))
     }
 }
 
-impl PtrEvaluation {
-    fn new<F: LurkField + Serialize>(
+impl<F: LurkField + Serialize + DeserializeOwned> PtrEvaluation<F> {
+    fn new(
         s: &mut Store<F>,
         input: IO<F>,
         output: IO<F>,
@@ -503,27 +509,30 @@ impl PtrEvaluation {
 }
 
 impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
-    pub fn from_comm(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
-        let digest = *s.hash_expr(ptr).expect("couldn't hash ptr").value();
-
+    pub fn from_comm(s: &mut Store<F>, ptr: &Ptr<F>) -> Result<Self, Error> {
         assert_eq!(ExprTag::Comm, ptr.tag);
 
-        Commitment { comm: digest }
+        let digest = *s
+            .hash_expr(ptr)
+            .ok_or_else(|| Error::UnknownCommitment)?
+            .value();
+
+        Ok(Commitment { comm: digest })
     }
 
     pub fn ptr(&self, s: &mut Store<F>) -> Ptr<F> {
         s.intern_opaque_comm(self.comm)
     }
 
-    pub fn from_ptr_with_hiding(s: &mut Store<F>, ptr: &Ptr<F>) -> (Self, F) {
+    pub fn from_ptr_with_hiding(s: &mut Store<F>, ptr: &Ptr<F>) -> Result<(Self, F), Error> {
         let secret = F::random(OsRng);
 
-        let commitment = Self::from_ptr_and_secret(s, ptr, secret);
+        let commitment = Self::from_ptr_and_secret(s, ptr, secret)?;
 
-        (commitment, secret)
+        Ok((commitment, secret))
     }
 
-    pub fn from_ptr_and_secret(s: &mut Store<F>, ptr: &Ptr<F>, secret: F) -> Self {
+    pub fn from_ptr_and_secret(s: &mut Store<F>, ptr: &Ptr<F>, secret: F) -> Result<Self, Error> {
         let hidden = s.hide(secret, *ptr);
 
         Self::from_comm(s, &hidden)
@@ -540,9 +549,9 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
         let fun_ptr = function.expr_ptr(s, limit, lang)?;
         let secret = function.secret.expect("CommittedExpression secret missing");
 
-        let commitment = Self::from_ptr_and_secret(s, &fun_ptr, secret);
+        let commitment = Self::from_ptr_and_secret(s, &fun_ptr, secret)?;
 
-        let open = s.sym("open");
+        let open = s.lurk_sym("open");
         let comm_ptr = s.hide(secret, fun_ptr);
 
         // (open <commitment>)
@@ -555,7 +564,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
     }
 
     fn fun_application(&self, s: &mut Store<F>, input: Ptr<F>) -> Ptr<F> {
-        let open = s.sym("open");
+        let open = s.lurk_sym("open");
         let comm_ptr = self.ptr(s);
 
         // (open <commitment>)
@@ -579,64 +588,29 @@ impl<F: LurkField + Serialize + DeserializeOwned> CommittedExpression<F> {
     }
 }
 
-impl LurkPtr {
-    pub fn ptr<F: LurkField + Serialize + DeserializeOwned>(
-        &self,
-        s: &mut Store<F>,
-        limit: usize,
-        lang: &Lang<F, Coproc<F>>,
-    ) -> Ptr<F> {
+impl<F: LurkField + Serialize + DeserializeOwned> LurkPtr<F> {
+    pub fn ptr(&self, s: &mut Store<F>, limit: usize, lang: &Lang<F, Coproc<F>>) -> Ptr<F> {
         match self {
             LurkPtr::Source(source) => {
                 let ptr = s.read(source).expect("could not read source");
+                assert!(!ptr.raw.is_opaque());
                 let (out, _) = evaluate(s, ptr, None, limit, lang).unwrap();
 
                 out.expr
             }
-            LurkPtr::ScalarBytes(lurk_scalar_bytes) => {
-                let scalar_store: Ipld = DagCborCodec
-                    .decode(&lurk_scalar_bytes.scalar_store)
-                    .expect("could not read opaque scalar store");
-                let scalar_ptr: Ipld = DagCborCodec
-                    .decode(&lurk_scalar_bytes.scalar_ptr)
-                    .expect("could not read opaque scalar ptr");
-
-                let lurk_ptr = LurkPtr::Ipld(LurkScalarIpld {
-                    scalar_store,
-                    scalar_ptr,
-                });
-
-                lurk_ptr.ptr(s, limit, lang)
-            }
-            LurkPtr::Ipld(lurk_scalar_ipld) => {
-                // FIXME: put the scalar_store in a new field for the store.
-                let fun_scalar_store: ScalarStore<F> =
-                    from_ipld(lurk_scalar_ipld.scalar_store.clone()).unwrap();
-                let fun_scalar_ptr: ScalarPtr<F> =
-                    from_ipld(lurk_scalar_ipld.scalar_ptr.clone()).unwrap();
-                s.intern_scalar_ptr(fun_scalar_ptr, &fun_scalar_store)
-                    .expect("failed to intern scalar_ptr for fun")
+            LurkPtr::ZStorePtr(z_store_ptr) => {
+                let z_store = &z_store_ptr.z_store;
+                let z_ptr = z_store_ptr.z_ptr;
+                s.intern_z_expr_ptr(z_ptr, z_store)
+                    .expect("failed to intern z_ptr")
             }
         }
     }
 
-    pub fn from_ptr<F: LurkField + Serialize>(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
-        let (scalar_store, scalar_ptr) = ScalarStore::new_with_expr(s, ptr);
-        let scalar_ptr = scalar_ptr.unwrap();
-
-        let scalar_store_ipld = to_ipld(scalar_store).unwrap();
-        let new_fun_ipld = to_ipld(scalar_ptr).unwrap();
-
-        let scalar_store_bytes = DagCborCodec.encode(&scalar_store_ipld).unwrap();
-        let new_fun_bytes = DagCborCodec.encode(&new_fun_ipld).unwrap();
-
-        let again = from_ipld(new_fun_ipld).unwrap();
-        assert_eq!(&scalar_ptr, &again);
-
-        Self::ScalarBytes(LurkScalarBytes {
-            scalar_store: scalar_store_bytes,
-            scalar_ptr: new_fun_bytes,
-        })
+    pub fn from_ptr(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
+        let (z_store, z_ptr) = ZStore::new_with_expr(s, ptr);
+        let z_ptr = z_ptr.unwrap();
+        Self::ZStorePtr(ZStorePtr { z_store, z_ptr })
     }
 }
 
@@ -667,8 +641,8 @@ impl LurkCont {
     }
 }
 
-impl Expression {
-    pub fn eval<F: LurkField + Serialize + DeserializeOwned>(
+impl<F: LurkField + Serialize + DeserializeOwned> Expression<F> {
+    pub fn eval(
         &self,
         s: &mut Store<F>,
         limit: usize,
@@ -788,10 +762,10 @@ impl<'a> Opening<S1> {
             let new_comm = s.cdr(&cons)?;
 
             let new_secret0 = s.secret(new_comm).expect("secret missing");
-            let new_secret = *s.get_expr_hash(&new_secret0).expect("hash missing").value();
+            let new_secret = *s.hash_expr(&new_secret0).expect("hash missing").value();
 
             let (_, new_fun) = s.open(new_comm).expect("opening missing");
-            let new_commitment = Commitment::from_comm(s, &new_comm);
+            let new_commitment = Commitment::from_comm(s, &new_comm)?;
 
             s.hydrate_scalar_cache();
 
@@ -805,6 +779,7 @@ impl<'a> Opening<S1> {
 
             let function_map = committed_expression_store();
             function_map.set(new_commitment, &new_function)?;
+            assert_eq!(new_function, function_map.get(&new_commitment).unwrap());
 
             (Some(new_commitment), result_expr)
         } else {
@@ -891,9 +866,9 @@ impl<'a> Proof<'a, S1> {
         let proof_map = nova_proof_cache(reduction_count);
         let function_map = committed_expression_store();
 
-        let cid = claim.cid();
+        let key = claim.proof_key()?.to_base32();
 
-        if let Some(proof) = proof_map.get(&cid) {
+        if let Some(proof) = proof_map.get(&key) {
             return Ok(proof);
         }
 
@@ -946,19 +921,23 @@ impl<'a> Proof<'a, S1> {
             }
             Claim::Evaluation(e) => {
                 if e.status != Status::Terminal {
-                    return Err(Error::EvaluationFailure);
+                    return Err(Error::EvaluationFailure(ReductionError::Misc(
+                        "nonterminal status".into(),
+                    )));
                 };
             }
             Claim::PtrEvaluation(e) => {
                 if e.status != Status::Terminal {
-                    return Err(Error::EvaluationFailure);
+                    return Err(Error::EvaluationFailure(ReductionError::Misc(
+                        "nonterminal status".into(),
+                    )));
                 }
             }
         };
 
         proof.verify(pp, &lang).expect("Nova verification failed");
 
-        proof_map.set(cid, &proof).unwrap();
+        proof_map.set(key, &proof).unwrap();
 
         Ok(proof)
     }
@@ -1133,7 +1112,7 @@ pub fn evaluate<F: LurkField>(
     let env = supplied_env.unwrap_or_else(|| empty_sym_env(store));
     let mut evaluator = Evaluator::new(expr, env, store, limit, lang);
 
-    let (io, iterations, _) = evaluator.eval().map_err(|_| Error::EvaluationFailure)?;
+    let (io, iterations, _) = evaluator.eval().map_err(Error::EvaluationFailure)?;
 
     assert!(<crate::eval::IO<F> as Evaluable<
         F,
@@ -1146,6 +1125,13 @@ pub fn evaluate<F: LurkField>(
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::path::Path;
+    use std::sync::Arc;
+    use tempfile::Builder;
+
+    use crate::eval::lang::{Coproc, Lang};
+    use crate::proof::{nova::NovaProver, Prover};
+    use crate::z_data::{from_z_data, to_z_data};
 
     #[test]
     fn test_cert_serialization() {
@@ -1155,7 +1141,7 @@ mod test {
             comm: S1::from(123),
         };
 
-        let cid = c.cid();
+        let cid = ZExprPtr::from_parts(ExprTag::Comm, c.comm);
         let cert = Cert {
             claim_cid: cid,
             proof_cid: cid,
@@ -1167,7 +1153,213 @@ mod test {
 
         let string = json.to_string();
 
-        let cert_again: Cert = serde_json::from_str(&string).unwrap();
+        let cert_again: Cert<S1> = serde_json::from_str(&string).unwrap();
         assert_eq!(cert, cert_again);
+    }
+
+    // Minimal chained functional commitment test
+    #[test]
+    fn lurk_chained_functional_commitment() {
+        let fcomm_path_key = "FCOMM_DATA_PATH";
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
+        let tmp_dir_path = Path::new(tmp_dir.path());
+        let fcomm_path_val = tmp_dir_path.join("fcomm_data");
+        std::env::set_var(fcomm_path_key, fcomm_path_val.clone());
+        assert_eq!(
+            std::env::var(fcomm_path_key),
+            Ok(fcomm_path_val.into_os_string().into_string().unwrap())
+        );
+
+        let function_source = "(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))";
+        let expected_io = vec![("5", "5"), ("3", "8")];
+
+        let mut function = CommittedExpression::<S1> {
+            expr: LurkPtr::Source(function_source.into()),
+            secret: None,
+            commitment: None,
+        };
+
+        let limit = 1000;
+        let lang = Lang::new();
+        let lang_rc = Arc::new(lang.clone());
+        let rc = ReductionCount::One;
+        let pp = public_params(rc.count(), lang_rc.clone()).expect("public params");
+        let chained = true;
+        let s = &mut Store::<S1>::default();
+
+        let io = expected_io.iter();
+
+        let fun_ptr = function.expr_ptr(s, limit, &lang).expect("fun_ptr");
+
+        let (mut commitment, secret) = Commitment::from_ptr_with_hiding(s, &fun_ptr).unwrap();
+
+        function.secret = Some(secret);
+        function.commitment = Some(commitment);
+
+        let function_map = committed_expression_store();
+        function_map
+            .set(commitment, &function)
+            .expect("function_map set");
+
+        for (function_input, _expected_output) in io {
+            let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
+
+            let input = s.read(function_input).expect("Read error");
+
+            let proof = Opening::apply_and_prove(
+                s,
+                input,
+                function.clone(),
+                limit,
+                chained,
+                false,
+                &prover,
+                &pp,
+                lang_rc.clone(),
+            )
+            .expect("apply and prove");
+
+            proof.verify(&pp, &lang_rc).expect("Failed to verify");
+
+            let opening = proof.claim.opening().expect("expected opening claim");
+
+            match opening.new_commitment {
+                Some(c) => commitment = c,
+                _ => panic!("new commitment missing"),
+            }
+            println!("Commitment: {:?}", commitment);
+        }
+    }
+    proptest! {
+      #[test]
+      fn prop_z_bytes(x in any::<ZBytes>()) {
+        let ser  = to_z_data(&x).expect("write ZBytes");
+        let de: ZBytes = from_z_data(&ser).expect("read ZBytes");
+        assert_eq!(x, de);
+
+        let ser: Vec<u8> = bincode::serialize(&x).expect("write ZBytes");
+        let de: ZBytes = bincode::deserialize(&ser).expect("read ZBytes");
+        assert_eq!(x, de);
+
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
+        let tmp_dir_path = Path::new(tmp_dir.path());
+        let z_bytes_path = tmp_dir_path.join("zbytes.json");
+      x.write_to_path(&z_bytes_path);
+      assert_eq!(x, ZBytes::read_from_path(&z_bytes_path).unwrap());
+      }
+    }
+
+    proptest! {
+      #[test]
+      fn prop_z_store_ptr(x in any::<ZStorePtr<S1>>()) {
+        let ser = to_z_data(&x).expect("write ZStorePtr");
+        let de: ZStorePtr<S1> = from_z_data(&ser).expect("read ZStorePtr");
+        assert_eq!(x, de);
+
+        let ser: Vec<u8> = bincode::serialize(&x).expect("write ZStorePtr");
+        let de: ZStorePtr<S1> = bincode::deserialize(&ser).expect("read ZStorePtr");
+        assert_eq!(x, de);
+
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
+        let tmp_dir_path = Path::new(tmp_dir.path());
+        let z_store_ptr_path = tmp_dir_path.join("zstoreptr.json");
+      x.write_to_path(&z_store_ptr_path);
+      assert_eq!(x, ZStorePtr::<S1>::read_from_path(&z_store_ptr_path).unwrap());
+      }
+    }
+
+    proptest! {
+      #[test]
+      fn prop_lurk_ptr(x in any::<LurkPtr<S1>>()) {
+        let ser = to_z_data(&x).expect("write LurkPtr");
+        let de: LurkPtr<S1> = from_z_data(&ser).expect("read LurkPtr");
+        assert_eq!(x, de);
+
+        let ser: Vec<u8> = bincode::serialize(&x).expect("write LurkPtr");
+        let de: LurkPtr<S1> = bincode::deserialize(&ser).expect("read LurkPtr");
+        assert_eq!(x, de);
+
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
+        let tmp_dir_path = Path::new(tmp_dir.path());
+        let lurk_ptr_path = tmp_dir_path.join("lurkptr.json");
+      x.write_to_path(&lurk_ptr_path);
+      assert_eq!(x, LurkPtr::<S1>::read_from_path(&lurk_ptr_path).unwrap());
+      }
+    }
+
+    proptest! {
+      #[test]
+      fn prop_ptr_evaluation(x in any::<PtrEvaluation<S1>>()) {
+        let ser = to_z_data(&x).expect("write PtrEvaluation");
+        let de: PtrEvaluation<S1> = from_z_data(&ser).expect("read PtrEvaluation");
+        assert_eq!(x, de);
+
+       let ser: Vec<u8> = bincode::serialize(&x).expect("write PtrEvalution");
+       let de: PtrEvaluation<S1> = bincode::deserialize(&ser).expect("read PtrEvaluation");
+       assert_eq!(x, de);
+
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
+        let tmp_dir_path = Path::new(tmp_dir.path());
+        let ptr_evaluation_path = tmp_dir_path.join("ptrevaluation.json");
+      x.write_to_path(&ptr_evaluation_path);
+      assert_eq!(x, PtrEvaluation::<S1>::read_from_path(&ptr_evaluation_path).unwrap());
+      }
+    }
+
+    proptest! {
+      #[test]
+      fn prop_committed_expr(x in any::<CommittedExpression<S1>>()) {
+        let ser = to_z_data(&x).expect("write CommittedExpression");
+        let de: CommittedExpression<S1> = from_z_data(&ser).expect("read CommittedExpression");
+        assert_eq!(x, de);
+
+       let ser: Vec<u8> = bincode::serialize(&x).expect("write CommittedExpression");
+       let de: CommittedExpression<S1> = bincode::deserialize(&ser).expect("read CommittedExpression");
+        assert_eq!(x, de);
+
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
+        let tmp_dir_path = Path::new(tmp_dir.path());
+        let committed_expr_path = tmp_dir_path.join("committedexpr.json");
+      x.write_to_path(&committed_expr_path);
+      assert_eq!(x, CommittedExpression::<S1>::read_from_path(&committed_expr_path).unwrap());
+      }
+    }
+
+    proptest! {
+      #[test]
+      fn prop_opening(x in any::<Opening<S1>>()) {
+        let ser = to_z_data(&x).expect("write Opening");
+        let de: Opening<S1> = from_z_data(&ser).expect("read Opening");
+        assert_eq!(x, de);
+
+       let ser: Vec<u8> = bincode::serialize(&x).expect("write Opening");
+       let de: Opening<S1> = bincode::deserialize(&ser).expect("read Opening");
+        assert_eq!(x, de);
+
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
+        let tmp_dir_path = Path::new(tmp_dir.path());
+        let opening_path = tmp_dir_path.join("opening.json");
+      x.write_to_path(&opening_path);
+      assert_eq!(x, Opening::<S1>::read_from_path(&opening_path).unwrap());
+      }
+    }
+
+    proptest! {
+      #[test]
+      fn prop_claim(x in any::<Claim<S1>>()) {
+        let ser = to_z_data(&x).expect("write Claim");
+        let de: Claim<S1> = from_z_data(&ser).expect("read Claim");
+        assert_eq!(x, de);
+
+       let ser: Vec<u8> = bincode::serialize(&x).expect("write Claim");
+       let de: Claim<S1> = bincode::deserialize(&ser).expect("read Claim");
+        assert_eq!(x, de);
+
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
+        let tmp_dir_path = Path::new(tmp_dir.path());
+        let claim_path = tmp_dir_path.join("claim.json");
+      x.write_to_path(&claim_path);
+      assert_eq!(x, Claim::<S1>::read_from_path(&claim_path).unwrap());
+      }
     }
 }

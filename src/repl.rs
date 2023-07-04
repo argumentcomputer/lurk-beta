@@ -3,18 +3,16 @@ use crate::error::LurkError;
 use crate::eval::{empty_sym_env, lang::Lang, Evaluator, IO};
 use crate::expr::Expression;
 use crate::field::LurkField;
-use crate::light_data::{Encodable, LightData, LightStore};
-use crate::package::Package;
 use crate::parser;
 use crate::ptr::{ContPtr, Ptr};
-use crate::scalar_store::ScalarStore;
 use crate::store::Store;
-use crate::sym::Sym;
+use crate::symbol::Symbol;
 use crate::tag::ContTag;
 use crate::writer::Write;
-use anyhow::{bail, Context, Result};
+use crate::z_data::{from_z_data, ZData};
+use crate::z_store::ZStore;
+use anyhow::{bail, Context, Error, Result};
 use clap::{Arg, ArgAction, Command};
-use peekmore::PeekMore;
 use rustyline::error::ReadlineError;
 use rustyline::history::DefaultHistory;
 use rustyline::validate::{
@@ -69,38 +67,33 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
 
     fn command() -> Command;
 
-    fn handle_form<P: AsRef<Path> + Copy, T: Iterator<Item = char>>(
+    fn handle_form<'a, P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
-        chars: &mut peekmore::PeekMoreIterator<T>,
-        package: &Package,
+        input: parser::Span<'a>,
         pwd: P,
-    ) -> Result<()> {
-        let (ptr, is_meta) = store.read_maybe_meta(chars, package)?;
+    ) -> Result<parser::Span<'a>> {
+        let (input, ptr, is_meta) = store.read_maybe_meta(input)?;
 
         if is_meta {
             let pwd: &Path = pwd.as_ref();
-            self.handle_meta(store, ptr, package, pwd)
+            self.handle_meta(store, ptr, pwd)?;
+            Ok(input)
         } else {
-            self.handle_non_meta(store, ptr).map(|_| ())
+            self.handle_non_meta(store, ptr).map(|_| ())?;
+            Ok(input)
         }
     }
 
-    fn handle_load<P: AsRef<Path>>(
-        &mut self,
-        store: &mut Store<F>,
-        file_path: P,
-        package: &Package,
-    ) -> Result<()> {
+    fn handle_load<P: AsRef<Path>>(&mut self, store: &mut Store<F>, file_path: P) -> Result<()> {
         eprintln!("Loading from {}.", file_path.as_ref().to_str().unwrap());
-        self.handle_file(store, file_path.as_ref(), package)
+        self.handle_file(store, file_path.as_ref())
     }
 
     fn handle_file<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
         file_path: P,
-        package: &Package,
     ) -> Result<()> {
         let file_path = file_path;
 
@@ -110,21 +103,23 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
             file_path.as_ref().to_str().unwrap(),
             input
         );
-        let mut chars = input.chars().peekmore();
 
+        let mut input = parser::Span::new(&input);
         loop {
-            if let Err(e) = self.handle_form(
+            match self.handle_form(
                 store,
-                &mut chars,
-                package,
+                input,
                 // use this file's dir as pwd for further loading
                 file_path.as_ref().parent().unwrap(),
             ) {
-                if let Some(parser::Error::NoInput) = e.downcast_ref::<parser::Error>() {
-                    // It's ok, it just means we've hit the EOF
-                    return Ok(());
-                } else {
-                    return Err(e);
+                Ok(new_input) => input = new_input,
+                Err(e) => {
+                    if let Some(parser::Error::NoInput) = e.downcast_ref::<parser::Error>() {
+                        // It's ok, it just means we've hit the EOF
+                        return Ok(());
+                    } else {
+                        return Err(e);
+                    }
                 }
             }
         }
@@ -134,7 +129,6 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
         &mut self,
         store: &mut Store<F>,
         expr_ptr: Ptr<F>,
-        package: &Package,
         p: P,
     ) -> Result<()>;
 
@@ -188,41 +182,54 @@ impl<F: LurkField, T: ReplTrait<F, C>, C: Coprocessor<F>> Repl<F, T, C> {
     }
 }
 
-pub fn repl_cli<F: LurkField, T: ReplTrait<F, C>, C: Coprocessor<F>>(
+pub fn repl_cli<
+    F: LurkField + for<'de> serde::Deserialize<'de>,
+    T: ReplTrait<F, C>,
+    C: Coprocessor<F>,
+>(
     lang: Lang<F, C>,
 ) -> Result<()> {
     let command = T::command();
     let matches = command.clone().get_matches();
 
     let lurk_file = matches.get_one::<String>("lurk_file");
-    let light_store = matches.get_one::<String>("lightstore");
+    let z_store = matches.get_one::<String>("zstore");
 
-    repl_aux::<_, F, T, C>(lurk_file, light_store, Some(command), lang)
+    repl_aux::<_, F, T, C>(lurk_file, z_store, Some(command), lang)
 }
 
-pub fn repl<F: LurkField, T: ReplTrait<F, C>, P: AsRef<Path>, C: Coprocessor<F>>(
+pub fn repl<
+    F: LurkField + for<'de> serde::Deserialize<'de>,
+    T: ReplTrait<F, C>,
+    P: AsRef<Path>,
+    C: Coprocessor<F>,
+>(
     lurk_file: Option<P>,
     lang: Lang<F, C>,
 ) -> Result<()> {
     repl_aux::<_, F, T, C>(lurk_file, None, None, lang)
 }
 
-fn repl_aux<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor<F>>(
+fn repl_aux<
+    P: AsRef<Path>,
+    F: LurkField + for<'de> serde::Deserialize<'de>,
+    T: ReplTrait<F, C>,
+    C: Coprocessor<F>,
+>(
     lurk_file: Option<P>,
-    light_store: Option<P>,
+    z_store: Option<P>,
     command: Option<Command>,
     lang: Lang<F, C>,
 ) -> Result<()> {
-    let received_light_store = light_store.is_some();
-    let mut s = light_store
-        .and_then(|light_store_path| fs::read(light_store_path).ok())
-        .and_then(|bytes| LightData::de(&bytes).ok())
-        .and_then(|ld| Encodable::de(&ld).ok())
-        .and_then(|store: LightStore<F>| ScalarStore::try_from(store).ok())
-        .and_then(|mut scalar_store: ScalarStore<F>| scalar_store.to_store())
+    let received_z_store = z_store.is_some();
+    let mut s = z_store
+        .and_then(|z_store_path| fs::read(z_store_path).ok())
+        .and_then(|bytes| ZData::from_bytes(&bytes).ok())
+        .and_then(|zd| from_z_data(&zd).ok())
+        .map(|z_store: ZStore<F>| ZStore::to_store(&z_store))
         .tap_none(|| {
-            if received_light_store {
-                eprintln!("Failed to load light store. Starting with empty store.")
+            if received_z_store {
+                eprintln!("Failed to load ZStore. Starting with empty store.")
             }
         })
         .unwrap_or_default();
@@ -239,8 +246,6 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
     mut repl: Repl<F, T, C>,
     lurk_file: Option<P>,
 ) -> Result<()> {
-    let package = Package::lurk();
-
     if lurk_file.is_none() {
         let name = T::name();
         eprintln!("{name} welcomes you.");
@@ -248,7 +253,7 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
 
     {
         if let Some(lurk_file) = lurk_file {
-            repl.state.handle_load(s, &lurk_file, &package).unwrap();
+            repl.state.handle_load(s, &lurk_file).unwrap();
             return Ok(());
         }
     }
@@ -262,15 +267,14 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
             .map(|line| repl.state.process_line(line));
         match line {
             Ok(line) => {
+                let input = parser::Span::new(&line);
                 #[cfg(not(target_arch = "wasm32"))]
                 repl.save_history()?;
 
-                let mut chars = line.chars().peekmore();
-
-                match s.read_maybe_meta(&mut chars, &package) {
-                    Ok((expr, is_meta)) => {
+                match s.read_maybe_meta(input) {
+                    Ok((_, expr, is_meta)) => {
                         if is_meta {
-                            if let Err(e) = repl.state.handle_meta(s, expr, &package, p) {
+                            if let Err(e) = repl.state.handle_meta(s, expr, p) {
                                 eprintln!("!Error: {e:?}");
                             };
                             continue;
@@ -368,12 +372,12 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                     .help("Specifies the path of a lurk file to run"),
             )
             .arg(
-                Arg::new("lightstore")
-                    .long("lightstore")
+                Arg::new("zstore")
+                    .long("zstore")
                     .value_parser(clap::builder::NonEmptyStringValueParser::new())
                     .action(ArgAction::Set)
-                    .value_name("LIGHTSTORE")
-                    .help("Specifies the lightstore file path"),
+                    .value_name("ZSTORE")
+                    .help("Specifies the zstore file path"),
             )
     }
 
@@ -381,16 +385,18 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
         &mut self,
         store: &mut Store<F>,
         expr_ptr: Ptr<F>,
-        package: &Package,
         p: P,
     ) -> Result<()> {
         let expr = store.fetch(&expr_ptr).unwrap();
 
         let res = match expr {
             Expression::Cons(car, rest) => match &store.fetch(&car).unwrap() {
-                Expression::Sym(Sym::Sym(s)) => {
-                    match s.name().as_str() {
-                        "ASSERT" => {
+                Expression::Sym(..) => {
+                    let s: Symbol = store
+                        .fetch_sym(&car)
+                        .ok_or(Error::msg("handle_meta fetch symbol"))?;
+                    match format!("{}", s).as_str() {
+                        "assert" => {
                             let (first, rest) = store.car_cdr(&rest)?;
                             assert!(rest.is_nil());
                             let (first_evaled, _, _, _) = self
@@ -400,7 +406,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             assert!(!first_evaled.is_nil());
                             None
                         }
-                        "ASSERT-EQ" => {
+                        "assert-eq" => {
                             let (first, rest) = store.car_cdr(&rest)?;
                             let (second, rest) = store.car_cdr(&rest)?;
                             assert!(rest.is_nil());
@@ -422,7 +428,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             );
                             None
                         }
-                        "ASSERT-EMITTED" => {
+                        "assert-emitted" => {
                             let (first, rest) = store.car_cdr(&rest)?;
                             let (second, rest) = store.car_cdr(&rest)?;
 
@@ -447,7 +453,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             }
                             None
                         }
-                        "ASSERT-ERROR" => {
+                        "assert-error" => {
                             let (first, rest) = store.car_cdr(&rest)?;
 
                             assert!(rest.is_nil());
@@ -455,11 +461,11 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
 
                             None
                         }
-                        "CLEAR" => {
+                        "clear" => {
                             self.env = empty_sym_env(store);
                             None
                         }
-                        "DEF" => {
+                        "def" => {
                             // Extends env with a non-recursive binding.
                             //
                             // This: !(:def foo (lambda () 123))
@@ -471,8 +477,8 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             let (first, rest) = store.car_cdr(&rest)?;
                             let (second, rest) = store.car_cdr(&rest)?;
                             assert!(rest.is_nil());
-                            let l = store.sym("LET");
-                            let current_env = store.sym("CURRENT-ENV");
+                            let l = store.lurk_sym("let");
+                            let current_env = store.lurk_sym("current-env");
                             let binding = store.list(&[first, second]);
                             let bindings = store.list(&[binding]);
                             let current_env_call = store.list(&[current_env]);
@@ -485,7 +491,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             let (new_name, _) = store.car_cdr(&new_binding)?;
                             Some(new_name)
                         }
-                        "DEFREC" => {
+                        "defrec" => {
                             // Extends env with a recursive binding.
                             //
                             // This: !(:def foo (lambda () 123))
@@ -497,8 +503,8 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             let (first, rest) = store.car_cdr(&rest)?;
                             let (second, rest) = store.car_cdr(&rest)?;
                             assert!(rest.is_nil());
-                            let l = store.sym("LETREC");
-                            let current_env = store.sym("CURRENT-ENV");
+                            let l = store.lurk_sym("letrec");
+                            let current_env = store.lurk_sym("current-env");
                             let binding = store.list(&[first, second]);
                             let bindings = store.list(&[binding]);
                             let current_env_call = store.list(&[current_env]);
@@ -512,18 +518,22 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             let (new_name, _) = store.car_cdr(&new_binding_inner)?;
                             Some(new_name)
                         }
-                        "LOAD" => {
-                            match store.fetch(&store.car(&rest)?).unwrap() {
-                                Expression::Str(path) => {
+                        "load" => {
+                            let car = &store.car(&rest)?;
+                            match store.fetch(car).unwrap() {
+                                Expression::Str(..) => {
+                                    let path: String = store
+                                        .fetch_string(car)
+                                        .ok_or(Error::msg("handle_meta fetch_string"))?;
                                     let joined = p.as_ref().join(Path::new(&path));
-                                    self.handle_load(store, &joined, package)?
+                                    self.handle_load(store, &joined)?
                                 }
                                 _ => bail!("Argument to LOAD must be a string."),
                             }
                             io::stdout().flush().unwrap();
                             None
                         }
-                        "SET-ENV" => {
+                        "set-env" => {
                             // The state's env is set to the result of evaluating the first argument.
                             let (first, rest) = store.car_cdr(&rest)?;
                             assert!(rest.is_nil());

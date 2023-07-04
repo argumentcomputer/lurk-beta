@@ -98,6 +98,7 @@ impl<'a, C: Coprocessor<S1>> MultiFrame<'a, S1, IO<S1>, Witness<S1>, C> {
 }
 
 /// A struct for the Nova prover that operates on field elements of type `F`.
+#[derive(Debug)]
 pub struct NovaProver<F: LurkField, C: Coprocessor<F>> {
     // `reduction_count` specifies the number of small-step reductions are performed in each recursive step.
     reduction_count: usize,
@@ -845,7 +846,7 @@ pub mod tests {
 
     fn test_prove_unop_regression_aux(chunk_count: usize) {
         let s = &mut Store::<Fr>::default();
-        let expected = s.sym("t");
+        let expected = s.lurk_sym("t");
         let terminal = s.get_cont_terminal();
         nova_test_full_aux::<Coproc<Fr>>(
             s,
@@ -2397,7 +2398,7 @@ pub mod tests {
     #[test]
     fn test_prove_str_cdr_empty() {
         let s = &mut Store::<Fr>::default();
-        let expected_empty_str = s.intern_str("");
+        let expected_empty_str = s.intern_string("");
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -2458,7 +2459,7 @@ pub mod tests {
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
-            r#"(car NIL)"#,
+            r#"(car nil)"#,
             Some(expected),
             None,
             Some(terminal),
@@ -2475,7 +2476,7 @@ pub mod tests {
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
-            r#"(cdr NIL)"#,
+            r#"(cdr nil)"#,
             Some(expected),
             None,
             Some(terminal),
@@ -2852,7 +2853,7 @@ pub mod tests {
         let apple = s.read(r#" "apple" "#).unwrap();
         let a_pple = s.read(r#" (#\a . "pple") "#).unwrap();
         let pple = s.read(r#" "pple" "#).unwrap();
-        let empty = s.intern_str("");
+        let empty = s.intern_string("");
         let nil = s.nil();
         let terminal = s.get_cont_terminal();
         let error = s.get_cont_error();
@@ -3109,7 +3110,7 @@ pub mod tests {
         let expr = ":asdf";
         let expr2 = "(eq :asdf :asdf)";
         let expr3 = "(eq :asdf 'asdf)";
-        let res = s.key("ASDF");
+        let res = s.key("asdf");
         let res2 = s.get_t();
         let res3 = s.get_nil();
 
@@ -3395,7 +3396,7 @@ pub mod tests {
         let expr4 = "(u64 (+ 1 1))";
         let res = s.intern_num(1);
         let res2 = s.intern_num(2);
-        let res3 = s.get_u64(2);
+        let res3 = s.intern_u64(2);
         let terminal = s.get_cont_terminal();
 
         test_aux::<Coproc<Fr>>(s, expr, Some(res), None, Some(terminal), None, 3, None);
@@ -3465,8 +3466,8 @@ pub mod tests {
     fn test_prove_call_literal_fun() {
         let s = &mut Store::<Fr>::default();
         let empty_env = s.get_nil();
-        let arg = s.sym("X");
-        let body = s.read("((+ X 1))").unwrap();
+        let arg = s.sym("x");
+        let body = s.read("((+ x 1))").unwrap();
         let fun = s.intern_fun(arg, body, empty_env);
         let input = s.num(9);
         let expr = s.list(&[fun, input]);
@@ -3556,9 +3557,9 @@ pub mod tests {
         let error = s.get_cont_error();
 
         let hash_num = |s: &mut Store<Fr>, name| {
-            let sym = s.sym(name);
-            let scalar_ptr = s.hash_expr(&sym).unwrap();
-            let hash = *scalar_ptr.value();
+            let sym = s.lurk_sym(name);
+            let z_ptr = s.hash_expr(&sym).unwrap();
+            let hash = *z_ptr.value();
             Num::Scalar(hash)
         };
         {
@@ -3602,13 +3603,16 @@ pub mod tests {
     fn test_dumb_lang() {
         use crate::coprocessor::test::DumbCoprocessor;
         use crate::eval::tests::coproc::DumbCoproc;
+        use crate::symbol::Symbol;
 
         let s = &mut Store::<Fr>::new();
 
-        let lang = Lang::<Fr, DumbCoproc<Fr>>::new_with_bindings(
-            s,
-            vec![(".cproc.dumb", DumbCoprocessor::new().into())],
-        );
+        let mut lang = Lang::<Fr, DumbCoproc<Fr>>::new();
+        let name = Symbol::new(&["cproc", "dumb"]);
+        let dumb = DumbCoprocessor::new();
+        let coproc = DumbCoproc::DC(dumb);
+
+        lang.add_coprocessor(name, coproc, s);
 
         // 9^2 + 8 = 89
         let expr = "(.cproc.dumb 9 8)";

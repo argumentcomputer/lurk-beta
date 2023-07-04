@@ -11,6 +11,8 @@ use crate::writer::Write;
 use lang::Lang;
 
 use log::info;
+#[cfg(not(target_arch = "wasm32"))]
+use proptest_derive::Arbitrary;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::iter::{Iterator, Take};
@@ -57,6 +59,7 @@ pub struct Frame<T: Copy, W: Copy, C> {
     pub _p: PhantomData<C>,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Status {
     Terminal,
@@ -223,22 +226,22 @@ impl<F: LurkField> IO<F> {
     }
 
     pub fn to_vector(&self, store: &Store<F>) -> Result<Vec<F>, store::Error> {
-        let expr_scalar_ptr = store
-            .get_expr_hash(&self.expr)
+        let expr_z_ptr = store
+            .hash_expr(&self.expr)
             .ok_or_else(|| store::Error("expr hash missing".into()))?;
-        let env_scalar_ptr = store
-            .get_expr_hash(&self.env)
+        let env_z_ptr = store
+            .hash_expr(&self.env)
             .ok_or_else(|| store::Error("expr hash missing".into()))?;
-        let cont_scalar_ptr = store
+        let cont_z_ptr = store
             .hash_cont(&self.cont)
             .ok_or_else(|| store::Error("expr hash missing".into()))?;
         Ok(vec![
-            expr_scalar_ptr.tag_field(),
-            *expr_scalar_ptr.value(),
-            env_scalar_ptr.tag_field(),
-            *env_scalar_ptr.value(),
-            cont_scalar_ptr.tag_field(),
-            *cont_scalar_ptr.value(),
+            expr_z_ptr.tag_field(),
+            *expr_z_ptr.value(),
+            env_z_ptr.tag_field(),
+            *env_z_ptr.value(),
+            cont_z_ptr.tag_field(),
+            *cont_z_ptr.value(),
         ])
     }
 }

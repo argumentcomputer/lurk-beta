@@ -30,8 +30,8 @@ impl<F: LurkField, T: ToInputs<F>> ToInputs<F> for Option<T> {
 
 impl<F: LurkField> ToInputs<F> for IO<F> {
     fn to_inputs(&self, store: &Store<F>) -> Vec<F> {
-        let expr = store.get_expr_hash(&self.expr).unwrap();
-        let env = store.get_expr_hash(&self.env).unwrap();
+        let expr = store.hash_expr(&self.expr).unwrap();
+        let env = store.hash_expr(&self.env).unwrap();
         let cont = store.hash_cont(&self.cont).unwrap();
         let public_inputs = vec![
             expr.tag_field(),

@@ -11,9 +11,10 @@ use super::pointer::AsAllocatedHashComponents;
 use crate::expr::{Expression, Thunk};
 use crate::field::LurkField;
 use crate::hash::IntoHashComponents;
-use crate::ptr::{Ptr, ScalarContPtr, ScalarPtr};
+use crate::ptr::Ptr;
 use crate::store::Store;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
+use crate::z_ptr::{ZContPtr, ZExprPtr};
 
 use super::pointer::{AllocatedContPtr, AllocatedPtr};
 
@@ -114,7 +115,7 @@ impl<F: LurkField> GlobalAllocations<F> {
         let empty_str_ptr = AllocatedPtr::alloc_constant_ptr(
             &mut cs.namespace(|| "empty_str_ptr"),
             store,
-            &store.get_str("").unwrap(),
+            &store.strnil(),
         )?;
 
         let thunk_tag = ExprTag::Thunk.allocate_constant(&mut cs.namespace(|| "thunk_tag"))?;
@@ -197,10 +198,8 @@ impl<F: LurkField> GlobalAllocations<F> {
 
         macro_rules! defsym {
             ($var:ident, $name:expr, $cname:ident) => {
-                let $var = AllocatedPtr::alloc_constant(
-                    &mut cs.namespace(|| $name),
-                    c.$cname.scalar_ptr(),
-                )?;
+                let $var =
+                    AllocatedPtr::alloc_constant(&mut cs.namespace(|| $name), c.$cname.z_ptr())?;
             };
         }
 
@@ -310,11 +309,9 @@ impl<F: LurkField> Ptr<F> {
         match maybe_fun.map(|ptr| (ptr, ptr.tag)) {
             Some((ptr, ExprTag::Fun)) => match store.fetch(ptr).expect("missing fun") {
                 Expression::Fun(arg, body, closed_env) => {
-                    let arg = store.get_expr_hash(&arg).expect("missing arg");
-                    let body = store.get_expr_hash(&body).expect("missing body");
-                    let closed_env = store
-                        .get_expr_hash(&closed_env)
-                        .expect("missing closed env");
+                    let arg = store.hash_expr(&arg).expect("missing arg");
+                    let body = store.hash_expr(&body).expect("missing body");
+                    let closed_env = store.hash_expr(&closed_env).expect("missing closed env");
                     Self::allocate_fun(cs, store, arg, body, closed_env)
                 }
                 _ => unreachable!(),
@@ -478,7 +475,7 @@ impl<F: LurkField> Thunk<F> {
                 .as_ref()
                 .and_then(|frs| {
                     let opt_tag = ExprTag::from_field(&frs[0]);
-                    opt_tag.map(|tag| ScalarPtr::from_parts(tag, frs[1]))
+                    opt_tag.map(|tag| ZExprPtr::from_parts(tag, frs[1]))
                 })
                 .ok_or(SynthesisError::AssignmentMissing)
         })?;
@@ -490,7 +487,7 @@ impl<F: LurkField> Thunk<F> {
                     .as_ref()
                     .and_then(|frs| {
                         let opt_tag = ContTag::from_field(&frs[2]);
-                        opt_tag.map(|tag| ScalarContPtr::from_parts(tag, frs[3]))
+                        opt_tag.map(|tag| ZContPtr::from_parts(tag, frs[3]))
                     })
                     .ok_or(SynthesisError::AssignmentMissing)
             },
@@ -506,12 +503,12 @@ impl<F: LurkField> Thunk<F> {
         store: &Store<F>,
     ) -> Result<(AllocatedNum<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         let value = AllocatedPtr::alloc(&mut cs.namespace(|| "Thunk component: value"), || {
-            Ok(ScalarPtr::from_parts(ExprTag::Nil, F::ZERO))
+            Ok(ZExprPtr::from_parts(ExprTag::Nil, F::ZERO))
         })?;
 
         let cont = AllocatedContPtr::alloc(
             &mut cs.namespace(|| "Thunk component: continuation"),
-            || Ok(ScalarContPtr::from_parts(ContTag::Dummy, F::ZERO)),
+            || Ok(ZContPtr::from_parts(ContTag::Dummy, F::ZERO)),
         )?;
 
         let dummy_hash = Self::hash_components(cs.namespace(|| "Thunk"), store, &value, &cont)?;

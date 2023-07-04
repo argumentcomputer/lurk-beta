@@ -5,7 +5,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::{convert::TryFrom, fmt};
 
 use crate::field::LurkField;
-use crate::store::TypePredicates;
+use crate::ptr::TypePredicates;
 
 pub trait Tag: Into<u16> + TryFrom<u16> + Copy + Sized + Eq + fmt::Debug {
     fn from_field<F: LurkField>(f: &F) -> Option<Self>;
@@ -19,6 +19,7 @@ pub trait Tag: Into<u16> + TryFrom<u16> + Copy + Sized + Eq + fmt::Debug {
     }
 }
 
+/// A tag for expressions. Note that ExprTag, ContTag, Op1, Op2 all live in the same u16 namespace
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize_repr, Deserialize_repr)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
@@ -129,7 +130,8 @@ impl Tag for ExprTag {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+/// A tag for continuations. Note that ExprTag, ContTag, Op1, Op2 all live in the same u16 namespace
+#[derive(Serialize_repr, Deserialize_repr, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
 pub enum ContTag {
@@ -313,18 +315,18 @@ impl Tag for Op1 {
 impl Op for Op1 {
     fn symbol_name(&self) -> &'static str {
         match self {
-            Op1::Car => "CAR",
-            Op1::Cdr => "CDR",
-            Op1::Atom => "ATOM",
-            Op1::Emit => "EMIT",
-            Op1::Open => "OPEN",
-            Op1::Secret => "SECRET",
-            Op1::Commit => "COMMIT",
-            Op1::Num => "NUM",
-            Op1::Comm => "COMM",
-            Op1::Char => "CHAR",
-            Op1::Eval => "EVAL",
-            Op1::U64 => "U64",
+            Op1::Car => "car",
+            Op1::Cdr => "cdr",
+            Op1::Atom => "atom",
+            Op1::Emit => "emit",
+            Op1::Open => "open",
+            Op1::Secret => "secret",
+            Op1::Commit => "commit",
+            Op1::Num => "num",
+            Op1::Comm => "comm",
+            Op1::Char => "char",
+            Op1::Eval => "eval",
+            Op1::U64 => "u64",
         }
     }
 
@@ -471,18 +473,18 @@ impl Op for Op2 {
             Op2::Diff => "-",
             Op2::Product => "*",
             Op2::Quotient => "/",
-            Op2::Equal => "EQ",
+            Op2::Equal => "eq",
             Op2::NumEqual => "=",
             Op2::Less => "<",
             Op2::Greater => ">",
             Op2::LessEqual => "<=",
             Op2::GreaterEqual => ">=",
-            Op2::Cons => "CONS",
-            Op2::StrCons => "STRCONS",
-            Op2::Begin => "BEGIN",
-            Op2::Hide => "HIDE",
+            Op2::Cons => "cons",
+            Op2::StrCons => "strcons",
+            Op2::Begin => "begin",
+            Op2::Hide => "hide",
             Op2::Modulo => "%",
-            Op2::Eval => "EVAL",
+            Op2::Eval => "eval",
         }
     }
 

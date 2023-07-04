@@ -12,10 +12,11 @@ use crate::{
     expr::{Expression, Thunk},
     field::LurkField,
     hash_witness::{ConsName, ContName},
-    ptr::{ContPtr, Ptr, ScalarContPtr, ScalarPtr},
+    ptr::{ContPtr, Ptr},
     store::Store,
     tag::{ExprTag, Tag},
     writer::Write,
+    z_ptr::{ZContPtr, ZExprPtr},
 };
 
 use super::{
@@ -59,7 +60,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         value: Fo,
     ) -> Result<Self, SynthesisError>
     where
-        Fo: FnOnce() -> Result<ScalarPtr<F>, SynthesisError>,
+        Fo: FnOnce() -> Result<ZExprPtr<F>, SynthesisError>,
     {
         let mut hash = None;
         let alloc_tag = AllocatedNum::alloc(&mut cs.namespace(|| "tag"), || {
@@ -93,7 +94,7 @@ impl<F: LurkField> AllocatedPtr<F> {
 
     pub fn alloc_constant<CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        value: ScalarPtr<F>,
+        value: ZExprPtr<F>,
     ) -> Result<Self, SynthesisError> {
         let alloc_tag = allocate_constant(&mut cs.namespace(|| "tag"), value.tag_field())?;
         let alloc_hash = allocate_constant(&mut cs.namespace(|| "hash"), *value.value())?;
@@ -116,7 +117,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         AllocatedPtr::alloc(cs, || {
             let ptr = value()?;
             store
-                .get_expr_hash(ptr)
+                .hash_expr(ptr)
                 .ok_or(SynthesisError::AssignmentMissing)
         })
     }
@@ -127,7 +128,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         value: &Ptr<F>,
     ) -> Result<Self, SynthesisError> {
         let ptr = store
-            .get_expr_hash(value)
+            .hash_expr(value)
             .ok_or(SynthesisError::AssignmentMissing)?;
         AllocatedPtr::alloc_constant(cs, ptr)
     }
@@ -247,13 +248,13 @@ impl<F: LurkField> AllocatedPtr<F> {
     }
 
     pub fn ptr(&self, store: &Store<F>) -> Option<Ptr<F>> {
-        let scalar_ptr = self.scalar_ptr(store)?;
-        store.fetch_scalar(&scalar_ptr)
+        let z_ptr = self.z_ptr(store)?;
+        store.fetch_z_expr_ptr(&z_ptr)
     }
 
-    pub fn scalar_ptr(&self, store: &Store<F>) -> Option<ScalarPtr<F>> {
+    pub fn z_ptr(&self, store: &Store<F>) -> Option<ZExprPtr<F>> {
         let (tag, value) = (self.tag.get_value()?, self.hash.get_value()?);
-        store.scalar_from_parts(tag, value)
+        store.z_expr_ptr_from_parts(tag, value).ok()
     }
 
     pub fn fetch_and_write_str(&self, store: &Store<F>) -> String {
@@ -267,9 +268,10 @@ impl<F: LurkField> AllocatedPtr<F> {
         cs: CS,
         store: &Store<F>,
     ) -> Result<(AllocatedNum<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        let maybe_thunk = if let Some(ptr) = self.scalar_ptr(store) {
-            if let Some(Expression::Thunk(thunk)) =
-                store.fetch_scalar(&ptr).and_then(|ptr| store.fetch(&ptr))
+        let maybe_thunk = if let Some(ptr) = self.z_ptr(store) {
+            if let Some(Expression::Thunk(thunk)) = store
+                .fetch_z_expr_ptr(&ptr)
+                .and_then(|ptr| store.fetch(&ptr))
             {
                 Some(thunk)
             } else {
@@ -477,8 +479,8 @@ impl<F: LurkField> AllocatedPtr<F> {
     pub fn pick_const<CS>(
         mut cs: CS,
         condition: &Boolean,
-        a: &ScalarPtr<F>,
-        b: &ScalarPtr<F>,
+        a: &ZExprPtr<F>,
+        b: &ZExprPtr<F>,
     ) -> Result<Self, SynthesisError>
     where
         CS: ConstraintSystem<F>,
@@ -506,7 +508,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         expr: Option<&Ptr<F>>,
         store: &Store<F>,
     ) -> Result<Self, SynthesisError> {
-        let ptr = expr.and_then(|e| store.get_expr_hash(e));
+        let ptr = expr.and_then(|e| store.hash_expr(e));
 
         let tag = AllocatedNum::alloc(cs.namespace(|| "tag"), || {
             ptr.as_ref()
@@ -558,7 +560,7 @@ impl<F: LurkField> AllocatedContPtr<F> {
         value: Fo,
     ) -> Result<Self, SynthesisError>
     where
-        Fo: FnOnce() -> Result<ScalarContPtr<F>, SynthesisError>,
+        Fo: FnOnce() -> Result<ZContPtr<F>, SynthesisError>,
     {
         let mut hash = None;
         let alloc_tag = AllocatedNum::alloc(&mut cs.namespace(|| "tag"), || {
@@ -579,7 +581,7 @@ impl<F: LurkField> AllocatedContPtr<F> {
 
     pub fn alloc_constant<CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        value: ScalarContPtr<F>,
+        value: ZContPtr<F>,
     ) -> Result<Self, SynthesisError> {
         let alloc_tag = allocate_constant(&mut cs.namespace(|| "tag"), value.tag_field())?;
         let alloc_hash = allocate_constant(&mut cs.namespace(|| "hash"), *value.value())?;
@@ -666,13 +668,13 @@ impl<F: LurkField> AllocatedContPtr<F> {
     }
 
     pub fn get_cont_ptr(&self, store: &Store<F>) -> Option<ContPtr<F>> {
-        let scalar_ptr = self.get_scalar_ptr_cont(store)?;
-        store.fetch_scalar_cont(&scalar_ptr)
+        let z_ptr = self.get_z_ptr_cont(store)?;
+        store.fetch_z_cont_ptr(&z_ptr)
     }
 
-    pub fn get_scalar_ptr_cont(&self, store: &Store<F>) -> Option<ScalarContPtr<F>> {
+    pub fn get_z_ptr_cont(&self, store: &Store<F>) -> Option<ZContPtr<F>> {
         let (tag, value) = (self.tag.get_value()?, self.hash.get_value()?);
-        store.scalar_from_parts_cont(tag, value)
+        store.z_cont_ptr_from_parts(tag, value).ok()
     }
 
     pub fn fetch_and_write_cont_str(&self, store: &Store<F>) -> String {
