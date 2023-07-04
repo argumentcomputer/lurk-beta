@@ -7,9 +7,9 @@ use crate::expr::{Expression, Thunk};
 use crate::field::LurkField;
 use crate::hash_witness::{ConsName, ConsWitness, ContName, ContWitness};
 use crate::num::Num;
-use crate::ptr::{ContPtr, Ptr};
+use crate::ptr::{ContPtr, Ptr, TypePredicates};
 use crate::store;
-use crate::store::{NamedConstants, Store, TypePredicates};
+use crate::store::{NamedConstants, Store};
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 use crate::writer::Write;
 
@@ -546,7 +546,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                         let args = rest;
 
                         // NOTE: Any Coprocessor found will take precedence, which means coprocessor bindings cannot be shadowed.
-                        if let Some((coprocessor, _scalar_ptr)) = lang.lookup(store, head) {
+                        if let Some((coprocessor, _z_ptr)) = lang.lookup(store, head) {
                             let (_arg, _more_args) = car_cdr_named!(ConsName::ExprCdr, &args)?;
 
                             let IO { expr, env, cont } =
@@ -906,39 +906,39 @@ fn apply_continuation<F: LurkField>(
                     Op1::Commit => store.hide(F::ZERO, result),
                     Op1::Num => match result.tag {
                         ExprTag::Num | ExprTag::Comm | ExprTag::Char | ExprTag::U64 => {
-                            let scalar_ptr = store
-                                .get_expr_hash(&result)
+                            let z_ptr = store
+                                .hash_expr(&result)
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
-                            store.intern_num(crate::Num::Scalar::<F>(*scalar_ptr.value()))
+                            store.intern_num(crate::Num::Scalar::<F>(*z_ptr.value()))
                         }
                         _ => return Ok(Control::Error(result, env)),
                     },
                     Op1::U64 => match result.tag {
                         ExprTag::Num => {
-                            let scalar_ptr = store
-                                .get_expr_hash(&result)
+                            let z_ptr = store
+                                .hash_expr(&result)
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
 
-                            store.get_u64(scalar_ptr.value().to_u64_unchecked())
+                            store.intern_u64(z_ptr.value().to_u64_unchecked())
                         }
                         ExprTag::U64 => result,
                         _ => return Ok(Control::Error(result, env)),
                     },
                     Op1::Comm => match result.tag {
                         ExprTag::Num | ExprTag::Comm => {
-                            let scalar_ptr = store
-                                .get_expr_hash(&result)
+                            let z_ptr = store
+                                .hash_expr(&result)
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
-                            store.intern_maybe_opaque_comm(*scalar_ptr.value())
+                            store.intern_maybe_opaque_comm(*z_ptr.value())
                         }
                         _ => return Ok(Control::Error(result, env)),
                     },
                     Op1::Char => match result.tag {
                         ExprTag::Num | ExprTag::Char => {
-                            let scalar_ptr = store
-                                .get_expr_hash(&result)
+                            let z_ptr = store
+                                .hash_expr(&result)
                                 .ok_or_else(|| store::Error("expr hash missing".into()))?;
-                            store.get_char_from_u32(scalar_ptr.value().to_u32_unchecked())
+                            Ptr::index(ExprTag::Char, z_ptr.value().to_u32_unchecked() as usize)
                         }
                         _ => return Ok(Control::Error(result, env)),
                     },
@@ -1046,82 +1046,86 @@ fn apply_continuation<F: LurkField>(
                     }
                 };
 
-                let result = match (
-                    store
-                        .fetch(&evaled_arg)
-                        .ok_or_else(|| store::Error("Fetch failed".into()))?,
-                    store
-                        .fetch(&arg2)
-                        .ok_or_else(|| store::Error("Fetch failed".into()))?,
-                ) {
-                    (Expression::Num(a), Expression::Num(b)) if operator.is_numeric() => {
-                        match num_num(store, operator, a, b) {
-                            Ok(x) => x,
-                            Err(control) => return Ok(control),
-                        }
+                // The reason for matching the operator before trying to fetch is that, instead of the other way around,
+                // as it was before, opaque data can be tested for equality and consed without needing to be fetched
+                // from the store
+                let result = match operator {
+                    Op2::Equal => store.as_lurk_boolean(store.ptr_eq(&evaled_arg, &arg2)?),
+                    Op2::Cons => {
+                        cons_witness.cons_named(ConsName::TheCons, store, evaled_arg, arg2)
                     }
-                    (Expression::Num(a), _) if operator == Op2::Hide => {
-                        store.hide(a.into_scalar(), arg2)
+                    Op2::Eval => {
+                        return Ok(Control::Return(evaled_arg, arg2, continuation));
                     }
-                    (Expression::UInt(a), Expression::UInt(b)) if operator.is_numeric() => {
-                        match operator {
-                            Op2::Sum => store.get_u64((a + b).into()),
-                            Op2::Diff => store.get_u64((a - b).into()),
-                            Op2::Product => store.get_u64((a * b).into()),
-                            Op2::Quotient => {
-                                if b.is_zero() {
-                                    return Ok(Control::Return(
-                                        result,
-                                        env,
-                                        store.intern_cont_error(),
-                                    ));
-                                } else {
-                                    store.get_u64((a / b).into())
-                                }
+                    _ => match (
+                        store
+                            .fetch(&evaled_arg)
+                            .ok_or_else(|| store::Error("Fetch failed".into()))?,
+                        store
+                            .fetch(&arg2)
+                            .ok_or_else(|| store::Error("Fetch failed".into()))?,
+                    ) {
+                        (Expression::Num(a), Expression::Num(b)) if operator.is_numeric() => {
+                            match num_num(store, operator, a, b) {
+                                Ok(x) => x,
+                                Err(control) => return Ok(control),
                             }
-                            Op2::Modulo => {
-                                if b.is_zero() {
-                                    return Ok(Control::Return(
-                                        result,
-                                        env,
-                                        store.intern_cont_error(),
-                                    ));
-                                } else {
-                                    store.get_u64((a % b).into())
+                        }
+                        (Expression::Num(a), _) if operator == Op2::Hide => {
+                            store.hide(a.into_scalar(), arg2)
+                        }
+                        (Expression::UInt(a), Expression::UInt(b)) if operator.is_numeric() => {
+                            match operator {
+                                Op2::Sum => store.intern_u64((a + b).into()),
+                                Op2::Diff => store.intern_u64((a - b).into()),
+                                Op2::Product => store.intern_u64((a * b).into()),
+                                Op2::Quotient => {
+                                    if b.is_zero() {
+                                        return Ok(Control::Return(
+                                            result,
+                                            env,
+                                            store.intern_cont_error(),
+                                        ));
+                                    } else {
+                                        store.intern_u64((a / b).into())
+                                    }
                                 }
+                                Op2::Modulo => {
+                                    if b.is_zero() {
+                                        return Ok(Control::Return(
+                                            result,
+                                            env,
+                                            store.intern_cont_error(),
+                                        ));
+                                    } else {
+                                        store.intern_u64((a % b).into())
+                                    }
+                                }
+                                Op2::Equal | Op2::NumEqual => store.as_lurk_boolean(a == b),
+                                Op2::Less => store.as_lurk_boolean(a < b),
+                                Op2::Greater => store.as_lurk_boolean(a > b),
+                                Op2::LessEqual => store.as_lurk_boolean(a <= b),
+                                Op2::GreaterEqual => store.as_lurk_boolean(a >= b),
+                                _ => unreachable!(),
                             }
-                            Op2::Equal | Op2::NumEqual => store.as_lurk_boolean(a == b),
-                            Op2::Less => store.as_lurk_boolean(a < b),
-                            Op2::Greater => store.as_lurk_boolean(a > b),
-                            Op2::LessEqual => store.as_lurk_boolean(a <= b),
-                            Op2::GreaterEqual => store.as_lurk_boolean(a >= b),
-                            _ => unreachable!(),
                         }
-                    }
-                    (Expression::Num(a), Expression::UInt(b)) if operator.is_numeric() => {
-                        match num_num(store, operator, a, b.into()) {
-                            Ok(x) => x,
-                            Err(control) => return Ok(control),
+                        (Expression::Num(a), Expression::UInt(b)) if operator.is_numeric() => {
+                            match num_num(store, operator, a, b.into()) {
+                                Ok(x) => x,
+                                Err(control) => return Ok(control),
+                            }
                         }
-                    }
-                    (Expression::UInt(a), Expression::Num(b)) if operator.is_numeric() => {
-                        match num_num(store, operator, a.into(), b) {
-                            Ok(x) => x,
-                            Err(control) => return Ok(control),
+                        (Expression::UInt(a), Expression::Num(b)) if operator.is_numeric() => {
+                            match num_num(store, operator, a.into(), b) {
+                                Ok(x) => x,
+                                Err(control) => return Ok(control),
+                            }
                         }
-                    }
-                    (Expression::Char(_), Expression::Str(_))
-                        if matches!(operator, Op2::StrCons) =>
-                    {
-                        cons_witness.strcons_named(ConsName::TheCons, store, evaled_arg, arg2)
-                    }
-                    _ => match operator {
-                        Op2::Equal => store.as_lurk_boolean(store.ptr_eq(&evaled_arg, &arg2)?),
-                        Op2::Cons => {
-                            cons_witness.cons_named(ConsName::TheCons, store, evaled_arg, arg2)
-                        }
-                        Op2::Eval => {
-                            return Ok(Control::Return(evaled_arg, arg2, continuation));
+                        (Expression::Char(_), Expression::EmptyStr)
+                        | (Expression::Char(_), Expression::Str(..))
+                            if matches!(operator, Op2::StrCons) =>
+                        {
+                            cons_witness.strcons_named(ConsName::TheCons, store, evaled_arg, arg2)
                         }
                         _ => {
                             return Ok(Control::Return(result, env, store.intern_cont_error()));

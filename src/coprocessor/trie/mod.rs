@@ -83,8 +83,8 @@ impl<F: LurkField> Coprocessor<F> for LookupCoprocessor<F> {
     fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
         let root_ptr = args[0];
         let key_ptr = args[1];
-        let root_scalar = *s.get_expr_hash(&root_ptr).unwrap().value();
-        let key_scalar = *s.get_expr_hash(&key_ptr).unwrap().value();
+        let root_scalar = *s.hash_expr(&root_ptr).unwrap().value();
+        let key_scalar = *s.hash_expr(&key_ptr).unwrap().value();
         let trie: Trie<'_, F, 8, 85> = Trie::new_with_root(s, root_scalar);
 
         let found = trie.lookup_aux(key_scalar).unwrap();
@@ -109,9 +109,9 @@ impl<F: LurkField> Coprocessor<F> for InsertCoprocessor<F> {
         let root_ptr = args[0];
         let key_ptr = args[1];
         let val_ptr = args[2];
-        let root_scalar = *s.get_expr_hash(&root_ptr).unwrap().value();
-        let key_scalar = *s.get_expr_hash(&key_ptr).unwrap().value();
-        let val_scalar = *s.get_expr_hash(&val_ptr).unwrap().value();
+        let root_scalar = *s.hash_expr(&root_ptr).unwrap().value();
+        let key_scalar = *s.hash_expr(&key_ptr).unwrap().value();
+        let val_scalar = *s.hash_expr(&val_ptr).unwrap().value();
         let mut trie: Trie<'_, F, 8, 85> = Trie::new_with_root(s, root_scalar);
         trie.insert(key_scalar, val_scalar).unwrap();
 

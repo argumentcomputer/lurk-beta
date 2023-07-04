@@ -13,11 +13,12 @@ rust-version = "1.68.2"
 ahash = "0.7.6"
 anyhow = { workspace = true }
 anymap = "0.12.1"
+base32ct = { version = "0.2.0", features = ["std"] }
 base64 = { workspace = true }
+base-x = "0.2.11"
 bellperson = { workspace = true }
 bincode = "1.3.3"
 blstrs = { workspace = true }
-cid = { version = "0.8.6", default-features = false, features = ["alloc", "serde-codec"] }
 clap = "4.1.8"
 dashmap = "5.4.0"
 ff = { workspace = true }
@@ -25,12 +26,11 @@ generic-array = "0.14.6"
 hex = { version = "0.4.3", features = ["serde"] }
 indexmap = { version = "1.9.2", features = ["rayon"] }
 itertools = "0.9"
-libipld = { workspace = true, default-features = false, features = ["dag-cbor", "dag-json", "serde-codec"] }
 log = { workspace = true }
 lurk-macros = { path = "lurk-macros" }
-multihash = { version = "0.16.3", features = ["alloc", "blake3"] }
 neptune = { workspace = true, features = ["arity2","arity4","arity8","arity16","pasta","bls"] }
 nom = "7.1.3"
+nom_locate = "4.1.0"
 nova = { workspace = true, default-features = false }
 num-bigint = "0.4.3"
 num-integer = "0.1.45"
@@ -48,8 +48,8 @@ rustyline-derive = "0.8.0"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_repr = "0.1.10"
-string-interner = "0.14.0"
 tap = "1.0.1"
+stable_deref_trait = "1.1.1"
 thiserror = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -98,7 +98,6 @@ bellperson = "0.25"
 blstrs = "0.7.0"
 # TODO: clap
 ff = "0.13"
-libipld = { package = "lurk-ipld", version = "0.3.0", default-features = false }
 log = "0.4.17"
 neptune = { version = "10.0.0" }
 nova = { package = "nova-snark", version = "0.21", default-features = false }

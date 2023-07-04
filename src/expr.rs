@@ -2,7 +2,6 @@ use std::hash::Hash;
 
 use crate::field::LurkField;
 use crate::ptr::{ContPtr, Ptr};
-use crate::sym::Sym;
 use crate::{Num, UInt};
 
 // Expressions, Continuations, Op1, Op2 occupy the same namespace in
@@ -18,17 +17,19 @@ use crate::{Num, UInt};
 // - `0b0011` for Op2
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Expression<'a, F: LurkField> {
+pub enum Expression<F: LurkField> {
     Nil,
     Cons(Ptr<F>, Ptr<F>),
     Comm(F, Ptr<F>),
-    Sym(Sym),
     /// arg, body, closed env
     Fun(Ptr<F>, Ptr<F>, Ptr<F>),
     Num(Num<F>),
-    Str(&'a str),
+    EmptyStr,
+    Str(Ptr<F>, Ptr<F>),
     Thunk(Thunk<F>),
-    Opaque(Ptr<F>),
+    RootSym,
+    Sym(Ptr<F>, Ptr<F>),
+    Key(Ptr<F>, Ptr<F>),
     Char(char),
     UInt(UInt),
 }

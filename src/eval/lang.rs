@@ -7,9 +7,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::coprocessor::{CoCircuit, Coprocessor};
 use crate::field::LurkField;
-use crate::ptr::{Ptr, ScalarPtr};
+use crate::ptr::Ptr;
 use crate::store::Store;
-use crate::sym::Sym;
+use crate::symbol::Symbol;
+use crate::z_ptr::ZExprPtr;
 
 use crate as lurk;
 
@@ -78,7 +79,7 @@ pub enum Coproc<F: LurkField> {
 #[derive(Debug, Default, Clone)]
 pub struct Lang<F: LurkField, C: Coprocessor<F>> {
     //  A HashMap that stores coprocessors with their associated `Sym` keys.
-    coprocessors: HashMap<Sym, (C, ScalarPtr<F>)>,
+    coprocessors: HashMap<Symbol, (C, ZExprPtr<F>)>,
 }
 
 impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
@@ -103,39 +104,36 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         let mut key = String::new();
 
         for coprocessor in &self.coprocessors {
-            let name = match coprocessor.0 {
-                Sym::Sym(sym) => &sym.path,
-                Sym::Key(sym) => &sym.path,
-            }
-            .join("-");
+            let name = coprocessor.0.path.join("-");
 
             key += name.as_str()
         }
         key
     }
 
-    pub fn add_coprocessor<T: Into<C>, S: Into<Sym>>(
+    pub fn add_coprocessor<T: Into<C>, S: Into<Symbol>>(
         &mut self,
         name: S,
         cproc: T,
         store: &mut Store<F>,
     ) {
         let name = name.into();
-        let ptr = store.intern_sym_and_ancestors(&name).unwrap();
-        let scalar_ptr = store.get_expr_hash(&ptr).unwrap();
+        // TODO: Check if intern_symbol should take a reference
+        let ptr = store.intern_symbol(name.clone());
+        let z_ptr = store.hash_expr(&ptr).unwrap();
 
-        self.coprocessors.insert(name, (cproc.into(), scalar_ptr));
+        self.coprocessors.insert(name, (cproc.into(), z_ptr));
     }
 
     pub fn add_binding<B: Into<Binding<F, C>>>(&mut self, binding: B, store: &mut Store<F>) {
         let Binding { name, coproc, _p } = binding.into();
-        let ptr = store.intern_sym_and_ancestors(&name).unwrap();
-        let scalar_ptr = store.get_expr_hash(&ptr).unwrap();
+        let ptr = store.intern_symbol(name.clone());
+        let z_ptr = store.hash_expr(&ptr).unwrap();
 
-        self.coprocessors.insert(name, (coproc, scalar_ptr));
+        self.coprocessors.insert(name, (coproc, z_ptr));
     }
 
-    pub fn coprocessors(&self) -> &HashMap<Sym, (C, ScalarPtr<F>)> {
+    pub fn coprocessors(&self) -> &HashMap<Symbol, (C, ZExprPtr<F>)> {
         &self.coprocessors
     }
 
@@ -147,7 +145,7 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
             .unwrap_or(0)
     }
 
-    pub fn lookup(&self, s: &Store<F>, name: Ptr<F>) -> Option<&(C, ScalarPtr<F>)> {
+    pub fn lookup(&self, s: &Store<F>, name: Ptr<F>) -> Option<&(C, ZExprPtr<F>)> {
         let maybe_sym = s.fetch_maybe_sym(&name);
 
         maybe_sym.and_then(|sym| self.coprocessors.get(&sym))
@@ -165,19 +163,19 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
 /// A `Binding` associates a name (`Sym`) and `Coprocessor`. It facilitates modular construction of `Lang`s using
 /// `Coprocessor`s.
 pub struct Binding<F: LurkField, C: Coprocessor<F>> {
-    name: Sym,
+    name: Symbol,
     coproc: C,
     _p: PhantomData<F>,
 }
 
-impl<F: LurkField, C: Coprocessor<F>, S: Into<Sym>> From<(S, C)> for Binding<F, C> {
+impl<F: LurkField, C: Coprocessor<F>, S: Into<Symbol>> From<(S, C)> for Binding<F, C> {
     fn from(pair: (S, C)) -> Self {
         Self::new(pair.0, pair.1)
     }
 }
 
 impl<F: LurkField, C: Coprocessor<F>> Binding<F, C> {
-    pub fn new<T: Into<C>, S: Into<Sym>>(name: S, coproc: T) -> Self {
+    pub fn new<T: Into<C>, S: Into<Symbol>>(name: S, coproc: T) -> Self {
         Self {
             name: name.into(),
             coproc: coproc.into(),
@@ -199,10 +197,9 @@ pub(crate) mod test {
     #[test]
     fn dummy_lang() {
         let store = &mut Store::<Fr>::default();
-
         let _lang = Lang::<Fr, Coproc<Fr>>::new_with_bindings(
             store,
-            vec![(".cproc.dummy", DummyCoprocessor::new().into())],
+            vec![(".coproc.dummy", DummyCoprocessor::new().into())],
         );
     }
 }

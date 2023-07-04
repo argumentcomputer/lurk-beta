@@ -4,14 +4,10 @@
 //! This defines the LurkField trait used pervasively in the code base
 //! as an extension of the ff::PrimeField trait, with conveniance methods
 //! relating this field to the expresions of the language.
-use anyhow::anyhow;
 use ff::{PrimeField, PrimeFieldBits};
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::hash::Hash;
-
-use crate::light_data::Encodable;
-use crate::light_data::LightData;
 
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
@@ -239,7 +235,7 @@ pub struct FWrap<F: LurkField>(pub F);
 impl<F: LurkField> Copy for FWrap<F> {}
 
 #[cfg(not(target_arch = "wasm32"))]
-/// Trait implementation for generating FWrap<F> instances with proptest
+/// Trait implementation for generating `FWrap<F>` instances with proptest
 impl<F: LurkField> Arbitrary for FWrap<F> {
     type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
@@ -281,47 +277,6 @@ impl<F: LurkField> Serialize for FWrap<F> {
     }
 }
 
-const fn bytes_size<F: LurkField>() -> usize {
-    F::NUM_BITS as usize / 8 + (F::NUM_BITS % 8 != 0) as usize
-}
-
-impl<F: LurkField> Encodable for FWrap<F> {
-    // Beware, this assumes a little endian encoding
-    fn ser(&self) -> LightData {
-        let bytes: Vec<u8> = Vec::from(self.0.to_repr().as_ref());
-        let mut trimmed_bytes: Vec<_> = bytes.into_iter().rev().skip_while(|x| *x == 0u8).collect();
-        trimmed_bytes.reverse();
-        LightData::Atom(trimmed_bytes)
-    }
-
-    // beware, this assumes a little endian encoding
-    fn de(ld: &LightData) -> anyhow::Result<Self> {
-        let bytes = match ld {
-            LightData::Atom(bytes) => bytes,
-            _ => return Err(anyhow!("expected field element as bytes")),
-        };
-
-        if bytes.len() > bytes_size::<F>() {
-            return Err(anyhow!(
-                "Lurk does not support field representations beyond {} bits, received {:?}",
-                F::NUM_BITS,
-                bytes
-            ));
-        }
-
-        // the field element expects a certain Repr length, whereas LightData trims it.
-        let mut bytes_slice = F::default().to_repr();
-        bytes_slice
-            .as_mut()
-            .iter_mut()
-            .zip(bytes)
-            .for_each(|(byte_slice, byte)| *byte_slice = *byte);
-        let f: Option<F> = F::from_repr(bytes_slice).into();
-        f.map(FWrap)
-            .ok_or_else(|| anyhow!("expected field element as bytes, got {:?}", bytes))
-    }
-}
-
 impl<'de, F: LurkField> Deserialize<'de> for FWrap<F> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -338,7 +293,7 @@ impl<'de, F: LurkField> Deserialize<'de> for FWrap<F> {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::light_data::Encodable;
+    use crate::z_data::{from_z_data, to_z_data};
     use blstrs::Scalar as Fr;
     use pasta_curves::{pallas, vesta};
 
@@ -432,9 +387,9 @@ pub mod tests {
       }
 
       #[test]
-      fn prop_encode_decode(x in any::<FWrap<Fr>>()) {
-            let bytes = x.ser();
-            let f2 = FWrap::de(&bytes).unwrap();
+      fn prop_ser_de(x in any::<FWrap<Fr>>()) {
+            let bytes = to_z_data(&x).unwrap();
+            let f2: FWrap<Fr> = from_z_data(&bytes).unwrap();
             assert_eq!(x, f2)
       }
     }

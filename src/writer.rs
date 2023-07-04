@@ -3,7 +3,8 @@ use crate::expr::Expression;
 use crate::field::LurkField;
 use crate::ptr::{ContPtr, Ptr};
 use crate::store::Store;
-use crate::Sym;
+use crate::symbol::Symbol;
+use crate::z_expr::ZExpr;
 use std::io;
 
 pub trait Write<F: LurkField> {
@@ -22,7 +23,7 @@ impl<F: LurkField> Write<F> for Ptr<F> {
             write!(w, "<Opaque ")?;
             write!(w, "{:?}", self.tag)?;
 
-            if let Some(x) = store.get_expr_hash(self) {
+            if let Some(x) = store.hash_expr(self) {
                 write!(w, " ")?;
                 crate::expr::Expression::Num(crate::num::Num::Scalar(*x.value())).fmt(store, w)?;
             }
@@ -30,7 +31,10 @@ impl<F: LurkField> Write<F> for Ptr<F> {
         } else if let Some(expr) = store.fetch(self) {
             expr.fmt(store, w)
         } else {
-            Ok(())
+            Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Cannot find expression pointer",
+            ))
         }
     }
 }
@@ -40,35 +44,48 @@ impl<F: LurkField> Write<F> for ContPtr<F> {
         if let Some(cont) = store.fetch_cont(self) {
             cont.fmt(store, w)
         } else {
-            Ok(())
+            Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Cannot find continuation pointer",
+            ))
         }
     }
 }
 
-fn write_symbol<F: LurkField, W: io::Write>(
-    w: &mut W,
-    store: &Store<F>,
-    sym: &Sym,
-) -> io::Result<()> {
-    let package = &store.lurk_package;
-    let maybe_abbr = package.relative_abbreviation(sym);
-    let symbol_name = maybe_abbr.full_name();
-    write!(w, "{symbol_name}")
+fn write_symbol<W: io::Write>(w: &mut W, sym: &Symbol) -> io::Result<()> {
+    let lurk_syms = Symbol::lurk_syms();
+    if let Some(sym) = lurk_syms.get(sym) {
+        write!(w, "{}", sym)
+    } else {
+        write!(w, "{}", sym)
+    }
 }
 
-impl<F: LurkField> Write<F> for Expression<'_, F> {
+impl<F: LurkField> Write<F> for Expression<F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         use Expression::*;
 
         match self {
-            Nil => write!(w, "NIL"),
-            Sym(s) => write_symbol::<F, _>(w, store, s),
-            Str(s) => write!(w, "\"{s}\""),
+            Nil => write!(w, "nil"),
+            RootSym => write_symbol(w, &Symbol::root()),
+            Sym(car, cdr) => {
+                let head = store.fetch_string(car).expect("missing symbol head");
+                let tail = store.fetch_sym(cdr).expect("missing symbol tail");
+                write_symbol(w, &tail.extend(&[head]))
+            }
+            Key(car, cdr) => {
+                let head = store.fetch_string(car).expect("missing keyword head");
+                let tail = store.fetch_sym(cdr).expect("missing keyword tail");
+                write_symbol(w, &tail.extend(&[head]))
+            }
+            EmptyStr => write!(w, "\"\""),
+            Str(car, cdr) => {
+                let head = store.fetch_char(car).expect("missing string head");
+                let tail = store.fetch_string(cdr).expect("missing string tail");
+                write!(w, "\"{head}{tail}\"")
+            }
             Fun(arg, body, _closed_env) => {
-                let is_zero_arg = *arg
-                    == store
-                        .get_lurk_sym("_", true)
-                        .expect("dummy_arg (_) missing");
+                let is_zero_arg = *arg == store.get_lurk_sym("_").expect("dummy_arg (_) missing");
                 let arg = store.fetch(arg).unwrap();
                 write!(w, "<FUNCTION (")?;
                 if !is_zero_arg {
@@ -107,11 +124,11 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
                 // This requires a run-time coercion.
                 // Consider implementing the equivalent of CL's #. reader macro to let this happen at read-time.
                 write!(w, "(comm ")?;
-                let c = store.commitment_hash(*secret, store.get_expr_hash(payload).unwrap());
-                Num(crate::num::Num::Scalar(c)).fmt(store, w)?;
+                let c = ZExpr::Comm(*secret, store.hash_expr(payload).unwrap())
+                    .z_ptr(&store.poseidon_cache);
+                Num(crate::num::Num::Scalar(c.1)).fmt(store, w)?;
                 write!(w, ")")
             }
-            Opaque(f) => f.fmt(store, w),
             Char(c) => {
                 write!(w, "#\\{c}")
             }
@@ -120,7 +137,7 @@ impl<F: LurkField> Write<F> for Expression<'_, F> {
     }
 }
 
-impl<F: LurkField> Expression<'_, F> {
+impl<F: LurkField> Expression<F> {
     fn print_tail<W: io::Write>(&self, store: &Store<F>, w: &mut W) -> io::Result<()> {
         match self {
             Expression::Nil => write!(w, ")"),
@@ -319,5 +336,38 @@ impl<F: LurkField> Write<F> for Continuation<F> {
                                             // write!(w, " }}")
             }
         }
+    }
+}
+
+#[cfg(test)]
+pub mod test {
+    use super::*;
+    use pasta_curves::pallas::Scalar as Fr;
+
+    #[test]
+    fn print_expr() {
+        let mut s = Store::<Fr>::default();
+        let nil = s.nil();
+        let x = s.sym("x");
+        let lambda = s.lurk_sym("lambda");
+        let val = s.num(123);
+        let lambda_args = s.cons(x, nil);
+        let body = s.cons(x, nil);
+        let rest = s.cons(lambda_args, body);
+        let whole_lambda = s.cons(lambda, rest);
+        let lambda_arguments = s.cons(val, nil);
+        let expr = s.cons(whole_lambda, lambda_arguments);
+        let output = expr.fmt_to_string(&s);
+
+        assert_eq!("((lambda (x) x) 123)".to_string(), output);
+    }
+
+    #[test]
+    fn print_expr2() {
+        let mut s = Store::<Fr>::default();
+        let expr = s.intern_symbol(Symbol::new(&["foo", "bar", "baz"]));
+        let output = expr.fmt_to_string(&s);
+
+        assert_eq!("foo.bar.baz".to_string(), output);
     }
 }

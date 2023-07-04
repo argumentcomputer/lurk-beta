@@ -654,8 +654,8 @@ mod tests {
 
         let fun = evaled.expr;
 
-        let cdr = s.sym("cdr");
-        let quote = s.sym("quote");
+        let cdr = s.lurk_sym("cdr");
+        let quote = s.lurk_sym("quote");
 
         let zero = s.num(0);
         let five = s.num(5);

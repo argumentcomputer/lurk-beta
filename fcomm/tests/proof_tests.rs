@@ -32,7 +32,7 @@ fn test_bad_command() {
 fn test_eval_expression() {
     let mut cmd = fcomm_cmd();
 
-    let expression = "((LAMBDA (A B) (+ (* A 3) B)) 9 7)";
+    let expression = "((lambda (a b) (+ (* a 3) b)) 9 7)";
 
     let tmp_dir = Builder::new().prefix("tmp").tempdir().unwrap();
     let expression_path = tmp_dir.path().join("expression.lurk");
@@ -47,7 +47,7 @@ fn test_eval_expression() {
 
     cmd.assert()
         .success()
-        .stdout("{\"expr\":\"((LAMBDA (A B) (+ (* A 3) B)) 9 7)\",\"env\":\"NIL\",\"cont\":\"Outermost\",\"expr_out\":\"34\",\"env_out\":\"NIL\",\"cont_out\":\"Terminal\",\"status\":\"Terminal\",\"iterations\":17}");
+        .stdout("{\"expr\":\"((lambda (a b) (+ (* a 3) b)) 9 7)\",\"env\":\"nil\",\"cont\":\"Outermost\",\"expr_out\":\"34\",\"env_out\":\"nil\",\"cont_out\":\"Terminal\",\"status\":\"Terminal\",\"iterations\":17}");
 }
 
 fn test_prove_expression(
@@ -56,7 +56,7 @@ fn test_prove_expression(
     proof_path: &Utf8Path,
     data_path: &Utf8Path,
 ) {
-    cmd.env("FCOMM_DATA_PATH", data_path)
+    cmd.env("fcomm_data_path", data_path)
         .arg("prove")
         .arg("--expression")
         .arg(expression_path)
@@ -75,7 +75,7 @@ fn test_open_commitment(
     data_path: &Utf8Path,
     chained: bool,
 ) {
-    cmd.env("FCOMM_DATA_PATH", data_path)
+    cmd.env("fcomm_data_path", data_path)
         .arg("open")
         .arg("--commitment")
         .arg(commitment)
@@ -143,7 +143,7 @@ fn test_prove_and_verify_expression() {
 
 fn commit(function_path: &Utf8Path, commitment_path: &Utf8Path, data_path: &Utf8Path) {
     let mut cmd = fcomm_cmd();
-    cmd.env("FCOMM_DATA_PATH", data_path)
+    cmd.env("fcomm_data_path", data_path)
         .arg("commit")
         .arg("--function")
         .arg(function_path)
@@ -152,6 +152,7 @@ fn commit(function_path: &Utf8Path, commitment_path: &Utf8Path, data_path: &Utf8
         .assert()
         .success();
 }
+
 fn test_create_open_and_verify_functional_commitment_aux(
     function_source: &str,
     function_input: &str,
@@ -171,7 +172,7 @@ fn test_create_open_and_verify_chained_functional_commitment_aux(
     function_source: &str,
     expected_io: Vec<(&str, &str)>,
 ) {
-    let tmp_dir = Builder::new().prefix("tmp").tempdir().unwrap();
+    let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
 
     test_aux(function_source, expected_io, true, tmp_dir);
 }
@@ -201,7 +202,7 @@ fn test_function_aux(
 
     let io = expected_io.iter();
 
-    let tmp_dir_path = Utf8Path::from_path(tmp_dir.path()).unwrap();
+    let tmp_dir_path = Utf8Path::from_path(tmp_dir.path()).expect("tmp dir path");
     let proof_path = tmp_dir_path.join("proof.json");
     let function_path = tmp_dir_path.join("function.json");
     let input_path = tmp_dir_path.join("input.lurk");
@@ -212,12 +213,13 @@ fn test_function_aux(
 
     commit(&function_path, &commitment_path, &fcomm_data_path);
 
-    let mut commitment: Commitment<S1> = Commitment::read_from_path(&commitment_path).unwrap();
+    let mut commitment: Commitment<S1> =
+        Commitment::read_from_path(&commitment_path).expect("read commitment");
 
     for (function_input, expected_output) in io {
-        let mut input_file = File::create(&input_path).unwrap();
+        let mut input_file = File::create(&input_path).expect("create file");
 
-        write!(input_file, "{function_input}").unwrap();
+        write!(input_file, "{function_input}").expect("write file");
 
         test_open_commitment(
             fcomm_cmd(),
@@ -228,16 +230,18 @@ fn test_function_aux(
             chained,
         );
 
-        let proof = Proof::<S1>::read_from_path(&proof_path).unwrap();
+        let proof = Proof::<S1>::read_from_path(&proof_path).expect("read proof");
         let opening = proof.claim.opening().expect("expected opening claim");
-        dbg!(&opening);
 
         let mut store = Store::<S1>::default();
 
-        let input = store.read(function_input).unwrap();
+        let input = store.read(function_input).expect("store read");
         let canonical_input = input.fmt_to_string(&store);
 
-        let canonical_output = store.read(expected_output).unwrap().fmt_to_string(&store);
+        let canonical_output = store
+            .read(expected_output)
+            .expect("store read")
+            .fmt_to_string(&store);
 
         assert_eq!(canonical_input, opening.input);
         assert_eq!(*expected_output, canonical_output);
