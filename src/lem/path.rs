@@ -69,7 +69,7 @@ impl Path {
 #[inline]
 fn insert_one(map: &mut VarMap<Var>, path: &Path, ptr: &Var) -> Result<Var> {
     let new_ptr = Var(format!("{}.{}", path, ptr.name()).into());
-    map.insert(ptr.clone(), new_ptr.clone())?;
+    map.insert(ptr.clone(), new_ptr.clone());
     Ok(new_ptr)
 }
 
@@ -97,7 +97,7 @@ impl LEMCTL {
     ) -> Result<Self> {
         match self {
             LEMCTL::MatchTag(var, cases) => {
-                let mut new_cases = vec![];
+                let mut new_cases = Vec::with_capacity(cases.len());
                 for (tag, case) in cases {
                     let new_case = case.deconflict(&path.push_tag(tag), &mut map.clone())?;
                     new_cases.push((*tag, new_case));
@@ -108,7 +108,7 @@ impl LEMCTL {
                 ))
             }
             LEMCTL::MatchSymbol(var, cases, def) => {
-                let mut new_cases = vec![];
+                let mut new_cases = Vec::with_capacity(cases.len());
                 for (symbol, case) in cases {
                     let new_case = case.deconflict(&path.push_symbol(symbol), &mut map.clone())?;
                     new_cases.push((symbol.clone(), new_case));
@@ -120,7 +120,7 @@ impl LEMCTL {
                 ))
             }
             LEMCTL::Seq(ops, rest) => {
-                let mut new_ops = vec![];
+                let mut new_ops = Vec::with_capacity(ops.len());
                 for op in ops {
                     match op {
                         LEMOP::Null(ptr, tag) => {
