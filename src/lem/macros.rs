@@ -65,7 +65,7 @@ macro_rules! lemop {
 
 #[macro_export]
 macro_rules! lem_code {
-    ( match_tag $sii:ident { $( $tag:ident => $case_ops:tt ),* $(,)? } ) => {
+    ( match_tag $sii:ident { $( $tag:ident $(| $other_tags:ident)* => $case_ops:tt ),* $(,)? } ) => {
         {
             let mut cases = indexmap::IndexMap::new();
             $(
@@ -75,6 +75,14 @@ macro_rules! lem_code {
                 ).is_some() {
                     panic!("Repeated tag on `match_tag`");
                 };
+                $(
+                    if cases.insert(
+                        $crate::lem::Tag::$other_tags,
+                        $crate::lem_code!( $case_ops ),
+                    ).is_some() {
+                        panic!("Repeated tag on `match_tag`");
+                    };
+                )*
             )*
             $crate::lem::LEMCTL::MatchTag($crate::var!($sii), cases)
         }
@@ -195,13 +203,13 @@ macro_rules! lem_code {
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, match_tag $sii:ident { $( $tag:ident => $case_ops:tt ),* $(,)? } $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, match_tag $sii:ident { $( $tag:ident $(| $other_tags:ident)* => $case_ops:tt ),* $(,)? } $($tail:tt)*) => {
         $crate::lem_code! (
             @end
             {
                 $($limbs)*
             },
-            $crate::lem_code!( match_tag $sii { $( $tag => $case_ops ),* } ),
+            $crate::lem_code!( match_tag $sii { $( $tag $(| $other_tags)* => $case_ops ),* } ),
             $($tail)*
         )
     };
