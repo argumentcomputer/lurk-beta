@@ -216,7 +216,7 @@ struct Verify {
     proof_file: PathBuf,
 }
 
-pub fn run_cli() -> Result<()> {
+pub fn parse() -> Result<()> {
     if let Ok(cli) = ReplCli::try_parse() {
         cli.run()
     } else {
