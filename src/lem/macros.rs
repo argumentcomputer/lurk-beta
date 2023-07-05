@@ -65,16 +65,15 @@ macro_rules! lemop {
 
 #[macro_export]
 macro_rules! lem_code {
-    ( match_tag $sii:ident { $( $tag:ident $(| $other_tags:ident)* => $case_ops:tt ),* $(,)? } ) => {
+    ( match_tag $sii:ident { $( $tag:ident $(| $other_tags:ident)* => $case_ops:tt ),* $(_ => $def:tt)? $(,)? } ) => {
         {
             let cases: Vec<($crate::lem::AVec<$crate::lem::Tag>, $crate::lem::LEMCTL)> = vec![
                 $(
                     (std::sync::Arc::new([$crate::lem::Tag::$tag, $( $crate::lem::Tag::$other_tags, )*]), $crate::lem_code!( $case_ops )),
                 )*
             ];
-            let default = None;
+            let default = None $( .or (Some(Box::new($crate::lem_code!( $def )))) )?;
             let match_map = $crate::lem::MatchMap { cases, default };
-            // TODO default
             $crate::lem::LEMCTL::MatchTag($crate::var!($sii), match_map)
         }
     };
@@ -88,18 +87,6 @@ macro_rules! lem_code {
             ];
             let default = Some(Box::new($crate::lem_code!( $def )));
             let match_map = $crate::lem::MatchMap { cases, default };
-            /*
-            let mut cases = indexmap::IndexMap::new();
-            $(
-                if cases.insert(
-                    $symbol,
-                    $crate::lem_code!( $case_ops ),
-                ).is_some() {
-                    panic!("Repeated path on `match_symbol`");
-                };
-            )*
-            $crate::lem::LEMCTL::MatchSymbol($crate::var!($sii), cases, Box::new($crate::lem_code!( $def )))
-            */
             $crate::lem::LEMCTL::MatchSymbol($crate::var!($sii), match_map)
         }
     };
