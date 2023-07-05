@@ -1,14 +1,13 @@
+mod loader;
+mod prove_and_verify;
+
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use anyhow::{bail, Result};
 
-use lurk::coprocessor::Coprocessor;
-use lurk::eval::lang::{Coproc, Lang};
+use lurk::eval::lang::Coproc;
 use lurk::field::{LanguageField, LurkField};
-use lurk::ptr::Ptr;
-use lurk::public_parameters::Claim;
 use lurk::store::Store;
 use lurk::z_data::{from_z_data, ZData};
 use lurk::z_store::ZStore;
@@ -16,6 +15,9 @@ use pasta_curves::{pallas, vesta};
 
 use clap::{Args, Parser, Subcommand};
 use tap::TapOptional;
+
+use self::loader::Loader;
+use self::prove_and_verify::verify_proof;
 
 const DEFAULT_FIELD: LanguageField = LanguageField::Pallas;
 const DEFAULT_LIMIT: usize = 100_000_000;
@@ -212,42 +214,6 @@ impl LoadCli {
 struct Verify {
     #[clap(value_parser)]
     proof_file: PathBuf,
-}
-
-struct Loader<F: LurkField, C: Coprocessor<F>> {
-    pub store: Store<F>,
-    pub env: Ptr<F>,
-    pub limit: usize,
-    pub lang: Arc<Lang<F, C>>,
-    pub last_claim: Option<Claim<F>>,
-}
-
-impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
-    pub fn new(store: Store<F>, env: Ptr<F>, limit: usize) -> Loader<F, C> {
-        Loader {
-            store,
-            env,
-            limit,
-            lang: Arc::new(Lang::<F, C>::new()),
-            last_claim: None,
-        }
-    }
-
-    pub fn repl(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    pub fn load_file(&mut self, path: &PathBuf) -> Result<()> {
-        Ok(())
-    }
-
-    pub fn prove_last_claim(&mut self) -> Result<()> {
-        Ok(())
-    }
-}
-
-fn verify_proof(proof_file: &PathBuf) -> Result<()> {
-    todo!()
 }
 
 pub fn run_cli() -> Result<()> {
