@@ -21,7 +21,7 @@ use crate::{
 
 use super::gadgets::constraints::{
     self, alloc_equal, alloc_equal_const, alloc_is_zero, and_v, div, enforce_implication, or, or_v,
-    pick, pick_const, sub,
+    pick, pick_const, sub, as_lurk_boolean,
 };
 use crate::circuit::circuit_frame::constraints::{
     add, allocate_is_negative, boolean_to_num, enforce_pack, linear, mul,
@@ -3754,12 +3754,11 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let args_equal = arg1_final.alloc_equal(&mut cs.namespace(|| "args_equal"), &arg2_final)?;
 
-        let args_equal_ptr = AllocatedPtr::pick_const(
+        let args_equal_ptr = as_lurk_boolean(
             &mut cs.namespace(|| "args_equal_ptr"),
+            store,
             &args_equal,
-            &c.t.z_ptr(),
-            &c.nil.z_ptr(),
-        )?;
+        );
 
         let not_dummy = cont.alloc_tag_equal(
             &mut cs.namespace(|| "Binop2 not dummy"),

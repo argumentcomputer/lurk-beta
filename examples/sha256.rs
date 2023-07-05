@@ -1,8 +1,10 @@
-use std::env; use std::marker::PhantomData;
+use std::env;
+use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Instant;
 
-use lurk::circuit::gadgets::data::GlobalAllocations;
+use lurk::circuit::gadgets::constraints::{alloc_equal, as_lurk_boolean};
+use lurk::circuit::gadgets::data::{allocate_constant, GlobalAllocations};
 use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use lurk::coprocessor::{CoCircuit, Coprocessor};
 use lurk::eval::{empty_sym_env, lang::Lang};
@@ -15,7 +17,7 @@ use lurk_macros::Coproc;
 
 use bellperson::gadgets::boolean::{AllocatedBit, Boolean};
 use bellperson::gadgets::multipack::pack_bits;
-use bellperson::gadgets::num::{AllocatedNum, Num as BNum};
+use bellperson::gadgets::num::AllocatedNum;
 use bellperson::gadgets::sha256::sha256;
 use bellperson::{ConstraintSystem, SynthesisError};
 
@@ -40,8 +42,8 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
     fn synthesize<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-        g: &GlobalAllocations<F>,
-        _store: &Store<F>,
+        _g: &GlobalAllocations<F>,
+        store: &Store<F>,
         _input_exprs: &[AllocatedPtr<F>],
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
@@ -65,30 +67,28 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
             })
             .collect();
 
-        let expected_nums: Vec<AllocatedNum<_>> = (0..2)
+        let eqs: Vec<Boolean> = (0..2)
             .map(|i| {
-                AllocatedNum::alloc(cs.namespace(|| format!("allocating {i}")), || {
-                    Ok(F::from_u128(self.expected[i]))
-                })
-                .unwrap()
+                let num = allocate_constant(
+                    &mut cs.namespace(|| format!("allocate result {i}")),
+                    F::from_u128(self.expected[i]),
+                )
+                .unwrap();
+
+                let eq = alloc_equal(
+                    cs.namespace(|| format!("equate numbers {i}")),
+                    &num,
+                    &nums[i],
+                )
+                .unwrap();
+
+                eq
             })
             .collect();
-        
-        cs.enforce(
-            || "enforce num 1",
-            |lc| lc + CS::one(),
-            |_| BNum::from(nums[0].clone()).lc(F::from(1)),
-            |_| BNum::from(expected_nums[0].clone()).lc(F::from(1)),
-        );
 
-        cs.enforce(
-            || "enforce num 2",
-            |lc| lc + CS::one(),
-            |_| BNum::from(nums[1].clone()).lc(F::from(1)),
-            |_| BNum::from(expected_nums[1].clone()).lc(F::from(1)),
-        );
+        let both = Boolean::and(cs.namespace(|| "both equal"), &eqs[0], &eqs[1])?;
 
-        let result_ptr = g.t_ptr.clone();
+        let result_ptr = as_lurk_boolean(cs, store, &both)?;
 
         Ok((result_ptr, input_env.clone(), input_cont.clone()))
     }
@@ -113,12 +113,12 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
                 u128::from_be_bytes(a)
             })
             .collect();
-        
+
         u.reverse();
 
-        assert_eq!(u, self.expected);
+        let result = s.as_lurk_boolean(u == self.expected);
 
-        s.get_t()
+        result
     }
 
     fn has_circuit(&self) -> bool {
