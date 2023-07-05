@@ -1,14 +1,16 @@
 use std::io;
-use std::path::PathBuf;
+use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Error, Result};
 
+use lurk::error::LurkError;
 use lurk::eval::lang::Lang;
 use lurk::eval::Evaluator;
+use lurk::expr::Expression;
 use lurk::field::LurkField;
 use lurk::parser;
-use lurk::ptr::Ptr;
+use lurk::ptr::{ContPtr, Ptr};
 use lurk::public_parameters::Claim;
 use lurk::store::Store;
 use lurk::tag::ContTag;
@@ -54,8 +56,200 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
         }
     }
 
-    fn handle_meta(&mut self, expr: Ptr<F>, pwd_path: &PathBuf) -> Result<()> {
-        todo!()
+    fn eval_expr(&mut self, expr_ptr: Ptr<F>) -> Result<(Ptr<F>, usize, ContPtr<F>, Vec<Ptr<F>>)> {
+        let (io, iterations, emitted) =
+            Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang).eval()?;
+
+        let IO {
+            expr: result,
+            env: _,
+            cont: next_cont,
+        } = io;
+
+        if next_cont == self.store.get_cont_error() {
+            Err(LurkError::IO(io))?
+        } else {
+            Ok((result, iterations, next_cont, emitted))
+        }
+    }
+
+    fn handle_meta(&mut self, expr_ptr: Ptr<F>, pwd_path: &Path) -> Result<()> {
+        let expr = self.store.fetch(&expr_ptr).ok_or_else(|| Error::msg(""))?;
+
+        let res = match expr {
+            Expression::Cons(car, rest) => match &self.store.fetch(&car).unwrap() {
+                Expression::Sym(..) => {
+                    let s = &self
+                        .store
+                        .fetch_sym(&car)
+                        .ok_or_else(|| Error::msg("handle_meta fetch symbol"))?;
+                    match format!("{}", s).as_str() {
+                        "assert" => {
+                            let (first, rest) = &self.store.car_cdr(&rest)?;
+                            assert!(rest.is_nil());
+                            let (first_evaled, _, _, _) = self
+                                .eval_expr(*first)
+                                .with_context(|| "evaluating first arg")?;
+                            assert!(!first_evaled.is_nil());
+                            None
+                        }
+                        "assert-eq" => {
+                            let (first, rest) = &self.store.car_cdr(&rest)?;
+                            let (second, rest) = &self.store.car_cdr(rest)?;
+                            assert!(rest.is_nil());
+                            let (first_evaled, _, _, _) = self
+                                .eval_expr(*first)
+                                .with_context(|| "evaluating first arg")?;
+                            let (second_evaled, _, _, _) = self
+                                .eval_expr(*second)
+                                .with_context(|| "evaluating second arg")?;
+                            assert!(
+                                &self.store.ptr_eq(&first_evaled, &second_evaled)?,
+                                "Assertion failed {:?} = {:?},\n {:?} != {:?}",
+                                first.fmt_to_string(&self.store),
+                                second.fmt_to_string(&self.store),
+                                first_evaled.fmt_to_string(&self.store),
+                                second_evaled.fmt_to_string(&self.store)
+                            );
+                            None
+                        }
+                        "assert-emitted" => {
+                            let (first, rest) = &self.store.car_cdr(&rest)?;
+                            let (second, rest) = &self.store.car_cdr(rest)?;
+
+                            assert!(rest.is_nil());
+                            let (first_evaled, _, _, _) = self.eval_expr(*first)?;
+                            let (_, _, _, emitted) = self
+                                .eval_expr(*second)
+                                .with_context(|| "evaluating first arg")?;
+                            let (mut first_emitted, mut rest_emitted) =
+                                &self.store.car_cdr(&first_evaled)?;
+                            for (i, elem) in emitted.iter().enumerate() {
+                                if elem != &first_emitted {
+                                    panic!(
+                                            ":ASSERT-EMITTED failed at position {}. Expected {}, but found {}.",
+                                            i,
+                                            first_emitted.fmt_to_string(&self.store),
+                                            elem.fmt_to_string(&self.store),
+                                        );
+                                }
+                                (first_emitted, rest_emitted) =
+                                    self.store.car_cdr(&rest_emitted)?;
+                            }
+                            None
+                        }
+                        "assert-error" => {
+                            let (first, rest) = &self.store.car_cdr(&rest)?;
+                            assert!(rest.is_nil());
+                            assert!(self.eval_expr(*first).is_err());
+                            None
+                        }
+                        "clear" => {
+                            self.env = self.store.nil();
+                            None
+                        }
+                        "def" => {
+                            // Extends env with a non-recursive binding.
+                            //
+                            // This: !(:def foo (lambda () 123))
+                            //
+                            // Gets macroexpanded to this: (let ((foo (lambda () 123)))
+                            //                               (current-env))
+                            //
+                            // And the state's env is set to the result.
+                            let (first, rest) = &self.store.car_cdr(&rest)?;
+                            let (second, rest) = &self.store.car_cdr(rest)?;
+                            assert!(rest.is_nil());
+                            let l = &self.store.lurk_sym("let");
+                            let current_env = &self.store.lurk_sym("current-env");
+                            let binding = &self.store.list(&[*first, *second]);
+                            let bindings = &self.store.list(&[*binding]);
+                            let current_env_call = &self.store.list(&[*current_env]);
+                            let expanded = &self.store.list(&[*l, *bindings, *current_env_call]);
+                            let (expanded_evaled, _, _, _) = self.eval_expr(*expanded)?;
+
+                            self.env = expanded_evaled;
+
+                            let (new_binding, _) = &self.store.car_cdr(&expanded_evaled)?;
+                            let (new_name, _) = self.store.car_cdr(new_binding)?;
+                            Some(new_name)
+                        }
+                        "defrec" => {
+                            // Extends env with a recursive binding.
+                            //
+                            // This: !(:def foo (lambda () 123))
+                            //
+                            // Gets macroexpanded to this: (letrec ((foo (lambda () 123)))
+                            //                               (current-env))
+                            //
+                            // And the state's env is set to the result.
+                            let (first, rest) = &self.store.car_cdr(&rest)?;
+                            let (second, rest) = &self.store.car_cdr(rest)?;
+                            assert!(rest.is_nil());
+                            let l = &self.store.lurk_sym("letrec");
+                            let current_env = &self.store.lurk_sym("current-env");
+                            let binding = &self.store.list(&[*first, *second]);
+                            let bindings = &self.store.list(&[*binding]);
+                            let current_env_call = &self.store.list(&[*current_env]);
+                            let expanded = &self.store.list(&[*l, *bindings, *current_env_call]);
+                            let (expanded_evaled, _, _, _) = self.eval_expr(*expanded)?;
+
+                            self.env = expanded_evaled;
+
+                            let (new_binding_outer, _) = &self.store.car_cdr(&expanded_evaled)?;
+                            let (new_binding_inner, _) = &self.store.car_cdr(new_binding_outer)?;
+                            let (new_name, _) = self.store.car_cdr(new_binding_inner)?;
+                            Some(new_name)
+                        }
+                        "load" => {
+                            let car = &self.store.car(&rest)?;
+                            match &self.store.fetch(car).unwrap() {
+                                Expression::Str(..) => {
+                                    let path = &self
+                                        .store
+                                        .fetch_string(car)
+                                        .ok_or_else(|| Error::msg("handle_meta fetch_string"))?;
+                                    let joined = pwd_path.join(Path::new(&path));
+                                    self.load_file(&joined)?
+                                }
+                                _ => bail!("Argument to LOAD must be a string."),
+                            }
+                            io::Write::flush(&mut io::stdout()).unwrap();
+                            None
+                        }
+                        "set-env" => {
+                            // The state's env is set to the result of evaluating the first argument.
+                            let (first, rest) = &self.store.car_cdr(&rest)?;
+                            assert!(rest.is_nil());
+                            let (first_evaled, _, _, _) = self.eval_expr(*first)?;
+                            self.env = first_evaled;
+                            None
+                        }
+                        _ => {
+                            bail!("Unsupported command: {}", car.fmt_to_string(&self.store));
+                        }
+                    }
+                }
+                _ => bail!("Unsupported command: {}", car.fmt_to_string(&self.store)),
+            },
+            _ => bail!(
+                "Unsupported meta form: {}",
+                expr_ptr.fmt_to_string(&self.store)
+            ),
+        };
+
+        if let Some(expr) = res {
+            let mut handle = io::stdout().lock();
+            expr.fmt(&self.store, &mut handle)?;
+
+            // TODO: Why is this seemingly necessary to flush?
+            // This doesn't work: io::stdout().flush().unwrap();
+            // We don't really want the newline.
+            println!();
+        };
+
+        io::Write::flush(&mut io::stdout()).unwrap();
+        Ok(())
     }
 
     fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, IO<F>, usize)> {
@@ -101,7 +295,7 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
         }
     }
 
-    pub fn load_file(&mut self, path: &PathBuf) -> Result<()> {
+    pub fn load_file(&mut self, _path: &Path) -> Result<()> {
         Ok(())
     }
 
@@ -155,7 +349,7 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
     pub fn prove_last_claim(&mut self) -> Result<()> {
         match &self.last_claim {
             Some(claim) => {
-                let _ = prove_claim(&claim);
+                let _ = prove_claim(claim);
                 Ok(())
             }
             None => {

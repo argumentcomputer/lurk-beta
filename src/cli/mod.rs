@@ -67,7 +67,7 @@ struct LoadCli {
 }
 
 impl Load {
-    pub fn to_cli(self) -> LoadCli {
+    pub fn into_cli(self) -> LoadCli {
         LoadCli {
             lurk_file: self.lurk_file,
             zstore: self.zstore,
@@ -102,7 +102,7 @@ struct ReplCli {
 }
 
 impl Repl {
-    pub fn to_cli(self) -> ReplCli {
+    pub fn into_cli(self) -> ReplCli {
         ReplCli {
             load: self.load,
             zstore: self.zstore,
@@ -155,23 +155,23 @@ impl ReplCli {
     pub fn run(&self) -> Result<()> {
         match get_field()? {
             LanguageField::Pallas => {
-                let mut loader = new_loader!(&self, pallas::Scalar);
+                let mut loader = new_loader!(self, pallas::Scalar);
                 if let Some(lurk_file) = &self.load {
-                    loader.load_file(&lurk_file)?;
+                    loader.load_file(lurk_file)?;
                 }
                 loader.repl()
             }
             LanguageField::Vesta => {
-                let mut loader = new_loader!(&self, vesta::Scalar);
+                let mut loader = new_loader!(self, vesta::Scalar);
                 if let Some(lurk_file) = &self.load {
-                    loader.load_file(&lurk_file)?;
+                    loader.load_file(lurk_file)?;
                 }
                 loader.repl()
             }
             LanguageField::BLS12_381 => {
-                let mut loader = new_loader!(&self, blstrs::Scalar);
+                let mut loader = new_loader!(self, blstrs::Scalar);
                 if let Some(lurk_file) = &self.load {
-                    loader.load_file(&lurk_file)?;
+                    loader.load_file(lurk_file)?;
                 }
                 loader.repl()
             }
@@ -183,7 +183,7 @@ impl LoadCli {
     pub fn run(&self) -> Result<()> {
         match get_field()? {
             LanguageField::Pallas => {
-                let mut loader = new_loader!(&self, pallas::Scalar);
+                let mut loader = new_loader!(self, pallas::Scalar);
                 loader.load_file(&self.lurk_file)?;
                 if self.prove {
                     loader.prove_last_claim()?;
@@ -191,7 +191,7 @@ impl LoadCli {
                 Ok(())
             }
             LanguageField::Vesta => {
-                let mut loader = new_loader!(&self, vesta::Scalar);
+                let mut loader = new_loader!(self, vesta::Scalar);
                 loader.load_file(&self.lurk_file)?;
                 if self.prove {
                     loader.prove_last_claim()?;
@@ -199,7 +199,7 @@ impl LoadCli {
                 Ok(())
             }
             LanguageField::BLS12_381 => {
-                let mut loader = new_loader!(&self, blstrs::Scalar);
+                let mut loader = new_loader!(self, blstrs::Scalar);
                 loader.load_file(&self.lurk_file)?;
                 if self.prove {
                     loader.prove_last_claim()?;
@@ -219,15 +219,13 @@ struct Verify {
 pub fn parse() -> Result<()> {
     if let Ok(cli) = ReplCli::try_parse() {
         cli.run()
+    } else if let Ok(cli) = LoadCli::try_parse() {
+        cli.run()
     } else {
-        if let Ok(cli) = LoadCli::try_parse() {
-            cli.run()
-        } else {
-            match Cli::parse().command {
-                Command::Repl(arg) => arg.to_cli().run(),
-                Command::Load(arg) => arg.to_cli().run(),
-                Command::Verify(verify) => verify_proof(&verify.proof_file),
-            }
+        match Cli::parse().command {
+            Command::Repl(arg) => arg.into_cli().run(),
+            Command::Load(arg) => arg.into_cli().run(),
+            Command::Verify(verify) => verify_proof(&verify.proof_file),
         }
     }
 }

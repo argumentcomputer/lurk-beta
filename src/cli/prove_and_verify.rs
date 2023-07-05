@@ -3,14 +3,14 @@ use lurk::{
     field::LurkField,
     public_parameters::{Claim, Proof},
 };
-use std::path::PathBuf;
+use std::path::Path;
 
-pub fn prove_claim<F: LurkField>(claim: &Claim<F>) -> Result<Proof<F>> {
+pub fn prove_claim<F: LurkField>(_claim: &Claim<F>) -> Result<Proof<F>> {
     // TODO: mimic clutch
     todo!()
 }
 
-pub fn verify_proof(proof_file: &PathBuf) -> Result<()> {
+pub fn verify_proof(_proof_file: &Path) -> Result<()> {
     // TODO: mimic clutch
     todo!()
 }
