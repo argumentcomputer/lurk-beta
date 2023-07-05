@@ -142,39 +142,42 @@ fn get_store<F: LurkField + for<'a> serde::de::Deserialize<'a>>(
 }
 
 macro_rules! new_loader {
-    ( $arg: expr, $field: path ) => {{
-        let limit = $arg.limit.unwrap_or(DEFAULT_LIMIT);
-        let mut store = get_store(&$arg.zstore);
+    ( $cli: expr, $field: path ) => {{
+        let limit = $cli.limit.unwrap_or(DEFAULT_LIMIT);
+        let mut store = get_store(&$cli.zstore);
         let env = store.nil();
         let loader = Loader::<$field, Coproc<$field>>::new(store, env, limit);
         loader
     }};
 }
 
+macro_rules! repl {
+    ( $cli: expr, $field: path ) => {{
+        let mut loader = new_loader!($cli, $field);
+        if let Some(lurk_file) = &$cli.load {
+            loader.load_file(lurk_file)?;
+        }
+        loader.repl()
+    }};
+}
+
+macro_rules! load {
+    ( $cli: expr, $field: path ) => {{
+        let mut loader = new_loader!($cli, $field);
+        loader.load_file(&$cli.lurk_file)?;
+        if $cli.prove {
+            loader.prove_last_claim()?;
+        }
+        Ok(())
+    }};
+}
+
 impl ReplCli {
     pub fn run(&self) -> Result<()> {
         match get_field()? {
-            LanguageField::Pallas => {
-                let mut loader = new_loader!(self, pallas::Scalar);
-                if let Some(lurk_file) = &self.load {
-                    loader.load_file(lurk_file)?;
-                }
-                loader.repl()
-            }
-            LanguageField::Vesta => {
-                let mut loader = new_loader!(self, vesta::Scalar);
-                if let Some(lurk_file) = &self.load {
-                    loader.load_file(lurk_file)?;
-                }
-                loader.repl()
-            }
-            LanguageField::BLS12_381 => {
-                let mut loader = new_loader!(self, blstrs::Scalar);
-                if let Some(lurk_file) = &self.load {
-                    loader.load_file(lurk_file)?;
-                }
-                loader.repl()
-            }
+            LanguageField::Pallas => repl!(self, pallas::Scalar),
+            LanguageField::Vesta => repl!(self, vesta::Scalar),
+            LanguageField::BLS12_381 => repl!(self, blstrs::Scalar),
         }
     }
 }
@@ -182,30 +185,9 @@ impl ReplCli {
 impl LoadCli {
     pub fn run(&self) -> Result<()> {
         match get_field()? {
-            LanguageField::Pallas => {
-                let mut loader = new_loader!(self, pallas::Scalar);
-                loader.load_file(&self.lurk_file)?;
-                if self.prove {
-                    loader.prove_last_claim()?;
-                }
-                Ok(())
-            }
-            LanguageField::Vesta => {
-                let mut loader = new_loader!(self, vesta::Scalar);
-                loader.load_file(&self.lurk_file)?;
-                if self.prove {
-                    loader.prove_last_claim()?;
-                }
-                Ok(())
-            }
-            LanguageField::BLS12_381 => {
-                let mut loader = new_loader!(self, blstrs::Scalar);
-                loader.load_file(&self.lurk_file)?;
-                if self.prove {
-                    loader.prove_last_claim()?;
-                }
-                Ok(())
-            }
+            LanguageField::Pallas => load!(self, pallas::Scalar),
+            LanguageField::Vesta => load!(self, vesta::Scalar),
+            LanguageField::BLS12_381 => load!(self, blstrs::Scalar),
         }
     }
 }

@@ -3,7 +3,7 @@ use std::io;
 use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::{bail, Context, Error, Result};
+use anyhow::{bail, Context, Result};
 
 use rustyline::{
     error::ReadlineError,
@@ -15,12 +15,15 @@ use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 
 use lurk::{
     error::LurkError,
-    eval::{lang::Lang, Evaluator},
+    eval::{
+        lang::{Coproc, Lang},
+        Evaluable, Evaluator, Witness,
+    },
     expr::Expression,
     field::LurkField,
     parser,
     ptr::Ptr,
-    public_parameters::Claim,
+    public_parameters::{Claim, LurkCont, LurkPtr, PtrEvaluation},
     store::Store,
     tag::ContTag,
     writer::Write,
@@ -48,7 +51,9 @@ pub struct Loader<F: LurkField, C: Coprocessor<F>> {
     pub last_claim: Option<Claim<F>>,
 }
 
-impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
+impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Coprocessor<F>>
+    Loader<F, C>
+{
     pub fn new(store: Store<F>, env: Ptr<F>, limit: usize) -> Loader<F, C> {
         Loader {
             store,
@@ -70,22 +75,10 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
     }
 
     fn handle_meta(&mut self, expr_ptr: Ptr<F>, pwd_path: &Path) -> Result<()> {
-        let expr = self
-            .store
-            .fetch(&expr_ptr)
-            .ok_or_else(|| Error::msg("fetching expression"))?;
-
-        let res = match expr {
-            Expression::Cons(car, rest) => match &self
-                .store
-                .fetch(&car)
-                .ok_or_else(|| Error::msg("fetching command"))?
-            {
+        let res = match self.store.fetch(&expr_ptr).unwrap() {
+            Expression::Cons(car, rest) => match &self.store.fetch(&car).unwrap() {
                 Expression::Sym(..) => {
-                    let s = &self
-                        .store
-                        .fetch_sym(&car)
-                        .ok_or_else(|| Error::msg("handle_meta fetch symbol"))?;
+                    let s = &self.store.fetch_sym(&car).unwrap();
                     match format!("{}", s).as_str() {
                         "assert" => {
                             let (first, rest) = &self.store.car_cdr(&rest)?;
@@ -130,8 +123,7 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
                             for (i, elem) in emitted.iter().enumerate() {
                                 if elem != &first_emitted {
                                     panic!(
-                                            "assert-emitted failed at position {}. Expected {}, but found {}.",
-                                            i,
+                                            "`assert-emitted` failed at position {i}. Expected {}, but found {}.",
                                             first_emitted.fmt_to_string(&self.store),
                                             elem.fmt_to_string(&self.store),
                                         );
@@ -206,20 +198,13 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
                         }
                         "load" => {
                             let car = &self.store.car(&rest)?;
-                            match &self
-                                .store
-                                .fetch(car)
-                                .ok_or_else(|| Error::msg("fetching file path"))?
-                            {
+                            match &self.store.fetch(car).unwrap() {
                                 Expression::Str(..) => {
-                                    let path = &self
-                                        .store
-                                        .fetch_string(car)
-                                        .ok_or_else(|| Error::msg("handle_meta fetch_string"))?;
+                                    let path = &self.store.fetch_string(car).unwrap();
                                     let joined = pwd_path.join(Path::new(&path));
                                     self.load_file(&joined)?
                                 }
-                                _ => bail!("Argument to LOAD must be a string."),
+                                _ => bail!("Argument of `load` must be a string."),
                             }
                             io::Write::flush(&mut io::stdout()).unwrap();
                             None
@@ -259,7 +244,7 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
         Ok(())
     }
 
-    fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, IO<F>, usize)> {
+    fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
         match Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang).eval() {
             Ok((output, iterations, _)) => {
                 if iterations != 1 {
@@ -286,7 +271,22 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
                     cont: self.store.get_cont_outermost(),
                 };
 
-                Ok((input, output, iterations))
+                let claim = Claim::PtrEvaluation::<F>(PtrEvaluation {
+                    expr: LurkPtr::from_ptr(&mut self.store, &input.expr),
+                    env: LurkPtr::from_ptr(&mut self.store, &input.env),
+                    cont: LurkCont::from_cont_ptr(&mut self.store, &input.cont),
+                    expr_out: LurkPtr::from_ptr(&mut self.store, &output.expr),
+                    env_out: LurkPtr::from_ptr(&mut self.store, &output.env),
+                    cont_out: LurkCont::from_cont_ptr(&mut self.store, &output.cont),
+                    status: <lurk::eval::IO<F> as Evaluable<F, Witness<F>, Coproc<F>>>::status(
+                        &output,
+                    ),
+                    iterations: None,
+                });
+
+                self.last_claim = Some(claim);
+
+                Ok(())
             }
             Err(e) => {
                 println!("Evaluation error: {e:?}");
@@ -334,19 +334,19 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
     pub fn repl(&mut self) -> Result<()> {
         println!("Lurk REPL welcomes you.");
 
-        let pwd_path = std::env::current_dir()?;
+        let pwd_path = &std::env::current_dir()?;
 
         let mut editor: Editor<InputValidator, DefaultHistory> = Editor::new()?;
 
         loop {
             match editor.readline("> ") {
-                Ok(line) => {
-                    let input = parser::Span::new(&line);
+                Ok(line) =>
+                {
                     #[cfg(not(target_arch = "wasm32"))]
-                    match self.store.read_maybe_meta(input) {
+                    match self.store.read_maybe_meta(parser::Span::new(&line)) {
                         Ok((_, expr_ptr, is_meta)) => {
                             if is_meta {
-                                if let Err(e) = self.handle_meta(expr_ptr, &pwd_path) {
+                                if let Err(e) = self.handle_meta(expr_ptr, pwd_path) {
                                     println!("!Error: {e:?}");
                                 };
                                 continue;
