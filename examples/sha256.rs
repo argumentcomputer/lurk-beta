@@ -1,5 +1,4 @@
-use std::env;
-use std::marker::PhantomData;
+use std::env; use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -12,17 +11,14 @@ use lurk::proof::{nova::NovaProver, Prover};
 use lurk::ptr::Ptr;
 use lurk::public_parameters::public_params;
 use lurk::store::Store;
-use lurk::tag::{ExprTag, Tag};
-use lurk::Num;
 use lurk_macros::Coproc;
 
 use bellperson::gadgets::boolean::{AllocatedBit, Boolean};
 use bellperson::gadgets::multipack::pack_bits;
-use bellperson::gadgets::num::AllocatedNum;
+use bellperson::gadgets::num::{AllocatedNum, Num as BNum};
 use bellperson::gadgets::sha256::sha256;
 use bellperson::{ConstraintSystem, SynthesisError};
 
-use itertools::enumerate;
 use pasta_curves::pallas::Scalar as Fr;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -32,6 +28,7 @@ const REDUCTION_COUNT: usize = 10;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Sha256Coprocessor<F: LurkField> {
     n: usize,
+    expected: [u128; 2],
     pub(crate) _p: PhantomData<F>,
 }
 
@@ -44,7 +41,7 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         &self,
         cs: &mut CS,
         g: &GlobalAllocations<F>,
-        store: &Store<F>,
+        _store: &Store<F>,
         _input_exprs: &[AllocatedPtr<F>],
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
@@ -68,14 +65,22 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
             })
             .collect();
 
-        let result_ptr = enumerate(nums).try_fold(g.nil_ptr.clone(), |acc, (i, num)| {
-            let ptr = AllocatedPtr::alloc_tag(
-                &mut cs.namespace(|| format!("limb_value_{i}")),
-                ExprTag::Num.to_field(),
-                num,
-            )?;
-            AllocatedPtr::construct_cons(cs.namespace(|| format!("limb_{i}")), g, store, &ptr, &acc)
-        })?;
+        let expected_nums: Vec<AllocatedNum<_>> = (0..2)
+            .map(|i| {
+                AllocatedNum::alloc(cs.namespace(|| format!("allocating {i}")), || {
+                    Ok(F::from_u128(self.expected[i]))
+                })
+                .unwrap()
+            })
+            .collect();
+        
+        cs.enforce(
+            || "enforce num 1",
+            |lc| lc + CS::one(),
+            |_| BNum::from(nums[0].clone()).lc(F::from(1)),
+            |_| BNum::from(expected_nums[0].clone()).lc(F::from(1)),
+        );
+        let result_ptr = g.t_ptr.clone();
 
         Ok((result_ptr, input_env.clone(), input_cont.clone()))
     }
@@ -94,15 +99,18 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
         hasher.update(input);
         let result = hasher.finalize();
 
-        let u: Vec<u128> = (0..2)
+        let mut u: Vec<u128> = (0..2)
             .map(|i| {
                 let a: [u8; 16] = result[(16 * i)..(16 * (i + 1))].try_into().unwrap();
                 u128::from_be_bytes(a)
             })
             .collect();
+        
+        u.reverse();
 
-        let blah = &[u[0], u[1]].map(|x| s.intern_num(u128_into_scalar::<F>(x)));
-        s.list(blah)
+        assert_eq!(u, self.expected);
+
+        s.get_t()
     }
 
     fn has_circuit(&self) -> bool {
@@ -110,17 +118,11 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
     }
 }
 
-fn u128_into_scalar<F: LurkField>(u: u128) -> Num<F> {
-    let bytes: [u8; 16] = u.to_le_bytes();
-    let zeroes: [u8; 16] = [0u8; 16];
-    let result: [u8; 32] = [bytes, zeroes].concat().try_into().unwrap();
-    Num::Scalar(F::from_bytes(&result).unwrap())
-}
-
 impl<F: LurkField> Sha256Coprocessor<F> {
-    pub(crate) fn new(n: usize) -> Self {
+    pub(crate) fn new(n: usize, expected: [u128; 2]) -> Self {
         Self {
             n,
+            expected,
             _p: Default::default(),
         }
     }
@@ -142,23 +144,26 @@ fn main() {
 
     let input_size = 64 * num_of_64_bytes;
 
+    let mut u: [u128; 2] = [0u128; 2];
+    for i in 0..2 {
+        u[i] = u128::from_be_bytes(expect[(i * 16)..(i + 1) * 16].try_into().unwrap())
+    }
+
+    u.reverse();
+
     let store = &mut Store::<Fr>::new();
     let sym_str = format!(".sha256.hash-{}-zero-bytes", input_size);
     let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
         store,
-        vec![(sym_str.clone(), Sha256Coprocessor::new(input_size).into())],
+        vec![(
+            sym_str.clone(),
+            Sha256Coprocessor::new(input_size, u).into(),
+        )],
     );
 
     let coproc_expr = format!("({})", sym_str);
 
-    let mut u: [u128; 2] = [0u128; 2];
-
-    for i in 0..2 {
-        u[i] = u128::from_be_bytes(expect[(i * 16)..(i + 1) * 16].try_into().unwrap())
-    }
-    let result_expr = format!("({} {})", u[0], u[1]);
-
-    let expr = format!("(emit (eq {coproc_expr} (quote {result_expr})))");
+    let expr = format!("({coproc_expr})");
     let ptr = store.read(&expr).unwrap();
 
     let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang.clone());
