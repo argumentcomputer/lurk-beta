@@ -12,7 +12,6 @@ use lurk::public_parameters::Claim;
 use lurk::store::Store;
 use lurk::z_data::{from_z_data, ZData};
 use lurk::z_store::ZStore;
-// use lurk::repl::{repl_cli, ReplState};
 use pasta_curves::{pallas, vesta};
 
 use clap::{Args, Parser, Subcommand};
@@ -25,7 +24,7 @@ const DEFAULT_LIMIT: usize = 100_000_000;
 #[clap(version, about, long_about = None)]
 struct Cli {
     #[clap(subcommand)]
-    command: Option<Command>,
+    command: Command,
 }
 
 #[derive(Subcommand, Debug)]
@@ -50,6 +49,32 @@ struct Load {
     prove: bool,
 }
 
+#[derive(Parser, Debug)]
+struct LoadCli {
+    #[clap(value_parser)]
+    lurk_file: PathBuf,
+
+    #[clap(long, value_parser)]
+    zstore: Option<PathBuf>,
+
+    #[clap(long, value_parser)]
+    limit: Option<usize>,
+
+    #[arg(long)]
+    prove: bool,
+}
+
+impl Load {
+    pub fn to_cli(self) -> LoadCli {
+        LoadCli {
+            lurk_file: self.lurk_file,
+            zstore: self.zstore,
+            limit: self.limit,
+            prove: self.prove,
+        }
+    }
+}
+
 #[derive(Args, Debug)]
 struct Repl {
     #[clap(long, value_parser)]
@@ -62,45 +87,25 @@ struct Repl {
     limit: Option<usize>,
 }
 
-#[derive(Args, Debug)]
-struct Verify {
-    #[clap(value_parser)]
-    proof_file: PathBuf,
+#[derive(Parser, Debug)]
+struct ReplCli {
+    #[clap(long, value_parser)]
+    load: Option<PathBuf>,
+
+    #[clap(long, value_parser)]
+    zstore: Option<PathBuf>,
+
+    #[clap(long, value_parser)]
+    limit: Option<usize>,
 }
 
-struct ReplState<F: LurkField, C: Coprocessor<F>> {
-    pub store: Store<F>,
-    pub env: Ptr<F>,
-    pub limit: usize,
-    pub lang: Arc<Lang<F, C>>,
-    pub last_claim: Option<Claim<F>>,
-}
-
-impl<F: LurkField, C: Coprocessor<F>> ReplState<F, C> {
-    pub fn new(store: Store<F>, env: Ptr<F>, limit: usize) -> ReplState<F, C> {
-        ReplState {
-            store,
-            env,
-            limit,
-            lang: Arc::new(Lang::<F, C>::new()),
-            last_claim: None,
+impl Repl {
+    pub fn to_cli(self) -> ReplCli {
+        ReplCli {
+            load: self.load,
+            zstore: self.zstore,
+            limit: self.limit,
         }
-    }
-
-    pub fn repl(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    pub fn load_file(&mut self, path: &PathBuf) -> Result<()> {
-        Ok(())
-    }
-
-    pub fn prove_last_claim(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    pub fn verify(&mut self, proof_id: String) -> Result<()> {
-        Ok(())
     }
 }
 
@@ -135,72 +140,131 @@ fn get_store<F: LurkField + for<'a> serde::de::Deserialize<'a>>(
         .unwrap_or_default()
 }
 
-macro_rules! new_repl_state {
-    ( $cmd: expr, $field: path ) => {{
-        let limit = $cmd.limit.unwrap_or(DEFAULT_LIMIT);
-        let mut store = get_store(&$cmd.zstore);
+macro_rules! new_loader {
+    ( $arg: expr, $field: path ) => {{
+        let limit = $arg.limit.unwrap_or(DEFAULT_LIMIT);
+        let mut store = get_store(&$arg.zstore);
         let env = store.nil();
-        let repl_state = ReplState::<$field, Coproc<$field>>::new(store, env, limit);
-        repl_state
+        let loader = Loader::<$field, Coproc<$field>>::new(store, env, limit);
+        loader
     }};
+}
+
+impl ReplCli {
+    pub fn run(&self) -> Result<()> {
+        match get_field()? {
+            LanguageField::Pallas => {
+                let mut loader = new_loader!(&self, pallas::Scalar);
+                if let Some(lurk_file) = &self.load {
+                    loader.load_file(&lurk_file)?;
+                }
+                loader.repl()
+            }
+            LanguageField::Vesta => {
+                let mut loader = new_loader!(&self, vesta::Scalar);
+                if let Some(lurk_file) = &self.load {
+                    loader.load_file(&lurk_file)?;
+                }
+                loader.repl()
+            }
+            LanguageField::BLS12_381 => {
+                let mut loader = new_loader!(&self, blstrs::Scalar);
+                if let Some(lurk_file) = &self.load {
+                    loader.load_file(&lurk_file)?;
+                }
+                loader.repl()
+            }
+        }
+    }
+}
+
+impl LoadCli {
+    pub fn run(&self) -> Result<()> {
+        match get_field()? {
+            LanguageField::Pallas => {
+                let mut loader = new_loader!(&self, pallas::Scalar);
+                loader.load_file(&self.lurk_file)?;
+                if self.prove {
+                    loader.prove_last_claim()?;
+                }
+                Ok(())
+            }
+            LanguageField::Vesta => {
+                let mut loader = new_loader!(&self, vesta::Scalar);
+                loader.load_file(&self.lurk_file)?;
+                if self.prove {
+                    loader.prove_last_claim()?;
+                }
+                Ok(())
+            }
+            LanguageField::BLS12_381 => {
+                let mut loader = new_loader!(&self, blstrs::Scalar);
+                loader.load_file(&self.lurk_file)?;
+                if self.prove {
+                    loader.prove_last_claim()?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+#[derive(Args, Debug)]
+struct Verify {
+    #[clap(value_parser)]
+    proof_file: PathBuf,
+}
+
+struct Loader<F: LurkField, C: Coprocessor<F>> {
+    pub store: Store<F>,
+    pub env: Ptr<F>,
+    pub limit: usize,
+    pub lang: Arc<Lang<F, C>>,
+    pub last_claim: Option<Claim<F>>,
+}
+
+impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
+    pub fn new(store: Store<F>, env: Ptr<F>, limit: usize) -> Loader<F, C> {
+        Loader {
+            store,
+            env,
+            limit,
+            lang: Arc::new(Lang::<F, C>::new()),
+            last_claim: None,
+        }
+    }
+
+    pub fn repl(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    pub fn load_file(&mut self, path: &PathBuf) -> Result<()> {
+        Ok(())
+    }
+
+    pub fn prove_last_claim(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    pub fn verify(&mut self, proof_id: String) -> Result<()> {
+        Ok(())
+    }
 }
 
 fn main() -> Result<()> {
     pretty_env_logger::init();
 
-    let cli = Cli::parse();
-    // TODO: `lurk file.lurk` isn't parsed. is there a proper way to support it?
-    match cli.command {
-        None => Ok(()),
-        Some(Command::Repl(cmd)) => match get_field()? {
-            LanguageField::Pallas => {
-                let mut repl_state = new_repl_state!(&cmd, pallas::Scalar);
-                if let Some(lurk_file) = cmd.load {
-                    repl_state.load_file(&lurk_file)?;
-                }
-                repl_state.repl()
+    if let Ok(cli) = ReplCli::try_parse() {
+        cli.run()
+    } else {
+        if let Ok(cli) = LoadCli::try_parse() {
+            cli.run()
+        } else {
+            match Cli::parse().command {
+                Command::Repl(arg) => arg.to_cli().run(),
+                Command::Load(arg) => arg.to_cli().run(),
+                Command::Verify(verify) => Ok(()),
             }
-            LanguageField::Vesta => {
-                let mut repl_state = new_repl_state!(&cmd, vesta::Scalar);
-                if let Some(lurk_file) = cmd.load {
-                    repl_state.load_file(&lurk_file)?;
-                }
-                repl_state.repl()
-            }
-            LanguageField::BLS12_381 => {
-                let mut repl_state = new_repl_state!(&cmd, blstrs::Scalar);
-                if let Some(lurk_file) = cmd.load {
-                    repl_state.load_file(&lurk_file)?;
-                }
-                repl_state.repl()
-            }
-        },
-        Some(Command::Load(cmd)) => match get_field()? {
-            LanguageField::Pallas => {
-                let mut repl_state = new_repl_state!(&cmd, pallas::Scalar);
-                repl_state.load_file(&cmd.lurk_file)?;
-                if cmd.prove {
-                    repl_state.prove_last_claim()?;
-                }
-                Ok(())
-            }
-            LanguageField::Vesta => {
-                let mut repl_state = new_repl_state!(&cmd, vesta::Scalar);
-                repl_state.load_file(&cmd.lurk_file)?;
-                if cmd.prove {
-                    repl_state.prove_last_claim()?;
-                }
-                Ok(())
-            }
-            LanguageField::BLS12_381 => {
-                let mut repl_state = new_repl_state!(&cmd, blstrs::Scalar);
-                repl_state.load_file(&cmd.lurk_file)?;
-                if cmd.prove {
-                    repl_state.prove_last_claim()?;
-                }
-                Ok(())
-            }
-        },
-        Some(Command::Verify(verify)) => Ok(()),
+        }
     }
 }
