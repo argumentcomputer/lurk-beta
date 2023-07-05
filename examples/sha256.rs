@@ -80,6 +80,14 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
             |_| BNum::from(nums[0].clone()).lc(F::from(1)),
             |_| BNum::from(expected_nums[0].clone()).lc(F::from(1)),
         );
+
+        cs.enforce(
+            || "enforce num 2",
+            |lc| lc + CS::one(),
+            |_| BNum::from(nums[1].clone()).lc(F::from(1)),
+            |_| BNum::from(expected_nums[1].clone()).lc(F::from(1)),
+        );
+
         let result_ptr = g.t_ptr.clone();
 
         Ok((result_ptr, input_env.clone(), input_cont.clone()))
