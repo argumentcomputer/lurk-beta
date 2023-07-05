@@ -63,10 +63,13 @@
 //! 3. Assign first, use later: this prevents obvious errors such as "x not
 //! defined" during interpretation or "x not allocated" during constraining.
 
+/*
 mod circuit;
 mod eval;
 mod interpreter;
 mod macros;
+*/
+mod match_map;
 mod path;
 mod pointers;
 mod store;
@@ -76,10 +79,11 @@ mod var_map;
 
 use crate::field::LurkField;
 use anyhow::Result;
-use indexmap::IndexMap;
 use std::sync::Arc;
 
-use self::{path::Path, store::Store, symbol::Symbol, tag::Tag, var_map::VarMap};
+use self::{
+    match_map::MatchMap, path::Path, store::Store, symbol::Symbol, tag::Tag, var_map::VarMap,
+};
 
 pub type AString = Arc<str>;
 pub type AVec<A> = Arc<[A]>;
@@ -113,11 +117,11 @@ impl Var {
 pub enum LEMCTL {
     /// `MatchTag(x, cases)` performs a match on the tag of `x`, considering only
     /// the appropriate `LEM` among the ones provided in `cases`
-    MatchTag(Var, IndexMap<Tag, LEMCTL>),
+    MatchTag(Var, MatchMap<Tag, LEMCTL>),
     /// `MatchSymbol(x, cases, def)` checks whether `x` matches some symbol among
     /// the ones provided in `cases`. If so, run the corresponding `LEM`. Run
     /// The default `def` `LEM` otherwise
-    MatchSymbol(Var, IndexMap<Symbol, LEMCTL>, Box<LEMCTL>),
+    MatchSymbol(Var, MatchMap<Symbol, LEMCTL>),
     /// `Seq(ops, lem)` executes `ops: Vec<LEMOP>` then `lem: LEM` sequentially
     Seq(Vec<LEMOP>, Box<LEMCTL>),
     /// `Return(rets)` sets the output to `rets`
@@ -156,6 +160,7 @@ pub enum LEMOP {
     Open(Var, Var, Var),
 }
 
+/*
 impl LEMCTL {
     /// Intern all symbol paths that are matched on `MatchSymPath`s
     pub fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
@@ -480,3 +485,5 @@ mod tests {
         );
     }
 }
+
+*/

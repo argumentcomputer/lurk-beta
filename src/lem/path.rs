@@ -1,8 +1,7 @@
 use anyhow::Result;
-use indexmap::IndexMap;
 use std::collections::HashSet;
 
-use super::{symbol::Symbol, tag::Tag, var_map::VarMap, Var, LEMCTL, LEMOP};
+use super::{match_map::MatchMap, symbol::Symbol, tag::Tag, var_map::VarMap, Var, LEMCTL, LEMOP};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) enum PathNode {
@@ -96,28 +95,39 @@ impl LEMCTL {
         map: &mut VarMap<Var>, // name -> path.name
     ) -> Result<Self> {
         match self {
-            LEMCTL::MatchTag(var, cases) => {
-                let mut new_cases = vec![];
-                for (tag, case) in cases {
-                    let new_case = case.deconflict(&path.push_tag(tag), &mut map.clone())?;
-                    new_cases.push((*tag, new_case));
+            LEMCTL::MatchTag(var, match_map) => {
+                let mut cases = vec![];
+                for (tags, case) in match_map.cases.iter() {
+                    // Should we always take the first as a representative of the branch?
+                    if let Some(tag) = tags.get(0) {
+                        let case = case.deconflict(&path.push_tag(tag), &mut map.clone())?;
+                        cases.push((tags.clone(), case));
+                    }
                 }
-                Ok(LEMCTL::MatchTag(
-                    map.get_cloned(var)?,
-                    IndexMap::from_iter(new_cases),
-                ))
+                let default = if let Some(case) = &match_map.default {
+                    Some(Box::new(case.deconflict(&path.push_default(), map)?))
+                } else {
+                    None
+                };
+                let new_match_map = MatchMap { cases, default };
+                Ok(LEMCTL::MatchTag(map.get_cloned(var)?, new_match_map))
             }
-            LEMCTL::MatchSymbol(var, cases, def) => {
-                let mut new_cases = vec![];
-                for (symbol, case) in cases {
-                    let new_case = case.deconflict(&path.push_symbol(symbol), &mut map.clone())?;
-                    new_cases.push((symbol.clone(), new_case));
+            LEMCTL::MatchSymbol(var, match_map) => {
+                let mut cases = vec![];
+                for (symbols, case) in match_map.cases.iter() {
+                    // Should we always take the first as a representative of the branch?
+                    if let Some(symbol) = symbols.get(0) {
+                        let case = case.deconflict(&path.push_symbol(symbol), &mut map.clone())?;
+                        cases.push((symbols.clone(), case));
+                    }
                 }
-                Ok(LEMCTL::MatchSymbol(
-                    map.get_cloned(var)?,
-                    IndexMap::from_iter(new_cases),
-                    Box::new(def.deconflict(&path.push_default(), map)?),
-                ))
+                let default = if let Some(case) = &match_map.default {
+                    Some(Box::new(case.deconflict(&path.push_default(), map)?))
+                } else {
+                    None
+                };
+                let new_match_map = MatchMap { cases, default };
+                Ok(LEMCTL::MatchSymbol(map.get_cloned(var)?, new_match_map))
             }
             LEMCTL::Seq(ops, rest) => {
                 let mut new_ops = vec![];
@@ -170,12 +180,14 @@ impl LEMCTL {
     /// Computes the number of possible paths in a `LEMOP`
     pub fn num_paths(&self) -> usize {
         match self {
-            LEMCTL::MatchTag(_, cases) => {
-                cases.values().fold(0, |acc, block| acc + block.num_paths())
-            }
-            LEMCTL::MatchSymbol(_, cases, _) => {
-                cases.values().fold(0, |acc, block| acc + block.num_paths())
-            }
+            LEMCTL::MatchTag(_, match_map) => match_map
+                .cases
+                .iter()
+                .fold(0, |acc, (_, block)| acc + block.num_paths()),
+            LEMCTL::MatchSymbol(_, match_map) => match_map
+                .cases
+                .iter()
+                .fold(0, |acc, (_, block)| acc + block.num_paths()),
             LEMCTL::Seq(_, rest) => rest.num_paths(),
             LEMCTL::Return(..) => 1,
         }
