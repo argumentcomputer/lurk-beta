@@ -30,13 +30,13 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Command {
-    Run(Run),
+    Load(Load),
     Repl(Repl),
     Verify(Verify),
 }
 
 #[derive(Args, Debug)]
-struct Run {
+struct Load {
     #[clap(value_parser)]
     lurk_file: PathBuf,
 
@@ -52,6 +52,9 @@ struct Run {
 
 #[derive(Args, Debug)]
 struct Repl {
+    #[clap(long, value_parser)]
+    load: Option<PathBuf>,
+
     #[clap(long, value_parser)]
     zstore: Option<PathBuf>,
 
@@ -152,18 +155,27 @@ fn main() -> Result<()> {
         Some(Command::Repl(cmd)) => match get_field()? {
             LanguageField::Pallas => {
                 let mut repl_state = new_repl_state!(&cmd, pallas::Scalar);
+                if let Some(lurk_file) = cmd.load {
+                    repl_state.load_file(&lurk_file)?;
+                }
                 repl_state.repl()
             }
             LanguageField::Vesta => {
                 let mut repl_state = new_repl_state!(&cmd, vesta::Scalar);
+                if let Some(lurk_file) = cmd.load {
+                    repl_state.load_file(&lurk_file)?;
+                }
                 repl_state.repl()
             }
             LanguageField::BLS12_381 => {
                 let mut repl_state = new_repl_state!(&cmd, blstrs::Scalar);
+                if let Some(lurk_file) = cmd.load {
+                    repl_state.load_file(&lurk_file)?;
+                }
                 repl_state.repl()
             }
         },
-        Some(Command::Run(cmd)) => match get_field()? {
+        Some(Command::Load(cmd)) => match get_field()? {
             LanguageField::Pallas => {
                 let mut repl_state = new_repl_state!(&cmd, pallas::Scalar);
                 repl_state.load_file(&cmd.lurk_file)?;
