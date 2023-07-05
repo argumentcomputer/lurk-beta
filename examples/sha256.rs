@@ -48,10 +48,10 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        // // TODO: Maybe fix this
-        let false_bool = Boolean::from(AllocatedBit::alloc(cs.namespace(|| "false"), Some(false))?);
-
-        let preimage = vec![false_bool; self.n * 8];
+        let preimage = (0..self.n * 8)
+            .map(|i| AllocatedBit::alloc(cs.namespace(|| format!("preimage bit {i}")), Some(false)))
+            .map(|b| b.map(Boolean::from))
+            .collect::<Result<Vec<_>, _>>()?;
 
         let mut bits = sha256(cs.namespace(|| "SHAhash"), &preimage)?;
 
