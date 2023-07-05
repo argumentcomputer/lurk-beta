@@ -1,8 +1,6 @@
 // Initially taken from: rust-fil-proofs/storage-proofs-core/src/gadgets/
 
-use super::pointer::AllocatedPtr;
 use crate::field::LurkField;
-use crate::store::Store;
 use bellperson::LinearCombination;
 use bellperson::{
     gadgets::{
@@ -405,21 +403,6 @@ where
     );
 
     Ok(c)
-}
-
-/// Takes a boolean and returns an allocated pointer corresponding to the Boolean's value.
-pub fn as_lurk_boolean<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    store: &Store<F>,
-    boolean: &Boolean,
-) -> Result<AllocatedPtr<F>, SynthesisError> {
-    let c = store.get_constants();
-    AllocatedPtr::pick_const(
-        cs.namespace(|| "blah"),
-        boolean,
-        &c.t.z_ptr(),
-        &c.nil.z_ptr(),
-    )
 }
 
 /// Convert from Boolean to AllocatedNum

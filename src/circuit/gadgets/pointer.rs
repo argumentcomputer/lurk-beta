@@ -496,6 +496,21 @@ impl<F: LurkField> AllocatedPtr<F> {
         Ok(AllocatedPtr { tag, hash })
     }
 
+    /// Takes a boolean and returns an allocated pointer corresponding to the Boolean's value.
+    pub fn as_lurk_boolean<CS: ConstraintSystem<F>>(
+        mut cs: CS,
+        store: &Store<F>,
+        boolean: &Boolean,
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        let c = store.get_constants();
+        AllocatedPtr::pick_const(
+            cs.namespace(|| "blah"),
+            boolean,
+            &c.t.z_ptr(),
+            &c.nil.z_ptr(),
+        )
+    }
+
     pub fn by_index(n: usize, ptr_vec: &[AllocatedNum<F>]) -> Self {
         AllocatedPtr {
             tag: ptr_vec[n * 2].clone(),

@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Instant;
 
-use lurk::circuit::gadgets::constraints::{alloc_equal, as_lurk_boolean};
+use lurk::circuit::gadgets::constraints::alloc_equal;
 use lurk::circuit::gadgets::data::{allocate_constant, GlobalAllocations};
 use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use lurk::coprocessor::{CoCircuit, Coprocessor};
@@ -88,7 +88,7 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
 
         let both = Boolean::and(cs.namespace(|| "both equal"), &eqs[0], &eqs[1])?;
 
-        let result_ptr = as_lurk_boolean(cs, store, &both)?;
+        let result_ptr = AllocatedPtr::as_lurk_boolean(cs, store, &both)?;
 
         Ok((result_ptr, input_env.clone(), input_cont.clone()))
     }
