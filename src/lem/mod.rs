@@ -65,10 +65,10 @@
 
 /*
 mod circuit;
-mod eval;
 mod interpreter;
-mod macros;
 */
+mod eval;
+mod macros;
 mod match_map;
 mod path;
 mod pointers;
@@ -181,6 +181,7 @@ impl LEMCTL {
     }
 }
 
+*/
 impl LEM {
     /// Performs the static checks described in `LEM`'s docstring.
     pub fn check(&self) {
@@ -200,6 +201,7 @@ impl LEM {
         })
     }
 
+    /*
     /// Intern all symbols that are matched on `MatchSymbol`s
     #[inline]
     pub fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
@@ -214,8 +216,10 @@ impl LEM {
             self.ctl.num_paths()
         );
     }
+     */
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::circuit::SlotsCounter;

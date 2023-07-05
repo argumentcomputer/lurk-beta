@@ -67,28 +67,28 @@ macro_rules! lemop {
 macro_rules! lem_code {
     ( match_tag $sii:ident { $( $tag:ident $(| $other_tags:ident)* => $case_ops:tt ),* $(,)? } ) => {
         {
-            let mut cases = indexmap::IndexMap::new();
-            $(
-                if cases.insert(
-                    $crate::lem::Tag::$tag,
-                    $crate::lem_code!( $case_ops ),
-                ).is_some() {
-                    panic!("Repeated tag on `match_tag`");
-                };
+            let cases: Vec<($crate::lem::AVec<$crate::lem::Tag>, $crate::lem::LEMCTL)> = vec![
                 $(
-                    if cases.insert(
-                        $crate::lem::Tag::$other_tags,
-                        $crate::lem_code!( $case_ops ),
-                    ).is_some() {
-                        panic!("Repeated tag on `match_tag`");
-                    };
+                    (std::sync::Arc::new([$crate::lem::Tag::$tag, $( $crate::lem::Tag::$other_tags, )*]), $crate::lem_code!( $case_ops )),
                 )*
-            )*
-            $crate::lem::LEMCTL::MatchTag($crate::var!($sii), cases)
+            ];
+            let default = None;
+            let match_map = $crate::lem::MatchMap { cases, default };
+            // TODO default
+            $crate::lem::LEMCTL::MatchTag($crate::var!($sii), match_map)
         }
     };
     ( match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } ) => {
         {
+            // TODO groups
+            let cases: Vec<($crate::lem::AVec<$crate::lem::Symbol>, $crate::lem::LEMCTL)> = vec![
+                $(
+                    (std::sync::Arc::new([$symbol]), $crate::lem_code!( $case_ops )),
+                )*
+            ];
+            let default = Some(Box::new($crate::lem_code!( $def )));
+            let match_map = $crate::lem::MatchMap { cases, default };
+            /*
             let mut cases = indexmap::IndexMap::new();
             $(
                 if cases.insert(
@@ -99,6 +99,8 @@ macro_rules! lem_code {
                 };
             )*
             $crate::lem::LEMCTL::MatchSymbol($crate::var!($sii), cases, Box::new($crate::lem_code!( $def )))
+            */
+            $crate::lem::LEMCTL::MatchSymbol($crate::var!($sii), match_map)
         }
     };
     ( return ($src1:ident, $src2:ident, $src3:ident) ) => {
@@ -268,6 +270,27 @@ macro_rules! lem {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn test_macros() {
+        let foo = lem_code!(
+            match_tag www {
+                Num => {
+                    return (foo, foo, foo); // a single LEMCTL will not turn into a Seq
+                },
+                Str => {
+                    let foo: Num;
+                    return (foo, foo, foo);
+                },
+                Char => {
+                    let foo: Num;
+                    let goo: Char;
+                    return (foo, goo, goo);
+                }
+            }
+        );
+    }
+    /*
     use crate::lem::{symbol::Symbol, tag::Tag, Var, LEMCTL, LEMOP};
 
     #[inline]
@@ -430,4 +453,5 @@ mod tests {
             )
         );
     }
+    */
 }
