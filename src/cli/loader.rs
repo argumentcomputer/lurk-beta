@@ -1,21 +1,10 @@
+use std::fs::read_to_string;
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{bail, Context, Error, Result};
 
-use lurk::error::LurkError;
-use lurk::eval::lang::Lang;
-use lurk::eval::Evaluator;
-use lurk::expr::Expression;
-use lurk::field::LurkField;
-use lurk::parser;
-use lurk::ptr::{ContPtr, Ptr};
-use lurk::public_parameters::Claim;
-use lurk::store::Store;
-use lurk::tag::ContTag;
-use lurk::writer::Write;
-use lurk::{coprocessor::Coprocessor, eval::IO};
 use rustyline::{
     error::ReadlineError,
     history::DefaultHistory,
@@ -23,6 +12,20 @@ use rustyline::{
     Editor,
 };
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
+
+use lurk::{
+    error::LurkError,
+    eval::{lang::Lang, Evaluator},
+    expr::Expression,
+    field::LurkField,
+    parser,
+    ptr::Ptr,
+    public_parameters::Claim,
+    store::Store,
+    tag::ContTag,
+    writer::Write,
+    {coprocessor::Coprocessor, eval::IO},
+};
 
 use super::prove_and_verify::prove_claim;
 
@@ -56,28 +59,28 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
         }
     }
 
-    fn eval_expr(&mut self, expr_ptr: Ptr<F>) -> Result<(Ptr<F>, usize, ContPtr<F>, Vec<Ptr<F>>)> {
-        let (io, iterations, emitted) =
+    fn eval_expr(&mut self, expr_ptr: Ptr<F>) -> Result<(Ptr<F>, Vec<Ptr<F>>)> {
+        let (io, _, emitted) =
             Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang).eval()?;
-
-        let IO {
-            expr: result,
-            env: _,
-            cont: next_cont,
-        } = io;
-
-        if next_cont == self.store.get_cont_error() {
+        if io.cont == self.store.get_cont_error() {
             Err(LurkError::IO(io))?
         } else {
-            Ok((result, iterations, next_cont, emitted))
+            Ok((io.expr, emitted))
         }
     }
 
     fn handle_meta(&mut self, expr_ptr: Ptr<F>, pwd_path: &Path) -> Result<()> {
-        let expr = self.store.fetch(&expr_ptr).ok_or_else(|| Error::msg(""))?;
+        let expr = self
+            .store
+            .fetch(&expr_ptr)
+            .ok_or_else(|| Error::msg("fetching expression"))?;
 
         let res = match expr {
-            Expression::Cons(car, rest) => match &self.store.fetch(&car).unwrap() {
+            Expression::Cons(car, rest) => match &self
+                .store
+                .fetch(&car)
+                .ok_or_else(|| Error::msg("fetching command"))?
+            {
                 Expression::Sym(..) => {
                     let s = &self
                         .store
@@ -87,7 +90,7 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
                         "assert" => {
                             let (first, rest) = &self.store.car_cdr(&rest)?;
                             assert!(rest.is_nil());
-                            let (first_evaled, _, _, _) = self
+                            let (first_evaled, _) = self
                                 .eval_expr(*first)
                                 .with_context(|| "evaluating first arg")?;
                             assert!(!first_evaled.is_nil());
@@ -97,10 +100,10 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
                             let (first, rest) = &self.store.car_cdr(&rest)?;
                             let (second, rest) = &self.store.car_cdr(rest)?;
                             assert!(rest.is_nil());
-                            let (first_evaled, _, _, _) = self
+                            let (first_evaled, _) = self
                                 .eval_expr(*first)
                                 .with_context(|| "evaluating first arg")?;
-                            let (second_evaled, _, _, _) = self
+                            let (second_evaled, _) = self
                                 .eval_expr(*second)
                                 .with_context(|| "evaluating second arg")?;
                             assert!(
@@ -118,8 +121,8 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
                             let (second, rest) = &self.store.car_cdr(rest)?;
 
                             assert!(rest.is_nil());
-                            let (first_evaled, _, _, _) = self.eval_expr(*first)?;
-                            let (_, _, _, emitted) = self
+                            let (first_evaled, _) = self.eval_expr(*first)?;
+                            let (_, emitted) = self
                                 .eval_expr(*second)
                                 .with_context(|| "evaluating first arg")?;
                             let (mut first_emitted, mut rest_emitted) =
@@ -127,7 +130,7 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
                             for (i, elem) in emitted.iter().enumerate() {
                                 if elem != &first_emitted {
                                     panic!(
-                                            ":ASSERT-EMITTED failed at position {}. Expected {}, but found {}.",
+                                            "assert-emitted failed at position {}. Expected {}, but found {}.",
                                             i,
                                             first_emitted.fmt_to_string(&self.store),
                                             elem.fmt_to_string(&self.store),
@@ -166,7 +169,7 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
                             let bindings = &self.store.list(&[*binding]);
                             let current_env_call = &self.store.list(&[*current_env]);
                             let expanded = &self.store.list(&[*l, *bindings, *current_env_call]);
-                            let (expanded_evaled, _, _, _) = self.eval_expr(*expanded)?;
+                            let (expanded_evaled, _) = self.eval_expr(*expanded)?;
 
                             self.env = expanded_evaled;
 
@@ -177,7 +180,7 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
                         "defrec" => {
                             // Extends env with a recursive binding.
                             //
-                            // This: !(:def foo (lambda () 123))
+                            // This: !(:defrec foo (lambda () 123))
                             //
                             // Gets macroexpanded to this: (letrec ((foo (lambda () 123)))
                             //                               (current-env))
@@ -192,7 +195,7 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
                             let bindings = &self.store.list(&[*binding]);
                             let current_env_call = &self.store.list(&[*current_env]);
                             let expanded = &self.store.list(&[*l, *bindings, *current_env_call]);
-                            let (expanded_evaled, _, _, _) = self.eval_expr(*expanded)?;
+                            let (expanded_evaled, _) = self.eval_expr(*expanded)?;
 
                             self.env = expanded_evaled;
 
@@ -203,7 +206,11 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
                         }
                         "load" => {
                             let car = &self.store.car(&rest)?;
-                            match &self.store.fetch(car).unwrap() {
+                            match &self
+                                .store
+                                .fetch(car)
+                                .ok_or_else(|| Error::msg("fetching file path"))?
+                            {
                                 Expression::Str(..) => {
                                     let path = &self
                                         .store
@@ -221,7 +228,7 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
                             // The state's env is set to the result of evaluating the first argument.
                             let (first, rest) = &self.store.car_cdr(&rest)?;
                             assert!(rest.is_nil());
-                            let (first_evaled, _, _, _) = self.eval_expr(*first)?;
+                            let (first_evaled, _) = self.eval_expr(*first)?;
                             self.env = first_evaled;
                             None
                         }
@@ -255,38 +262,31 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
     fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, IO<F>, usize)> {
         match Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang).eval() {
             Ok((output, iterations, _)) => {
-                let IO {
-                    expr: result,
-                    env: _,
-                    cont: next_cont,
-                } = output;
-                {
-                    if iterations != 1 {
-                        print!("[{iterations} iterations] => ");
-                    } else {
-                        print!("[1 iteration] => ");
-                    }
-
-                    let input = IO {
-                        expr: expr_ptr,
-                        env: self.env,
-                        cont: self.store.get_cont_outermost(),
-                    };
-
-                    match next_cont.tag {
-                        ContTag::Outermost | ContTag::Terminal => {
-                            let mut handle = io::stdout().lock();
-
-                            result.fmt(&self.store, &mut handle)?;
-
-                            println!();
-                        }
-                        ContTag::Error => println!("ERROR!"),
-                        _ => println!("Computation incomplete after limit: {}", self.limit),
-                    }
-
-                    Ok((input, output, iterations))
+                if iterations != 1 {
+                    print!("[{iterations} iterations] => ");
+                } else {
+                    print!("[1 iteration] => ");
                 }
+
+                match output.cont.tag {
+                    ContTag::Outermost | ContTag::Terminal => {
+                        let mut handle = io::stdout().lock();
+
+                        output.expr.fmt(&self.store, &mut handle)?;
+
+                        println!();
+                    }
+                    ContTag::Error => println!("ERROR!"),
+                    _ => println!("Computation incomplete after limit: {}", self.limit),
+                }
+
+                let input = IO {
+                    expr: expr_ptr,
+                    env: self.env,
+                    cont: self.store.get_cont_outermost(),
+                };
+
+                Ok((input, output, iterations))
             }
             Err(e) => {
                 println!("Evaluation error: {e:?}");
@@ -295,8 +295,40 @@ impl<F: LurkField, C: Coprocessor<F>> Loader<F, C> {
         }
     }
 
-    pub fn load_file(&mut self, _path: &Path) -> Result<()> {
-        Ok(())
+    fn handle_form<'a>(
+        &mut self,
+        input: parser::Span<'a>,
+        pwd_path: &Path,
+    ) -> Result<parser::Span<'a>> {
+        let (input, ptr, is_meta) = self.store.read_maybe_meta(input)?;
+
+        if is_meta {
+            self.handle_meta(ptr, pwd_path)?;
+            Ok(input)
+        } else {
+            self.handle_non_meta(ptr)?;
+            Ok(input)
+        }
+    }
+
+    pub fn load_file(&mut self, file_path: &Path) -> Result<()> {
+        let input = read_to_string(file_path)?;
+        println!("Loading {}", file_path.display());
+
+        let mut input = parser::Span::new(&input);
+        loop {
+            match self.handle_form(input, file_path) {
+                Ok(new_input) => input = new_input,
+                Err(e) => {
+                    if let Some(parser::Error::NoInput) = e.downcast_ref::<parser::Error>() {
+                        // It's ok, it just means we've hit the EOF
+                        return Ok(());
+                    } else {
+                        return Err(e);
+                    }
+                }
+            }
+        }
     }
 
     pub fn repl(&mut self) -> Result<()> {
