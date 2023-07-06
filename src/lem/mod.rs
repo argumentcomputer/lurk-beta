@@ -122,7 +122,7 @@ pub enum Ctrl {
     /// `Seq(ops, lem)` executes `ops: Vec<LEMOP>` then `lem: LEM` sequentially
     Seq(Vec<Op>, Box<Ctrl>),
     /// `Return(rets)` sets the output to `rets`
-    Return([Var; 3]),
+    Return(Vec<Var>),
 }
 
 impl std::hash::Hash for Ctrl {
