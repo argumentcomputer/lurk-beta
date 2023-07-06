@@ -607,6 +607,7 @@ dependencies = [
  "assert_cmd",
  "blstrs",
  "clap 4.3.11",
+ "fcomm",
  "ff",
  "lurk",
  "pasta_curves",
@@ -948,9 +949,11 @@ dependencies = [
 name = "fcomm"
 version = "0.1.1"
 dependencies = [
+ "anyhow",
  "assert_cmd",
  "base64",
  "bellperson",
+ "bincode",
  "blstrs",
  "camino",
  "clap 3.2.25",
@@ -965,6 +968,8 @@ dependencies = [
  "pasta_curves",
  "predicates 2.1.5",
  "pretty_env_logger",
+ "proptest",
+ "proptest-derive",
  "rand",
  "serde",
  "serde_json",

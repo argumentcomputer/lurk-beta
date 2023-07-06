@@ -8,10 +8,10 @@ use pasta_curves::pallas;
 use serde::{de::DeserializeOwned, Serialize};
 use tap::TapFallible;
 
-use crate::public_parameters::Error;
+use crate::public_parameters::error::Error;
 use crate::{coprocessor::Coprocessor, eval::lang::Lang, proof::nova::PublicParams};
 
-use super::file_map::FileIndex;
+use crate::file_map::FileIndex;
 
 type S1 = pallas::Scalar;
 type AnyMap = anymap::Map<dyn anymap::any::Any + Send + Sync>;
@@ -56,7 +56,7 @@ impl Registry {
             let pp = default(lang);
             disk_cache
                 .set(key, &*pp)
-                .tap_ok(|_| eprintln!("Writing public params to disk-cache: {}", lang_key))
+                .tap_ok(|_| ()) //eprintln!("Writing public params to disk-cache: {}", lang_key))
                 .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
             Ok(pp)
         }
