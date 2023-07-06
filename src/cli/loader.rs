@@ -33,6 +33,7 @@ use lurk::{
     {coprocessor::Coprocessor, eval::IO},
 };
 
+#[cfg(not(target_arch = "wasm32"))]
 use crate::cli::paths::repl_history;
 
 use super::prove_and_verify::prove_claim;
@@ -391,6 +392,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
             brackets: MatchingBracketValidator::new(),
         }));
 
+        #[cfg(not(target_arch = "wasm32"))]
         let history_path = &repl_history();
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -401,6 +403,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
         loop {
             match editor.readline("> ") {
                 Ok(line) => {
+                    #[cfg(not(target_arch = "wasm32"))]
                     editor.save_history(history_path)?;
                     match self.store.read_maybe_meta(parser::Span::new(&line)) {
                         Ok((_, expr_ptr, is_meta)) => {

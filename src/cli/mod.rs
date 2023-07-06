@@ -226,6 +226,7 @@ struct Verify {
 }
 
 pub fn parse() -> Result<()> {
+    #[cfg(not(target_arch = "wasm32"))]
     paths::create_lurk_dir()?;
     if let Ok(cli) = ReplCli::try_parse() {
         cli.run()
