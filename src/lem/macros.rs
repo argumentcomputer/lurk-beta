@@ -77,12 +77,12 @@ macro_rules! lem_code {
             $crate::lem::LEMCTL::MatchTag($crate::var!($sii), match_map)
         }
     };
-    ( match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } ) => {
+    ( match_symbol $sii:ident { $( $symbol:literal $(| $other_symbols:literal)* => $case_ops:tt ),* , _ => $def:tt $(,)? } ) => {
         {
-            // TODO groups
             let cases: Vec<($crate::lem::AVec<$crate::lem::Symbol>, $crate::lem::LEMCTL)> = vec![
                 $(
-                    (std::sync::Arc::new([$symbol]), $crate::lem_code!( $case_ops )),
+                    // TODO instead of `lurk_sym` use a function that automatically selects which kind of symbol it must be
+                    (std::sync::Arc::new([$crate::lem::Symbol::lurk_sym($symbol), $( $crate::lem::Symbol::lurk_sym($other_symbols), )*]), $crate::lem_code!( $case_ops )),
                 )*
             ];
             let default = Some(Box::new($crate::lem_code!( $def )));
@@ -262,10 +262,7 @@ mod tests {
     fn test_macros() {
         let foo = lem_code!(
             match_tag www {
-                Num => {
-                    return (foo, foo, foo); // a single LEMCTL will not turn into a Seq
-                },
-                Str => {
+                Num | Str => {
                     let foo: Num;
                     return (foo, foo, foo);
                 },
@@ -276,6 +273,38 @@ mod tests {
                 }
             }
         );
+        eprintln!("match tag no default:\n{:#?}", foo);
+        let foo = lem_code!(
+            match_tag www {
+                Num | Str => {
+                    let foo: Num;
+                    return (foo, foo, foo);
+                }
+                _ => {
+                    let foo: Num;
+                    let goo: Char;
+                    return (foo, goo, goo);
+                }
+            }
+        );
+        eprintln!("match tag with default:\n{:#?}", foo);
+        let foo = lem_code!(
+            match_symbol www {
+                "nil" | "cons" => {
+                    return (foo, foo, foo); // a single LEMCTL will not turn into a Seq
+                },
+                "lambda" => {
+                    let foo: Num;
+                    let goo: Char;
+                    return (foo, goo, goo);
+                },
+                _ => {
+                    let xoo: Str;
+                    return (xoo, xoo, xoo);
+                },
+            }
+        );
+        eprintln!("match symbol with default:\n{:#?}", foo);
     }
     /*
     use crate::lem::{symbol::Symbol, tag::Tag, Var, LEMCTL, LEMOP};
