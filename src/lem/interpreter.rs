@@ -154,10 +154,10 @@ impl LEMCTL {
         mut path: Path,
     ) -> Result<(Frame<F>, Path)> {
         match self {
-            LEMCTL::MatchTag(match_var, cases) => {
+            LEMCTL::MatchTag(match_var, match_map) => {
                 let ptr = bindings.get(match_var)?;
                 let tag = ptr.tag();
-                match cases.get(tag) {
+                match match_map.get(tag) {
                     Some(ctl) => {
                         path.push_tag_inplace(tag);
                         ctl.run(input, store, bindings, preimages, path)
@@ -165,20 +165,17 @@ impl LEMCTL {
                     None => bail!("No match for tag {}", tag),
                 }
             }
-            LEMCTL::MatchSymbol(match_var, cases, def) => {
+            LEMCTL::MatchSymbol(match_var, match_map) => {
                 let ptr = bindings.get(match_var)?;
                 let Some(symbol) = store.fetch_symbol(ptr) else {
                     bail!("Symbol not found for {match_var}");
                 };
-                match cases.get(&symbol) {
+                match match_map.get(&symbol) {
                     Some(ctl) => {
                         path.push_symbol_inplace(&symbol);
                         ctl.run(input, store, bindings, preimages, path)
                     }
-                    None => {
-                        path.push_default_inplace();
-                        def.run(input, store, bindings, preimages, path)
-                    }
+                    None => bail!("No match for symbol {}", &symbol),
                 }
             }
             LEMCTL::Seq(ops, rest) => {

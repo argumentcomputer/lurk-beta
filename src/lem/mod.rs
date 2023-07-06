@@ -65,9 +65,9 @@
 
 /*
 mod circuit;
-mod interpreter;
 */
 mod eval;
+mod interpreter;
 mod macros;
 mod match_map;
 mod path;
@@ -160,28 +160,28 @@ pub enum LEMOP {
     Open(Var, Var, Var),
 }
 
-/*
 impl LEMCTL {
     /// Intern all symbol paths that are matched on `MatchSymPath`s
     pub fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
         match self {
-            Self::MatchSymbol(_, cases, def) => {
-                cases.iter().for_each(|(symbol, block)| {
-                    store.intern_symbol(symbol);
+            Self::MatchSymbol(_, match_map) => {
+                match_map.cases.iter().for_each(|(symbols, block)| {
+                    symbols.iter().for_each(|symbol| {
+                        store.intern_symbol(symbol);
+                    });
                     block.intern_matched_symbols(store)
-                });
-                def.intern_matched_symbols(store);
+                })
             }
-            Self::MatchTag(_, cases) => cases
-                .values()
-                .for_each(|block| block.intern_matched_symbols(store)),
+            Self::MatchTag(_, match_map) => match_map
+                .cases
+                .iter()
+                .for_each(|(_, block)| block.intern_matched_symbols(store)),
             Self::Seq(_, rest) => rest.intern_matched_symbols(store),
             Self::Return(..) => (),
         }
     }
 }
 
-*/
 impl LEM {
     /// Performs the static checks described in `LEM`'s docstring.
     pub fn check(&self) {
@@ -201,7 +201,6 @@ impl LEM {
         })
     }
 
-    /*
     /// Intern all symbols that are matched on `MatchSymbol`s
     #[inline]
     pub fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
@@ -216,7 +215,6 @@ impl LEM {
             self.ctl.num_paths()
         );
     }
-     */
 }
 
 /*
