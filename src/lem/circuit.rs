@@ -147,7 +147,7 @@ use super::{
     pointers::{Ptr, ZPtr},
     store::Store,
     var_map::VarMap,
-    Var, LEM, LEMCTL, LEMOP,
+    Var, Func, Ctrl, Op,
 };
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -206,24 +206,24 @@ impl SlotsCounter {
     }
 }
 
-impl LEMCTL {
+impl Ctrl {
     pub fn count_slots(&self) -> SlotsCounter {
         match self {
-            LEMCTL::MatchTag(_, cases) => {
+            Ctrl::MatchTag(_, cases) => {
                 cases.values().fold(SlotsCounter::default(), |acc, block| {
                     acc.max(block.count_slots())
                 })
             }
-            LEMCTL::MatchSymbol(_, cases, def) => cases
+            Ctrl::MatchSymbol(_, cases, def) => cases
                 .values()
                 .fold(def.count_slots(), |acc, block| acc.max(block.count_slots())),
-            LEMCTL::Return(..) => SlotsCounter::default(),
-            LEMCTL::Seq(ops, rest) => {
+            Ctrl::Return(..) => SlotsCounter::default(),
+            Ctrl::Seq(ops, rest) => {
                 let ops_slots = ops.iter().fold(SlotsCounter::default(), |acc, op| {
                     let val = match op {
-                        LEMOP::Hash2(..) | LEMOP::Unhash2(..) => SlotsCounter::new((1, 0, 0)),
-                        LEMOP::Hash3(..) | LEMOP::Unhash3(..) => SlotsCounter::new((0, 1, 0)),
-                        LEMOP::Hash4(..) | LEMOP::Unhash4(..) => SlotsCounter::new((0, 0, 1)),
+                        Op::Hash2(..) | Op::Unhash2(..) => SlotsCounter::new((1, 0, 0)),
+                        Op::Hash3(..) | Op::Unhash3(..) => SlotsCounter::new((0, 1, 0)),
+                        Op::Hash4(..) | Op::Unhash4(..) => SlotsCounter::new((0, 0, 1)),
                         _ => SlotsCounter::default(),
                     };
                     acc.add(val)
@@ -322,7 +322,7 @@ impl std::fmt::Display for Slot {
 
 type BoundAllocations<F> = VarMap<AllocatedPtr<F>>;
 
-impl LEM {
+impl Func {
     /// Allocates an unconstrained pointer
     fn allocate_ptr<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
@@ -511,11 +511,11 @@ impl LEM {
         // Inputs are constrained by their usage inside LEM
         self.allocate_input(cs, store, frame, &mut bound_allocations)?;
         // Outputs are constrained by return. All LEMs return
-        let preallocated_outputs = LEM::allocate_output(cs, store, frame, &mut bound_allocations)?;
+        let preallocated_outputs = Func::allocate_output(cs, store, frame, &mut bound_allocations)?;
 
         // Slots are constrained by their usage inside LEM. The ones not used in throughout the concrete path
         // are effectively unconstrained, that's why they are filled with dummies
-        let preallocated_hash2_slots = LEM::allocate_slots(
+        let preallocated_hash2_slots = Func::allocate_slots(
             cs,
             &frame.preimages.hash2_ptrs,
             SlotType::Hash2,
@@ -523,7 +523,7 @@ impl LEM {
             store,
         )?;
 
-        let preallocated_hash3_slots = LEM::allocate_slots(
+        let preallocated_hash3_slots = Func::allocate_slots(
             cs,
             &frame.preimages.hash3_ptrs,
             SlotType::Hash3,
@@ -531,7 +531,7 @@ impl LEM {
             store,
         )?;
 
-        let preallocated_hash4_slots = LEM::allocate_slots(
+        let preallocated_hash4_slots = Func::allocate_slots(
             cs,
             &frame.preimages.hash4_ptrs,
             SlotType::Hash4,
@@ -550,13 +550,13 @@ impl LEM {
 
         fn recurse<F: LurkField, CS: ConstraintSystem<F>>(
             cs: &mut CS,
-            block: &LEMCTL,
+            block: &Ctrl,
             concrete_path: Boolean,
             slots_count: &mut SlotsCounter,
             g: &mut Globals<'_, F>,
         ) -> Result<()> {
             match block {
-                LEMCTL::Return(output_vars) => {
+                Ctrl::Return(output_vars) => {
                     for (i, output_var) in output_vars.iter().enumerate() {
                         let allocated_ptr = g.bound_allocations.get(output_var)?;
 
@@ -572,7 +572,7 @@ impl LEM {
                     }
                     Ok(())
                 }
-                LEMCTL::MatchTag(match_var, cases) => {
+                Ctrl::MatchTag(match_var, cases) => {
                     let allocated_match_tag = g.bound_allocations.get(match_var)?.tag().clone();
                     let mut concrete_path_vec = Vec::new();
                     for (tag, op) in cases {
@@ -613,8 +613,8 @@ impl LEM {
                     .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
                     Ok(())
                 }
-                LEMCTL::MatchSymbol(..) => Ok(()),
-                LEMCTL::Seq(ops, rest) => {
+                Ctrl::MatchSymbol(..) => Ok(()),
+                Ctrl::Seq(ops, rest) => {
                     for op in ops {
                         macro_rules! hash_helper {
                             ( $img: expr, $tag: expr, $preimg: expr, $slot: expr ) => {
@@ -700,25 +700,25 @@ impl LEM {
                         }
 
                         match op {
-                            LEMOP::Hash2(img, tag, preimg) => {
+                            Op::Hash2(img, tag, preimg) => {
                                 hash_helper!(img.clone(), tag, preimg, SlotType::Hash2);
                             }
-                            LEMOP::Hash3(img, tag, preimg) => {
+                            Op::Hash3(img, tag, preimg) => {
                                 hash_helper!(img.clone(), tag, preimg, SlotType::Hash3);
                             }
-                            LEMOP::Hash4(img, tag, preimg) => {
+                            Op::Hash4(img, tag, preimg) => {
                                 hash_helper!(img.clone(), tag, preimg, SlotType::Hash4);
                             }
-                            LEMOP::Unhash2(preimg, img) => {
+                            Op::Unhash2(preimg, img) => {
                                 unhash_helper!(preimg, img, SlotType::Hash2);
                             }
-                            LEMOP::Unhash3(preimg, img) => {
+                            Op::Unhash3(preimg, img) => {
                                 unhash_helper!(preimg, img, SlotType::Hash3);
                             }
-                            LEMOP::Unhash4(preimg, img) => {
+                            Op::Unhash4(preimg, img) => {
                                 unhash_helper!(preimg, img, SlotType::Hash4);
                             }
-                            LEMOP::Null(tgt, tag) => {
+                            Op::Null(tgt, tag) => {
                                 let allocated_ptr = AllocatedPtr::from_parts(
                                     g.global_allocator.get_or_alloc_const(cs, tag.to_field())?,
                                     g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
@@ -762,11 +762,11 @@ impl LEM {
         let mut stack = vec![(&self.ctl, false)];
         while let Some((block, nested)) = stack.pop() {
             match block {
-                LEMCTL::Return(..) => {
+                Ctrl::Return(..) => {
                     // tag and hash for 3 pointers
                     num_constraints += 6;
                 }
-                LEMCTL::MatchTag(_, cases) => {
+                Ctrl::MatchTag(_, cases) => {
                     // `alloc_equal_const` adds 3 constraints for each case and
                     // the `and` is free for non-nested `MatchTag`s, since we
                     // start `concrete_path` with a constant `true`
@@ -780,34 +780,34 @@ impl LEM {
                         stack.push((block, true));
                     }
                 }
-                LEMCTL::MatchSymbol(..) => todo!(),
-                LEMCTL::Seq(ops, rest) => {
+                Ctrl::MatchSymbol(..) => todo!(),
+                Ctrl::Seq(ops, rest) => {
                     for op in ops {
                         match op {
-                            LEMOP::Null(_, tag) => {
+                            Op::Null(_, tag) => {
                                 // constrain tag and hash
                                 globals.insert(FWrap(tag.to_field()));
                                 globals.insert(FWrap(F::ZERO));
                             }
-                            LEMOP::Hash2(_, tag, _) => {
+                            Op::Hash2(_, tag, _) => {
                                 // tag for the image
                                 globals.insert(FWrap(tag.to_field()));
                                 // tag and hash for 2 preimage pointers
                                 num_constraints += 4;
                             }
-                            LEMOP::Hash3(_, tag, _) => {
+                            Op::Hash3(_, tag, _) => {
                                 // tag for the image
                                 globals.insert(FWrap(tag.to_field()));
                                 // tag and hash for 3 preimage pointers
                                 num_constraints += 6;
                             }
-                            LEMOP::Hash4(_, tag, _) => {
+                            Op::Hash4(_, tag, _) => {
                                 // tag for the image
                                 globals.insert(FWrap(tag.to_field()));
                                 // tag and hash for 4 preimage pointers
                                 num_constraints += 8;
                             }
-                            LEMOP::Unhash2(..) | LEMOP::Unhash3(..) | LEMOP::Unhash4(..) => {
+                            Op::Unhash2(..) | Op::Unhash3(..) | Op::Unhash4(..) => {
                                 // one constraint for the image's hash
                                 num_constraints += 1;
                             }

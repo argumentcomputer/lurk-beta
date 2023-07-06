@@ -260,7 +260,7 @@ macro_rules! lem {
 
 #[cfg(test)]
 mod tests {
-    use crate::lem::{symbol::Symbol, tag::Tag, Var, LEMCTL, LEMOP};
+    use crate::lem::{symbol::Symbol, tag::Tag, Var, Ctrl, Op};
 
     #[inline]
     fn mptr(name: &str) -> Var {
@@ -268,38 +268,38 @@ mod tests {
     }
 
     #[inline]
-    fn match_tag(i: Var, cases: Vec<(Tag, LEMCTL)>) -> LEMCTL {
-        LEMCTL::MatchTag(i, indexmap::IndexMap::from_iter(cases))
+    fn match_tag(i: Var, cases: Vec<(Tag, Ctrl)>) -> Ctrl {
+        Ctrl::MatchTag(i, indexmap::IndexMap::from_iter(cases))
     }
 
     #[inline]
-    fn match_symbol(i: Var, cases: Vec<(Symbol, LEMCTL)>, def: LEMCTL) -> LEMCTL {
-        LEMCTL::MatchSymbol(i, indexmap::IndexMap::from_iter(cases), Box::new(def))
+    fn match_symbol(i: Var, cases: Vec<(Symbol, Ctrl)>, def: Ctrl) -> Ctrl {
+        Ctrl::MatchSymbol(i, indexmap::IndexMap::from_iter(cases), Box::new(def))
     }
 
     #[test]
     fn test_macros() {
         let lemops = [
-            LEMOP::Null(mptr("foo"), Tag::Num),
-            LEMOP::Hash2(mptr("foo"), Tag::Char, [mptr("bar"), mptr("baz")]),
-            LEMOP::Hash3(
+            Op::Null(mptr("foo"), Tag::Num),
+            Op::Hash2(mptr("foo"), Tag::Char, [mptr("bar"), mptr("baz")]),
+            Op::Hash3(
                 mptr("foo"),
                 Tag::Char,
                 [mptr("bar"), mptr("baz"), mptr("bazz")],
             ),
-            LEMOP::Hash4(
+            Op::Hash4(
                 mptr("foo"),
                 Tag::Char,
                 [mptr("bar"), mptr("baz"), mptr("bazz"), mptr("baxx")],
             ),
-            LEMOP::Unhash2([mptr("foo"), mptr("goo")], mptr("aaa")),
-            LEMOP::Unhash3([mptr("foo"), mptr("goo"), mptr("moo")], mptr("aaa")),
-            LEMOP::Unhash4(
+            Op::Unhash2([mptr("foo"), mptr("goo")], mptr("aaa")),
+            Op::Unhash3([mptr("foo"), mptr("goo"), mptr("moo")], mptr("aaa")),
+            Op::Unhash4(
                 [mptr("foo"), mptr("goo"), mptr("moo"), mptr("noo")],
                 mptr("aaa"),
             ),
-            LEMOP::Hide(mptr("bar"), mptr("baz"), mptr("bazz")),
-            LEMOP::Open(mptr("bar"), mptr("baz"), mptr("bazz")),
+            Op::Hide(mptr("bar"), mptr("baz"), mptr("bazz")),
+            Op::Open(mptr("bar"), mptr("baz"), mptr("bazz")),
         ];
         let lemops_macro = vec![
             lemop!(let foo: Num),
@@ -317,8 +317,8 @@ mod tests {
             assert!(lemops[i] == lemops_macro[i]);
         }
 
-        let ret = LEMCTL::Return([mptr("bar"), mptr("baz"), mptr("bazz")]);
-        let block = LEMCTL::Seq(lemops_macro, Box::new(ret));
+        let ret = Ctrl::Return([mptr("bar"), mptr("baz"), mptr("bazz")]);
+        let block = Ctrl::Seq(lemops_macro, Box::new(ret));
         let lem_macro_seq = lem_code!({
             let foo: Num;
             let foo: Char = hash2(bar, baz);
@@ -356,23 +356,23 @@ mod tests {
                 vec![
                     (
                         Tag::Num,
-                        LEMCTL::Return([mptr("foo"), mptr("foo"), mptr("foo")])
+                        Ctrl::Return([mptr("foo"), mptr("foo"), mptr("foo")])
                     ),
                     (
                         Tag::Str,
-                        LEMCTL::Seq(
-                            vec![LEMOP::Null(mptr("foo"), Tag::Num)],
-                            Box::new(LEMCTL::Return([mptr("foo"), mptr("foo"), mptr("foo")]))
+                        Ctrl::Seq(
+                            vec![Op::Null(mptr("foo"), Tag::Num)],
+                            Box::new(Ctrl::Return([mptr("foo"), mptr("foo"), mptr("foo")]))
                         )
                     ),
                     (
                         Tag::Char,
-                        LEMCTL::Seq(
+                        Ctrl::Seq(
                             vec![
-                                LEMOP::Null(mptr("foo"), Tag::Num),
-                                LEMOP::Null(mptr("goo"), Tag::Char)
+                                Op::Null(mptr("foo"), Tag::Num),
+                                Op::Null(mptr("goo"), Tag::Char)
                             ],
-                            Box::new(LEMCTL::Return([mptr("foo"), mptr("goo"), mptr("goo")]))
+                            Box::new(Ctrl::Return([mptr("foo"), mptr("goo"), mptr("goo")]))
                         )
                     )
                 ]
@@ -402,22 +402,22 @@ mod tests {
                 vec![
                     (
                         Symbol::lurk_sym("nil"),
-                        LEMCTL::Return([mptr("foo"), mptr("foo"), mptr("foo")])
+                        Ctrl::Return([mptr("foo"), mptr("foo"), mptr("foo")])
                     ),
                     (
                         Symbol::lurk_sym("cons"),
-                        LEMCTL::Seq(
+                        Ctrl::Seq(
                             vec![
-                                LEMOP::Null(mptr("foo"), Tag::Num),
-                                LEMOP::Null(mptr("goo"), Tag::Char)
+                                Op::Null(mptr("foo"), Tag::Num),
+                                Op::Null(mptr("goo"), Tag::Char)
                             ],
-                            Box::new(LEMCTL::Return([mptr("foo"), mptr("goo"), mptr("goo")]))
+                            Box::new(Ctrl::Return([mptr("foo"), mptr("goo"), mptr("goo")]))
                         )
                     )
                 ],
-                LEMCTL::Seq(
-                    vec![LEMOP::Null(mptr("xoo"), Tag::Str)],
-                    Box::new(LEMCTL::Return([mptr("xoo"), mptr("xoo"), mptr("xoo")]))
+                Ctrl::Seq(
+                    vec![Op::Null(mptr("xoo"), Tag::Str)],
+                    Box::new(Ctrl::Return([mptr("xoo"), mptr("xoo"), mptr("xoo")]))
                 )
             )
         );

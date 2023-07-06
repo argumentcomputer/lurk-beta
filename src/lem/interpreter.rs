@@ -2,8 +2,8 @@ use crate::field::{FWrap, LurkField};
 use anyhow::{bail, Result};
 
 use super::{
-    path::Path, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, var_map::VarMap, LEM,
-    LEMCTL, LEMOP,
+    path::Path, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, var_map::VarMap, Func,
+    Ctrl, Op,
 };
 
 #[derive(Clone, Default)]
@@ -25,7 +25,7 @@ pub struct Frame<F: LurkField> {
     pub preimages: Preimages<F>,
 }
 
-impl LEMOP {
+impl Op {
     fn run<F: LurkField>(
         &self,
         store: &mut Store<F>,
@@ -33,18 +33,18 @@ impl LEMOP {
         preimages: &mut Preimages<F>,
     ) -> Result<()> {
         match self {
-            LEMOP::Null(tgt, tag) => {
+            Op::Null(tgt, tag) => {
                 bindings.insert(tgt.clone(), Ptr::null(*tag))?;
                 Ok(())
             }
-            LEMOP::Hash2(img, tag, preimg) => {
+            Op::Hash2(img, tag, preimg) => {
                 let preimg_ptrs = bindings.get_many_cloned(preimg)?;
                 let tgt_ptr = store.intern_2_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1]);
                 bindings.insert(img.clone(), tgt_ptr)?;
                 preimages.hash2_ptrs.push(preimg_ptrs);
                 Ok(())
             }
-            LEMOP::Hash3(img, tag, preimg) => {
+            Op::Hash3(img, tag, preimg) => {
                 let preimg_ptrs = bindings.get_many_cloned(preimg)?;
                 let tgt_ptr =
                     store.intern_3_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]);
@@ -52,7 +52,7 @@ impl LEMOP {
                 preimages.hash3_ptrs.push(preimg_ptrs);
                 Ok(())
             }
-            LEMOP::Hash4(img, tag, preimg) => {
+            Op::Hash4(img, tag, preimg) => {
                 let preimg_ptrs = bindings.get_many_cloned(preimg)?;
                 let tgt_ptr = store.intern_4_ptrs(
                     *tag,
@@ -65,7 +65,7 @@ impl LEMOP {
                 preimages.hash4_ptrs.push(preimg_ptrs);
                 Ok(())
             }
-            LEMOP::Unhash2(preimg, img) => {
+            Op::Unhash2(preimg, img) => {
                 let img_ptr = bindings.get(img)?;
                 let Some(idx) = img_ptr.get_index2() else {
                     bail!("{img} isn't a Tree2 pointer");
@@ -80,7 +80,7 @@ impl LEMOP {
                 preimages.hash2_ptrs.push(preimg_ptrs.to_vec());
                 Ok(())
             }
-            LEMOP::Unhash3(preimg, img) => {
+            Op::Unhash3(preimg, img) => {
                 let img_ptr = bindings.get(img)?;
                 let Some(idx) = img_ptr.get_index3() else {
                     bail!("{img} isn't a Tree3 pointer");
@@ -95,7 +95,7 @@ impl LEMOP {
                 preimages.hash3_ptrs.push(preimg_ptrs.to_vec());
                 Ok(())
             }
-            LEMOP::Unhash4(preimg, img) => {
+            Op::Unhash4(preimg, img) => {
                 let img_ptr = bindings.get(img)?;
                 let Some(idx) = img_ptr.get_index4() else {
                     bail!("{img} isn't a Tree4 pointer");
@@ -110,7 +110,7 @@ impl LEMOP {
                 preimages.hash4_ptrs.push(preimg_ptrs.to_vec());
                 Ok(())
             }
-            LEMOP::Hide(tgt, sec, src) => {
+            Op::Hide(tgt, sec, src) => {
                 let src_ptr = bindings.get(src)?;
                 let Ptr::Leaf(Tag::Num, secret) = bindings.get(sec)? else {
                     bail!("{sec} is not a numeric pointer")
@@ -124,7 +124,7 @@ impl LEMOP {
                 bindings.insert(tgt.clone(), tgt_ptr)?;
                 Ok(())
             }
-            LEMOP::Open(tgt_secret, tgt_ptr, comm_or_num) => match bindings.get(comm_or_num)? {
+            Op::Open(tgt_secret, tgt_ptr, comm_or_num) => match bindings.get(comm_or_num)? {
                 Ptr::Leaf(Tag::Num, hash) | Ptr::Leaf(Tag::Comm, hash) => {
                     let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
                         bail!("No committed data for hash {}", &hash.hex_digits())
@@ -141,7 +141,7 @@ impl LEMOP {
     }
 }
 
-impl LEMCTL {
+impl Ctrl {
     /// Interprets a LEM while i) modifying a `Store`, ii) binding `Var`s to
     /// `Ptr`s and iii) collecting the preimages from visited slots (more on this
     /// in `circuit.rs`)
@@ -154,7 +154,7 @@ impl LEMCTL {
         mut path: Path,
     ) -> Result<(Frame<F>, Path)> {
         match self {
-            LEMCTL::MatchTag(match_var, cases) => {
+            Ctrl::MatchTag(match_var, cases) => {
                 let ptr = bindings.get(match_var)?;
                 let tag = ptr.tag();
                 match cases.get(tag) {
@@ -165,7 +165,7 @@ impl LEMCTL {
                     None => bail!("No match for tag {}", tag),
                 }
             }
-            LEMCTL::MatchSymbol(match_var, cases, def) => {
+            Ctrl::MatchSymbol(match_var, cases, def) => {
                 let ptr = bindings.get(match_var)?;
                 let Some(symbol) = store.fetch_symbol(ptr) else {
                     bail!("Symbol not found for {match_var}");
@@ -181,13 +181,13 @@ impl LEMCTL {
                     }
                 }
             }
-            LEMCTL::Seq(ops, rest) => {
+            Ctrl::Seq(ops, rest) => {
                 for op in ops {
                     op.run(store, &mut bindings, &mut preimages)?;
                 }
                 rest.run(input, store, bindings, preimages, path)
             }
-            LEMCTL::Return(o) => {
+            Ctrl::Return(o) => {
                 let output = [
                     *bindings.get(&o[0])?,
                     *bindings.get(&o[1])?,
@@ -206,7 +206,7 @@ impl LEMCTL {
     }
 }
 
-impl LEM {
+impl Func {
     /// Calls `run` until the stop contidion is satisfied, using the output of one
     /// iteration as the input of the next one.
     pub fn eval<F: LurkField>(

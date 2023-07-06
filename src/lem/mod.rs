@@ -85,9 +85,9 @@ pub type AString = Arc<str>;
 pub type AVec<A> = Arc<[A]>;
 
 /// A `LEM` has the name for the inputs and its characteristic control node
-pub struct LEM {
+pub struct Func {
     input_vars: [Var; 3],
-    ctl: LEMCTL,
+    ctl: Ctrl,
 }
 
 /// Named references to be bound to `Ptr`s.
@@ -110,21 +110,21 @@ impl Var {
 /// The basic control nodes for LEM logical paths.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum LEMCTL {
+pub enum Ctrl {
     /// `MatchTag(x, cases)` performs a match on the tag of `x`, considering only
     /// the appropriate `LEM` among the ones provided in `cases`
-    MatchTag(Var, IndexMap<Tag, LEMCTL>),
+    MatchTag(Var, IndexMap<Tag, Ctrl>),
     /// `MatchSymbol(x, cases, def)` checks whether `x` matches some symbol among
     /// the ones provided in `cases`. If so, run the corresponding `LEM`. Run
     /// The default `def` `LEM` otherwise
-    MatchSymbol(Var, IndexMap<Symbol, LEMCTL>, Box<LEMCTL>),
+    MatchSymbol(Var, IndexMap<Symbol, Ctrl>, Box<Ctrl>),
     /// `Seq(ops, lem)` executes `ops: Vec<LEMOP>` then `lem: LEM` sequentially
-    Seq(Vec<LEMOP>, Box<LEMCTL>),
+    Seq(Vec<Op>, Box<Ctrl>),
     /// `Return(rets)` sets the output to `rets`
     Return([Var; 3]),
 }
 
-impl std::hash::Hash for LEMCTL {
+impl std::hash::Hash for Ctrl {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         // TODO: this was generated automatically for me (Arthur). Is it efficient?
         core::mem::discriminant(self).hash(state);
@@ -133,7 +133,7 @@ impl std::hash::Hash for LEMCTL {
 
 /// The atomic operations of LEMs.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum LEMOP {
+pub enum Op {
     /// `Null(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
     Null(Var, Tag),
     /// `Hash2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
@@ -156,7 +156,7 @@ pub enum LEMOP {
     Open(Var, Var, Var),
 }
 
-impl LEMCTL {
+impl Ctrl {
     /// Intern all symbol paths that are matched on `MatchSymPath`s
     pub fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
         match self {
@@ -176,7 +176,7 @@ impl LEMCTL {
     }
 }
 
-impl LEM {
+impl Func {
     /// Performs the static checks described in `LEM`'s docstring.
     pub fn check(&self) {
         // TODO
@@ -184,12 +184,12 @@ impl LEM {
 
     /// Instantiates a `LEM` with the appropriate transformations to make sure
     /// that constraining will be smooth.
-    pub fn new(input: [Var; 3], lem: &LEMCTL) -> Result<LEM> {
+    pub fn new(input: [Var; 3], lem: &Ctrl) -> Result<Func> {
         let mut map = VarMap::new();
         for i in input.iter() {
             map.insert(i.clone(), i.clone())?
         }
-        Ok(LEM {
+        Ok(Func {
             input_vars: input,
             ctl: lem.deconflict(&Path::default(), &mut map)?,
         })
@@ -225,7 +225,7 @@ mod tests {
     ///   therefore this parameter can be used to test circuit uniformity among all the
     ///   provided expressions.
     ///   - `expected_slots` gives the number of expected slots for each type of hash.
-    fn synthesize_test_helper(lem: &LEM, exprs: &[Ptr<Fr>], expected_num_slots: SlotsCounter) {
+    fn synthesize_test_helper(lem: &Func, exprs: &[Ptr<Fr>], expected_num_slots: SlotsCounter) {
         let slots_count = lem.ctl.count_slots();
 
         assert_eq!(slots_count, expected_num_slots);
