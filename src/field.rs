@@ -388,7 +388,7 @@ pub mod tests {
 
       #[test]
       fn prop_ser_de(x in any::<FWrap<Fr>>()) {
-            let bytes = to_z_data(&x).unwrap();
+            let bytes = to_z_data(x).unwrap();
             let f2: FWrap<Fr> = from_z_data(&bytes).unwrap();
             assert_eq!(x, f2)
       }
