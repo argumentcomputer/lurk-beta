@@ -43,8 +43,9 @@ commands:
           command: |
             # Get host target
             host=$(rustc -Vv|grep host|sed -Ee 's/host: //')
+            url="https://github.com/mozilla/sccache/releases/download/v0.5.4/sccache-v0.5.4-${host}.tar.gz"
             # Install sccache binary
-            curl -LsSf "https://github.com/mozilla/sccache/releases/download/v0.5.4/sccache-v0.5.4-${host}.tar.gz" | tar xzf -
+            curl -LsSf "$url" | tar xzf -
             mv sccache-v0.5.4-${host}/sccache $HOME/.cargo/bin
             # This configures Rust to use sccache.
             echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
