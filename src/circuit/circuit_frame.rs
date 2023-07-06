@@ -2913,7 +2913,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     ),
     SynthesisError,
 > {
-    let c = store.get_constants();
     let mut hash_default_results = HashInputResults::default();
     let mut results = Results::default();
 
