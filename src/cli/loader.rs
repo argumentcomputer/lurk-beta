@@ -24,8 +24,9 @@ use lurk::{
     ptr::Ptr,
     public_parameters::{Claim, LurkCont, LurkPtr, PtrEvaluation},
     store::Store,
-    tag::ContTag,
+    tag::{ContTag, ExprTag},
     writer::Write,
+    Num, UInt,
     {coprocessor::Coprocessor, eval::IO},
 };
 
@@ -43,23 +44,25 @@ impl Validator for InputValidator {
 }
 
 pub struct Loader<F: LurkField, C: Coprocessor<F>> {
-    pub store: Store<F>,
-    pub env: Ptr<F>,
-    pub limit: usize,
-    pub lang: Arc<Lang<F, C>>,
-    pub last_claim: Option<Claim<F>>,
+    store: Store<F>,
+    env: Ptr<F>,
+    limit: usize,
+    lang: Arc<Lang<F, C>>,
+    last_claim: Option<Claim<F>>,
+    rc: usize,
 }
 
 impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Coprocessor<F>>
     Loader<F, C>
 {
-    pub fn new(store: Store<F>, env: Ptr<F>, limit: usize) -> Loader<F, C> {
+    pub fn new(store: Store<F>, env: Ptr<F>, limit: usize, rc: usize) -> Loader<F, C> {
         Loader {
             store,
             env,
             limit,
             lang: Arc::new(Lang::<F, C>::new()),
             last_claim: None,
+            rc,
         }
     }
 
@@ -168,7 +171,9 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                             // And the state's env is set to the result.
                             let (first, rest) = &self.store.car_cdr(&rest)?;
                             let (second, rest) = &self.store.car_cdr(rest)?;
-                            assert!(rest.is_nil());
+                            if !rest.is_nil() {
+                                bail!("`def` accepts at most two arguments")
+                            }
                             let l = &self.store.lurk_sym("let");
                             let current_env = &self.store.lurk_sym("current-env");
                             let binding = &self.store.list(&[*first, *second]);
@@ -194,7 +199,9 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                             // And the state's env is set to the result.
                             let (first, rest) = &self.store.car_cdr(&rest)?;
                             let (second, rest) = &self.store.car_cdr(rest)?;
-                            assert!(rest.is_nil());
+                            if !rest.is_nil() {
+                                bail!("`defrec` accepts at most two arguments")
+                            }
                             let l = &self.store.lurk_sym("letrec");
                             let current_env = &self.store.lurk_sym("current-env");
                             let binding = &self.store.list(&[*first, *second]);
@@ -211,10 +218,13 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                             Some(new_name)
                         }
                         "load" => {
-                            let car = &self.store.car(&rest)?;
-                            match &self.store.fetch(car).unwrap() {
+                            let (first, rest) = &self.store.car_cdr(&rest)?;
+                            if !rest.is_nil() {
+                                bail!("`load` accepts at most one argument")
+                            }
+                            match &self.store.fetch(first).unwrap() {
                                 Expression::Str(..) => {
-                                    let path = &self.store.fetch_string(car).unwrap();
+                                    let path = &self.store.fetch_string(first).unwrap();
                                     let joined = pwd_path.join(Path::new(&path));
                                     self.load_file(&joined)?
                                 }
@@ -226,9 +236,34 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                         "set-env" => {
                             // The state's env is set to the result of evaluating the first argument.
                             let (first, rest) = &self.store.car_cdr(&rest)?;
-                            assert!(rest.is_nil());
+                            if !rest.is_nil() {
+                                bail!("`set-env` accepts at most one argument")
+                            }
                             let (first_io, ..) = self.eval_expr(*first)?;
                             self.env = first_io.expr;
+                            None
+                        }
+                        "set-rc" => {
+                            let (first, rest) = &self.store.car_cdr(&rest)?;
+                            if !rest.is_nil() {
+                                bail!("`set-rc` accepts at most one argument")
+                            }
+                            self.rc = match first.tag {
+                                ExprTag::Num => match self.store.fetch_num(first).unwrap() {
+                                    Num::U64(u) => *u as usize,
+                                    _ => bail!(
+                                        "Invalid value for `rc`: {}",
+                                        first.fmt_to_string(&self.store)
+                                    ),
+                                },
+                                ExprTag::U64 => match self.store.fetch_uint(first).unwrap() {
+                                    UInt::U64(u) => u as usize,
+                                },
+                                _ => bail!(
+                                    "Invalid value for `rc`: {}",
+                                    first.fmt_to_string(&self.store)
+                                ),
+                            };
                             None
                         }
                         _ => {

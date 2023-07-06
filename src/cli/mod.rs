@@ -21,6 +21,7 @@ use self::prove_and_verify::verify_proof;
 
 const DEFAULT_FIELD: LanguageField = LanguageField::Pallas;
 const DEFAULT_LIMIT: usize = 100_000_000;
+const DEFAULT_RC: usize = 1;
 
 #[derive(Parser, Debug)]
 #[clap(version, about, long_about = None)]
@@ -49,6 +50,9 @@ struct Load {
 
     #[arg(long)]
     prove: bool,
+
+    #[clap(long, name = "reduction count", value_parser)]
+    rc: Option<usize>,
 }
 
 #[derive(Parser, Debug)]
@@ -64,6 +68,9 @@ struct LoadCli {
 
     #[arg(long)]
     prove: bool,
+
+    #[clap(long, name = "reduction count", value_parser)]
+    rc: Option<usize>,
 }
 
 impl Load {
@@ -73,6 +80,7 @@ impl Load {
             zstore: self.zstore,
             limit: self.limit,
             prove: self.prove,
+            rc: self.rc,
         }
     }
 }
@@ -87,6 +95,9 @@ struct Repl {
 
     #[clap(long, value_parser)]
     limit: Option<usize>,
+
+    #[clap(long, name = "reduction count", value_parser)]
+    rc: Option<usize>,
 }
 
 #[derive(Parser, Debug)]
@@ -99,6 +110,9 @@ struct ReplCli {
 
     #[clap(long, value_parser)]
     limit: Option<usize>,
+
+    #[clap(long, name = "reduction count", value_parser)]
+    rc: Option<usize>,
 }
 
 impl Repl {
@@ -107,6 +121,7 @@ impl Repl {
             load: self.load,
             zstore: self.zstore,
             limit: self.limit,
+            rc: self.rc,
         }
     }
 }
@@ -144,9 +159,10 @@ fn get_store<F: LurkField + for<'a> serde::de::Deserialize<'a>>(
 macro_rules! new_loader {
     ( $cli: expr, $field: path ) => {{
         let limit = $cli.limit.unwrap_or(DEFAULT_LIMIT);
+        let rc = $cli.rc.unwrap_or(DEFAULT_RC);
         let mut store = get_store(&$cli.zstore);
         let env = store.nil();
-        let loader = Loader::<$field, Coproc<$field>>::new(store, env, limit);
+        let loader = Loader::<$field, Coproc<$field>>::new(store, env, limit, rc);
         loader
     }};
 }
