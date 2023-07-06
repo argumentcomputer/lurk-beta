@@ -68,8 +68,6 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
         Ok(Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang).eval()?)
     }
 
-    // TODO: remove panics from assertions
-    // TODO: extract meta handlers
     fn handle_meta(&mut self, expr_ptr: Ptr<F>, pwd_path: &Path) -> Result<()> {
         let res = match self.store.fetch(&expr_ptr).unwrap() {
             Expression::Cons(car, rest) => match &self.store.fetch(&car).unwrap() {
@@ -78,47 +76,59 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                     match format!("{}", s).as_str() {
                         "assert" => {
                             let (first, rest) = &self.store.car_cdr(&rest)?;
-                            assert!(rest.is_nil());
-                            let (first_io, ..) = self
-                                .eval_expr(*first)
-                                .with_context(|| "evaluating first arg")?;
-                            assert!(!first_io.expr.is_nil());
+                            if !rest.is_nil() {
+                                bail!("`assert` accepts at most one argument")
+                            }
+                            let (first_io, ..) = self.eval_expr(*first)?;
+                            if first_io.expr.is_nil() {
+                                bail!(
+                                    "`assert` failed. {} evaluates to `nil`",
+                                    first.fmt_to_string(&self.store)
+                                )
+                            }
                             None
                         }
                         "assert-eq" => {
                             let (first, rest) = &self.store.car_cdr(&rest)?;
                             let (second, rest) = &self.store.car_cdr(rest)?;
-                            assert!(rest.is_nil());
+                            if !rest.is_nil() {
+                                bail!("`assert-eq` accepts at most two arguments")
+                            }
                             let (first_io, ..) = self
                                 .eval_expr(*first)
                                 .with_context(|| "evaluating first arg")?;
                             let (second_io, ..) = self
                                 .eval_expr(*second)
                                 .with_context(|| "evaluating second arg")?;
-                            assert!(
-                                &self.store.ptr_eq(&first_io.expr, &second_io.expr)?,
-                                "Assertion failed: {} = {},\n {} != {}",
-                                first.fmt_to_string(&self.store),
-                                second.fmt_to_string(&self.store),
-                                first_io.expr.fmt_to_string(&self.store),
-                                second_io.expr.fmt_to_string(&self.store)
-                            );
+                            if !&self.store.ptr_eq(&first_io.expr, &second_io.expr)? {
+                                bail!(
+                                    "`assert-eq` failed. Expected:\n  {} = {}\nGot:\n  {} != {}",
+                                    first.fmt_to_string(&self.store),
+                                    second.fmt_to_string(&self.store),
+                                    first_io.expr.fmt_to_string(&self.store),
+                                    second_io.expr.fmt_to_string(&self.store)
+                                )
+                            }
                             None
                         }
                         "assert-emitted" => {
                             let (first, rest) = &self.store.car_cdr(&rest)?;
                             let (second, rest) = &self.store.car_cdr(rest)?;
 
-                            assert!(rest.is_nil());
-                            let (first_io, ..) = self.eval_expr(*first)?;
+                            if !rest.is_nil() {
+                                bail!("`assert-emitted` accepts at most two arguments")
+                            }
+                            let (first_io, ..) = self
+                                .eval_expr(*first)
+                                .with_context(|| "evaluating first arg")?;
                             let (.., emitted) = self
                                 .eval_expr(*second)
-                                .with_context(|| "evaluating first arg")?;
+                                .with_context(|| "evaluating second arg")?;
                             let (mut first_emitted, mut rest_emitted) =
                                 &self.store.car_cdr(&first_io.expr)?;
                             for (i, elem) in emitted.iter().enumerate() {
                                 if elem != &first_emitted {
-                                    panic!(
+                                    bail!(
                                             "`assert-emitted` failed at position {i}. Expected {}, but found {}.",
                                             first_emitted.fmt_to_string(&self.store),
                                             elem.fmt_to_string(&self.store),
@@ -131,9 +141,16 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                         }
                         "assert-error" => {
                             let (first, rest) = &self.store.car_cdr(&rest)?;
-                            assert!(rest.is_nil());
+                            if !rest.is_nil() {
+                                bail!("`assert-error` accepts at most one argument")
+                            }
                             let (first_io, ..) = self.eval_expr(*first)?;
-                            assert!(first_io.cont.tag == ContTag::Error);
+                            if first_io.cont.tag != ContTag::Error {
+                                bail!(
+                                    "`assert-error` failed. {} doesn't result on evaluation error.",
+                                    first.fmt_to_string(&self.store)
+                                )
+                            }
                             None
                         }
                         "clear" => {
@@ -345,18 +362,12 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                             if is_meta {
                                 if let Err(e) = self.handle_meta(expr_ptr, pwd_path) {
                                     println!("!Error: {e}");
-                                };
-                                continue;
-                            } else {
-                                if let Err(e) = self.handle_non_meta(expr_ptr) {
-                                    println!("REPL Error: {e}");
                                 }
-                                continue;
+                            } else if let Err(e) = self.handle_non_meta(expr_ptr) {
+                                println!("Error: {e}");
                             }
                         }
-                        Err(parser::Error::NoInput) => {
-                            continue;
-                        }
+                        Err(parser::Error::NoInput) => (),
                         Err(e) => {
                             println!("Read error: {e}")
                         }
