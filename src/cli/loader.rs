@@ -22,12 +22,14 @@ use lurk::{
     field::LurkField,
     parser,
     ptr::Ptr,
-    public_parameters::{Claim, LurkCont, LurkPtr, PtrEvaluation, NovaProofCache, nova_proof_cache},
+    public_parameters::{
+        nova_proof_cache, Claim, LurkCont, LurkPtr, NovaProofCache, PtrEvaluation,
+    },
     store::Store,
     tag::{ContTag, ExprTag},
     writer::Write,
     Num, UInt,
-    {coprocessor::Coprocessor, eval::IO}, proof::{nova::NovaProver},
+    {coprocessor::Coprocessor, eval::IO},
 };
 
 use crate::cli::paths::repl_history;
@@ -283,7 +285,6 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                 Ok(None)
             }
             "prove" => {
-                let _prover: NovaProver<F, Coproc<F>>;
                 todo!()
             }
             "verify" => {
@@ -319,9 +320,30 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
         Ok(())
     }
 
+    fn eval_expr_and_set_last_claim(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize)> {
+        self.eval_expr(expr_ptr).map(|(output, iterations, _)| {
+            let cont = self.store.get_cont_outermost();
+
+            let claim = Claim::PtrEvaluation::<F>(PtrEvaluation {
+                expr: LurkPtr::from_ptr(&mut self.store, &expr_ptr),
+                env: LurkPtr::from_ptr(&mut self.store, &self.env),
+                cont: LurkCont::from_cont_ptr(&mut self.store, &cont),
+                expr_out: LurkPtr::from_ptr(&mut self.store, &output.expr),
+                env_out: LurkPtr::from_ptr(&mut self.store, &output.env),
+                cont_out: LurkCont::from_cont_ptr(&mut self.store, &output.cont),
+                status: <lurk::eval::IO<F> as Evaluable<F, Witness<F>, Coproc<F>>>::status(&output),
+                // `Some(iterations)`?
+                iterations: None,
+            });
+
+            self.last_claim = Some(claim);
+            (output, iterations)
+        })
+    }
+
     fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
-        match self.eval_expr(expr_ptr) {
-            Ok((output, iterations, _)) => {
+        self.eval_expr_and_set_last_claim(expr_ptr)
+            .and_then(|(output, iterations)| {
                 if iterations != 1 {
                     print!("[{iterations} iterations] => ");
                 } else {
@@ -339,36 +361,8 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                     ContTag::Error => println!("ERROR!"),
                     _ => println!("Computation incomplete after limit: {}", self.limit),
                 }
-
-                let input = IO {
-                    expr: expr_ptr,
-                    env: self.env,
-                    cont: self.store.get_cont_outermost(),
-                };
-
-                let claim = Claim::PtrEvaluation::<F>(PtrEvaluation {
-                    expr: LurkPtr::from_ptr(&mut self.store, &input.expr),
-                    env: LurkPtr::from_ptr(&mut self.store, &input.env),
-                    cont: LurkCont::from_cont_ptr(&mut self.store, &input.cont),
-                    expr_out: LurkPtr::from_ptr(&mut self.store, &output.expr),
-                    env_out: LurkPtr::from_ptr(&mut self.store, &output.env),
-                    cont_out: LurkCont::from_cont_ptr(&mut self.store, &output.cont),
-                    status: <lurk::eval::IO<F> as Evaluable<F, Witness<F>, Coproc<F>>>::status(
-                        &output,
-                    ),
-                    // `Some(iterations)`?
-                    iterations: None,
-                });
-
-                self.last_claim = Some(claim);
-
                 Ok(())
-            }
-            Err(e) => {
-                println!("Evaluation error: {e}");
-                Err(e)
-            }
-        }
+            })
     }
 
     fn handle_form<'a>(
