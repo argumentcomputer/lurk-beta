@@ -101,7 +101,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                                 .with_context(|| "evaluating second arg")?;
                             assert!(
                                 &self.store.ptr_eq(&first_evaled, &second_evaled)?,
-                                "Assertion failed {:?} = {:?},\n {:?} != {:?}",
+                                "Assertion failed: {} = {},\n {} != {}",
                                 first.fmt_to_string(&self.store),
                                 second.fmt_to_string(&self.store),
                                 first_evaled.fmt_to_string(&self.store),
@@ -281,6 +281,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                     status: <lurk::eval::IO<F> as Evaluable<F, Witness<F>, Coproc<F>>>::status(
                         &output,
                     ),
+                    // `Some(iterations)`?
                     iterations: None,
                 });
 
@@ -289,7 +290,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                 Ok(())
             }
             Err(e) => {
-                println!("Evaluation error: {e:?}");
+                println!("Evaluation error: {e}");
                 Err(e.into())
             }
         }
@@ -347,12 +348,12 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                         Ok((_, expr_ptr, is_meta)) => {
                             if is_meta {
                                 if let Err(e) = self.handle_meta(expr_ptr, pwd_path) {
-                                    println!("!Error: {e:?}");
+                                    println!("!Error: {e}");
                                 };
                                 continue;
                             } else {
                                 if let Err(e) = self.handle_non_meta(expr_ptr) {
-                                    println!("REPL Error: {e:?}");
+                                    println!("REPL Error: {e}");
                                 }
                                 continue;
                             }
@@ -361,7 +362,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                             continue;
                         }
                         Err(e) => {
-                            println!("Read error: {e:?}")
+                            println!("Read error: {e}")
                         }
                     }
                 }
@@ -370,7 +371,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                     break;
                 }
                 Err(err) => {
-                    println!("Error: {err:?}");
+                    println!("Error: {err}");
                     break;
                 }
             }
