@@ -1,6 +1,9 @@
 use anyhow::Result;
 
-use std::{path::{Path, PathBuf}, fs};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 fn home_dir() -> PathBuf {
     home::home_dir().expect("missing home directory")
@@ -13,7 +16,7 @@ pub fn lurk_dir() -> PathBuf {
 pub fn create_lurk_dir() -> Result<()> {
     let dir_path = lurk_dir();
     if !dir_path.exists() {
-        fs::create_dir(lurk_dir())?;
+        fs::create_dir(dir_path)?;
     }
     Ok(())
 }

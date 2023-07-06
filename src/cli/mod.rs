@@ -163,7 +163,7 @@ macro_rules! new_loader {
         let rc = $cli.rc.unwrap_or(DEFAULT_RC);
         let mut store = get_store(&$cli.zstore);
         let env = store.nil();
-        let loader = Loader::<$field, Coproc<$field>>::new(store, env, limit, rc);
+        let loader = Loader::<$field, Coproc<$field>>::new(store, env, limit, rc)?;
         loader
     }};
 }

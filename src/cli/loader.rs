@@ -54,18 +54,26 @@ pub struct Loader<F: LurkField, C: Coprocessor<F>> {
     rc: usize,
 }
 
+fn validate_rc(rc: usize) -> Result<()> {
+    if rc == 0 {
+        bail!("Invalid value for `rc`: 0")
+    }
+    Ok(())
+}
+
 impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Coprocessor<F>>
     Loader<F, C>
 {
-    pub fn new(store: Store<F>, env: Ptr<F>, limit: usize, rc: usize) -> Loader<F, C> {
-        Loader {
+    pub fn new(store: Store<F>, env: Ptr<F>, limit: usize, rc: usize) -> Result<Loader<F, C>> {
+        validate_rc(rc)?;
+        Ok(Loader {
             store,
             env,
             limit,
             lang: Arc::new(Lang::<F, C>::new()),
             last_claim: None,
             rc,
-        }
+        })
     }
 
     #[inline]
@@ -250,7 +258,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                             if !rest.is_nil() {
                                 bail!("`set-rc` accepts at most one argument")
                             }
-                            self.rc = match first.tag {
+                            let rc = match first.tag {
                                 ExprTag::Num => match self.store.fetch_num(first).unwrap() {
                                     Num::U64(u) => *u as usize,
                                     _ => bail!(
@@ -266,6 +274,8 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                                     first.fmt_to_string(&self.store)
                                 ),
                             };
+                            validate_rc(rc)?;
+                            self.rc = rc;
                             None
                         }
                         _ => {
