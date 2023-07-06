@@ -228,8 +228,8 @@ impl<F: LurkField> Store<F> {
                 Some(z_ptr) => Ok(*z_ptr),
                 None => {
                     let Some((a, b)) = self.ptrs2.get_index(*idx) else {
-                            bail!("Index {idx} not found on ptrs2")
-                        };
+                        bail!("Index {idx} not found on ptrs2")
+                    };
                     let a = self.hash_ptr(a)?;
                     let b = self.hash_ptr(b)?;
                     let z_ptr = ZPtr {
@@ -250,8 +250,8 @@ impl<F: LurkField> Store<F> {
                 Some(z_ptr) => Ok(*z_ptr),
                 None => {
                     let Some((a, b, c)) = self.ptrs3.get_index(*idx) else {
-                            bail!("Index {idx} not found on ptrs3")
-                        };
+                        bail!("Index {idx} not found on ptrs3")
+                    };
                     let a = self.hash_ptr(a)?;
                     let b = self.hash_ptr(b)?;
                     let c = self.hash_ptr(c)?;
@@ -275,8 +275,8 @@ impl<F: LurkField> Store<F> {
                 Some(z_ptr) => Ok(*z_ptr),
                 None => {
                     let Some((a, b, c, d)) = self.ptrs4.get_index(*idx) else {
-                            bail!("Index {idx} not found on ptrs4")
-                        };
+                        bail!("Index {idx} not found on ptrs4")
+                    };
                     let a = self.hash_ptr(a)?;
                     let b = self.hash_ptr(b)?;
                     let c = self.hash_ptr(c)?;
