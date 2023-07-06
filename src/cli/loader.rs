@@ -123,7 +123,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                 let (first_io, ..) = self.eval_expr(first)?;
                 if first_io.expr.is_nil() {
                     bail!(
-                        "`assert` failed. {} evaluates to `nil`",
+                        "`assert` failed. {} evaluates to nil",
                         first.fmt_to_string(&self.store)
                     )
                 }
@@ -138,7 +138,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                     .with_context(|| "evaluating second arg")?;
                 if !&self.store.ptr_eq(&first_io.expr, &second_io.expr)? {
                     bail!(
-                        "`assert-eq` failed. Expected:\n  {} = {}\nGot:\n  {} != {}",
+                        "`assert-eq` failed. Expected:\n  {} = {}\nGot:\n  {} ≠ {}",
                         first.fmt_to_string(&self.store),
                         second.fmt_to_string(&self.store),
                         first_io.expr.fmt_to_string(&self.store),

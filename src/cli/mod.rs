@@ -33,27 +33,35 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Command {
+    /// Loads a file, processing forms sequentially ("load" can be elided)
     Load(Load),
+    /// Enters Lurk's REPL environment ("repl" can be elided)
     Repl(Repl),
+    /// Verifies a Lurk proof
     Verify(Verify),
 }
 
 #[derive(Args, Debug)]
 struct Load {
+    /// The file to be loaded
     #[clap(value_parser)]
     lurk_file: PathBuf,
 
+    /// Path to a custom ZStore to be used
     #[clap(long, value_parser)]
     zstore: Option<PathBuf>,
 
+    /// Maximum number of iterations allowed (defaults to 100_000_000)
     #[clap(long, value_parser)]
     limit: Option<usize>,
 
-    #[arg(long)]
-    prove: bool,
-
+    /// Reduction count used for proofs (defaults to 1)
     #[clap(long, value_parser)]
     rc: Option<usize>,
+
+    /// Flag to prove the last evaluation
+    #[arg(long)]
+    prove: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -88,16 +96,20 @@ impl Load {
 
 #[derive(Args, Debug)]
 struct Repl {
-    #[clap(long, value_parser)]
-    load: Option<PathBuf>,
-
+    /// Path to a custom ZStore to be used
     #[clap(long, value_parser)]
     zstore: Option<PathBuf>,
 
+    /// Optional file to be loaded before entering the REPL
+    #[clap(long, value_parser)]
+    load: Option<PathBuf>,
+
+    /// Maximum number of iterations allowed (defaults to 100_000_000)
     #[clap(long, value_parser)]
     limit: Option<usize>,
 
-    #[clap(long, name = "reduction count", value_parser)]
+    /// Reduction count used for proofs (defaults to 1)
+    #[clap(long, value_parser)]
     rc: Option<usize>,
 }
 
@@ -112,7 +124,7 @@ struct ReplCli {
     #[clap(long, value_parser)]
     limit: Option<usize>,
 
-    #[clap(long, name = "reduction count", value_parser)]
+    #[clap(long, value_parser)]
     rc: Option<usize>,
 }
 
