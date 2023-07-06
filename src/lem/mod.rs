@@ -257,7 +257,7 @@ mod tests {
 
     #[test]
     fn accepts_virtual_nested_match_tag() {
-        let lem = lem!(expr_in env_in cont_in {
+        let lem = func!(expr_in env_in cont_in {
             match_tag expr_in {
                 Num => {
                     let cont_out_terminal: Terminal;
@@ -296,7 +296,7 @@ mod tests {
 
     #[test]
     fn resolves_conflicts_of_clashing_names_in_parallel_branches() {
-        let lem = lem!(expr_in env_in cont_in {
+        let lem = func!(expr_in env_in cont_in {
             match_tag expr_in {
                 // This match is creating `cont_out_terminal` on two different
                 // branches, which, in theory, would cause troubles at allocation
@@ -320,7 +320,7 @@ mod tests {
 
     #[test]
     fn test_simple_all_paths_delta() {
-        let lem = lem!(expr_in env_in cont_in {
+        let lem = func!(expr_in env_in cont_in {
             let cont_out_terminal: Terminal;
             return (expr_in, env_in, cont_out_terminal);
         })
@@ -335,7 +335,7 @@ mod tests {
 
     #[test]
     fn test_match_all_paths_delta() {
-        let lem = lem!(expr_in env_in cont_in {
+        let lem = func!(expr_in env_in cont_in {
             match_tag expr_in {
                 Num => {
                     let cont_out_terminal: Terminal;
@@ -358,7 +358,7 @@ mod tests {
 
     #[test]
     fn test_hash_slots() {
-        let lem = lem!(expr_in env_in cont_in {
+        let lem = func!(expr_in env_in cont_in {
             let x: Cons = hash2(expr_in, env_in);
             let y: Cons = hash3(expr_in, env_in, cont_in);
             let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
@@ -393,7 +393,7 @@ mod tests {
 
     #[test]
     fn test_unhash_slots() {
-        let lem = lem!(expr_in env_in cont_in {
+        let lem = func!(expr_in env_in cont_in {
             let x: Cons = hash2(expr_in, env_in);
             let y: Cons = hash3(expr_in, env_in, cont_in);
             let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
@@ -431,7 +431,7 @@ mod tests {
 
     #[test]
     fn test_unhash_nested_slots() {
-        let lem = lem!(expr_in env_in cont_in {
+        let lem = func!(expr_in env_in cont_in {
             let x: Cons = hash2(expr_in, env_in);
             let y: Cons = hash3(expr_in, env_in, cont_in);
             let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);

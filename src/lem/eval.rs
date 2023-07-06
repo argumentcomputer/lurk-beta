@@ -1,4 +1,4 @@
-use crate::lem;
+use crate::func;
 
 use super::Func;
 use anyhow::Result;
@@ -6,7 +6,7 @@ use anyhow::Result;
 /// Lurk's step function encoded as a LEM
 #[allow(dead_code)]
 pub(crate) fn step() -> Result<Func> {
-    lem!(expr_in env_in cont_in {
+    func!(expr_in env_in cont_in {
         match_tag expr_in {
             Num => {
                 match_tag cont_in {

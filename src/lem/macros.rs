@@ -15,68 +15,68 @@ macro_rules! vars {
 }
 
 #[macro_export]
-macro_rules! lemop {
+macro_rules! op {
     ( let $tgt:ident : $tag:ident ) => {
-        $crate::lem::LEMOP::Null($crate::var!($tgt), $crate::lem::Tag::$tag)
+        $crate::lem::Op::Null($crate::var!($tgt), $crate::lem::Tag::$tag)
     };
     ( let $tgt:ident : $tag:ident = hash2($src1:ident, $src2:ident) ) => {
-        $crate::lem::LEMOP::Hash2(
+        $crate::lem::Op::Hash2(
             $crate::var!($tgt),
             $crate::lem::Tag::$tag,
             $crate::vars!($src1, $src2),
         )
     };
     ( let $tgt:ident : $tag:ident = hash3($src1:ident, $src2:ident, $src3:ident) ) => {
-        $crate::lem::LEMOP::Hash3(
+        $crate::lem::Op::Hash3(
             $crate::var!($tgt),
             $crate::lem::Tag::$tag,
             $crate::vars!($src1, $src2, $src3),
         )
     };
     ( let $tgt:ident : $tag:ident = hash4($src1:ident, $src2:ident, $src3:ident, $src4:ident) ) => {
-        $crate::lem::LEMOP::Hash4(
+        $crate::lem::Op::Hash4(
             $crate::var!($tgt),
             $crate::lem::Tag::$tag,
             $crate::vars!($src1, $src2, $src3, $src4),
         )
     };
     ( let ($tgt1:ident, $tgt2:ident) = unhash2($src:ident) ) => {
-        $crate::lem::LEMOP::Unhash2(
+        $crate::lem::Op::Unhash2(
             $crate::vars!($tgt1, $tgt2),
             $crate::lem::Var(stringify!($src).into()),
         )
     };
     ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = unhash3($src:ident) ) => {
-        $crate::lem::LEMOP::Unhash3($crate::vars!($tgt1, $tgt2, $tgt3), $crate::var!($src))
+        $crate::lem::Op::Unhash3($crate::vars!($tgt1, $tgt2, $tgt3), $crate::var!($src))
     };
     ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident, $tgt4:ident) = unhash4($src:ident) ) => {
-        $crate::lem::LEMOP::Unhash4(
+        $crate::lem::Op::Unhash4(
             $crate::vars!($tgt1, $tgt2, $tgt3, $tgt4),
             $crate::var!($src),
         )
     };
     ( let $tgt:ident = hide($sec:ident, $src:ident) ) => {
-        $crate::lem::LEMOP::Hide($crate::var!($tgt), $crate::var!($sec), $crate::var!($src))
+        $crate::lem::Op::Hide($crate::var!($tgt), $crate::var!($sec), $crate::var!($src))
     };
     ( let ($sec:ident, $src:ident) = open($hash:ident) ) => {
-        $crate::lem::LEMOP::Open($crate::var!($sec), $crate::var!($src), $crate::var!($hash))
+        $crate::lem::Op::Open($crate::var!($sec), $crate::var!($src), $crate::var!($hash))
     };
 }
 
 #[macro_export]
-macro_rules! lem_code {
+macro_rules! ctrl {
     ( match_tag $sii:ident { $( $tag:ident => $case_ops:tt ),* $(,)? } ) => {
         {
             let mut cases = indexmap::IndexMap::new();
             $(
                 if cases.insert(
                     $crate::lem::Tag::$tag,
-                    $crate::lem_code!( $case_ops ),
+                    $crate::ctrl!( $case_ops ),
                 ).is_some() {
                     panic!("Repeated tag on `match_tag`");
                 };
             )*
-            $crate::lem::LEMCTL::MatchTag($crate::var!($sii), cases)
+            $crate::lem::Ctrl::MatchTag($crate::var!($sii), cases)
         }
     };
     ( match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } ) => {
@@ -85,149 +85,149 @@ macro_rules! lem_code {
             $(
                 if cases.insert(
                     $symbol,
-                    $crate::lem_code!( $case_ops ),
+                    $crate::ctrl!( $case_ops ),
                 ).is_some() {
                     panic!("Repeated path on `match_symbol`");
                 };
             )*
-            $crate::lem::LEMCTL::MatchSymbol($crate::var!($sii), cases, Box::new($crate::lem_code!( $def )))
+            $crate::lem::Ctrl::MatchSymbol($crate::var!($sii), cases, Box::new($crate::ctrl!( $def )))
         }
     };
     ( return ($src1:ident, $src2:ident, $src3:ident) ) => {
-        $crate::lem::LEMCTL::Return(
+        $crate::lem::Ctrl::Return(
             $crate::vars!($src1, $src2, $src3)
         )
     };
     // seq entry point, with a separate bracketing to differentiate
     ({ $($body:tt)+ }) => {
         {
-            $crate::lem_code! ( @seq {}, $($body)* )
+            $crate::ctrl! ( @seq {}, $($body)* )
         }
     };
     // handle the recursion: as we see a statement, we push it to the limbs position in the pattern
     (@seq {$($limbs:expr)*}, let $tgt:ident : $tag:ident ; $($tail:tt)*) => {
-        $crate::lem_code! (
+        $crate::ctrl! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!(let $tgt: $tag)
+                $crate::op!(let $tgt: $tag)
             },
             $($tail)*
         )
     };
     (@seq {$($limbs:expr)*}, let $tgt:ident : $tag:ident = hash2($src1:ident, $src2:ident) ; $($tail:tt)*) => {
-        $crate::lem_code! (
+        $crate::ctrl! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!(let $tgt: $tag = hash2($src1, $src2) )
+                $crate::op!(let $tgt: $tag = hash2($src1, $src2) )
             },
             $($tail)*
         )
     };
     (@seq {$($limbs:expr)*}, let $tgt:ident : $tag:ident = hash3($src1:ident, $src2:ident, $src3:ident) ; $($tail:tt)*) => {
-        $crate::lem_code! (
+        $crate::ctrl! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!(let $tgt: $tag = hash3($src1, $src2, $src3) )
+                $crate::op!(let $tgt: $tag = hash3($src1, $src2, $src3) )
             },
             $($tail)*
         )
     };
     (@seq {$($limbs:expr)*}, let $tgt:ident : $tag:ident = hash4($src1:ident, $src2:ident, $src3:ident, $src4:ident) ; $($tail:tt)*) => {
-        $crate::lem_code! (
+        $crate::ctrl! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!(let $tgt: $tag = hash4($src1, $src2, $src3, $src4))
+                $crate::op!(let $tgt: $tag = hash4($src1, $src2, $src3, $src4))
             },
             $($tail)*
         )
     };
     (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident) = unhash2($src:ident) ; $($tail:tt)*) => {
-        $crate::lem_code! (
+        $crate::ctrl! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!(let ($tgt1, $tgt2) = unhash2($src) )
+                $crate::op!(let ($tgt1, $tgt2) = unhash2($src) )
             },
             $($tail)*
         )
     };
     (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = unhash3($src:ident) ; $($tail:tt)*) => {
-        $crate::lem_code! (
+        $crate::ctrl! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!(let ($tgt1, $tgt2, $tgt3) = unhash3($src) )
+                $crate::op!(let ($tgt1, $tgt2, $tgt3) = unhash3($src) )
             },
             $($tail)*
         )
     };
     (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident, $tgt4:ident) = unhash4($src:ident) ; $($tail:tt)*) => {
-        $crate::lem_code! (
+        $crate::ctrl! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!(let ($tgt1, $tgt2, $tgt3, $tgt4) = unhash4($src) )
+                $crate::op!(let ($tgt1, $tgt2, $tgt3, $tgt4) = unhash4($src) )
             },
             $($tail)*
         )
     };
     (@seq {$($limbs:expr)*}, let $tgt:ident = hide($sec:ident, $src:ident) ; $($tail:tt)*) => {
-        $crate::lem_code! (
+        $crate::ctrl! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!(let $tgt = hide($sec, $src) )
+                $crate::op!(let $tgt = hide($sec, $src) )
             },
             $($tail)*
         )
     };
     (@seq {$($limbs:expr)*}, let ($sec:ident, $src:ident) = open($hash:ident) ; $($tail:tt)*) => {
-        $crate::lem_code! (
+        $crate::ctrl! (
             @seq
             {
                 $($limbs)*
-                $crate::lemop!(let ($sec, $src) = open($hash) )
+                $crate::op!(let ($sec, $src) = open($hash) )
             },
             $($tail)*
         )
     };
     (@seq {$($limbs:expr)*}, match_tag $sii:ident { $( $tag:ident => $case_ops:tt ),* $(,)? } $($tail:tt)*) => {
-        $crate::lem_code! (
+        $crate::ctrl! (
             @end
             {
                 $($limbs)*
             },
-            $crate::lem_code!( match_tag $sii { $( $tag => $case_ops ),* } ),
+            $crate::ctrl!( match_tag $sii { $( $tag => $case_ops ),* } ),
             $($tail)*
         )
     };
     (@seq {$($limbs:expr)*}, match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } $($tail:tt)*) => {
-        $crate::lem_code! (
+        $crate::ctrl! (
             @end
             {
                 $($limbs)*
             },
-            $crate::lem_code!( match_symbol $sii { $( $symbol => $case_ops ),* , _ => $def, } ),
+            $crate::ctrl!( match_symbol $sii { $( $symbol => $case_ops ),* , _ => $def, } ),
             $($tail)*
         )
     };
     (@seq {$($limbs:expr)*}, return ($src1:ident, $src2:ident, $src3:ident) $($tail:tt)*) => {
-        $crate::lem_code! (
+        $crate::ctrl! (
             @end
             {
                 $($limbs)*
             },
-            $crate::lem_code!( return ($src1, $src2, $src3) ),
+            $crate::ctrl!( return ($src1, $src2, $src3) ),
             $($tail)*
         )
     };
     (@seq {$($limbs:expr)*}, $(;)? ) => {
         {
-            compile_error!("You must provide LEM with a return at each path!");
+            compile_error!("You must provide Func with a return at each path!");
         }
     };
     (@end { }, $cont:expr,  $(;)?) => {
@@ -239,21 +239,21 @@ macro_rules! lem_code {
         {
             let block = $cont;
             let ops = vec!($($limbs),+);
-            $crate::lem::LEMCTL::Seq(ops, Box::new(block))
+            $crate::lem::Ctrl::Seq(ops, Box::new(block))
         }
     }
 }
 
 #[macro_export]
-macro_rules! lem {
+macro_rules! func {
     ($in1:ident $in2:ident $in3:ident $lem:tt) => {
-        $crate::lem::LEM::new(
+        $crate::lem::Func::new(
             [
                 $crate::lem::Var(stringify!($in1).into()),
                 $crate::lem::Var(stringify!($in2).into()),
                 $crate::lem::Var(stringify!($in3).into()),
             ],
-            &$crate::lem_code!($lem),
+            &$crate::ctrl!($lem),
         )
     };
 }
@@ -302,15 +302,15 @@ mod tests {
             Op::Open(mptr("bar"), mptr("baz"), mptr("bazz")),
         ];
         let lemops_macro = vec![
-            lemop!(let foo: Num),
-            lemop!(let foo: Char = hash2(bar, baz)),
-            lemop!(let foo: Char = hash3(bar, baz, bazz)),
-            lemop!(let foo: Char = hash4(bar, baz, bazz, baxx)),
-            lemop!(let (foo, goo) = unhash2(aaa)),
-            lemop!(let (foo, goo, moo) = unhash3(aaa)),
-            lemop!(let (foo, goo, moo, noo) = unhash4(aaa)),
-            lemop!(let bar = hide(baz, bazz)),
-            lemop!(let (bar, baz) = open(bazz)),
+            op!(let foo: Num),
+            op!(let foo: Char = hash2(bar, baz)),
+            op!(let foo: Char = hash3(bar, baz, bazz)),
+            op!(let foo: Char = hash4(bar, baz, bazz, baxx)),
+            op!(let (foo, goo) = unhash2(aaa)),
+            op!(let (foo, goo, moo) = unhash3(aaa)),
+            op!(let (foo, goo, moo, noo) = unhash4(aaa)),
+            op!(let bar = hide(baz, bazz)),
+            op!(let (bar, baz) = open(bazz)),
         ];
 
         for i in 0..9 {
@@ -319,7 +319,7 @@ mod tests {
 
         let ret = Ctrl::Return([mptr("bar"), mptr("baz"), mptr("bazz")]);
         let block = Ctrl::Seq(lemops_macro, Box::new(ret));
-        let lem_macro_seq = lem_code!({
+        let lem_macro_seq = ctrl!({
             let foo: Num;
             let foo: Char = hash2(bar, baz);
             let foo: Char = hash3(bar, baz, bazz);
@@ -334,10 +334,10 @@ mod tests {
 
         assert!(block == lem_macro_seq);
 
-        let foo = lem_code!(
+        let foo = ctrl!(
             match_tag www {
                 Num => {
-                    return (foo, foo, foo); // a single LEMCTL will not turn into a Seq
+                    return (foo, foo, foo); // a single Ctrl will not turn into a Seq
                 },
                 Str => {
                     let foo: Num;
@@ -379,10 +379,10 @@ mod tests {
             )
         );
 
-        let moo = lem_code!(
+        let moo = ctrl!(
             match_symbol www {
                 Symbol::lurk_sym("nil") => {
-                    return (foo, foo, foo); // a single LEMCTL will not turn into a Seq
+                    return (foo, foo, foo); // a single Ctrl will not turn into a Seq
                 },
                 Symbol::lurk_sym("cons") => {
                     let foo: Num;
