@@ -209,14 +209,14 @@ impl SlotsCounter {
 impl LEMCTL {
     pub fn count_slots(&self) -> SlotsCounter {
         match self {
-            LEMCTL::MatchTag(_, cases) => {
-                cases.values().fold(SlotsCounter::default(), |acc, block| {
-                    acc.max(block.count_slots())
-                })
+            LEMCTL::MatchTag(_, match_map) => {
+                let init = match_map.default.as_ref().map_or(SlotsCounter::default(), |block| block.count_slots());
+                match_map.cases.iter().fold(init, |acc, (_, block)| acc.max(block.count_slots()))
             }
-            LEMCTL::MatchSymbol(_, cases, def) => cases
-                .values()
-                .fold(def.count_slots(), |acc, block| acc.max(block.count_slots())),
+            LEMCTL::MatchSymbol(_, match_map) => {
+                let init = match_map.default.as_ref().map_or(SlotsCounter::default(), |block| block.count_slots());
+                match_map .cases .iter() .fold(init, |acc, (_, block)| acc.max(block.count_slots()))
+            },
             LEMCTL::Return(..) => SlotsCounter::default(),
             LEMCTL::Seq(ops, rest) => {
                 let ops_slots = ops.iter().fold(SlotsCounter::default(), |acc, op| {
@@ -572,10 +572,12 @@ impl LEM {
                     }
                     Ok(())
                 }
-                LEMCTL::MatchTag(match_var, cases) => {
+                LEMCTL::MatchTag(match_var, match_map) => {
+                    todo!()
+                        /*
                     let allocated_match_tag = g.bound_allocations.get(match_var)?.tag().clone();
                     let mut concrete_path_vec = Vec::new();
-                    for (tag, op) in cases {
+                    for (tag, op) in match_map {
                         let allocated_has_match = alloc_equal_const(
                             &mut cs.namespace(|| format!("{tag}.alloc_equal_const")),
                             &allocated_match_tag,
@@ -612,6 +614,7 @@ impl LEM {
                     )
                     .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
                     Ok(())
+                    */
                 }
                 LEMCTL::MatchSymbol(..) => Ok(()),
                 LEMCTL::Seq(ops, rest) => {
@@ -766,19 +769,22 @@ impl LEM {
                     // tag and hash for 3 pointers
                     num_constraints += 6;
                 }
-                LEMCTL::MatchTag(_, cases) => {
+                LEMCTL::MatchTag(_, match_map) => {
+                    todo!()
+                        /*
                     // `alloc_equal_const` adds 3 constraints for each case and
                     // the `and` is free for non-nested `MatchTag`s, since we
                     // start `concrete_path` with a constant `true`
                     let multiplier = if nested { 4 } else { 3 };
 
                     // then we add 1 constraint from `enforce_selector_with_premise`
-                    num_constraints += multiplier * cases.len() + 1;
+                    num_constraints += multiplier * match_map.len() + 1;
 
                     // stacked ops are now nested
-                    for block in cases.values() {
+                    for block in match_map.values() {
                         stack.push((block, true));
                     }
+                        */
                 }
                 LEMCTL::MatchSymbol(..) => todo!(),
                 LEMCTL::Seq(ops, rest) => {
