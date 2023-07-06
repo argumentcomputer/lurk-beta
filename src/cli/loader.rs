@@ -22,12 +22,12 @@ use lurk::{
     field::LurkField,
     parser,
     ptr::Ptr,
-    public_parameters::{Claim, LurkCont, LurkPtr, PtrEvaluation},
+    public_parameters::{Claim, LurkCont, LurkPtr, PtrEvaluation, NovaProofCache, nova_proof_cache},
     store::Store,
     tag::{ContTag, ExprTag},
     writer::Write,
     Num, UInt,
-    {coprocessor::Coprocessor, eval::IO},
+    {coprocessor::Coprocessor, eval::IO}, proof::{nova::NovaProver},
 };
 
 use crate::cli::paths::repl_history;
@@ -52,6 +52,7 @@ pub struct Loader<F: LurkField, C: Coprocessor<F>> {
     lang: Arc<Lang<F, C>>,
     last_claim: Option<Claim<F>>,
     rc: usize,
+    proof_map: NovaProofCache,
 }
 
 fn validate_rc(rc: usize) -> Result<()> {
@@ -73,6 +74,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
             lang: Arc::new(Lang::<F, C>::new()),
             last_claim: None,
             rc,
+            proof_map: nova_proof_cache(rc),
         })
     }
 
@@ -275,7 +277,17 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                 };
                 validate_rc(rc)?;
                 self.rc = rc;
+                // TODO: improve this
+                println!("Warning: changing `rc` resets the proof cache");
+                self.proof_map = nova_proof_cache(rc);
                 Ok(None)
+            }
+            "prove" => {
+                let _prover: NovaProver<F, Coproc<F>>;
+                todo!()
+            }
+            "verify" => {
+                todo!()
             }
             _ => bail!("Unsupported command: {cmd}"),
         }
