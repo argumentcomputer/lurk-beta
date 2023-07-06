@@ -14,7 +14,6 @@ use rustyline::{
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 
 use lurk::{
-    error::LurkError,
     eval::{
         lang::{Coproc, Lang},
         Evaluable, Evaluator, Witness,
@@ -64,16 +63,13 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
         }
     }
 
-    fn eval_expr(&mut self, expr_ptr: Ptr<F>) -> Result<(Ptr<F>, Vec<Ptr<F>>)> {
-        let (io, _, emitted) =
-            Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang).eval()?;
-        if io.cont == self.store.get_cont_error() {
-            Err(LurkError::IO(io))?
-        } else {
-            Ok((io.expr, emitted))
-        }
+    #[inline]
+    fn eval_expr(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize, Vec<Ptr<F>>)> {
+        Ok(Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang).eval()?)
     }
 
+    // TODO: remove panics from assertions
+    // TODO: extract meta handlers
     fn handle_meta(&mut self, expr_ptr: Ptr<F>, pwd_path: &Path) -> Result<()> {
         let res = match self.store.fetch(&expr_ptr).unwrap() {
             Expression::Cons(car, rest) => match &self.store.fetch(&car).unwrap() {
@@ -83,29 +79,29 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                         "assert" => {
                             let (first, rest) = &self.store.car_cdr(&rest)?;
                             assert!(rest.is_nil());
-                            let (first_evaled, _) = self
+                            let (first_io, ..) = self
                                 .eval_expr(*first)
                                 .with_context(|| "evaluating first arg")?;
-                            assert!(!first_evaled.is_nil());
+                            assert!(!first_io.expr.is_nil());
                             None
                         }
                         "assert-eq" => {
                             let (first, rest) = &self.store.car_cdr(&rest)?;
                             let (second, rest) = &self.store.car_cdr(rest)?;
                             assert!(rest.is_nil());
-                            let (first_evaled, _) = self
+                            let (first_io, ..) = self
                                 .eval_expr(*first)
                                 .with_context(|| "evaluating first arg")?;
-                            let (second_evaled, _) = self
+                            let (second_io, ..) = self
                                 .eval_expr(*second)
                                 .with_context(|| "evaluating second arg")?;
                             assert!(
-                                &self.store.ptr_eq(&first_evaled, &second_evaled)?,
+                                &self.store.ptr_eq(&first_io.expr, &second_io.expr)?,
                                 "Assertion failed: {} = {},\n {} != {}",
                                 first.fmt_to_string(&self.store),
                                 second.fmt_to_string(&self.store),
-                                first_evaled.fmt_to_string(&self.store),
-                                second_evaled.fmt_to_string(&self.store)
+                                first_io.expr.fmt_to_string(&self.store),
+                                second_io.expr.fmt_to_string(&self.store)
                             );
                             None
                         }
@@ -114,12 +110,12 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                             let (second, rest) = &self.store.car_cdr(rest)?;
 
                             assert!(rest.is_nil());
-                            let (first_evaled, _) = self.eval_expr(*first)?;
-                            let (_, emitted) = self
+                            let (first_io, ..) = self.eval_expr(*first)?;
+                            let (.., emitted) = self
                                 .eval_expr(*second)
                                 .with_context(|| "evaluating first arg")?;
                             let (mut first_emitted, mut rest_emitted) =
-                                &self.store.car_cdr(&first_evaled)?;
+                                &self.store.car_cdr(&first_io.expr)?;
                             for (i, elem) in emitted.iter().enumerate() {
                                 if elem != &first_emitted {
                                     panic!(
@@ -136,7 +132,8 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                         "assert-error" => {
                             let (first, rest) = &self.store.car_cdr(&rest)?;
                             assert!(rest.is_nil());
-                            assert!(self.eval_expr(*first).is_err());
+                            let (first_io, ..) = self.eval_expr(*first)?;
+                            assert!(first_io.cont.tag == ContTag::Error);
                             None
                         }
                         "clear" => {
@@ -161,11 +158,11 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                             let bindings = &self.store.list(&[*binding]);
                             let current_env_call = &self.store.list(&[*current_env]);
                             let expanded = &self.store.list(&[*l, *bindings, *current_env_call]);
-                            let (expanded_evaled, _) = self.eval_expr(*expanded)?;
+                            let (expanded_io, ..) = self.eval_expr(*expanded)?;
 
-                            self.env = expanded_evaled;
+                            self.env = expanded_io.expr;
 
-                            let (new_binding, _) = &self.store.car_cdr(&expanded_evaled)?;
+                            let (new_binding, _) = &self.store.car_cdr(&expanded_io.expr)?;
                             let (new_name, _) = self.store.car_cdr(new_binding)?;
                             Some(new_name)
                         }
@@ -187,11 +184,11 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                             let bindings = &self.store.list(&[*binding]);
                             let current_env_call = &self.store.list(&[*current_env]);
                             let expanded = &self.store.list(&[*l, *bindings, *current_env_call]);
-                            let (expanded_evaled, _) = self.eval_expr(*expanded)?;
+                            let (expanded_io, ..) = self.eval_expr(*expanded)?;
 
-                            self.env = expanded_evaled;
+                            self.env = expanded_io.expr;
 
-                            let (new_binding_outer, _) = &self.store.car_cdr(&expanded_evaled)?;
+                            let (new_binding_outer, _) = &self.store.car_cdr(&expanded_io.expr)?;
                             let (new_binding_inner, _) = &self.store.car_cdr(new_binding_outer)?;
                             let (new_name, _) = self.store.car_cdr(new_binding_inner)?;
                             Some(new_name)
@@ -213,8 +210,8 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                             // The state's env is set to the result of evaluating the first argument.
                             let (first, rest) = &self.store.car_cdr(&rest)?;
                             assert!(rest.is_nil());
-                            let (first_evaled, _) = self.eval_expr(*first)?;
-                            self.env = first_evaled;
+                            let (first_io, ..) = self.eval_expr(*first)?;
+                            self.env = first_io.expr;
                             None
                         }
                         _ => {
@@ -245,7 +242,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
     }
 
     fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
-        match Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang).eval() {
+        match self.eval_expr(expr_ptr) {
             Ok((output, iterations, _)) => {
                 if iterations != 1 {
                     print!("[{iterations} iterations] => ");
@@ -291,7 +288,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
             }
             Err(e) => {
                 println!("Evaluation error: {e}");
-                Err(e.into())
+                Err(e)
             }
         }
     }
@@ -305,11 +302,10 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
 
         if is_meta {
             self.handle_meta(ptr, pwd_path)?;
-            Ok(input)
         } else {
             self.handle_non_meta(ptr)?;
-            Ok(input)
         }
+        Ok(input)
     }
 
     pub fn load_file(&mut self, file_path: &Path) -> Result<()> {
