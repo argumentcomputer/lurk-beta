@@ -218,11 +218,7 @@ impl<F: LurkField> IO<F> {
             _ => return None,
         };
 
-        if expr.continuation.tag == crate::tag::ContTag::Emit {
-            Some(expr.value)
-        } else {
-            None
-        }
+        (expr.continuation.tag == crate::tag::ContTag::Emit).then_some(expr.value)
     }
 
     pub fn to_vector(&self, store: &Store<F>) -> Result<Vec<F>, store::Error> {
