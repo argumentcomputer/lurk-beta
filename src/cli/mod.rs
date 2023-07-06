@@ -1,4 +1,5 @@
 mod loader;
+mod paths;
 mod prove_and_verify;
 
 use std::fs;
@@ -24,7 +25,7 @@ const DEFAULT_LIMIT: usize = 100_000_000;
 const DEFAULT_RC: usize = 1;
 
 #[derive(Parser, Debug)]
-#[clap(version, about, long_about = None)]
+#[clap(version)]
 struct Cli {
     #[clap(subcommand)]
     command: Command,
@@ -51,7 +52,7 @@ struct Load {
     #[arg(long)]
     prove: bool,
 
-    #[clap(long, name = "reduction count", value_parser)]
+    #[clap(long, value_parser)]
     rc: Option<usize>,
 }
 
@@ -69,7 +70,7 @@ struct LoadCli {
     #[arg(long)]
     prove: bool,
 
-    #[clap(long, name = "reduction count", value_parser)]
+    #[clap(long, value_parser)]
     rc: Option<usize>,
 }
 
@@ -213,6 +214,7 @@ struct Verify {
 }
 
 pub fn parse() -> Result<()> {
+    paths::create_lurk_dir()?;
     if let Ok(cli) = ReplCli::try_parse() {
         cli.run()
     } else if let Ok(cli) = LoadCli::try_parse() {

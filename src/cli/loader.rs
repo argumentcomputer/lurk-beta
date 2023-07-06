@@ -9,7 +9,7 @@ use rustyline::{
     error::ReadlineError,
     history::DefaultHistory,
     validate::{MatchingBracketValidator, ValidationContext, ValidationResult, Validator},
-    Editor,
+    Config, Editor,
 };
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 
@@ -29,6 +29,8 @@ use lurk::{
     Num, UInt,
     {coprocessor::Coprocessor, eval::IO},
 };
+
+use crate::cli::paths::repl_history;
 
 use super::prove_and_verify::prove_claim;
 
@@ -385,13 +387,28 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
 
         let pwd_path = &std::env::current_dir()?;
 
-        let mut editor: Editor<InputValidator, DefaultHistory> = Editor::new()?;
+        let mut editor: Editor<InputValidator, DefaultHistory> = Editor::with_config(
+            Config::builder()
+                .color_mode(rustyline::ColorMode::Enabled)
+                .auto_add_history(true)
+                .build(),
+        )?;
+
+        editor.set_helper(Some(InputValidator {
+            brackets: MatchingBracketValidator::new(),
+        }));
+
+        let history_path = &repl_history();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        if history_path.exists() {
+            editor.load_history(history_path)?;
+        }
 
         loop {
             match editor.readline("> ") {
-                Ok(line) =>
-                {
-                    #[cfg(not(target_arch = "wasm32"))]
+                Ok(line) => {
+                    editor.save_history(history_path)?;
                     match self.store.read_maybe_meta(parser::Span::new(&line)) {
                         Ok((_, expr_ptr, is_meta)) => {
                             if is_meta {
@@ -413,7 +430,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                     break;
                 }
                 Err(err) => {
-                    println!("Error: {err}");
+                    println!("Read line error: {err}");
                     break;
                 }
             }
