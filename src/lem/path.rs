@@ -180,14 +180,20 @@ impl LEMCTL {
     /// Computes the number of possible paths in a `LEMOP`
     pub fn num_paths(&self) -> usize {
         match self {
-            LEMCTL::MatchTag(_, match_map) => match_map
-                .cases
-                .iter()
-                .fold(0, |acc, (_, block)| acc + block.num_paths()),
-            LEMCTL::MatchSymbol(_, match_map) => match_map
-                .cases
-                .iter()
-                .fold(0, |acc, (_, block)| acc + block.num_paths()),
+            LEMCTL::MatchTag(_, match_map) => {
+                let init = match_map.default.as_ref().map_or(0, |block| block.num_paths());
+                match_map
+                    .cases
+                    .iter()
+                    .fold(init, |acc, (_, block)| acc + block.num_paths())
+            }
+            LEMCTL::MatchSymbol(_, match_map) => {
+                let init = match_map.default.as_ref().map_or(0, |block| block.num_paths());
+                match_map
+                    .cases
+                    .iter()
+                    .fold(init, |acc, (_, block)| acc + block.num_paths())
+            }
             LEMCTL::Seq(_, rest) => rest.num_paths(),
             LEMCTL::Return(..) => 1,
         }

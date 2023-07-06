@@ -170,12 +170,16 @@ impl LEMCTL {
                         store.intern_symbol(symbol);
                     });
                     block.intern_matched_symbols(store)
-                })
+                });
+                match_map.default.iter().for_each(|block| block.intern_matched_symbols(store));
             }
-            Self::MatchTag(_, match_map) => match_map
-                .cases
-                .iter()
-                .for_each(|(_, block)| block.intern_matched_symbols(store)),
+            Self::MatchTag(_, match_map) => {
+                match_map
+                    .cases
+                    .iter()
+                    .for_each(|(_, block)| block.intern_matched_symbols(store));
+                match_map.default.iter().for_each(|block| block.intern_matched_symbols(store));
+            }
             Self::Seq(_, rest) => rest.intern_matched_symbols(store),
             Self::Return(..) => (),
         }
