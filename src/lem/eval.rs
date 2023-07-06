@@ -6,7 +6,7 @@ use anyhow::Result;
 /// Lurk's step function encoded as a LEM
 #[allow(dead_code)]
 pub(crate) fn step() -> Result<Func> {
-    func!(expr_in env_in cont_in {
+    func!((expr_in, env_in, cont_in): 3 => {
         match_tag expr_in {
             Num => {
                 match_tag cont_in {

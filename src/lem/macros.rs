@@ -246,13 +246,10 @@ macro_rules! ctrl {
 
 #[macro_export]
 macro_rules! func {
-    ($in1:ident $in2:ident $in3:ident $lem:tt) => {
+    (($( $in:ident ),*): $size:expr => $lem:tt) => {
         $crate::lem::Func::new(
-            [
-                $crate::lem::Var(stringify!($in1).into()),
-                $crate::lem::Var(stringify!($in2).into()),
-                $crate::lem::Var(stringify!($in3).into()),
-            ],
+            vec![$($crate::lem::Var(stringify!($in).into())),*],
+            $size,
             &$crate::ctrl!($lem),
         )
     };

@@ -86,7 +86,8 @@ pub type AVec<A> = Arc<[A]>;
 
 /// A `LEM` has the name for the inputs and its characteristic control node
 pub struct Func {
-    input_vars: [Var; 3],
+    input_vars: Vec<Var>,
+    output_size: usize,
     ctl: Ctrl,
 }
 
@@ -184,13 +185,14 @@ impl Func {
 
     /// Instantiates a `LEM` with the appropriate transformations to make sure
     /// that constraining will be smooth.
-    pub fn new(input: [Var; 3], lem: &Ctrl) -> Result<Func> {
+    pub fn new(input_vars: Vec<Var>, output_size: usize, lem: &Ctrl) -> Result<Func> {
         let mut map = VarMap::new();
-        for i in input.iter() {
+        for i in input_vars.iter() {
             map.insert(i.clone(), i.clone())?
         }
         Ok(Func {
-            input_vars: input,
+            input_vars,
+            output_size,
             ctl: lem.deconflict(&Path::default(), &mut map)?,
         })
     }
@@ -215,7 +217,7 @@ impl Func {
 mod tests {
     use super::circuit::SlotsCounter;
     use super::{store::Store, *};
-    use crate::{lem, lem::pointers::Ptr};
+    use crate::{func, lem::pointers::Ptr};
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable, Delta};
     use blstrs::Scalar as Fr;
 
@@ -257,7 +259,7 @@ mod tests {
 
     #[test]
     fn accepts_virtual_nested_match_tag() {
-        let lem = func!(expr_in env_in cont_in {
+        let lem = func!((expr_in, env_in, cont_in): 3 => {
             match_tag expr_in {
                 Num => {
                     let cont_out_terminal: Terminal;
@@ -296,7 +298,7 @@ mod tests {
 
     #[test]
     fn resolves_conflicts_of_clashing_names_in_parallel_branches() {
-        let lem = func!(expr_in env_in cont_in {
+        let lem = func!((expr_in, env_in, cont_in): 3 => {
             match_tag expr_in {
                 // This match is creating `cont_out_terminal` on two different
                 // branches, which, in theory, would cause troubles at allocation
@@ -320,7 +322,7 @@ mod tests {
 
     #[test]
     fn test_simple_all_paths_delta() {
-        let lem = func!(expr_in env_in cont_in {
+        let lem = func!((expr_in, env_in, cont_in): 3 => {
             let cont_out_terminal: Terminal;
             return (expr_in, env_in, cont_out_terminal);
         })
@@ -335,7 +337,7 @@ mod tests {
 
     #[test]
     fn test_match_all_paths_delta() {
-        let lem = func!(expr_in env_in cont_in {
+        let lem = func!((expr_in, env_in, cont_in): 3 => {
             match_tag expr_in {
                 Num => {
                     let cont_out_terminal: Terminal;
@@ -358,7 +360,7 @@ mod tests {
 
     #[test]
     fn test_hash_slots() {
-        let lem = func!(expr_in env_in cont_in {
+        let lem = func!((expr_in, env_in, cont_in): 3 => {
             let x: Cons = hash2(expr_in, env_in);
             let y: Cons = hash3(expr_in, env_in, cont_in);
             let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
@@ -393,7 +395,7 @@ mod tests {
 
     #[test]
     fn test_unhash_slots() {
-        let lem = func!(expr_in env_in cont_in {
+        let lem = func!((expr_in, env_in, cont_in): 3 => {
             let x: Cons = hash2(expr_in, env_in);
             let y: Cons = hash3(expr_in, env_in, cont_in);
             let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
@@ -431,7 +433,7 @@ mod tests {
 
     #[test]
     fn test_unhash_nested_slots() {
-        let lem = func!(expr_in env_in cont_in {
+        let lem = func!((expr_in, env_in, cont_in): 3 => {
             let x: Cons = hash2(expr_in, env_in);
             let y: Cons = hash3(expr_in, env_in, cont_in);
             let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
