@@ -177,7 +177,7 @@ impl<F: LurkField> Store<F> {
         match self.sym_cache.get(path) {
             Some(ptr_cache) => *ptr_cache,
             None => {
-                let tail = &path[1..path.len()];
+                let tail = &path[1..];
                 let tail_ptr = self.intern_symbol_path(tail);
                 let head = &path[0];
                 let head_ptr = self.intern_string(head);

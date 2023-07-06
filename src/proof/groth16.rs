@@ -431,24 +431,20 @@ mod tests {
             check_cs_deltas(&cs, limit, lang_rc.clone());
         }
 
-        let proof_results = if check_groth16 {
-            Some(
-                groth_prover
-                    .outer_prove(
-                        groth_params,
-                        &INNER_PRODUCT_SRS,
-                        expr,
-                        empty_sym_env(s),
-                        s,
-                        limit,
-                        rng,
-                        lang_rc,
-                    )
-                    .unwrap(),
-            )
-        } else {
-            None
-        };
+        let proof_results = (check_groth16).then(|| {
+            groth_prover
+                .outer_prove(
+                    groth_params,
+                    &INNER_PRODUCT_SRS,
+                    expr,
+                    empty_sym_env(s),
+                    s,
+                    limit,
+                    rng,
+                    lang_rc,
+                )
+                .unwrap()
+        });
 
         if let Some((proof, public_inputs, public_outputs)) = proof_results {
             let srs_vk = INNER_PRODUCT_SRS.specialize_vk(proof.proof_count);
