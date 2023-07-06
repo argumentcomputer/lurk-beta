@@ -17,12 +17,12 @@ executors:
     machine:
       image: ubuntu-2004:202101-01
     working_directory: ~/lurk
-    resource_class: arm.large
+    resource_class: arm.xlarge
   darwin:
     macos:
-      xcode: "14.2.0"
+      xcode: "14.3.1"
     working_directory: ~/lurk
-    resource_class: macos.x86.medium.gen2
+    resource_class: macos.m1.large.gen1
 
 commands:
   set_env_path:
