@@ -257,7 +257,7 @@ macro_rules! func {
 
 #[cfg(test)]
 mod tests {
-    use crate::lem::{symbol::Symbol, tag::Tag, Var, Ctrl, Op};
+    use crate::lem::{symbol::Symbol, tag::Tag, Ctrl, Op, Var};
 
     #[inline]
     fn mptr(name: &str) -> Var {

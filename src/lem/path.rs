@@ -2,7 +2,7 @@ use anyhow::Result;
 use indexmap::IndexMap;
 use std::collections::HashSet;
 
-use super::{symbol::Symbol, tag::Tag, var_map::VarMap, Var, Ctrl, Op};
+use super::{symbol::Symbol, tag::Tag, var_map::VarMap, Ctrl, Op, Var};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) enum PathNode {
@@ -163,7 +163,7 @@ impl Ctrl {
                 let new_rest = Box::new(rest.deconflict(path, map)?);
                 Ok(Ctrl::Seq(new_ops, new_rest))
             }
-            Ctrl::Return(o) => Ok(Ctrl::Return(map.get_many_cloned(o)?.try_into().unwrap())),
+            Ctrl::Return(o) => Ok(Ctrl::Return(map.get_many_cloned(o)?)),
         }
     }
 

@@ -2,8 +2,8 @@ use crate::field::{FWrap, LurkField};
 use anyhow::{bail, Result};
 
 use super::{
-    path::Path, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, var_map::VarMap, Func,
-    Ctrl, Op,
+    path::Path, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, var_map::VarMap, Ctrl, Func,
+    Op,
 };
 
 #[derive(Clone, Default)]
