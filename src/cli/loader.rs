@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
 
+use log::warn;
 use rustyline::{
     error::ReadlineError,
     history::DefaultHistory,
@@ -85,12 +86,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
         Ok(Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang).eval()?)
     }
 
-    fn handle_meta_cases(
-        &mut self,
-        cmd: &str,
-        args: &Ptr<F>,
-        pwd_path: &Path,
-    ) -> Result<Option<Ptr<F>>> {
+    fn handle_meta_cases(&mut self, cmd: &str, args: &Ptr<F>, pwd_path: &Path) -> Result<()> {
         match cmd {
             "assert" => {
                 let (first, rest) = &self.store.car_cdr(args)?;
@@ -104,7 +100,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                         first.fmt_to_string(&self.store)
                     )
                 }
-                Ok(None)
+                Ok(())
             }
             "assert-eq" => {
                 let (first, rest) = &self.store.car_cdr(args)?;
@@ -127,7 +123,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                         second_io.expr.fmt_to_string(&self.store)
                     )
                 }
-                Ok(None)
+                Ok(())
             }
             "assert-emitted" => {
                 let (first, rest) = &self.store.car_cdr(args)?;
@@ -153,7 +149,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                     }
                     (first_emitted, rest_emitted) = self.store.car_cdr(&rest_emitted)?;
                 }
-                Ok(None)
+                Ok(())
             }
             "assert-error" => {
                 let (first, rest) = &self.store.car_cdr(args)?;
@@ -167,11 +163,11 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                         first.fmt_to_string(&self.store)
                     )
                 }
-                Ok(None)
+                Ok(())
             }
             "clear" => {
                 self.env = self.store.nil();
-                Ok(None)
+                Ok(())
             }
             "def" => {
                 // Extends env with a non-recursive binding.
@@ -199,7 +195,8 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
 
                 let (new_binding, _) = &self.store.car_cdr(&expanded_io.expr)?;
                 let (new_name, _) = self.store.car_cdr(new_binding)?;
-                Ok(Some(new_name))
+                println!("{}", new_name.fmt_to_string(&self.store));
+                Ok(())
             }
             "defrec" => {
                 // Extends env with a recursive binding.
@@ -228,7 +225,8 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                 let (new_binding_outer, _) = &self.store.car_cdr(&expanded_io.expr)?;
                 let (new_binding_inner, _) = &self.store.car_cdr(new_binding_outer)?;
                 let (new_name, _) = self.store.car_cdr(new_binding_inner)?;
-                Ok(Some(new_name))
+                println!("{}", new_name.fmt_to_string(&self.store));
+                Ok(())
             }
             "load" => {
                 let (first, rest) = &self.store.car_cdr(args)?;
@@ -244,7 +242,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                     _ => bail!("Argument of `load` must be a string."),
                 }
                 io::Write::flush(&mut io::stdout()).unwrap();
-                Ok(None)
+                Ok(())
             }
             "set-env" => {
                 // The state's env is set to the result of evaluating the first argument.
@@ -254,7 +252,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                 }
                 let (first_io, ..) = self.eval_expr(*first)?;
                 self.env = first_io.expr;
-                Ok(None)
+                Ok(())
             }
             "set-rc" => {
                 let (first, rest) = &self.store.car_cdr(args)?;
@@ -280,9 +278,9 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                 validate_rc(rc)?;
                 self.rc = rc;
                 // TODO: improve this
-                println!("Warning: changing `rc` resets the proof cache");
+                warn!("Warning: changing `rc` resets the proof cache");
                 self.proof_map = nova_proof_cache(rc);
-                Ok(None)
+                Ok(())
             }
             "prove" => {
                 todo!()
@@ -290,33 +288,24 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
             "verify" => {
                 todo!()
             }
-            _ => bail!("Unsupported command: {cmd}"),
+            _ => bail!("Unsupported meta command: {cmd}"),
         }
     }
 
     fn handle_meta(&mut self, expr_ptr: Ptr<F>, pwd_path: &Path) -> Result<()> {
-        let res = match self.store.fetch(&expr_ptr).unwrap() {
+        match self.store.fetch(&expr_ptr).unwrap() {
             Expression::Cons(car, cdr) => match &self.store.fetch_symbol(&car) {
                 Some(s) => self.handle_meta_cases(format!("{}", s).as_str(), &cdr, pwd_path)?,
-                _ => bail!("Unsupported command: {}", car.fmt_to_string(&self.store)),
+                _ => bail!(
+                    "Meta command must be a symbol. Found {}",
+                    car.fmt_to_string(&self.store)
+                ),
             },
             _ => bail!(
                 "Unsupported meta form: {}",
                 expr_ptr.fmt_to_string(&self.store)
             ),
         };
-
-        if let Some(expr) = res {
-            let mut handle = io::stdout().lock();
-            expr.fmt(&self.store, &mut handle)?;
-
-            // TODO: Why is this seemingly necessary to flush?
-            // This doesn't work: io::stdout().flush().unwrap();
-            // We don't really want the newline.
-            println!();
-        };
-
-        io::Write::flush(&mut io::stdout()).unwrap();
         Ok(())
     }
 
@@ -343,25 +332,22 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
 
     fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
         self.eval_expr_and_set_last_claim(expr_ptr)
-            .and_then(|(output, iterations)| {
-                if iterations != 1 {
-                    print!("[{iterations} iterations] => ");
+            .map(|(output, iterations)| {
+                let prefix = if iterations != 1 {
+                    format!("[{iterations} iterations] => ")
                 } else {
-                    print!("[1 iteration] => ");
-                }
+                    "[1 iteration] => ".into()
+                };
 
-                match output.cont.tag {
+                let suffix = match output.cont.tag {
                     ContTag::Outermost | ContTag::Terminal => {
-                        let mut handle = io::stdout().lock();
-
-                        output.expr.fmt(&self.store, &mut handle)?;
-
-                        println!();
+                        output.expr.fmt_to_string(&self.store)
                     }
-                    ContTag::Error => println!("ERROR!"),
-                    _ => println!("Computation incomplete after limit: {}", self.limit),
-                }
-                Ok(())
+                    ContTag::Error => "ERROR!".into(),
+                    _ => format!("Computation incomplete after limit: {}", self.limit),
+                };
+
+                println!("{}{}", prefix, suffix);
             })
     }
 
