@@ -2409,36 +2409,34 @@ pub mod tests {
         );
     }
 
-    // FIXME: restore this test to its previous form.
-
-    // #[test]
-    // #[ignore]
-    // fn test_prove_fibonacci() {
-    //     let s = &mut Store::<Fr>::default();
-    //     let expected = s.num(6765);
-    //     let terminal = s.get_cont_terminal();
-    //     nova_test_full_aux::<Coproc<Fr>>(
-    //         s,
-    //         "(letrec ((next (lambda (a b n target)
-    //                  (if (eq n target)
-    //                      a
-    //                      (next b
-    //                          (+ a b)
-    //                          (+ 1 n)
-    //                         target))))
-    //                 (fib (next 0 1 0)))
-    //             (fib 1))",
-    //         Some(expected),
-    //         None,
-    //         Some(terminal),
-    //         None,
-    //         1001,
-    //         200,  //100,  // DEFAULT_REDUCTION_COUNT
-    //         true, //false,
-    //         None,
-    //         None,
-    //     );
-    // }
+    #[test]
+    #[ignore]
+    fn test_prove_fibonacci() {
+        let s = &mut Store::<Fr>::default();
+        let expected = s.num(1);
+        let terminal = s.get_cont_terminal();
+        nova_test_full_aux::<Coproc<Fr>>(
+            s,
+            "(letrec ((next (lambda (a b n target)
+                     (if (eq n target)
+                         a
+                         (next b
+                             (+ a b)
+                             (+ 1 n)
+                            target))))
+                    (fib (next 0 1 0)))
+                (fib 1))",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            89,
+            5,
+            false,
+            None,
+            None,
+        );
+    }
 
     // #[test]
     // #[ignore]
