@@ -1,5 +1,6 @@
 use anyhow::{bail, Result};
-use std::collections::HashMap;
+use log::info;
+use std::collections::{hash_map::Entry, HashMap};
 
 use super::Var;
 
@@ -18,9 +19,16 @@ impl<V> VarMap<V> {
     }
 
     /// Inserts new data into a `VarMap`
-    #[inline]
     pub(crate) fn insert(&mut self, var: Var, v: V) {
-        self.0.insert(var, v);
+        match self.0.entry(var) {
+            Entry::Vacant(vacant_entry) => {
+                vacant_entry.insert(v);
+            }
+            Entry::Occupied(mut o) => {
+                o.insert(v);
+                info!("Variable {} has been overwritten", o.key());
+            }
+        }
     }
 
     /// Retrieves data from a `VarMap`. Errors if there's no data for the `Var`
