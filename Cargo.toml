@@ -36,7 +36,7 @@ num-bigint = "0.4.3"
 num-integer = "0.1.45"
 num-traits = "0.2.15"
 once_cell = { workspace = true }
-pairing_lib = { workspace = true }
+pairing = { workspace = true }
 pasta_curves = { workspace = true, features = ["repr-c", "serde"] }
 peekmore = "1.1.0"
 pretty_env_logger = { workspace = true }
@@ -102,7 +102,7 @@ log = "0.4.17"
 neptune = { version = "10.0.0" }
 nova = { package = "nova-snark", version = "0.22", default-features = false }
 once_cell = "1.17.1"
-pairing_lib = { version = "0.23", package = "pairing" }
+pairing = { version = "0.23" }
 pasta_curves = { version = "0.5.1" }
 pasta-msm = "0.1.4"
 pretty_env_logger = "0.4"
@@ -144,3 +144,4 @@ harness = false
 [[bench]]
 name = "public_params"
 harness = false
+
