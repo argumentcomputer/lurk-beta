@@ -22,7 +22,7 @@ use self::repl::Repl;
 
 const DEFAULT_FIELD: LanguageField = LanguageField::Pallas;
 const DEFAULT_LIMIT: usize = 100_000_000;
-const DEFAULT_RC: usize = 1;
+const DEFAULT_RC: usize = 10;
 
 #[derive(Parser, Debug)]
 #[clap(version)]
@@ -47,7 +47,7 @@ struct LoadArgs {
     #[clap(value_parser)]
     lurk_file: PathBuf,
 
-    /// Path to a custom ZStore to be used
+    /// ZStore to be preloaded before the loading the file
     #[clap(long, value_parser)]
     zstore: Option<PathBuf>,
 
@@ -55,7 +55,7 @@ struct LoadArgs {
     #[clap(long, value_parser)]
     limit: Option<usize>,
 
-    /// Reduction count used for proofs (defaults to 1)
+    /// Reduction count used for proofs (defaults to 10)
     #[clap(long, value_parser)]
     rc: Option<usize>,
 
@@ -96,7 +96,7 @@ impl LoadArgs {
 
 #[derive(Args, Debug)]
 struct ReplArgs {
-    /// Path to a custom ZStore to be used
+    /// ZStore to be preloaded before entering the REPL (and loading a file)
     #[clap(long, value_parser)]
     zstore: Option<PathBuf>,
 
@@ -108,7 +108,7 @@ struct ReplArgs {
     #[clap(long, value_parser)]
     limit: Option<usize>,
 
-    /// Reduction count used for proofs (defaults to 1)
+    /// Reduction count used for proofs (defaults to 10)
     #[clap(long, value_parser)]
     rc: Option<usize>,
 }
@@ -224,7 +224,8 @@ struct VerifyArgs {
     proof_file: PathBuf,
 }
 
-pub fn parse() -> Result<()> {
+/// Parses CLI arguments and continues the program flow accordingly
+pub fn parse_and_run() -> Result<()> {
     #[cfg(not(target_arch = "wasm32"))]
     paths::create_lurk_dir()?;
     if let Ok(repl_cli) = ReplCli::try_parse() {

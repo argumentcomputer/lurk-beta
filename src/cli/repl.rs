@@ -1,7 +1,7 @@
-use std::fs::read_to_string;
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
+use std::{fs::read_to_string, process};
 
 use anyhow::{bail, Context, Result};
 
@@ -63,7 +63,7 @@ fn check_non_zero(name: &str, x: usize) -> Result<()> {
 
 /// Pads the number of iterations to the first multiple of the reduction count
 /// that's equal or greater than the number of iterations
-/// 
+///
 /// Panics if reduction count is zero
 fn pad_iterations(iterations: usize, rc: usize) -> usize {
     let lower = rc * (iterations / rc);
@@ -211,10 +211,11 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                 let first = self.peek1(cmd, args)?;
                 let (first_io, ..) = self.eval_expr(first)?;
                 if first_io.expr.is_nil() {
-                    bail!(
+                    eprintln!(
                         "`assert` failed. {} evaluates to nil",
                         first.fmt_to_string(&self.store)
-                    )
+                    );
+                    process::exit(1);
                 }
             }
             "assert-eq" => {
@@ -226,13 +227,14 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                     .eval_expr(second)
                     .with_context(|| "evaluating second arg")?;
                 if !&self.store.ptr_eq(&first_io.expr, &second_io.expr)? {
-                    bail!(
+                    eprintln!(
                         "`assert-eq` failed. Expected:\n  {} = {}\nGot:\n  {} ≠ {}",
                         first.fmt_to_string(&self.store),
                         second.fmt_to_string(&self.store),
                         first_io.expr.fmt_to_string(&self.store),
                         second_io.expr.fmt_to_string(&self.store)
-                    )
+                    );
+                    process::exit(1);
                 }
             }
             "assert-emitted" => {
@@ -246,11 +248,12 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                 let (mut first_emitted, mut rest_emitted) = self.store.car_cdr(&first_io.expr)?;
                 for (i, elem) in emitted.iter().enumerate() {
                     if elem != &first_emitted {
-                        bail!(
+                        eprintln!(
                             "`assert-emitted` failed at position {i}. Expected {}, but found {}.",
                             first_emitted.fmt_to_string(&self.store),
                             elem.fmt_to_string(&self.store),
                         );
+                        process::exit(1);
                     }
                     (first_emitted, rest_emitted) = self.store.car_cdr(&rest_emitted)?;
                 }
@@ -259,10 +262,11 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                 let first = self.peek1(cmd, args)?;
                 let (first_io, ..) = self.eval_expr(first)?;
                 if first_io.cont.tag != ContTag::Error {
-                    bail!(
+                    eprintln!(
                         "`assert-error` failed. {} doesn't result on evaluation error.",
                         first.fmt_to_string(&self.store)
-                    )
+                    );
+                    process::exit(1);
                 }
             }
             "clear" => self.env = self.store.nil(),

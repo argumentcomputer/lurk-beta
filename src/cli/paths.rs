@@ -21,7 +21,7 @@ pub fn lurk_dir() -> PathBuf {
 pub fn create_lurk_dir() -> Result<()> {
     let dir_path = lurk_dir();
     if !dir_path.exists() {
-        fs::create_dir(dir_path)?;
+        fs::create_dir_all(dir_path)?;
     }
     Ok(())
 }
