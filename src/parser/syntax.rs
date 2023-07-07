@@ -5,7 +5,7 @@ use nom::{
     character::complete::{anychar, char, multispace0, multispace1, none_of},
     combinator::{opt, peek, success, value},
     error::context,
-    multi::{many0, separated_list1, many_till},
+    multi::{many0, many_till, separated_list1},
     sequence::{delimited, preceded, terminated},
 };
 
@@ -447,21 +447,9 @@ pub mod tests {
             "nil",
             Some(Syntax::LurkSym(Pos::No, LurkSym::Nil))
         ));
-        assert!(test(
-            parse_symbol(),
-            "~(asdf )",
-            Some(symbol!(["asdf"]))
-        ));
-        assert!(test(
-            parse_symbol(),
-            "~( asdf )",
-            Some(symbol!(["asdf"]))
-        ));
-        assert!(test(
-            parse_symbol(),
-            "~( asdf)",
-            Some(symbol!(["asdf"]))
-        ));
+        assert!(test(parse_symbol(), "~(asdf )", Some(symbol!(["asdf"]))));
+        assert!(test(parse_symbol(), "~( asdf )", Some(symbol!(["asdf"]))));
+        assert!(test(parse_symbol(), "~( asdf)", Some(symbol!(["asdf"]))));
         assert!(test(
             parse_symbol(),
             "~(asdf.fdsa)",
