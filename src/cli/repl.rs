@@ -19,7 +19,6 @@ use lurk::{
         lang::{Coproc, Lang},
         Evaluable, Evaluator, Witness,
     },
-    expr::Expression,
     field::LurkField,
     parser,
     ptr::Ptr,
@@ -49,7 +48,7 @@ impl Validator for InputValidator {
     }
 }
 
-pub struct Loader<F: LurkField, C: Coprocessor<F>> {
+pub struct Repl<F: LurkField, C: Coprocessor<F>> {
     store: Store<F>,
     env: Ptr<F>,
     limit: usize,
@@ -67,11 +66,11 @@ fn validate_rc(rc: usize) -> Result<()> {
 }
 
 impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Coprocessor<F>>
-    Loader<F, C>
+    Repl<F, C>
 {
-    pub fn new(store: Store<F>, env: Ptr<F>, limit: usize, rc: usize) -> Result<Loader<F, C>> {
+    pub fn new(store: Store<F>, env: Ptr<F>, limit: usize, rc: usize) -> Result<Repl<F, C>> {
         validate_rc(rc)?;
-        Ok(Loader {
+        Ok(Repl {
             store,
             env,
             limit,
@@ -283,19 +282,16 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
     }
 
     fn handle_meta(&mut self, expr_ptr: Ptr<F>, pwd_path: &Path) -> Result<()> {
-        match self.store.fetch(&expr_ptr).unwrap() {
-            Expression::Cons(car, cdr) => match &self.store.fetch_symbol(&car) {
-                Some(s) => self.handle_meta_cases(format!("{}", s).as_str(), &cdr, pwd_path)?,
-                _ => bail!(
-                    "Meta command must be a symbol. Found {}",
-                    car.fmt_to_string(&self.store)
-                ),
-            },
-            _ => bail!(
-                "Unsupported meta form: {}",
-                expr_ptr.fmt_to_string(&self.store)
+        let (car, cdr) = self.store.car_cdr(&expr_ptr)?;
+        match &self.store.fetch_symbol(&car) {
+            Some(symbol) => {
+                self.handle_meta_cases(format!("{}", symbol).as_str(), &cdr, pwd_path)?
+            }
+            None => bail!(
+                "Meta command must be a symbol. Found {}",
+                car.fmt_to_string(&self.store)
             ),
-        };
+        }
         Ok(())
     }
 
@@ -376,7 +372,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
         }
     }
 
-    pub fn repl(&mut self) -> Result<()> {
+    pub fn start(&mut self) -> Result<()> {
         println!("Lurk REPL welcomes you.");
 
         let pwd_path = &std::env::current_dir()?;

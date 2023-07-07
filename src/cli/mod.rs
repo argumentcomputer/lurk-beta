@@ -1,6 +1,6 @@
-mod loader;
 mod paths;
 mod prove_and_verify;
+mod repl;
 
 use std::fs;
 use std::path::PathBuf;
@@ -17,8 +17,8 @@ use pasta_curves::{pallas, vesta};
 use clap::{Args, Parser, Subcommand};
 use tap::TapOptional;
 
-use self::loader::Loader;
 use self::prove_and_verify::verify_proof;
+use self::repl::Repl;
 
 const DEFAULT_FIELD: LanguageField = LanguageField::Pallas;
 const DEFAULT_LIMIT: usize = 100_000_000;
@@ -34,15 +34,15 @@ struct Cli {
 #[derive(Subcommand, Debug)]
 enum Command {
     /// Loads a file, processing forms sequentially ("load" can be elided)
-    Load(Load),
+    Load(LoadArgs),
     /// Enters Lurk's REPL environment ("repl" can be elided)
-    Repl(Repl),
+    Repl(ReplArgs),
     /// Verifies a Lurk proof
-    Verify(Verify),
+    Verify(VerifyArgs),
 }
 
 #[derive(Args, Debug)]
-struct Load {
+struct LoadArgs {
     /// The file to be loaded
     #[clap(value_parser)]
     lurk_file: PathBuf,
@@ -82,7 +82,7 @@ struct LoadCli {
     rc: Option<usize>,
 }
 
-impl Load {
+impl LoadArgs {
     pub fn into_cli(self) -> LoadCli {
         LoadCli {
             lurk_file: self.lurk_file,
@@ -95,7 +95,7 @@ impl Load {
 }
 
 #[derive(Args, Debug)]
-struct Repl {
+struct ReplArgs {
     /// Path to a custom ZStore to be used
     #[clap(long, value_parser)]
     zstore: Option<PathBuf>,
@@ -128,7 +128,7 @@ struct ReplCli {
     rc: Option<usize>,
 }
 
-impl Repl {
+impl ReplArgs {
     pub fn into_cli(self) -> ReplCli {
         ReplCli {
             load: self.load,
@@ -169,14 +169,13 @@ fn get_store<F: LurkField + for<'a> serde::de::Deserialize<'a>>(
         .unwrap_or_default()
 }
 
-macro_rules! new_loader {
+macro_rules! new_repl {
     ( $cli: expr, $field: path ) => {{
         let limit = $cli.limit.unwrap_or(DEFAULT_LIMIT);
         let rc = $cli.rc.unwrap_or(DEFAULT_RC);
         let mut store = get_store(&$cli.zstore);
         let env = store.nil();
-        let loader = Loader::<$field, Coproc<$field>>::new(store, env, limit, rc)?;
-        loader
+        Repl::<$field, Coproc<$field>>::new(store, env, limit, rc)?
     }};
 }
 
@@ -184,11 +183,11 @@ impl ReplCli {
     pub fn run(&self) -> Result<()> {
         macro_rules! repl {
             ( $field: path ) => {{
-                let mut loader = new_loader!(self, $field);
+                let mut repl = new_repl!(self, $field);
                 if let Some(lurk_file) = &self.load {
-                    loader.load_file(lurk_file)?;
+                    repl.load_file(lurk_file)?;
                 }
-                loader.repl()
+                repl.start()
             }};
         }
         match get_field()? {
@@ -203,10 +202,10 @@ impl LoadCli {
     pub fn run(&self) -> Result<()> {
         macro_rules! load {
             ( $field: path ) => {{
-                let mut loader = new_loader!(self, $field);
-                loader.load_file(&self.lurk_file)?;
+                let mut repl = new_repl!(self, $field);
+                repl.load_file(&self.lurk_file)?;
                 if self.prove {
-                    loader.prove_last_claim()?;
+                    repl.prove_last_claim()?;
                 }
                 Ok(())
             }};
@@ -220,7 +219,7 @@ impl LoadCli {
 }
 
 #[derive(Args, Debug)]
-struct Verify {
+struct VerifyArgs {
     #[clap(value_parser)]
     proof_file: PathBuf,
 }
@@ -228,15 +227,15 @@ struct Verify {
 pub fn parse() -> Result<()> {
     #[cfg(not(target_arch = "wasm32"))]
     paths::create_lurk_dir()?;
-    if let Ok(cli) = ReplCli::try_parse() {
-        cli.run()
-    } else if let Ok(cli) = LoadCli::try_parse() {
-        cli.run()
+    if let Ok(repl_cli) = ReplCli::try_parse() {
+        repl_cli.run()
+    } else if let Ok(load_cli) = LoadCli::try_parse() {
+        load_cli.run()
     } else {
         match Cli::parse().command {
-            Command::Repl(arg) => arg.into_cli().run(),
-            Command::Load(arg) => arg.into_cli().run(),
-            Command::Verify(verify) => verify_proof(&verify.proof_file),
+            Command::Repl(repl_args) => repl_args.into_cli().run(),
+            Command::Load(load_args) => load_args.into_cli().run(),
+            Command::Verify(verify_args) => verify_proof(&verify_args.proof_file),
         }
     }
 }
