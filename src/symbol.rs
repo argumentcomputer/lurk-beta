@@ -231,18 +231,6 @@ impl fmt::Display for Symbol {
     }
 }
 
-impl From<&str> for Symbol {
-    fn from(s: &str) -> Symbol {
-        todo!() // call the parser
-    }
-}
-
-impl From<String> for Symbol {
-    fn from(s: String) -> Symbol {
-        (&s as &str).into()
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 pub enum LurkSym {
@@ -493,14 +481,5 @@ pub mod test {
         assert!(orange.is_keyword());
         assert_eq!(key_root, orange.direct_parent().unwrap());
         assert!(apple.direct_parent().unwrap() != key_root);
-    }
-
-    #[test]
-    fn test_symbol_from_str() {
-        use std::convert::Into;
-        assert_eq!(Into::<Symbol>::into("arst"), Symbol::new(&["arst"]));
-        assert_eq!(Into::<Symbol>::into(".arst"), Symbol::new(&["arst"]));
-        assert_eq!(Into::<Symbol>::into("|a.b|.s"), Symbol::new(&["a.b", "s"]));
-        assert_eq!(Into::<Symbol>::into(".|a.b|.s"), Symbol::new(&["a.b", "s"]));
     }
 }

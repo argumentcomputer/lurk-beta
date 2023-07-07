@@ -2549,6 +2549,7 @@ pub(crate) mod coproc {
     use super::*;
     use crate::coprocessor::test::DumbCoprocessor;
     use crate::store::Store;
+    use crate::sym;
 
     #[derive(Clone, Debug, Coproc)]
     pub(crate) enum DumbCoproc<F: LurkField> {
@@ -2561,7 +2562,7 @@ pub(crate) mod coproc {
 
         let lang = Lang::<Fr, DumbCoproc<Fr>>::new_with_bindings(
             s,
-            vec![(".cproc.dumb", DumbCoprocessor::new().into())],
+            vec![(sym!("cproc", "dumb"), DumbCoprocessor::new().into())],
         );
 
         // 9^2 + 8 = 89

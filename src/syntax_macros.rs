@@ -64,7 +64,7 @@ macro_rules! sym {
     [$( $x:expr ),*] => {
         {
             let temp_vec = vec![ $( $x.to_string() ),* ];
-            $crate::symbol::Symbol::Sym(temp_vec)
+            $crate::symbol::Symbol::new(&temp_vec)
         }
     };
 }
@@ -75,7 +75,7 @@ macro_rules! lurksym {
     [$( $x:expr ),*] => {
         {
             let temp_vec = vec![ "lurk".to_owned(), $( $x.to_string() ),* ];
-            $crate::symbol::Symbol::Sym(temp_vec)
+            $crate::symbol::Symbol::new(&temp_vec)
         }
     };
 }
