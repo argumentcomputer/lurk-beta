@@ -58,9 +58,9 @@ pub struct Repl<F: LurkField, C: Coprocessor<F>> {
     proof_map: NovaProofCache,
 }
 
-fn validate_rc(rc: usize) -> Result<()> {
-    if rc == 0 {
-        bail!("Invalid value for `rc`: 0")
+fn check_non_zero(name: &str, x: usize) -> Result<()> {
+    if x == 0 {
+        bail!("`{name}` can't be zero")
     }
     Ok(())
 }
@@ -69,7 +69,8 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
     Repl<F, C>
 {
     pub fn new(store: Store<F>, env: Ptr<F>, limit: usize, rc: usize) -> Result<Repl<F, C>> {
-        validate_rc(rc)?;
+        check_non_zero("limit", limit)?;
+        check_non_zero("rc", rc)?;
         Ok(Repl {
             store,
             env,
@@ -116,67 +117,28 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
         Ok((first, second))
     }
 
+    fn peek_usize(&self, cmd: &str, args: &Ptr<F>) -> Result<usize> {
+        let first = self.peek1(cmd, args)?;
+        match first.tag {
+            ExprTag::Num => match self.store.fetch_num(&first).unwrap() {
+                Num::U64(u) => Ok(*u as usize),
+                _ => bail!(
+                    "Invalid value for `{cmd}`: {}",
+                    first.fmt_to_string(&self.store)
+                ),
+            },
+            ExprTag::U64 => match self.store.fetch_uint(&first).unwrap() {
+                UInt::U64(u) => Ok(u as usize),
+            },
+            _ => bail!(
+                "Invalid value for `{cmd}`: {}",
+                first.fmt_to_string(&self.store)
+            ),
+        }
+    }
+
     fn handle_meta_cases(&mut self, cmd: &str, args: &Ptr<F>, pwd_path: &Path) -> Result<()> {
         match cmd {
-            "assert" => {
-                let first = self.peek1(cmd, args)?;
-                let (first_io, ..) = self.eval_expr(first)?;
-                if first_io.expr.is_nil() {
-                    bail!(
-                        "`assert` failed. {} evaluates to nil",
-                        first.fmt_to_string(&self.store)
-                    )
-                }
-            }
-            "assert-eq" => {
-                let (first, second) = self.peek2(cmd, args)?;
-                let (first_io, ..) = self
-                    .eval_expr(first)
-                    .with_context(|| "evaluating first arg")?;
-                let (second_io, ..) = self
-                    .eval_expr(second)
-                    .with_context(|| "evaluating second arg")?;
-                if !&self.store.ptr_eq(&first_io.expr, &second_io.expr)? {
-                    bail!(
-                        "`assert-eq` failed. Expected:\n  {} = {}\nGot:\n  {} ≠ {}",
-                        first.fmt_to_string(&self.store),
-                        second.fmt_to_string(&self.store),
-                        first_io.expr.fmt_to_string(&self.store),
-                        second_io.expr.fmt_to_string(&self.store)
-                    )
-                }
-            }
-            "assert-emitted" => {
-                let (first, second) = self.peek2(cmd, args)?;
-                let (first_io, ..) = self
-                    .eval_expr(first)
-                    .with_context(|| "evaluating first arg")?;
-                let (.., emitted) = self
-                    .eval_expr(second)
-                    .with_context(|| "evaluating second arg")?;
-                let (mut first_emitted, mut rest_emitted) = self.store.car_cdr(&first_io.expr)?;
-                for (i, elem) in emitted.iter().enumerate() {
-                    if elem != &first_emitted {
-                        bail!(
-                            "`assert-emitted` failed at position {i}. Expected {}, but found {}.",
-                            first_emitted.fmt_to_string(&self.store),
-                            elem.fmt_to_string(&self.store),
-                        );
-                    }
-                    (first_emitted, rest_emitted) = self.store.car_cdr(&rest_emitted)?;
-                }
-            }
-            "assert-error" => {
-                let first = self.peek1(cmd, args)?;
-                let (first_io, ..) = self.eval_expr(first)?;
-                if first_io.cont.tag != ContTag::Error {
-                    bail!(
-                        "`assert-error` failed. {} doesn't result on evaluation error.",
-                        first.fmt_to_string(&self.store)
-                    )
-                }
-            }
-            "clear" => self.env = self.store.nil(),
             "def" => {
                 // Extends env with a non-recursive binding.
                 //
@@ -237,33 +199,81 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                 }
                 io::Write::flush(&mut io::stdout()).unwrap();
             }
+            "assert" => {
+                let first = self.peek1(cmd, args)?;
+                let (first_io, ..) = self.eval_expr(first)?;
+                if first_io.expr.is_nil() {
+                    bail!(
+                        "`assert` failed. {} evaluates to nil",
+                        first.fmt_to_string(&self.store)
+                    )
+                }
+            }
+            "assert-eq" => {
+                let (first, second) = self.peek2(cmd, args)?;
+                let (first_io, ..) = self
+                    .eval_expr(first)
+                    .with_context(|| "evaluating first arg")?;
+                let (second_io, ..) = self
+                    .eval_expr(second)
+                    .with_context(|| "evaluating second arg")?;
+                if !&self.store.ptr_eq(&first_io.expr, &second_io.expr)? {
+                    bail!(
+                        "`assert-eq` failed. Expected:\n  {} = {}\nGot:\n  {} ≠ {}",
+                        first.fmt_to_string(&self.store),
+                        second.fmt_to_string(&self.store),
+                        first_io.expr.fmt_to_string(&self.store),
+                        second_io.expr.fmt_to_string(&self.store)
+                    )
+                }
+            }
+            "assert-emitted" => {
+                let (first, second) = self.peek2(cmd, args)?;
+                let (first_io, ..) = self
+                    .eval_expr(first)
+                    .with_context(|| "evaluating first arg")?;
+                let (.., emitted) = self
+                    .eval_expr(second)
+                    .with_context(|| "evaluating second arg")?;
+                let (mut first_emitted, mut rest_emitted) = self.store.car_cdr(&first_io.expr)?;
+                for (i, elem) in emitted.iter().enumerate() {
+                    if elem != &first_emitted {
+                        bail!(
+                            "`assert-emitted` failed at position {i}. Expected {}, but found {}.",
+                            first_emitted.fmt_to_string(&self.store),
+                            elem.fmt_to_string(&self.store),
+                        );
+                    }
+                    (first_emitted, rest_emitted) = self.store.car_cdr(&rest_emitted)?;
+                }
+            }
+            "assert-error" => {
+                let first = self.peek1(cmd, args)?;
+                let (first_io, ..) = self.eval_expr(first)?;
+                if first_io.cont.tag != ContTag::Error {
+                    bail!(
+                        "`assert-error` failed. {} doesn't result on evaluation error.",
+                        first.fmt_to_string(&self.store)
+                    )
+                }
+            }
+            "clear" => self.env = self.store.nil(),
             "set-env" => {
                 // The state's env is set to the result of evaluating the first argument.
                 let first = self.peek1(cmd, args)?;
                 let (first_io, ..) = self.eval_expr(first)?;
                 self.env = first_io.expr;
             }
+            "set-limit" => {
+                let limit = self.peek_usize(cmd, args)?;
+                check_non_zero("limit", limit)?;
+                self.limit = limit;
+            }
             "set-rc" => {
-                let first = self.peek1(cmd, args)?;
-                let rc = match first.tag {
-                    ExprTag::Num => match self.store.fetch_num(&first).unwrap() {
-                        Num::U64(u) => *u as usize,
-                        _ => bail!(
-                            "Invalid value for `rc`: {}",
-                            first.fmt_to_string(&self.store)
-                        ),
-                    },
-                    ExprTag::U64 => match self.store.fetch_uint(&first).unwrap() {
-                        UInt::U64(u) => u as usize,
-                    },
-                    _ => bail!(
-                        "Invalid value for `rc`: {}",
-                        first.fmt_to_string(&self.store)
-                    ),
-                };
-                validate_rc(rc)?;
+                let rc = self.peek_usize(cmd, args)?;
+                check_non_zero("rc", rc)?;
                 self.rc = rc;
-                // TODO: improve this
+                // TODO: improve this by generalizing the cache
                 warn!("Warning: changing `rc` resets the proof cache");
                 self.proof_map = nova_proof_cache(rc);
             }
