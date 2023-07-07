@@ -5,7 +5,6 @@ use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
 
-use log::warn;
 use rustyline::{
     error::ReadlineError,
     history::DefaultHistory,
@@ -22,9 +21,7 @@ use lurk::{
     field::LurkField,
     parser,
     ptr::Ptr,
-    public_parameters::{
-        nova_proof_cache, Claim, LurkCont, LurkPtr, NovaProofCache, PtrEvaluation,
-    },
+    public_parameters::{Claim, LurkCont, LurkPtr, PtrEvaluation},
     store::Store,
     tag::{ContTag, ExprTag},
     writer::Write,
@@ -55,7 +52,6 @@ pub struct Repl<F: LurkField, C: Coprocessor<F>> {
     lang: Arc<Lang<F, C>>,
     last_claim: Option<Claim<F>>,
     rc: usize,
-    proof_map: NovaProofCache,
 }
 
 fn check_non_zero(name: &str, x: usize) -> Result<()> {
@@ -63,6 +59,19 @@ fn check_non_zero(name: &str, x: usize) -> Result<()> {
         bail!("`{name}` can't be zero")
     }
     Ok(())
+}
+
+/// Pads the number of iterations to the first multiple of the reduction count
+/// that's equal or greater than the number of iterations
+/// 
+/// Panics if reduction count is zero
+fn pad_iterations(iterations: usize, rc: usize) -> usize {
+    let lower = rc * (iterations / rc);
+    if lower < iterations {
+        lower + rc
+    } else {
+        lower
+    }
 }
 
 impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Coprocessor<F>>
@@ -78,7 +87,6 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
             lang: Arc::new(Lang::<F, C>::new()),
             last_claim: None,
             rc,
-            proof_map: nova_proof_cache(rc),
         })
     }
 
@@ -273,9 +281,6 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                 let rc = self.peek_usize(cmd, args)?;
                 check_non_zero("rc", rc)?;
                 self.rc = rc;
-                // TODO: improve this by generalizing the cache
-                warn!("Warning: changing `rc` resets the proof cache");
-                self.proof_map = nova_proof_cache(rc);
             }
             "prove" => {
                 if !args.is_nil() {
@@ -307,21 +312,27 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
 
     fn eval_expr_and_set_last_claim(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize)> {
         self.eval_expr(expr_ptr).map(|(output, iterations, _)| {
-            let cont = self.store.get_cont_outermost();
+            if matches!(
+                output.cont.tag,
+                ContTag::Outermost | ContTag::Terminal | ContTag::Error
+            ) {
+                let cont = self.store.get_cont_outermost();
 
-            let claim = Claim::PtrEvaluation::<F>(PtrEvaluation {
-                expr: LurkPtr::from_ptr(&mut self.store, &expr_ptr),
-                env: LurkPtr::from_ptr(&mut self.store, &self.env),
-                cont: LurkCont::from_cont_ptr(&mut self.store, &cont),
-                expr_out: LurkPtr::from_ptr(&mut self.store, &output.expr),
-                env_out: LurkPtr::from_ptr(&mut self.store, &output.env),
-                cont_out: LurkCont::from_cont_ptr(&mut self.store, &output.cont),
-                status: <lurk::eval::IO<F> as Evaluable<F, Witness<F>, Coproc<F>>>::status(&output),
-                // `Some(iterations)`?
-                iterations: None,
-            });
+                let claim = Claim::PtrEvaluation::<F>(PtrEvaluation {
+                    expr: LurkPtr::from_ptr(&mut self.store, &expr_ptr),
+                    env: LurkPtr::from_ptr(&mut self.store, &self.env),
+                    cont: LurkCont::from_cont_ptr(&mut self.store, &cont),
+                    expr_out: LurkPtr::from_ptr(&mut self.store, &output.expr),
+                    env_out: LurkPtr::from_ptr(&mut self.store, &output.env),
+                    cont_out: LurkCont::from_cont_ptr(&mut self.store, &output.cont),
+                    status: <lurk::eval::IO<F> as Evaluable<F, Witness<F>, Coproc<F>>>::status(
+                        &output,
+                    ),
+                    iterations: Some(pad_iterations(iterations, self.rc)),
+                });
 
-            self.last_claim = Some(claim);
+                self.last_claim = Some(claim);
+            }
             (output, iterations)
         })
     }
@@ -438,5 +449,17 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
             }
         }
         Ok(())
+    }
+}
+
+mod test {
+    #[test]
+    fn test_padding() {
+        use crate::cli::repl::pad_iterations;
+        assert_eq!(pad_iterations(61, 10), 70);
+        assert_eq!(pad_iterations(1, 10), 10);
+        assert_eq!(pad_iterations(61, 1), 61);
+        assert_eq!(pad_iterations(610, 10), 610);
+        assert_eq!(pad_iterations(619, 20), 620);
     }
 }
