@@ -43,7 +43,8 @@ commands:
           command: |
             # Get host target
             host=$(rustc -Vv|grep host|sed -Ee 's/host: //')
-            url="https://github.com/mozilla/sccache/releases/download/v0.5.4/sccache-v0.5.4-${host}.tar.gz"
+            # Normalize the host for Linux downloads
+            url="https://github.com/mozilla/sccache/releases/download/v0.5.4/sccache-v0.5.4-${host/linux-*/linux-musl}.tar.gz"
             # Install sccache binary
             curl -LsSf "$url" | tar xzf -
             mv sccache-v0.5.4-${host}/sccache $HOME/.cargo/bin
