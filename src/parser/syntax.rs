@@ -5,7 +5,7 @@ use nom::{
     character::complete::{anychar, char, multispace0, multispace1, none_of},
     combinator::{opt, peek, success, value},
     error::context,
-    multi::{many0, separated_list1},
+    multi::{many0, separated_list1, many_till},
     sequence::{delimited, preceded, terminated},
 };
 
@@ -114,7 +114,7 @@ pub fn parse_raw_symbol<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, 
     move |from: Span<'_>| {
         let (i, _) = tag("~(")(from)?;
         let (i, path) = many0(preceded(parse_space, parse_symbol_limb_raw("|()")))(i)?;
-        let (upto, _) = tag(")")(i)?;
+        let (upto, _) = many_till(parse_space, tag(")"))(i)?;
         Ok((upto, Symbol { path }))
     }
 }
@@ -446,6 +446,21 @@ pub mod tests {
             parse_symbol(),
             "nil",
             Some(Syntax::LurkSym(Pos::No, LurkSym::Nil))
+        ));
+        assert!(test(
+            parse_symbol(),
+            "~(asdf )",
+            Some(symbol!(["asdf"]))
+        ));
+        assert!(test(
+            parse_symbol(),
+            "~( asdf )",
+            Some(symbol!(["asdf"]))
+        ));
+        assert!(test(
+            parse_symbol(),
+            "~( asdf)",
+            Some(symbol!(["asdf"]))
         ));
         assert!(test(
             parse_symbol(),
