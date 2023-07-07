@@ -530,22 +530,19 @@ pub mod tests {
 
     // Returns index of first mismatch, along with the mismatched elements if they exist.
     fn mismatch<T: PartialEq + Copy>(a: &[T], b: &[T]) -> Option<(usize, (Option<T>, Option<T>))> {
-        for (i, (x, y)) in a.iter().zip(b).enumerate() {
-            if x != y {
-                return Some((i, (Some(*x), Some(*y))));
+        let min_len = a.len().min(b.len());
+        for i in 0..min_len {
+            if a[i] != b[i] {
+                return Some((i, (Some(a[i]), Some(b[i]))));
             }
         }
-
-        if a.len() < b.len() {
-            return Some((a.len(), (None, Some(b[a.len()]))));
-        } else if b.len() < a.len() {
-            return Some((b.len(), (Some(a[b.len()]), None)));
+        match (a.get(min_len), b.get(min_len)) {
+            (Some(&a_elem), None) => Some((min_len, (Some(a_elem), None))),
+            (None, Some(&b_elem)) => Some((min_len, (None, Some(b_elem)))),
+            _ => None,
         }
-
-        None
     }
 
-    /// fake docs
     pub fn test_aux<C: Coprocessor<Fr>>(
         s: &mut Store<Fr>,
         expr: &str,
