@@ -5239,7 +5239,7 @@ mod tests {
     };
     use blstrs::{Bls12, Scalar as Fr};
     use ff::{Field, PrimeField};
-    use pairing_lib::Engine;
+    use pairing::Engine;
 
     const DEFAULT_REDUCTION_COUNT: usize = 1;
 

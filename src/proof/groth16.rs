@@ -16,7 +16,7 @@ use blstrs::{Bls12, Scalar};
 use memmap::MmapOptions;
 #[cfg(not(target_arch = "wasm32"))]
 use once_cell::sync::Lazy;
-use pairing_lib::{Engine, MultiMillerLoop};
+use pairing::{Engine, MultiMillerLoop};
 use rand_core::{RngCore, SeedableRng};
 use rand_xorshift::XorShiftRng;
 use serde::{Deserialize, Serialize};
@@ -431,24 +431,20 @@ mod tests {
             check_cs_deltas(&cs, limit, lang_rc.clone());
         }
 
-        let proof_results = if check_groth16 {
-            Some(
-                groth_prover
-                    .outer_prove(
-                        groth_params,
-                        &INNER_PRODUCT_SRS,
-                        expr,
-                        empty_sym_env(s),
-                        s,
-                        limit,
-                        rng,
-                        lang_rc,
-                    )
-                    .unwrap(),
-            )
-        } else {
-            None
-        };
+        let proof_results = (check_groth16).then(|| {
+            groth_prover
+                .outer_prove(
+                    groth_params,
+                    &INNER_PRODUCT_SRS,
+                    expr,
+                    empty_sym_env(s),
+                    s,
+                    limit,
+                    rng,
+                    lang_rc,
+                )
+                .unwrap()
+        });
 
         if let Some((proof, public_inputs, public_outputs)) = proof_results {
             let srs_vk = INNER_PRODUCT_SRS.specialize_vk(proof.proof_count);

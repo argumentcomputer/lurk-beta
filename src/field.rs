@@ -17,7 +17,7 @@ use rand::{rngs::StdRng, SeedableRng};
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 
 /// The type of finite fields used in the language
-/// For Pallas/Vesta see https://electriccoin.co/blog/the-pasta-curves-for-halo-2-and-beyond/
+/// For Pallas/Vesta see `<https://electriccoin.co/blog/the-pasta-curves-for-halo-2-and-beyond/>`
 ///
 /// Please note:
 /// - pasta_curves::pallas::Scalar = pasta_curves::Fq
@@ -388,7 +388,7 @@ pub mod tests {
 
       #[test]
       fn prop_ser_de(x in any::<FWrap<Fr>>()) {
-            let bytes = to_z_data(&x).unwrap();
+            let bytes = to_z_data(x).unwrap();
             let f2: FWrap<Fr> = from_z_data(&bytes).unwrap();
             assert_eq!(x, f2)
       }
