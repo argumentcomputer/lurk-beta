@@ -17,12 +17,12 @@ executors:
     machine:
       image: ubuntu-2004:202101-01
     working_directory: ~/lurk
-    resource_class: arm.large
+    resource_class: arm.xlarge
   darwin:
     macos:
-      xcode: "14.2.0"
+      xcode: "14.3.1"
     working_directory: ~/lurk
-    resource_class: macos.x86.medium.gen2
+    resource_class: macos.m1.large.gen1
 
 commands:
   set_env_path:
@@ -36,13 +36,18 @@ commands:
             echo "export PATH=$HOME:~/.cargo/bin:$(dirname $(find $(rustc --print sysroot) -name 'rust-lld')):$PATH" | tee -a $BASH_ENV
             source $BASH_ENV
 
-  setup-sccache-linux:
+  setup-sccache:
     steps:
       - run:
           name: Install sccache
           command: |
-            curl -LsSf "https://github.com/mozilla/sccache/releases/download/v0.4.1/sccache-v0.4.1-x86_64-unknown-linux-musl.tar.gz" | tar xzf -
-            mv sccache-v0.4.1-x86_64-unknown-linux-musl/sccache $HOME/.cargo/bin
+            # Get host target
+            host=$(rustc -Vv|grep host|sed -Ee 's/host: //')
+            # Normalize the host for Linux downloads
+            url="https://github.com/mozilla/sccache/releases/download/v0.5.4/sccache-v0.5.4-${host/linux-*/linux-musl}.tar.gz"
+            # Install sccache binary
+            curl -LsSf "$url" | tar xzf -
+            mv sccache-v0.5.4-${host/linux-*/linux-musl}/sccache $HOME/.cargo/bin
             # This configures Rust to use sccache.
             echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
             # This is the maximum space sccache cache will use on disk.
@@ -145,7 +150,7 @@ jobs:
       - restore_rustup_cache
       - run: sudo apt install clang
       - set_env_path
-      - setup-sccache-linux
+      - setup-sccache
       - run: rustup target add wasm32-unknown-unknown
       - restore-sccache-cache
       - run:
@@ -172,7 +177,7 @@ jobs:
           at: "~/"
       - restore_rustup_cache
       - set_env_path
-      - setup-sccache-linux
+      - setup-sccache
       - install_gpu_deps
       - restore-sccache-cache
       - run:
@@ -228,17 +233,7 @@ jobs:
       - set_versions_n_runners
       - set_env_path
       - install_gpu_deps
-      - run:
-          name: Install sccache binary
-          command: |
-            curl -LsSf "https://github.com/mozilla/sccache/releases/download/v0.4.1/sccache-v0.4.1-aarch64-unknown-linux-musl.tar.gz" | tar xzf -
-            mv sccache-v0.4.1-aarch64-unknown-linux-musl/sccache $HOME/.cargo/bin
-            # This configures Rust to use sccache.
-            echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
-            # This is the maximum space sccache cache will use on disk.                                                                               
-            echo 'export "SCCACHE_CACHE_SIZE"="1G"' >> $BASH_ENV
-            echo 'export "SCCACHE_DIR"="$HOME/.cache/sccache"' >> $BASH_ENV
-            sccache --version
+      - setup-sccache
       - restore-sccache-cache
       - run:
           name: Arm64 Tests
@@ -267,18 +262,7 @@ jobs:
            at: "~/"
       - set_versions_n_runners
       - set_env_path
-      - run:
-          name: Install sccache binary
-          command: |
-            curl -LsSf "https://github.com/mozilla/sccache/releases/download/v0.4.1/sccache-v0.4.1-x86_64-apple-darwin.tar.gz" | tar xzf -
-            mv sccache-v0.4.1-x86_64-apple-darwin/sccache $HOME/.cargo/bin
-            # This configures Rust to use sccache.
-            echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
-            # This is the maximum space sccache cache will use on disk.                                                                               
-            echo 'export "SCCACHE_CACHE_SIZE"="1G"' >> $BASH_ENV
-            # important to normalize location on OSX 
-            echo 'export "SCCACHE_DIR"="$HOME/.cache/sccache"' >> $BASH_ENV
-            sccache --version
+      - setup-sccache
       - restore-sccache-cache
       - run:
           name: MacOS Tests
