@@ -57,6 +57,23 @@ pub fn parse_symbol_limb<F: LurkField>(
     }
 }
 
+pub fn parse_symbol_limb_raw<F: LurkField>(
+    escape: &'static str,
+) -> impl Fn(Span<'_>) -> ParseResult<'_, F, String> {
+    move |from: Span<'_>| {
+        let (i, s) = alt((
+            delimited(
+                tag("|"),
+                string::parse_string_inner1('|', true, "|"),
+                tag("|"),
+            ),
+            string::parse_string_inner1(' ', false, escape),
+            value(String::from(""), peek(tag("."))),
+        ))(from)?;
+        Ok((i, s))
+    }
+}
+
 pub fn parse_symbol_limbs<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Vec<String>> {
     move |from: Span<'_>| {
         let (i, path) = separated_list1(
@@ -96,7 +113,7 @@ pub fn parse_relative_symbol<F: LurkField>(
 pub fn parse_raw_symbol<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Symbol> {
     move |from: Span<'_>| {
         let (i, _) = tag("~(")(from)?;
-        let (i, path) = many0(preceded(parse_space, parse_symbol_limb("|()")))(i)?;
+        let (i, path) = many0(preceded(parse_space, parse_symbol_limb_raw("|()")))(i)?;
         let (upto, _) = tag(")")(i)?;
         Ok((upto, Symbol { path }))
     }
@@ -104,7 +121,7 @@ pub fn parse_raw_symbol<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, 
 
 // raw: ~(foo bar baz) = .|foo|.|bar|.|baz|
 // absolute: .foo.bar.baz (escaped limbs: .|foo|.|bar|.|baz|)
-// keyword: :foo.bar = .keyword.foo.bar)
+// keyword: :foo.bar = .keyword.foo.bar
 // relative: foo.bar
 
 pub fn parse_symbol<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
@@ -429,6 +446,21 @@ pub mod tests {
             parse_symbol(),
             "nil",
             Some(Syntax::LurkSym(Pos::No, LurkSym::Nil))
+        ));
+        assert!(test(
+            parse_symbol(),
+            "~(asdf.fdsa)",
+            Some(symbol!(["asdf.fdsa"]))
+        ));
+        assert!(test(
+            parse_symbol(),
+            "~(asdf.fdsa arst)",
+            Some(symbol!(["asdf.fdsa", "arst"]))
+        ));
+        assert!(test(
+            parse_symbol(),
+            "~(asdf.fdsa arst |wfp qwf|)",
+            Some(symbol!(["asdf.fdsa", "arst", "wfp qwf"]))
         ));
     }
 
