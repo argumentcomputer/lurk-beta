@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/eval.rs`."><title>eval.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-8092eaa720ad3b6f.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.72.0-nightly (8084f397c 2023-06-25)" data-channel="nightly" data-search-js="search-c507e026dd61038c.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ></div><script src="../../../static.files/storage-62ce34ea385b278a.js"></script><script defer src="../../../static.files/source-script-11255107d0a65077.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/eval.rs`."><title>eval.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9bb858ba049f1f21.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.72.0-nightly (85bf07972 2023-07-06)" data-channel="nightly" data-search-js="search-f6292fe389d70017.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ><script src="../../../static.files/storage-59fd9b8ccb335783.js"></script><script defer src="../../../static.files/source-script-106908c7a7964ba4.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -67,12 +67,38 @@
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::lem;
 
 <span class="kw">use </span><span class="kw">super</span>::LEM;
 <span class="kw">use </span>anyhow::Result;
 
-<span class="doccomment">/// This is Lurk&#39;s step function encoded as a LEM
+<span class="doccomment">/// Lurk&#39;s step function encoded as a LEM
 </span><span class="attr">#[allow(dead_code)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>step() -&gt; <span class="prelude-ty">Result</span>&lt;LEM&gt; {
     <span class="macro">lem!</span>(expr_in env_in cont_in {
@@ -93,35 +119,61 @@
 </span><span class="kw">mod </span>tests {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
+    <span class="kw">use </span><span class="kw">crate</span>::lem::circuit::SlotsCounter;
     <span class="kw">use </span><span class="kw">crate</span>::lem::{pointers::Ptr, store::Store};
     <span class="kw">use </span>bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
     <span class="kw">use </span>blstrs::Scalar <span class="kw">as </span>Fr;
 
-    <span class="kw">const </span>NUM_INPUTS: usize = <span class="number">13</span>;
-    <span class="kw">const </span>NUM_AUX: usize = <span class="number">20</span>;
-    <span class="kw">const </span>NUM_CONSTRAINTS: usize = <span class="number">29</span>;
+    <span class="kw">const </span>NUM_INPUTS: usize = <span class="number">1</span>;
+    <span class="kw">const </span>NUM_AUX: usize = <span class="number">19</span>;
+    <span class="kw">const </span>NUM_CONSTRAINTS: usize = <span class="number">17</span>;
+    <span class="kw">const </span>NUM_SLOTS: SlotsCounter = SlotsCounter {
+        hash2: <span class="number">0</span>,
+        hash3: <span class="number">0</span>,
+        hash4: <span class="number">0</span>,
+    };
 
     <span class="kw">fn </span>test_eval_and_constrain_aux(store: <span class="kw-2">&amp;mut </span>Store&lt;Fr&gt;, pairs: Vec&lt;(Ptr&lt;Fr&gt;, Ptr&lt;Fr&gt;)&gt;) {
         <span class="kw">let </span>lem = step().unwrap();
+        lem.check();
+
+        <span class="kw">let </span>slots_count = lem.ctl.count_slots();
+
+        <span class="macro">assert_eq!</span>(slots_count, NUM_SLOTS);
+
+        <span class="kw">let </span>computed_num_constraints = lem.num_constraints::&lt;Fr&gt;(<span class="kw-2">&amp;</span>slots_count);
+
+        <span class="comment">// Assures that `MatchSymbol`s will work properly
+        </span>lem.intern_matched_symbols(store);
+
+        <span class="kw">let </span><span class="kw-2">mut </span>all_paths = <span class="macro">vec!</span>[];
+
         <span class="kw">for </span>(expr_in, expr_out) <span class="kw">in </span>pairs {
-            <span class="kw">let </span>witnesses = lem.eval(expr_in, store).unwrap();
+            <span class="kw">let </span>(frames, paths) = lem.eval(expr_in, store).unwrap();
             <span class="macro">assert!</span>(
-                witnesses
+                frames
                     .last()
-                    .expect(<span class="string">&quot;eval should add at least one step data&quot;</span>)
+                    .expect(<span class="string">&quot;eval should add at least one frame&quot;</span>)
                     .output[<span class="number">0</span>]
                     == expr_out
             );
             store.hydrate_z_cache();
-            <span class="kw">for </span>witness <span class="kw">in </span>witnesses {
-                <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
-                lem.constrain(<span class="kw-2">&amp;mut </span>cs, store, <span class="kw-2">&amp;</span>witness).unwrap();
+            <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
+            <span class="kw">for </span>frame <span class="kw">in </span>frames.iter() {
+                lem.synthesize(<span class="kw-2">&amp;mut </span>cs, store, <span class="kw-2">&amp;</span>slots_count, frame).unwrap();
                 <span class="macro">assert!</span>(cs.is_satisfied());
                 <span class="macro">assert_eq!</span>(cs.num_inputs(), NUM_INPUTS);
                 <span class="macro">assert_eq!</span>(cs.aux().len(), NUM_AUX);
-                <span class="macro">assert_eq!</span>(cs.num_constraints(), NUM_CONSTRAINTS);
-            }
+
+                <span class="kw">let </span>num_constraints = cs.num_constraints();
+                <span class="macro">assert_eq!</span>(computed_num_constraints, num_constraints);
+                <span class="macro">assert_eq!</span>(num_constraints, NUM_CONSTRAINTS);
+                <span class="comment">// TODO: assert uniformity with `Delta` from bellperson
+            </span>}
+            all_paths.extend(paths);
         }
+
+        lem.assert_all_paths_taken(<span class="kw-2">&amp;</span>all_paths);
     }
 
     <span class="kw">fn </span>expr_in_expr_out_pairs(_store: <span class="kw-2">&amp;mut </span>Store&lt;Fr&gt;) -&gt; Vec&lt;(Ptr&lt;Fr&gt;, Ptr&lt;Fr&gt;)&gt; {

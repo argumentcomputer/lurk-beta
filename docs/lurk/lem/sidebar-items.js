@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["LEMOP"],"struct":["LEM","MetaPtr","Witness"]};
+window.SIDEBAR_ITEMS = {"enum":["LEMCTL","LEMOP"],"struct":["LEM","Var"],"type":["AString","AVec"]};

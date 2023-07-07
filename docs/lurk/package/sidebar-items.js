@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["LURK_EXTERNAL_SYMBOL_NAMES"],"struct":["Package"]};

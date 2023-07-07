@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/macros.rs`."><title>macros.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-8092eaa720ad3b6f.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.72.0-nightly (8084f397c 2023-06-25)" data-channel="nightly" data-search-js="search-c507e026dd61038c.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ></div><script src="../../../static.files/storage-62ce34ea385b278a.js"></script><script defer src="../../../static.files/source-script-11255107d0a65077.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/macros.rs`."><title>macros.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9bb858ba049f1f21.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.72.0-nightly (85bf07972 2023-07-06)" data-channel="nightly" data-search-js="search-f6292fe389d70017.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ><script src="../../../static.files/storage-59fd9b8ccb335783.js"></script><script defer src="../../../static.files/source-script-106908c7a7964ba4.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -340,18 +340,101 @@
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
 </pre></div><pre class="rust"><code><span class="attr">#[macro_export]
-</span><span class="macro">macro_rules! </span>metaptr {
+</span><span class="macro">macro_rules! </span>var {
     (<span class="macro-nonterminal">$variable</span>:ident) =&gt; {
-        <span class="macro-nonterminal">$crate::lem::MetaPtr</span>(<span class="macro">stringify!</span>(<span class="macro-nonterminal">$variable</span>).to_string())
+        <span class="macro-nonterminal">$crate::lem::Var</span>(<span class="macro">stringify!</span>(<span class="macro-nonterminal">$variable</span>).into())
     };
 }
 
 <span class="attr">#[macro_export]
-</span><span class="macro">macro_rules! </span>metaptrs {
+</span><span class="macro">macro_rules! </span>vars {
     ($(<span class="macro-nonterminal">$variable</span>:ident),<span class="kw-2">*</span>) =&gt; {
         [
-            $(<span class="macro-nonterminal">$</span><span class="macro">crate::metaptr!</span>(<span class="macro-nonterminal">$variable</span>)),*
+            $(<span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$variable</span>)),*
         ]
     };
 }
@@ -359,231 +442,264 @@
 <span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>lemop {
     ( <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$tag</span>:ident ) =&gt; {
-        <span class="macro-nonterminal">$crate::lem::LEMOP::Null</span>(
-            <span class="macro-nonterminal">$</span><span class="macro">crate::metaptr!</span>(<span class="macro-nonterminal">$tgt</span>),
-            <span class="macro-nonterminal">$crate::lem::Tag</span>::<span class="macro-nonterminal">$tag</span>,
-        )
+        <span class="macro-nonterminal">$crate::lem::LEMOP::Null</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$tgt</span>), <span class="macro-nonterminal">$crate::lem::Tag</span>::<span class="macro-nonterminal">$tag</span>)
     };
     ( <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$tag</span>:ident = hash2(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident) ) =&gt; {
         <span class="macro-nonterminal">$crate::lem::LEMOP::Hash2</span>(
-            <span class="macro-nonterminal">$</span><span class="macro">crate::metaptr!</span>(<span class="macro-nonterminal">$tgt</span>),
+            <span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$tgt</span>),
             <span class="macro-nonterminal">$crate::lem::Tag</span>::<span class="macro-nonterminal">$tag</span>,
-            <span class="macro-nonterminal">$</span><span class="macro">crate::metaptrs!</span>(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>),
+            <span class="macro-nonterminal">$</span><span class="macro">crate::vars!</span>(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>),
         )
     };
     ( <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$tag</span>:ident = hash3(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$src3</span>:ident) ) =&gt; {
         <span class="macro-nonterminal">$crate::lem::LEMOP::Hash3</span>(
-            <span class="macro-nonterminal">$</span><span class="macro">crate::metaptr!</span>(<span class="macro-nonterminal">$tgt</span>),
+            <span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$tgt</span>),
             <span class="macro-nonterminal">$crate::lem::Tag</span>::<span class="macro-nonterminal">$tag</span>,
-            <span class="macro-nonterminal">$</span><span class="macro">crate::metaptrs!</span>(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>, <span class="macro-nonterminal">$src3</span>),
+            <span class="macro-nonterminal">$</span><span class="macro">crate::vars!</span>(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>, <span class="macro-nonterminal">$src3</span>),
         )
     };
     ( <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$tag</span>:ident = hash4(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$src3</span>:ident, <span class="macro-nonterminal">$src4</span>:ident) ) =&gt; {
         <span class="macro-nonterminal">$crate::lem::LEMOP::Hash4</span>(
-            <span class="macro-nonterminal">$</span><span class="macro">crate::metaptr!</span>(<span class="macro-nonterminal">$tgt</span>),
+            <span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$tgt</span>),
             <span class="macro-nonterminal">$crate::lem::Tag</span>::<span class="macro-nonterminal">$tag</span>,
-            <span class="macro-nonterminal">$</span><span class="macro">crate::metaptrs!</span>( <span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>, <span class="macro-nonterminal">$src3</span>, <span class="macro-nonterminal">$src4</span>),
+            <span class="macro-nonterminal">$</span><span class="macro">crate::vars!</span>(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>, <span class="macro-nonterminal">$src3</span>, <span class="macro-nonterminal">$src4</span>),
         )
     };
     ( <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident) = unhash2(<span class="macro-nonterminal">$src</span>:ident) ) =&gt; {
         <span class="macro-nonterminal">$crate::lem::LEMOP::Unhash2</span>(
-            <span class="macro-nonterminal">$</span><span class="macro">crate::metaptrs!</span>( <span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>),
-            <span class="macro-nonterminal">$crate::lem::MetaPtr</span>(<span class="macro">stringify!</span>(<span class="macro-nonterminal">$src</span>).to_string()),
+            <span class="macro-nonterminal">$</span><span class="macro">crate::vars!</span>(<span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>),
+            <span class="macro-nonterminal">$crate::lem::Var</span>(<span class="macro">stringify!</span>(<span class="macro-nonterminal">$src</span>).into()),
         )
     };
     ( <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident, <span class="macro-nonterminal">$tgt3</span>:ident) = unhash3(<span class="macro-nonterminal">$src</span>:ident) ) =&gt; {
-        <span class="macro-nonterminal">$crate::lem::LEMOP::Unhash3</span>(
-            <span class="macro-nonterminal">$</span><span class="macro">crate::metaptrs!</span>( <span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>, <span class="macro-nonterminal">$tgt3</span>),
-            <span class="macro-nonterminal">$</span><span class="macro">crate::metaptr!</span>( <span class="macro-nonterminal">$src</span>),
-        )
+        <span class="macro-nonterminal">$crate::lem::LEMOP::Unhash3</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::vars!</span>(<span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>, <span class="macro-nonterminal">$tgt3</span>), <span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$src</span>))
     };
     ( <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident, <span class="macro-nonterminal">$tgt3</span>:ident, <span class="macro-nonterminal">$tgt4</span>:ident) = unhash4(<span class="macro-nonterminal">$src</span>:ident) ) =&gt; {
         <span class="macro-nonterminal">$crate::lem::LEMOP::Unhash4</span>(
-            <span class="macro-nonterminal">$</span><span class="macro">crate::metaptrs!</span>( <span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>, <span class="macro-nonterminal">$tgt3</span>, <span class="macro-nonterminal">$tgt4</span>),
-            <span class="macro-nonterminal">$</span><span class="macro">crate::metaptr!</span>( <span class="macro-nonterminal">$src</span>),
+            <span class="macro-nonterminal">$</span><span class="macro">crate::vars!</span>(<span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>, <span class="macro-nonterminal">$tgt3</span>, <span class="macro-nonterminal">$tgt4</span>),
+            <span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$src</span>),
         )
     };
     ( <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident = hide(<span class="macro-nonterminal">$sec</span>:ident, <span class="macro-nonterminal">$src</span>:ident) ) =&gt; {
-        <span class="macro-nonterminal">$crate::lem::LEMOP::Hide</span>(
-           <span class="macro-nonterminal">$</span><span class="macro">crate::metaptr!</span>(<span class="macro-nonterminal">$tgt</span>), <span class="macro-nonterminal">$</span><span class="macro">crate::metaptr!</span>(<span class="macro-nonterminal">$sec</span>), <span class="macro-nonterminal">$</span><span class="macro">crate::metaptr!</span>(<span class="macro-nonterminal">$src</span>),
-        )
+        <span class="macro-nonterminal">$crate::lem::LEMOP::Hide</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$tgt</span>), <span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$sec</span>), <span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$src</span>))
     };
     ( <span class="kw">let </span>(<span class="macro-nonterminal">$sec</span>:ident, <span class="macro-nonterminal">$src</span>:ident) = open(<span class="macro-nonterminal">$hash</span>:ident) ) =&gt; {
-        <span class="macro-nonterminal">$crate::lem::LEMOP::Open</span>(
-            <span class="macro-nonterminal">$</span><span class="macro">crate::metaptr!</span>(<span class="macro-nonterminal">$sec</span>), <span class="macro-nonterminal">$</span><span class="macro">crate::metaptr!</span>(<span class="macro-nonterminal">$src</span>), <span class="macro-nonterminal">$</span><span class="macro">crate::metaptr!</span>(<span class="macro-nonterminal">$hash</span>),
-        )
+        <span class="macro-nonterminal">$crate::lem::LEMOP::Open</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$sec</span>), <span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$src</span>), <span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$hash</span>))
     };
-    ( match_tag <span class="macro-nonterminal">$sii</span>:ident { $( <span class="macro-nonterminal">$case</span>:ident =&gt; <span class="macro-nonterminal">$case_ops</span>:tt ),* $(,)<span class="question-mark">? </span>} ) =&gt; {
+}
+
+<span class="attr">#[macro_export]
+</span><span class="macro">macro_rules! </span>lem_code {
+    ( match_tag <span class="macro-nonterminal">$sii</span>:ident { $( <span class="macro-nonterminal">$tag</span>:ident =&gt; <span class="macro-nonterminal">$case_ops</span>:tt ),* $(,)<span class="question-mark">? </span>} ) =&gt; {
         {
-            <span class="kw">let </span><span class="kw-2">mut </span>cases = std::collections::HashMap::new();
+            <span class="kw">let </span><span class="kw-2">mut </span>cases = indexmap::IndexMap::new();
             $(
                 <span class="kw">if </span>cases.insert(
-                    <span class="macro-nonterminal">$crate::lem::Tag</span>::<span class="macro-nonterminal">$case</span>,
-                    <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>( <span class="macro-nonterminal">$case_ops </span>),
+                    <span class="macro-nonterminal">$crate::lem::Tag</span>::<span class="macro-nonterminal">$tag</span>,
+                    <span class="macro-nonterminal">$</span><span class="macro">crate::lem_code!</span>( <span class="macro-nonterminal">$case_ops </span>),
                 ).is_some() {
                     <span class="macro">panic!</span>(<span class="string">&quot;Repeated tag on `match_tag`&quot;</span>);
                 };
             )*
-            <span class="macro-nonterminal">$crate::lem::LEMOP::MatchTag</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::metaptr!</span>(<span class="macro-nonterminal">$sii</span>), cases)
+            <span class="macro-nonterminal">$crate::lem::LEMCTL::MatchTag</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$sii</span>), cases)
+        }
+    };
+    ( match_symbol <span class="macro-nonterminal">$sii</span>:ident { $( <span class="macro-nonterminal">$symbol</span>:expr =&gt; <span class="macro-nonterminal">$case_ops</span>:tt ),* , <span class="kw">_ </span>=&gt; <span class="macro-nonterminal">$def</span>:tt $(,)<span class="question-mark">? </span>} ) =&gt; {
+        {
+            <span class="kw">let </span><span class="kw-2">mut </span>cases = indexmap::IndexMap::new();
+            $(
+                <span class="kw">if </span>cases.insert(
+                    <span class="macro-nonterminal">$symbol</span>,
+                    <span class="macro-nonterminal">$</span><span class="macro">crate::lem_code!</span>( <span class="macro-nonterminal">$case_ops </span>),
+                ).is_some() {
+                    <span class="macro">panic!</span>(<span class="string">&quot;Repeated path on `match_symbol`&quot;</span>);
+                };
+            )*
+            <span class="macro-nonterminal">$crate::lem::LEMCTL::MatchSymbol</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$sii</span>), cases, Box::new(<span class="macro-nonterminal">$</span><span class="macro">crate::lem_code!</span>( <span class="macro-nonterminal">$def </span>)))
         }
     };
     ( <span class="kw">return </span>(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$src3</span>:ident) ) =&gt; {
-        <span class="macro-nonterminal">$crate::lem::LEMOP::Return</span>(
-            <span class="macro-nonterminal">$</span><span class="macro">crate::metaptrs!</span>(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>, <span class="macro-nonterminal">$src3</span>)
+        <span class="macro-nonterminal">$crate::lem::LEMCTL::Return</span>(
+            <span class="macro-nonterminal">$</span><span class="macro">crate::vars!</span>(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>, <span class="macro-nonterminal">$src3</span>)
         )
     };
     <span class="comment">// seq entry point, with a separate bracketing to differentiate
     </span>({ $(<span class="macro-nonterminal">$body</span>:tt)+ }) =&gt; {
         {
-            <span class="macro-nonterminal">$</span><span class="macro">crate::lemop! </span>( @<span class="macro-nonterminal">seq </span>{}, $(<span class="macro-nonterminal">$body</span>)* )
-        }
-    };
-    <span class="comment">// termination rule: we run out of input modulo trailing semicolumn, so we construct the Seq
-    // Note the bracketed limbs pattern, which disambiguates wrt the last argument
-    </span>(@seq {$(<span class="macro-nonterminal">$limbs</span>:tt)<span class="kw-2">*</span>}, $(;)<span class="question-mark">? </span>) =&gt; {
-        {
-            <span class="kw">let </span>temp_vec = <span class="macro">vec!</span>($( <span class="macro-nonterminal">$limbs </span>)<span class="kw-2">*</span>);
-            <span class="kw">match </span><span class="kw-2">&amp;</span>temp_vec[..] {
-                [x] =&gt; x.clone(),
-                <span class="kw">_ </span>=&gt; <span class="macro-nonterminal">$crate::lem::LEMOP::Seq</span>(temp_vec)
-            }
+            <span class="macro-nonterminal">$</span><span class="macro">crate::lem_code! </span>( @<span class="macro-nonterminal">seq </span>{}, $(<span class="macro-nonterminal">$body</span>)* )
         }
     };
     <span class="comment">// handle the recursion: as we see a statement, we push it to the limbs position in the pattern
-    </span>(@seq {$(<span class="macro-nonterminal">$limbs</span>:tt)<span class="kw-2">*</span>}, <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$tag</span>:ident ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
-        <span class="macro-nonterminal">$</span><span class="macro">crate::lemop! </span>(
+    </span>(@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$tag</span>:ident ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
+        <span class="macro-nonterminal">$</span><span class="macro">crate::lem_code! </span>(
             @<span class="macro-nonterminal">seq
             </span>{
                 $(<span class="macro-nonterminal">$limbs</span>)*
-                <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>(<span class="kw">let </span><span class="macro-nonterminal">$tgt</span>: <span class="macro-nonterminal">$tag</span>),
+                <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>(<span class="kw">let </span><span class="macro-nonterminal">$tgt</span>: <span class="macro-nonterminal">$tag</span>)
             },
             $(<span class="macro-nonterminal">$tail</span>)*
         )
     };
-    (@seq {$(<span class="macro-nonterminal">$limbs</span>:tt)<span class="kw-2">*</span>}, <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$tag</span>:ident = hash2(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
-        <span class="macro-nonterminal">$</span><span class="macro">crate::lemop! </span>(
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$tag</span>:ident = hash2(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
+        <span class="macro-nonterminal">$</span><span class="macro">crate::lem_code! </span>(
             @<span class="macro-nonterminal">seq
             </span>{
                 $(<span class="macro-nonterminal">$limbs</span>)*
-                <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>(<span class="kw">let </span><span class="macro-nonterminal">$tgt</span>: <span class="macro-nonterminal">$tag </span>= hash2(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>) ),
+                <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>(<span class="kw">let </span><span class="macro-nonterminal">$tgt</span>: <span class="macro-nonterminal">$tag </span>= hash2(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>) )
             },
             $(<span class="macro-nonterminal">$tail</span>)*
         )
     };
-    (@seq {$(<span class="macro-nonterminal">$limbs</span>:tt)<span class="kw-2">*</span>}, <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$tag</span>:ident = hash3(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$src3</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
-        <span class="macro-nonterminal">$</span><span class="macro">crate::lemop! </span>(
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$tag</span>:ident = hash3(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$src3</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
+        <span class="macro-nonterminal">$</span><span class="macro">crate::lem_code! </span>(
             @<span class="macro-nonterminal">seq
             </span>{
                 $(<span class="macro-nonterminal">$limbs</span>)*
-                <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>(<span class="kw">let </span><span class="macro-nonterminal">$tgt</span>: <span class="macro-nonterminal">$tag </span>= hash3(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>, <span class="macro-nonterminal">$src3</span>) ),
+                <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>(<span class="kw">let </span><span class="macro-nonterminal">$tgt</span>: <span class="macro-nonterminal">$tag </span>= hash3(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>, <span class="macro-nonterminal">$src3</span>) )
             },
             $(<span class="macro-nonterminal">$tail</span>)*
         )
     };
-    (@seq {$(<span class="macro-nonterminal">$limbs</span>:tt)<span class="kw-2">*</span>}, <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$tag</span>:ident = hash4(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$src3</span>:ident, <span class="macro-nonterminal">$src4</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
-        <span class="macro-nonterminal">$</span><span class="macro">crate::lemop! </span>(
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$tag</span>:ident = hash4(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$src3</span>:ident, <span class="macro-nonterminal">$src4</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
+        <span class="macro-nonterminal">$</span><span class="macro">crate::lem_code! </span>(
             @<span class="macro-nonterminal">seq
             </span>{
                 $(<span class="macro-nonterminal">$limbs</span>)*
-                <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>(<span class="kw">let </span><span class="macro-nonterminal">$tgt</span>: <span class="macro-nonterminal">$tag </span>= hash4(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>, <span class="macro-nonterminal">$src3</span>, <span class="macro-nonterminal">$src4</span>)),
+                <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>(<span class="kw">let </span><span class="macro-nonterminal">$tgt</span>: <span class="macro-nonterminal">$tag </span>= hash4(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>, <span class="macro-nonterminal">$src3</span>, <span class="macro-nonterminal">$src4</span>))
             },
             $(<span class="macro-nonterminal">$tail</span>)*
         )
     };
-    (@seq {$(<span class="macro-nonterminal">$limbs</span>:tt)<span class="kw-2">*</span>}, <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident) = unhash2(<span class="macro-nonterminal">$src</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
-        <span class="macro-nonterminal">$</span><span class="macro">crate::lemop! </span>(
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident) = unhash2(<span class="macro-nonterminal">$src</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
+        <span class="macro-nonterminal">$</span><span class="macro">crate::lem_code! </span>(
             @<span class="macro-nonterminal">seq
             </span>{
                 $(<span class="macro-nonterminal">$limbs</span>)*
-                <span class="macro">lemop!</span>(<span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>) = unhash2(<span class="macro-nonterminal">$src</span>) ),
+                <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>(<span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>) = unhash2(<span class="macro-nonterminal">$src</span>) )
             },
             $(<span class="macro-nonterminal">$tail</span>)*
         )
     };
-    (@seq {$(<span class="macro-nonterminal">$limbs</span>:tt)<span class="kw-2">*</span>}, <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident, <span class="macro-nonterminal">$tgt3</span>:ident) = unhash3(<span class="macro-nonterminal">$src</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
-        <span class="macro-nonterminal">$</span><span class="macro">crate::lemop! </span>(
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident, <span class="macro-nonterminal">$tgt3</span>:ident) = unhash3(<span class="macro-nonterminal">$src</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
+        <span class="macro-nonterminal">$</span><span class="macro">crate::lem_code! </span>(
             @<span class="macro-nonterminal">seq
             </span>{
                 $(<span class="macro-nonterminal">$limbs</span>)*
-                <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>(<span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>, <span class="macro-nonterminal">$tgt3</span>) = unhash3(<span class="macro-nonterminal">$src</span>) ),
+                <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>(<span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>, <span class="macro-nonterminal">$tgt3</span>) = unhash3(<span class="macro-nonterminal">$src</span>) )
             },
             $(<span class="macro-nonterminal">$tail</span>)*
         )
     };
-    (@seq {$(<span class="macro-nonterminal">$limbs</span>:tt)<span class="kw-2">*</span>}, <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident, <span class="macro-nonterminal">$tgt3</span>:ident, <span class="macro-nonterminal">$tgt4</span>:ident) = unhash4(<span class="macro-nonterminal">$src</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
-        <span class="macro-nonterminal">$</span><span class="macro">crate::lemop! </span>(
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident, <span class="macro-nonterminal">$tgt3</span>:ident, <span class="macro-nonterminal">$tgt4</span>:ident) = unhash4(<span class="macro-nonterminal">$src</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
+        <span class="macro-nonterminal">$</span><span class="macro">crate::lem_code! </span>(
             @<span class="macro-nonterminal">seq
             </span>{
                 $(<span class="macro-nonterminal">$limbs</span>)*
-                <span class="macro">lemop!</span>(<span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>, <span class="macro-nonterminal">$tgt3</span>, <span class="macro-nonterminal">$tgt4</span>) = unhash4(<span class="macro-nonterminal">$src</span>) ),
+                <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>(<span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>, <span class="macro-nonterminal">$tgt3</span>, <span class="macro-nonterminal">$tgt4</span>) = unhash4(<span class="macro-nonterminal">$src</span>) )
             },
             $(<span class="macro-nonterminal">$tail</span>)*
         )
     };
-    (@seq {$(<span class="macro-nonterminal">$limbs</span>:tt)<span class="kw-2">*</span>}, <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident = hide(<span class="macro-nonterminal">$sec</span>:ident, <span class="macro-nonterminal">$src</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
-        <span class="macro-nonterminal">$</span><span class="macro">crate::lemop! </span>(
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident = hide(<span class="macro-nonterminal">$sec</span>:ident, <span class="macro-nonterminal">$src</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
+        <span class="macro-nonterminal">$</span><span class="macro">crate::lem_code! </span>(
             @<span class="macro-nonterminal">seq
             </span>{
                 $(<span class="macro-nonterminal">$limbs</span>)*
-                <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>(<span class="kw">let </span><span class="macro-nonterminal">$tgt </span>= hide(<span class="macro-nonterminal">$sec</span>, <span class="macro-nonterminal">$src</span>) ),
+                <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>(<span class="kw">let </span><span class="macro-nonterminal">$tgt </span>= hide(<span class="macro-nonterminal">$sec</span>, <span class="macro-nonterminal">$src</span>) )
             },
             $(<span class="macro-nonterminal">$tail</span>)*
         )
     };
-    (@seq {$(<span class="macro-nonterminal">$limbs</span>:tt)<span class="kw-2">*</span>}, <span class="kw">let </span>(<span class="macro-nonterminal">$sec</span>:ident, <span class="macro-nonterminal">$src</span>:ident) = open(<span class="macro-nonterminal">$hash</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
-        <span class="macro-nonterminal">$</span><span class="macro">crate::lemop! </span>(
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span>(<span class="macro-nonterminal">$sec</span>:ident, <span class="macro-nonterminal">$src</span>:ident) = open(<span class="macro-nonterminal">$hash</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
+        <span class="macro-nonterminal">$</span><span class="macro">crate::lem_code! </span>(
             @<span class="macro-nonterminal">seq
             </span>{
                 $(<span class="macro-nonterminal">$limbs</span>)*
-                <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>(<span class="kw">let </span>(<span class="macro-nonterminal">$sec</span>, <span class="macro-nonterminal">$src</span>) = open(<span class="macro-nonterminal">$hash</span>) ),
+                <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>(<span class="kw">let </span>(<span class="macro-nonterminal">$sec</span>, <span class="macro-nonterminal">$src</span>) = open(<span class="macro-nonterminal">$hash</span>) )
             },
             $(<span class="macro-nonterminal">$tail</span>)*
         )
     };
-    (@seq {$(<span class="macro-nonterminal">$limbs</span>:tt)<span class="kw-2">*</span>}, match_tag <span class="macro-nonterminal">$sii</span>:ident { $( <span class="macro-nonterminal">$case</span>:ident =&gt; <span class="macro-nonterminal">$case_ops</span>:tt ),* $(,)<span class="question-mark">? </span>} ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
-        <span class="macro-nonterminal">$</span><span class="macro">crate::lemop! </span>(
-            @<span class="macro-nonterminal">seq
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, match_tag <span class="macro-nonterminal">$sii</span>:ident { $( <span class="macro-nonterminal">$tag</span>:ident =&gt; <span class="macro-nonterminal">$case_ops</span>:tt ),* $(,)<span class="question-mark">? </span>} $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
+        <span class="macro-nonterminal">$</span><span class="macro">crate::lem_code! </span>(
+            @<span class="macro-nonterminal">end
             </span>{
                 $(<span class="macro-nonterminal">$limbs</span>)*
-                <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>( <span class="macro-nonterminal">match_tag $sii </span>{ $( <span class="macro-nonterminal">$case </span>=&gt; <span class="macro-nonterminal">$case_ops </span>),* } ),
             },
+            <span class="macro-nonterminal">$</span><span class="macro">crate::lem_code!</span>( <span class="macro-nonterminal">match_tag $sii </span>{ $( <span class="macro-nonterminal">$tag </span>=&gt; <span class="macro-nonterminal">$case_ops </span>),* } ),
             $(<span class="macro-nonterminal">$tail</span>)*
         )
     };
-    (@seq {$(<span class="macro-nonterminal">$limbs</span>:tt)<span class="kw-2">*</span>}, <span class="kw">return </span>(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$src3</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
-        <span class="macro-nonterminal">$</span><span class="macro">crate::lemop! </span>(
-            @<span class="macro-nonterminal">seq
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, match_symbol <span class="macro-nonterminal">$sii</span>:ident { $( <span class="macro-nonterminal">$symbol</span>:expr =&gt; <span class="macro-nonterminal">$case_ops</span>:tt ),* , <span class="kw">_ </span>=&gt; <span class="macro-nonterminal">$def</span>:tt $(,)<span class="question-mark">? </span>} $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
+        <span class="macro-nonterminal">$</span><span class="macro">crate::lem_code! </span>(
+            @<span class="macro-nonterminal">end
             </span>{
                 $(<span class="macro-nonterminal">$limbs</span>)*
-                <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>( <span class="kw">return </span>(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>, <span class="macro-nonterminal">$src3</span>) ),
             },
+            <span class="macro-nonterminal">$</span><span class="macro">crate::lem_code!</span>( <span class="macro-nonterminal">match_symbol $sii </span>{ $( <span class="macro-nonterminal">$symbol </span>=&gt; <span class="macro-nonterminal">$case_ops </span>),* , <span class="kw">_ </span>=&gt; <span class="macro-nonterminal">$def</span>, } ),
             $(<span class="macro-nonterminal">$tail</span>)*
         )
     };
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">return </span>(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$src3</span>:ident) $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
+        <span class="macro-nonterminal">$</span><span class="macro">crate::lem_code! </span>(
+            @<span class="macro-nonterminal">end
+            </span>{
+                $(<span class="macro-nonterminal">$limbs</span>)*
+            },
+            <span class="macro-nonterminal">$</span><span class="macro">crate::lem_code!</span>( <span class="kw">return </span>(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>, <span class="macro-nonterminal">$src3</span>) ),
+            $(<span class="macro-nonterminal">$tail</span>)*
+        )
+    };
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, $(;)<span class="question-mark">? </span>) =&gt; {
+        {
+            <span class="macro">compile_error!</span>(<span class="string">&quot;You must provide LEM with a return at each path!&quot;</span>);
+        }
+    };
+    (@end { }, <span class="macro-nonterminal">$cont</span>:expr,  $(;)<span class="question-mark">?</span>) =&gt; {
+        {
+            <span class="macro-nonterminal">$cont
+        </span>}
+    };
+    (@end {$(<span class="macro-nonterminal">$limbs</span>:expr)+}, <span class="macro-nonterminal">$cont</span>:expr,  $(;)<span class="question-mark">?</span>) =&gt; {
+        {
+            <span class="kw">let </span>block = <span class="macro-nonterminal">$cont</span>;
+            <span class="kw">let </span>ops = <span class="macro">vec!</span>($(<span class="macro-nonterminal">$limbs</span>),+);
+            <span class="macro-nonterminal">$crate::lem::LEMCTL::Seq</span>(ops, Box::new(block))
+        }
+    }
 }
 
 <span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>lem {
-    (<span class="macro-nonterminal">$in1</span>:ident <span class="macro-nonterminal">$in2</span>:ident <span class="macro-nonterminal">$in3</span>:ident <span class="macro-nonterminal">$lemop</span>:tt) =&gt; {
+    (<span class="macro-nonterminal">$in1</span>:ident <span class="macro-nonterminal">$in2</span>:ident <span class="macro-nonterminal">$in3</span>:ident <span class="macro-nonterminal">$lem</span>:tt) =&gt; {
         <span class="macro-nonterminal">$crate::lem::LEM::new</span>(
-            [<span class="macro">stringify!</span>(<span class="macro-nonterminal">$in1</span>), <span class="macro">stringify!</span>(<span class="macro-nonterminal">$in2</span>), <span class="macro">stringify!</span>(<span class="macro-nonterminal">$in3</span>)],
-            <span class="macro-nonterminal">$</span><span class="macro">crate::lemop!</span>(<span class="macro-nonterminal">$lemop</span>),
+            [
+                <span class="macro-nonterminal">$crate::lem::Var</span>(<span class="macro">stringify!</span>(<span class="macro-nonterminal">$in1</span>).into()),
+                <span class="macro-nonterminal">$crate::lem::Var</span>(<span class="macro">stringify!</span>(<span class="macro-nonterminal">$in2</span>).into()),
+                <span class="macro-nonterminal">$crate::lem::Var</span>(<span class="macro">stringify!</span>(<span class="macro-nonterminal">$in3</span>).into()),
+            ],
+            <span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="macro">crate::lem_code!</span>(<span class="macro-nonterminal">$lem</span>),
         )
     };
 }
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use </span><span class="kw">crate</span>::lem::{tag::Tag, MetaPtr, LEMOP};
+    <span class="kw">use </span><span class="kw">crate</span>::lem::{symbol::Symbol, tag::Tag, Var, LEMCTL, LEMOP};
 
     <span class="attr">#[inline]
-    </span><span class="kw">fn </span>mptr(name: <span class="kw-2">&amp;</span>str) -&gt; MetaPtr {
-        MetaPtr(name.to_string())
+    </span><span class="kw">fn </span>mptr(name: <span class="kw-2">&amp;</span>str) -&gt; Var {
+        Var(name.into())
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">fn </span>match_tag(i: MetaPtr, cases: Vec&lt;(Tag, LEMOP)&gt;) -&gt; LEMOP {
-        LEMOP::MatchTag(i, std::collections::HashMap::from_iter(cases))
+    </span><span class="kw">fn </span>match_tag(i: Var, cases: Vec&lt;(Tag, LEMCTL)&gt;) -&gt; LEMCTL {
+        LEMCTL::MatchTag(i, indexmap::IndexMap::from_iter(cases))
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">fn </span>match_symbol(i: Var, cases: Vec&lt;(Symbol, LEMCTL)&gt;, def: LEMCTL) -&gt; LEMCTL {
+        LEMCTL::MatchSymbol(i, indexmap::IndexMap::from_iter(cases), Box::new(def))
     }
 
     <span class="attr">#[test]
@@ -609,9 +725,8 @@
             ),
             LEMOP::Hide(mptr(<span class="string">&quot;bar&quot;</span>), mptr(<span class="string">&quot;baz&quot;</span>), mptr(<span class="string">&quot;bazz&quot;</span>)),
             LEMOP::Open(mptr(<span class="string">&quot;bar&quot;</span>), mptr(<span class="string">&quot;baz&quot;</span>), mptr(<span class="string">&quot;bazz&quot;</span>)),
-            LEMOP::Return([mptr(<span class="string">&quot;bar&quot;</span>), mptr(<span class="string">&quot;baz&quot;</span>), mptr(<span class="string">&quot;bazz&quot;</span>)]),
         ];
-        <span class="kw">let </span>lemops_macro = [
+        <span class="kw">let </span>lemops_macro = <span class="macro">vec!</span>[
             <span class="macro">lemop!</span>(<span class="kw">let </span>foo: Num),
             <span class="macro">lemop!</span>(<span class="kw">let </span>foo: Char = hash2(bar, baz)),
             <span class="macro">lemop!</span>(<span class="kw">let </span>foo: Char = hash3(bar, baz, bazz)),
@@ -621,14 +736,15 @@
             <span class="macro">lemop!</span>(<span class="kw">let </span>(foo, goo, moo, noo) = unhash4(aaa)),
             <span class="macro">lemop!</span>(<span class="kw">let </span>bar = hide(baz, bazz)),
             <span class="macro">lemop!</span>(<span class="kw">let </span>(bar, baz) = open(bazz)),
-            <span class="macro">lemop!</span>(<span class="kw">return </span>(bar, baz, bazz)),
         ];
 
-        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">10 </span>{
+        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">9 </span>{
             <span class="macro">assert!</span>(lemops[i] == lemops_macro[i]);
         }
 
-        <span class="kw">let </span>lemop_macro_seq = <span class="macro">lemop!</span>({
+        <span class="kw">let </span>ret = LEMCTL::Return([mptr(<span class="string">&quot;bar&quot;</span>), mptr(<span class="string">&quot;baz&quot;</span>), mptr(<span class="string">&quot;bazz&quot;</span>)]);
+        <span class="kw">let </span>block = LEMCTL::Seq(lemops_macro, Box::new(ret));
+        <span class="kw">let </span>lem_macro_seq = <span class="macro">lem_code!</span>({
             <span class="kw">let </span>foo: Num;
             <span class="kw">let </span>foo: Char = hash2(bar, baz);
             <span class="kw">let </span>foo: Char = hash3(bar, baz, bazz);
@@ -641,20 +757,21 @@
             <span class="kw">return </span>(bar, baz, bazz);
         });
 
-        <span class="macro">assert!</span>(LEMOP::Seq(lemops.to_vec()) == lemop_macro_seq);
+        <span class="macro">assert!</span>(block == lem_macro_seq);
 
-        <span class="kw">let </span>foo = <span class="macro">lemop!</span>(
+        <span class="kw">let </span>foo = <span class="macro">lem_code!</span>(
             match_tag www {
                 Num =&gt; {
-                    <span class="kw">let </span>foo: Num; <span class="comment">// a single LEMOP will not turn into a Seq
+                    <span class="kw">return </span>(foo, foo, foo); <span class="comment">// a single LEMCTL will not turn into a Seq
                 </span>},
                 Str =&gt; {
                     <span class="kw">let </span>foo: Num;
-                    <span class="kw">let </span>goo: Char;
+                    <span class="kw">return </span>(foo, foo, foo);
                 },
                 Char =&gt; {
                     <span class="kw">let </span>foo: Num;
                     <span class="kw">let </span>goo: Char;
+                    <span class="kw">return </span>(foo, goo, goo);
                 }
             }
         );
@@ -662,22 +779,71 @@
             foo == match_tag(
                 mptr(<span class="string">&quot;www&quot;</span>),
                 <span class="macro">vec!</span>[
-                    (Tag::Num, LEMOP::Null(mptr(<span class="string">&quot;foo&quot;</span>), Tag::Num)),
+                    (
+                        Tag::Num,
+                        LEMCTL::Return([mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;foo&quot;</span>)])
+                    ),
                     (
                         Tag::Str,
-                        LEMOP::Seq(<span class="macro">vec!</span>[
-                            LEMOP::Null(mptr(<span class="string">&quot;foo&quot;</span>), Tag::Num),
-                            LEMOP::Null(mptr(<span class="string">&quot;goo&quot;</span>), Tag::Char)
-                        ])
+                        LEMCTL::Seq(
+                            <span class="macro">vec!</span>[LEMOP::Null(mptr(<span class="string">&quot;foo&quot;</span>), Tag::Num)],
+                            Box::new(LEMCTL::Return([mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;foo&quot;</span>)]))
+                        )
                     ),
                     (
                         Tag::Char,
-                        LEMOP::Seq(<span class="macro">vec!</span>[
-                            LEMOP::Null(mptr(<span class="string">&quot;foo&quot;</span>), Tag::Num),
-                            LEMOP::Null(mptr(<span class="string">&quot;goo&quot;</span>), Tag::Char)
-                        ])
+                        LEMCTL::Seq(
+                            <span class="macro">vec!</span>[
+                                LEMOP::Null(mptr(<span class="string">&quot;foo&quot;</span>), Tag::Num),
+                                LEMOP::Null(mptr(<span class="string">&quot;goo&quot;</span>), Tag::Char)
+                            ],
+                            Box::new(LEMCTL::Return([mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;goo&quot;</span>), mptr(<span class="string">&quot;goo&quot;</span>)]))
+                        )
                     )
                 ]
+            )
+        );
+
+        <span class="kw">let </span>moo = <span class="macro">lem_code!</span>(
+            match_symbol www {
+                Symbol::lurk_sym(<span class="string">&quot;nil&quot;</span>) =&gt; {
+                    <span class="kw">return </span>(foo, foo, foo); <span class="comment">// a single LEMCTL will not turn into a Seq
+                </span>},
+                Symbol::lurk_sym(<span class="string">&quot;cons&quot;</span>) =&gt; {
+                    <span class="kw">let </span>foo: Num;
+                    <span class="kw">let </span>goo: Char;
+                    <span class="kw">return </span>(foo, goo, goo);
+                },
+                <span class="kw">_ </span>=&gt; {
+                    <span class="kw">let </span>xoo: Str;
+                    <span class="kw">return </span>(xoo, xoo, xoo);
+                },
+            }
+        );
+
+        <span class="macro">assert!</span>(
+            moo == match_symbol(
+                mptr(<span class="string">&quot;www&quot;</span>),
+                <span class="macro">vec!</span>[
+                    (
+                        Symbol::lurk_sym(<span class="string">&quot;nil&quot;</span>),
+                        LEMCTL::Return([mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;foo&quot;</span>)])
+                    ),
+                    (
+                        Symbol::lurk_sym(<span class="string">&quot;cons&quot;</span>),
+                        LEMCTL::Seq(
+                            <span class="macro">vec!</span>[
+                                LEMOP::Null(mptr(<span class="string">&quot;foo&quot;</span>), Tag::Num),
+                                LEMOP::Null(mptr(<span class="string">&quot;goo&quot;</span>), Tag::Char)
+                            ],
+                            Box::new(LEMCTL::Return([mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;goo&quot;</span>), mptr(<span class="string">&quot;goo&quot;</span>)]))
+                        )
+                    )
+                ],
+                LEMCTL::Seq(
+                    <span class="macro">vec!</span>[LEMOP::Null(mptr(<span class="string">&quot;xoo&quot;</span>), Tag::Str)],
+                    Box::new(LEMCTL::Return([mptr(<span class="string">&quot;xoo&quot;</span>), mptr(<span class="string">&quot;xoo&quot;</span>), mptr(<span class="string">&quot;xoo&quot;</span>)]))
+                )
             )
         );
     }

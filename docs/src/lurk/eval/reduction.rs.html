@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/eval/reduction.rs`."><title>reduction.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-8092eaa720ad3b6f.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.72.0-nightly (8084f397c 2023-06-25)" data-channel="nightly" data-search-js="search-c507e026dd61038c.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ></div><script src="../../../static.files/storage-62ce34ea385b278a.js"></script><script defer src="../../../static.files/source-script-11255107d0a65077.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/eval/reduction.rs`."><title>reduction.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9bb858ba049f1f21.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.72.0-nightly (85bf07972 2023-07-06)" data-channel="nightly" data-search-js="search-f6292fe389d70017.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ><script src="../../../static.files/storage-59fd9b8ccb335783.js"></script><script defer src="../../../static.files/source-script-106908c7a7964ba4.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1393,6 +1393,10 @@
 <a href="#1393" id="1393">1393</a>
 <a href="#1394" id="1394">1394</a>
 <a href="#1395" id="1395">1395</a>
+<a href="#1396" id="1396">1396</a>
+<a href="#1397" id="1397">1397</a>
+<a href="#1398" id="1398">1398</a>
+<a href="#1399" id="1399">1399</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{empty_sym_env, Witness};
 <span class="kw">use </span><span class="kw">crate</span>::cont::Continuation;
 <span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
@@ -1402,9 +1406,9 @@
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 <span class="kw">use </span><span class="kw">crate</span>::hash_witness::{ConsName, ConsWitness, ContName, ContWitness};
 <span class="kw">use </span><span class="kw">crate</span>::num::Num;
-<span class="kw">use </span><span class="kw">crate</span>::ptr::{ContPtr, Ptr};
+<span class="kw">use </span><span class="kw">crate</span>::ptr::{ContPtr, Ptr, TypePredicates};
 <span class="kw">use </span><span class="kw">crate</span>::store;
-<span class="kw">use </span><span class="kw">crate</span>::store::{NamedConstants, Store, TypePredicates};
+<span class="kw">use </span><span class="kw">crate</span>::store::{NamedConstants, Store};
 <span class="kw">use </span><span class="kw">crate</span>::tag::{ContTag, ExprTag, Op1, Op2};
 <span class="kw">use </span><span class="kw">crate</span>::writer::Write;
 
@@ -1941,7 +1945,7 @@
                         <span class="kw">let </span>args = rest;
 
                         <span class="comment">// NOTE: Any Coprocessor found will take precedence, which means coprocessor bindings cannot be shadowed.
-                        </span><span class="kw">if let </span><span class="prelude-val">Some</span>((coprocessor, _scalar_ptr)) = lang.lookup(store, head) {
+                        </span><span class="kw">if let </span><span class="prelude-val">Some</span>((coprocessor, _z_ptr)) = lang.lookup(store, head) {
                             <span class="kw">let </span>(_arg, _more_args) = <span class="macro">car_cdr_named!</span>(ConsName::ExprCdr, <span class="kw-2">&amp;</span>args)<span class="question-mark">?</span>;
 
                             <span class="kw">let </span>IO { expr, env, cont } =
@@ -2301,39 +2305,39 @@
                     Op1::Commit =&gt; store.hide(F::ZERO, result),
                     Op1::Num =&gt; <span class="kw">match </span>result.tag {
                         ExprTag::Num | ExprTag::Comm | ExprTag::Char | ExprTag::U64 =&gt; {
-                            <span class="kw">let </span>scalar_ptr = store
-                                .get_expr_hash(<span class="kw-2">&amp;</span>result)
+                            <span class="kw">let </span>z_ptr = store
+                                .hash_expr(<span class="kw-2">&amp;</span>result)
                                 .ok_or_else(|| store::Error(<span class="string">&quot;expr hash missing&quot;</span>.into()))<span class="question-mark">?</span>;
-                            store.intern_num(<span class="kw">crate</span>::Num::Scalar::&lt;F&gt;(<span class="kw-2">*</span>scalar_ptr.value()))
+                            store.intern_num(<span class="kw">crate</span>::Num::Scalar::&lt;F&gt;(<span class="kw-2">*</span>z_ptr.value()))
                         }
                         <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Control::Error(result, env)),
                     },
                     Op1::U64 =&gt; <span class="kw">match </span>result.tag {
                         ExprTag::Num =&gt; {
-                            <span class="kw">let </span>scalar_ptr = store
-                                .get_expr_hash(<span class="kw-2">&amp;</span>result)
+                            <span class="kw">let </span>z_ptr = store
+                                .hash_expr(<span class="kw-2">&amp;</span>result)
                                 .ok_or_else(|| store::Error(<span class="string">&quot;expr hash missing&quot;</span>.into()))<span class="question-mark">?</span>;
 
-                            store.get_u64(scalar_ptr.value().to_u64_unchecked())
+                            store.intern_u64(z_ptr.value().to_u64_unchecked())
                         }
                         ExprTag::U64 =&gt; result,
                         <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Control::Error(result, env)),
                     },
                     Op1::Comm =&gt; <span class="kw">match </span>result.tag {
                         ExprTag::Num | ExprTag::Comm =&gt; {
-                            <span class="kw">let </span>scalar_ptr = store
-                                .get_expr_hash(<span class="kw-2">&amp;</span>result)
+                            <span class="kw">let </span>z_ptr = store
+                                .hash_expr(<span class="kw-2">&amp;</span>result)
                                 .ok_or_else(|| store::Error(<span class="string">&quot;expr hash missing&quot;</span>.into()))<span class="question-mark">?</span>;
-                            store.intern_maybe_opaque_comm(<span class="kw-2">*</span>scalar_ptr.value())
+                            store.intern_maybe_opaque_comm(<span class="kw-2">*</span>z_ptr.value())
                         }
                         <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Control::Error(result, env)),
                     },
                     Op1::Char =&gt; <span class="kw">match </span>result.tag {
                         ExprTag::Num | ExprTag::Char =&gt; {
-                            <span class="kw">let </span>scalar_ptr = store
-                                .get_expr_hash(<span class="kw-2">&amp;</span>result)
+                            <span class="kw">let </span>z_ptr = store
+                                .hash_expr(<span class="kw-2">&amp;</span>result)
                                 .ok_or_else(|| store::Error(<span class="string">&quot;expr hash missing&quot;</span>.into()))<span class="question-mark">?</span>;
-                            store.get_char_from_u32(scalar_ptr.value().to_u32_unchecked())
+                            Ptr::index(ExprTag::Char, z_ptr.value().to_u32_unchecked() <span class="kw">as </span>usize)
                         }
                         <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Control::Error(result, env)),
                     },
@@ -2441,82 +2445,86 @@
                     }
                 };
 
-                <span class="kw">let </span>result = <span class="kw">match </span>(
-                    store
-                        .fetch(<span class="kw-2">&amp;</span>evaled_arg)
-                        .ok_or_else(|| store::Error(<span class="string">&quot;Fetch failed&quot;</span>.into()))<span class="question-mark">?</span>,
-                    store
-                        .fetch(<span class="kw-2">&amp;</span>arg2)
-                        .ok_or_else(|| store::Error(<span class="string">&quot;Fetch failed&quot;</span>.into()))<span class="question-mark">?</span>,
-                ) {
-                    (Expression::Num(a), Expression::Num(b)) <span class="kw">if </span>operator.is_numeric() =&gt; {
-                        <span class="kw">match </span>num_num(store, operator, a, b) {
-                            <span class="prelude-val">Ok</span>(x) =&gt; x,
-                            <span class="prelude-val">Err</span>(control) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(control),
-                        }
+                <span class="comment">// The reason for matching the operator before trying to fetch is that, instead of the other way around,
+                // as it was before, opaque data can be tested for equality and consed without needing to be fetched
+                // from the store
+                </span><span class="kw">let </span>result = <span class="kw">match </span>operator {
+                    Op2::Equal =&gt; store.as_lurk_boolean(store.ptr_eq(<span class="kw-2">&amp;</span>evaled_arg, <span class="kw-2">&amp;</span>arg2)<span class="question-mark">?</span>),
+                    Op2::Cons =&gt; {
+                        cons_witness.cons_named(ConsName::TheCons, store, evaled_arg, arg2)
                     }
-                    (Expression::Num(a), <span class="kw">_</span>) <span class="kw">if </span>operator == Op2::Hide =&gt; {
-                        store.hide(a.into_scalar(), arg2)
+                    Op2::Eval =&gt; {
+                        <span class="kw">return </span><span class="prelude-val">Ok</span>(Control::Return(evaled_arg, arg2, continuation));
                     }
-                    (Expression::UInt(a), Expression::UInt(b)) <span class="kw">if </span>operator.is_numeric() =&gt; {
-                        <span class="kw">match </span>operator {
-                            Op2::Sum =&gt; store.get_u64((a + b).into()),
-                            Op2::Diff =&gt; store.get_u64((a - b).into()),
-                            Op2::Product =&gt; store.get_u64((a * b).into()),
-                            Op2::Quotient =&gt; {
-                                <span class="kw">if </span>b.is_zero() {
-                                    <span class="kw">return </span><span class="prelude-val">Ok</span>(Control::Return(
-                                        result,
-                                        env,
-                                        store.intern_cont_error(),
-                                    ));
-                                } <span class="kw">else </span>{
-                                    store.get_u64((a / b).into())
-                                }
+                    <span class="kw">_ </span>=&gt; <span class="kw">match </span>(
+                        store
+                            .fetch(<span class="kw-2">&amp;</span>evaled_arg)
+                            .ok_or_else(|| store::Error(<span class="string">&quot;Fetch failed&quot;</span>.into()))<span class="question-mark">?</span>,
+                        store
+                            .fetch(<span class="kw-2">&amp;</span>arg2)
+                            .ok_or_else(|| store::Error(<span class="string">&quot;Fetch failed&quot;</span>.into()))<span class="question-mark">?</span>,
+                    ) {
+                        (Expression::Num(a), Expression::Num(b)) <span class="kw">if </span>operator.is_numeric() =&gt; {
+                            <span class="kw">match </span>num_num(store, operator, a, b) {
+                                <span class="prelude-val">Ok</span>(x) =&gt; x,
+                                <span class="prelude-val">Err</span>(control) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(control),
                             }
-                            Op2::Modulo =&gt; {
-                                <span class="kw">if </span>b.is_zero() {
-                                    <span class="kw">return </span><span class="prelude-val">Ok</span>(Control::Return(
-                                        result,
-                                        env,
-                                        store.intern_cont_error(),
-                                    ));
-                                } <span class="kw">else </span>{
-                                    store.get_u64((a % b).into())
+                        }
+                        (Expression::Num(a), <span class="kw">_</span>) <span class="kw">if </span>operator == Op2::Hide =&gt; {
+                            store.hide(a.into_scalar(), arg2)
+                        }
+                        (Expression::UInt(a), Expression::UInt(b)) <span class="kw">if </span>operator.is_numeric() =&gt; {
+                            <span class="kw">match </span>operator {
+                                Op2::Sum =&gt; store.intern_u64((a + b).into()),
+                                Op2::Diff =&gt; store.intern_u64((a - b).into()),
+                                Op2::Product =&gt; store.intern_u64((a * b).into()),
+                                Op2::Quotient =&gt; {
+                                    <span class="kw">if </span>b.is_zero() {
+                                        <span class="kw">return </span><span class="prelude-val">Ok</span>(Control::Return(
+                                            result,
+                                            env,
+                                            store.intern_cont_error(),
+                                        ));
+                                    } <span class="kw">else </span>{
+                                        store.intern_u64((a / b).into())
+                                    }
                                 }
+                                Op2::Modulo =&gt; {
+                                    <span class="kw">if </span>b.is_zero() {
+                                        <span class="kw">return </span><span class="prelude-val">Ok</span>(Control::Return(
+                                            result,
+                                            env,
+                                            store.intern_cont_error(),
+                                        ));
+                                    } <span class="kw">else </span>{
+                                        store.intern_u64((a % b).into())
+                                    }
+                                }
+                                Op2::Equal | Op2::NumEqual =&gt; store.as_lurk_boolean(a == b),
+                                Op2::Less =&gt; store.as_lurk_boolean(a &lt; b),
+                                Op2::Greater =&gt; store.as_lurk_boolean(a &gt; b),
+                                Op2::LessEqual =&gt; store.as_lurk_boolean(a &lt;= b),
+                                Op2::GreaterEqual =&gt; store.as_lurk_boolean(a &gt;= b),
+                                <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
                             }
-                            Op2::Equal | Op2::NumEqual =&gt; store.as_lurk_boolean(a == b),
-                            Op2::Less =&gt; store.as_lurk_boolean(a &lt; b),
-                            Op2::Greater =&gt; store.as_lurk_boolean(a &gt; b),
-                            Op2::LessEqual =&gt; store.as_lurk_boolean(a &lt;= b),
-                            Op2::GreaterEqual =&gt; store.as_lurk_boolean(a &gt;= b),
-                            <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
                         }
-                    }
-                    (Expression::Num(a), Expression::UInt(b)) <span class="kw">if </span>operator.is_numeric() =&gt; {
-                        <span class="kw">match </span>num_num(store, operator, a, b.into()) {
-                            <span class="prelude-val">Ok</span>(x) =&gt; x,
-                            <span class="prelude-val">Err</span>(control) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(control),
+                        (Expression::Num(a), Expression::UInt(b)) <span class="kw">if </span>operator.is_numeric() =&gt; {
+                            <span class="kw">match </span>num_num(store, operator, a, b.into()) {
+                                <span class="prelude-val">Ok</span>(x) =&gt; x,
+                                <span class="prelude-val">Err</span>(control) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(control),
+                            }
                         }
-                    }
-                    (Expression::UInt(a), Expression::Num(b)) <span class="kw">if </span>operator.is_numeric() =&gt; {
-                        <span class="kw">match </span>num_num(store, operator, a.into(), b) {
-                            <span class="prelude-val">Ok</span>(x) =&gt; x,
-                            <span class="prelude-val">Err</span>(control) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(control),
+                        (Expression::UInt(a), Expression::Num(b)) <span class="kw">if </span>operator.is_numeric() =&gt; {
+                            <span class="kw">match </span>num_num(store, operator, a.into(), b) {
+                                <span class="prelude-val">Ok</span>(x) =&gt; x,
+                                <span class="prelude-val">Err</span>(control) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(control),
+                            }
                         }
-                    }
-                    (Expression::Char(<span class="kw">_</span>), Expression::Str(<span class="kw">_</span>))
-                        <span class="kw">if </span><span class="macro">matches!</span>(operator, Op2::StrCons) =&gt;
-                    {
-                        cons_witness.strcons_named(ConsName::TheCons, store, evaled_arg, arg2)
-                    }
-                    <span class="kw">_ </span>=&gt; <span class="kw">match </span>operator {
-                        Op2::Equal =&gt; store.as_lurk_boolean(store.ptr_eq(<span class="kw-2">&amp;</span>evaled_arg, <span class="kw-2">&amp;</span>arg2)<span class="question-mark">?</span>),
-                        Op2::Cons =&gt; {
-                            cons_witness.cons_named(ConsName::TheCons, store, evaled_arg, arg2)
-                        }
-                        Op2::Eval =&gt; {
-                            <span class="kw">return </span><span class="prelude-val">Ok</span>(Control::Return(evaled_arg, arg2, continuation));
+                        (Expression::Char(<span class="kw">_</span>), Expression::EmptyStr)
+                        | (Expression::Char(<span class="kw">_</span>), Expression::Str(..))
+                            <span class="kw">if </span><span class="macro">matches!</span>(operator, Op2::StrCons) =&gt;
+                        {
+                            cons_witness.strcons_named(ConsName::TheCons, store, evaled_arg, arg2)
                         }
                         <span class="kw">_ </span>=&gt; {
                             <span class="kw">return </span><span class="prelude-val">Ok</span>(Control::Return(result, env, store.intern_cont_error()));

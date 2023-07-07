@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["HashScalar"],"struct":["ConstantPtrs","Error","NamedConstants","Store","StringSet"],"trait":["TypePredicates"]};
+window.SIDEBAR_ITEMS = {"struct":["ConstantPtrs","Error","NamedConstants","Store"]};
