@@ -20,10 +20,7 @@ pub fn lurk_dir() -> PathBuf {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn create_lurk_dir() -> Result<()> {
     let dir_path = lurk_dir();
-    if !dir_path.exists() {
-        fs::create_dir_all(dir_path)?;
-    }
-    Ok(())
+    Ok(fs::create_dir_all(dir_path)?)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
