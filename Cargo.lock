@@ -609,7 +609,7 @@ dependencies = [
  "clap 4.3.11",
  "ff",
  "lurk",
- "pasta_curves 0.5.1 (git+https://github.com/lurk-lab/pasta_curves?branch=dev)",
+ "pasta_curves",
  "pretty_env_logger",
  "serde",
 ]
@@ -960,7 +960,7 @@ dependencies = [
  "num_cpus",
  "once_cell",
  "pairing",
- "pasta_curves 0.5.1 (git+https://github.com/lurk-lab/pasta_curves?branch=dev)",
+ "pasta_curves",
  "predicates 2.1.5",
  "pretty_env_logger",
  "rand",
@@ -1149,7 +1149,7 @@ dependencies = [
  "lazy_static",
  "num-bigint 0.4.3",
  "num-traits",
- "pasta_curves 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pasta_curves",
  "paste",
  "rand",
  "rand_core",
@@ -1422,7 +1422,7 @@ dependencies = [
  "once_cell",
  "pairing",
  "pasta-msm",
- "pasta_curves 0.5.1 (git+https://github.com/lurk-lab/pasta_curves?branch=dev)",
+ "pasta_curves",
  "peekmore",
  "pprof",
  "pretty_env_logger",
@@ -1450,7 +1450,7 @@ name = "lurk-macros"
 version = "0.1.0"
 dependencies = [
  "lurk",
- "pasta_curves 0.5.1 (git+https://github.com/lurk-lab/pasta_curves?branch=dev)",
+ "pasta_curves",
  "proc-macro2 1.0.63",
  "quote 1.0.29",
  "syn 1.0.109",
@@ -1512,7 +1512,7 @@ dependencies = [
  "generic-array 0.14.7",
  "itertools 0.8.2",
  "log",
- "pasta_curves 0.5.1 (git+https://github.com/lurk-lab/pasta_curves?branch=dev)",
+ "pasta_curves",
  "serde",
  "trait-set",
 ]
@@ -1579,7 +1579,7 @@ dependencies = [
  "num-integer",
  "num-traits",
  "pasta-msm",
- "pasta_curves 0.5.1 (git+https://github.com/lurk-lab/pasta_curves?branch=dev)",
+ "pasta_curves",
  "rand_chacha",
  "rand_core",
  "rayon",
@@ -1743,25 +1743,10 @@ version = "0.1.4"
 source = "git+https://github.com/lurk-lab/pasta-msm?branch=dev#182b971dd0f6dcc1a9a6bd5db8646bdd4600ed7e"
 dependencies = [
  "cc",
- "pasta_curves 0.5.1 (git+https://github.com/lurk-lab/pasta_curves?branch=dev)",
+ "pasta_curves",
  "semolina",
  "sppark",
  "which",
-]
-
-[[package]]
-name = "pasta_curves"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3e57598f73cc7e1b2ac63c79c517b31a0877cd7c402cdcaa311b5208de7a095"
-dependencies = [
- "blake2b_simd",
- "ff",
- "group",
- "lazy_static",
- "rand",
- "static_assertions",
- "subtle",
 ]
 
 [[package]]

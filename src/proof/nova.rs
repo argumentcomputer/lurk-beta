@@ -48,9 +48,9 @@ pub type EE1 = nova::provider::ipa_pc::EvaluationEngine<G1>;
 pub type EE2 = nova::provider::ipa_pc::EvaluationEngine<G2>;
 
 /// Type alias for the Relaxed R1CS Spartan SNARK using G1 group elements, EE1.
-pub type SS1 = nova::spartan::RelaxedR1CSSNARK<G1, EE1>;
+pub type SS1 = nova::spartan::snark::RelaxedR1CSSNARK<G1, EE1>;
 /// Type alias for the Relaxed R1CS Spartan SNARK using G2 group elements, EE2.
-pub type SS2 = nova::spartan::RelaxedR1CSSNARK<G2, EE2>;
+pub type SS2 = nova::spartan::snark::RelaxedR1CSSNARK<G2, EE2>;
 
 /// Type alias for a MultiFrame with S1 field elements.
 pub type C1<'a, C> = MultiFrame<'a, S1, IO<S1>, Witness<S1>, C>;
