@@ -337,8 +337,8 @@ pub mod tests {
                 // println!("detected: {} {:?}", x.clone(), x);
                 false
             }
-            (Some(..), Err(e)) => {
-                println!("{}", e);
+            (Some(..), Err(_)) => {
+                // println!("{}", e);
                 false
             }
             (None, Ok(..)) => {
