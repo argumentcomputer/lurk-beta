@@ -744,6 +744,8 @@ pub mod tests {
             "(' ' . a)",
             Some(list!([char!(' ')], symbol!(["a"])))
         ));
+        assert!(test(parse_syntax(), "(cons # \"\")", None));
+        assert!(test(parse_syntax(), "#", None));
     }
 
     #[test]
