@@ -188,7 +188,7 @@
     [$( <span class="macro-nonterminal">$x</span>:expr ),<span class="kw-2">*</span>] =&gt; {
         {
             <span class="kw">let </span>temp_vec = <span class="macro">vec!</span>[ $( <span class="macro-nonterminal">$x</span>.to_string() ),* ];
-            <span class="macro-nonterminal">$crate::symbol::Symbol::Sym</span>(temp_vec)
+            <span class="macro-nonterminal">$crate::symbol::Symbol::new</span>(<span class="kw-2">&amp;</span>temp_vec)
         }
     };
 }
@@ -199,7 +199,7 @@
     [$( <span class="macro-nonterminal">$x</span>:expr ),<span class="kw-2">*</span>] =&gt; {
         {
             <span class="kw">let </span>temp_vec = <span class="macro">vec!</span>[ <span class="string">&quot;lurk&quot;</span>.to_owned(), $( <span class="macro-nonterminal">$x</span>.to_string() ),* ];
-            <span class="macro-nonterminal">$crate::symbol::Symbol::Sym</span>(temp_vec)
+            <span class="macro-nonterminal">$crate::symbol::Symbol::new</span>(<span class="kw-2">&amp;</span>temp_vec)
         }
     };
 }

@@ -203,6 +203,8 @@
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
@@ -391,6 +393,8 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>test {
+    <span class="kw">use </span><span class="kw">crate</span>::sym;
+
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span>pasta_curves::pallas::Scalar <span class="kw">as </span>Fr;
 
@@ -404,7 +408,7 @@
         <span class="kw">let </span>store = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
         <span class="kw">let </span>_lang = Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new_with_bindings(
             store,
-            <span class="macro">vec!</span>[(<span class="string">&quot;.coproc.dummy&quot;</span>, DummyCoprocessor::new().into())],
+            <span class="macro">vec!</span>[(<span class="macro">sym!</span>(<span class="string">&quot;coproc&quot;</span>, <span class="string">&quot;dummy&quot;</span>), DummyCoprocessor::new().into())],
         );
     }
 }
