@@ -147,7 +147,7 @@ use super::{
     pointers::{Ptr, ZPtr},
     store::Store,
     var_map::VarMap,
-    Ctrl, Func, Op, Var,
+    Block, Ctrl, Func, Op, Var,
 };
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -206,6 +206,21 @@ impl SlotsCounter {
     }
 }
 
+impl Block {
+    pub fn count_slots(&self) -> SlotsCounter {
+        let ops_slots = self.ops.iter().fold(SlotsCounter::default(), |acc, op| {
+            let val = match op {
+                Op::Hash2(..) | Op::Unhash2(..) => SlotsCounter::new((1, 0, 0)),
+                Op::Hash3(..) | Op::Unhash3(..) => SlotsCounter::new((0, 1, 0)),
+                Op::Hash4(..) | Op::Unhash4(..) => SlotsCounter::new((0, 0, 1)),
+                _ => SlotsCounter::default(),
+            };
+            acc.add(val)
+        });
+        ops_slots.add(self.ctrl.count_slots())
+    }
+}
+
 impl Ctrl {
     pub fn count_slots(&self) -> SlotsCounter {
         match self {
@@ -218,18 +233,6 @@ impl Ctrl {
                 .values()
                 .fold(def.count_slots(), |acc, block| acc.max(block.count_slots())),
             Ctrl::Return(..) => SlotsCounter::default(),
-            Ctrl::Seq(ops, rest) => {
-                let ops_slots = ops.iter().fold(SlotsCounter::default(), |acc, op| {
-                    let val = match op {
-                        Op::Hash2(..) | Op::Unhash2(..) => SlotsCounter::new((1, 0, 0)),
-                        Op::Hash3(..) | Op::Unhash3(..) => SlotsCounter::new((0, 1, 0)),
-                        Op::Hash4(..) | Op::Unhash4(..) => SlotsCounter::new((0, 0, 1)),
-                        _ => SlotsCounter::default(),
-                    };
-                    acc.add(val)
-                });
-                ops_slots.add(rest.count_slots())
-            }
         }
     }
 }
@@ -550,12 +553,139 @@ impl Func {
 
         fn recurse<F: LurkField, CS: ConstraintSystem<F>>(
             cs: &mut CS,
-            block: &Ctrl,
+            block: &Block,
             concrete_path: Boolean,
             slots_count: &mut SlotsCounter,
             g: &mut Globals<'_, F>,
         ) -> Result<()> {
-            match block {
+            for op in &block.ops {
+                macro_rules! hash_helper {
+                    ( $img: expr, $tag: expr, $preimg: expr, $slot: expr ) => {
+                        // Retrieve allocated preimage
+                        let allocated_preimg = g.bound_allocations.get_many($preimg)?;
+
+                        // Retrieve the preallocated preimage and image for this slot
+                        let (preallocated_preimg, preallocated_img_hash) = match $slot {
+                            SlotType::Hash2 => {
+                                &g.preallocated_hash2_slots[slots_count.consume_hash2()]
+                            }
+                            SlotType::Hash3 => {
+                                &g.preallocated_hash3_slots[slots_count.consume_hash3()]
+                            }
+                            SlotType::Hash4 => {
+                                &g.preallocated_hash4_slots[slots_count.consume_hash4()]
+                            }
+                        };
+
+                        // For each component of the preimage, add implication constraints
+                        // for its tag and hash
+                        for (i, allocated_ptr) in allocated_preimg.iter().enumerate() {
+                            let var = &$preimg[i];
+                            let ptr_idx = 2 * i;
+                            implies_equal(
+                                &mut cs.namespace(|| {
+                                    format!(
+                                        "implies equal for {var}'s tag (LEMOP {:?}, pos {i})",
+                                        &op
+                                    )
+                                }),
+                                &concrete_path,
+                                allocated_ptr.tag(),
+                                &preallocated_preimg[ptr_idx], // tag index
+                            )?;
+                            implies_equal(
+                                &mut cs.namespace(|| {
+                                    format!(
+                                        "implies equal for {var}'s hash (LEMOP {:?}, pos {i})",
+                                        &op
+                                    )
+                                }),
+                                &concrete_path,
+                                allocated_ptr.hash(),
+                                &preallocated_preimg[ptr_idx + 1], // hash index
+                            )?;
+                        }
+
+                        // Allocate the image tag if it hasn't been allocated before,
+                        // create the full image pointer and add it to bound allocations
+                        let img_tag = g.global_allocator.get_or_alloc_const(cs, $tag.to_field())?;
+                        let img_hash = preallocated_img_hash.clone();
+                        let img_ptr = AllocatedPtr::from_parts(img_tag, img_hash);
+                        g.bound_allocations.insert($img, img_ptr)?;
+                    };
+                }
+
+                macro_rules! unhash_helper {
+                    ( $preimg: expr, $img: expr, $slot: expr ) => {
+                        // Retrieve allocated image
+                        let allocated_img = g.bound_allocations.get($img)?;
+
+                        // Retrieve the preallocated preimage and image for this slot
+                        let (preallocated_preimg, preallocated_img) = match $slot {
+                            SlotType::Hash2 => {
+                                &g.preallocated_hash2_slots[slots_count.consume_hash2()]
+                            }
+                            SlotType::Hash3 => {
+                                &g.preallocated_hash3_slots[slots_count.consume_hash3()]
+                            }
+                            SlotType::Hash4 => {
+                                &g.preallocated_hash4_slots[slots_count.consume_hash4()]
+                            }
+                        };
+
+                        // Add the implication constraint for the image
+                        implies_equal(
+                            &mut cs.namespace(|| {
+                                format!("implies equal for {}'s hash (LEMOP {:?})", $img, &op)
+                            }),
+                            &concrete_path,
+                            allocated_img.hash(),
+                            &preallocated_img,
+                        )?;
+
+                        // Retrieve preimage hashes and tags create the full preimage pointers
+                        // and add them to bound allocations
+                        for i in 0..preallocated_preimg.len() / 2 {
+                            let preimg_hash = &preallocated_preimg[i];
+                            let preimg_tag = &preallocated_preimg[i + 1];
+                            let preimg_ptr =
+                                AllocatedPtr::from_parts(preimg_tag.clone(), preimg_hash.clone());
+                            g.bound_allocations.insert($preimg[i].clone(), preimg_ptr)?;
+                        }
+                    };
+                }
+
+                match op {
+                    Op::Hash2(img, tag, preimg) => {
+                        hash_helper!(img.clone(), tag, preimg, SlotType::Hash2);
+                    }
+                    Op::Hash3(img, tag, preimg) => {
+                        hash_helper!(img.clone(), tag, preimg, SlotType::Hash3);
+                    }
+                    Op::Hash4(img, tag, preimg) => {
+                        hash_helper!(img.clone(), tag, preimg, SlotType::Hash4);
+                    }
+                    Op::Unhash2(preimg, img) => {
+                        unhash_helper!(preimg, img, SlotType::Hash2);
+                    }
+                    Op::Unhash3(preimg, img) => {
+                        unhash_helper!(preimg, img, SlotType::Hash3);
+                    }
+                    Op::Unhash4(preimg, img) => {
+                        unhash_helper!(preimg, img, SlotType::Hash4);
+                    }
+                    Op::Null(tgt, tag) => {
+                        let allocated_ptr = AllocatedPtr::from_parts(
+                            g.global_allocator.get_or_alloc_const(cs, tag.to_field())?,
+                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
+                        );
+                        g.bound_allocations.insert(tgt.clone(), allocated_ptr)?;
+                    }
+                    _ => todo!(),
+                }
+            }
+
+            match &block.ctrl {
                 Ctrl::Return(output_vars) => {
                     for (i, output_var) in output_vars.iter().enumerate() {
                         let allocated_ptr = g.bound_allocations.get(output_var)?;
@@ -614,122 +744,6 @@ impl Func {
                     Ok(())
                 }
                 Ctrl::MatchSymbol(..) => Ok(()),
-                Ctrl::Seq(ops, rest) => {
-                    for op in ops {
-                        macro_rules! hash_helper {
-                            ( $img: expr, $tag: expr, $preimg: expr, $slot: expr ) => {
-                                // Retrieve allocated preimage
-                                let allocated_preimg =
-                                    g.bound_allocations.get_many($preimg)?;
-
-                                // Retrieve the preallocated preimage and image for this slot
-                                let (preallocated_preimg, preallocated_img_hash) =
-                                    match $slot {
-                                        SlotType::Hash2 => &g.preallocated_hash2_slots[slots_count.consume_hash2()],
-                                        SlotType::Hash3 => &g.preallocated_hash3_slots[slots_count.consume_hash3()],
-                                        SlotType::Hash4 => &g.preallocated_hash4_slots[slots_count.consume_hash4()],
-                                    };
-
-                                // For each component of the preimage, add implication constraints
-                                // for its tag and hash
-                                for (i, allocated_ptr) in allocated_preimg.iter().enumerate() {
-                                    let var = &$preimg[i];
-                                    let ptr_idx = 2 * i;
-                                    implies_equal(
-                                        &mut cs.namespace(|| {
-                                            format!("implies equal for {var}'s tag (LEMOP {:?}, pos {i})", &op)
-                                        }),
-                                        &concrete_path,
-                                        allocated_ptr.tag(),
-                                        &preallocated_preimg[ptr_idx], // tag index
-                                    )?;
-                                    implies_equal(
-                                        &mut cs.namespace(|| {
-                                            format!(
-                                                "implies equal for {var}'s hash (LEMOP {:?}, pos {i})",
-                                                &op
-                                            )
-                                        }),
-                                        &concrete_path,
-                                        allocated_ptr.hash(),
-                                        &preallocated_preimg[ptr_idx + 1], // hash index
-                                    )?;
-                                }
-
-                                // Allocate the image tag if it hasn't been allocated before,
-                                // create the full image pointer and add it to bound allocations
-                                let img_tag = g.global_allocator.get_or_alloc_const(cs, $tag.to_field())?;
-                                let img_hash = preallocated_img_hash.clone();
-                                let img_ptr = AllocatedPtr::from_parts(img_tag, img_hash);
-                                g.bound_allocations.insert($img, img_ptr)?;
-                            };
-                        }
-
-                        macro_rules! unhash_helper {
-                            ( $preimg: expr, $img: expr, $slot: expr ) => {
-                                // Retrieve allocated image
-                                let allocated_img = g.bound_allocations.get($img)?;
-
-                                // Retrieve the preallocated preimage and image for this slot
-                                let (preallocated_preimg, preallocated_img) =
-                                    match $slot {
-                                        SlotType::Hash2 => &g.preallocated_hash2_slots[slots_count.consume_hash2()],
-                                        SlotType::Hash3 => &g.preallocated_hash3_slots[slots_count.consume_hash3()],
-                                        SlotType::Hash4 => &g.preallocated_hash4_slots[slots_count.consume_hash4()],
-                                    };
-
-                                // Add the implication constraint for the image
-                                implies_equal(
-                                    &mut cs.namespace(|| {
-                                        format!("implies equal for {}'s hash (LEMOP {:?})", $img, &op)
-                                    }),
-                                    &concrete_path,
-                                    allocated_img.hash(),
-                                    &preallocated_img,
-                                )?;
-
-                                // Retrieve preimage hashes and tags create the full preimage pointers
-                                // and add them to bound allocations
-                                for i in 0..preallocated_preimg.len()/2 {
-                                    let preimg_hash = &preallocated_preimg[i];
-                                    let preimg_tag = &preallocated_preimg[i+1];
-                                    let preimg_ptr = AllocatedPtr::from_parts(preimg_tag.clone(), preimg_hash.clone());
-                                    g.bound_allocations.insert($preimg[i].clone(), preimg_ptr)?;
-                                }
-                            };
-                        }
-
-                        match op {
-                            Op::Hash2(img, tag, preimg) => {
-                                hash_helper!(img.clone(), tag, preimg, SlotType::Hash2);
-                            }
-                            Op::Hash3(img, tag, preimg) => {
-                                hash_helper!(img.clone(), tag, preimg, SlotType::Hash3);
-                            }
-                            Op::Hash4(img, tag, preimg) => {
-                                hash_helper!(img.clone(), tag, preimg, SlotType::Hash4);
-                            }
-                            Op::Unhash2(preimg, img) => {
-                                unhash_helper!(preimg, img, SlotType::Hash2);
-                            }
-                            Op::Unhash3(preimg, img) => {
-                                unhash_helper!(preimg, img, SlotType::Hash3);
-                            }
-                            Op::Unhash4(preimg, img) => {
-                                unhash_helper!(preimg, img, SlotType::Hash4);
-                            }
-                            Op::Null(tgt, tag) => {
-                                let allocated_ptr = AllocatedPtr::from_parts(
-                                    g.global_allocator.get_or_alloc_const(cs, tag.to_field())?,
-                                    g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
-                                );
-                                g.bound_allocations.insert(tgt.clone(), allocated_ptr)?;
-                            }
-                            _ => todo!(),
-                        }
-                    }
-                    recurse(cs, rest, concrete_path, slots_count, g)
-                }
             }
         }
 
@@ -761,7 +775,39 @@ impl Func {
 
         let mut stack = vec![(&self.block, false)];
         while let Some((block, nested)) = stack.pop() {
-            match block {
+            for op in &block.ops {
+                match op {
+                    Op::Null(_, tag) => {
+                        // constrain tag and hash
+                        globals.insert(FWrap(tag.to_field()));
+                        globals.insert(FWrap(F::ZERO));
+                    }
+                    Op::Hash2(_, tag, _) => {
+                        // tag for the image
+                        globals.insert(FWrap(tag.to_field()));
+                        // tag and hash for 2 preimage pointers
+                        num_constraints += 4;
+                    }
+                    Op::Hash3(_, tag, _) => {
+                        // tag for the image
+                        globals.insert(FWrap(tag.to_field()));
+                        // tag and hash for 3 preimage pointers
+                        num_constraints += 6;
+                    }
+                    Op::Hash4(_, tag, _) => {
+                        // tag for the image
+                        globals.insert(FWrap(tag.to_field()));
+                        // tag and hash for 4 preimage pointers
+                        num_constraints += 8;
+                    }
+                    Op::Unhash2(..) | Op::Unhash3(..) | Op::Unhash4(..) => {
+                        // one constraint for the image's hash
+                        num_constraints += 1;
+                    }
+                    _ => todo!(),
+                }
+            }
+            match &block.ctrl {
                 Ctrl::Return(..) => {
                     // tag and hash for 3 pointers
                     num_constraints += 6;
@@ -781,42 +827,6 @@ impl Func {
                     }
                 }
                 Ctrl::MatchSymbol(..) => todo!(),
-                Ctrl::Seq(ops, rest) => {
-                    for op in ops {
-                        match op {
-                            Op::Null(_, tag) => {
-                                // constrain tag and hash
-                                globals.insert(FWrap(tag.to_field()));
-                                globals.insert(FWrap(F::ZERO));
-                            }
-                            Op::Hash2(_, tag, _) => {
-                                // tag for the image
-                                globals.insert(FWrap(tag.to_field()));
-                                // tag and hash for 2 preimage pointers
-                                num_constraints += 4;
-                            }
-                            Op::Hash3(_, tag, _) => {
-                                // tag for the image
-                                globals.insert(FWrap(tag.to_field()));
-                                // tag and hash for 3 preimage pointers
-                                num_constraints += 6;
-                            }
-                            Op::Hash4(_, tag, _) => {
-                                // tag for the image
-                                globals.insert(FWrap(tag.to_field()));
-                                // tag and hash for 4 preimage pointers
-                                num_constraints += 8;
-                            }
-                            Op::Unhash2(..) | Op::Unhash3(..) | Op::Unhash4(..) => {
-                                // one constraint for the image's hash
-                                num_constraints += 1;
-                            }
-                            _ => todo!(),
-                        }
-                    }
-                    // no constraints added here
-                    stack.push((rest, nested))
-                }
             }
         }
 

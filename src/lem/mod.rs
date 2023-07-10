@@ -63,7 +63,7 @@
 //! 3. Assign first, use later: this prevents obvious errors such as "x not
 //! defined" during interpretation or "x not allocated" during constraining.
 
-// mod circuit;
+mod circuit;
 mod eval;
 mod interpreter;
 mod macros;
