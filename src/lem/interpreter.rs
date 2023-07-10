@@ -183,7 +183,7 @@ impl Ctrl {
             Ctrl::Return(output_vars) => {
                 let mut output = Vec::with_capacity(output_vars.len());
                 for var in output_vars.iter() {
-                    output.push(*bindings.get(&var)?)
+                    output.push(*bindings.get(var)?)
                 }
                 Ok((
                     Frame {
@@ -201,12 +201,27 @@ impl Ctrl {
 impl Func {
     /// Calls `run_step` until the stop contidion is satisfied, using the output of one
     /// iteration as the input of the next one.
-    pub fn run<F: LurkField, Stop: Fn(&Vec<Ptr<F>>) -> bool>(
+    pub fn run<F: LurkField, Stop: Fn(&[Ptr<F>]) -> bool>(
         &self,
         mut input: Vec<Ptr<F>>,
         store: &mut Store<F>,
         stop_cond: Stop,
     ) -> Result<(Vec<Frame<F>>, Vec<Path>)> {
+        if self.input_vars.len() != self.output_size {
+            bail!(
+                "Function's input size {} is different from its output size {}",
+                self.input_vars.len(),
+                self.output_size
+            )
+        }
+        if self.input_vars.len() != input.len() {
+            bail!(
+                "The number of inputs {} differs from the function's input size {}",
+                input.len(),
+                self.input_vars.len()
+            )
+        }
+
         // Initial path vector and frames
         let mut frames = vec![];
         let mut paths = vec![];

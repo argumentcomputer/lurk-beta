@@ -1,11 +1,10 @@
 use crate::func;
 
 use super::Func;
-use anyhow::Result;
 
 /// Lurk's step function encoded as a LEM
 #[allow(dead_code)]
-pub(crate) fn step() -> Result<Func> {
+pub(crate) fn eval_step() -> Func {
     func!((expr_in, env_in, cont_in): 3 => {
         match_tag expr_in {
             Num => {
@@ -18,15 +17,16 @@ pub(crate) fn step() -> Result<Func> {
             }
         };
     })
+    .unwrap()
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::field::LurkField;
-    use crate::lem::circuit::SlotsCounter;
-    use crate::lem::{pointers::Ptr, store::Store};
+    use crate::lem::{
+        circuit::SlotsCounter, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag,
+    };
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
     use blstrs::Scalar as Fr;
 
@@ -40,22 +40,32 @@ mod tests {
     };
 
     fn test_eval_and_constrain_aux(store: &mut Store<Fr>, pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>) {
-        let lem = step().unwrap();
-        lem.check();
+        let eval_step = eval_step();
+        eval_step.check();
 
-        let slots_count = lem.block.count_slots();
+        let slots_count = eval_step.block.count_slots();
 
         assert_eq!(slots_count, NUM_SLOTS);
 
-        let computed_num_constraints = lem.num_constraints::<Fr>(&slots_count);
+        let computed_num_constraints = eval_step.num_constraints::<Fr>(&slots_count);
 
         // Assures that `MatchSymbol`s will work properly
-        lem.intern_matched_symbols(store);
+        eval_step.intern_matched_symbols(store);
 
         let mut all_paths = vec![];
 
+        // Auxiliary Lurk constants
+        let outermost = Ptr::null(Tag::Outermost);
+        let terminal = Ptr::null(Tag::Terminal);
+        let error = Ptr::null(Tag::Error);
+        let nil = store.intern_symbol(&Symbol::lurk_sym("nil"));
+
+        // Stop condition: the continuation is either terminal or error
+        let stop_cond = |output: &[Ptr<Fr>]| output[2] == terminal || output[2] == error;
+
         for (expr_in, expr_out) in pairs {
-            let (frames, paths) = lem.eval(expr_in, store).unwrap();
+            let input = vec![expr_in, nil, outermost];
+            let (frames, paths) = eval_step.run(input, store, stop_cond).unwrap();
             assert!(
                 frames
                     .last()
@@ -66,7 +76,9 @@ mod tests {
             store.hydrate_z_cache();
             let mut cs = TestConstraintSystem::<Fr>::new();
             for frame in frames.iter() {
-                lem.synthesize(&mut cs, store, &slots_count, frame).unwrap();
+                eval_step
+                    .synthesize(&mut cs, store, &slots_count, frame)
+                    .unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(cs.num_inputs(), NUM_INPUTS);
                 assert_eq!(cs.aux().len(), NUM_AUX);
@@ -79,7 +91,7 @@ mod tests {
             all_paths.extend(paths);
         }
 
-        lem.assert_all_paths_taken(&all_paths);
+        eval_step.assert_all_paths_taken(&all_paths);
     }
 
     fn expr_in_expr_out_pairs(_store: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
@@ -94,4 +106,3 @@ mod tests {
         test_eval_and_constrain_aux(&mut store, pairs);
     }
 }
-*/
