@@ -393,7 +393,9 @@ where
     Self: Sized,
 {
     fn write_to_path<P: AsRef<Path>>(&self, path: P);
+    fn write_to_json_path<P: AsRef<Path>>(&self, path: P);
     fn read_from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error>;
+    fn read_from_json_path<P: AsRef<Path>>(path: P) -> Result<Self, Error>;
     fn read_from_stdin() -> Result<Self, Error>;
 }
 
@@ -408,11 +410,24 @@ where
         bincode::serialize_into(writer, &self).expect("failed to write file");
     }
 
+    fn write_to_json_path<P: AsRef<Path>>(&self, path: P) {
+        let file = File::create(path).expect("failed to create file");
+        let writer = BufWriter::new(&file);
+
+        serde_json::to_writer(writer, &self).expect("failed to write file");
+    }
+
     fn read_from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
         bincode::deserialize_from(reader)
             .map_err(|e| Error::CacheError(format!("Cache deserialization error: {}", e)))
+    }
+
+    fn read_from_json_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        Ok(serde_json::from_reader(reader)?)
     }
 
     fn read_from_stdin() -> Result<Self, Error> {

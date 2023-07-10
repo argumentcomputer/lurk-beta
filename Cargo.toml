@@ -144,4 +144,3 @@ harness = false
 [[bench]]
 name = "public_params"
 harness = false
-
