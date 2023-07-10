@@ -65,7 +65,7 @@
 
 // mod circuit;
 mod eval;
-// mod interpreter;
+mod interpreter;
 mod macros;
 mod path;
 mod pointers;

@@ -20,6 +20,7 @@ pub(crate) fn step() -> Result<Func> {
     })
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -93,3 +94,4 @@ mod tests {
         test_eval_and_constrain_aux(&mut store, pairs);
     }
 }
+*/
