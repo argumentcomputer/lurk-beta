@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 use anyhow::{bail, Result};
 
+use log::info;
 use lurk::eval::lang::Coproc;
 use lurk::field::{LanguageField, LurkField};
 use lurk::store::Store;
@@ -15,7 +16,6 @@ use lurk::z_store::ZStore;
 use pasta_curves::{pallas, vesta};
 
 use clap::{Args, Parser, Subcommand};
-use tap::TapOptional;
 
 // use self::prove_and_verify::verify_proof;
 use self::repl::Repl;
@@ -149,27 +149,29 @@ fn get_field() -> Result<LanguageField> {
 }
 
 fn get_store<F: LurkField + for<'a> serde::de::Deserialize<'a>>(
-    zstore: &Option<PathBuf>,
-) -> Store<F> {
-    zstore
-        .as_ref()
-        .and_then(|zstore_path| fs::read(zstore_path).ok())
-        .and_then(|zstore_bytes| ZData::from_bytes(&zstore_bytes).ok())
-        .and_then(|zstore_data| from_z_data(&zstore_data).ok())
-        .map(|zstore: ZStore<F>| zstore.to_store())
-        .tap_none(|| {
-            if zstore.is_some() {
-                eprintln!("Failed to load ZStore. Starting with empty store.")
-            }
-        })
-        .unwrap_or_default()
+    zstore_path: &Option<PathBuf>,
+) -> Result<Store<F>> {
+    match zstore_path {
+        None => Ok(Store::default()),
+        Some(zstore_path) => {
+            info!("Reading ZStore bytes");
+            let bytes = fs::read(zstore_path)?;
+            info!("Deserializing ZStore bytes into ZData");
+            let zdata = ZData::from_bytes(&bytes)?;
+            info!("Deserializing ZData into ZStore");
+            let zstore: ZStore<F> = from_z_data(&zdata)?;
+            info!("Converting ZStore into Store");
+            let store = zstore.to_store();
+            Ok(store)
+        }
+    }
 }
 
 macro_rules! new_repl {
     ( $cli: expr, $field: path ) => {{
         let limit = $cli.limit.unwrap_or(DEFAULT_LIMIT);
         // let rc = $cli.rc.unwrap_or(DEFAULT_RC);
-        let mut store = get_store(&$cli.zstore);
+        let mut store = get_store(&$cli.zstore)?;
         let env = store.nil();
         // Repl::<$field, Coproc<$field>>::new(store, env, limit, rc)?
         Repl::<$field, Coproc<$field>>::new(store, env, limit, DEFAULT_RC)?
