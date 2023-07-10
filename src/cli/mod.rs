@@ -5,7 +5,7 @@ mod repl;
 use std::fs;
 use std::path::PathBuf;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 
 use log::info;
 use lurk::eval::lang::Coproc;
@@ -171,7 +171,7 @@ macro_rules! new_repl {
     ( $cli: expr, $field: path ) => {{
         let limit = $cli.limit.unwrap_or(DEFAULT_LIMIT);
         // let rc = $cli.rc.unwrap_or(DEFAULT_RC);
-        let mut store = get_store(&$cli.zstore)?;
+        let mut store = get_store(&$cli.zstore).with_context(|| "reading store from file")?;
         let env = store.nil();
         // Repl::<$field, Coproc<$field>>::new(store, env, limit, rc)?
         Repl::<$field, Coproc<$field>>::new(store, env, limit, DEFAULT_RC)?
