@@ -32,8 +32,6 @@ pub struct IO<F: LurkField> {
     pub cont: ContPtr<F>, // This could be a Ptr too, if we want Continuations to be first class.
 }
 
-//unsafe impl<F: LurkField> Sync for IO<F> {}
-
 impl<F: LurkField> Write<F> for IO<F> {
     fn fmt<W: std::io::Write>(&self, store: &Store<F>, w: &mut W) -> std::io::Result<()> {
         write!(w, "IO {{ expr: ")?;
