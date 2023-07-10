@@ -11,7 +11,7 @@ use tap::TapFallible;
 use crate::public_parameters::error::Error;
 use crate::{coprocessor::Coprocessor, eval::lang::Lang, proof::nova::PublicParams};
 
-use crate::file_map::FileIndex;
+use super::file_map::FileIndex;
 
 type S1 = pallas::Scalar;
 type AnyMap = anymap::Map<dyn anymap::any::Any + Send + Sync>;

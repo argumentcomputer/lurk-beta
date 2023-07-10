@@ -13,6 +13,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 pub mod error;
+pub mod file_map;
 mod registry;
 
 use crate::public_parameters::error::Error;

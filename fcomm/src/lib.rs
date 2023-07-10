@@ -40,7 +40,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 pub mod error;
 
 use error::Error;
-use lurk::file_map::FileMap;
+use lurk::public_parameters::file_map::FileMap;
 
 pub const DEFAULT_REDUCTION_COUNT: ReductionCount = ReductionCount::Ten;
 pub static VERBOSE: OnceCell<bool> = OnceCell::new();
