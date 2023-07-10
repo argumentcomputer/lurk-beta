@@ -233,9 +233,9 @@ impl Func {
             }
 
             let preimages = Preimages::default();
-            let (frame, path) = self
-                .ctl
-                .run(input, store, bindings, preimages, Path::default())?;
+            let (frame, path) =
+                self.block
+                    .run(input, store, bindings, preimages, Path::default())?;
             if &frame.output[2] == terminal || &frame.output[2] == error {
                 frames.push(frame);
                 paths.push(path);

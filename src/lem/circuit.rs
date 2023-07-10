@@ -735,7 +735,7 @@ impl Func {
 
         recurse(
             cs,
-            &self.ctl,
+            &self.block,
             Boolean::Constant(true),
             &mut SlotsCounter::default(),
             &mut Globals {
@@ -759,7 +759,7 @@ impl Func {
 
         let mut globals: HashSet<FWrap<F>> = HashSet::default();
 
-        let mut stack = vec![(&self.ctl, false)];
+        let mut stack = vec![(&self.block, false)];
         while let Some((block, nested)) = stack.pop() {
             match block {
                 Ctrl::Return(..) => {

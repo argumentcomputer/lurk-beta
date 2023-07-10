@@ -63,10 +63,12 @@
 //! 3. Assign first, use later: this prevents obvious errors such as "x not
 //! defined" during interpretation or "x not allocated" during constraining.
 
+/*
 mod circuit;
 mod eval;
 mod interpreter;
 mod macros;
+*/
 mod path;
 mod pointers;
 mod store;
@@ -88,7 +90,7 @@ pub type AVec<A> = Arc<[A]>;
 pub struct Func {
     input_vars: Vec<Var>,
     output_size: usize,
-    ctl: Ctrl,
+    block: Block,
 }
 
 /// Named references to be bound to `Ptr`s.
@@ -108,28 +110,25 @@ impl Var {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Block {
+    ops: Vec<Op>,
+    ctrl: Ctrl,
+}
+
 /// The basic control nodes for LEM logical paths.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ctrl {
     /// `MatchTag(x, cases)` performs a match on the tag of `x`, considering only
     /// the appropriate `LEM` among the ones provided in `cases`
-    MatchTag(Var, IndexMap<Tag, Ctrl>),
+    MatchTag(Var, IndexMap<Tag, Block>),
     /// `MatchSymbol(x, cases, def)` checks whether `x` matches some symbol among
     /// the ones provided in `cases`. If so, run the corresponding `LEM`. Run
     /// The default `def` `LEM` otherwise
-    MatchSymbol(Var, IndexMap<Symbol, Ctrl>, Box<Ctrl>),
-    /// `Seq(ops, lem)` executes `ops: Vec<LEMOP>` then `lem: LEM` sequentially
-    Seq(Vec<Op>, Box<Ctrl>),
+    MatchSymbol(Var, IndexMap<Symbol, Block>, Box<Block>),
     /// `Return(rets)` sets the output to `rets`
     Return(Vec<Var>),
-}
-
-impl std::hash::Hash for Ctrl {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // TODO: this was generated automatically for me (Arthur). Is it efficient?
-        core::mem::discriminant(self).hash(state);
-    }
 }
 
 /// The atomic operations of LEMs.
@@ -164,14 +163,13 @@ impl Ctrl {
             Self::MatchSymbol(_, cases, def) => {
                 cases.iter().for_each(|(symbol, block)| {
                     store.intern_symbol(symbol);
-                    block.intern_matched_symbols(store)
+                    block.ctrl.intern_matched_symbols(store)
                 });
-                def.intern_matched_symbols(store);
+                def.ctrl.intern_matched_symbols(store);
             }
             Self::MatchTag(_, cases) => cases
                 .values()
-                .for_each(|block| block.intern_matched_symbols(store)),
-            Self::Seq(_, rest) => rest.intern_matched_symbols(store),
+                .for_each(|block| block.ctrl.intern_matched_symbols(store)),
             Self::Return(..) => (),
         }
     }
@@ -185,34 +183,36 @@ impl Func {
 
     /// Instantiates a `LEM` with the appropriate transformations to make sure
     /// that constraining will be smooth.
-    pub fn new(input_vars: Vec<Var>, output_size: usize, lem: &Ctrl) -> Result<Func> {
+    pub fn new(input_vars: Vec<Var>, output_size: usize, block: &Block) -> Result<Func> {
         let mut map = VarMap::new();
         for i in input_vars.iter() {
             map.insert(i.clone(), i.clone())?
         }
+        let block = block.deconflict(&Path::default(), &mut map)?;
         Ok(Func {
             input_vars,
             output_size,
-            ctl: lem.deconflict(&Path::default(), &mut map)?,
+            block,
         })
     }
 
     /// Intern all symbols that are matched on `MatchSymbol`s
     #[inline]
     pub fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
-        self.ctl.intern_matched_symbols(store);
+        self.block.ctrl.intern_matched_symbols(store);
     }
 
     /// Asserts that all paths were visited by a set of frames. This is mostly
     /// for testing purposes.
     pub fn assert_all_paths_taken(&self, paths: &[Path]) {
         assert_eq!(
-            self.ctl.num_paths_taken(paths).unwrap(),
-            self.ctl.num_paths()
+            self.block.ctrl.num_paths_taken(paths).unwrap(),
+            self.block.ctrl.num_paths()
         );
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::circuit::SlotsCounter;
@@ -228,7 +228,7 @@ mod tests {
     ///   provided expressions.
     ///   - `expected_slots` gives the number of expected slots for each type of hash.
     fn synthesize_test_helper(lem: &Func, exprs: &[Ptr<Fr>], expected_num_slots: SlotsCounter) {
-        let slots_count = lem.ctl.count_slots();
+        let slots_count = lem.block.count_slots();
 
         assert_eq!(slots_count, expected_num_slots);
 
@@ -482,3 +482,4 @@ mod tests {
         );
     }
 }
+*/

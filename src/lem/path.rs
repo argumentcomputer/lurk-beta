@@ -2,7 +2,7 @@ use anyhow::Result;
 use indexmap::IndexMap;
 use std::collections::HashSet;
 
-use super::{symbol::Symbol, tag::Tag, var_map::VarMap, Ctrl, Op, Var};
+use super::{symbol::Symbol, tag::Tag, var_map::VarMap, Block, Ctrl, Op, Var};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) enum PathNode {
@@ -77,6 +77,59 @@ fn insert_many(map: &mut VarMap<Var>, path: &Path, ptrs: &[Var]) -> Result<Vec<V
     ptrs.iter().map(|ptr| insert_one(map, path, ptr)).collect()
 }
 
+impl Block {
+    pub fn deconflict(
+        &self,
+        path: &Path,
+        // `map` keeps track of the updated names of variables
+        map: &mut VarMap<Var>, // name -> path.name
+    ) -> Result<Self> {
+        let mut ops = vec![];
+        for op in &self.ops {
+            match op {
+                Op::Null(ptr, tag) => {
+                    ops.push(Op::Null(insert_one(map, path, ptr)?, *tag))
+                }
+                Op::Hash2(img, tag, preimg) => {
+                    let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();
+                    let img = insert_one(map, path, img)?;
+                    ops.push(Op::Hash2(img, *tag, preimg))
+                }
+                Op::Hash3(img, tag, preimg) => {
+                    let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();
+                    let img = insert_one(map, path, img)?;
+                    ops.push(Op::Hash3(img, *tag, preimg))
+                }
+                Op::Hash4(img, tag, preimg) => {
+                    let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();
+                    let img = insert_one(map, path, img)?;
+                    ops.push(Op::Hash4(img, *tag, preimg))
+                }
+                Op::Unhash2(preimg, img) => {
+                    let img = map.get_cloned(img)?;
+                    let preimg = insert_many(map, path, preimg)?;
+                    ops.push(Op::Unhash2(preimg.try_into().unwrap(), img))
+                }
+                Op::Unhash3(preimg, img) => {
+                    let img = map.get_cloned(img)?;
+                    let preimg = insert_many(map, path, preimg)?;
+                    ops.push(Op::Unhash3(preimg.try_into().unwrap(), img))
+                }
+                Op::Unhash4(preimg, img) => {
+                    let img = map.get_cloned(img)?;
+                    let preimg = insert_many(map, path, preimg)?;
+                    ops.push(Op::Unhash4(preimg.try_into().unwrap(), img))
+                }
+                Op::Hide(..) => todo!(),
+                Op::Open(..) => todo!(),
+            }
+        }
+        let ctrl = self.ctrl.deconflict(path, map)?;
+        Ok(Block{ ops, ctrl })
+
+    }
+}
+
 impl Ctrl {
     /// Removes conflicting names in parallel logical LEM paths. While these
     /// conflicting names shouldn't be an issue for interpretation, they are
@@ -119,50 +172,6 @@ impl Ctrl {
                     Box::new(def.deconflict(&path.push_default(), map)?),
                 ))
             }
-            Ctrl::Seq(ops, rest) => {
-                let mut new_ops = vec![];
-                for op in ops {
-                    match op {
-                        Op::Null(ptr, tag) => {
-                            new_ops.push(Op::Null(insert_one(map, path, ptr)?, *tag))
-                        }
-                        Op::Hash2(img, tag, preimg) => {
-                            let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();
-                            let img = insert_one(map, path, img)?;
-                            new_ops.push(Op::Hash2(img, *tag, preimg))
-                        }
-                        Op::Hash3(img, tag, preimg) => {
-                            let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();
-                            let img = insert_one(map, path, img)?;
-                            new_ops.push(Op::Hash3(img, *tag, preimg))
-                        }
-                        Op::Hash4(img, tag, preimg) => {
-                            let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();
-                            let img = insert_one(map, path, img)?;
-                            new_ops.push(Op::Hash4(img, *tag, preimg))
-                        }
-                        Op::Unhash2(preimg, img) => {
-                            let img = map.get_cloned(img)?;
-                            let preimg = insert_many(map, path, preimg)?;
-                            new_ops.push(Op::Unhash2(preimg.try_into().unwrap(), img))
-                        }
-                        Op::Unhash3(preimg, img) => {
-                            let img = map.get_cloned(img)?;
-                            let preimg = insert_many(map, path, preimg)?;
-                            new_ops.push(Op::Unhash3(preimg.try_into().unwrap(), img))
-                        }
-                        Op::Unhash4(preimg, img) => {
-                            let img = map.get_cloned(img)?;
-                            let preimg = insert_many(map, path, preimg)?;
-                            new_ops.push(Op::Unhash4(preimg.try_into().unwrap(), img))
-                        }
-                        Op::Hide(..) => todo!(),
-                        Op::Open(..) => todo!(),
-                    }
-                }
-                let new_rest = Box::new(rest.deconflict(path, map)?);
-                Ok(Ctrl::Seq(new_ops, new_rest))
-            }
             Ctrl::Return(o) => Ok(Ctrl::Return(map.get_many_cloned(o)?)),
         }
     }
@@ -171,12 +180,11 @@ impl Ctrl {
     pub fn num_paths(&self) -> usize {
         match self {
             Ctrl::MatchTag(_, cases) => {
-                cases.values().fold(0, |acc, block| acc + block.num_paths())
+                cases.values().fold(0, |acc, block| acc + block.ctrl.num_paths())
             }
             Ctrl::MatchSymbol(_, cases, _) => {
-                cases.values().fold(0, |acc, block| acc + block.num_paths())
+                cases.values().fold(0, |acc, block| acc + block.ctrl.num_paths())
             }
-            Ctrl::Seq(_, rest) => rest.num_paths(),
             Ctrl::Return(..) => 1,
         }
     }

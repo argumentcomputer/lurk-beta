@@ -42,7 +42,7 @@ mod tests {
         let lem = step().unwrap();
         lem.check();
 
-        let slots_count = lem.ctl.count_slots();
+        let slots_count = lem.block.count_slots();
 
         assert_eq!(slots_count, NUM_SLOTS);
 

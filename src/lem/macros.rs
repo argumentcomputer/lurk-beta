@@ -71,7 +71,7 @@ macro_rules! ctrl {
             $(
                 if cases.insert(
                     $crate::lem::Tag::$tag,
-                    $crate::ctrl!( $case_ops ),
+                    $crate::block!( $case_ops ),
                 ).is_some() {
                     panic!("Repeated tag on `match_tag`");
                 };
@@ -85,7 +85,7 @@ macro_rules! ctrl {
             $(
                 if cases.insert(
                     $symbol,
-                    $crate::ctrl!( $case_ops ),
+                    $crate::block!( $case_ops ),
                 ).is_some() {
                     panic!("Repeated path on `match_symbol`");
                 };
@@ -98,15 +98,19 @@ macro_rules! ctrl {
             vec![$($crate::var!($src)),*]
         )
     };
+}
+
+#[macro_export]
+macro_rules! block {
     // seq entry point, with a separate bracketing to differentiate
     ({ $($body:tt)+ }) => {
         {
-            $crate::ctrl! ( @seq {}, $($body)* )
+            $crate::block! ( @seq {}, $($body)* )
         }
     };
     // handle the recursion: as we see a statement, we push it to the limbs position in the pattern
     (@seq {$($limbs:expr)*}, let $tgt:ident : $tag:ident ; $($tail:tt)*) => {
-        $crate::ctrl! (
+        $crate::block! (
             @seq
             {
                 $($limbs)*
@@ -116,7 +120,7 @@ macro_rules! ctrl {
         )
     };
     (@seq {$($limbs:expr)*}, let $tgt:ident : $tag:ident = hash2($src1:ident, $src2:ident) ; $($tail:tt)*) => {
-        $crate::ctrl! (
+        $crate::block! (
             @seq
             {
                 $($limbs)*
@@ -126,7 +130,7 @@ macro_rules! ctrl {
         )
     };
     (@seq {$($limbs:expr)*}, let $tgt:ident : $tag:ident = hash3($src1:ident, $src2:ident, $src3:ident) ; $($tail:tt)*) => {
-        $crate::ctrl! (
+        $crate::block! (
             @seq
             {
                 $($limbs)*
@@ -136,7 +140,7 @@ macro_rules! ctrl {
         )
     };
     (@seq {$($limbs:expr)*}, let $tgt:ident : $tag:ident = hash4($src1:ident, $src2:ident, $src3:ident, $src4:ident) ; $($tail:tt)*) => {
-        $crate::ctrl! (
+        $crate::block! (
             @seq
             {
                 $($limbs)*
@@ -146,7 +150,7 @@ macro_rules! ctrl {
         )
     };
     (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident) = unhash2($src:ident) ; $($tail:tt)*) => {
-        $crate::ctrl! (
+        $crate::block! (
             @seq
             {
                 $($limbs)*
@@ -156,7 +160,7 @@ macro_rules! ctrl {
         )
     };
     (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = unhash3($src:ident) ; $($tail:tt)*) => {
-        $crate::ctrl! (
+        $crate::block! (
             @seq
             {
                 $($limbs)*
@@ -166,7 +170,7 @@ macro_rules! ctrl {
         )
     };
     (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident, $tgt4:ident) = unhash4($src:ident) ; $($tail:tt)*) => {
-        $crate::ctrl! (
+        $crate::block! (
             @seq
             {
                 $($limbs)*
@@ -176,7 +180,7 @@ macro_rules! ctrl {
         )
     };
     (@seq {$($limbs:expr)*}, let $tgt:ident = hide($sec:ident, $src:ident) ; $($tail:tt)*) => {
-        $crate::ctrl! (
+        $crate::block! (
             @seq
             {
                 $($limbs)*
@@ -186,7 +190,7 @@ macro_rules! ctrl {
         )
     };
     (@seq {$($limbs:expr)*}, let ($sec:ident, $src:ident) = open($hash:ident) ; $($tail:tt)*) => {
-        $crate::ctrl! (
+        $crate::block! (
             @seq
             {
                 $($limbs)*
@@ -196,7 +200,7 @@ macro_rules! ctrl {
         )
     };
     (@seq {$($limbs:expr)*}, match_tag $sii:ident { $( $tag:ident => $case_ops:tt ),* $(,)? } $($tail:tt)*) => {
-        $crate::ctrl! (
+        $crate::block! (
             @end
             {
                 $($limbs)*
@@ -206,7 +210,7 @@ macro_rules! ctrl {
         )
     };
     (@seq {$($limbs:expr)*}, match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } $($tail:tt)*) => {
-        $crate::ctrl! (
+        $crate::block! (
             @end
             {
                 $($limbs)*
@@ -216,7 +220,7 @@ macro_rules! ctrl {
         )
     };
     (@seq {$($limbs:expr)*}, return ($src1:ident, $src2:ident, $src3:ident) $($tail:tt)*) => {
-        $crate::ctrl! (
+        $crate::block! (
             @end
             {
                 $($limbs)*
@@ -230,16 +234,11 @@ macro_rules! ctrl {
             compile_error!("You must provide Func with a return at each path!");
         }
     };
-    (@end { }, $cont:expr,  $(;)?) => {
+    (@end {$($limbs:expr)*}, $cont:expr,  $(;)?) => {
         {
-            $cont
-        }
-    };
-    (@end {$($limbs:expr)+}, $cont:expr,  $(;)?) => {
-        {
-            let block = $cont;
-            let ops = vec!($($limbs),+);
-            $crate::lem::Ctrl::Seq(ops, Box::new(block))
+            let ops = vec!($($limbs),*);
+            let ctrl = $cont;
+            $crate::lem::Block{ ops, ctrl }
         }
     }
 }
@@ -250,14 +249,14 @@ macro_rules! func {
         $crate::lem::Func::new(
             vec![$($crate::var!($in)),*],
             $size,
-            &$crate::ctrl!($lem),
+            &$crate::block!($lem),
         )
     };
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::lem::{symbol::Symbol, tag::Tag, Ctrl, Op, Var};
+    use crate::lem::{symbol::Symbol, tag::Tag, Ctrl, Block, Op, Var};
 
     #[inline]
     fn mptr(name: &str) -> Var {
@@ -265,12 +264,12 @@ mod tests {
     }
 
     #[inline]
-    fn match_tag(i: Var, cases: Vec<(Tag, Ctrl)>) -> Ctrl {
+    fn match_tag(i: Var, cases: Vec<(Tag, Block)>) -> Ctrl {
         Ctrl::MatchTag(i, indexmap::IndexMap::from_iter(cases))
     }
 
     #[inline]
-    fn match_symbol(i: Var, cases: Vec<(Symbol, Ctrl)>, def: Ctrl) -> Ctrl {
+    fn match_symbol(i: Var, cases: Vec<(Symbol, Block)>, def: Ctrl) -> Ctrl {
         Ctrl::MatchSymbol(i, indexmap::IndexMap::from_iter(cases), Box::new(def))
     }
 
@@ -315,8 +314,8 @@ mod tests {
         }
 
         let ret = Ctrl::Return(vec![mptr("bar"), mptr("baz"), mptr("bazz")]);
-        let block = Ctrl::Seq(lemops_macro, Box::new(ret));
-        let lem_macro_seq = ctrl!({
+        let block = Block { ops: lemops_macro, ctrl: ret };
+        let lem_macro_seq = block!({
             let foo: Num;
             let foo: Char = hash2(bar, baz);
             let foo: Char = hash3(bar, baz, bazz);
