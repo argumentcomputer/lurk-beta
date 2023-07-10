@@ -87,9 +87,7 @@ impl Block {
         let mut ops = vec![];
         for op in &self.ops {
             match op {
-                Op::Null(ptr, tag) => {
-                    ops.push(Op::Null(insert_one(map, path, ptr)?, *tag))
-                }
+                Op::Null(ptr, tag) => ops.push(Op::Null(insert_one(map, path, ptr)?, *tag)),
                 Op::Hash2(img, tag, preimg) => {
                     let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();
                     let img = insert_one(map, path, img)?;
@@ -125,8 +123,7 @@ impl Block {
             }
         }
         let ctrl = self.ctrl.deconflict(path, map)?;
-        Ok(Block{ ops, ctrl })
-
+        Ok(Block { ops, ctrl })
     }
 }
 
@@ -179,12 +176,12 @@ impl Ctrl {
     /// Computes the number of possible paths in a `LEMOP`
     pub fn num_paths(&self) -> usize {
         match self {
-            Ctrl::MatchTag(_, cases) => {
-                cases.values().fold(0, |acc, block| acc + block.ctrl.num_paths())
-            }
-            Ctrl::MatchSymbol(_, cases, _) => {
-                cases.values().fold(0, |acc, block| acc + block.ctrl.num_paths())
-            }
+            Ctrl::MatchTag(_, cases) => cases
+                .values()
+                .fold(0, |acc, block| acc + block.ctrl.num_paths()),
+            Ctrl::MatchSymbol(_, cases, _) => cases
+                .values()
+                .fold(0, |acc, block| acc + block.ctrl.num_paths()),
             Ctrl::Return(..) => 1,
         }
     }

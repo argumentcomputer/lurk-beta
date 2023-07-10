@@ -90,7 +90,7 @@ macro_rules! ctrl {
                     panic!("Repeated path on `match_symbol`");
                 };
             )*
-            $crate::lem::Ctrl::MatchSymbol($crate::var!($sii), cases, Box::new($crate::ctrl!( $def )))
+            $crate::lem::Ctrl::MatchSymbol($crate::var!($sii), cases, Box::new($crate::block!( $def )))
         }
     };
     ( return ($($src:ident),*) ) => {
@@ -256,7 +256,7 @@ macro_rules! func {
 
 #[cfg(test)]
 mod tests {
-    use crate::lem::{symbol::Symbol, tag::Tag, Ctrl, Block, Op, Var};
+    use crate::lem::{symbol::Symbol, tag::Tag, Block, Ctrl, Op, Var};
 
     #[inline]
     fn mptr(name: &str) -> Var {
@@ -269,7 +269,7 @@ mod tests {
     }
 
     #[inline]
-    fn match_symbol(i: Var, cases: Vec<(Symbol, Block)>, def: Ctrl) -> Ctrl {
+    fn match_symbol(i: Var, cases: Vec<(Symbol, Block)>, def: Block) -> Ctrl {
         Ctrl::MatchSymbol(i, indexmap::IndexMap::from_iter(cases), Box::new(def))
     }
 
@@ -314,7 +314,10 @@ mod tests {
         }
 
         let ret = Ctrl::Return(vec![mptr("bar"), mptr("baz"), mptr("bazz")]);
-        let block = Block { ops: lemops_macro, ctrl: ret };
+        let block = Block {
+            ops: lemops_macro,
+            ctrl: ret,
+        };
         let lem_macro_seq = block!({
             let foo: Num;
             let foo: Char = hash2(bar, baz);
@@ -352,24 +355,27 @@ mod tests {
                 vec![
                     (
                         Tag::Num,
-                        Ctrl::Return(vec![mptr("foo"), mptr("foo"), mptr("foo")])
+                        Block {
+                            ops: vec![],
+                            ctrl: Ctrl::Return(vec![mptr("foo"), mptr("foo"), mptr("foo")]),
+                        }
                     ),
                     (
                         Tag::Str,
-                        Ctrl::Seq(
-                            vec![Op::Null(mptr("foo"), Tag::Num)],
-                            Box::new(Ctrl::Return(vec![mptr("foo"), mptr("foo"), mptr("foo")]))
-                        )
+                        Block {
+                            ops: vec![Op::Null(mptr("foo"), Tag::Num)],
+                            ctrl: Ctrl::Return(vec![mptr("foo"), mptr("foo"), mptr("foo")]),
+                        }
                     ),
                     (
                         Tag::Char,
-                        Ctrl::Seq(
-                            vec![
+                        Block {
+                            ops: vec![
                                 Op::Null(mptr("foo"), Tag::Num),
                                 Op::Null(mptr("goo"), Tag::Char)
                             ],
-                            Box::new(Ctrl::Return(vec![mptr("foo"), mptr("goo"), mptr("goo")]))
-                        )
+                            ctrl: Ctrl::Return(vec![mptr("foo"), mptr("goo"), mptr("goo")]),
+                        }
                     )
                 ]
             )
@@ -398,23 +404,26 @@ mod tests {
                 vec![
                     (
                         Symbol::lurk_sym("nil"),
-                        Ctrl::Return(vec![mptr("foo"), mptr("foo"), mptr("foo")])
+                        Block {
+                            ops: vec![],
+                            ctrl: Ctrl::Return(vec![mptr("foo"), mptr("foo"), mptr("foo")]),
+                        }
                     ),
                     (
                         Symbol::lurk_sym("cons"),
-                        Ctrl::Seq(
-                            vec![
+                        Block {
+                            ops: vec![
                                 Op::Null(mptr("foo"), Tag::Num),
                                 Op::Null(mptr("goo"), Tag::Char)
                             ],
-                            Box::new(Ctrl::Return(vec![mptr("foo"), mptr("goo"), mptr("goo")]))
-                        )
+                            ctrl: Ctrl::Return(vec![mptr("foo"), mptr("goo"), mptr("goo")]),
+                        }
                     )
                 ],
-                Ctrl::Seq(
-                    vec![Op::Null(mptr("xoo"), Tag::Str)],
-                    Box::new(Ctrl::Return(vec![mptr("xoo"), mptr("xoo"), mptr("xoo")]))
-                )
+                Block {
+                    ops: vec![Op::Null(mptr("xoo"), Tag::Str)],
+                    ctrl: Ctrl::Return(vec![mptr("xoo"), mptr("xoo"), mptr("xoo")]),
+                }
             )
         );
     }
