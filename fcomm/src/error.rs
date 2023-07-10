@@ -14,8 +14,6 @@ pub enum Error {
     UnsupportedReductionCount(usize),
     #[error("IO error: {0}")]
     IOError(#[from] io::Error),
-    #[error("JSON error: {0}")]
-    JsonError(#[from] serde_json::Error),
     #[error("Synthesis error: {0}")]
     SynthesisError(#[from] SynthesisError),
     #[error("Commitment parser error: {0}")]
