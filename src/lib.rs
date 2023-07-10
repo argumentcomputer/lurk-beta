@@ -12,7 +12,6 @@ pub mod coprocessor;
 pub mod eval;
 pub mod expr;
 pub mod field;
-pub mod file_map;
 pub mod hash;
 pub mod hash_witness;
 //pub mod package;
