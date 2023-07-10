@@ -7,7 +7,6 @@ use std::path::PathBuf;
 
 use anyhow::{bail, Context, Result};
 
-use log::info;
 use lurk::eval::lang::Coproc;
 use lurk::field::{LanguageField, LurkField};
 use lurk::store::Store;
@@ -154,15 +153,10 @@ fn get_store<F: LurkField + for<'a> serde::de::Deserialize<'a>>(
     match zstore_path {
         None => Ok(Store::default()),
         Some(zstore_path) => {
-            info!("Reading ZStore bytes");
             let bytes = fs::read(zstore_path)?;
-            info!("Deserializing ZStore bytes into ZData");
             let zdata = ZData::from_bytes(&bytes)?;
-            info!("Deserializing ZData into ZStore");
             let zstore: ZStore<F> = from_z_data(&zdata)?;
-            info!("Converting ZStore into Store");
-            let store = zstore.to_store();
-            Ok(store)
+            Ok(zstore.to_store())
         }
     }
 }
