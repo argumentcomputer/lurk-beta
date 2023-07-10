@@ -554,7 +554,6 @@ impl<F: LurkField + Serialize + DeserializeOwned> LurkPtr<F> {
                 out.expr
             }
             LurkPtr::ZStorePtr(z_store_ptr) => {
-                // This is where the error is happening I think
                 let z_store = &z_store_ptr.z_store;
                 let z_ptr = z_store_ptr.z_ptr;
                 s.intern_z_expr_ptr(z_ptr, z_store)
