@@ -7,4 +7,6 @@ pub enum Error {
     IOError(#[from] io::Error),
     #[error("Cache error: {0}")]
     CacheError(String),
+    #[error("JSON error: {0}")]
+    JsonError(#[from] serde_json::Error),
 }

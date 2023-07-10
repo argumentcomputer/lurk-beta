@@ -1,5 +1,4 @@
 mod paths;
-mod prove_and_verify;
 mod repl;
 
 use std::fs;
