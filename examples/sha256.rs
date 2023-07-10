@@ -86,9 +86,9 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
             })
             .collect();
 
-        let both = Boolean::and(cs.namespace(|| "both equal"), &eqs[0], &eqs[1])?;
+        let both_eq = Boolean::and(cs.namespace(|| "both equal"), &eqs[0], &eqs[1])?;
 
-        let result_ptr = AllocatedPtr::as_lurk_boolean(cs, store, &both)?;
+        let result_ptr = AllocatedPtr::as_lurk_boolean(cs, store, &both_eq)?;
 
         Ok((result_ptr, input_env.clone(), input_cont.clone()))
     }
