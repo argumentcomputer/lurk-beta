@@ -166,24 +166,10 @@
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::anyhow;
 <span class="kw">use </span>base32ct::{Base32Unpadded, Encoding};
+<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+</span><span class="kw">use </span>lurk_macros::serde_test;
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>proptest_derive::Arbitrary;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -203,6 +189,14 @@
 
 <span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
+#[cfg_attr(
+    not(target_arch = <span class="string">&quot;wasm32&quot;</span>),
+    serde_test(
+        types(ExprTag, pasta_curves::pallas::Scalar),
+        types(ContTag, pasta_curves::pallas::Scalar),
+        zdata(<span class="bool-val">true</span>)
+    )
+)]
 </span><span class="comment">// Note: the trait bound E: Tag is not necessary in the struct, but it makes the proptest strategy more efficient.
 </span><span class="doccomment">/// A struct representing a scalar pointer with a tag and a value.
 ///
@@ -325,35 +319,9 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use </span><span class="kw">crate</span>::z_data::{from_z_data, to_z_data};
     <span class="kw">use </span>pasta_curves::pallas::Scalar;
-    <span class="kw">use </span>serde::de::DeserializeOwned;
-
-    <span class="kw">fn </span>test_serde_z_ptr&lt;
-        P: Arbitrary + IntoHashComponents&lt;Scalar&gt; + PartialEq + Eq + Serialize + DeserializeOwned,
-    &gt;(
-        x: P,
-    ) {
-        <span class="kw">let </span>ser = to_z_data(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write ZPtr&quot;</span>);
-        <span class="kw">let </span>de: P = from_z_data(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read ZPtr&quot;</span>);
-        <span class="macro">assert_eq!</span>(x, de);
-
-        <span class="kw">let </span>ser: Vec&lt;u8&gt; = bincode::serialize(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write ZPtr&quot;</span>);
-        <span class="kw">let </span>de: P = bincode::deserialize(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read ZPtr&quot;</span>);
-        <span class="macro">assert_eq!</span>(x, de);
-    }
 
     <span class="macro">proptest! </span>{
-        <span class="attr">#[test]
-        </span><span class="kw">fn </span>prop_serde_z_expr_ptr(x <span class="kw">in </span>any::&lt;ZExprPtr&lt;Scalar&gt;&gt;()) {
-            test_serde_z_ptr(x);
-        }
-
-        <span class="attr">#[test]
-        </span><span class="kw">fn </span>prop_serde_z_cont_ptr(x <span class="kw">in </span>any::&lt;ZContPtr&lt;Scalar&gt;&gt;()) {
-            test_serde_z_ptr(x);
-        }
-
         <span class="attr">#[test]
         </span><span class="kw">fn </span>prop_base32_z_expr_ptr(x <span class="kw">in </span>any::&lt;ZExprPtr&lt;Scalar&gt;&gt;()) {
             <span class="macro">assert_eq!</span>(x, ZPtr::from_base32(<span class="kw-2">&amp;</span>x.to_base32()).unwrap());

@@ -249,16 +249,8 @@
 <a href="#249" id="249">249</a>
 <a href="#250" id="250">250</a>
 <a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-</span><span class="kw">use </span>proptest::prelude::BoxedStrategy;
+</span><span class="kw">use </span>lurk_macros::serde_test;
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>proptest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -276,6 +268,10 @@
 <span class="kw">use </span><span class="kw">crate</span>::UInt;
 
 <span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(
+    not(target_arch = <span class="string">&quot;wasm32&quot;</span>),
+    serde_test(types(pasta_curves::pallas::Scalar), zdata(<span class="bool-val">true</span>))
+)]
 </span><span class="doccomment">/// A `ZExpr` is the content-addressed representation of a Lurk expression, which enables
 /// efficient serialization and sharing of hashed Lurk data via associated `ZExprPtr`s.
 </span><span class="kw">pub enum </span>ZExpr&lt;F: LurkField&gt; {
@@ -462,21 +458,9 @@
 </span><span class="kw">mod </span>tests {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::syntax::Syntax;
-    <span class="kw">use </span><span class="kw">crate</span>::z_data::{from_z_data, to_z_data};
     <span class="kw">use </span>pasta_curves::pallas::Scalar;
 
     <span class="macro">proptest! </span>{
-        <span class="attr">#[test]
-        </span><span class="kw">fn </span>prop_serde_z_expr(x <span class="kw">in </span>any::&lt;ZExpr&lt;Scalar&gt;&gt;()) {
-            <span class="kw">let </span>ser = to_z_data(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write ZExpr&quot;</span>);
-            <span class="kw">let </span>de: ZExpr&lt;Scalar&gt; = from_z_data(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read ZExpr&quot;</span>);
-            <span class="macro">assert_eq!</span>(x, de);
-
-            <span class="kw">let </span>ser: Vec&lt;u8&gt; = bincode::serialize(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write ZExpr&quot;</span>);
-            <span class="kw">let </span>de: ZExpr&lt;Scalar&gt; = bincode::deserialize(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read ZExpr&quot;</span>);
-            <span class="macro">assert_eq!</span>(x, de);
-        }
-
         <span class="attr">#[test]
         </span><span class="comment">// TODO: Overflows stack in non-release mode
         </span><span class="kw">fn </span>prop_expr_z_expr_roundtrip(x <span class="kw">in </span>any::&lt;Syntax&lt;Scalar&gt;&gt;()) {

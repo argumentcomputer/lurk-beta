@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"derive":["Coproc"],"macro":["let_store","lurk"]};
+window.SIDEBAR_ITEMS = {"attr":["serde_test"],"derive":["Coproc"],"macro":["let_store","lurk"]};

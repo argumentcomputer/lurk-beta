@@ -84,7 +84,12 @@
 <a href="#84" id="84">84</a>
 <a href="#85" id="85">85</a>
 <a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+</span><span class="kw">use </span>lurk_macros::serde_test;
+<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>proptest_derive::Arbitrary;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::{
@@ -95,6 +100,7 @@
 <span class="doccomment">/// Unsigned fixed-width integer type for Lurk.
 </span><span class="attr">#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Serialize, Deserialize)]
 #[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), serde_test)]
 </span><span class="kw">pub enum </span>UInt {
     U64(u64),
 }

@@ -174,21 +174,9 @@
 <a href="#174" id="174">174</a>
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+</span><span class="kw">use </span>lurk_macros::serde_test;
+<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>proptest::prelude::<span class="kw-2">*</span>;
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>proptest_derive::Arbitrary;
@@ -213,6 +201,10 @@
 <span class="attr">#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 #[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), proptest(no_bound))]
+#[cfg_attr(
+    not(target_arch = <span class="string">&quot;wasm32&quot;</span>),
+    serde_test(types(pasta_curves::pallas::Scalar), zdata(<span class="bool-val">true</span>))
+)]
 </span><span class="doccomment">/// A `ZStore` is a content-addressed, serializable representation of a Lurk store
 ///
 /// Whereas a `Store` contains caches of each type of Lurk data, a `ZStore`
@@ -356,26 +348,6 @@
         }
         <span class="self">self</span>.insert_z_expr(<span class="kw-2">&amp;</span>ptr, <span class="prelude-val">Some</span>(expr.clone()));
         (ptr, expr)
-    }
-}
-
-<span class="attr">#[cfg(test)]
-</span><span class="kw">mod </span>tests {
-    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use </span><span class="kw">crate</span>::z_data::{from_z_data, to_z_data};
-    <span class="kw">use </span>pasta_curves::pallas::Scalar;
-
-    <span class="macro">proptest! </span>{
-        <span class="attr">#[test]
-        </span><span class="kw">fn </span>prop_serde_z_store(s <span class="kw">in </span>any::&lt;ZStore&lt;Scalar&gt;&gt;()) {
-            <span class="kw">let </span>ser = to_z_data(<span class="kw-2">&amp;</span>s).expect(<span class="string">&quot;write ZStore&quot;</span>);
-            <span class="kw">let </span>de: ZStore&lt;Scalar&gt; = from_z_data(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read ZStore&quot;</span>);
-            <span class="macro">assert_eq!</span>(s, de);
-
-            <span class="kw">let </span>ser: Vec&lt;u8&gt; = bincode::serialize(<span class="kw-2">&amp;</span>s).expect(<span class="string">&quot;write ZStore&quot;</span>);
-            <span class="kw">let </span>de: ZStore&lt;Scalar&gt; = bincode::deserialize(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read ZStore&quot;</span>);
-            <span class="macro">assert_eq!</span>(s, de);
-        }
     }
 }
 </code></pre></div></section></main></body></html>

@@ -370,24 +370,8 @@
 <a href="#370" id="370">370</a>
 <a href="#371" id="371">371</a>
 <a href="#372" id="372">372</a>
-<a href="#373" id="373">373</a>
-<a href="#374" id="374">374</a>
-<a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-</span><span class="kw">use </span>proptest::prelude::BoxedStrategy;
+</span><span class="kw">use </span>lurk_macros::serde_test;
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>proptest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -401,6 +385,10 @@
 <span class="kw">use </span><span class="kw">crate</span>::z_ptr::{ZContPtr, ZExprPtr, ZPtr};
 
 <span class="attr">#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    not(target_arch = <span class="string">&quot;wasm32&quot;</span>),
+    serde_test(types(pasta_curves::pallas::Scalar), zdata(<span class="bool-val">true</span>))
+)]
 </span><span class="doccomment">/// A `ZCont` is the content-addressed representation of a Lurk continuation, which enables
 /// efficient serialization and sharing of hashed Lurk data via associated `ZContPtr`s.
 </span><span class="kw">pub enum </span>ZCont&lt;F: LurkField&gt; {
@@ -752,26 +740,6 @@
             Just(ZCont::Terminal),
         ]
         .boxed()
-    }
-}
-
-<span class="attr">#[cfg(test)]
-</span><span class="kw">mod </span>tests {
-    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use </span><span class="kw">crate</span>::z_data::{from_z_data, to_z_data};
-    <span class="kw">use </span>pasta_curves::pallas::Scalar;
-
-    <span class="macro">proptest! </span>{
-          <span class="attr">#[test]
-          </span><span class="kw">fn </span>prop_serde_z_cont(x <span class="kw">in </span>any::&lt;ZCont&lt;Scalar&gt;&gt;()) {
-              <span class="kw">let </span>ser = to_z_data(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write ZCont&quot;</span>);
-              <span class="kw">let </span>de: ZCont&lt;Scalar&gt; = from_z_data(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read ZCont&quot;</span>);
-              <span class="macro">assert_eq!</span>(x, de);
-
-              <span class="kw">let </span>ser: Vec&lt;u8&gt; = bincode::serialize(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write ZCont&quot;</span>);
-              <span class="kw">let </span>de: ZCont&lt;Scalar&gt; = bincode::deserialize(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read ZCont&quot;</span>);
-              <span class="macro">assert_eq!</span>(x, de);
-          }
     }
 }
 </code></pre></div></section></main></body></html>
