@@ -43,7 +43,7 @@ macro_rules! op {
     ( let ($tgt1:ident, $tgt2:ident) = unhash2($src:ident) ) => {
         $crate::lem::Op::Unhash2(
             $crate::vars!($tgt1, $tgt2),
-            $crate::lem::Var(stringify!($src).into()),
+            $crate::var!($src),
         )
     };
     ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = unhash3($src:ident) ) => {
@@ -61,6 +61,14 @@ macro_rules! op {
     ( let ($sec:ident, $src:ident) = open($hash:ident) ) => {
         $crate::lem::Op::Open($crate::var!($sec), $crate::var!($src), $crate::var!($hash))
     };
+    ( let ($($tgt:ident),*) = $func:ident($($arg:ident),*) ) => {
+        {
+            let out = vec!($($crate::var!($tgt)),*);
+            let inp = vec!($($crate::var!($arg)),*);
+            let func = Box::new($func);
+            $crate::lem::Op::Call(out, func, inp)
+        }
+    }
 }
 
 #[macro_export]
@@ -199,6 +207,16 @@ macro_rules! block {
             $($tail)*
         )
     };
+    (@seq {$($limbs:expr)*}, let ($($tgt:ident),*) = $func:ident($($arg:ident),*) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let ($($tgt),*) = $func($($arg),*))
+            },
+            $($tail)*
+        )
+    };
     (@seq {$($limbs:expr)*}, match_tag $sii:ident { $( $tag:ident => $case_ops:tt ),* $(,)? } $($tail:tt)*) => {
         $crate::block! (
             @end
@@ -219,13 +237,13 @@ macro_rules! block {
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, return ($src1:ident, $src2:ident, $src3:ident) $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, return ($($src:ident),*) $($tail:tt)*) => {
         $crate::block! (
             @end
             {
                 $($limbs)*
             },
-            $crate::ctrl!( return ($src1, $src2, $src3) ),
+            $crate::lem::Ctrl::Return(vec![$($crate::var!($src)),*]),
             $($tail)*
         )
     };
