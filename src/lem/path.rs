@@ -150,9 +150,9 @@ impl Block {
             Ctrl::MatchTag(_, cases) => {
                 cases.values().fold(0, |acc, block| acc + block.num_paths())
             }
-            Ctrl::MatchSymbol(_, cases, _) => {
-                cases.values().fold(0, |acc, block| acc + block.num_paths())
-            }
+            Ctrl::MatchSymbol(_, cases, def) => cases
+                .values()
+                .fold(def.num_paths(), |acc, block| acc + block.num_paths()),
             Ctrl::Return(..) => 1,
         }
     }
