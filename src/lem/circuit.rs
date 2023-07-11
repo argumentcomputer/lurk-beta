@@ -213,6 +213,9 @@ impl Block {
                 Op::Hash2(..) | Op::Unhash2(..) => SlotsCounter::new((1, 0, 0)),
                 Op::Hash3(..) | Op::Unhash3(..) => SlotsCounter::new((0, 1, 0)),
                 Op::Hash4(..) | Op::Unhash4(..) => SlotsCounter::new((0, 0, 1)),
+                // Should we count the slots for the `Func` here or should each
+                // `Func` carry their own `SlotsCounter`?
+                Op::Call(..) => todo!(),
                 _ => SlotsCounter::default(),
             };
             acc.add(val)
@@ -769,17 +772,20 @@ impl Func {
     /// also an explicit way to document and attest how the number of constraints
     /// grow.
     pub fn num_constraints<F: LurkField>(&self, slots_count: &SlotsCounter) -> usize {
-        // fixed cost for each slot
-        let mut num_constraints =
-            289 * slots_count.hash2 + 337 * slots_count.hash3 + 388 * slots_count.hash4;
-
-        let mut globals: HashSet<FWrap<F>> = HashSet::default();
-
-        let mut stack = vec![(&self.block, false)];
-        while let Some((block, nested)) = stack.pop() {
+        fn recurse<F: LurkField>(
+            block: &Block,
+            nested: bool,
+            globals: &mut HashSet<FWrap<F>>,
+        ) -> usize {
+            let mut num_constraints = 0;
             for op in &block.ops {
                 match op {
-                    Op::Call(..) => todo!(),
+                    Op::Call(out, func, _) => {
+                        // Do each `Func` have their own slots or are they all lifted
+                        // to the top-level?
+                        num_constraints += recurse(&func.block, nested, globals);
+                        num_constraints += out.len();
+                    }
                     Op::Null(_, tag) => {
                         // constrain tag and hash
                         globals.insert(FWrap(tag.to_field()));
@@ -813,7 +819,7 @@ impl Func {
             match &block.ctrl {
                 Ctrl::Return(..) => {
                     // tag and hash for 3 pointers
-                    num_constraints += 6;
+                    num_constraints + 6
                 }
                 Ctrl::MatchTag(_, cases) => {
                     // `alloc_equal_const` adds 3 constraints for each case and
@@ -826,13 +832,18 @@ impl Func {
 
                     // stacked ops are now nested
                     for block in cases.values() {
-                        stack.push((block, true));
+                        num_constraints += recurse(block, true, globals);
                     }
+                    num_constraints
                 }
                 Ctrl::MatchSymbol(..) => todo!(),
             }
         }
-
-        num_constraints + globals.len()
+        let globals = &mut HashSet::default();
+        // fixed cost for each slot
+        let slot_constraints =
+            289 * slots_count.hash2 + 337 * slots_count.hash3 + 388 * slots_count.hash4;
+        let num_constraints = recurse::<F>(&self.block, false, globals);
+        slot_constraints + num_constraints + globals.len()
     }
 }
