@@ -38,6 +38,7 @@ impl Block {
     ) -> Result<(Frame<F>, Path)> {
         for op in &self.ops {
             match op {
+                Op::Call(..) => todo!(),
                 Op::Null(tgt, tag) => {
                     bindings.insert(tgt.clone(), Ptr::null(*tag));
                 }

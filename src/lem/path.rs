@@ -87,6 +87,16 @@ impl Block {
         let mut ops = Vec::with_capacity(self.ops.len());
         for op in &self.ops {
             match op {
+                Op::Call(out, func, inp) => {
+                    let out = map.get_many_cloned(out)?;
+                    // TODO:
+                    // Should we deconflict `func`? Do we assume it to already be deconflicted?
+                    // Is there an issue in `func` using the same name for a variable that is later
+                    // gonna be used?
+                    let func = func.clone();
+                    let inp = map.get_many_cloned(inp)?;
+                    ops.push(Op::Call(out, func, inp))
+                }
                 Op::Null(ptr, tag) => ops.push(Op::Null(insert_one(map, path, ptr), *tag)),
                 Op::Hash2(img, tag, preimg) => {
                     let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();

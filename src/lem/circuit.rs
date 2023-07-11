@@ -656,6 +656,7 @@ impl Func {
                 }
 
                 match op {
+                    Op::Call(..) => todo!(),
                     Op::Hash2(img, tag, preimg) => {
                         hash_helper!(img.clone(), tag, preimg, SlotType::Hash2);
                     }
@@ -778,6 +779,7 @@ impl Func {
         while let Some((block, nested)) = stack.pop() {
             for op in &block.ops {
                 match op {
+                    Op::Call(..) => todo!(),
                     Op::Null(_, tag) => {
                         // constrain tag and hash
                         globals.insert(FWrap(tag.to_field()));

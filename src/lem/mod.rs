@@ -81,6 +81,7 @@ pub type AString = Arc<str>;
 pub type AVec<A> = Arc<[A]>;
 
 /// A `LEM` has the name for the inputs and its characteristic control node
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Func {
     input_vars: Vec<Var>,
     output_size: usize,
@@ -126,8 +127,10 @@ pub enum Ctrl {
 }
 
 /// The atomic operations of LEMs.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Op {
+    /// `Call(ys, f, xs)` binds `ys` to the results of `f` applied to `xs`
+    Call(Vec<Var>, Box<Func>, Vec<Var>),
     /// `Null(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
     Null(Var, Tag),
     /// `Hash2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
