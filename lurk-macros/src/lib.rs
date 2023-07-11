@@ -280,13 +280,26 @@ pub fn serde_test(args: TokenStream, input: TokenStream) -> TokenStream {
 
     // Parse arguments.
     let mut types = Vec::new();
+    let mut test_zdata = false;
     for arg in args {
         match arg {
-            // List arguments (as in #[ser_test(arg(val))])
+            // List arguments (as in #[serde_test(arg(val))])
             NestedMeta::Meta(Meta::List(MetaList { path, nested, .. })) => match path.get_ident() {
                 Some(id) if *id == "types" => {
                     let params = nested.iter().map(parse_type).collect::<Vec<_>>();
                     types.push(quote!(<#name<#(#params),*>>));
+                }
+
+                Some(id) if *id == "zdata" => {
+                    if nested.len() != 1 {
+                        panic!("zdata attribute takes 1 argument");
+                    }
+                    match &nested[0] {
+                        NestedMeta::Lit(Lit::Bool(b)) => {
+                            test_zdata = b.value;
+                        }
+                        _ => panic!("zdata argument must be a boolean"),
+                    }
                 }
 
                 _ => panic!("invalid attribute {:?}", path),
@@ -324,9 +337,29 @@ pub fn serde_test(args: TokenStream, input: TokenStream) -> TokenStream {
             }
         };
 
+        let zdata_test = if test_zdata {
+            let test_name = Ident::new(
+                &format!("test_zdata_roundtrip_{}_{}", name, i),
+                Span::mixed_site(),
+            );
+            quote! {
+                #[cfg(test)]
+                proptest::proptest!{
+                    #[test]
+                    fn #test_name(obj in proptest::prelude::any::#ty()) {
+                        let ser = crate::z_data::to_z_data(&obj).unwrap();
+                        assert_eq!(obj, crate::z_data::from_z_data(&ser).unwrap());
+                    }
+                }
+            }
+        } else {
+            quote! {}
+        };
+
         output = quote! {
             #output
             #serde_test
+            #zdata_test
         };
     }
 
