@@ -1,5 +1,5 @@
 #[cfg(not(target_arch = "wasm32"))]
-use proptest::prelude::BoxedStrategy;
+use lurk_macros::serde_test;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -17,6 +17,10 @@ use crate::z_store::ZStore;
 use crate::UInt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(
+    not(target_arch = "wasm32"),
+    serde_test(types(pasta_curves::pallas::Scalar), zdata(true))
+)]
 /// A `ZExpr` is the content-addressed representation of a Lurk expression, which enables
 /// efficient serialization and sharing of hashed Lurk data via associated `ZExprPtr`s.
 pub enum ZExpr<F: LurkField> {
@@ -203,21 +207,9 @@ impl<F: LurkField> Arbitrary for ZExpr<F> {
 mod tests {
     use super::*;
     use crate::syntax::Syntax;
-    use crate::z_data::{from_z_data, to_z_data};
     use pasta_curves::pallas::Scalar;
 
     proptest! {
-        #[test]
-        fn prop_serde_z_expr(x in any::<ZExpr<Scalar>>()) {
-            let ser = to_z_data(&x).expect("write ZExpr");
-            let de: ZExpr<Scalar> = from_z_data(&ser).expect("read ZExpr");
-            assert_eq!(x, de);
-
-            let ser: Vec<u8> = bincode::serialize(&x).expect("write ZExpr");
-            let de: ZExpr<Scalar> = bincode::deserialize(&ser).expect("read ZExpr");
-            assert_eq!(x, de);
-        }
-
         #[test]
         // TODO: Overflows stack in non-release mode
         fn prop_expr_z_expr_roundtrip(x in any::<Syntax<Scalar>>()) {
