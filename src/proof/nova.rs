@@ -6,8 +6,10 @@ use bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
 
 use nova::{
     errors::NovaError,
+    provider::pedersen,
     traits::{
         circuit::{StepCircuit, TrivialTestCircuit},
+        commitment::CommitmentEngineTrait,
         Group,
     },
     CompressedSNARK, ProverKey, RecursiveSNARK, VerifierKey,
@@ -36,51 +38,69 @@ pub type G1 = pallas::Point;
 /// Type alias for G2 group elements using the Vesta curve.
 pub type G2 = vesta::Point;
 
-/// Type alias for scalar field elements on the Pallas curve.
-pub type S1 = pallas::Scalar;
-/// Type alias for scalar field elements on the Vesta curve.
-pub type S2 = vesta::Scalar;
-
 /// Type alias for the Evaluation Engine using G1 group elements.
-pub type EE1 = nova::provider::ipa_pc::EvaluationEngine<G1>;
+pub type EE1<G1> = nova::provider::ipa_pc::EvaluationEngine<G1>;
 /// Type alias for the Evaluation Engine using G2 group elements.
-pub type EE2 = nova::provider::ipa_pc::EvaluationEngine<G2>;
+pub type EE2<G2> = nova::provider::ipa_pc::EvaluationEngine<G2>;
 
 /// Type alias for the Relaxed R1CS Spartan SNARK using G1 group elements, EE1.
-pub type SS1 = nova::spartan::RelaxedR1CSSNARK<G1, EE1>;
+pub type SS1<G1> = nova::spartan::RelaxedR1CSSNARK<G1, EE1<G1>>;
 /// Type alias for the Relaxed R1CS Spartan SNARK using G2 group elements, EE2.
-pub type SS2 = nova::spartan::RelaxedR1CSSNARK<G2, EE2>;
+pub type SS2<G2> = nova::spartan::RelaxedR1CSSNARK<G2, EE2<G2>>;
 
 /// Type alias for a MultiFrame with S1 field elements.
-pub type C1<'a, C> = MultiFrame<'a, S1, IO<S1>, Witness<S1>, C>;
+pub type C1<'a, G1, C> = MultiFrame<
+    'a,
+    <G1 as Group>::Scalar,
+    IO<<G1 as Group>::Scalar>,
+    Witness<<G1 as Group>::Scalar>,
+    C,
+>;
 /// Type alias for a Trivial Test Circuit with G2 scalar field elements.
-pub type C2 = TrivialTestCircuit<<G2 as Group>::Scalar>;
+pub type C2<G2> = TrivialTestCircuit<<G2 as Group>::Scalar>;
 
 /// Type alias for Nova Public Parameters with the curve cycle types defined above.
-pub type NovaPublicParams<'a, C> = nova::PublicParams<G1, G2, C1<'a, C>, C2>;
+pub type NovaPublicParams<'a, C, G1, G2> = nova::PublicParams<G1, G2, C1<'a, G1, C>, C2<G2>>;
 
 /// A struct that contains public parameters for the Nova proving system.
 #[derive(Serialize, Deserialize)]
-pub struct PublicParams<'a, C: Coprocessor<S1>> {
-    pp: NovaPublicParams<'a, C>,
-    pk: ProverKey<G1, G2, C1<'a, C>, C2, SS1, SS2>,
-    vk: VerifierKey<G1, G2, C1<'a, C>, C2, SS1, SS2>,
+pub struct PublicParams<'a, G1, G2, C: Coprocessor<<G1 as Group>::Scalar>>
+where
+    G1: Group<Base = <G2 as Group>::Scalar>,
+    G2: Group<Base = <G1 as Group>::Scalar>,
+    <G1 as Group>::Scalar: LurkField,
+    <<G1 as Group>::CE as CommitmentEngineTrait<G1>>::CommitmentKey:
+        pedersen::CommitmentKeyExtTrait<G1>,
+{
+    pp: NovaPublicParams<'a, C, G1, G2>,
+    pk: ProverKey<G1, G2, C1<'a, G1, C>, C2<G2>, SS1<G1>, SS2<G2>>,
+    vk: VerifierKey<G1, G2, C1<'a, G1, C>, C2<G2>, SS1<G1>, SS2<G2>>,
 }
 
 /// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
-pub enum Proof<'a, C: Coprocessor<S1>> {
+pub enum Proof<'a, G1, G2, C: Coprocessor<<G1 as Group>::Scalar>>
+where
+    G1: Group<Base = <G2 as Group>::Scalar>,
+    G2: Group<Base = <G1 as Group>::Scalar>,
+    <G1 as Group>::Scalar: LurkField,
+{
     /// A proof for the intermediate steps of a recursive computation
-    Recursive(Box<RecursiveSNARK<G1, G2, C1<'a, C>, C2>>),
+    Recursive(Box<RecursiveSNARK<G1, G2, C1<'a, G1, C>, C2<G2>>>),
     /// A proof for the final step of a recursive computation
-    Compressed(Box<CompressedSNARK<G1, G2, C1<'a, C>, C2, SS1, SS2>>),
+    Compressed(Box<CompressedSNARK<G1, G2, C1<'a, G1, C>, C2<G2>, SS1<G1>, SS2<G2>>>),
 }
 
 /// Generates the public parameters for the Nova proving system.
-pub fn public_params<'a, C: Coprocessor<S1>>(
+pub fn public_params<'a, G1, G2, C: Coprocessor<<G1 as Group>::Scalar>>(
     num_iters_per_step: usize,
-    lang: Arc<Lang<S1, C>>,
-) -> PublicParams<'a, C> {
+    lang: Arc<Lang<<G1 as Group>::Scalar, C>>,
+) -> PublicParams<'a, G1, G2, C>
+where
+    G1: Group<Base = <G2 as Group>::Scalar>,
+    G2: Group<Base = <G1 as Group>::Scalar>,
+    <G1 as Group>::Scalar: LurkField,
+{
     let (circuit_primary, circuit_secondary) = C1::circuits(num_iters_per_step, lang);
 
     let pp = nova::PublicParams::setup(circuit_primary, circuit_secondary);
@@ -88,8 +108,8 @@ pub fn public_params<'a, C: Coprocessor<S1>>(
     PublicParams { pp, pk, vk }
 }
 
-impl<'a, C: Coprocessor<S1>> MultiFrame<'a, S1, IO<S1>, Witness<S1>, C> {
-    fn circuits(count: usize, lang: Arc<Lang<S1, C>>) -> (C1<'a, C>, C2) {
+impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, IO<F>, Witness<F>, C> {
+    fn circuits<G1, G2>(count: usize, lang: Arc<Lang<F, C>>) -> (C1<'a, G1, C>, C2<G2>) {
         (
             MultiFrame::blank(count, lang),
             TrivialTestCircuit::default(),
@@ -99,19 +119,36 @@ impl<'a, C: Coprocessor<S1>> MultiFrame<'a, S1, IO<S1>, Witness<S1>, C> {
 
 /// A struct for the Nova prover that operates on field elements of type `F`.
 #[derive(Debug)]
-pub struct NovaProver<F: LurkField, C: Coprocessor<F>> {
+pub struct NovaProver<G1, G2, C: Coprocessor<<G1 as Group>::Scalar>>
+where
+    G1: Group<Base = <G2 as Group>::Scalar>,
+    G2: Group<Base = <G1 as Group>::Scalar>,
+    <G1 as Group>::Scalar: LurkField,
+{
     // `reduction_count` specifies the number of small-step reductions are performed in each recursive step.
     reduction_count: usize,
-    lang: Lang<F, C>,
-    _p: PhantomData<(F, C)>,
+    lang: Lang<<G1 as Group>::Scalar, C>,
+    _p: PhantomData<(G1, G2, C)>,
 }
 
-impl<'a, C: Coprocessor<S1>> PublicParameters for PublicParams<'a, C> {}
+impl<'a, G1, G2, C: Coprocessor<<G1 as Group>::Scalar>> PublicParameters
+    for PublicParams<'a, G1, G2, C>
+where
+    G1: Group<Base = <G2 as Group>::Scalar>,
+    G2: Group<Base = <G1 as Group>::Scalar>,
+{
+}
 
-impl<'a, C: Coprocessor<S1> + 'a> Prover<'a, '_, S1, C> for NovaProver<S1, C> {
-    type PublicParams = PublicParams<'a, C>;
-    fn new(reduction_count: usize, lang: Lang<S1, C>) -> Self {
-        NovaProver::<S1, C> {
+impl<'a, G1, G2, C: Coprocessor<<G1 as Group>::Scalar> + 'a>
+    Prover<'a, '_, <G1 as Group>::Scalar, C> for NovaProver<G1, G2, C>
+where
+    G1: Group<Base = <G2 as Group>::Scalar>,
+    G2: Group<Base = <G1 as Group>::Scalar>,
+    <G1 as Group>::Scalar: LurkField,
+{
+    type PublicParams = PublicParams<'a, G1, G2, C>;
+    fn new(reduction_count: usize, lang: Lang<<G1 as Group>::Scalar, C>) -> Self {
+        NovaProver::<<G1 as Group>::Scalar, C> {
             reduction_count,
             lang,
             _p: Default::default(),
@@ -121,21 +158,27 @@ impl<'a, C: Coprocessor<S1> + 'a> Prover<'a, '_, S1, C> for NovaProver<S1, C> {
         self.reduction_count
     }
 
-    fn lang(&self) -> &Lang<S1, C> {
+    fn lang(&self) -> &Lang<<G1 as Group>::Scalar, C> {
         &self.lang
     }
 }
 
-impl<C: Coprocessor<S1>> NovaProver<S1, C> {
+impl<G1, G2, C: Coprocessor<<G1 as Group>::Scalar>> NovaProver<G1, G2, C>
+where
+    G1: Group<Base = <G2 as Group>::Scalar>,
+    G2: Group<Base = <G1 as Group>::Scalar>,
+    <G1 as Group>::Scalar: LurkField,
+{
     /// Evaluates and generates the frames of the computation given the expression, environment, and store
     pub fn get_evaluation_frames(
         &self,
-        expr: Ptr<S1>,
-        env: Ptr<S1>,
-        store: &mut Store<S1>,
+        expr: Ptr<<G1 as Group>::Scalar>,
+        env: Ptr<<G1 as Group>::Scalar>,
+        store: &mut Store<<G1 as Group>::Scalar>,
         limit: usize,
-        lang: &Lang<S1, C>,
-    ) -> Result<Vec<Frame<IO<S1>, Witness<S1>, C>>, ProofError> {
+        lang: &Lang<<G1 as Group>::Scalar, C>,
+    ) -> Result<Vec<Frame<IO<<G1 as Group>::Scalar>, Witness<<G1 as Group>::Scalar>, C>>, ProofError>
+    {
         let padding_predicate = |count| self.needs_frame_padding(count);
 
         let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate, lang)?;
@@ -148,11 +191,19 @@ impl<C: Coprocessor<S1>> NovaProver<S1, C> {
     /// Proves the computation given the public parameters, frames, and store.
     pub fn prove<'a>(
         &'a self,
-        pp: &'a PublicParams<'_, C>,
-        frames: Vec<Frame<IO<S1>, Witness<S1>, C>>,
-        store: &'a mut Store<S1>,
-        lang: Arc<Lang<S1, C>>,
-    ) -> Result<(Proof<'_, C>, Vec<S1>, Vec<S1>, usize), ProofError> {
+        pp: &'a PublicParams<'_, G1, G2, C>,
+        frames: Vec<Frame<IO<<G1 as Group>::Scalar>, Witness<<G1 as Group>::Scalar>, C>>,
+        store: &'a mut Store<<G1 as Group>::Scalar>,
+        lang: Arc<Lang<<G1 as Group>::Scalar, C>>,
+    ) -> Result<
+        (
+            Proof<'a, G1, G2, C>,
+            Vec<<G1 as Group>::Scalar>,
+            Vec<<G1 as Group>::Scalar>,
+            usize,
+        ),
+        ProofError,
+    > {
         let z0 = frames[0].input.to_vector(store)?;
         let zi = frames.last().unwrap().output.to_vector(store)?;
         let circuits = MultiFrame::from_frames(self.reduction_count(), &frames, store, &lang);
@@ -166,13 +217,21 @@ impl<C: Coprocessor<S1>> NovaProver<S1, C> {
     /// Evaluates and proves the computation given the public parameters, expression, environment, and store.
     pub fn evaluate_and_prove<'a>(
         &'a self,
-        pp: &'a PublicParams<'_, C>,
-        expr: Ptr<S1>,
-        env: Ptr<S1>,
-        store: &'a mut Store<S1>,
+        pp: &'a PublicParams<'_, G1, G2, C>,
+        expr: Ptr<<G1 as Group>::Scalar>,
+        env: Ptr<<G1 as Group>::Scalar>,
+        store: &'a mut Store<<G1 as Group>::Scalar>,
         limit: usize,
-        lang: Arc<Lang<S1, C>>,
-    ) -> Result<(Proof<'_, C>, Vec<S1>, Vec<S1>, usize), ProofError> {
+        lang: Arc<Lang<<G1 as Group>::Scalar, C>>,
+    ) -> Result<
+        (
+            Proof<'a, G1, G2, C>,
+            Vec<<G1 as Group>::Scalar>,
+            Vec<<G1 as Group>::Scalar>,
+            usize,
+        ),
+        ProofError,
+    > {
         let frames = self.get_evaluation_frames(expr, env, store, limit, &lang)?;
         self.prove(pp, frames, store, lang)
     }
@@ -239,15 +298,15 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F>
     }
 }
 
-impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
+impl<'a: 'b, 'b, G1, G2, C: Coprocessor<<G1 as Group>::Scalar>> Proof<'a, G1, G2, C> {
     /// Proves the computation recursively, generating a recursive SNARK proof.
     pub fn prove_recursively(
-        pp: &'a PublicParams<'_, C>,
-        store: &'a Store<S1>,
-        circuits: &[C1<'a, C>],
+        pp: &'a PublicParams<'_, G1, G2, C>,
+        store: &'a Store<<G1 as Group>::Scalar>,
+        circuits: &[C1<'a, C, G1>],
         num_iters_per_step: usize,
-        z0: Vec<S1>,
-        lang: Arc<Lang<S1, C>>,
+        z0: Vec<<G1 as Group>::Scalar>,
+        lang: Arc<Lang<<G1 as Group>::Scalar, C>>,
     ) -> Result<Self, ProofError> {
         assert!(!circuits.is_empty());
         assert_eq!(circuits[0].arity(), z0.len());
@@ -260,8 +319,14 @@ impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
             num_iters_per_step
         );
         let (_circuit_primary, circuit_secondary): (
-            MultiFrame<'_, S1, IO<S1>, Witness<S1>, C>,
-            TrivialTestCircuit<S2>,
+            MultiFrame<
+                '_,
+                <G1 as Group>::Scalar,
+                IO<<G1 as Group>::Scalar>,
+                Witness<<G1 as Group>::Scalar>,
+                C,
+            >,
+            TrivialTestCircuit<<G1 as Group>::Scalar>,
         ) = C1::<'a>::circuits(num_iters_per_step, lang);
         // produce a recursive SNARK
         let mut recursive_snark: Option<RecursiveSNARK<G1, G2, C1<'a, C>, C2>> = None;
@@ -317,7 +382,7 @@ impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
     }
 
     /// Compresses the proof using a (Spartan) Snark (finishing step)
-    pub fn compress(self, pp: &'a PublicParams<'_, C>) -> Result<Self, ProofError> {
+    pub fn compress(self, pp: &'a PublicParams<'_, G1, G2, C>) -> Result<Self, ProofError> {
         match &self {
             Self::Recursive(recursive_snark) => Ok(Self::Compressed(Box::new(CompressedSNARK::<
                 _,
@@ -338,10 +403,10 @@ impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
     /// Verifies the proof given the public parameters, the number of steps, and the input and output values.
     pub fn verify(
         &self,
-        pp: &PublicParams<'_, C>,
+        pp: &PublicParams<'_, G1, G2, C>,
         num_steps: usize,
-        z0: Vec<S1>,
-        zi: &[S1],
+        z0: Vec<<G1 as Group>::Scalar>,
+        zi: &[<G1 as Group>::Scalar],
     ) -> Result<bool, NovaError> {
         let (z0_primary, zi_primary) = (z0, zi);
         let z0_secondary = Self::z0_secondary();
@@ -355,7 +420,7 @@ impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
         Ok(zi_primary == zi_primary_verified && zi_secondary == zi_secondary_verified)
     }
 
-    fn z0_secondary() -> Vec<S2> {
+    fn z0_secondary() -> Vec<<G2 as Group>::Scalar> {
         vec![<G2 as Group>::Scalar::zero()]
     }
 }

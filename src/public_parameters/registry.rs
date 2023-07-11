@@ -4,7 +4,7 @@ use std::{
 };
 
 use once_cell::sync::Lazy;
-use pasta_curves::pallas;
+use pasta_curves::{pallas, vesta};
 use serde::{de::DeserializeOwned, Serialize};
 use tap::TapFallible;
 
@@ -14,8 +14,11 @@ use crate::{coprocessor::Coprocessor, eval::lang::Lang, proof::nova::PublicParam
 use super::file_map::FileIndex;
 
 type S1 = pallas::Scalar;
+pub type G1 = pallas::Point;
+pub type G2 = vesta::Point;
+
 type AnyMap = anymap::Map<dyn anymap::any::Any + Send + Sync>;
-type PublicParamMemCache<C> = HashMap<usize, Arc<PublicParams<'static, C>>>;
+type PublicParamMemCache<C> = HashMap<usize, Arc<PublicParams<'static, G1, G2, C>>>;
 
 /// This is a global registry for Coproc-specific parameters.
 /// It is used to cache parameters for each Coproc, so that they are not
@@ -34,13 +37,13 @@ pub(crate) static CACHE_REG: Lazy<Registry> = Lazy::new(|| Registry {
 impl Registry {
     fn get_from_file_cache_or_update_with<
         C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static,
-        F: FnOnce(Arc<Lang<S1, C>>) -> Arc<PublicParams<'static, C>>,
+        F: FnOnce(Arc<Lang<S1, C>>) -> Arc<PublicParams<'static, G1, G2, C>>,
     >(
         &'static self,
         rc: usize,
         default: F,
         lang: Arc<Lang<S1, C>>,
-    ) -> Result<Arc<PublicParams<'static, C>>, Error> {
+    ) -> Result<Arc<PublicParams<'static, G1, G2, C>>, Error> {
         // subdirectory search
         let disk_cache = FileIndex::new("public_params").unwrap();
         // use the cached language key
@@ -66,13 +69,13 @@ impl Registry {
     /// Otherwise, initialize with the passed in function.
     pub(crate) fn get_coprocessor_or_update_with<
         C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static,
-        F: FnOnce(Arc<Lang<S1, C>>) -> Arc<PublicParams<'static, C>>,
+        F: FnOnce(Arc<Lang<S1, C>>) -> Arc<PublicParams<'static, G1, G2, C>>,
     >(
         &'static self,
         rc: usize,
         default: F,
         lang: Arc<Lang<S1, C>>,
-    ) -> Result<Arc<PublicParams<'static, C>>, Error> {
+    ) -> Result<Arc<PublicParams<'static, G1, G2, C>>, Error> {
         // re-grab the lock
         let mut registry = self.registry.lock().unwrap();
         // retrieve the per-Coproc public param table
