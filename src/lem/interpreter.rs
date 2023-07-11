@@ -45,7 +45,7 @@ impl Block {
                         bindings.insert(var.clone(), ptr);
                     }
                     preimages = frame.preimages;
-                },
+                }
                 Op::Null(tgt, tag) => {
                     bindings.insert(tgt.clone(), Ptr::null(*tag));
                 }

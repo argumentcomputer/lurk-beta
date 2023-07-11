@@ -65,7 +65,7 @@ mod tests {
 
         for (expr_in, expr_out) in pairs {
             let input = vec![expr_in, nil, outermost];
-            let (frames, paths) = eval_step.run_until(input, store, stop_cond).unwrap();
+            let (frames, paths) = eval_step.call_until(input, store, stop_cond).unwrap();
             assert!(
                 frames
                     .last()

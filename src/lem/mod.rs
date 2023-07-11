@@ -227,7 +227,7 @@ mod tests {
         let mut cs_prev = None;
         for input in inputs.into_iter() {
             let input = vec![input, nil, outermost];
-            let (frames, _) = func.run_until(input, store, &stop_cond).unwrap();
+            let (frames, _) = func.call_until(input, store, &stop_cond).unwrap();
 
             let mut cs;
 
