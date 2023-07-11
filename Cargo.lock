@@ -1435,10 +1435,14 @@ dependencies = [
 name = "lurk-macros"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "lurk",
  "pasta_curves",
  "proc-macro2 1.0.63",
+ "proptest",
+ "proptest-derive",
  "quote 1.0.29",
+ "serde",
  "syn 1.0.109",
 ]
 
