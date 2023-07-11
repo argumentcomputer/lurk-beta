@@ -128,7 +128,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
     ConstraintSystem,
@@ -337,7 +337,7 @@ impl Func {
             allocate_num(cs, &format!("allocate {var}'s tag"), z_ptr.tag.to_field())?;
         let allocated_hash = allocate_num(cs, &format!("allocate {var}'s hash"), z_ptr.hash)?;
         let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
-        bound_allocations.insert(var.clone(), allocated_ptr.clone())?;
+        bound_allocations.insert(var.clone(), allocated_ptr.clone());
         Ok(allocated_ptr)
     }
 
@@ -438,10 +438,10 @@ impl Func {
                 typ: slot_type,
             };
             // Allocate the preimage because the image depends on it
-            let mut preallocated_preimg = vec![];
+            let mut preallocated_preimg = Vec::with_capacity(2 * preimg.len());
 
             let mut component_idx = 0;
-            for ptr in preimg.iter() {
+            for ptr in preimg {
                 let z_ptr = store.hash_ptr(ptr)?;
 
                 // allocate pointer tag
@@ -611,7 +611,7 @@ impl Func {
                         let img_tag = g.global_allocator.get_or_alloc_const(cs, $tag.to_field())?;
                         let img_hash = preallocated_img_hash.clone();
                         let img_ptr = AllocatedPtr::from_parts(img_tag, img_hash);
-                        g.bound_allocations.insert($img, img_ptr)?;
+                        g.bound_allocations.insert($img, img_ptr);
                     };
                 }
 
@@ -650,7 +650,7 @@ impl Func {
                             let preimg_tag = &preallocated_preimg[i + 1];
                             let preimg_ptr =
                                 AllocatedPtr::from_parts(preimg_tag.clone(), preimg_hash.clone());
-                            g.bound_allocations.insert($preimg[i].clone(), preimg_ptr)?;
+                            g.bound_allocations.insert($preimg[i].clone(), preimg_ptr);
                         }
                     };
                 }
@@ -679,7 +679,7 @@ impl Func {
                             g.global_allocator.get_or_alloc_const(cs, tag.to_field())?,
                             g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
                         );
-                        g.bound_allocations.insert(tgt.clone(), allocated_ptr)?;
+                        g.bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
                     _ => todo!(),
                 }
@@ -743,7 +743,8 @@ impl Func {
                     .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
                     Ok(())
                 }
-                Ctrl::MatchSymbol(..) => Ok(()),
+                // Fixme: finish match symbol
+                Ctrl::MatchSymbol(..) => bail!("TODO"),
             }
         }
 

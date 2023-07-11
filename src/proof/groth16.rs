@@ -16,7 +16,7 @@ use blstrs::{Bls12, Scalar};
 use memmap::MmapOptions;
 #[cfg(not(target_arch = "wasm32"))]
 use once_cell::sync::Lazy;
-use pairing_lib::{Engine, MultiMillerLoop};
+use pairing::{Engine, MultiMillerLoop};
 use rand_core::{RngCore, SeedableRng};
 use rand_xorshift::XorShiftRng;
 use serde::{Deserialize, Serialize};

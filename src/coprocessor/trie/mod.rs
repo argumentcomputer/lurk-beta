@@ -20,7 +20,7 @@ use std::marker::PhantomData;
 use lurk_macros::Coproc;
 use serde::{Deserialize, Serialize};
 
-use crate as lurk;
+use crate::{self as lurk, sym};
 
 use crate::coprocessor::{CoCircuit, Coprocessor};
 use crate::eval::lang::Lang;
@@ -125,13 +125,25 @@ impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {}
 /// Add the `Trie`-associated functions to a `Lang` with standard bindings.
 // TODO: define standard patterns for such modularity.
 pub fn install<F: LurkField>(s: &mut Store<F>, lang: &mut Lang<F, TrieCoproc<F>>) {
-    lang.add_binding((".lurk.trie.new", NewCoprocessor::default().into()), s);
     lang.add_binding(
-        (".lurk.trie.lookup", LookupCoprocessor::default().into()),
+        (
+            sym!("lurk", "trie", "new"),
+            NewCoprocessor::default().into(),
+        ),
         s,
     );
     lang.add_binding(
-        (".lurk.trie.insert", InsertCoprocessor::default().into()),
+        (
+            sym!("lurk", "trie", "lookup"),
+            LookupCoprocessor::default().into(),
+        ),
+        s,
+    );
+    lang.add_binding(
+        (
+            sym!("lurk", "trie", "insert"),
+            InsertCoprocessor::default().into(),
+        ),
         s,
     );
 }

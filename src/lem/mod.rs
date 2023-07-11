@@ -51,16 +51,12 @@
 //! (WIP) properties we want a LEM to have before we can adopt it as a proper
 //! Lurk step function:
 //!
-//! 1. Static single assignments: overwriting variables would erase relevant
-//! data needed to feed the circuit at proving time. We don't want to lose any
-//! piece of information that the prover might know;
-//!
-//! 2. Non-duplicated input labels: right at the start of interpretation, the
+//! 1. Non-duplicated input labels: right at the start of interpretation, the
 //! input labels are bound to the actual pointers that represent the expression,
-//! environment and continuation. If some label is repeated, it will fatally
-//! break property 1;
+//! environment and continuation. If some label is repeated, semantics become
+//! confusing;
 //!
-//! 3. Assign first, use later: this prevents obvious errors such as "x not
+//! 2. Assign first, use later: this prevents obvious errors such as "x not
 //! defined" during interpretation or "x not allocated" during constraining.
 
 mod circuit;
@@ -184,7 +180,7 @@ impl Func {
     pub fn new(input_vars: Vec<Var>, output_size: usize, block: &Block) -> Result<Func> {
         let mut map = VarMap::new();
         for i in input_vars.iter() {
-            map.insert(i.clone(), i.clone())?
+            map.insert(i.clone(), i.clone())
         }
         let block = block.deconflict(&Path::default(), &mut map)?;
         Ok(Func {
@@ -323,6 +319,22 @@ mod tests {
 
         let inputs = vec![Ptr::num(Fr::from_u64(42))];
         synthesize_test_helper(&lem, inputs, SlotsCounter::default());
+    }
+
+    #[test]
+    fn handles_non_ssa() {
+        let func = func!((expr_in, env_in, cont_in): 3 => {
+            let x: Cons = hash2(expr_in, expr_in);
+            // The next line rewrites `x` and it should move on smoothly, matching
+            // the expected number of constraints accordingly
+            let x: Cons = hash2(x, x);
+            let cont_out_terminal: Terminal;
+            return (x, x, cont_out_terminal);
+        })
+        .unwrap();
+
+        let inputs = vec![Ptr::num(Fr::from_u64(42))];
+        synthesize_test_helper(&func, inputs, SlotsCounter::new((2, 0, 0)));
     }
 
     #[test]

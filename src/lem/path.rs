@@ -67,13 +67,13 @@ impl Path {
 }
 
 #[inline]
-fn insert_one(map: &mut VarMap<Var>, path: &Path, ptr: &Var) -> Result<Var> {
+fn insert_one(map: &mut VarMap<Var>, path: &Path, ptr: &Var) -> Var {
     let new_ptr = Var(format!("{}.{}", path, ptr.name()).into());
-    map.insert(ptr.clone(), new_ptr.clone())?;
-    Ok(new_ptr)
+    map.insert(ptr.clone(), new_ptr.clone());
+    new_ptr
 }
 
-fn insert_many(map: &mut VarMap<Var>, path: &Path, ptrs: &[Var]) -> Result<Vec<Var>> {
+fn insert_many(map: &mut VarMap<Var>, path: &Path, ptrs: &[Var]) -> Vec<Var> {
     ptrs.iter().map(|ptr| insert_one(map, path, ptr)).collect()
 }
 
@@ -84,38 +84,38 @@ impl Block {
         // `map` keeps track of the updated names of variables
         map: &mut VarMap<Var>, // name -> path.name
     ) -> Result<Self> {
-        let mut ops = vec![];
+        let mut ops = Vec::with_capacity(self.ops.len());
         for op in &self.ops {
             match op {
-                Op::Null(ptr, tag) => ops.push(Op::Null(insert_one(map, path, ptr)?, *tag)),
+                Op::Null(ptr, tag) => ops.push(Op::Null(insert_one(map, path, ptr), *tag)),
                 Op::Hash2(img, tag, preimg) => {
                     let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();
-                    let img = insert_one(map, path, img)?;
+                    let img = insert_one(map, path, img);
                     ops.push(Op::Hash2(img, *tag, preimg))
                 }
                 Op::Hash3(img, tag, preimg) => {
                     let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();
-                    let img = insert_one(map, path, img)?;
+                    let img = insert_one(map, path, img);
                     ops.push(Op::Hash3(img, *tag, preimg))
                 }
                 Op::Hash4(img, tag, preimg) => {
                     let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();
-                    let img = insert_one(map, path, img)?;
+                    let img = insert_one(map, path, img);
                     ops.push(Op::Hash4(img, *tag, preimg))
                 }
                 Op::Unhash2(preimg, img) => {
                     let img = map.get_cloned(img)?;
-                    let preimg = insert_many(map, path, preimg)?;
+                    let preimg = insert_many(map, path, preimg);
                     ops.push(Op::Unhash2(preimg.try_into().unwrap(), img))
                 }
                 Op::Unhash3(preimg, img) => {
                     let img = map.get_cloned(img)?;
-                    let preimg = insert_many(map, path, preimg)?;
+                    let preimg = insert_many(map, path, preimg);
                     ops.push(Op::Unhash3(preimg.try_into().unwrap(), img))
                 }
                 Op::Unhash4(preimg, img) => {
                     let img = map.get_cloned(img)?;
-                    let preimg = insert_many(map, path, preimg)?;
+                    let preimg = insert_many(map, path, preimg);
                     ops.push(Op::Unhash4(preimg.try_into().unwrap(), img))
                 }
                 Op::Hide(..) => todo!(),
@@ -147,7 +147,7 @@ impl Ctrl {
     ) -> Result<Self> {
         match self {
             Ctrl::MatchTag(var, cases) => {
-                let mut new_cases = vec![];
+                let mut new_cases = Vec::with_capacity(cases.len());
                 for (tag, case) in cases {
                     let new_case = case.deconflict(&path.push_tag(tag), &mut map.clone())?;
                     new_cases.push((*tag, new_case));
@@ -158,7 +158,7 @@ impl Ctrl {
                 ))
             }
             Ctrl::MatchSymbol(var, cases, def) => {
-                let mut new_cases = vec![];
+                let mut new_cases = Vec::with_capacity(cases.len());
                 for (symbol, case) in cases {
                     let new_case = case.deconflict(&path.push_symbol(symbol), &mut map.clone())?;
                     new_cases.push((symbol.clone(), new_case));

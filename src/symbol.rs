@@ -231,24 +231,6 @@ impl fmt::Display for Symbol {
     }
 }
 
-impl From<&str> for Symbol {
-    fn from(s: &str) -> Symbol {
-        let sym_path = &s[1..s.len()]
-            .split(SYM_SEPARATOR)
-            .map(|x| x.to_owned())
-            .collect::<Vec<String>>();
-        Self {
-            path: sym_path.clone(),
-        }
-    }
-}
-
-impl From<String> for Symbol {
-    fn from(s: String) -> Symbol {
-        (&s as &str).into()
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 pub enum LurkSym {
