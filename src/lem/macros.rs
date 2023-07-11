@@ -249,7 +249,7 @@ macro_rules! func {
         $crate::lem::Func::new(
             vec![$($crate::var!($in)),*],
             $size,
-            &$crate::block!($lem),
+            $crate::block!($lem),
         )
     };
 }

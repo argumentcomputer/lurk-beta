@@ -75,7 +75,7 @@ use anyhow::Result;
 use indexmap::IndexMap;
 use std::sync::Arc;
 
-use self::{path::Path, store::Store, symbol::Symbol, tag::Tag, var_map::VarMap};
+use self::{path::Path, store::Store, symbol::Symbol, tag::Tag};
 
 pub type AString = Arc<str>;
 pub type AVec<A> = Arc<[A]>;
@@ -180,17 +180,13 @@ impl Func {
 
     /// Instantiates a `LEM` with the appropriate transformations to make sure
     /// that constraining will be smooth.
-    pub fn new(input_vars: Vec<Var>, output_size: usize, block: &Block) -> Result<Func> {
-        let mut map = VarMap::new();
-        for i in input_vars.iter() {
-            map.insert(i.clone(), i.clone())
-        }
-        let block = block.deconflict(&Path::default(), &mut map)?;
-        Ok(Func {
+    pub fn new(input_vars: Vec<Var>, output_size: usize, block: Block) -> Result<Func> {
+        let func = Func {
             input_vars,
             output_size,
             block,
-        })
+        };
+        func.deconflict()
     }
 
     /// Intern all symbols that are matched on `MatchSymbol`s

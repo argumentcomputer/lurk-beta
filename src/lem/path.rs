@@ -2,7 +2,7 @@ use anyhow::Result;
 use indexmap::IndexMap;
 use std::collections::HashSet;
 
-use super::{symbol::Symbol, tag::Tag, var_map::VarMap, Block, Ctrl, Op, Var};
+use super::{symbol::Symbol, tag::Tag, var_map::VarMap, Block, Ctrl, Func, Op, Var};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) enum PathNode {
@@ -79,53 +79,52 @@ fn insert_many(map: &mut VarMap<Var>, path: &Path, ptrs: &[Var]) -> Vec<Var> {
 
 impl Block {
     pub fn deconflict(
-        &self,
+        self,
         path: &Path,
         // `map` keeps track of the updated names of variables
         map: &mut VarMap<Var>, // name -> path.name
     ) -> Result<Self> {
         let mut ops = Vec::with_capacity(self.ops.len());
-        for op in &self.ops {
+        for op in self.ops {
             match op {
                 Op::Call(out, func, inp) => {
-                    let out = map.get_many_cloned(out)?;
+                    let out = map.get_many_cloned(&out)?;
+                    let inp = map.get_many_cloned(&inp)?;
                     // TODO:
                     // Should we deconflict `func`? Do we assume it to already be deconflicted?
                     // Is there an issue in `func` using the same name for a variable that is later
                     // gonna be used?
-                    let func = func.clone();
-                    let inp = map.get_many_cloned(inp)?;
                     ops.push(Op::Call(out, func, inp))
                 }
-                Op::Null(ptr, tag) => ops.push(Op::Null(insert_one(map, path, ptr), *tag)),
+                Op::Null(ptr, tag) => ops.push(Op::Null(insert_one(map, path, &ptr), tag)),
                 Op::Hash2(img, tag, preimg) => {
-                    let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();
-                    let img = insert_one(map, path, img);
-                    ops.push(Op::Hash2(img, *tag, preimg))
+                    let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
+                    let img = insert_one(map, path, &img);
+                    ops.push(Op::Hash2(img, tag, preimg))
                 }
                 Op::Hash3(img, tag, preimg) => {
-                    let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();
-                    let img = insert_one(map, path, img);
-                    ops.push(Op::Hash3(img, *tag, preimg))
+                    let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
+                    let img = insert_one(map, path, &img);
+                    ops.push(Op::Hash3(img, tag, preimg))
                 }
                 Op::Hash4(img, tag, preimg) => {
-                    let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();
-                    let img = insert_one(map, path, img);
-                    ops.push(Op::Hash4(img, *tag, preimg))
+                    let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
+                    let img = insert_one(map, path, &img);
+                    ops.push(Op::Hash4(img, tag, preimg))
                 }
                 Op::Unhash2(preimg, img) => {
-                    let img = map.get_cloned(img)?;
-                    let preimg = insert_many(map, path, preimg);
+                    let img = map.get_cloned(&img)?;
+                    let preimg = insert_many(map, path, &preimg);
                     ops.push(Op::Unhash2(preimg.try_into().unwrap(), img))
                 }
                 Op::Unhash3(preimg, img) => {
-                    let img = map.get_cloned(img)?;
-                    let preimg = insert_many(map, path, preimg);
+                    let img = map.get_cloned(&img)?;
+                    let preimg = insert_many(map, path, &preimg);
                     ops.push(Op::Unhash3(preimg.try_into().unwrap(), img))
                 }
                 Op::Unhash4(preimg, img) => {
-                    let img = map.get_cloned(img)?;
-                    let preimg = insert_many(map, path, preimg);
+                    let img = map.get_cloned(&img)?;
+                    let preimg = insert_many(map, path, &preimg);
                     ops.push(Op::Unhash4(preimg.try_into().unwrap(), img))
                 }
                 Op::Hide(..) => todo!(),
@@ -150,7 +149,7 @@ impl Ctrl {
     /// Note: this function is not supposed to be called manually. It's used by
     /// `LEM::new`, which is the API that should be used directly.
     pub fn deconflict(
-        &self,
+        self,
         path: &Path,
         // `map` keeps track of the updated names of variables
         map: &mut VarMap<Var>, // name -> path.name
@@ -159,27 +158,27 @@ impl Ctrl {
             Ctrl::MatchTag(var, cases) => {
                 let mut new_cases = Vec::with_capacity(cases.len());
                 for (tag, case) in cases {
-                    let new_case = case.deconflict(&path.push_tag(tag), &mut map.clone())?;
-                    new_cases.push((*tag, new_case));
+                    let new_case = case.deconflict(&path.push_tag(&tag), &mut map.clone())?;
+                    new_cases.push((tag, new_case));
                 }
                 Ok(Ctrl::MatchTag(
-                    map.get_cloned(var)?,
+                    map.get_cloned(&var)?,
                     IndexMap::from_iter(new_cases),
                 ))
             }
             Ctrl::MatchSymbol(var, cases, def) => {
                 let mut new_cases = Vec::with_capacity(cases.len());
                 for (symbol, case) in cases {
-                    let new_case = case.deconflict(&path.push_symbol(symbol), &mut map.clone())?;
+                    let new_case = case.deconflict(&path.push_symbol(&symbol), &mut map.clone())?;
                     new_cases.push((symbol.clone(), new_case));
                 }
                 Ok(Ctrl::MatchSymbol(
-                    map.get_cloned(var)?,
+                    map.get_cloned(&var)?,
                     IndexMap::from_iter(new_cases),
                     Box::new(def.deconflict(&path.push_default(), map)?),
                 ))
             }
-            Ctrl::Return(o) => Ok(Ctrl::Return(map.get_many_cloned(o)?)),
+            Ctrl::Return(o) => Ok(Ctrl::Return(map.get_many_cloned(&o)?)),
         }
     }
 
@@ -203,5 +202,16 @@ impl Ctrl {
             all_paths.insert(path.clone());
         });
         Ok(all_paths.len())
+    }
+}
+
+impl Func {
+    pub fn deconflict(mut self) -> Result<Self> {
+        let mut map = VarMap::new();
+        for i in self.input_vars.iter() {
+            map.insert(i.clone(), i.clone())
+        }
+        self.block = self.block.deconflict(&Path::default(), &mut map)?;
+        Ok(self)
     }
 }
