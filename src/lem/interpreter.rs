@@ -214,8 +214,8 @@ impl Func {
         preimages: Preimages<F>,
     ) -> Result<(Frame<F>, Path)> {
         let mut bindings = VarMap::new();
-        for (i, var) in self.input_vars.iter().enumerate() {
-            bindings.insert(var.clone(), input[i]);
+        for (i, param) in self.input_params.iter().enumerate() {
+            bindings.insert(param.clone(), input[i]);
         }
 
         self.block
@@ -230,18 +230,18 @@ impl Func {
         store: &mut Store<F>,
         stop_cond: Stop,
     ) -> Result<(Vec<Frame<F>>, Vec<Path>)> {
-        if self.input_vars.len() != self.output_size {
+        if self.input_params.len() != self.output_size {
             bail!(
                 "Function's input size {} is different from its output size {}",
-                self.input_vars.len(),
+                self.input_params.len(),
                 self.output_size
             )
         }
-        if self.input_vars.len() != input.len() {
+        if self.input_params.len() != input.len() {
             bail!(
-                "The number of inputs {} differs from the function's input size {}",
+                "The number of arguments {} differs from the function's input size {}",
                 input.len(),
-                self.input_vars.len()
+                self.input_params.len()
             )
         }
 

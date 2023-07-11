@@ -83,7 +83,7 @@ pub type AVec<A> = Arc<[A]>;
 /// A `LEM` has the name for the inputs and its characteristic control node
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Func {
-    input_vars: Vec<Var>,
+    input_params: Vec<Var>,
     output_size: usize,
     block: Block,
 }
@@ -182,7 +182,7 @@ impl Func {
     /// that constraining will be smooth.
     pub fn new(input_vars: Vec<Var>, output_size: usize, block: Block) -> Result<Func> {
         let func = Func {
-            input_vars,
+            input_params: input_vars,
             output_size,
             block,
         };

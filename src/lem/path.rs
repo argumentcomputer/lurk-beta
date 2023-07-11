@@ -100,8 +100,8 @@ impl Block {
                     let out = map.get_many_cloned(&out)?;
                     let inp = map.get_many_cloned(&inp)?;
                     // We will always assume previously defined `Func`s to already be deconflicted.
-                    // Since variables are only an issue in parallel paths, not sequential ones,
-                    // there's no need to deconflict `func`
+                    // As of now, we won't deconflict the inner variables of the `func`.
+                    // See the comment in the `Op::Call` case of `synthesize` in circuit.rs
                     ops.push(Op::Call(out, func, inp))
                 }
                 Op::Null(ptr, tag) => ops.push(Op::Null(insert_one(map, path, &ptr), tag)),
@@ -208,8 +208,8 @@ impl Func {
     /// `LEM::new`, which is the API that should be used directly.
     pub(crate) fn deconflict(mut self) -> Result<Self> {
         let mut map = VarMap::new();
-        for i in self.input_vars.iter() {
-            map.insert(i.clone(), i.clone())
+        for i in self.input_params.iter() {
+            map.insert(i.clone(), i.clone());
         }
         self.block = self.block.deconflict(&Path::default(), &mut map)?;
         Ok(self)

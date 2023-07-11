@@ -213,9 +213,7 @@ impl Block {
                 Op::Hash2(..) | Op::Unhash2(..) => SlotsCounter::new((1, 0, 0)),
                 Op::Hash3(..) | Op::Unhash3(..) => SlotsCounter::new((0, 1, 0)),
                 Op::Hash4(..) | Op::Unhash4(..) => SlotsCounter::new((0, 0, 1)),
-                // Should we count the slots for the `Func` here or should each
-                // `Func` carry their own `SlotsCounter`?
-                Op::Call(..) => todo!(),
+                Op::Call(_, func, _) => func.block.count_slots(),
                 _ => SlotsCounter::default(),
             };
             acc.add(val)
@@ -353,8 +351,8 @@ impl Func {
         bound_allocations: &mut BoundAllocations<F>,
     ) -> Result<()> {
         for (i, ptr) in frame.input.iter().enumerate() {
-            let var = &self.input_vars[i];
-            Self::allocate_ptr(cs, &store.hash_ptr(ptr)?, var, bound_allocations)?;
+            let param = &self.input_params[i];
+            Self::allocate_ptr(cs, &store.hash_ptr(ptr)?, param, bound_allocations)?;
         }
         Ok(())
     }
@@ -508,7 +506,7 @@ impl Func {
         &self,
         cs: &mut CS,
         store: &mut Store<F>,
-        slots_count: &SlotsCounter,
+        num_slots: &SlotsCounter,
         frame: &Frame<F>,
     ) -> Result<()> {
         let mut global_allocator = GlobalAllocator::default();
@@ -525,7 +523,7 @@ impl Func {
             cs,
             &frame.preimages.hash2_ptrs,
             SlotType::Hash2,
-            slots_count.hash2,
+            num_slots.hash2,
             store,
         )?;
 
@@ -533,7 +531,7 @@ impl Func {
             cs,
             &frame.preimages.hash3_ptrs,
             SlotType::Hash3,
-            slots_count.hash3,
+            num_slots.hash3,
             store,
         )?;
 
@@ -541,14 +539,12 @@ impl Func {
             cs,
             &frame.preimages.hash4_ptrs,
             SlotType::Hash4,
-            slots_count.hash4,
+            num_slots.hash4,
             store,
         )?;
 
         struct Globals<'a, F: LurkField> {
             global_allocator: &'a mut GlobalAllocator<F>,
-            bound_allocations: BoundAllocations<F>,
-            preallocated_outputs: Vec<AllocatedPtr<F>>,
             preallocated_hash2_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash3_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash4_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
@@ -558,25 +554,27 @@ impl Func {
             cs: &mut CS,
             block: &Block,
             concrete_path: Boolean,
-            slots_count: &mut SlotsCounter,
+            next_slot: &mut SlotsCounter,
+            bound_allocations: &mut BoundAllocations<F>,
+            preallocated_outputs: &Vec<AllocatedPtr<F>>,
             g: &mut Globals<'_, F>,
         ) -> Result<()> {
             for op in &block.ops {
                 macro_rules! hash_helper {
                     ( $img: expr, $tag: expr, $preimg: expr, $slot: expr ) => {
                         // Retrieve allocated preimage
-                        let allocated_preimg = g.bound_allocations.get_many($preimg)?;
+                        let allocated_preimg = bound_allocations.get_many($preimg)?;
 
                         // Retrieve the preallocated preimage and image for this slot
                         let (preallocated_preimg, preallocated_img_hash) = match $slot {
                             SlotType::Hash2 => {
-                                &g.preallocated_hash2_slots[slots_count.consume_hash2()]
+                                &g.preallocated_hash2_slots[next_slot.consume_hash2()]
                             }
                             SlotType::Hash3 => {
-                                &g.preallocated_hash3_slots[slots_count.consume_hash3()]
+                                &g.preallocated_hash3_slots[next_slot.consume_hash3()]
                             }
                             SlotType::Hash4 => {
-                                &g.preallocated_hash4_slots[slots_count.consume_hash4()]
+                                &g.preallocated_hash4_slots[next_slot.consume_hash4()]
                             }
                         };
 
@@ -614,25 +612,25 @@ impl Func {
                         let img_tag = g.global_allocator.get_or_alloc_const(cs, $tag.to_field())?;
                         let img_hash = preallocated_img_hash.clone();
                         let img_ptr = AllocatedPtr::from_parts(img_tag, img_hash);
-                        g.bound_allocations.insert($img, img_ptr);
+                        bound_allocations.insert($img, img_ptr);
                     };
                 }
 
                 macro_rules! unhash_helper {
                     ( $preimg: expr, $img: expr, $slot: expr ) => {
                         // Retrieve allocated image
-                        let allocated_img = g.bound_allocations.get($img)?;
+                        let allocated_img = bound_allocations.get($img)?;
 
                         // Retrieve the preallocated preimage and image for this slot
                         let (preallocated_preimg, preallocated_img) = match $slot {
                             SlotType::Hash2 => {
-                                &g.preallocated_hash2_slots[slots_count.consume_hash2()]
+                                &g.preallocated_hash2_slots[next_slot.consume_hash2()]
                             }
                             SlotType::Hash3 => {
-                                &g.preallocated_hash3_slots[slots_count.consume_hash3()]
+                                &g.preallocated_hash3_slots[next_slot.consume_hash3()]
                             }
                             SlotType::Hash4 => {
-                                &g.preallocated_hash4_slots[slots_count.consume_hash4()]
+                                &g.preallocated_hash4_slots[next_slot.consume_hash4()]
                             }
                         };
 
@@ -653,13 +651,42 @@ impl Func {
                             let preimg_tag = &preallocated_preimg[i + 1];
                             let preimg_ptr =
                                 AllocatedPtr::from_parts(preimg_tag.clone(), preimg_hash.clone());
-                            g.bound_allocations.insert($preimg[i].clone(), preimg_ptr);
+                            bound_allocations.insert($preimg[i].clone(), preimg_ptr);
                         }
                     };
                 }
 
                 match op {
-                    Op::Call(..) => todo!(),
+                    Op::Call(out, func, inp) => {
+                        // Get the actual output pointers that the `func` will return to.
+                        // These should be unconstrained as of yet, and will be constrained
+                        // by the return statements inside `func`
+                        let output_ptrs = bound_allocations.get_many_cloned(out)?;
+                        // Get the pointers for the input, i.e. the arguments
+                        let args = bound_allocations.get_many_cloned(inp)?;
+                        // These are the input parameters (formal variables)
+                        let param_list = func.input_params.iter();
+                        // Now we bind the `Func`'s input parameters to the arguments in the call.
+                        // Here we either have to clone `bound_allocations` or have previously
+                        // deconflicted all the inner variables of the `Func`, since we don't
+                        // know if there are variables of the same name as an internal variable
+                        // used by the `Func`. We choose, as of now, the former approach, for
+                        // simplicity.
+                        let bound_allocations = &mut bound_allocations.clone();
+                        for (param, arg) in param_list.zip(args.into_iter()) {
+                            bound_allocations.insert(param.clone(), arg);
+                        }
+                        // Finally, we synthesize the circuit for the function body
+                        recurse(
+                            &mut cs.namespace(|| "call".to_string()),
+                            &func.block,
+                            concrete_path.clone(),
+                            next_slot,
+                            bound_allocations,
+                            &output_ptrs,
+                            g,
+                        )?;
+                    }
                     Op::Hash2(img, tag, preimg) => {
                         hash_helper!(img.clone(), tag, preimg, SlotType::Hash2);
                     }
@@ -683,31 +710,31 @@ impl Func {
                             g.global_allocator.get_or_alloc_const(cs, tag.to_field())?,
                             g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
                         );
-                        g.bound_allocations.insert(tgt.clone(), allocated_ptr);
+                        bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
                     _ => todo!(),
                 }
             }
 
             match &block.ctrl {
-                Ctrl::Return(output_vars) => {
-                    for (i, output_var) in output_vars.iter().enumerate() {
-                        let allocated_ptr = g.bound_allocations.get(output_var)?;
+                Ctrl::Return(return_vars) => {
+                    for (i, return_var) in return_vars.iter().enumerate() {
+                        let allocated_ptr = bound_allocations.get(return_var)?;
 
                         allocated_ptr
                             .implies_ptr_equal(
                                 &mut cs.namespace(|| {
-                                    format!("implies_ptr_equal {output_var} (output_var {i})")
+                                    format!("implies_ptr_equal {return_var} (return_var {i})")
                                 }),
                                 &concrete_path,
-                                &g.preallocated_outputs[i],
+                                &preallocated_outputs[i],
                             )
                             .with_context(|| "couldn't constrain `implies_ptr_equal`")?;
                     }
                     Ok(())
                 }
                 Ctrl::MatchTag(match_var, cases) => {
-                    let allocated_match_tag = g.bound_allocations.get(match_var)?.tag().clone();
+                    let allocated_match_tag = bound_allocations.get(match_var)?.tag().clone();
                     let mut concrete_path_vec = Vec::new();
                     for (tag, op) in cases {
                         let allocated_has_match = alloc_equal_const(
@@ -726,12 +753,14 @@ impl Func {
 
                         concrete_path_vec.push(allocated_has_match);
 
-                        let saved_slot = &mut slots_count.clone();
+                        let saved_slot = &mut next_slot.clone();
                         recurse(
                             &mut cs.namespace(|| format!("{}", tag)),
                             op,
                             concrete_path_and_has_match,
                             saved_slot,
+                            bound_allocations,
+                            preallocated_outputs,
                             g,
                         )?;
                     }
@@ -757,10 +786,10 @@ impl Func {
             &self.block,
             Boolean::Constant(true),
             &mut SlotsCounter::default(),
+            &mut bound_allocations,
+            &preallocated_outputs,
             &mut Globals {
                 global_allocator: &mut global_allocator,
-                bound_allocations,
-                preallocated_outputs,
                 preallocated_hash2_slots,
                 preallocated_hash3_slots,
                 preallocated_hash4_slots,
@@ -771,7 +800,7 @@ impl Func {
     /// Computes the number of constraints that `synthesize` should create. It's
     /// also an explicit way to document and attest how the number of constraints
     /// grow.
-    pub fn num_constraints<F: LurkField>(&self, slots_count: &SlotsCounter) -> usize {
+    pub fn num_constraints<F: LurkField>(&self, num_slots: &SlotsCounter) -> usize {
         fn recurse<F: LurkField>(
             block: &Block,
             nested: bool,
@@ -781,8 +810,6 @@ impl Func {
             for op in &block.ops {
                 match op {
                     Op::Call(out, func, _) => {
-                        // Do each `Func` have their own slots or are they all lifted
-                        // to the top-level?
                         num_constraints += recurse(&func.block, nested, globals);
                         num_constraints += out.len();
                     }
@@ -842,7 +869,7 @@ impl Func {
         let globals = &mut HashSet::default();
         // fixed cost for each slot
         let slot_constraints =
-            289 * slots_count.hash2 + 337 * slots_count.hash3 + 388 * slots_count.hash4;
+            289 * num_slots.hash2 + 337 * num_slots.hash3 + 388 * num_slots.hash4;
         let num_constraints = recurse::<F>(&self.block, false, globals);
         slot_constraints + num_constraints + globals.len()
     }
