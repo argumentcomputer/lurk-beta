@@ -28,7 +28,7 @@ impl Block {
     /// Interprets a LEM while i) modifying a `Store`, ii) binding `Var`s to
     /// `Ptr`s and iii) collecting the preimages from visited slots (more on this
     /// in `circuit.rs`)
-    fn run_step<F: LurkField>(
+    fn run<F: LurkField>(
         &self,
         input: Vec<Ptr<F>>,
         store: &mut Store<F>,
@@ -38,7 +38,14 @@ impl Block {
     ) -> Result<(Frame<F>, Path)> {
         for op in &self.ops {
             match op {
-                Op::Call(..) => todo!(),
+                Op::Call(out, func, inp) => {
+                    let inp_ptrs = bindings.get_many_cloned(inp)?;
+                    let (frame, _) = func.call(inp_ptrs, store, preimages)?;
+                    for (var, ptr) in out.iter().zip(frame.output.into_iter()) {
+                        bindings.insert(var.clone(), ptr);
+                    }
+                    preimages = frame.preimages;
+                },
                 Op::Null(tgt, tag) => {
                     bindings.insert(tgt.clone(), Ptr::null(*tag));
                 }
@@ -137,7 +144,7 @@ impl Block {
                 },
             }
         }
-        self.ctrl.run_step(input, store, bindings, preimages, path)
+        self.ctrl.run(input, store, bindings, preimages, path)
     }
 }
 
@@ -145,7 +152,7 @@ impl Ctrl {
     /// Interprets a LEM while i) modifying a `Store`, ii) binding `Var`s to
     /// `Ptr`s and iii) collecting the preimages from visited slots (more on this
     /// in `circuit.rs`)
-    fn run_step<F: LurkField>(
+    fn run<F: LurkField>(
         &self,
         input: Vec<Ptr<F>>,
         store: &mut Store<F>,
@@ -160,7 +167,7 @@ impl Ctrl {
                 match cases.get(tag) {
                     Some(block) => {
                         path.push_tag_inplace(tag);
-                        block.run_step(input, store, bindings, preimages, path)
+                        block.run(input, store, bindings, preimages, path)
                     }
                     None => bail!("No match for tag {}", tag),
                 }
@@ -173,11 +180,11 @@ impl Ctrl {
                 match cases.get(&symbol) {
                     Some(block) => {
                         path.push_symbol_inplace(&symbol);
-                        block.run_step(input, store, bindings, preimages, path)
+                        block.run(input, store, bindings, preimages, path)
                     }
                     None => {
                         path.push_default_inplace();
-                        def.run_step(input, store, bindings, preimages, path)
+                        def.run(input, store, bindings, preimages, path)
                     }
                 }
             }
@@ -200,9 +207,24 @@ impl Ctrl {
 }
 
 impl Func {
-    /// Calls `run_step` until the stop contidion is satisfied, using the output of one
+    pub fn call<F: LurkField>(
+        &self,
+        input: Vec<Ptr<F>>,
+        store: &mut Store<F>,
+        preimages: Preimages<F>,
+    ) -> Result<(Frame<F>, Path)> {
+        let mut bindings = VarMap::new();
+        for (i, var) in self.input_vars.iter().enumerate() {
+            bindings.insert(var.clone(), input[i]);
+        }
+
+        self.block
+            .run(input, store, bindings, preimages, Path::default())
+    }
+
+    /// Calls a `Func` on an input until the stop contidion is satisfied, using the output of one
     /// iteration as the input of the next one.
-    pub fn run<F: LurkField, Stop: Fn(&[Ptr<F>]) -> bool>(
+    pub fn call_until<F: LurkField, Stop: Fn(&[Ptr<F>]) -> bool>(
         &self,
         mut input: Vec<Ptr<F>>,
         store: &mut Store<F>,
@@ -228,16 +250,8 @@ impl Func {
         let mut paths = vec![];
 
         loop {
-            // Map of names to pointers (its key/val pairs should never be overwritten)
-            let mut bindings = VarMap::new();
-            for (i, var) in self.input_vars.iter().enumerate() {
-                bindings.insert(var.clone(), input[i]);
-            }
-
             let preimages = Preimages::default();
-            let (frame, path) =
-                self.block
-                    .run_step(input, store, bindings, preimages, Path::default())?;
+            let (frame, path) = self.call(input, store, preimages)?;
             if stop_cond(&frame.output) {
                 frames.push(frame);
                 paths.push(path);
