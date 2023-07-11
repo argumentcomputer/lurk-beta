@@ -279,6 +279,47 @@ fn prove_benchmark(c: &mut Criterion) {
     });
 }
 
+/// To run these benchmarks, do `cargo criterion prove_compressed_benchmark`.
+/// For flamegraphs, run:
+/// ```cargo criterion prove_compressed_benchmark --features flamegraph -- --profile-time <secs>```
+fn prove_compressed_benchmark(c: &mut Criterion) {
+    let mut group = c.benchmark_group("prove_compressed_benchmark");
+    group
+        .sampling_mode(SamplingMode::Flat)
+        .measurement_time(Duration::from_secs(120))
+        .sample_size(10);
+
+    let limit = 1_000_000_000;
+    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
+    let lang_pallas_rc = Arc::new(lang_pallas.clone());
+    let mut store = Store::default();
+    let reduction_count = DEFAULT_REDUCTION_COUNT;
+
+    let size = (10, 0);
+    let benchmark_id = BenchmarkId::new(
+        "prove_compressed_go_base_nova",
+        format!("_{}_{}", size.0, size.1),
+    );
+
+    group.bench_with_input(benchmark_id, &size, |b, &s| {
+        let ptr = go_base::<pallas::Scalar>(&mut store, s.0, s.1);
+        let prover = NovaProver::new(reduction_count, lang_pallas.clone());
+        let pp = public_parameters::public_params(reduction_count, lang_pallas_rc.clone()).unwrap();
+        let frames = prover
+            .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
+            .unwrap();
+
+        b.iter(|| {
+            let (proof, _, _, _) = prover
+                .prove(&pp, &frames, &mut store, lang_pallas_rc.clone())
+                .unwrap();
+
+            let compressed_result = proof.compress(&pp).unwrap();
+            black_box(compressed_result);
+        })
+    });
+}
+
 /// To run these benchmarks, do `cargo criterion verify_benchmark`.
 /// For flamegraphs, run:
 /// ```cargo criterion verify_benchmark --features flamegraph -- --profile-time <secs>```
@@ -393,6 +434,7 @@ cfg_if::cfg_if! {
                 eval_benchmark,
                 // circuit_generation_benchmark,
                 prove_benchmark,
+                prove_compressed_benchmark,
                 verify_benchmark,
                 verify_compressed_benchmark
         }
@@ -407,6 +449,7 @@ cfg_if::cfg_if! {
                 eval_benchmark,
                 // circuit_generation_benchmark,
                 prove_benchmark,
+                prove_compressed_benchmark,
                 verify_benchmark,
                 verify_compressed_benchmark
         }
