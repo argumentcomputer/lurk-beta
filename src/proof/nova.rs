@@ -14,7 +14,6 @@ use nova::{
     },
     CompressedSNARK, ProverKey, RecursiveSNARK, VerifierKey,
 };
-use pasta_curves::{pallas, vesta};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -33,20 +32,11 @@ use crate::proof::{Prover, PublicParameters};
 use crate::ptr::Ptr;
 use crate::store::Store;
 
-/// Type alias for G1 group elements using the Pallas curve.
-pub type G1 = pallas::Point;
-/// Type alias for G2 group elements using the Vesta curve.
-pub type G2 = vesta::Point;
+/// Type alias for the Evaluation Engine using G group elements.
+pub type EE<G> = nova::provider::ipa_pc::EvaluationEngine<G>;
 
-/// Type alias for the Evaluation Engine using G1 group elements.
-pub type EE1<G1> = nova::provider::ipa_pc::EvaluationEngine<G1>;
-/// Type alias for the Evaluation Engine using G2 group elements.
-pub type EE2<G2> = nova::provider::ipa_pc::EvaluationEngine<G2>;
-
-/// Type alias for the Relaxed R1CS Spartan SNARK using G1 group elements, EE1.
-pub type SS1<G1> = nova::spartan::RelaxedR1CSSNARK<G1, EE1<G1>>;
-/// Type alias for the Relaxed R1CS Spartan SNARK using G2 group elements, EE2.
-pub type SS2<G2> = nova::spartan::RelaxedR1CSSNARK<G2, EE2<G2>>;
+/// Type alias for the Relaxed R1CS Spartan SNARK using G group elements, EE.
+pub type SS<G> = nova::spartan::RelaxedR1CSSNARK<G, EE<G>>;
 
 /// Type alias for a MultiFrame with S1 field elements.
 pub type C1<'a, G1, C> = MultiFrame<
@@ -73,8 +63,8 @@ where
         pedersen::CommitmentKeyExtTrait<G1>,
 {
     pp: NovaPublicParams<'a, C, G1, G2>,
-    pk: ProverKey<G1, G2, C1<'a, G1, C>, C2<G2>, SS1<G1>, SS2<G2>>,
-    vk: VerifierKey<G1, G2, C1<'a, G1, C>, C2<G2>, SS1<G1>, SS2<G2>>,
+    pk: ProverKey<G1, G2, C1<'a, G1, C>, C2<G2>, SS<G1>, SS<G2>>,
+    vk: VerifierKey<G1, G2, C1<'a, G1, C>, C2<G2>, SS<G1>, SS<G2>>,
 }
 
 /// An enum representing the two types of proofs that can be generated and verified.
@@ -88,7 +78,7 @@ where
     /// A proof for the intermediate steps of a recursive computation
     Recursive(Box<RecursiveSNARK<G1, G2, C1<'a, G1, C>, C2<G2>>>),
     /// A proof for the final step of a recursive computation
-    Compressed(Box<CompressedSNARK<G1, G2, C1<'a, G1, C>, C2<G2>, SS1<G1>, SS2<G2>>>),
+    Compressed(Box<CompressedSNARK<G1, G2, C1<'a, G1, C>, C2<G2>, SS<G1>, SS<G2>>>),
 }
 
 /// Generates the public parameters for the Nova proving system.
@@ -389,8 +379,8 @@ impl<'a: 'b, 'b, G1, G2, C: Coprocessor<<G1 as Group>::Scalar>> Proof<'a, G1, G2
                 _,
                 _,
                 _,
-                SS1,
-                SS2,
+                SS<G1>,
+                SS<G2>,
             >::prove(
                 &pp.pp,
                 &pp.pk,
@@ -440,7 +430,7 @@ pub mod tests {
         util_cs::{metric_cs::MetricCS, test_cs::TestConstraintSystem, Comparable, Delta},
         Circuit,
     };
-    use pallas::Scalar as Fr;
+    use pasta_curves::pallas::Scalar as Fr;
 
     const DEFAULT_REDUCTION_COUNT: usize = 5;
     const REDUCTION_COUNTS_TO_TEST: [usize; 3] = [1, 2, 5];
