@@ -75,7 +75,7 @@ use anyhow::Result;
 use indexmap::IndexMap;
 use std::sync::Arc;
 
-use self::{path::Path, store::Store, symbol::Symbol, tag::Tag};
+use self::{store::Store, symbol::Symbol, tag::Tag};
 
 pub type AString = Arc<str>;
 pub type AVec<A> = Arc<[A]>;
@@ -155,7 +155,7 @@ pub enum Op {
 
 impl Ctrl {
     /// Intern all symbol paths that are matched on `MatchSymPath`s
-    pub fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
+    fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
         match self {
             Self::MatchSymbol(_, cases, def) => {
                 cases.iter().for_each(|(symbol, block)| {
@@ -193,15 +193,6 @@ impl Func {
     #[inline]
     pub fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
         self.block.ctrl.intern_matched_symbols(store);
-    }
-
-    /// Asserts that all paths were visited by a set of frames. This is mostly
-    /// for testing purposes.
-    pub fn assert_all_paths_taken(&self, paths: &[Path]) {
-        assert_eq!(
-            self.block.ctrl.num_paths_taken(paths).unwrap(),
-            self.block.ctrl.num_paths()
-        );
     }
 }
 

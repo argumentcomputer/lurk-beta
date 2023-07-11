@@ -64,6 +64,15 @@ impl Path {
     pub fn push_default_inplace(&mut self) {
         self.0.push(PathNode::Default);
     }
+
+    /// Computes the number of different paths taken given a list of paths
+    pub fn num_paths_taken(paths: &[Self]) -> usize {
+        let mut all_paths: HashSet<Self> = HashSet::default();
+        paths.iter().for_each(|path| {
+            all_paths.insert(path.clone());
+        });
+        all_paths.len()
+    }
 }
 
 #[inline]
@@ -78,7 +87,7 @@ fn insert_many(map: &mut VarMap<Var>, path: &Path, ptrs: &[Var]) -> Vec<Var> {
 }
 
 impl Block {
-    pub fn deconflict(
+    fn deconflict(
         self,
         path: &Path,
         // `map` keeps track of the updated names of variables
@@ -90,10 +99,9 @@ impl Block {
                 Op::Call(out, func, inp) => {
                     let out = map.get_many_cloned(&out)?;
                     let inp = map.get_many_cloned(&inp)?;
-                    // TODO:
-                    // Should we deconflict `func`? Do we assume it to already be deconflicted?
-                    // Is there an issue in `func` using the same name for a variable that is later
-                    // gonna be used?
+                    // We will always assume previously defined `Func`s to already be deconflicted.
+                    // Since variables are only an issue in parallel paths, not sequential ones,
+                    // there's no need to deconflict `func`
                     ops.push(Op::Call(out, func, inp))
                 }
                 Op::Null(ptr, tag) => ops.push(Op::Null(insert_one(map, path, &ptr), tag)),
@@ -134,21 +142,24 @@ impl Block {
         let ctrl = self.ctrl.deconflict(path, map)?;
         Ok(Block { ops, ctrl })
     }
+
+    /// Computes the number of possible paths in a `Block`. `Func`s withen `Call`s are
+    /// treated as black boxes, therefore we do not count paths within a call.
+    fn num_paths(&self) -> usize {
+        match &self.ctrl {
+            Ctrl::MatchTag(_, cases) => {
+                cases.values().fold(0, |acc, block| acc + block.num_paths())
+            }
+            Ctrl::MatchSymbol(_, cases, _) => {
+                cases.values().fold(0, |acc, block| acc + block.num_paths())
+            }
+            Ctrl::Return(..) => 1,
+        }
+    }
 }
 
 impl Ctrl {
-    /// Removes conflicting names in parallel logical LEM paths. While these
-    /// conflicting names shouldn't be an issue for interpretation, they are
-    /// problematic when we want to generate the constraints for the LEM, since
-    /// conflicting names would cause different allocations to be bound the same
-    /// name.
-    ///
-    /// The conflict resolution is achieved by changing variables so that
-    /// their names are prepended by the paths where they're declared.
-    ///
-    /// Note: this function is not supposed to be called manually. It's used by
-    /// `LEM::new`, which is the API that should be used directly.
-    pub fn deconflict(
+    fn deconflict(
         self,
         path: &Path,
         // `map` keeps track of the updated names of variables
@@ -181,37 +192,32 @@ impl Ctrl {
             Ctrl::Return(o) => Ok(Ctrl::Return(map.get_many_cloned(&o)?)),
         }
     }
-
-    /// Computes the number of possible paths in a `LEMOP`
-    pub fn num_paths(&self) -> usize {
-        match self {
-            Ctrl::MatchTag(_, cases) => cases
-                .values()
-                .fold(0, |acc, block| acc + block.ctrl.num_paths()),
-            Ctrl::MatchSymbol(_, cases, _) => cases
-                .values()
-                .fold(0, |acc, block| acc + block.ctrl.num_paths()),
-            Ctrl::Return(..) => 1,
-        }
-    }
-
-    /// Computes the number of paths taken within a `LEMOP` given a set of frames
-    pub fn num_paths_taken(&self, paths: &[Path]) -> Result<usize> {
-        let mut all_paths: HashSet<Path> = HashSet::default();
-        paths.iter().for_each(|path| {
-            all_paths.insert(path.clone());
-        });
-        Ok(all_paths.len())
-    }
 }
 
 impl Func {
-    pub fn deconflict(mut self) -> Result<Self> {
+    /// Removes conflicting names in parallel logical LEM paths. While these
+    /// conflicting names shouldn't be an issue for interpretation, they are
+    /// problematic when we want to generate the constraints for the LEM, since
+    /// conflicting names would cause different allocations to be bound the same
+    /// name.
+    ///
+    /// The conflict resolution is achieved by changing variables so that
+    /// their names are prepended by the paths where they're declared.
+    ///
+    /// Note: this function is not supposed to be called manually. It's used by
+    /// `LEM::new`, which is the API that should be used directly.
+    pub(crate) fn deconflict(mut self) -> Result<Self> {
         let mut map = VarMap::new();
         for i in self.input_vars.iter() {
             map.insert(i.clone(), i.clone())
         }
         self.block = self.block.deconflict(&Path::default(), &mut map)?;
         Ok(self)
+    }
+
+    /// Asserts that all paths were visited by a set of frames. This is mostly
+    /// for testing purposes.
+    pub fn assert_all_paths_taken(&self, paths: &[Path]) {
+        assert_eq!(Path::num_paths_taken(paths), self.block.num_paths());
     }
 }
