@@ -14,7 +14,11 @@ proc-macro = true
 proc-macro2 = "1.0.24"
 quote = "1.0.9"
 syn = { version = "1.0.64", features = ["derive", "extra-traits", "full"] }
+proptest = "1.1.0"
+proptest-derive = "0.3.0"
+serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
+bincode = { workspace = true }
 lurk_crate = { path = "../", package = "lurk" }
 pasta_curves = { workspace = true, features = ["repr-c", "serde"] }
