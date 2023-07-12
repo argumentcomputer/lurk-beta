@@ -13,6 +13,7 @@ use lurk::proof::{nova::NovaProver, Prover};
 use lurk::ptr::Ptr;
 use lurk::public_parameters::public_params;
 use lurk::store::Store;
+use lurk::sym;
 use lurk_macros::Coproc;
 
 use bellperson::gadgets::boolean::{AllocatedBit, Boolean};
@@ -160,9 +161,7 @@ fn main() {
     u.reverse();
 
     let store = &mut Store::<Fr>::new();
-    let sym = sym!("sha256", format!("{}-zero-bytes", input_size));
-
-    let coproc_expr = format!("({})", &sym);
+    let sym_str = sym!("sha256", format!("{}-zero-bytes", input_size));
 
     let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
         store,
@@ -172,7 +171,7 @@ fn main() {
         )],
     );
 
-    let coproc_expr = format!("({})", sym_str);
+    let coproc_expr = format!("{}", sym_str);
 
     let expr = format!("{coproc_expr}");
     let ptr = store.read(&expr).unwrap();
