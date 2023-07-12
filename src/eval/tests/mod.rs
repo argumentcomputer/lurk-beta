@@ -1550,6 +1550,20 @@ fn commitment_value() {
 }
 
 #[test]
+fn commit_nil() {
+    let s = &mut Store::<Fr>::default();
+    let x = s
+        .read("0x239b15d97a9a69b3db1c9130601ec2a1f8ac2ed6033633e4fb5232d85c622250")
+        .unwrap();
+
+    let expr = "(num (commit nil))";
+    test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, 4, None);
+
+    let expr = "(num (commit 'lurk.nil))";
+    test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, 4, None);
+}
+
+#[test]
 fn commit_error() {
     let s = &mut Store::<Fr>::default();
     let expr = "(commit 123 456)";
@@ -2549,6 +2563,7 @@ pub(crate) mod coproc {
     use super::*;
     use crate::coprocessor::test::DumbCoprocessor;
     use crate::store::Store;
+    use crate::sym;
 
     #[derive(Clone, Debug, Coproc)]
     pub(crate) enum DumbCoproc<F: LurkField> {
@@ -2561,7 +2576,7 @@ pub(crate) mod coproc {
 
         let lang = Lang::<Fr, DumbCoproc<Fr>>::new_with_bindings(
             s,
-            vec![(".cproc.dumb", DumbCoprocessor::new().into())],
+            vec![(sym!("cproc", "dumb"), DumbCoprocessor::new().into())],
         );
 
         // 9^2 + 8 = 89

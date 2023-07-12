@@ -160,7 +160,10 @@ fn main() {
     u.reverse();
 
     let store = &mut Store::<Fr>::new();
-    let sym_str = format!(".sha256.hash-{}-zero-bytes", input_size);
+    let sym = sym!("sha256", format!("{}-zero-bytes", input_size));
+
+    let coproc_expr = format!("({})", &sym);
+
     let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
         store,
         vec![(
