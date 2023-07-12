@@ -147,4 +147,4 @@ name = "public_params"
 harness = false
 
 [patch.crates-io]
-sppark = { git = "https://github.com/supranational/sppark" }
+sppark = { git = "https://github.com/supranational/sppark", rev="5fea26f43cc5d12a77776c70815e7c722fd1f8a7" }
