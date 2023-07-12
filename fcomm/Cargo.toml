@@ -24,7 +24,7 @@ hex = { version = "0.4.3", features = ["serde"] }
 log = { workspace = true }
 lurk = { path = "../", package = "lurk" }
 once_cell = { workspace = true }
-pairing_lib = { workspace = true }
+pairing = { workspace = true }
 pasta_curves = { workspace = true, features = ["repr-c", "serde"] }
 pretty_env_logger = { workspace = true }
 proptest = "1.1.0"

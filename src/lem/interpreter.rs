@@ -34,13 +34,13 @@ impl LEMOP {
     ) -> Result<()> {
         match self {
             LEMOP::Null(tgt, tag) => {
-                bindings.insert(tgt.clone(), Ptr::null(*tag))?;
+                bindings.insert(tgt.clone(), Ptr::null(*tag));
                 Ok(())
             }
             LEMOP::Hash2(img, tag, preimg) => {
                 let preimg_ptrs = bindings.get_many_cloned(preimg)?;
                 let tgt_ptr = store.intern_2_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1]);
-                bindings.insert(img.clone(), tgt_ptr)?;
+                bindings.insert(img.clone(), tgt_ptr);
                 preimages.hash2_ptrs.push(preimg_ptrs);
                 Ok(())
             }
@@ -48,7 +48,7 @@ impl LEMOP {
                 let preimg_ptrs = bindings.get_many_cloned(preimg)?;
                 let tgt_ptr =
                     store.intern_3_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]);
-                bindings.insert(img.clone(), tgt_ptr)?;
+                bindings.insert(img.clone(), tgt_ptr);
                 preimages.hash3_ptrs.push(preimg_ptrs);
                 Ok(())
             }
@@ -61,7 +61,7 @@ impl LEMOP {
                     preimg_ptrs[2],
                     preimg_ptrs[3],
                 );
-                bindings.insert(img.clone(), tgt_ptr)?;
+                bindings.insert(img.clone(), tgt_ptr);
                 preimages.hash4_ptrs.push(preimg_ptrs);
                 Ok(())
             }
@@ -75,7 +75,7 @@ impl LEMOP {
                 };
                 let preimg_ptrs = [*a, *b];
                 for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
-                    bindings.insert(var.clone(), *ptr)?;
+                    bindings.insert(var.clone(), *ptr);
                 }
                 preimages.hash2_ptrs.push(preimg_ptrs.to_vec());
                 Ok(())
@@ -90,7 +90,7 @@ impl LEMOP {
                 };
                 let preimg_ptrs = [*a, *b, *c];
                 for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
-                    bindings.insert(var.clone(), *ptr)?;
+                    bindings.insert(var.clone(), *ptr);
                 }
                 preimages.hash3_ptrs.push(preimg_ptrs.to_vec());
                 Ok(())
@@ -105,7 +105,7 @@ impl LEMOP {
                 };
                 let preimg_ptrs = [*a, *b, *c, *d];
                 for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
-                    bindings.insert(var.clone(), *ptr)?;
+                    bindings.insert(var.clone(), *ptr);
                 }
                 preimages.hash4_ptrs.push(preimg_ptrs.to_vec());
                 Ok(())
@@ -121,16 +121,16 @@ impl LEMOP {
                     .hash3(&[*secret, z_ptr.tag.to_field(), z_ptr.hash]);
                 let tgt_ptr = Ptr::comm(hash);
                 store.comms.insert(FWrap::<F>(hash), (*secret, *src_ptr));
-                bindings.insert(tgt.clone(), tgt_ptr)?;
+                bindings.insert(tgt.clone(), tgt_ptr);
                 Ok(())
             }
             LEMOP::Open(tgt_secret, tgt_ptr, comm_or_num) => match bindings.get(comm_or_num)? {
                 Ptr::Leaf(Tag::Num, hash) | Ptr::Leaf(Tag::Comm, hash) => {
                     let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
-                            bail!("No committed data for hash {}", &hash.hex_digits())
-                        };
-                    bindings.insert(tgt_ptr.clone(), *ptr)?;
-                    bindings.insert(tgt_secret.clone(), Ptr::Leaf(Tag::Num, *secret))?;
+                        bail!("No committed data for hash {}", &hash.hex_digits())
+                    };
+                    bindings.insert(tgt_ptr.clone(), *ptr);
+                    bindings.insert(tgt_secret.clone(), Ptr::Leaf(Tag::Num, *secret));
                     Ok(())
                 }
                 _ => {
@@ -229,7 +229,7 @@ impl LEM {
             // Map of names to pointers (its key/val pairs should never be overwritten)
             let mut bindings = VarMap::new();
             for (i, var) in self.input_vars.iter().enumerate() {
-                bindings.insert(var.clone(), input[i])?;
+                bindings.insert(var.clone(), input[i]);
             }
 
             let preimages = Preimages::default();

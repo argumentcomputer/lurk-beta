@@ -1,5 +1,5 @@
 #[cfg(not(target_arch = "wasm32"))]
-use proptest::prelude::BoxedStrategy;
+use lurk_macros::serde_test;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -13,6 +13,10 @@ use crate::tag::Tag;
 use crate::z_ptr::{ZContPtr, ZExprPtr, ZPtr};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    not(target_arch = "wasm32"),
+    serde_test(types(pasta_curves::pallas::Scalar), zdata(true))
+)]
 /// A `ZCont` is the content-addressed representation of a Lurk continuation, which enables
 /// efficient serialization and sharing of hashed Lurk data via associated `ZContPtr`s.
 pub enum ZCont<F: LurkField> {
@@ -364,25 +368,5 @@ impl<F: LurkField> Arbitrary for ZCont<F> {
             Just(ZCont::Terminal),
         ]
         .boxed()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::z_data::{from_z_data, to_z_data};
-    use pasta_curves::pallas::Scalar;
-
-    proptest! {
-          #[test]
-          fn prop_serde_z_cont(x in any::<ZCont<Scalar>>()) {
-              let ser = to_z_data(&x).expect("write ZCont");
-              let de: ZCont<Scalar> = from_z_data(&ser).expect("read ZCont");
-              assert_eq!(x, de);
-
-              let ser: Vec<u8> = bincode::serialize(&x).expect("write ZCont");
-              let de: ZCont<Scalar> = bincode::deserialize(&ser).expect("read ZCont");
-              assert_eq!(x, de);
-          }
     }
 }

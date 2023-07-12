@@ -127,7 +127,7 @@ fn test_prove_and_verify_expression() {
             &fcomm_data_path,
         );
 
-        let proof = Proof::<S1>::read_from_path(&proof_path).unwrap();
+        let proof = Proof::<S1>::read_from_json_path(&proof_path).unwrap();
 
         assert_eq!(
             proof
@@ -210,12 +210,12 @@ fn test_function_aux(
     let commitment_path = tmp_dir_path.join("commitment.json");
     let fcomm_data_path = tmp_dir_path.join("fcomm_data");
 
-    function.write_to_path(&function_path);
+    function.write_to_json_path(&function_path);
 
     commit(&function_path, &commitment_path, &fcomm_data_path);
 
     let mut commitment: Commitment<S1> =
-        Commitment::read_from_path(&commitment_path).expect("read commitment");
+        Commitment::read_from_json_path(&commitment_path).expect("read commitment");
 
     for (function_input, expected_output) in io {
         let mut input_file = File::create(&input_path).expect("create file");
@@ -231,7 +231,7 @@ fn test_function_aux(
             chained,
         );
 
-        let proof = Proof::<S1>::read_from_path(&proof_path).expect("read proof");
+        let proof = Proof::<S1>::read_from_json_path(&proof_path).expect("read proof");
         let opening = proof.claim.opening().expect("expected opening claim");
 
         let mut store = Store::<S1>::default();

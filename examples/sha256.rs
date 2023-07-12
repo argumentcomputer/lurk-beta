@@ -13,7 +13,7 @@ use lurk::ptr::Ptr;
 use lurk::public_parameters::public_params;
 use lurk::store::Store;
 use lurk::tag::{ExprTag, Tag};
-use lurk::Num;
+use lurk::{sym, Num};
 use lurk_macros::Coproc;
 
 use bellperson::gadgets::boolean::{AllocatedBit, Boolean};
@@ -143,13 +143,14 @@ fn main() {
     let input_size = 64 * num_of_64_bytes;
 
     let store = &mut Store::<Fr>::new();
-    let sym_str = format!(".sha256.hash-{}-zero-bytes", input_size);
+    let sym = sym!("sha256", format!("{}-zero-bytes", input_size));
+
+    let coproc_expr = format!("({})", &sym);
+
     let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
         store,
-        vec![(sym_str.clone(), Sha256Coprocessor::new(input_size).into())],
+        vec![(sym, Sha256Coprocessor::new(input_size).into())],
     );
-
-    let coproc_expr = format!("({})", sym_str);
 
     let mut u: [u128; 2] = [0u128; 2];
 

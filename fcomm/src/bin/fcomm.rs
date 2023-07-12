@@ -189,7 +189,7 @@ impl Commit {
                 commitment: None,
             }
         } else {
-            CommittedExpression::read_from_path(&self.function)
+            CommittedExpression::read_from_json_path(&self.function)
                 .expect("committed expression read_from_path")
         };
         let fun_ptr = function.expr_ptr(s, limit, lang).expect("fun_ptr");
@@ -207,10 +207,10 @@ impl Commit {
         function_map
             .set(commitment, &function)
             .expect("function_map set");
-        function.write_to_path(&self.function);
+        function.write_to_json_path(&self.function);
 
         if let Some(commitment_path) = &self.commitment {
-            commitment.write_to_path(commitment_path);
+            commitment.write_to_json_path(commitment_path);
         } else {
             serde_json::to_writer(io::stdout(), &commitment).expect("serde_json to_writer");
         }
@@ -232,7 +232,7 @@ impl Open {
         let function_map = committed_expression_store();
 
         let handle_proof = |out_path, proof: Proof<S1>| {
-            proof.write_to_path(out_path);
+            proof.write_to_json_path(out_path);
             proof
                 .verify(&pp, lang)
                 .expect("created opening doesn't verify");
@@ -281,7 +281,7 @@ impl Open {
                         commitment: None,
                     }
                 } else {
-                    CommittedExpression::read_from_path(function_path).unwrap()
+                    CommittedExpression::read_from_json_path(function_path).unwrap()
                 }
             };
 
@@ -317,7 +317,7 @@ impl Eval {
         match &self.claim {
             Some(out_path) => {
                 let claim = Claim::<S1>::Evaluation(evaluation);
-                claim.write_to_path(out_path);
+                claim.write_to_json_path(out_path);
             }
             None => {
                 serde_json::to_writer(io::stdout(), &evaluation).unwrap();
@@ -342,7 +342,7 @@ impl Prove {
                 );
                 Proof::prove_claim(
                     s,
-                    &Claim::read_from_path(claim).unwrap(),
+                    &Claim::read_from_json_path(claim).unwrap(),
                     limit,
                     false,
                     &prover,
@@ -367,7 +367,7 @@ impl Prove {
         };
 
         // Write first, so prover can debug if proof doesn't verify (it should).
-        proof.write_to_path(&self.proof);
+        proof.write_to_json_path(&self.proof);
         proof
             .verify(&pp, lang)
             .expect("created proof doesn't verify");
@@ -479,7 +479,7 @@ fn expression<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
     if lurk {
         read_from_path(store, expression_path)
     } else {
-        let expression = Expression::read_from_path(expression_path)?;
+        let expression = Expression::read_from_json_path(expression_path)?;
         let expr = expression.expr.ptr(store, limit, lang);
         Ok(expr)
     }
@@ -487,8 +487,8 @@ fn expression<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
 
 fn opening_request<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
     request_path: P,
-) -> Result<OpeningRequest<F>, error::Error> {
-    OpeningRequest::read_from_path(request_path)
+) -> Result<OpeningRequest<F>, Error> {
+    Ok(OpeningRequest::read_from_json_path(request_path)?)
 }
 
 // Get proof from supplied path or else from stdin.
@@ -499,7 +499,7 @@ where
     F: Serialize + for<'de> Deserialize<'de>,
 {
     match proof_path {
-        Some(path) => Proof::read_from_path(path),
+        Some(path) => Proof::read_from_json_path(path),
         None => Proof::read_from_stdin(),
     }
 }

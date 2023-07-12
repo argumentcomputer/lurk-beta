@@ -292,17 +292,25 @@ impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
 
                 assert!(cs.is_satisfied());
             }
-
-            let res = RecursiveSNARK::prove_step(
-                &pp.pp,
-                recursive_snark,
-                circuit_primary.clone(),
-                circuit_secondary.clone(),
-                z0_primary.clone(),
-                z0_secondary.clone(),
-            );
-            assert!(res.is_ok());
-            recursive_snark = Some(res?);
+            let mut r_snark = recursive_snark.unwrap_or_else(|| {
+                RecursiveSNARK::new(
+                    &pp.pp,
+                    circuit_primary,
+                    &circuit_secondary,
+                    z0_primary.clone(),
+                    z0_secondary.clone(),
+                )
+            });
+            r_snark
+                .prove_step(
+                    &pp.pp,
+                    circuit_primary,
+                    &circuit_secondary,
+                    z0_primary.clone(),
+                    z0_secondary.clone(),
+                )
+                .expect("failure to prove Nova step");
+            recursive_snark = Some(r_snark);
         }
 
         Ok(Self::Recursive(Box::new(recursive_snark.unwrap())))
@@ -340,7 +348,7 @@ impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
         let zi_secondary = z0_secondary.clone();
 
         let (zi_primary_verified, zi_secondary_verified) = match self {
-            Self::Recursive(p) => p.verify(&pp.pp, num_steps, z0_primary, z0_secondary),
+            Self::Recursive(p) => p.verify(&pp.pp, num_steps, &z0_primary, &z0_secondary),
             Self::Compressed(p) => p.verify(&pp.vk, num_steps, z0_primary, z0_secondary),
         }?;
 

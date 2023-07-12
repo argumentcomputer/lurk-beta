@@ -199,17 +199,17 @@ pub mod tests {
                 println!("input: {:?}", i);
                 println!("expected: {:?}", expected);
                 println!("detected: {:?}", x);
-                assert!(false)
+                unreachable!("unexpected parse result")
             }
             (Some(..), Err(e)) => {
                 println!("{}", e);
-                assert!(false)
+                unreachable!("unexpected parse result")
             }
             (None, Ok((i, x))) => {
                 println!("input: {:?}", i);
                 println!("expected parse error");
                 println!("detected: {:?}", x);
-                assert!(false)
+                unreachable!("unexpected parse result")
             }
             (None, Err(_e)) => (),
         }
