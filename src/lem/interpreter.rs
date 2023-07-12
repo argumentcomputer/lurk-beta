@@ -40,7 +40,8 @@ impl Block {
             match op {
                 Op::Call(out, func, inp) => {
                     let inp_ptrs = bindings.get_many_cloned(inp)?;
-                    let (frame, _) = func.call(inp_ptrs, store, preimages)?;
+                    let (frame, func_path) = func.call(inp_ptrs, store, preimages)?;
+                    path.extend_from_path(&func_path);
                     for (var, ptr) in out.iter().zip(frame.output.into_iter()) {
                         bindings.insert(var.clone(), ptr);
                     }

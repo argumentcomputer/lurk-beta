@@ -65,6 +65,11 @@ impl Path {
         self.0.push(PathNode::Default);
     }
 
+    #[inline]
+    pub fn extend_from_path(&mut self, path: &Path) {
+        self.0.extend_from_slice(&path.0)
+    }
+
     /// Computes the number of different paths taken given a list of paths
     pub fn num_paths_taken(paths: &[Self]) -> usize {
         let mut all_paths: HashSet<Self> = HashSet::default();
@@ -99,9 +104,6 @@ impl Block {
                 Op::Call(out, func, inp) => {
                     let out = map.get_many_cloned(&out)?;
                     let inp = map.get_many_cloned(&inp)?;
-                    // We will always assume previously defined `Func`s to already be deconflicted.
-                    // As of now, we won't deconflict the inner variables of the `func`.
-                    // See the comment in the `Op::Call` case of `synthesize` in circuit.rs
                     ops.push(Op::Call(out, func, inp))
                 }
                 Op::Null(ptr, tag) => ops.push(Op::Null(insert_one(map, path, &ptr), tag)),
@@ -165,10 +167,15 @@ impl Block {
         Ok(Block { ops, ctrl })
     }
 
-    /// Computes the number of possible paths in a `Block`. `Func`s withen `Call`s are
-    /// treated as black boxes, therefore we do not count paths within a call.
+    /// Computes the number of possible paths in a `Block`
     fn num_paths(&self) -> usize {
-        match &self.ctrl {
+        let mut num_paths = 1;
+        for op in &self.ops {
+            if let Op::Call(_, func, _) = op {
+                num_paths *= func.num_paths()
+            }
+        }
+        num_paths *= match &self.ctrl {
             Ctrl::MatchTag(_, cases) => {
                 cases.values().fold(0, |acc, block| acc + block.num_paths())
             }
@@ -176,19 +183,10 @@ impl Block {
                 .values()
                 .fold(def.num_paths(), |acc, block| acc + block.num_paths()),
             Ctrl::Return(..) => 1,
-        }
+        };
+        num_paths
     }
 }
-
-// impl Ctrl {
-//     fn deconflict(
-//         self,
-//         path: &Path,
-//         // `map` keeps track of the updated names of variables
-//         map: &mut VarMap<Var>, // name -> path.name
-//     ) -> Result<Self> {
-//     }
-// }
 
 impl Func {
     /// Removes conflicting names in parallel logical LEM paths. While these
@@ -211,9 +209,13 @@ impl Func {
         Ok(self)
     }
 
+    pub fn num_paths(&self) -> usize {
+        self.block.num_paths()
+    }
+
     /// Asserts that all paths were visited by a set of frames. This is mostly
     /// for testing purposes.
     pub fn assert_all_paths_taken(&self, paths: &[Path]) {
-        assert_eq!(Path::num_paths_taken(paths), self.block.num_paths());
+        assert_eq!(Path::num_paths_taken(paths), self.num_paths());
     }
 }
