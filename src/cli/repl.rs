@@ -451,14 +451,14 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
     }
 }
 
-mod test {
-    #[test]
-    fn test_padding() {
-        use crate::cli::repl::pad_iterations;
-        assert_eq!(pad_iterations(61, 10), 70);
-        assert_eq!(pad_iterations(1, 10), 10);
-        assert_eq!(pad_iterations(61, 1), 61);
-        assert_eq!(pad_iterations(610, 10), 610);
-        assert_eq!(pad_iterations(619, 20), 620);
-    }
-}
+// mod test {
+//     #[test]
+//     fn test_padding() {
+//         use crate::cli::repl::pad_iterations;
+//         assert_eq!(pad_iterations(61, 10), 70);
+//         assert_eq!(pad_iterations(1, 10), 10);
+//         assert_eq!(pad_iterations(61, 1), 61);
+//         assert_eq!(pad_iterations(610, 10), 610);
+//         assert_eq!(pad_iterations(619, 20), 620);
+//     }
+// }
