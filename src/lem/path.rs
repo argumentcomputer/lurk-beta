@@ -139,7 +139,29 @@ impl Block {
                 Op::Open(..) => todo!(),
             }
         }
-        let ctrl = self.ctrl.deconflict(path, map)?;
+        let ctrl = match self.ctrl {
+            Ctrl::MatchTag(var, cases) => {
+                let mut new_cases = Vec::with_capacity(cases.len());
+                for (tag, case) in cases {
+                    let new_case = case.deconflict(&path.push_tag(&tag), &mut map.clone())?;
+                    new_cases.push((tag, new_case));
+                }
+                Ctrl::MatchTag(map.get_cloned(&var)?, IndexMap::from_iter(new_cases))
+            }
+            Ctrl::MatchSymbol(var, cases, def) => {
+                let mut new_cases = Vec::with_capacity(cases.len());
+                for (symbol, case) in cases {
+                    let new_case = case.deconflict(&path.push_symbol(&symbol), &mut map.clone())?;
+                    new_cases.push((symbol.clone(), new_case));
+                }
+                Ctrl::MatchSymbol(
+                    map.get_cloned(&var)?,
+                    IndexMap::from_iter(new_cases),
+                    Box::new(def.deconflict(&path.push_default(), map)?),
+                )
+            }
+            Ctrl::Return(o) => Ctrl::Return(map.get_many_cloned(&o)?),
+        };
         Ok(Block { ops, ctrl })
     }
 
@@ -158,41 +180,15 @@ impl Block {
     }
 }
 
-impl Ctrl {
-    fn deconflict(
-        self,
-        path: &Path,
-        // `map` keeps track of the updated names of variables
-        map: &mut VarMap<Var>, // name -> path.name
-    ) -> Result<Self> {
-        match self {
-            Ctrl::MatchTag(var, cases) => {
-                let mut new_cases = Vec::with_capacity(cases.len());
-                for (tag, case) in cases {
-                    let new_case = case.deconflict(&path.push_tag(&tag), &mut map.clone())?;
-                    new_cases.push((tag, new_case));
-                }
-                Ok(Ctrl::MatchTag(
-                    map.get_cloned(&var)?,
-                    IndexMap::from_iter(new_cases),
-                ))
-            }
-            Ctrl::MatchSymbol(var, cases, def) => {
-                let mut new_cases = Vec::with_capacity(cases.len());
-                for (symbol, case) in cases {
-                    let new_case = case.deconflict(&path.push_symbol(&symbol), &mut map.clone())?;
-                    new_cases.push((symbol.clone(), new_case));
-                }
-                Ok(Ctrl::MatchSymbol(
-                    map.get_cloned(&var)?,
-                    IndexMap::from_iter(new_cases),
-                    Box::new(def.deconflict(&path.push_default(), map)?),
-                ))
-            }
-            Ctrl::Return(o) => Ok(Ctrl::Return(map.get_many_cloned(&o)?)),
-        }
-    }
-}
+// impl Ctrl {
+//     fn deconflict(
+//         self,
+//         path: &Path,
+//         // `map` keeps track of the updated names of variables
+//         map: &mut VarMap<Var>, // name -> path.name
+//     ) -> Result<Self> {
+//     }
+// }
 
 impl Func {
     /// Removes conflicting names in parallel logical LEM paths. While these

@@ -34,7 +34,7 @@ impl Block {
         store: &mut Store<F>,
         mut bindings: VarMap<Ptr<F>>,
         mut preimages: Preimages<F>,
-        path: Path,
+        mut path: Path,
     ) -> Result<(Frame<F>, Path)> {
         for op in &self.ops {
             match op {
@@ -144,23 +144,7 @@ impl Block {
                 },
             }
         }
-        self.ctrl.run(input, store, bindings, preimages, path)
-    }
-}
-
-impl Ctrl {
-    /// Interprets a LEM while i) modifying a `Store`, ii) binding `Var`s to
-    /// `Ptr`s and iii) collecting the preimages from visited slots (more on this
-    /// in `circuit.rs`)
-    fn run<F: LurkField>(
-        &self,
-        input: Vec<Ptr<F>>,
-        store: &mut Store<F>,
-        bindings: VarMap<Ptr<F>>,
-        preimages: Preimages<F>,
-        mut path: Path,
-    ) -> Result<(Frame<F>, Path)> {
-        match self {
+        match &self.ctrl {
             Ctrl::MatchTag(match_var, cases) => {
                 let ptr = bindings.get(match_var)?;
                 let tag = ptr.tag();

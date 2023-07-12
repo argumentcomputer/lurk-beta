@@ -218,13 +218,7 @@ impl Block {
             };
             acc.add(val)
         });
-        ops_slots.add(self.ctrl.count_slots())
-    }
-}
-
-impl Ctrl {
-    pub fn count_slots(&self) -> SlotsCounter {
-        match self {
+        let ctrl_slots = match &self.ctrl {
             Ctrl::MatchTag(_, cases) => {
                 cases.values().fold(SlotsCounter::default(), |acc, block| {
                     acc.max(block.count_slots())
@@ -234,7 +228,8 @@ impl Ctrl {
                 .values()
                 .fold(def.count_slots(), |acc, block| acc.max(block.count_slots())),
             Ctrl::Return(..) => SlotsCounter::default(),
-        }
+        };
+        ops_slots.add(ctrl_slots)
     }
 }
 

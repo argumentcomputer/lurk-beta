@@ -105,6 +105,8 @@ impl Var {
     }
 }
 
+/// A block is a sequence of operations followed by a control. Each block
+/// delimits their variables' scope.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Block {
     ops: Vec<Op>,
