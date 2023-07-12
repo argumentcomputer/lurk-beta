@@ -41,7 +41,6 @@ mod tests {
 
     fn test_eval_and_constrain_aux(store: &mut Store<Fr>, pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>) {
         let eval_step = eval_step();
-        eval_step.check();
 
         let slots_count = eval_step.block.count_slots();
 

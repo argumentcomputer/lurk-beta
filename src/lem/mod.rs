@@ -75,7 +75,7 @@ use anyhow::Result;
 use indexmap::IndexMap;
 use std::sync::Arc;
 
-use self::{store::Store, symbol::Symbol, tag::Tag};
+use self::{store::Store, symbol::Symbol, tag::Tag, var_map::VarMap};
 
 pub type AString = Arc<str>;
 pub type AVec<A> = Arc<[A]>;
@@ -155,46 +155,165 @@ pub enum Op {
     Open(Var, Var, Var),
 }
 
-impl Ctrl {
-    /// Intern all symbol paths that are matched on `MatchSymPath`s
-    fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
-        match self {
-            Self::MatchSymbol(_, cases, def) => {
-                cases.iter().for_each(|(symbol, block)| {
-                    store.intern_symbol(symbol);
-                    block.ctrl.intern_matched_symbols(store)
-                });
-                def.ctrl.intern_matched_symbols(store);
-            }
-            Self::MatchTag(_, cases) => cases
-                .values()
-                .for_each(|block| block.ctrl.intern_matched_symbols(store)),
-            Self::Return(..) => (),
-        }
-    }
-}
-
 impl Func {
+    /// Instantiates a `LEM` with the appropriate transformations to make sure
+    /// that constraining will be smooth.
+    pub fn new(input_params: Vec<Var>, output_size: usize, block: Block) -> Result<Func> {
+        let func = Func {
+            input_params,
+            output_size,
+            block,
+        }
+        .deconflict(&mut 0, &mut VarMap::new())?;
+        func.check();
+        Ok(func)
+    }
+
     /// Performs the static checks described in `LEM`'s docstring.
     pub fn check(&self) {
         // TODO
     }
 
-    /// Instantiates a `LEM` with the appropriate transformations to make sure
-    /// that constraining will be smooth.
-    pub fn new(input_vars: Vec<Var>, output_size: usize, block: Block) -> Result<Func> {
-        let func = Func {
-            input_params: input_vars,
-            output_size,
-            block,
-        };
-        func.deconflict()
+    /// Deconflict will replace conflicting names between different blocks,
+    /// which defines different scopes. The conflict resolution is achieved
+    /// by prepending conflicting variables by a unique block identifier.
+    ///
+    /// Note: this function is not supposed to be called manually. It's used by
+    /// `Func::new`, which is the API that should be used directly.
+    fn deconflict(mut self, block_idx: &mut usize, map: &mut VarMap<Var>) -> Result<Self> {
+        for i in self.input_params.iter() {
+            map.insert(i.clone(), i.new_scope(*block_idx));
+        }
+        self.block = self.block.deconflict(block_idx, map)?;
+        Ok(self)
     }
 
     /// Intern all symbols that are matched on `MatchSymbol`s
     #[inline]
     pub fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
-        self.block.ctrl.intern_matched_symbols(store);
+        self.block.intern_matched_symbols(store);
+    }
+}
+
+impl Block {
+    fn deconflict(self, block_idx: &mut usize, map: &mut VarMap<Var>) -> Result<Self> {
+        #[inline]
+        fn insert_one(map: &mut VarMap<Var>, block_idx: usize, var: &Var) -> Var {
+            let new_var = var.new_scope(block_idx);
+            map.insert(var.clone(), new_var.clone());
+            new_var
+        }
+
+        #[inline]
+        fn insert_many(map: &mut VarMap<Var>, block_idx: usize, vars: &[Var]) -> Vec<Var> {
+            vars.iter()
+                .map(|var| insert_one(map, block_idx, var))
+                .collect()
+        }
+
+        let mut ops = Vec::with_capacity(self.ops.len());
+        for op in self.ops {
+            match op {
+                Op::Call(out, func, inp) => {
+                    let out = map.get_many_cloned(&out)?;
+                    let inp = map.get_many_cloned(&inp)?;
+                    // TODO deconflict func
+                    ops.push(Op::Call(out, func, inp))
+                }
+                Op::Null(tgt, tag) => ops.push(Op::Null(insert_one(map, *block_idx, &tgt), tag)),
+                Op::Hash2(img, tag, preimg) => {
+                    let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
+                    let img = insert_one(map, *block_idx, &img);
+                    ops.push(Op::Hash2(img, tag, preimg))
+                }
+                Op::Hash3(img, tag, preimg) => {
+                    let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
+                    let img = insert_one(map, *block_idx, &img);
+                    ops.push(Op::Hash3(img, tag, preimg))
+                }
+                Op::Hash4(img, tag, preimg) => {
+                    let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
+                    let img = insert_one(map, *block_idx, &img);
+                    ops.push(Op::Hash4(img, tag, preimg))
+                }
+                Op::Unhash2(preimg, img) => {
+                    let img = map.get_cloned(&img)?;
+                    let preimg = insert_many(map, *block_idx, &preimg);
+                    ops.push(Op::Unhash2(preimg.try_into().unwrap(), img))
+                }
+                Op::Unhash3(preimg, img) => {
+                    let img = map.get_cloned(&img)?;
+                    let preimg = insert_many(map, *block_idx, &preimg);
+                    ops.push(Op::Unhash3(preimg.try_into().unwrap(), img))
+                }
+                Op::Unhash4(preimg, img) => {
+                    let img = map.get_cloned(&img)?;
+                    let preimg = insert_many(map, *block_idx, &preimg);
+                    ops.push(Op::Unhash4(preimg.try_into().unwrap(), img))
+                }
+                Op::Hide(..) => todo!(),
+                Op::Open(..) => todo!(),
+            }
+        }
+        let ctrl = match self.ctrl {
+            Ctrl::MatchTag(var, cases) => {
+                let mut new_cases = Vec::with_capacity(cases.len());
+                for (tag, case) in cases {
+                    *block_idx += 1;
+                    let new_case = case.deconflict(block_idx, &mut map.clone())?;
+                    new_cases.push((tag, new_case));
+                }
+                Ctrl::MatchTag(map.get_cloned(&var)?, IndexMap::from_iter(new_cases))
+            }
+            Ctrl::MatchSymbol(var, cases, def) => {
+                let mut new_cases = Vec::with_capacity(cases.len());
+                for (symbol, case) in cases {
+                    *block_idx += 1;
+                    let new_case = case.deconflict(block_idx, &mut map.clone())?;
+                    new_cases.push((symbol.clone(), new_case));
+                }
+                *block_idx += 1;
+                Ctrl::MatchSymbol(
+                    map.get_cloned(&var)?,
+                    IndexMap::from_iter(new_cases),
+                    Box::new(def.deconflict(block_idx, map)?),
+                )
+            }
+            Ctrl::Return(o) => Ctrl::Return(map.get_many_cloned(&o)?),
+        };
+        Ok(Block { ops, ctrl })
+    }
+
+    fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
+        for op in &self.ops {
+            if let Op::Call(_, func, _) = op {
+                func.intern_matched_symbols(store)
+            }
+        }
+        match &self.ctrl {
+            Ctrl::MatchSymbol(_, cases, def) => {
+                cases.iter().for_each(|(symbol, block)| {
+                    store.intern_symbol(symbol);
+                    block.intern_matched_symbols(store)
+                });
+                def.intern_matched_symbols(store);
+            }
+            Ctrl::MatchTag(_, cases) => cases
+                .values()
+                .for_each(|block| block.intern_matched_symbols(store)),
+            Ctrl::Return(..) => (),
+        }
+    }
+}
+
+impl Var {
+    fn new_scope(&self, block_idx: usize) -> Var {
+        if block_idx == 0 {
+            self.clone()
+        }
+        else {
+            Var(format!("#{}.{}", block_idx, self.name()).into())
+        }
     }
 }
 
