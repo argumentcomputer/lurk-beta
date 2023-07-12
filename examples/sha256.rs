@@ -174,7 +174,7 @@ fn main() {
 
     let coproc_expr = format!("({})", sym_str);
 
-    let expr = format!("({coproc_expr})");
+    let expr = format!("{coproc_expr}");
     let ptr = store.read(&expr).unwrap();
 
     let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang.clone());
