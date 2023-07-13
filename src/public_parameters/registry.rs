@@ -8,7 +8,7 @@ use pasta_curves::pallas;
 use serde::{de::DeserializeOwned, Serialize};
 use tap::TapFallible;
 
-use crate::public_parameters::Error;
+use crate::public_parameters::error::Error;
 use crate::{coprocessor::Coprocessor, eval::lang::Lang, proof::nova::PublicParams};
 
 use super::file_map::FileIndex;
