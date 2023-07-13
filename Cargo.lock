@@ -2364,7 +2364,7 @@ dependencies = [
 [[package]]
 name = "sppark"
 version = "0.1.3"
-source = "git+https://github.com/supranational/sppark#00cc352d257571d9edefdd12deb3d25f760cf665"
+source = "git+https://github.com/supranational/sppark?rev=5fea26f43cc5d12a77776c70815e7c722fd1f8a7#5fea26f43cc5d12a77776c70815e7c722fd1f8a7"
 dependencies = [
  "cc",
  "which",
