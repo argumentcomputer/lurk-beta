@@ -662,15 +662,9 @@ impl Func {
                         // These are the input parameters (formal variables)
                         let param_list = func.input_params.iter();
                         // Now we bind the `Func`'s input parameters to the arguments in the call.
-                        // Here we either have to clone `bound_allocations` or have previously
-                        // deconflicted all the inner variables of the `Func`, since we don't
-                        // know if there are variables of the same name as an internal variable
-                        // used by the `Func`. We choose, as of now, the former approach, for
-                        // simplicity.
-                        let bound_allocations = &mut bound_allocations.clone();
-                        for (param, arg) in param_list.zip(args.into_iter()) {
-                            bound_allocations.insert(param.clone(), arg);
-                        }
+                        param_list
+                            .zip(args.into_iter())
+                            .for_each(|(param, arg)| bound_allocations.insert(param.clone(), arg));
                         // Finally, we synthesize the circuit for the function body
                         recurse(
                             &mut cs.namespace(|| "call".to_string()),
