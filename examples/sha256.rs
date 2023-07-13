@@ -20,7 +20,7 @@ use bellperson::gadgets::boolean::{AllocatedBit, Boolean};
 use bellperson::gadgets::multipack::pack_bits;
 use bellperson::gadgets::num::AllocatedNum;
 use bellperson::gadgets::sha256::sha256;
-use bellperson::{ConstraintSystem, LinearCombination, SynthesisError};
+use bellperson::{ConstraintSystem, SynthesisError};
 
 use pasta_curves::pallas::Scalar as Fr;
 use serde::{Deserialize, Serialize};
@@ -49,19 +49,18 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
+        let is_zero = AllocatedBit::alloc(cs.namespace(|| "must be false"), Some(true))?;
+
         let preimage = (0..self.n * 8)
-            .map(|i| AllocatedBit::alloc(cs.namespace(|| format!("preimage bit {i}")), Some(false)))
+            .map(|idx| {
+                AllocatedBit::alloc_conditionally(
+                    cs.namespace(|| format!("preimage bit {idx}")),
+                    Some(false),
+                    &is_zero,
+                )
+            })
             .map(|b| b.map(Boolean::from))
             .collect::<Result<Vec<_>, _>>()?;
-
-        let _ = preimage.clone().into_iter().enumerate().map(|(idx, b)| {
-            cs.enforce(
-                || format!("constraint input {idx}"),
-                |lc| lc + CS::one(),
-                |_| b.lc(CS::one(), F::ONE),
-                |_| LinearCombination::<F>::zero(),
-            )
-        });
 
         let mut bits = sha256(cs.namespace(|| "SHAhash"), &preimage)?;
 
