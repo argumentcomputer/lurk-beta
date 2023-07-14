@@ -33,6 +33,31 @@ jobs:
         fi
       shell: bash
 
+    - name: Rebase SCION onto ROOT
+      id: rebase
+      run: |
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+        git rebase origin/${{ env.ROOT }}
+      if: env.status == 'false'
+      continue-on-error: true
+
+    - uses: dtolnay/rust-toolchain@stable
+      if: steps.rebase.outcome == 'success'
+    - name: Run a trivial test
+      id: test
+      run: cargo check --all --tests --benches
+      if: steps.rebase.outcome == 'success'
+      continue-on-error: true
+
+    - name: Push the changes
+      run: |
+        git push origin HEAD:${{ env.SCION }} -f
+        SCION_COMMIT=$(git rev-parse HEAD)
+        echo "status=true" >> $GITHUB_ENV
+        echo "message=$SCION is rebased on $ROOT as of $SCION_COMMIT" >> $GITHUB_ENV
+      if: steps.rebase.outcome == 'success' && steps.test.outcome == 'success'
+
     - name: Find the last report issue open
       id: last_issue
       uses: micalevisk/last-issue-action@v2
@@ -50,6 +75,8 @@ jobs:
         echo ${{ env.message }}
         echo ${{ steps.last_issue.outputs.has-found }}
         echo ${{ steps.last_issue.outputs.issue-number }}
+        echo ${{ steps.rebase.outcome }}
+        echo ${{ steps.test.outcome }}
 
     - name: Close last report open issue
       if: env.status == 'true' && steps.last_issue.outputs.has-found == 'true'
