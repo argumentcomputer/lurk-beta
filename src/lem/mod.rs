@@ -180,11 +180,7 @@ impl Func {
     ///
     /// Note: this function is not supposed to be called manually. It's used by
     /// `Func::new`, which is the API that should be used directly.
-    fn deconflict(
-        mut self,
-        map: &mut VarMap<Var>,
-        uniq: &mut usize,
-    ) -> Result<Self> {
+    fn deconflict(mut self, map: &mut VarMap<Var>, uniq: &mut usize) -> Result<Self> {
         self.input_params = self
             .input_params
             .into_iter()
@@ -206,11 +202,7 @@ impl Func {
 }
 
 impl Block {
-    fn deconflict(
-        self,
-        map: &mut VarMap<Var>,
-        uniq: &mut usize,
-    ) -> Result<Self> {
+    fn deconflict(self, map: &mut VarMap<Var>, uniq: &mut usize) -> Result<Self> {
         #[inline]
         fn insert_one(map: &mut VarMap<Var>, uniq: &mut usize, var: &Var) -> Var {
             let new_var = var.new_scope(*uniq);
@@ -221,9 +213,7 @@ impl Block {
 
         #[inline]
         fn insert_many(map: &mut VarMap<Var>, uniq: &mut usize, vars: &[Var]) -> Vec<Var> {
-            vars.iter()
-                .map(|var| insert_one(map, uniq, var))
-                .collect()
+            vars.iter().map(|var| insert_one(map, uniq, var)).collect()
         }
 
         let mut ops = Vec::with_capacity(self.ops.len());

@@ -813,9 +813,8 @@ impl Func {
             let mut num_constraints = 0;
             for op in &block.ops {
                 match op {
-                    Op::Call(out, func, _) => {
+                    Op::Call(_, func, _) => {
                         num_constraints += recurse(&func.block, nested, globals);
-                        num_constraints += out.len();
                     }
                     Op::Null(_, tag) => {
                         // constrain tag and hash
@@ -848,10 +847,7 @@ impl Func {
                 }
             }
             match &block.ctrl {
-                Ctrl::Return(..) => {
-                    // tag and hash for 3 pointers
-                    num_constraints + 6
-                }
+                Ctrl::Return(vars) => num_constraints + 2 * vars.len(),
                 Ctrl::MatchTag(_, cases) => {
                     // `alloc_equal_const` adds 3 constraints for each case and
                     // the `and` is free for non-nested `MatchTag`s, since we

@@ -75,8 +75,7 @@ mod tests {
 
         assert_eq!(slots_count, NUM_SLOTS);
 
-        // TODO
-        // let computed_num_constraints = eval_step.num_constraints::<Fr>(&slots_count);
+        let computed_num_constraints = eval_step.num_constraints::<Fr>(&slots_count);
 
         // Assures that `MatchSymbol`s will work properly
         eval_step.intern_matched_symbols(store);
@@ -112,9 +111,8 @@ mod tests {
                 assert_eq!(cs.num_inputs(), NUM_INPUTS);
                 assert_eq!(cs.aux().len(), NUM_AUX);
 
-                // TODO fix num_constraints()
                 let num_constraints = cs.num_constraints();
-                // assert_eq!(computed_num_constraints, num_constraints);
+                assert_eq!(computed_num_constraints, num_constraints);
                 assert_eq!(num_constraints, NUM_CONSTRAINTS);
                 // TODO: assert uniformity with `Delta` from bellperson
             }
