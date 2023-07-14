@@ -164,7 +164,7 @@ impl Func {
             output_size,
             block,
         }
-        .deconflict(0, &mut 0, &mut VarMap::new())?;
+        .deconflict(&mut VarMap::new(), &mut 0)?;
         func.check();
         Ok(func)
     }
@@ -174,32 +174,27 @@ impl Func {
         // TODO
     }
 
-    /// Deconflict will replace conflicting names between different blocks,
-    /// which defines different scopes. The conflict resolution is achieved
-    /// by prepending conflicting variables by a unique block identifier.
+    /// Deconflict will replace conflicting names and make the function SSA. The
+    /// conflict resolution is achieved by prepending conflicting variables by
+    /// a unique identifier.
     ///
     /// Note: this function is not supposed to be called manually. It's used by
     /// `Func::new`, which is the API that should be used directly.
     fn deconflict(
         mut self,
-        // `block_idx` is the index of the current block
-        block_idx: usize,
-        // `max_block` is used for generating unique indices for new blocks;
-        // every time we enter a new block we must increase this by 1 and set
-        // `block_idx` to this new value
-        max_block: &mut usize,
         map: &mut VarMap<Var>,
+        uniq: &mut usize,
     ) -> Result<Self> {
         self.input_params = self
             .input_params
             .into_iter()
             .map(|var| {
-                let new_var = var.new_scope(block_idx);
+                let new_var = var.new_scope(*uniq);
                 map.insert(var, new_var.clone());
                 new_var
             })
             .collect();
-        self.block = self.block.deconflict(block_idx, max_block, map)?;
+        self.block = self.block.deconflict(map, uniq)?;
         Ok(self)
     }
 
@@ -213,21 +208,21 @@ impl Func {
 impl Block {
     fn deconflict(
         self,
-        block_idx: usize,
-        max_block: &mut usize,
         map: &mut VarMap<Var>,
+        uniq: &mut usize,
     ) -> Result<Self> {
         #[inline]
-        fn insert_one(map: &mut VarMap<Var>, block_idx: usize, var: &Var) -> Var {
-            let new_var = var.new_scope(block_idx);
+        fn insert_one(map: &mut VarMap<Var>, uniq: &mut usize, var: &Var) -> Var {
+            let new_var = var.new_scope(*uniq);
+            *uniq += 1;
             map.insert(var.clone(), new_var.clone());
             new_var
         }
 
         #[inline]
-        fn insert_many(map: &mut VarMap<Var>, block_idx: usize, vars: &[Var]) -> Vec<Var> {
+        fn insert_many(map: &mut VarMap<Var>, uniq: &mut usize, vars: &[Var]) -> Vec<Var> {
             vars.iter()
-                .map(|var| insert_one(map, block_idx, var))
+                .map(|var| insert_one(map, uniq, var))
                 .collect()
         }
 
@@ -235,41 +230,40 @@ impl Block {
         for op in self.ops {
             match op {
                 Op::Call(out, func, inp) => {
-                    let out = map.get_many_cloned(&out)?;
                     let inp = map.get_many_cloned(&inp)?;
-                    *max_block += 1;
-                    let func = Box::new(func.deconflict(*max_block, max_block, map)?);
+                    let out = insert_many(map, uniq, &out);
+                    let func = Box::new(func.deconflict(map, uniq)?);
                     ops.push(Op::Call(out, func, inp))
                 }
-                Op::Null(tgt, tag) => ops.push(Op::Null(insert_one(map, block_idx, &tgt), tag)),
+                Op::Null(tgt, tag) => ops.push(Op::Null(insert_one(map, uniq, &tgt), tag)),
                 Op::Hash2(img, tag, preimg) => {
                     let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
-                    let img = insert_one(map, block_idx, &img);
+                    let img = insert_one(map, uniq, &img);
                     ops.push(Op::Hash2(img, tag, preimg))
                 }
                 Op::Hash3(img, tag, preimg) => {
                     let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
-                    let img = insert_one(map, block_idx, &img);
+                    let img = insert_one(map, uniq, &img);
                     ops.push(Op::Hash3(img, tag, preimg))
                 }
                 Op::Hash4(img, tag, preimg) => {
                     let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
-                    let img = insert_one(map, block_idx, &img);
+                    let img = insert_one(map, uniq, &img);
                     ops.push(Op::Hash4(img, tag, preimg))
                 }
                 Op::Unhash2(preimg, img) => {
                     let img = map.get_cloned(&img)?;
-                    let preimg = insert_many(map, block_idx, &preimg);
+                    let preimg = insert_many(map, uniq, &preimg);
                     ops.push(Op::Unhash2(preimg.try_into().unwrap(), img))
                 }
                 Op::Unhash3(preimg, img) => {
                     let img = map.get_cloned(&img)?;
-                    let preimg = insert_many(map, block_idx, &preimg);
+                    let preimg = insert_many(map, uniq, &preimg);
                     ops.push(Op::Unhash3(preimg.try_into().unwrap(), img))
                 }
                 Op::Unhash4(preimg, img) => {
                     let img = map.get_cloned(&img)?;
-                    let preimg = insert_many(map, block_idx, &preimg);
+                    let preimg = insert_many(map, uniq, &preimg);
                     ops.push(Op::Unhash4(preimg.try_into().unwrap(), img))
                 }
                 Op::Hide(..) => todo!(),
@@ -280,8 +274,8 @@ impl Block {
             Ctrl::MatchTag(var, cases) => {
                 let mut new_cases = Vec::with_capacity(cases.len());
                 for (tag, case) in cases {
-                    *max_block += 1;
-                    let new_case = case.deconflict(*max_block, max_block, &mut map.clone())?;
+                    // *uniq += 1;
+                    let new_case = case.deconflict(&mut map.clone(), uniq)?;
                     new_cases.push((tag, new_case));
                 }
                 Ctrl::MatchTag(map.get_cloned(&var)?, IndexMap::from_iter(new_cases))
@@ -289,12 +283,12 @@ impl Block {
             Ctrl::MatchSymbol(var, cases, def) => {
                 let mut new_cases = Vec::with_capacity(cases.len());
                 for (symbol, case) in cases {
-                    *max_block += 1;
-                    let new_case = case.deconflict(*max_block, max_block, &mut map.clone())?;
+                    // *uniq += 1;
+                    let new_case = case.deconflict(&mut map.clone(), uniq)?;
                     new_cases.push((symbol.clone(), new_case));
                 }
-                *max_block += 1;
-                let new_def = def.deconflict(*max_block, max_block, map)?;
+                // *uniq += 1;
+                let new_def = def.deconflict(map, uniq)?;
                 Ctrl::MatchSymbol(
                     map.get_cloned(&var)?,
                     IndexMap::from_iter(new_cases),

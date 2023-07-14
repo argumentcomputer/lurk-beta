@@ -10,6 +10,7 @@ pub struct Preimages<F: LurkField> {
     pub hash2_ptrs: Vec<Vec<Ptr<F>>>,
     pub hash3_ptrs: Vec<Vec<Ptr<F>>>,
     pub hash4_ptrs: Vec<Vec<Ptr<F>>>,
+    pub call_outputs: Vec<Vec<Ptr<F>>>,
 }
 
 /// A `Frame` carries the data that results from interpreting a LEM. That is,
@@ -42,10 +43,11 @@ impl Block {
                     let inp_ptrs = bindings.get_many_cloned(inp)?;
                     let (frame, func_path) = func.call(inp_ptrs, store, preimages)?;
                     path.extend_from_path(&func_path);
-                    for (var, ptr) in out.iter().zip(frame.output.into_iter()) {
-                        bindings.insert(var.clone(), ptr);
+                    for (var, ptr) in out.iter().zip(frame.output.iter()) {
+                        bindings.insert(var.clone(), *ptr);
                     }
                     preimages = frame.preimages;
+                    preimages.call_outputs.push(frame.output);
                 }
                 Op::Null(tgt, tag) => {
                     bindings.insert(tgt.clone(), Ptr::null(*tag));
@@ -194,24 +196,24 @@ impl Block {
 impl Func {
     pub fn call<F: LurkField>(
         &self,
-        input: Vec<Ptr<F>>,
+        args: Vec<Ptr<F>>,
         store: &mut Store<F>,
         preimages: Preimages<F>,
     ) -> Result<(Frame<F>, Path)> {
         let mut bindings = VarMap::new();
         for (i, param) in self.input_params.iter().enumerate() {
-            bindings.insert(param.clone(), input[i]);
+            bindings.insert(param.clone(), args[i]);
         }
 
         self.block
-            .run(input, store, bindings, preimages, Path::default())
+            .run(args, store, bindings, preimages, Path::default())
     }
 
     /// Calls a `Func` on an input until the stop contidion is satisfied, using the output of one
     /// iteration as the input of the next one.
     pub fn call_until<F: LurkField, Stop: Fn(&[Ptr<F>]) -> bool>(
         &self,
-        mut input: Vec<Ptr<F>>,
+        mut args: Vec<Ptr<F>>,
         store: &mut Store<F>,
         stop_cond: Stop,
     ) -> Result<(Vec<Frame<F>>, Vec<Path>)> {
@@ -222,10 +224,10 @@ impl Func {
                 self.output_size
             )
         }
-        if self.input_params.len() != input.len() {
+        if self.input_params.len() != args.len() {
             bail!(
                 "The number of arguments {} differs from the function's input size {}",
-                input.len(),
+                args.len(),
                 self.input_params.len()
             )
         }
@@ -236,7 +238,7 @@ impl Func {
 
         loop {
             let preimages = Preimages::default();
-            let (frame, path) = self.call(input, store, preimages)?;
+            let (frame, path) = self.call(args, store, preimages)?;
             if stop_cond(&frame.output) {
                 frames.push(frame);
                 paths.push(path);
@@ -246,7 +248,7 @@ impl Func {
             // Using AVec is a possibility, but to create a dynamic AVec, currently,
             // requires 2 allocations since it must be created from a Vec and
             // Vec<T> -> Arc<[T]> uses `copy_from_slice`.
-            input = frame.output.clone();
+            args = frame.output.clone();
             frames.push(frame);
             paths.push(path);
         }

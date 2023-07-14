@@ -539,10 +539,13 @@ impl Func {
         )?;
 
         struct Globals<'a, F: LurkField> {
+            store: &'a mut Store<F>,
             global_allocator: &'a mut GlobalAllocator<F>,
             preallocated_hash2_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash3_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash4_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
+            call_outputs: Vec<Vec<Ptr<F>>>,
+            call_count: usize,
         }
 
         fn recurse<F: LurkField, CS: ConstraintSystem<F>>(
@@ -653,10 +656,18 @@ impl Func {
 
                 match op {
                     Op::Call(out, func, inp) => {
-                        // Get the actual output pointers that the `func` will return to.
+                        // Allocate the output pointers that the `func` will return to.
                         // These should be unconstrained as of yet, and will be constrained
-                        // by the return statements inside `func`
-                        let output_ptrs = bound_allocations.get_many_cloned(out)?;
+                        // by the return statements inside `func`.
+                        // Note that, because there's currently no way of deferring giving
+                        // a value to the allocated nums to be filled later, we must either
+                        // add the results of the call to the witness, or recompute them.
+                        let output_vals = g.call_outputs.pop().unwrap();
+                        let mut output_ptrs = vec![];
+                        for (ptr, var) in output_vals.iter().zip(out.iter()) {
+                            let zptr = &g.store.hash_ptr(ptr)?;
+                            output_ptrs.push(Func::allocate_ptr(cs, zptr, var, bound_allocations)?);
+                        }
                         // Get the pointers for the input, i.e. the arguments
                         let args = bound_allocations.get_many_cloned(inp)?;
                         // These are the input parameters (formal variables)
@@ -666,8 +677,9 @@ impl Func {
                             .zip(args.into_iter())
                             .for_each(|(param, arg)| bound_allocations.insert(param.clone(), arg));
                         // Finally, we synthesize the circuit for the function body
+                        g.call_count += 1;
                         recurse(
-                            &mut cs.namespace(|| "call".to_string()),
+                            &mut cs.namespace(|| format!("Call {}", g.call_count)),
                             &func.block,
                             concrete_path.clone(),
                             next_slot,
@@ -778,10 +790,13 @@ impl Func {
             &mut bound_allocations,
             &preallocated_outputs,
             &mut Globals {
+                store,
                 global_allocator: &mut global_allocator,
                 preallocated_hash2_slots,
                 preallocated_hash3_slots,
                 preallocated_hash4_slots,
+                call_outputs: frame.preimages.call_outputs.clone(),
+                call_count: 0,
             },
         )
     }
