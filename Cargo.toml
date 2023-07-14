@@ -12,7 +12,7 @@ rust-version = "1.68.2"
 [dependencies]
 ahash = "0.7.6"
 anyhow = { workspace = true }
-anymap = "0.12.1"
+anymap = "1.0.0-beta.2"
 base32ct = { version = "0.2.0", features = ["std"] }
 base64 = { workspace = true }
 base-x = "0.2.11"
