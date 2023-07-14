@@ -7,10 +7,10 @@ use lurk::circuit::gadgets::constraints::alloc_equal;
 use lurk::circuit::gadgets::data::{allocate_constant, GlobalAllocations};
 use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use lurk::coprocessor::{CoCircuit, Coprocessor};
-use lurk::eval::{empty_sym_env, lang::Lang};
+use lurk::eval::{empty_sym_env, lang::Lang, IO};
 use lurk::field::LurkField;
 use lurk::proof::{nova::NovaProver, Prover};
-use lurk::ptr::Ptr;
+use lurk::ptr::{ContPtr, Ptr};
 use lurk::public_parameters::public_params;
 use lurk::store::Store;
 use lurk::sym;
@@ -26,7 +26,7 @@ use pasta_curves::pallas::Scalar as Fr;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-const REDUCTION_COUNT: usize = 10;
+const REDUCTION_COUNT: usize = 1;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Sha256Coprocessor<F: LurkField> {
@@ -49,18 +49,12 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        let is_zero = AllocatedBit::alloc(cs.namespace(|| "must be false"), Some(true))?;
+        let false_bool = Boolean::from(AllocatedBit::alloc(
+            cs.namespace(|| "false bit"),
+            Some(false),
+        )?);
 
-        let preimage = (0..self.n * 8)
-            .map(|idx| {
-                AllocatedBit::alloc_conditionally(
-                    cs.namespace(|| format!("preimage bit {idx}")),
-                    Some(false),
-                    &is_zero,
-                )
-            })
-            .map(|b| b.map(Boolean::from))
-            .collect::<Result<Vec<_>, _>>()?;
+        let preimage = vec![false_bool; self.n * 8];
 
         let mut bits = sha256(cs.namespace(|| "SHAhash"), &preimage)?;
 
@@ -97,15 +91,45 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
 
         let both_eq = Boolean::and(cs.namespace(|| "both equal"), &eqs[0], &eqs[1])?;
 
-        let result_ptr = AllocatedPtr::as_lurk_boolean(cs, store, &both_eq)?;
+        let result_ptr =
+            AllocatedPtr::as_lurk_boolean(cs.namespace(|| "t result ptr"), store, &both_eq)?;
 
-        Ok((result_ptr, input_env.clone(), input_cont.clone()))
+        let terminal_cont =
+            AllocatedContPtr::alloc_constant_cont_ptr(cs, store, &store.get_cont_terminal())?;
+
+        Ok((result_ptr, input_env.clone(), terminal_cont))
     }
 }
 
 impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
     fn eval_arity(&self) -> usize {
         0
+    }
+
+    fn evaluate(&self, s: &mut Store<F>, args: Ptr<F>, env: Ptr<F>, _cont: ContPtr<F>) -> IO<F> {
+        let Some(argv) = s.fetch_list(&args) else {
+            return IO {
+                expr: args,
+                env,
+                cont: s.intern_cont_error(),
+            };
+        };
+
+        if argv.len() != self.eval_arity() {
+            return IO {
+                expr: args,
+                env,
+                cont: s.intern_cont_error(),
+            };
+        };
+
+        let result = self.simple_evaluate(s, &argv);
+
+        IO {
+            expr: result,
+            env,
+            cont: s.intern_cont_terminal(),
+        }
     }
 
     fn simple_evaluate(&self, s: &mut Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
@@ -179,10 +203,8 @@ fn main() {
         )],
     );
 
-    let coproc_expr = format!("{}", sym_str);
-
-    let expr = format!("{coproc_expr}");
-    let ptr = store.read(&expr).unwrap();
+    let coproc_expr = format!("({})", sym_str);
+    let ptr = store.read(&coproc_expr).unwrap();
 
     let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang.clone());
     let lang_rc = Arc::new(lang);
