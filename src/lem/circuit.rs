@@ -673,9 +673,9 @@ impl Func {
                         // These are the input parameters (formal variables)
                         let param_list = func.input_params.iter();
                         // Now we bind the `Func`'s input parameters to the arguments in the call.
-                        param_list
-                            .zip(args.into_iter())
-                            .for_each(|(param, arg)| bound_allocations.insert(param.clone(), arg));
+                        param_list.zip(args.into_iter()).for_each(|(param, arg)| {
+                            bound_allocations.insert(param.clone(), arg);
+                        });
                         // Finally, we synthesize the circuit for the function body
                         g.call_count += 1;
                         recurse(

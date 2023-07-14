@@ -71,7 +71,7 @@ mod tag;
 mod var_map;
 
 use crate::field::LurkField;
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
 use indexmap::IndexMap;
 use std::sync::Arc;
 
@@ -165,13 +165,89 @@ impl Func {
             block,
         }
         .deconflict(&mut VarMap::new(), &mut 0)?;
-        func.check();
+        func.check()?;
         Ok(func)
     }
 
     /// Performs the static checks described in `LEM`'s docstring.
-    pub fn check(&self) {
-        // TODO
+    pub fn check(&self) -> Result<()> {
+        // Check if variable has already been defined. Panics
+        // if it is repeated (means `deconflict` is broken)
+        fn is_unique(var: &Var, map: &mut VarMap<()>) {
+            if map.insert(var.clone(), ()).is_some() {
+                panic!("Variable {var} already defined. Implementation broken.");
+            }
+        }
+        // Check if variable is bound
+        fn is_bound(var: &Var, map: &VarMap<()>) -> Result<()> {
+            map.get(var)
+                .context(format!("Variable {var} is unbound."))?;
+            Ok(())
+        }
+        fn recurse(func: &Func, map: &mut VarMap<()>) -> Result<()> {
+            func.input_params.iter().for_each(|var| is_unique(var, map));
+            for op in &func.block.ops {
+                match op {
+                    Op::Call(out, func, inp) => {
+                        if out.len() != func.output_size {
+                            bail!(
+                                "Function's input size {} is different from its output size {}",
+                                func.input_params.len(),
+                                func.output_size
+                            )
+                        }
+                        if inp.len() != func.input_params.len() {
+                            bail!(
+                                "The number of arguments {} differs from the function's input size {}",
+                                inp.len(),
+                                func.input_params.len()
+                            )
+                        }
+                        inp.iter().try_for_each(|arg| is_bound(arg, map))?;
+                        out.iter().for_each(|var| is_unique(var, map))
+                    }
+                    Op::Null(tgt, _tag) => {
+                        is_unique(tgt, map);
+                    }
+                    Op::Hash2(img, _tag, preimg) => {
+                        preimg.iter().try_for_each(|arg| is_bound(arg, map))?;
+                        is_unique(img, map);
+                    }
+                    Op::Hash3(img, _tag, preimg) => {
+                        preimg.iter().try_for_each(|arg| is_bound(arg, map))?;
+                        is_unique(img, map);
+                    }
+                    Op::Hash4(img, _tag, preimg) => {
+                        preimg.iter().try_for_each(|arg| is_bound(arg, map))?;
+                        is_unique(img, map);
+                    }
+                    Op::Unhash2(preimg, img) => {
+                        is_bound(img, map)?;
+                        preimg.iter().for_each(|var| is_unique(var, map))
+                    }
+                    Op::Unhash3(preimg, img) => {
+                        is_bound(img, map)?;
+                        preimg.iter().for_each(|var| is_unique(var, map))
+                    }
+                    Op::Unhash4(preimg, img) => {
+                        is_bound(img, map)?;
+                        preimg.iter().for_each(|var| is_unique(var, map))
+                    }
+                    Op::Hide(tgt, sec, src) => {
+                        is_bound(sec, map)?;
+                        is_bound(src, map)?;
+                        is_unique(tgt, map);
+                    }
+                    Op::Open(tgt_secret, tgt_ptr, comm_or_num) => {
+                        is_bound(comm_or_num, map)?;
+                        is_unique(tgt_secret, map);
+                        is_unique(tgt_ptr, map);
+                    }
+                }
+            }
+            Ok(())
+        }
+        recurse(self, &mut VarMap::new())
     }
 
     /// Deconflict will replace conflicting names and make the function SSA. The
@@ -264,7 +340,6 @@ impl Block {
             Ctrl::MatchTag(var, cases) => {
                 let mut new_cases = Vec::with_capacity(cases.len());
                 for (tag, case) in cases {
-                    // *uniq += 1;
                     let new_case = case.deconflict(&mut map.clone(), uniq)?;
                     new_cases.push((tag, new_case));
                 }
@@ -273,11 +348,9 @@ impl Block {
             Ctrl::MatchSymbol(var, cases, def) => {
                 let mut new_cases = Vec::with_capacity(cases.len());
                 for (symbol, case) in cases {
-                    // *uniq += 1;
                     let new_case = case.deconflict(&mut map.clone(), uniq)?;
                     new_cases.push((symbol.clone(), new_case));
                 }
-                // *uniq += 1;
                 let new_def = def.deconflict(map, uniq)?;
                 Ctrl::MatchSymbol(
                     map.get_cloned(&var)?,

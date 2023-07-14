@@ -218,18 +218,10 @@ impl Func {
         stop_cond: Stop,
     ) -> Result<(Vec<Frame<F>>, Vec<Path>)> {
         if self.input_params.len() != self.output_size {
-            bail!(
-                "Function's input size {} is different from its output size {}",
-                self.input_params.len(),
-                self.output_size
-            )
+            assert_eq!(self.input_params.len(), self.output_size)
         }
         if self.input_params.len() != args.len() {
-            bail!(
-                "The number of arguments {} differs from the function's input size {}",
-                args.len(),
-                self.input_params.len()
-            )
+            assert_eq!(args.len(), self.input_params.len())
         }
 
         // Initial path vector and frames
