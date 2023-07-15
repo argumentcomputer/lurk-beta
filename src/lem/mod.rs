@@ -73,6 +73,7 @@ mod var_map;
 use crate::field::LurkField;
 use anyhow::{bail, Context, Result};
 use indexmap::IndexMap;
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use self::{store::Store, symbol::Symbol, tag::Tag, var_map::VarMap};
@@ -173,26 +174,27 @@ impl Func {
     pub fn check(&self) -> Result<()> {
         // Check if variable has already been defined. Panics
         // if it is repeated (means `deconflict` is broken)
-        fn is_unique(var: &Var, map: &mut VarMap<()>) {
-            if map.insert(var.clone(), ()).is_some() {
-                panic!("Variable {var} already defined. Implementation broken.");
+        #[inline(always)]
+        fn is_unique(var: &Var, map: &mut HashSet<Var>) {
+            if !map.insert(var.clone()) {
+                panic!("Variable {var} already defined. `deconflict` implementation broken.");
             }
         }
         // Check if variable is bound
-        fn is_bound(var: &Var, map: &VarMap<()>) -> Result<()> {
+        #[inline(always)]
+        fn is_bound(var: &Var, map: &HashSet<Var>) -> Result<()> {
             map.get(var)
                 .context(format!("Variable {var} is unbound."))?;
             Ok(())
         }
-        fn recurse(func: &Func, map: &mut VarMap<()>) -> Result<()> {
-            func.input_params.iter().for_each(|var| is_unique(var, map));
-            for op in &func.block.ops {
+        fn recurse(body: &Block, return_size: usize, map: &mut HashSet<Var>) -> Result<()> {
+            for op in &body.ops {
                 match op {
                     Op::Call(out, func, inp) => {
                         if out.len() != func.output_size {
                             bail!(
-                                "Function's input size {} is different from its output size {}",
-                                func.input_params.len(),
+                                "Function's return size {} different from number of variables {} bound by the call",
+                                out.len(),
                                 func.output_size
                             )
                         }
@@ -204,7 +206,9 @@ impl Func {
                             )
                         }
                         inp.iter().try_for_each(|arg| is_bound(arg, map))?;
-                        out.iter().for_each(|var| is_unique(var, map))
+                        out.iter().for_each(|var| is_unique(var, map));
+                        func.input_params.iter().for_each(|var| is_unique(var, map));
+                        recurse(&func.block, func.output_size, map)?;
                     }
                     Op::Null(tgt, _tag) => {
                         is_unique(tgt, map);
@@ -245,9 +249,44 @@ impl Func {
                     }
                 }
             }
+            match &body.ctrl {
+                Ctrl::Return(return_vars) => {
+                    return_vars.iter().try_for_each(|arg| is_bound(arg, map))?;
+                    if return_vars.len() != return_size {
+                        bail!(
+                            "Return size {} different from expected size of return {}",
+                            return_vars.len(),
+                            return_size
+                        )
+                    }
+                }
+                Ctrl::MatchTag(var, cases) => {
+                    is_bound(var, map)?;
+                    let mut tags = HashSet::new();
+                    for (tag, block) in cases {
+                        if !tags.insert(tag) {
+                            bail!("Tag {tag} already defined.");
+                        }
+                        recurse(block, return_size, map)?;
+                    }
+                }
+                Ctrl::MatchSymbol(var, cases, def) => {
+                    is_bound(var, map)?;
+                    let mut symbols = HashSet::new();
+                    for (symbol, block) in cases {
+                        if !symbols.insert(symbol) {
+                            bail!("Symbol {symbol} already defined.");
+                        }
+                        recurse(block, return_size, map)?;
+                    }
+                    recurse(def, return_size, map)?;
+                }
+            }
             Ok(())
         }
-        recurse(self, &mut VarMap::new())
+        let map = &mut HashSet::new();
+        self.input_params.iter().for_each(|var| is_unique(var, map));
+        recurse(&self.block, self.output_size, map)
     }
 
     /// Deconflict will replace conflicting names and make the function SSA. The
