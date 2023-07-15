@@ -7,10 +7,10 @@ use lurk::circuit::gadgets::constraints::alloc_equal;
 use lurk::circuit::gadgets::data::{allocate_constant, GlobalAllocations};
 use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use lurk::coprocessor::{CoCircuit, Coprocessor};
-use lurk::eval::{empty_sym_env, lang::Lang, IO};
+use lurk::eval::{empty_sym_env, lang::Lang};
 use lurk::field::LurkField;
 use lurk::proof::{nova::NovaProver, Prover};
-use lurk::ptr::{ContPtr, Ptr};
+use lurk::ptr::Ptr;
 use lurk::public_parameters::public_params;
 use lurk::store::Store;
 use lurk::sym;
@@ -26,7 +26,7 @@ use pasta_curves::pallas::Scalar as Fr;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-const REDUCTION_COUNT: usize = 1;
+const REDUCTION_COUNT: usize = 10;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Sha256Coprocessor<F: LurkField> {
@@ -53,6 +53,13 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
             cs.namespace(|| "false bit"),
             Some(false),
         )?);
+
+        cs.enforce(
+            || "enforce zero preimage",
+            |lc| lc,
+            |lc| lc,
+            |_| false_bool.lc(CS::one(), F::ONE),
+        );
 
         let preimage = vec![false_bool; self.n * 8];
 
@@ -92,44 +99,15 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         let both_eq = Boolean::and(cs.namespace(|| "both equal"), &eqs[0], &eqs[1])?;
 
         let result_ptr =
-            AllocatedPtr::as_lurk_boolean(cs.namespace(|| "t result ptr"), store, &both_eq)?;
+            AllocatedPtr::as_lurk_boolean(cs.namespace(|| "result ptr"), store, &both_eq)?;
 
-        let terminal_cont =
-            AllocatedContPtr::alloc_constant_cont_ptr(cs, store, &store.get_cont_terminal())?;
-
-        Ok((result_ptr, input_env.clone(), terminal_cont))
+        Ok((result_ptr, input_env.clone(), input_cont.clone()))
     }
 }
 
 impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
     fn eval_arity(&self) -> usize {
         0
-    }
-
-    fn evaluate(&self, s: &mut Store<F>, args: Ptr<F>, env: Ptr<F>, _cont: ContPtr<F>) -> IO<F> {
-        let Some(argv) = s.fetch_list(&args) else {
-            return IO {
-                expr: args,
-                env,
-                cont: s.intern_cont_error(),
-            };
-        };
-
-        if argv.len() != self.eval_arity() {
-            return IO {
-                expr: args,
-                env,
-                cont: s.intern_cont_error(),
-            };
-        };
-
-        let result = self.simple_evaluate(s, &argv);
-
-        IO {
-            expr: result,
-            env,
-            cont: s.intern_cont_terminal(),
-        }
     }
 
     fn simple_evaluate(&self, s: &mut Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
