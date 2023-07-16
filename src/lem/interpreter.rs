@@ -205,7 +205,7 @@ impl Func {
             bindings.insert(param.clone(), args[i]);
         }
 
-        self.block
+        self.body
             .run(args, store, bindings, preimages, Path::default())
     }
 

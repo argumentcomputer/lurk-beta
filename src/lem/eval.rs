@@ -2,7 +2,7 @@ use crate::func;
 
 use super::Func;
 
-/// Lurk's step function encoded as a LEM
+/// Lurk's step function
 #[allow(dead_code)]
 pub(crate) fn eval_step() -> Func {
     let reduce = reduce();
@@ -71,7 +71,7 @@ mod tests {
     fn test_eval_and_constrain_aux(store: &mut Store<Fr>, pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>) {
         let eval_step = eval_step();
 
-        let slots_count = eval_step.block.count_slots();
+        let slots_count = eval_step.body.count_slots();
 
         assert_eq!(slots_count, NUM_SLOTS);
 

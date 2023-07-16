@@ -81,7 +81,7 @@ impl Path {
 impl Func {
     /// Computes the number of possible paths in a `Func` can take
     pub fn num_paths(&self) -> usize {
-        self.block.num_paths()
+        self.body.num_paths()
     }
 
     /// Asserts that all paths were visited by a set of frames. This is mostly

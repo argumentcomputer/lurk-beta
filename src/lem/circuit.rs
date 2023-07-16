@@ -5,12 +5,12 @@
 //!
 //! ### "Concrete" and "virtual" paths
 //!
-//! LEMs can implement logical branches with the use of some special `LEMCTL`
-//! nodes (such as `MatchTag`). But interpretation can only follow one path per
-//! iteration, which we call the *concrete path*. The other paths are called
-//! *virtual paths*. So we need a mechanism to safely "relax" the constraints
+//! Control statements such as matches introduce branching, meaning execution can
+//! follow different paths depending on a value. The real path of execution for
+//! a particular instance we call the *concrete path*. The other paths which are
+//! not followed we call *virtual paths*. A mechanism to "relax" the constraints
 //! for the virtual paths while also properly enforcing the correctness for what
-//! happens on the concrete path.
+//! happens on the concrete path is thus needed.
 //!
 //! We do that by using implication gadgets. An implication of the form `A → B`
 //! is trivially true if `A` is false. But if `A` is true, then the implication
@@ -23,12 +23,12 @@
 //!
 //! ### Slot optimizations
 //!
-//! Some LEMs may require expensive gadgets, such as Poseidon hashing. So we use
-//! the concept of "slots" to avoid wasting constraints. To explore this idea,
-//! let's use the following LEM as an example:
+//! Some LEM functions may require expensive gadgets, such as Poseidon hashing.
+//! So we use the concept of "slots" to avoid wasting constraints. To explore
+//! this idea, let's use the following LEM as an example:
 //!
 //! ```text
-//! a b c {
+//! (a, b, c): 3 => {
 //!     match_tag c {
 //!         Num => {
 //!             let x: Cons = hash2(a, b);
@@ -112,19 +112,19 @@
 //!
 //! 1. Perform a static analysis to compute the number of slots (for each slot
 //! type) that are needed. This piece of information will live on a `SlotsCounter`
-//! structure, which is populated by the function `LEMCTL::count_slots`;
+//! structure, which is populated by the function `Block::count_slots`;
 //!
-//! 2. Interpret the LEM and collect the data that will be fed to some (or all)
-//! slots, along with all bindings from `Var`s to `Ptr`s. This piece of
+//! 2. Interpret the LEM function and collect the data that will be fed to some
+//! (or all) slots, along with all bindings from `Var`s to `Ptr`s. This piece of
 //! information will live on a `Frame` structure;
 //!
 //! 3. Build the circuit with `SlotsCounter` and `Frame` at hand. This step is
-//! better explained in the `LEM::synthesize` function.
+//! better explained in the `Func::synthesize` function.
 //!
 //! The 3 steps above will be further referred to as *STEP 1*, *STEP 2* and
-//! *STEP 3* respectively. STEP 1 should be performed once per LEM. Then STEP 2
-//! will need as many iterations as it takes to evaluate the Lurk expression and
-//! so will STEP 3.
+//! *STEP 3* respectively. STEP 1 should be performed once per function. Then
+//! STEP 2 //! will need as many iterations as it takes to evaluate the Lurk
+//! expression and so will STEP 3.
 
 use std::collections::{HashMap, HashSet};
 
@@ -213,7 +213,7 @@ impl Block {
                 Op::Hash2(..) | Op::Unhash2(..) => SlotsCounter::new((1, 0, 0)),
                 Op::Hash3(..) | Op::Unhash3(..) => SlotsCounter::new((0, 1, 0)),
                 Op::Hash4(..) | Op::Unhash4(..) => SlotsCounter::new((0, 0, 1)),
-                Op::Call(_, func, _) => func.block.count_slots(),
+                Op::Call(_, func, _) => func.body.count_slots(),
                 _ => SlotsCounter::default(),
             };
             acc.add(val)
@@ -489,14 +489,14 @@ impl Func {
         Ok(preallocations)
     }
 
-    /// Create R1CS constraints for LEM given an evaluation frame. This function
-    /// implements the STEP 3 mentioned above.
+    /// Create R1CS constraints for a LEM function given an evaluation frame. This
+    /// function implements the STEP 3 mentioned above.
     ///
     /// Regarding the slot optimizations, STEP 3 uses information gathered during
     /// STEPs 1 and 2. So we proceed by first allocating preimages and images for
-    /// each slot and then, as we traverse the LEM, we add constraints to make sure
-    /// that the witness satisfies the arithmetic equations for the corresponding
-    /// slots.
+    /// each slot and then, as we traverse the function, we add constraints to make
+    /// sure that the witness satisfies the arithmetic equations for the
+    /// corresponding slots.
     pub fn synthesize<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -507,13 +507,14 @@ impl Func {
         let mut global_allocator = GlobalAllocator::default();
         let mut bound_allocations = BoundAllocations::new();
 
-        // Inputs are constrained by their usage inside LEM
+        // Inputs are constrained by their usage inside the function body
         self.allocate_input(cs, store, frame, &mut bound_allocations)?;
-        // Outputs are constrained by return. All LEMs return
+        // Outputs are constrained by the return statement. All functions return
         let preallocated_outputs = Func::allocate_output(cs, store, frame, &mut bound_allocations)?;
 
-        // Slots are constrained by their usage inside LEM. The ones not used in throughout the concrete path
-        // are effectively unconstrained, that's why they are filled with dummies
+        // Slots are constrained by their usage inside the function body. The ones
+        // not used in throughout the concrete path are effectively unconstrained,
+        // that's why they are filled with dummies
         let preallocated_hash2_slots = Func::allocate_slots(
             cs,
             &frame.preimages.hash2_ptrs,
@@ -680,7 +681,7 @@ impl Func {
                         g.call_count += 1;
                         recurse(
                             &mut cs.namespace(|| format!("Call {}", g.call_count)),
-                            &func.block,
+                            &func.body,
                             concrete_path.clone(),
                             next_slot,
                             bound_allocations,
@@ -784,7 +785,7 @@ impl Func {
 
         recurse(
             cs,
-            &self.block,
+            &self.body,
             Boolean::Constant(true),
             &mut SlotsCounter::default(),
             &mut bound_allocations,
@@ -814,7 +815,7 @@ impl Func {
             for op in &block.ops {
                 match op {
                     Op::Call(_, func, _) => {
-                        num_constraints += recurse(&func.block, nested, globals);
+                        num_constraints += recurse(&func.body, nested, globals);
                     }
                     Op::Null(_, tag) => {
                         // constrain tag and hash
@@ -870,7 +871,7 @@ impl Func {
         // fixed cost for each slot
         let slot_constraints =
             289 * num_slots.hash2 + 337 * num_slots.hash3 + 388 * num_slots.hash4;
-        let num_constraints = recurse::<F>(&self.block, false, globals);
+        let num_constraints = recurse::<F>(&self.body, false, globals);
         slot_constraints + num_constraints + globals.len()
     }
 }
