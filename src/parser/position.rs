@@ -40,7 +40,7 @@ impl Pos {
     /// Use the range information in a Position to pretty-print that range within
     /// a string
     pub fn range(
-        input: String,
+        input: &str,
         from_line: usize,
         from_column: usize,
         upto_line: usize,

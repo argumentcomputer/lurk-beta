@@ -732,7 +732,7 @@ impl<'a> Opening<S1> {
             };
 
             let function_map = committed_expression_store();
-            function_map.set(new_commitment, &new_function)?;
+            function_map.set(&new_commitment, &new_function)?;
             assert_eq!(new_function, function_map.get(&new_commitment).unwrap());
 
             (Some(new_commitment), result_expr)
@@ -891,7 +891,7 @@ impl<'a> Proof<'a, S1> {
 
         proof.verify(pp, &lang).expect("Nova verification failed");
 
-        proof_map.set(key, &proof).unwrap();
+        proof_map.set(&key, &proof).unwrap();
 
         Ok(proof)
     }
@@ -1150,7 +1150,7 @@ mod test {
 
         let function_map = committed_expression_store();
         function_map
-            .set(commitment, &function)
+            .set(&commitment, &function)
             .expect("function_map set");
 
         for (function_input, _expected_output) in io {

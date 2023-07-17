@@ -213,13 +213,13 @@ impl<C: Coprocessor<Scalar>> Groth16Prover<Bls12, C, Scalar> {
     /// Verifies a single Groth16 proof using the given multi_frame, prepared verifier key, and proof.
     pub fn verify_groth16_proof(
         // multiframe need not have inner frames populated for verification purposes.
-        multiframe: MultiFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>, C>,
+        multiframe: &MultiFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>, C>,
         pvk: &groth16::PreparedVerifyingKey<Bls12>,
-        proof: groth16::Proof<Bls12>,
+        proof: &groth16::Proof<Bls12>,
     ) -> Result<bool, SynthesisError> {
         let inputs = multiframe.public_inputs();
 
-        verify_proof(pvk, &proof, &inputs)
+        verify_proof(pvk, proof, &inputs)
     }
 
     /// Verifies an aggregated Groth16 proof using the given prepared verifier key, SRS, public parameters, proof and rng.
@@ -291,19 +291,19 @@ impl<C: Coprocessor<Scalar>>
     pub fn verify_groth16_proof(
         self,
         pvk: &groth16::PreparedVerifyingKey<Bls12>,
-        proof: groth16::Proof<Bls12>,
+        proof: &groth16::Proof<Bls12>,
     ) -> Result<bool, SynthesisError> {
         let inputs: Vec<Scalar> = self.public_inputs();
-        verify_proof(pvk, &proof, inputs.as_slice())
+        verify_proof(pvk, proof, inputs.as_slice())
     }
 }
 
 #[allow(dead_code)]
 fn verify_sequential_groth16_proofs<C: Coprocessor<Scalar>>(
-    multiframe_proofs: Vec<(
+    multiframe_proofs: &[(
         MultiFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>, C>,
         groth16::Proof<Bls12>,
-    )>,
+    )],
     vk: &groth16::VerifyingKey<Bls12>,
 ) -> Result<bool, SynthesisError> {
     let pvk = groth16::prepare_verifying_key(vk);
@@ -317,10 +317,7 @@ fn verify_sequential_groth16_proofs<C: Coprocessor<Scalar>>(
             }
         }
 
-        if !multiframe
-            .clone()
-            .verify_groth16_proof(&pvk, proof.clone())?
-        {
+        if !multiframe.clone().verify_groth16_proof(&pvk, proof)? {
             return Ok(false);
         }
     }

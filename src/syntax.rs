@@ -191,7 +191,7 @@ impl<F: LurkField> Store<F> {
 
     fn fetch_syntax_aux(
         &self,
-        lurk_syms: HashMap<Symbol, LurkSym>,
+        lurk_syms: &HashMap<Symbol, LurkSym>,
         ptr: Ptr<F>,
     ) -> Option<Syntax<F>> {
         let expr = self.fetch(&ptr)?;
@@ -221,7 +221,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn fetch_syntax(&self, ptr: Ptr<F>) -> Option<Syntax<F>> {
         let lurk_syms = Symbol::lurk_syms();
-        self.fetch_syntax_aux(lurk_syms, ptr)
+        self.fetch_syntax_aux(&lurk_syms, ptr)
     }
 }
 
