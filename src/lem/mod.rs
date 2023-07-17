@@ -51,7 +51,7 @@
 //!
 //! 1. All variables must be bound, no variable can be used before being bound
 //! 2. All returns within a block must be of the same size and equal to the
-//!    function's output size 
+//!    function's output size
 //! 3. Function calls must have the correct number of arguments and must bind
 //!    the correct number of variables
 //! 4. No match statements should have conflicting cases
