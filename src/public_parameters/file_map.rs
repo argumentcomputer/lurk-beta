@@ -38,8 +38,8 @@ impl<K: ToString> FileIndex<K> {
         V::read_from_path(self.key_path(key)).ok()
     }
 
-    pub(crate) fn set<V: FileStore>(&self, key: K, data: &V) -> Result<(), Error> {
-        data.write_to_path(self.key_path(&key));
+    pub(crate) fn set<V: FileStore>(&self, key: &K, data: &V) -> Result<(), Error> {
+        data.write_to_path(self.key_path(key));
         Ok(())
     }
 }
@@ -70,8 +70,8 @@ impl<K: ToString, V: FileStore> FileMap<K, V> {
         V::read_from_path(self.key_path(key)).ok()
     }
 
-    pub fn set(&self, key: K, data: &V) -> Result<(), Error> {
-        data.write_to_path(self.key_path(&key));
+    pub fn set(&self, key: &K, data: &V) -> Result<(), Error> {
+        data.write_to_path(self.key_path(key));
         Ok(())
     }
 }

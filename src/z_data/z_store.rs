@@ -137,14 +137,14 @@ impl<F: LurkField> ZStore<F> {
 
     /// Stores a null symbol in the `ZStore` and returns the resulting pointer
     pub fn nil_z_ptr(&mut self, poseidon_cache: &PoseidonCache<F>) -> ZExprPtr<F> {
-        let z_ptr = self.put_symbol(Symbol::nil(), poseidon_cache).0;
+        let z_ptr = self.put_symbol(&Symbol::nil(), poseidon_cache).0;
         ZPtr(ExprTag::Nil, z_ptr.1)
     }
 
     /// Stores a string in the `ZStore` and returns the resulting pointer and `ZExpr`
     pub fn put_string(
         &mut self,
-        string: String,
+        string: &str,
         poseidon_cache: &PoseidonCache<F>,
     ) -> (ZExprPtr<F>, ZExpr<F>) {
         let mut expr = ZExpr::EmptyStr;
@@ -160,13 +160,13 @@ impl<F: LurkField> ZStore<F> {
     /// Stores a symbol in the `ZStore` and returns the resulting pointer and `ZExpr`
     pub fn put_symbol(
         &mut self,
-        sym: Symbol,
+        sym: &Symbol,
         poseidon_cache: &PoseidonCache<F>,
     ) -> (ZExprPtr<F>, ZExpr<F>) {
         let mut expr = ZExpr::RootSym;
         let mut ptr = expr.z_ptr(poseidon_cache);
         for s in sym.path.iter().rev() {
-            let (str_ptr, _) = self.put_string(s.clone(), poseidon_cache);
+            let (str_ptr, _) = self.put_string(s, poseidon_cache);
             expr = ZExpr::Sym(str_ptr, ptr);
             ptr = expr.z_ptr(poseidon_cache);
         }

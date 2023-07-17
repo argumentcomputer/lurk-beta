@@ -1203,7 +1203,7 @@ fn dont_discard_rest_env() {
 #[test]
 fn test_str_car_cdr_cons() {
     let s = &mut Store::<Fr>::default();
-    let a = s.read(r#"#\a"#).unwrap();
+    let a = s.read(r"#\a").unwrap();
     let apple = s.read(r#" "apple" "#).unwrap();
     let a_pple = s.read(r#" (#\a . "pple") "#).unwrap();
     let pple = s.read(r#" "pple" "#).unwrap();
@@ -1274,7 +1274,7 @@ fn test_str_car_cdr_cons() {
     );
     test_aux::<Coproc<Fr>>(
         s,
-        r#"(strcons #\a #\b)"#,
+        r"(strcons #\a #\b)",
         None,
         None,
         Some(error),
@@ -1358,8 +1358,8 @@ fn test_car_cdr_invalid_tag_error_sym() {
 fn test_car_cdr_invalid_tag_error_char() {
     let s = &mut Store::<Fr>::default();
     let error = s.get_cont_error();
-    test_aux::<Coproc<Fr>>(s, r#"(car #\a)"#, None, None, Some(error), None, 2, None);
-    test_aux::<Coproc<Fr>>(s, r#"(cdr #\a)"#, None, None, Some(error), None, 2, None);
+    test_aux::<Coproc<Fr>>(s, r"(car #\a)", None, None, Some(error), None, 2, None);
+    test_aux::<Coproc<Fr>>(s, r"(cdr #\a)", None, None, Some(error), None, 2, None);
 }
 
 #[test]
@@ -1632,7 +1632,7 @@ fn num() {
 #[test]
 fn num_char() {
     let s = &mut Store::<Fr>::default();
-    let expr = r#"(num #\a)"#;
+    let expr = r"(num #\a)";
     let expected = s.num(97);
     let terminal = s.get_cont_terminal();
     test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 2, None);
@@ -1642,7 +1642,7 @@ fn num_char() {
 fn char_num() {
     let s = &mut Store::<Fr>::default();
     let expr = r#"(char 97)"#;
-    let expected_a = s.read(r#"#\a"#).unwrap();
+    let expected_a = s.read(r"#\a").unwrap();
     let terminal = s.get_cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -1660,7 +1660,7 @@ fn char_num() {
 fn char_coercion() {
     let s = &mut Store::<Fr>::default();
     let expr = r#"(char (- 0 4294967200))"#;
-    let expected_a = s.read(r#"#\a"#).unwrap();
+    let expected_a = s.read(r"#\a").unwrap();
     let terminal = s.get_cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,

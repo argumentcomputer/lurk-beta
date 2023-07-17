@@ -481,9 +481,9 @@ impl<F: LurkField> Store<F> {
         ptr
     }
 
-    pub fn get_sym(&self, sym: Symbol) -> Option<Ptr<F>> {
-        let ptr = self.symbol_cache.get(&sym).cloned()?;
-        if sym == Symbol::nil() {
+    pub fn get_sym(&self, sym: &Symbol) -> Option<Ptr<F>> {
+        let ptr = self.symbol_cache.get(sym).cloned()?;
+        if *sym == Symbol::nil() {
             Some(Ptr {
                 tag: ExprTag::Nil,
                 raw: ptr.raw,
@@ -496,7 +496,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn get_lurk_sym<T: AsRef<str>>(&self, name: T) -> Option<Ptr<F>> {
         let sym = Symbol::lurk_sym(name.as_ref());
-        self.get_sym(sym)
+        self.get_sym(&sym)
     }
 
     pub fn intern_num<T: Into<Num<F>>>(&mut self, num: T) -> Ptr<F> {

@@ -311,7 +311,8 @@ impl ClutchState<F, Coproc<F>> {
             commitment: Some(commitment),
         };
 
-        self.expression_map.set(commitment, &committed_expression)?;
+        self.expression_map
+            .set(&commitment, &committed_expression)?;
         Ok(Some(store.intern_maybe_opaque_comm(commitment.comm)))
     }
 
@@ -365,7 +366,7 @@ impl ClutchState<F, Coproc<F>> {
             commitment: Some(new_commitment),
         };
 
-        self.expression_map.set(new_commitment, &new_function)?;
+        self.expression_map.set(&new_commitment, &new_function)?;
 
         let interned_commitment = store.intern_maybe_opaque_comm(new_commitment.comm);
         let mut handle = io::stdout().lock();

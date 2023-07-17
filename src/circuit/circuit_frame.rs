@@ -5321,7 +5321,7 @@ mod tests {
             let cs_verified = cs.is_satisfied() && cs.verify(&public_inputs);
             let verified = multiframe
                 .clone()
-                .verify_groth16_proof(&pvk, proof)
+                .verify_groth16_proof(&pvk, &proof)
                 .unwrap();
 
             if expect_success {

@@ -2355,7 +2355,7 @@ pub mod tests {
     #[test]
     fn test_prove_str_car() {
         let s = &mut Store::<Fr>::default();
-        let expected_a = s.read(r#"#\a"#).unwrap();
+        let expected_a = s.read(r"#\a").unwrap();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -2443,7 +2443,7 @@ pub mod tests {
         let error = s.get_cont_error();
         test_aux::<Coproc<Fr>>(
             s,
-            r#"(strcons #\a 123)"#,
+            r"(strcons #\a 123)",
             None,
             None,
             Some(error),
@@ -2506,8 +2506,8 @@ pub mod tests {
     fn test_prove_car_cdr_invalid_tag_error_char() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<Coproc<Fr>>(s, r#"(car #\a)"#, None, None, Some(error), None, 2, None);
-        test_aux::<Coproc<Fr>>(s, r#"(cdr #\a)"#, None, None, Some(error), None, 2, None);
+        test_aux::<Coproc<Fr>>(s, r"(car #\a)", None, None, Some(error), None, 2, None);
+        test_aux::<Coproc<Fr>>(s, r"(cdr #\a)", None, None, Some(error), None, 2, None);
     }
 
     #[test]
@@ -2678,7 +2678,7 @@ pub mod tests {
     #[test]
     fn test_prove_num_char() {
         let s = &mut Store::<Fr>::default();
-        let expr = r#"(num #\a)"#;
+        let expr = r"(num #\a)";
         let expected = s.num(97);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 2, None);
@@ -2688,7 +2688,7 @@ pub mod tests {
     fn test_prove_char_num() {
         let s = &mut Store::<Fr>::default();
         let expr = r#"(char 97)"#;
-        let expected_a = s.read(r#"#\a"#).unwrap();
+        let expected_a = s.read(r"#\a").unwrap();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -2707,8 +2707,8 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expr = r#"(char (- 0 4294967200))"#;
         let expr2 = r#"(char (- 0 4294967199))"#;
-        let expected_a = s.read(r#"#\a"#).unwrap();
-        let expected_b = s.read(r#"#\b"#).unwrap();
+        let expected_a = s.read(r"#\a").unwrap();
+        let expected_b = s.read(r"#\b").unwrap();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -2857,7 +2857,7 @@ pub mod tests {
     #[test]
     fn test_str_car_cdr_cons() {
         let s = &mut Store::<Fr>::default();
-        let a = s.read(r#"#\a"#).unwrap();
+        let a = s.read(r"#\a").unwrap();
         let apple = s.read(r#" "apple" "#).unwrap();
         let a_pple = s.read(r#" (#\a . "pple") "#).unwrap();
         let pple = s.read(r#" "pple" "#).unwrap();
@@ -2930,7 +2930,7 @@ pub mod tests {
 
         test_aux::<Coproc<Fr>>(
             s,
-            r#"(strcons #\a #\b)"#,
+            r"(strcons #\a #\b)",
             None,
             None,
             Some(error),
