@@ -210,13 +210,25 @@ impl LEMCTL {
     pub fn count_slots(&self) -> SlotsCounter {
         match self {
             LEMCTL::MatchTag(_, match_map) => {
-                let init = match_map.default.as_ref().map_or(SlotsCounter::default(), |block| block.count_slots());
-                match_map.cases.iter().fold(init, |acc, (_, block)| acc.max(block.count_slots()))
+                let init = match_map
+                    .default
+                    .as_ref()
+                    .map_or(SlotsCounter::default(), |block| block.count_slots());
+                match_map
+                    .cases
+                    .iter()
+                    .fold(init, |acc, (_, block)| acc.max(block.count_slots()))
             }
             LEMCTL::MatchSymbol(_, match_map) => {
-                let init = match_map.default.as_ref().map_or(SlotsCounter::default(), |block| block.count_slots());
-                match_map .cases .iter() .fold(init, |acc, (_, block)| acc.max(block.count_slots()))
-            },
+                let init = match_map
+                    .default
+                    .as_ref()
+                    .map_or(SlotsCounter::default(), |block| block.count_slots());
+                match_map
+                    .cases
+                    .iter()
+                    .fold(init, |acc, (_, block)| acc.max(block.count_slots()))
+            }
             LEMCTL::Return(..) => SlotsCounter::default(),
             LEMCTL::Seq(ops, rest) => {
                 let ops_slots = ops.iter().fold(SlotsCounter::default(), |acc, op| {
@@ -574,7 +586,7 @@ impl LEM {
                 }
                 LEMCTL::MatchTag(match_var, match_map) => {
                     todo!()
-                        /*
+                    /*
                     let allocated_match_tag = g.bound_allocations.get(match_var)?.tag().clone();
                     let mut concrete_path_vec = Vec::new();
                     for (tag, op) in match_map {
@@ -771,7 +783,7 @@ impl LEM {
                 }
                 LEMCTL::MatchTag(_, match_map) => {
                     todo!()
-                        /*
+                    /*
                     // `alloc_equal_const` adds 3 constraints for each case and
                     // the `and` is free for non-nested `MatchTag`s, since we
                     // start `concrete_path` with a constant `true`
