@@ -109,6 +109,7 @@ allow = [
     "CC0-1.0",
     "Apache-2.0",
     "Unicode-DFS-2016",
+    "ISC",
 ]
 # List of explicitly disallowed licenses
 # See https://spdx.org/licenses/ for list of possible licenses

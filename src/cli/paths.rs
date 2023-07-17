@@ -18,9 +18,31 @@ pub fn lurk_dir() -> PathBuf {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn create_lurk_dir() -> Result<()> {
-    let dir_path = lurk_dir();
-    Ok(fs::create_dir_all(dir_path)?)
+pub fn proofs_dir() -> PathBuf {
+    lurk_dir().join(Path::new("proofs"))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn lurk_leaf_dirs() -> [PathBuf; 1] {
+    [proofs_dir()]
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn create_lurk_dirs() -> Result<()> {
+    for dir in lurk_leaf_dirs() {
+        fs::create_dir_all(dir)?;
+    }
+    Ok(())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn proof_path(name: &str) -> PathBuf {
+    proofs_dir().join(Path::new(name)).with_extension("proof")
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn proof_meta_path(name: &str) -> PathBuf {
+    proofs_dir().join(Path::new(name)).with_extension("meta")
 }
 
 #[cfg(not(target_arch = "wasm32"))]

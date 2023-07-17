@@ -190,7 +190,7 @@ fn main() {
     println!("Verifying proof...");
 
     let verify_start = Instant::now();
-    let res = proof.verify(&pp, num_steps, z0, &zi).unwrap();
+    let res = proof.verify(&pp, num_steps, &z0, &zi).unwrap();
     let verify_end = verify_start.elapsed();
 
     println!("Verify took {:?}", verify_end);

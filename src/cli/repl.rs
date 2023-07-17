@@ -1,9 +1,11 @@
-use std::io;
 use std::path::Path;
 use std::sync::Arc;
-use std::{fs::read_to_string, process};
+
+use std::{fs::read_to_string, process, time::Instant};
 
 use anyhow::{bail, Context, Result};
+
+use log::info;
 
 use rustyline::{
     error::ReadlineError,
@@ -14,19 +16,34 @@ use rustyline::{
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 
 use lurk::{
-    eval::{lang::Lang, Evaluator},
-    field::LurkField,
+    eval::{
+        lang::{Coproc, Lang},
+        Evaluator, Frame, Witness, IO,
+    },
+    field::{LanguageField, LurkField},
     parser,
     ptr::Ptr,
     store::Store,
     tag::{ContTag, ExprTag},
     writer::Write,
     Num, UInt,
-    {coprocessor::Coprocessor, eval::IO},
 };
 
 #[cfg(not(target_arch = "wasm32"))]
-use crate::cli::paths::repl_history;
+use lurk::{
+    proof::{nova::NovaProver, Prover},
+    public_parameters::public_params,
+    z_store::ZStore,
+};
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::{fs::File, io::BufWriter};
+
+#[cfg(not(target_arch = "wasm32"))]
+use super::{
+    lurk_proof::{LurkProof, LurkProofMeta},
+    paths::{proof_meta_path, proof_path},
+};
 
 #[derive(Completer, Helper, Highlighter, Hinter)]
 struct InputValidator {
@@ -39,64 +56,198 @@ impl Validator for InputValidator {
     }
 }
 
-pub struct Repl<F: LurkField, C: Coprocessor<F>> {
+pub enum Backend {
+    Nova,
+    SnarkPackPlus,
+}
+
+impl std::fmt::Display for Backend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Nova => write!(f, "Nova"),
+            Self::SnarkPackPlus => write!(f, "SnarkPack+"),
+        }
+    }
+}
+
+impl Backend {
+    pub fn default_field(&self) -> LanguageField {
+        match self {
+            Self::Nova => LanguageField::Pallas,
+            Self::SnarkPackPlus => LanguageField::BLS12_381,
+        }
+    }
+
+    fn compatible_fields(&self) -> Vec<LanguageField> {
+        use LanguageField::*;
+        match self {
+            Self::Nova => vec![Pallas, Vesta],
+            Self::SnarkPackPlus => vec![BLS12_381],
+        }
+    }
+
+    pub fn validate_field(&self, field: &LanguageField) -> Result<()> {
+        let compatible_fields = self.compatible_fields();
+        if !compatible_fields.contains(field) {
+            bail!(
+                "Backend {self} is incompatible with field {field}. Compatible fields are:\n  {}",
+                compatible_fields
+                    .iter()
+                    .map(|f| f.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        }
+        Ok(())
+    }
+}
+
+#[allow(dead_code)]
+struct Evaluation<F: LurkField> {
+    frames: Vec<Frame<IO<F>, Witness<F>, Coproc<F>>>,
+    iterations: usize,
+    cost: u128,
+}
+
+#[allow(dead_code)]
+pub struct Repl<F: LurkField> {
     store: Store<F>,
     env: Ptr<F>,
     limit: usize,
-    lang: Arc<Lang<F, C>>,
-    // last_claim: Option<Claim<F>>,
+    lang: Arc<Lang<F, Coproc<F>>>,
     rc: usize,
+    backend: Backend,
+    evaluation: Option<Evaluation<F>>,
 }
 
-fn check_non_zero(name: &str, x: usize) -> Result<()> {
+pub fn validate_non_zero(name: &str, x: usize) -> Result<()> {
     if x == 0 {
         bail!("`{name}` can't be zero")
     }
     Ok(())
 }
 
-/// Pads the number of iterations to the first multiple of the reduction count
-/// that's equal or greater than the number of iterations
+/// `pad(a, m)` returns the first multiple of `m` that's equal or greater than `a`
 ///
-/// Panics if reduction count is zero
+/// Panics if `m` is zero
+#[inline]
 #[allow(dead_code)]
-fn pad_iterations(iterations: usize, rc: usize) -> usize {
-    let lower = rc * (iterations / rc);
-    if lower < iterations {
-        lower + rc
-    } else {
-        lower
-    }
+fn pad(a: usize, m: usize) -> usize {
+    (a + m - 1) / m * m
 }
 
-impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Coprocessor<F>>
-    Repl<F, C>
-{
-    pub fn new(store: Store<F>, env: Ptr<F>, limit: usize, rc: usize) -> Result<Repl<F, C>> {
-        check_non_zero("limit", limit)?;
-        check_non_zero("rc", rc)?;
-        Ok(Repl {
+#[allow(dead_code)]
+fn timestamp() -> u128 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("We're after UNIX_EPOCH")
+        .as_nanos()
+}
+
+type F = pasta_curves::pallas::Scalar; // TODO: generalize this
+
+impl Repl<F> {
+    pub fn new(store: Store<F>, env: Ptr<F>, limit: usize, rc: usize, backend: Backend) -> Repl<F> {
+        info!(
+            "Launching REPL with backend {backend} and field {}",
+            F::FIELD
+        );
+        Repl {
             store,
             env,
             limit,
-            lang: Arc::new(Lang::<F, C>::new()),
-            // last_claim: None,
+            lang: Arc::new(Lang::new()),
             rc,
-        })
+            backend,
+            evaluation: None,
+        }
     }
 
-    pub fn prove_last_claim(&mut self) -> Result<()> {
-        Ok(())
-        // match &self.last_claim {
-        //     Some(claim) => {
-        //         // TODO
-        //         let _proof = prove_claim(claim);
-        //         Ok(())
-        //     }
-        //     None => {
-        //         bail!("No claim to prove");
-        //     }
-        // }
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn prove_last_frames(&mut self) -> Result<()> {
+        use crate::cli::lurk_proof::FieldData;
+
+        match self.evaluation.as_mut() {
+            None => bail!("No evaluation to prove"),
+            Some(Evaluation {
+                frames,
+                iterations,
+                cost,
+            }) => match self.backend {
+                Backend::Nova => {
+                    // padding the frames, if needed
+                    let mut n_frames = frames.len();
+                    let n_pad = pad(n_frames, self.rc) - n_frames;
+                    if n_pad != 0 {
+                        frames.extend(vec![frames[n_frames - 1].clone(); n_pad]);
+                        n_frames = frames.len();
+                    }
+
+                    let prover = NovaProver::new(self.rc, (*self.lang).clone());
+
+                    info!("Loading public parameters");
+                    let pp = public_params(self.rc, self.lang.clone())?;
+
+                    info!("Hydrating the store");
+                    self.store.hydrate_scalar_cache();
+
+                    // saving to avoid clones
+                    let input = &frames[0].input;
+                    let output = &frames[*iterations].output;
+                    let status = output.cont.into();
+                    let mut zstore = Some(ZStore::<F>::default());
+                    let expression = self.store.get_z_expr(&input.expr, &mut zstore)?.0;
+                    let environment = self.store.get_z_expr(&input.env, &mut zstore)?.0;
+                    let result = self.store.get_z_expr(&output.expr, &mut zstore)?.0;
+
+                    info!("Proving and compressing");
+                    let start = Instant::now();
+                    let (proof, public_inputs, public_outputs, num_steps) =
+                        prover.prove(&pp, frames, &mut self.store, self.lang.clone())?;
+                    let generation = Instant::now();
+                    let proof = proof.compress(&pp)?;
+                    let compression = Instant::now();
+                    assert_eq!(self.rc * num_steps, n_frames);
+                    assert!(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?);
+
+                    let lurk_proof_wrap = FieldData::wrap::<F, LurkProof<'_>>(&LurkProof::Nova {
+                        proof,
+                        public_inputs,
+                        public_outputs,
+                        num_steps,
+                        rc: self.rc,
+                        lang: (*self.lang).clone(),
+                    })?;
+
+                    let lurk_proof_meta_wrap =
+                        FieldData::wrap::<F, LurkProofMeta<F>>(&LurkProofMeta {
+                            iterations: *iterations,
+                            evaluation_cost: *cost,
+                            generation_cost: generation.duration_since(start).as_nanos(),
+                            compression_cost: compression.duration_since(generation).as_nanos(),
+                            status,
+                            expression,
+                            environment,
+                            result,
+                            zstore: zstore.unwrap(),
+                        })?;
+
+                    let id = &format!("{}", timestamp());
+                    bincode::serialize_into(
+                        BufWriter::new(&File::create(proof_path(id))?),
+                        &lurk_proof_wrap,
+                    )?;
+                    bincode::serialize_into(
+                        BufWriter::new(&File::create(proof_meta_path(id))?),
+                        &lurk_proof_meta_wrap,
+                    )?;
+                    println!("Proof ID: \"{id}\"");
+                    Ok(())
+                }
+                Backend::SnarkPackPlus => todo!(),
+            },
+        }
     }
 
     #[inline]
@@ -201,7 +352,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                     }
                     _ => bail!("Argument of `load` must be a string."),
                 }
-                io::Write::flush(&mut io::stdout()).unwrap();
+                std::io::Write::flush(&mut std::io::stdout()).unwrap();
             }
             "assert" => {
                 let first = self.peek1(cmd, args)?;
@@ -274,22 +425,35 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
             }
             "set-limit" => {
                 let limit = self.peek_usize(cmd, args)?;
-                check_non_zero("limit", limit)?;
+                validate_non_zero("limit", limit)?;
                 self.limit = limit;
             }
             "set-rc" => {
                 let rc = self.peek_usize(cmd, args)?;
-                check_non_zero("rc", rc)?;
+                validate_non_zero("rc", rc)?;
                 self.rc = rc;
             }
             "prove" => {
                 if !args.is_nil() {
-                    self.eval_expr_and_set_last_claim(self.peek1(cmd, args)?)?;
+                    self.eval_expr_and_memoize(self.peek1(cmd, args)?)?;
                 }
-                self.prove_last_claim()?;
+                #[cfg(not(target_arch = "wasm32"))]
+                self.prove_last_frames()?;
             }
             "verify" => {
-                todo!()
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    let first = self.peek1(cmd, args)?;
+                    match self.store.fetch_string(&first) {
+                        None => bail!(
+                            "Proof ID {} not parsed as a string",
+                            first.fmt_to_string(&self.store)
+                        ),
+                        Some(proof_id) => {
+                            LurkProof::verify_proof(&proof_id)?;
+                        }
+                    }
+                }
             }
             _ => bail!("Unsupported meta command: {cmd}"),
         }
@@ -310,35 +474,34 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
         Ok(())
     }
 
-    fn eval_expr_and_set_last_claim(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize)> {
-        self.eval_expr(expr_ptr).map(|(output, iterations, _)| {
-            if matches!(
-                output.cont.tag,
-                ContTag::Outermost | ContTag::Terminal | ContTag::Error
-            ) {
-                // let cont = self.store.get_cont_outermost();
+    fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize)> {
+        let start = Instant::now();
+        let frames = Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang)
+            .get_frames()?;
+        let cost = Instant::now().duration_since(start).as_nanos();
 
-                // let claim = Claim::PtrEvaluation::<F>(PtrEvaluation {
-                //     expr: LurkPtr::from_ptr(&mut self.store, &expr_ptr),
-                //     env: LurkPtr::from_ptr(&mut self.store, &self.env),
-                //     cont: LurkCont::from_cont_ptr(&mut self.store, &cont),
-                //     expr_out: LurkPtr::from_ptr(&mut self.store, &output.expr),
-                //     env_out: LurkPtr::from_ptr(&mut self.store, &output.env),
-                //     cont_out: LurkCont::from_cont_ptr(&mut self.store, &output.cont),
-                //     status: <lurk::eval::IO<F> as Evaluable<F, Witness<F>, Coproc<F>>>::status(
-                //         &output,
-                //     ),
-                //     iterations: Some(pad_iterations(iterations, self.rc)),
-                // });
+        let last_idx = frames.len() - 1;
+        let last_frame = &frames[last_idx];
+        let last_output = last_frame.output;
 
-                // self.last_claim = Some(claim);
-            }
-            (output, iterations)
-        })
+        let mut iterations = last_idx;
+
+        // FIXME: proving is not working for incomplete computations
+        if last_frame.is_complete() {
+            self.evaluation = Some(Evaluation {
+                frames,
+                iterations,
+                cost,
+            })
+        } else {
+            iterations += 1;
+        }
+
+        Ok((last_output, iterations))
     }
 
     fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
-        self.eval_expr_and_set_last_claim(expr_ptr)
+        self.eval_expr_and_memoize(expr_ptr)
             .map(|(output, iterations)| {
                 let prefix = if iterations != 1 {
                     format!("[{iterations} iterations] => ")
@@ -347,11 +510,9 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
                 };
 
                 let suffix = match output.cont.tag {
-                    ContTag::Outermost | ContTag::Terminal => {
-                        output.expr.fmt_to_string(&self.store)
-                    }
+                    ContTag::Terminal => output.expr.fmt_to_string(&self.store),
                     ContTag::Error => "ERROR!".into(),
-                    _ => format!("Computation incomplete after limit: {}", self.limit),
+                    _ => "Computation incomplete (limit reached)".into(),
                 };
 
                 println!("{}{}", prefix, suffix);
@@ -410,7 +571,7 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
         }));
 
         #[cfg(not(target_arch = "wasm32"))]
-        let history_path = &repl_history();
+        let history_path = &crate::cli::paths::repl_history();
 
         #[cfg(not(target_arch = "wasm32"))]
         if history_path.exists() {
@@ -455,11 +616,11 @@ impl<F: LurkField + serde::Serialize + for<'de> serde::Deserialize<'de>, C: Copr
 mod test {
     #[test]
     fn test_padding() {
-        use crate::cli::repl::pad_iterations;
-        assert_eq!(pad_iterations(61, 10), 70);
-        assert_eq!(pad_iterations(1, 10), 10);
-        assert_eq!(pad_iterations(61, 1), 61);
-        assert_eq!(pad_iterations(610, 10), 610);
-        assert_eq!(pad_iterations(619, 20), 620);
+        use crate::cli::repl::pad;
+        assert_eq!(pad(61, 10), 70);
+        assert_eq!(pad(1, 10), 10);
+        assert_eq!(pad(61, 1), 61);
+        assert_eq!(pad(610, 10), 610);
+        assert_eq!(pad(619, 20), 620);
     }
 }

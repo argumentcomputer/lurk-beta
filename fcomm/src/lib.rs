@@ -931,7 +931,7 @@ impl<'a> Proof<'a, S1> {
         let verified = claim_iterations_and_num_steps_are_consistent
             && self
                 .proof
-                .verify(pp, self.num_steps, public_inputs, &public_outputs)
+                .verify(pp, self.num_steps, &public_inputs, &public_outputs)
                 .expect("error verifying");
 
         let result = VerificationResult::new(verified);

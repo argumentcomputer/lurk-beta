@@ -3,6 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use log::info;
 use once_cell::sync::Lazy;
 use pasta_curves::pallas;
 use serde::{de::DeserializeOwned, Serialize};
@@ -50,13 +51,13 @@ impl Registry {
         let key = format!("public-params-rc-{rc}-coproc-{lang_key}");
         // read the file if it exists, otherwise initialize
         if let Some(pp) = disk_cache.get::<PublicParams<'static, C>>(&key) {
-            eprintln!("Using disk-cached public params for lang {}", lang_key);
+            info!("Using disk-cached public params for lang {lang_key}");
             Ok(Arc::new(pp))
         } else {
             let pp = default(lang);
             disk_cache
                 .set(&key, &*pp)
-                .tap_ok(|_| eprintln!("Writing public params to disk-cache: {}", lang_key))
+                .tap_ok(|_| info!("Writing public params to disk-cache for lang {lang_key}"))
                 .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
             Ok(pp)
         }

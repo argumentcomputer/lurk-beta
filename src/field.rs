@@ -10,7 +10,11 @@ use std::convert::TryFrom;
 use std::hash::Hash;
 
 #[cfg(not(target_arch = "wasm32"))]
+use lurk_macros::serde_test;
+#[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
+#[cfg(not(target_arch = "wasm32"))]
+use proptest_derive::Arbitrary;
 #[cfg(not(target_arch = "wasm32"))]
 use rand::{rngs::StdRng, SeedableRng};
 
@@ -26,6 +30,9 @@ use crate::tag::{ContTag, ExprTag, Op1, Op2};
 /// Because confusion on this point, perhaps combined with cargo-cult copying of incorrect previous usage has led to
 /// inconsistencies and inaccuracies in the code base, please prefer the named Scalar forms when correspondence to a
 /// named `LanguageField` is important.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), serde_test)]
 pub enum LanguageField {
     /// The Pallas field,
     Pallas,
@@ -33,6 +40,16 @@ pub enum LanguageField {
     Vesta,
     /// The BLS12-381 scalar field,
     BLS12_381,
+}
+
+impl std::fmt::Display for LanguageField {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Pallas => write!(f, "Pallas"),
+            Self::Vesta => write!(f, "Vesta"),
+            Self::BLS12_381 => write!(f, "BLS12-381"),
+        }
+    }
 }
 
 /// Trait implemented by finite fields used in the language
