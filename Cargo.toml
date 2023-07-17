@@ -20,6 +20,7 @@ bellperson = { workspace = true }
 bincode = { workspace = true }
 blstrs = { workspace = true }
 clap = { version = "4.3.10", features = ["derive"] }
+config = "0.13.3"
 dashmap = "5.4.0"
 ff = { workspace = true }
 generic-array = "0.14.6"

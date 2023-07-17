@@ -76,7 +76,7 @@ pub enum Coproc<F: LurkField> {
 ///   exact set of coprocessors to be allowed in the `Lang` struct.
 ///
 // TODO: Define a trait for the Hash and parameterize on that also.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Deserialize, Serialize)]
 pub struct Lang<F: LurkField, C: Coprocessor<F>> {
     //  A HashMap that stores coprocessors with their associated `Sym` keys.
     coprocessors: HashMap<Symbol, (C, ZExprPtr<F>)>,
