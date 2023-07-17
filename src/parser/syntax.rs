@@ -591,12 +591,12 @@ pub mod tests {
     fn unit_parse_hash_char() {
         assert!(test(parse_hash_char(), "#\\a", Some(char!('a'))));
         assert!(test(parse_hash_char(), "#\\b", Some(char!('b'))));
-        assert!(test(parse_hash_char(), r#"#\b"#, Some(char!('b'))));
+        assert!(test(parse_hash_char(), r"#\b", Some(char!('b'))));
         assert!(test(parse_hash_char(), "#\\u{8f}", Some(char!('\u{8f}'))));
         assert!(test(parse_syntax(), "#\\a", Some(char!('a'))));
         assert!(test(parse_syntax(), "#\\b", Some(char!('b'))));
-        assert!(test(parse_syntax(), r#"#\b"#, Some(char!('b'))));
-        assert!(test(parse_syntax(), r#"#\u{8f}"#, Some(char!('\u{8f}'))));
+        assert!(test(parse_syntax(), r"#\b", Some(char!('b'))));
+        assert!(test(parse_syntax(), r"#\u{8f}", Some(char!('\u{8f}'))));
     }
 
     #[test]

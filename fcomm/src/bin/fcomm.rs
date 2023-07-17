@@ -205,7 +205,7 @@ impl Commit {
         function.commitment = Some(commitment);
 
         function_map
-            .set(commitment, &function)
+            .set(&commitment, &function)
             .expect("function_map set");
         function.write_to_json_path(&self.function);
 
