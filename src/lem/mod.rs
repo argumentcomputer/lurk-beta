@@ -307,6 +307,28 @@ impl Func {
         Ok(self)
     }
 
+    /// Unrolls a function of equal input/output sizes `n` times
+    pub fn unroll(&self, n: usize) -> Result<Self> {
+        if self.output_size != self.input_params.len() {
+            bail!("Cannot unroll a function with different number of inputs and outputs")
+        }
+        let mut ops = vec![];
+        // This loop will create a sequence of n-1
+        // let x1, ... xn = f(x1, ..., xn);
+        for _ in 0..n - 1 {
+            let inp = self.input_params.clone();
+            let func = Box::new(self.clone());
+            let out = self.input_params.clone();
+            ops.push(Op::Call(inp, func, out))
+        }
+        // The last call can be inlined by just extending ops
+        // and using the same control statement
+        ops.extend_from_slice(&self.body.ops);
+        let ctrl = self.body.ctrl.clone();
+        let body = Block { ops, ctrl };
+        Self::new(self.input_params.clone(), self.output_size, body)
+    }
+
     /// Intern all symbols that are matched on `MatchSymbol`s
     #[inline]
     pub fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
