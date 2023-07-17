@@ -123,7 +123,7 @@
 //!
 //! The 3 steps above will be further referred to as *STEP 1*, *STEP 2* and
 //! *STEP 3* respectively. STEP 1 should be performed once per function. Then
-//! STEP 2 //! will need as many iterations as it takes to evaluate the Lurk
+//! STEP 2 will need as many iterations as it takes to evaluate the Lurk
 //! expression and so will STEP 3.
 
 use std::collections::{HashMap, HashSet};
