@@ -9,7 +9,7 @@ use super::Var;
 /// variables before using them, so we don't expect to need some piece of
 /// information from a variable that hasn't been defined.
 #[derive(Clone)]
-pub struct VarMap<V>(HashMap<Var, V>);
+pub(crate) struct VarMap<V>(HashMap<Var, V>);
 
 impl<V> VarMap<V> {
     /// Creates an empty `VarMap`
@@ -19,14 +19,16 @@ impl<V> VarMap<V> {
     }
 
     /// Inserts new data into a `VarMap`
-    pub(crate) fn insert(&mut self, var: Var, v: V) {
+    pub(crate) fn insert(&mut self, var: Var, v: V) -> Option<V> {
         match self.0.entry(var) {
             Entry::Vacant(vacant_entry) => {
                 vacant_entry.insert(v);
+                None
             }
             Entry::Occupied(mut o) => {
-                o.insert(v);
+                let v = o.insert(v);
                 info!("Variable {} has been overwritten", o.key());
+                Some(v)
             }
         }
     }

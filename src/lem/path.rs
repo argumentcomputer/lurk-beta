@@ -1,8 +1,6 @@
-use anyhow::Result;
-use indexmap::IndexMap;
 use std::collections::HashSet;
 
-use super::{symbol::Symbol, tag::Tag, var_map::VarMap, Var, LEMCTL, LEMOP};
+use super::{symbol::Symbol, tag::Tag, Block, Ctrl, Func, Op};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) enum PathNode {
@@ -64,129 +62,52 @@ impl Path {
     pub fn push_default_inplace(&mut self) {
         self.0.push(PathNode::Default);
     }
-}
 
-#[inline]
-fn insert_one(map: &mut VarMap<Var>, path: &Path, ptr: &Var) -> Result<Var> {
-    let new_ptr = Var(format!("{}.{}", path, ptr.name()).into());
-    map.insert(ptr.clone(), new_ptr.clone());
-    Ok(new_ptr)
-}
-
-fn insert_many(map: &mut VarMap<Var>, path: &Path, ptrs: &[Var]) -> Result<Vec<Var>> {
-    ptrs.iter().map(|ptr| insert_one(map, path, ptr)).collect()
-}
-
-impl LEMCTL {
-    /// Removes conflicting names in parallel logical LEM paths. While these
-    /// conflicting names shouldn't be an issue for interpretation, they are
-    /// problematic when we want to generate the constraints for the LEM, since
-    /// conflicting names would cause different allocations to be bound the same
-    /// name.
-    ///
-    /// The conflict resolution is achieved by changing variables so that
-    /// their names are prepended by the paths where they're declared.
-    ///
-    /// Note: this function is not supposed to be called manually. It's used by
-    /// `LEM::new`, which is the API that should be used directly.
-    pub fn deconflict(
-        &self,
-        path: &Path,
-        // `map` keeps track of the updated names of variables
-        map: &mut VarMap<Var>, // name -> path.name
-    ) -> Result<Self> {
-        match self {
-            LEMCTL::MatchTag(var, cases) => {
-                let mut new_cases = Vec::with_capacity(cases.len());
-                for (tag, case) in cases {
-                    let new_case = case.deconflict(&path.push_tag(tag), &mut map.clone())?;
-                    new_cases.push((*tag, new_case));
-                }
-                Ok(LEMCTL::MatchTag(
-                    map.get_cloned(var)?,
-                    IndexMap::from_iter(new_cases),
-                ))
-            }
-            LEMCTL::MatchSymbol(var, cases, def) => {
-                let mut new_cases = Vec::with_capacity(cases.len());
-                for (symbol, case) in cases {
-                    let new_case = case.deconflict(&path.push_symbol(symbol), &mut map.clone())?;
-                    new_cases.push((symbol.clone(), new_case));
-                }
-                Ok(LEMCTL::MatchSymbol(
-                    map.get_cloned(var)?,
-                    IndexMap::from_iter(new_cases),
-                    Box::new(def.deconflict(&path.push_default(), map)?),
-                ))
-            }
-            LEMCTL::Seq(ops, rest) => {
-                let mut new_ops = Vec::with_capacity(ops.len());
-                for op in ops {
-                    match op {
-                        LEMOP::Null(ptr, tag) => {
-                            new_ops.push(LEMOP::Null(insert_one(map, path, ptr)?, *tag))
-                        }
-                        LEMOP::Hash2(img, tag, preimg) => {
-                            let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();
-                            let img = insert_one(map, path, img)?;
-                            new_ops.push(LEMOP::Hash2(img, *tag, preimg))
-                        }
-                        LEMOP::Hash3(img, tag, preimg) => {
-                            let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();
-                            let img = insert_one(map, path, img)?;
-                            new_ops.push(LEMOP::Hash3(img, *tag, preimg))
-                        }
-                        LEMOP::Hash4(img, tag, preimg) => {
-                            let preimg = map.get_many_cloned(preimg)?.try_into().unwrap();
-                            let img = insert_one(map, path, img)?;
-                            new_ops.push(LEMOP::Hash4(img, *tag, preimg))
-                        }
-                        LEMOP::Unhash2(preimg, img) => {
-                            let img = map.get_cloned(img)?;
-                            let preimg = insert_many(map, path, preimg)?;
-                            new_ops.push(LEMOP::Unhash2(preimg.try_into().unwrap(), img))
-                        }
-                        LEMOP::Unhash3(preimg, img) => {
-                            let img = map.get_cloned(img)?;
-                            let preimg = insert_many(map, path, preimg)?;
-                            new_ops.push(LEMOP::Unhash3(preimg.try_into().unwrap(), img))
-                        }
-                        LEMOP::Unhash4(preimg, img) => {
-                            let img = map.get_cloned(img)?;
-                            let preimg = insert_many(map, path, preimg)?;
-                            new_ops.push(LEMOP::Unhash4(preimg.try_into().unwrap(), img))
-                        }
-                        LEMOP::Hide(..) => todo!(),
-                        LEMOP::Open(..) => todo!(),
-                    }
-                }
-                let new_rest = Box::new(rest.deconflict(path, map)?);
-                Ok(LEMCTL::Seq(new_ops, new_rest))
-            }
-            LEMCTL::Return(o) => Ok(LEMCTL::Return(map.get_many_cloned(o)?.try_into().unwrap())),
-        }
+    #[inline]
+    pub fn extend_from_path(&mut self, path: &Path) {
+        self.0.extend_from_slice(&path.0)
     }
 
-    /// Computes the number of possible paths in a `LEMOP`
-    pub fn num_paths(&self) -> usize {
-        match self {
-            LEMCTL::MatchTag(_, cases) => {
-                cases.values().fold(0, |acc, block| acc + block.num_paths())
-            }
-            LEMCTL::MatchSymbol(_, cases, _) => {
-                cases.values().fold(0, |acc, block| acc + block.num_paths())
-            }
-            LEMCTL::Seq(_, rest) => rest.num_paths(),
-            LEMCTL::Return(..) => 1,
-        }
-    }
-
-    /// Computes the number of paths taken within a `LEMOP` given a set of frames
-    pub fn num_paths_taken(&self, paths: &[Path]) -> Result<usize> {
-        let mut all_paths: HashSet<Path> = HashSet::default();
+    /// Computes the number of different paths taken given a list of paths
+    pub fn num_paths_taken(paths: &[Self]) -> usize {
+        let mut all_paths: HashSet<Self> = HashSet::default();
         paths.iter().for_each(|path| {
             all_paths.insert(path.clone());
         });
-        Ok(all_paths.len())
+        all_paths.len()
+    }
+}
+
+impl Func {
+    /// Computes the number of possible paths in a `Func` can take
+    pub fn num_paths(&self) -> usize {
+        self.body.num_paths()
+    }
+
+    /// Asserts that all paths were visited by a set of frames. This is mostly
+    /// for testing purposes.
+    pub fn assert_all_paths_taken(&self, paths: &[Path]) {
+        assert_eq!(Path::num_paths_taken(paths), self.num_paths());
+    }
+}
+
+impl Block {
+    fn num_paths(&self) -> usize {
+        let mut num_paths = 1;
+        for op in &self.ops {
+            if let Op::Call(_, func, _) = op {
+                num_paths *= func.num_paths()
+            }
+        }
+        num_paths *= match &self.ctrl {
+            Ctrl::MatchTag(_, cases) => {
+                cases.values().fold(0, |acc, block| acc + block.num_paths())
+            }
+            Ctrl::MatchSymbol(_, cases, def) => cases
+                .values()
+                .fold(def.num_paths(), |acc, block| acc + block.num_paths()),
+            Ctrl::Return(..) => 1,
+        };
+        num_paths
     }
 }
