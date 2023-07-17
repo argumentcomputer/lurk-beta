@@ -2,7 +2,10 @@ use std::fmt;
 
 use crate::parser::LURK_WHITESPACE;
 #[cfg(not(target_arch = "wasm32"))]
+use lurk_macros::serde_test;
+#[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
+
 /// Module for symbol type, Sym.
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -14,6 +17,7 @@ pub const ESCAPE_CHARS: &str = "|(){}[],.:'\\\"";
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Hash)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), serde_test)]
 /// Type for hierarchical symbol names.
 ///
 /// The symbol path is encoded with a vector of strings. Keywords are symbols

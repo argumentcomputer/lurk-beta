@@ -17,16 +17,18 @@ use lurk::eval::{
 use lurk::field::LurkField;
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::ptr::{Ptr, TypePredicates};
+use lurk::public_parameters::error;
 use lurk::store::Store;
 
 use clap::{AppSettings, Args, Parser, Subcommand};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
 
-use lurk::public_parameters::{
-    committed_expression_store, error::Error, evaluate, public_params, Claim, Commitment,
-    CommittedExpression, Evaluation, Expression, FileStore, LurkPtr, Opening, OpeningRequest,
-    Proof, ReductionCount, S1,
+use fcomm::{
+    committed_expression_store, error::Error, evaluate, Claim, Commitment, CommittedExpression,
+    Evaluation, Expression, LurkPtr, Opening, OpeningRequest, Proof, ReductionCount, S1,
 };
+
+use lurk::public_parameters::{public_params, FileStore};
 
 /// Functional commitments
 #[derive(Parser, Debug)]
@@ -485,12 +487,14 @@ fn expression<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
 
 fn opening_request<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
     request_path: P,
-) -> Result<OpeningRequest<F>, Error> {
-    OpeningRequest::read_from_json_path(request_path)
+) -> Result<OpeningRequest<F>, error::Error> {
+    OpeningRequest::read_from_path(request_path)
 }
 
 // Get proof from supplied path or else from stdin.
-fn proof<'a, P: AsRef<Path>, F: LurkField>(proof_path: Option<P>) -> Result<Proof<'a, F>, Error>
+fn proof<'a, P: AsRef<Path>, F: LurkField>(
+    proof_path: Option<P>,
+) -> Result<Proof<'a, F>, error::Error>
 where
     F: Serialize + for<'de> Deserialize<'de>,
 {

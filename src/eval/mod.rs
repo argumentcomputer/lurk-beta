@@ -12,6 +12,8 @@ use lang::Lang;
 
 use log::info;
 #[cfg(not(target_arch = "wasm32"))]
+use lurk_macros::serde_test;
+#[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
@@ -60,6 +62,7 @@ pub struct Frame<T: Copy, W: Copy, C> {
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), serde_test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Status {
     Terminal,

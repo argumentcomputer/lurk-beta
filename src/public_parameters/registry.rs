@@ -8,13 +8,13 @@ use pasta_curves::pallas;
 use serde::{de::DeserializeOwned, Serialize};
 use tap::TapFallible;
 
-use crate::public_parameters::Error;
+use crate::public_parameters::error::Error;
 use crate::{coprocessor::Coprocessor, eval::lang::Lang, proof::nova::PublicParams};
 
 use super::file_map::FileIndex;
 
 type S1 = pallas::Scalar;
-type AnyMap = anymap::Map<dyn anymap::any::Any + Send + Sync>;
+type AnyMap = anymap::Map<dyn core::any::Any + Send + Sync>;
 type PublicParamMemCache<C> = HashMap<usize, Arc<PublicParams<'static, C>>>;
 
 /// This is a global registry for Coproc-specific parameters.

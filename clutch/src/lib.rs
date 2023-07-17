@@ -2,10 +2,12 @@
 
 use anyhow::{anyhow, bail, Context, Error, Result};
 use clap::{Arg, ArgAction, Command};
-use lurk::public_parameters::{
-    public_params, Claim, Commitment, CommittedExpression, CommittedExpressionMap, LurkCont,
-    LurkPtr, NovaProofCache, Opening, Proof, PtrEvaluation,
+use fcomm::{
+    committed_expression_store, nova_proof_cache, Claim, Commitment, CommittedExpression,
+    CommittedExpressionMap, LurkCont, LurkPtr, NovaProofCache, Opening, Proof, PtrEvaluation,
 };
+use lurk::public_parameters::public_params;
+
 use pasta_curves::pallas;
 
 use lurk::coprocessor::Coprocessor;
@@ -121,8 +123,8 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
     ) -> Self {
         let reduction_count = DEFAULT_REDUCTION_COUNT;
 
-        let proof_map = lurk::public_parameters::nova_proof_cache(reduction_count);
-        let expression_map = lurk::public_parameters::committed_expression_store();
+        let proof_map = nova_proof_cache(reduction_count);
+        let expression_map = committed_expression_store();
 
         let demo = command.clone().and_then(|c| {
             let l = Self::base_prompt().trim_start_matches('\n').len();
