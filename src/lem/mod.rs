@@ -40,9 +40,9 @@
 //!
 //! ### Synthesizing
 //!
-//! Synthesizing is the process of creating the circuit and solving it (i.e.
-//! finding a witness of the circuit). All valid LEM functions can be synthesized
-//! if they were previously interpreted.
+//! Synthesizing is the process of building the circuit and solving it for a
+//! particular instance (i.e. finding a witness). All valid LEM functions can be
+//! synthesized if they were previously interpreted.
 //!
 //! ### Code transformations and static checks of correctness
 //!
@@ -157,11 +157,11 @@ pub enum Op {
 
 impl Func {
     /// Instantiates a `Func` with the appropriate transformations and checks
-    pub fn new(input_params: Vec<Var>, output_size: usize, block: Block) -> Result<Func> {
+    pub fn new(input_params: Vec<Var>, output_size: usize, body: Block) -> Result<Func> {
         let func = Func {
             input_params,
             output_size,
-            body: block,
+            body,
         }
         .deconflict(&mut VarMap::new(), &mut 0)?;
         func.check()?;
@@ -185,8 +185,8 @@ impl Func {
                 .context(format!("Variable {var} is unbound."))?;
             Ok(())
         }
-        fn recurse(body: &Block, return_size: usize, map: &mut HashSet<Var>) -> Result<()> {
-            for op in &body.ops {
+        fn recurse(block: &Block, return_size: usize, map: &mut HashSet<Var>) -> Result<()> {
+            for op in &block.ops {
                 match op {
                     Op::Call(out, func, inp) => {
                         if out.len() != func.output_size {
@@ -247,7 +247,7 @@ impl Func {
                     }
                 }
             }
-            match &body.ctrl {
+            match &block.ctrl {
                 Ctrl::Return(return_vars) => {
                     return_vars.iter().try_for_each(|arg| is_bound(arg, map))?;
                     if return_vars.len() != return_size {
@@ -298,7 +298,7 @@ impl Func {
             .input_params
             .into_iter()
             .map(|var| {
-                let new_var = var.new_scope(*uniq);
+                let new_var = var.make_unique(*uniq);
                 map.insert(var, new_var.clone());
                 new_var
             })
@@ -318,7 +318,7 @@ impl Block {
     fn deconflict(self, map: &mut VarMap<Var>, uniq: &mut usize) -> Result<Self> {
         #[inline]
         fn insert_one(map: &mut VarMap<Var>, uniq: &mut usize, var: &Var) -> Var {
-            let new_var = var.new_scope(*uniq);
+            let new_var = var.make_unique(*uniq);
             *uniq += 1;
             map.insert(var.clone(), new_var.clone());
             new_var
@@ -423,8 +423,8 @@ impl Block {
 }
 
 impl Var {
-    fn new_scope(&self, block_idx: usize) -> Var {
-        Var(format!("#{}.{}", block_idx, self.name()).into())
+    fn make_unique(&self, uniq: usize) -> Var {
+        Var(format!("#{}.{}", uniq, self.name()).into())
     }
 }
 
