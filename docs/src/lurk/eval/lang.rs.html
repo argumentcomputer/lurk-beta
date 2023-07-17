@@ -283,7 +283,7 @@
 ///   exact set of coprocessors to be allowed in the `Lang` struct.
 ///
 </span><span class="comment">// TODO: Define a trait for the Hash and parameterize on that also.
-</span><span class="attr">#[derive(Debug, Default, Clone)]
+</span><span class="attr">#[derive(Debug, Default, Clone, Deserialize, Serialize)]
 </span><span class="kw">pub struct </span>Lang&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
     <span class="comment">//  A HashMap that stores coprocessors with their associated `Sym` keys.
     </span>coprocessors: HashMap&lt;Symbol, (C, ZExprPtr&lt;F&gt;)&gt;,

@@ -3870,13 +3870,13 @@
     </span><span class="kw">pub fn </span>prove&lt;<span class="lifetime">&#39;a</span>&gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
         pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>, C&gt;,
-        frames: Vec&lt;Frame&lt;IO&lt;S1&gt;, Witness&lt;S1&gt;, C&gt;&gt;,
+        frames: <span class="kw-2">&amp;</span>[Frame&lt;IO&lt;S1&gt;, Witness&lt;S1&gt;, C&gt;],
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Store&lt;S1&gt;,
         lang: Arc&lt;Lang&lt;S1, C&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;<span class="lifetime">&#39;_</span>, C&gt;, Vec&lt;S1&gt;, Vec&lt;S1&gt;, usize), ProofError&gt; {
         <span class="kw">let </span>z0 = frames[<span class="number">0</span>].input.to_vector(store)<span class="question-mark">?</span>;
         <span class="kw">let </span>zi = frames.last().unwrap().output.to_vector(store)<span class="question-mark">?</span>;
-        <span class="kw">let </span>circuits = MultiFrame::from_frames(<span class="self">self</span>.reduction_count(), <span class="kw-2">&amp;</span>frames, store, <span class="kw-2">&amp;</span>lang);
+        <span class="kw">let </span>circuits = MultiFrame::from_frames(<span class="self">self</span>.reduction_count(), frames, store, <span class="kw-2">&amp;</span>lang);
         <span class="kw">let </span>num_steps = circuits.len();
         <span class="kw">let </span>proof =
             Proof::prove_recursively(pp, store, <span class="kw-2">&amp;</span>circuits, <span class="self">self</span>.reduction_count, z0.clone(), lang)<span class="question-mark">?</span>;
@@ -3895,7 +3895,7 @@
         lang: Arc&lt;Lang&lt;S1, C&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;<span class="lifetime">&#39;_</span>, C&gt;, Vec&lt;S1&gt;, Vec&lt;S1&gt;, usize), ProofError&gt; {
         <span class="kw">let </span>frames = <span class="self">self</span>.get_evaluation_frames(expr, env, store, limit, <span class="kw-2">&amp;</span>lang)<span class="question-mark">?</span>;
-        <span class="self">self</span>.prove(pp, frames, store, lang)
+        <span class="self">self</span>.prove(pp, <span class="kw-2">&amp;</span>frames, store, lang)
     }
 }
 
@@ -4061,7 +4061,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         pp: <span class="kw-2">&amp;</span>PublicParams&lt;<span class="lifetime">&#39;_</span>, C&gt;,
         num_steps: usize,
-        z0: Vec&lt;S1&gt;,
+        z0: <span class="kw-2">&amp;</span>[S1],
         zi: <span class="kw-2">&amp;</span>[S1],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, NovaError&gt; {
         <span class="kw">let </span>(z0_primary, zi_primary) = (z0, zi);
@@ -4069,8 +4069,8 @@
         <span class="kw">let </span>zi_secondary = z0_secondary.clone();
 
         <span class="kw">let </span>(zi_primary_verified, zi_secondary_verified) = <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Recursive(p) =&gt; p.verify(<span class="kw-2">&amp;</span>pp.pp, num_steps, <span class="kw-2">&amp;</span>z0_primary, <span class="kw-2">&amp;</span>z0_secondary),
-            <span class="self">Self</span>::Compressed(p) =&gt; p.verify(<span class="kw-2">&amp;</span>pp.vk, num_steps, z0_primary, z0_secondary),
+            <span class="self">Self</span>::Recursive(p) =&gt; p.verify(<span class="kw-2">&amp;</span>pp.pp, num_steps, z0_primary, <span class="kw-2">&amp;</span>z0_secondary),
+            <span class="self">Self</span>::Compressed(p) =&gt; p.verify(<span class="kw-2">&amp;</span>pp.vk, num_steps, z0_primary.to_vec(), z0_secondary),
         }<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(zi_primary == zi_primary_verified &amp;&amp; zi_secondary == zi_secondary_verified)
@@ -4192,14 +4192,14 @@
                 .evaluate_and_prove(<span class="kw-2">&amp;</span>pp, expr, empty_sym_env(s), s, limit, lang.clone())
                 .unwrap();
 
-            <span class="kw">let </span>res = proof.verify(<span class="kw-2">&amp;</span>pp, num_steps, z0.clone(), <span class="kw-2">&amp;</span>zi);
+            <span class="kw">let </span>res = proof.verify(<span class="kw-2">&amp;</span>pp, num_steps, <span class="kw-2">&amp;</span>z0, <span class="kw-2">&amp;</span>zi);
             <span class="kw">if </span>res.is_err() {
                 <span class="macro">dbg!</span>(<span class="kw-2">&amp;</span>res);
             }
             <span class="macro">assert!</span>(res.unwrap());
 
             <span class="kw">let </span>compressed = proof.compress(<span class="kw-2">&amp;</span>pp).unwrap();
-            <span class="kw">let </span>res2 = compressed.verify(<span class="kw-2">&amp;</span>pp, num_steps, z0, <span class="kw-2">&amp;</span>zi);
+            <span class="kw">let </span>res2 = compressed.verify(<span class="kw-2">&amp;</span>pp, num_steps, <span class="kw-2">&amp;</span>z0, <span class="kw-2">&amp;</span>zi);
 
             <span class="macro">assert!</span>(res2.unwrap());
         }

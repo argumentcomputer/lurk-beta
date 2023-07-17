@@ -89,11 +89,13 @@
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
 <a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{hash_map::Entry, HashMap},
     sync::{Arc, Mutex},
 };
 
+<span class="kw">use </span>log::info;
 <span class="kw">use </span>once_cell::sync::Lazy;
 <span class="kw">use </span>pasta_curves::pallas;
 <span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
@@ -141,13 +143,13 @@
         </span><span class="kw">let </span>key = <span class="macro">format!</span>(<span class="string">&quot;public-params-rc-{rc}-coproc-{lang_key}&quot;</span>);
         <span class="comment">// read the file if it exists, otherwise initialize
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(pp) = disk_cache.get::&lt;PublicParams&lt;<span class="lifetime">&#39;static</span>, C&gt;&gt;(<span class="kw-2">&amp;</span>key) {
-            <span class="macro">eprintln!</span>(<span class="string">&quot;Using disk-cached public params for lang {}&quot;</span>, lang_key);
+            <span class="macro">info!</span>(<span class="string">&quot;Using disk-cached public params for lang {lang_key}&quot;</span>);
             <span class="prelude-val">Ok</span>(Arc::new(pp))
         } <span class="kw">else </span>{
             <span class="kw">let </span>pp = default(lang);
             disk_cache
                 .set(<span class="kw-2">&amp;</span>key, <span class="kw-2">&amp;*</span>pp)
-                .tap_ok(|<span class="kw">_</span>| <span class="macro">eprintln!</span>(<span class="string">&quot;Writing public params to disk-cache: {}&quot;</span>, lang_key))
+                .tap_ok(|<span class="kw">_</span>| <span class="macro">info!</span>(<span class="string">&quot;Writing public params to disk-cache for lang {lang_key}&quot;</span>))
                 .map_err(|e| Error::CacheError(<span class="macro">format!</span>(<span class="string">&quot;Disk write error: {e}&quot;</span>)))<span class="question-mark">?</span>;
             <span class="prelude-val">Ok</span>(pp)
         }

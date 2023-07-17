@@ -2248,7 +2248,7 @@
         <span class="kw">let </span>verified = claim_iterations_and_num_steps_are_consistent
             &amp;&amp; <span class="self">self
                 </span>.proof
-                .verify(pp, <span class="self">self</span>.num_steps, public_inputs, <span class="kw-2">&amp;</span>public_outputs)
+                .verify(pp, <span class="self">self</span>.num_steps, <span class="kw-2">&amp;</span>public_inputs, <span class="kw-2">&amp;</span>public_outputs)
                 .expect(<span class="string">&quot;error verifying&quot;</span>);
 
         <span class="kw">let </span>result = VerificationResult::new(verified);

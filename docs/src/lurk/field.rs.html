@@ -427,6 +427,23 @@
 <a href="#427" id="427">427</a>
 <a href="#428" id="428">428</a>
 <a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
 </pre></div><pre class="rust"><code><span class="attr">#![deny(missing_docs)]
 </span><span class="doccomment">//! The finite field used in the language.
 //!
@@ -439,7 +456,11 @@
 <span class="kw">use </span>std::hash::Hash;
 
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+</span><span class="kw">use </span>lurk_macros::serde_test;
+<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>proptest::prelude::<span class="kw-2">*</span>;
+<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+</span><span class="kw">use </span>proptest_derive::Arbitrary;
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>rand::{rngs::StdRng, SeedableRng};
 
@@ -455,6 +476,9 @@
 /// Because confusion on this point, perhaps combined with cargo-cult copying of incorrect previous usage has led to
 /// inconsistencies and inaccuracies in the code base, please prefer the named Scalar forms when correspondence to a
 /// named `LanguageField` is important.
+</span><span class="attr">#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), serde_test)]
 </span><span class="kw">pub enum </span>LanguageField {
     <span class="doccomment">/// The Pallas field,
     </span>Pallas,
@@ -462,6 +486,16 @@
     </span>Vesta,
     <span class="doccomment">/// The BLS12-381 scalar field,
     </span>BLS12_381,
+}
+
+<span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>LanguageField {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::Pallas =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Pallas&quot;</span>),
+            <span class="self">Self</span>::Vesta =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Vesta&quot;</span>),
+            <span class="self">Self</span>::BLS12_381 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;BLS12-381&quot;</span>),
+        }
+    }
 }
 
 <span class="doccomment">/// Trait implemented by finite fields used in the language
