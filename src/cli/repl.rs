@@ -247,6 +247,7 @@ impl Repl<F> {
 
     fn fetch(&mut self, hash: &str) -> Result<()> {
         let commitment: Commitment<F> = Commitment::load(hash)?;
+        println!("Data for 0x{hash} is now available");
         Ok(())
     }
 
@@ -436,13 +437,13 @@ impl Repl<F> {
             }
             "fetch" => {
                 let first = self.peek1(cmd, args)?;
-                let (first_io, ..) = self
-                    .eval_expr(first)
+                let n = self.store.lurk_sym("num");
+                let expr = self.store.list(&[n, first]);
+                let (expr_io, ..) = self
+                    .eval_expr(expr)
                     .with_context(|| "evaluating first arg")?;
-                let Some(hash) = self.store.fetch_comm(&first) else {
-                    bail!("Hash must be a number. Got {}", first.fmt_to_string(&self.store))
-                };
-                // self.fetch(&format!("0x{}", hash.into_scalar().hex_digits()))?;
+                let hash = self.store.fetch_num(&expr_io.expr).expect("must be a number");
+                self.fetch(&format!("0x{}", hash.into_scalar().hex_digits()))?;
             }
             "clear" => self.env = self.store.nil(),
             "set-env" => {
