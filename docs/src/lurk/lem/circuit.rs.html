@@ -823,6 +823,58 @@
 <a href="#823" id="823">823</a>
 <a href="#824" id="824">824</a>
 <a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellperson constraints for LEM, such
@@ -830,12 +882,12 @@
 //!
 //! ### &quot;Concrete&quot; and &quot;virtual&quot; paths
 //!
-//! LEMs can implement logical branches with the use of some special `LEMCTL`
-//! nodes (such as `MatchTag`). But interpretation can only follow one path per
-//! iteration, which we call the *concrete path*. The other paths are called
-//! *virtual paths*. So we need a mechanism to safely &quot;relax&quot; the constraints
+//! Control statements such as matches introduce branching, meaning execution can
+//! follow different paths depending on a value. The real path of execution for
+//! a particular instance we call the *concrete path*. The other paths which are
+//! not followed we call *virtual paths*. A mechanism to &quot;relax&quot; the constraints
 //! for the virtual paths while also properly enforcing the correctness for what
-//! happens on the concrete path.
+//! happens on the concrete path is thus needed.
 //!
 //! We do that by using implication gadgets. An implication of the form `A → B`
 //! is trivially true if `A` is false. But if `A` is true, then the implication
@@ -848,12 +900,12 @@
 //!
 //! ### Slot optimizations
 //!
-//! Some LEMs may require expensive gadgets, such as Poseidon hashing. So we use
-//! the concept of &quot;slots&quot; to avoid wasting constraints. To explore this idea,
-//! let&#39;s use the following LEM as an example:
+//! Some LEM functions may require expensive gadgets, such as Poseidon hashing.
+//! So we use the concept of &quot;slots&quot; to avoid wasting constraints. To explore
+//! this idea, let&#39;s use the following LEM as an example:
 //!
 //! ```text
-//! a b c {
+//! (a, b, c): 3 =&gt; {
 //!     match_tag c {
 //!         Num =&gt; {
 //!             let x: Cons = hash2(a, b);
@@ -937,23 +989,23 @@
 //!
 //! 1. Perform a static analysis to compute the number of slots (for each slot
 //! type) that are needed. This piece of information will live on a `SlotsCounter`
-//! structure, which is populated by the function `LEMCTL::count_slots`;
+//! structure, which is populated by the function `Block::count_slots`;
 //!
-//! 2. Interpret the LEM and collect the data that will be fed to some (or all)
-//! slots, along with all bindings from `Var`s to `Ptr`s. This piece of
+//! 2. Interpret the LEM function and collect the data that will be fed to some
+//! (or all) slots, along with all bindings from `Var`s to `Ptr`s. This piece of
 //! information will live on a `Frame` structure;
 //!
 //! 3. Build the circuit with `SlotsCounter` and `Frame` at hand. This step is
-//! better explained in the `LEM::synthesize` function.
+//! better explained in the `Func::synthesize` function.
 //!
 //! The 3 steps above will be further referred to as *STEP 1*, *STEP 2* and
-//! *STEP 3* respectively. STEP 1 should be performed once per LEM. Then STEP 2
-//! will need as many iterations as it takes to evaluate the Lurk expression and
-//! so will STEP 3.
+//! *STEP 3* respectively. STEP 1 should be performed once per function. Then
+//! STEP 2 will need as many iterations as it takes to evaluate the Lurk
+//! expression and so will STEP 3.
 
 </span><span class="kw">use </span>std::collections::{HashMap, HashSet};
 
-<span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
     ConstraintSystem,
@@ -972,7 +1024,7 @@
     pointers::{Ptr, ZPtr},
     store::Store,
     var_map::VarMap,
-    Var, LEM, LEMCTL, LEMOP,
+    Block, Ctrl, Func, Op, Var,
 };
 
 <span class="attr">#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -1031,31 +1083,30 @@
     }
 }
 
-<span class="kw">impl </span>LEMCTL {
+<span class="kw">impl </span>Block {
     <span class="kw">pub fn </span>count_slots(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SlotsCounter {
-        <span class="kw">match </span><span class="self">self </span>{
-            LEMCTL::MatchTag(<span class="kw">_</span>, cases) =&gt; {
+        <span class="kw">let </span>ops_slots = <span class="self">self</span>.ops.iter().fold(SlotsCounter::default(), |acc, op| {
+            <span class="kw">let </span>val = <span class="kw">match </span>op {
+                Op::Hash2(..) | Op::Unhash2(..) =&gt; SlotsCounter::new((<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>)),
+                Op::Hash3(..) | Op::Unhash3(..) =&gt; SlotsCounter::new((<span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>)),
+                Op::Hash4(..) | Op::Unhash4(..) =&gt; SlotsCounter::new((<span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>)),
+                Op::Call(<span class="kw">_</span>, func, <span class="kw">_</span>) =&gt; func.body.count_slots(),
+                <span class="kw">_ </span>=&gt; SlotsCounter::default(),
+            };
+            acc.add(val)
+        });
+        <span class="kw">let </span>ctrl_slots = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.ctrl {
+            Ctrl::MatchTag(<span class="kw">_</span>, cases) =&gt; {
                 cases.values().fold(SlotsCounter::default(), |acc, block| {
                     acc.max(block.count_slots())
                 })
             }
-            LEMCTL::MatchSymbol(<span class="kw">_</span>, cases, def) =&gt; cases
+            Ctrl::MatchSymbol(<span class="kw">_</span>, cases, def) =&gt; cases
                 .values()
                 .fold(def.count_slots(), |acc, block| acc.max(block.count_slots())),
-            LEMCTL::Return(..) =&gt; SlotsCounter::default(),
-            LEMCTL::Seq(ops, rest) =&gt; {
-                <span class="kw">let </span>ops_slots = ops.iter().fold(SlotsCounter::default(), |acc, op| {
-                    <span class="kw">let </span>val = <span class="kw">match </span>op {
-                        LEMOP::Hash2(..) | LEMOP::Unhash2(..) =&gt; SlotsCounter::new((<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>)),
-                        LEMOP::Hash3(..) | LEMOP::Unhash3(..) =&gt; SlotsCounter::new((<span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>)),
-                        LEMOP::Hash4(..) | LEMOP::Unhash4(..) =&gt; SlotsCounter::new((<span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>)),
-                        <span class="kw">_ </span>=&gt; SlotsCounter::default(),
-                    };
-                    acc.add(val)
-                });
-                ops_slots.add(rest.count_slots())
-            }
-        }
+            Ctrl::Return(..) =&gt; SlotsCounter::default(),
+        };
+        ops_slots.add(ctrl_slots)
     }
 }
 
@@ -1147,7 +1198,7 @@
 
 <span class="kw">type </span>BoundAllocations&lt;F&gt; = VarMap&lt;AllocatedPtr&lt;F&gt;&gt;;
 
-<span class="kw">impl </span>LEM {
+<span class="kw">impl </span>Func {
     <span class="doccomment">/// Allocates an unconstrained pointer
     </span><span class="kw">fn </span>allocate_ptr&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
         cs: <span class="kw-2">&amp;mut </span>CS,
@@ -1172,8 +1223,8 @@
         bound_allocations: <span class="kw-2">&amp;mut </span>BoundAllocations&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">for </span>(i, ptr) <span class="kw">in </span>frame.input.iter().enumerate() {
-            <span class="kw">let </span>var = <span class="kw-2">&amp;</span><span class="self">self</span>.input_vars[i];
-            <span class="self">Self</span>::allocate_ptr(cs, <span class="kw-2">&amp;</span>store.hash_ptr(ptr)<span class="question-mark">?</span>, var, bound_allocations)<span class="question-mark">?</span>;
+            <span class="kw">let </span>param = <span class="kw-2">&amp;</span><span class="self">self</span>.input_params[i];
+            <span class="self">Self</span>::allocate_ptr(cs, <span class="kw-2">&amp;</span>store.hash_ptr(ptr)<span class="question-mark">?</span>, param, bound_allocations)<span class="question-mark">?</span>;
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -1315,90 +1366,254 @@
         <span class="prelude-val">Ok</span>(preallocations)
     }
 
-    <span class="doccomment">/// Create R1CS constraints for LEM given an evaluation frame. This function
-    /// implements the STEP 3 mentioned above.
+    <span class="doccomment">/// Create R1CS constraints for a LEM function given an evaluation frame. This
+    /// function implements the STEP 3 mentioned above.
     ///
     /// Regarding the slot optimizations, STEP 3 uses information gathered during
     /// STEPs 1 and 2. So we proceed by first allocating preimages and images for
-    /// each slot and then, as we traverse the LEM, we add constraints to make sure
-    /// that the witness satisfies the arithmetic equations for the corresponding
-    /// slots.
+    /// each slot and then, as we traverse the function, we add constraints to make
+    /// sure that the witness satisfies the arithmetic equations for the
+    /// corresponding slots.
     </span><span class="kw">pub fn </span>synthesize&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
-        slots_count: <span class="kw-2">&amp;</span>SlotsCounter,
+        num_slots: <span class="kw-2">&amp;</span>SlotsCounter,
         frame: <span class="kw-2">&amp;</span>Frame&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>global_allocator = GlobalAllocator::default();
         <span class="kw">let </span><span class="kw-2">mut </span>bound_allocations = BoundAllocations::new();
 
-        <span class="comment">// Inputs are constrained by their usage inside LEM
+        <span class="comment">// Inputs are constrained by their usage inside the function body
         </span><span class="self">self</span>.allocate_input(cs, store, frame, <span class="kw-2">&amp;mut </span>bound_allocations)<span class="question-mark">?</span>;
-        <span class="comment">// Outputs are constrained by return. All LEMs return
-        </span><span class="kw">let </span>preallocated_outputs = LEM::allocate_output(cs, store, frame, <span class="kw-2">&amp;mut </span>bound_allocations)<span class="question-mark">?</span>;
+        <span class="comment">// Outputs are constrained by the return statement. All functions return
+        </span><span class="kw">let </span>preallocated_outputs = Func::allocate_output(cs, store, frame, <span class="kw-2">&amp;mut </span>bound_allocations)<span class="question-mark">?</span>;
 
-        <span class="comment">// Slots are constrained by their usage inside LEM. The ones not used in throughout the concrete path
-        // are effectively unconstrained, that&#39;s why they are filled with dummies
-        </span><span class="kw">let </span>preallocated_hash2_slots = LEM::allocate_slots(
+        <span class="comment">// Slots are constrained by their usage inside the function body. The ones
+        // not used in throughout the concrete path are effectively unconstrained,
+        // that&#39;s why they are filled with dummies
+        </span><span class="kw">let </span>preallocated_hash2_slots = Func::allocate_slots(
             cs,
             <span class="kw-2">&amp;</span>frame.preimages.hash2_ptrs,
             SlotType::Hash2,
-            slots_count.hash2,
+            num_slots.hash2,
             store,
         )<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>preallocated_hash3_slots = LEM::allocate_slots(
+        <span class="kw">let </span>preallocated_hash3_slots = Func::allocate_slots(
             cs,
             <span class="kw-2">&amp;</span>frame.preimages.hash3_ptrs,
             SlotType::Hash3,
-            slots_count.hash3,
+            num_slots.hash3,
             store,
         )<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>preallocated_hash4_slots = LEM::allocate_slots(
+        <span class="kw">let </span>preallocated_hash4_slots = Func::allocate_slots(
             cs,
             <span class="kw-2">&amp;</span>frame.preimages.hash4_ptrs,
             SlotType::Hash4,
-            slots_count.hash4,
+            num_slots.hash4,
             store,
         )<span class="question-mark">?</span>;
 
         <span class="kw">struct </span>Globals&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt; {
+            store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Store&lt;F&gt;,
             global_allocator: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>GlobalAllocator&lt;F&gt;,
-            bound_allocations: BoundAllocations&lt;F&gt;,
-            preallocated_outputs: Vec&lt;AllocatedPtr&lt;F&gt;&gt;,
             preallocated_hash2_slots: Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedNum&lt;F&gt;)&gt;,
             preallocated_hash3_slots: Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedNum&lt;F&gt;)&gt;,
             preallocated_hash4_slots: Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedNum&lt;F&gt;)&gt;,
+            call_outputs: Vec&lt;Vec&lt;Ptr&lt;F&gt;&gt;&gt;,
+            call_count: usize,
         }
 
         <span class="kw">fn </span>recurse&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
             cs: <span class="kw-2">&amp;mut </span>CS,
-            block: <span class="kw-2">&amp;</span>LEMCTL,
+            block: <span class="kw-2">&amp;</span>Block,
             concrete_path: Boolean,
-            slots_count: <span class="kw-2">&amp;mut </span>SlotsCounter,
+            next_slot: <span class="kw-2">&amp;mut </span>SlotsCounter,
+            bound_allocations: <span class="kw-2">&amp;mut </span>BoundAllocations&lt;F&gt;,
+            preallocated_outputs: <span class="kw-2">&amp;</span>Vec&lt;AllocatedPtr&lt;F&gt;&gt;,
             g: <span class="kw-2">&amp;mut </span>Globals&lt;<span class="lifetime">&#39;_</span>, F&gt;,
         ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-            <span class="kw">match </span>block {
-                LEMCTL::Return(output_vars) =&gt; {
-                    <span class="kw">for </span>(i, output_var) <span class="kw">in </span>output_vars.iter().enumerate() {
-                        <span class="kw">let </span>allocated_ptr = g.bound_allocations.get(output_var)<span class="question-mark">?</span>;
+            <span class="kw">for </span>op <span class="kw">in </span><span class="kw-2">&amp;</span>block.ops {
+                <span class="macro">macro_rules! </span>hash_helper {
+                    ( <span class="macro-nonterminal">$img</span>: expr, <span class="macro-nonterminal">$tag</span>: expr, <span class="macro-nonterminal">$preimg</span>: expr, <span class="macro-nonterminal">$slot</span>: expr ) =&gt; {
+                        <span class="comment">// Retrieve allocated preimage
+                        </span><span class="kw">let </span>allocated_preimg = bound_allocations.get_many(<span class="macro-nonterminal">$preimg</span>)<span class="question-mark">?</span>;
+
+                        <span class="comment">// Retrieve the preallocated preimage and image for this slot
+                        </span><span class="kw">let </span>(preallocated_preimg, preallocated_img_hash) = <span class="kw">match </span><span class="macro-nonterminal">$slot </span>{
+                            SlotType::Hash2 =&gt; {
+                                <span class="kw-2">&amp;</span>g.preallocated_hash2_slots[next_slot.consume_hash2()]
+                            }
+                            SlotType::Hash3 =&gt; {
+                                <span class="kw-2">&amp;</span>g.preallocated_hash3_slots[next_slot.consume_hash3()]
+                            }
+                            SlotType::Hash4 =&gt; {
+                                <span class="kw-2">&amp;</span>g.preallocated_hash4_slots[next_slot.consume_hash4()]
+                            }
+                        };
+
+                        <span class="comment">// For each component of the preimage, add implication constraints
+                        // for its tag and hash
+                        </span><span class="kw">for </span>(i, allocated_ptr) <span class="kw">in </span>allocated_preimg.iter().enumerate() {
+                            <span class="kw">let </span>var = <span class="kw-2">&amp;</span><span class="macro-nonterminal">$preimg</span>[i];
+                            <span class="kw">let </span>ptr_idx = <span class="number">2 </span>* i;
+                            implies_equal(
+                                <span class="kw-2">&amp;mut </span>cs.namespace(|| {
+                                    <span class="macro">format!</span>(
+                                        <span class="string">&quot;implies equal for {var}&#39;s tag (LEMOP {:?}, pos {i})&quot;</span>,
+                                        <span class="kw-2">&amp;</span>op
+                                    )
+                                }),
+                                <span class="kw-2">&amp;</span>concrete_path,
+                                allocated_ptr.tag(),
+                                <span class="kw-2">&amp;</span>preallocated_preimg[ptr_idx], <span class="comment">// tag index
+                            </span>)<span class="question-mark">?</span>;
+                            implies_equal(
+                                <span class="kw-2">&amp;mut </span>cs.namespace(|| {
+                                    <span class="macro">format!</span>(
+                                        <span class="string">&quot;implies equal for {var}&#39;s hash (LEMOP {:?}, pos {i})&quot;</span>,
+                                        <span class="kw-2">&amp;</span>op
+                                    )
+                                }),
+                                <span class="kw-2">&amp;</span>concrete_path,
+                                allocated_ptr.hash(),
+                                <span class="kw-2">&amp;</span>preallocated_preimg[ptr_idx + <span class="number">1</span>], <span class="comment">// hash index
+                            </span>)<span class="question-mark">?</span>;
+                        }
+
+                        <span class="comment">// Allocate the image tag if it hasn&#39;t been allocated before,
+                        // create the full image pointer and add it to bound allocations
+                        </span><span class="kw">let </span>img_tag = g.global_allocator.get_or_alloc_const(cs, <span class="macro-nonterminal">$tag</span>.to_field())<span class="question-mark">?</span>;
+                        <span class="kw">let </span>img_hash = preallocated_img_hash.clone();
+                        <span class="kw">let </span>img_ptr = AllocatedPtr::from_parts(img_tag, img_hash);
+                        bound_allocations.insert(<span class="macro-nonterminal">$img</span>, img_ptr);
+                    };
+                }
+
+                <span class="macro">macro_rules! </span>unhash_helper {
+                    ( <span class="macro-nonterminal">$preimg</span>: expr, <span class="macro-nonterminal">$img</span>: expr, <span class="macro-nonterminal">$slot</span>: expr ) =&gt; {
+                        <span class="comment">// Retrieve allocated image
+                        </span><span class="kw">let </span>allocated_img = bound_allocations.get(<span class="macro-nonterminal">$img</span>)<span class="question-mark">?</span>;
+
+                        <span class="comment">// Retrieve the preallocated preimage and image for this slot
+                        </span><span class="kw">let </span>(preallocated_preimg, preallocated_img) = <span class="kw">match </span><span class="macro-nonterminal">$slot </span>{
+                            SlotType::Hash2 =&gt; {
+                                <span class="kw-2">&amp;</span>g.preallocated_hash2_slots[next_slot.consume_hash2()]
+                            }
+                            SlotType::Hash3 =&gt; {
+                                <span class="kw-2">&amp;</span>g.preallocated_hash3_slots[next_slot.consume_hash3()]
+                            }
+                            SlotType::Hash4 =&gt; {
+                                <span class="kw-2">&amp;</span>g.preallocated_hash4_slots[next_slot.consume_hash4()]
+                            }
+                        };
+
+                        <span class="comment">// Add the implication constraint for the image
+                        </span>implies_equal(
+                            <span class="kw-2">&amp;mut </span>cs.namespace(|| {
+                                <span class="macro">format!</span>(<span class="string">&quot;implies equal for {}&#39;s hash (LEMOP {:?})&quot;</span>, <span class="macro-nonterminal">$img</span>, <span class="kw-2">&amp;</span>op)
+                            }),
+                            <span class="kw-2">&amp;</span>concrete_path,
+                            allocated_img.hash(),
+                            <span class="kw-2">&amp;</span>preallocated_img,
+                        )<span class="question-mark">?</span>;
+
+                        <span class="comment">// Retrieve preimage hashes and tags create the full preimage pointers
+                        // and add them to bound allocations
+                        </span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..preallocated_preimg.len() / <span class="number">2 </span>{
+                            <span class="kw">let </span>preimg_hash = <span class="kw-2">&amp;</span>preallocated_preimg[i];
+                            <span class="kw">let </span>preimg_tag = <span class="kw-2">&amp;</span>preallocated_preimg[i + <span class="number">1</span>];
+                            <span class="kw">let </span>preimg_ptr =
+                                AllocatedPtr::from_parts(preimg_tag.clone(), preimg_hash.clone());
+                            bound_allocations.insert(<span class="macro-nonterminal">$preimg</span>[i].clone(), preimg_ptr);
+                        }
+                    };
+                }
+
+                <span class="kw">match </span>op {
+                    Op::Call(out, func, inp) =&gt; {
+                        <span class="comment">// Allocate the output pointers that the `func` will return to.
+                        // These should be unconstrained as of yet, and will be constrained
+                        // by the return statements inside `func`.
+                        // Note that, because there&#39;s currently no way of deferring giving
+                        // a value to the allocated nums to be filled later, we must either
+                        // add the results of the call to the witness, or recompute them.
+                        </span><span class="kw">let </span>output_vals = g.call_outputs.pop().unwrap();
+                        <span class="kw">let </span><span class="kw-2">mut </span>output_ptrs = <span class="macro">vec!</span>[];
+                        <span class="kw">for </span>(ptr, var) <span class="kw">in </span>output_vals.iter().zip(out.iter()) {
+                            <span class="kw">let </span>zptr = <span class="kw-2">&amp;</span>g.store.hash_ptr(ptr)<span class="question-mark">?</span>;
+                            output_ptrs.push(Func::allocate_ptr(cs, zptr, var, bound_allocations)<span class="question-mark">?</span>);
+                        }
+                        <span class="comment">// Get the pointers for the input, i.e. the arguments
+                        </span><span class="kw">let </span>args = bound_allocations.get_many_cloned(inp)<span class="question-mark">?</span>;
+                        <span class="comment">// These are the input parameters (formal variables)
+                        </span><span class="kw">let </span>param_list = func.input_params.iter();
+                        <span class="comment">// Now we bind the `Func`&#39;s input parameters to the arguments in the call.
+                        </span>param_list.zip(args.into_iter()).for_each(|(param, arg)| {
+                            bound_allocations.insert(param.clone(), arg);
+                        });
+                        <span class="comment">// Finally, we synthesize the circuit for the function body
+                        </span>g.call_count += <span class="number">1</span>;
+                        recurse(
+                            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;Call {}&quot;</span>, g.call_count)),
+                            <span class="kw-2">&amp;</span>func.body,
+                            concrete_path.clone(),
+                            next_slot,
+                            bound_allocations,
+                            <span class="kw-2">&amp;</span>output_ptrs,
+                            g,
+                        )<span class="question-mark">?</span>;
+                    }
+                    Op::Hash2(img, tag, preimg) =&gt; {
+                        <span class="macro">hash_helper!</span>(img.clone(), tag, preimg, SlotType::Hash2);
+                    }
+                    Op::Hash3(img, tag, preimg) =&gt; {
+                        <span class="macro">hash_helper!</span>(img.clone(), tag, preimg, SlotType::Hash3);
+                    }
+                    Op::Hash4(img, tag, preimg) =&gt; {
+                        <span class="macro">hash_helper!</span>(img.clone(), tag, preimg, SlotType::Hash4);
+                    }
+                    Op::Unhash2(preimg, img) =&gt; {
+                        <span class="macro">unhash_helper!</span>(preimg, img, SlotType::Hash2);
+                    }
+                    Op::Unhash3(preimg, img) =&gt; {
+                        <span class="macro">unhash_helper!</span>(preimg, img, SlotType::Hash3);
+                    }
+                    Op::Unhash4(preimg, img) =&gt; {
+                        <span class="macro">unhash_helper!</span>(preimg, img, SlotType::Hash4);
+                    }
+                    Op::Null(tgt, tag) =&gt; {
+                        <span class="kw">let </span>allocated_ptr = AllocatedPtr::from_parts(
+                            g.global_allocator.get_or_alloc_const(cs, tag.to_field())<span class="question-mark">?</span>,
+                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)<span class="question-mark">?</span>,
+                        );
+                        bound_allocations.insert(tgt.clone(), allocated_ptr);
+                    }
+                    <span class="kw">_ </span>=&gt; <span class="macro">todo!</span>(),
+                }
+            }
+
+            <span class="kw">match </span><span class="kw-2">&amp;</span>block.ctrl {
+                Ctrl::Return(return_vars) =&gt; {
+                    <span class="kw">for </span>(i, return_var) <span class="kw">in </span>return_vars.iter().enumerate() {
+                        <span class="kw">let </span>allocated_ptr = bound_allocations.get(return_var)<span class="question-mark">?</span>;
 
                         allocated_ptr
                             .implies_ptr_equal(
                                 <span class="kw-2">&amp;mut </span>cs.namespace(|| {
-                                    <span class="macro">format!</span>(<span class="string">&quot;implies_ptr_equal {output_var} (output_var {i})&quot;</span>)
+                                    <span class="macro">format!</span>(<span class="string">&quot;implies_ptr_equal {return_var} (return_var {i})&quot;</span>)
                                 }),
                                 <span class="kw-2">&amp;</span>concrete_path,
-                                <span class="kw-2">&amp;</span>g.preallocated_outputs[i],
+                                <span class="kw-2">&amp;</span>preallocated_outputs[i],
                             )
                             .with_context(|| <span class="string">&quot;couldn&#39;t constrain `implies_ptr_equal`&quot;</span>)<span class="question-mark">?</span>;
                     }
                     <span class="prelude-val">Ok</span>(())
                 }
-                LEMCTL::MatchTag(match_var, cases) =&gt; {
-                    <span class="kw">let </span>allocated_match_tag = g.bound_allocations.get(match_var)<span class="question-mark">?</span>.tag().clone();
+                Ctrl::MatchTag(match_var, cases) =&gt; {
+                    <span class="kw">let </span>allocated_match_tag = bound_allocations.get(match_var)<span class="question-mark">?</span>.tag().clone();
                     <span class="kw">let </span><span class="kw-2">mut </span>concrete_path_vec = Vec::new();
                     <span class="kw">for </span>(tag, op) <span class="kw">in </span>cases {
                         <span class="kw">let </span>allocated_has_match = alloc_equal_const(
@@ -1417,12 +1632,14 @@
 
                         concrete_path_vec.push(allocated_has_match);
 
-                        <span class="kw">let </span>saved_slot = <span class="kw-2">&amp;mut </span>slots_count.clone();
+                        <span class="kw">let </span>saved_slot = <span class="kw-2">&amp;mut </span>next_slot.clone();
                         recurse(
                             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, tag)),
                             op,
                             concrete_path_and_has_match,
                             saved_slot,
+                            bound_allocations,
+                            preallocated_outputs,
                             g,
                         )<span class="question-mark">?</span>;
                     }
@@ -1438,138 +1655,26 @@
                     .with_context(|| <span class="string">&quot; couldn&#39;t constrain `enforce_selector_with_premise`&quot;</span>)<span class="question-mark">?</span>;
                     <span class="prelude-val">Ok</span>(())
                 }
-                LEMCTL::MatchSymbol(..) =&gt; <span class="prelude-val">Ok</span>(()),
-                LEMCTL::Seq(ops, rest) =&gt; {
-                    <span class="kw">for </span>op <span class="kw">in </span>ops {
-                        <span class="macro">macro_rules! </span>hash_helper {
-                            ( <span class="macro-nonterminal">$img</span>: expr, <span class="macro-nonterminal">$tag</span>: expr, <span class="macro-nonterminal">$preimg</span>: expr, <span class="macro-nonterminal">$slot</span>: expr ) =&gt; {
-                                <span class="comment">// Retrieve allocated preimage
-                                </span><span class="kw">let </span>allocated_preimg =
-                                    g.bound_allocations.get_many(<span class="macro-nonterminal">$preimg</span>)<span class="question-mark">?</span>;
-
-                                <span class="comment">// Retrieve the preallocated preimage and image for this slot
-                                </span><span class="kw">let </span>(preallocated_preimg, preallocated_img_hash) =
-                                    <span class="kw">match </span><span class="macro-nonterminal">$slot </span>{
-                                        SlotType::Hash2 =&gt; <span class="kw-2">&amp;</span>g.preallocated_hash2_slots[slots_count.consume_hash2()],
-                                        SlotType::Hash3 =&gt; <span class="kw-2">&amp;</span>g.preallocated_hash3_slots[slots_count.consume_hash3()],
-                                        SlotType::Hash4 =&gt; <span class="kw-2">&amp;</span>g.preallocated_hash4_slots[slots_count.consume_hash4()],
-                                    };
-
-                                <span class="comment">// For each component of the preimage, add implication constraints
-                                // for its tag and hash
-                                </span><span class="kw">for </span>(i, allocated_ptr) <span class="kw">in </span>allocated_preimg.iter().enumerate() {
-                                    <span class="kw">let </span>var = <span class="kw-2">&amp;</span><span class="macro-nonterminal">$preimg</span>[i];
-                                    <span class="kw">let </span>ptr_idx = <span class="number">2 </span>* i;
-                                    implies_equal(
-                                        <span class="kw-2">&amp;mut </span>cs.namespace(|| {
-                                            <span class="macro">format!</span>(<span class="string">&quot;implies equal for {var}&#39;s tag (LEMOP {:?}, pos {i})&quot;</span>, <span class="kw-2">&amp;</span>op)
-                                        }),
-                                        <span class="kw-2">&amp;</span>concrete_path,
-                                        allocated_ptr.tag(),
-                                        <span class="kw-2">&amp;</span>preallocated_preimg[ptr_idx], <span class="comment">// tag index
-                                    </span>)<span class="question-mark">?</span>;
-                                    implies_equal(
-                                        <span class="kw-2">&amp;mut </span>cs.namespace(|| {
-                                            <span class="macro">format!</span>(
-                                                <span class="string">&quot;implies equal for {var}&#39;s hash (LEMOP {:?}, pos {i})&quot;</span>,
-                                                <span class="kw-2">&amp;</span>op
-                                            )
-                                        }),
-                                        <span class="kw-2">&amp;</span>concrete_path,
-                                        allocated_ptr.hash(),
-                                        <span class="kw-2">&amp;</span>preallocated_preimg[ptr_idx + <span class="number">1</span>], <span class="comment">// hash index
-                                    </span>)<span class="question-mark">?</span>;
-                                }
-
-                                <span class="comment">// Allocate the image tag if it hasn&#39;t been allocated before,
-                                // create the full image pointer and add it to bound allocations
-                                </span><span class="kw">let </span>img_tag = g.global_allocator.get_or_alloc_const(cs, <span class="macro-nonterminal">$tag</span>.to_field())<span class="question-mark">?</span>;
-                                <span class="kw">let </span>img_hash = preallocated_img_hash.clone();
-                                <span class="kw">let </span>img_ptr = AllocatedPtr::from_parts(img_tag, img_hash);
-                                g.bound_allocations.insert(<span class="macro-nonterminal">$img</span>, img_ptr);
-                            };
-                        }
-
-                        <span class="macro">macro_rules! </span>unhash_helper {
-                            ( <span class="macro-nonterminal">$preimg</span>: expr, <span class="macro-nonterminal">$img</span>: expr, <span class="macro-nonterminal">$slot</span>: expr ) =&gt; {
-                                <span class="comment">// Retrieve allocated image
-                                </span><span class="kw">let </span>allocated_img = g.bound_allocations.get(<span class="macro-nonterminal">$img</span>)<span class="question-mark">?</span>;
-
-                                <span class="comment">// Retrieve the preallocated preimage and image for this slot
-                                </span><span class="kw">let </span>(preallocated_preimg, preallocated_img) =
-                                    <span class="kw">match </span><span class="macro-nonterminal">$slot </span>{
-                                        SlotType::Hash2 =&gt; <span class="kw-2">&amp;</span>g.preallocated_hash2_slots[slots_count.consume_hash2()],
-                                        SlotType::Hash3 =&gt; <span class="kw-2">&amp;</span>g.preallocated_hash3_slots[slots_count.consume_hash3()],
-                                        SlotType::Hash4 =&gt; <span class="kw-2">&amp;</span>g.preallocated_hash4_slots[slots_count.consume_hash4()],
-                                    };
-
-                                <span class="comment">// Add the implication constraint for the image
-                                </span>implies_equal(
-                                    <span class="kw-2">&amp;mut </span>cs.namespace(|| {
-                                        <span class="macro">format!</span>(<span class="string">&quot;implies equal for {}&#39;s hash (LEMOP {:?})&quot;</span>, <span class="macro-nonterminal">$img</span>, <span class="kw-2">&amp;</span>op)
-                                    }),
-                                    <span class="kw-2">&amp;</span>concrete_path,
-                                    allocated_img.hash(),
-                                    <span class="kw-2">&amp;</span>preallocated_img,
-                                )<span class="question-mark">?</span>;
-
-                                <span class="comment">// Retrieve preimage hashes and tags create the full preimage pointers
-                                // and add them to bound allocations
-                                </span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..preallocated_preimg.len()/<span class="number">2 </span>{
-                                    <span class="kw">let </span>preimg_hash = <span class="kw-2">&amp;</span>preallocated_preimg[i];
-                                    <span class="kw">let </span>preimg_tag = <span class="kw-2">&amp;</span>preallocated_preimg[i+<span class="number">1</span>];
-                                    <span class="kw">let </span>preimg_ptr = AllocatedPtr::from_parts(preimg_tag.clone(), preimg_hash.clone());
-                                    g.bound_allocations.insert(<span class="macro-nonterminal">$preimg</span>[i].clone(), preimg_ptr);
-                                }
-                            };
-                        }
-
-                        <span class="kw">match </span>op {
-                            LEMOP::Hash2(img, tag, preimg) =&gt; {
-                                <span class="macro">hash_helper!</span>(img.clone(), tag, preimg, SlotType::Hash2);
-                            }
-                            LEMOP::Hash3(img, tag, preimg) =&gt; {
-                                <span class="macro">hash_helper!</span>(img.clone(), tag, preimg, SlotType::Hash3);
-                            }
-                            LEMOP::Hash4(img, tag, preimg) =&gt; {
-                                <span class="macro">hash_helper!</span>(img.clone(), tag, preimg, SlotType::Hash4);
-                            }
-                            LEMOP::Unhash2(preimg, img) =&gt; {
-                                <span class="macro">unhash_helper!</span>(preimg, img, SlotType::Hash2);
-                            }
-                            LEMOP::Unhash3(preimg, img) =&gt; {
-                                <span class="macro">unhash_helper!</span>(preimg, img, SlotType::Hash3);
-                            }
-                            LEMOP::Unhash4(preimg, img) =&gt; {
-                                <span class="macro">unhash_helper!</span>(preimg, img, SlotType::Hash4);
-                            }
-                            LEMOP::Null(tgt, tag) =&gt; {
-                                <span class="kw">let </span>allocated_ptr = AllocatedPtr::from_parts(
-                                    g.global_allocator.get_or_alloc_const(cs, tag.to_field())<span class="question-mark">?</span>,
-                                    g.global_allocator.get_or_alloc_const(cs, F::ZERO)<span class="question-mark">?</span>,
-                                );
-                                g.bound_allocations.insert(tgt.clone(), allocated_ptr);
-                            }
-                            <span class="kw">_ </span>=&gt; <span class="macro">todo!</span>(),
-                        }
-                    }
-                    recurse(cs, rest, concrete_path, slots_count, g)
-                }
+                <span class="comment">// Fixme: finish match symbol
+                </span>Ctrl::MatchSymbol(..) =&gt; <span class="macro">bail!</span>(<span class="string">&quot;TODO&quot;</span>),
             }
         }
 
         recurse(
             cs,
-            <span class="kw-2">&amp;</span><span class="self">self</span>.ctl,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.body,
             Boolean::Constant(<span class="bool-val">true</span>),
             <span class="kw-2">&amp;mut </span>SlotsCounter::default(),
+            <span class="kw-2">&amp;mut </span>bound_allocations,
+            <span class="kw-2">&amp;</span>preallocated_outputs,
             <span class="kw-2">&amp;mut </span>Globals {
+                store,
                 global_allocator: <span class="kw-2">&amp;mut </span>global_allocator,
-                bound_allocations,
-                preallocated_outputs,
                 preallocated_hash2_slots,
                 preallocated_hash3_slots,
                 preallocated_hash4_slots,
+                call_outputs: frame.preimages.call_outputs.clone(),
+                call_count: <span class="number">0</span>,
             },
         )
     }
@@ -1577,21 +1682,51 @@
     <span class="doccomment">/// Computes the number of constraints that `synthesize` should create. It&#39;s
     /// also an explicit way to document and attest how the number of constraints
     /// grow.
-    </span><span class="kw">pub fn </span>num_constraints&lt;F: LurkField&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, slots_count: <span class="kw-2">&amp;</span>SlotsCounter) -&gt; usize {
-        <span class="comment">// fixed cost for each slot
-        </span><span class="kw">let </span><span class="kw-2">mut </span>num_constraints =
-            <span class="number">289 </span>* slots_count.hash2 + <span class="number">337 </span>* slots_count.hash3 + <span class="number">388 </span>* slots_count.hash4;
-
-        <span class="kw">let </span><span class="kw-2">mut </span>globals: HashSet&lt;FWrap&lt;F&gt;&gt; = HashSet::default();
-
-        <span class="kw">let </span><span class="kw-2">mut </span>stack = <span class="macro">vec!</span>[(<span class="kw-2">&amp;</span><span class="self">self</span>.ctl, <span class="bool-val">false</span>)];
-        <span class="kw">while let </span><span class="prelude-val">Some</span>((block, nested)) = stack.pop() {
-            <span class="kw">match </span>block {
-                LEMCTL::Return(..) =&gt; {
-                    <span class="comment">// tag and hash for 3 pointers
-                    </span>num_constraints += <span class="number">6</span>;
+    </span><span class="kw">pub fn </span>num_constraints&lt;F: LurkField&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, num_slots: <span class="kw-2">&amp;</span>SlotsCounter) -&gt; usize {
+        <span class="kw">fn </span>recurse&lt;F: LurkField&gt;(
+            block: <span class="kw-2">&amp;</span>Block,
+            nested: bool,
+            globals: <span class="kw-2">&amp;mut </span>HashSet&lt;FWrap&lt;F&gt;&gt;,
+        ) -&gt; usize {
+            <span class="kw">let </span><span class="kw-2">mut </span>num_constraints = <span class="number">0</span>;
+            <span class="kw">for </span>op <span class="kw">in </span><span class="kw-2">&amp;</span>block.ops {
+                <span class="kw">match </span>op {
+                    Op::Call(<span class="kw">_</span>, func, <span class="kw">_</span>) =&gt; {
+                        num_constraints += recurse(<span class="kw-2">&amp;</span>func.body, nested, globals);
+                    }
+                    Op::Null(<span class="kw">_</span>, tag) =&gt; {
+                        <span class="comment">// constrain tag and hash
+                        </span>globals.insert(FWrap(tag.to_field()));
+                        globals.insert(FWrap(F::ZERO));
+                    }
+                    Op::Hash2(<span class="kw">_</span>, tag, <span class="kw">_</span>) =&gt; {
+                        <span class="comment">// tag for the image
+                        </span>globals.insert(FWrap(tag.to_field()));
+                        <span class="comment">// tag and hash for 2 preimage pointers
+                        </span>num_constraints += <span class="number">4</span>;
+                    }
+                    Op::Hash3(<span class="kw">_</span>, tag, <span class="kw">_</span>) =&gt; {
+                        <span class="comment">// tag for the image
+                        </span>globals.insert(FWrap(tag.to_field()));
+                        <span class="comment">// tag and hash for 3 preimage pointers
+                        </span>num_constraints += <span class="number">6</span>;
+                    }
+                    Op::Hash4(<span class="kw">_</span>, tag, <span class="kw">_</span>) =&gt; {
+                        <span class="comment">// tag for the image
+                        </span>globals.insert(FWrap(tag.to_field()));
+                        <span class="comment">// tag and hash for 4 preimage pointers
+                        </span>num_constraints += <span class="number">8</span>;
+                    }
+                    Op::Unhash2(..) | Op::Unhash3(..) | Op::Unhash4(..) =&gt; {
+                        <span class="comment">// one constraint for the image&#39;s hash
+                        </span>num_constraints += <span class="number">1</span>;
+                    }
+                    <span class="kw">_ </span>=&gt; <span class="macro">todo!</span>(),
                 }
-                LEMCTL::MatchTag(<span class="kw">_</span>, cases) =&gt; {
+            }
+            <span class="kw">match </span><span class="kw-2">&amp;</span>block.ctrl {
+                Ctrl::Return(vars) =&gt; num_constraints + <span class="number">2 </span>* vars.len(),
+                Ctrl::MatchTag(<span class="kw">_</span>, cases) =&gt; {
                     <span class="comment">// `alloc_equal_const` adds 3 constraints for each case and
                     // the `and` is free for non-nested `MatchTag`s, since we
                     // start `concrete_path` with a constant `true`
@@ -1602,50 +1737,19 @@
 
                     <span class="comment">// stacked ops are now nested
                     </span><span class="kw">for </span>block <span class="kw">in </span>cases.values() {
-                        stack.push((block, <span class="bool-val">true</span>));
+                        num_constraints += recurse(block, <span class="bool-val">true</span>, globals);
                     }
+                    num_constraints
                 }
-                LEMCTL::MatchSymbol(..) =&gt; <span class="macro">todo!</span>(),
-                LEMCTL::Seq(ops, rest) =&gt; {
-                    <span class="kw">for </span>op <span class="kw">in </span>ops {
-                        <span class="kw">match </span>op {
-                            LEMOP::Null(<span class="kw">_</span>, tag) =&gt; {
-                                <span class="comment">// constrain tag and hash
-                                </span>globals.insert(FWrap(tag.to_field()));
-                                globals.insert(FWrap(F::ZERO));
-                            }
-                            LEMOP::Hash2(<span class="kw">_</span>, tag, <span class="kw">_</span>) =&gt; {
-                                <span class="comment">// tag for the image
-                                </span>globals.insert(FWrap(tag.to_field()));
-                                <span class="comment">// tag and hash for 2 preimage pointers
-                                </span>num_constraints += <span class="number">4</span>;
-                            }
-                            LEMOP::Hash3(<span class="kw">_</span>, tag, <span class="kw">_</span>) =&gt; {
-                                <span class="comment">// tag for the image
-                                </span>globals.insert(FWrap(tag.to_field()));
-                                <span class="comment">// tag and hash for 3 preimage pointers
-                                </span>num_constraints += <span class="number">6</span>;
-                            }
-                            LEMOP::Hash4(<span class="kw">_</span>, tag, <span class="kw">_</span>) =&gt; {
-                                <span class="comment">// tag for the image
-                                </span>globals.insert(FWrap(tag.to_field()));
-                                <span class="comment">// tag and hash for 4 preimage pointers
-                                </span>num_constraints += <span class="number">8</span>;
-                            }
-                            LEMOP::Unhash2(..) | LEMOP::Unhash3(..) | LEMOP::Unhash4(..) =&gt; {
-                                <span class="comment">// one constraint for the image&#39;s hash
-                                </span>num_constraints += <span class="number">1</span>;
-                            }
-                            <span class="kw">_ </span>=&gt; <span class="macro">todo!</span>(),
-                        }
-                    }
-                    <span class="comment">// no constraints added here
-                    </span>stack.push((rest, nested))
-                }
+                Ctrl::MatchSymbol(..) =&gt; <span class="macro">todo!</span>(),
             }
         }
-
-        num_constraints + globals.len()
+        <span class="kw">let </span>globals = <span class="kw-2">&amp;mut </span>HashSet::default();
+        <span class="comment">// fixed cost for each slot
+        </span><span class="kw">let </span>slot_constraints =
+            <span class="number">289 </span>* num_slots.hash2 + <span class="number">337 </span>* num_slots.hash3 + <span class="number">388 </span>* num_slots.hash4;
+        <span class="kw">let </span>num_constraints = recurse::&lt;F&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.body, <span class="bool-val">false</span>, globals);
+        slot_constraints + num_constraints + globals.len()
     }
 }
 </code></pre></div></section></main></body></html>

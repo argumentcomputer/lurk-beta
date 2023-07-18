@@ -93,40 +93,112 @@
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::lem;
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::func;
 
-<span class="kw">use </span><span class="kw">super</span>::LEM;
-<span class="kw">use </span>anyhow::Result;
+<span class="kw">use </span><span class="kw">super</span>::Func;
 
-<span class="doccomment">/// Lurk&#39;s step function encoded as a LEM
+<span class="doccomment">/// Lurk&#39;s step function
 </span><span class="attr">#[allow(dead_code)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>step() -&gt; <span class="prelude-ty">Result</span>&lt;LEM&gt; {
-    <span class="macro">lem!</span>(expr_in env_in cont_in {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>eval_step() -&gt; Func {
+    <span class="kw">let </span>reduce = reduce();
+    <span class="kw">let </span>apply_cont = apply_cont();
+    <span class="kw">let </span>make_thunk = make_thunk();
+
+    <span class="macro">func!</span>((expr_in, env_in, cont_in): <span class="number">3 </span>=&gt; {
+        <span class="kw">let </span>(expr, env, cont, ctrl) = reduce(expr_in, env_in, cont_in);
+        <span class="kw">let </span>(expr, env, cont, ctrl) = apply_cont(expr, env, cont, ctrl);
+        <span class="kw">let </span>(expr, env, cont, ctrl) = make_thunk(expr, env, cont, ctrl);
+        <span class="kw">return </span>(expr, env, cont)
+    })
+    .unwrap()
+}
+
+<span class="kw">fn </span>reduce() -&gt; Func {
+    <span class="macro">func!</span>((expr_in, env_in, cont_in): <span class="number">4 </span>=&gt; {
         match_tag expr_in {
             Num =&gt; {
                 match_tag cont_in {
                     Outermost =&gt; {
                         <span class="kw">let </span>cont_out: Terminal;
-                        <span class="kw">return </span>(expr_in, env_in, cont_out);
+                        <span class="kw">let </span>ctrl: Dummy;
+                        <span class="kw">return </span>(expr_in, env_in, cont_out, ctrl);
                     }
                 };
             }
         };
     })
+    .unwrap()
+}
+
+<span class="kw">fn </span>apply_cont() -&gt; Func {
+    <span class="macro">func!</span>((expr_in, env_in, cont_in, ctrl): <span class="number">4 </span>=&gt; {
+        <span class="kw">return </span>(expr_in, env_in, cont_in, ctrl)
+    })
+    .unwrap()
+}
+
+<span class="kw">fn </span>make_thunk() -&gt; Func {
+    <span class="macro">func!</span>((expr_in, env_in, cont_in, ctrl): <span class="number">4 </span>=&gt; {
+        <span class="kw">return </span>(expr_in, env_in, cont_in, ctrl)
+    })
+    .unwrap()
 }
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
-    <span class="kw">use </span><span class="kw">crate</span>::lem::circuit::SlotsCounter;
-    <span class="kw">use </span><span class="kw">crate</span>::lem::{pointers::Ptr, store::Store};
+    <span class="kw">use </span><span class="kw">crate</span>::lem::{
+        circuit::SlotsCounter, pointers::Ptr, store::Store, symbol::Symbol, tag::Tag,
+    };
     <span class="kw">use </span>bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
     <span class="kw">use </span>blstrs::Scalar <span class="kw">as </span>Fr;
 
     <span class="kw">const </span>NUM_INPUTS: usize = <span class="number">1</span>;
-    <span class="kw">const </span>NUM_AUX: usize = <span class="number">19</span>;
-    <span class="kw">const </span>NUM_CONSTRAINTS: usize = <span class="number">17</span>;
+    <span class="kw">const </span>NUM_AUX: usize = <span class="number">44</span>;
+    <span class="kw">const </span>NUM_CONSTRAINTS: usize = <span class="number">42</span>;
     <span class="kw">const </span>NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: <span class="number">0</span>,
         hash3: <span class="number">0</span>,
@@ -134,22 +206,31 @@
     };
 
     <span class="kw">fn </span>test_eval_and_constrain_aux(store: <span class="kw-2">&amp;mut </span>Store&lt;Fr&gt;, pairs: Vec&lt;(Ptr&lt;Fr&gt;, Ptr&lt;Fr&gt;)&gt;) {
-        <span class="kw">let </span>lem = step().unwrap();
-        lem.check();
+        <span class="kw">let </span>eval_step = eval_step();
 
-        <span class="kw">let </span>slots_count = lem.ctl.count_slots();
+        <span class="kw">let </span>slots_count = eval_step.body.count_slots();
 
         <span class="macro">assert_eq!</span>(slots_count, NUM_SLOTS);
 
-        <span class="kw">let </span>computed_num_constraints = lem.num_constraints::&lt;Fr&gt;(<span class="kw-2">&amp;</span>slots_count);
+        <span class="kw">let </span>computed_num_constraints = eval_step.num_constraints::&lt;Fr&gt;(<span class="kw-2">&amp;</span>slots_count);
 
         <span class="comment">// Assures that `MatchSymbol`s will work properly
-        </span>lem.intern_matched_symbols(store);
+        </span>eval_step.intern_matched_symbols(store);
 
         <span class="kw">let </span><span class="kw-2">mut </span>all_paths = <span class="macro">vec!</span>[];
 
+        <span class="comment">// Auxiliary Lurk constants
+        </span><span class="kw">let </span>outermost = Ptr::null(Tag::Outermost);
+        <span class="kw">let </span>terminal = Ptr::null(Tag::Terminal);
+        <span class="kw">let </span>error = Ptr::null(Tag::Error);
+        <span class="kw">let </span>nil = store.intern_symbol(<span class="kw-2">&amp;</span>Symbol::lurk_sym(<span class="string">&quot;nil&quot;</span>));
+
+        <span class="comment">// Stop condition: the continuation is either terminal or error
+        </span><span class="kw">let </span>stop_cond = |output: <span class="kw-2">&amp;</span>[Ptr&lt;Fr&gt;]| output[<span class="number">2</span>] == terminal || output[<span class="number">2</span>] == error;
+
         <span class="kw">for </span>(expr_in, expr_out) <span class="kw">in </span>pairs {
-            <span class="kw">let </span>(frames, paths) = lem.eval(expr_in, store).unwrap();
+            <span class="kw">let </span>input = <span class="macro">vec!</span>[expr_in, nil, outermost];
+            <span class="kw">let </span>(frames, paths) = eval_step.call_until(input, store, stop_cond).unwrap();
             <span class="macro">assert!</span>(
                 frames
                     .last()
@@ -160,7 +241,9 @@
             store.hydrate_z_cache();
             <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
             <span class="kw">for </span>frame <span class="kw">in </span>frames.iter() {
-                lem.synthesize(<span class="kw-2">&amp;mut </span>cs, store, <span class="kw-2">&amp;</span>slots_count, frame).unwrap();
+                eval_step
+                    .synthesize(<span class="kw-2">&amp;mut </span>cs, store, <span class="kw-2">&amp;</span>slots_count, frame)
+                    .unwrap();
                 <span class="macro">assert!</span>(cs.is_satisfied());
                 <span class="macro">assert_eq!</span>(cs.num_inputs(), NUM_INPUTS);
                 <span class="macro">assert_eq!</span>(cs.aux().len(), NUM_AUX);
@@ -173,8 +256,9 @@
             all_paths.extend(paths);
         }
 
-        lem.assert_all_paths_taken(<span class="kw-2">&amp;</span>all_paths);
-    }
+        <span class="comment">// TODO do we really need this?
+        // eval_step.assert_all_paths_taken(&amp;all_paths);
+    </span>}
 
     <span class="kw">fn </span>expr_in_expr_out_pairs(_store: <span class="kw-2">&amp;mut </span>Store&lt;Fr&gt;) -&gt; Vec&lt;(Ptr&lt;Fr&gt;, Ptr&lt;Fr&gt;)&gt; {
         <span class="macro">vec!</span>[(Ptr::num(Fr::from_u64(<span class="number">42</span>)), Ptr::num(Fr::from_u64(<span class="number">42</span>)))]

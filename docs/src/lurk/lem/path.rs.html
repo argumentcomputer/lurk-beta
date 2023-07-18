@@ -111,90 +111,9 @@
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
 <a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
-<a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
-<a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
-<span class="kw">use </span>indexmap::IndexMap;
-<span class="kw">use </span>std::collections::HashSet;
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashSet;
 
-<span class="kw">use super</span>::{symbol::Symbol, tag::Tag, var_map::VarMap, Var, LEMCTL, LEMOP};
+<span class="kw">use super</span>::{symbol::Symbol, tag::Tag, Block, Ctrl, Func, Op};
 
 <span class="attr">#[derive(Clone, PartialEq, Eq, Hash)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>PathNode {
@@ -256,130 +175,53 @@
     </span><span class="kw">pub fn </span>push_default_inplace(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="self">self</span>.<span class="number">0</span>.push(PathNode::Default);
     }
-}
 
-<span class="attr">#[inline]
-</span><span class="kw">fn </span>insert_one(map: <span class="kw-2">&amp;mut </span>VarMap&lt;Var&gt;, path: <span class="kw-2">&amp;</span>Path, ptr: <span class="kw-2">&amp;</span>Var) -&gt; <span class="prelude-ty">Result</span>&lt;Var&gt; {
-    <span class="kw">let </span>new_ptr = Var(<span class="macro">format!</span>(<span class="string">&quot;{}.{}&quot;</span>, path, ptr.name()).into());
-    map.insert(ptr.clone(), new_ptr.clone());
-    <span class="prelude-val">Ok</span>(new_ptr)
-}
-
-<span class="kw">fn </span>insert_many(map: <span class="kw-2">&amp;mut </span>VarMap&lt;Var&gt;, path: <span class="kw-2">&amp;</span>Path, ptrs: <span class="kw-2">&amp;</span>[Var]) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Var&gt;&gt; {
-    ptrs.iter().map(|ptr| insert_one(map, path, ptr)).collect()
-}
-
-<span class="kw">impl </span>LEMCTL {
-    <span class="doccomment">/// Removes conflicting names in parallel logical LEM paths. While these
-    /// conflicting names shouldn&#39;t be an issue for interpretation, they are
-    /// problematic when we want to generate the constraints for the LEM, since
-    /// conflicting names would cause different allocations to be bound the same
-    /// name.
-    ///
-    /// The conflict resolution is achieved by changing variables so that
-    /// their names are prepended by the paths where they&#39;re declared.
-    ///
-    /// Note: this function is not supposed to be called manually. It&#39;s used by
-    /// `LEM::new`, which is the API that should be used directly.
-    </span><span class="kw">pub fn </span>deconflict(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        path: <span class="kw-2">&amp;</span>Path,
-        <span class="comment">// `map` keeps track of the updated names of variables
-        </span>map: <span class="kw-2">&amp;mut </span>VarMap&lt;Var&gt;, <span class="comment">// name -&gt; path.name
-    </span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">match </span><span class="self">self </span>{
-            LEMCTL::MatchTag(var, cases) =&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>new_cases = Vec::with_capacity(cases.len());
-                <span class="kw">for </span>(tag, case) <span class="kw">in </span>cases {
-                    <span class="kw">let </span>new_case = case.deconflict(<span class="kw-2">&amp;</span>path.push_tag(tag), <span class="kw-2">&amp;mut </span>map.clone())<span class="question-mark">?</span>;
-                    new_cases.push((<span class="kw-2">*</span>tag, new_case));
-                }
-                <span class="prelude-val">Ok</span>(LEMCTL::MatchTag(
-                    map.get_cloned(var)<span class="question-mark">?</span>,
-                    IndexMap::from_iter(new_cases),
-                ))
-            }
-            LEMCTL::MatchSymbol(var, cases, def) =&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>new_cases = Vec::with_capacity(cases.len());
-                <span class="kw">for </span>(symbol, case) <span class="kw">in </span>cases {
-                    <span class="kw">let </span>new_case = case.deconflict(<span class="kw-2">&amp;</span>path.push_symbol(symbol), <span class="kw-2">&amp;mut </span>map.clone())<span class="question-mark">?</span>;
-                    new_cases.push((symbol.clone(), new_case));
-                }
-                <span class="prelude-val">Ok</span>(LEMCTL::MatchSymbol(
-                    map.get_cloned(var)<span class="question-mark">?</span>,
-                    IndexMap::from_iter(new_cases),
-                    Box::new(def.deconflict(<span class="kw-2">&amp;</span>path.push_default(), map)<span class="question-mark">?</span>),
-                ))
-            }
-            LEMCTL::Seq(ops, rest) =&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>new_ops = Vec::with_capacity(ops.len());
-                <span class="kw">for </span>op <span class="kw">in </span>ops {
-                    <span class="kw">match </span>op {
-                        LEMOP::Null(ptr, tag) =&gt; {
-                            new_ops.push(LEMOP::Null(insert_one(map, path, ptr)<span class="question-mark">?</span>, <span class="kw-2">*</span>tag))
-                        }
-                        LEMOP::Hash2(img, tag, preimg) =&gt; {
-                            <span class="kw">let </span>preimg = map.get_many_cloned(preimg)<span class="question-mark">?</span>.try_into().unwrap();
-                            <span class="kw">let </span>img = insert_one(map, path, img)<span class="question-mark">?</span>;
-                            new_ops.push(LEMOP::Hash2(img, <span class="kw-2">*</span>tag, preimg))
-                        }
-                        LEMOP::Hash3(img, tag, preimg) =&gt; {
-                            <span class="kw">let </span>preimg = map.get_many_cloned(preimg)<span class="question-mark">?</span>.try_into().unwrap();
-                            <span class="kw">let </span>img = insert_one(map, path, img)<span class="question-mark">?</span>;
-                            new_ops.push(LEMOP::Hash3(img, <span class="kw-2">*</span>tag, preimg))
-                        }
-                        LEMOP::Hash4(img, tag, preimg) =&gt; {
-                            <span class="kw">let </span>preimg = map.get_many_cloned(preimg)<span class="question-mark">?</span>.try_into().unwrap();
-                            <span class="kw">let </span>img = insert_one(map, path, img)<span class="question-mark">?</span>;
-                            new_ops.push(LEMOP::Hash4(img, <span class="kw-2">*</span>tag, preimg))
-                        }
-                        LEMOP::Unhash2(preimg, img) =&gt; {
-                            <span class="kw">let </span>img = map.get_cloned(img)<span class="question-mark">?</span>;
-                            <span class="kw">let </span>preimg = insert_many(map, path, preimg)<span class="question-mark">?</span>;
-                            new_ops.push(LEMOP::Unhash2(preimg.try_into().unwrap(), img))
-                        }
-                        LEMOP::Unhash3(preimg, img) =&gt; {
-                            <span class="kw">let </span>img = map.get_cloned(img)<span class="question-mark">?</span>;
-                            <span class="kw">let </span>preimg = insert_many(map, path, preimg)<span class="question-mark">?</span>;
-                            new_ops.push(LEMOP::Unhash3(preimg.try_into().unwrap(), img))
-                        }
-                        LEMOP::Unhash4(preimg, img) =&gt; {
-                            <span class="kw">let </span>img = map.get_cloned(img)<span class="question-mark">?</span>;
-                            <span class="kw">let </span>preimg = insert_many(map, path, preimg)<span class="question-mark">?</span>;
-                            new_ops.push(LEMOP::Unhash4(preimg.try_into().unwrap(), img))
-                        }
-                        LEMOP::Hide(..) =&gt; <span class="macro">todo!</span>(),
-                        LEMOP::Open(..) =&gt; <span class="macro">todo!</span>(),
-                    }
-                }
-                <span class="kw">let </span>new_rest = Box::new(rest.deconflict(path, map)<span class="question-mark">?</span>);
-                <span class="prelude-val">Ok</span>(LEMCTL::Seq(new_ops, new_rest))
-            }
-            LEMCTL::Return(o) =&gt; <span class="prelude-val">Ok</span>(LEMCTL::Return(map.get_many_cloned(o)<span class="question-mark">?</span>.try_into().unwrap())),
-        }
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>extend_from_path(<span class="kw-2">&amp;mut </span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) {
+        <span class="self">self</span>.<span class="number">0</span>.extend_from_slice(<span class="kw-2">&amp;</span>path.<span class="number">0</span>)
     }
 
-    <span class="doccomment">/// Computes the number of possible paths in a `LEMOP`
-    </span><span class="kw">pub fn </span>num_paths(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="kw">match </span><span class="self">self </span>{
-            LEMCTL::MatchTag(<span class="kw">_</span>, cases) =&gt; {
-                cases.values().fold(<span class="number">0</span>, |acc, block| acc + block.num_paths())
-            }
-            LEMCTL::MatchSymbol(<span class="kw">_</span>, cases, <span class="kw">_</span>) =&gt; {
-                cases.values().fold(<span class="number">0</span>, |acc, block| acc + block.num_paths())
-            }
-            LEMCTL::Seq(<span class="kw">_</span>, rest) =&gt; rest.num_paths(),
-            LEMCTL::Return(..) =&gt; <span class="number">1</span>,
-        }
-    }
-
-    <span class="doccomment">/// Computes the number of paths taken within a `LEMOP` given a set of frames
-    </span><span class="kw">pub fn </span>num_paths_taken(<span class="kw-2">&amp;</span><span class="self">self</span>, paths: <span class="kw-2">&amp;</span>[Path]) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>all_paths: HashSet&lt;Path&gt; = HashSet::default();
+    <span class="doccomment">/// Computes the number of different paths taken given a list of paths
+    </span><span class="kw">pub fn </span>num_paths_taken(paths: <span class="kw-2">&amp;</span>[<span class="self">Self</span>]) -&gt; usize {
+        <span class="kw">let </span><span class="kw-2">mut </span>all_paths: HashSet&lt;<span class="self">Self</span>&gt; = HashSet::default();
         paths.iter().for_each(|path| {
             all_paths.insert(path.clone());
         });
-        <span class="prelude-val">Ok</span>(all_paths.len())
+        all_paths.len()
+    }
+}
+
+<span class="kw">impl </span>Func {
+    <span class="doccomment">/// Computes the number of possible paths in a `Func` can take
+    </span><span class="kw">pub fn </span>num_paths(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.body.num_paths()
+    }
+
+    <span class="doccomment">/// Asserts that all paths were visited by a set of frames. This is mostly
+    /// for testing purposes.
+    </span><span class="kw">pub fn </span>assert_all_paths_taken(<span class="kw-2">&amp;</span><span class="self">self</span>, paths: <span class="kw-2">&amp;</span>[Path]) {
+        <span class="macro">assert_eq!</span>(Path::num_paths_taken(paths), <span class="self">self</span>.num_paths());
+    }
+}
+
+<span class="kw">impl </span>Block {
+    <span class="kw">fn </span>num_paths(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="kw">let </span><span class="kw-2">mut </span>num_paths = <span class="number">1</span>;
+        <span class="kw">for </span>op <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.ops {
+            <span class="kw">if let </span>Op::Call(<span class="kw">_</span>, func, <span class="kw">_</span>) = op {
+                num_paths <span class="kw-2">*</span>= func.num_paths()
+            }
+        }
+        num_paths <span class="kw-2">*</span>= <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.ctrl {
+            Ctrl::MatchTag(<span class="kw">_</span>, cases) =&gt; {
+                cases.values().fold(<span class="number">0</span>, |acc, block| acc + block.num_paths())
+            }
+            Ctrl::MatchSymbol(<span class="kw">_</span>, cases, def) =&gt; cases
+                .values()
+                .fold(def.num_paths(), |acc, block| acc + block.num_paths()),
+            Ctrl::Return(..) =&gt; <span class="number">1</span>,
+        };
+        num_paths
     }
 }
 </code></pre></div></section></main></body></html>

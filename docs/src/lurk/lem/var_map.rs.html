@@ -54,6 +54,8 @@
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>log::info;
 <span class="kw">use </span>std::collections::{hash_map::Entry, HashMap};
@@ -65,7 +67,7 @@
 /// variables before using them, so we don&#39;t expect to need some piece of
 /// information from a variable that hasn&#39;t been defined.
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>VarMap&lt;V&gt;(HashMap&lt;Var, V&gt;);
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>VarMap&lt;V&gt;(HashMap&lt;Var, V&gt;);
 
 <span class="kw">impl</span>&lt;V&gt; VarMap&lt;V&gt; {
     <span class="doccomment">/// Creates an empty `VarMap`
@@ -75,14 +77,16 @@
     }
 
     <span class="doccomment">/// Inserts new data into a `VarMap`
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>insert(<span class="kw-2">&amp;mut </span><span class="self">self</span>, var: Var, v: V) {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>insert(<span class="kw-2">&amp;mut </span><span class="self">self</span>, var: Var, v: V) -&gt; <span class="prelude-ty">Option</span>&lt;V&gt; {
         <span class="kw">match </span><span class="self">self</span>.<span class="number">0</span>.entry(var) {
             Entry::Vacant(vacant_entry) =&gt; {
                 vacant_entry.insert(v);
-            }
+                <span class="prelude-val">None
+            </span>}
             Entry::Occupied(<span class="kw-2">mut </span>o) =&gt; {
-                o.insert(v);
+                <span class="kw">let </span>v = o.insert(v);
                 <span class="macro">info!</span>(<span class="string">&quot;Variable {} has been overwritten&quot;</span>, o.key());
+                <span class="prelude-val">Some</span>(v)
             }
         }
     }
