@@ -227,23 +227,24 @@ macro_rules! block {
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, match_tag $sii:ident { $( $tag:ident $(| $other_tags:ident)* => $case_ops:tt ),* $(,)? } $($tail:tt)*) => {
+
+    (@seq {$($limbs:expr)*}, match_tag $sii:ident { $( $tag:ident $(| $other_tags:ident)* => $case_ops:tt ),* $(,)? $(_ => $def:tt)? $(,)? } $($tail:tt)*) => {
         $crate::block! (
             @end
             {
                 $($limbs)*
             },
-            $crate::ctrl!( match_tag $sii { $( $tag $(| $other_tags)* => $case_ops ),* } ),
+            $crate::ctrl!( match_tag $sii { $( $tag $(| $other_tags)* => $case_ops ),* $(_ => $def)? } ),
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* $(,)? $(_ => $def:tt)? $(,)? } $($tail:tt)*) => {
         $crate::block! (
             @end
             {
                 $($limbs)*
             },
-            $crate::ctrl!( match_symbol $sii { $( $symbol => $case_ops ),* , _ => $def, } ),
+            $crate::ctrl!( match_symbol $sii { $( $symbol => $case_ops ),* ,  $(_ => $def)?, } ),
             $($tail)*
         )
     };

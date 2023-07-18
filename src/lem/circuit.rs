@@ -135,7 +135,10 @@ use bellperson::{
 };
 
 use crate::circuit::gadgets::{
-    constraints::{alloc_equal_const, and, enforce_selector_with_premise, implies_equal},
+    constraints::{
+        alloc_equal_const, and, enforce_implication_lc_zero, enforce_selector_with_premise,
+        implies_equal, popcount_lc,
+    },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
 };
@@ -746,7 +749,7 @@ impl Func {
                 Ctrl::MatchTag(match_var, cases, def) => {
                     let allocated_match_tag = bound_allocations.get(match_var)?.tag().clone();
                     let mut concrete_path_vec = Vec::new();
-                    for (tag, op) in cases {
+                    for (tag, block) in cases {
                         let allocated_has_match = alloc_equal_const(
                             &mut cs.namespace(|| format!("{tag}.alloc_equal_const")),
                             &allocated_match_tag,
@@ -766,7 +769,7 @@ impl Func {
                         let saved_slot = &mut next_slot.clone();
                         recurse(
                             &mut cs.namespace(|| format!("{}", tag)),
-                            op,
+                            block,
                             concrete_path_and_has_match,
                             saved_slot,
                             bound_allocations,
@@ -776,24 +779,63 @@ impl Func {
                     }
 
                     match def {
-                        None => {
-                            // Now we need to enforce that at exactly one path was taken. We do that by enforcing
-                            // that the sum of the previously collected `Boolean`s is one. But, of course, this
-                            // irrelevant if we're on a virtual path and thus we use an implication gadget.
-                            enforce_selector_with_premise(
-                                &mut cs.namespace(|| "enforce_selector_with_premise"),
-                                &concrete_path,
-                                &concrete_path_vec,
-                            )
-                            .with_context(|| {
-                                " couldn't constrain `enforce_selector_with_premise`"
-                            })?;
-                            Ok(())
-                        }
                         Some(def) => {
-                            todo!()
+                            // Allocates the popcount, i.e. a variable that counts how many paths were taken
+                            // in `concrete_path_vec`s
+                            let popcount_val: u64 = concrete_path_vec
+                                .iter()
+                                .fold(0, |acc, b| acc + (b.get_value().unwrap() as u64));
+                            let popcount =
+                                allocate_num(cs, "_.popcount", LurkField::from_u64(popcount_val))?;
+                            let popcount_lc = popcount_lc::<F, CS>(&concrete_path_vec)?;
+                            enforce_implication_lc_zero(
+                                &mut cs.namespace(|| "_.enforce_implication"),
+                                &concrete_path,
+                                |_| popcount_lc - popcount.get_variable(),
+                            )
+                            .with_context(|| "failed to constrain `popcount`")?;
+
+                            // We take the default case when the popcount is zero
+                            let allocated_has_match = alloc_equal_const(
+                                &mut cs.namespace(|| "_.alloc_equal_const"),
+                                &popcount,
+                                F::ZERO,
+                            )
+                            .with_context(|| "couldn't allocate equal const")?;
+
+                            let concrete_path_and_has_match = and(
+                                &mut cs.namespace(|| "_.and"),
+                                &concrete_path,
+                                &allocated_has_match,
+                            )
+                            .with_context(|| "failed to constrain `and`")?;
+
+                            concrete_path_vec.push(allocated_has_match);
+
+                            let saved_slot = &mut next_slot.clone();
+                            recurse(
+                                &mut cs.namespace(|| "_"),
+                                def,
+                                concrete_path_and_has_match,
+                                saved_slot,
+                                bound_allocations,
+                                preallocated_outputs,
+                                g,
+                            )?;
                         }
+                        None => (),
                     }
+
+                    // Now we need to enforce that at exactly one path was taken. We do that by enforcing
+                    // that the sum of the previously collected `Boolean`s is one. But, of course, this
+                    // irrelevant if we're on a virtual path and thus we use an implication gadget.
+                    enforce_selector_with_premise(
+                        &mut cs.namespace(|| "enforce_selector_with_premise"),
+                        &concrete_path,
+                        &concrete_path_vec,
+                    )
+                    .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
+                    Ok(())
                 }
                 // Fixme: finish match symbol
                 Ctrl::MatchSymbol(..) => bail!("TODO"),
@@ -880,7 +922,14 @@ impl Func {
                         num_constraints += recurse(block, true, globals);
                     }
                     match def {
-                        Some(def) => todo!(),
+                        Some(def) => {
+                            // first we need to add the constraints of the popcount
+                            num_constraints += 1;
+                            // then `multiplier` for the boolean
+                            num_constraints += multiplier;
+                            // now we add the default case
+                            num_constraints += recurse(def, true, globals);
+                        }
                         None => (),
                     };
                     num_constraints
