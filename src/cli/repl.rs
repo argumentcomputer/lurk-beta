@@ -1,5 +1,3 @@
-use std::fs::File;
-use std::io::BufReader;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -7,7 +5,6 @@ use std::{fs::read_to_string, process, time::Instant};
 
 use anyhow::{bail, Context, Result};
 
-use ff::Field;
 use log::info;
 
 use rustyline::{
@@ -39,11 +36,8 @@ use lurk::{
     z_store::ZStore,
 };
 
-use super::commitment::Commitment;
-use super::field_data::FieldData;
 #[cfg(not(target_arch = "wasm32"))]
 use super::lurk_proof::{LurkProof, LurkProofMeta};
-use super::paths::commitment_path;
 
 #[derive(Completer, Helper, Highlighter, Hinter)]
 struct InputValidator {
@@ -241,24 +235,33 @@ impl Repl<F> {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn hide(&mut self, secret: F, payload: Ptr<F>) -> Result<()> {
+        use super::commitment::Commitment;
+
         let commitment = Commitment::new(secret, payload, &mut self.store)?;
-        let hash = &format!("0x{}", commitment.hash.hex_digits());
+        let hash = &format!("0x{}", commitment.hidden.value().hex_digits());
         commitment.persist(hash)?;
         println!("Data: {}\nHash: {hash}", payload.fmt_to_string(&self.store));
         Ok(())
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn fetch(&mut self, hash: &str) -> Result<()> {
+        use super::{commitment::Commitment, field_data::FieldData, paths::commitment_path};
+        use std::{fs::File, io::BufReader};
+
         let file = File::open(commitment_path(hash))?;
         let fd: FieldData = bincode::deserialize_from(BufReader::new(file))?;
         if fd.field != F::FIELD {
             bail!("Invalid field: {}. Expected {}", &fd.field, &F::FIELD)
         } else {
             let commitment: Commitment<F> = fd.extract()?;
-            if format!("0x{}", commitment.hash.hex_digits()) != hash {
+            if format!("0x{}", commitment.hidden.value().hex_digits()) != hash {
                 bail!("Hash mismatch. Corrupted commitment file.")
             } else {
+                self.store
+                    .intern_z_expr_ptr(&commitment.hidden, &commitment.zstore);
                 println!("Data for {hash} is now available");
             }
         }
@@ -432,35 +435,45 @@ impl Repl<F> {
                 }
             }
             "lurk.commit" => {
-                let first = self.peek1(cmd, args)?;
-                let (first_io, ..) = self.eval_expr(first)?;
-                self.hide(F::ZERO, first_io.expr)?;
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    let first = self.peek1(cmd, args)?;
+                    let (first_io, ..) = self.eval_expr(first)?;
+                    self.hide(ff::Field::ZERO, first_io.expr)?;
+                }
             }
             "lurk.hide" => {
-                let (first, second) = self.peek2(cmd, args)?;
-                let (first_io, ..) = self
-                    .eval_expr(first)
-                    .with_context(|| "evaluating first arg")?;
-                let (second_io, ..) = self
-                    .eval_expr(second)
-                    .with_context(|| "evaluating second arg")?;
-                let Some(secret) = self.store.fetch_num(&first_io.expr) else {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    let (first, second) = self.peek2(cmd, args)?;
+                    let (first_io, ..) = self
+                        .eval_expr(first)
+                        .with_context(|| "evaluating first arg")?;
+                    let (second_io, ..) = self
+                        .eval_expr(second)
+                        .with_context(|| "evaluating second arg")?;
+                    let Some(secret) = self.store.fetch_num(&first_io.expr) else {
                     bail!("Secret must be a number. Got {}", first_io.expr.fmt_to_string(&self.store))
                 };
-                self.hide(secret.into_scalar(), second_io.expr)?;
+                    self.hide(secret.into_scalar(), second_io.expr)?;
+                }
             }
             "fetch" => {
-                let first = self.peek1(cmd, args)?;
-                let n = self.store.lurk_sym("num");
-                let expr = self.store.list(&[n, first]);
-                let (expr_io, ..) = self
-                    .eval_expr(expr)
-                    .with_context(|| "evaluating first arg")?;
-                let hash = self
-                    .store
-                    .fetch_num(&expr_io.expr)
-                    .expect("must be a number");
-                self.fetch(&format!("0x{}", hash.into_scalar().hex_digits()))?;
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    let first = self.peek1(cmd, args)?;
+                    let n = self.store.lurk_sym("num");
+                    let expr = self.store.list(&[n, first]);
+                    let (expr_io, ..) = self
+                        .eval_expr(expr)
+                        .with_context(|| "evaluating first arg")?;
+                    let hash = self
+                        .store
+                        .fetch_num(&expr_io.expr)
+                        .expect("must be a number");
+                    #[cfg(not(target_arch = "wasm32"))]
+                    self.fetch(&format!("0x{}", hash.into_scalar().hex_digits()))?;
+                }
             }
             "clear" => self.env = self.store.nil(),
             "set-env" => {

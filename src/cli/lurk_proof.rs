@@ -1,5 +1,3 @@
-use std::{fs::File, io::BufWriter};
-
 use serde::{Deserialize, Serialize};
 
 use anyhow::Result;
@@ -16,6 +14,10 @@ use lurk::{
     z_store::ZStore,
 };
 
+#[cfg(not(target_arch = "wasm32"))]
+use std::{fs::File, io::BufReader, io::BufWriter};
+
+#[cfg(not(target_arch = "wasm32"))]
 use super::{
     field_data::FieldData,
     paths::{proof_meta_path, proof_path},
@@ -36,6 +38,7 @@ pub struct LurkProofMeta<F: LurkField> {
 }
 
 impl<F: LurkField + Serialize> LurkProofMeta<F> {
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn persist(&self, id: &str) -> Result<()> {
         let fd = &FieldData::wrap::<F, LurkProofMeta<F>>(self)?;
         bincode::serialize_into(BufWriter::new(&File::create(proof_meta_path(id))?), fd)?;
@@ -59,6 +62,7 @@ pub enum LurkProof<'a> {
 }
 
 impl<'a> LurkProof<'a> {
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn persist(&self, id: &str) -> Result<()> {
         let fd = &FieldData::wrap::<F, LurkProof<'_>>(self)?;
         bincode::serialize_into(BufWriter::new(&File::create(proof_path(id))?), fd)?;
@@ -94,8 +98,6 @@ impl<'a> LurkProof<'a> {
 
     #[cfg(not(target_arch = "wasm32"))]
     pub fn verify_proof(proof_id: &str) -> Result<()> {
-        use std::io::BufReader;
-
         let file = File::open(proof_path(proof_id))?;
         let fd: FieldData = bincode::deserialize_from(BufReader::new(file))?;
         let lurk_proof: LurkProof = fd.extract()?;
