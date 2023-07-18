@@ -9,7 +9,6 @@ use crate::{
     proof::nova::{self, PublicParams},
 };
 use pasta_curves::pallas;
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 pub mod error;
@@ -20,7 +19,7 @@ use crate::public_parameters::error::Error;
 
 pub type S1 = pallas::Scalar;
 
-pub fn public_params<C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static>(
+pub fn public_params<C: Coprocessor<S1> + 'static>(
     rc: usize,
     lang: Arc<Lang<S1, C>>,
 ) -> Result<Arc<PublicParams<'static, C>>, Error> {

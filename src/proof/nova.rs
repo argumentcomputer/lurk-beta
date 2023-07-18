@@ -61,6 +61,7 @@ pub type NovaPublicParams<'a, C> = nova::PublicParams<G1, G2, C1<'a, C>, C2>;
 
 /// A struct that contains public parameters for the Nova proving system.
 #[derive(Serialize, Deserialize)]
+#[serde(bound = "")]
 pub struct PublicParams<'a, C: Coprocessor<S1>> {
     pp: NovaPublicParams<'a, C>,
     pk: ProverKey<G1, G2, C1<'a, C>, C2, SS1, SS2>,
