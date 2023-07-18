@@ -20,16 +20,16 @@ pub struct Closure<F: LurkField> {
 // The state of the machine is an expression, a stack of closures and an environment
 pub struct State<F: LurkField> {
     pub term: Ptr<F>,  // Ptr to Expr
-    pub stack: Env<F>, // Ptr to Env
-    pub env: Env<F>,   // Ptr to Env
+    pub stack: Ptr<F>, // Ptr to Env
+    pub env: Ptr<F>,   // Ptr to Env
 }
 
 type IndexSet<K> = indexmap::IndexSet<K, ahash::RandomState>;
 
 #[derive(Debug)]
 pub struct Store<F: LurkField> {
-    pub abs_store: IndexSet<Ptr<F>>,
-    pub lam_store: IndexSet<(Ptr<F>, Ptr<F>)>,
+    pub lam_store: IndexSet<Ptr<F>>,
+    pub app_store: IndexSet<(Ptr<F>, Ptr<F>)>,
     pub env_store: IndexSet<(Ptr<F>, Ptr<F>)>,
     pub closure_store: IndexSet<(Ptr<F>, Ptr<F>)>,
     pub cache: PoseidonCache<F>,
