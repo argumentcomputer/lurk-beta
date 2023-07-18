@@ -12,8 +12,10 @@ name = "fcomm"
 path = "src/bin/fcomm.rs"
 
 [dependencies]
+anyhow = { workspace = true }
 base64 = { workspace = true }
 bellperson = { workspace = true }
+bincode = { workspace = true }
 blstrs = { workspace = true }
 clap = { version = "3.2", features = ["derive"] }
 clap-verbosity-flag = "1.0"
@@ -22,9 +24,11 @@ hex = { version = "0.4.3", features = ["serde"] }
 log = { workspace = true }
 lurk = { path = "../", package = "lurk" }
 once_cell = { workspace = true }
-pairing_lib = { workspace = true }
+pairing = { workspace = true }
 pasta_curves = { workspace = true, features = ["repr-c", "serde"] }
 pretty_env_logger = { workspace = true }
+proptest = "1.1.0"
+proptest-derive = "0.3.0"
 rand = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

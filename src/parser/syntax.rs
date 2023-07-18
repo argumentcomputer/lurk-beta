@@ -5,7 +5,7 @@ use nom::{
     character::complete::{anychar, char, multispace0, multispace1, none_of},
     combinator::{opt, peek, success, value},
     error::context,
-    multi::{many0, separated_list1},
+    multi::{many0, many_till, separated_list1},
     sequence::{delimited, preceded, terminated},
 };
 
@@ -57,6 +57,23 @@ pub fn parse_symbol_limb<F: LurkField>(
     }
 }
 
+pub fn parse_symbol_limb_raw<F: LurkField>(
+    escape: &'static str,
+) -> impl Fn(Span<'_>) -> ParseResult<'_, F, String> {
+    move |from: Span<'_>| {
+        let (i, s) = alt((
+            delimited(
+                tag("|"),
+                string::parse_string_inner1('|', true, "|"),
+                tag("|"),
+            ),
+            string::parse_string_inner1(' ', false, escape),
+            value(String::from(""), peek(tag("."))),
+        ))(from)?;
+        Ok((i, s))
+    }
+}
+
 pub fn parse_symbol_limbs<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Vec<String>> {
     move |from: Span<'_>| {
         let (i, path) = separated_list1(
@@ -96,15 +113,15 @@ pub fn parse_relative_symbol<F: LurkField>(
 pub fn parse_raw_symbol<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Symbol> {
     move |from: Span<'_>| {
         let (i, _) = tag("~(")(from)?;
-        let (i, path) = many0(preceded(parse_space, parse_symbol_limb("|()")))(i)?;
-        let (upto, _) = tag(")")(i)?;
+        let (i, path) = many0(preceded(parse_space, parse_symbol_limb_raw("|()")))(i)?;
+        let (upto, _) = many_till(parse_space, tag(")"))(i)?;
         Ok((upto, Symbol { path }))
     }
 }
 
 // raw: ~(foo bar baz) = .|foo|.|bar|.|baz|
 // absolute: .foo.bar.baz (escaped limbs: .|foo|.|bar|.|baz|)
-// keyword: :foo.bar = .keyword.foo.bar)
+// keyword: :foo.bar = .keyword.foo.bar
 // relative: foo.bar
 
 pub fn parse_symbol<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
@@ -337,8 +354,8 @@ pub mod tests {
                 // println!("detected: {} {:?}", x.clone(), x);
                 false
             }
-            (Some(..), Err(e)) => {
-                println!("{}", e);
+            (Some(..), Err(_)) => {
+                // println!("{}", e);
                 false
             }
             (None, Ok(..)) => {
@@ -429,6 +446,24 @@ pub mod tests {
             parse_symbol(),
             "nil",
             Some(Syntax::LurkSym(Pos::No, LurkSym::Nil))
+        ));
+        assert!(test(parse_symbol(), "~(asdf )", Some(symbol!(["asdf"]))));
+        assert!(test(parse_symbol(), "~( asdf )", Some(symbol!(["asdf"]))));
+        assert!(test(parse_symbol(), "~( asdf)", Some(symbol!(["asdf"]))));
+        assert!(test(
+            parse_symbol(),
+            "~(asdf.fdsa)",
+            Some(symbol!(["asdf.fdsa"]))
+        ));
+        assert!(test(
+            parse_symbol(),
+            "~(asdf.fdsa arst)",
+            Some(symbol!(["asdf.fdsa", "arst"]))
+        ));
+        assert!(test(
+            parse_symbol(),
+            "~(asdf.fdsa arst |wfp qwf|)",
+            Some(symbol!(["asdf.fdsa", "arst", "wfp qwf"]))
         ));
     }
 
@@ -556,12 +591,12 @@ pub mod tests {
     fn unit_parse_hash_char() {
         assert!(test(parse_hash_char(), "#\\a", Some(char!('a'))));
         assert!(test(parse_hash_char(), "#\\b", Some(char!('b'))));
-        assert!(test(parse_hash_char(), r#"#\b"#, Some(char!('b'))));
+        assert!(test(parse_hash_char(), r"#\b", Some(char!('b'))));
         assert!(test(parse_hash_char(), "#\\u{8f}", Some(char!('\u{8f}'))));
         assert!(test(parse_syntax(), "#\\a", Some(char!('a'))));
         assert!(test(parse_syntax(), "#\\b", Some(char!('b'))));
-        assert!(test(parse_syntax(), r#"#\b"#, Some(char!('b'))));
-        assert!(test(parse_syntax(), r#"#\u{8f}"#, Some(char!('\u{8f}'))));
+        assert!(test(parse_syntax(), r"#\b", Some(char!('b'))));
+        assert!(test(parse_syntax(), r"#\u{8f}", Some(char!('\u{8f}'))));
     }
 
     #[test]
@@ -744,6 +779,8 @@ pub mod tests {
             "(' ' . a)",
             Some(list!([char!(' ')], symbol!(["a"])))
         ));
+        assert!(test(parse_syntax(), "(cons # \"\")", None));
+        assert!(test(parse_syntax(), "#", None));
     }
 
     #[test]

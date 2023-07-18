@@ -2,7 +2,10 @@ use std::fmt;
 
 use crate::parser::LURK_WHITESPACE;
 #[cfg(not(target_arch = "wasm32"))]
+use lurk_macros::serde_test;
+#[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
+
 /// Module for symbol type, Sym.
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -14,6 +17,7 @@ pub const ESCAPE_CHARS: &str = "|(){}[],.:'\\\"";
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize, Hash)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), serde_test)]
 /// Type for hierarchical symbol names.
 ///
 /// The symbol path is encoded with a vector of strings. Keywords are symbols
@@ -228,24 +232,6 @@ impl fmt::Display for Symbol {
             write!(f, "{}", self.print_path())?;
         }
         Ok(())
-    }
-}
-
-impl From<&str> for Symbol {
-    fn from(s: &str) -> Symbol {
-        let sym_path = &s[1..s.len()]
-            .split(SYM_SEPARATOR)
-            .map(|x| x.to_owned())
-            .collect::<Vec<String>>();
-        Self {
-            path: sym_path.clone(),
-        }
-    }
-}
-
-impl From<String> for Symbol {
-    fn from(s: String) -> Symbol {
-        (&s as &str).into()
     }
 }
 

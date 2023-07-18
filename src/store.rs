@@ -1,8 +1,6 @@
 use rayon::prelude::*;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::usize;
 use thiserror;
@@ -483,9 +481,9 @@ impl<F: LurkField> Store<F> {
         ptr
     }
 
-    pub fn get_sym(&self, sym: Symbol) -> Option<Ptr<F>> {
-        let ptr = self.symbol_cache.get(&sym).cloned()?;
-        if sym == Symbol::nil() {
+    pub fn get_sym(&self, sym: &Symbol) -> Option<Ptr<F>> {
+        let ptr = self.symbol_cache.get(sym).cloned()?;
+        if *sym == Symbol::nil() {
             Some(Ptr {
                 tag: ExprTag::Nil,
                 raw: ptr.raw,
@@ -498,7 +496,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn get_lurk_sym<T: AsRef<str>>(&self, name: T) -> Option<Ptr<F>> {
         let sym = Symbol::lurk_sym(name.as_ref());
-        self.get_sym(sym)
+        self.get_sym(&sym)
     }
 
     pub fn intern_num<T: Into<Num<F>>>(&mut self, num: T) -> Ptr<F> {
@@ -945,26 +943,26 @@ impl<F: LurkField> Store<F> {
     pub fn get_z_expr(
         &self,
         ptr: &Ptr<F>,
-        z_store: Option<Rc<RefCell<ZStore<F>>>>,
+        z_store: &mut Option<ZStore<F>>,
     ) -> Result<(ZExprPtr<F>, Option<ZExpr<F>>), Error> {
-        let get_z_expr_aux = || {
+        let get_z_expr_aux = |z_store: &mut Option<ZStore<F>>| {
             let (z_ptr, z_expr) = match self.fetch(ptr) {
                 Some(Expression::Nil) => (ZExpr::Nil.z_ptr(&self.poseidon_cache), Some(ZExpr::Nil)),
                 Some(Expression::Cons(car, cdr)) => {
-                    let (z_car, _) = self.get_z_expr(&car, z_store.clone())?;
-                    let (z_cdr, _) = self.get_z_expr(&cdr, z_store.clone())?;
+                    let (z_car, _) = self.get_z_expr(&car, z_store)?;
+                    let (z_cdr, _) = self.get_z_expr(&cdr, z_store)?;
                     let z_expr = ZExpr::Cons(z_car, z_cdr);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
                 Some(Expression::Comm(secret, payload)) => {
-                    let (z_payload, _) = self.get_z_expr(&payload, z_store.clone())?;
+                    let (z_payload, _) = self.get_z_expr(&payload, z_store)?;
                     let z_expr = ZExpr::Comm(secret, z_payload);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
                 Some(Expression::Fun(args, body, env)) => {
-                    let (z_args, _) = self.get_z_expr(&args, z_store.clone())?;
-                    let (z_env, _) = self.get_z_expr(&env, z_store.clone())?;
-                    let (z_body, _) = self.get_z_expr(&body, z_store.clone())?;
+                    let (z_args, _) = self.get_z_expr(&args, z_store)?;
+                    let (z_env, _) = self.get_z_expr(&env, z_store)?;
+                    let (z_body, _) = self.get_z_expr(&body, z_store)?;
                     let z_expr = ZExpr::Fun {
                         arg: z_args,
                         body: z_body,
@@ -984,8 +982,8 @@ impl<F: LurkField> Store<F> {
                     value,
                     continuation,
                 })) => {
-                    let (z_value, _) = self.get_z_expr(&value, z_store.clone())?;
-                    let (z_cont, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let (z_value, _) = self.get_z_expr(&value, z_store)?;
+                    let (z_cont, _) = self.get_z_cont(&continuation, z_store)?;
                     let z_expr = ZExpr::Thunk(z_value, z_cont);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
@@ -1002,8 +1000,8 @@ impl<F: LurkField> Store<F> {
                     Some(ZExpr::EmptyStr),
                 ),
                 Some(Expression::Str(car, cdr)) => {
-                    let (z_car, _) = self.get_z_expr(&car, z_store.clone())?;
-                    let (z_cdr, _) = self.get_z_expr(&cdr, z_store.clone())?;
+                    let (z_car, _) = self.get_z_expr(&car, z_store)?;
+                    let (z_cdr, _) = self.get_z_expr(&cdr, z_store)?;
                     let z_expr = ZExpr::Str(z_car, z_cdr);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
@@ -1012,14 +1010,14 @@ impl<F: LurkField> Store<F> {
                     Some(ZExpr::RootSym),
                 ),
                 Some(Expression::Sym(car, cdr)) => {
-                    let (z_car, _) = self.get_z_expr(&car, z_store.clone())?;
-                    let (z_cdr, _) = self.get_z_expr(&cdr, z_store.clone())?;
+                    let (z_car, _) = self.get_z_expr(&car, z_store)?;
+                    let (z_cdr, _) = self.get_z_expr(&cdr, z_store)?;
                     let z_expr = ZExpr::Sym(z_car, z_cdr);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
                 Some(Expression::Key(car, cdr)) => {
-                    let (z_car, _) = self.get_z_expr(&car, z_store.clone())?;
-                    let (z_cdr, _) = self.get_z_expr(&cdr, z_store.clone())?;
+                    let (z_car, _) = self.get_z_expr(&car, z_store)?;
+                    let (z_cdr, _) = self.get_z_expr(&cdr, z_store)?;
                     let z_expr = ZExpr::Key(z_car, z_cdr);
                     (z_expr.z_ptr(&self.poseidon_cache), Some(z_expr))
                 }
@@ -1039,15 +1037,18 @@ impl<F: LurkField> Store<F> {
             Ok((*z_ptr, None))
         } else {
             // Store all children reachable from Ptr in ZStore
-            if let Some(z_store) = z_store.clone() {
-                let (z_ptr, z_expr) = get_z_expr_aux()?;
-                z_store.borrow_mut().insert_z_expr(&z_ptr, z_expr.clone());
+            if z_store.is_some() {
+                let (z_ptr, z_expr) = get_z_expr_aux(z_store)?;
+                z_store
+                    .as_mut()
+                    .unwrap()
+                    .insert_z_expr(&z_ptr, z_expr.clone());
                 Ok((z_ptr, z_expr))
             // Check the Ptr cache, used extensively in hydration
             } else if let Some((z_ptr, z_expr)) = self.z_expr_ptr_cache.get(ptr) {
                 Ok((*z_ptr, z_expr.clone()))
             } else {
-                get_z_expr_aux()
+                get_z_expr_aux(z_store)
             }
         }
     }
@@ -1056,7 +1057,7 @@ impl<F: LurkField> Store<F> {
     pub fn get_z_cont(
         &self,
         ptr: &ContPtr<F>,
-        z_store: Option<Rc<RefCell<ZStore<F>>>>,
+        z_store: &mut Option<ZStore<F>>,
     ) -> Result<(ZContPtr<F>, Option<ZCont<F>>), Error> {
         if let Some(idx) = ptr.raw.opaque_idx() {
             let z_ptr = self
@@ -1078,8 +1079,8 @@ impl<F: LurkField> Store<F> {
                     saved_env,
                     continuation,
                 }) => {
-                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
-                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store)?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store)?;
                     let z_cont = ZCont::<F>::Call0 {
                         saved_env: z_env_ptr,
                         continuation: z_cont_ptr,
@@ -1092,9 +1093,9 @@ impl<F: LurkField> Store<F> {
                     unevaled_arg,
                     continuation,
                 }) => {
-                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
-                    let (z_arg_ptr, _) = self.get_z_expr(&unevaled_arg, z_store.clone())?;
-                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store)?;
+                    let (z_arg_ptr, _) = self.get_z_expr(&unevaled_arg, z_store)?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store)?;
                     let z_cont = ZCont::<F>::Call {
                         unevaled_arg: z_arg_ptr,
                         saved_env: z_env_ptr,
@@ -1108,9 +1109,9 @@ impl<F: LurkField> Store<F> {
                     function,
                     continuation,
                 }) => {
-                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
-                    let (z_fun_ptr, _) = self.get_z_expr(&function, z_store.clone())?;
-                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store)?;
+                    let (z_fun_ptr, _) = self.get_z_expr(&function, z_store)?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store)?;
                     let z_cont = ZCont::<F>::Call2 {
                         function: z_fun_ptr,
                         saved_env: z_env_ptr,
@@ -1123,8 +1124,8 @@ impl<F: LurkField> Store<F> {
                     saved_env,
                     continuation,
                 }) => {
-                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
-                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store)?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store)?;
                     let z_cont = ZCont::<F>::Tail {
                         saved_env: z_env_ptr,
                         continuation: z_cont_ptr,
@@ -1141,8 +1142,8 @@ impl<F: LurkField> Store<F> {
                     saved_env,
                     continuation,
                 }) => {
-                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
-                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store)?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store)?;
                     let z_cont = ZCont::<F>::Lookup {
                         saved_env: z_env_ptr,
                         continuation: z_cont_ptr,
@@ -1154,7 +1155,7 @@ impl<F: LurkField> Store<F> {
                     operator,
                     continuation,
                 }) => {
-                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store)?;
                     let z_cont = ZCont::<F>::Unop {
                         operator,
                         continuation: z_cont_ptr,
@@ -1168,9 +1169,9 @@ impl<F: LurkField> Store<F> {
                     unevaled_args,
                     continuation,
                 }) => {
-                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
-                    let (z_args_ptr, _) = self.get_z_expr(&unevaled_args, z_store.clone())?;
-                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store)?;
+                    let (z_args_ptr, _) = self.get_z_expr(&unevaled_args, z_store)?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store)?;
                     let z_cont = ZCont::<F>::Binop {
                         operator,
                         saved_env: z_env_ptr,
@@ -1185,8 +1186,8 @@ impl<F: LurkField> Store<F> {
                     evaled_arg,
                     continuation,
                 }) => {
-                    let (z_arg_ptr, _) = self.get_z_expr(&evaled_arg, z_store.clone())?;
-                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let (z_arg_ptr, _) = self.get_z_expr(&evaled_arg, z_store)?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store)?;
                     let z_cont = ZCont::<F>::Binop2 {
                         operator,
                         evaled_arg: z_arg_ptr,
@@ -1199,8 +1200,8 @@ impl<F: LurkField> Store<F> {
                     unevaled_args,
                     continuation,
                 }) => {
-                    let (z_args_ptr, _) = self.get_z_expr(&unevaled_args, z_store.clone())?;
-                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let (z_args_ptr, _) = self.get_z_expr(&unevaled_args, z_store)?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store)?;
                     let z_cont = ZCont::<F>::If {
                         unevaled_args: z_args_ptr,
                         continuation: z_cont_ptr,
@@ -1214,10 +1215,10 @@ impl<F: LurkField> Store<F> {
                     saved_env,
                     continuation,
                 }) => {
-                    let (z_var_ptr, _) = self.get_z_expr(&var, z_store.clone())?;
-                    let (z_body_ptr, _) = self.get_z_expr(&body, z_store.clone())?;
-                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
-                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let (z_var_ptr, _) = self.get_z_expr(&var, z_store)?;
+                    let (z_body_ptr, _) = self.get_z_expr(&body, z_store)?;
+                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store)?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store)?;
                     let z_cont = ZCont::<F>::Let {
                         var: z_var_ptr,
                         body: z_body_ptr,
@@ -1233,10 +1234,10 @@ impl<F: LurkField> Store<F> {
                     saved_env,
                     continuation,
                 }) => {
-                    let (z_var_ptr, _) = self.get_z_expr(&var, z_store.clone())?;
-                    let (z_body_ptr, _) = self.get_z_expr(&body, z_store.clone())?;
-                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store.clone())?;
-                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let (z_var_ptr, _) = self.get_z_expr(&var, z_store)?;
+                    let (z_body_ptr, _) = self.get_z_expr(&body, z_store)?;
+                    let (z_env_ptr, _) = self.get_z_expr(&saved_env, z_store)?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store)?;
                     let z_cont = ZCont::<F>::LetRec {
                         var: z_var_ptr,
                         body: z_body_ptr,
@@ -1247,7 +1248,7 @@ impl<F: LurkField> Store<F> {
                     (z_ptr, Some(z_cont))
                 }
                 Some(Continuation::Emit { continuation }) => {
-                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store.clone())?;
+                    let (z_cont_ptr, _) = self.get_z_cont(&continuation, z_store)?;
                     let z_cont = ZCont::<F>::Emit {
                         continuation: z_cont_ptr,
                     };
@@ -1265,13 +1266,13 @@ impl<F: LurkField> Store<F> {
                     (z_ptr, Some(z_cont))
                 }
                 None => {
-                    let (z_ptr, _) = self.get_z_cont(ptr, z_store.clone())?;
+                    let (z_ptr, _) = self.get_z_cont(ptr, z_store)?;
                     (z_ptr, None)
                 }
             };
 
             if let Some(z_store) = z_store {
-                z_store.borrow_mut().cont_map.insert(z_ptr, z_cont.clone());
+                z_store.cont_map.insert(z_ptr, z_cont.clone());
             };
             self.z_cont_ptr_map.insert(z_ptr, Box::new(*ptr));
             self.z_cont_ptr_cache
@@ -1281,17 +1282,18 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn to_z_store_with_ptr(&self, ptr: &Ptr<F>) -> Result<(ZStore<F>, ZExprPtr<F>), Error> {
-        let z_store = Rc::new(RefCell::new(ZStore::new()));
-        let (z_ptr, _) = self.get_z_expr(ptr, Some(z_store.clone()))?;
-        Ok((Rc::try_unwrap(z_store).unwrap().into_inner(), z_ptr))
+        let z_store = ZStore::new();
+        let mut store_opt = Some(z_store);
+        let (z_ptr, _) = self.get_z_expr(ptr, &mut store_opt)?;
+        Ok((store_opt.unwrap(), z_ptr))
     }
 
     pub fn to_z_expr(&self, ptr: &Ptr<F>) -> Option<ZExpr<F>> {
-        self.get_z_expr(ptr, None).ok()?.1
+        self.get_z_expr(ptr, &mut None).ok()?.1
     }
 
     pub fn hash_expr(&self, ptr: &Ptr<F>) -> Option<ZExprPtr<F>> {
-        self.get_z_expr(ptr, None).ok().map(|x| x.0)
+        self.get_z_expr(ptr, &mut None).ok().map(|x| x.0)
     }
 
     // TODO: Add errors as below
@@ -1300,23 +1302,23 @@ impl<F: LurkField> Store<F> {
     //}
 
     pub fn to_z_cont(&self, ptr: &ContPtr<F>) -> Option<ZCont<F>> {
-        self.get_z_cont(ptr, None).ok()?.1
+        self.get_z_cont(ptr, &mut None).ok()?.1
     }
 
     pub fn hash_cont(&self, ptr: &ContPtr<F>) -> Option<ZContPtr<F>> {
-        self.get_z_cont(ptr, None).ok().map(|x| x.0)
+        self.get_z_cont(ptr, &mut None).ok().map(|x| x.0)
     }
 
     pub fn hash_string(&mut self, s: &str) -> ZExprPtr<F> {
         let ptr = self.intern_string(s);
-        self.get_z_expr(&ptr, None)
+        self.get_z_expr(&ptr, &mut None)
             .expect("known string can't be opaque")
             .0
     }
 
     pub fn hash_symbol(&mut self, s: Symbol) -> ZExprPtr<F> {
         let ptr = self.intern_symbol(s);
-        self.get_z_expr(&ptr, None)
+        self.get_z_expr(&ptr, &mut None)
             .expect("known symbol can't be opaque")
             .0
     }

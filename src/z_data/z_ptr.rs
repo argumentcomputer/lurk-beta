@@ -1,6 +1,8 @@
 use anyhow::anyhow;
 use base32ct::{Base32Unpadded, Encoding};
 #[cfg(not(target_arch = "wasm32"))]
+use lurk_macros::serde_test;
+#[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -19,6 +21,14 @@ use crate::tag::{ContTag, ExprTag, Tag};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(
+    not(target_arch = "wasm32"),
+    serde_test(
+        types(ExprTag, pasta_curves::pallas::Scalar),
+        types(ContTag, pasta_curves::pallas::Scalar),
+        zdata(true)
+    )
+)]
 // Note: the trait bound E: Tag is not necessary in the struct, but it makes the proptest strategy more efficient.
 /// A struct representing a scalar pointer with a tag and a value.
 ///
@@ -141,35 +151,9 @@ pub type ZContPtr<F> = ZPtr<ContTag, F>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::z_data::{from_z_data, to_z_data};
     use pasta_curves::pallas::Scalar;
-    use serde::de::DeserializeOwned;
-
-    fn test_serde_z_ptr<
-        P: Arbitrary + IntoHashComponents<Scalar> + PartialEq + Eq + Serialize + DeserializeOwned,
-    >(
-        x: P,
-    ) {
-        let ser = to_z_data(&x).expect("write ZPtr");
-        let de: P = from_z_data(&ser).expect("read ZPtr");
-        assert_eq!(x, de);
-
-        let ser: Vec<u8> = bincode::serialize(&x).expect("write ZPtr");
-        let de: P = bincode::deserialize(&ser).expect("read ZPtr");
-        assert_eq!(x, de);
-    }
 
     proptest! {
-        #[test]
-        fn prop_serde_z_expr_ptr(x in any::<ZExprPtr<Scalar>>()) {
-            test_serde_z_ptr(x);
-        }
-
-        #[test]
-        fn prop_serde_z_cont_ptr(x in any::<ZContPtr<Scalar>>()) {
-            test_serde_z_ptr(x);
-        }
-
         #[test]
         fn prop_base32_z_expr_ptr(x in any::<ZExprPtr<Scalar>>()) {
             assert_eq!(x, ZPtr::from_base32(&x.to_base32()).unwrap());

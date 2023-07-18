@@ -1,4 +1,6 @@
 #[cfg(not(target_arch = "wasm32"))]
+use lurk_macros::serde_test;
+#[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
@@ -23,6 +25,10 @@ use crate::field::LurkField;
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
+#[cfg_attr(
+    not(target_arch = "wasm32"),
+    serde_test(types(pasta_curves::pallas::Scalar), zdata(true))
+)]
 /// A `ZStore` is a content-addressed, serializable representation of a Lurk store
 ///
 /// Whereas a `Store` contains caches of each type of Lurk data, a `ZStore`
@@ -131,14 +137,14 @@ impl<F: LurkField> ZStore<F> {
 
     /// Stores a null symbol in the `ZStore` and returns the resulting pointer
     pub fn nil_z_ptr(&mut self, poseidon_cache: &PoseidonCache<F>) -> ZExprPtr<F> {
-        let z_ptr = self.put_symbol(Symbol::nil(), poseidon_cache).0;
+        let z_ptr = self.put_symbol(&Symbol::nil(), poseidon_cache).0;
         ZPtr(ExprTag::Nil, z_ptr.1)
     }
 
     /// Stores a string in the `ZStore` and returns the resulting pointer and `ZExpr`
     pub fn put_string(
         &mut self,
-        string: String,
+        string: &str,
         poseidon_cache: &PoseidonCache<F>,
     ) -> (ZExprPtr<F>, ZExpr<F>) {
         let mut expr = ZExpr::EmptyStr;
@@ -154,37 +160,17 @@ impl<F: LurkField> ZStore<F> {
     /// Stores a symbol in the `ZStore` and returns the resulting pointer and `ZExpr`
     pub fn put_symbol(
         &mut self,
-        sym: Symbol,
+        sym: &Symbol,
         poseidon_cache: &PoseidonCache<F>,
     ) -> (ZExprPtr<F>, ZExpr<F>) {
         let mut expr = ZExpr::RootSym;
         let mut ptr = expr.z_ptr(poseidon_cache);
         for s in sym.path.iter().rev() {
-            let (str_ptr, _) = self.put_string(s.clone(), poseidon_cache);
+            let (str_ptr, _) = self.put_string(s, poseidon_cache);
             expr = ZExpr::Sym(str_ptr, ptr);
             ptr = expr.z_ptr(poseidon_cache);
         }
         self.insert_z_expr(&ptr, Some(expr.clone()));
         (ptr, expr)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::z_data::{from_z_data, to_z_data};
-    use pasta_curves::pallas::Scalar;
-
-    proptest! {
-        #[test]
-        fn prop_serde_z_store(s in any::<ZStore<Scalar>>()) {
-            let ser = to_z_data(&s).expect("write ZStore");
-            let de: ZStore<Scalar> = from_z_data(&ser).expect("read ZStore");
-            assert_eq!(s, de);
-
-            let ser: Vec<u8> = bincode::serialize(&s).expect("write ZStore");
-            let de: ZStore<Scalar> = bincode::deserialize(&ser).expect("read ZStore");
-            assert_eq!(s, de);
-        }
     }
 }

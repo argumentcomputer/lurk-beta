@@ -16,7 +16,7 @@ use blstrs::{Bls12, Scalar};
 use memmap::MmapOptions;
 #[cfg(not(target_arch = "wasm32"))]
 use once_cell::sync::Lazy;
-use pairing_lib::{Engine, MultiMillerLoop};
+use pairing::{Engine, MultiMillerLoop};
 use rand_core::{RngCore, SeedableRng};
 use rand_xorshift::XorShiftRng;
 use serde::{Deserialize, Serialize};
@@ -213,13 +213,13 @@ impl<C: Coprocessor<Scalar>> Groth16Prover<Bls12, C, Scalar> {
     /// Verifies a single Groth16 proof using the given multi_frame, prepared verifier key, and proof.
     pub fn verify_groth16_proof(
         // multiframe need not have inner frames populated for verification purposes.
-        multiframe: MultiFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>, C>,
+        multiframe: &MultiFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>, C>,
         pvk: &groth16::PreparedVerifyingKey<Bls12>,
-        proof: groth16::Proof<Bls12>,
+        proof: &groth16::Proof<Bls12>,
     ) -> Result<bool, SynthesisError> {
         let inputs = multiframe.public_inputs();
 
-        verify_proof(pvk, &proof, &inputs)
+        verify_proof(pvk, proof, &inputs)
     }
 
     /// Verifies an aggregated Groth16 proof using the given prepared verifier key, SRS, public parameters, proof and rng.
@@ -291,19 +291,19 @@ impl<C: Coprocessor<Scalar>>
     pub fn verify_groth16_proof(
         self,
         pvk: &groth16::PreparedVerifyingKey<Bls12>,
-        proof: groth16::Proof<Bls12>,
+        proof: &groth16::Proof<Bls12>,
     ) -> Result<bool, SynthesisError> {
         let inputs: Vec<Scalar> = self.public_inputs();
-        verify_proof(pvk, &proof, inputs.as_slice())
+        verify_proof(pvk, proof, inputs.as_slice())
     }
 }
 
 #[allow(dead_code)]
 fn verify_sequential_groth16_proofs<C: Coprocessor<Scalar>>(
-    multiframe_proofs: Vec<(
+    multiframe_proofs: &[(
         MultiFrame<'_, Scalar, IO<Scalar>, Witness<Scalar>, C>,
         groth16::Proof<Bls12>,
-    )>,
+    )],
     vk: &groth16::VerifyingKey<Bls12>,
 ) -> Result<bool, SynthesisError> {
     let pvk = groth16::prepare_verifying_key(vk);
@@ -317,10 +317,7 @@ fn verify_sequential_groth16_proofs<C: Coprocessor<Scalar>>(
             }
         }
 
-        if !multiframe
-            .clone()
-            .verify_groth16_proof(&pvk, proof.clone())?
-        {
+        if !multiframe.clone().verify_groth16_proof(&pvk, proof)? {
             return Ok(false);
         }
     }
@@ -431,24 +428,20 @@ mod tests {
             check_cs_deltas(&cs, limit, lang_rc.clone());
         }
 
-        let proof_results = if check_groth16 {
-            Some(
-                groth_prover
-                    .outer_prove(
-                        groth_params,
-                        &INNER_PRODUCT_SRS,
-                        expr,
-                        empty_sym_env(s),
-                        s,
-                        limit,
-                        rng,
-                        lang_rc,
-                    )
-                    .unwrap(),
-            )
-        } else {
-            None
-        };
+        let proof_results = (check_groth16).then(|| {
+            groth_prover
+                .outer_prove(
+                    groth_params,
+                    &INNER_PRODUCT_SRS,
+                    expr,
+                    empty_sym_env(s),
+                    s,
+                    limit,
+                    rng,
+                    lang_rc,
+                )
+                .unwrap()
+        });
 
         if let Some((proof, public_inputs, public_outputs)) = proof_results {
             let srs_vk = INNER_PRODUCT_SRS.specialize_vk(proof.proof_count);

@@ -1,17 +1,15 @@
 use anyhow::{bail, Result};
+use log::info;
 use std::collections::{hash_map::Entry, HashMap};
 
 use super::Var;
 
 /// `VarMap` is a wrapper around a `HashMap` whose keys are `Var`s. It's meant
-/// to be more ergonomic under the following assumptions for LEM:
-///
-/// 1. A LEM must be in SSA, so we don't want to bind some information to the
-/// same `Var` twice;
-/// 2. A LEM must always define variables before using them, so we don't expect
-/// to need some piece of information from a variable that hasn't been defined.
+/// to be more ergonomic under the assumption that a LEM must always define
+/// variables before using them, so we don't expect to need some piece of
+/// information from a variable that hasn't been defined.
 #[derive(Clone)]
-pub struct VarMap<V>(HashMap<Var, V>);
+pub(crate) struct VarMap<V>(HashMap<Var, V>);
 
 impl<V> VarMap<V> {
     /// Creates an empty `VarMap`
@@ -21,24 +19,21 @@ impl<V> VarMap<V> {
     }
 
     /// Inserts new data into a `VarMap`
-    ///
-    /// Panics if some data already exists for the key
-    pub(crate) fn insert(&mut self, var: Var, v: V) -> Result<()> {
+    pub(crate) fn insert(&mut self, var: Var, v: V) -> Option<V> {
         match self.0.entry(var) {
             Entry::Vacant(vacant_entry) => {
                 vacant_entry.insert(v);
-                Ok(())
+                None
             }
-            Entry::Occupied(o) => bail!(
-                "Variable {} has previously been defined. LEMs are supposed to be SSA.",
-                o.key()
-            ),
+            Entry::Occupied(mut o) => {
+                let v = o.insert(v);
+                info!("Variable {} has been overwritten", o.key());
+                Some(v)
+            }
         }
     }
 
-    /// Retrieves data from a `VarMap`
-    ///
-    /// Panics if the data doesn't exist for the key
+    /// Retrieves data from a `VarMap`. Errors if there's no data for the `Var`
     pub(crate) fn get(&self, var: &Var) -> Result<&V> {
         match self.0.get(var) {
             Some(v) => Ok(v),

@@ -149,13 +149,13 @@ impl<C: Coprocessor<S1>> NovaProver<S1, C> {
     pub fn prove<'a>(
         &'a self,
         pp: &'a PublicParams<'_, C>,
-        frames: Vec<Frame<IO<S1>, Witness<S1>, C>>,
+        frames: &[Frame<IO<S1>, Witness<S1>, C>],
         store: &'a mut Store<S1>,
         lang: Arc<Lang<S1, C>>,
     ) -> Result<(Proof<'_, C>, Vec<S1>, Vec<S1>, usize), ProofError> {
         let z0 = frames[0].input.to_vector(store)?;
         let zi = frames.last().unwrap().output.to_vector(store)?;
-        let circuits = MultiFrame::from_frames(self.reduction_count(), &frames, store, &lang);
+        let circuits = MultiFrame::from_frames(self.reduction_count(), frames, store, &lang);
         let num_steps = circuits.len();
         let proof =
             Proof::prove_recursively(pp, store, &circuits, self.reduction_count, z0.clone(), lang)?;
@@ -174,7 +174,7 @@ impl<C: Coprocessor<S1>> NovaProver<S1, C> {
         lang: Arc<Lang<S1, C>>,
     ) -> Result<(Proof<'_, C>, Vec<S1>, Vec<S1>, usize), ProofError> {
         let frames = self.get_evaluation_frames(expr, env, store, limit, &lang)?;
-        self.prove(pp, frames, store, lang)
+        self.prove(pp, &frames, store, lang)
     }
 }
 
@@ -292,17 +292,25 @@ impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
 
                 assert!(cs.is_satisfied());
             }
-
-            let res = RecursiveSNARK::prove_step(
-                &pp.pp,
-                recursive_snark,
-                circuit_primary.clone(),
-                circuit_secondary.clone(),
-                z0_primary.clone(),
-                z0_secondary.clone(),
-            );
-            assert!(res.is_ok());
-            recursive_snark = Some(res?);
+            let mut r_snark = recursive_snark.unwrap_or_else(|| {
+                RecursiveSNARK::new(
+                    &pp.pp,
+                    circuit_primary,
+                    &circuit_secondary,
+                    z0_primary.clone(),
+                    z0_secondary.clone(),
+                )
+            });
+            r_snark
+                .prove_step(
+                    &pp.pp,
+                    circuit_primary,
+                    &circuit_secondary,
+                    z0_primary.clone(),
+                    z0_secondary.clone(),
+                )
+                .expect("failure to prove Nova step");
+            recursive_snark = Some(r_snark);
         }
 
         Ok(Self::Recursive(Box::new(recursive_snark.unwrap())))
@@ -332,7 +340,7 @@ impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
         &self,
         pp: &PublicParams<'_, C>,
         num_steps: usize,
-        z0: Vec<S1>,
+        z0: &[S1],
         zi: &[S1],
     ) -> Result<bool, NovaError> {
         let (z0_primary, zi_primary) = (z0, zi);
@@ -340,8 +348,8 @@ impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
         let zi_secondary = z0_secondary.clone();
 
         let (zi_primary_verified, zi_secondary_verified) = match self {
-            Self::Recursive(p) => p.verify(&pp.pp, num_steps, z0_primary, z0_secondary),
-            Self::Compressed(p) => p.verify(&pp.vk, num_steps, z0_primary, z0_secondary),
+            Self::Recursive(p) => p.verify(&pp.pp, num_steps, z0_primary, &z0_secondary),
+            Self::Compressed(p) => p.verify(&pp.vk, num_steps, z0_primary.to_vec(), z0_secondary),
         }?;
 
         Ok(zi_primary == zi_primary_verified && zi_secondary == zi_secondary_verified)
@@ -463,14 +471,14 @@ pub mod tests {
                 .evaluate_and_prove(&pp, expr, empty_sym_env(s), s, limit, lang.clone())
                 .unwrap();
 
-            let res = proof.verify(&pp, num_steps, z0.clone(), &zi);
+            let res = proof.verify(&pp, num_steps, &z0, &zi);
             if res.is_err() {
                 dbg!(&res);
             }
             assert!(res.unwrap());
 
             let compressed = proof.compress(&pp).unwrap();
-            let res2 = compressed.verify(&pp, num_steps, z0, &zi);
+            let res2 = compressed.verify(&pp, num_steps, &z0, &zi);
 
             assert!(res2.unwrap());
         }
@@ -2347,7 +2355,7 @@ pub mod tests {
     #[test]
     fn test_prove_str_car() {
         let s = &mut Store::<Fr>::default();
-        let expected_a = s.read(r#"#\a"#).unwrap();
+        let expected_a = s.read(r"#\a").unwrap();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -2435,7 +2443,7 @@ pub mod tests {
         let error = s.get_cont_error();
         test_aux::<Coproc<Fr>>(
             s,
-            r#"(strcons #\a 123)"#,
+            r"(strcons #\a 123)",
             None,
             None,
             Some(error),
@@ -2498,8 +2506,8 @@ pub mod tests {
     fn test_prove_car_cdr_invalid_tag_error_char() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<Coproc<Fr>>(s, r#"(car #\a)"#, None, None, Some(error), None, 2, None);
-        test_aux::<Coproc<Fr>>(s, r#"(cdr #\a)"#, None, None, Some(error), None, 2, None);
+        test_aux::<Coproc<Fr>>(s, r"(car #\a)", None, None, Some(error), None, 2, None);
+        test_aux::<Coproc<Fr>>(s, r"(cdr #\a)", None, None, Some(error), None, 2, None);
     }
 
     #[test]
@@ -2670,7 +2678,7 @@ pub mod tests {
     #[test]
     fn test_prove_num_char() {
         let s = &mut Store::<Fr>::default();
-        let expr = r#"(num #\a)"#;
+        let expr = r"(num #\a)";
         let expected = s.num(97);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 2, None);
@@ -2680,7 +2688,7 @@ pub mod tests {
     fn test_prove_char_num() {
         let s = &mut Store::<Fr>::default();
         let expr = r#"(char 97)"#;
-        let expected_a = s.read(r#"#\a"#).unwrap();
+        let expected_a = s.read(r"#\a").unwrap();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -2699,8 +2707,8 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expr = r#"(char (- 0 4294967200))"#;
         let expr2 = r#"(char (- 0 4294967199))"#;
-        let expected_a = s.read(r#"#\a"#).unwrap();
-        let expected_b = s.read(r#"#\b"#).unwrap();
+        let expected_a = s.read(r"#\a").unwrap();
+        let expected_b = s.read(r"#\b").unwrap();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -2849,7 +2857,7 @@ pub mod tests {
     #[test]
     fn test_str_car_cdr_cons() {
         let s = &mut Store::<Fr>::default();
-        let a = s.read(r#"#\a"#).unwrap();
+        let a = s.read(r"#\a").unwrap();
         let apple = s.read(r#" "apple" "#).unwrap();
         let a_pple = s.read(r#" (#\a . "pple") "#).unwrap();
         let pple = s.read(r#" "pple" "#).unwrap();
@@ -2922,7 +2930,7 @@ pub mod tests {
 
         test_aux::<Coproc<Fr>>(
             s,
-            r#"(strcons #\a #\b)"#,
+            r"(strcons #\a #\b)",
             None,
             None,
             Some(error),

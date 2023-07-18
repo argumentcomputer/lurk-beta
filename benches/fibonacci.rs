@@ -117,7 +117,7 @@ fn fibo_prove<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut 
             b.iter_batched(
                 || (frames.clone(), lang_rc.clone()), // avoid cloning the frames in the benchmark
                 |(frames, lang_rc)| {
-                    let result = prover.prove(&pp, frames, &mut store, lang_rc).unwrap();
+                    let result = prover.prove(&pp, &frames, &mut store, lang_rc).unwrap();
                     black_box(result);
                 },
                 BatchSize::LargeInput,
