@@ -1,6 +1,6 @@
-use std::{fs::File, io::{BufWriter, BufReader}};
+use std::{fs::File, io::BufWriter};
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 
 use lurk::{field::LurkField, ptr::Ptr, store::Store, z_ptr::ZExprPtr, z_store::ZStore};
 use serde::{Deserialize, Serialize};
@@ -34,20 +34,5 @@ impl<'a, F: LurkField + Serialize + Deserialize<'a>> Commitment<F> {
         let fd = &FieldData::wrap::<F, Commitment<F>>(self)?;
         bincode::serialize_into(BufWriter::new(&File::create(commitment_path(hash))?), fd)?;
         Ok(())
-    }
-
-    pub fn load(hash: &str) -> Result<Self> {
-        let file = File::open(commitment_path(hash))?;
-        let fd: FieldData = bincode::deserialize_from(BufReader::new(file))?;
-        if fd.field != F::FIELD {
-            bail!("Invalid field: {}. Expected {}", &fd.field, &F::FIELD)
-        } else {
-            let commitment: Commitment<F> = fd.extract()?;
-            if format!("0x{}", commitment.hash.hex_digits()) == hash {
-                Ok(commitment)
-            } else {
-                bail!("Hash mismatch. Corrupted commitment file.")
-            }
-        }
     }
 }

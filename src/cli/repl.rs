@@ -1,3 +1,5 @@
+use std::fs::File;
+use std::io::BufReader;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -38,8 +40,10 @@ use lurk::{
 };
 
 use super::commitment::Commitment;
+use super::field_data::FieldData;
 #[cfg(not(target_arch = "wasm32"))]
 use super::lurk_proof::{LurkProof, LurkProofMeta};
+use super::paths::commitment_path;
 
 #[derive(Completer, Helper, Highlighter, Hinter)]
 struct InputValidator {
@@ -246,8 +250,18 @@ impl Repl<F> {
     }
 
     fn fetch(&mut self, hash: &str) -> Result<()> {
-        let commitment: Commitment<F> = Commitment::load(hash)?;
-        println!("Data for 0x{hash} is now available");
+        let file = File::open(commitment_path(hash))?;
+        let fd: FieldData = bincode::deserialize_from(BufReader::new(file))?;
+        if fd.field != F::FIELD {
+            bail!("Invalid field: {}. Expected {}", &fd.field, &F::FIELD)
+        } else {
+            let commitment: Commitment<F> = fd.extract()?;
+            if format!("0x{}", commitment.hash.hex_digits()) != hash {
+                bail!("Hash mismatch. Corrupted commitment file.")
+            } else {
+                println!("Data for {hash} is now available");
+            }
+        }
         Ok(())
     }
 
@@ -442,7 +456,10 @@ impl Repl<F> {
                 let (expr_io, ..) = self
                     .eval_expr(expr)
                     .with_context(|| "evaluating first arg")?;
-                let hash = self.store.fetch_num(&expr_io.expr).expect("must be a number");
+                let hash = self
+                    .store
+                    .fetch_num(&expr_io.expr)
+                    .expect("must be a number");
                 self.fetch(&format!("0x{}", hash.into_scalar().hex_digits()))?;
             }
             "clear" => self.env = self.store.nil(),
