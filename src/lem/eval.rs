@@ -19,13 +19,16 @@ pub(crate) fn eval_step() -> Func {
 
 fn reduce() -> Func {
     func!((expr_in, env_in, cont_in): 4 => {
-        match_tag expr_in {
-            Nil | Fun | Num | Str | Char | Comm | U64 | Key => {
-                match_tag cont_in {
-                    Outermost => {
-                        let cont_out: Terminal;
-                        let ctrl: Dummy;
-                        return (expr_in, env_in, cont_out, ctrl);
+        match_tag cont_in {
+            Terminal | Error => {
+                let ctrl: Return;
+                return (expr_in, env_in, cont_in, ctrl)
+            }
+            _ => {
+                match_tag expr_in {
+                    Nil | Fun | Num | Str | Char | Comm | U64 | Key => {
+                        let ctrl: ApplyContinuation;
+                        return (expr_in, env_in, cont_in, ctrl);
                     }
                 };
             }
@@ -35,13 +38,36 @@ fn reduce() -> Func {
 
 fn apply_cont() -> Func {
     func!((expr_in, env_in, cont_in, ctrl): 4 => {
-        return (expr_in, env_in, cont_in, ctrl)
+        match_tag ctrl {
+            ApplyContinuation => {
+                match_tag cont_in {
+                    Terminal => {
+                        let ctrl: Return;
+                        return (expr_in, env_in, cont_in, ctrl)
+                    },
+                    Error => {
+                        let ctrl: Return;
+                        return (expr_in, env_in, cont_in, ctrl)
+                    }
+                }
+            },
+            _ => {
+                return (expr_in, env_in, cont_in, ctrl)
+            }
+        };
     })
 }
 
 fn make_thunk() -> Func {
     func!((expr_in, env_in, cont_in, ctrl): 4 => {
-        return (expr_in, env_in, cont_in, ctrl)
+        match_tag ctrl {
+            MakeThunk => {
+                return (expr_in, env_in, cont_in, ctrl)
+            }
+            _ => {
+                return (expr_in, env_in, cont_in, ctrl)
+            }
+        };
     })
 }
 
@@ -55,9 +81,9 @@ mod tests {
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
     use blstrs::Scalar as Fr;
 
-    const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 79;
-    const NUM_CONSTRAINTS: usize = 154;
+    // const NUM_INPUTS: usize = 1;
+    // const NUM_AUX: usize = 111;
+    // const NUM_CONSTRAINTS: usize = 258;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 0,
         hash3: 0,
@@ -104,12 +130,12 @@ mod tests {
                     .synthesize(&mut cs, store, &slots_count, frame)
                     .unwrap();
                 assert!(cs.is_satisfied());
-                assert_eq!(cs.num_inputs(), NUM_INPUTS);
-                assert_eq!(cs.aux().len(), NUM_AUX);
+                // assert_eq!(cs.num_inputs(), NUM_INPUTS);
+                eprintln!("VARIABLES: {}", cs.aux().len());
 
                 let num_constraints = cs.num_constraints();
                 assert_eq!(computed_num_constraints, num_constraints);
-                assert_eq!(num_constraints, NUM_CONSTRAINTS);
+                eprintln!("CONSTRAINTS: {}", num_constraints);
                 // TODO: assert uniformity with `Delta` from bellperson
             }
             all_paths.extend(paths);
@@ -117,6 +143,7 @@ mod tests {
 
         // TODO do we really need this?
         // eval_step.assert_all_paths_taken(&all_paths);
+        assert!(false)
     }
 
     fn expr_in_expr_out_pairs(_store: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
