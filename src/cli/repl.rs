@@ -5,6 +5,7 @@ use std::{fs::read_to_string, process, time::Instant};
 
 use anyhow::{bail, Context, Result};
 
+use ff::Field;
 use log::info;
 
 use rustyline::{
@@ -36,14 +37,9 @@ use lurk::{
     z_store::ZStore,
 };
 
+use super::commitment::Commitment;
 #[cfg(not(target_arch = "wasm32"))]
-use std::{fs::File, io::BufWriter};
-
-#[cfg(not(target_arch = "wasm32"))]
-use super::{
-    lurk_proof::{LurkProof, LurkProofMeta},
-    paths::{proof_meta_path, proof_path},
-};
+use super::lurk_proof::{LurkProof, LurkProofMeta};
 
 #[derive(Completer, Helper, Highlighter, Hinter)]
 struct InputValidator {
@@ -166,8 +162,6 @@ impl Repl<F> {
 
     #[cfg(not(target_arch = "wasm32"))]
     pub fn prove_last_frames(&mut self) -> Result<()> {
-        use crate::cli::lurk_proof::FieldData;
-
         match self.evaluation.as_mut() {
             None => bail!("No evaluation to prove"),
             Some(Evaluation {
@@ -211,43 +205,49 @@ impl Repl<F> {
                     assert_eq!(self.rc * num_steps, n_frames);
                     assert!(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?);
 
-                    let lurk_proof_wrap = FieldData::wrap::<F, LurkProof<'_>>(&LurkProof::Nova {
+                    let lurk_proof = &LurkProof::Nova {
                         proof,
                         public_inputs,
                         public_outputs,
                         num_steps,
                         rc: self.rc,
                         lang: (*self.lang).clone(),
-                    })?;
+                    };
 
-                    let lurk_proof_meta_wrap =
-                        FieldData::wrap::<F, LurkProofMeta<F>>(&LurkProofMeta {
-                            iterations: *iterations,
-                            evaluation_cost: *cost,
-                            generation_cost: generation.duration_since(start).as_nanos(),
-                            compression_cost: compression.duration_since(generation).as_nanos(),
-                            status,
-                            expression,
-                            environment,
-                            result,
-                            zstore: zstore.unwrap(),
-                        })?;
+                    let lurk_proof_meta = &LurkProofMeta {
+                        iterations: *iterations,
+                        evaluation_cost: *cost,
+                        generation_cost: generation.duration_since(start).as_nanos(),
+                        compression_cost: compression.duration_since(generation).as_nanos(),
+                        status,
+                        expression,
+                        environment,
+                        result,
+                        zstore: zstore.unwrap(),
+                    };
 
                     let id = &format!("{}", timestamp());
-                    bincode::serialize_into(
-                        BufWriter::new(&File::create(proof_path(id))?),
-                        &lurk_proof_wrap,
-                    )?;
-                    bincode::serialize_into(
-                        BufWriter::new(&File::create(proof_meta_path(id))?),
-                        &lurk_proof_meta_wrap,
-                    )?;
+                    lurk_proof.persist(id)?;
+                    lurk_proof_meta.persist(id)?;
                     println!("Proof ID: \"{id}\"");
                     Ok(())
                 }
                 Backend::SnarkPackPlus => todo!(),
             },
         }
+    }
+
+    fn hide(&mut self, secret: F, payload: Ptr<F>) -> Result<()> {
+        let commitment = Commitment::new(secret, payload, &mut self.store)?;
+        let hash = &format!("0x{}", commitment.hash.hex_digits());
+        commitment.persist(hash)?;
+        println!("Data: {}\nHash: {hash}", payload.fmt_to_string(&self.store));
+        Ok(())
+    }
+
+    fn fetch(&mut self, hash: &str) -> Result<()> {
+        let commitment: Commitment<F> = Commitment::load(hash)?;
+        Ok(())
     }
 
     #[inline]
@@ -415,6 +415,34 @@ impl Repl<F> {
                     );
                     process::exit(1);
                 }
+            }
+            "lurk.commit" => {
+                let first = self.peek1(cmd, args)?;
+                let (first_io, ..) = self.eval_expr(first)?;
+                self.hide(F::ZERO, first_io.expr)?;
+            }
+            "lurk.hide" => {
+                let (first, second) = self.peek2(cmd, args)?;
+                let (first_io, ..) = self
+                    .eval_expr(first)
+                    .with_context(|| "evaluating first arg")?;
+                let (second_io, ..) = self
+                    .eval_expr(second)
+                    .with_context(|| "evaluating second arg")?;
+                let Some(secret) = self.store.fetch_num(&first_io.expr) else {
+                    bail!("Secret must be a number. Got {}", first_io.expr.fmt_to_string(&self.store))
+                };
+                self.hide(secret.into_scalar(), second_io.expr)?;
+            }
+            "fetch" => {
+                let first = self.peek1(cmd, args)?;
+                let (first_io, ..) = self
+                    .eval_expr(first)
+                    .with_context(|| "evaluating first arg")?;
+                let Some(hash) = self.store.fetch_comm(&first) else {
+                    bail!("Hash must be a number. Got {}", first.fmt_to_string(&self.store))
+                };
+                // self.fetch(&format!("0x{}", hash.into_scalar().hex_digits()))?;
             }
             "clear" => self.env = self.store.nil(),
             "set-env" => {

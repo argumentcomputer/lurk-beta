@@ -23,8 +23,13 @@ pub fn proofs_dir() -> PathBuf {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn lurk_leaf_dirs() -> [PathBuf; 1] {
-    [proofs_dir()]
+pub fn commits_dir() -> PathBuf {
+    lurk_dir().join(Path::new("commits"))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn lurk_leaf_dirs() -> [PathBuf; 2] {
+    [proofs_dir(), commits_dir()]
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -36,6 +41,16 @@ pub fn create_lurk_dirs() -> Result<()> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+pub fn repl_history() -> PathBuf {
+    lurk_dir().join(Path::new("repl-history"))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn commitment_path(hash: &str) -> PathBuf {
+    commits_dir().join(Path::new(hash))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn proof_path(name: &str) -> PathBuf {
     proofs_dir().join(Path::new(name)).with_extension("proof")
 }
@@ -43,9 +58,4 @@ pub fn proof_path(name: &str) -> PathBuf {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn proof_meta_path(name: &str) -> PathBuf {
     proofs_dir().join(Path::new(name)).with_extension("meta")
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn repl_history() -> PathBuf {
-    lurk_dir().join(Path::new("repl-history"))
 }

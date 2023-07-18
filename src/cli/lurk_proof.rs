@@ -1,3 +1,5 @@
+use std::{fs::File, io::BufWriter};
+
 use serde::{Deserialize, Serialize};
 
 use anyhow::Result;
@@ -7,35 +9,17 @@ use lurk::{
         lang::{Coproc, Lang},
         Status,
     },
-    field::{LanguageField, LurkField},
+    field::LurkField,
     proof::nova,
     public_parameters::public_params,
     z_ptr::ZExprPtr,
     z_store::ZStore,
 };
 
-/// A wrapper for data whose deserialization depends on a certain LurkField
-#[derive(Serialize, Deserialize)]
-pub struct FieldData {
-    field: LanguageField,
-    data: Vec<u8>,
-}
-
-#[allow(dead_code)]
-impl FieldData {
-    #[inline]
-    pub fn wrap<F: LurkField, T: Serialize>(t: &T) -> Result<Self> {
-        Ok(Self {
-            field: F::FIELD,
-            data: bincode::serialize(t)?,
-        })
-    }
-
-    #[inline]
-    pub fn open<'a, T: Deserialize<'a>>(&'a self) -> Result<T> {
-        Ok(bincode::deserialize(&self.data)?)
-    }
-}
+use super::{
+    field_data::FieldData,
+    paths::{proof_meta_path, proof_path},
+};
 
 /// Carries extra information to help with visualization, experiments etc
 #[derive(Serialize, Deserialize)]
@@ -49,6 +33,14 @@ pub struct LurkProofMeta<F: LurkField> {
     pub environment: ZExprPtr<F>,
     pub result: ZExprPtr<F>,
     pub zstore: ZStore<F>,
+}
+
+impl<F: LurkField + Serialize> LurkProofMeta<F> {
+    pub fn persist(&self, id: &str) -> Result<()> {
+        let fd = &FieldData::wrap::<F, LurkProofMeta<F>>(self)?;
+        bincode::serialize_into(BufWriter::new(&File::create(proof_meta_path(id))?), fd)?;
+        Ok(())
+    }
 }
 
 type F = pasta_curves::pallas::Scalar; // TODO: generalize this
@@ -67,6 +59,12 @@ pub enum LurkProof<'a> {
 }
 
 impl<'a> LurkProof<'a> {
+    pub fn persist(&self, id: &str) -> Result<()> {
+        let fd = &FieldData::wrap::<F, LurkProof<'_>>(self)?;
+        bincode::serialize_into(BufWriter::new(&File::create(proof_path(id))?), fd)?;
+        Ok(())
+    }
+
     #[allow(dead_code)]
     fn verify(self) -> Result<bool> {
         match self {
@@ -96,12 +94,11 @@ impl<'a> LurkProof<'a> {
 
     #[cfg(not(target_arch = "wasm32"))]
     pub fn verify_proof(proof_id: &str) -> Result<()> {
-        use super::paths::proof_path;
-        use std::{fs::File, io::BufReader};
+        use std::io::BufReader;
 
         let file = File::open(proof_path(proof_id))?;
         let fd: FieldData = bincode::deserialize_from(BufReader::new(file))?;
-        let lurk_proof: LurkProof = fd.open()?;
+        let lurk_proof: LurkProof = fd.extract()?;
         Self::print_verification(proof_id, lurk_proof.verify()?);
         Ok(())
     }

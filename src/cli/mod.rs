@@ -1,3 +1,5 @@
+mod commitment;
+mod field_data;
 mod lurk_proof;
 mod paths;
 mod repl;
