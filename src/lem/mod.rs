@@ -119,11 +119,11 @@ pub struct Block {
 pub enum Ctrl {
     /// `MatchTag(x, cases)` performs a match on the tag of `x`, choosing the
     /// appropriate `Block` among the ones provided in `cases`
-    MatchTag(Var, IndexMap<Tag, Block>),
+    MatchTag(Var, IndexMap<Tag, Block>, Option<Box<Block>>),
     /// `MatchSymbol(x, cases, def)` checks whether `x` matches some symbol among
     /// the ones provided in `cases`. If so, run the corresponding `Block`. Run
     /// `def` otherwise
-    MatchSymbol(Var, IndexMap<Symbol, Block>, Box<Block>),
+    MatchSymbol(Var, IndexMap<Symbol, Block>, Option<Box<Block>>),
     /// `Return(rets)` sets the output to `rets`
     Return(Vec<Var>),
 }
@@ -258,7 +258,7 @@ impl Func {
                         )
                     }
                 }
-                Ctrl::MatchTag(var, cases) => {
+                Ctrl::MatchTag(var, cases, def) => {
                     is_bound(var, map)?;
                     let mut tags = HashSet::new();
                     for (tag, block) in cases {
@@ -266,6 +266,10 @@ impl Func {
                             bail!("Tag {tag} already defined.");
                         }
                         recurse(block, return_size, map)?;
+                    }
+                    match def {
+                        Some(def) => recurse(def, return_size, map)?,
+                        None => (),
                     }
                 }
                 Ctrl::MatchSymbol(var, cases, def) => {
@@ -277,7 +281,10 @@ impl Func {
                         }
                         recurse(block, return_size, map)?;
                     }
-                    recurse(def, return_size, map)?;
+                    match def {
+                        Some(def) => recurse(def, return_size, map)?,
+                        None => (),
+                    }
                 }
             }
             Ok(())
@@ -396,13 +403,21 @@ impl Block {
             }
         }
         let ctrl = match self.ctrl {
-            Ctrl::MatchTag(var, cases) => {
+            Ctrl::MatchTag(var, cases, def) => {
                 let mut new_cases = Vec::with_capacity(cases.len());
                 for (tag, case) in cases {
                     let new_case = case.deconflict(&mut map.clone(), uniq)?;
                     new_cases.push((tag, new_case));
                 }
-                Ctrl::MatchTag(map.get_cloned(&var)?, IndexMap::from_iter(new_cases))
+                let new_def = match def {
+                    Some(def) => Some(Box::new(def.deconflict(map, uniq)?)),
+                    None => None,
+                };
+                Ctrl::MatchTag(
+                    map.get_cloned(&var)?,
+                    IndexMap::from_iter(new_cases),
+                    new_def,
+                )
             }
             Ctrl::MatchSymbol(var, cases, def) => {
                 let mut new_cases = Vec::with_capacity(cases.len());
@@ -410,11 +425,14 @@ impl Block {
                     let new_case = case.deconflict(&mut map.clone(), uniq)?;
                     new_cases.push((symbol.clone(), new_case));
                 }
-                let new_def = def.deconflict(map, uniq)?;
+                let new_def = match def {
+                    Some(def) => Some(Box::new(def.deconflict(map, uniq)?)),
+                    None => None,
+                };
                 Ctrl::MatchSymbol(
                     map.get_cloned(&var)?,
                     IndexMap::from_iter(new_cases),
-                    Box::new(new_def),
+                    new_def,
                 )
             }
             Ctrl::Return(o) => Ctrl::Return(map.get_many_cloned(&o)?),
@@ -434,11 +452,20 @@ impl Block {
                     store.intern_symbol(symbol);
                     block.intern_matched_symbols(store)
                 });
-                def.intern_matched_symbols(store);
+                match def {
+                    Some(def) => def.intern_matched_symbols(store),
+                    None => (),
+                }
             }
-            Ctrl::MatchTag(_, cases) => cases
-                .values()
-                .for_each(|block| block.intern_matched_symbols(store)),
+            Ctrl::MatchTag(_, cases, def) => {
+                cases
+                    .values()
+                    .for_each(|block| block.intern_matched_symbols(store));
+                match def {
+                    Some(def) => def.intern_matched_symbols(store),
+                    None => (),
+                }
+            }
             Ctrl::Return(..) => (),
         }
     }

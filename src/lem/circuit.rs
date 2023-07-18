@@ -219,14 +219,22 @@ impl Block {
             acc.add(val)
         });
         let ctrl_slots = match &self.ctrl {
-            Ctrl::MatchTag(_, cases) => {
-                cases.values().fold(SlotsCounter::default(), |acc, block| {
-                    acc.max(block.count_slots())
-                })
+            Ctrl::MatchTag(_, cases, def) => {
+                let init = def
+                    .as_ref()
+                    .map_or(SlotsCounter::default(), |def| def.count_slots());
+                cases
+                    .values()
+                    .fold(init, |acc, block| acc.max(block.count_slots()))
             }
-            Ctrl::MatchSymbol(_, cases, def) => cases
-                .values()
-                .fold(def.count_slots(), |acc, block| acc.max(block.count_slots())),
+            Ctrl::MatchSymbol(_, cases, def) => {
+                let init = def
+                    .as_ref()
+                    .map_or(SlotsCounter::default(), |def| def.count_slots());
+                cases
+                    .values()
+                    .fold(init, |acc, block| acc.max(block.count_slots()))
+            }
             Ctrl::Return(..) => SlotsCounter::default(),
         };
         ops_slots.add(ctrl_slots)
@@ -735,7 +743,7 @@ impl Func {
                     }
                     Ok(())
                 }
-                Ctrl::MatchTag(match_var, cases) => {
+                Ctrl::MatchTag(match_var, cases, def) => {
                     let allocated_match_tag = bound_allocations.get(match_var)?.tag().clone();
                     let mut concrete_path_vec = Vec::new();
                     for (tag, op) in cases {
@@ -767,16 +775,25 @@ impl Func {
                         )?;
                     }
 
-                    // Now we need to enforce that at exactly one path was taken. We do that by enforcing
-                    // that the sum of the previously collected `Boolean`s is one. But, of course, this
-                    // irrelevant if we're on a virtual path and thus we use an implication gadget.
-                    enforce_selector_with_premise(
-                        &mut cs.namespace(|| "enforce_selector_with_premise"),
-                        &concrete_path,
-                        &concrete_path_vec,
-                    )
-                    .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
-                    Ok(())
+                    match def {
+                        None => {
+                            // Now we need to enforce that at exactly one path was taken. We do that by enforcing
+                            // that the sum of the previously collected `Boolean`s is one. But, of course, this
+                            // irrelevant if we're on a virtual path and thus we use an implication gadget.
+                            enforce_selector_with_premise(
+                                &mut cs.namespace(|| "enforce_selector_with_premise"),
+                                &concrete_path,
+                                &concrete_path_vec,
+                            )
+                            .with_context(|| {
+                                " couldn't constrain `enforce_selector_with_premise`"
+                            })?;
+                            Ok(())
+                        }
+                        Some(def) => {
+                            todo!()
+                        }
+                    }
                 }
                 // Fixme: finish match symbol
                 Ctrl::MatchSymbol(..) => bail!("TODO"),
@@ -849,7 +866,7 @@ impl Func {
             }
             match &block.ctrl {
                 Ctrl::Return(vars) => num_constraints + 2 * vars.len(),
-                Ctrl::MatchTag(_, cases) => {
+                Ctrl::MatchTag(_, cases, def) => {
                     // `alloc_equal_const` adds 3 constraints for each case and
                     // the `and` is free for non-nested `MatchTag`s, since we
                     // start `concrete_path` with a constant `true`
@@ -862,6 +879,10 @@ impl Func {
                     for block in cases.values() {
                         num_constraints += recurse(block, true, globals);
                     }
+                    match def {
+                        Some(def) => todo!(),
+                        None => (),
+                    };
                     num_constraints
                 }
                 Ctrl::MatchSymbol(..) => todo!(),

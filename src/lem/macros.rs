@@ -73,7 +73,7 @@ macro_rules! op {
 
 #[macro_export]
 macro_rules! ctrl {
-    ( match_tag $sii:ident { $( $tag:ident $(| $other_tags:ident)* => $case_ops:tt ),* $(,)? } ) => {
+    ( match_tag $sii:ident { $( $tag:ident $(| $other_tags:ident)* => $case_ops:tt ),* $(_ => $def:tt)? $(,)? } ) => {
         {
             let mut cases = indexmap::IndexMap::new();
             $(
@@ -92,10 +92,11 @@ macro_rules! ctrl {
                     };
                 )*
             )*
-            $crate::lem::Ctrl::MatchTag($crate::var!($sii), cases)
+            let default = None $( .or (Some(Box::new($crate::block!( $def )))) )?;
+            $crate::lem::Ctrl::MatchTag($crate::var!($sii), cases, default)
         }
     };
-    ( match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* , _ => $def:tt $(,)? } ) => {
+    ( match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* , $(_ => $def:tt)? $(,)? } ) => {
         {
             let mut cases = indexmap::IndexMap::new();
             $(
@@ -106,7 +107,8 @@ macro_rules! ctrl {
                     panic!("Repeated path on `match_symbol`");
                 };
             )*
-            $crate::lem::Ctrl::MatchSymbol($crate::var!($sii), cases, Box::new($crate::block!( $def )))
+            let default = None $( .or (Some(Box::new($crate::block!( $def )))) )?;
+            $crate::lem::Ctrl::MatchSymbol($crate::var!($sii), cases, default)
         }
     };
     ( return ($($src:ident),*) ) => {
@@ -291,12 +293,12 @@ mod tests {
 
     #[inline]
     fn match_tag(i: Var, cases: Vec<(Tag, Block)>) -> Ctrl {
-        Ctrl::MatchTag(i, indexmap::IndexMap::from_iter(cases))
+        Ctrl::MatchTag(i, indexmap::IndexMap::from_iter(cases), None)
     }
 
     #[inline]
     fn match_symbol(i: Var, cases: Vec<(Symbol, Block)>, def: Block) -> Ctrl {
-        Ctrl::MatchSymbol(i, indexmap::IndexMap::from_iter(cases), Box::new(def))
+        Ctrl::MatchSymbol(i, indexmap::IndexMap::from_iter(cases), Some(Box::new(def)))
     }
 
     #[test]

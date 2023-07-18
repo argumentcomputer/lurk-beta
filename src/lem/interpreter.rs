@@ -148,7 +148,7 @@ impl Block {
             }
         }
         match &self.ctrl {
-            Ctrl::MatchTag(match_var, cases) => {
+            Ctrl::MatchTag(match_var, cases, def) => {
                 let ptr = bindings.get(match_var)?;
                 let tag = ptr.tag();
                 match cases.get(tag) {
@@ -156,7 +156,13 @@ impl Block {
                         path.push_tag_inplace(tag);
                         block.run(input, store, bindings, preimages, path)
                     }
-                    None => bail!("No match for tag {}", tag),
+                    None => {
+                        path.push_default_inplace();
+                        match def {
+                            Some(def) => def.run(input, store, bindings, preimages, path),
+                            None => bail!("No match for tag {}", tag),
+                        }
+                    }
                 }
             }
             Ctrl::MatchSymbol(match_var, cases, def) => {
@@ -171,7 +177,10 @@ impl Block {
                     }
                     None => {
                         path.push_default_inplace();
-                        def.run(input, store, bindings, preimages, path)
+                        match def {
+                            Some(def) => def.run(input, store, bindings, preimages, path),
+                            None => bail!("No match for symbol {}", symbol),
+                        }
                     }
                 }
             }

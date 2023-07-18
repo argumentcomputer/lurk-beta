@@ -100,12 +100,18 @@ impl Block {
             }
         }
         num_paths *= match &self.ctrl {
-            Ctrl::MatchTag(_, cases) => {
-                cases.values().fold(0, |acc, block| acc + block.num_paths())
+            Ctrl::MatchTag(_, cases, def) => {
+                let init = def.as_ref().map_or(0, |def| def.num_paths());
+                cases
+                    .values()
+                    .fold(init, |acc, block| acc + block.num_paths())
             }
-            Ctrl::MatchSymbol(_, cases, def) => cases
-                .values()
-                .fold(def.num_paths(), |acc, block| acc + block.num_paths()),
+            Ctrl::MatchSymbol(_, cases, def) => {
+                let init = def.as_ref().map_or(0, |def| def.num_paths());
+                cases
+                    .values()
+                    .fold(init, |acc, block| acc + block.num_paths())
+            }
             Ctrl::Return(..) => 1,
         };
         num_paths
