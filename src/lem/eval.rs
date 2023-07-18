@@ -15,7 +15,6 @@ pub(crate) fn eval_step() -> Func {
         let (expr, env, cont, ctrl) = make_thunk(expr, env, cont, ctrl);
         return (expr, env, cont)
     })
-    .unwrap()
 }
 
 fn reduce() -> Func {
@@ -32,21 +31,18 @@ fn reduce() -> Func {
             }
         };
     })
-    .unwrap()
 }
 
 fn apply_cont() -> Func {
     func!((expr_in, env_in, cont_in, ctrl): 4 => {
         return (expr_in, env_in, cont_in, ctrl)
     })
-    .unwrap()
 }
 
 fn make_thunk() -> Func {
     func!((expr_in, env_in, cont_in, ctrl): 4 => {
         return (expr_in, env_in, cont_in, ctrl)
     })
-    .unwrap()
 }
 
 #[cfg(test)]

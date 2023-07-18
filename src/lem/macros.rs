@@ -276,7 +276,7 @@ macro_rules! func {
             vec![$($crate::var!($in)),*],
             $size,
             $crate::block!($lem),
-        )
+        ).unwrap()
     };
 }
 
