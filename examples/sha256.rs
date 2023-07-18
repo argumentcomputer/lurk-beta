@@ -127,9 +127,7 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
 
         u.reverse();
 
-        let result = s.as_lurk_boolean(u == self.expected);
-
-        result
+        s.as_lurk_boolean(u == self.expected)
     }
 
     fn has_circuit(&self) -> bool {
