@@ -305,7 +305,7 @@ impl Func {
             .input_params
             .into_iter()
             .map(|var| {
-                let new_var = var.make_unique(*uniq);
+                let new_var = var.make_unique(uniq);
                 map.insert(var, new_var.clone());
                 new_var
             })
@@ -347,8 +347,7 @@ impl Block {
     fn deconflict(self, map: &mut VarMap<Var>, uniq: &mut usize) -> Result<Self> {
         #[inline]
         fn insert_one(map: &mut VarMap<Var>, uniq: &mut usize, var: &Var) -> Var {
-            let new_var = var.make_unique(*uniq);
-            *uniq += 1;
+            let new_var = var.make_unique(uniq);
             map.insert(var.clone(), new_var.clone());
             new_var
         }
@@ -472,7 +471,8 @@ impl Block {
 }
 
 impl Var {
-    fn make_unique(&self, uniq: usize) -> Var {
+    fn make_unique(&self, uniq: &mut usize) -> Var {
+        *uniq += 1;
         Var(format!("#{}.{}", uniq, self.name()).into())
     }
 }

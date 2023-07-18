@@ -824,6 +824,7 @@ impl Func {
             }
         }
 
+        let call_outputs = frame.preimages.call_outputs.iter().cloned().rev().collect();
         recurse(
             cs,
             &self.body,
@@ -837,7 +838,7 @@ impl Func {
                 preallocated_hash2_slots,
                 preallocated_hash3_slots,
                 preallocated_hash4_slots,
-                call_outputs: frame.preimages.call_outputs.clone(),
+                call_outputs,
                 call_count: 0,
             },
         )

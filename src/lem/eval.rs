@@ -41,13 +41,14 @@ fn apply_cont() -> Func {
         match_tag ctrl {
             ApplyContinuation => {
                 match_tag cont_in {
-                    Terminal => {
+                    Terminal | Error => {
                         let ctrl: Return;
                         return (expr_in, env_in, cont_in, ctrl)
                     },
-                    Error => {
+                    Outermost => {
                         let ctrl: Return;
-                        return (expr_in, env_in, cont_in, ctrl)
+                        let cont_out: Terminal;
+                        return (expr_in, env_in, cont_out, ctrl)
                     }
                 }
             },
