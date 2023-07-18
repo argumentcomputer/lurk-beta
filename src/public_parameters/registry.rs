@@ -6,7 +6,6 @@ use std::{
 use log::info;
 use once_cell::sync::Lazy;
 use pasta_curves::pallas;
-use serde::{de::DeserializeOwned, Serialize};
 use tap::TapFallible;
 
 use crate::public_parameters::error::Error;
@@ -34,7 +33,7 @@ pub(crate) static CACHE_REG: Lazy<Registry> = Lazy::new(|| Registry {
 
 impl Registry {
     fn get_from_file_cache_or_update_with<
-        C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static,
+        C: Coprocessor<S1> + 'static,
         F: FnOnce(Arc<Lang<S1, C>>) -> Arc<PublicParams<'static, C>>,
     >(
         &'static self,
@@ -66,7 +65,7 @@ impl Registry {
     /// Check if params for this Coproc are in registry, if so, return them.
     /// Otherwise, initialize with the passed in function.
     pub(crate) fn get_coprocessor_or_update_with<
-        C: Coprocessor<S1> + Serialize + DeserializeOwned + 'static,
+        C: Coprocessor<S1> + 'static,
         F: FnOnce(Arc<Lang<S1, C>>) -> Arc<PublicParams<'static, C>>,
     >(
         &'static self,
