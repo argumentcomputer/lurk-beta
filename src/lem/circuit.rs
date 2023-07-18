@@ -130,15 +130,15 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::{bail, Context, Result};
 use bellperson::{
-    gadgets::{boolean::Boolean, num::AllocatedNum},
+    gadgets::{
+        boolean::{AllocatedBit, Boolean},
+        num::AllocatedNum,
+    },
     ConstraintSystem,
 };
 
 use crate::circuit::gadgets::{
-    constraints::{
-        alloc_equal_const, and, enforce_implication_lc_zero, enforce_selector_with_premise,
-        implies_equal, popcount_lc,
-    },
+    constraints::{alloc_equal_const, and, enforce_selector_with_premise, implies_equal},
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
 };
@@ -563,7 +563,7 @@ impl Func {
         fn recurse<F: LurkField, CS: ConstraintSystem<F>>(
             cs: &mut CS,
             block: &Block,
-            concrete_path: Boolean,
+            not_dummy: &Boolean,
             next_slot: &mut SlotsCounter,
             bound_allocations: &mut BoundAllocations<F>,
             preallocated_outputs: &Vec<AllocatedPtr<F>>,
@@ -600,7 +600,7 @@ impl Func {
                                         &op
                                     )
                                 }),
-                                &concrete_path,
+                                not_dummy,
                                 allocated_ptr.tag(),
                                 &preallocated_preimg[ptr_idx], // tag index
                             )?;
@@ -611,7 +611,7 @@ impl Func {
                                         &op
                                     )
                                 }),
-                                &concrete_path,
+                                not_dummy,
                                 allocated_ptr.hash(),
                                 &preallocated_preimg[ptr_idx + 1], // hash index
                             )?;
@@ -649,7 +649,7 @@ impl Func {
                             &mut cs.namespace(|| {
                                 format!("implies equal for {}'s hash (LEMOP {:?})", $img, &op)
                             }),
-                            &concrete_path,
+                            not_dummy,
                             allocated_img.hash(),
                             &preallocated_img,
                         )?;
@@ -693,7 +693,7 @@ impl Func {
                         recurse(
                             &mut cs.namespace(|| format!("Call {}", g.call_count)),
                             &func.body,
-                            concrete_path.clone(),
+                            not_dummy,
                             next_slot,
                             bound_allocations,
                             &output_ptrs,
@@ -739,7 +739,7 @@ impl Func {
                                 &mut cs.namespace(|| {
                                     format!("implies_ptr_equal {return_var} (return_var {i})")
                                 }),
-                                &concrete_path,
+                                not_dummy,
                                 &preallocated_outputs[i],
                             )
                             .with_context(|| "couldn't constrain `implies_ptr_equal`")?;
@@ -748,7 +748,7 @@ impl Func {
                 }
                 Ctrl::MatchTag(match_var, cases, def) => {
                     let allocated_match_tag = bound_allocations.get(match_var)?.tag().clone();
-                    let mut concrete_path_vec = Vec::new();
+                    let mut selector = Vec::new();
                     for (tag, block) in cases {
                         let allocated_has_match = alloc_equal_const(
                             &mut cs.namespace(|| format!("{tag}.alloc_equal_const")),
@@ -757,20 +757,20 @@ impl Func {
                         )
                         .with_context(|| "couldn't allocate equal const")?;
 
-                        let concrete_path_and_has_match = and(
+                        let not_dummy_and_has_match = and(
                             &mut cs.namespace(|| format!("{tag}.and")),
-                            &concrete_path,
+                            not_dummy,
                             &allocated_has_match,
                         )
                         .with_context(|| "failed to constrain `and`")?;
 
-                        concrete_path_vec.push(allocated_has_match);
+                        selector.push(allocated_has_match);
 
                         let saved_slot = &mut next_slot.clone();
                         recurse(
                             &mut cs.namespace(|| format!("{}", tag)),
                             block,
-                            concrete_path_and_has_match,
+                            &not_dummy_and_has_match,
                             saved_slot,
                             bound_allocations,
                             preallocated_outputs,
@@ -780,43 +780,26 @@ impl Func {
 
                     match def {
                         Some(def) => {
-                            // Allocates the popcount, i.e. a variable that counts how many paths were taken
-                            // in `concrete_path_vec`s
-                            let popcount_val: u64 = concrete_path_vec
-                                .iter()
-                                .fold(0, |acc, b| acc + (b.get_value().unwrap() as u64));
-                            let popcount =
-                                allocate_num(cs, "_.popcount", LurkField::from_u64(popcount_val))?;
-                            let popcount_lc = popcount_lc::<F, CS>(&concrete_path_vec)?;
-                            enforce_implication_lc_zero(
-                                &mut cs.namespace(|| "_.enforce_implication"),
-                                &concrete_path,
-                                |_| popcount_lc - popcount.get_variable(),
-                            )
-                            .with_context(|| "failed to constrain `popcount`")?;
-
-                            // We take the default case when the popcount is zero
-                            let allocated_has_match = alloc_equal_const(
+                            let default = selector.iter().all(|b| !b.get_value().unwrap());
+                            let allocated_has_match = Boolean::Is(AllocatedBit::alloc(
                                 &mut cs.namespace(|| "_.alloc_equal_const"),
-                                &popcount,
-                                F::ZERO,
-                            )
-                            .with_context(|| "couldn't allocate equal const")?;
+                                Some(default),
+                            )?);
 
-                            let concrete_path_and_has_match = and(
+                            let not_dummy_and_has_match = and(
                                 &mut cs.namespace(|| "_.and"),
-                                &concrete_path,
+                                not_dummy,
                                 &allocated_has_match,
                             )
                             .with_context(|| "failed to constrain `and`")?;
 
-                            concrete_path_vec.push(allocated_has_match);
+                            selector.push(allocated_has_match);
 
                             let saved_slot = &mut next_slot.clone();
                             recurse(
                                 &mut cs.namespace(|| "_"),
                                 def,
-                                concrete_path_and_has_match,
+                                &not_dummy_and_has_match,
                                 saved_slot,
                                 bound_allocations,
                                 preallocated_outputs,
@@ -831,11 +814,10 @@ impl Func {
                     // irrelevant if we're on a virtual path and thus we use an implication gadget.
                     enforce_selector_with_premise(
                         &mut cs.namespace(|| "enforce_selector_with_premise"),
-                        &concrete_path,
-                        &concrete_path_vec,
+                        not_dummy,
+                        &selector,
                     )
-                    .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
-                    Ok(())
+                    .with_context(|| " couldn't constrain `enforce_selector_with_premise`")
                 }
                 // Fixme: finish match symbol
                 Ctrl::MatchSymbol(..) => bail!("TODO"),
@@ -845,7 +827,7 @@ impl Func {
         recurse(
             cs,
             &self.body,
-            Boolean::Constant(true),
+            &Boolean::Constant(true),
             &mut SlotsCounter::default(),
             &mut bound_allocations,
             &preallocated_outputs,
@@ -911,7 +893,7 @@ impl Func {
                 Ctrl::MatchTag(_, cases, def) => {
                     // `alloc_equal_const` adds 3 constraints for each case and
                     // the `and` is free for non-nested `MatchTag`s, since we
-                    // start `concrete_path` with a constant `true`
+                    // start `not_dummy` with a constant `true`
                     let multiplier = if nested { 4 } else { 3 };
 
                     // then we add 1 constraint from `enforce_selector_with_premise`
@@ -923,11 +905,8 @@ impl Func {
                     }
                     match def {
                         Some(def) => {
-                            // first we need to add the constraints of the popcount
-                            num_constraints += 1;
-                            // then `multiplier` for the boolean
-                            num_constraints += multiplier;
-                            // now we add the default case
+                            // constraints for the boolean and the default case
+                            num_constraints += multiplier - 2;
                             num_constraints += recurse(def, true, globals);
                         }
                         None => (),
