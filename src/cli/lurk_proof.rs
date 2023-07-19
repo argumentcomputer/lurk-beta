@@ -2,15 +2,14 @@ use serde::{Deserialize, Serialize};
 
 use lurk::{
     coprocessor::Coprocessor,
-    eval::{
-        lang::{Coproc, Lang},
-        Status,
-    },
+    eval::lang::{Coproc, Lang},
     field::LurkField,
     proof::nova,
-    z_ptr::ZExprPtr,
+    z_ptr::{ZContPtr, ZExprPtr},
     z_store::ZStore,
 };
+
+use super::field_data::HasFieldModulus;
 
 /// Carries extra information to help with visualization, experiments etc.
 ///
@@ -20,14 +19,19 @@ use lurk::{
 #[derive(Serialize, Deserialize)]
 pub struct LurkProofMeta<F: LurkField> {
     pub(crate) iterations: usize,
-    pub(crate) evaluation_cost: u128,
-    pub(crate) generation_cost: u128,
-    pub(crate) compression_cost: u128,
-    pub(crate) status: Status,
-    pub(crate) expression: ZExprPtr<F>,
-    pub(crate) environment: ZExprPtr<F>,
-    pub(crate) result: ZExprPtr<F>,
+    pub(crate) expr: ZExprPtr<F>,
+    pub(crate) env: ZExprPtr<F>,
+    pub(crate) cont: ZContPtr<F>,
+    pub(crate) expr_out: ZExprPtr<F>,
+    pub(crate) env_out: ZExprPtr<F>,
+    pub(crate) cont_out: ZContPtr<F>,
     pub(crate) zstore: ZStore<F>,
+}
+
+impl<F: LurkField> HasFieldModulus for LurkProofMeta<F> {
+    fn field_modulus() -> String {
+        F::MODULUS.to_owned()
+    }
 }
 
 type Pallas = pasta_curves::pallas::Scalar; // TODO: generalize this
@@ -48,11 +52,20 @@ where
     },
 }
 
+impl<'a, F: LurkField> HasFieldModulus for LurkProof<'a, F>
+where
+    Coproc<F>: Coprocessor<Pallas>,
+{
+    fn field_modulus() -> String {
+        F::MODULUS.to_owned()
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
-mod cli {
+mod non_wasm {
     use crate::cli::{
         field_data::FieldData,
-        paths::cli::{proof_meta_path, proof_path},
+        paths::non_wasm::{proof_meta_path, proof_path},
     };
     use anyhow::Result;
     use lurk::{
@@ -60,15 +73,13 @@ mod cli {
         public_parameters::public_params,
     };
     use serde::Serialize;
-    use std::{fs::File, io::BufReader, io::BufWriter};
 
     use super::{LurkProof, LurkProofMeta, Pallas};
 
     impl<F: LurkField + Serialize> LurkProofMeta<F> {
-        pub fn persist(&self, id: &str) -> Result<()> {
-            let fd = &FieldData::wrap::<F, LurkProofMeta<F>>(self)?;
-            bincode::serialize_into(BufWriter::new(&File::create(proof_meta_path(id))?), fd)?;
-            Ok(())
+        #[inline]
+        pub fn persist(self, id: &str) -> Result<()> {
+            FieldData::dump(self, proof_meta_path(id))
         }
     }
 
@@ -76,18 +87,9 @@ mod cli {
     where
         Coproc<F>: Coprocessor<Pallas>,
     {
-        pub fn persist(&self, id: &str) -> Result<()> {
-            let fd = &FieldData::wrap::<F, LurkProof<'_, F>>(self)?;
-            bincode::serialize_into(BufWriter::new(&File::create(proof_path(id))?), fd)?;
-            Ok(())
-        }
-
-        fn print_verification(proof_id: &str, success: bool) {
-            if success {
-                println!("✓ Proof \"{proof_id}\" verified");
-            } else {
-                println!("✗ Proof \"{proof_id}\" failed on verification");
-            }
+        #[inline]
+        pub fn persist(self, id: &str) -> Result<()> {
+            FieldData::dump(self, proof_path(id))
         }
     }
 
@@ -109,11 +111,13 @@ mod cli {
             }
         }
 
-        pub fn verify_proof<F: LurkField>(proof_id: &str) -> Result<()> {
-            let file = File::open(proof_path(proof_id))?;
-            let fd: FieldData = bincode::deserialize_from(BufReader::new(file))?;
-            let lurk_proof = fd.extract::<F, LurkProof<'_, Pallas>>()?;
-            Self::print_verification(proof_id, lurk_proof.verify()?);
+        pub fn verify_proof(proof_id: &str) -> Result<()> {
+            let lurk_proof: LurkProof<'_, Pallas> = FieldData::load(proof_path(proof_id))?;
+            if lurk_proof.verify()? {
+                println!("✓ Proof \"{proof_id}\" verified");
+            } else {
+                println!("✗ Proof \"{proof_id}\" failed on verification");
+            }
             Ok(())
         }
     }

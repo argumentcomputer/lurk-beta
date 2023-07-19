@@ -1,30 +1,74 @@
-use anyhow::{bail, Result};
-use serde::{Deserialize, Serialize};
+use anyhow::Result;
 
-use lurk::field::{LanguageField, LurkField};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-/// A wrapper for data whose deserialization depends on a certain LurkField
-#[derive(Serialize, Deserialize)]
-pub struct FieldData {
-    pub(crate) field: LanguageField,
-    data: Vec<u8>,
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct FieldData<T>(T);
+
+pub(crate) trait HasFieldModulus {
+    fn field_modulus() -> String;
 }
 
-#[allow(dead_code)]
-impl FieldData {
-    #[inline]
-    pub fn wrap<F: LurkField, T: Serialize>(t: &T) -> Result<Self> {
-        Ok(Self {
-            field: F::FIELD,
-            data: bincode::serialize(t)?,
-        })
+impl<'de, T: DeserializeOwned + HasFieldModulus> Deserialize<'de> for FieldData<T> {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Labeled {
+            label: String,
+            #[serde(with = "serde_bytes")]
+            bytes: Vec<u8>,
+        }
+        let level1_struct = Labeled::deserialize(deserializer)?;
+        if level1_struct.label != T::field_modulus() {
+            return Err(serde::de::Error::custom("Field mismatch"));
+        };
+        let t: T =
+            bincode::deserialize(&level1_struct.bytes[..]).map_err(serde::de::Error::custom)?;
+        Ok(FieldData(t))
+    }
+}
+
+impl<T: Serialize + HasFieldModulus> Serialize for FieldData<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        #[derive(Serialize)]
+        struct Labeled {
+            label: String,
+            #[serde(with = "serde_bytes")]
+            bytes: Vec<u8>,
+        }
+        let bytes = bincode::serialize(&self.0).map_err(serde::ser::Error::custom)?;
+        let labeled = Labeled {
+            label: T::field_modulus(),
+            bytes,
+        };
+        labeled.serialize(serializer)
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod non_wasm {
+    use super::{FieldData, HasFieldModulus};
+    use anyhow::Result;
+    use serde::{de::DeserializeOwned, Serialize};
+    use std::path::PathBuf;
+
+    impl<T: Serialize + HasFieldModulus> FieldData<T> {
+        pub fn dump(t: T, path: PathBuf) -> Result<()> {
+            let bytes = bincode::serialize(&FieldData(t))?;
+            Ok(std::fs::write(path, bytes)?)
+        }
     }
 
-    #[inline]
-    pub fn extract<'a, F: LurkField, T: Deserialize<'a>>(&'a self) -> Result<T> {
-        if self.field != F::FIELD {
-            bail!("Invalid field: {}. Expected {}", &self.field, &F::FIELD)
+    impl<T: DeserializeOwned + HasFieldModulus> FieldData<T> {
+        pub fn load(path: PathBuf) -> Result<T> {
+            let bytes = std::fs::read(path)?;
+            let fd: FieldData<T> = bincode::deserialize(&bytes)?;
+            Ok(fd.0)
         }
-        Ok(bincode::deserialize(&self.data)?)
     }
 }

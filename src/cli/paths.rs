@@ -1,5 +1,5 @@
 #[cfg(not(target_arch = "wasm32"))]
-pub mod cli {
+pub mod non_wasm {
     use anyhow::Result;
 
     use std::{
@@ -38,8 +38,8 @@ pub mod cli {
         lurk_dir().join(Path::new("repl-history"))
     }
 
-    pub fn commitment_path(hash: &str) -> PathBuf {
-        commits_dir().join(Path::new(hash))
+    pub fn commitment_path(name: &str) -> PathBuf {
+        commits_dir().join(Path::new(name))
     }
 
     pub fn proof_path(name: &str) -> PathBuf {

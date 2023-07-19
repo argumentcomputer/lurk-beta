@@ -363,7 +363,7 @@ struct VerifyArgs {
 /// Parses CLI arguments and continues the program flow accordingly
 pub fn parse_and_run() -> Result<()> {
     #[cfg(not(target_arch = "wasm32"))]
-    paths::cli::create_lurk_dirs()?;
+    paths::non_wasm::create_lurk_dirs()?;
 
     if let Ok(repl_cli) = ReplCli::try_parse() {
         repl_cli.run()
@@ -378,7 +378,7 @@ pub fn parse_and_run() -> Result<()> {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     use crate::cli::lurk_proof::LurkProof;
-                    LurkProof::verify_proof::<pallas::Scalar>(&verify_args.proof_id)?;
+                    LurkProof::verify_proof(&verify_args.proof_id)?;
                 }
                 Ok(())
             }

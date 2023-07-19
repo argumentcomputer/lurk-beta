@@ -1,6 +1,8 @@
 use lurk::{field::LurkField, z_ptr::ZExprPtr, z_store::ZStore};
 use serde::{Deserialize, Serialize};
 
+use super::field_data::HasFieldModulus;
+
 /// Holds data for commitments.
 ///
 /// **Warning**: holds private data. The `ZStore` contains the secret used to
@@ -11,14 +13,19 @@ pub struct Commitment<F: LurkField> {
     pub(crate) zstore: ZStore<F>,
 }
 
+impl<F: LurkField> HasFieldModulus for Commitment<F> {
+    fn field_modulus() -> String {
+        F::MODULUS.to_owned()
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
-mod cli {
+mod non_wasm {
     use anyhow::Result;
     use lurk::{field::LurkField, ptr::Ptr, store::Store, z_store::ZStore};
     use serde::Serialize;
-    use std::{fs::File, io::BufWriter};
 
-    use crate::cli::{field_data::FieldData, paths::cli::commitment_path};
+    use crate::cli::{field_data::FieldData, paths::non_wasm::commitment_path};
 
     use super::Commitment;
 
@@ -35,10 +42,9 @@ mod cli {
     }
 
     impl<F: LurkField + Serialize> Commitment<F> {
-        pub fn persist(&self, hash: &str) -> Result<()> {
-            let fd = &FieldData::wrap::<F, Commitment<F>>(self)?;
-            bincode::serialize_into(BufWriter::new(&File::create(commitment_path(hash))?), fd)?;
-            Ok(())
+        #[inline]
+        pub fn persist(self, hash: &str) -> Result<()> {
+            FieldData::dump(self, commitment_path(hash))
         }
     }
 }
