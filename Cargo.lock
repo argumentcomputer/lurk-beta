@@ -1017,6 +1017,7 @@ dependencies = [
  "insta",
  "log",
  "lurk",
+ "lurk-macros",
  "num_cpus",
  "once_cell",
  "pairing",

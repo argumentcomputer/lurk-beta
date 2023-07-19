@@ -31,6 +31,13 @@ use lurk::{
     z_ptr::ZExprPtr,
     z_store::ZStore,
 };
+#[cfg(not(target_arch = "wasm32"))]
+use lurk_macros::serde_test;
+
+#[allow(unused_imports)] // this is used in the serde_test macro
+#[cfg(not(target_arch = "wasm32"))]
+use lurk::z_data;
+
 use once_cell::sync::OnceCell;
 use pasta_curves::pallas;
 use rand::rngs::OsRng;
@@ -97,6 +104,7 @@ pub struct Evaluation {
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(not(target_arch = "wasm32"), serde_test(types(S1), zdata(true)))]
 pub struct PtrEvaluation<F: LurkField> {
     pub expr: LurkPtr<F>,
     pub env: LurkPtr<F>,
@@ -186,6 +194,7 @@ pub struct Expression<F: LurkField> {
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
+#[cfg_attr(not(target_arch = "wasm32"), serde_test(types(S1), zdata(true)))]
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct Opening<F: LurkField> {
     pub input: String,
@@ -196,6 +205,7 @@ pub struct Opening<F: LurkField> {
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), serde_test(zdata(true)))]
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 pub struct ZBytes {
     #[serde(with = "base64")]
@@ -206,6 +216,7 @@ pub struct ZBytes {
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
+#[cfg_attr(not(target_arch = "wasm32"), serde_test(types(S1), zdata(true)))]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ZStorePtr<F: LurkField> {
     z_store: ZStore<F>,
@@ -214,6 +225,7 @@ pub struct ZStorePtr<F: LurkField> {
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
+#[cfg_attr(not(target_arch = "wasm32"), serde_test(types(S1), zdata(true)))]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum LurkPtr<F: LurkField> {
     Source(String),
@@ -239,6 +251,7 @@ impl<F: LurkField> Eq for LurkPtr<F> {}
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
+#[cfg_attr(not(target_arch = "wasm32"), serde_test(types(S1), zdata(true)))]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct CommittedExpression<F: LurkField + Serialize> {
     pub expr: LurkPtr<F>,
@@ -265,6 +278,7 @@ pub struct Proof<'a, F: LurkField> {
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
+#[cfg_attr(not(target_arch = "wasm32"), serde_test(types(S1), zdata(true)))]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Claim<F: LurkField> {
     Evaluation(Evaluation),
@@ -1083,7 +1097,6 @@ mod test {
     use lurk::eval::lang::{Coproc, Lang};
     use lurk::proof::{nova::NovaProver, Prover};
     use lurk::public_parameters::public_params;
-    use lurk::z_data::{from_z_data, to_z_data};
 
     // You have broken a snapshot test. Unlike round-trip tests, those tests check the actual format of serialized Lurk expressions,
     // and since you broke one, it's probable that you have changed that format, which will break at least the fcomm examples.
@@ -1228,14 +1241,6 @@ mod test {
     proptest! {
       #[test]
       fn prop_z_bytes(x in any::<ZBytes>()) {
-        let ser  = to_z_data(&x).expect("write ZBytes");
-        let de: ZBytes = from_z_data(&ser).expect("read ZBytes");
-        assert_eq!(x, de);
-
-        let ser: Vec<u8> = bincode::serialize(&x).expect("write ZBytes");
-        let de: ZBytes = bincode::deserialize(&ser).expect("read ZBytes");
-        assert_eq!(x, de);
-
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let z_bytes_path = tmp_dir_path.join("zbytes.json");
@@ -1247,14 +1252,6 @@ mod test {
     proptest! {
       #[test]
       fn prop_z_store_ptr(x in any::<ZStorePtr<S1>>()) {
-        let ser = to_z_data(&x).expect("write ZStorePtr");
-        let de: ZStorePtr<S1> = from_z_data(&ser).expect("read ZStorePtr");
-        assert_eq!(x, de);
-
-        let ser: Vec<u8> = bincode::serialize(&x).expect("write ZStorePtr");
-        let de: ZStorePtr<S1> = bincode::deserialize(&ser).expect("read ZStorePtr");
-        assert_eq!(x, de);
-
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let z_store_ptr_path = tmp_dir_path.join("zstoreptr.json");
@@ -1266,14 +1263,6 @@ mod test {
     proptest! {
       #[test]
       fn prop_lurk_ptr(x in any::<LurkPtr<S1>>()) {
-        let ser = to_z_data(&x).expect("write LurkPtr");
-        let de: LurkPtr<S1> = from_z_data(&ser).expect("read LurkPtr");
-        assert_eq!(x, de);
-
-        let ser: Vec<u8> = bincode::serialize(&x).expect("write LurkPtr");
-        let de: LurkPtr<S1> = bincode::deserialize(&ser).expect("read LurkPtr");
-        assert_eq!(x, de);
-
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let lurk_ptr_path = tmp_dir_path.join("lurkptr.json");
@@ -1285,14 +1274,6 @@ mod test {
     proptest! {
       #[test]
       fn prop_ptr_evaluation(x in any::<PtrEvaluation<S1>>()) {
-        let ser = to_z_data(&x).expect("write PtrEvaluation");
-        let de: PtrEvaluation<S1> = from_z_data(&ser).expect("read PtrEvaluation");
-        assert_eq!(x, de);
-
-       let ser: Vec<u8> = bincode::serialize(&x).expect("write PtrEvalution");
-       let de: PtrEvaluation<S1> = bincode::deserialize(&ser).expect("read PtrEvaluation");
-       assert_eq!(x, de);
-
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let ptr_evaluation_path = tmp_dir_path.join("ptrevaluation.json");
@@ -1304,14 +1285,6 @@ mod test {
     proptest! {
       #[test]
       fn prop_committed_expr(x in any::<CommittedExpression<S1>>()) {
-        let ser = to_z_data(&x).expect("write CommittedExpression");
-        let de: CommittedExpression<S1> = from_z_data(&ser).expect("read CommittedExpression");
-        assert_eq!(x, de);
-
-       let ser: Vec<u8> = bincode::serialize(&x).expect("write CommittedExpression");
-       let de: CommittedExpression<S1> = bincode::deserialize(&ser).expect("read CommittedExpression");
-        assert_eq!(x, de);
-
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let committed_expr_path = tmp_dir_path.join("committedexpr.json");
@@ -1323,14 +1296,6 @@ mod test {
     proptest! {
       #[test]
       fn prop_opening(x in any::<Opening<S1>>()) {
-        let ser = to_z_data(&x).expect("write Opening");
-        let de: Opening<S1> = from_z_data(&ser).expect("read Opening");
-        assert_eq!(x, de);
-
-        let ser: Vec<u8> = bincode::serialize(&x).expect("write Opening");
-        let de: Opening<S1> = bincode::deserialize(&ser).expect("read Opening");
-        assert_eq!(x, de);
-
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let opening_path = tmp_dir_path.join("opening.json");
@@ -1342,14 +1307,6 @@ mod test {
     proptest! {
       #[test]
       fn prop_claim(x in any::<Claim<S1>>()) {
-        let ser = to_z_data(&x).expect("write Claim");
-        let de: Claim<S1> = from_z_data(&ser).expect("read Claim");
-        assert_eq!(x, de);
-
-        let ser: Vec<u8> = bincode::serialize(&x).expect("write Claim");
-        let de: Claim<S1> = bincode::deserialize(&ser).expect("read Claim");
-        assert_eq!(x, de);
-
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let claim_path = tmp_dir_path.join("claim.json");
