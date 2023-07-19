@@ -23,7 +23,6 @@ mod cli {
     use super::Commitment;
 
     impl<F: LurkField> Commitment<F> {
-        #[allow(dead_code)]
         pub fn new(secret: F, payload: Ptr<F>, store: &mut Store<F>) -> Result<Self> {
             let hidden = store.hide(secret, payload);
             let mut zstore = Some(ZStore::<F>::default());
