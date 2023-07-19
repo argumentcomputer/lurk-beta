@@ -109,10 +109,10 @@ mod cli {
             }
         }
 
-        pub fn verify_proof(proof_id: &str) -> Result<()> {
+        pub fn verify_proof<F: LurkField>(proof_id: &str) -> Result<()> {
             let file = File::open(proof_path(proof_id))?;
             let fd: FieldData = bincode::deserialize_from(BufReader::new(file))?;
-            let lurk_proof: LurkProof<Pallas> = fd.extract()?;
+            let lurk_proof = fd.extract::<F, LurkProof<'_, Pallas>>()?;
             Self::print_verification(proof_id, lurk_proof.verify()?);
             Ok(())
         }

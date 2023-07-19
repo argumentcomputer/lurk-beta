@@ -378,7 +378,7 @@ pub fn parse_and_run() -> Result<()> {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     use crate::cli::lurk_proof::LurkProof;
-                    LurkProof::verify_proof(&verify_args.proof_id)?;
+                    LurkProof::verify_proof::<pallas::Scalar>(&verify_args.proof_id)?;
                 }
                 Ok(())
             }

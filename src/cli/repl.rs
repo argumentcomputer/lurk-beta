@@ -253,22 +253,18 @@ impl Repl<F> {
 
         let file = File::open(commitment_path(hash))?;
         let fd: FieldData = bincode::deserialize_from(BufReader::new(file))?;
-        if fd.field != F::FIELD {
-            bail!("Invalid field: {}. Expected {}", &fd.field, &F::FIELD)
+        let commitment = fd.extract::<F, Commitment<F>>()?;
+        if format!("0x{}", commitment.hidden.value().hex_digits()) != hash {
+            bail!("Hash mismatch. Corrupted commitment file.")
         } else {
-            let commitment: Commitment<F> = fd.extract()?;
-            if format!("0x{}", commitment.hidden.value().hex_digits()) != hash {
-                bail!("Hash mismatch. Corrupted commitment file.")
+            let data = self
+                .store
+                .intern_z_expr_ptr(&commitment.hidden, &commitment.zstore)
+                .unwrap();
+            if print_data {
+                println!("{}", data.fmt_to_string(&self.store));
             } else {
-                let data = self
-                    .store
-                    .intern_z_expr_ptr(&commitment.hidden, &commitment.zstore)
-                    .unwrap();
-                if print_data {
-                    println!("{}", data.fmt_to_string(&self.store));
-                } else {
-                    println!("Data for {hash} is now available");
-                }
+                println!("Data for {hash} is now available");
             }
         }
         Ok(())
@@ -527,7 +523,7 @@ impl Repl<F> {
                             first.fmt_to_string(&self.store)
                         ),
                         Some(proof_id) => {
-                            LurkProof::verify_proof(&proof_id)?;
+                            LurkProof::verify_proof::<F>(&proof_id)?;
                         }
                     }
                 }

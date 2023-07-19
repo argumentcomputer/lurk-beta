@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 
 use lurk::field::{LanguageField, LurkField};
@@ -21,7 +21,10 @@ impl FieldData {
     }
 
     #[inline]
-    pub fn extract<'a, T: Deserialize<'a>>(&'a self) -> Result<T> {
+    pub fn extract<'a, F: LurkField, T: Deserialize<'a>>(&'a self) -> Result<T> {
+        if self.field != F::FIELD {
+            bail!("Invalid field: {}. Expected {}", &self.field, &F::FIELD)
+        }
         Ok(bincode::deserialize(&self.data)?)
     }
 }
