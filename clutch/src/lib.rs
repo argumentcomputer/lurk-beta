@@ -510,7 +510,7 @@ impl ClutchState<F, Coproc<F>> {
                         false,
                         &prover,
                         &pp,
-                        self.lang(),
+                        &self.lang(),
                     )
                 })
                 .ok_or_else(|| anyhow!("no last claim"))?

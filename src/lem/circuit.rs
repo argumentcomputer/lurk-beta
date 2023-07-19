@@ -552,7 +552,7 @@ impl Func {
         fn recurse<F: LurkField, CS: ConstraintSystem<F>>(
             cs: &mut CS,
             block: &Block,
-            concrete_path: Boolean,
+            concrete_path: &Boolean,
             next_slot: &mut SlotsCounter,
             bound_allocations: &mut BoundAllocations<F>,
             preallocated_outputs: &Vec<AllocatedPtr<F>>,
@@ -682,7 +682,7 @@ impl Func {
                         recurse(
                             &mut cs.namespace(|| format!("Call {}", g.call_count)),
                             &func.body,
-                            concrete_path.clone(),
+                            concrete_path,
                             next_slot,
                             bound_allocations,
                             &output_ptrs,
@@ -728,7 +728,7 @@ impl Func {
                                 &mut cs.namespace(|| {
                                     format!("implies_ptr_equal {return_var} (return_var {i})")
                                 }),
-                                &concrete_path,
+                                concrete_path,
                                 &preallocated_outputs[i],
                             )
                             .with_context(|| "couldn't constrain `implies_ptr_equal`")?;
@@ -748,7 +748,7 @@ impl Func {
 
                         let concrete_path_and_has_match = and(
                             &mut cs.namespace(|| format!("{tag}.and")),
-                            &concrete_path,
+                            concrete_path,
                             &allocated_has_match,
                         )
                         .with_context(|| "failed to constrain `and`")?;
@@ -759,7 +759,7 @@ impl Func {
                         recurse(
                             &mut cs.namespace(|| format!("{}", tag)),
                             op,
-                            concrete_path_and_has_match,
+                            &concrete_path_and_has_match,
                             saved_slot,
                             bound_allocations,
                             preallocated_outputs,
@@ -772,7 +772,7 @@ impl Func {
                     // irrelevant if we're on a virtual path and thus we use an implication gadget.
                     enforce_selector_with_premise(
                         &mut cs.namespace(|| "enforce_selector_with_premise"),
-                        &concrete_path,
+                        concrete_path,
                         &concrete_path_vec,
                     )
                     .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
@@ -786,7 +786,7 @@ impl Func {
         recurse(
             cs,
             &self.body,
-            Boolean::Constant(true),
+            &Boolean::Constant(true),
             &mut SlotsCounter::default(),
             &mut bound_allocations,
             &preallocated_outputs,

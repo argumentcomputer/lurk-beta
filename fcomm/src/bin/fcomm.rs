@@ -247,7 +247,7 @@ impl Open {
 
             if let Some(out_path) = &self.proof {
                 let proof =
-                    Opening::open_and_prove(s, request, limit, false, &prover, &pp, lang_rc)
+                    Opening::open_and_prove(s, &request, limit, false, &prover, &pp, lang_rc)
                         .expect("proof opening");
 
                 handle_proof(out_path, proof);
@@ -347,7 +347,7 @@ impl Prove {
                     false,
                     &prover,
                     &pp,
-                    lang_rc,
+                    &lang_rc,
                 )
                 .unwrap()
             }

@@ -367,7 +367,7 @@ mod tests {
             check_constraint_systems,
             limit,
             debug,
-            lang,
+            &lang,
         )
     }
 
@@ -380,7 +380,7 @@ mod tests {
         check_constraint_systems: bool,
         limit: usize,
         debug: bool,
-        lang: Lang<Fr, C>,
+        lang: &Lang<Fr, C>,
     ) {
         let rng = OsRng;
 
@@ -400,7 +400,7 @@ mod tests {
         if check_constraint_systems {
             let padding_predicate = |count| groth_prover.needs_frame_padding(count);
             let frames =
-                Evaluator::generate_frames(expr, e, s, limit, padding_predicate, &lang).unwrap();
+                Evaluator::generate_frames(expr, e, s, limit, padding_predicate, lang).unwrap();
             s.hydrate_scalar_cache();
 
             let multi_frames =
@@ -673,7 +673,7 @@ mod tests {
             true,
             limit,
             false,
-            lang,
+            &lang,
         );
     }
 }
