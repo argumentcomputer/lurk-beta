@@ -264,7 +264,7 @@ impl Repl<F> {
             if print_data {
                 println!("{}", data.fmt_to_string(&self.store));
             } else {
-                println!("Data for {hash} is now available");
+                println!("Data is now available");
             }
         }
         Ok(())
