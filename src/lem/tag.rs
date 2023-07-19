@@ -15,6 +15,7 @@ pub enum Tag {
     Cons,
     Sym,
     Key,
+    Thunk,
     // continuation tags
     Outermost,
     Dummy,
@@ -48,6 +49,7 @@ impl Display for Tag {
             Tag::Cons => write!(f, "Cons"),
             Tag::Sym => write!(f, "Sym"),
             Tag::Key => write!(f, "Key"),
+            Tag::Thunk => write!(f, "Thunk"),
             Tag::Outermost => write!(f, "Outermost"),
             Tag::Dummy => write!(f, "Dummy"),
             Tag::Terminal => write!(f, "Terminal"),

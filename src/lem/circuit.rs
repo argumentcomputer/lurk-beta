@@ -128,7 +128,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use bellperson::{
     gadgets::{
         boolean::{AllocatedBit, Boolean},
@@ -819,8 +819,81 @@ impl Func {
                     )
                     .with_context(|| " couldn't constrain `enforce_selector_with_premise`")
                 }
-                // Fixme: finish match symbol
-                Ctrl::MatchSymbol(..) => bail!("TODO"),
+                Ctrl::MatchSymbol(match_var, cases, def) => {
+                    let allocated_symbol = bound_allocations.get(match_var)?.hash().clone();
+                    let mut selector = Vec::new();
+                    for (symbol, block) in cases {
+                        let symbol_ptr = g.store.intern_symbol(symbol);
+                        let symbol_hash = g.store.hash_ptr(&symbol_ptr)?.hash;
+                        let allocated_has_match = alloc_equal_const(
+                            &mut cs.namespace(|| format!("{symbol}.alloc_equal_const")),
+                            &allocated_symbol,
+                            symbol_hash,
+                        )
+                        .with_context(|| "couldn't allocate equal const")?;
+
+                        let not_dummy_and_has_match = and(
+                            &mut cs.namespace(|| format!("{symbol}.and")),
+                            not_dummy,
+                            &allocated_has_match,
+                        )
+                        .with_context(|| "failed to constrain `and`")?;
+
+                        selector.push(allocated_has_match);
+
+                        let saved_slot = &mut next_slot.clone();
+                        recurse(
+                            &mut cs.namespace(|| format!("{}", symbol)),
+                            block,
+                            &not_dummy_and_has_match,
+                            saved_slot,
+                            bound_allocations,
+                            preallocated_outputs,
+                            g,
+                        )?;
+                    }
+
+                    match def {
+                        Some(def) => {
+                            let default = selector.iter().all(|b| !b.get_value().unwrap());
+                            let allocated_has_match = Boolean::Is(AllocatedBit::alloc(
+                                &mut cs.namespace(|| "_.alloc_equal_const"),
+                                Some(default),
+                            )?);
+
+                            let not_dummy_and_has_match = and(
+                                &mut cs.namespace(|| "_.and"),
+                                not_dummy,
+                                &allocated_has_match,
+                            )
+                            .with_context(|| "failed to constrain `and`")?;
+
+                            selector.push(allocated_has_match);
+
+                            let saved_slot = &mut next_slot.clone();
+                            recurse(
+                                &mut cs.namespace(|| "_"),
+                                def,
+                                &not_dummy_and_has_match,
+                                saved_slot,
+                                bound_allocations,
+                                preallocated_outputs,
+                                g,
+                            )?;
+                        }
+                        None => (),
+                    }
+
+                    // Now we need to enforce that at exactly one path was taken. We do that by enforcing
+                    // that the sum of the previously collected `Boolean`s is one. But, of course, this
+                    // irrelevant if we're on a virtual path and thus we use an implication gadget.
+                    enforce_selector_with_premise(
+                        &mut cs.namespace(|| "enforce_selector_with_premise"),
+                        not_dummy,
+                        &selector,
+                    )
+                    .with_context(|| " couldn't constrain `enforce_selector_with_premise`")
+                }
             }
         }
 
