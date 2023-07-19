@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use anyhow::Result;
-
 use lurk::{
     eval::{
         lang::{Coproc, Lang},
@@ -9,18 +7,8 @@ use lurk::{
     },
     field::LurkField,
     proof::nova,
-    public_parameters::public_params,
     z_ptr::ZExprPtr,
     z_store::ZStore,
-};
-
-#[cfg(not(target_arch = "wasm32"))]
-use std::{fs::File, io::BufReader, io::BufWriter};
-
-#[cfg(not(target_arch = "wasm32"))]
-use super::{
-    field_data::FieldData,
-    paths::{proof_meta_path, proof_path},
 };
 
 /// Carries extra information to help with visualization, experiments etc
@@ -35,15 +23,6 @@ pub struct LurkProofMeta<F: LurkField> {
     pub(crate) environment: ZExprPtr<F>,
     pub(crate) result: ZExprPtr<F>,
     pub(crate) zstore: ZStore<F>,
-}
-
-impl<F: LurkField + Serialize> LurkProofMeta<F> {
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn persist(&self, id: &str) -> Result<()> {
-        let fd = &FieldData::wrap::<F, LurkProofMeta<F>>(self)?;
-        bincode::serialize_into(BufWriter::new(&File::create(proof_meta_path(id))?), fd)?;
-        Ok(())
-    }
 }
 
 type F = pasta_curves::pallas::Scalar; // TODO: generalize this
@@ -61,47 +40,65 @@ pub enum LurkProof<'a> {
     },
 }
 
-impl<'a> LurkProof<'a> {
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn persist(&self, id: &str) -> Result<()> {
-        let fd = &FieldData::wrap::<F, LurkProof<'_>>(self)?;
-        bincode::serialize_into(BufWriter::new(&File::create(proof_path(id))?), fd)?;
-        Ok(())
+#[cfg(not(target_arch = "wasm32"))]
+mod cli {
+    use crate::cli::{
+        field_data::FieldData,
+        paths::{proof_meta_path, proof_path},
+    };
+    use anyhow::Result;
+    use lurk::{field::LurkField, public_parameters::public_params};
+    use serde::Serialize;
+    use std::{fs::File, io::BufReader, io::BufWriter};
+
+    use super::{LurkProof, LurkProofMeta};
+
+    impl<F: LurkField + Serialize> LurkProofMeta<F> {
+        pub fn persist(&self, id: &str) -> Result<()> {
+            let fd = &FieldData::wrap::<F, LurkProofMeta<F>>(self)?;
+            bincode::serialize_into(BufWriter::new(&File::create(proof_meta_path(id))?), fd)?;
+            Ok(())
+        }
     }
 
-    #[allow(dead_code)]
-    fn verify(self) -> Result<bool> {
-        match self {
-            Self::Nova {
-                proof,
-                public_inputs,
-                public_outputs,
-                num_steps,
-                rc,
-                lang,
-            } => {
-                log::info!("Loading public parameters");
-                let pp = public_params(rc, std::sync::Arc::new(lang))?;
-                Ok(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?)
+    impl<'a> LurkProof<'a> {
+        pub fn persist(&self, id: &str) -> Result<()> {
+            let fd = &FieldData::wrap::<super::F, LurkProof<'_>>(self)?;
+            bincode::serialize_into(BufWriter::new(&File::create(proof_path(id))?), fd)?;
+            Ok(())
+        }
+
+        fn verify(self) -> Result<bool> {
+            match self {
+                Self::Nova {
+                    proof,
+                    public_inputs,
+                    public_outputs,
+                    num_steps,
+                    rc,
+                    lang,
+                } => {
+                    log::info!("Loading public parameters");
+                    let pp = public_params(rc, std::sync::Arc::new(lang))?;
+                    Ok(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?)
+                }
             }
         }
-    }
 
-    #[allow(dead_code)]
-    fn print_verification(proof_id: &str, success: bool) {
-        if success {
-            println!("✓ Proof \"{proof_id}\" verified");
-        } else {
-            println!("✗ Proof \"{proof_id}\" failed on verification");
+        fn print_verification(proof_id: &str, success: bool) {
+            if success {
+                println!("✓ Proof \"{proof_id}\" verified");
+            } else {
+                println!("✗ Proof \"{proof_id}\" failed on verification");
+            }
         }
-    }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn verify_proof(proof_id: &str) -> Result<()> {
-        let file = File::open(proof_path(proof_id))?;
-        let fd: FieldData = bincode::deserialize_from(BufReader::new(file))?;
-        let lurk_proof: LurkProof = fd.extract()?;
-        Self::print_verification(proof_id, lurk_proof.verify()?);
-        Ok(())
+        pub fn verify_proof(proof_id: &str) -> Result<()> {
+            let file = File::open(proof_path(proof_id))?;
+            let fd: FieldData = bincode::deserialize_from(BufReader::new(file))?;
+            let lurk_proof: LurkProof = fd.extract()?;
+            Self::print_verification(proof_id, lurk_proof.verify()?);
+            Ok(())
+        }
     }
 }
