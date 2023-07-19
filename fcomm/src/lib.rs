@@ -495,7 +495,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
     // Importantly, this ensures the function and secret are in the Store, s.
     fn construct_with_fun_application(
         s: &mut Store<F>,
-        function: CommittedExpression<F>,
+        function: &CommittedExpression<F>,
         input: Ptr<F>,
         limit: usize,
         lang: &Lang<F, Coproc<F>>,
@@ -630,13 +630,13 @@ impl<'a> Opening<S1> {
             only_use_cached_proofs,
             nova_prover,
             pp,
-            lang,
+            &lang,
         )
     }
 
     pub fn open_and_prove(
         s: &'a mut Store<S1>,
-        request: OpeningRequest<S1>,
+        request: &OpeningRequest<S1>,
         limit: usize,
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1, Coproc<S1>>,
@@ -666,7 +666,7 @@ impl<'a> Opening<S1> {
 
     pub fn open(
         s: &mut Store<S1>,
-        request: OpeningRequest<S1>,
+        request: &OpeningRequest<S1>,
         limit: usize,
         chain: bool,
         lang: &Lang<S1, Coproc<S1>>,
@@ -707,7 +707,7 @@ impl<'a> Opening<S1> {
         lang: &Lang<S1, Coproc<S1>>,
     ) -> Result<Claim<S1>, Error> {
         let (commitment, expression) =
-            Commitment::construct_with_fun_application(s, function, input, limit, lang)?;
+            Commitment::construct_with_fun_application(s, &function, input, limit, lang)?;
         let (public_output, _iterations) = evaluate(s, expression, None, limit, lang)?;
 
         let (new_commitment, output_expr) = if chain {
@@ -802,7 +802,7 @@ impl<'a> Proof<'a, S1> {
             only_use_cached_proofs,
             nova_prover,
             pp,
-            lang,
+            &lang,
         )
     }
 
@@ -813,7 +813,7 @@ impl<'a> Proof<'a, S1> {
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1, Coproc<S1>>,
         pp: &'a PublicParams<'_, Coproc<S1>>,
-        lang: Arc<Lang<S1, Coproc<S1>>>,
+        lang: &Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Self, Error> {
         let reduction_count = nova_prover.reduction_count();
 
@@ -838,7 +838,7 @@ impl<'a> Proof<'a, S1> {
                 s.read(&e.expr).expect("bad expression"),
                 s.read(&e.env).expect("bad env"),
             ),
-            Claim::PtrEvaluation(e) => (e.expr.ptr(s, limit, &lang), e.env.ptr(s, limit, &lang)),
+            Claim::PtrEvaluation(e) => (e.expr.ptr(s, limit, lang), e.env.ptr(s, limit, lang)),
             Claim::Opening(o) => {
                 let commitment = o.commitment;
 
@@ -849,7 +849,7 @@ impl<'a> Proof<'a, S1> {
 
                 let input = s.read(&o.input).expect("bad expression");
                 let (c, expression) =
-                    Commitment::construct_with_fun_application(s, function, input, limit, &lang)?;
+                    Commitment::construct_with_fun_application(s, &function, input, limit, lang)?;
 
                 assert_eq!(commitment, c);
                 (expression, empty_sym_env(s))
@@ -889,7 +889,7 @@ impl<'a> Proof<'a, S1> {
             }
         };
 
-        proof.verify(pp, &lang).expect("Nova verification failed");
+        proof.verify(pp, lang).expect("Nova verification failed");
 
         proof_map.set(&key, &proof).unwrap();
 
