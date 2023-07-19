@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 
 /// Holds data for commitments.
 ///
-/// **Warning**: Holds private data. The `zstore` attribute contains the secret
-/// used to hide the original payload.
+/// **Warning**: holds private data. The `ZStore` contains the secret used to
+/// hide the original payload.
 #[derive(Serialize, Deserialize)]
 pub struct Commitment<F: LurkField> {
     pub(crate) hidden: ZExprPtr<F>,

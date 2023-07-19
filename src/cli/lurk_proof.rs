@@ -11,7 +11,11 @@ use lurk::{
     z_store::ZStore,
 };
 
-/// Carries extra information to help with visualization, experiments etc
+/// Carries extra information to help with visualization, experiments etc.
+///
+/// Note: the `ZStore` in this struct only has enough data to recover the meaning
+/// of the claim being proven: `expression`, when evaluated in the context of
+/// `environment`, is reduced to `result`. It doesn't contain private data.
 #[derive(Serialize, Deserialize)]
 pub struct LurkProofMeta<F: LurkField> {
     pub(crate) iterations: usize,
