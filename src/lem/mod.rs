@@ -403,6 +403,7 @@ impl Block {
         }
         let ctrl = match self.ctrl {
             Ctrl::MatchTag(var, cases, def) => {
+                let var = map.get_cloned(&var)?;
                 let mut new_cases = Vec::with_capacity(cases.len());
                 for (tag, case) in cases {
                     let new_case = case.deconflict(&mut map.clone(), uniq)?;
@@ -412,13 +413,10 @@ impl Block {
                     Some(def) => Some(Box::new(def.deconflict(map, uniq)?)),
                     None => None,
                 };
-                Ctrl::MatchTag(
-                    map.get_cloned(&var)?,
-                    IndexMap::from_iter(new_cases),
-                    new_def,
-                )
+                Ctrl::MatchTag(var, IndexMap::from_iter(new_cases), new_def)
             }
             Ctrl::MatchSymbol(var, cases, def) => {
+                let var = map.get_cloned(&var)?;
                 let mut new_cases = Vec::with_capacity(cases.len());
                 for (symbol, case) in cases {
                     let new_case = case.deconflict(&mut map.clone(), uniq)?;
@@ -428,11 +426,7 @@ impl Block {
                     Some(def) => Some(Box::new(def.deconflict(map, uniq)?)),
                     None => None,
                 };
-                Ctrl::MatchSymbol(
-                    map.get_cloned(&var)?,
-                    IndexMap::from_iter(new_cases),
-                    new_def,
-                )
+                Ctrl::MatchSymbol(var, IndexMap::from_iter(new_cases), new_def)
             }
             Ctrl::Return(o) => Ctrl::Return(map.get_many_cloned(&o)?),
         };
