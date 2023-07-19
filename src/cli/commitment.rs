@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 /// WARNING: CONTAINS PRIVATE DATA
 #[derive(Serialize, Deserialize)]
 pub struct Commitment<F: LurkField> {
-    pub hidden: ZExprPtr<F>,
-    pub zstore: ZStore<F>,
+    pub(crate) hidden: ZExprPtr<F>,
+    pub(crate) zstore: ZStore<F>,
 }
 
 impl<F: LurkField> Commitment<F> {

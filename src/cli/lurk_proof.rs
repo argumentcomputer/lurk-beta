@@ -26,15 +26,15 @@ use super::{
 /// Carries extra information to help with visualization, experiments etc
 #[derive(Serialize, Deserialize)]
 pub struct LurkProofMeta<F: LurkField> {
-    pub iterations: usize,
-    pub evaluation_cost: u128,
-    pub generation_cost: u128,
-    pub compression_cost: u128,
-    pub status: Status,
-    pub expression: ZExprPtr<F>,
-    pub environment: ZExprPtr<F>,
-    pub result: ZExprPtr<F>,
-    pub zstore: ZStore<F>,
+    pub(crate) iterations: usize,
+    pub(crate) evaluation_cost: u128,
+    pub(crate) generation_cost: u128,
+    pub(crate) compression_cost: u128,
+    pub(crate) status: Status,
+    pub(crate) expression: ZExprPtr<F>,
+    pub(crate) environment: ZExprPtr<F>,
+    pub(crate) result: ZExprPtr<F>,
+    pub(crate) zstore: ZStore<F>,
 }
 
 impl<F: LurkField + Serialize> LurkProofMeta<F> {

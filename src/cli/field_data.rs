@@ -6,7 +6,7 @@ use lurk::field::{LanguageField, LurkField};
 /// A wrapper for data whose deserialization depends on a certain LurkField
 #[derive(Serialize, Deserialize)]
 pub struct FieldData {
-    pub field: LanguageField,
+    pub(crate) field: LanguageField,
     data: Vec<u8>,
 }
 
