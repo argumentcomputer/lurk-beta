@@ -12,7 +12,7 @@ pub struct Commitment<F: LurkField> {
     pub zstore: ZStore<F>,
 }
 
-impl<'a, F: LurkField + Serialize + Deserialize<'a>> Commitment<F> {
+impl<F: LurkField> Commitment<F> {
     #[allow(dead_code)]
     pub fn new(secret: F, payload: Ptr<F>, store: &mut Store<F>) -> Result<Self> {
         let hidden = store.hide(secret, payload);
@@ -23,7 +23,9 @@ impl<'a, F: LurkField + Serialize + Deserialize<'a>> Commitment<F> {
             zstore: zstore.unwrap(),
         })
     }
+}
 
+impl<F: LurkField + Serialize> Commitment<F> {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn persist(&self, hash: &str) -> Result<()> {
         use super::{field_data::FieldData, paths::commitment_path};

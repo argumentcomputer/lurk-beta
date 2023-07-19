@@ -247,7 +247,7 @@ impl Repl<F> {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    fn fetch(&mut self, hash: &str) -> Result<()> {
+    fn fetch(&mut self, hash: &str, print_data: bool) -> Result<()> {
         use super::{commitment::Commitment, field_data::FieldData, paths::commitment_path};
         use std::{fs::File, io::BufReader};
 
@@ -260,9 +260,15 @@ impl Repl<F> {
             if format!("0x{}", commitment.hidden.value().hex_digits()) != hash {
                 bail!("Hash mismatch. Corrupted commitment file.")
             } else {
-                self.store
-                    .intern_z_expr_ptr(&commitment.hidden, &commitment.zstore);
-                println!("Data for {hash} is now available");
+                let data = self
+                    .store
+                    .intern_z_expr_ptr(&commitment.hidden, &commitment.zstore)
+                    .unwrap();
+                if print_data {
+                    println!("{}", data.fmt_to_string(&self.store));
+                } else {
+                    println!("Data for {hash} is now available");
+                }
             }
         }
         Ok(())
@@ -308,6 +314,21 @@ impl Repl<F> {
                 first.fmt_to_string(&self.store)
             ),
         }
+    }
+
+    #[allow(dead_code)]
+    fn get_comm_hash(&mut self, cmd: &str, args: &Ptr<F>) -> Result<String> {
+        let first = self.peek1(cmd, args)?;
+        let n = self.store.lurk_sym("num");
+        let expr = self.store.list(&[n, first]);
+        let (expr_io, ..) = self
+            .eval_expr(expr)
+            .with_context(|| "evaluating first arg")?;
+        let hash = self
+            .store
+            .fetch_num(&expr_io.expr)
+            .expect("must be a number");
+        Ok(format!("0x{}", hash.into_scalar().hex_digits()))
     }
 
     fn handle_meta_cases(&mut self, cmd: &str, args: &Ptr<F>, pwd_path: &Path) -> Result<()> {
@@ -461,18 +482,15 @@ impl Repl<F> {
             "fetch" => {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    let first = self.peek1(cmd, args)?;
-                    let n = self.store.lurk_sym("num");
-                    let expr = self.store.list(&[n, first]);
-                    let (expr_io, ..) = self
-                        .eval_expr(expr)
-                        .with_context(|| "evaluating first arg")?;
-                    let hash = self
-                        .store
-                        .fetch_num(&expr_io.expr)
-                        .expect("must be a number");
-                    #[cfg(not(target_arch = "wasm32"))]
-                    self.fetch(&format!("0x{}", hash.into_scalar().hex_digits()))?;
+                    let hash = self.get_comm_hash(cmd, args)?;
+                    self.fetch(&hash, false)?;
+                }
+            }
+            "lurk.open" => {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    let hash = self.get_comm_hash(cmd, args)?;
+                    self.fetch(&hash, true)?;
                 }
             }
             "clear" => self.env = self.store.nil(),
