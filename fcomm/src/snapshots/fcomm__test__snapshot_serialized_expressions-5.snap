@@ -1,0 +1,11 @@
+---
+source: fcomm/src/lib.rs
+expression: opening
+---
+{
+  "input": "(+ 1 2)",
+  "output": "(+ 1 2)",
+  "status": "Error",
+  "commitment": "000000000000000000000000000000000000000000000000000000000000007b",
+  "new_commitment": null
+}

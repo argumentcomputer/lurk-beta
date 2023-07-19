@@ -1074,6 +1074,7 @@ pub fn evaluate<F: LurkField>(
 #[cfg(test)]
 mod test {
     use super::*;
+    use insta::assert_json_snapshot;
     use lurk::public_parameters::FileStore;
     use std::path::Path;
     use std::sync::Arc;
@@ -1083,6 +1084,48 @@ mod test {
     use lurk::proof::{nova::NovaProver, Prover};
     use lurk::public_parameters::public_params;
     use lurk::z_data::{from_z_data, to_z_data};
+
+    // You have broken a snapshot test. Unlike round-trip tests, those tests check the actual format of serialized Lurk expressions,
+    // and since you broke one, it's probable that you have changed that format, which will break at least the fcomm examples.
+    // Please read the documentation on snapshot tests `https://insta.rs/docs/quickstart/`, fix the snapshot **AND**
+    // make sure `cargo nextest run --run-ignored all -E 'test(test_make_fcomm_examples)'` passes
+    #[test]
+    fn test_snapshot_serialized_expressions() {
+        let function_source: &str = "(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))";
+        let function_inputs: &str = "(+ 1 2)";
+        let committed_expression = CommittedExpression::<S1> {
+            expr: LurkPtr::Source(function_source.into()),
+            secret: None,
+            commitment: None,
+        };
+        assert_json_snapshot!(committed_expression);
+
+        let input = Expression::<S1> {
+            expr: LurkPtr::Source(function_inputs.into()),
+        };
+        assert_json_snapshot!(input);
+
+        let c = Commitment {
+            comm: S1::from(123),
+        };
+        assert_json_snapshot!(c);
+
+        let req = OpeningRequest {
+            input,
+            commitment: c.clone(),
+            chain: true,
+        };
+        assert_json_snapshot!(req);
+
+        let opening = Opening {
+            input: function_inputs.to_owned(),
+            output: function_inputs.to_owned(),
+            status: Status::Error,
+            commitment: c,
+            new_commitment: None,
+        };
+        assert_json_snapshot!(opening);
+    }
 
     #[test]
     fn test_cert_serialization() {
@@ -1181,6 +1224,7 @@ mod test {
             println!("Commitment: {:?}", commitment);
         }
     }
+
     proptest! {
       #[test]
       fn prop_z_bytes(x in any::<ZBytes>()) {
@@ -1195,8 +1239,8 @@ mod test {
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let z_bytes_path = tmp_dir_path.join("zbytes.json");
-      x.write_to_path(&z_bytes_path);
-      assert_eq!(x, ZBytes::read_from_path(&z_bytes_path).unwrap());
+        x.write_to_path(&z_bytes_path);
+        assert_eq!(x, ZBytes::read_from_path(&z_bytes_path).unwrap());
       }
     }
 
@@ -1214,8 +1258,8 @@ mod test {
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let z_store_ptr_path = tmp_dir_path.join("zstoreptr.json");
-      x.write_to_path(&z_store_ptr_path);
-      assert_eq!(x, ZStorePtr::<S1>::read_from_path(&z_store_ptr_path).unwrap());
+        x.write_to_path(&z_store_ptr_path);
+        assert_eq!(x, ZStorePtr::<S1>::read_from_path(&z_store_ptr_path).unwrap());
       }
     }
 
@@ -1233,8 +1277,8 @@ mod test {
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let lurk_ptr_path = tmp_dir_path.join("lurkptr.json");
-      x.write_to_path(&lurk_ptr_path);
-      assert_eq!(x, LurkPtr::<S1>::read_from_path(&lurk_ptr_path).unwrap());
+        x.write_to_path(&lurk_ptr_path);
+        assert_eq!(x, LurkPtr::<S1>::read_from_path(&lurk_ptr_path).unwrap());
       }
     }
 
@@ -1252,8 +1296,8 @@ mod test {
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let ptr_evaluation_path = tmp_dir_path.join("ptrevaluation.json");
-      x.write_to_path(&ptr_evaluation_path);
-      assert_eq!(x, PtrEvaluation::<S1>::read_from_path(&ptr_evaluation_path).unwrap());
+        x.write_to_path(&ptr_evaluation_path);
+        assert_eq!(x, PtrEvaluation::<S1>::read_from_path(&ptr_evaluation_path).unwrap());
       }
     }
 
@@ -1271,8 +1315,8 @@ mod test {
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let committed_expr_path = tmp_dir_path.join("committedexpr.json");
-      x.write_to_path(&committed_expr_path);
-      assert_eq!(x, CommittedExpression::<S1>::read_from_path(&committed_expr_path).unwrap());
+        x.write_to_path(&committed_expr_path);
+        assert_eq!(x, CommittedExpression::<S1>::read_from_path(&committed_expr_path).unwrap());
       }
     }
 
@@ -1283,15 +1327,15 @@ mod test {
         let de: Opening<S1> = from_z_data(&ser).expect("read Opening");
         assert_eq!(x, de);
 
-       let ser: Vec<u8> = bincode::serialize(&x).expect("write Opening");
-       let de: Opening<S1> = bincode::deserialize(&ser).expect("read Opening");
+        let ser: Vec<u8> = bincode::serialize(&x).expect("write Opening");
+        let de: Opening<S1> = bincode::deserialize(&ser).expect("read Opening");
         assert_eq!(x, de);
 
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let opening_path = tmp_dir_path.join("opening.json");
-      x.write_to_path(&opening_path);
-      assert_eq!(x, Opening::<S1>::read_from_path(&opening_path).unwrap());
+        x.write_to_path(&opening_path);
+        assert_eq!(x, Opening::<S1>::read_from_path(&opening_path).unwrap());
       }
     }
 
@@ -1302,15 +1346,15 @@ mod test {
         let de: Claim<S1> = from_z_data(&ser).expect("read Claim");
         assert_eq!(x, de);
 
-       let ser: Vec<u8> = bincode::serialize(&x).expect("write Claim");
-       let de: Claim<S1> = bincode::deserialize(&ser).expect("read Claim");
+        let ser: Vec<u8> = bincode::serialize(&x).expect("write Claim");
+        let de: Claim<S1> = bincode::deserialize(&ser).expect("read Claim");
         assert_eq!(x, de);
 
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let claim_path = tmp_dir_path.join("claim.json");
-      x.write_to_path(&claim_path);
-      assert_eq!(x, Claim::<S1>::read_from_path(&claim_path).unwrap());
+        x.write_to_path(&claim_path);
+        assert_eq!(x, Claim::<S1>::read_from_path(&claim_path).unwrap());
       }
     }
 }
