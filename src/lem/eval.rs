@@ -9,8 +9,8 @@ pub(crate) fn eval_step() -> Func {
     let apply_cont = apply_cont();
     let make_thunk = make_thunk();
 
-    func!((expr_in, env_in, cont_in): 3 => {
-        let (expr, env, cont, ctrl) = reduce(expr_in, env_in, cont_in);
+    func!((expr, env, cont): 3 => {
+        let (expr, env, cont, ctrl) = reduce(expr, env, cont);
         let (expr, env, cont, ctrl) = apply_cont(expr, env, cont, ctrl);
         let (expr, env, cont, ctrl) = make_thunk(expr, env, cont, ctrl);
         return (expr, env, cont)
@@ -18,22 +18,32 @@ pub(crate) fn eval_step() -> Func {
 }
 
 fn reduce() -> Func {
-    func!((expr_in, env_in, cont_in): 4 => {
-        match_tag cont_in {
+    func!((expr, env, cont): 4 => {
+        match_tag cont {
             Terminal | Error => {
                 let ctrl: Return;
-                return (expr_in, env_in, cont_in, ctrl)
+                return (expr, env, cont, ctrl)
             }
             _ => {
-                match_tag expr_in {
+                match_tag expr {
                     Nil | Fun | Num | Str | Char | Comm | U64 | Key => {
                         let ctrl: ApplyContinuation;
-                        return (expr_in, env_in, cont_in, ctrl);
+                        return (expr, env, cont, ctrl);
                     },
                     Thunk => {
-                        let (thunk_value, thunk_continuation) = unhash2(expr_in);
+                        let (thunk_expr, thunk_continuation) = unhash2(expr);
                         let ctrl: MakeThunk;
-                        return (thunk_value, env_in, thunk_continuation, ctrl);
+                        return (thunk_expr, env, thunk_continuation, ctrl);
+                    },
+                    Sym => {
+                        // TODO
+                        let err: Error;
+                        return (expr, env, err, err);
+                    },
+                    Cons => {
+                        // TODO
+                        let err: Error;
+                        return (expr, env, err, err);
                     }
                 };
             }
@@ -42,36 +52,55 @@ fn reduce() -> Func {
 }
 
 fn apply_cont() -> Func {
-    func!((expr_in, env_in, cont_in, ctrl): 4 => {
+    func!((expr, env, cont, ctrl): 4 => {
         match_tag ctrl {
             ApplyContinuation => {
-                match_tag cont_in {
+                match_tag cont {
                     Terminal | Error => {
                         let ctrl: Return;
-                        return (expr_in, env_in, cont_in, ctrl)
+                        return (expr, env, cont, ctrl)
                     },
                     Outermost => {
                         let ctrl: Return;
-                        let cont_out: Terminal;
-                        return (expr_in, env_in, cont_out, ctrl)
+                        let cont: Terminal;
+                        return (expr, env, cont, ctrl)
                     }
                 }
             },
             _ => {
-                return (expr_in, env_in, cont_in, ctrl)
+                return (expr, env, cont, ctrl)
             }
         };
     })
 }
 
 fn make_thunk() -> Func {
-    func!((expr_in, env_in, cont_in, ctrl): 4 => {
+    func!((expr, env, cont, ctrl): 4 => {
         match_tag ctrl {
             MakeThunk => {
-                return (expr_in, env_in, cont_in, ctrl)
+                match_tag cont {
+                    Tail => {
+                        let (saved_env, saved_cont) = unhash2(cont);
+                        let thunk: Thunk = hash2(expr, saved_cont);
+                        let cont: Dummy;
+                        let ctrl: Return;
+                        return (thunk, saved_env, cont, ctrl)
+                    },
+                    Outermost => {
+                        let cont: Terminal;
+                        let ctrl: Return;
+                        return (expr, env, cont, ctrl)
+                    },
+                    _ => {
+                        let thunk: Thunk = hash2(expr, cont);
+                        let cont: Dummy;
+                        let ctrl: Return;
+                        return (thunk, env, cont, ctrl)
+                    }
+                }
             }
             _ => {
-                return (expr_in, env_in, cont_in, ctrl)
+                return (expr, env, cont, ctrl)
             }
         };
     })
