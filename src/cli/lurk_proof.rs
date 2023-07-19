@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use lurk::{
+    coprocessor::Coprocessor,
     eval::{
         lang::{Coproc, Lang},
         Status,
@@ -29,11 +30,14 @@ pub struct LurkProofMeta<F: LurkField> {
     pub(crate) zstore: ZStore<F>,
 }
 
-type F = pasta_curves::pallas::Scalar; // TODO: generalize this
+type Pallas = pasta_curves::pallas::Scalar; // TODO: generalize this
 
 /// Minimal data structure containing just enough for proof verification
 #[derive(Serialize, Deserialize)]
-pub enum LurkProof<'a> {
+pub enum LurkProof<'a, F: LurkField>
+where
+    Coproc<F>: Coprocessor<Pallas>,
+{
     Nova {
         proof: nova::Proof<'a, Coproc<F>>,
         public_inputs: Vec<F>,
@@ -51,11 +55,14 @@ mod cli {
         paths::{proof_meta_path, proof_path},
     };
     use anyhow::Result;
-    use lurk::{field::LurkField, public_parameters::public_params};
+    use lurk::{
+        coprocessor::Coprocessor, eval::lang::Coproc, field::LurkField,
+        public_parameters::public_params,
+    };
     use serde::Serialize;
     use std::{fs::File, io::BufReader, io::BufWriter};
 
-    use super::{LurkProof, LurkProofMeta};
+    use super::{LurkProof, LurkProofMeta, Pallas};
 
     impl<F: LurkField + Serialize> LurkProofMeta<F> {
         pub fn persist(&self, id: &str) -> Result<()> {
@@ -65,13 +72,26 @@ mod cli {
         }
     }
 
-    impl<'a> LurkProof<'a> {
+    impl<'a, F: LurkField + Serialize> LurkProof<'a, F>
+    where
+        Coproc<F>: Coprocessor<Pallas>,
+    {
         pub fn persist(&self, id: &str) -> Result<()> {
-            let fd = &FieldData::wrap::<super::F, LurkProof<'_>>(self)?;
+            let fd = &FieldData::wrap::<F, LurkProof<'_, F>>(self)?;
             bincode::serialize_into(BufWriter::new(&File::create(proof_path(id))?), fd)?;
             Ok(())
         }
 
+        fn print_verification(proof_id: &str, success: bool) {
+            if success {
+                println!("✓ Proof \"{proof_id}\" verified");
+            } else {
+                println!("✗ Proof \"{proof_id}\" failed on verification");
+            }
+        }
+    }
+
+    impl<'a> LurkProof<'a, Pallas> {
         fn verify(self) -> Result<bool> {
             match self {
                 Self::Nova {
@@ -89,18 +109,10 @@ mod cli {
             }
         }
 
-        fn print_verification(proof_id: &str, success: bool) {
-            if success {
-                println!("✓ Proof \"{proof_id}\" verified");
-            } else {
-                println!("✗ Proof \"{proof_id}\" failed on verification");
-            }
-        }
-
         pub fn verify_proof(proof_id: &str) -> Result<()> {
             let file = File::open(proof_path(proof_id))?;
             let fd: FieldData = bincode::deserialize_from(BufReader::new(file))?;
-            let lurk_proof: LurkProof = fd.extract()?;
+            let lurk_proof: LurkProof<Pallas> = fd.extract()?;
             Self::print_verification(proof_id, lurk_proof.verify()?);
             Ok(())
         }
