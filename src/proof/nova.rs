@@ -281,13 +281,13 @@ impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
                     .input
                     .unwrap()
                     .to_vector(store)?;
-                let mut zi_allocated = Vec::with_capacity(zi.len());
-
-                for (i, x) in zi.iter().enumerate() {
-                    let allocated =
-                        AllocatedNum::alloc(cs.namespace(|| format!("z{i}_1")), || Ok(*x))?;
-                    zi_allocated.push(allocated);
-                }
+                let zi_allocated: Vec<_> = zi
+                    .iter()
+                    .enumerate()
+                    .map(|(i, x)| {
+                        AllocatedNum::alloc(cs.namespace(|| format!("z{i}_1")), || Ok(*x))
+                    })
+                    .collect::<Result<_, _>>()?;
 
                 circuit_primary.synthesize(&mut cs, zi_allocated.as_slice())?;
 
