@@ -52,7 +52,7 @@ where
 mod cli {
     use crate::cli::{
         field_data::FieldData,
-        paths::{proof_meta_path, proof_path},
+        paths::cli::{proof_meta_path, proof_path},
     };
     use anyhow::Result;
     use lurk::{

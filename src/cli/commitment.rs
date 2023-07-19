@@ -18,7 +18,7 @@ mod cli {
     use serde::Serialize;
     use std::{fs::File, io::BufWriter};
 
-    use crate::cli::{field_data::FieldData, paths::commitment_path};
+    use crate::cli::{field_data::FieldData, paths::cli::commitment_path};
 
     use super::Commitment;
 

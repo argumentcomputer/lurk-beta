@@ -363,7 +363,7 @@ struct VerifyArgs {
 /// Parses CLI arguments and continues the program flow accordingly
 pub fn parse_and_run() -> Result<()> {
     #[cfg(not(target_arch = "wasm32"))]
-    paths::create_lurk_dirs()?;
+    paths::cli::create_lurk_dirs()?;
 
     if let Ok(repl_cli) = ReplCli::try_parse() {
         repl_cli.run()

@@ -248,7 +248,7 @@ impl Repl<F> {
 
     #[cfg(not(target_arch = "wasm32"))]
     fn fetch(&mut self, hash: &str, print_data: bool) -> Result<()> {
-        use super::{commitment::Commitment, field_data::FieldData, paths::commitment_path};
+        use super::{commitment::Commitment, field_data::FieldData, paths::cli::commitment_path};
         use std::{fs::File, io::BufReader};
 
         let file = File::open(commitment_path(hash))?;
@@ -644,7 +644,7 @@ impl Repl<F> {
         }));
 
         #[cfg(not(target_arch = "wasm32"))]
-        let history_path = &crate::cli::paths::repl_history();
+        let history_path = &crate::cli::paths::cli::repl_history();
 
         #[cfg(not(target_arch = "wasm32"))]
         if history_path.exists() {
