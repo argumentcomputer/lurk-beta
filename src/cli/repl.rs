@@ -207,8 +207,6 @@ impl Repl<F> {
                     let env_out = self.store.get_z_expr(&output.env, &mut zstore)?.0;
                     let cont_out = self.store.get_z_cont(&output.cont, &mut zstore)?.0;
 
-                    let expr_out_str = output.expr.fmt_to_string(&self.store);
-
                     let proof_claim = Self::proof_claim(
                         &mut self.store,
                         (input.expr, output.expr),
@@ -269,7 +267,7 @@ impl Repl<F> {
                         lurk_proof_meta.persist(proof_id)?;
                         commitment.persist(proof_id)?;
                     }
-                    println!("Result: {expr_out_str}\nProof ID: \"{proof_id}\"");
+                    println!("Proof ID: \"{proof_id}\"");
                     Ok(())
                 }
                 Backend::SnarkPackPlus => todo!(),
