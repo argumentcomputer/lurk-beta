@@ -63,9 +63,19 @@ fn reduce() -> Func {
                     unhash2(binding);
                 match_tag var_or_rec_binding {
                     Sym => {
-                        // TODO
-                        let err: Error;
-                        return (expr, env, err, err)
+                        if var_or_rec_binding == expr {
+                            let ctrl: ApplyContinuation;
+                            return (val_or_more_rec_env, env, cont, ctrl)
+                        }
+                        match_tag cont {
+                            Lookup => {
+                                let ctrl: Return;
+                                return (expr, smaller_env, cont, ctrl)
+                            }
+                        };
+                        let ctrl: Return;
+                        let cont: Lookup = hash2(env, cont);
+                        return (expr, smaller_env, cont, ctrl)
                     },
                     Cons => {
                         // TODO

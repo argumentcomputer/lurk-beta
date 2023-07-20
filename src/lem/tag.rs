@@ -22,6 +22,7 @@ pub enum Tag {
     Terminal,
     Error,
     Tail,
+    Lookup,
     // control tags. Note that this is a hack because we can't add arbitrary
     // constants yet.
     Return,
@@ -56,6 +57,7 @@ impl Display for Tag {
             Tag::Terminal => write!(f, "Terminal"),
             Tag::Error => write!(f, "Error"),
             Tag::Tail => write!(f, "Tail"),
+            Tag::Lookup => write!(f, "Lookup"),
             Tag::Return => write!(f, "Return"),
             Tag::ApplyContinuation => write!(f, "ApplyContinuation"),
             Tag::MakeThunk => write!(f, "MakeThunk"),

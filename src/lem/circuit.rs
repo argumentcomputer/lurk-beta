@@ -138,7 +138,9 @@ use bellperson::{
 };
 
 use crate::circuit::gadgets::{
-    constraints::{alloc_equal_const, and, enforce_selector_with_premise, implies_equal},
+    constraints::{
+        alloc_equal, alloc_equal_const, and, enforce_selector_with_premise, implies_equal,
+    },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
 };
@@ -751,9 +753,36 @@ impl Func {
                     Ok(())
                 }
                 Ctrl::IfEq(x, y, eq_block, else_block) => {
-                    let x = bound_allocations.get(x)?;
-                    let y = bound_allocations.get(y)?;
-                    todo!()
+                    let x = bound_allocations.get(x)?.hash();
+                    let y = bound_allocations.get(y)?.hash();
+                    // TODO should we check whether the tags are equal too?
+                    let eq = alloc_equal(&mut cs.namespace(|| format!("if_eq.alloc_equal")), x, y)?;
+                    let not_eq = eq.not();
+                    // TODO is this the most efficient way of doing if statements?
+                    let not_dummy_and_eq = and(&mut cs.namespace(|| "if_eq.and"), not_dummy, &eq)?;
+                    let not_dummy_and_not_eq =
+                        and(&mut cs.namespace(|| "if_eq.and.2"), not_dummy, &not_eq)?;
+
+                    let saved_slot = &mut next_slot.clone();
+                    recurse(
+                        &mut cs.namespace(|| "if_eq.true"),
+                        block,
+                        &not_dummy_and_eq,
+                        saved_slot,
+                        bound_allocations,
+                        preallocated_outputs,
+                        g,
+                    )?;
+                    let saved_slot = &mut next_slot.clone();
+                    recurse(
+                        &mut cs.namespace(|| "if_eq.true"),
+                        block,
+                        &not_dummy_and_not_eq,
+                        saved_slot,
+                        bound_allocations,
+                        preallocated_outputs,
+                        g,
+                    )
                 }
                 Ctrl::MatchTag(match_var, cases, def) => {
                     let allocated_match_tag = bound_allocations.get(match_var)?.tag().clone();
