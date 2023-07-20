@@ -103,7 +103,6 @@ ascii_table = "4.0.2"
 criterion = "0.4"
 hex = "0.4.3"
 pprof = { version = "0.11" }
-sha2 = { version = "0.10.7" }
 structopt = { version = "0.3", default-features = false }
 tap = "1.0.1"
 tempfile = { workspace = true }

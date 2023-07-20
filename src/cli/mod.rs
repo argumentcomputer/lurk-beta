@@ -3,6 +3,7 @@ mod field_data;
 mod lurk_proof;
 mod paths;
 mod repl;
+mod circom;
 
 use anyhow::{bail, Context, Result};
 use camino::Utf8PathBuf;
@@ -45,6 +46,8 @@ enum Command {
     Repl(ReplArgs),
     /// Verifies a Lurk proof
     Verify(VerifyArgs),
+    /// Instansiates a new circom component to interface with bellperson
+    Circom(CircomArgs),
 }
 
 #[derive(Args, Debug)]
@@ -450,6 +453,16 @@ struct VerifyArgs {
     proofs_dir: Option<Utf8PathBuf>,
 }
 
+#[derive(Args, Debug)]
+struct CircomArgs {
+    /// Path to the circom folder to be integrated
+    #[clap(value_parser)]
+    circom_folder: PathBuf,
+    /// The name of the circom gadget (defaults to the name of the folder)
+    #[clap(long, value_parser)]
+    name: Option<String>,
+}
+
 impl Cli {
     fn run(self) -> Result<()> {
         match self.command {
@@ -468,7 +481,10 @@ impl Cli {
                 );
                 LurkProof::verify_proof(&verify_args.proof_id)?;
                 Ok(())
-            }
+            },
+            Command::Circom(circom_args) => {
+                create_circom_gadget(circom_args.circom_folder, circom_args.name)
+            },
         }
     }
 }
