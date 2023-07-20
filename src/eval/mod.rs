@@ -440,7 +440,7 @@ where
         // Initial input performs one reduction, so we need limit - 1 more.
         let (ultimate_frame, _penultimate_frame, emitted) =
             frame_iterator.next_n(self.limit - 1)?;
-        let output = ultimate_frame.output;
+        let output = ultimate_frame.input;
 
         let was_terminal = ultimate_frame.is_complete();
         let i = ultimate_frame.i;

@@ -100,7 +100,6 @@ impl Backend {
 #[derive(Debug)]
 struct Evaluation<F: LurkField> {
     frames: Vec<Frame<IO<F>, Witness<F>, Coproc<F>>>,
-    last_frame_idx: usize,
     iterations: usize,
 }
 
@@ -193,18 +192,14 @@ impl Repl<F> {
 
         match self.evaluation.as_mut() {
             None => bail!("No evaluation to prove"),
-            Some(Evaluation {
-                frames,
-                last_frame_idx,
-                iterations,
-            }) => match self.backend {
+            Some(Evaluation { frames, iterations }) => match self.backend {
                 Backend::Nova => {
                     info!("Hydrating the store");
                     self.store.hydrate_scalar_cache();
 
                     // saving to avoid clones
                     let input = &frames[0].input;
-                    let output = &frames[*last_frame_idx].output;
+                    let output = &frames[*iterations].input;
                     let mut zstore = Some(ZStore::<F>::default());
                     let expr = self.store.get_z_expr(&input.expr, &mut zstore)?.0;
                     let env = self.store.get_z_expr(&input.env, &mut zstore)?.0;
@@ -321,7 +316,14 @@ impl Repl<F> {
 
     #[inline]
     fn eval_expr(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize, Vec<Ptr<F>>)> {
-        Ok(Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang).eval()?)
+        Ok(Evaluator::new(
+            expr_ptr,
+            self.env,
+            &mut self.store,
+            self.limit + 1,
+            &self.lang,
+        )
+        .eval()?)
     }
 
     fn peek1(&self, cmd: &str, args: &Ptr<F>) -> Result<Ptr<F>> {
@@ -374,6 +376,26 @@ impl Repl<F> {
             .fetch_num(&expr_io.expr)
             .expect("must be a number");
         Ok(hash.into_scalar().hex_digits())
+    }
+
+    fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize)> {
+        let frames = Evaluator::new(
+            expr_ptr,
+            self.env,
+            &mut self.store,
+            self.limit + 1,
+            &self.lang,
+        )
+        .get_frames()?;
+
+        let n_frames = frames.len();
+        let last_frame = &frames[n_frames - 1];
+        let last_output = last_frame.input;
+        let iterations = n_frames - 1;
+
+        self.evaluation = Some(Evaluation { frames, iterations });
+
+        Ok((last_output, iterations))
     }
 
     fn handle_meta_cases(&mut self, cmd: &str, args: &Ptr<F>, pwd_path: &Path) -> Result<()> {
@@ -594,29 +616,6 @@ impl Repl<F> {
             ),
         }
         Ok(())
-    }
-
-    fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize)> {
-        let frames = Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang)
-            .get_frames()?;
-
-        let last_frame_idx = frames.len() - 1;
-        let last_frame = &frames[last_frame_idx];
-        let last_output = last_frame.output;
-
-        let iterations = if last_frame.is_complete() {
-            last_frame_idx
-        } else {
-            last_frame_idx + 1
-        };
-
-        self.evaluation = Some(Evaluation {
-            frames,
-            last_frame_idx,
-            iterations,
-        });
-
-        Ok((last_output, iterations))
     }
 
     fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
