@@ -42,9 +42,41 @@ fn reduce() -> Func {
                                 return (expr, env, cont, ctrl);
                             },
                             _ => {
-                                // TODO
-                                let err: Error;
-                                return (expr, env, err, err);
+                                match_tag env {
+                                    Nil => {
+                                        let err: Error;
+                                        return (expr, env, err, err);
+                                    },
+                                    _ => {
+                                        let (binding, smaller_env) = unhash2(env);
+                                        match_tag binding {
+                                            Nil => {
+                                                let err: Error;
+                                                return (expr, env, err, err);
+                                            }
+                                            _ => {
+                                                let (var_or_rec_binding, val_or_more_rec_env) =
+                                                    unhash2(binding);
+                                                match_tag var_or_rec_binding {
+                                                    Sym => {
+                                                        // TODO
+                                                        let err: Error;
+                                                        return (expr, env, err, err);
+                                                    },
+                                                    Cons => {
+                                                        // TODO
+                                                        let err: Error;
+                                                        return (expr, env, err, err);
+                                                    },
+                                                    _ => {
+                                                        let err: Error;
+                                                        return (expr, env, err, err);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     },
