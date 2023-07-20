@@ -1,51 +1,52 @@
 #[cfg(not(target_arch = "wasm32"))]
-use anyhow::Result;
+pub mod non_wasm {
+    use anyhow::Result;
 
-#[cfg(not(target_arch = "wasm32"))]
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+    };
 
-#[cfg(not(target_arch = "wasm32"))]
-fn home_dir() -> PathBuf {
-    home::home_dir().expect("missing home directory")
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn lurk_dir() -> PathBuf {
-    home_dir().join(Path::new(".lurk"))
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn proofs_dir() -> PathBuf {
-    lurk_dir().join(Path::new("proofs"))
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn lurk_leaf_dirs() -> [PathBuf; 1] {
-    [proofs_dir()]
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn create_lurk_dirs() -> Result<()> {
-    for dir in lurk_leaf_dirs() {
-        fs::create_dir_all(dir)?;
+    fn home_dir() -> PathBuf {
+        home::home_dir().expect("missing home directory")
     }
-    Ok(())
-}
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn proof_path(name: &str) -> PathBuf {
-    proofs_dir().join(Path::new(name)).with_extension("proof")
-}
+    pub fn lurk_dir() -> PathBuf {
+        home_dir().join(Path::new(".lurk"))
+    }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn proof_meta_path(name: &str) -> PathBuf {
-    proofs_dir().join(Path::new(name)).with_extension("meta")
-}
+    pub fn proofs_dir() -> PathBuf {
+        lurk_dir().join(Path::new("proofs"))
+    }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn repl_history() -> PathBuf {
-    lurk_dir().join(Path::new("repl-history"))
+    pub fn commits_dir() -> PathBuf {
+        lurk_dir().join(Path::new("commits"))
+    }
+
+    pub fn lurk_leaf_dirs() -> [PathBuf; 2] {
+        [proofs_dir(), commits_dir()]
+    }
+
+    pub fn create_lurk_dirs() -> Result<()> {
+        for dir in lurk_leaf_dirs() {
+            fs::create_dir_all(dir)?;
+        }
+        Ok(())
+    }
+
+    pub fn repl_history() -> PathBuf {
+        lurk_dir().join(Path::new("repl-history"))
+    }
+
+    pub fn commitment_path(name: &str) -> PathBuf {
+        commits_dir().join(Path::new(name))
+    }
+
+    pub fn proof_path(name: &str) -> PathBuf {
+        proofs_dir().join(Path::new(name)).with_extension("proof")
+    }
+
+    pub fn proof_meta_path(name: &str) -> PathBuf {
+        proofs_dir().join(Path::new(name)).with_extension("meta")
+    }
 }

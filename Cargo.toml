@@ -47,6 +47,7 @@ rand_xorshift = "0.3.0"
 rayon = "1.7.0"
 rustyline-derive = "0.8.0"
 serde = { workspace = true, features = ["derive"] }
+serde_bytes = "0.11.12"
 serde_json = { workspace = true }
 serde_repr = "0.1.10"
 tap = "1.0.1"

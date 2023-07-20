@@ -555,7 +555,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> LurkPtr<F> {
             LurkPtr::ZStorePtr(z_store_ptr) => {
                 let z_store = &z_store_ptr.z_store;
                 let z_ptr = z_store_ptr.z_ptr;
-                s.intern_z_expr_ptr(z_ptr, z_store)
+                s.intern_z_expr_ptr(&z_ptr, z_store)
                     .expect("failed to intern z_ptr")
             }
         }

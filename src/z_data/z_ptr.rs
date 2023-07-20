@@ -101,6 +101,10 @@ impl<E: Tag, F: LurkField> ZPtr<E, F> {
         &self.1
     }
 
+    pub fn parts(&self) -> (F, F) {
+        (self.tag_field(), self.1)
+    }
+
     // TODO: Create a permanent format for ZPtr strings/ZIDs
     /// Converts the ZPtr to a base32-encoded string
     pub fn to_base32(&self) -> String {
