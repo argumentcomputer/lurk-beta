@@ -540,7 +540,7 @@ mod tests {
                             let cont_out_error: Error;
                             return (env_in, expr_in, cont_out_error);
                         }
-                    };
+                    }
                 },
                 Sym => {
                     match_tag expr_in {
@@ -551,9 +551,9 @@ mod tests {
                         Char => {
                             return (cont_in, cont_in, cont_in);
                         }
-                    };
+                    }
                 }
-            };
+            }
         });
 
         let inputs = vec![Ptr::num(Fr::from_u64(42))];
@@ -577,7 +577,7 @@ mod tests {
                     let cont_out_terminal: Terminal;
                     return (expr_in, env_in, cont_out_terminal);
                 }
-            };
+            }
         });
 
         let inputs = vec![Ptr::num(Fr::from_u64(42))];
@@ -622,7 +622,7 @@ mod tests {
                     let cont_out_error: Error;
                     return (expr_in, env_in, cont_out_error);
                 }
-            };
+            }
         });
 
         let inputs = vec![Ptr::num(Fr::from_u64(42)), Ptr::char('c')];
@@ -653,7 +653,7 @@ mod tests {
                 Nil => {
                     return (p, p, t);
                 }
-            };
+            }
         });
 
         let inputs = vec![Ptr::num(Fr::from_u64(42)), Ptr::char('c')];
@@ -687,7 +687,7 @@ mod tests {
                 Nil => {
                     return (p, p, p);
                 }
-            };
+            }
         });
 
         let inputs = vec![Ptr::num(Fr::from_u64(42)), Ptr::char('c')];
@@ -723,7 +723,7 @@ mod tests {
                             let f: Cons = hash4(expr_in, cont_in, env_in, expr_in);
                             return (m, n, t);
                         }
-                    };
+                    }
                 },
                 Char => {
                     return (p, p, t);
@@ -734,7 +734,7 @@ mod tests {
                 Nil => {
                     return (p, p, p);
                 }
-            };
+            }
         });
 
         let inputs = vec![Ptr::num(Fr::from_u64(42)), Ptr::char('c')];

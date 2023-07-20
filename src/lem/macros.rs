@@ -73,7 +73,7 @@ macro_rules! op {
 
 #[macro_export]
 macro_rules! ctrl {
-    ( match_tag $sii:ident { $( $tag:ident $(| $other_tags:ident)* => $case_ops:tt ),* $(_ => $def:tt)? $(,)? } ) => {
+    ( match_tag $sii:ident { $( $tag:ident $(| $other_tags:ident)* => $case_ops:tt ),* } $(; $($def:tt)*)? ) => {
         {
             let mut cases = indexmap::IndexMap::new();
             $(
@@ -92,11 +92,11 @@ macro_rules! ctrl {
                     };
                 )*
             )*
-            let default = None $( .or (Some(Box::new($crate::block!( $def )))) )?;
+            let default = None $( .or (Some(Box::new($crate::block!( @seq {} , $($def)* )))) )?;
             $crate::lem::Ctrl::MatchTag($crate::var!($sii), cases, default)
         }
     };
-    ( match_symbol $sii:ident { $( $symbol:literal $(| $other_symbols:literal)* => $case_ops:tt ),* , $(_ => $def:tt)? $(,)? } ) => {
+    ( match_symbol $sii:ident { $( $symbol:literal $(| $other_symbols:literal)* => $case_ops:tt ),* } $(; $($def:tt)*)? ) => {
         {
             let mut cases = indexmap::IndexMap::new();
             $(
@@ -115,7 +115,7 @@ macro_rules! ctrl {
                     };
                 )*
             )*
-            let default = None $( .or (Some(Box::new($crate::block!( $def )))) )?;
+            let default = None $( .or (Some(Box::new($crate::block!( @seq {}, $($def)* )))) )?;
             $crate::lem::Ctrl::MatchSymbol($crate::var!($sii), cases, default)
         }
     };
@@ -236,42 +236,39 @@ macro_rules! block {
         )
     };
 
-    (@seq {$($limbs:expr)*}, match_tag $sii:ident { $( $tag:ident $(| $other_tags:ident)* => $case_ops:tt ),* $(,)? $(_ => $def:tt)? $(,)? } $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, match_tag $sii:ident { $( $tag:ident $(| $other_tags:ident)* => $case_ops:tt ),* } $(; $($def:tt)*)?) => {
         $crate::block! (
             @end
             {
                 $($limbs)*
             },
-            $crate::ctrl!( match_tag $sii { $( $tag $(| $other_tags)* => $case_ops ),* $(_ => $def)? } ),
-            $($tail)*
+            $crate::ctrl!( match_tag $sii { $( $tag $(| $other_tags)* => $case_ops ),* } $(; $($def)*)? )
         )
     };
-    (@seq {$($limbs:expr)*}, match_symbol $sii:ident { $( $symbol:literal $(| $other_symbols:literal)* => $case_ops:tt ),* $(,)? $(_ => $def:tt)? $(,)? } $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, match_symbol $sii:ident { $( $symbol:literal $(| $other_symbols:literal)* => $case_ops:tt ),* } $(; $($def:tt)*)?) => {
         $crate::block! (
             @end
             {
                 $($limbs)*
             },
-            $crate::ctrl!( match_symbol $sii { $( $symbol $(| $other_symbols)* => $case_ops ),* ,  $(_ => $def)?, } ),
-            $($tail)*
+            $crate::ctrl!( match_symbol $sii { $( $symbol $(| $other_symbols)* => $case_ops ),* } $(; $($def)*)? )
         )
     };
-    (@seq {$($limbs:expr)*}, return ($($src:ident),*) $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, return ($($src:ident),*) $(;)?) => {
         $crate::block! (
             @end
             {
                 $($limbs)*
             },
-            $crate::lem::Ctrl::Return(vec![$($crate::var!($src)),*]),
-            $($tail)*
+            $crate::lem::Ctrl::Return(vec![$($crate::var!($src)),*])
         )
     };
-    (@seq {$($limbs:expr)*}, $(;)? ) => {
+    (@seq {$($limbs:expr)*} ) => {
         {
             compile_error!("You must provide Func with a return at each path!");
         }
     };
-    (@end {$($limbs:expr)*}, $cont:expr,  $(;)?) => {
+    (@end {$($limbs:expr)*}, $cont:expr) => {
         {
             let ops = vec!($($limbs),*);
             let ctrl = $cont;
@@ -427,12 +424,10 @@ mod tests {
                     let foo: Num;
                     let goo: Char;
                     return (foo, goo, goo);
-                },
-                _ => {
-                    let xoo: Str;
-                    return (xoo, xoo, xoo);
-                },
-            }
+                }
+            };
+            let xoo: Str;
+            return (xoo, xoo, xoo);
         );
 
         assert!(
