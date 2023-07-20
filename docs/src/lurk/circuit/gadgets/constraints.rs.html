@@ -1718,7 +1718,7 @@
 }
 
 <span class="comment">// This could now use alloc_is_zero to avoid duplication.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>alloc_equal&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
+</span><span class="kw">pub fn </span>alloc_equal&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
     <span class="kw-2">mut </span>cs: CS,
     a: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
     b: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
