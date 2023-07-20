@@ -27,16 +27,16 @@ once_cell = { workspace = true }
 pairing = { workspace = true }
 pasta_curves = { workspace = true, features = ["repr-c", "serde"] }
 pretty_env_logger = { workspace = true }
-proptest = "1.1.0"
-proptest-derive = "0.3.0"
+proptest = { workspace = true }
+proptest-derive = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-assert_cmd = "2.0.8"
-camino = "1.1.4"
-num_cpus = "1.15.0"
+assert_cmd = "2.0.12"
+camino = "1.1.6"
+num_cpus = "1.16.0"
 predicates = "2.1.5"
-tempfile = "3.5.0"
+tempfile = "3.6.0"
