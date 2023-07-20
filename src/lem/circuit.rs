@@ -782,7 +782,7 @@ impl Func {
                         Some(def) => {
                             let default = selector.iter().all(|b| !b.get_value().unwrap());
                             let allocated_has_match = Boolean::Is(AllocatedBit::alloc(
-                                &mut cs.namespace(|| "_.alloc_equal_const"),
+                                &mut cs.namespace(|| "_.allocated_bit"),
                                 Some(default),
                             )?);
 
@@ -987,7 +987,21 @@ impl Func {
                     };
                     num_constraints
                 }
-                Ctrl::MatchSymbol(..) => todo!(),
+                Ctrl::MatchSymbol(_, cases, def) => {
+                    let multiplier = if nested { 4 } else { 3 };
+                    num_constraints += multiplier * cases.len() + 1;
+                    for block in cases.values() {
+                        num_constraints += recurse(block, true, globals);
+                    }
+                    match def {
+                        Some(def) => {
+                            num_constraints += multiplier - 2;
+                            num_constraints += recurse(def, true, globals);
+                        }
+                        None => (),
+                    };
+                    num_constraints
+                }
             }
         }
         let globals = &mut HashSet::default();

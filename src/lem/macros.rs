@@ -96,16 +96,24 @@ macro_rules! ctrl {
             $crate::lem::Ctrl::MatchTag($crate::var!($sii), cases, default)
         }
     };
-    ( match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* , $(_ => $def:tt)? $(,)? } ) => {
+    ( match_symbol $sii:ident { $( $symbol:literal $(| $other_symbols:literal)* => $case_ops:tt ),* , $(_ => $def:tt)? $(,)? } ) => {
         {
             let mut cases = indexmap::IndexMap::new();
             $(
                 if cases.insert(
-                    $symbol,
+                    $crate::lem::Symbol::lurk_sym(&$symbol),
                     $crate::block!( $case_ops ),
                 ).is_some() {
                     panic!("Repeated path on `match_symbol`");
                 };
+                $(
+                    if cases.insert(
+                        $crate::lem::Symbol::lurk_sym(&$other_symbols),
+                        $crate::block!( $case_ops ),
+                    ).is_some() {
+                        panic!("Repeated tag on `match_tag`");
+                    };
+                )*
             )*
             let default = None $( .or (Some(Box::new($crate::block!( $def )))) )?;
             $crate::lem::Ctrl::MatchSymbol($crate::var!($sii), cases, default)
@@ -238,13 +246,13 @@ macro_rules! block {
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, match_symbol $sii:ident { $( $symbol:expr => $case_ops:tt ),* $(,)? $(_ => $def:tt)? $(,)? } $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, match_symbol $sii:ident { $( $symbol:literal $(| $other_symbols:literal)* => $case_ops:tt ),* $(,)? $(_ => $def:tt)? $(,)? } $($tail:tt)*) => {
         $crate::block! (
             @end
             {
                 $($limbs)*
             },
-            $crate::ctrl!( match_symbol $sii { $( $symbol => $case_ops ),* ,  $(_ => $def)?, } ),
+            $crate::ctrl!( match_symbol $sii { $( $symbol $(| $other_symbols)* => $case_ops ),* ,  $(_ => $def)?, } ),
             $($tail)*
         )
     };
@@ -412,10 +420,10 @@ mod tests {
 
         let moo = ctrl!(
             match_symbol www {
-                Symbol::lurk_sym("nil") => {
+                "nil" => {
                     return (foo, foo, foo); // a single Ctrl will not turn into a Seq
                 },
-                Symbol::lurk_sym("cons") => {
+                "cons" => {
                     let foo: Num;
                     let goo: Char;
                     return (foo, goo, goo);

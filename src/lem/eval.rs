@@ -36,9 +36,17 @@ fn reduce() -> Func {
                         return (thunk_expr, env, thunk_continuation, ctrl);
                     },
                     Sym => {
-                        // TODO
-                        let err: Error;
-                        return (expr, env, err, err);
+                        match_symbol expr {
+                            "nil" | "t" => {
+                                let ctrl: ApplyContinuation;
+                                return (expr, env, cont, ctrl);
+                            },
+                            _ => {
+                                // TODO
+                                let err: Error;
+                                return (expr, env, err, err);
+                            }
+                        }
                     },
                     Cons => {
                         // TODO
