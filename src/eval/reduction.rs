@@ -1366,7 +1366,7 @@ fn extend_closure<F: LurkField>(
 }
 
 impl<F: LurkField> Store<F> {
-    fn as_lurk_boolean(&mut self, x: bool) -> Ptr<F> {
+    pub fn as_lurk_boolean(&mut self, x: bool) -> Ptr<F> {
         if x {
             self.t()
         } else {
