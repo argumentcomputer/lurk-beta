@@ -119,6 +119,15 @@ macro_rules! ctrl {
             $crate::lem::Ctrl::MatchSymbol($crate::var!($sii), cases, default)
         }
     };
+    ( if $x:ident == $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
+        {
+            let x = $crate::var!($x);
+            let y = $crate::var!($y);
+            let true_block = Box::new($crate::block!( @seq {}, $($true_block)+ ));
+            let false_block = Box::new($crate::block!( @seq {}, $($false_block)+ ));
+            $crate::lem::Ctrl::IfEq(x, y, true_block, false_block)
+        }
+    };
     ( return ($($src:ident),*) ) => {
         $crate::lem::Ctrl::Return(
             vec![$($crate::var!($src)),*]
@@ -252,6 +261,16 @@ macro_rules! block {
                 $($limbs)*
             },
             $crate::ctrl!( match_symbol $sii { $( $symbol $(| $other_symbols)* => $case_ops ),* } $(; $($def)*)? )
+        )
+    };
+
+    (@seq {$($limbs:expr)*}, if $x:ident == $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
+        $crate::block! (
+            @end
+            {
+                $($limbs)*
+            },
+            $crate::ctrl!( if $x == $y { $($true_block)+ } $($false_block)+ )
         )
     };
     (@seq {$($limbs:expr)*}, return ($($src:ident),*) $(;)?) => {

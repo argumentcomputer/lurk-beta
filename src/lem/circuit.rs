@@ -238,6 +238,10 @@ impl Block {
                     .values()
                     .fold(init, |acc, block| acc.max(block.count_slots()))
             }
+            Ctrl::IfEq(_, _, eq_block, else_block) => {
+                let eq_slots = eq_block.count_slots();
+                eq_slots.max(else_block.count_slots())
+            }
             Ctrl::Return(..) => SlotsCounter::default(),
         };
         ops_slots.add(ctrl_slots)
@@ -746,6 +750,11 @@ impl Func {
                     }
                     Ok(())
                 }
+                Ctrl::IfEq(x, y, eq_block, else_block) => {
+                    let x = bound_allocations.get(x)?;
+                    let y = bound_allocations.get(y)?;
+                    todo!()
+                }
                 Ctrl::MatchTag(match_var, cases, def) => {
                     let allocated_match_tag = bound_allocations.get(match_var)?.tag().clone();
                     let mut selector = Vec::new();
@@ -964,6 +973,9 @@ impl Func {
             }
             match &block.ctrl {
                 Ctrl::Return(vars) => num_constraints + 2 * vars.len(),
+                Ctrl::IfEq(x, y, eq_block, else_block) => {
+                    todo!()
+                }
                 Ctrl::MatchTag(_, cases, def) => {
                     // `alloc_equal_const` adds 3 constraints for each case and
                     // the `and` is free for non-nested `MatchTag`s, since we

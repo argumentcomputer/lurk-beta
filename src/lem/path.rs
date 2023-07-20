@@ -6,6 +6,7 @@ use super::{symbol::Symbol, tag::Tag, Block, Ctrl, Func, Op};
 pub(crate) enum PathNode {
     Tag(Tag),
     Symbol(Symbol),
+    Bool(bool),
     Default,
 }
 
@@ -14,6 +15,7 @@ impl std::fmt::Display for PathNode {
         match self {
             Self::Tag(tag) => write!(f, "Tag({})", tag),
             Self::Symbol(symbol) => write!(f, "Symbol({})", symbol),
+            Self::Bool(b) => write!(f, "Bool({})", b),
             Self::Default => write!(f, "Default"),
         }
     }
@@ -36,6 +38,12 @@ impl Path {
         Path(path)
     }
 
+    pub fn push_bool(&self, b: bool) -> Path {
+        let mut path = self.0.clone();
+        path.push(PathNode::Bool(b));
+        Path(path)
+    }
+
     pub fn push_symbol(&self, symbol: &Symbol) -> Path {
         let mut path = self.0.clone();
         path.push(PathNode::Symbol(symbol.clone()));
@@ -51,6 +59,11 @@ impl Path {
     #[inline]
     pub fn push_tag_inplace(&mut self, tag: &Tag) {
         self.0.push(PathNode::Tag(*tag));
+    }
+
+    #[inline]
+    pub fn push_bool_inplace(&mut self, b: bool) {
+        self.0.push(PathNode::Bool(b));
     }
 
     #[inline]
@@ -112,6 +125,7 @@ impl Block {
                     .values()
                     .fold(init, |acc, block| acc + block.num_paths())
             }
+            Ctrl::IfEq(_, _, eq_block, else_block) => eq_block.num_paths() + else_block.num_paths(),
             Ctrl::Return(..) => 1,
         };
         num_paths
