@@ -437,18 +437,16 @@ where
         let initial_input = self.initial();
         let frame_iterator = FrameIt::new(initial_input, self.store, self.lang)?;
 
-        // Initial input performs one reduction, so we need limit - 1 more.
-        let (ultimate_frame, _penultimate_frame, emitted) =
-            frame_iterator.next_n(self.limit - 1)?;
+        // Initial input performs one reduction, so we need limit more.
+        let (ultimate_frame, _penultimate_frame, emitted) = frame_iterator.next_n(self.limit)?;
         let output = ultimate_frame.input;
 
-        let was_terminal = ultimate_frame.is_complete();
-        let i = ultimate_frame.i;
-        if was_terminal {
+        // Since frames are 0-indexed, the i-th frame is reached after i iterations
+        let iterations = ultimate_frame.i;
+
+        if ultimate_frame.is_complete() {
             self.terminal_frame = Some(ultimate_frame);
         }
-        let iterations = if was_terminal { i } else { i + 1 };
-        // NOTE: We compute a terminal frame but don't include it in the iteration count.
         Ok((output, iterations, emitted))
     }
 
@@ -463,15 +461,14 @@ where
     pub fn iter(&mut self) -> Result<Take<FrameIt<'_, Witness<F>, F, C>>, ReductionError> {
         let initial_input = self.initial();
 
-        Ok(FrameIt::new(initial_input, self.store, self.lang)?.take(self.limit))
+        Ok(FrameIt::new(initial_input, self.store, self.lang)?.take(self.limit + 1))
     }
 
     // Wraps frames in Result type in order to fail gracefully
     pub fn get_frames(&mut self) -> Result<Vec<Frame<IO<F>, Witness<F>, C>>, ReductionError> {
         let frame = FrameIt::new(self.initial(), self.store, self.lang)?;
-        let result_frame = ResultFrame(Ok(frame)).take(self.limit);
-        let ret: Result<Vec<_>, _> = result_frame.collect();
-        ret
+        let result_frame = ResultFrame(Ok(frame)).take(self.limit + 1);
+        result_frame.collect()
     }
 
     pub fn generate_frames<Fp: Fn(usize) -> bool>(
