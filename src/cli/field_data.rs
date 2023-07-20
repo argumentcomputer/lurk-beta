@@ -142,9 +142,9 @@ mod tests {
     fn stable_enum() {
         #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
         enum Enum2<F: LurkField> {
-            CaseStr(String),
-            CaseInt(i32),
-            CaseFF(F),
+            CaseStr2(String),
+            CaseInt2(i32),
+            CaseFF2(F),
             Foo,
         }
 
@@ -157,9 +157,9 @@ mod tests {
         let e12 = Enum1::CaseInt(11);
         let e13 = Enum1::CaseFF(Fq::double(&Fq::double(&Fq::ONE)));
 
-        let e21 = Enum2::CaseStr("bye".into());
-        let e22 = Enum2::CaseInt(11);
-        let e23 = Enum2::CaseFF(Fq::double(&Fq::double(&Fq::ONE)));
+        let e21 = Enum2::CaseStr2("bye".into());
+        let e22 = Enum2::CaseInt2(11);
+        let e23 = Enum2::CaseFF2(Fq::double(&Fq::double(&Fq::ONE)));
 
         for (e1, e2) in [(e11, e21), (e12, e22), (e13, e23)] {
             assert_eq!(e2.clone(), de(&ser(e1.clone()).unwrap()).unwrap());
