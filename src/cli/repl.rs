@@ -97,8 +97,10 @@ impl Backend {
 }
 
 #[allow(dead_code)]
+#[derive(Debug)]
 struct Evaluation<F: LurkField> {
     frames: Vec<Frame<IO<F>, Witness<F>, Coproc<F>>>,
+    last_frame_idx: usize,
     iterations: usize,
 }
 
@@ -191,14 +193,18 @@ impl Repl<F> {
 
         match self.evaluation.as_mut() {
             None => bail!("No evaluation to prove"),
-            Some(Evaluation { frames, iterations }) => match self.backend {
+            Some(Evaluation {
+                frames,
+                last_frame_idx,
+                iterations,
+            }) => match self.backend {
                 Backend::Nova => {
                     info!("Hydrating the store");
                     self.store.hydrate_scalar_cache();
 
                     // saving to avoid clones
                     let input = &frames[0].input;
-                    let output = &frames[*iterations].output;
+                    let output = &frames[*last_frame_idx].output;
                     let mut zstore = Some(ZStore::<F>::default());
                     let expr = self.store.get_z_expr(&input.expr, &mut zstore)?.0;
                     let env = self.store.get_z_expr(&input.env, &mut zstore)?.0;
@@ -594,18 +600,21 @@ impl Repl<F> {
         let frames = Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang)
             .get_frames()?;
 
-        let last_idx = frames.len() - 1;
-        let last_frame = &frames[last_idx];
+        let last_frame_idx = frames.len() - 1;
+        let last_frame = &frames[last_frame_idx];
         let last_output = last_frame.output;
 
-        let mut iterations = last_idx;
-
-        // FIXME: proving is not working for incomplete computations
-        if last_frame.is_complete() {
-            self.evaluation = Some(Evaluation { frames, iterations })
+        let iterations = if last_frame.is_complete() {
+            last_frame_idx
         } else {
-            iterations += 1;
-        }
+            last_frame_idx + 1
+        };
+
+        self.evaluation = Some(Evaluation {
+            frames,
+            last_frame_idx,
+            iterations,
+        });
 
         Ok((last_output, iterations))
     }
@@ -613,19 +622,21 @@ impl Repl<F> {
     fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
         self.eval_expr_and_memoize(expr_ptr)
             .map(|(output, iterations)| {
-                let prefix = if iterations != 1 {
-                    format!("[{iterations} iterations] => ")
+                let iterations_display = if iterations != 1 {
+                    format!("{iterations} iterations")
                 } else {
-                    "[1 iteration] => ".into()
+                    "1 iteration".into()
                 };
-
-                let suffix = match output.cont.tag {
-                    ContTag::Terminal => output.expr.fmt_to_string(&self.store),
-                    ContTag::Error => "ERROR!".into(),
-                    _ => "Computation incomplete (limit reached)".into(),
-                };
-
-                println!("{}{}", prefix, suffix);
+                match output.cont.tag {
+                    ContTag::Terminal => {
+                        println!(
+                            "[{iterations_display}] => {}",
+                            output.expr.fmt_to_string(&self.store)
+                        )
+                    }
+                    ContTag::Error => println!("ERROR after {iterations_display}"),
+                    _ => println!("LIMIT REACHED after {iterations_display}"),
+                }
             })
     }
 
