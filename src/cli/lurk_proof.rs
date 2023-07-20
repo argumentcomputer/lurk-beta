@@ -64,7 +64,7 @@ where
 #[cfg(not(target_arch = "wasm32"))]
 mod non_wasm {
     use crate::cli::{
-        field_data::FieldData,
+        field_data::non_wasm::{dump, load},
         paths::non_wasm::{proof_meta_path, proof_path},
     };
     use anyhow::Result;
@@ -79,7 +79,7 @@ mod non_wasm {
     impl<F: LurkField + Serialize> LurkProofMeta<F> {
         #[inline]
         pub fn persist(self, id: &str) -> Result<()> {
-            FieldData::dump(self, proof_meta_path(id))
+            dump(self, proof_meta_path(id))
         }
     }
 
@@ -89,7 +89,7 @@ mod non_wasm {
     {
         #[inline]
         pub fn persist(self, id: &str) -> Result<()> {
-            FieldData::dump(self, proof_path(id))
+            dump(self, proof_path(id))
         }
     }
 
@@ -112,7 +112,7 @@ mod non_wasm {
         }
 
         pub fn verify_proof(proof_id: &str) -> Result<()> {
-            let lurk_proof: LurkProof<'_, Pallas> = FieldData::load(proof_path(proof_id))?;
+            let lurk_proof: LurkProof<'_, Pallas> = load(proof_path(proof_id))?;
             if lurk_proof.verify()? {
                 println!("✓ Proof \"{proof_id}\" verified");
             } else {

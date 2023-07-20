@@ -292,10 +292,10 @@ impl Repl<F> {
     #[cfg(not(target_arch = "wasm32"))]
     fn fetch(&mut self, hash: &str, print_data: bool) -> Result<()> {
         use super::{
-            commitment::Commitment, field_data::FieldData, paths::non_wasm::commitment_path,
+            commitment::Commitment, field_data::non_wasm::load, paths::non_wasm::commitment_path,
         };
 
-        let commitment: Commitment<F> = FieldData::load(commitment_path(hash))?;
+        let commitment: Commitment<F> = load(commitment_path(hash))?;
         if commitment.hidden.value().hex_digits() != hash {
             bail!("Hash mismatch. Corrupted commitment file.")
         } else {

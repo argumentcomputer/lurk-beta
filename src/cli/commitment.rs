@@ -25,7 +25,7 @@ mod non_wasm {
     use lurk::{field::LurkField, ptr::Ptr, store::Store, z_store::ZStore};
     use serde::Serialize;
 
-    use crate::cli::{field_data::FieldData, paths::non_wasm::commitment_path};
+    use crate::cli::{field_data::non_wasm::dump, paths::non_wasm::commitment_path};
 
     use super::Commitment;
 
@@ -44,7 +44,7 @@ mod non_wasm {
     impl<F: LurkField + Serialize> Commitment<F> {
         #[inline]
         pub fn persist(self, hash: &str) -> Result<()> {
-            FieldData::dump(self, commitment_path(hash))
+            dump(self, commitment_path(hash))
         }
     }
 }
