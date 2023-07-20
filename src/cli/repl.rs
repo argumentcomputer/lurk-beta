@@ -148,11 +148,46 @@ impl Repl<F> {
         }
     }
 
+    #[allow(dead_code)]
+    fn proof_claim(
+        store: &mut Store<F>,
+        exprs: (Ptr<F>, Ptr<F>),
+        envs: (Ptr<F>, Ptr<F>),
+        conts: ((F, F), (F, F)),
+    ) -> Ptr<F> {
+        let expr_key = store.key("expr");
+        let env_key = store.key("env");
+        let cont_key = store.key("cont");
+        let expr_out_key = store.key("expr-out");
+        let env_out_key = store.key("env-out");
+        let cont_out_key = store.key("cont-out");
+        let cont_tag = store.num(Num::Scalar(conts.0 .0));
+        let cont_val = store.num(Num::Scalar(conts.0 .1));
+        let cont = store.cons(cont_tag, cont_val);
+        let cont_out_tag = store.num(Num::Scalar(conts.1 .0));
+        let cont_out_val = store.num(Num::Scalar(conts.1 .1));
+        let cont_out = store.cons(cont_out_tag, cont_out_val);
+        store.list(&[
+            expr_key,
+            exprs.0,
+            env_key,
+            envs.0,
+            cont_key,
+            cont,
+            expr_out_key,
+            exprs.1,
+            env_out_key,
+            envs.1,
+            cont_out_key,
+            cont_out,
+        ])
+    }
+
     #[cfg(not(target_arch = "wasm32"))]
     pub fn prove_last_frames(&mut self) -> Result<()> {
         use ff::Field;
 
-        use crate::cli::paths::non_wasm::proof_path;
+        use crate::cli::{commitment::Commitment, paths::non_wasm::proof_path};
 
         match self.evaluation.as_mut() {
             None => bail!("No evaluation to prove"),
@@ -172,21 +207,19 @@ impl Repl<F> {
                     let env_out = self.store.get_z_expr(&output.env, &mut zstore)?.0;
                     let cont_out = self.store.get_z_cont(&output.cont, &mut zstore)?.0;
 
-                    let proof_id = [
-                        expr.parts(),
-                        env.parts(),
-                        cont.parts(),
-                        expr_out.parts(),
-                        env_out.parts(),
-                        cont_out.parts(),
-                    ]
-                    .iter()
-                    .fold(F::ZERO, |acc, (a, b)| {
-                        self.store.poseidon_cache.hash3(&[acc, *a, *b])
-                    })
-                    .hex_digits();
+                    let expr_out_str = output.expr.fmt_to_string(&self.store);
 
-                    let proof_path = proof_path(&proof_id);
+                    let proof_claim = Self::proof_claim(
+                        &mut self.store,
+                        (input.expr, output.expr),
+                        (input.env, output.env),
+                        (cont.parts(), cont_out.parts()),
+                    );
+                    let commitment = Commitment::new(F::ZERO, proof_claim, &mut self.store)?;
+                    let proof_id = &commitment.hidden.value().hex_digits();
+
+                    let proof_path = proof_path(proof_id);
+
                     if proof_path.exists() {
                         info!("Proof already cached");
                         // TODO: make sure that the proof file is not corrupted
@@ -232,10 +265,11 @@ impl Repl<F> {
                             zstore: zstore.unwrap(),
                         };
 
-                        lurk_proof.persist(&proof_id)?;
-                        lurk_proof_meta.persist(&proof_id)?;
+                        lurk_proof.persist(proof_id)?;
+                        lurk_proof_meta.persist(proof_id)?;
+                        commitment.persist(proof_id)?;
                     }
-                    println!("Proof ID: \"{proof_id}\"");
+                    println!("Result: {expr_out_str}\nProof ID: \"{proof_id}\"");
                     Ok(())
                 }
                 Backend::SnarkPackPlus => todo!(),

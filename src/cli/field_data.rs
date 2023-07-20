@@ -9,17 +9,18 @@ pub(crate) trait HasFieldModulus {
     fn field_modulus() -> String;
 }
 
+#[derive(Deserialize, Serialize)]
+struct Labeled {
+    label: String,
+    #[serde(with = "serde_bytes")]
+    bytes: Vec<u8>,
+}
+
 impl<'de, T: DeserializeOwned + HasFieldModulus> Deserialize<'de> for FieldData<T> {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        #[derive(Deserialize)]
-        struct Labeled {
-            label: String,
-            #[serde(with = "serde_bytes")]
-            bytes: Vec<u8>,
-        }
         let level1_struct = Labeled::deserialize(deserializer)?;
         if level1_struct.label != T::field_modulus() {
             return Err(serde::de::Error::custom("Field mismatch"));
@@ -35,12 +36,6 @@ impl<T: Serialize + HasFieldModulus> Serialize for FieldData<T> {
     where
         S: serde::Serializer,
     {
-        #[derive(Serialize)]
-        struct Labeled {
-            label: String,
-            #[serde(with = "serde_bytes")]
-            bytes: Vec<u8>,
-        }
         let bytes = bincode::serialize(&self.0).map_err(serde::ser::Error::custom)?;
         let labeled = Labeled {
             label: T::field_modulus(),
