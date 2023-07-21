@@ -91,12 +91,6 @@ mod non_wasm {
         Coproc<F>: Coprocessor<Pallas>,
     {
         #[inline]
-        #[allow(dead_code)]
-        pub fn persist(self, id: &str) -> Result<()> {
-            dump(self, proof_path(id))
-        }
-
-        #[inline]
         pub fn persist_at(self, path: PathBuf) -> Result<()> {
             dump(self, path)
         }
