@@ -313,18 +313,21 @@ impl Repl<F> {
         Ok(())
     }
 
+    fn pretty_iterations_display(iterations: usize) -> String {
+        if iterations != 1 {
+            format!("{iterations} iterations")
+        } else {
+            "1 iteration".into()
+        }
+    }
+
     fn eval_expr(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize, Vec<Ptr<F>>)> {
         let ret =
             Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang).eval()?;
         match ret.0.cont.tag {
             ContTag::Terminal => Ok(ret),
             t => {
-                let iterations = ret.1;
-                let iterations_display = if iterations != 1 {
-                    format!("{iterations} iterations")
-                } else {
-                    "1 iteration".into()
-                };
+                let iterations_display = Self::pretty_iterations_display(ret.1);
                 match t {
                     ContTag::Error => {
                         bail!("Evaluation encountered an error after {iterations_display}")
@@ -338,11 +341,7 @@ impl Repl<F> {
     fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
         self.eval_expr_and_memoize(expr_ptr)
             .map(|(output, iterations)| {
-                let iterations_display = if iterations != 1 {
-                    format!("{iterations} iterations")
-                } else {
-                    "1 iteration".into()
-                };
+                let iterations_display = Self::pretty_iterations_display(iterations);
                 match output.cont.tag {
                     ContTag::Terminal => {
                         println!(
