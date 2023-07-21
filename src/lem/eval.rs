@@ -56,6 +56,19 @@ fn reduce() -> Func {
         let env: Cons = hash2(smaller_rec_env, smaller_env);
         return (env)
     });
+    let extract_arg = func!((args): 2 => {
+        match_tag args {
+            Nil => {
+                let dummy = symbol("dummy");
+                let nil: Nil;
+                return (dummy, nil)
+            },
+            Cons => {
+                let (arg, rest) = unhash2(args);
+                return (arg, rest)
+            }
+        }
+    });
 
     func!((expr, env, cont): 4 => {
         match_tag cont {
@@ -148,10 +161,7 @@ fn reduce() -> Func {
                         let cont: Lookup = hash2(env, cont);
                         return (expr, env_to_use, cont, ctrl)
                     }
-                };
-
-                let err: Error;
-                return (expr, env, err, err)
+                }
             },
             Cons => {
                 // No need for `safe_uncons` since the expression is already a `Cons`
@@ -159,7 +169,28 @@ fn reduce() -> Func {
                 // TODO
                 match_symbol head {
                     "lambda" => {
-                        // TODO
+                        let (args, body) = safe_uncons(rest);
+                        let (arg, cdr_args) = extract_arg(args);
+
+                        match_tag arg {
+                            Sym => {
+                                match_tag cdr_args {
+                                    Nil => {
+                                        let function: Fun = hash3(arg, body, env);
+                                        let ctrl: ApplyContinuation;
+                                        return (function, env, cont, ctrl)
+                                    }
+                                };
+                                let inner: Cons = hash2(cdr_args, body);
+                                let lambda = symbol("lambda");
+                                let l: Cons = hash2(lambda, inner);
+                                let nil: Nil;
+                                let inner_body: Cons = hash2(l, nil);
+                                let function: Fun = hash3(arg, inner_body, env);
+                                let ctrl: ApplyContinuation;
+                                return (expr, env, cont, ctrl)
+                            }
+                        };
                         let err: Error;
                         return (expr, env, err, err)
                     },

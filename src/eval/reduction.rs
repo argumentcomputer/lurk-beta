@@ -326,8 +326,9 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                         } else {
                             let (_, cdr_args) =
                                 cons_witness.car_cdr_named(ConsName::ExprCadr, store, &args)?;
-                            let inner_body = if cdr_args.is_nil() {
-                                body
+                            if cdr_args.is_nil() {
+                                let function = store.intern_fun(arg, body, env);
+                                Control::ApplyContinuation(function, env, cont)
                             } else {
                                 // (LAMBDA (A B) STUFF)
                                 // becomes (LAMBDA (A) (LAMBDA (B) STUFF))
@@ -340,11 +341,11 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                 let l =
                                     cons_witness.cons_named(ConsName::Lambda, store, lambda, inner);
                                 let nil = store.nil();
-                                cons_witness.cons_named(ConsName::InnerBody, store, l, nil)
-                            };
-                            let function = store.intern_fun(arg, inner_body, env);
-
-                            Control::ApplyContinuation(function, env, cont)
+                                let inner_body =
+                                    cons_witness.cons_named(ConsName::InnerBody, store, l, nil);
+                                let function = store.intern_fun(arg, inner_body, env);
+                                Control::ApplyContinuation(function, env, cont)
+                            }
                         }
                     } else if head == quote {
                         let (quoted, end) = car_cdr_named!(ConsName::ExprCdr, &rest)?;

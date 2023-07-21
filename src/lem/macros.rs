@@ -19,6 +19,9 @@ macro_rules! op {
     ( let $tgt:ident : $tag:ident ) => {
         $crate::lem::Op::Null($crate::var!($tgt), $crate::lem::Tag::$tag)
     };
+    ( let $tgt:ident = symbol($sym:literal) ) => {
+        $crate::lem::Op::Symbol($crate::var!($tgt), $crate::lem::Symbol::lurk_sym($sym))
+    };
     ( let $tgt:ident : $tag:ident = hash2($src1:ident, $src2:ident) ) => {
         $crate::lem::Op::Hash2(
             $crate::var!($tgt),
@@ -150,6 +153,16 @@ macro_rules! block {
             {
                 $($limbs)*
                 $crate::op!(let $tgt: $tag)
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = symbol($tag:literal) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = symbol($tag))
             },
             $($tail)*
         )
