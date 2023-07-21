@@ -1,9 +1,7 @@
-use std::env::current_dir;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
-use lurk::circuit::gadgets::circom::sha256::sha256_circom;
+use lurk::circuit::gadgets::circom::create_circom_config;
 use lurk::circuit::gadgets::data::GlobalAllocations;
 use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use lurk::coprocessor::{CoCircuit, Coprocessor};
@@ -26,13 +24,13 @@ const REDUCTION_COUNT: usize = 1;
 #[derive(Debug)]
 pub(crate) struct CircomSha256Coprocessor<F: LurkField> {
     n: usize,
-    root: PathBuf,
+    name: String,
     circom_config: CircomConfig<F>,
 }
 
 impl<F: LurkField> Clone for CircomSha256Coprocessor<F> {
     fn clone(&self) -> Self {
-        CircomSha256Coprocessor::new(self.n, self.root.clone())
+        CircomSha256Coprocessor::new(self.n, self.name.clone())
     }
 }
 
@@ -45,19 +43,16 @@ impl<F: LurkField> CoCircuit<F> for CircomSha256Coprocessor<F> {
         &self,
         cs: &mut CS,
         g: &GlobalAllocations<F>,
-        store: &Store<F>,
+        _store: &Store<F>,
         _input_exprs: &[AllocatedPtr<F>],
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-
-        let output = sha256_circom(
-            &mut cs.namespace(|| "sha256_circom"),
-            F::from(0),
-            F::from(0),
-            &self.circom_config,
-        )?;
-
+        
+        let arg_in = ("arg_in".into(), vec![F::ZERO, F::ZERO]);
+        let inputs = vec![arg_in];
+        let witness = nova_scotia::calculate_witness(&self.circom_config, inputs, true).expect("msg");
+        let output = nova_scotia::synthesize(cs, self.circom_config.r1cs.clone(), Some(witness))?;
 
         let res = AllocatedPtr::from_parts(g.num_tag.clone(), output);
 
@@ -71,7 +66,12 @@ impl<F: LurkField> Coprocessor<F> for CircomSha256Coprocessor<F> {
     }
 
     fn simple_evaluate(&self, s: &mut Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
-        let expected = Num::Scalar(F::from_str_vartime("55165702627807990590530466439275329993482327026534454077267643456").unwrap());
+        let expected = Num::Scalar(
+            F::from_str_vartime(
+                "55165702627807990590530466439275329993482327026534454077267643456",
+            )
+            .unwrap(),
+        );
         s.intern_num(expected)
     }
 
@@ -81,13 +81,12 @@ impl<F: LurkField> Coprocessor<F> for CircomSha256Coprocessor<F> {
 }
 
 impl<F: LurkField> CircomSha256Coprocessor<F> {
-    pub(crate) fn new(n: usize, root: PathBuf) -> Self {
-        let wtns = root.join("main_js/main.wasm");
-        let r1cs = root.join("main.r1cs");
+    pub(crate) fn new(n: usize, name: String) -> Self {
+        let circom_config = create_circom_config(&name).expect("circom config failed");
         Self {
             n,
-            root,
-            circom_config: CircomConfig::new(wtns, r1cs).unwrap(),
+            name,
+            circom_config,
         }
     }
 }
@@ -99,17 +98,15 @@ enum Sha256Coproc<F: LurkField> {
 
 /// Run the example in this file with
 /// `cargo run --release --example circom_sha256`
-fn main() {        
-    let mut root = current_dir().unwrap();
-    root.push("src/circuit/gadgets/circom/sha256");
-    let wtns = root.join("main_js/main.wasm");
-    let r1cs = root.join("main.r1cs");
-
+fn main() {
     let store = &mut Store::<Fr>::new();
     let sym_str = Symbol::new(&[".circom_sha256_2"]); // two inputs
     let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
         store,
-        vec![(sym_str.clone(), CircomSha256Coprocessor::new(64, root).into())],
+        vec![(
+            sym_str.clone(),
+            CircomSha256Coprocessor::new(64, "circom_sha256".into()).into(),
+        )],
     );
 
     let coproc_expr = format!("{}", sym_str);

@@ -75,7 +75,7 @@ pub(crate) fn commits_dir() -> Utf8PathBuf {
         .to_owned()
 }
 
-pub(crate) fn circom_dir() -> PathBuf {
+pub(crate) fn circom_dir() -> Utf8PathBuf {
     LURK_DIRS
         .get()
         .expect("failed to initialize beforehand with `set_lurk_dirs()`")
@@ -150,6 +150,6 @@ pub(crate) fn proof_meta_path(name: &str) -> Utf8PathBuf {
         .with_extension("meta")
 }
 
-pub(crate) fn circom_binary_path() -> PathBuf {
+pub(crate) fn circom_binary_path() -> Utf8PathBuf {
     circom_dir().join("circom")
 }

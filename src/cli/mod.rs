@@ -1,7 +1,7 @@
 mod commitment;
 mod field_data;
 mod lurk_proof;
-mod paths;
+pub mod paths;
 mod repl;
 mod circom;
 
