@@ -18,6 +18,18 @@ pub(crate) fn eval_step() -> Func {
 }
 
 fn reduce() -> Func {
+    // Auxiliary function
+    let env_to_use = func!((smaller_env, smaller_rec_env): 1 => {
+        match_tag smaller_rec_env {
+            Nil => {
+                // TODO better syntax for one sized returns
+                return (smaller_env)
+            }
+        };
+        let env: Cons = hash2(smaller_rec_env, smaller_env);
+        return (env)
+    });
+
     func!((expr, env, cont): 4 => {
         match_tag cont {
             Terminal | Error => {
@@ -83,19 +95,31 @@ fn reduce() -> Func {
                         if v2 == expr {
                             match_tag val2 {
                                 Fun => {
+                                    // if `val2` is a closure, then extend its environment
                                     let (arg, body, closed_env) = unhash3(val2);
                                     let extended: Cons = hash2(binding, closed_env);
+                                    // and return the extended closure
                                     let fun: Fun = hash3(arg, body, extended);
                                     let ctrl: ApplyContinuation;
                                     return (fun, env, cont, ctrl)
                                 }
                             };
+                            // otherwise return `val2`
                             let ctrl: ApplyContinuation;
-                            return (val_or_more_rec_env, env, cont, ctrl)
+                            return (val2, env, cont, ctrl)
                         }
+                        // TODO better syntax for calls with one sized returns
+                        let (env_to_use) = env_to_use(smaller_env, val_or_more_rec_env);
 
-                        let err: Error;
-                        return (expr, env, err, err)
+                        match_tag cont {
+                            Lookup => {
+                                let ctrl: Return;
+                                return (expr, env_to_use, cont, ctrl)
+                            }
+                        };
+                        let ctrl: Return;
+                        let cont: Lookup = hash2(env, cont);
+                        return (expr, env_to_use, cont, ctrl)
                     }
                 };
 
