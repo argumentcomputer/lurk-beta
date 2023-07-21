@@ -57,6 +57,9 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
     /// The type of the field element's representation
     const FIELD: LanguageField;
 
+    /// The default secret for non-hiding commitments
+    const NON_HIDING_COMMITMENT_SECRET: Self = Self::ZERO;
+
     /// Converts the field element to a byte vector
     fn to_bytes(self) -> Vec<u8> {
         let repr = self.to_repr();

@@ -174,6 +174,10 @@ impl<F: LurkField> Store<F> {
         self.intern_comm(secret, payload)
     }
 
+    pub fn commit(&mut self, payload: Ptr<F>) -> Ptr<F> {
+        self.hide(F::NON_HIDING_COMMITMENT_SECRET, payload)
+    }
+
     pub fn open(&self, ptr: Ptr<F>) -> Option<(F, Ptr<F>)> {
         let p = match ptr.tag {
             ExprTag::Comm => ptr,

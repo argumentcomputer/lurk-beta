@@ -218,7 +218,7 @@ impl Repl<F> {
                         (cont.parts(), cont_out.parts()),
                     );
 
-                    let claim_comm = Commitment::commit(claim, &mut self.store)?;
+                    let claim_comm = Commitment::new(None, claim, &mut self.store)?;
                     let claim_hash = &claim_comm.hash.hex_digits();
                     let proof_key = &Self::proof_key(&self.backend, &self.rc, claim_hash);
                     let proof_path = proof_path(proof_key);
@@ -285,7 +285,7 @@ impl Repl<F> {
     fn hide(&mut self, secret: F, payload: Ptr<F>) -> Result<()> {
         use super::commitment::Commitment;
 
-        let commitment = Commitment::hide(secret, payload, &mut self.store)?;
+        let commitment = Commitment::new(Some(secret), payload, &mut self.store)?;
         let hash_str = &commitment.hash.hex_digits();
         commitment.persist()?;
         println!(

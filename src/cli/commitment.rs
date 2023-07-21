@@ -30,19 +30,15 @@ mod non_wasm {
     use super::Commitment;
 
     impl<F: LurkField> Commitment<F> {
-        pub fn hide(secret: F, payload: Ptr<F>, store: &mut Store<F>) -> Result<Self> {
-            let comm_ptr = &store.hide(secret, payload);
+        pub fn new(secret: Option<F>, payload: Ptr<F>, store: &mut Store<F>) -> Result<Self> {
+            let comm_ptr = match secret {
+                Some(secret) => store.hide(secret, payload),
+                None => store.commit(payload),
+            };
             let mut zstore = Some(ZStore::<F>::default());
-            let hash = *store.get_z_expr(comm_ptr, &mut zstore)?.0.value();
-            Ok(Self {
-                hash,
-                zstore: zstore.unwrap(),
-            })
-        }
-
-        #[inline]
-        pub fn commit(payload: Ptr<F>, store: &mut Store<F>) -> Result<Self> {
-            Self::hide(F::ZERO, payload, store)
+            let hash = *store.get_z_expr(&comm_ptr, &mut zstore)?.0.value();
+            let zstore = zstore.unwrap();
+            Ok(Self { hash, zstore })
         }
     }
 
