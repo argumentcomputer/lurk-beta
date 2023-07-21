@@ -334,15 +334,15 @@ impl<'a, F: LurkField, C: Coprocessor<F>> FrameIt<'a, Witness<F>, F, C> {
         let mut previous_frame = self.frame.clone();
         let mut emitted: Vec<Ptr<F>> = Vec::new();
         for _ in 0..n {
-            if self.frame.is_complete() {
-                break;
-            }
             let new_frame = self.frame.next(self.store, self.lang)?;
-
+            
             if let Some(expr) = new_frame.output.maybe_emitted_expression(self.store) {
                 emitted.push(expr);
             }
             previous_frame = std::mem::replace(&mut self.frame, new_frame);
+            if matches!(self.frame.output.cont.tag, ContTag::Error | ContTag::Terminal) {
+                break;
+            }
         }
         Ok((self.frame, previous_frame, emitted))
     }
@@ -442,12 +442,13 @@ where
         let initial_input = self.initial();
         let frame_iterator = FrameIt::new(initial_input, self.store, self.lang)?;
 
-        // Initial input performs one reduction, so we need limit more.
-        let (ultimate_frame, _penultimate_frame, emitted) = frame_iterator.next_n(self.limit)?;
+        // Initial input performs one reduction, so we need limit - 1 more.
+        let (ultimate_frame, _penultimate_frame, emitted) =
+            frame_iterator.next_n(self.limit - 1)?;
         let output = ultimate_frame.output;
 
-        // Since frames are 0-indexed, the i-th frame is reached after i iterations
-        let iterations = ultimate_frame.i;
+        // Since frames are 0-indexed, the i+1-th frame is reached after i iterations
+        let iterations = ultimate_frame.i + 1;
 
         if ultimate_frame.is_complete() {
             self.terminal_frame = Some(ultimate_frame);
@@ -466,13 +467,13 @@ where
     pub fn iter(&mut self) -> Result<Take<FrameIt<'_, Witness<F>, F, C>>, ReductionError> {
         let initial_input = self.initial();
 
-        Ok(FrameIt::new(initial_input, self.store, self.lang)?.take(self.limit + 1))
+        Ok(FrameIt::new(initial_input, self.store, self.lang)?.take(self.limit))
     }
 
     // Wraps frames in Result type in order to fail gracefully
     pub fn get_frames(&mut self) -> Result<Vec<Frame<IO<F>, Witness<F>, C>>, ReductionError> {
         let frame = FrameIt::new(self.initial(), self.store, self.lang)?;
-        let result_frame = ResultFrame(Ok(frame)).take(self.limit + 1);
+        let result_frame = ResultFrame(Ok(frame)).take(self.limit);
         result_frame.collect()
     }
 
