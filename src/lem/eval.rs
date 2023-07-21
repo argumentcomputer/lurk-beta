@@ -363,7 +363,12 @@ fn reduce() -> Func {
 }
 
 fn apply_cont() -> Func {
+    let safe_uncons = safe_uncons();
     let make_tail_continuation = make_tail_continuation();
+    let extend_rec = func!((env, var, result): 1 => {
+        // TODO
+        return (env)
+    });
     func!((result, env, cont, ctrl): 4 => {
         match_tag ctrl {
             ApplyContinuation => {
@@ -378,22 +383,86 @@ fn apply_cont() -> Func {
                         return (result, env, cont, ctrl)
                     },
                     Emit => {
-                        // TODO
-                        let err: Error;
-                        return (result, env, err, err)
+                        // Instead of doing hash1 we can reuse a slot for hash2
+                        let (cont, _dummy) = unhash2(cont);
+                        let ctrl: MakeThunk;
+                        return (result, env, cont, ctrl)
                     },
                     Call0 => {
-                        // TODO
+                        let (saved_env, continuation) = unhash2(cont);
+                        match_tag result {
+                            Fun => {
+                                let (arg, body, closed_env) = unhash3(result);
+                                match_symbol arg {
+                                    "dummy" => {
+                                        match_tag body {
+                                            Nil => {
+                                                let err: Error;
+                                                return (result, env, err, err)
+                                            }
+                                        };
+                                        let (body_form, end) = safe_uncons(body);
+                                        match_tag end {
+                                            Nil => {
+                                                let (cont) = make_tail_continuation(saved_env, continuation);
+                                                let ctrl: Return;
+                                                return (body_form, closed_env, cont, ctrl)
+                                            }
+                                        };
+                                        let err: Error;
+                                        return (result, env, err, err)
+                                    }
+                                };
+                                let ctrl: Return;
+                                return (result, env, continuation, ctrl)
+                            }
+                        };
                         let err: Error;
                         return (result, env, err, err)
                     },
                     Call => {
-                        // TODO
+                        match_tag result {
+                            Fun => {
+                                let (unevaled_arg, saved_env, continuation) = unhash3(cont);
+                                let newer_cont: Call2 = hash3(result, saved_env, continuation);
+                                let ctrl: Return;
+                                return (unevaled_arg, env, newer_cont, ctrl)
+                            }
+                        };
                         let err: Error;
                         return (result, env, err, err)
                     },
                     Call2 => {
-                        // TODO
+                        let (function, saved_env, continuation) = unhash3(cont);
+                        match_tag function {
+                            Fun => {
+                                let (arg, body, closed_env) = unhash3(function);
+                                match_symbol arg {
+                                    "dummy" => {
+                                        let err: Error;
+                                        return (result, env, err, err)
+                                    }
+                                };
+                                match_tag body {
+                                    Nil => {
+                                        let err: Error;
+                                        return (result, env, err, err)
+                                    }
+                                };
+                                let (body_form, end) = unhash2(body);
+                                match_tag end {
+                                    Nil => {
+                                        let binding: Cons = hash2(arg, result);
+                                        let newer_env: Cons = hash2(binding, closed_env);
+                                        let (cont) = make_tail_continuation(saved_env, continuation);
+                                        let ctrl: Return;
+                                        return (body_form, newer_env, cont, ctrl)
+                                    }
+                                };
+                                let err: Error;
+                                return (result, env, err, err)
+                            }
+                        };
                         let err: Error;
                         return (result, env, err, err)
                     },
@@ -403,12 +472,14 @@ fn apply_cont() -> Func {
                         let extended_env: Cons = hash2(binding, env);
                         let (cont) = make_tail_continuation(saved_env, cont);
                         let ctrl: Return;
-                        return (result, env, cont, ctrl)
+                        return (result, extended_env, cont, ctrl)
                     },
                     LetRec => {
-                        // TODO
-                        let err: Error;
-                        return (result, env, err, err)
+                        let (var, body, saved_env, cont) = unhash4(cont);
+                        let (extended_env) = extend_rec(env, var, result);
+                        let (cont) = make_tail_continuation(saved_env, cont);
+                        let ctrl: Return;
+                        return (result, extended_env, cont, ctrl)
                     },
                     Unop => {
                         // TODO
