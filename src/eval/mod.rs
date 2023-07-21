@@ -433,13 +433,18 @@ where
         }
     }
 
+    #[inline]
+    pub fn has_terminal_frame(&self) -> bool {
+        self.terminal_frame.is_some()
+    }
+
     pub fn eval(&mut self) -> Result<(IO<F>, usize, Vec<Ptr<F>>), ReductionError> {
         let initial_input = self.initial();
         let frame_iterator = FrameIt::new(initial_input, self.store, self.lang)?;
 
         // Initial input performs one reduction, so we need limit more.
         let (ultimate_frame, _penultimate_frame, emitted) = frame_iterator.next_n(self.limit)?;
-        let output = ultimate_frame.input;
+        let output = ultimate_frame.output;
 
         // Since frames are 0-indexed, the i-th frame is reached after i iterations
         let iterations = ultimate_frame.i;

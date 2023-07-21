@@ -199,7 +199,7 @@ impl Repl<F> {
 
                     // saving to avoid clones
                     let input = &frames[0].input;
-                    let output = &frames[*iterations].input;
+                    let output = &frames[*iterations].output;
                     let mut zstore = Some(ZStore::<F>::default());
                     let expr = self.store.get_z_expr(&input.expr, &mut zstore)?.0;
                     let env = self.store.get_z_expr(&input.env, &mut zstore)?.0;
@@ -316,9 +316,10 @@ impl Repl<F> {
 
     #[inline]
     fn eval_expr(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize, Vec<Ptr<F>>)> {
-        let ret =
-            Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang).eval()?;
-        if matches!(ret.0.cont.tag, ContTag::Terminal | ContTag::Error) {
+        let mut evaluator =
+            Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang);
+        let ret = evaluator.eval()?;
+        if evaluator.has_terminal_frame() {
             Ok(ret)
         } else {
             let iterations = ret.1;
@@ -383,18 +384,12 @@ impl Repl<F> {
         Ok(hash.into_scalar().hex_digits())
     }
 
-    fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize)> {
+    fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
         let frames = Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang)
             .get_frames()?;
-
         let iterations = frames.len() - 1;
-        let last_output = frames[iterations].input;
-
-        // if matches!(last_output.cont.tag, ContTag::Terminal | ContTag::Error) {
-        // }
         self.evaluation = Some(Evaluation { frames, iterations });
-
-        Ok((last_output, iterations))
+        Ok(())
     }
 
     fn handle_meta_cases(&mut self, cmd: &str, args: &Ptr<F>, pwd_path: &Path) -> Result<()> {
@@ -618,26 +613,33 @@ impl Repl<F> {
     }
 
     fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
-        self.eval_expr_and_memoize(expr_ptr)
-            .map(|(output, iterations)| {
-                let iterations_display = if iterations != 1 {
-                    format!("{iterations} iterations")
-                } else {
-                    "1 iteration".into()
-                };
-                match output.cont.tag {
-                    ContTag::Terminal => {
-                        println!(
-                            "[{iterations_display}] => {}",
-                            output.expr.fmt_to_string(&self.store)
-                        )
-                    }
-                    ContTag::Error => {
-                        println!("Evaluation encountered an error after {iterations_display}")
-                    }
-                    _ => println!("Limit reached after {iterations_display}"),
+        self.eval_expr_and_memoize(expr_ptr)?;
+        let evaluation = self.evaluation.as_ref().unwrap();
+        let iterations = evaluation.iterations;
+        let iterations_display = if iterations != 1 {
+            format!("{iterations} iterations")
+        } else {
+            "1 iteration".into()
+        };
+        let last_frame = &evaluation.frames[iterations];
+        if last_frame.is_complete() {
+            let output = last_frame.output;
+            match output.cont.tag {
+                ContTag::Terminal => {
+                    println!(
+                        "[{iterations_display}] => {}",
+                        output.expr.fmt_to_string(&self.store)
+                    )
                 }
-            })
+                ContTag::Error => {
+                    println!("Evaluation encountered an error after {iterations_display}")
+                }
+                _ => unreachable!("Last frame must be complete"),
+            }
+        } else {
+            println!("Limit reached after {iterations_display}");
+        }
+        Ok(())
     }
 
     fn handle_form<'a>(
