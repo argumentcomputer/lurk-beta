@@ -41,14 +41,28 @@ impl Block {
         for op in &self.ops {
             match op {
                 Op::Call(out, func, inp) => {
+                    // Get the argument values
                     let inp_ptrs = bindings.get_many_cloned(inp)?;
-                    let (frame, func_path) = func.call(inp_ptrs, store, preimages)?;
+
+                    // To save lexical order of `call_outputs` we need to push the output
+                    // of the call *before* the inner calls of the `func`. To do this, we
+                    // save all the inner call outputs, push the output of the call in front
+                    // of it, then extend `call_outputs`
+                    let mut inner_call_outputs = VecDeque::new();
+                    std::mem::swap(&mut inner_call_outputs, &mut preimages.call_outputs);
+                    let (mut frame, func_path) = func.call(inp_ptrs, store, preimages)?;
+                    std::mem::swap(&mut inner_call_outputs, &mut frame.preimages.call_outputs);
+
+                    // Extend the path and bind the output variables to the output values
                     path.extend_from_path(&func_path);
                     for (var, ptr) in out.iter().zip(frame.output.iter()) {
                         bindings.insert(var.clone(), *ptr);
                     }
+
+                    // Update `preimages` correctly
+                    inner_call_outputs.push_front(frame.output);
                     preimages = frame.preimages;
-                    preimages.call_outputs.push_back(frame.output);
+                    preimages.call_outputs.extend(inner_call_outputs);
                 }
                 Op::Null(tgt, tag) => {
                     bindings.insert(tgt.clone(), Ptr::null(*tag));
