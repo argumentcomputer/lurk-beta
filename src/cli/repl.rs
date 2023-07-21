@@ -183,6 +183,12 @@ impl Repl<F> {
         ])
     }
 
+    #[allow(dead_code)]
+    fn proof_key(backend: &Backend, rc: &usize, claim_hash: &str) -> String {
+        let field = F::FIELD;
+        format!("{backend}_{field}_{rc}_{claim_hash}")
+    }
+
     #[cfg(not(target_arch = "wasm32"))]
     pub fn prove_last_frames(&mut self) -> Result<()> {
         use ff::Field;
@@ -207,16 +213,17 @@ impl Repl<F> {
                     let env_out = self.store.get_z_expr(&output.env, &mut zstore)?.0;
                     let cont_out = self.store.get_z_cont(&output.cont, &mut zstore)?.0;
 
-                    let proof_claim = Self::proof_claim(
+                    let claim = Self::proof_claim(
                         &mut self.store,
                         (input.expr, output.expr),
                         (input.env, output.env),
                         (cont.parts(), cont_out.parts()),
                     );
-                    let commitment = Commitment::new(F::ZERO, proof_claim, &mut self.store)?;
-                    let proof_id = &commitment.hidden.value().hex_digits();
 
-                    let proof_path = proof_path(proof_id);
+                    let claim_comm = Commitment::new(F::ZERO, claim, &mut self.store)?;
+                    let claim_hash = &claim_comm.hidden.value().hex_digits();
+                    let proof_key = &Self::proof_key(&self.backend, &self.rc, claim_hash);
+                    let proof_path = proof_path(proof_key);
 
                     if proof_path.exists() {
                         info!("Proof already cached");
@@ -263,11 +270,12 @@ impl Repl<F> {
                             zstore: zstore.unwrap(),
                         };
 
-                        lurk_proof.persist(proof_id)?;
-                        lurk_proof_meta.persist(proof_id)?;
-                        commitment.persist(proof_id)?;
+                        lurk_proof.persist_at(proof_path)?;
+                        lurk_proof_meta.persist(proof_key)?;
+                        claim_comm.persist(claim_hash)?;
                     }
-                    println!("Proof ID: \"{proof_id}\"");
+                    println!("Claim hash: 0x{claim_hash}");
+                    println!("Proof key: \"{proof_key}\"");
                     Ok(())
                 }
                 Backend::SnarkPackPlus => todo!(),

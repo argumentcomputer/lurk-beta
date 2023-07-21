@@ -64,6 +64,8 @@ where
 
 #[cfg(not(target_arch = "wasm32"))]
 mod non_wasm {
+    use std::path::PathBuf;
+
     use crate::cli::{
         field_data::non_wasm::{dump, load},
         paths::non_wasm::{proof_meta_path, proof_path},
@@ -89,8 +91,14 @@ mod non_wasm {
         Coproc<F>: Coprocessor<Pallas>,
     {
         #[inline]
+        #[allow(dead_code)]
         pub fn persist(self, id: &str) -> Result<()> {
             dump(self, proof_path(id))
+        }
+
+        #[inline]
+        pub fn persist_at(self, path: PathBuf) -> Result<()> {
+            dump(self, path)
         }
     }
 
