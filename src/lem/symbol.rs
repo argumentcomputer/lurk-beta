@@ -43,6 +43,7 @@ impl Symbol {
 
     #[inline]
     pub fn lurk_sym(name: &str) -> Symbol {
+        // TODO decide whether it is indeed a Lurk sym or not
         Symbol::Sym(Self::lurk_sym_path(name.into()))
     }
 }

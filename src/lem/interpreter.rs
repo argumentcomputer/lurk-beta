@@ -67,6 +67,9 @@ impl Block {
                 Op::Null(tgt, tag) => {
                     bindings.insert(tgt.clone(), Ptr::null(*tag));
                 }
+                Op::Symbol(tgt, sym) => {
+                    bindings.insert(tgt.clone(), store.intern_symbol(sym));
+                }
                 Op::Hash2(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
                     let tgt_ptr = store.intern_2_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1]);

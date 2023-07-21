@@ -288,7 +288,7 @@ mod tests {
         // assert_eq!(slots_count, NUM_SLOTS);
         eprintln!("SLOTS_COUNT: {:?}", slots_count);
 
-        let computed_num_constraints = eval_step.num_constraints::<Fr>(&slots_count);
+        let computed_num_constraints = eval_step.num_constraints::<Fr>(&slots_count, store);
 
         // Assures that `MatchSymbol`s will work properly
         eval_step.intern_matched_symbols(store);

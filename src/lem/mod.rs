@@ -138,6 +138,8 @@ pub enum Op {
     Call(Vec<Var>, Box<Func>, Vec<Var>),
     /// `Null(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
     Null(Var, Tag),
+    /// `Symbol(x, sym)` binds `x` to symbol `sym`
+    Symbol(Var, Symbol),
     /// `Hash2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
     Hash2(Var, Tag, [Var; 2]),
     /// `Hash3(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 3 children `ys`
@@ -212,6 +214,9 @@ impl Func {
                         recurse(&func.body, func.output_size, map)?;
                     }
                     Op::Null(tgt, _tag) => {
+                        is_unique(tgt, map);
+                    }
+                    Op::Symbol(tgt, _sym) => {
                         is_unique(tgt, map);
                     }
                     Op::Hash2(img, _tag, preimg) => {
@@ -376,6 +381,7 @@ impl Block {
                     ops.push(Op::Call(out, func, inp))
                 }
                 Op::Null(tgt, tag) => ops.push(Op::Null(insert_one(map, uniq, &tgt), tag)),
+                Op::Symbol(tgt, sym) => ops.push(Op::Symbol(insert_one(map, uniq, &tgt), sym)),
                 Op::Hash2(img, tag, preimg) => {
                     let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
                     let img = insert_one(map, uniq, &img);
@@ -517,7 +523,7 @@ mod tests {
 
         assert_eq!(slots_count, expected_num_slots);
 
-        let computed_num_constraints = func.num_constraints::<Fr>(&slots_count);
+        let computed_num_constraints = func.num_constraints::<Fr>(&slots_count, store);
 
         let mut cs_prev = None;
         for input in inputs.into_iter() {

@@ -151,6 +151,7 @@ use super::{
     interpreter::Frame,
     pointers::{Ptr, ZPtr},
     store::Store,
+    tag::Tag,
     var_map::VarMap,
     Block, Ctrl, Func, Op, Var,
 };
@@ -738,6 +739,16 @@ impl Func {
                         );
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
+                    Op::Symbol(tgt, sym) => {
+                        let sym_ptr = g.store.intern_symbol(sym);
+                        let sym_hash = g.store.hash_ptr(&sym_ptr)?.hash;
+                        let allocated_ptr = AllocatedPtr::from_parts(
+                            g.global_allocator
+                                .get_or_alloc_const(cs, Tag::Sym.to_field())?,
+                            g.global_allocator.get_or_alloc_const(cs, sym_hash)?,
+                        );
+                        bound_allocations.insert(tgt.clone(), allocated_ptr);
+                    }
                     _ => todo!(),
                 }
             }
@@ -965,22 +976,33 @@ impl Func {
     /// Computes the number of constraints that `synthesize` should create. It's
     /// also an explicit way to document and attest how the number of constraints
     /// grow.
-    pub fn num_constraints<F: LurkField>(&self, num_slots: &SlotsCounter) -> usize {
+    pub fn num_constraints<F: LurkField>(
+        &self,
+        num_slots: &SlotsCounter,
+        store: &mut Store<F>,
+    ) -> usize {
         fn recurse<F: LurkField>(
             block: &Block,
             nested: bool,
             globals: &mut HashSet<FWrap<F>>,
+            store: &mut Store<F>,
         ) -> usize {
             let mut num_constraints = 0;
             for op in &block.ops {
                 match op {
                     Op::Call(_, func, _) => {
-                        num_constraints += recurse(&func.body, nested, globals);
+                        num_constraints += recurse(&func.body, nested, globals, store);
                     }
                     Op::Null(_, tag) => {
                         // constrain tag and hash
                         globals.insert(FWrap(tag.to_field()));
                         globals.insert(FWrap(F::ZERO));
+                    }
+                    Op::Symbol(_, sym) => {
+                        let sym_ptr = store.intern_symbol(sym);
+                        let sym_hash = store.hash_ptr(&sym_ptr).unwrap().hash;
+                        globals.insert(FWrap(Tag::Sym.to_field()));
+                        globals.insert(FWrap(sym_hash));
                     }
                     Op::Hash2(_, tag, _) => {
                         // tag for the image
@@ -1012,8 +1034,8 @@ impl Func {
                 Ctrl::IfEq(_, _, eq_block, else_block) => {
                     num_constraints
                         + if nested { 6 } else { 4 }
-                        + recurse(eq_block, true, globals)
-                        + recurse(else_block, true, globals)
+                        + recurse(eq_block, true, globals, store)
+                        + recurse(else_block, true, globals, store)
                 }
                 Ctrl::MatchTag(_, cases, def) => {
                     // `alloc_equal_const` adds 3 constraints for each case and
@@ -1026,13 +1048,13 @@ impl Func {
 
                     // stacked ops are now nested
                     for block in cases.values() {
-                        num_constraints += recurse(block, true, globals);
+                        num_constraints += recurse(block, true, globals, store);
                     }
                     match def {
                         Some(def) => {
                             // constraints for the boolean and the default case
                             num_constraints += multiplier - 2;
-                            num_constraints += recurse(def, true, globals);
+                            num_constraints += recurse(def, true, globals, store);
                         }
                         None => (),
                     };
@@ -1042,12 +1064,12 @@ impl Func {
                     let multiplier = if nested { 4 } else { 3 };
                     num_constraints += multiplier * cases.len() + 1;
                     for block in cases.values() {
-                        num_constraints += recurse(block, true, globals);
+                        num_constraints += recurse(block, true, globals, store);
                     }
                     match def {
                         Some(def) => {
                             num_constraints += multiplier - 2;
-                            num_constraints += recurse(def, true, globals);
+                            num_constraints += recurse(def, true, globals, store);
                         }
                         None => (),
                     };
@@ -1059,7 +1081,7 @@ impl Func {
         // fixed cost for each slot
         let slot_constraints =
             289 * num_slots.hash2 + 337 * num_slots.hash3 + 388 * num_slots.hash4;
-        let num_constraints = recurse::<F>(&self.body, false, globals);
+        let num_constraints = recurse::<F>(&self.body, false, globals, store);
         slot_constraints + num_constraints + globals.len()
     }
 }
