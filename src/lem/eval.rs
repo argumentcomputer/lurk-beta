@@ -69,6 +69,28 @@ fn reduce() -> Func {
             }
         }
     });
+    let expand_bindings = func!((head, body, body1, rest_bindings): 1 => {
+        match_tag rest_bindings {
+            Nil => {
+                return (body1)
+            }
+        };
+        let expanded_0: Cons = hash2(rest_bindings, body);
+        let expanded: Cons = hash2(head, expanded_0);
+        return (expanded)
+    });
+    let choose_let_cont = func!((head, var, env, expanded, cont): 1 => {
+        match_symbol head {
+            "let" => {
+                let cont: Let = hash4(var, env, expanded, cont);
+                return (cont)
+            },
+            "letrec" => {
+                let cont: LetRec = hash4(var, env, expanded, cont);
+                return (cont)
+            }
+        }
+    });
 
     func!((expr, env, cont): 4 => {
         match_tag cont {
@@ -166,7 +188,6 @@ fn reduce() -> Func {
             Cons => {
                 // No need for `safe_uncons` since the expression is already a `Cons`
                 let (head, rest) = unhash2(expr);
-                // TODO
                 match_symbol head {
                     "lambda" => {
                         let (args, body) = safe_uncons(rest);
@@ -195,12 +216,56 @@ fn reduce() -> Func {
                         return (expr, env, err, err)
                     },
                     "quote" => {
-                        // TODO
+                        let (quoted, end) = safe_uncons(rest);
+
+                        match_tag end {
+                            Nil => {
+                                let ctrl: ApplyContinuation;
+                                return (quoted, env, cont, ctrl)
+                            }
+                        };
                         let err: Error;
                         return (expr, env, err, err)
                     },
                     "let" | "letrec" => {
-                        // TODO
+                        let (bindings, body) = safe_uncons(rest);
+                        let (body1, rest_body) = safe_uncons(body);
+                        // Only a single body form allowed for now.
+                        match_tag body {
+                            Nil => {
+                                let err: Error;
+                                return (expr, env, err, err)
+                            }
+                        };
+                        match_tag rest_body {
+                            Nil => {
+                                match_tag bindings {
+                                    Nil => {
+                                        let ctrl: Return;
+                                        return (body1, env, cont, ctrl)
+                                    }
+                                };
+                                let (binding1, rest_bindings) = safe_uncons(bindings);
+                                let (var, vals) = safe_uncons(binding1);
+                                match_tag var {
+                                    Sym => {
+                                        let (val, end) = safe_uncons(vals);
+                                        match_tag end {
+                                            Nil => {
+                                                let (expanded) = expand_bindings(head, body, body1, rest_bindings);
+                                                let (cont) = choose_let_cont(head, var, env, expanded, cont);
+                                                let ctrl: Return;
+                                                return (val, env, cont, ctrl)
+                                            }
+                                        };
+                                        let err: Error;
+                                        return (expr, env, err, err)
+                                    }
+                                };
+                                let err: Error;
+                                return (expr, env, err, err)
+                            }
+                        };
                         let err: Error;
                         return (expr, env, err, err)
                     },
