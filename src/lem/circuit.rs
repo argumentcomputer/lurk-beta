@@ -1003,8 +1003,10 @@ impl Func {
             match &block.ctrl {
                 Ctrl::Return(vars) => num_constraints + 2 * vars.len(),
                 Ctrl::IfEq(_, _, eq_block, else_block) => {
-                    let if_cost = if nested { 6 } else { 4 };
-                    if_cost + recurse(eq_block, true, globals) + recurse(else_block, true, globals)
+                    num_constraints
+                        + if nested { 6 } else { 4 }
+                        + recurse(eq_block, true, globals)
+                        + recurse(else_block, true, globals)
                 }
                 Ctrl::MatchTag(_, cases, def) => {
                     // `alloc_equal_const` adds 3 constraints for each case and
