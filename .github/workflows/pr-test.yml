@@ -3,10 +3,10 @@ name: Lurk CI tests
 on:
   merge_group:
   push:
-    branches-ignored: [main]
+    branches-ignored: [master]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    branches: [main]
+    branches: [master]
 
 env:
   CARGO_TERM_COLOR: always
