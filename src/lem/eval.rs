@@ -366,8 +366,26 @@ fn apply_cont() -> Func {
     let safe_uncons = safe_uncons();
     let make_tail_continuation = make_tail_continuation();
     let extend_rec = func!((env, var, result): 1 => {
-        // TODO
-        return (env)
+
+        let (binding_or_env, rest) = unhash2(env);
+        let (var_or_binding, _val_or_more_bindings) = unhash2(binding_or_env);
+        let cons: Cons = hash2(var, result);
+        match_tag var_or_binding {
+            // It's a var, so we are extending a simple env with a recursive env.
+            Sym | Nil => {
+                let nil: Nil;
+                let list: Cons = hash2(cons, nil);
+                let res: Cons = hash2(list, env);
+                return (res)
+            },
+            // It's a binding, so we are extending a recursive env.
+            Cons => {
+                let cons2: Cons = hash2(cons, binding_or_env);
+                let res: Cons = hash2(cons2, rest);
+
+                return (res)
+            }
+        }
     });
     func!((result, env, cont, ctrl): 4 => {
         match_tag ctrl {

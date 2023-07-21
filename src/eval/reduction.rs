@@ -746,19 +746,16 @@ fn apply_continuation<F: LurkField>(
                     saved_env,
                     continuation,
                 } => {
-                    let function = result;
-                    let next_expr = unevaled_arg;
-
                     let newer_cont = cont_witness.intern_named_cont(
                         ContName::NewerCont2,
                         store,
                         Continuation::Call2 {
-                            function,
+                            function: result,
                             saved_env,
                             continuation,
                         },
                     );
-                    Control::Return(next_expr, env, newer_cont)
+                    Control::Return(unevaled_arg, env, newer_cont)
                 }
                 _ => unreachable!(),
             },
