@@ -25,11 +25,14 @@ pub enum Tag {
     Lookup,
     Let,
     LetRec,
+    Binop,
     // control tags. Note that this is a hack because we can't add arbitrary
     // constants yet.
     Return,
     MakeThunk,
     ApplyContinuation,
+    // binops
+    Begin,
 }
 
 impl Tag {
@@ -62,9 +65,11 @@ impl Display for Tag {
             Tag::Lookup => write!(f, "Lookup"),
             Tag::Let => write!(f, "Let"),
             Tag::LetRec => write!(f, "LetRec"),
+            Tag::Binop => write!(f, "Binop"),
             Tag::Return => write!(f, "Return"),
             Tag::ApplyContinuation => write!(f, "ApplyContinuation"),
             Tag::MakeThunk => write!(f, "MakeThunk"),
+            Tag::Begin => write!(f, "Begin"),
         }
     }
 }

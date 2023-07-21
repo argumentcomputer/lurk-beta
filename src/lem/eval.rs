@@ -270,9 +270,17 @@ fn reduce() -> Func {
                         return (expr, env, err, err)
                     },
                     "begin" => {
-                        // TODO
-                        let err: Error;
-                        return (expr, env, err, err)
+                        let (arg1, more) = safe_uncons(rest);
+                        match_tag more {
+                            Nil => {
+                                let ctrl: Return;
+                                return (arg1, env, cont, ctrl)
+                            }
+                        };
+                        let ctrl: Return;
+                        let op2: Begin;
+                        let cont: Binop = hash4(op2, env, more, cont);
+                        return (arg1, env, cont, ctrl)
                     },
                     "eval" => {
                         // TODO
