@@ -313,9 +313,49 @@ impl Repl<F> {
         Ok(())
     }
 
-    #[inline]
     fn eval_expr(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize, Vec<Ptr<F>>)> {
-        Ok(Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang).eval()?)
+        let ret =
+            Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang).eval()?;
+        match ret.0.cont.tag {
+            ContTag::Terminal => Ok(ret),
+            t => {
+                let iterations = ret.1;
+                let iterations_display = if iterations != 1 {
+                    format!("{iterations} iterations")
+                } else {
+                    "1 iteration".into()
+                };
+                match t {
+                    ContTag::Error => {
+                        bail!("Evaluation encountered an error after {iterations_display}")
+                    }
+                    _ => bail!("Limit reached after {iterations_display}"),
+                }
+            }
+        }
+    }
+
+    fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
+        self.eval_expr_and_memoize(expr_ptr)
+            .map(|(output, iterations)| {
+                let iterations_display = if iterations != 1 {
+                    format!("{iterations} iterations")
+                } else {
+                    "1 iteration".into()
+                };
+                match output.cont.tag {
+                    ContTag::Terminal => {
+                        println!(
+                            "[{iterations_display}] => {}",
+                            output.expr.fmt_to_string(&self.store)
+                        )
+                    }
+                    ContTag::Error => {
+                        println!("Evaluation encountered an error after {iterations_display}")
+                    }
+                    _ => println!("Limit reached after {iterations_display}"),
+                }
+            })
     }
 
     fn peek1(&self, cmd: &str, args: &Ptr<F>) -> Result<Ptr<F>> {
@@ -485,8 +525,7 @@ impl Repl<F> {
             }
             "assert-error" => {
                 let first = self.peek1(cmd, args)?;
-                let (first_io, ..) = self.eval_expr(first)?;
-                if first_io.cont.tag != ContTag::Error {
+                if self.eval_expr(first).is_ok() {
                     eprintln!(
                         "`assert-error` failed. {} doesn't result on evaluation error.",
                         first.fmt_to_string(&self.store)
@@ -608,25 +647,6 @@ impl Repl<F> {
         }
 
         Ok((last_output, iterations))
-    }
-
-    fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
-        self.eval_expr_and_memoize(expr_ptr)
-            .map(|(output, iterations)| {
-                let prefix = if iterations != 1 {
-                    format!("[{iterations} iterations] => ")
-                } else {
-                    "[1 iteration] => ".into()
-                };
-
-                let suffix = match output.cont.tag {
-                    ContTag::Terminal => output.expr.fmt_to_string(&self.store),
-                    ContTag::Error => "ERROR!".into(),
-                    _ => "Computation incomplete (limit reached)".into(),
-                };
-
-                println!("{}{}", prefix, suffix);
-            })
     }
 
     fn handle_form<'a>(
