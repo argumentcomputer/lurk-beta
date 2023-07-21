@@ -17,6 +17,18 @@ pub(crate) fn eval_step() -> Func {
     })
 }
 
+fn make_tail_continuation() -> Func {
+    func!((env, continuation): 2 => {
+        match_tag continuation {
+            Tail => {
+                return (continuation);
+            }
+        };
+        let tail_continuation: Tail = hash2(env, continuation);
+        return (tail_continuation);
+    })
+}
+
 fn reduce() -> Func {
     // Auxiliary function
     let env_to_use = func!((smaller_env, smaller_rec_env): 1 => {
@@ -136,18 +148,27 @@ fn reduce() -> Func {
 }
 
 fn apply_cont() -> Func {
-    func!((expr, env, cont, ctrl): 4 => {
+    let make_tail_continuation = make_tail_continuation();
+    func!((result, env, cont, ctrl): 4 => {
         match_tag ctrl {
             ApplyContinuation => {
                 match_tag cont {
                     Terminal | Error => {
                         let ctrl: Return;
-                        return (expr, env, cont, ctrl)
+                        return (result, env, cont, ctrl)
                     },
                     Outermost => {
                         let ctrl: Return;
                         let cont: Terminal;
-                        return (expr, env, cont, ctrl)
+                        return (result, env, cont, ctrl)
+                    },
+                    Let => {
+                        let (var, body, saved_env, cont) = unhash4(cont);
+                        let binding: Cons = hash2(var, result);
+                        let extended_env: Cons = hash2(binding, env);
+                        let (cont) = make_tail_continuation(saved_env, continuation);
+                        let ctrl: Return;
+                        return (result, env, cont, ctrl)
                     }
                 }
             }
