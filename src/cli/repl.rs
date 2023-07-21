@@ -270,7 +270,7 @@ impl Repl<F> {
                             zstore: zstore.unwrap(),
                         };
 
-                        lurk_proof.persist_at(proof_path)?;
+                        lurk_proof.persist(proof_key)?;
                         lurk_proof_meta.persist(proof_key)?;
                         claim_comm.persist()?;
                     }
