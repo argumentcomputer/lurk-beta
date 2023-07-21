@@ -191,8 +191,6 @@ impl Repl<F> {
 
     #[cfg(not(target_arch = "wasm32"))]
     pub fn prove_last_frames(&mut self) -> Result<()> {
-        use ff::Field;
-
         use crate::cli::{commitment::Commitment, paths::non_wasm::proof_path};
 
         match self.evaluation.as_mut() {
@@ -220,7 +218,7 @@ impl Repl<F> {
                         (cont.parts(), cont_out.parts()),
                     );
 
-                    let claim_comm = Commitment::new(F::ZERO, claim, &mut self.store)?;
+                    let claim_comm = Commitment::commit(claim, &mut self.store)?;
                     let claim_hash = &claim_comm.hash.hex_digits();
                     let proof_key = &Self::proof_key(&self.backend, &self.rc, claim_hash);
                     let proof_path = proof_path(proof_key);
@@ -287,7 +285,7 @@ impl Repl<F> {
     fn hide(&mut self, secret: F, payload: Ptr<F>) -> Result<()> {
         use super::commitment::Commitment;
 
-        let commitment = Commitment::new(secret, payload, &mut self.store)?;
+        let commitment = Commitment::hide(secret, payload, &mut self.store)?;
         let hash_str = &commitment.hash.hex_digits();
         commitment.persist()?;
         println!(
