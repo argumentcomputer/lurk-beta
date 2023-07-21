@@ -28,6 +28,8 @@ pub enum Tag {
     Binop,
     Unop,
     If,
+    Call0,
+    Call,
     // control tags. Note that this is a hack because we can't add arbitrary
     // constants yet.
     Return,
@@ -75,6 +77,8 @@ impl Display for Tag {
             Tag::Binop => write!(f, "Binop"),
             Tag::Unop => write!(f, "Unop"),
             Tag::If => write!(f, "If"),
+            Tag::Call0 => write!(f, "Call0"),
+            Tag::Call => write!(f, "Call"),
             // control
             Tag::Return => write!(f, "Return"),
             Tag::ApplyContinuation => write!(f, "ApplyContinuation"),

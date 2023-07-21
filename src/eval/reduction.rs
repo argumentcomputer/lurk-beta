@@ -543,15 +543,13 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                         }
                     } else {
                         // (fn . args)
-                        let fun_form = head;
-                        let args = rest;
 
                         // NOTE: Any Coprocessor found will take precedence, which means coprocessor bindings cannot be shadowed.
                         if let Some((coprocessor, _z_ptr)) = lang.lookup(store, head) {
-                            let (_arg, _more_args) = car_cdr_named!(ConsName::ExprCdr, &args)?;
+                            let (_arg, _more_args) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
 
                             let IO { expr, env, cont } =
-                                coprocessor.evaluate(store, args, env, cont);
+                                coprocessor.evaluate(store, rest, env, cont);
 
                             return Ok((
                                 Control::ApplyContinuation(expr, env, cont),
@@ -560,12 +558,12 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                         };
 
                         // `fun_form` must be a function or potentially evaluate to one.
-                        if !fun_form.is_potentially(ExprTag::Fun) {
+                        if !head.is_potentially(ExprTag::Fun) {
                             dbg!("not potentially fun");
                             Control::Error(expr, env)
-                        } else if args.is_nil() {
+                        } else if rest.is_nil() {
                             Control::Return(
-                                fun_form,
+                                head,
                                 env,
                                 cont_witness.intern_named_cont(
                                     ContName::NewerCont,
@@ -577,12 +575,12 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                 ),
                             )
                         } else {
-                            let (arg, more_args) = car_cdr_named!(ConsName::ExprCdr, &args)?;
+                            let (arg, more_args) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
                             match more_args.tag {
                                 // (fn arg)
                                 // Interpreting as call.
                                 ExprTag::Nil => Control::Return(
-                                    fun_form,
+                                    head,
                                     env,
                                     cont_witness.intern_named_cont(
                                         ContName::NewerCont,
@@ -607,7 +605,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                     let expanded_inner = cons_witness.cons_named(
                                         ConsName::ExpandedInner,
                                         store,
-                                        fun_form,
+                                        head,
                                         expanded_inner0,
                                     );
                                     let expanded = cons_witness.cons_named(

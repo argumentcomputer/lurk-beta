@@ -326,7 +326,35 @@ fn reduce() -> Func {
                     }
                     // TODO binops and unops
                 };
-                // TODO
+                // TODO coprocessors (could it be simply a `func`?)
+                // head -> fn, rest -> args
+                match_tag head {
+                    Fun => {
+                        match_tag rest {
+                            Nil => {
+                                let ctrl: Return;
+                                let cont: Call0 = hash2(env, cont);
+                                return (head, env, cont, ctrl)
+                            },
+                            Cons => {
+                                let (arg, more_args) = unhash2(rest);
+                                match_tag more_args {
+                                    Nil => {
+                                        let ctrl: Return;
+                                        let cont: Call = hash3(arg, env, cont);
+                                        return (head, env, cont, ctrl)
+                                    }
+                                };
+                                let nil: Nil;
+                                let expanded_inner0: Cons = hash2(arg, nil);
+                                let expanded_inner: Cons = hash2(head, expanded_inner0);
+                                let expanded: Cons = hash2(expanded_inner, more_args);
+                                let ctrl: Return;
+                                return (expanded, env, cont, ctrl)
+                            }
+                        }
+                    }
+                };
                 let err: Error;
                 return (expr, env, err, err)
             }
