@@ -1,3 +1,3 @@
 (function() {var implementors = {
-"lurk":[["impl&lt;'a&gt; <a class=\"trait\" href=\"https://docs.rs/serde/1.0.167/serde/ser/trait.Serializer.html\" title=\"trait serde::ser::Serializer\">Serializer</a> for &amp;'a <a class=\"struct\" href=\"lurk/z_data/serde/ser/struct.Serializer.html\" title=\"struct lurk::z_data::serde::ser::Serializer\">Serializer</a>"]]
+"lurk":[["impl&lt;'a&gt; <a class=\"trait\" href=\"https://docs.rs/serde/1.0.171/serde/ser/trait.Serializer.html\" title=\"trait serde::ser::Serializer\">Serializer</a> for &amp;'a <a class=\"struct\" href=\"lurk/z_data/serde/ser/struct.Serializer.html\" title=\"struct lurk::z_data::serde::ser::Serializer\">Serializer</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
