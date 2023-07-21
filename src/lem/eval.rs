@@ -377,6 +377,26 @@ fn apply_cont() -> Func {
                         let cont: Terminal;
                         return (result, env, cont, ctrl)
                     },
+                    Emit => {
+                        // TODO
+                        let err: Error;
+                        return (result, env, err, err)
+                    },
+                    Call0 => {
+                        // TODO
+                        let err: Error;
+                        return (result, env, err, err)
+                    },
+                    Call => {
+                        // TODO
+                        let err: Error;
+                        return (result, env, err, err)
+                    },
+                    Call2 => {
+                        // TODO
+                        let err: Error;
+                        return (result, env, err, err)
+                    },
                     Let => {
                         let (var, body, saved_env, cont) = unhash4(cont);
                         let binding: Cons = hash2(var, result);
@@ -384,6 +404,41 @@ fn apply_cont() -> Func {
                         let (cont) = make_tail_continuation(saved_env, cont);
                         let ctrl: Return;
                         return (result, env, cont, ctrl)
+                    },
+                    LetRec => {
+                        // TODO
+                        let err: Error;
+                        return (result, env, err, err)
+                    },
+                    Unop => {
+                        // TODO
+                        let err: Error;
+                        return (result, env, err, err)
+                    },
+                    Binop => {
+                        // TODO
+                        let err: Error;
+                        return (result, env, err, err)
+                    },
+                    Binop2 => {
+                        // TODO
+                        let err: Error;
+                        return (result, env, err, err)
+                    },
+                    If => {
+                        // TODO
+                        let err: Error;
+                        return (result, env, err, err)
+                    },
+                    Lookup => {
+                        // TODO
+                        let err: Error;
+                        return (result, env, err, err)
+                    },
+                    Tail => {
+                        // TODO
+                        let err: Error;
+                        return (result, env, err, err)
                     }
                 }
             }

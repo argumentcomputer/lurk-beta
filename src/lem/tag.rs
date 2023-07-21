@@ -26,10 +26,13 @@ pub enum Tag {
     Let,
     LetRec,
     Binop,
+    Binop2,
     Unop,
     If,
     Call0,
     Call,
+    Call2,
+    Emit,
     // control tags. Note that this is a hack because we can't add arbitrary
     // constants yet.
     Return,
@@ -75,10 +78,13 @@ impl Display for Tag {
             Tag::Let => write!(f, "Let"),
             Tag::LetRec => write!(f, "LetRec"),
             Tag::Binop => write!(f, "Binop"),
+            Tag::Binop2 => write!(f, "Binop2"),
             Tag::Unop => write!(f, "Unop"),
             Tag::If => write!(f, "If"),
             Tag::Call0 => write!(f, "Call0"),
             Tag::Call => write!(f, "Call"),
+            Tag::Call2 => write!(f, "Call2"),
+            Tag::Emit => write!(f, "Emit"),
             // control
             Tag::Return => write!(f, "Return"),
             Tag::ApplyContinuation => write!(f, "ApplyContinuation"),
