@@ -17,7 +17,7 @@ pub(crate) fn eval_step() -> Func {
     })
 }
 
-fn uncons() -> Func {
+fn safe_uncons() -> Func {
     func!((xs): 2 => {
         match_tag xs {
             Nil => {
@@ -45,7 +45,7 @@ fn make_tail_continuation() -> Func {
 
 fn reduce() -> Func {
     // Auxiliary functions
-    let uncons = uncons();
+    let safe_uncons = safe_uncons();
     let env_to_use = func!((smaller_env, smaller_rec_env): 1 => {
         match_tag smaller_rec_env {
             Nil => {
@@ -90,7 +90,7 @@ fn reduce() -> Func {
                     }
                 };
 
-                let (binding, smaller_env) = uncons(env);
+                let (binding, smaller_env) = safe_uncons(env);
                 match_tag binding {
                     Nil => {
                         let err: Error;
@@ -99,7 +99,7 @@ fn reduce() -> Func {
                 };
 
                 let (var_or_rec_binding, val_or_more_rec_env) =
-                    uncons(binding);
+                    safe_uncons(binding);
                 match_tag var_or_rec_binding {
                     Sym => {
                         if var_or_rec_binding == expr {
@@ -117,7 +117,7 @@ fn reduce() -> Func {
                         return (expr, smaller_env, cont, ctrl)
                     },
                     Cons => {
-                        let (v2, val2) = uncons(var_or_rec_binding);
+                        let (v2, val2) = safe_uncons(var_or_rec_binding);
 
                         if v2 == expr {
                             match_tag val2 {
@@ -154,6 +154,47 @@ fn reduce() -> Func {
                 return (expr, env, err, err)
             },
             Cons => {
+                // No need for `safe_uncons` since the expression is already a `Cons`
+                let (head, rest) = unhash2(expr);
+                // TODO
+                match_symbol head {
+                    "lambda" => {
+                        // TODO
+                        let err: Error;
+                        return (expr, env, err, err)
+                    },
+                    "quote" => {
+                        // TODO
+                        let err: Error;
+                        return (expr, env, err, err)
+                    },
+                    "let" | "letrec" => {
+                        // TODO
+                        let err: Error;
+                        return (expr, env, err, err)
+                    },
+                    "begin" => {
+                        // TODO
+                        let err: Error;
+                        return (expr, env, err, err)
+                    },
+                    "eval" => {
+                        // TODO
+                        let err: Error;
+                        return (expr, env, err, err)
+                    },
+                    "if" => {
+                        // TODO
+                        let err: Error;
+                        return (expr, env, err, err)
+                    },
+                    "current-env" => {
+                        // TODO
+                        let err: Error;
+                        return (expr, env, err, err)
+                    }
+                    // TODO binops and unops
+                };
                 // TODO
                 let err: Error;
                 return (expr, env, err, err)
