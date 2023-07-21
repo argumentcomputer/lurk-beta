@@ -283,17 +283,44 @@ fn reduce() -> Func {
                         return (arg1, env, cont, ctrl)
                     },
                     "eval" => {
-                        // TODO
-                        let err: Error;
-                        return (expr, env, err, err)
+                        match_tag rest {
+                            Nil => {
+                                let err: Error;
+                                return (expr, env, err, err)
+                            }
+                        };
+                        let (arg1, more) = safe_uncons(rest);
+                        let ctrl: Return;
+                        match_tag more {
+                            Nil => {
+                                let op1: EvalUnop;
+                                let cont: Unop = hash2(op1, cont);
+                                return (arg1, env, cont, ctrl)
+                            }
+                        };
+                        let op2: EvalBinop;
+                        let cont: Binop = hash4(op2, env, more, cont);
+                        return (arg1, env, cont, ctrl)
                     },
                     "if" => {
-                        // TODO
-                        let err: Error;
-                        return (expr, env, err, err)
+                        let (condition, more) = safe_uncons(rest);
+                        match_tag more {
+                            Nil => {
+                                let err: Error;
+                                return (condition, env, err, err)
+                            }
+                        };
+                        let cont: If = hash2(more, cont);
+                        let ctrl: Return;
+                        return (condition, env, cont, ctrl)
                     },
                     "current-env" => {
-                        // TODO
+                        match_tag rest {
+                            Nil => {
+                                let ctrl: ApplyContinuation;
+                                return (env, env, cont, ctrl)
+                            }
+                        };
                         let err: Error;
                         return (expr, env, err, err)
                     }

@@ -26,13 +26,18 @@ pub enum Tag {
     Let,
     LetRec,
     Binop,
+    Unop,
+    If,
     // control tags. Note that this is a hack because we can't add arbitrary
     // constants yet.
     Return,
     MakeThunk,
     ApplyContinuation,
-    // binops
+    // binop tags
     Begin,
+    EvalBinop,
+    // unop tags
+    EvalUnop,
 }
 
 impl Tag {
@@ -46,6 +51,7 @@ impl Tag {
 impl Display for Tag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            // expressions
             Tag::Nil => write!(f, "Nil"),
             Tag::Num => write!(f, "Num"),
             Tag::U64 => write!(f, "U64"),
@@ -57,6 +63,7 @@ impl Display for Tag {
             Tag::Sym => write!(f, "Sym"),
             Tag::Key => write!(f, "Key"),
             Tag::Thunk => write!(f, "Thunk"),
+            // continuations
             Tag::Outermost => write!(f, "Outermost"),
             Tag::Dummy => write!(f, "Dummy"),
             Tag::Terminal => write!(f, "Terminal"),
@@ -66,10 +73,17 @@ impl Display for Tag {
             Tag::Let => write!(f, "Let"),
             Tag::LetRec => write!(f, "LetRec"),
             Tag::Binop => write!(f, "Binop"),
+            Tag::Unop => write!(f, "Unop"),
+            Tag::If => write!(f, "If"),
+            // control
             Tag::Return => write!(f, "Return"),
             Tag::ApplyContinuation => write!(f, "ApplyContinuation"),
             Tag::MakeThunk => write!(f, "MakeThunk"),
+            // binop
             Tag::Begin => write!(f, "Begin"),
+            Tag::EvalBinop => write!(f, "EvalBinop"),
+            // unop
+            Tag::EvalUnop => write!(f, "EvalUnop"),
         }
     }
 }
