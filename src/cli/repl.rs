@@ -221,7 +221,7 @@ impl Repl<F> {
                     );
 
                     let claim_comm = Commitment::new(F::ZERO, claim, &mut self.store)?;
-                    let claim_hash = &claim_comm.hidden.value().hex_digits();
+                    let claim_hash = &claim_comm.hash.hex_digits();
                     let proof_key = &Self::proof_key(&self.backend, &self.rc, claim_hash);
                     let proof_path = proof_path(proof_key);
 
@@ -272,7 +272,7 @@ impl Repl<F> {
 
                         lurk_proof.persist_at(proof_path)?;
                         lurk_proof_meta.persist(proof_key)?;
-                        claim_comm.persist(claim_hash)?;
+                        claim_comm.persist()?;
                     }
                     println!("Claim hash: 0x{claim_hash}");
                     println!("Proof key: \"{proof_key}\"");
@@ -288,31 +288,37 @@ impl Repl<F> {
         use super::commitment::Commitment;
 
         let commitment = Commitment::new(secret, payload, &mut self.store)?;
-        let hash = &commitment.hidden.value().hex_digits();
-        commitment.persist(hash)?;
+        let hash_str = &commitment.hash.hex_digits();
+        commitment.persist()?;
         println!(
-            "Data: {}\nHash: 0x{hash}",
+            "Data: {}\nHash: 0x{hash_str}",
             payload.fmt_to_string(&self.store)
         );
         Ok(())
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    fn fetch(&mut self, hash: &str, print_data: bool) -> Result<()> {
+    fn fetch(&mut self, hash: &F, print_data: bool) -> Result<()> {
+        use lurk::z_ptr::ZExprPtr;
+
         use super::{
             commitment::Commitment, field_data::non_wasm::load, paths::non_wasm::commitment_path,
         };
 
-        let commitment: Commitment<F> = load(commitment_path(hash))?;
-        if commitment.hidden.value().hex_digits() != hash {
+        let commitment: Commitment<F> = load(commitment_path(&hash.hex_digits()))?;
+        let comm_hash = commitment.hash;
+        if &comm_hash != hash {
             bail!("Hash mismatch. Corrupted commitment file.")
         } else {
-            let comm = self
+            // create a ZExprPtr with the intended hash
+            let comm_zptr = &ZExprPtr::from_parts(ExprTag::Comm, comm_hash);
+            // populate the REPL's store with the data
+            let comm_ptr = self
                 .store
-                .intern_z_expr_ptr(&commitment.hidden, &commitment.zstore)
+                .intern_z_expr_ptr(comm_zptr, &commitment.zstore)
                 .unwrap();
             if print_data {
-                let data = self.store.fetch_comm(&comm).unwrap().1;
+                let data = self.store.fetch_comm(&comm_ptr).unwrap().1;
                 println!("{}", data.fmt_to_string(&self.store));
             } else {
                 println!("Data is now available");
@@ -364,7 +370,7 @@ impl Repl<F> {
     }
 
     #[allow(dead_code)]
-    fn get_comm_hash(&mut self, cmd: &str, args: &Ptr<F>) -> Result<String> {
+    fn get_comm_hash(&mut self, cmd: &str, args: &Ptr<F>) -> Result<F> {
         let first = self.peek1(cmd, args)?;
         let n = self.store.lurk_sym("num");
         let expr = self.store.list(&[n, first]);
@@ -375,7 +381,7 @@ impl Repl<F> {
             .store
             .fetch_num(&expr_io.expr)
             .expect("must be a number");
-        Ok(hash.into_scalar().hex_digits())
+        Ok(hash.into_scalar())
     }
 
     fn handle_meta_cases(&mut self, cmd: &str, args: &Ptr<F>, pwd_path: &Path) -> Result<()> {

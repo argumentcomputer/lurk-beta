@@ -1,4 +1,4 @@
-use lurk::{field::LurkField, z_ptr::ZExprPtr, z_store::ZStore};
+use lurk::{field::LurkField, z_store::ZStore};
 use serde::{Deserialize, Serialize};
 
 use super::field_data::HasFieldModulus;
@@ -9,7 +9,7 @@ use super::field_data::HasFieldModulus;
 /// hide the original payload.
 #[derive(Serialize, Deserialize)]
 pub struct Commitment<F: LurkField> {
-    pub(crate) hidden: ZExprPtr<F>,
+    pub(crate) hash: F,
     pub(crate) zstore: ZStore<F>,
 }
 
@@ -31,11 +31,11 @@ mod non_wasm {
 
     impl<F: LurkField> Commitment<F> {
         pub fn new(secret: F, payload: Ptr<F>, store: &mut Store<F>) -> Result<Self> {
-            let hidden = store.hide(secret, payload);
+            let comm_ptr = &store.hide(secret, payload);
             let mut zstore = Some(ZStore::<F>::default());
-            let hidden = store.get_z_expr(&hidden, &mut zstore)?.0;
+            let hash = *store.get_z_expr(comm_ptr, &mut zstore)?.0.value();
             Ok(Self {
-                hidden,
+                hash,
                 zstore: zstore.unwrap(),
             })
         }
@@ -43,8 +43,9 @@ mod non_wasm {
 
     impl<F: LurkField + Serialize> Commitment<F> {
         #[inline]
-        pub fn persist(self, hash: &str) -> Result<()> {
-            dump(self, commitment_path(hash))
+        pub fn persist(self) -> Result<()> {
+            let hash_str = &self.hash.hex_digits();
+            dump(self, commitment_path(hash_str))
         }
     }
 }
