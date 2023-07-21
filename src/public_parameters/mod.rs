@@ -4,11 +4,11 @@ use std::path::Path;
 use std::sync::Arc;
 
 use crate::coprocessor::Coprocessor;
+use crate::proof::nova::CurveCycleEquipped;
 use crate::{
     eval::lang::Lang,
     proof::nova::{self, PublicParams},
 };
-use pasta_curves::pallas;
 use serde::{Deserialize, Serialize};
 
 pub mod error;
@@ -17,13 +17,15 @@ mod registry;
 
 use crate::public_parameters::error::Error;
 
-pub type S1 = pallas::Scalar;
-
-pub fn public_params<C: Coprocessor<S1> + 'static>(
+pub fn public_params<F: CurveCycleEquipped, C: Coprocessor<F> + 'static>(
     rc: usize,
-    lang: Arc<Lang<S1, C>>,
-) -> Result<Arc<PublicParams<'static, C>>, Error> {
-    let f = |lang: Arc<Lang<S1, C>>| Arc::new(nova::public_params(rc, lang));
+    lang: Arc<Lang<F, C>>,
+) -> Result<Arc<PublicParams<'static, F, C>>, Error>
+where
+    F::CK1: Sync + Send,
+    F::CK2: Sync + Send,
+{
+    let f = |lang: Arc<Lang<F, C>>| Arc::new(nova::public_params(rc, lang));
     registry::CACHE_REG.get_coprocessor_or_update_with(rc, f, lang)
 }
 pub trait FileStore

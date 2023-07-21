@@ -3,11 +3,14 @@
 use std::marker::PhantomData;
 
 use bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
-
+use ff::Field;
 use nova::{
     errors::NovaError,
+    provider::bn256_grumpkin::{bn256, grumpkin},
+    provider::pedersen::CommitmentKeyExtTrait,
     traits::{
         circuit::{StepCircuit, TrivialTestCircuit},
+        commitment::CommitmentEngineTrait,
         Group,
     },
     CompressedSNARK, ProverKey, RecursiveSNARK, VerifierKey,
@@ -31,57 +34,114 @@ use crate::proof::{Prover, PublicParameters};
 use crate::ptr::Ptr;
 use crate::store::Store;
 
-/// Type alias for G1 group elements using the Pallas curve.
-pub type G1 = pallas::Point;
-/// Type alias for G2 group elements using the Vesta curve.
-pub type G2 = vesta::Point;
+/// This trait defines most of the requirements for programming generically over the supported Nova curve cycles
+/// (currently Pallas/Vesta and BN254/Grumpkin). It being pegged on the `LurkField` trait encodes that we do
+/// not expect more than one such cycle to be supported at a time for a given field.
+pub trait CurveCycleEquipped: LurkField {
+    /// ## Why the next 4 types?
+    ///
+    /// The next 4 types are purely technical, and aim at laying out type bounds in a way that rust can find them.
+    /// They should eventually be replaceable by a bound on projections, once bounds on associated types progress.
+    /// They are technically equivalent to bounds of
+    ///  <Self::G1::CE as CommitmentEngineTrait<Self::G1>>::CommitmentKey: CommitmentKeyExtTrait<Self::G1, CE = <Self::G1 as Group>::CE>,
+    ///  <Self::G2::CE as CommitmentEngineTrait<Self::G2>>::CommitmentKey: CommitmentKeyExtTrait<Self::G2, CE = <G2 as Group>::CE>,
+    /// but where clauses can't be *found* by the compiler at the point where Self::G1, Self::G2 are used
 
-/// Type alias for scalar field elements on the Pallas curve.
-pub type S1 = pallas::Scalar;
-/// Type alias for scalar field elements on the Vesta curve.
-pub type S2 = vesta::Scalar;
+    /// ## OK, but why do we need bounds at all in the first place?
+    ///
+    /// As to *why* those see https://github.com/microsoft/Nova/pull/200
+    /// and the bound `CommitmentKey<G>: CommitmentKeyExtTrait<G, CE = G::CE>` on [`nova::provider::ipa_pc::EvaluationEngine<G>`]
+    /// Essentially, Nova relies on a commitment scheme that is additively homomorphic, but encodes the practicalities of this
+    /// (properties are unwieldy to encode) in the form of this CommitmentKeyExtTrait.
+
+    /// The type of the commitment key used for points of the first curve in the cycle.
+    type CK1: CommitmentKeyExtTrait<Self::G1, CE = <Self::G1 as Group>::CE>;
+    /// The type of the commitment key used for points of the second curve in the cycle.
+    type CK2: CommitmentKeyExtTrait<Self::G2, CE = <Self::G2 as Group>::CE>;
+    /// The commitment engine type for the first curve in the cycle.
+    type CE1: CommitmentEngineTrait<Self::G1, CommitmentKey = Self::CK1>;
+    /// The commitment engine type for the second curve in the cycle.
+    type CE2: CommitmentEngineTrait<Self::G2, CommitmentKey = Self::CK2>;
+
+    /// The group type for the first curve in the cycle.
+    type G1: Group<Base = <Self::G2 as Group>::Scalar, Scalar = Self, CE = Self::CE1>;
+    /// The  group type for the second curve in the cycle.
+    type G2: Group<Base = <Self::G1 as Group>::Scalar, CE = Self::CE2>;
+}
+
+impl CurveCycleEquipped for pallas::Scalar {
+    type CK1 = nova::provider::pedersen::CommitmentKey<pallas::Point>;
+    type CK2 = nova::provider::pedersen::CommitmentKey<vesta::Point>;
+    type CE1 = nova::provider::pedersen::CommitmentEngine<pallas::Point>;
+    type CE2 = nova::provider::pedersen::CommitmentEngine<vesta::Point>;
+
+    type G1 = pallas::Point;
+    type G2 = vesta::Point;
+}
+// The impl CurveCycleEquipped for vesta::Scalar is academically possible, but voluntarily omitted to avoid confusion.
+
+impl CurveCycleEquipped for bn256::Scalar {
+    type CK1 = nova::provider::pedersen::CommitmentKey<bn256::Point>;
+    type CK2 = nova::provider::pedersen::CommitmentKey<grumpkin::Point>;
+    type CE1 = nova::provider::pedersen::CommitmentEngine<bn256::Point>;
+    type CE2 = nova::provider::pedersen::CommitmentEngine<grumpkin::Point>;
+
+    type G1 = bn256::Point;
+    type G2 = grumpkin::Point;
+}
+// The impl CurveCycleEquipped for grumpkin::Scalar is academically possible, but voluntarily omitted to avoid confusion.
+
+/// Convenience alias for the primary group type pegged to a LurkField through a CurveCycleEquipped type.
+pub type G1<F> = <F as CurveCycleEquipped>::G1;
+/// Convenience alias for the secondary group type pegged to a LurkField through a CurveCycleEquipped type.
+pub type G2<F> = <F as CurveCycleEquipped>::G2;
 
 /// Type alias for the Evaluation Engine using G1 group elements.
-pub type EE1 = nova::provider::ipa_pc::EvaluationEngine<G1>;
+pub type EE1<F> = nova::provider::ipa_pc::EvaluationEngine<G1<F>>;
 /// Type alias for the Evaluation Engine using G2 group elements.
-pub type EE2 = nova::provider::ipa_pc::EvaluationEngine<G2>;
+pub type EE2<F> = nova::provider::ipa_pc::EvaluationEngine<G2<F>>;
 
 /// Type alias for the Relaxed R1CS Spartan SNARK using G1 group elements, EE1.
-pub type SS1 = nova::spartan::RelaxedR1CSSNARK<G1, EE1>;
+pub type SS1<F> = nova::spartan::snark::RelaxedR1CSSNARK<G1<F>, EE1<F>>;
 /// Type alias for the Relaxed R1CS Spartan SNARK using G2 group elements, EE2.
-pub type SS2 = nova::spartan::RelaxedR1CSSNARK<G2, EE2>;
+pub type SS2<F> = nova::spartan::snark::RelaxedR1CSSNARK<G2<F>, EE2<F>>;
 
 /// Type alias for a MultiFrame with S1 field elements.
-pub type C1<'a, C> = MultiFrame<'a, S1, IO<S1>, Witness<S1>, C>;
+/// This uses the <<F as CurveCycleEquipped>::G1 as Group>::Scalar type for the G1 scalar field elements
+/// to reflect it this should not be used outside the Nova context
+pub type C1<'a, F, C> = MultiFrame<'a, <G1<F> as Group>::Scalar, IO<F>, Witness<F>, C>;
 /// Type alias for a Trivial Test Circuit with G2 scalar field elements.
-pub type C2 = TrivialTestCircuit<<G2 as Group>::Scalar>;
+pub type C2<F> = TrivialTestCircuit<<G2<F> as Group>::Scalar>;
 
 /// Type alias for Nova Public Parameters with the curve cycle types defined above.
-pub type NovaPublicParams<'a, C> = nova::PublicParams<G1, G2, C1<'a, C>, C2>;
+pub type NovaPublicParams<'a, F, C> = nova::PublicParams<G1<F>, G2<F>, C1<'a, F, C>, C2<F>>;
 
 /// A struct that contains public parameters for the Nova proving system.
 #[derive(Serialize, Deserialize)]
 #[serde(bound = "")]
-pub struct PublicParams<'a, C: Coprocessor<S1>> {
-    pp: NovaPublicParams<'a, C>,
-    pk: ProverKey<G1, G2, C1<'a, C>, C2, SS1, SS2>,
-    vk: VerifierKey<G1, G2, C1<'a, C>, C2, SS1, SS2>,
+pub struct PublicParams<'a, F: CurveCycleEquipped, C: Coprocessor<F>>
+where
+    F: CurveCycleEquipped,
+{
+    pp: NovaPublicParams<'a, F, C>,
+    pk: ProverKey<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>,
+    vk: VerifierKey<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>,
 }
 
 /// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
-pub enum Proof<'a, C: Coprocessor<S1>> {
+pub enum Proof<'a, F: CurveCycleEquipped, C: Coprocessor<F>> {
     /// A proof for the intermediate steps of a recursive computation
-    Recursive(Box<RecursiveSNARK<G1, G2, C1<'a, C>, C2>>),
+    Recursive(Box<RecursiveSNARK<G1<F>, G2<F>, C1<'a, F, C>, C2<F>>>),
     /// A proof for the final step of a recursive computation
-    Compressed(Box<CompressedSNARK<G1, G2, C1<'a, C>, C2, SS1, SS2>>),
+    Compressed(Box<CompressedSNARK<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>>),
 }
 
 /// Generates the public parameters for the Nova proving system.
-pub fn public_params<'a, C: Coprocessor<S1>>(
+pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F>>(
     num_iters_per_step: usize,
-    lang: Arc<Lang<S1, C>>,
-) -> PublicParams<'a, C> {
+    lang: Arc<Lang<F, C>>,
+) -> PublicParams<'a, F, C> {
     let (circuit_primary, circuit_secondary) = C1::circuits(num_iters_per_step, lang);
 
     let pp = nova::PublicParams::setup(circuit_primary, circuit_secondary);
@@ -89,8 +149,8 @@ pub fn public_params<'a, C: Coprocessor<S1>>(
     PublicParams { pp, pk, vk }
 }
 
-impl<'a, C: Coprocessor<S1>> MultiFrame<'a, S1, IO<S1>, Witness<S1>, C> {
-    fn circuits(count: usize, lang: Arc<Lang<S1, C>>) -> (C1<'a, C>, C2) {
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> C1<'a, F, C> {
+    fn circuits(count: usize, lang: Arc<Lang<F, C>>) -> (C1<'a, F, C>, C2<F>) {
         (
             MultiFrame::blank(count, lang),
             TrivialTestCircuit::default(),
@@ -100,19 +160,19 @@ impl<'a, C: Coprocessor<S1>> MultiFrame<'a, S1, IO<S1>, Witness<S1>, C> {
 
 /// A struct for the Nova prover that operates on field elements of type `F`.
 #[derive(Debug)]
-pub struct NovaProver<F: LurkField, C: Coprocessor<F>> {
+pub struct NovaProver<F: CurveCycleEquipped, C: Coprocessor<F>> {
     // `reduction_count` specifies the number of small-step reductions are performed in each recursive step.
     reduction_count: usize,
     lang: Lang<F, C>,
     _p: PhantomData<(F, C)>,
 }
 
-impl<'a, C: Coprocessor<S1>> PublicParameters for PublicParams<'a, C> {}
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> PublicParameters for PublicParams<'a, F, C> {}
 
-impl<'a, C: Coprocessor<S1> + 'a> Prover<'a, '_, S1, C> for NovaProver<S1, C> {
-    type PublicParams = PublicParams<'a, C>;
-    fn new(reduction_count: usize, lang: Lang<S1, C>) -> Self {
-        NovaProver::<S1, C> {
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, '_, F, C> for NovaProver<F, C> {
+    type PublicParams = PublicParams<'a, F, C>;
+    fn new(reduction_count: usize, lang: Lang<F, C>) -> Self {
+        NovaProver::<F, C> {
             reduction_count,
             lang,
             _p: Default::default(),
@@ -122,21 +182,21 @@ impl<'a, C: Coprocessor<S1> + 'a> Prover<'a, '_, S1, C> for NovaProver<S1, C> {
         self.reduction_count
     }
 
-    fn lang(&self) -> &Lang<S1, C> {
+    fn lang(&self) -> &Lang<F, C> {
         &self.lang
     }
 }
 
-impl<C: Coprocessor<S1>> NovaProver<S1, C> {
+impl<F: CurveCycleEquipped, C: Coprocessor<F>> NovaProver<F, C> {
     /// Evaluates and generates the frames of the computation given the expression, environment, and store
     pub fn get_evaluation_frames(
         &self,
-        expr: Ptr<S1>,
-        env: Ptr<S1>,
-        store: &mut Store<S1>,
+        expr: Ptr<F>,
+        env: Ptr<F>,
+        store: &mut Store<F>,
         limit: usize,
-        lang: &Lang<S1, C>,
-    ) -> Result<Vec<Frame<IO<S1>, Witness<S1>, C>>, ProofError> {
+        lang: &Lang<F, C>,
+    ) -> Result<Vec<Frame<IO<F>, Witness<F>, C>>, ProofError> {
         let padding_predicate = |count| self.needs_frame_padding(count);
 
         let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate, lang)?;
@@ -149,11 +209,11 @@ impl<C: Coprocessor<S1>> NovaProver<S1, C> {
     /// Proves the computation given the public parameters, frames, and store.
     pub fn prove<'a>(
         &'a self,
-        pp: &'a PublicParams<'_, C>,
-        frames: &[Frame<IO<S1>, Witness<S1>, C>],
-        store: &'a mut Store<S1>,
-        lang: Arc<Lang<S1, C>>,
-    ) -> Result<(Proof<'_, C>, Vec<S1>, Vec<S1>, usize), ProofError> {
+        pp: &'a PublicParams<'_, F, C>,
+        frames: &[Frame<IO<F>, Witness<F>, C>],
+        store: &'a mut Store<F>,
+        lang: Arc<Lang<F, C>>,
+    ) -> Result<(Proof<'_, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
         let z0 = frames[0].input.to_vector(store)?;
         let zi = frames.last().unwrap().output.to_vector(store)?;
         let circuits = MultiFrame::from_frames(self.reduction_count(), frames, store, &lang);
@@ -167,13 +227,13 @@ impl<C: Coprocessor<S1>> NovaProver<S1, C> {
     /// Evaluates and proves the computation given the public parameters, expression, environment, and store.
     pub fn evaluate_and_prove<'a>(
         &'a self,
-        pp: &'a PublicParams<'_, C>,
-        expr: Ptr<S1>,
-        env: Ptr<S1>,
-        store: &'a mut Store<S1>,
+        pp: &'a PublicParams<'_, F, C>,
+        expr: Ptr<F>,
+        env: Ptr<F>,
+        store: &'a mut Store<F>,
         limit: usize,
-        lang: Arc<Lang<S1, C>>,
-    ) -> Result<(Proof<'_, C>, Vec<S1>, Vec<S1>, usize), ProofError> {
+        lang: Arc<Lang<F, C>>,
+    ) -> Result<(Proof<'_, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
         let frames = self.get_evaluation_frames(expr, env, store, limit, &lang)?;
         self.prove(pp, &frames, store, lang)
     }
@@ -240,15 +300,15 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F>
     }
 }
 
-impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
+impl<'a: 'b, 'b, F: CurveCycleEquipped, C: Coprocessor<F>> Proof<'a, F, C> {
     /// Proves the computation recursively, generating a recursive SNARK proof.
     pub fn prove_recursively(
-        pp: &'a PublicParams<'_, C>,
-        store: &'a Store<S1>,
-        circuits: &[C1<'a, C>],
+        pp: &'a PublicParams<'_, F, C>,
+        store: &'a Store<F>,
+        circuits: &[C1<'a, F, C>],
         num_iters_per_step: usize,
-        z0: Vec<S1>,
-        lang: Arc<Lang<S1, C>>,
+        z0: Vec<F>,
+        lang: Arc<Lang<F, C>>,
     ) -> Result<Self, ProofError> {
         assert!(!circuits.is_empty());
         assert_eq!(circuits[0].arity(), z0.len());
@@ -261,11 +321,11 @@ impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
             num_iters_per_step
         );
         let (_circuit_primary, circuit_secondary): (
-            MultiFrame<'_, S1, IO<S1>, Witness<S1>, C>,
-            TrivialTestCircuit<S2>,
+            MultiFrame<'_, F, IO<F>, Witness<F>, C>,
+            TrivialTestCircuit<<G2<F> as Group>::Scalar>,
         ) = C1::<'a>::circuits(num_iters_per_step, lang);
         // produce a recursive SNARK
-        let mut recursive_snark: Option<RecursiveSNARK<G1, G2, C1<'a, C>, C2>> = None;
+        let mut recursive_snark: Option<RecursiveSNARK<G1<F>, G2<F>, C1<'a, F, C>, C2<F>>> = None;
 
         for circuit_primary in circuits.iter() {
             assert_eq!(
@@ -275,7 +335,7 @@ impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
             if debug {
                 // For debugging purposes, synthesize the circuit and check that the constraint system is satisfied.
                 use bellperson::util_cs::test_cs::TestConstraintSystem;
-                let mut cs = TestConstraintSystem::<<G1 as Group>::Scalar>::new();
+                let mut cs = TestConstraintSystem::<<G1<F> as Group>::Scalar>::new();
 
                 let zi = circuit_primary.frames.as_ref().unwrap()[0]
                     .input
@@ -318,15 +378,15 @@ impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
     }
 
     /// Compresses the proof using a (Spartan) Snark (finishing step)
-    pub fn compress(self, pp: &'a PublicParams<'_, C>) -> Result<Self, ProofError> {
+    pub fn compress(self, pp: &'a PublicParams<'_, F, C>) -> Result<Self, ProofError> {
         match &self {
             Self::Recursive(recursive_snark) => Ok(Self::Compressed(Box::new(CompressedSNARK::<
                 _,
                 _,
                 _,
                 _,
-                SS1,
-                SS2,
+                SS1<F>,
+                SS2<F>,
             >::prove(
                 &pp.pp,
                 &pp.pk,
@@ -339,10 +399,10 @@ impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
     /// Verifies the proof given the public parameters, the number of steps, and the input and output values.
     pub fn verify(
         &self,
-        pp: &PublicParams<'_, C>,
+        pp: &PublicParams<'_, F, C>,
         num_steps: usize,
-        z0: &[S1],
-        zi: &[S1],
+        z0: &[F],
+        zi: &[F],
     ) -> Result<bool, NovaError> {
         let (z0_primary, zi_primary) = (z0, zi);
         let z0_secondary = Self::z0_secondary();
@@ -356,8 +416,8 @@ impl<'a: 'b, 'b, C: Coprocessor<S1>> Proof<'a, C> {
         Ok(zi_primary == zi_primary_verified && zi_secondary == zi_secondary_verified)
     }
 
-    fn z0_secondary() -> Vec<S2> {
-        vec![<G2 as Group>::Scalar::zero()]
+    fn z0_secondary() -> Vec<<F::G2 as Group>::Scalar> {
+        vec![<G2<F> as Group>::Scalar::ZERO]
     }
 }
 

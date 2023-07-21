@@ -306,6 +306,8 @@ impl ReplCli {
             // LanguageField::BLS12_381 => repl!(limit, rc, blstrs::Scalar, backend),
             LanguageField::Vesta => todo!(),
             LanguageField::BLS12_381 => todo!(),
+            LanguageField::BN256 => todo!(),
+            LanguageField::Grumpkin => todo!(),
         }
     }
 }
@@ -349,6 +351,8 @@ impl LoadCli {
             // LanguageField::BLS12_381 => load!(limit, rc, blstrs::Scalar, backend),
             LanguageField::Vesta => todo!(),
             LanguageField::BLS12_381 => todo!(),
+            LanguageField::BN256 => todo!(),
+            LanguageField::Grumpkin => todo!(),
         }
     }
 }

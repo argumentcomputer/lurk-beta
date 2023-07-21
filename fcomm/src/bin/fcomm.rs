@@ -1,4 +1,5 @@
 use log::info;
+use lurk::proof::nova::CurveCycleEquipped;
 use std::convert::TryFrom;
 use std::env;
 use std::fs::read_to_string;
@@ -492,7 +493,7 @@ fn opening_request<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
 }
 
 // Get proof from supplied path or else from stdin.
-fn proof<'a, P: AsRef<Path>, F: LurkField>(
+fn proof<'a, P: AsRef<Path>, F: CurveCycleEquipped>(
     proof_path: Option<P>,
 ) -> Result<Proof<'a, F>, error::Error>
 where
