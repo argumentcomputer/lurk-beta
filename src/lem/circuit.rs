@@ -126,7 +126,7 @@
 //! STEP 2 will need as many iterations as it takes to evaluate the Lurk
 //! expression and so will STEP 3.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use anyhow::{Context, Result};
 use bellperson::{
@@ -562,7 +562,7 @@ impl Func {
             preallocated_hash2_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash3_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash4_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
-            call_outputs: Vec<Vec<Ptr<F>>>,
+            call_outputs: VecDeque<Vec<Ptr<F>>>,
             call_count: usize,
         }
 
@@ -681,12 +681,13 @@ impl Func {
                         // a value to the allocated nums to be filled later, we must either
                         // add the results of the call to the witness, or recompute them.
                         let output_vals = if not_dummy.get_value().unwrap() {
-                            g.call_outputs.pop().unwrap()
+                            g.call_outputs.pop_front().unwrap()
                         } else {
                             // TODO Is this okay to do?
                             let dummy = Ptr::Leaf(crate::lem::Tag::Nil, F::ZERO);
                             (0..out.len()).map(|_| dummy.clone()).collect()
                         };
+                        assert_eq!(output_vals.len(), out.len());
                         let mut output_ptrs = vec![];
                         for (ptr, var) in output_vals.iter().zip(out.iter()) {
                             let zptr = &g.store.hash_ptr(ptr)?;
@@ -941,7 +942,7 @@ impl Func {
             }
         }
 
-        let call_outputs = frame.preimages.call_outputs.iter().cloned().rev().collect();
+        let call_outputs = frame.preimages.call_outputs.clone();
         recurse(
             cs,
             &self.body,

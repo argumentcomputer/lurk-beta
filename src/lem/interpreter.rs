@@ -1,5 +1,6 @@
 use crate::field::{FWrap, LurkField};
 use anyhow::{bail, Result};
+use std::collections::VecDeque;
 
 use super::{
     path::Path, pointers::Ptr, store::Store, tag::Tag, var_map::VarMap, Block, Ctrl, Func, Op,
@@ -10,7 +11,7 @@ pub struct Preimages<F: LurkField> {
     pub hash2_ptrs: Vec<Vec<Ptr<F>>>,
     pub hash3_ptrs: Vec<Vec<Ptr<F>>>,
     pub hash4_ptrs: Vec<Vec<Ptr<F>>>,
-    pub call_outputs: Vec<Vec<Ptr<F>>>,
+    pub call_outputs: VecDeque<Vec<Ptr<F>>>,
 }
 
 /// A `Frame` carries the data that results from interpreting a LEM. That is,
@@ -47,7 +48,7 @@ impl Block {
                         bindings.insert(var.clone(), *ptr);
                     }
                     preimages = frame.preimages;
-                    preimages.call_outputs.push(frame.output);
+                    preimages.call_outputs.push_back(frame.output);
                 }
                 Op::Null(tgt, tag) => {
                     bindings.insert(tgt.clone(), Ptr::null(*tag));
