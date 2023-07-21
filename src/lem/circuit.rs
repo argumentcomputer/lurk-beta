@@ -766,7 +766,7 @@ impl Func {
                     let saved_slot = &mut next_slot.clone();
                     recurse(
                         &mut cs.namespace(|| "if_eq.true"),
-                        block,
+                        eq_block,
                         &not_dummy_and_eq,
                         saved_slot,
                         bound_allocations,
@@ -775,8 +775,8 @@ impl Func {
                     )?;
                     let saved_slot = &mut next_slot.clone();
                     recurse(
-                        &mut cs.namespace(|| "if_eq.true"),
-                        block,
+                        &mut cs.namespace(|| "if_eq.false"),
+                        else_block,
                         &not_dummy_and_not_eq,
                         saved_slot,
                         bound_allocations,
@@ -1002,8 +1002,9 @@ impl Func {
             }
             match &block.ctrl {
                 Ctrl::Return(vars) => num_constraints + 2 * vars.len(),
-                Ctrl::IfEq(x, y, eq_block, else_block) => {
-                    todo!()
+                Ctrl::IfEq(_, _, eq_block, else_block) => {
+                    let if_cost = if nested { 6 } else { 4 };
+                    if_cost + recurse(eq_block, true, globals) + recurse(else_block, true, globals)
                 }
                 Ctrl::MatchTag(_, cases, def) => {
                     // `alloc_equal_const` adds 3 constraints for each case and

@@ -439,7 +439,7 @@ impl Block {
             }
             Ctrl::IfEq(x, y, eq_block, else_block) => {
                 let x = map.get_cloned(&x)?;
-                let y = map.get_cloned(&x)?;
+                let y = map.get_cloned(&y)?;
                 let eq_block = Box::new(eq_block.deconflict(&mut map.clone(), uniq)?);
                 let else_block = Box::new(else_block.deconflict(&mut map.clone(), uniq)?);
                 Ctrl::IfEq(x, y, eq_block, else_block)

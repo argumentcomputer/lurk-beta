@@ -78,7 +78,22 @@ fn reduce() -> Func {
                         return (expr, smaller_env, cont, ctrl)
                     },
                     Cons => {
-                        // TODO
+                        let (v2, val2) = unhash2(var_or_rec_binding);
+
+                        if v2 == expr {
+                            match_tag val2 {
+                                Fun => {
+                                    let (arg, body, closed_env) = unhash3(val2);
+                                    let extended: Cons = hash2(binding, closed_env);
+                                    let fun: Fun = hash3(arg, body, extended);
+                                    let ctrl: ApplyContinuation;
+                                    return (fun, env, cont, ctrl)
+                                }
+                            };
+                            let ctrl: ApplyContinuation;
+                            return (val_or_more_rec_env, env, cont, ctrl)
+                        }
+
                         let err: Error;
                         return (expr, env, err, err)
                     }
