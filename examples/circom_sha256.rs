@@ -48,10 +48,10 @@ impl<F: LurkField> CoCircuit<F> for CircomSha256Coprocessor<F> {
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        
         let arg_in = ("arg_in".into(), vec![F::ZERO, F::ZERO]);
         let inputs = vec![arg_in];
-        let witness = nova_scotia::calculate_witness(&self.circom_config, inputs, true).expect("msg");
+        let witness =
+            nova_scotia::calculate_witness(&self.circom_config, inputs, true).expect("msg");
         let output = nova_scotia::synthesize(cs, self.circom_config.r1cs.clone(), Some(witness))?;
 
         let res = AllocatedPtr::from_parts(g.num_tag.clone(), output);

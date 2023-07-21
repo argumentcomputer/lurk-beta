@@ -1,9 +1,9 @@
+mod circom;
 mod commitment;
 mod field_data;
 mod lurk_proof;
 pub mod paths;
 mod repl;
-mod circom;
 
 use anyhow::{bail, Context, Result};
 use camino::Utf8PathBuf;
@@ -481,10 +481,10 @@ impl Cli {
                 );
                 LurkProof::verify_proof(&verify_args.proof_id)?;
                 Ok(())
-            },
+            }
             Command::Circom(circom_args) => {
                 create_circom_gadget(circom_args.circom_folder, circom_args.name)
-            },
+            }
         }
     }
 }

@@ -1,4 +1,3 @@
-
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -8,7 +7,9 @@ use crate::field::LurkField;
 
 /// TODO: fix this duplication with the one in `cli::paths`
 fn circom_gadgets() -> PathBuf {
-    home::home_dir().expect("no home directory").join(".lurk/circom-gadgets")
+    home::home_dir()
+        .expect("no home directory")
+        .join(".lurk/circom-gadgets")
 }
 
 /// Creates a CircomConfig by loading in the data in `.lurk/circom-gadgets/<name>/*`
@@ -33,4 +34,3 @@ pub fn create_circom_config<F: LurkField>(name: &str) -> Result<CircomConfig<F>>
 
 //     fn into_lurk_output(output: Self::Output) -> AllocatedPtr<F>;
 // }
-
