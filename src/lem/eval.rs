@@ -18,7 +18,7 @@ pub(crate) fn eval_step() -> Func {
 }
 
 fn make_tail_continuation() -> Func {
-    func!((env, continuation): 2 => {
+    func!((env, continuation): 1 => {
         match_tag continuation {
             Tail => {
                 return (continuation);
@@ -166,14 +166,14 @@ fn apply_cont() -> Func {
                         let (var, body, saved_env, cont) = unhash4(cont);
                         let binding: Cons = hash2(var, result);
                         let extended_env: Cons = hash2(binding, env);
-                        let (cont) = make_tail_continuation(saved_env, continuation);
+                        let (cont) = make_tail_continuation(saved_env, cont);
                         let ctrl: Return;
                         return (result, env, cont, ctrl)
                     }
                 }
             }
         };
-        return (expr, env, cont, ctrl)
+        return (result, env, cont, ctrl)
     })
 }
 
