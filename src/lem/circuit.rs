@@ -685,7 +685,7 @@ impl Func {
                         } else {
                             // TODO Is this okay to do?
                             let dummy = Ptr::Leaf(crate::lem::Tag::Nil, F::ZERO);
-                            (0..out.len()).map(|_| dummy.clone()).collect()
+                            (0..out.len()).map(|_| dummy).collect()
                         };
                         assert_eq!(output_vals.len(), out.len());
                         let mut output_ptrs = vec![];
@@ -763,7 +763,7 @@ impl Func {
                     let x = bound_allocations.get(x)?.hash();
                     let y = bound_allocations.get(y)?.hash();
                     // TODO should we check whether the tags are equal too?
-                    let eq = alloc_equal(&mut cs.namespace(|| format!("if_eq.alloc_equal")), x, y)?;
+                    let eq = alloc_equal(&mut cs.namespace(|| "if_eq.alloc_equal"), x, y)?;
                     let not_eq = eq.not();
                     // TODO is this the most efficient way of doing if statements?
                     let not_dummy_and_eq = and(&mut cs.namespace(|| "if_eq.and"), not_dummy, &eq)?;

@@ -17,6 +17,20 @@ pub(crate) fn eval_step() -> Func {
     })
 }
 
+fn uncons() -> Func {
+    func!((xs): 2 => {
+        match_tag xs {
+            Nil => {
+                return (xs, xs)
+            },
+            Cons => {
+                let (car, cdr) = unhash2(xs);
+                return (car, cdr)
+            }
+        }
+    })
+}
+
 fn make_tail_continuation() -> Func {
     func!((env, continuation): 1 => {
         match_tag continuation {
@@ -30,7 +44,8 @@ fn make_tail_continuation() -> Func {
 }
 
 fn reduce() -> Func {
-    // Auxiliary function
+    // Auxiliary functions
+    let uncons = uncons();
     let env_to_use = func!((smaller_env, smaller_rec_env): 1 => {
         match_tag smaller_rec_env {
             Nil => {
@@ -75,7 +90,7 @@ fn reduce() -> Func {
                     }
                 };
 
-                let (binding, smaller_env) = unhash2(env);
+                let (binding, smaller_env) = uncons(env);
                 match_tag binding {
                     Nil => {
                         let err: Error;
@@ -84,7 +99,7 @@ fn reduce() -> Func {
                 };
 
                 let (var_or_rec_binding, val_or_more_rec_env) =
-                    unhash2(binding);
+                    uncons(binding);
                 match_tag var_or_rec_binding {
                     Sym => {
                         if var_or_rec_binding == expr {
@@ -102,7 +117,7 @@ fn reduce() -> Func {
                         return (expr, smaller_env, cont, ctrl)
                     },
                     Cons => {
-                        let (v2, val2) = unhash2(var_or_rec_binding);
+                        let (v2, val2) = uncons(var_or_rec_binding);
 
                         if v2 == expr {
                             match_tag val2 {

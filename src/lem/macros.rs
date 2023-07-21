@@ -65,7 +65,7 @@ macro_rules! op {
         {
             let out = vec!($($crate::var!($tgt)),*);
             let inp = vec!($($crate::var!($arg)),*);
-            let func = Box::new($func);
+            let func = Box::new($func.clone());
             $crate::lem::Op::Call(out, func, inp)
         }
     }
