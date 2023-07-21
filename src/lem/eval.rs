@@ -515,19 +515,33 @@ fn apply_cont() -> Func {
                         return (result, env, err, err)
                     },
                     If => {
-                        // TODO
+                        let (unevaled_args, continuation) = unhash2(cont);
+                        let (arg1, more) = safe_uncons(unevaled_args);
+                        let (arg2, end) = safe_uncons(more);
+                        match_tag end {
+                            Nil => {
+                                match_tag result {
+                                    Nil => {
+                                        let ctrl: Return;
+                                        return (arg2, env, continuation, ctrl)
+                                    }
+                                };
+                                let ctrl: Return;
+                                return (arg1, env, continuation, ctrl)
+                            }
+                        };
                         let err: Error;
                         return (result, env, err, err)
                     },
                     Lookup => {
-                        // TODO
-                        let err: Error;
-                        return (result, env, err, err)
+                        let (saved_env, continuation) = unhash2(cont);
+                        let ctrl: MakeThunk;
+                        return (result, saved_env, continuation, ctrl)
                     },
                     Tail => {
-                        // TODO
-                        let err: Error;
-                        return (result, env, err, err)
+                        let (saved_env, continuation) = unhash2(cont);
+                        let ctrl: MakeThunk;
+                        return (result, saved_env, continuation, ctrl)
                     }
                 }
             }
