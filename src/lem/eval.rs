@@ -49,7 +49,6 @@ fn reduce() -> Func {
     let env_to_use = func!((smaller_env, smaller_rec_env): 1 => {
         match_tag smaller_rec_env {
             Nil => {
-                // TODO better syntax for one sized returns
                 return (smaller_env)
             }
         };
@@ -170,7 +169,6 @@ fn reduce() -> Func {
                             let ctrl: ApplyContinuation;
                             return (val2, env, cont, ctrl)
                         }
-                        // TODO better syntax for calls with one sized returns
                         let (env_to_use) = env_to_use(smaller_env, val_or_more_rec_env);
 
                         match_tag cont {
@@ -293,12 +291,12 @@ fn reduce() -> Func {
                         let ctrl: Return;
                         match_tag more {
                             Nil => {
-                                let op1: EvalUnop;
+                                let op1: Eval;
                                 let cont: Unop = hash2(op1, cont);
                                 return (arg1, env, cont, ctrl)
                             }
                         };
-                        let op2: EvalBinop;
+                        let op2: Eval;
                         let cont: Binop = hash4(op2, env, more, cont);
                         return (arg1, env, cont, ctrl)
                     },
@@ -323,8 +321,218 @@ fn reduce() -> Func {
                         };
                         let err: Error;
                         return (expr, env, err, err)
+                    },
+                    // unops
+                    "car" => {
+                        let (arg1, end) = safe_uncons(rest);
+                        match_tag rest {
+                            Nil => {
+                                let err: Error;
+                                return (expr, env, err, err)
+                            }
+                        };
+                        match_tag end {
+                            Nil => {
+                                let ctrl: Return;
+                                let op: Car;
+                                let cont: Unop = hash2(op, cont);
+                                return (arg1, env, cont, ctrl)
+                            }
+                        };
+                        let err: Error;
+                        return (expr, env, err, err)
+                    },
+                    "cdr" => {
+                        let (arg1, end) = safe_uncons(rest);
+                        match_tag rest {
+                            Nil => {
+                                let err: Error;
+                                return (expr, env, err, err)
+                            }
+                        };
+                        match_tag end {
+                            Nil => {
+                                let ctrl: Return;
+                                let op: Cdr;
+                                let cont: Unop = hash2(op, cont);
+                                return (arg1, env, cont, ctrl)
+                            }
+                        };
+                        let err: Error;
+                        return (expr, env, err, err)
+                    },
+                    "commit" => {
+                        let (arg1, end) = safe_uncons(rest);
+                        match_tag rest {
+                            Nil => {
+                                let err: Error;
+                                return (expr, env, err, err)
+                            }
+                        };
+                        match_tag end {
+                            Nil => {
+                                let ctrl: Return;
+                                let op: Commit;
+                                let cont: Unop = hash2(op, cont);
+                                return (arg1, env, cont, ctrl)
+                            }
+                        };
+                        let err: Error;
+                        return (expr, env, err, err)
+                    },
+                    "num" => {
+                        let (arg1, end) = safe_uncons(rest);
+                        match_tag rest {
+                            Nil => {
+                                let err: Error;
+                                return (expr, env, err, err)
+                            }
+                        };
+                        match_tag end {
+                            Nil => {
+                                let ctrl: Return;
+                                let op: Num;
+                                let cont: Unop = hash2(op, cont);
+                                return (arg1, env, cont, ctrl)
+                            }
+                        };
+                        let err: Error;
+                        return (expr, env, err, err)
+                    },
+                    "u64" => {
+                        let (arg1, end) = safe_uncons(rest);
+                        match_tag rest {
+                            Nil => {
+                                let err: Error;
+                                return (expr, env, err, err)
+                            }
+                        };
+                        match_tag end {
+                            Nil => {
+                                let ctrl: Return;
+                                let op: U64;
+                                let cont: Unop = hash2(op, cont);
+                                return (arg1, env, cont, ctrl)
+                            }
+                        };
+                        let err: Error;
+                        return (expr, env, err, err)
+                    },
+                    "comm" => {
+                        let (arg1, end) = safe_uncons(rest);
+                        match_tag rest {
+                            Nil => {
+                                let err: Error;
+                                return (expr, env, err, err)
+                            }
+                        };
+                        match_tag end {
+                            Nil => {
+                                let ctrl: Return;
+                                let op: Comm;
+                                let cont: Unop = hash2(op, cont);
+                                return (arg1, env, cont, ctrl)
+                            }
+                        };
+                        let err: Error;
+                        return (expr, env, err, err)
+                    },
+                    "char" => {
+                        let (arg1, end) = safe_uncons(rest);
+                        match_tag rest {
+                            Nil => {
+                                let err: Error;
+                                return (expr, env, err, err)
+                            }
+                        };
+                        match_tag end {
+                            Nil => {
+                                let ctrl: Return;
+                                let op: Char;
+                                let cont: Unop = hash2(op, cont);
+                                return (arg1, env, cont, ctrl)
+                            }
+                        };
+                        let err: Error;
+                        return (expr, env, err, err)
+                    },
+                    "open" => {
+                        let (arg1, end) = safe_uncons(rest);
+                        match_tag rest {
+                            Nil => {
+                                let err: Error;
+                                return (expr, env, err, err)
+                            }
+                        };
+                        match_tag end {
+                            Nil => {
+                                let ctrl: Return;
+                                let op: Open;
+                                let cont: Unop = hash2(op, cont);
+                                return (arg1, env, cont, ctrl)
+                            }
+                        };
+                        let err: Error;
+                        return (expr, env, err, err)
+                    },
+                    "secret" => {
+                        let (arg1, end) = safe_uncons(rest);
+                        match_tag rest {
+                            Nil => {
+                                let err: Error;
+                                return (expr, env, err, err)
+                            }
+                        };
+                        match_tag end {
+                            Nil => {
+                                let ctrl: Return;
+                                let op: Secret;
+                                let cont: Unop = hash2(op, cont);
+                                return (arg1, env, cont, ctrl)
+                            }
+                        };
+                        let err: Error;
+                        return (expr, env, err, err)
+                    },
+                    "atom" => {
+                        let (arg1, end) = safe_uncons(rest);
+                        match_tag rest {
+                            Nil => {
+                                let err: Error;
+                                return (expr, env, err, err)
+                            }
+                        };
+                        match_tag end {
+                            Nil => {
+                                let ctrl: Return;
+                                let op: Atom;
+                                let cont: Unop = hash2(op, cont);
+                                return (arg1, env, cont, ctrl)
+                            }
+                        };
+                        let err: Error;
+                        return (expr, env, err, err)
+                    },
+                    "emit" => {
+                        let (arg1, end) = safe_uncons(rest);
+                        match_tag rest {
+                            Nil => {
+                                let err: Error;
+                                return (expr, env, err, err)
+                            }
+                        };
+                        match_tag end {
+                            Nil => {
+                                let ctrl: Return;
+                                let op: Emit;
+                                let cont: Unop = hash2(op, cont);
+                                return (arg1, env, cont, ctrl)
+                            }
+                        };
+                        let err: Error;
+                        return (expr, env, err, err)
                     }
-                    // TODO binops and unops
+                    // TODO binops
                 };
                 // TODO coprocessors (could it be simply a `func`?)
                 // head -> fn, rest -> args
