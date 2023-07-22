@@ -12,7 +12,7 @@ pub(crate) fn eval_step() -> Func {
     func!((expr, env, cont): 3 => {
         let (expr, env, cont, ctrl) = reduce(expr, env, cont);
         let (expr, env, cont, ctrl) = apply_cont(expr, env, cont, ctrl);
-        let (expr, env, cont, ctrl) = make_thunk(expr, env, cont, ctrl);
+        let (expr, env, cont, _ctrl) = make_thunk(expr, env, cont, ctrl);
         return (expr, env, cont)
     })
 }
@@ -209,7 +209,7 @@ fn reduce() -> Func {
                                 let inner_body: Cons = hash2(l, nil);
                                 let function: Fun = hash3(arg, inner_body, env);
                                 let ctrl: ApplyContinuation;
-                                return (expr, env, cont, ctrl)
+                                return (function, env, cont, ctrl)
                             }
                         };
                         let err: Error;
@@ -490,14 +490,14 @@ fn apply_cont() -> Func {
                         let extended_env: Cons = hash2(binding, env);
                         let (cont) = make_tail_continuation(saved_env, cont);
                         let ctrl: Return;
-                        return (result, extended_env, cont, ctrl)
+                        return (body, extended_env, cont, ctrl)
                     },
                     LetRec => {
                         let (var, body, saved_env, cont) = unhash4(cont);
                         let (extended_env) = extend_rec(env, var, result);
                         let (cont) = make_tail_continuation(saved_env, cont);
                         let ctrl: Return;
-                        return (result, extended_env, cont, ctrl)
+                        return (body, extended_env, cont, ctrl)
                     },
                     Unop => {
                         // TODO
