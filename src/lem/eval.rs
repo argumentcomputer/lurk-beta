@@ -660,7 +660,28 @@ fn apply_cont() -> Func {
                         return (result, env, err, err)
                     },
                     Binop => {
-                        // TODO
+                        let (operator, saved_env, unevaled_args, continuation) = unhash4(cont);
+                        let (arg2, rest) = safe_uncons(unevaled_args);
+                        match_tag operator {
+                            Begin => {
+                                match_tag rest {
+                                    Nil => {
+                                        let ctrl: Return;
+                                        return (arg2, saved_env, continuation, ctrl)
+                                    }
+                                };
+                                let begin = symbol("begin");
+                                let begin_again: Cons = hash2(begin, unevaled_args);
+                                return (begin_again, saved_env, continuation, ctrl)
+                            }
+                        };
+                        match_tag rest {
+                            Nil => {
+                                let ctrl: Return;
+                                let cont: Binop2 = hash3(operator, result, continuation);
+                                return (arg2, saved_env, cont, ctrl)
+                            }
+                        };
                         let err: Error;
                         return (result, env, err, err)
                     },
