@@ -97,43 +97,107 @@ fn reduce() -> Func {
                 return (op)
             },
             "cdr" => {
-                let op: Car;
+                let op: Cdr;
                 return (op)
             },
             "commit" => {
-                let op: Car;
+                let op: Commit;
                 return (op)
             },
             "num" => {
-                let op: Car;
+                let op: Num;
                 return (op)
             },
             "u64" => {
-                let op: Car;
+                let op: U64;
                 return (op)
             },
             "comm" => {
-                let op: Car;
+                let op: Comm;
                 return (op)
             },
             "char" => {
-                let op: Car;
+                let op: Char;
                 return (op)
             },
             "open" => {
-                let op: Car;
+                let op: Open;
                 return (op)
             },
             "secret" => {
-                let op: Car;
+                let op: Secret;
                 return (op)
             },
             "atom" => {
-                let op: Car;
+                let op: Atom;
                 return (op)
             },
             "emit" => {
-                let op: Car;
+                let op: Emit;
+                return (op)
+            }
+        };
+        let dummy = symbol("dummy");
+        return (dummy)
+    });
+
+    let choose_binop = func!((head): 1 => {
+        match_symbol head {
+            "cons" => {
+                let op: Cons;
+                return (op)
+            },
+            "strcons" => {
+                let op: StrCons;
+                return (op)
+            },
+            "hide" => {
+                let op: Hide;
+                return (op)
+            },
+            "+" => {
+                let op: Sum;
+                return (op)
+            },
+            "-" => {
+                let op: Diff;
+                return (op)
+            },
+            "*" => {
+                let op: Product;
+                return (op)
+            },
+            // TODO: bellperson complains if we use "/"
+            "div" => {
+                let op: Quotient;
+                return (op)
+            },
+            "%" => {
+                let op: Modulo;
+                return (op)
+            },
+            "=" => {
+                let op: NumEqual;
+                return (op)
+            },
+            "eq" => {
+                let op: Equal;
+                return (op)
+            },
+            "<" => {
+                let op: Less;
+                return (op)
+            },
+            ">" => {
+                let op: Greater;
+                return (op)
+            },
+            "<=" => {
+                let op: LessEqual;
+                return (op)
+            },
+            ">=" => {
+                let op: GreaterEqual;
                 return (op)
             }
         };
@@ -372,7 +436,6 @@ fn reduce() -> Func {
                         let err: Error;
                         return (expr, env, err, err)
                     }
-                    // TODO binops
                 };
                 // unops
                 let (op) = choose_unop(head);
@@ -381,23 +444,42 @@ fn reduce() -> Func {
                 // hashes and tags
                 let dummy = symbol("dummy");
                 if op != dummy {
-                    let (arg1, end) = safe_uncons(rest);
                     match_tag rest {
                         Nil => {
                             let err: Error;
                             return (expr, env, err, err)
                         }
                     };
+                    let (arg1, end) = unhash2(rest);
                     match_tag end {
                         Nil => {
                             let ctrl: Return;
-                            let op: Emit;
                             let cont: Unop = hash2(op, cont);
                             return (arg1, env, cont, ctrl)
                         }
                     };
                     let err: Error;
                     return (expr, env, err, err)
+                }
+                // binops
+                let (_op) = choose_binop(head);
+                if op != dummy {
+                    match_tag rest {
+                        Nil => {
+                            let err: Error;
+                            return (expr, env, err, err)
+                        }
+                    };
+                    let (arg1, more) = unhash2(rest);
+                    match_tag more {
+                        Nil => {
+                            let err: Error;
+                            return (expr, env, err, err)
+                        }
+                    };
+                    let ctrl: Return;
+                    let cont: Binop = hash4(op, env, more, cont);
+                    return (arg1, env, cont, ctrl)
                 }
 
                 // TODO coprocessors (could it be simply a `func`?)
