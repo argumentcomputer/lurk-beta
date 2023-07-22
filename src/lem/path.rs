@@ -126,6 +126,7 @@ impl Block {
                     .fold(init, |acc, block| acc + block.num_paths())
             }
             Ctrl::IfEq(_, _, eq_block, else_block) => eq_block.num_paths() + else_block.num_paths(),
+            Ctrl::IfNotEq(_, _, neq_block, else_block) => neq_block.num_paths() + else_block.num_paths(),
             Ctrl::Return(..) => 1,
         };
         num_paths

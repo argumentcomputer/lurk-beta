@@ -128,6 +128,9 @@ pub enum Ctrl {
     /// `IfEq(x, y, eq_block, else_block)` runs `eq_block` if `x == y`, and
     /// otherwise runs `else_block`
     IfEq(Var, Var, Box<Block>, Box<Block>),
+    /// `IfNotEq(x, y, neq_block, else_block)` runs `neq_block` if `x != y`, and
+    /// otherwise runs `else_block`
+    IfNotEq(Var, Var, Box<Block>, Box<Block>),
     /// `Return(rets)` sets the output to `rets`
     Return(Vec<Var>),
 }
@@ -303,6 +306,12 @@ impl Func {
                     recurse(eq_block, return_size, map)?;
                     recurse(else_block, return_size, map)?;
                 }
+                Ctrl::IfNotEq(x, y, neq_block, else_block) => {
+                    is_bound(x, map)?;
+                    is_bound(y, map)?;
+                    recurse(neq_block, return_size, map)?;
+                    recurse(else_block, return_size, map)?;
+                }
             }
             Ok(())
         }
@@ -460,6 +469,13 @@ impl Block {
                 let else_block = Box::new(else_block.deconflict(&mut map.clone(), uniq)?);
                 Ctrl::IfEq(x, y, eq_block, else_block)
             }
+            Ctrl::IfNotEq(x, y, neq_block, else_block) => {
+                let x = map.get_cloned(&x)?;
+                let y = map.get_cloned(&y)?;
+                let eq_block = Box::new(neq_block.deconflict(&mut map.clone(), uniq)?);
+                let else_block = Box::new(else_block.deconflict(&mut map.clone(), uniq)?);
+                Ctrl::IfNotEq(x, y, eq_block, else_block)
+            }
             Ctrl::Return(o) => Ctrl::Return(map.get_many_cloned(&o)?),
         };
         Ok(Block { ops, ctrl })
@@ -493,6 +509,10 @@ impl Block {
             }
             Ctrl::IfEq(_, _, eq_block, else_block) => {
                 eq_block.intern_matched_symbols(store);
+                else_block.intern_matched_symbols(store);
+            }
+            Ctrl::IfNotEq(_, _, neq_block, else_block) => {
+                neq_block.intern_matched_symbols(store);
                 else_block.intern_matched_symbols(store);
             }
             Ctrl::Return(..) => (),

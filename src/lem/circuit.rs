@@ -245,6 +245,10 @@ impl Block {
                 let eq_slots = eq_block.count_slots();
                 eq_slots.max(else_block.count_slots())
             }
+            Ctrl::IfNotEq(_, _, neq_block, else_block) => {
+                let eq_slots = neq_block.count_slots();
+                eq_slots.max(else_block.count_slots())
+            }
             Ctrl::Return(..) => SlotsCounter::default(),
         };
         ops_slots.add(ctrl_slots)
@@ -802,6 +806,36 @@ impl Func {
                         g,
                     )
                 }
+                Ctrl::IfNotEq(x, y, neq_block, else_block) => {
+                    let x = bound_allocations.get(x)?.hash();
+                    let y = bound_allocations.get(y)?.hash();
+                    let eq = alloc_equal(&mut cs.namespace(|| "if_neq.alloc_equal"), x, y)?;
+                    let not_eq = eq.not();
+                    let not_dummy_and_eq = and(&mut cs.namespace(|| "if_neq.and"), not_dummy, &eq)?;
+                    let not_dummy_and_not_eq =
+                        and(&mut cs.namespace(|| "if_neq.and.2"), not_dummy, &not_eq)?;
+
+                    let saved_slot = &mut next_slot.clone();
+                    recurse(
+                        &mut cs.namespace(|| "if_neq.true"),
+                        neq_block,
+                        &not_dummy_and_not_eq,
+                        saved_slot,
+                        bound_allocations,
+                        preallocated_outputs,
+                        g,
+                    )?;
+                    let saved_slot = &mut next_slot.clone();
+                    recurse(
+                        &mut cs.namespace(|| "if_neq.false"),
+                        else_block,
+                        &not_dummy_and_eq,
+                        saved_slot,
+                        bound_allocations,
+                        preallocated_outputs,
+                        g,
+                    )
+                }
                 Ctrl::MatchTag(match_var, cases, def) => {
                     let allocated_match_tag = bound_allocations.get(match_var)?.tag().clone();
                     let mut selector = Vec::new();
@@ -1035,6 +1069,12 @@ impl Func {
                     num_constraints
                         + if nested { 6 } else { 4 }
                         + recurse(eq_block, true, globals, store)
+                        + recurse(else_block, true, globals, store)
+                }
+                Ctrl::IfNotEq(_, _, neq_block, else_block) => {
+                    num_constraints
+                        + if nested { 6 } else { 4 }
+                        + recurse(neq_block, true, globals, store)
                         + recurse(else_block, true, globals, store)
                 }
                 Ctrl::MatchTag(_, cases, def) => {
