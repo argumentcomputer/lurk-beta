@@ -56,6 +56,8 @@
 //!    the correct number of variables
 //! 4. No match statements should have conflicting cases
 //! 5. LEM should be transformed to SSA to make it simple to synthesize
+//! 6. We also check for variables that are not used. If intended they should
+//!    be prefixed by "_"
 
 mod circuit;
 mod eval;
@@ -71,7 +73,6 @@ mod var_map;
 use crate::field::LurkField;
 use anyhow::{bail, Context, Result};
 use indexmap::IndexMap;
-use std::collections::HashSet;
 use std::sync::Arc;
 
 use self::{store::Store, symbol::Symbol, tag::Tag, var_map::VarMap};
@@ -177,20 +178,22 @@ impl Func {
     pub fn check(&self) -> Result<()> {
         // Check if variable has already been defined. Panics
         // if it is repeated (means `deconflict` is broken)
+        use std::collections::{HashMap, HashSet};
         #[inline(always)]
-        fn is_unique(var: &Var, map: &mut HashSet<Var>) {
-            if !map.insert(var.clone()) {
+        fn is_unique(var: &Var, map: &mut HashMap<Var, bool>) {
+            if map.insert(var.clone(), false).is_some() {
                 panic!("Variable {var} already defined. `deconflict` implementation broken.");
             }
         }
-        // Check if variable is bound
+        // Check if variable is bound and sets it as "used"
         #[inline(always)]
-        fn is_bound(var: &Var, map: &HashSet<Var>) -> Result<()> {
-            map.get(var)
-                .context(format!("Variable {var} is unbound."))?;
+        fn is_bound(var: &Var, map: &mut HashMap<Var, bool>) -> Result<()> {
+            if map.insert(var.clone(), true).is_none() {
+                bail!("Variable {var} is unbound.");
+            }
             Ok(())
         }
-        fn recurse(block: &Block, return_size: usize, map: &mut HashSet<Var>) -> Result<()> {
+        fn recurse(block: &Block, return_size: usize, map: &mut HashMap<Var, bool>) -> Result<()> {
             for op in &block.ops {
                 match op {
                     Op::Call(out, func, inp) => {
@@ -303,9 +306,16 @@ impl Func {
             }
             Ok(())
         }
-        let map = &mut HashSet::new();
+        let map = &mut HashMap::new();
         self.input_params.iter().for_each(|var| is_unique(var, map));
-        recurse(&self.body, self.output_size, map)
+        recurse(&self.body, self.output_size, map)?;
+        for (var, u) in map.iter() {
+            let ch = var.0.chars().next().unwrap();
+            if !u && ch != '_' {
+                bail!("Variable {var} not used. If intended, please prefix it with \"_\"")
+            }
+        }
+        Ok(())
     }
 
     /// Deconflict will replace conflicting names and make the function SSA. The
@@ -493,7 +503,7 @@ impl Block {
 impl Var {
     fn make_unique(&self, uniq: &mut usize) -> Var {
         *uniq += 1;
-        Var(format!("#{}.{}", uniq, self.name()).into())
+        Var(format!("{}#{}", self.name(), uniq).into())
     }
 }
 
@@ -588,7 +598,7 @@ mod tests {
 
     #[test]
     fn resolves_conflicts_of_clashing_names_in_parallel_branches() {
-        let lem = func!((expr_in, env_in, cont_in): 3 => {
+        let lem = func!((expr_in, env_in, _cont_in): 3 => {
             match_tag expr_in {
                 // This match is creating `cont_out_terminal` on two different
                 // branches, which, in theory, would cause troubles at allocation
@@ -612,7 +622,7 @@ mod tests {
 
     #[test]
     fn handles_non_ssa() {
-        let func = func!((expr_in, env_in, cont_in): 3 => {
+        let func = func!((expr_in, _env_in, _cont_in): 3 => {
             let x: Cons = hash2(expr_in, expr_in);
             // The next line rewrites `x` and it should move on smoothly, matching
             // the expected number of constraints accordingly
@@ -627,7 +637,7 @@ mod tests {
 
     #[test]
     fn test_simple_all_paths_delta() {
-        let lem = func!((expr_in, env_in, cont_in): 3 => {
+        let lem = func!((expr_in, env_in, _cont_in): 3 => {
             let cont_out_terminal: Terminal;
             return (expr_in, env_in, cont_out_terminal);
         });
@@ -638,7 +648,7 @@ mod tests {
 
     #[test]
     fn test_match_all_paths_delta() {
-        let lem = func!((expr_in, env_in, cont_in): 3 => {
+        let lem = func!((expr_in, env_in, _cont_in): 3 => {
             match_tag expr_in {
                 Num => {
                     let cont_out_terminal: Terminal;
@@ -658,16 +668,16 @@ mod tests {
     #[test]
     fn test_hash_slots() {
         let lem = func!((expr_in, env_in, cont_in): 3 => {
-            let x: Cons = hash2(expr_in, env_in);
-            let y: Cons = hash3(expr_in, env_in, cont_in);
-            let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
+            let _x: Cons = hash2(expr_in, env_in);
+            let _y: Cons = hash3(expr_in, env_in, cont_in);
+            let _z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
             let t: Terminal;
             let p: Nil;
             match_tag expr_in {
                 Num => {
                     let m: Cons = hash2(env_in, expr_in);
                     let n: Cons = hash3(cont_in, env_in, expr_in);
-                    let k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                    let _k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
                     return (m, n, t);
                 },
                 Char => {
@@ -689,9 +699,9 @@ mod tests {
     #[test]
     fn test_unhash_slots() {
         let lem = func!((expr_in, env_in, cont_in): 3 => {
-            let x: Cons = hash2(expr_in, env_in);
-            let y: Cons = hash3(expr_in, env_in, cont_in);
-            let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
+            let _x: Cons = hash2(expr_in, env_in);
+            let _y: Cons = hash3(expr_in, env_in, cont_in);
+            let _z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
             let t: Terminal;
             let p: Nil;
             match_tag expr_in {
@@ -699,9 +709,9 @@ mod tests {
                     let m: Cons = hash2(env_in, expr_in);
                     let n: Cons = hash3(cont_in, env_in, expr_in);
                     let k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
-                    let (m1, m2) = unhash2(m);
-                    let (n1, n2, n3) = unhash3(n);
-                    let (k1, k2, k3, k4) = unhash4(k);
+                    let (_m1, _m2) = unhash2(m);
+                    let (_n1, _n2, _n3) = unhash3(n);
+                    let (_k1, _k2, _k3, _k4) = unhash4(k);
                     return (m, n, t);
                 },
                 Char => {
@@ -723,9 +733,9 @@ mod tests {
     #[test]
     fn test_unhash_nested_slots() {
         let lem = func!((expr_in, env_in, cont_in): 3 => {
-            let x: Cons = hash2(expr_in, env_in);
-            let y: Cons = hash3(expr_in, env_in, cont_in);
-            let z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
+            let _x: Cons = hash2(expr_in, env_in);
+            let _y: Cons = hash3(expr_in, env_in, cont_in);
+            let _z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
             let t: Terminal;
             let p: Nil;
             match_tag expr_in {
@@ -733,20 +743,20 @@ mod tests {
                     let m: Cons = hash2(env_in, expr_in);
                     let n: Cons = hash3(cont_in, env_in, expr_in);
                     let k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
-                    let (m1, m2) = unhash2(m);
-                    let (n1, n2, n3) = unhash3(n);
-                    let (k1, k2, k3, k4) = unhash4(k);
+                    let (_m1, _m2) = unhash2(m);
+                    let (_n1, _n2, _n3) = unhash3(n);
+                    let (_k1, _k2, _k3, _k4) = unhash4(k);
                     match_tag cont_in {
                         Outermost => {
-                            let a: Cons = hash2(env_in, expr_in);
-                            let b: Cons = hash3(cont_in, env_in, expr_in);
-                            let c: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                            let _a: Cons = hash2(env_in, expr_in);
+                            let _b: Cons = hash3(cont_in, env_in, expr_in);
+                            let _c: Cons = hash4(expr_in, cont_in, env_in, expr_in);
                             return (m, n, t);
                         },
                         Cons => {
-                            let d: Cons = hash2(env_in, expr_in);
-                            let e: Cons = hash3(cont_in, env_in, expr_in);
-                            let f: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                            let _d: Cons = hash2(env_in, expr_in);
+                            let _e: Cons = hash3(cont_in, env_in, expr_in);
+                            let _f: Cons = hash4(expr_in, cont_in, env_in, expr_in);
                             return (m, n, t);
                         }
                     }
