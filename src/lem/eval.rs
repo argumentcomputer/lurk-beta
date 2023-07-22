@@ -542,6 +542,16 @@ fn apply_cont() -> Func {
             }
         }
     });
+    let run_unop = func!((_operator, _result, _env, _continuation): 1 => {
+        // TODO
+        let dummy = symbol("dummy");
+        return (dummy)
+    });
+    let run_binop = func!((_operator, _result, _evaled_arg, _env, _continuation): 1 => {
+        // TODO
+        let dummy = symbol("dummy");
+        return (dummy)
+    });
     func!((result, env, cont, ctrl): 4 => {
         match_tag ctrl {
             ApplyContinuation => {
@@ -655,9 +665,15 @@ fn apply_cont() -> Func {
                         return (body, extended_env, cont, ctrl)
                     },
                     Unop => {
-                        // TODO
-                        let err: Error;
-                        return (result, env, err, err)
+                        let (operator, continuation) = unhash2(cont);
+                        let (val) = run_unop(operator, result, env, continuation);
+                        let dummy = symbol("dummy");
+                        if val == dummy {
+                            let err: Error;
+                            return (result, env, err, err)
+                        }
+                        let ctrl: MakeThunk;
+                        return (val, env, continuation, ctrl)
                     },
                     Binop => {
                         let (operator, saved_env, unevaled_args, continuation) = unhash4(cont);
@@ -686,9 +702,15 @@ fn apply_cont() -> Func {
                         return (result, env, err, err)
                     },
                     Binop2 => {
-                        // TODO
-                        let err: Error;
-                        return (result, env, err, err)
+                        let (operator, evaled_arg, continuation) = unhash3(cont);
+                        let (val) = run_binop(operator, result, evaled_arg, env, continuation);
+                        let dummy = symbol("dummy");
+                        if val == dummy {
+                            let err: Error;
+                            return (result, env, err, err)
+                        }
+                        let ctrl: MakeThunk;
+                        return (val, env, continuation, ctrl)
                     },
                     If => {
                         let (unevaled_args, continuation) = unhash2(cont);
