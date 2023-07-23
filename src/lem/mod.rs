@@ -580,13 +580,13 @@ mod tests {
     #[test]
     fn accepts_virtual_nested_match_tag() {
         let lem = func!((expr_in, env_in, cont_in): 3 => {
-            match_tag expr_in {
+            match expr_in.tag {
                 Num => {
                     let cont_out_terminal: Terminal;
                     return (expr_in, env_in, cont_out_terminal);
-                },
+                }
                 Char => {
-                    match_tag expr_in {
+                    match expr_in.tag {
                         // This nested match excercises the need to pass on the
                         // information that we are on a virtual branch, because a
                         // constraint will be created for `cont_out_error` and it
@@ -597,9 +597,9 @@ mod tests {
                             return (env_in, expr_in, cont_out_error);
                         }
                     }
-                },
+                }
                 Sym => {
-                    match_tag expr_in {
+                    match expr_in.tag {
                         // This nested match exercises the need to relax `popcount`
                         // because there is no match but it's on a virtual path, so
                         // we don't want to be too restrictive and demand that at
@@ -619,7 +619,7 @@ mod tests {
     #[test]
     fn resolves_conflicts_of_clashing_names_in_parallel_branches() {
         let lem = func!((expr_in, env_in, _cont_in): 3 => {
-            match_tag expr_in {
+            match expr_in.tag {
                 // This match is creating `cont_out_terminal` on two different
                 // branches, which, in theory, would cause troubles at allocation
                 // time. We solve this problem by calling `LEMOP::deconflict`,
@@ -628,7 +628,7 @@ mod tests {
                 Num => {
                     let cont_out_terminal: Terminal;
                     return (expr_in, env_in, cont_out_terminal);
-                },
+                }
                 Char => {
                     let cont_out_terminal: Terminal;
                     return (expr_in, env_in, cont_out_terminal);
@@ -669,11 +669,11 @@ mod tests {
     #[test]
     fn test_match_all_paths_delta() {
         let lem = func!((expr_in, env_in, _cont_in): 3 => {
-            match_tag expr_in {
+            match expr_in.tag {
                 Num => {
                     let cont_out_terminal: Terminal;
                     return (expr_in, env_in, cont_out_terminal);
-                },
+                }
                 Char => {
                     let cont_out_error: Error;
                     return (expr_in, env_in, cont_out_error);
@@ -693,19 +693,19 @@ mod tests {
             let _z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
             let t: Terminal;
             let p: Nil;
-            match_tag expr_in {
+            match expr_in.tag {
                 Num => {
                     let m: Cons = hash2(env_in, expr_in);
                     let n: Cons = hash3(cont_in, env_in, expr_in);
                     let _k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
                     return (m, n, t);
-                },
+                }
                 Char => {
                     return (p, p, t);
-                },
+                }
                 Cons => {
                     return (p, p, t);
-                },
+                }
                 Nil => {
                     return (p, p, t);
                 }
@@ -724,7 +724,7 @@ mod tests {
             let _z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
             let t: Terminal;
             let p: Nil;
-            match_tag expr_in {
+            match expr_in.tag {
                 Num => {
                     let m: Cons = hash2(env_in, expr_in);
                     let n: Cons = hash3(cont_in, env_in, expr_in);
@@ -733,13 +733,13 @@ mod tests {
                     let (_n1, _n2, _n3) = unhash3(n);
                     let (_k1, _k2, _k3, _k4) = unhash4(k);
                     return (m, n, t);
-                },
+                }
                 Char => {
                     return (p, p, t);
-                },
+                }
                 Cons => {
                     return (p, p, p);
-                },
+                }
                 Nil => {
                     return (p, p, p);
                 }
@@ -758,7 +758,7 @@ mod tests {
             let _z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
             let t: Terminal;
             let p: Nil;
-            match_tag expr_in {
+            match expr_in.tag {
                 Num => {
                     let m: Cons = hash2(env_in, expr_in);
                     let n: Cons = hash3(cont_in, env_in, expr_in);
@@ -766,13 +766,13 @@ mod tests {
                     let (_m1, _m2) = unhash2(m);
                     let (_n1, _n2, _n3) = unhash3(n);
                     let (_k1, _k2, _k3, _k4) = unhash4(k);
-                    match_tag cont_in {
+                    match cont_in.tag {
                         Outermost => {
                             let _a: Cons = hash2(env_in, expr_in);
                             let _b: Cons = hash3(cont_in, env_in, expr_in);
                             let _c: Cons = hash4(expr_in, cont_in, env_in, expr_in);
                             return (m, n, t);
-                        },
+                        }
                         Cons => {
                             let _d: Cons = hash2(env_in, expr_in);
                             let _e: Cons = hash3(cont_in, env_in, expr_in);
@@ -780,13 +780,13 @@ mod tests {
                             return (m, n, t);
                         }
                     }
-                },
+                }
                 Char => {
                     return (p, p, t);
-                },
+                }
                 Cons => {
                     return (p, p, p);
-                },
+                }
                 Nil => {
                     return (p, p, p);
                 }

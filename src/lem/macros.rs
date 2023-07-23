@@ -76,7 +76,7 @@ macro_rules! op {
 
 #[macro_export]
 macro_rules! ctrl {
-    ( match_tag $sii:ident { $( $tag:ident $(| $other_tags:ident)* => $case_ops:tt ),* } $(; $($def:tt)*)? ) => {
+    ( match $sii:ident.tag { $( $tag:ident $(| $other_tags:ident)* => $case_ops:tt )* } $(; $($def:tt)*)? ) => {
         {
             let mut cases = indexmap::IndexMap::new();
             $(
@@ -84,14 +84,14 @@ macro_rules! ctrl {
                     $crate::lem::Tag::$tag,
                     $crate::block!( $case_ops ),
                 ).is_some() {
-                    panic!("Repeated tag on `match_tag`");
+                    panic!("Repeated tag on `match`");
                 };
                 $(
                     if cases.insert(
                         $crate::lem::Tag::$other_tags,
                         $crate::block!( $case_ops ),
                     ).is_some() {
-                        panic!("Repeated tag on `match_tag`");
+                        panic!("Repeated tag on `match`");
                     };
                 )*
             )*
@@ -114,7 +114,7 @@ macro_rules! ctrl {
                         $crate::lem::Symbol::lurk_sym(&$other_symbols),
                         $crate::block!( $case_ops ),
                     ).is_some() {
-                        panic!("Repeated tag on `match_tag`");
+                        panic!("Repeated tag on `match`");
                     };
                 )*
             )*
@@ -267,13 +267,13 @@ macro_rules! block {
         )
     };
 
-    (@seq {$($limbs:expr)*}, match_tag $sii:ident { $( $tag:ident $(| $other_tags:ident)* => $case_ops:tt ),* } $(; $($def:tt)*)?) => {
+    (@seq {$($limbs:expr)*}, match $sii:ident.tag { $( $tag:ident $(| $other_tags:ident)* => $case_ops:tt )* } $(; $($def:tt)*)?) => {
         $crate::block! (
             @end
             {
                 $($limbs)*
             },
-            $crate::ctrl!( match_tag $sii { $( $tag $(| $other_tags)* => $case_ops ),* } $(; $($def)*)? )
+            $crate::ctrl!( match $sii.tag { $( $tag $(| $other_tags)* => $case_ops )* } $(; $($def)*)? )
         )
     };
     (@seq {$($limbs:expr)*}, match_symbol $sii:ident { $( $symbol:literal $(| $other_symbols:literal)* => $case_ops:tt ),* } $(; $($def:tt)*)?) => {
@@ -416,22 +416,20 @@ mod tests {
 
         assert!(block == lem_macro_seq);
 
-        let foo = ctrl!(
-            match_tag www {
-                Num => {
-                    return (foo, foo, foo); // a single Ctrl will not turn into a Seq
-                },
-                Str => {
-                    let foo: Num;
-                    return (foo, foo, foo);
-                },
-                Char => {
-                    let foo: Num;
-                    let goo: Char;
-                    return (foo, goo, goo);
-                }
+        let foo = ctrl!(match www.tag {
+            Num => {
+                return (foo, foo, foo); // a single Ctrl will not turn into a Seq
             }
-        );
+            Str => {
+                let foo: Num;
+                return (foo, foo, foo);
+            }
+            Char => {
+                let foo: Num;
+                let goo: Char;
+                return (foo, goo, goo);
+            }
+        });
         assert!(
             foo == match_tag(
                 mptr("www"),
