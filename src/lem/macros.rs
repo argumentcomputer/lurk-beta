@@ -152,7 +152,7 @@ macro_rules! ctrl {
             let y = $crate::var!($y);
             let true_block = Box::new($crate::block!( @seq {}, $($true_block)+ ));
             let false_block = Box::new($crate::block!( @seq {}, $($false_block)+ ));
-            $crate::lem::Ctrl::IfNotEq(x, y, true_block, false_block)
+            $crate::lem::Ctrl::IfEq(x, y, false_block, true_block)
         }
     };
     ( return ($($src:ident),*) ) => {
