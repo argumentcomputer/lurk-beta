@@ -431,8 +431,18 @@ impl Block {
                     let preimg = insert_many(map, uniq, &preimg);
                     ops.push(Op::Unhash4(preimg.try_into().unwrap(), img))
                 }
-                Op::Hide(..) => todo!(),
-                Op::Open(..) => todo!(),
+                Op::Hide(tgt, sec, pay) => {
+                    let sec = map.get_cloned(&sec)?;
+                    let pay = map.get_cloned(&pay)?;
+                    let tgt = insert_one(map, uniq, &tgt);
+                    ops.push(Op::Hide(tgt, sec, pay))
+                }
+                Op::Open(sec, pay, comm_or_num) => {
+                    let comm_or_num = map.get_cloned(&comm_or_num)?;
+                    let sec = insert_one(map, uniq, &sec);
+                    let pay = insert_one(map, uniq, &pay);
+                    ops.push(Op::Open(sec, pay, comm_or_num))
+                }
             }
         }
         let ctrl = match self.ctrl {

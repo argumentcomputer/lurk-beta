@@ -27,6 +27,10 @@ fn safe_uncons() -> Func {
                 let (car, cdr) = unhash2(xs);
                 return (car, cdr)
             }
+            Str => {
+                let (car, cdr) = unhash2(xs);
+                return (car, cdr)
+            }
         }
     })
 }
@@ -510,21 +514,18 @@ fn apply_cont() -> Func {
             }
         }
     });
-    let run_unop = func!((_operator, _result, _env, _continuation): 1 => {
+    let run_binop = func!((_operator, _result, _evaled_arg, _env, _continuation): 2 => {
         // TODO
-        let dummy = symbol("dummy");
-        return (dummy)
-    });
-    let run_binop = func!((_operator, _result, _evaled_arg, _env, _continuation): 1 => {
-        // TODO
-        let dummy = symbol("dummy");
-        return (dummy)
+        let nil: Nil;
+        return (nil, nil)
     });
     func!((result, env, cont, ctrl): 4 => {
         // Useful constants
         let ret: Return;
         let makethunk: MakeThunk;
         let err: Error;
+        let nil: Nil;
+        let t = symbol("t");
 
         match ctrl.tag {
             ApplyContinuation => {
@@ -538,7 +539,7 @@ fn apply_cont() -> Func {
                     }
                     Emit => {
                         // Instead of doing hash1 we can reuse a slot for hash2
-                        let (cont, _dummy) = unhash2(cont);
+                        let (cont, _rest) = unhash2(cont);
                         return (result, env, cont, makethunk)
                     }
                     Call0 => {
@@ -622,12 +623,65 @@ fn apply_cont() -> Func {
                     }
                     Unop => {
                         let (operator, continuation) = unhash2(cont);
-                        let (val) = run_unop(operator, result, env, continuation);
-                        let dummy = symbol("dummy");
-                        if val == dummy {
-                            return (result, env, err, err)
-                        }
-                        return (val, env, continuation, makethunk)
+                        match operator.tag {
+                            Car => {
+                                let (car, _cdr) = unhash2(result);
+                                return (car, env, continuation, makethunk)
+                            }
+                            Cdr => {
+                                let (_car, cdr) = unhash2(result);
+                                return (cdr, env, continuation, makethunk)
+                            }
+                            Atom => {
+                                match result.tag {
+                                    Cons => {
+                                        return (nil, env, continuation, makethunk)
+                                    }
+                                };
+                                return (t, env, continuation, makethunk)
+                            }
+                            Emit => {
+                                let emit: Emit = hash2(cont, nil);
+                                return (result, env, emit, makethunk)
+                            }
+                            Open => {
+                                let (_secret, payload) = open(result);
+                                return(payload, env, continuation, makethunk)
+                            }
+                            Secret => {
+                                let (secret, _payload) = open(result);
+                                return(secret, env, continuation, makethunk)
+                            }
+                            Commit => {
+                                // TODO: although this works, since `let nil: Nil` has
+                                // hash `F::ZERO`, maybe we should have an explicit
+                                // operation for setting variables particular values
+                                let nil: Nil;
+                                let comm = hide(nil, result);
+                                return(comm, env, continuation, makethunk)
+                            }
+                            Num => {
+                                // TODO
+                                return(result, env, err, err)
+                            }
+                            U64 => {
+                                // TODO
+                                return(result, env, err, err)
+                            }
+                            Comm => {
+                                // TODO
+                                return(result, env, err, err)
+                            }
+                            Char => {
+                                // TODO
+                                return(result, env, err, err)
+                            }
+                            Eval => {
+                                // TODO
+                                return(result, env, err, err)
+                            }
+                        };
+                        return (result, env, err, err)
                     }
                     Binop => {
                         let (operator, saved_env, unevaled_args, continuation) = unhash4(cont);
@@ -654,9 +708,8 @@ fn apply_cont() -> Func {
                     }
                     Binop2 => {
                         let (operator, evaled_arg, continuation) = unhash3(cont);
-                        let (val) = run_binop(operator, result, evaled_arg, env, continuation);
-                        let dummy = symbol("dummy");
-                        if val == dummy {
+                        let (val, success) = run_binop(operator, result, evaled_arg, env, continuation);
+                        if success == nil {
                             return (result, env, err, err)
                         }
                         return (val, env, continuation, makethunk)

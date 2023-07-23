@@ -753,7 +753,23 @@ impl Func {
                         );
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
-                    _ => todo!(),
+                    Op::Hide(tgt, _sec, _pay) => {
+                        // TODO
+                        let allocated_ptr = AllocatedPtr::from_parts(
+                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
+                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
+                        );
+                        bound_allocations.insert(tgt.clone(), allocated_ptr);
+                    }
+                    Op::Open(pay, sec, _comm_or_num) => {
+                        // TODO
+                        let allocated_ptr = AllocatedPtr::from_parts(
+                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
+                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
+                        );
+                        bound_allocations.insert(pay.clone(), allocated_ptr.clone());
+                        bound_allocations.insert(sec.clone(), allocated_ptr);
+                    }
                 }
             }
 
@@ -1060,7 +1076,14 @@ impl Func {
                         // one constraint for the image's hash
                         num_constraints += 1;
                     }
-                    _ => todo!(),
+                    Op::Hide(..) => {
+                        // TODO
+                        globals.insert(FWrap(F::ZERO));
+                    }
+                    Op::Open(..) => {
+                        // TODO
+                        globals.insert(FWrap(F::ZERO));
+                    }
                 }
             }
             match &block.ctrl {
