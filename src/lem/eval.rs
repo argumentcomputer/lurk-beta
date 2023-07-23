@@ -79,11 +79,11 @@ fn reduce() -> Func {
         return (expanded)
     });
     let choose_let_cont = func!((head, var, env, expanded, cont): 1 => {
-        match_symbol head {
+        match head.symbol {
             "let" => {
                 let cont: Let = hash4(var, env, expanded, cont);
                 return (cont)
-            },
+            }
             "letrec" => {
                 let cont: LetRec = hash4(var, env, expanded, cont);
                 return (cont)
@@ -91,47 +91,47 @@ fn reduce() -> Func {
         }
     });
     let choose_unop = func!((head): 1 => {
-        match_symbol head {
+        match head.symbol {
             "car" => {
                 let op: Car;
                 return (op)
-            },
+            }
             "cdr" => {
                 let op: Cdr;
                 return (op)
-            },
+            }
             "commit" => {
                 let op: Commit;
                 return (op)
-            },
+            }
             "num" => {
                 let op: Num;
                 return (op)
-            },
+            }
             "u64" => {
                 let op: U64;
                 return (op)
-            },
+            }
             "comm" => {
                 let op: Comm;
                 return (op)
-            },
+            }
             "char" => {
                 let op: Char;
                 return (op)
-            },
+            }
             "open" => {
                 let op: Open;
                 return (op)
-            },
+            }
             "secret" => {
                 let op: Secret;
                 return (op)
-            },
+            }
             "atom" => {
                 let op: Atom;
                 return (op)
-            },
+            }
             "emit" => {
                 let op: Emit;
                 return (op)
@@ -142,60 +142,60 @@ fn reduce() -> Func {
     });
 
     let choose_binop = func!((head): 1 => {
-        match_symbol head {
+        match head.symbol {
             "cons" => {
                 let op: Cons;
                 return (op)
-            },
+            }
             "strcons" => {
                 let op: StrCons;
                 return (op)
-            },
+            }
             "hide" => {
                 let op: Hide;
                 return (op)
-            },
+            }
             "+" => {
                 let op: Sum;
                 return (op)
-            },
+            }
             "-" => {
                 let op: Diff;
                 return (op)
-            },
+            }
             "*" => {
                 let op: Product;
                 return (op)
-            },
+            }
             // TODO: bellperson complains if we use "/"
             "div" => {
                 let op: Quotient;
                 return (op)
-            },
+            }
             "%" => {
                 let op: Modulo;
                 return (op)
-            },
+            }
             "=" => {
                 let op: NumEqual;
                 return (op)
-            },
+            }
             "eq" => {
                 let op: Equal;
                 return (op)
-            },
+            }
             "<" => {
                 let op: Less;
                 return (op)
-            },
+            }
             ">" => {
                 let op: Greater;
                 return (op)
-            },
+            }
             "<=" => {
                 let op: LessEqual;
                 return (op)
-            },
+            }
             ">=" => {
                 let op: GreaterEqual;
                 return (op)
@@ -225,7 +225,7 @@ fn reduce() -> Func {
                 return (thunk_expr, env, thunk_continuation, ctrl)
             }
             Sym => {
-                match_symbol expr {
+                match expr.symbol {
                     "nil" | "t" => {
                         let ctrl: ApplyContinuation;
                         return (expr, env, cont, ctrl)
@@ -301,7 +301,7 @@ fn reduce() -> Func {
             Cons => {
                 // No need for `safe_uncons` since the expression is already a `Cons`
                 let (head, rest) = unhash2(expr);
-                match_symbol head {
+                match head.symbol {
                     "lambda" => {
                         let (args, body) = safe_uncons(rest);
                         let (arg, cdr_args) = extract_arg(args);
@@ -326,7 +326,7 @@ fn reduce() -> Func {
                         };
                         let err: Error;
                         return (expr, env, err, err)
-                    },
+                    }
                     "quote" => {
                         let (quoted, end) = safe_uncons(rest);
 
@@ -338,7 +338,7 @@ fn reduce() -> Func {
                         };
                         let err: Error;
                         return (expr, env, err, err)
-                    },
+                    }
                     "let" | "letrec" => {
                         let (bindings, body) = safe_uncons(rest);
                         let (body1, rest_body) = safe_uncons(body);
@@ -380,7 +380,7 @@ fn reduce() -> Func {
                         };
                         let err: Error;
                         return (expr, env, err, err)
-                    },
+                    }
                     "begin" => {
                         let (arg1, more) = safe_uncons(rest);
                         match more.tag {
@@ -393,7 +393,7 @@ fn reduce() -> Func {
                         let op2: Begin;
                         let cont: Binop = hash4(op2, env, more, cont);
                         return (arg1, env, cont, ctrl)
-                    },
+                    }
                     "eval" => {
                         match rest.tag {
                             Nil => {
@@ -413,7 +413,7 @@ fn reduce() -> Func {
                         let op2: Eval;
                         let cont: Binop = hash4(op2, env, more, cont);
                         return (arg1, env, cont, ctrl)
-                    },
+                    }
                     "if" => {
                         let (condition, more) = safe_uncons(rest);
                         match more.tag {
@@ -425,7 +425,7 @@ fn reduce() -> Func {
                         let cont: If = hash2(more, cont);
                         let ctrl: Return;
                         return (condition, env, cont, ctrl)
-                    },
+                    }
                     "current-env" => {
                         match rest.tag {
                             Nil => {
@@ -576,7 +576,7 @@ fn apply_cont() -> Func {
                         match result.tag {
                             Fun => {
                                 let (arg, body, closed_env) = unhash3(result);
-                                match_symbol arg {
+                                match arg.symbol {
                                     "dummy" => {
                                         match body.tag {
                                             Nil => {
@@ -620,7 +620,7 @@ fn apply_cont() -> Func {
                         match function.tag {
                             Fun => {
                                 let (arg, body, closed_env) = unhash3(function);
-                                match_symbol arg {
+                                match arg.symbol {
                                     "dummy" => {
                                         let err: Error;
                                         return (result, env, err, err)

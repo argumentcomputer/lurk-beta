@@ -71,7 +71,7 @@ mod tag;
 mod var_map;
 
 use crate::field::LurkField;
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use indexmap::IndexMap;
 use std::sync::Arc;
 

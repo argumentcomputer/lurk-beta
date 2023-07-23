@@ -99,7 +99,7 @@ macro_rules! ctrl {
             $crate::lem::Ctrl::MatchTag($crate::var!($sii), cases, default)
         }
     };
-    ( match_symbol $sii:ident { $( $symbol:literal $(| $other_symbols:literal)* => $case_ops:tt ),* } $(; $($def:tt)*)? ) => {
+    ( match $sii:ident.symbol { $( $symbol:literal $(| $other_symbols:literal)* => $case_ops:tt )* } $(; $($def:tt)*)? ) => {
         {
             let mut cases = indexmap::IndexMap::new();
             $(
@@ -107,14 +107,14 @@ macro_rules! ctrl {
                     $crate::lem::Symbol::lurk_sym(&$symbol),
                     $crate::block!( $case_ops ),
                 ).is_some() {
-                    panic!("Repeated path on `match_symbol`");
+                    panic!("Repeated symbol on `match`");
                 };
                 $(
                     if cases.insert(
                         $crate::lem::Symbol::lurk_sym(&$other_symbols),
                         $crate::block!( $case_ops ),
                     ).is_some() {
-                        panic!("Repeated tag on `match`");
+                        panic!("Repeated symbol on `match`");
                     };
                 )*
             )*
@@ -276,13 +276,13 @@ macro_rules! block {
             $crate::ctrl!( match $sii.tag { $( $tag $(| $other_tags)* => $case_ops )* } $(; $($def)*)? )
         )
     };
-    (@seq {$($limbs:expr)*}, match_symbol $sii:ident { $( $symbol:literal $(| $other_symbols:literal)* => $case_ops:tt ),* } $(; $($def:tt)*)?) => {
+    (@seq {$($limbs:expr)*}, match $sii:ident.symbol { $( $symbol:literal $(| $other_symbols:literal)* => $case_ops:tt )* } $(; $($def:tt)*)?) => {
         $crate::block! (
             @end
             {
                 $($limbs)*
             },
-            $crate::ctrl!( match_symbol $sii { $( $symbol $(| $other_symbols)* => $case_ops ),* } $(; $($def)*)? )
+            $crate::ctrl!( match $sii.symbol { $( $symbol $(| $other_symbols)* => $case_ops )* } $(; $($def)*)? )
         )
     };
     (@seq {$($limbs:expr)*}, if $x:ident == $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
@@ -463,10 +463,10 @@ mod tests {
         );
 
         let moo = ctrl!(
-            match_symbol www {
+            match www.symbol {
                 "nil" => {
                     return (foo, foo, foo); // a single Ctrl will not turn into a Seq
-                },
+                }
                 "cons" => {
                     let foo: Num;
                     let goo: Char;
