@@ -233,7 +233,7 @@ impl Block {
                     .values()
                     .fold(init, |acc, block| acc.max(block.count_slots()))
             }
-            Ctrl::MatchSymbol(_, cases, def) => {
+            Ctrl::MatchVal(_, cases, def) => {
                 let init = def
                     .as_ref()
                     .map_or(SlotsCounter::default(), |def| def.count_slots());
@@ -743,13 +743,13 @@ impl Func {
                         );
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
-                    Op::Symbol(tgt, sym) => {
-                        let sym_ptr = g.store.intern_symbol(sym);
-                        let sym_hash = g.store.hash_ptr(&sym_ptr)?.hash;
+                    Op::Lit(tgt, lit) => {
+                        let lit_ptr = lit.to_ptr(g.store);
+                        let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
                         let allocated_ptr = AllocatedPtr::from_parts(
                             g.global_allocator
                                 .get_or_alloc_const(cs, Tag::Sym.to_field())?,
-                            g.global_allocator.get_or_alloc_const(cs, sym_hash)?,
+                            g.global_allocator.get_or_alloc_const(cs, lit_hash)?,
                         );
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
@@ -925,7 +925,7 @@ impl Func {
                     )
                     .with_context(|| " couldn't constrain `enforce_selector_with_premise`")
                 }
-                Ctrl::MatchSymbol(match_var, cases, def) => {
+                Ctrl::MatchVal(match_var, cases, def) => {
                     let allocated_symbol = bound_allocations.get(match_var)?.hash().clone();
                     let mut selector = Vec::new();
                     for (symbol, block) in cases {
@@ -1048,11 +1048,11 @@ impl Func {
                         globals.insert(FWrap(tag.to_field()));
                         globals.insert(FWrap(F::ZERO));
                     }
-                    Op::Symbol(_, sym) => {
-                        let sym_ptr = store.intern_symbol(sym);
-                        let sym_hash = store.hash_ptr(&sym_ptr).unwrap().hash;
+                    Op::Lit(_, lit) => {
+                        let lit_ptr = lit.to_ptr(store);
+                        let lit_hash = store.hash_ptr(&lit_ptr).unwrap().hash;
                         globals.insert(FWrap(Tag::Sym.to_field()));
-                        globals.insert(FWrap(sym_hash));
+                        globals.insert(FWrap(lit_hash));
                     }
                     Op::Hash2(_, tag, _) => {
                         // tag for the image
@@ -1123,7 +1123,7 @@ impl Func {
                     };
                     num_constraints
                 }
-                Ctrl::MatchSymbol(_, cases, def) => {
+                Ctrl::MatchVal(_, cases, def) => {
                     let multiplier = if nested { 4 } else { 3 };
                     num_constraints += multiplier * cases.len() + 1;
                     for block in cases.values() {

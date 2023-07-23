@@ -75,7 +75,7 @@ use anyhow::{bail, Result};
 use indexmap::IndexMap;
 use std::sync::Arc;
 
-use self::{store::Store, symbol::Symbol, tag::Tag, var_map::VarMap};
+use self::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, var_map::VarMap};
 
 pub type AString = Arc<str>;
 pub type AVec<A> = Arc<[A]>;
@@ -92,6 +92,27 @@ pub struct Func {
 /// LEM variables
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct Var(AString);
+
+/// LEM literals
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
+pub enum Lit {
+    Symbol(String),
+    String(String),
+    Scalar(u64),
+}
+
+impl Lit {
+    pub fn to_ptr<F: LurkField>(&self, store: &mut Store<F>) -> Ptr<F> {
+        match self {
+            Self::Symbol(s) => {
+                let sym = Symbol::lurk_sym(s);
+                store.intern_symbol(&sym)
+            }
+            Self::String(s) => store.intern_string(s),
+            Self::Scalar(num) => Ptr::num((*num).into()),
+        }
+    }
+}
 
 impl std::fmt::Display for Var {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -124,7 +145,7 @@ pub enum Ctrl {
     /// `MatchSymbol(x, cases, def)` checks whether `x` matches some symbol among
     /// the ones provided in `cases`. If so, run the corresponding `Block`. Run
     /// `def` otherwise
-    MatchSymbol(Var, IndexMap<Symbol, Block>, Option<Box<Block>>),
+    MatchVal(Var, IndexMap<Symbol, Block>, Option<Box<Block>>),
     /// `IfEq(x, y, eq_block, else_block)` runs `eq_block` if `x == y`, and
     /// otherwise runs `else_block`
     IfEq(Var, Var, Box<Block>, Box<Block>),
@@ -142,8 +163,8 @@ pub enum Op {
     Call(Vec<Var>, Box<Func>, Vec<Var>),
     /// `Null(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
     Null(Var, Tag),
-    /// `Symbol(x, sym)` binds `x` to symbol `sym`
-    Symbol(Var, Symbol),
+    /// `Lit(x, l)` binds `x` to the pointer representing that `Lit`
+    Lit(Var, Lit),
     /// `Hash2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
     Hash2(Var, Tag, [Var; 2]),
     /// `Hash3(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 3 children `ys`
@@ -222,7 +243,7 @@ impl Func {
                     Op::Null(tgt, _tag) => {
                         is_unique(tgt, map);
                     }
-                    Op::Symbol(tgt, _sym) => {
+                    Op::Lit(tgt, _lit) => {
                         is_unique(tgt, map);
                     }
                     Op::Hash2(img, _tag, preimg) => {
@@ -286,7 +307,7 @@ impl Func {
                         None => (),
                     }
                 }
-                Ctrl::MatchSymbol(var, cases, def) => {
+                Ctrl::MatchVal(var, cases, def) => {
                     is_bound(var, map)?;
                     let mut symbols = HashSet::new();
                     for (symbol, block) in cases {
@@ -400,7 +421,7 @@ impl Block {
                     ops.push(Op::Call(out, func, inp))
                 }
                 Op::Null(tgt, tag) => ops.push(Op::Null(insert_one(map, uniq, &tgt), tag)),
-                Op::Symbol(tgt, sym) => ops.push(Op::Symbol(insert_one(map, uniq, &tgt), sym)),
+                Op::Lit(tgt, lit) => ops.push(Op::Lit(insert_one(map, uniq, &tgt), lit)),
                 Op::Hash2(img, tag, preimg) => {
                     let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
                     let img = insert_one(map, uniq, &img);
@@ -459,7 +480,7 @@ impl Block {
                 };
                 Ctrl::MatchTag(var, IndexMap::from_iter(new_cases), new_def)
             }
-            Ctrl::MatchSymbol(var, cases, def) => {
+            Ctrl::MatchVal(var, cases, def) => {
                 let var = map.get_cloned(&var)?;
                 let mut new_cases = Vec::with_capacity(cases.len());
                 for (symbol, case) in cases {
@@ -470,7 +491,7 @@ impl Block {
                     Some(def) => Some(Box::new(def.deconflict(map, uniq)?)),
                     None => None,
                 };
-                Ctrl::MatchSymbol(var, IndexMap::from_iter(new_cases), new_def)
+                Ctrl::MatchVal(var, IndexMap::from_iter(new_cases), new_def)
             }
             Ctrl::IfEq(x, y, eq_block, else_block) => {
                 let x = map.get_cloned(&x)?;
@@ -498,7 +519,7 @@ impl Block {
             }
         }
         match &self.ctrl {
-            Ctrl::MatchSymbol(_, cases, def) => {
+            Ctrl::MatchVal(_, cases, def) => {
                 cases.iter().for_each(|(symbol, block)| {
                     store.intern_symbol(symbol);
                     block.intern_matched_symbols(store)

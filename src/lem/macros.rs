@@ -19,8 +19,23 @@ macro_rules! op {
     ( let $tgt:ident : $tag:ident ) => {
         $crate::lem::Op::Null($crate::var!($tgt), $crate::lem::Tag::$tag)
     };
-    ( let $tgt:ident = symbol($sym:literal) ) => {
-        $crate::lem::Op::Symbol($crate::var!($tgt), $crate::lem::Symbol::lurk_sym($sym))
+    ( let $tgt:ident = Scalar($num:literal) ) => {
+        $crate::lem::Op::Lit(
+            $crate::var!($tgt),
+            $crate::lem::Lit::Scalar($num)
+        )
+    };
+    ( let $tgt:ident = String($str:literal) ) => {
+        $crate::lem::Op::Lit(
+            $crate::var!($tgt),
+            $crate::lem::Lit::String($str.into())
+        )
+    };
+    ( let $tgt:ident = Symbol($str:literal) ) => {
+        $crate::lem::Op::Lit(
+            $crate::var!($tgt),
+            $crate::lem::Lit::Symbol($str.into())
+        )
     };
     ( let $tgt:ident : $tag:ident = hash2($src1:ident, $src2:ident) ) => {
         $crate::lem::Op::Hash2(
@@ -119,7 +134,7 @@ macro_rules! ctrl {
                 )*
             )*
             let default = None $( .or (Some(Box::new($crate::block!( @seq {}, $($def)* )))) )?;
-            $crate::lem::Ctrl::MatchSymbol($crate::var!($sii), cases, default)
+            $crate::lem::Ctrl::MatchVal($crate::var!($sii), cases, default)
         }
     };
     ( if $x:ident == $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
@@ -166,12 +181,32 @@ macro_rules! block {
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, let $tgt:ident = symbol($tag:literal) ; $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, let $tgt:ident = Scalar($sym:literal) ; $($tail:tt)*) => {
         $crate::block! (
             @seq
             {
                 $($limbs)*
-                $crate::op!(let $tgt = symbol($tag))
+                $crate::op!(let $tgt = Scalar($sym))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = String($sym:literal) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = String($sym))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = Symbol($sym:literal) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = Symbol($sym))
             },
             $($tail)*
         )
@@ -353,7 +388,7 @@ mod tests {
 
     #[inline]
     fn match_symbol(i: Var, cases: Vec<(Symbol, Block)>, def: Block) -> Ctrl {
-        Ctrl::MatchSymbol(i, indexmap::IndexMap::from_iter(cases), Some(Box::new(def)))
+        Ctrl::MatchVal(i, indexmap::IndexMap::from_iter(cases), Some(Box::new(def)))
     }
 
     #[test]

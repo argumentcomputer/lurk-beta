@@ -67,8 +67,8 @@ impl Block {
                 Op::Null(tgt, tag) => {
                     bindings.insert(tgt.clone(), Ptr::null(*tag));
                 }
-                Op::Symbol(tgt, sym) => {
-                    bindings.insert(tgt.clone(), store.intern_symbol(sym));
+                Op::Lit(tgt, lit) => {
+                    bindings.insert(tgt.clone(), lit.to_ptr(store));
                 }
                 Op::Hash2(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
@@ -183,7 +183,7 @@ impl Block {
                     }
                 }
             }
-            Ctrl::MatchSymbol(match_var, cases, def) => {
+            Ctrl::MatchVal(match_var, cases, def) => {
                 let ptr = bindings.get(match_var)?;
                 let Some(symbol) = store.fetch_symbol(ptr) else {
                     bail!("Symbol not found for {match_var}");

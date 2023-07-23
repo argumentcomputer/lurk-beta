@@ -62,7 +62,7 @@ fn reduce() -> Func {
     let extract_arg = func!((args): 2 => {
         match args.tag {
             Nil => {
-                let dummy = symbol("dummy");
+                let dummy = Symbol("dummy");
                 let nil: Nil;
                 return (dummy, nil)
             }
@@ -144,7 +144,7 @@ fn reduce() -> Func {
                 return (op)
             }
         };
-        let dummy = symbol("dummy");
+        let dummy = Symbol("dummy");
         return (dummy)
     });
 
@@ -208,7 +208,7 @@ fn reduce() -> Func {
                 return (op)
             }
         };
-        let dummy = symbol("dummy");
+        let dummy = Symbol("dummy");
         return (dummy)
     });
 
@@ -316,7 +316,7 @@ fn reduce() -> Func {
                                     }
                                 };
                                 let inner: Cons = hash2(cdr_args, body);
-                                let lambda = symbol("lambda");
+                                let lambda = Symbol("lambda");
                                 let l: Cons = hash2(lambda, inner);
                                 let inner_body: Cons = hash2(l, nil);
                                 let function: Fun = hash3(arg, inner_body, env);
@@ -424,7 +424,7 @@ fn reduce() -> Func {
                 // TODO this is a hack since if statements only look at the hash
                 // value, not the tag, as of now. Later, it might be that we decouple
                 // hashes and tags
-                let dummy = symbol("dummy");
+                let dummy = Symbol("dummy");
                 if op != dummy {
                     match rest.tag {
                         Nil => {
@@ -525,7 +525,7 @@ fn apply_cont() -> Func {
         let makethunk: MakeThunk;
         let err: Error;
         let nil: Nil;
-        let t = symbol("t");
+        let t = Symbol("t");
 
         match ctrl.tag {
             ApplyContinuation => {
@@ -693,7 +693,7 @@ fn apply_cont() -> Func {
                                         return (arg2, saved_env, continuation, ret)
                                     }
                                 };
-                                let begin = symbol("begin");
+                                let begin = Symbol("begin");
                                 let begin_again: Cons = hash2(begin, unevaled_args);
                                 return (begin_again, saved_env, continuation, ctrl)
                             }
