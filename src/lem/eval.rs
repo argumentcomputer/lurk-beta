@@ -90,6 +90,9 @@ fn reduce() -> Func {
             }
         }
     });
+    // TODO these `choose_unop` and `choose_binop` functions might
+    // be unnecessary. Instead of passing tags, we could pass the
+    // symbols themselves to the continuation
     let choose_unop = func!((head): 1 => {
         match head.symbol {
             "car" => {
@@ -206,35 +209,37 @@ fn reduce() -> Func {
     });
 
     func!((expr, env, cont): 4 => {
+        // Useful constants
+        let ret: Return;
+        let apply: ApplyContinuation;
+        let makethunk: MakeThunk;
+        let err: Error;
+        let nil: Nil;
+
         match cont.tag {
             Terminal | Error => {
-                let ctrl: Return;
-                return (expr, env, cont, ctrl)
+                return (expr, env, cont, ret)
             }
         };
 
-        let nil: Nil;
+
         match expr.tag {
             Nil | Fun | Num | Str | Char | Comm | U64 | Key => {
-                let ctrl: ApplyContinuation;
-                return (expr, env, cont, ctrl)
+                return (expr, env, cont, apply)
             }
             Thunk => {
                 let (thunk_expr, thunk_continuation) = unhash2(expr);
-                let ctrl: MakeThunk;
-                return (thunk_expr, env, thunk_continuation, ctrl)
+                return (thunk_expr, env, thunk_continuation, makethunk)
             }
             Sym => {
                 match expr.symbol {
                     "nil" | "t" => {
-                        let ctrl: ApplyContinuation;
-                        return (expr, env, cont, ctrl)
+                        return (expr, env, cont, apply)
                     }
                 };
 
                 match env.tag {
                     Nil => {
-                        let err: Error;
                         return (expr, env, err, err)
                     }
                 };
@@ -242,7 +247,6 @@ fn reduce() -> Func {
                 let (binding, smaller_env) = safe_uncons(env);
                 match binding.tag {
                     Nil => {
-                        let err: Error;
                         return (expr, env, err, err)
                     }
                 };
@@ -252,18 +256,15 @@ fn reduce() -> Func {
                 match var_or_rec_binding.tag {
                     Sym => {
                         if var_or_rec_binding == expr {
-                            let ctrl: ApplyContinuation;
-                            return (val_or_more_rec_env, env, cont, ctrl)
+                            return (val_or_more_rec_env, env, cont, apply)
                         }
                         match cont.tag {
                             Lookup => {
-                                let ctrl: Return;
-                                return (expr, smaller_env, cont, ctrl)
+                                return (expr, smaller_env, cont, ret)
                             }
                         };
-                        let ctrl: Return;
                         let cont: Lookup = hash2(env, cont);
-                        return (expr, smaller_env, cont, ctrl)
+                        return (expr, smaller_env, cont, ret)
                     }
                     Cons => {
                         let (v2, val2) = safe_uncons(var_or_rec_binding);
@@ -276,25 +277,21 @@ fn reduce() -> Func {
                                     let extended: Cons = hash2(binding, closed_env);
                                     // and return the extended closure
                                     let fun: Fun = hash3(arg, body, extended);
-                                    let ctrl: ApplyContinuation;
-                                    return (fun, env, cont, ctrl)
+                                    return (fun, env, cont, apply)
                                 }
                             };
                             // otherwise return `val2`
-                            let ctrl: ApplyContinuation;
-                            return (val2, env, cont, ctrl)
+                            return (val2, env, cont, apply)
                         }
                         let (env_to_use) = env_to_use(smaller_env, val_or_more_rec_env);
 
                         match cont.tag {
                             Lookup => {
-                                let ctrl: Return;
-                                return (expr, env_to_use, cont, ctrl)
+                                return (expr, env_to_use, cont, ret)
                             }
                         };
-                        let ctrl: Return;
                         let cont: Lookup = hash2(env, cont);
-                        return (expr, env_to_use, cont, ctrl)
+                        return (expr, env_to_use, cont, ret)
                     }
                 }
             }
@@ -311,8 +308,7 @@ fn reduce() -> Func {
                                 match cdr_args.tag {
                                     Nil => {
                                         let function: Fun = hash3(arg, body, env);
-                                        let ctrl: ApplyContinuation;
-                                        return (function, env, cont, ctrl)
+                                        return (function, env, cont, apply)
                                     }
                                 };
                                 let inner: Cons = hash2(cdr_args, body);
@@ -320,11 +316,9 @@ fn reduce() -> Func {
                                 let l: Cons = hash2(lambda, inner);
                                 let inner_body: Cons = hash2(l, nil);
                                 let function: Fun = hash3(arg, inner_body, env);
-                                let ctrl: ApplyContinuation;
-                                return (function, env, cont, ctrl)
+                                return (function, env, cont, apply)
                             }
                         };
-                        let err: Error;
                         return (expr, env, err, err)
                     }
                     "quote" => {
@@ -332,11 +326,9 @@ fn reduce() -> Func {
 
                         match end.tag {
                             Nil => {
-                                let ctrl: ApplyContinuation;
-                                return (quoted, env, cont, ctrl)
+                                return (quoted, env, cont, apply)
                             }
                         };
-                        let err: Error;
                         return (expr, env, err, err)
                     }
                     "let" | "letrec" => {
@@ -345,7 +337,6 @@ fn reduce() -> Func {
                         // Only a single body form allowed for now.
                         match body.tag {
                             Nil => {
-                                let err: Error;
                                 return (expr, env, err, err)
                             }
                         };
@@ -353,8 +344,7 @@ fn reduce() -> Func {
                             Nil => {
                                 match bindings.tag {
                                     Nil => {
-                                        let ctrl: Return;
-                                        return (body1, env, cont, ctrl)
+                                        return (body1, env, cont, ret)
                                     }
                                 };
                                 let (binding1, rest_bindings) = safe_uncons(bindings);
@@ -366,74 +356,62 @@ fn reduce() -> Func {
                                             Nil => {
                                                 let (expanded) = expand_bindings(head, body, body1, rest_bindings);
                                                 let (cont) = choose_let_cont(head, var, env, expanded, cont);
-                                                let ctrl: Return;
-                                                return (val, env, cont, ctrl)
+                                                return (val, env, cont, ret)
                                             }
                                         };
-                                        let err: Error;
                                         return (expr, env, err, err)
                                     }
                                 };
-                                let err: Error;
                                 return (expr, env, err, err)
                             }
                         };
-                        let err: Error;
                         return (expr, env, err, err)
                     }
                     "begin" => {
                         let (arg1, more) = safe_uncons(rest);
                         match more.tag {
                             Nil => {
-                                let ctrl: Return;
-                                return (arg1, env, cont, ctrl)
+                                return (arg1, env, cont, ret)
                             }
                         };
-                        let ctrl: Return;
                         let op2: Begin;
                         let cont: Binop = hash4(op2, env, more, cont);
-                        return (arg1, env, cont, ctrl)
+                        return (arg1, env, cont, ret)
                     }
                     "eval" => {
                         match rest.tag {
                             Nil => {
-                                let err: Error;
                                 return (expr, env, err, err)
                             }
                         };
                         let (arg1, more) = safe_uncons(rest);
-                        let ctrl: Return;
                         match more.tag {
                             Nil => {
                                 let op1: Eval;
                                 let cont: Unop = hash2(op1, cont);
-                                return (arg1, env, cont, ctrl)
+                                return (arg1, env, cont, ret)
                             }
                         };
                         let op2: Eval;
                         let cont: Binop = hash4(op2, env, more, cont);
-                        return (arg1, env, cont, ctrl)
+                        return (arg1, env, cont, ret)
                     }
                     "if" => {
                         let (condition, more) = safe_uncons(rest);
                         match more.tag {
                             Nil => {
-                                let err: Error;
                                 return (condition, env, err, err)
                             }
                         };
                         let cont: If = hash2(more, cont);
-                        let ctrl: Return;
-                        return (condition, env, cont, ctrl)
+                        return (condition, env, cont, ret)
                     }
                     "current-env" => {
                         match rest.tag {
                             Nil => {
-                                let ctrl: ApplyContinuation;
-                                return (env, env, cont, ctrl)
+                                return (env, env, cont, apply)
                             }
                         };
-                        let err: Error;
                         return (expr, env, err, err)
                     }
                 };
@@ -446,19 +424,16 @@ fn reduce() -> Func {
                 if op != dummy {
                     match rest.tag {
                         Nil => {
-                            let err: Error;
                             return (expr, env, err, err)
                         }
                     };
                     let (arg1, end) = unhash2(rest);
                     match end.tag {
                         Nil => {
-                            let ctrl: Return;
                             let cont: Unop = hash2(op, cont);
-                            return (arg1, env, cont, ctrl)
+                            return (arg1, env, cont, ret)
                         }
                     };
-                    let err: Error;
                     return (expr, env, err, err)
                 }
                 // binops
@@ -466,20 +441,17 @@ fn reduce() -> Func {
                 if op != dummy {
                     match rest.tag {
                         Nil => {
-                            let err: Error;
                             return (expr, env, err, err)
                         }
                     };
                     let (arg1, more) = unhash2(rest);
                     match more.tag {
                         Nil => {
-                            let err: Error;
                             return (expr, env, err, err)
                         }
                     };
-                    let ctrl: Return;
                     let cont: Binop = hash4(op, env, more, cont);
-                    return (arg1, env, cont, ctrl)
+                    return (arg1, env, cont, ret)
                 }
 
                 // TODO coprocessors (could it be simply a `func`?)
@@ -488,29 +460,25 @@ fn reduce() -> Func {
                     Fun => {
                         match rest.tag {
                             Nil => {
-                                let ctrl: Return;
                                 let cont: Call0 = hash2(env, cont);
-                                return (head, env, cont, ctrl)
+                                return (head, env, cont, ret)
                             }
                             Cons => {
                                 let (arg, more_args) = unhash2(rest);
                                 match more_args.tag {
                                     Nil => {
-                                        let ctrl: Return;
                                         let cont: Call = hash3(arg, env, cont);
-                                        return (head, env, cont, ctrl)
+                                        return (head, env, cont, ret)
                                     }
                                 };
                                 let expanded_inner0: Cons = hash2(arg, nil);
                                 let expanded_inner: Cons = hash2(head, expanded_inner0);
                                 let expanded: Cons = hash2(expanded_inner, more_args);
-                                let ctrl: Return;
-                                return (expanded, env, cont, ctrl)
+                                return (expanded, env, cont, ret)
                             }
                         }
                     }
                 };
-                let err: Error;
                 return (expr, env, err, err)
             }
         }
@@ -553,23 +521,25 @@ fn apply_cont() -> Func {
         return (dummy)
     });
     func!((result, env, cont, ctrl): 4 => {
+        // Useful constants
+        let ret: Return;
+        let makethunk: MakeThunk;
+        let err: Error;
+
         match ctrl.tag {
             ApplyContinuation => {
                 match cont.tag {
                     Terminal | Error => {
-                        let ctrl: Return;
-                        return (result, env, cont, ctrl)
+                        return (result, env, cont, ret)
                     }
                     Outermost => {
-                        let ctrl: Return;
                         let cont: Terminal;
-                        return (result, env, cont, ctrl)
+                        return (result, env, cont, ret)
                     }
                     Emit => {
                         // Instead of doing hash1 we can reuse a slot for hash2
                         let (cont, _dummy) = unhash2(cont);
-                        let ctrl: MakeThunk;
-                        return (result, env, cont, ctrl)
+                        return (result, env, cont, makethunk)
                     }
                     Call0 => {
                         let (saved_env, continuation) = unhash2(cont);
@@ -580,7 +550,6 @@ fn apply_cont() -> Func {
                                     "dummy" => {
                                         match body.tag {
                                             Nil => {
-                                                let err: Error;
                                                 return (result, env, err, err)
                                             }
                                         };
@@ -588,19 +557,15 @@ fn apply_cont() -> Func {
                                         match end.tag {
                                             Nil => {
                                                 let (cont) = make_tail_continuation(saved_env, continuation);
-                                                let ctrl: Return;
-                                                return (body_form, closed_env, cont, ctrl)
+                                                return (body_form, closed_env, cont, ret)
                                             }
                                         };
-                                        let err: Error;
                                         return (result, env, err, err)
                                     }
                                 };
-                                let ctrl: Return;
-                                return (result, env, continuation, ctrl)
+                                return (result, env, continuation, ret)
                             }
                         };
-                        let err: Error;
                         return (result, env, err, err)
                     }
                     Call => {
@@ -608,11 +573,9 @@ fn apply_cont() -> Func {
                             Fun => {
                                 let (unevaled_arg, saved_env, continuation) = unhash3(cont);
                                 let newer_cont: Call2 = hash3(result, saved_env, continuation);
-                                let ctrl: Return;
-                                return (unevaled_arg, env, newer_cont, ctrl)
+                                return (unevaled_arg, env, newer_cont, ret)
                             }
                         };
-                        let err: Error;
                         return (result, env, err, err)
                     }
                     Call2 => {
@@ -622,13 +585,11 @@ fn apply_cont() -> Func {
                                 let (arg, body, closed_env) = unhash3(function);
                                 match arg.symbol {
                                     "dummy" => {
-                                        let err: Error;
                                         return (result, env, err, err)
                                     }
                                 };
                                 match body.tag {
                                     Nil => {
-                                        let err: Error;
                                         return (result, env, err, err)
                                     }
                                 };
@@ -638,15 +599,12 @@ fn apply_cont() -> Func {
                                         let binding: Cons = hash2(arg, result);
                                         let newer_env: Cons = hash2(binding, closed_env);
                                         let (cont) = make_tail_continuation(saved_env, continuation);
-                                        let ctrl: Return;
-                                        return (body_form, newer_env, cont, ctrl)
+                                        return (body_form, newer_env, cont, ret)
                                     }
                                 };
-                                let err: Error;
                                 return (result, env, err, err)
                             }
                         };
-                        let err: Error;
                         return (result, env, err, err)
                     }
                     Let => {
@@ -654,26 +612,22 @@ fn apply_cont() -> Func {
                         let binding: Cons = hash2(var, result);
                         let extended_env: Cons = hash2(binding, env);
                         let (cont) = make_tail_continuation(saved_env, cont);
-                        let ctrl: Return;
-                        return (body, extended_env, cont, ctrl)
+                        return (body, extended_env, cont, ret)
                     }
                     LetRec => {
                         let (var, body, saved_env, cont) = unhash4(cont);
                         let (extended_env) = extend_rec(env, var, result);
                         let (cont) = make_tail_continuation(saved_env, cont);
-                        let ctrl: Return;
-                        return (body, extended_env, cont, ctrl)
+                        return (body, extended_env, cont, ret)
                     }
                     Unop => {
                         let (operator, continuation) = unhash2(cont);
                         let (val) = run_unop(operator, result, env, continuation);
                         let dummy = symbol("dummy");
                         if val == dummy {
-                            let err: Error;
                             return (result, env, err, err)
                         }
-                        let ctrl: MakeThunk;
-                        return (val, env, continuation, ctrl)
+                        return (val, env, continuation, makethunk)
                     }
                     Binop => {
                         let (operator, saved_env, unevaled_args, continuation) = unhash4(cont);
@@ -682,8 +636,7 @@ fn apply_cont() -> Func {
                             Begin => {
                                 match rest.tag {
                                     Nil => {
-                                        let ctrl: Return;
-                                        return (arg2, saved_env, continuation, ctrl)
+                                        return (arg2, saved_env, continuation, ret)
                                     }
                                 };
                                 let begin = symbol("begin");
@@ -693,12 +646,10 @@ fn apply_cont() -> Func {
                         };
                         match rest.tag {
                             Nil => {
-                                let ctrl: Return;
                                 let cont: Binop2 = hash3(operator, result, continuation);
-                                return (arg2, saved_env, cont, ctrl)
+                                return (arg2, saved_env, cont, ret)
                             }
                         };
-                        let err: Error;
                         return (result, env, err, err)
                     }
                     Binop2 => {
@@ -706,11 +657,9 @@ fn apply_cont() -> Func {
                         let (val) = run_binop(operator, result, evaled_arg, env, continuation);
                         let dummy = symbol("dummy");
                         if val == dummy {
-                            let err: Error;
                             return (result, env, err, err)
                         }
-                        let ctrl: MakeThunk;
-                        return (val, env, continuation, ctrl)
+                        return (val, env, continuation, makethunk)
                     }
                     If => {
                         let (unevaled_args, continuation) = unhash2(cont);
@@ -720,26 +669,21 @@ fn apply_cont() -> Func {
                             Nil => {
                                 match result.tag {
                                     Nil => {
-                                        let ctrl: Return;
-                                        return (arg2, env, continuation, ctrl)
+                                        return (arg2, env, continuation, ret)
                                     }
                                 };
-                                let ctrl: Return;
-                                return (arg1, env, continuation, ctrl)
+                                return (arg1, env, continuation, ret)
                             }
                         };
-                        let err: Error;
                         return (result, env, err, err)
                     }
                     Lookup => {
                         let (saved_env, continuation) = unhash2(cont);
-                        let ctrl: MakeThunk;
-                        return (result, saved_env, continuation, ctrl)
+                        return (result, saved_env, continuation, makethunk)
                     }
                     Tail => {
                         let (saved_env, continuation) = unhash2(cont);
-                        let ctrl: MakeThunk;
-                        return (result, saved_env, continuation, ctrl)
+                        return (result, saved_env, continuation, makethunk)
                     }
                 }
             }
@@ -750,6 +694,7 @@ fn apply_cont() -> Func {
 
 fn make_thunk() -> Func {
     func!((expr, env, cont, ctrl): 4 => {
+        let ret: Return;
         match ctrl.tag {
             MakeThunk => {
                 match cont.tag {
@@ -757,19 +702,16 @@ fn make_thunk() -> Func {
                         let (saved_env, saved_cont) = unhash2(cont);
                         let thunk: Thunk = hash2(expr, saved_cont);
                         let cont: Dummy;
-                        let ctrl: Return;
-                        return (thunk, saved_env, cont, ctrl)
+                        return (thunk, saved_env, cont, ret)
                     }
                     Outermost => {
                         let cont: Terminal;
-                        let ctrl: Return;
-                        return (expr, env, cont, ctrl)
+                        return (expr, env, cont, ret)
                     }
                 };
                 let thunk: Thunk = hash2(expr, cont);
                 let cont: Dummy;
-                let ctrl: Return;
-                return (thunk, env, cont, ctrl)
+                return (thunk, env, cont, ret)
             }
         };
         return (expr, env, cont, ctrl)
