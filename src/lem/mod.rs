@@ -60,7 +60,7 @@
 //!    be prefixed by "_"
 
 mod circuit;
-// mod eval;
+mod eval;
 mod interpreter;
 mod macros;
 mod path;
@@ -100,6 +100,15 @@ pub enum Tag {
     Cont(ContTag),
     Op1(Op1),
     Op2(Op2),
+    Ctrl(CtrlTag),
+}
+
+#[derive(Copy, Debug, PartialEq, Clone, Eq, Hash)]
+pub enum CtrlTag {
+    Return,
+    MakeThunk,
+    ApplyContinuation,
+    Error,
 }
 
 impl Tag {
@@ -111,6 +120,25 @@ impl Tag {
             Cont(tag) => tag.to_field(),
             Op1(tag) => tag.to_field(),
             Op2(tag) => tag.to_field(),
+            Ctrl(tag) => tag.to_field(),
+        }
+    }
+}
+
+impl CtrlTag {
+    #[inline]
+    fn to_field<F: LurkField>(&self) -> F {
+        F::from(*self as u64)
+    }
+}
+
+impl std::fmt::Display for CtrlTag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Return => write!(f, "return#"),
+            Self::ApplyContinuation => write!(f, "apply-cont#"),
+            Self::MakeThunk => write!(f, "make-thunk#"),
+            Self::Error => write!(f, "error#"),
         }
     }
 }
@@ -123,6 +151,7 @@ impl std::fmt::Display for Tag {
             Cont(tag) => write!(f, "cont.{}", tag),
             Op1(tag) => write!(f, "op1.{}", tag),
             Op2(tag) => write!(f, "op2.{}", tag),
+            Ctrl(tag) => write!(f, "ctrl.{}", tag),
         }
     }
 }
@@ -347,6 +376,7 @@ impl Func {
                             Tag::Cont(..) => 1,
                             Tag::Op1(..) => 2,
                             Tag::Op2(..) => 3,
+                            Tag::Ctrl(..) => 4,
                         }
                     }
                     is_bound(var, map)?;

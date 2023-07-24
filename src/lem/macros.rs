@@ -41,6 +41,9 @@ macro_rules! tag {
     ( Op2::$tag:ident ) => {
         $crate::lem::Tag::Op2($crate::tag::Op2::$tag)
     };
+    ( Ctrl::$tag:ident ) => {
+        $crate::lem::Tag::Ctrl($crate::lem::CtrlTag::$tag)
+    };
 }
 
 #[macro_export]
