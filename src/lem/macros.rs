@@ -46,7 +46,7 @@ macro_rules! tag {
 #[macro_export]
 macro_rules! op {
     ( let $tgt:ident : $kind:ident::$tag:ident ) => {
-        $crate::lem::Op::Null($crate::var!($tgt), tag!($kind::$tag))
+        $crate::lem::Op::Null($crate::var!($tgt), $crate::tag!($kind::$tag))
     };
     ( let $tgt:ident = $constr:ident($str:literal) ) => {
         $crate::lem::Op::Lit(
@@ -57,21 +57,21 @@ macro_rules! op {
     ( let $tgt:ident : $kind:ident::$tag:ident = hash2($src1:ident, $src2:ident) ) => {
         $crate::lem::Op::Hash2(
             $crate::var!($tgt),
-            tag!($kind::$tag),
+            $crate::tag!($kind::$tag),
             $crate::vars!($src1, $src2),
         )
     };
     ( let $tgt:ident : $kind:ident::$tag:ident = hash3($src1:ident, $src2:ident, $src3:ident) ) => {
         $crate::lem::Op::Hash3(
             $crate::var!($tgt),
-            tag!($kind::$tag),
+            $crate::tag!($kind::$tag),
             $crate::vars!($src1, $src2, $src3),
         )
     };
     ( let $tgt:ident : $kind:ident::$tag:ident = hash4($src1:ident, $src2:ident, $src3:ident, $src4:ident) ) => {
         $crate::lem::Op::Hash4(
             $crate::var!($tgt),
-            tag!($kind::$tag),
+            $crate::tag!($kind::$tag),
             $crate::vars!($src1, $src2, $src3, $src4),
         )
     };
@@ -113,14 +113,14 @@ macro_rules! ctrl {
             let mut cases = indexmap::IndexMap::new();
             $(
                 if cases.insert(
-                    tag!($kind::$tag),
+                    $crate::tag!($kind::$tag),
                     $crate::block!( $case_ops ),
                 ).is_some() {
                     panic!("Repeated tag on `match`");
                 };
                 $(
                     if cases.insert(
-                        tag!($other_kind::$other_tag),
+                        $crate::tag!($other_kind::$other_tag),
                         $crate::block!( $case_ops ),
                     ).is_some() {
                         panic!("Repeated tag on `match`");

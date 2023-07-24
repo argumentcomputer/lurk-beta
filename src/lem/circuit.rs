@@ -146,14 +146,14 @@ use crate::circuit::gadgets::{
 };
 
 use crate::field::{FWrap, LurkField};
+use crate::tag::ExprTag::*;
 
 use super::{
     interpreter::Frame,
     pointers::{Ptr, ZPtr},
     store::Store,
-    tag::Tag,
     var_map::VarMap,
-    Block, Ctrl, Func, Op, Var,
+    Tag, Block, Ctrl, Func, Op, Var,
 };
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -685,7 +685,7 @@ impl Func {
                             g.call_outputs.pop_front().unwrap()
                         } else {
                             // TODO Is this okay to do?
-                            let dummy = Ptr::Leaf(crate::lem::Tag::Nil, F::ZERO);
+                            let dummy = Ptr::Leaf(Tag::Expr(Nil), F::ZERO);
                             (0..out.len()).map(|_| dummy).collect()
                         };
                         assert_eq!(output_vals.len(), out.len());
@@ -744,7 +744,7 @@ impl Func {
                         let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
                         let allocated_ptr = AllocatedPtr::from_parts(
                             g.global_allocator
-                                .get_or_alloc_const(cs, Tag::Sym.to_field())?,
+                                .get_or_alloc_const(cs, Tag::Expr(Sym).to_field())?,
                             g.global_allocator.get_or_alloc_const(cs, lit_hash)?,
                         );
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
@@ -1017,7 +1017,7 @@ impl Func {
                     Op::Lit(_, lit) => {
                         let lit_ptr = lit.to_ptr(store);
                         let lit_hash = store.hash_ptr(&lit_ptr).unwrap().hash;
-                        globals.insert(FWrap(Tag::Sym.to_field()));
+                        globals.insert(FWrap(Tag::Expr(Sym).to_field()));
                         globals.insert(FWrap(lit_hash));
                     }
                     Op::Hash2(_, tag, _) => {

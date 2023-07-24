@@ -59,9 +59,9 @@
 //! 6. We also check for variables that are not used. If intended they should
 //!    be prefixed by "_"
 
-// mod circuit;
+mod circuit;
 // mod eval;
-// mod interpreter;
+mod interpreter;
 mod macros;
 mod path;
 mod pointers;
@@ -340,9 +340,26 @@ impl Func {
                     }
                 }
                 Ctrl::MatchTag(var, cases, def) => {
+                    // We do not accept equal cases nor cases of different kinds
+                    fn which_kind(x: &Tag) -> usize {
+                        match x {
+                            Tag::Expr(..) => 0,
+                            Tag::Cont(..) => 1,
+                            Tag::Op1(..) => 2,
+                            Tag::Op2(..) => 3,
+                        }
+                    }
                     is_bound(var, map)?;
                     let mut tags = HashSet::new();
+                    let mut kind = None;
                     for (tag, block) in cases {
+                        if let Some(kind) = kind {
+                            if kind != which_kind(tag) {
+                                bail!("Only tags of the same kind allowed.");
+                            }
+                        } else {
+                            kind = Some(which_kind(tag))
+                        }
                         if !tags.insert(tag) {
                             bail!("Tag {tag} already defined.");
                         }
@@ -368,7 +385,7 @@ impl Func {
                     for (lit, block) in cases {
                         if let Some(kind) = kind {
                             if kind != which_kind(lit) {
-                                bail!("Only tags of the same kind allowed.");
+                                bail!("Only values of the same kind allowed.");
                             }
                         } else {
                             kind = Some(which_kind(lit))
@@ -563,7 +580,6 @@ impl Var {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use super::circuit::SlotsCounter;
@@ -579,10 +595,11 @@ mod tests {
     ///   provided expressions.
     ///   - `expected_slots` gives the number of expected slots for each type of hash.
     fn synthesize_test_helper(func: &Func, inputs: Vec<Ptr<Fr>>, expected_num_slots: SlotsCounter) {
+        use crate::tag::ContTag::*;
         let store = &mut Store::default();
-        let outermost = Ptr::null(Tag::Outermost);
-        let terminal = Ptr::null(Tag::Terminal);
-        let error = Ptr::null(Tag::Error);
+        let outermost = Ptr::null(Tag::Cont(Outermost));
+        let terminal = Ptr::null(Tag::Cont(Terminal));
+        let error = Ptr::null(Tag::Cont(Error));
         let nil = store.intern_symbol(&Symbol::lurk_sym("nil"));
         let stop_cond = |output: &[Ptr<Fr>]| output[2] == terminal || output[2] == error;
 
@@ -618,30 +635,30 @@ mod tests {
     fn accepts_virtual_nested_match_tag() {
         let lem = func!((expr_in, env_in, cont_in): 3 => {
             match expr_in.tag {
-                Num => {
-                    let cont_out_terminal: Terminal;
+                Expr::Num => {
+                    let cont_out_terminal: Cont::Terminal;
                     return (expr_in, env_in, cont_out_terminal);
                 }
-                Char => {
+                Expr::Char => {
                     match expr_in.tag {
                         // This nested match excercises the need to pass on the
                         // information that we are on a virtual branch, because a
                         // constraint will be created for `cont_out_error` and it
                         // will need to be relaxed by an implication with a false
                         // premise.
-                        Num => {
-                            let cont_out_error: Error;
+                        Expr::Num => {
+                            let cont_out_error: Cont::Error;
                             return (env_in, expr_in, cont_out_error);
                         }
                     }
                 }
-                Sym => {
+                Expr::Sym => {
                     match expr_in.tag {
                         // This nested match exercises the need to relax `popcount`
                         // because there is no match but it's on a virtual path, so
                         // we don't want to be too restrictive and demand that at
                         // least one path must be taken.
-                        Char => {
+                        Expr::Char => {
                             return (cont_in, cont_in, cont_in);
                         }
                     }
@@ -662,12 +679,12 @@ mod tests {
                 // time. We solve this problem by calling `LEMOP::deconflict`,
                 // which turns one into `Num.cont_out_terminal` and the other into
                 // `Char.cont_out_terminal`.
-                Num => {
-                    let cont_out_terminal: Terminal;
+                Expr::Num => {
+                    let cont_out_terminal: Cont::Terminal;
                     return (expr_in, env_in, cont_out_terminal);
                 }
-                Char => {
-                    let cont_out_terminal: Terminal;
+                Expr::Char => {
+                    let cont_out_terminal: Cont::Terminal;
                     return (expr_in, env_in, cont_out_terminal);
                 }
             }
@@ -680,11 +697,11 @@ mod tests {
     #[test]
     fn handles_non_ssa() {
         let func = func!((expr_in, _env_in, _cont_in): 3 => {
-            let x: Cons = hash2(expr_in, expr_in);
+            let x: Expr::Cons = hash2(expr_in, expr_in);
             // The next line rewrites `x` and it should move on smoothly, matching
             // the expected number of constraints accordingly
-            let x: Cons = hash2(x, x);
-            let cont_out_terminal: Terminal;
+            let x: Expr::Cons = hash2(x, x);
+            let cont_out_terminal: Cont::Terminal;
             return (x, x, cont_out_terminal);
         });
 
@@ -695,7 +712,7 @@ mod tests {
     #[test]
     fn test_simple_all_paths_delta() {
         let lem = func!((expr_in, env_in, _cont_in): 3 => {
-            let cont_out_terminal: Terminal;
+            let cont_out_terminal: Cont::Terminal;
             return (expr_in, env_in, cont_out_terminal);
         });
 
@@ -707,12 +724,12 @@ mod tests {
     fn test_match_all_paths_delta() {
         let lem = func!((expr_in, env_in, _cont_in): 3 => {
             match expr_in.tag {
-                Num => {
-                    let cont_out_terminal: Terminal;
+                Expr::Num => {
+                    let cont_out_terminal: Cont::Terminal;
                     return (expr_in, env_in, cont_out_terminal);
                 }
-                Char => {
-                    let cont_out_error: Error;
+                Expr::Char => {
+                    let cont_out_error: Cont::Error;
                     return (expr_in, env_in, cont_out_error);
                 }
             }
@@ -725,25 +742,25 @@ mod tests {
     #[test]
     fn test_hash_slots() {
         let lem = func!((expr_in, env_in, cont_in): 3 => {
-            let _x: Cons = hash2(expr_in, env_in);
-            let _y: Cons = hash3(expr_in, env_in, cont_in);
-            let _z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
-            let t: Terminal;
-            let p: Nil;
+            let _x: Expr::Cons = hash2(expr_in, env_in);
+            let _y: Expr::Cons = hash3(expr_in, env_in, cont_in);
+            let _z: Expr::Cons = hash4(expr_in, env_in, cont_in, cont_in);
+            let t: Cont::Terminal;
+            let p: Expr::Nil;
             match expr_in.tag {
-                Num => {
-                    let m: Cons = hash2(env_in, expr_in);
-                    let n: Cons = hash3(cont_in, env_in, expr_in);
-                    let _k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                Expr::Num => {
+                    let m: Expr::Cons = hash2(env_in, expr_in);
+                    let n: Expr::Cons = hash3(cont_in, env_in, expr_in);
+                    let _k: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
                     return (m, n, t);
                 }
-                Char => {
+                Expr::Char => {
                     return (p, p, t);
                 }
-                Cons => {
+                Expr::Cons => {
                     return (p, p, t);
                 }
-                Nil => {
+                Expr::Nil => {
                     return (p, p, t);
                 }
             }
@@ -756,28 +773,28 @@ mod tests {
     #[test]
     fn test_unhash_slots() {
         let lem = func!((expr_in, env_in, cont_in): 3 => {
-            let _x: Cons = hash2(expr_in, env_in);
-            let _y: Cons = hash3(expr_in, env_in, cont_in);
-            let _z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
-            let t: Terminal;
-            let p: Nil;
+            let _x: Expr::Cons = hash2(expr_in, env_in);
+            let _y: Expr::Cons = hash3(expr_in, env_in, cont_in);
+            let _z: Expr::Cons = hash4(expr_in, env_in, cont_in, cont_in);
+            let t: Cont::Terminal;
+            let p: Expr::Nil;
             match expr_in.tag {
-                Num => {
-                    let m: Cons = hash2(env_in, expr_in);
-                    let n: Cons = hash3(cont_in, env_in, expr_in);
-                    let k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                Expr::Num => {
+                    let m: Expr::Cons = hash2(env_in, expr_in);
+                    let n: Expr::Cons = hash3(cont_in, env_in, expr_in);
+                    let k: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
                     let (_m1, _m2) = unhash2(m);
                     let (_n1, _n2, _n3) = unhash3(n);
                     let (_k1, _k2, _k3, _k4) = unhash4(k);
                     return (m, n, t);
                 }
-                Char => {
+                Expr::Char => {
                     return (p, p, t);
                 }
-                Cons => {
+                Expr::Cons => {
                     return (p, p, p);
                 }
-                Nil => {
+                Expr::Nil => {
                     return (p, p, p);
                 }
             }
@@ -790,41 +807,41 @@ mod tests {
     #[test]
     fn test_unhash_nested_slots() {
         let lem = func!((expr_in, env_in, cont_in): 3 => {
-            let _x: Cons = hash2(expr_in, env_in);
-            let _y: Cons = hash3(expr_in, env_in, cont_in);
-            let _z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
-            let t: Terminal;
-            let p: Nil;
+            let _x: Expr::Cons = hash2(expr_in, env_in);
+            let _y: Expr::Cons = hash3(expr_in, env_in, cont_in);
+            let _z: Expr::Cons = hash4(expr_in, env_in, cont_in, cont_in);
+            let t: Cont::Terminal;
+            let p: Expr::Nil;
             match expr_in.tag {
-                Num => {
-                    let m: Cons = hash2(env_in, expr_in);
-                    let n: Cons = hash3(cont_in, env_in, expr_in);
-                    let k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                Expr::Num => {
+                    let m: Expr::Cons = hash2(env_in, expr_in);
+                    let n: Expr::Cons = hash3(cont_in, env_in, expr_in);
+                    let k: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
                     let (_m1, _m2) = unhash2(m);
                     let (_n1, _n2, _n3) = unhash3(n);
                     let (_k1, _k2, _k3, _k4) = unhash4(k);
                     match cont_in.tag {
-                        Outermost => {
-                            let _a: Cons = hash2(env_in, expr_in);
-                            let _b: Cons = hash3(cont_in, env_in, expr_in);
-                            let _c: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                        Cont::Outermost => {
+                            let _a: Expr::Cons = hash2(env_in, expr_in);
+                            let _b: Expr::Cons = hash3(cont_in, env_in, expr_in);
+                            let _c: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
                             return (m, n, t);
                         }
-                        Cons => {
-                            let _d: Cons = hash2(env_in, expr_in);
-                            let _e: Cons = hash3(cont_in, env_in, expr_in);
-                            let _f: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                        Cont::Terminal => {
+                            let _d: Expr::Cons = hash2(env_in, expr_in);
+                            let _e: Expr::Cons = hash3(cont_in, env_in, expr_in);
+                            let _f: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
                             return (m, n, t);
                         }
                     }
                 }
-                Char => {
+                Expr::Char => {
                     return (p, p, t);
                 }
-                Cons => {
+                Expr::Cons => {
                     return (p, p, p);
                 }
-                Nil => {
+                Expr::Nil => {
                     return (p, p, p);
                 }
             }
@@ -834,4 +851,3 @@ mod tests {
         synthesize_test_helper(&lem, inputs, SlotsCounter::new((4, 4, 4)));
     }
 }
-*/

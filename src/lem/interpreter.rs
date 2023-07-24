@@ -3,8 +3,10 @@ use anyhow::{bail, Result};
 use std::collections::VecDeque;
 
 use super::{
-    path::Path, pointers::Ptr, store::Store, tag::Tag, var_map::VarMap, Block, Ctrl, Func, Lit, Op,
+    path::Path, pointers::Ptr, store::Store, Tag, var_map::VarMap, Block, Ctrl, Func, Lit, Op,
 };
+
+use crate::tag::ExprTag::*;
 
 #[derive(Clone, Default)]
 pub struct Preimages<F: LurkField> {
@@ -139,7 +141,7 @@ impl Block {
                 }
                 Op::Hide(tgt, sec, src) => {
                     let src_ptr = bindings.get(src)?;
-                    let Ptr::Leaf(Tag::Num, secret) = bindings.get(sec)? else {
+                    let Ptr::Leaf(Tag::Expr(Num), secret) = bindings.get(sec)? else {
                         bail!("{sec} is not a numeric pointer")
                     };
                     let z_ptr = store.hash_ptr(src_ptr)?;
@@ -152,12 +154,12 @@ impl Block {
                     bindings.insert(tgt.clone(), tgt_ptr);
                 }
                 Op::Open(tgt_secret, tgt_ptr, comm_or_num) => match bindings.get(comm_or_num)? {
-                    Ptr::Leaf(Tag::Num, hash) | Ptr::Leaf(Tag::Comm, hash) => {
+                    Ptr::Leaf(Tag::Expr(Num), hash) | Ptr::Leaf(Tag::Expr(Comm), hash) => {
                         let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
                             bail!("No committed data for hash {}", &hash.hex_digits())
                         };
                         bindings.insert(tgt_ptr.clone(), *ptr);
-                        bindings.insert(tgt_secret.clone(), Ptr::Leaf(Tag::Num, *secret));
+                        bindings.insert(tgt_secret.clone(), Ptr::Leaf(Tag::Expr(Num), *secret));
                     }
                     _ => {
                         bail!("{comm_or_num} is not a num/comm pointer")
