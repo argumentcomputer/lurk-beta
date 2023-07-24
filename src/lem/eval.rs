@@ -800,9 +800,6 @@ mod tests {
 
         let computed_num_constraints = eval_step.num_constraints::<Fr>(&slots_count, store);
 
-        // Assures that `MatchSymbol`s will work properly
-        eval_step.intern_matched_symbols(store);
-
         let mut all_paths = vec![];
 
         // Auxiliary Lurk constants

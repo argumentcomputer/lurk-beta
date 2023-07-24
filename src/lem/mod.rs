@@ -380,12 +380,6 @@ impl Func {
         let body = Block { ops, ctrl };
         Self::new(self.input_params.clone(), self.output_size, body)
     }
-
-    /// Intern all symbols that are matched on `MatchSymbol`s
-    #[inline]
-    pub fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
-        self.body.intern_matched_symbols(store);
-    }
 }
 
 impl Block {
@@ -494,40 +488,6 @@ impl Block {
             Ctrl::Return(o) => Ctrl::Return(map.get_many_cloned(&o)?),
         };
         Ok(Block { ops, ctrl })
-    }
-
-    fn intern_matched_symbols<F: LurkField>(&self, store: &mut Store<F>) {
-        for op in &self.ops {
-            if let Op::Call(_, func, _) = op {
-                func.intern_matched_symbols(store)
-            }
-        }
-        match &self.ctrl {
-            Ctrl::MatchVal(_, cases, def) => {
-                cases.iter().for_each(|(symbol, block)| {
-                    store.intern_symbol(symbol);
-                    block.intern_matched_symbols(store)
-                });
-                match def {
-                    Some(def) => def.intern_matched_symbols(store),
-                    None => (),
-                }
-            }
-            Ctrl::MatchTag(_, cases, def) => {
-                cases
-                    .values()
-                    .for_each(|block| block.intern_matched_symbols(store));
-                match def {
-                    Some(def) => def.intern_matched_symbols(store),
-                    None => (),
-                }
-            }
-            Ctrl::IfEq(_, _, eq_block, else_block) => {
-                eq_block.intern_matched_symbols(store);
-                else_block.intern_matched_symbols(store);
-            }
-            Ctrl::Return(..) => (),
-        }
     }
 }
 
