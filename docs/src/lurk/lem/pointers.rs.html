@@ -144,7 +144,6 @@
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::field::<span class="kw-2">*</span>;
 
 <span class="kw">use </span><span class="kw">super</span>::tag::Tag;
@@ -269,7 +268,6 @@
 <span class="doccomment">/// `ZChildren` keeps track of the children of `ZPtr`s, in case they have any.
 /// This information is saved during hydration and is needed to content-address
 /// a store.
-</span><span class="attr">#[allow(dead_code)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>ZChildren&lt;F: LurkField&gt; {
     Tree2(ZPtr&lt;F&gt;, ZPtr&lt;F&gt;),
     Tree3(ZPtr&lt;F&gt;, ZPtr&lt;F&gt;, ZPtr&lt;F&gt;),
