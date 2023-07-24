@@ -1,5 +1,5 @@
 //! # Usage of circom coprocessors.
-//! 
+//!
 //! See `examples/circom.rs` for a quick example of how to declare a circom coprocessor.
 
 use core::fmt::Debug;
@@ -10,10 +10,15 @@ use bellperson::{ConstraintSystem, SynthesisError};
 use nova_scotia::r1cs::CircomConfig;
 
 use crate::{
+    circuit::gadgets::{
+        circom::CircomGadget,
+        data::GlobalAllocations,
+        pointer::{AllocatedContPtr, AllocatedPtr},
+    },
     coprocessor::{CoCircuit, Coprocessor},
     field::LurkField,
     ptr::Ptr,
-    store::Store, circuit::gadgets::{circom::CircomGadget, data::GlobalAllocations, pointer::{AllocatedPtr, AllocatedContPtr}},
+    store::Store,
 };
 
 /// TODO: fix this duplication with the one in `cli::paths`
@@ -60,9 +65,7 @@ impl<F: LurkField, C: CircomGadget<F>> CoCircuit<F> for CircomCoprocessor<F, C> 
     }
 }
 
-impl<F: LurkField, C: CircomGadget<F> + Debug> Coprocessor<F>
-    for CircomCoprocessor<F, C>
-{
+impl<F: LurkField, C: CircomGadget<F> + Debug> Coprocessor<F> for CircomCoprocessor<F, C> {
     /// TODO: Generalize
     fn eval_arity(&self) -> usize {
         0
@@ -86,7 +89,7 @@ impl<F: LurkField, C: CircomGadget<F>> CircomCoprocessor<F, C> {
     /// Available circom gadgets:
     ///     bar
     ///     baz
-    /// 
+    ///
     /// If you want to setup a new circom gadget `foo`, run
     ///     `lurk coprocessor --name foo <FOO_CIRCOM_FOLDER>`
     /// ```

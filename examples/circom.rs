@@ -12,7 +12,7 @@ use lurk::proof::{nova::NovaProver, Prover};
 use lurk::ptr::Ptr;
 use lurk::public_parameters::public_params;
 use lurk::store::Store;
-use lurk::{Symbol, Num};
+use lurk::{Num, Symbol};
 use lurk_macros::Coproc;
 use pasta_curves::pallas::Scalar as Fr;
 
@@ -26,12 +26,14 @@ pub struct CircomSha256<F: LurkField> {
 
 impl<F: LurkField> CircomSha256<F> {
     fn new(n: usize) -> Self {
-        CircomSha256 { _n: n, _p: PhantomData }
+        CircomSha256 {
+            _n: n,
+            _p: PhantomData,
+        }
     }
 }
 
 impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
-
     fn name(&self) -> &str {
         "circom_sha256"
     }
