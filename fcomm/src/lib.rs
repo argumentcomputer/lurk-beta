@@ -322,7 +322,6 @@ pub struct Cert<F: LurkField> {
     pub signature: String,
 }
 
-#[allow(dead_code)]
 impl<F: LurkField> Claim<F> {
     pub fn is_evaluation(&self) -> bool {
         self.evaluation().is_some()
