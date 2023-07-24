@@ -15,28 +15,27 @@ macro_rules! vars {
 }
 
 #[macro_export]
+macro_rules! lit {
+    ( Scalar($lit:literal) ) => {
+        $crate::lem::Lit::Scalar($lit)
+    };
+    ( String($lit:literal) ) => {
+        $crate::lem::Lit::String($lit.into())
+    };
+    ( Symbol($lit:literal) ) => {
+        $crate::lem::Lit::Symbol($crate::lem::Symbol::lurk_sym(&$lit))
+    };
+}
+
+#[macro_export]
 macro_rules! op {
     ( let $tgt:ident : $tag:ident ) => {
         $crate::lem::Op::Null($crate::var!($tgt), $crate::lem::Tag::$tag)
     };
-    ( let $tgt:ident = Scalar($num:literal) ) => {
+    ( let $tgt:ident = $constr:ident($str:literal) ) => {
         $crate::lem::Op::Lit(
             $crate::var!($tgt),
-            $crate::lem::Lit::Scalar($num)
-        )
-    };
-    ( let $tgt:ident = String($str:literal) ) => {
-        $crate::lem::Op::Lit(
-            $crate::var!($tgt),
-            $crate::lem::Lit::String($str.into())
-        )
-    };
-    ( let $tgt:ident = Symbol($str:literal) ) => {
-        $crate::lem::Op::Lit(
-            $crate::var!($tgt),
-            $crate::lem::Lit::Symbol(
-                $crate::lem::Symbol::lurk_sym(&$str)
-            )
+            $crate::lit!($constr($str))
         )
     };
     ( let $tgt:ident : $tag:ident = hash2($src1:ident, $src2:ident) ) => {
@@ -116,13 +115,13 @@ macro_rules! ctrl {
             $crate::lem::Ctrl::MatchTag($crate::var!($sii), cases, default)
         }
     };
-    ( match $sii:ident.symbol { $( $symbol:literal $(| $other_symbols:literal)* => $case_ops:tt )* } $(; $($def:tt)*)? ) => {
+    ( match $sii:ident.val { $( $val:literal $(| $other_vals:literal)* => $case_ops:tt )* } $(; $($def:tt)*)? ) => {
         {
             let mut cases = indexmap::IndexMap::new();
             $(
                 if cases.insert(
                     $crate::lem::Lit::Symbol(
-                        $crate::lem::Symbol::lurk_sym(&$symbol)
+                        $crate::lem::Symbol::lurk_sym(&$val)
                     ),
                     $crate::block!( $case_ops ),
                 ).is_some() {
@@ -131,7 +130,7 @@ macro_rules! ctrl {
                 $(
                     if cases.insert(
                         $crate::lem::Lit::Symbol(
-                            $crate::lem::Symbol::lurk_sym(&$other_symbols)
+                            $crate::lem::Symbol::lurk_sym(&$other_vals)
                         ),
                         $crate::block!( $case_ops ),
                     ).is_some() {
@@ -317,13 +316,13 @@ macro_rules! block {
             $crate::ctrl!( match $sii.tag { $( $tag $(| $other_tags)* => $case_ops )* } $(; $($def)*)? )
         )
     };
-    (@seq {$($limbs:expr)*}, match $sii:ident.symbol { $( $symbol:literal $(| $other_symbols:literal)* => $case_ops:tt )* } $(; $($def:tt)*)?) => {
+    (@seq {$($limbs:expr)*}, match $sii:ident.val { $( $val:literal $(| $other_vals:literal)* => $case_ops:tt )* } $(; $($def:tt)*)?) => {
         $crate::block! (
             @end
             {
                 $($limbs)*
             },
-            $crate::ctrl!( match $sii.symbol { $( $symbol $(| $other_symbols)* => $case_ops )* } $(; $($def)*)? )
+            $crate::ctrl!( match $sii.val { $( $val $(| $other_vals)* => $case_ops )* } $(; $($def)*)? )
         )
     };
     (@seq {$($limbs:expr)*}, if $x:ident == $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
@@ -504,7 +503,7 @@ mod tests {
         );
 
         let moo = ctrl!(
-            match www.symbol {
+            match www.val {
                 "nil" => {
                     return (foo, foo, foo); // a single Ctrl will not turn into a Seq
                 }

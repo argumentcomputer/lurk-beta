@@ -19,15 +19,20 @@ pub(crate) fn eval_step() -> Func {
 
 fn safe_uncons() -> Func {
     func!((xs): 2 => {
+        let nil: Nil;
+        let nilstr = Symbol("");
         match xs.tag {
             Nil => {
-                return (xs, xs)
+                return (nil, nil)
             }
             Cons => {
                 let (car, cdr) = unhash2(xs);
                 return (car, cdr)
             }
             Str => {
+                if xs == nilstr {
+                    return (nil, nilstr)
+                }
                 let (car, cdr) = unhash2(xs);
                 return (car, cdr)
             }
@@ -83,7 +88,7 @@ fn reduce() -> Func {
         return (expanded)
     });
     let choose_let_cont = func!((head, var, env, expanded, cont): 1 => {
-        match head.symbol {
+        match head.val {
             "let" => {
                 let cont: Let = hash4(var, env, expanded, cont);
                 return (cont)
@@ -98,7 +103,7 @@ fn reduce() -> Func {
     // be unnecessary. Instead of passing tags, we could pass the
     // symbols themselves to the continuation
     let choose_unop = func!((head): 1 => {
-        match head.symbol {
+        match head.val {
             "car" => {
                 let op: Car;
                 return (op)
@@ -149,7 +154,7 @@ fn reduce() -> Func {
     });
 
     let choose_binop = func!((head): 1 => {
-        match head.symbol {
+        match head.val {
             "cons" => {
                 let op: Cons;
                 return (op)
@@ -236,7 +241,7 @@ fn reduce() -> Func {
                 return (thunk_expr, env, thunk_continuation, makethunk)
             }
             Sym => {
-                match expr.symbol {
+                match expr.val {
                     "nil" | "t" => {
                         return (expr, env, cont, apply)
                     }
@@ -302,7 +307,7 @@ fn reduce() -> Func {
             Cons => {
                 // No need for `safe_uncons` since the expression is already a `Cons`
                 let (head, rest) = unhash2(expr);
-                match head.symbol {
+                match head.val {
                     "lambda" => {
                         let (args, body) = safe_uncons(rest);
                         let (arg, cdr_args) = extract_arg(args);
@@ -547,7 +552,7 @@ fn apply_cont() -> Func {
                         match result.tag {
                             Fun => {
                                 let (arg, body, closed_env) = unhash3(result);
-                                match arg.symbol {
+                                match arg.val {
                                     "dummy" => {
                                         match body.tag {
                                             Nil => {
@@ -584,7 +589,7 @@ fn apply_cont() -> Func {
                         match function.tag {
                             Fun => {
                                 let (arg, body, closed_env) = unhash3(function);
-                                match arg.symbol {
+                                match arg.val {
                                     "dummy" => {
                                         return (result, env, err, err)
                                     }
