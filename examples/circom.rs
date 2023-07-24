@@ -1,68 +1,44 @@
+use std::fmt::Debug;
+use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Instant;
 
-use lurk::circuit::gadgets::circom::create_circom_config;
-use lurk::circuit::gadgets::data::GlobalAllocations;
-use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
-use lurk::coprocessor::{CoCircuit, Coprocessor};
+use lurk::circuit::gadgets::circom::CircomGadget;
+use lurk::circuit::gadgets::pointer::AllocatedPtr;
+use lurk::coprocessor::circom::CircomCoprocessor;
 use lurk::eval::{empty_sym_env, lang::Lang};
 use lurk::field::LurkField;
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::ptr::Ptr;
 use lurk::public_parameters::public_params;
 use lurk::store::Store;
-use lurk::{Num, Symbol};
+use lurk::{Symbol, Num};
 use lurk_macros::Coproc;
-
-use bellperson::{ConstraintSystem, SynthesisError};
-
-use nova_scotia::r1cs::CircomConfig;
 use pasta_curves::pallas::Scalar as Fr;
 
 const REDUCTION_COUNT: usize = 1;
 
-#[derive(Debug)]
-pub(crate) struct CircomSha256Coprocessor<F: LurkField> {
-    n: usize,
-    name: String,
-    circom_config: CircomConfig<F>,
+#[derive(Debug, Clone)]
+pub struct CircomSha256<F: LurkField> {
+    _n: usize,
+    pub(crate) _p: PhantomData<F>,
 }
 
-impl<F: LurkField> Clone for CircomSha256Coprocessor<F> {
-    fn clone(&self) -> Self {
-        CircomSha256Coprocessor::new(self.n, self.name.clone())
+impl<F: LurkField> CircomSha256<F> {
+    fn new(n: usize) -> Self {
+        CircomSha256 { _n: n, _p: PhantomData }
     }
 }
 
-impl<F: LurkField> CoCircuit<F> for CircomSha256Coprocessor<F> {
-    fn arity(&self) -> usize {
-        0
+impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
+
+    fn name(&self) -> &str {
+        "circom_sha256"
     }
 
-    fn synthesize<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        g: &GlobalAllocations<F>,
-        _store: &Store<F>,
-        _input_exprs: &[AllocatedPtr<F>],
-        input_env: &AllocatedPtr<F>,
-        input_cont: &AllocatedContPtr<F>,
-    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
+    fn into_circom_input(&self, _input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)> {
         let arg_in = ("arg_in".into(), vec![F::ZERO, F::ZERO]);
-        let inputs = vec![arg_in];
-        let witness =
-            nova_scotia::calculate_witness(&self.circom_config, inputs, true).expect("msg");
-        let output = nova_scotia::synthesize(cs, self.circom_config.r1cs.clone(), Some(witness))?;
-
-        let res = AllocatedPtr::from_parts(g.num_tag.clone(), output);
-
-        Ok((res, input_env.clone(), input_cont.clone()))
-    }
-}
-
-impl<F: LurkField> Coprocessor<F> for CircomSha256Coprocessor<F> {
-    fn eval_arity(&self) -> usize {
-        0
+        vec![arg_in]
     }
 
     fn simple_evaluate(&self, s: &mut Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
@@ -74,26 +50,11 @@ impl<F: LurkField> Coprocessor<F> for CircomSha256Coprocessor<F> {
         );
         s.intern_num(expected)
     }
-
-    fn has_circuit(&self) -> bool {
-        true
-    }
-}
-
-impl<F: LurkField> CircomSha256Coprocessor<F> {
-    pub(crate) fn new(n: usize, name: String) -> Self {
-        let circom_config = create_circom_config(&name).expect("circom config failed");
-        Self {
-            n,
-            name,
-            circom_config,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Coproc)]
 enum Sha256Coproc<F: LurkField> {
-    SC(CircomSha256Coprocessor<F>),
+    SC(CircomCoprocessor<F, CircomSha256<F>>),
 }
 
 /// Run the example in this file with
@@ -101,11 +62,12 @@ enum Sha256Coproc<F: LurkField> {
 fn main() {
     let store = &mut Store::<Fr>::new();
     let sym_str = Symbol::new(&[".circom_sha256_2"]); // two inputs
+    let circom_sha256 = CircomSha256::new(0);
     let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
         store,
         vec![(
             sym_str.clone(),
-            CircomSha256Coprocessor::new(64, "circom_sha256".into()).into(),
+            CircomCoprocessor::new(circom_sha256).into(),
         )],
     );
 

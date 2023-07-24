@@ -1,36 +1,30 @@
-use std::path::PathBuf;
+//! # Usage of circom coprocessors.
+//! 
+//! See `examples/circom.rs` for a quick example of how to declare a circom coprocessor.
 
-use anyhow::Result;
-use nova_scotia::r1cs::CircomConfig;
+use crate::{
+    field::LurkField,
+    ptr::Ptr,
+    store::Store,
+};
 
-use crate::field::LurkField;
+use super::pointer::AllocatedPtr;
 
-/// TODO: fix this duplication with the one in `cli::paths`
-fn circom_gadgets() -> PathBuf {
-    home::home_dir()
-        .expect("no home directory")
-        .join(".lurk/circom-gadgets")
+/// An interface to declare a new type of Circom gadget.
+/// It requires 3 things:
+///  1. The use defined name of the gadget. This _must_ be an 
+///     existing name loaded into the file system via the CLI 
+///     (with `lurk coprocessor --name <NAME> <CIRCOM_FOLDER>`)
+///  2. A defined way to take a list of Lurk input pointers
+///     and turn them into a Circom input. We do not enforce 
+///     the shapes of either the Lurk end or the Circom end,
+///     so users should take care to define what shape they expect.
+///  3. A defined way *Lurk* should evaluate what this gadget does.
+///     This is then the implementation used in the `Coprocessor` trait.
+pub trait CircomGadget<F: LurkField>: Send + Sync + Clone {
+    fn name(&self) -> &str;
+
+    fn into_circom_input(&self, input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)>;
+
+    fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F>;
 }
-
-/// Creates a CircomConfig by loading in the data in `.lurk/circom-gadgets/<name>/*`
-/// TODO: better error handling when name doesn't exist
-pub fn create_circom_config<F: LurkField>(name: &str) -> Result<CircomConfig<F>> {
-    let circom_folder = circom_gadgets().join(name);
-    let r1cs = circom_folder.join(format!("{}.r1cs", name));
-    let wasm = circom_folder.join(name).with_extension("wasm");
-
-    let cfg = CircomConfig::<F>::new(wasm, r1cs)?;
-
-    Ok(cfg)
-}
-
-// pub trait CircomGadget<F: PrimeField> {
-//     type Input;
-//     type Output;
-
-//     fn name() -> String;
-
-//     fn into_circom_input(input: Self::Input) -> Vec<(String, Vec<F>)>;
-
-//     fn into_lurk_output(output: Self::Output) -> AllocatedPtr<F>;
-// }
