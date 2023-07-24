@@ -115,26 +115,22 @@ macro_rules! ctrl {
             $crate::lem::Ctrl::MatchTag($crate::var!($sii), cases, default)
         }
     };
-    ( match $sii:ident.val { $( $val:literal $(| $other_vals:literal)* => $case_ops:tt )* } $(; $($def:tt)*)? ) => {
+    ( match $sii:ident.val { $( $cnstr:ident($val:literal) $(| $other_cnstr:ident($other_val:literal))* => $case_ops:tt )* } $(; $($def:tt)*)? ) => {
         {
             let mut cases = indexmap::IndexMap::new();
             $(
                 if cases.insert(
-                    $crate::lem::Lit::Symbol(
-                        $crate::lem::Symbol::lurk_sym(&$val)
-                    ),
+                    $crate::lit!($cnstr($val)),
                     $crate::block!( $case_ops ),
                 ).is_some() {
-                    panic!("Repeated symbol on `match`");
+                    panic!("Repeated value on `match`");
                 };
                 $(
                     if cases.insert(
-                        $crate::lem::Lit::Symbol(
-                            $crate::lem::Symbol::lurk_sym(&$other_vals)
-                        ),
+                        $crate::lit!($other_cnstr($other_val)),
                         $crate::block!( $case_ops ),
                     ).is_some() {
-                        panic!("Repeated symbol on `match`");
+                        panic!("Repeated value on `match`");
                     };
                 )*
             )*
@@ -316,13 +312,13 @@ macro_rules! block {
             $crate::ctrl!( match $sii.tag { $( $tag $(| $other_tags)* => $case_ops )* } $(; $($def)*)? )
         )
     };
-    (@seq {$($limbs:expr)*}, match $sii:ident.val { $( $val:literal $(| $other_vals:literal)* => $case_ops:tt )* } $(; $($def:tt)*)?) => {
+    (@seq {$($limbs:expr)*}, match $sii:ident.val { $( $cnstr:ident($val:literal) $(| $other_cnstr:ident($other_val:literal))* => $case_ops:tt )* } $(; $($def:tt)*)?) => {
         $crate::block! (
             @end
             {
                 $($limbs)*
             },
-            $crate::ctrl!( match $sii.val { $( $val $(| $other_vals)* => $case_ops )* } $(; $($def)*)? )
+            $crate::ctrl!( match $sii.val { $( $cnstr($val) $(| $other_cnstr($other_val))* => $case_ops )* } $(; $($def)*)? )
         )
     };
     (@seq {$($limbs:expr)*}, if $x:ident == $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
@@ -504,10 +500,10 @@ mod tests {
 
         let moo = ctrl!(
             match www.val {
-                "nil" => {
+                Symbol("nil") => {
                     return (foo, foo, foo); // a single Ctrl will not turn into a Seq
                 }
-                "cons" => {
+                Symbol("cons") => {
                     let foo: Num;
                     let goo: Char;
                     return (foo, goo, goo);

@@ -89,11 +89,11 @@ fn reduce() -> Func {
     });
     let choose_let_cont = func!((head, var, env, expanded, cont): 1 => {
         match head.val {
-            "let" => {
+            Symbol("let") => {
                 let cont: Let = hash4(var, env, expanded, cont);
                 return (cont)
             }
-            "letrec" => {
+            Symbol("letrec") => {
                 let cont: LetRec = hash4(var, env, expanded, cont);
                 return (cont)
             }
@@ -104,47 +104,47 @@ fn reduce() -> Func {
     // symbols themselves to the continuation
     let choose_unop = func!((head): 1 => {
         match head.val {
-            "car" => {
+            Symbol("car") => {
                 let op: Car;
                 return (op)
             }
-            "cdr" => {
+            Symbol("cdr") => {
                 let op: Cdr;
                 return (op)
             }
-            "commit" => {
+            Symbol("commit") => {
                 let op: Commit;
                 return (op)
             }
-            "num" => {
+            Symbol("num") => {
                 let op: Num;
                 return (op)
             }
-            "u64" => {
+            Symbol("u64") => {
                 let op: U64;
                 return (op)
             }
-            "comm" => {
+            Symbol("comm") => {
                 let op: Comm;
                 return (op)
             }
-            "char" => {
+            Symbol("char") => {
                 let op: Char;
                 return (op)
             }
-            "open" => {
+            Symbol("open") => {
                 let op: Open;
                 return (op)
             }
-            "secret" => {
+            Symbol("secret") => {
                 let op: Secret;
                 return (op)
             }
-            "atom" => {
+            Symbol("atom") => {
                 let op: Atom;
                 return (op)
             }
-            "emit" => {
+            Symbol("emit") => {
                 let op: Emit;
                 return (op)
             }
@@ -155,60 +155,60 @@ fn reduce() -> Func {
 
     let choose_binop = func!((head): 1 => {
         match head.val {
-            "cons" => {
+            Symbol("cons") => {
                 let op: Cons;
                 return (op)
             }
-            "strcons" => {
+            Symbol("strcons") => {
                 let op: StrCons;
                 return (op)
             }
-            "hide" => {
+            Symbol("hide") => {
                 let op: Hide;
                 return (op)
             }
-            "+" => {
+            Symbol("+") => {
                 let op: Sum;
                 return (op)
             }
-            "-" => {
+            Symbol("-") => {
                 let op: Diff;
                 return (op)
             }
-            "*" => {
+            Symbol("*") => {
                 let op: Product;
                 return (op)
             }
             // TODO: bellperson complains if we use "/"
-            "div" => {
+            Symbol("div") => {
                 let op: Quotient;
                 return (op)
             }
-            "%" => {
+            Symbol("%") => {
                 let op: Modulo;
                 return (op)
             }
-            "=" => {
+            Symbol("=") => {
                 let op: NumEqual;
                 return (op)
             }
-            "eq" => {
+            Symbol("eq") => {
                 let op: Equal;
                 return (op)
             }
-            "<" => {
+            Symbol("<") => {
                 let op: Less;
                 return (op)
             }
-            ">" => {
+            Symbol(">") => {
                 let op: Greater;
                 return (op)
             }
-            "<=" => {
+            Symbol("<=") => {
                 let op: LessEqual;
                 return (op)
             }
-            ">=" => {
+            Symbol(">=") => {
                 let op: GreaterEqual;
                 return (op)
             }
@@ -242,7 +242,7 @@ fn reduce() -> Func {
             }
             Sym => {
                 match expr.val {
-                    "nil" | "t" => {
+                    Symbol("nil") | Symbol("t") => {
                         return (expr, env, cont, apply)
                     }
                 };
@@ -308,7 +308,7 @@ fn reduce() -> Func {
                 // No need for `safe_uncons` since the expression is already a `Cons`
                 let (head, rest) = unhash2(expr);
                 match head.val {
-                    "lambda" => {
+                    Symbol("lambda") => {
                         let (args, body) = safe_uncons(rest);
                         let (arg, cdr_args) = extract_arg(args);
 
@@ -330,7 +330,7 @@ fn reduce() -> Func {
                         };
                         return (expr, env, err, err)
                     }
-                    "quote" => {
+                    Symbol("quote") => {
                         let (quoted, end) = safe_uncons(rest);
 
                         match end.tag {
@@ -340,7 +340,7 @@ fn reduce() -> Func {
                         };
                         return (expr, env, err, err)
                     }
-                    "let" | "letrec" => {
+                    Symbol("let") | Symbol("letrec") => {
                         let (bindings, body) = safe_uncons(rest);
                         let (body1, rest_body) = safe_uncons(body);
                         // Only a single body form allowed for now.
@@ -376,7 +376,7 @@ fn reduce() -> Func {
                         };
                         return (expr, env, err, err)
                     }
-                    "begin" => {
+                    Symbol("begin") => {
                         let (arg1, more) = safe_uncons(rest);
                         match more.tag {
                             Nil => {
@@ -387,7 +387,7 @@ fn reduce() -> Func {
                         let cont: Binop = hash4(op2, env, more, cont);
                         return (arg1, env, cont, ret)
                     }
-                    "eval" => {
+                    Symbol("eval") => {
                         match rest.tag {
                             Nil => {
                                 return (expr, env, err, err)
@@ -405,7 +405,7 @@ fn reduce() -> Func {
                         let cont: Binop = hash4(op2, env, more, cont);
                         return (arg1, env, cont, ret)
                     }
-                    "if" => {
+                    Symbol("if") => {
                         let (condition, more) = safe_uncons(rest);
                         match more.tag {
                             Nil => {
@@ -415,7 +415,7 @@ fn reduce() -> Func {
                         let cont: If = hash2(more, cont);
                         return (condition, env, cont, ret)
                     }
-                    "current-env" => {
+                    Symbol("current-env") => {
                         match rest.tag {
                             Nil => {
                                 return (env, env, cont, apply)
@@ -553,7 +553,7 @@ fn apply_cont() -> Func {
                             Fun => {
                                 let (arg, body, closed_env) = unhash3(result);
                                 match arg.val {
-                                    "dummy" => {
+                                    Symbol("dummy") => {
                                         match body.tag {
                                             Nil => {
                                                 return (result, env, err, err)
@@ -590,7 +590,7 @@ fn apply_cont() -> Func {
                             Fun => {
                                 let (arg, body, closed_env) = unhash3(function);
                                 match arg.val {
-                                    "dummy" => {
+                                    Symbol("dummy") => {
                                         return (result, env, err, err)
                                     }
                                 };
