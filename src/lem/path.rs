@@ -1,11 +1,11 @@
 use std::collections::HashSet;
 
-use super::{symbol::Symbol, tag::Tag, Block, Ctrl, Func, Op};
+use super::{tag::Tag, Block, Ctrl, Func, Lit, Op};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) enum PathNode {
     Tag(Tag),
-    Symbol(Symbol),
+    Lit(Lit),
     Bool(bool),
     Default,
 }
@@ -14,7 +14,7 @@ impl std::fmt::Display for PathNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Tag(tag) => write!(f, "Tag({})", tag),
-            Self::Symbol(symbol) => write!(f, "Symbol({})", symbol),
+            Self::Lit(lit) => write!(f, "{:?}", lit),
             Self::Bool(b) => write!(f, "Bool({})", b),
             Self::Default => write!(f, "Default"),
         }
@@ -44,9 +44,9 @@ impl Path {
         Path(path)
     }
 
-    pub fn push_symbol(&self, symbol: &Symbol) -> Path {
+    pub fn push_lit(&self, lit: &Lit) -> Path {
         let mut path = self.0.clone();
-        path.push(PathNode::Symbol(symbol.clone()));
+        path.push(PathNode::Lit(lit.clone()));
         Path(path)
     }
 
@@ -67,8 +67,8 @@ impl Path {
     }
 
     #[inline]
-    pub fn push_symbol_inplace(&mut self, symbol: &Symbol) {
-        self.0.push(PathNode::Symbol(symbol.clone()));
+    pub fn push_lit_inplace(&mut self, lit: &Lit) {
+        self.0.push(PathNode::Lit(lit.clone()));
     }
 
     #[inline]

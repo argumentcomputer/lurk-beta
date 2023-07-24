@@ -34,7 +34,9 @@ macro_rules! op {
     ( let $tgt:ident = Symbol($str:literal) ) => {
         $crate::lem::Op::Lit(
             $crate::var!($tgt),
-            $crate::lem::Lit::Symbol($str.into())
+            $crate::lem::Lit::Symbol(
+                $crate::lem::Symbol::lurk_sym(&$str)
+            )
         )
     };
     ( let $tgt:ident : $tag:ident = hash2($src1:ident, $src2:ident) ) => {
@@ -119,14 +121,18 @@ macro_rules! ctrl {
             let mut cases = indexmap::IndexMap::new();
             $(
                 if cases.insert(
-                    $crate::lem::Symbol::lurk_sym(&$symbol),
+                    $crate::lem::Lit::Symbol(
+                        $crate::lem::Symbol::lurk_sym(&$symbol)
+                    ),
                     $crate::block!( $case_ops ),
                 ).is_some() {
                     panic!("Repeated symbol on `match`");
                 };
                 $(
                     if cases.insert(
-                        $crate::lem::Symbol::lurk_sym(&$other_symbols),
+                        $crate::lem::Lit::Symbol(
+                            $crate::lem::Symbol::lurk_sym(&$other_symbols)
+                        ),
                         $crate::block!( $case_ops ),
                     ).is_some() {
                         panic!("Repeated symbol on `match`");
@@ -374,7 +380,7 @@ macro_rules! func {
 
 #[cfg(test)]
 mod tests {
-    use crate::lem::{symbol::Symbol, tag::Tag, Block, Ctrl, Op, Var};
+    use crate::lem::{symbol::Symbol, tag::Tag, Block, Ctrl, Lit, Op, Var};
 
     #[inline]
     fn mptr(name: &str) -> Var {
@@ -387,7 +393,7 @@ mod tests {
     }
 
     #[inline]
-    fn match_symbol(i: Var, cases: Vec<(Symbol, Block)>, def: Block) -> Ctrl {
+    fn match_val(i: Var, cases: Vec<(Lit, Block)>, def: Block) -> Ctrl {
         Ctrl::MatchVal(i, indexmap::IndexMap::from_iter(cases), Some(Box::new(def)))
     }
 
@@ -513,18 +519,18 @@ mod tests {
         );
 
         assert!(
-            moo == match_symbol(
+            moo == match_val(
                 mptr("www"),
                 vec![
                     (
-                        Symbol::lurk_sym("nil"),
+                        Lit::Symbol(Symbol::lurk_sym("nil")),
                         Block {
                             ops: vec![],
                             ctrl: Ctrl::Return(vec![mptr("foo"), mptr("foo"), mptr("foo")]),
                         }
                     ),
                     (
-                        Symbol::lurk_sym("cons"),
+                        Lit::Symbol(Symbol::lurk_sym("cons")),
                         Block {
                             ops: vec![
                                 Op::Null(mptr("foo"), Tag::Num),

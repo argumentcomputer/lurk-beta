@@ -3,7 +3,7 @@ use anyhow::{bail, Result};
 use std::collections::VecDeque;
 
 use super::{
-    path::Path, pointers::Ptr, store::Store, tag::Tag, var_map::VarMap, Block, Ctrl, Func, Op,
+    path::Path, pointers::Ptr, store::Store, tag::Tag, var_map::VarMap, Block, Ctrl, Func, Lit, Op,
 };
 
 #[derive(Clone, Default)]
@@ -185,19 +185,19 @@ impl Block {
             }
             Ctrl::MatchVal(match_var, cases, def) => {
                 let ptr = bindings.get(match_var)?;
-                let Some(symbol) = store.fetch_symbol(ptr) else {
-                    bail!("Symbol not found for {match_var}");
+                let Some(lit) = Lit::from_ptr(ptr, store) else {
+                    bail!("Literal not found for {match_var}");
                 };
-                match cases.get(&symbol) {
+                match cases.get(&lit) {
                     Some(block) => {
-                        path.push_symbol_inplace(&symbol);
+                        path.push_lit_inplace(&lit);
                         block.run(input, store, bindings, preimages, path)
                     }
                     None => {
                         path.push_default_inplace();
                         match def {
                             Some(def) => def.run(input, store, bindings, preimages, path),
-                            None => bail!("No match for symbol {}", symbol),
+                            None => bail!("No match for literal {:?}", lit),
                         }
                     }
                 }

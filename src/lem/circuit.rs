@@ -892,20 +892,20 @@ impl Func {
                     .with_context(|| " couldn't constrain `enforce_selector_with_premise`")
                 }
                 Ctrl::MatchVal(match_var, cases, def) => {
-                    let allocated_symbol = bound_allocations.get(match_var)?.hash().clone();
+                    let allocated_lit = bound_allocations.get(match_var)?.hash().clone();
                     let mut selector = Vec::new();
-                    for (symbol, block) in cases {
-                        let symbol_ptr = g.store.intern_symbol(symbol);
-                        let symbol_hash = g.store.hash_ptr(&symbol_ptr)?.hash;
+                    for (lit, block) in cases {
+                        let lit_ptr = lit.to_ptr(g.store);
+                        let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
                         let allocated_has_match = alloc_equal_const(
-                            &mut cs.namespace(|| format!("{symbol}.alloc_equal_const")),
-                            &allocated_symbol,
-                            symbol_hash,
+                            &mut cs.namespace(|| format!("{:?}.alloc_equal_const", lit)),
+                            &allocated_lit,
+                            lit_hash,
                         )
                         .with_context(|| "couldn't allocate equal const")?;
 
                         let not_dummy_and_has_match = and(
-                            &mut cs.namespace(|| format!("{symbol}.and")),
+                            &mut cs.namespace(|| format!("{:?}.and", lit)),
                             not_dummy,
                             &allocated_has_match,
                         )
@@ -915,7 +915,7 @@ impl Func {
 
                         let saved_slot = &mut next_slot.clone();
                         recurse(
-                            &mut cs.namespace(|| format!("{}", symbol)),
+                            &mut cs.namespace(|| format!("{:?}", lit)),
                             block,
                             &not_dummy_and_has_match,
                             saved_slot,

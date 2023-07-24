@@ -96,20 +96,33 @@ pub struct Var(AString);
 /// LEM literals
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub enum Lit {
-    Symbol(String),
-    String(String),
+    // TODO maybe it should be a LurkField instead of u64
     Scalar(u64),
+    String(String),
+    Symbol(Symbol),
 }
 
 impl Lit {
     pub fn to_ptr<F: LurkField>(&self, store: &mut Store<F>) -> Ptr<F> {
         match self {
-            Self::Symbol(s) => {
-                let sym = Symbol::lurk_sym(s);
-                store.intern_symbol(&sym)
-            }
+            Self::Symbol(s) => store.intern_symbol(s),
             Self::String(s) => store.intern_string(s),
             Self::Scalar(num) => Ptr::num((*num).into()),
+        }
+    }
+    pub fn from_ptr<F: LurkField>(ptr: &Ptr<F>, store: &Store<F>) -> Option<Self> {
+        match ptr.tag() {
+            Tag::Num => match ptr {
+                Ptr::Leaf(_, f) => {
+                    let num = LurkField::to_u64_unchecked(f);
+                    Some(Self::Scalar(num))
+                }
+                _ => unreachable!(),
+            },
+            // TODO write fetch_string
+            Tag::Str => todo!(),
+            Tag::Sym => store.fetch_symbol(ptr).map(Lit::Symbol),
+            _ => None,
         }
     }
 }
@@ -145,7 +158,7 @@ pub enum Ctrl {
     /// `MatchSymbol(x, cases, def)` checks whether `x` matches some symbol among
     /// the ones provided in `cases`. If so, run the corresponding `Block`. Run
     /// `def` otherwise
-    MatchVal(Var, IndexMap<Symbol, Block>, Option<Box<Block>>),
+    MatchVal(Var, IndexMap<Lit, Block>, Option<Box<Block>>),
     /// `IfEq(x, y, eq_block, else_block)` runs `eq_block` if `x == y`, and
     /// otherwise runs `else_block`
     IfEq(Var, Var, Box<Block>, Box<Block>),
@@ -305,11 +318,27 @@ impl Func {
                     }
                 }
                 Ctrl::MatchVal(var, cases, def) => {
+                    // We do not accept equal cases nor cases of different kinds
+                    fn which_kind(x: &Lit) -> usize {
+                        match x {
+                            Lit::Scalar(..) => 0,
+                            Lit::String(..) => 1,
+                            Lit::Symbol(..) => 2,
+                        }
+                    }
                     is_bound(var, map)?;
-                    let mut symbols = HashSet::new();
-                    for (symbol, block) in cases {
-                        if !symbols.insert(symbol) {
-                            bail!("Symbol {symbol} already defined.");
+                    let mut lits = HashSet::new();
+                    let mut kind = None;
+                    for (lit, block) in cases {
+                        if let Some(kind) = kind {
+                            if kind != which_kind(lit) {
+                                bail!("Only tags of the same kind allowed.");
+                            }
+                        } else {
+                            kind = Some(which_kind(lit))
+                        }
+                        if !lits.insert(lit) {
+                            bail!("Case {:?} already defined.", lit);
                         }
                         recurse(block, return_size, map)?;
                     }
@@ -468,9 +497,9 @@ impl Block {
             Ctrl::MatchVal(var, cases, def) => {
                 let var = map.get_cloned(&var)?;
                 let mut new_cases = Vec::with_capacity(cases.len());
-                for (symbol, case) in cases {
+                for (lit, case) in cases {
                     let new_case = case.deconflict(&mut map.clone(), uniq)?;
-                    new_cases.push((symbol.clone(), new_case));
+                    new_cases.push((lit.clone(), new_case));
                 }
                 let new_def = match def {
                     Some(def) => Some(Box::new(def.deconflict(map, uniq)?)),
