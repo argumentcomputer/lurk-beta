@@ -5458,7 +5458,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(dead_code)]
     fn t_self_evaluating() {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
@@ -5621,7 +5620,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(dead_code)]
     fn non_self_evaluating() {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
