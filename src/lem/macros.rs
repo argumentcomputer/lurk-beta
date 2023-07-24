@@ -394,7 +394,7 @@ macro_rules! func {
 
 #[cfg(test)]
 mod tests {
-    use crate::lem::{symbol::Symbol, Tag, Block, Ctrl, Lit, Op, Var};
+    use crate::lem::{symbol::Symbol, Block, Ctrl, Lit, Op, Tag, Var};
     use crate::tag::ExprTag::*;
 
     #[inline]

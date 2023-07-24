@@ -70,7 +70,7 @@ mod symbol;
 mod var_map;
 
 use crate::field::LurkField;
-use crate::tag::{Tag as TagTrait, ExprTag, ContTag, Op1, Op2};
+use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag as TagTrait};
 use anyhow::{bail, Result};
 use indexmap::IndexMap;
 use std::sync::Arc;
@@ -127,8 +127,8 @@ impl Tag {
 
 impl CtrlTag {
     #[inline]
-    fn to_field<F: LurkField>(&self) -> F {
-        F::from(*self as u64)
+    fn to_field<F: LurkField>(self) -> F {
+        F::from(self as u64)
     }
 }
 
@@ -174,8 +174,8 @@ impl Lit {
         }
     }
     pub fn from_ptr<F: LurkField>(ptr: &Ptr<F>, store: &Store<F>) -> Option<Self> {
-        use Tag::*;
         use ExprTag::*;
+        use Tag::*;
         match ptr.tag() {
             Expr(Num) => match ptr {
                 Ptr::Leaf(_, f) => {

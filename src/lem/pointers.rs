@@ -1,4 +1,4 @@
-use crate::{field::*, tag::ExprTag::*, tag::ContTag::Dummy};
+use crate::{field::*, tag::ContTag::Dummy, tag::ExprTag::*};
 
 use super::Tag;
 

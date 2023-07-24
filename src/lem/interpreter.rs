@@ -3,7 +3,7 @@ use anyhow::{bail, Result};
 use std::collections::VecDeque;
 
 use super::{
-    path::Path, pointers::Ptr, store::Store, Tag, var_map::VarMap, Block, Ctrl, Func, Lit, Op,
+    path::Path, pointers::Ptr, store::Store, var_map::VarMap, Block, Ctrl, Func, Lit, Op, Tag,
 };
 
 use crate::tag::ExprTag::*;

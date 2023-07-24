@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use super::{Tag, Block, Ctrl, Func, Lit, Op};
+use super::{Block, Ctrl, Func, Lit, Op, Tag};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) enum PathNode {

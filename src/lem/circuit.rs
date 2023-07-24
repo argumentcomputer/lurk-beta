@@ -153,7 +153,7 @@ use super::{
     pointers::{Ptr, ZPtr},
     store::Store,
     var_map::VarMap,
-    Tag, Block, Ctrl, Func, Op, Var,
+    Block, Ctrl, Func, Op, Tag, Var,
 };
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
