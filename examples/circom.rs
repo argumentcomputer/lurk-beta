@@ -39,11 +39,13 @@ impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
     }
 
     fn into_circom_input(&self, _input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)> {
+        // TODO: actually use the lurk inputs
         let arg_in = ("arg_in".into(), vec![F::ZERO, F::ZERO]);
         vec![arg_in]
     }
 
     fn simple_evaluate(&self, s: &mut Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
+        // TODO: actually use the lurk inputs
         let expected = Num::Scalar(
             F::from_str_vartime(
                 "55165702627807990590530466439275329993482327026534454077267643456",
