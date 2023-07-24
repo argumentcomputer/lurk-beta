@@ -4,7 +4,8 @@ use std::collections::HashMap;
 use crate::{
     field::{FWrap, LurkField},
     hash::PoseidonCache,
-    lem::tag::Tag,
+    lem::Tag,
+    tag::ExprTag::*,
 };
 use anyhow::{bail, Result};
 use dashmap::DashMap;
@@ -150,7 +151,7 @@ impl<F: LurkField> Store<F> {
     /// Interns a string recursively
     pub fn intern_string(&mut self, s: &str) -> Ptr<F> {
         if s.is_empty() {
-            return Ptr::null(Tag::Str);
+            return Ptr::null(Tag::Expr(Str));
         }
 
         match self.str_cache.get(s) {
@@ -159,7 +160,7 @@ impl<F: LurkField> Store<F> {
                 let tail = &s.chars().skip(1).collect::<String>();
                 let tail_ptr = self.intern_string(tail);
                 let head = s.chars().next().unwrap();
-                let s_ptr = self.intern_2_ptrs(Tag::Str, Ptr::char(head), tail_ptr);
+                let s_ptr = self.intern_2_ptrs(Tag::Expr(Str), Ptr::char(head), tail_ptr);
                 self.str_cache.insert(s.into(), s_ptr);
                 s_ptr
             }
@@ -169,7 +170,7 @@ impl<F: LurkField> Store<F> {
     /// Interns a symbol path recursively
     pub fn intern_symbol_path(&mut self, path: &[AString]) -> Ptr<F> {
         if path.is_empty() {
-            let ptr = Ptr::null(Tag::Sym);
+            let ptr = Ptr::null(Tag::Expr(Sym));
             self.sym_path_cache.insert(ptr, Arc::new([]));
             return ptr;
         }
@@ -181,7 +182,7 @@ impl<F: LurkField> Store<F> {
                 let tail_ptr = self.intern_symbol_path(tail);
                 let head = &path[0];
                 let head_ptr = self.intern_string(head);
-                let path_ptr = self.intern_2_ptrs(Tag::Sym, head_ptr, tail_ptr);
+                let path_ptr = self.intern_2_ptrs(Tag::Expr(Sym), head_ptr, tail_ptr);
                 let path: Arc<[Arc<str>]> = path.into();
                 self.sym_cache.insert(path.clone(), path_ptr);
                 self.sym_path_cache.insert(path_ptr, path);
@@ -198,8 +199,8 @@ impl<F: LurkField> Store<F> {
     #[inline]
     pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<Symbol> {
         match ptr.tag() {
-            Tag::Sym => Some(Symbol::sym(self.fetch_sym_path(ptr)?)),
-            Tag::Key => Some(Symbol::key(self.fetch_sym_path(&ptr.key_to_sym())?)),
+            Tag::Expr(Sym) => Some(Symbol::sym(self.fetch_sym_path(ptr)?)),
+            Tag::Expr(Key) => Some(Symbol::key(self.fetch_sym_path(&ptr.key_to_sym())?)),
             _ => None,
         }
     }

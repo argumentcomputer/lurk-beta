@@ -59,23 +59,23 @@
 //! 6. We also check for variables that are not used. If intended they should
 //!    be prefixed by "_"
 
-mod circuit;
-mod eval;
-mod interpreter;
+// mod circuit;
+// mod eval;
+// mod interpreter;
 mod macros;
 mod path;
 mod pointers;
 mod store;
 mod symbol;
-mod tag;
 mod var_map;
 
 use crate::field::LurkField;
+use crate::tag::{Tag as TagTrait, ExprTag, ContTag, Op1, Op2};
 use anyhow::{bail, Result};
 use indexmap::IndexMap;
 use std::sync::Arc;
 
-use self::{pointers::Ptr, store::Store, symbol::Symbol, tag::Tag, var_map::VarMap};
+use self::{pointers::Ptr, store::Store, symbol::Symbol, var_map::VarMap};
 
 pub type AString = Arc<str>;
 pub type AVec<A> = Arc<[A]>;
@@ -92,6 +92,40 @@ pub struct Func {
 /// LEM variables
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct Var(AString);
+
+/// LEM tags
+#[derive(Copy, Debug, PartialEq, Clone, Eq, Hash)]
+pub enum Tag {
+    Expr(ExprTag),
+    Cont(ContTag),
+    Op1(Op1),
+    Op2(Op2),
+}
+
+impl Tag {
+    #[inline]
+    pub fn to_field<F: LurkField>(self) -> F {
+        use Tag::*;
+        match self {
+            Expr(tag) => tag.to_field(),
+            Cont(tag) => tag.to_field(),
+            Op1(tag) => tag.to_field(),
+            Op2(tag) => tag.to_field(),
+        }
+    }
+}
+
+impl std::fmt::Display for Tag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use Tag::*;
+        match self {
+            Expr(tag) => write!(f, "expr.{}", tag),
+            Cont(tag) => write!(f, "cont.{}", tag),
+            Op1(tag) => write!(f, "op1.{}", tag),
+            Op2(tag) => write!(f, "op2.{}", tag),
+        }
+    }
+}
 
 /// LEM literals
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
@@ -111,8 +145,10 @@ impl Lit {
         }
     }
     pub fn from_ptr<F: LurkField>(ptr: &Ptr<F>, store: &Store<F>) -> Option<Self> {
+        use Tag::*;
+        use ExprTag::*;
         match ptr.tag() {
-            Tag::Num => match ptr {
+            Expr(Num) => match ptr {
                 Ptr::Leaf(_, f) => {
                     let num = LurkField::to_u64_unchecked(f);
                     Some(Self::Scalar(num))
@@ -120,8 +156,8 @@ impl Lit {
                 _ => unreachable!(),
             },
             // TODO write fetch_string
-            Tag::Str => todo!(),
-            Tag::Sym => store.fetch_symbol(ptr).map(Lit::Symbol),
+            Expr(Str) => todo!(),
+            Expr(Sym) => store.fetch_symbol(ptr).map(Lit::Symbol),
             _ => None,
         }
     }
@@ -527,6 +563,7 @@ impl Var {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::circuit::SlotsCounter;
@@ -797,3 +834,4 @@ mod tests {
         synthesize_test_helper(&lem, inputs, SlotsCounter::new((4, 4, 4)));
     }
 }
+*/

@@ -1,6 +1,6 @@
-use crate::field::*;
+use crate::{field::*, tag::ExprTag::*, tag::ContTag::Dummy};
 
-use super::tag::Tag;
+use super::Tag;
 
 /// `Ptr` is the main piece of data LEMs operate on. We can think of a pointer
 /// as a building block for trees that represent Lurk data. A pointer can be a
@@ -44,33 +44,33 @@ impl<F: LurkField> Ptr<F> {
 
     pub fn sym_to_key(&self) -> Self {
         match self {
-            Ptr::Leaf(Tag::Sym, f) => Ptr::Leaf(Tag::Key, *f),
-            Ptr::Tree2(Tag::Sym, x) => Ptr::Tree2(Tag::Key, *x),
+            Ptr::Leaf(Tag::Expr(Sym), f) => Ptr::Leaf(Tag::Expr(Key), *f),
+            Ptr::Tree2(Tag::Expr(Sym), x) => Ptr::Tree2(Tag::Expr(Key), *x),
             _ => panic!("Malformed sym pointer"),
         }
     }
 
     pub fn key_to_sym(&self) -> Self {
         match self {
-            Ptr::Leaf(Tag::Key, f) => Ptr::Leaf(Tag::Sym, *f),
-            Ptr::Tree2(Tag::Key, x) => Ptr::Tree2(Tag::Sym, *x),
+            Ptr::Leaf(Tag::Expr(Key), f) => Ptr::Leaf(Tag::Expr(Sym), *f),
+            Ptr::Tree2(Tag::Expr(Key), x) => Ptr::Tree2(Tag::Expr(Sym), *x),
             _ => panic!("Malformed key pointer"),
         }
     }
 
     #[inline]
     pub fn num(f: F) -> Self {
-        Ptr::Leaf(Tag::Num, f)
+        Ptr::Leaf(Tag::Expr(Num), f)
     }
 
     #[inline]
     pub fn char(c: char) -> Self {
-        Ptr::Leaf(Tag::Char, F::from_char(c))
+        Ptr::Leaf(Tag::Expr(Char), F::from_char(c))
     }
 
     #[inline]
     pub fn comm(hash: F) -> Self {
-        Ptr::Leaf(Tag::Comm, hash)
+        Ptr::Leaf(Tag::Expr(Comm), hash)
     }
 
     #[inline]
@@ -133,7 +133,7 @@ impl<F: LurkField> ZPtr<F> {
     #[inline]
     pub fn dummy() -> Self {
         Self {
-            tag: Tag::Dummy,
+            tag: Tag::Cont(Dummy),
             hash: F::ZERO,
         }
     }
