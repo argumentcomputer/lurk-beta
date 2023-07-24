@@ -903,7 +903,7 @@ fn apply_continuation<F: LurkField>(
                         ExprTag::Num | ExprTag::Comm => store.secret_mut(result)?,
                         _ => return Ok(Control::Error(result, env)),
                     },
-                    Op1::Commit => store.hide(F::ZERO, result),
+                    Op1::Commit => store.commit(result),
                     Op1::Num => match result.tag {
                         ExprTag::Num | ExprTag::Comm | ExprTag::Char | ExprTag::U64 => {
                             let z_ptr = store

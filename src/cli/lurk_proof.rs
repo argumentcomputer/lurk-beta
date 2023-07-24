@@ -79,8 +79,8 @@ mod non_wasm {
 
     impl<F: LurkField + Serialize> LurkProofMeta<F> {
         #[inline]
-        pub fn persist(self, id: &str) -> Result<()> {
-            dump(self, proof_meta_path(id))
+        pub fn persist(self, proof_key: &str) -> Result<()> {
+            dump(self, proof_meta_path(proof_key))
         }
     }
 
@@ -89,8 +89,8 @@ mod non_wasm {
         Coproc<F>: Coprocessor<Pallas>,
     {
         #[inline]
-        pub fn persist(self, id: &str) -> Result<()> {
-            dump(self, proof_path(id))
+        pub fn persist(self, proof_key: &str) -> Result<()> {
+            dump(self, proof_path(proof_key))
         }
     }
 
@@ -112,12 +112,12 @@ mod non_wasm {
             }
         }
 
-        pub fn verify_proof(proof_id: &str) -> Result<()> {
-            let lurk_proof: LurkProof<'_, Pallas> = load(proof_path(proof_id))?;
+        pub fn verify_proof(proof_key: &str) -> Result<()> {
+            let lurk_proof: LurkProof<'_, Pallas> = load(proof_path(proof_key))?;
             if lurk_proof.verify()? {
-                println!("✓ Proof \"{proof_id}\" verified");
+                println!("✓ Proof \"{proof_key}\" verified");
             } else {
-                println!("✗ Proof \"{proof_id}\" failed on verification");
+                println!("✗ Proof \"{proof_key}\" failed on verification");
             }
             Ok(())
         }
