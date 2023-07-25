@@ -1134,7 +1134,7 @@ mod test {
 
         let req = OpeningRequest {
             input,
-            commitment: c.clone(),
+            commitment: c,
             chain: true,
         };
         assert_json_snapshot!(req);
