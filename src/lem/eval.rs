@@ -677,20 +677,40 @@ fn apply_cont() -> Func {
                                 return(result, env, err, errctrl)
                             }
                             Op1::U64 => {
-                                // TODO
+                                match result.tag {
+                                    Expr::Num => {
+                                        // TODO is this right?
+                                        let cast = Cast(result, Expr::U64);
+                                        return(cast, env, continuation, makethunk)
+                                    }
+                                    Expr::U64 => {
+                                        return(result, env, continuation, makethunk)
+                                    }
+                                };
                                 return(result, env, err, errctrl)
                             }
                             Op1::Comm => {
-                                // TODO
+                                match result.tag {
+                                    Expr::Num | Expr::Comm => {
+                                        // TODO is this right?
+                                        let cast = Cast(result, Expr::Num);
+                                        return(cast, env, continuation, makethunk)
+                                    }
+                                };
                                 return(result, env, err, errctrl)
                             }
                             Op1::Char => {
-                                // TODO
+                                match result.tag {
+                                    Expr::Num | Expr::Char => {
+                                        // TODO is this right?
+                                        let cast = Cast(result, Expr::Num);
+                                        return(cast, env, continuation, makethunk)
+                                    }
+                                };
                                 return(result, env, err, errctrl)
                             }
                             Op1::Eval => {
-                                // TODO
-                                return(result, env, err, errctrl)
+                                return(result, nil, continuation, ret)
                             }
                         };
                         return (result, env, err, errctrl)
