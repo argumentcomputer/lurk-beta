@@ -668,7 +668,12 @@ fn apply_cont() -> Func {
                                 return(comm, env, continuation, makethunk)
                             }
                             Op1::Num => {
-                                // TODO
+                                match result.tag {
+                                    Expr::Num | Expr::Comm | Expr::Char | Expr::U64 => {
+                                        let cast = Cast(result, Expr::Num);
+                                        return(cast, env, continuation, makethunk)
+                                    }
+                                };
                                 return(result, env, err, errctrl)
                             }
                             Op1::U64 => {

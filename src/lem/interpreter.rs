@@ -72,6 +72,11 @@ impl Block {
                 Op::Lit(tgt, lit) => {
                     bindings.insert(tgt.clone(), lit.to_ptr(store));
                 }
+                Op::Cast(tgt, tag, src) => {
+                    let src_ptr = bindings.get(src)?;
+                    let tgt_ptr = src_ptr.cast(*tag);
+                    bindings.insert(tgt.clone(), tgt_ptr);
+                }
                 Op::Hash2(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
                     let tgt_ptr = store.intern_2_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1]);

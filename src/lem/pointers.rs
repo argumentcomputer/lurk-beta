@@ -79,6 +79,16 @@ impl<F: LurkField> Ptr<F> {
     }
 
     #[inline]
+    pub fn cast(&self, tag: Tag) -> Self {
+        match self {
+            Ptr::Leaf(_, f) => Ptr::Leaf(tag, *f),
+            Ptr::Tree2(_, x) => Ptr::Tree2(tag, *x),
+            Ptr::Tree3(_, x) => Ptr::Tree3(tag, *x),
+            Ptr::Tree4(_, x) => Ptr::Tree4(tag, *x),
+        }
+    }
+
+    #[inline]
     pub fn get_index2(&self) -> Option<usize> {
         match self {
             Ptr::Tree2(_, x) => Some(*x),

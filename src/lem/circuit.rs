@@ -733,20 +733,24 @@ impl Func {
                         unhash_helper!(preimg, img, SlotType::Hash4);
                     }
                     Op::Null(tgt, tag) => {
-                        let allocated_ptr = AllocatedPtr::from_parts(
-                            g.global_allocator.get_or_alloc_const(cs, tag.to_field())?,
-                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
-                        );
+                        let tag = g.global_allocator.get_or_alloc_const(cs, tag.to_field())?;
+                        let zero = g.global_allocator.get_or_alloc_const(cs, F::ZERO)?;
+                        let allocated_ptr = AllocatedPtr::from_parts(tag, zero);
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
                     Op::Lit(tgt, lit) => {
                         let lit_ptr = lit.to_ptr(g.store);
+                        let lit_tag = lit_ptr.tag().to_field();
                         let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
-                        let allocated_ptr = AllocatedPtr::from_parts(
-                            g.global_allocator
-                                .get_or_alloc_const(cs, Tag::Expr(Sym).to_field())?,
-                            g.global_allocator.get_or_alloc_const(cs, lit_hash)?,
-                        );
+                        let allocated_tag = g.global_allocator.get_or_alloc_const(cs, lit_tag)?;
+                        let allocated_hash = g.global_allocator.get_or_alloc_const(cs, lit_hash)?;
+                        let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
+                        bound_allocations.insert(tgt.clone(), allocated_ptr);
+                    }
+                    Op::Cast(tgt, tag, src) => {
+                        let src = bound_allocations.get(src)?;
+                        let tag = g.global_allocator.get_or_alloc_const(cs, tag.to_field())?;
+                        let allocated_ptr = AllocatedPtr::from_parts(tag, src.hash().clone());
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
                     Op::Hide(tgt, _sec, _pay) => {
@@ -1019,6 +1023,9 @@ impl Func {
                         let lit_hash = store.hash_ptr(&lit_ptr).unwrap().hash;
                         globals.insert(FWrap(Tag::Expr(Sym).to_field()));
                         globals.insert(FWrap(lit_hash));
+                    }
+                    Op::Cast(_tgt, tag, _src) => {
+                        globals.insert(FWrap(tag.to_field()));
                     }
                     Op::Hash2(_, tag, _) => {
                         // tag for the image

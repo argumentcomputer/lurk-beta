@@ -57,6 +57,13 @@ macro_rules! op {
             $crate::lit!($constr($str))
         )
     };
+    ( let $tgt:ident = Cast($src:ident, $kind:ident::$tag:ident) ) => {
+        $crate::lem::Op::Cast(
+            $crate::var!($tgt),
+            $crate::tag!($kind::$tag),
+            $crate::var!($src),
+        )
+    };
     ( let $tgt:ident : $kind:ident::$tag:ident = hash2($src1:ident, $src2:ident) ) => {
         $crate::lem::Op::Hash2(
             $crate::var!($tgt),
@@ -197,6 +204,16 @@ macro_rules! block {
             {
                 $($limbs)*
                 $crate::op!(let $tgt: $kind::$tag)
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = Cast($src:ident, $kind:ident::$tag:ident) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = Cast($src, $kind::$tag))
             },
             $($tail)*
         )

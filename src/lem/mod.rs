@@ -240,6 +240,8 @@ pub enum Op {
     Null(Var, Tag),
     /// `Lit(x, l)` binds `x` to the pointer representing that `Lit`
     Lit(Var, Lit),
+    /// `Cast(y, t, x)` binds `y` to a pointer with tag `t` and the hash of `x`
+    Cast(Var, Tag, Var),
     /// `Hash2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
     Hash2(Var, Tag, [Var; 2]),
     /// `Hash3(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 3 children `ys`
@@ -321,6 +323,10 @@ impl Func {
                     Op::Lit(tgt, _lit) => {
                         is_unique(tgt, map);
                     }
+                    Op::Cast(tgt, _tag, src) => {
+                        is_bound(src, map)?;
+                        is_unique(tgt, map);
+                    }
                     Op::Hash2(img, _tag, preimg) => {
                         preimg.iter().try_for_each(|arg| is_bound(arg, map))?;
                         is_unique(img, map);
@@ -369,26 +375,23 @@ impl Func {
                     }
                 }
                 Ctrl::MatchTag(var, cases, def) => {
-                    // We do not accept equal cases nor cases of different kinds
-                    fn which_kind(x: &Tag) -> usize {
-                        match x {
+                    is_bound(var, map)?;
+                    let mut tags = HashSet::new();
+                    let mut kind = None;
+                    for (tag, block) in cases {
+                        let tag_kind = match tag {
                             Tag::Expr(..) => 0,
                             Tag::Cont(..) => 1,
                             Tag::Op1(..) => 2,
                             Tag::Op2(..) => 3,
                             Tag::Ctrl(..) => 4,
-                        }
-                    }
-                    is_bound(var, map)?;
-                    let mut tags = HashSet::new();
-                    let mut kind = None;
-                    for (tag, block) in cases {
+                        };
                         if let Some(kind) = kind {
-                            if kind != which_kind(tag) {
+                            if kind != tag_kind {
                                 bail!("Only tags of the same kind allowed.");
                             }
                         } else {
-                            kind = Some(which_kind(tag))
+                            kind = Some(tag_kind)
                         }
                         if !tags.insert(tag) {
                             bail!("Tag {tag} already defined.");
@@ -401,24 +404,21 @@ impl Func {
                     }
                 }
                 Ctrl::MatchVal(var, cases, def) => {
-                    // We do not accept equal cases nor cases of different kinds
-                    fn which_kind(x: &Lit) -> usize {
-                        match x {
-                            Lit::Scalar(..) => 0,
-                            Lit::String(..) => 1,
-                            Lit::Symbol(..) => 2,
-                        }
-                    }
                     is_bound(var, map)?;
                     let mut lits = HashSet::new();
                     let mut kind = None;
                     for (lit, block) in cases {
+                        let lit_kind = match lit {
+                            Lit::Scalar(..) => 0,
+                            Lit::String(..) => 1,
+                            Lit::Symbol(..) => 2,
+                        };
                         if let Some(kind) = kind {
-                            if kind != which_kind(lit) {
+                            if kind != lit_kind {
                                 bail!("Only values of the same kind allowed.");
                             }
                         } else {
-                            kind = Some(which_kind(lit))
+                            kind = Some(lit_kind)
                         }
                         if !lits.insert(lit) {
                             bail!("Case {:?} already defined.", lit);
@@ -519,6 +519,11 @@ impl Block {
                 }
                 Op::Null(tgt, tag) => ops.push(Op::Null(insert_one(map, uniq, &tgt), tag)),
                 Op::Lit(tgt, lit) => ops.push(Op::Lit(insert_one(map, uniq, &tgt), lit)),
+                Op::Cast(tgt, tag, src) => {
+                    let src = map.get_cloned(&src)?;
+                    let tgt = insert_one(map, uniq, &tgt);
+                    ops.push(Op::Cast(tgt, tag, src))
+                }
                 Op::Hash2(img, tag, preimg) => {
                     let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
                     let img = insert_one(map, uniq, &img);
