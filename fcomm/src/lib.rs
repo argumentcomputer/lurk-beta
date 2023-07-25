@@ -1098,6 +1098,15 @@ mod test {
     use lurk::proof::{nova::NovaProver, Prover};
     use lurk::public_parameters::public_params;
 
+    // ## Intent
+    //
+    // Those tests are intended as a trip-wire for changes tghat modify the serialized format of the data structures
+    // involved in fcomm tests. Fcomm already has tests depending on those files (see tests/makefile_tests.rs), but
+    // those tests are expensive to run. Those snapshot tests instead are cheap to run, and will fail if the format
+    // of serialized data structures changes. They will not detect a change in the file location of the Makedile tests.
+    //
+    // ## If you broke this test
+    //
     // You have broken a snapshot test. Unlike round-trip tests, those tests check the actual format of serialized Lurk expressions,
     // and since you broke one, it's probable that you have changed that format, which will break at least the fcomm examples.
     // Please read the documentation on snapshot tests `https://insta.rs/docs/quickstart/`, fix the snapshot **AND**
