@@ -40,10 +40,10 @@ chained-opening.json : chained-function.json chained-input.lurk chained-commitme
 	cargo run --release open --function chained-function.json --input chained-input.lurk --proof chained-opening.json --chain
 
 chained2-opening chained2-opening.json : chained-input.lurk chained-opening
-	# NOTE: This concrete commitment (3f2bf9fb0edb7602f6bf67080f293d9dc3ccba57f0d91c0337fa123f0ba8b5c5) can be found
+	# NOTE: This concrete commitment (19ca81b443bf0bdf8b6edb5fb6d1571d8e405f24459f6e2f880076b76e2510a1) can be found
 	# in chained-opening.json, but its identity is determistic based on the secret and 'second return value' (cdr)
 	# of the function specified in chained-function.json.
-	cargo run --release open --commitment 3f2bf9fb0edb7602f6bf67080f293d9dc3ccba57f0d91c0337fa123f0ba8b5c5 --input chained-input.lurk --proof chained2-opening.json --chain
+	cargo run --release open --commitment 19ca81b443bf0bdf8b6edb5fb6d1571d8e405f24459f6e2f880076b76e2510a1 --input chained-input.lurk --proof chained2-opening.json --chain
 
 chained2-from_req-opening chained2-from_req-opening.json : chained2-opening chained-request.json
 	cargo run --release open --request chained-request.json --proof chained2-from_req-opening.json
