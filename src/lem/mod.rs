@@ -160,7 +160,7 @@ impl std::fmt::Display for Tag {
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub enum Lit {
     // TODO maybe it should be a LurkField instead of u64
-    Scalar(u64),
+    Num(u64),
     String(String),
     Symbol(Symbol),
 }
@@ -170,7 +170,7 @@ impl Lit {
         match self {
             Self::Symbol(s) => store.intern_symbol(s),
             Self::String(s) => store.intern_string(s),
-            Self::Scalar(num) => Ptr::num((*num).into()),
+            Self::Num(num) => Ptr::num((*num).into()),
         }
     }
     pub fn from_ptr<F: LurkField>(ptr: &Ptr<F>, store: &Store<F>) -> Option<Self> {
@@ -180,7 +180,7 @@ impl Lit {
             Expr(Num) => match ptr {
                 Ptr::Leaf(_, f) => {
                     let num = LurkField::to_u64_unchecked(f);
-                    Some(Self::Scalar(num))
+                    Some(Self::Num(num))
                 }
                 _ => unreachable!(),
             },
@@ -409,7 +409,7 @@ impl Func {
                     let mut kind = None;
                     for (lit, block) in cases {
                         let lit_kind = match lit {
-                            Lit::Scalar(..) => 0,
+                            Lit::Num(..) => 0,
                             Lit::String(..) => 1,
                             Lit::Symbol(..) => 2,
                         };

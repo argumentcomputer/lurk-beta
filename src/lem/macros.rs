@@ -16,8 +16,8 @@ macro_rules! vars {
 
 #[macro_export]
 macro_rules! lit {
-    ( Scalar($lit:literal) ) => {
-        $crate::lem::Lit::Scalar($lit)
+    ( Num($lit:literal) ) => {
+        $crate::lem::Lit::Num($lit)
     };
     ( String($lit:literal) ) => {
         $crate::lem::Lit::String($lit.into())
@@ -218,12 +218,12 @@ macro_rules! block {
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, let $tgt:ident = Scalar($sym:literal) ; $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, let $tgt:ident = Num($sym:literal) ; $($tail:tt)*) => {
         $crate::block! (
             @seq
             {
                 $($limbs)*
-                $crate::op!(let $tgt = Scalar($sym))
+                $crate::op!(let $tgt = Num($sym))
             },
             $($tail)*
         )

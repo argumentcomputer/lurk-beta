@@ -545,7 +545,7 @@ fn apply_cont() -> Func {
                         return (result, env, cont, ret)
                     }
                     Cont::Emit => {
-                        // Instead of doing hash1 we can reuse a slot for hash2
+                        // TODO Does this make sense?
                         let (cont, _rest) = unhash2(cont);
                         return (result, env, cont, makethunk)
                     }
@@ -648,6 +648,7 @@ fn apply_cont() -> Func {
                                 return (t, env, continuation, makethunk)
                             }
                             Op1::Emit => {
+                                // TODO Does this make sense?
                                 let emit: Cont::Emit = hash2(cont, nil);
                                 return (result, env, emit, makethunk)
                             }
@@ -660,11 +661,8 @@ fn apply_cont() -> Func {
                                 return(secret, env, continuation, makethunk)
                             }
                             Op1::Commit => {
-                                // TODO: although this works, since `let nil: Expr::Nil` has
-                                // hash `F::ZERO`, maybe we should have an explicit
-                                // operation for setting variables particular values
-                                let nil: Expr::Nil;
-                                let comm = hide(nil, result);
+                                let zero = Num(0);
+                                let comm = hide(zero, result);
                                 return(comm, env, continuation, makethunk)
                             }
                             Op1::Num => {
@@ -679,7 +677,10 @@ fn apply_cont() -> Func {
                             Op1::U64 => {
                                 match result.tag {
                                     Expr::Num => {
-                                        // TODO is this right?
+                                        // TODO we also need to use `Mod` to truncate
+                                        // But 2^64 is out-of-range of u64, so we will
+                                        // maybe use u128
+                                        // let limit = Num(18446744073709551616);
                                         let cast = Cast(result, Expr::U64);
                                         return(cast, env, continuation, makethunk)
                                     }
@@ -692,7 +693,6 @@ fn apply_cont() -> Func {
                             Op1::Comm => {
                                 match result.tag {
                                     Expr::Num | Expr::Comm => {
-                                        // TODO is this right?
                                         let cast = Cast(result, Expr::Num);
                                         return(cast, env, continuation, makethunk)
                                     }
@@ -702,7 +702,8 @@ fn apply_cont() -> Func {
                             Op1::Char => {
                                 match result.tag {
                                     Expr::Num | Expr::Char => {
-                                        // TODO is this right?
+                                        // TODO we also need to use `Mod` to truncate
+                                        // let limit = Num(4294967296);
                                         let cast = Cast(result, Expr::Num);
                                         return(cast, env, continuation, makethunk)
                                     }
