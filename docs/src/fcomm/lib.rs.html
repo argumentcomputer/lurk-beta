@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `fcomm/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="fcomm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (8771282d4 2023-07-23)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-6d2c9675f3d09c26.css" data-theme-dark-css="dark-45ceb8f2e522f4d1.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-6d2c9675f3d09c26.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-45ceb8f2e522f4d1.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../fcomm/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `fcomm/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="fcomm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (864bdf784 2023-07-25)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-6d2c9675f3d09c26.css" data-theme-dark-css="dark-45ceb8f2e522f4d1.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-6d2c9675f3d09c26.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-45ceb8f2e522f4d1.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../fcomm/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1314,6 +1314,16 @@
 <a href="#1314" id="1314">1314</a>
 <a href="#1315" id="1315">1315</a>
 <a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
+<a href="#1325" id="1325">1325</a>
+<a href="#1326" id="1326">1326</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>log::info;
 <span class="kw">use </span>std::convert::TryFrom;
 <span class="kw">use </span>std::sync::Arc;
@@ -1347,6 +1357,13 @@
     z_ptr::ZExprPtr,
     z_store::ZStore,
 };
+<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+</span><span class="kw">use </span>lurk_macros::serde_test;
+
+<span class="attr">#[allow(unused_imports)] </span><span class="comment">// this is used in the serde_test macro
+</span><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+</span><span class="kw">use </span>lurk::z_data;
+
 <span class="kw">use </span>once_cell::sync::OnceCell;
 <span class="kw">use </span>pasta_curves::pallas;
 <span class="kw">use </span>rand::rngs::OsRng;
@@ -1413,6 +1430,7 @@
 <span class="attr">#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), proptest(no_bound))]
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), serde_test(types(S1), zdata(<span class="bool-val">true</span>)))]
 </span><span class="kw">pub struct </span>PtrEvaluation&lt;F: LurkField&gt; {
     <span class="kw">pub </span>expr: LurkPtr&lt;F&gt;,
     <span class="kw">pub </span>env: LurkPtr&lt;F&gt;,
@@ -1502,6 +1520,7 @@
 
 <span class="attr">#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), proptest(no_bound))]
+#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), serde_test(types(S1), zdata(<span class="bool-val">true</span>)))]
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 </span><span class="kw">pub struct </span>Opening&lt;F: LurkField&gt; {
     <span class="kw">pub </span>input: String,
@@ -1512,6 +1531,7 @@
 }
 
 <span class="attr">#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), serde_test(zdata(<span class="bool-val">true</span>)))]
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 </span><span class="kw">pub struct </span>ZBytes {
     <span class="attr">#[serde(with = <span class="string">&quot;base64&quot;</span>)]
@@ -1522,6 +1542,7 @@
 
 <span class="attr">#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), proptest(no_bound))]
+#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), serde_test(types(S1), zdata(<span class="bool-val">true</span>)))]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 </span><span class="kw">pub struct </span>ZStorePtr&lt;F: LurkField&gt; {
     z_store: ZStore&lt;F&gt;,
@@ -1530,6 +1551,7 @@
 
 <span class="attr">#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), proptest(no_bound))]
+#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), serde_test(types(S1), zdata(<span class="bool-val">true</span>)))]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 </span><span class="kw">pub enum </span>LurkPtr&lt;F: LurkField&gt; {
     Source(String),
@@ -1555,6 +1577,7 @@
 
 <span class="attr">#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), proptest(no_bound))]
+#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), serde_test(types(S1), zdata(<span class="bool-val">true</span>)))]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 </span><span class="kw">pub struct </span>CommittedExpression&lt;F: LurkField + Serialize&gt; {
     <span class="kw">pub </span>expr: LurkPtr&lt;F&gt;,
@@ -1581,6 +1604,7 @@
 
 <span class="attr">#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), proptest(no_bound))]
+#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), serde_test(types(S1), zdata(<span class="bool-val">true</span>)))]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>Claim&lt;F: LurkField&gt; {
     Evaluation(Evaluation),
@@ -2390,6 +2414,7 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>test {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span>insta::assert_json_snapshot;
     <span class="kw">use </span>lurk::public_parameters::FileStore;
     <span class="kw">use </span>std::path::Path;
     <span class="kw">use </span>std::sync::Arc;
@@ -2398,7 +2423,57 @@
     <span class="kw">use </span>lurk::eval::lang::{Coproc, Lang};
     <span class="kw">use </span>lurk::proof::{nova::NovaProver, Prover};
     <span class="kw">use </span>lurk::public_parameters::public_params;
-    <span class="kw">use </span>lurk::z_data::{from_z_data, to_z_data};
+
+    <span class="comment">// ## Intent
+    //
+    // Those tests are intended as a trip-wire for changes tghat modify the serialized format of the data structures
+    // involved in fcomm tests. Fcomm already has tests depending on those files (see tests/makefile_tests.rs), but
+    // those tests are expensive to run. Those snapshot tests instead are cheap to run, and will fail if the format
+    // of serialized data structures changes. They will not detect a change in the file location of the Makedile tests.
+    //
+    // ## If you broke this test
+    //
+    // You have broken a snapshot test. Unlike round-trip tests, those tests check the actual format of serialized Lurk expressions,
+    // and since you broke one, it&#39;s probable that you have changed that format, which will break at least the fcomm examples.
+    // Please read the documentation on snapshot tests `https://insta.rs/docs/quickstart/`, fix the snapshot **AND**
+    // make sure `cargo nextest run --run-ignored all -E &#39;test(test_make_fcomm_examples)&#39;` passes
+    </span><span class="attr">#[test]
+    </span><span class="kw">fn </span>test_snapshot_serialized_expressions() {
+        <span class="kw">let </span>function_source: <span class="kw-2">&amp;</span>str = <span class="string">&quot;(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))&quot;</span>;
+        <span class="kw">let </span>function_inputs: <span class="kw-2">&amp;</span>str = <span class="string">&quot;(+ 1 2)&quot;</span>;
+        <span class="kw">let </span>committed_expression = CommittedExpression::&lt;S1&gt; {
+            expr: LurkPtr::Source(function_source.into()),
+            secret: <span class="prelude-val">None</span>,
+            commitment: <span class="prelude-val">None</span>,
+        };
+        <span class="macro">assert_json_snapshot!</span>(committed_expression);
+
+        <span class="kw">let </span>input = Expression::&lt;S1&gt; {
+            expr: LurkPtr::Source(function_inputs.into()),
+        };
+        <span class="macro">assert_json_snapshot!</span>(input);
+
+        <span class="kw">let </span>c = Commitment {
+            comm: S1::from(<span class="number">123</span>),
+        };
+        <span class="macro">assert_json_snapshot!</span>(c);
+
+        <span class="kw">let </span>req = OpeningRequest {
+            input,
+            commitment: c,
+            chain: <span class="bool-val">true</span>,
+        };
+        <span class="macro">assert_json_snapshot!</span>(req);
+
+        <span class="kw">let </span>opening = Opening {
+            input: function_inputs.to_owned(),
+            output: function_inputs.to_owned(),
+            status: Status::Error,
+            commitment: c,
+            new_commitment: <span class="prelude-val">None</span>,
+        };
+        <span class="macro">assert_json_snapshot!</span>(opening);
+    }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_cert_serialization() {
@@ -2497,136 +2572,81 @@
             <span class="macro">println!</span>(<span class="string">&quot;Commitment: {:?}&quot;</span>, commitment);
         }
     }
+
     <span class="macro">proptest! </span>{
       <span class="attr">#[test]
       </span><span class="kw">fn </span>prop_z_bytes(x <span class="kw">in </span>any::&lt;ZBytes&gt;()) {
-        <span class="kw">let </span>ser  = to_z_data(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write ZBytes&quot;</span>);
-        <span class="kw">let </span>de: ZBytes = from_z_data(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read ZBytes&quot;</span>);
-        <span class="macro">assert_eq!</span>(x, de);
-
-        <span class="kw">let </span>ser: Vec&lt;u8&gt; = bincode::serialize(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write ZBytes&quot;</span>);
-        <span class="kw">let </span>de: ZBytes = bincode::deserialize(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read ZBytes&quot;</span>);
-        <span class="macro">assert_eq!</span>(x, de);
-
         <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">&quot;tmp&quot;</span>).tempdir().expect(<span class="string">&quot;tmp dir&quot;</span>);
         <span class="kw">let </span>tmp_dir_path = Path::new(tmp_dir.path());
         <span class="kw">let </span>z_bytes_path = tmp_dir_path.join(<span class="string">&quot;zbytes.json&quot;</span>);
-      x.write_to_path(<span class="kw-2">&amp;</span>z_bytes_path);
-      <span class="macro">assert_eq!</span>(x, ZBytes::read_from_path(<span class="kw-2">&amp;</span>z_bytes_path).unwrap());
+        x.write_to_path(<span class="kw-2">&amp;</span>z_bytes_path);
+        <span class="macro">assert_eq!</span>(x, ZBytes::read_from_path(<span class="kw-2">&amp;</span>z_bytes_path).unwrap());
       }
     }
 
     <span class="macro">proptest! </span>{
       <span class="attr">#[test]
       </span><span class="kw">fn </span>prop_z_store_ptr(x <span class="kw">in </span>any::&lt;ZStorePtr&lt;S1&gt;&gt;()) {
-        <span class="kw">let </span>ser = to_z_data(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write ZStorePtr&quot;</span>);
-        <span class="kw">let </span>de: ZStorePtr&lt;S1&gt; = from_z_data(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read ZStorePtr&quot;</span>);
-        <span class="macro">assert_eq!</span>(x, de);
-
-        <span class="kw">let </span>ser: Vec&lt;u8&gt; = bincode::serialize(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write ZStorePtr&quot;</span>);
-        <span class="kw">let </span>de: ZStorePtr&lt;S1&gt; = bincode::deserialize(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read ZStorePtr&quot;</span>);
-        <span class="macro">assert_eq!</span>(x, de);
-
         <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">&quot;tmp&quot;</span>).tempdir().expect(<span class="string">&quot;tmp dir&quot;</span>);
         <span class="kw">let </span>tmp_dir_path = Path::new(tmp_dir.path());
         <span class="kw">let </span>z_store_ptr_path = tmp_dir_path.join(<span class="string">&quot;zstoreptr.json&quot;</span>);
-      x.write_to_path(<span class="kw-2">&amp;</span>z_store_ptr_path);
-      <span class="macro">assert_eq!</span>(x, ZStorePtr::&lt;S1&gt;::read_from_path(<span class="kw-2">&amp;</span>z_store_ptr_path).unwrap());
+        x.write_to_path(<span class="kw-2">&amp;</span>z_store_ptr_path);
+        <span class="macro">assert_eq!</span>(x, ZStorePtr::&lt;S1&gt;::read_from_path(<span class="kw-2">&amp;</span>z_store_ptr_path).unwrap());
       }
     }
 
     <span class="macro">proptest! </span>{
       <span class="attr">#[test]
       </span><span class="kw">fn </span>prop_lurk_ptr(x <span class="kw">in </span>any::&lt;LurkPtr&lt;S1&gt;&gt;()) {
-        <span class="kw">let </span>ser = to_z_data(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write LurkPtr&quot;</span>);
-        <span class="kw">let </span>de: LurkPtr&lt;S1&gt; = from_z_data(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read LurkPtr&quot;</span>);
-        <span class="macro">assert_eq!</span>(x, de);
-
-        <span class="kw">let </span>ser: Vec&lt;u8&gt; = bincode::serialize(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write LurkPtr&quot;</span>);
-        <span class="kw">let </span>de: LurkPtr&lt;S1&gt; = bincode::deserialize(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read LurkPtr&quot;</span>);
-        <span class="macro">assert_eq!</span>(x, de);
-
         <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">&quot;tmp&quot;</span>).tempdir().expect(<span class="string">&quot;tmp dir&quot;</span>);
         <span class="kw">let </span>tmp_dir_path = Path::new(tmp_dir.path());
         <span class="kw">let </span>lurk_ptr_path = tmp_dir_path.join(<span class="string">&quot;lurkptr.json&quot;</span>);
-      x.write_to_path(<span class="kw-2">&amp;</span>lurk_ptr_path);
-      <span class="macro">assert_eq!</span>(x, LurkPtr::&lt;S1&gt;::read_from_path(<span class="kw-2">&amp;</span>lurk_ptr_path).unwrap());
+        x.write_to_path(<span class="kw-2">&amp;</span>lurk_ptr_path);
+        <span class="macro">assert_eq!</span>(x, LurkPtr::&lt;S1&gt;::read_from_path(<span class="kw-2">&amp;</span>lurk_ptr_path).unwrap());
       }
     }
 
     <span class="macro">proptest! </span>{
       <span class="attr">#[test]
       </span><span class="kw">fn </span>prop_ptr_evaluation(x <span class="kw">in </span>any::&lt;PtrEvaluation&lt;S1&gt;&gt;()) {
-        <span class="kw">let </span>ser = to_z_data(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write PtrEvaluation&quot;</span>);
-        <span class="kw">let </span>de: PtrEvaluation&lt;S1&gt; = from_z_data(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read PtrEvaluation&quot;</span>);
-        <span class="macro">assert_eq!</span>(x, de);
-
-       <span class="kw">let </span>ser: Vec&lt;u8&gt; = bincode::serialize(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write PtrEvalution&quot;</span>);
-       <span class="kw">let </span>de: PtrEvaluation&lt;S1&gt; = bincode::deserialize(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read PtrEvaluation&quot;</span>);
-       <span class="macro">assert_eq!</span>(x, de);
-
         <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">&quot;tmp&quot;</span>).tempdir().expect(<span class="string">&quot;tmp dir&quot;</span>);
         <span class="kw">let </span>tmp_dir_path = Path::new(tmp_dir.path());
         <span class="kw">let </span>ptr_evaluation_path = tmp_dir_path.join(<span class="string">&quot;ptrevaluation.json&quot;</span>);
-      x.write_to_path(<span class="kw-2">&amp;</span>ptr_evaluation_path);
-      <span class="macro">assert_eq!</span>(x, PtrEvaluation::&lt;S1&gt;::read_from_path(<span class="kw-2">&amp;</span>ptr_evaluation_path).unwrap());
+        x.write_to_path(<span class="kw-2">&amp;</span>ptr_evaluation_path);
+        <span class="macro">assert_eq!</span>(x, PtrEvaluation::&lt;S1&gt;::read_from_path(<span class="kw-2">&amp;</span>ptr_evaluation_path).unwrap());
       }
     }
 
     <span class="macro">proptest! </span>{
       <span class="attr">#[test]
       </span><span class="kw">fn </span>prop_committed_expr(x <span class="kw">in </span>any::&lt;CommittedExpression&lt;S1&gt;&gt;()) {
-        <span class="kw">let </span>ser = to_z_data(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write CommittedExpression&quot;</span>);
-        <span class="kw">let </span>de: CommittedExpression&lt;S1&gt; = from_z_data(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read CommittedExpression&quot;</span>);
-        <span class="macro">assert_eq!</span>(x, de);
-
-       <span class="kw">let </span>ser: Vec&lt;u8&gt; = bincode::serialize(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write CommittedExpression&quot;</span>);
-       <span class="kw">let </span>de: CommittedExpression&lt;S1&gt; = bincode::deserialize(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read CommittedExpression&quot;</span>);
-        <span class="macro">assert_eq!</span>(x, de);
-
         <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">&quot;tmp&quot;</span>).tempdir().expect(<span class="string">&quot;tmp dir&quot;</span>);
         <span class="kw">let </span>tmp_dir_path = Path::new(tmp_dir.path());
         <span class="kw">let </span>committed_expr_path = tmp_dir_path.join(<span class="string">&quot;committedexpr.json&quot;</span>);
-      x.write_to_path(<span class="kw-2">&amp;</span>committed_expr_path);
-      <span class="macro">assert_eq!</span>(x, CommittedExpression::&lt;S1&gt;::read_from_path(<span class="kw-2">&amp;</span>committed_expr_path).unwrap());
+        x.write_to_path(<span class="kw-2">&amp;</span>committed_expr_path);
+        <span class="macro">assert_eq!</span>(x, CommittedExpression::&lt;S1&gt;::read_from_path(<span class="kw-2">&amp;</span>committed_expr_path).unwrap());
       }
     }
 
     <span class="macro">proptest! </span>{
       <span class="attr">#[test]
       </span><span class="kw">fn </span>prop_opening(x <span class="kw">in </span>any::&lt;Opening&lt;S1&gt;&gt;()) {
-        <span class="kw">let </span>ser = to_z_data(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write Opening&quot;</span>);
-        <span class="kw">let </span>de: Opening&lt;S1&gt; = from_z_data(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read Opening&quot;</span>);
-        <span class="macro">assert_eq!</span>(x, de);
-
-       <span class="kw">let </span>ser: Vec&lt;u8&gt; = bincode::serialize(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write Opening&quot;</span>);
-       <span class="kw">let </span>de: Opening&lt;S1&gt; = bincode::deserialize(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read Opening&quot;</span>);
-        <span class="macro">assert_eq!</span>(x, de);
-
         <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">&quot;tmp&quot;</span>).tempdir().expect(<span class="string">&quot;tmp dir&quot;</span>);
         <span class="kw">let </span>tmp_dir_path = Path::new(tmp_dir.path());
         <span class="kw">let </span>opening_path = tmp_dir_path.join(<span class="string">&quot;opening.json&quot;</span>);
-      x.write_to_path(<span class="kw-2">&amp;</span>opening_path);
-      <span class="macro">assert_eq!</span>(x, Opening::&lt;S1&gt;::read_from_path(<span class="kw-2">&amp;</span>opening_path).unwrap());
+        x.write_to_path(<span class="kw-2">&amp;</span>opening_path);
+        <span class="macro">assert_eq!</span>(x, Opening::&lt;S1&gt;::read_from_path(<span class="kw-2">&amp;</span>opening_path).unwrap());
       }
     }
 
     <span class="macro">proptest! </span>{
       <span class="attr">#[test]
       </span><span class="kw">fn </span>prop_claim(x <span class="kw">in </span>any::&lt;Claim&lt;S1&gt;&gt;()) {
-        <span class="kw">let </span>ser = to_z_data(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write Claim&quot;</span>);
-        <span class="kw">let </span>de: Claim&lt;S1&gt; = from_z_data(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read Claim&quot;</span>);
-        <span class="macro">assert_eq!</span>(x, de);
-
-       <span class="kw">let </span>ser: Vec&lt;u8&gt; = bincode::serialize(<span class="kw-2">&amp;</span>x).expect(<span class="string">&quot;write Claim&quot;</span>);
-       <span class="kw">let </span>de: Claim&lt;S1&gt; = bincode::deserialize(<span class="kw-2">&amp;</span>ser).expect(<span class="string">&quot;read Claim&quot;</span>);
-        <span class="macro">assert_eq!</span>(x, de);
-
         <span class="kw">let </span>tmp_dir = Builder::new().prefix(<span class="string">&quot;tmp&quot;</span>).tempdir().expect(<span class="string">&quot;tmp dir&quot;</span>);
         <span class="kw">let </span>tmp_dir_path = Path::new(tmp_dir.path());
         <span class="kw">let </span>claim_path = tmp_dir_path.join(<span class="string">&quot;claim.json&quot;</span>);
-      x.write_to_path(<span class="kw-2">&amp;</span>claim_path);
-      <span class="macro">assert_eq!</span>(x, Claim::&lt;S1&gt;::read_from_path(<span class="kw-2">&amp;</span>claim_path).unwrap());
+        x.write_to_path(<span class="kw-2">&amp;</span>claim_path);
+        <span class="macro">assert_eq!</span>(x, Claim::&lt;S1&gt;::read_from_path(<span class="kw-2">&amp;</span>claim_path).unwrap());
       }
     }
 }
