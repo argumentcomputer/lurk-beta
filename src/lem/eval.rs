@@ -520,11 +520,6 @@ fn apply_cont() -> Func {
             }
         }
     });
-    let run_binop = func!((_operator, _result, _evaled_arg, _env, _continuation): 2 => {
-        // TODO
-        let nil: Expr::Nil;
-        return (nil, nil)
-    });
     func!((result, env, cont, ctrl): 4 => {
         // Useful constants
         let ret: Ctrl::Return;
@@ -741,11 +736,79 @@ fn apply_cont() -> Func {
                     }
                     Cont::Binop2 => {
                         let (operator, evaled_arg, continuation) = unhash3(cont);
-                        let (val, success) = run_binop(operator, result, evaled_arg, env, continuation);
-                        if success == nil {
-                            return (result, env, err, errctrl)
-                        }
-                        return (val, env, continuation, makethunk)
+                        match operator.tag {
+                            Op2::Eval => {
+                                return (evaled_arg, result, continuation, ret)
+                            }
+                            Op2::Cons => {
+                                let val: Expr::Cons = hash2(evaled_arg, result);
+                                return (val, env, continuation, makethunk)
+                            }
+                            Op2::StrCons => {
+                                match evaled_arg.tag {
+                                    Expr::Char => {
+                                        match evaled_arg.tag {
+                                            Expr::Str => {
+                                                let val: Expr::Cons = hash2(evaled_arg, result);
+                                                return (val, env, continuation, makethunk)
+                                            }
+                                        };
+                                        return (result, env, err, errctrl)
+                                    }
+                                };
+                                return (result, env, err, errctrl)
+                            }
+                            Op2::Hide => {
+                                let num = Cast(evaled_arg, Expr::Num);
+                                let hidden = hide(num, result);
+                                return(hidden, env, continuation, makethunk)
+                            }
+                            Op2::Equal => {
+                                // TODO
+                                return (result, env, err, errctrl)
+                            }
+                            Op2::Sum => {
+                                // TODO
+                                return (result, env, err, errctrl)
+                            }
+                            Op2::Diff => {
+                                // TODO
+                                return (result, env, err, errctrl)
+                            }
+                            Op2::Product => {
+                                // TODO
+                                return (result, env, err, errctrl)
+                            }
+                            Op2::Quotient => {
+                                // TODO
+                                return (result, env, err, errctrl)
+                            }
+                            Op2::Modulo => {
+                                // TODO
+                                return (result, env, err, errctrl)
+                            }
+                            Op2::NumEqual => {
+                                // TODO
+                                return (result, env, err, errctrl)
+                            }
+                            Op2::Less => {
+                                // TODO
+                                return (result, env, err, errctrl)
+                            }
+                            Op2::Greater => {
+                                // TODO
+                                return (result, env, err, errctrl)
+                            }
+                            Op2::LessEqual => {
+                                // TODO
+                                return (result, env, err, errctrl)
+                            }
+                            Op2::GreaterEqual => {
+                                // TODO
+                                return (result, env, err, errctrl)
+                            }
+                        };
+                        return (result, env, err, errctrl)
                     }
                     Cont::If => {
                         let (unevaled_args, continuation) = unhash2(cont);
@@ -813,22 +876,21 @@ mod tests {
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
     use blstrs::Scalar as Fr;
 
-    // const NUM_INPUTS: usize = 1;
-    // const NUM_AUX: usize = 111;
-    // const NUM_CONSTRAINTS: usize = 258;
-    // const NUM_SLOTS: SlotsCounter = SlotsCounter {
-    //     hash2: 0,
-    //     hash3: 0,
-    //     hash4: 0,
-    // };
+    const NUM_INPUTS: usize = 1;
+    const NUM_AUX: usize = 8024;
+    const NUM_CONSTRAINTS: usize = 9964;
+    const NUM_SLOTS: SlotsCounter = SlotsCounter {
+        hash2: 16,
+        hash3: 4,
+        hash4: 2,
+    };
 
     fn test_eval_and_constrain_aux(store: &mut Store<Fr>, pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>) {
         let eval_step = eval_step();
 
         let slots_count = eval_step.body.count_slots();
 
-        // assert_eq!(slots_count, NUM_SLOTS);
-        eprintln!("SLOTS_COUNT: {:?}", slots_count);
+        assert_eq!(slots_count, NUM_SLOTS);
 
         let computed_num_constraints = eval_step.num_constraints::<Fr>(&slots_count, store);
 
@@ -860,12 +922,13 @@ mod tests {
                     .synthesize(&mut cs, store, &slots_count, frame)
                     .unwrap();
                 assert!(cs.is_satisfied());
-                // assert_eq!(cs.num_inputs(), NUM_INPUTS);
-                eprintln!("VARIABLES: {}", cs.aux().len());
+                assert_eq!(cs.num_inputs(), NUM_INPUTS);
+                assert_eq!(cs.aux().len(), NUM_AUX);
+
 
                 let num_constraints = cs.num_constraints();
                 assert_eq!(computed_num_constraints, num_constraints);
-                eprintln!("CONSTRAINTS: {}", num_constraints);
+                assert_eq!(num_constraints, NUM_CONSTRAINTS);
                 // TODO: assert uniformity with `Delta` from bellperson
             }
             all_paths.extend(paths);
@@ -873,7 +936,6 @@ mod tests {
 
         // TODO do we really need this?
         // eval_step.assert_all_paths_taken(&all_paths);
-        assert!(false)
     }
 
     fn expr_in_expr_out_pairs(_store: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
