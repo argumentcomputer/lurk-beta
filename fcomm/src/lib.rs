@@ -31,6 +31,13 @@ use lurk::{
     z_ptr::ZExprPtr,
     z_store::ZStore,
 };
+#[cfg(not(target_arch = "wasm32"))]
+use lurk_macros::serde_test;
+
+#[allow(unused_imports)] // this is used in the serde_test macro
+#[cfg(not(target_arch = "wasm32"))]
+use lurk::z_data;
+
 use once_cell::sync::OnceCell;
 use pasta_curves::pallas;
 use rand::rngs::OsRng;
@@ -97,6 +104,7 @@ pub struct Evaluation {
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(not(target_arch = "wasm32"), serde_test(types(S1), zdata(true)))]
 pub struct PtrEvaluation<F: LurkField> {
     pub expr: LurkPtr<F>,
     pub env: LurkPtr<F>,
@@ -186,6 +194,7 @@ pub struct Expression<F: LurkField> {
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
+#[cfg_attr(not(target_arch = "wasm32"), serde_test(types(S1), zdata(true)))]
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct Opening<F: LurkField> {
     pub input: String,
@@ -196,6 +205,7 @@ pub struct Opening<F: LurkField> {
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
+#[cfg_attr(not(target_arch = "wasm32"), serde_test(zdata(true)))]
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 pub struct ZBytes {
     #[serde(with = "base64")]
@@ -206,6 +216,7 @@ pub struct ZBytes {
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
+#[cfg_attr(not(target_arch = "wasm32"), serde_test(types(S1), zdata(true)))]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ZStorePtr<F: LurkField> {
     z_store: ZStore<F>,
@@ -214,6 +225,7 @@ pub struct ZStorePtr<F: LurkField> {
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
+#[cfg_attr(not(target_arch = "wasm32"), serde_test(types(S1), zdata(true)))]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum LurkPtr<F: LurkField> {
     Source(String),
@@ -239,6 +251,7 @@ impl<F: LurkField> Eq for LurkPtr<F> {}
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
+#[cfg_attr(not(target_arch = "wasm32"), serde_test(types(S1), zdata(true)))]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct CommittedExpression<F: LurkField + Serialize> {
     pub expr: LurkPtr<F>,
@@ -265,6 +278,7 @@ pub struct Proof<'a, F: LurkField> {
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
+#[cfg_attr(not(target_arch = "wasm32"), serde_test(types(S1), zdata(true)))]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Claim<F: LurkField> {
     Evaluation(Evaluation),
@@ -1074,6 +1088,7 @@ pub fn evaluate<F: LurkField>(
 #[cfg(test)]
 mod test {
     use super::*;
+    use insta::assert_json_snapshot;
     use lurk::public_parameters::FileStore;
     use std::path::Path;
     use std::sync::Arc;
@@ -1082,7 +1097,57 @@ mod test {
     use lurk::eval::lang::{Coproc, Lang};
     use lurk::proof::{nova::NovaProver, Prover};
     use lurk::public_parameters::public_params;
-    use lurk::z_data::{from_z_data, to_z_data};
+
+    // ## Intent
+    //
+    // Those tests are intended as a trip-wire for changes tghat modify the serialized format of the data structures
+    // involved in fcomm tests. Fcomm already has tests depending on those files (see tests/makefile_tests.rs), but
+    // those tests are expensive to run. Those snapshot tests instead are cheap to run, and will fail if the format
+    // of serialized data structures changes. They will not detect a change in the file location of the Makedile tests.
+    //
+    // ## If you broke this test
+    //
+    // You have broken a snapshot test. Unlike round-trip tests, those tests check the actual format of serialized Lurk expressions,
+    // and since you broke one, it's probable that you have changed that format, which will break at least the fcomm examples.
+    // Please read the documentation on snapshot tests `https://insta.rs/docs/quickstart/`, fix the snapshot **AND**
+    // make sure `cargo nextest run --run-ignored all -E 'test(test_make_fcomm_examples)'` passes
+    #[test]
+    fn test_snapshot_serialized_expressions() {
+        let function_source: &str = "(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))";
+        let function_inputs: &str = "(+ 1 2)";
+        let committed_expression = CommittedExpression::<S1> {
+            expr: LurkPtr::Source(function_source.into()),
+            secret: None,
+            commitment: None,
+        };
+        assert_json_snapshot!(committed_expression);
+
+        let input = Expression::<S1> {
+            expr: LurkPtr::Source(function_inputs.into()),
+        };
+        assert_json_snapshot!(input);
+
+        let c = Commitment {
+            comm: S1::from(123),
+        };
+        assert_json_snapshot!(c);
+
+        let req = OpeningRequest {
+            input,
+            commitment: c,
+            chain: true,
+        };
+        assert_json_snapshot!(req);
+
+        let opening = Opening {
+            input: function_inputs.to_owned(),
+            output: function_inputs.to_owned(),
+            status: Status::Error,
+            commitment: c,
+            new_commitment: None,
+        };
+        assert_json_snapshot!(opening);
+    }
 
     #[test]
     fn test_cert_serialization() {
@@ -1181,136 +1246,81 @@ mod test {
             println!("Commitment: {:?}", commitment);
         }
     }
+
     proptest! {
       #[test]
       fn prop_z_bytes(x in any::<ZBytes>()) {
-        let ser  = to_z_data(&x).expect("write ZBytes");
-        let de: ZBytes = from_z_data(&ser).expect("read ZBytes");
-        assert_eq!(x, de);
-
-        let ser: Vec<u8> = bincode::serialize(&x).expect("write ZBytes");
-        let de: ZBytes = bincode::deserialize(&ser).expect("read ZBytes");
-        assert_eq!(x, de);
-
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let z_bytes_path = tmp_dir_path.join("zbytes.json");
-      x.write_to_path(&z_bytes_path);
-      assert_eq!(x, ZBytes::read_from_path(&z_bytes_path).unwrap());
+        x.write_to_path(&z_bytes_path);
+        assert_eq!(x, ZBytes::read_from_path(&z_bytes_path).unwrap());
       }
     }
 
     proptest! {
       #[test]
       fn prop_z_store_ptr(x in any::<ZStorePtr<S1>>()) {
-        let ser = to_z_data(&x).expect("write ZStorePtr");
-        let de: ZStorePtr<S1> = from_z_data(&ser).expect("read ZStorePtr");
-        assert_eq!(x, de);
-
-        let ser: Vec<u8> = bincode::serialize(&x).expect("write ZStorePtr");
-        let de: ZStorePtr<S1> = bincode::deserialize(&ser).expect("read ZStorePtr");
-        assert_eq!(x, de);
-
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let z_store_ptr_path = tmp_dir_path.join("zstoreptr.json");
-      x.write_to_path(&z_store_ptr_path);
-      assert_eq!(x, ZStorePtr::<S1>::read_from_path(&z_store_ptr_path).unwrap());
+        x.write_to_path(&z_store_ptr_path);
+        assert_eq!(x, ZStorePtr::<S1>::read_from_path(&z_store_ptr_path).unwrap());
       }
     }
 
     proptest! {
       #[test]
       fn prop_lurk_ptr(x in any::<LurkPtr<S1>>()) {
-        let ser = to_z_data(&x).expect("write LurkPtr");
-        let de: LurkPtr<S1> = from_z_data(&ser).expect("read LurkPtr");
-        assert_eq!(x, de);
-
-        let ser: Vec<u8> = bincode::serialize(&x).expect("write LurkPtr");
-        let de: LurkPtr<S1> = bincode::deserialize(&ser).expect("read LurkPtr");
-        assert_eq!(x, de);
-
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let lurk_ptr_path = tmp_dir_path.join("lurkptr.json");
-      x.write_to_path(&lurk_ptr_path);
-      assert_eq!(x, LurkPtr::<S1>::read_from_path(&lurk_ptr_path).unwrap());
+        x.write_to_path(&lurk_ptr_path);
+        assert_eq!(x, LurkPtr::<S1>::read_from_path(&lurk_ptr_path).unwrap());
       }
     }
 
     proptest! {
       #[test]
       fn prop_ptr_evaluation(x in any::<PtrEvaluation<S1>>()) {
-        let ser = to_z_data(&x).expect("write PtrEvaluation");
-        let de: PtrEvaluation<S1> = from_z_data(&ser).expect("read PtrEvaluation");
-        assert_eq!(x, de);
-
-       let ser: Vec<u8> = bincode::serialize(&x).expect("write PtrEvalution");
-       let de: PtrEvaluation<S1> = bincode::deserialize(&ser).expect("read PtrEvaluation");
-       assert_eq!(x, de);
-
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let ptr_evaluation_path = tmp_dir_path.join("ptrevaluation.json");
-      x.write_to_path(&ptr_evaluation_path);
-      assert_eq!(x, PtrEvaluation::<S1>::read_from_path(&ptr_evaluation_path).unwrap());
+        x.write_to_path(&ptr_evaluation_path);
+        assert_eq!(x, PtrEvaluation::<S1>::read_from_path(&ptr_evaluation_path).unwrap());
       }
     }
 
     proptest! {
       #[test]
       fn prop_committed_expr(x in any::<CommittedExpression<S1>>()) {
-        let ser = to_z_data(&x).expect("write CommittedExpression");
-        let de: CommittedExpression<S1> = from_z_data(&ser).expect("read CommittedExpression");
-        assert_eq!(x, de);
-
-       let ser: Vec<u8> = bincode::serialize(&x).expect("write CommittedExpression");
-       let de: CommittedExpression<S1> = bincode::deserialize(&ser).expect("read CommittedExpression");
-        assert_eq!(x, de);
-
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let committed_expr_path = tmp_dir_path.join("committedexpr.json");
-      x.write_to_path(&committed_expr_path);
-      assert_eq!(x, CommittedExpression::<S1>::read_from_path(&committed_expr_path).unwrap());
+        x.write_to_path(&committed_expr_path);
+        assert_eq!(x, CommittedExpression::<S1>::read_from_path(&committed_expr_path).unwrap());
       }
     }
 
     proptest! {
       #[test]
       fn prop_opening(x in any::<Opening<S1>>()) {
-        let ser = to_z_data(&x).expect("write Opening");
-        let de: Opening<S1> = from_z_data(&ser).expect("read Opening");
-        assert_eq!(x, de);
-
-       let ser: Vec<u8> = bincode::serialize(&x).expect("write Opening");
-       let de: Opening<S1> = bincode::deserialize(&ser).expect("read Opening");
-        assert_eq!(x, de);
-
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let opening_path = tmp_dir_path.join("opening.json");
-      x.write_to_path(&opening_path);
-      assert_eq!(x, Opening::<S1>::read_from_path(&opening_path).unwrap());
+        x.write_to_path(&opening_path);
+        assert_eq!(x, Opening::<S1>::read_from_path(&opening_path).unwrap());
       }
     }
 
     proptest! {
       #[test]
       fn prop_claim(x in any::<Claim<S1>>()) {
-        let ser = to_z_data(&x).expect("write Claim");
-        let de: Claim<S1> = from_z_data(&ser).expect("read Claim");
-        assert_eq!(x, de);
-
-       let ser: Vec<u8> = bincode::serialize(&x).expect("write Claim");
-       let de: Claim<S1> = bincode::deserialize(&ser).expect("read Claim");
-        assert_eq!(x, de);
-
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
         let tmp_dir_path = Path::new(tmp_dir.path());
         let claim_path = tmp_dir_path.join("claim.json");
-      x.write_to_path(&claim_path);
-      assert_eq!(x, Claim::<S1>::read_from_path(&claim_path).unwrap());
+        x.write_to_path(&claim_path);
+        assert_eq!(x, Claim::<S1>::read_from_path(&claim_path).unwrap());
       }
     }
 }

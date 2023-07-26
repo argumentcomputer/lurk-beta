@@ -1,0 +1,11 @@
+---
+source: fcomm/src/lib.rs
+expression: committed_expression
+---
+{
+  "expr": {
+    "Source": "(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))"
+  },
+  "secret": null,
+  "commitment": null
+}

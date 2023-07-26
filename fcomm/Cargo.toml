@@ -23,6 +23,7 @@ ff = { workspace = true }
 hex = { version = "0.4.3", features = ["serde"] }
 log = { workspace = true }
 lurk = { path = "../", package = "lurk" }
+lurk-macros = { path = "../lurk-macros" }
 once_cell = { workspace = true }
 pairing = { workspace = true }
 pasta_curves = { workspace = true, features = ["repr-c", "serde"] }
@@ -37,6 +38,7 @@ thiserror = { workspace = true }
 [dev-dependencies]
 assert_cmd = "2.0.12"
 camino = "1.1.6"
+insta = { version = "1.31.0", features = ["json"] }
 num_cpus = "1.16.0"
 predicates = "2.1.5"
 tempfile = "3.6.0"
