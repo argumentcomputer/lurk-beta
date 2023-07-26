@@ -925,7 +925,6 @@ mod tests {
                 assert_eq!(cs.num_inputs(), NUM_INPUTS);
                 assert_eq!(cs.aux().len(), NUM_AUX);
 
-
                 let num_constraints = cs.num_constraints();
                 assert_eq!(computed_num_constraints, num_constraints);
                 assert_eq!(num_constraints, NUM_CONSTRAINTS);
