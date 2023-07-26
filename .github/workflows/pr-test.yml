@@ -3,7 +3,9 @@ name: Lurk CI tests
 on:
   merge_group:
   push:
-    branches-ignored: [master]
+    branches-ignore:
+      - "gh-readonly-queue/**"
+      - "master"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [master]
