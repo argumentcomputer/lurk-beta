@@ -384,7 +384,7 @@ impl<F: LurkField> Ptr<F> {
     }
 }
 
-pub(crate) fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
+pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     val: F,
 ) -> Result<AllocatedNum<F>, SynthesisError> {

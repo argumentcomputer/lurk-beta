@@ -433,7 +433,7 @@ where
 }
 
 // This could now use alloc_is_zero to avoid duplication.
-pub(crate) fn alloc_equal<CS: ConstraintSystem<F>, F: PrimeField>(
+pub fn alloc_equal<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     a: &AllocatedNum<F>,
     b: &AllocatedNum<F>,

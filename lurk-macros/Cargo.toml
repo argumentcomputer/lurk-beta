@@ -11,11 +11,11 @@ repository = "https://github.com/lurk-lab/lurk-rs"
 proc-macro = true
 
 [dependencies]
-proc-macro2 = "1.0.24"
-quote = "1.0.9"
-syn = { version = "1.0.64", features = ["derive", "extra-traits", "full"] }
-proptest = "1.1.0"
-proptest-derive = "0.3.0"
+proc-macro2 = "1.0.66"
+quote = "1.0.31"
+syn = { version = "1.0.109", features = ["derive", "extra-traits", "full"] }
+proptest = { workspace = true }
+proptest-derive = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]

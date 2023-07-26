@@ -44,6 +44,7 @@ impl<Name: Debug, F: LurkField, PreimageType> Slot<Name, AllocatedHash<F, Preima
             consumed: false,
         }
     }
+
     #[allow(dead_code)]
     pub(crate) fn is_dummy(&self) -> bool {
         self.name.is_err()
@@ -60,7 +61,6 @@ impl<Name: Debug, F: LurkField, PreimageType> Slot<Name, AllocatedHash<F, Preima
 }
 
 pub struct AllocatedWitness<'a, VanillaWitness, Name: Debug, AllocatedType> {
-    #[allow(dead_code)]
     pub(crate) witness: &'a VanillaWitness, // Sometimes used for debugging.
     slots: Vec<Slot<Name, AllocatedType>>,
 }

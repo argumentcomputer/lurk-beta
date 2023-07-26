@@ -132,7 +132,6 @@ pub struct ZPtr<F: LurkField> {
 /// `ZChildren` keeps track of the children of `ZPtr`s, in case they have any.
 /// This information is saved during hydration and is needed to content-address
 /// a store.
-#[allow(dead_code)]
 pub(crate) enum ZChildren<F: LurkField> {
     Tree2(ZPtr<F>, ZPtr<F>),
     Tree3(ZPtr<F>, ZPtr<F>, ZPtr<F>),

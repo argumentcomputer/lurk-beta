@@ -2913,7 +2913,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
     ),
     SynthesisError,
 > {
-    let c = store.get_constants();
     let mut hash_default_results = HashInputResults::default();
     let mut results = Results::default();
 
@@ -3754,11 +3753,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let args_equal = arg1_final.alloc_equal(&mut cs.namespace(|| "args_equal"), &arg2_final)?;
 
-        let args_equal_ptr = AllocatedPtr::pick_const(
+        let args_equal_ptr = AllocatedPtr::as_lurk_boolean(
             &mut cs.namespace(|| "args_equal_ptr"),
+            store,
             &args_equal,
-            &c.t.z_ptr(),
-            &c.nil.z_ptr(),
         )?;
 
         let not_dummy = cont.alloc_tag_equal(
@@ -5460,7 +5458,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(dead_code)]
     fn t_self_evaluating() {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
@@ -5623,7 +5620,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(dead_code)]
     fn non_self_evaluating() {
         let mut store = Store::default();
         let env = empty_sym_env(&store);

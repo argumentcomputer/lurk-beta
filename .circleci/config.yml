@@ -87,7 +87,7 @@ commands:
             # Normalize the host for MacOS downloads
             url="https://get.nexte.st/latest/${host/*-apple-darwin/universal-apple-darwin}.tar.gz"
             # Debug
-            echo "Fetching nextest at $url" 
+            echo "Fetching nextest at $url"
             # If nextest isn't here already
             [ -f ${CARGO_HOME:-~/.cargo/bin}/cargo-nextest ] ||
             # Download binary and install to $HOME/.cargo/bin
@@ -138,35 +138,6 @@ jobs:
           paths:
             - lurk
       - save_rustup_cache
-
-  linux:
-    executor: default
-    environment: *setup-env
-    steps:
-      - checkout
-      - attach_workspace:
-          at: "~/"
-      - install_gpu_deps
-      - restore_rustup_cache
-      - run: sudo apt install clang
-      - set_env_path
-      - setup-sccache
-      - run: rustup target add wasm32-unknown-unknown
-      - restore-sccache-cache
-      - run:
-          name: Wasm compiles sucessfully, 
-          command: cargo build --target wasm32-unknown-unknown
-      - run:
-          name: Linux Tests
-          command: cargo nextest run --profile ci --workspace --cargo-profile dev-ci
-          no_output_timeout: 120m
-      - run:
-          name: Linux Gadget Tests w/o debug assertions
-          command: cargo nextest run --profile ci --workspace --cargo-profile dev-no-assertions -E 'test(circuit::gadgets)'
-      - save-sccache-cache
-      - run:
-          name: Print sccache stats
-          command: sccache -s
 
   linux_release:
     executor: default
@@ -289,7 +260,7 @@ jobs:
           at: "~/"
       - restore_rustup_cache
       - run: cargo clippy --all -- -D warnings
-      
+
   rustfmt:
     executor: default
     environment: *setup-env
@@ -300,25 +271,14 @@ jobs:
           at: "~/"
       - restore_rustup_cache
       - run: cargo fmt --all -- --check
-      
+
 workflows:
   test-all:
     jobs:
       - cargo_fetch:
           filters:
             branches:
-                ignore: 
-                  - gh-pages
-                  - staging.tmp
-                  - trying.tmp
-                  - staging-squash-merge.tmp
-      - linux:
-          requires:
-            - cargo_fetch
-          filters:
-            branches:
-                ignore: 
-                  - master
+                ignore:
                   - gh-pages
                   - staging.tmp
                   - trying.tmp
@@ -326,7 +286,7 @@ workflows:
       - arm64:
           filters:
             branches:
-                ignore: 
+                ignore:
                   - master
                   - gh-pages
                   - staging.tmp
@@ -335,7 +295,7 @@ workflows:
       - mac:
           filters:
             branches:
-                ignore: 
+                ignore:
                   - master
                   - gh-pages
                   - staging.tmp
@@ -346,7 +306,7 @@ workflows:
             - cargo_fetch
           filters:
             branches:
-                ignore: 
+                ignore:
                   - master
                   - gh-pages
                   - staging.tmp
@@ -357,7 +317,7 @@ workflows:
             - cargo_fetch
           filters:
             branches:
-                ignore: 
+                ignore:
                   - master
                   - gh-pages
                   - staging.tmp
@@ -368,7 +328,7 @@ workflows:
             - cargo_fetch
           filters:
             branches:
-                ignore: 
+                ignore:
                   - master
                   - gh-pages
                   - staging.tmp
@@ -387,5 +347,3 @@ workflows:
         - linux_exhaustive:
             requires:
               - cargo_fetch
-                
-

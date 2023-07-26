@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use std::{fs::read_to_string, process, time::Instant};
+use std::{fs::read_to_string, process};
 
 use anyhow::{bail, Context, Result};
 
@@ -37,13 +37,7 @@ use lurk::{
 };
 
 #[cfg(not(target_arch = "wasm32"))]
-use std::{fs::File, io::BufWriter};
-
-#[cfg(not(target_arch = "wasm32"))]
-use super::{
-    lurk_proof::{LurkProof, LurkProofMeta},
-    paths::{proof_meta_path, proof_path},
-};
+use super::lurk_proof::{LurkProof, LurkProofMeta};
 
 #[derive(Completer, Helper, Highlighter, Hinter)]
 struct InputValidator {
@@ -106,7 +100,6 @@ impl Backend {
 struct Evaluation<F: LurkField> {
     frames: Vec<Frame<IO<F>, Witness<F>, Coproc<F>>>,
     iterations: usize,
-    cost: u128,
 }
 
 #[allow(dead_code)]
@@ -136,15 +129,6 @@ fn pad(a: usize, m: usize) -> usize {
     (a + m - 1) / m * m
 }
 
-#[allow(dead_code)]
-fn timestamp() -> u128 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("We're after UNIX_EPOCH")
-        .as_nanos()
-}
-
 type F = pasta_curves::pallas::Scalar; // TODO: generalize this
 
 impl Repl<F> {
@@ -164,85 +148,132 @@ impl Repl<F> {
         }
     }
 
+    #[allow(dead_code)]
+    fn proof_claim(
+        store: &mut Store<F>,
+        exprs: (Ptr<F>, Ptr<F>),
+        envs: (Ptr<F>, Ptr<F>),
+        conts: ((F, F), (F, F)),
+    ) -> Ptr<F> {
+        let expr_key = store.key("expr");
+        let env_key = store.key("env");
+        let cont_key = store.key("cont");
+        let expr_out_key = store.key("expr-out");
+        let env_out_key = store.key("env-out");
+        let cont_out_key = store.key("cont-out");
+        let cont_tag = store.num(Num::Scalar(conts.0 .0));
+        let cont_val = store.num(Num::Scalar(conts.0 .1));
+        let cont = store.cons(cont_tag, cont_val);
+        let cont_out_tag = store.num(Num::Scalar(conts.1 .0));
+        let cont_out_val = store.num(Num::Scalar(conts.1 .1));
+        let cont_out = store.cons(cont_out_tag, cont_out_val);
+        store.list(&[
+            expr_key,
+            exprs.0,
+            env_key,
+            envs.0,
+            cont_key,
+            cont,
+            expr_out_key,
+            exprs.1,
+            env_out_key,
+            envs.1,
+            cont_out_key,
+            cont_out,
+        ])
+    }
+
+    #[allow(dead_code)]
+    fn proof_key(backend: &Backend, rc: &usize, claim_hash: &str) -> String {
+        let field = F::FIELD;
+        format!("{backend}_{field}_{rc}_{claim_hash}")
+    }
+
     #[cfg(not(target_arch = "wasm32"))]
     pub fn prove_last_frames(&mut self) -> Result<()> {
-        use crate::cli::lurk_proof::FieldData;
+        use crate::cli::{commitment::Commitment, paths::non_wasm::proof_path};
 
         match self.evaluation.as_mut() {
             None => bail!("No evaluation to prove"),
-            Some(Evaluation {
-                frames,
-                iterations,
-                cost,
-            }) => match self.backend {
+            Some(Evaluation { frames, iterations }) => match self.backend {
                 Backend::Nova => {
-                    // padding the frames, if needed
-                    let mut n_frames = frames.len();
-                    let n_pad = pad(n_frames, self.rc) - n_frames;
-                    if n_pad != 0 {
-                        frames.extend(vec![frames[n_frames - 1].clone(); n_pad]);
-                        n_frames = frames.len();
-                    }
-
-                    let prover = NovaProver::new(self.rc, (*self.lang).clone());
-
-                    info!("Loading public parameters");
-                    let pp = public_params(self.rc, self.lang.clone())?;
-
                     info!("Hydrating the store");
                     self.store.hydrate_scalar_cache();
 
                     // saving to avoid clones
                     let input = &frames[0].input;
                     let output = &frames[*iterations].output;
-                    let status = output.cont.into();
                     let mut zstore = Some(ZStore::<F>::default());
-                    let expression = self.store.get_z_expr(&input.expr, &mut zstore)?.0;
-                    let environment = self.store.get_z_expr(&input.env, &mut zstore)?.0;
-                    let result = self.store.get_z_expr(&output.expr, &mut zstore)?.0;
+                    let expr = self.store.get_z_expr(&input.expr, &mut zstore)?.0;
+                    let env = self.store.get_z_expr(&input.env, &mut zstore)?.0;
+                    let cont = self.store.get_z_cont(&input.cont, &mut zstore)?.0;
+                    let expr_out = self.store.get_z_expr(&output.expr, &mut zstore)?.0;
+                    let env_out = self.store.get_z_expr(&output.env, &mut zstore)?.0;
+                    let cont_out = self.store.get_z_cont(&output.cont, &mut zstore)?.0;
 
-                    info!("Proving and compressing");
-                    let start = Instant::now();
-                    let (proof, public_inputs, public_outputs, num_steps) =
-                        prover.prove(&pp, frames, &mut self.store, self.lang.clone())?;
-                    let generation = Instant::now();
-                    let proof = proof.compress(&pp)?;
-                    let compression = Instant::now();
-                    assert_eq!(self.rc * num_steps, n_frames);
-                    assert!(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?);
+                    let claim = Self::proof_claim(
+                        &mut self.store,
+                        (input.expr, output.expr),
+                        (input.env, output.env),
+                        (cont.parts(), cont_out.parts()),
+                    );
 
-                    let lurk_proof_wrap = FieldData::wrap::<F, LurkProof<'_>>(&LurkProof::Nova {
-                        proof,
-                        public_inputs,
-                        public_outputs,
-                        num_steps,
-                        rc: self.rc,
-                        lang: (*self.lang).clone(),
-                    })?;
+                    let claim_comm = Commitment::new(None, claim, &mut self.store)?;
+                    let claim_hash = &claim_comm.hash.hex_digits();
+                    let proof_key = &Self::proof_key(&self.backend, &self.rc, claim_hash);
+                    let proof_path = proof_path(proof_key);
 
-                    let lurk_proof_meta_wrap =
-                        FieldData::wrap::<F, LurkProofMeta<F>>(&LurkProofMeta {
+                    if proof_path.exists() {
+                        info!("Proof already cached");
+                        // TODO: make sure that the proof file is not corrupted
+                    } else {
+                        info!("Proof not cached");
+                        // padding the frames, if needed
+                        let mut n_frames = frames.len();
+                        let n_pad = pad(n_frames, self.rc) - n_frames;
+                        if n_pad != 0 {
+                            frames.extend(vec![frames[n_frames - 1].clone(); n_pad]);
+                            n_frames = frames.len();
+                        }
+
+                        info!("Loading public parameters");
+                        let pp = public_params(self.rc, self.lang.clone())?;
+
+                        let prover = NovaProver::new(self.rc, (*self.lang).clone());
+
+                        info!("Proving and compressing");
+                        let (proof, public_inputs, public_outputs, num_steps) =
+                            prover.prove(&pp, frames, &mut self.store, self.lang.clone())?;
+                        let proof = proof.compress(&pp)?;
+                        assert_eq!(self.rc * num_steps, n_frames);
+                        assert!(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?);
+
+                        let lurk_proof = LurkProof::Nova {
+                            proof,
+                            public_inputs,
+                            public_outputs,
+                            num_steps,
+                            rc: self.rc,
+                            lang: (*self.lang).clone(),
+                        };
+
+                        let lurk_proof_meta = LurkProofMeta {
                             iterations: *iterations,
-                            evaluation_cost: *cost,
-                            generation_cost: generation.duration_since(start).as_nanos(),
-                            compression_cost: compression.duration_since(generation).as_nanos(),
-                            status,
-                            expression,
-                            environment,
-                            result,
+                            expr,
+                            env,
+                            cont,
+                            expr_out,
+                            env_out,
+                            cont_out,
                             zstore: zstore.unwrap(),
-                        })?;
+                        };
 
-                    let id = &format!("{}", timestamp());
-                    bincode::serialize_into(
-                        BufWriter::new(&File::create(proof_path(id))?),
-                        &lurk_proof_wrap,
-                    )?;
-                    bincode::serialize_into(
-                        BufWriter::new(&File::create(proof_meta_path(id))?),
-                        &lurk_proof_meta_wrap,
-                    )?;
-                    println!("Proof ID: \"{id}\"");
+                        lurk_proof.persist(proof_key)?;
+                        lurk_proof_meta.persist(proof_key)?;
+                        claim_comm.persist()?;
+                    }
+                    println!("Claim hash: 0x{claim_hash}");
+                    println!("Proof key: \"{proof_key}\"");
                     Ok(())
                 }
                 Backend::SnarkPackPlus => todo!(),
@@ -250,9 +281,92 @@ impl Repl<F> {
         }
     }
 
-    #[inline]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn hide(&mut self, secret: F, payload: Ptr<F>) -> Result<()> {
+        use super::commitment::Commitment;
+
+        let commitment = Commitment::new(Some(secret), payload, &mut self.store)?;
+        let hash_str = &commitment.hash.hex_digits();
+        commitment.persist()?;
+        println!(
+            "Data: {}\nHash: 0x{hash_str}",
+            payload.fmt_to_string(&self.store)
+        );
+        Ok(())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn fetch(&mut self, hash: &F, print_data: bool) -> Result<()> {
+        use lurk::z_ptr::ZExprPtr;
+
+        use super::{
+            commitment::Commitment, field_data::non_wasm::load, paths::non_wasm::commitment_path,
+        };
+
+        let commitment: Commitment<F> = load(commitment_path(&hash.hex_digits()))?;
+        let comm_hash = commitment.hash;
+        if &comm_hash != hash {
+            bail!("Hash mismatch. Corrupted commitment file.")
+        } else {
+            // create a ZExprPtr with the intended hash
+            let comm_zptr = &ZExprPtr::from_parts(ExprTag::Comm, comm_hash);
+            // populate the REPL's store with the data
+            let comm_ptr = self
+                .store
+                .intern_z_expr_ptr(comm_zptr, &commitment.zstore)
+                .unwrap();
+            if print_data {
+                let data = self.store.fetch_comm(&comm_ptr).unwrap().1;
+                println!("{}", data.fmt_to_string(&self.store));
+            } else {
+                println!("Data is now available");
+            }
+        }
+        Ok(())
+    }
+
+    fn pretty_iterations_display(iterations: usize) -> String {
+        if iterations != 1 {
+            format!("{iterations} iterations")
+        } else {
+            "1 iteration".into()
+        }
+    }
+
     fn eval_expr(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize, Vec<Ptr<F>>)> {
-        Ok(Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang).eval()?)
+        let ret =
+            Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang).eval()?;
+        match ret.0.cont.tag {
+            ContTag::Terminal => Ok(ret),
+            t => {
+                let iterations_display = Self::pretty_iterations_display(ret.1);
+                match t {
+                    ContTag::Error => {
+                        bail!("Evaluation encountered an error after {iterations_display}")
+                    }
+                    _ => bail!("Limit reached after {iterations_display}"),
+                }
+            }
+        }
+    }
+
+    fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
+        self.eval_expr_and_memoize(expr_ptr)
+            .map(|(output, iterations)| {
+                let iterations_display = Self::pretty_iterations_display(iterations);
+                match output.cont.tag {
+                    ContTag::Terminal => {
+                        println!(
+                            "[{iterations_display}] => {}",
+                            output.expr.fmt_to_string(&self.store)
+                        )
+                    }
+                    ContTag::Error => {
+                        println!("Evaluation encountered an error after {iterations_display}")
+                    }
+                    _ => println!("Limit reached after {iterations_display}"),
+                }
+            })
     }
 
     fn peek1(&self, cmd: &str, args: &Ptr<F>) -> Result<Ptr<F>> {
@@ -290,6 +404,21 @@ impl Repl<F> {
                 first.fmt_to_string(&self.store)
             ),
         }
+    }
+
+    #[allow(dead_code)]
+    fn get_comm_hash(&mut self, cmd: &str, args: &Ptr<F>) -> Result<F> {
+        let first = self.peek1(cmd, args)?;
+        let n = self.store.lurk_sym("num");
+        let expr = self.store.list(&[n, first]);
+        let (expr_io, ..) = self
+            .eval_expr(expr)
+            .with_context(|| "evaluating first arg")?;
+        let hash = self
+            .store
+            .fetch_num(&expr_io.expr)
+            .expect("must be a number");
+        Ok(hash.into_scalar())
     }
 
     fn handle_meta_cases(&mut self, cmd: &str, args: &Ptr<F>, pwd_path: &Path) -> Result<()> {
@@ -407,13 +536,50 @@ impl Repl<F> {
             }
             "assert-error" => {
                 let first = self.peek1(cmd, args)?;
-                let (first_io, ..) = self.eval_expr(first)?;
-                if first_io.cont.tag != ContTag::Error {
+                if self.eval_expr(first).is_ok() {
                     eprintln!(
                         "`assert-error` failed. {} doesn't result on evaluation error.",
                         first.fmt_to_string(&self.store)
                     );
                     process::exit(1);
+                }
+            }
+            "lurk.commit" => {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    let first = self.peek1(cmd, args)?;
+                    let (first_io, ..) = self.eval_expr(first)?;
+                    self.hide(ff::Field::ZERO, first_io.expr)?;
+                }
+            }
+            "lurk.hide" => {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    let (first, second) = self.peek2(cmd, args)?;
+                    let (first_io, ..) = self
+                        .eval_expr(first)
+                        .with_context(|| "evaluating first arg")?;
+                    let (second_io, ..) = self
+                        .eval_expr(second)
+                        .with_context(|| "evaluating second arg")?;
+                    let Some(secret) = self.store.fetch_num(&first_io.expr) else {
+                    bail!("Secret must be a number. Got {}", first_io.expr.fmt_to_string(&self.store))
+                };
+                    self.hide(secret.into_scalar(), second_io.expr)?;
+                }
+            }
+            "fetch" => {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    let hash = self.get_comm_hash(cmd, args)?;
+                    self.fetch(&hash, false)?;
+                }
+            }
+            "lurk.open" => {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    let hash = self.get_comm_hash(cmd, args)?;
+                    self.fetch(&hash, true)?;
                 }
             }
             "clear" => self.env = self.store.nil(),
@@ -475,10 +641,8 @@ impl Repl<F> {
     }
 
     fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize)> {
-        let start = Instant::now();
         let frames = Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang)
             .get_frames()?;
-        let cost = Instant::now().duration_since(start).as_nanos();
 
         let last_idx = frames.len() - 1;
         let last_frame = &frames[last_idx];
@@ -488,35 +652,12 @@ impl Repl<F> {
 
         // FIXME: proving is not working for incomplete computations
         if last_frame.is_complete() {
-            self.evaluation = Some(Evaluation {
-                frames,
-                iterations,
-                cost,
-            })
+            self.evaluation = Some(Evaluation { frames, iterations })
         } else {
             iterations += 1;
         }
 
         Ok((last_output, iterations))
-    }
-
-    fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
-        self.eval_expr_and_memoize(expr_ptr)
-            .map(|(output, iterations)| {
-                let prefix = if iterations != 1 {
-                    format!("[{iterations} iterations] => ")
-                } else {
-                    "[1 iteration] => ".into()
-                };
-
-                let suffix = match output.cont.tag {
-                    ContTag::Terminal => output.expr.fmt_to_string(&self.store),
-                    ContTag::Error => "ERROR!".into(),
-                    _ => "Computation incomplete (limit reached)".into(),
-                };
-
-                println!("{}{}", prefix, suffix);
-            })
     }
 
     fn handle_form<'a>(
@@ -571,7 +712,7 @@ impl Repl<F> {
         }));
 
         #[cfg(not(target_arch = "wasm32"))]
-        let history_path = &crate::cli::paths::repl_history();
+        let history_path = &crate::cli::paths::non_wasm::repl_history();
 
         #[cfg(not(target_arch = "wasm32"))]
         if history_path.exists() {
