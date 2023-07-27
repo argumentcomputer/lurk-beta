@@ -77,7 +77,7 @@ pub enum MetricType {
 pub enum Metric {
     Counter(ValueAndCount<u64>),
     Gauge(ValueAndCount<f64>),
-    // We currently have a fixed scaling configuration for histograms that is tuned for
+    // Fixed scaling configuration for histograms, tuned for
     // microsecond-scale latency timers. It saturates at 60 seconds.
     Histogram(hdrhistogram::Histogram<u64>),
 }
