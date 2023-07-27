@@ -563,8 +563,11 @@ impl Repl<F> {
                         .eval_expr(second)
                         .with_context(|| "evaluating second arg")?;
                     let Some(secret) = self.store.fetch_num(&first_io.expr) else {
-                    bail!("Secret must be a number. Got {}", first_io.expr.fmt_to_string(&self.store))
-                };
+                        bail!(
+                            "Secret must be a number. Got {}",
+                            first_io.expr.fmt_to_string(&self.store)
+                        )
+                    };
                     self.hide(secret.into_scalar(), second_io.expr)?;
                 }
             }

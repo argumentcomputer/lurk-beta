@@ -88,8 +88,11 @@ tempfile = "3.6.0"
 
 [workspace]
 resolver = "2"
-members = ["clutch",
- "fcomm", "lurk-macros"
+members = [
+    "clutch",
+    "fcomm", 
+    "lurk-macros",
+    "lurk-metrics"
 ]
 
 # Dependencies that should be kept in sync through the whole workspace
