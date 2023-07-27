@@ -139,7 +139,8 @@ use bellperson::{
 
 use crate::circuit::gadgets::{
     constraints::{
-        alloc_equal, alloc_equal_const, and, enforce_selector_with_premise, implies_equal,
+        add, alloc_equal, alloc_equal_const, and, enforce_selector_with_premise, implies_equal,
+        mul, sub,
     },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
@@ -753,6 +754,48 @@ impl Func {
                         let allocated_ptr = AllocatedPtr::from_parts(tag, src.hash().clone());
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
+                    Op::Add(tgt, a, b) => {
+                        let a = bound_allocations.get(a)?;
+                        let b = bound_allocations.get(b)?;
+                        // TODO check that the tags are correct
+                        let a_num = a.hash();
+                        let b_num = b.hash();
+                        let c_num = add(&mut cs.namespace(|| "add"), a_num, b_num)?;
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let c = AllocatedPtr::from_parts(tag, c_num);
+                        bound_allocations.insert(tgt.clone(), c);
+                    }
+                    Op::Sub(tgt, a, b) => {
+                        let a = bound_allocations.get(a)?;
+                        let b = bound_allocations.get(b)?;
+                        // TODO check that the tags are correct
+                        let a_num = a.hash();
+                        let b_num = b.hash();
+                        let c_num = sub(&mut cs.namespace(|| "sub"), a_num, b_num)?;
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let c = AllocatedPtr::from_parts(tag, c_num);
+                        bound_allocations.insert(tgt.clone(), c);
+                    }
+                    Op::Mul(tgt, a, b) => {
+                        let a = bound_allocations.get(a)?;
+                        let b = bound_allocations.get(b)?;
+                        // TODO check that the tags are correct
+                        let a_num = a.hash();
+                        let b_num = b.hash();
+                        let c_num = mul(&mut cs.namespace(|| "mul"), a_num, b_num)?;
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let c = AllocatedPtr::from_parts(tag, c_num);
+                        bound_allocations.insert(tgt.clone(), c);
+                    }
+                    Op::Div(_tgt, _a, _b) => {
+                        // TODO
+                    }
                     Op::Hide(tgt, _sec, _pay) => {
                         // TODO
                         let allocated_ptr = AllocatedPtr::from_parts(
@@ -1026,6 +1069,21 @@ impl Func {
                     }
                     Op::Cast(_tgt, tag, _src) => {
                         globals.insert(FWrap(tag.to_field()));
+                    }
+                    Op::Add(_, _, _) => {
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        num_constraints += 1;
+                    }
+                    Op::Sub(_, _, _) => {
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        num_constraints += 1;
+                    }
+                    Op::Mul(_, _, _) => {
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        num_constraints += 1;
+                    }
+                    Op::Div(_, _, _) => {
+                        // TODO
                     }
                     Op::Hash2(_, tag, _) => {
                         // tag for the image

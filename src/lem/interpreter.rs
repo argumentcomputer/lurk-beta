@@ -77,6 +77,50 @@ impl Block {
                     let tgt_ptr = src_ptr.cast(*tag);
                     bindings.insert(tgt.clone(), tgt_ptr);
                 }
+                Op::Add(tgt, a, b) => {
+                    let a = bindings.get(a)?;
+                    let b = bindings.get(b)?;
+                    let c = match (a, b) {
+                        (Ptr::Leaf(Tag::Expr(Num), f), Ptr::Leaf(Tag::Expr(Num), g)) => {
+                            Ptr::Leaf(Tag::Expr(Num), *f + *g)
+                        }
+                        _ => bail!("Addition only works on numbers"),
+                    };
+                    bindings.insert(tgt.clone(), c);
+                }
+                Op::Sub(tgt, a, b) => {
+                    let a = bindings.get(a)?;
+                    let b = bindings.get(b)?;
+                    let c = match (a, b) {
+                        (Ptr::Leaf(Tag::Expr(Num), f), Ptr::Leaf(Tag::Expr(Num), g)) => {
+                            Ptr::Leaf(Tag::Expr(Num), *f - *g)
+                        }
+                        _ => bail!("Addition only works on numbers"),
+                    };
+                    bindings.insert(tgt.clone(), c);
+                }
+                Op::Mul(tgt, a, b) => {
+                    let a = bindings.get(a)?;
+                    let b = bindings.get(b)?;
+                    let c = match (a, b) {
+                        (Ptr::Leaf(Tag::Expr(Num), f), Ptr::Leaf(Tag::Expr(Num), g)) => {
+                            Ptr::Leaf(Tag::Expr(Num), *f * *g)
+                        }
+                        _ => bail!("Addition only works on numbers"),
+                    };
+                    bindings.insert(tgt.clone(), c);
+                }
+                Op::Div(tgt, a, b) => {
+                    let a = bindings.get(a)?;
+                    let b = bindings.get(b)?;
+                    let c = match (a, b) {
+                        (Ptr::Leaf(Tag::Expr(Num), f), Ptr::Leaf(Tag::Expr(Num), g)) => {
+                            Ptr::Leaf(Tag::Expr(Num), *f * g.invert().unwrap())
+                        }
+                        _ => bail!("Division only works on numbers"),
+                    };
+                    bindings.insert(tgt.clone(), c);
+                }
                 Op::Hash2(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
                     let tgt_ptr = store.intern_2_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1]);

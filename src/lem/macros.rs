@@ -57,11 +57,39 @@ macro_rules! op {
             $crate::lit!($constr($str))
         )
     };
-    ( let $tgt:ident = Cast($src:ident, $kind:ident::$tag:ident) ) => {
+    ( let $tgt:ident = cast($src:ident, $kind:ident::$tag:ident) ) => {
         $crate::lem::Op::Cast(
             $crate::var!($tgt),
             $crate::tag!($kind::$tag),
             $crate::var!($src),
+        )
+    };
+    ( let $tgt:ident = add($a:ident, $b:ident) ) => {
+        $crate::lem::Op::Add(
+            $crate::var!($tgt),
+            $crate::var!($a),
+            $crate::var!($b),
+        )
+    };
+    ( let $tgt:ident = sub($a:ident, $b:ident) ) => {
+        $crate::lem::Op::Sub(
+            $crate::var!($tgt),
+            $crate::var!($a),
+            $crate::var!($b),
+        )
+    };
+    ( let $tgt:ident = mul($a:ident, $b:ident) ) => {
+        $crate::lem::Op::Mul(
+            $crate::var!($tgt),
+            $crate::var!($a),
+            $crate::var!($b),
+        )
+    };
+    ( let $tgt:ident = div($a:ident, $b:ident) ) => {
+        $crate::lem::Op::Div(
+            $crate::var!($tgt),
+            $crate::var!($a),
+            $crate::var!($b),
         )
     };
     ( let $tgt:ident : $kind:ident::$tag:ident = hash2($src1:ident, $src2:ident) ) => {
@@ -208,12 +236,52 @@ macro_rules! block {
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, let $tgt:ident = Cast($src:ident, $kind:ident::$tag:ident) ; $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, let $tgt:ident = cast($src:ident, $kind:ident::$tag:ident) ; $($tail:tt)*) => {
         $crate::block! (
             @seq
             {
                 $($limbs)*
-                $crate::op!(let $tgt = Cast($src, $kind::$tag))
+                $crate::op!(let $tgt = cast($src, $kind::$tag))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = add($a:ident, $b:ident) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = add($a, $b))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = sub($a:ident, $b:ident) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = sub($a, $b))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = mul($a:ident, $b:ident) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = mul($a, $b))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = div($a:ident, $b:ident) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = div($a, $b))
             },
             $($tail)*
         )

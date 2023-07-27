@@ -663,7 +663,7 @@ fn apply_cont() -> Func {
                             Op1::Num => {
                                 match result.tag {
                                     Expr::Num | Expr::Comm | Expr::Char | Expr::U64 => {
-                                        let cast = Cast(result, Expr::Num);
+                                        let cast = cast(result, Expr::Num);
                                         return(cast, env, continuation, makethunk)
                                     }
                                 };
@@ -676,7 +676,7 @@ fn apply_cont() -> Func {
                                         // But 2^64 is out-of-range of u64, so we will
                                         // maybe use u128
                                         // let limit = Num(18446744073709551616);
-                                        let cast = Cast(result, Expr::U64);
+                                        let cast = cast(result, Expr::U64);
                                         return(cast, env, continuation, makethunk)
                                     }
                                     Expr::U64 => {
@@ -688,7 +688,7 @@ fn apply_cont() -> Func {
                             Op1::Comm => {
                                 match result.tag {
                                     Expr::Num | Expr::Comm => {
-                                        let cast = Cast(result, Expr::Num);
+                                        let cast = cast(result, Expr::Num);
                                         return(cast, env, continuation, makethunk)
                                     }
                                 };
@@ -699,7 +699,7 @@ fn apply_cont() -> Func {
                                     Expr::Num | Expr::Char => {
                                         // TODO we also need to use `Mod` to truncate
                                         // let limit = Num(4294967296);
-                                        let cast = Cast(result, Expr::Num);
+                                        let cast = cast(result, Expr::Num);
                                         return(cast, env, continuation, makethunk)
                                     }
                                 };
@@ -759,7 +759,7 @@ fn apply_cont() -> Func {
                                 return (result, env, err, errctrl)
                             }
                             Op2::Hide => {
-                                let num = Cast(evaled_arg, Expr::Num);
+                                let num = cast(evaled_arg, Expr::Num);
                                 let hidden = hide(num, result);
                                 return(hidden, env, continuation, makethunk)
                             }
@@ -768,19 +768,21 @@ fn apply_cont() -> Func {
                                 return (result, env, err, errctrl)
                             }
                             Op2::Sum => {
-                                // TODO
-                                return (result, env, err, errctrl)
+                                // TODO deal with U64
+                                let val = add(evaled_arg, result);
+                                return (val, env, continuation, makethunk)
                             }
                             Op2::Diff => {
-                                // TODO
-                                return (result, env, err, errctrl)
+                                // TODO deal with U64
+                                let val = sub(evaled_arg, result);
+                                return (val, env, continuation, makethunk)
                             }
                             Op2::Product => {
-                                // TODO
-                                return (result, env, err, errctrl)
+                                // TODO deal with U64
+                                let val = mul(evaled_arg, result);
+                                return (val, env, continuation, makethunk)
                             }
                             Op2::Quotient => {
-                                // TODO
                                 return (result, env, err, errctrl)
                             }
                             Op2::Modulo => {
@@ -877,8 +879,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 8024;
-    const NUM_CONSTRAINTS: usize = 9964;
+    const NUM_AUX: usize = 8027;
+    const NUM_CONSTRAINTS: usize = 9967;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,

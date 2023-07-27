@@ -242,6 +242,14 @@ pub enum Op {
     Lit(Var, Lit),
     /// `Cast(y, t, x)` binds `y` to a pointer with tag `t` and the hash of `x`
     Cast(Var, Tag, Var),
+    /// `Add(y, a, b)` binds `y` to the sum of `a` and `b`
+    Add(Var, Var, Var),
+    /// `Sub(y, a, b)` binds `y` to the sum of `a` and `b`
+    Sub(Var, Var, Var),
+    /// `Mul(y, a, b)` binds `y` to the sum of `a` and `b`
+    Mul(Var, Var, Var),
+    /// `Div(y, a, b)` binds `y` to the sum of `a` and `b`
+    Div(Var, Var, Var),
     /// `Hash2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
     Hash2(Var, Tag, [Var; 2]),
     /// `Hash3(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 3 children `ys`
@@ -325,6 +333,14 @@ impl Func {
                     }
                     Op::Cast(tgt, _tag, src) => {
                         is_bound(src, map)?;
+                        is_unique(tgt, map);
+                    }
+                    Op::Add(tgt, a, b)
+                    | Op::Sub(tgt, a, b)
+                    | Op::Mul(tgt, a, b)
+                    | Op::Div(tgt, a, b) => {
+                        is_bound(a, map)?;
+                        is_bound(b, map)?;
                         is_unique(tgt, map);
                     }
                     Op::Hash2(img, _tag, preimg) => {
@@ -523,6 +539,30 @@ impl Block {
                     let src = map.get_cloned(&src)?;
                     let tgt = insert_one(map, uniq, &tgt);
                     ops.push(Op::Cast(tgt, tag, src))
+                }
+                Op::Add(tgt, a, b) => {
+                    let a = map.get_cloned(&a)?;
+                    let b = map.get_cloned(&b)?;
+                    let tgt = insert_one(map, uniq, &tgt);
+                    ops.push(Op::Add(tgt, a, b))
+                }
+                Op::Sub(tgt, a, b) => {
+                    let a = map.get_cloned(&a)?;
+                    let b = map.get_cloned(&b)?;
+                    let tgt = insert_one(map, uniq, &tgt);
+                    ops.push(Op::Sub(tgt, a, b))
+                }
+                Op::Mul(tgt, a, b) => {
+                    let a = map.get_cloned(&a)?;
+                    let b = map.get_cloned(&b)?;
+                    let tgt = insert_one(map, uniq, &tgt);
+                    ops.push(Op::Mul(tgt, a, b))
+                }
+                Op::Div(tgt, a, b) => {
+                    let a = map.get_cloned(&a)?;
+                    let b = map.get_cloned(&b)?;
+                    let tgt = insert_one(map, uniq, &tgt);
+                    ops.push(Op::Div(tgt, a, b))
                 }
                 Op::Hash2(img, tag, preimg) => {
                     let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
