@@ -3,9 +3,9 @@
 //! See `examples/circom.rs` for a quick example of how to declare a circom coprocessor.
 
 use core::fmt::Debug;
-use std::path::PathBuf;
+use std::{fs::read_dir, path::PathBuf};
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use bellperson::{ConstraintSystem, SynthesisError};
 use nova_scotia::r1cs::CircomConfig;
 
@@ -22,10 +22,63 @@ use crate::{
 };
 
 /// TODO: fix this duplication with the one in `cli::paths`
-fn circom_gadgets() -> PathBuf {
+fn circom_dir() -> PathBuf {
     home::home_dir()
         .expect("no home directory")
-        .join(".lurk/circom-gadgets")
+        .join(".lurk/circom")
+}
+
+fn print_error(name: &str, avaliable: Vec<String>) -> Result<()> {
+    let avaliable = avaliable.join("\n    ");
+    bail!(
+        "
+error: no circom gadget named `{name}`.
+Available circom gadgets:{avaliable}
+
+If you want to setup a new circom gadget `{name}`, run
+    `lurk coprocessor --name {name} <{}_FOLDER>`",
+        name.to_ascii_uppercase()
+    );
+}
+
+fn validate_gadget<F: LurkField, C: CircomGadget<F>>(gadget: &C) -> Result<()> {
+    if !circom_dir().exists() {
+        std::fs::create_dir_all(circom_dir())?;
+        return print_error(gadget.name(), vec![]);
+    }
+
+    let name = gadget.name();
+    let circom_folder = circom_dir().join(name);
+
+    if circom_folder.exists() {
+        return Ok(());
+    };
+
+    let mut subdirs = Vec::new();
+
+    for entry in read_dir(circom_dir())? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.is_dir() {
+            if let Some(dir_name) = path.file_name() {
+                if let Some(dir_name) = dir_name.to_str() {
+                    subdirs.push(dir_name.to_string());
+                }
+            }
+        }
+    }
+
+    bail!(
+        "
+error: no circom gadget named `foo`.
+Available circom gadgets:
+    bar
+    baz
+
+If you want to setup a new circom gadget `foo`, run
+    `lurk coprocessor --name foo <FOO_CIRCOM_FOLDER>`"
+    );
 }
 
 #[derive(Debug)]
@@ -94,8 +147,11 @@ impl<F: LurkField, C: CircomGadget<F>> CircomCoprocessor<F, C> {
     ///     `lurk coprocessor --name foo <FOO_CIRCOM_FOLDER>`
     /// ```
     pub fn create(gadget: C) -> Result<Self> {
+        validate_gadget(&gadget)?;
+
         let name = gadget.name();
-        let circom_folder = circom_gadgets().join(name);
+        let circom_folder = circom_dir().join(name);
+
         let r1cs = circom_folder.join(format!("{}.r1cs", name));
         let wasm = circom_folder.join(name).with_extension("wasm");
 

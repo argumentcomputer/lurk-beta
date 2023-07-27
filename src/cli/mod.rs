@@ -458,9 +458,9 @@ struct CircomArgs {
     /// Path to the circom folder to be integrated
     #[clap(value_parser)]
     circom_folder: PathBuf,
-    /// The name of the circom gadget (defaults to the name of the folder)
+    /// The name of the circom gadget
     #[clap(long, value_parser)]
-    name: Option<String>,
+    name: String,
 }
 
 impl Cli {
@@ -483,6 +483,9 @@ impl Cli {
                 Ok(())
             }
             Command::Circom(circom_args) => {
+                if circom_args.name == "main" {
+                    bail!("Circom gadget name cannot be `main`")
+                }
                 create_circom_gadget(circom_args.circom_folder, circom_args.name)
             }
         }

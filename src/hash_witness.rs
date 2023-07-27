@@ -498,7 +498,7 @@ impl<
         }
     }
 
-    pub fn assert_invariants(&self, store: &Store<F>) {
+    pub fn assert_invariants(&self, _store: &Store<F>) {
         // TODO: Figure out how to make this work.
         // self.assert_specific_invariants(store);
         assert!(self.stubs_used_count() <= MAX_T_PER_REDUCTION);
