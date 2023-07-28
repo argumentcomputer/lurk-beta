@@ -67,6 +67,9 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
     c: &NamedConstants<F>,
     lang: &Lang<F, C>,
 ) -> Result<(Control<F>, Option<Ptr<F>>), ReductionError> {
+    // sanity-check: this should return the number of iterations
+    // of the last 5s of computation
+    metrics::counter!("evaluation", 1, "type" => "step");
     let mut closure_to_extend = None;
 
     Ok((
@@ -105,6 +108,8 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                         // CIRCUIT: sym_is_self_evaluating
                         Control::ApplyContinuation(expr, env, cont)
                     } else {
+                        // Register a symbol lookup
+                        metrics::counter!("evaluation", 1, "type" => "sym lookup step");
                         // Otherwise, look for a matching binding in env.
 
                         // CIRCUIT: sym_otherwise
@@ -161,6 +166,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
 
                                                 // CIRCUIT: with_sym_binding_unmatched_new_lookup
                                                 {
+                                                    metrics::counter!("evaluation", 1, "type" => "push lookup continuation");
                                                     Control::Return(
                                                         expr,
                                                         smaller_env,
@@ -1190,16 +1196,19 @@ fn apply_continuation<F: LurkField>(
             }
             _ => unreachable!(),
         },
-        ContTag::Lookup => match cont_witness
-            .fetch_named_cont(ContName::ApplyContinuation, store, &cont)
-            .ok_or_else(|| store::Error("Fetch failed".into()))?
-        {
-            Continuation::Lookup {
-                saved_env,
-                continuation,
-            } => Control::MakeThunk(result, saved_env, continuation),
-            _ => unreachable!(),
-        },
+        ContTag::Lookup => {
+            metrics::counter!("evaluation", 1,  "type" => "pop lookup continuation");
+            match cont_witness
+                .fetch_named_cont(ContName::ApplyContinuation, store, &cont)
+                .ok_or_else(|| store::Error("Fetch failed".into()))?
+            {
+                Continuation::Lookup {
+                    saved_env,
+                    continuation,
+                } => Control::MakeThunk(result, saved_env, continuation),
+                _ => unreachable!(),
+            }
+        }
         ContTag::Tail => match cont_witness
             .fetch_named_cont(ContName::ApplyContinuation, store, &cont)
             .ok_or_else(|| store::Error("Fetch failed".into()))?

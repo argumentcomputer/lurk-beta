@@ -1,0 +1,19 @@
+[package]
+name = "lurk-metrics"
+authors = ["Lurk Lab <engineering@lurk-lab.com>"]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Metrics Sink for lurk"
+repository = "https://github.com/lurk-lab/lurk-rs"
+
+[dependencies]
+metrics = { workspace = true }
+once_cell = { workspace = true }
+log = { workspace = true }
+hdrhistogram = { version = "7.5.2", default-features = false }
+
+
+[dev-dependencies]
+expect-test = "1"
+testing_logger = "0.1.1"
