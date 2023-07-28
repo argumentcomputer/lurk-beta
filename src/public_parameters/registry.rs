@@ -5,17 +5,15 @@ use std::{
 
 use log::info;
 use once_cell::sync::Lazy;
-use pasta_curves::pallas;
 use tap::TapFallible;
 
-use crate::public_parameters::error::Error;
 use crate::{coprocessor::Coprocessor, eval::lang::Lang, proof::nova::PublicParams};
+use crate::{proof::nova::CurveCycleEquipped, public_parameters::error::Error};
 
 use super::file_map::FileIndex;
 
-type S1 = pallas::Scalar;
 type AnyMap = anymap::Map<dyn core::any::Any + Send + Sync>;
-type PublicParamMemCache<C> = HashMap<usize, Arc<PublicParams<'static, C>>>;
+type PublicParamMemCache<F, C> = HashMap<usize, Arc<PublicParams<'static, F, C>>>;
 
 /// This is a global registry for Coproc-specific parameters.
 /// It is used to cache parameters for each Coproc, so that they are not
@@ -33,14 +31,15 @@ pub(crate) static CACHE_REG: Lazy<Registry> = Lazy::new(|| Registry {
 
 impl Registry {
     fn get_from_file_cache_or_update_with<
-        C: Coprocessor<S1> + 'static,
-        F: FnOnce(Arc<Lang<S1, C>>) -> Arc<PublicParams<'static, C>>,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'static,
+        Fn: FnOnce(Arc<Lang<F, C>>) -> Arc<PublicParams<'static, F, C>>,
     >(
         &'static self,
         rc: usize,
-        default: F,
-        lang: Arc<Lang<S1, C>>,
-    ) -> Result<Arc<PublicParams<'static, C>>, Error> {
+        default: Fn,
+        lang: Arc<Lang<F, C>>,
+    ) -> Result<Arc<PublicParams<'static, F, C>>, Error> {
         // subdirectory search
         let disk_cache = FileIndex::new("public_params").unwrap();
         // use the cached language key
@@ -49,7 +48,7 @@ impl Registry {
         // for this lang/coprocessor.
         let key = format!("public-params-rc-{rc}-coproc-{lang_key}");
         // read the file if it exists, otherwise initialize
-        if let Some(pp) = disk_cache.get::<PublicParams<'static, C>>(&key) {
+        if let Some(pp) = disk_cache.get::<PublicParams<'static, F, C>>(&key) {
             info!("Using disk-cached public params for lang {lang_key}");
             Ok(Arc::new(pp))
         } else {
@@ -65,18 +64,23 @@ impl Registry {
     /// Check if params for this Coproc are in registry, if so, return them.
     /// Otherwise, initialize with the passed in function.
     pub(crate) fn get_coprocessor_or_update_with<
-        C: Coprocessor<S1> + 'static,
-        F: FnOnce(Arc<Lang<S1, C>>) -> Arc<PublicParams<'static, C>>,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'static,
+        Fn: FnOnce(Arc<Lang<F, C>>) -> Arc<PublicParams<'static, F, C>>,
     >(
         &'static self,
         rc: usize,
-        default: F,
-        lang: Arc<Lang<S1, C>>,
-    ) -> Result<Arc<PublicParams<'static, C>>, Error> {
+        default: Fn,
+        lang: Arc<Lang<F, C>>,
+    ) -> Result<Arc<PublicParams<'static, F, C>>, Error>
+    where
+        F::CK1: Sync + Send,
+        F::CK2: Sync + Send,
+    {
         // re-grab the lock
         let mut registry = self.registry.lock().unwrap();
         // retrieve the per-Coproc public param table
-        let entry = registry.entry::<PublicParamMemCache<C>>();
+        let entry = registry.entry::<PublicParamMemCache<F, C>>();
         // deduce the map and populate it if needed
         let param_entry = entry.or_insert_with(HashMap::new);
         match param_entry.entry(rc) {
