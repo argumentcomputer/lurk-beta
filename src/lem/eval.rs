@@ -467,7 +467,7 @@ fn reduce() -> Func {
                     return (expr, env, err, errctrl)
                 }
                 // binops
-                let (_op) = choose_binop(head);
+                let (op) = choose_binop(head);
                 if op != dummy {
                     match rest.tag {
                         Expr::Nil => {
@@ -960,7 +960,7 @@ mod tests {
         let sum = s.read("(+ 21 21)").unwrap();
         let nil = s.read("nil").unwrap();
         let strnil = s.read("\"\"").unwrap();
-        vec![(num, num), (nil, nil), (strnil, strnil)]
+        vec![(sum, num), (nil, nil), (strnil, strnil)]
     }
 
     #[test]
