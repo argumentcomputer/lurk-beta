@@ -1335,7 +1335,6 @@
 
 <span class="kw">use </span>ff::PrimeField;
 <span class="kw">use </span>hex::FromHex;
-<span class="kw">use </span>lurk::error::ReductionError;
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>lurk::field::FWrap;
 <span class="kw">use </span>lurk::{
@@ -1364,6 +1363,7 @@
 </span><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>lurk::z_data;
 
+<span class="kw">use </span>lurk::{error::ReductionError, proof::nova::CurveCycleEquipped};
 <span class="kw">use </span>once_cell::sync::OnceCell;
 <span class="kw">use </span>pasta_curves::pallas;
 <span class="kw">use </span>rand::rngs::OsRng;
@@ -1595,9 +1595,9 @@
 }
 
 <span class="attr">#[derive(Serialize, Deserialize)]
-</span><span class="kw">pub struct </span>Proof&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt; {
+</span><span class="kw">pub struct </span>Proof&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped&gt; {
     <span class="kw">pub </span>claim: Claim&lt;F&gt;,
-    <span class="kw">pub </span>proof: nova::Proof&lt;<span class="lifetime">&#39;a</span>, Coproc&lt;S1&gt;&gt;,
+    <span class="kw">pub </span>proof: nova::Proof&lt;<span class="lifetime">&#39;a</span>, F, Coproc&lt;F&gt;&gt;,
     <span class="kw">pub </span>num_steps: usize,
     <span class="kw">pub </span>reduction_count: ReductionCount,
 }
@@ -1958,7 +1958,7 @@
         chain: bool,
         only_use_cached_proofs: bool,
         nova_prover: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>NovaProver&lt;S1, Coproc&lt;S1&gt;&gt;,
-        pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>, Coproc&lt;S1&gt;&gt;,
+        pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>, S1, Coproc&lt;S1&gt;&gt;,
         lang: Arc&lt;Lang&lt;S1, Coproc&lt;S1&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Proof&lt;<span class="lifetime">&#39;a</span>, S1&gt;, Error&gt; {
         <span class="kw">let </span>claim = <span class="self">Self</span>::apply(s, input, function, limit, chain, <span class="kw-2">&amp;</span>lang)<span class="question-mark">?</span>;
@@ -1979,7 +1979,7 @@
         limit: usize,
         only_use_cached_proofs: bool,
         nova_prover: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>NovaProver&lt;S1, Coproc&lt;S1&gt;&gt;,
-        pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>, Coproc&lt;S1&gt;&gt;,
+        pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>, S1, Coproc&lt;S1&gt;&gt;,
         lang: Arc&lt;Lang&lt;S1, Coproc&lt;S1&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Proof&lt;<span class="lifetime">&#39;a</span>, S1&gt;, Error&gt; {
         <span class="kw">let </span>input = request.input.expr.ptr(s, limit, <span class="kw-2">&amp;</span>lang);
@@ -2113,7 +2113,7 @@
         limit: usize,
         only_use_cached_proofs: bool,
         nova_prover: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>NovaProver&lt;S1, Coproc&lt;S1&gt;&gt;,
-        pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>, Coproc&lt;S1&gt;&gt;,
+        pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>, S1, Coproc&lt;S1&gt;&gt;,
         lang: Arc&lt;Lang&lt;S1, Coproc&lt;S1&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
         <span class="kw">let </span>env = supplied_env.unwrap_or_else(|| empty_sym_env(s));
@@ -2151,7 +2151,7 @@
         limit: usize,
         only_use_cached_proofs: bool,
         nova_prover: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>NovaProver&lt;S1, Coproc&lt;S1&gt;&gt;,
-        pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>, Coproc&lt;S1&gt;&gt;,
+        pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>, S1, Coproc&lt;S1&gt;&gt;,
         lang: <span class="kw-2">&amp;</span>Arc&lt;Lang&lt;S1, Coproc&lt;S1&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
         <span class="kw">let </span>reduction_count = nova_prover.reduction_count();
@@ -2237,7 +2237,7 @@
 
     <span class="kw">pub fn </span>verify(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        pp: <span class="kw-2">&amp;</span>PublicParams&lt;<span class="lifetime">&#39;_</span>, Coproc&lt;S1&gt;&gt;,
+        pp: <span class="kw-2">&amp;</span>PublicParams&lt;<span class="lifetime">&#39;_</span>, S1, Coproc&lt;S1&gt;&gt;,
         lang: <span class="kw-2">&amp;</span>Lang&lt;S1, Coproc&lt;S1&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;VerificationResult, Error&gt; {
         <span class="kw">let </span>(public_inputs, public_outputs) = <span class="self">self</span>.io_vecs(lang)<span class="question-mark">?</span>;

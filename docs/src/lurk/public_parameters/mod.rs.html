@@ -73,17 +73,19 @@
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fs::File;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, BufReader, BufWriter};
 <span class="kw">use </span>std::path::Path;
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
+<span class="kw">use </span><span class="kw">crate</span>::proof::nova::CurveCycleEquipped;
 <span class="kw">use crate</span>::{
     eval::lang::Lang,
     proof::nova::{<span class="self">self</span>, PublicParams},
 };
-<span class="kw">use </span>pasta_curves::pallas;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">pub mod </span>error;
@@ -92,13 +94,15 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::public_parameters::error::Error;
 
-<span class="kw">pub type </span>S1 = pallas::Scalar;
-
-<span class="kw">pub fn </span>public_params&lt;C: Coprocessor&lt;S1&gt; + <span class="lifetime">&#39;static</span>&gt;(
+<span class="kw">pub fn </span>public_params&lt;F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;static</span>&gt;(
     rc: usize,
-    lang: Arc&lt;Lang&lt;S1, C&gt;&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;PublicParams&lt;<span class="lifetime">&#39;static</span>, C&gt;&gt;, Error&gt; {
-    <span class="kw">let </span>f = |lang: Arc&lt;Lang&lt;S1, C&gt;&gt;| Arc::new(nova::public_params(rc, lang));
+    lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;PublicParams&lt;<span class="lifetime">&#39;static</span>, F, C&gt;&gt;, Error&gt;
+<span class="kw">where
+    </span>F::CK1: Sync + Send,
+    F::CK2: Sync + Send,
+{
+    <span class="kw">let </span>f = |lang: Arc&lt;Lang&lt;F, C&gt;&gt;| Arc::new(nova::public_params(rc, lang));
     registry::CACHE_REG.get_coprocessor_or_update_with(rc, f, lang)
 }
 <span class="kw">pub trait </span>FileStore

@@ -3720,16 +3720,79 @@
 <a href="#3720" id="3720">3720</a>
 <a href="#3721" id="3721">3721</a>
 <a href="#3722" id="3722">3722</a>
+<a href="#3723" id="3723">3723</a>
+<a href="#3724" id="3724">3724</a>
+<a href="#3725" id="3725">3725</a>
+<a href="#3726" id="3726">3726</a>
+<a href="#3727" id="3727">3727</a>
+<a href="#3728" id="3728">3728</a>
+<a href="#3729" id="3729">3729</a>
+<a href="#3730" id="3730">3730</a>
+<a href="#3731" id="3731">3731</a>
+<a href="#3732" id="3732">3732</a>
+<a href="#3733" id="3733">3733</a>
+<a href="#3734" id="3734">3734</a>
+<a href="#3735" id="3735">3735</a>
+<a href="#3736" id="3736">3736</a>
+<a href="#3737" id="3737">3737</a>
+<a href="#3738" id="3738">3738</a>
+<a href="#3739" id="3739">3739</a>
+<a href="#3740" id="3740">3740</a>
+<a href="#3741" id="3741">3741</a>
+<a href="#3742" id="3742">3742</a>
+<a href="#3743" id="3743">3743</a>
+<a href="#3744" id="3744">3744</a>
+<a href="#3745" id="3745">3745</a>
+<a href="#3746" id="3746">3746</a>
+<a href="#3747" id="3747">3747</a>
+<a href="#3748" id="3748">3748</a>
+<a href="#3749" id="3749">3749</a>
+<a href="#3750" id="3750">3750</a>
+<a href="#3751" id="3751">3751</a>
+<a href="#3752" id="3752">3752</a>
+<a href="#3753" id="3753">3753</a>
+<a href="#3754" id="3754">3754</a>
+<a href="#3755" id="3755">3755</a>
+<a href="#3756" id="3756">3756</a>
+<a href="#3757" id="3757">3757</a>
+<a href="#3758" id="3758">3758</a>
+<a href="#3759" id="3759">3759</a>
+<a href="#3760" id="3760">3760</a>
+<a href="#3761" id="3761">3761</a>
+<a href="#3762" id="3762">3762</a>
+<a href="#3763" id="3763">3763</a>
+<a href="#3764" id="3764">3764</a>
+<a href="#3765" id="3765">3765</a>
+<a href="#3766" id="3766">3766</a>
+<a href="#3767" id="3767">3767</a>
+<a href="#3768" id="3768">3768</a>
+<a href="#3769" id="3769">3769</a>
+<a href="#3770" id="3770">3770</a>
+<a href="#3771" id="3771">3771</a>
+<a href="#3772" id="3772">3772</a>
+<a href="#3773" id="3773">3773</a>
+<a href="#3774" id="3774">3774</a>
+<a href="#3775" id="3775">3775</a>
+<a href="#3776" id="3776">3776</a>
+<a href="#3777" id="3777">3777</a>
+<a href="#3778" id="3778">3778</a>
+<a href="#3779" id="3779">3779</a>
+<a href="#3780" id="3780">3780</a>
+<a href="#3781" id="3781">3781</a>
+<a href="#3782" id="3782">3782</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>std::marker::PhantomData;
 
 <span class="kw">use </span>bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
-
+<span class="kw">use </span>ff::Field;
 <span class="kw">use </span>nova::{
     errors::NovaError,
+    provider::bn256_grumpkin::{bn256, grumpkin},
+    provider::pedersen::CommitmentKeyExtTrait,
     traits::{
         circuit::{StepCircuit, TrivialTestCircuit},
+        commitment::CommitmentEngineTrait,
         Group,
     },
     CompressedSNARK, ProverKey, RecursiveSNARK, VerifierKey,
@@ -3753,57 +3816,114 @@
 <span class="kw">use </span><span class="kw">crate</span>::ptr::Ptr;
 <span class="kw">use </span><span class="kw">crate</span>::store::Store;
 
-<span class="doccomment">/// Type alias for G1 group elements using the Pallas curve.
-</span><span class="kw">pub type </span>G1 = pallas::Point;
-<span class="doccomment">/// Type alias for G2 group elements using the Vesta curve.
-</span><span class="kw">pub type </span>G2 = vesta::Point;
+<span class="doccomment">/// This trait defines most of the requirements for programming generically over the supported Nova curve cycles
+/// (currently Pallas/Vesta and BN254/Grumpkin). It being pegged on the `LurkField` trait encodes that we do
+/// not expect more than one such cycle to be supported at a time for a given field.
+</span><span class="kw">pub trait </span>CurveCycleEquipped: LurkField {
+    <span class="doccomment">/// ## Why the next 4 types?
+    ///
+    /// The next 4 types are purely technical, and aim at laying out type bounds in a way that rust can find them.
+    /// They should eventually be replaceable by a bound on projections, once bounds on associated types progress.
+    /// They are technically equivalent to bounds of
+    ///  &lt;Self::G1::CE as CommitmentEngineTrait&lt;Self::G1&gt;&gt;::CommitmentKey: CommitmentKeyExtTrait&lt;Self::G1, CE = &lt;Self::G1 as Group&gt;::CE&gt;,
+    ///  &lt;Self::G2::CE as CommitmentEngineTrait&lt;Self::G2&gt;&gt;::CommitmentKey: CommitmentKeyExtTrait&lt;Self::G2, CE = &lt;G2 as Group&gt;::CE&gt;,
+    /// but where clauses can&#39;t be *found* by the compiler at the point where Self::G1, Self::G2 are used
 
-<span class="doccomment">/// Type alias for scalar field elements on the Pallas curve.
-</span><span class="kw">pub type </span>S1 = pallas::Scalar;
-<span class="doccomment">/// Type alias for scalar field elements on the Vesta curve.
-</span><span class="kw">pub type </span>S2 = vesta::Scalar;
+    /// ## OK, but why do we need bounds at all in the first place?
+    ///
+    /// As to *why* those see https://github.com/microsoft/Nova/pull/200
+    /// and the bound `CommitmentKey&lt;G&gt;: CommitmentKeyExtTrait&lt;G, CE = G::CE&gt;` on [`nova::provider::ipa_pc::EvaluationEngine&lt;G&gt;`]
+    /// Essentially, Nova relies on a commitment scheme that is additively homomorphic, but encodes the practicalities of this
+    /// (properties are unwieldy to encode) in the form of this CommitmentKeyExtTrait.
+
+    /// The type of the commitment key used for points of the first curve in the cycle.
+    </span><span class="kw">type </span>CK1: CommitmentKeyExtTrait&lt;<span class="self">Self</span>::G1, CE = &lt;<span class="self">Self</span>::G1 <span class="kw">as </span>Group&gt;::CE&gt;;
+    <span class="doccomment">/// The type of the commitment key used for points of the second curve in the cycle.
+    </span><span class="kw">type </span>CK2: CommitmentKeyExtTrait&lt;<span class="self">Self</span>::G2, CE = &lt;<span class="self">Self</span>::G2 <span class="kw">as </span>Group&gt;::CE&gt;;
+    <span class="doccomment">/// The commitment engine type for the first curve in the cycle.
+    </span><span class="kw">type </span>CE1: CommitmentEngineTrait&lt;<span class="self">Self</span>::G1, CommitmentKey = <span class="self">Self</span>::CK1&gt;;
+    <span class="doccomment">/// The commitment engine type for the second curve in the cycle.
+    </span><span class="kw">type </span>CE2: CommitmentEngineTrait&lt;<span class="self">Self</span>::G2, CommitmentKey = <span class="self">Self</span>::CK2&gt;;
+
+    <span class="doccomment">/// The group type for the first curve in the cycle.
+    </span><span class="kw">type </span>G1: Group&lt;Base = &lt;<span class="self">Self</span>::G2 <span class="kw">as </span>Group&gt;::Scalar, Scalar = <span class="self">Self</span>, CE = <span class="self">Self</span>::CE1&gt;;
+    <span class="doccomment">/// The  group type for the second curve in the cycle.
+    </span><span class="kw">type </span>G2: Group&lt;Base = &lt;<span class="self">Self</span>::G1 <span class="kw">as </span>Group&gt;::Scalar, CE = <span class="self">Self</span>::CE2&gt;;
+}
+
+<span class="kw">impl </span>CurveCycleEquipped <span class="kw">for </span>pallas::Scalar {
+    <span class="kw">type </span>CK1 = nova::provider::pedersen::CommitmentKey&lt;pallas::Point&gt;;
+    <span class="kw">type </span>CK2 = nova::provider::pedersen::CommitmentKey&lt;vesta::Point&gt;;
+    <span class="kw">type </span>CE1 = nova::provider::pedersen::CommitmentEngine&lt;pallas::Point&gt;;
+    <span class="kw">type </span>CE2 = nova::provider::pedersen::CommitmentEngine&lt;vesta::Point&gt;;
+
+    <span class="kw">type </span>G1 = pallas::Point;
+    <span class="kw">type </span>G2 = vesta::Point;
+}
+<span class="comment">// The impl CurveCycleEquipped for vesta::Scalar is academically possible, but voluntarily omitted to avoid confusion.
+
+</span><span class="kw">impl </span>CurveCycleEquipped <span class="kw">for </span>bn256::Scalar {
+    <span class="kw">type </span>CK1 = nova::provider::pedersen::CommitmentKey&lt;bn256::Point&gt;;
+    <span class="kw">type </span>CK2 = nova::provider::pedersen::CommitmentKey&lt;grumpkin::Point&gt;;
+    <span class="kw">type </span>CE1 = nova::provider::pedersen::CommitmentEngine&lt;bn256::Point&gt;;
+    <span class="kw">type </span>CE2 = nova::provider::pedersen::CommitmentEngine&lt;grumpkin::Point&gt;;
+
+    <span class="kw">type </span>G1 = bn256::Point;
+    <span class="kw">type </span>G2 = grumpkin::Point;
+}
+<span class="comment">// The impl CurveCycleEquipped for grumpkin::Scalar is academically possible, but voluntarily omitted to avoid confusion.
+
+</span><span class="doccomment">/// Convenience alias for the primary group type pegged to a LurkField through a CurveCycleEquipped type.
+</span><span class="kw">pub type </span>G1&lt;F&gt; = &lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::G1;
+<span class="doccomment">/// Convenience alias for the secondary group type pegged to a LurkField through a CurveCycleEquipped type.
+</span><span class="kw">pub type </span>G2&lt;F&gt; = &lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::G2;
 
 <span class="doccomment">/// Type alias for the Evaluation Engine using G1 group elements.
-</span><span class="kw">pub type </span>EE1 = nova::provider::ipa_pc::EvaluationEngine&lt;G1&gt;;
+</span><span class="kw">pub type </span>EE1&lt;F&gt; = nova::provider::ipa_pc::EvaluationEngine&lt;G1&lt;F&gt;&gt;;
 <span class="doccomment">/// Type alias for the Evaluation Engine using G2 group elements.
-</span><span class="kw">pub type </span>EE2 = nova::provider::ipa_pc::EvaluationEngine&lt;G2&gt;;
+</span><span class="kw">pub type </span>EE2&lt;F&gt; = nova::provider::ipa_pc::EvaluationEngine&lt;G2&lt;F&gt;&gt;;
 
 <span class="doccomment">/// Type alias for the Relaxed R1CS Spartan SNARK using G1 group elements, EE1.
-</span><span class="kw">pub type </span>SS1 = nova::spartan::RelaxedR1CSSNARK&lt;G1, EE1&gt;;
+</span><span class="kw">pub type </span>SS1&lt;F&gt; = nova::spartan::snark::RelaxedR1CSSNARK&lt;G1&lt;F&gt;, EE1&lt;F&gt;&gt;;
 <span class="doccomment">/// Type alias for the Relaxed R1CS Spartan SNARK using G2 group elements, EE2.
-</span><span class="kw">pub type </span>SS2 = nova::spartan::RelaxedR1CSSNARK&lt;G2, EE2&gt;;
+</span><span class="kw">pub type </span>SS2&lt;F&gt; = nova::spartan::snark::RelaxedR1CSSNARK&lt;G2&lt;F&gt;, EE2&lt;F&gt;&gt;;
 
 <span class="doccomment">/// Type alias for a MultiFrame with S1 field elements.
-</span><span class="kw">pub type </span>C1&lt;<span class="lifetime">&#39;a</span>, C&gt; = MultiFrame&lt;<span class="lifetime">&#39;a</span>, S1, IO&lt;S1&gt;, Witness&lt;S1&gt;, C&gt;;
+/// This uses the &lt;&lt;F as CurveCycleEquipped&gt;::G1 as Group&gt;::Scalar type for the G1 scalar field elements
+/// to reflect it this should not be used outside the Nova context
+</span><span class="kw">pub type </span>C1&lt;<span class="lifetime">&#39;a</span>, F, C&gt; = MultiFrame&lt;<span class="lifetime">&#39;a</span>, &lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar, IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;;
 <span class="doccomment">/// Type alias for a Trivial Test Circuit with G2 scalar field elements.
-</span><span class="kw">pub type </span>C2 = TrivialTestCircuit&lt;&lt;G2 <span class="kw">as </span>Group&gt;::Scalar&gt;;
+</span><span class="kw">pub type </span>C2&lt;F&gt; = TrivialTestCircuit&lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar&gt;;
 
 <span class="doccomment">/// Type alias for Nova Public Parameters with the curve cycle types defined above.
-</span><span class="kw">pub type </span>NovaPublicParams&lt;<span class="lifetime">&#39;a</span>, C&gt; = nova::PublicParams&lt;G1, G2, C1&lt;<span class="lifetime">&#39;a</span>, C&gt;, C2&gt;;
+</span><span class="kw">pub type </span>NovaPublicParams&lt;<span class="lifetime">&#39;a</span>, F, C&gt; = nova::PublicParams&lt;G1&lt;F&gt;, G2&lt;F&gt;, C1&lt;<span class="lifetime">&#39;a</span>, F, C&gt;, C2&lt;F&gt;&gt;;
 
 <span class="doccomment">/// A struct that contains public parameters for the Nova proving system.
 </span><span class="attr">#[derive(Serialize, Deserialize)]
 #[serde(bound = <span class="string">&quot;&quot;</span>)]
-</span><span class="kw">pub struct </span>PublicParams&lt;<span class="lifetime">&#39;a</span>, C: Coprocessor&lt;S1&gt;&gt; {
-    pp: NovaPublicParams&lt;<span class="lifetime">&#39;a</span>, C&gt;,
-    pk: ProverKey&lt;G1, G2, C1&lt;<span class="lifetime">&#39;a</span>, C&gt;, C2, SS1, SS2&gt;,
-    vk: VerifierKey&lt;G1, G2, C1&lt;<span class="lifetime">&#39;a</span>, C&gt;, C2, SS1, SS2&gt;,
+</span><span class="kw">pub struct </span>PublicParams&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt;
+<span class="kw">where
+    </span>F: CurveCycleEquipped,
+{
+    pp: NovaPublicParams&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
+    pk: ProverKey&lt;G1&lt;F&gt;, G2&lt;F&gt;, C1&lt;<span class="lifetime">&#39;a</span>, F, C&gt;, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
+    vk: VerifierKey&lt;G1&lt;F&gt;, G2&lt;F&gt;, C1&lt;<span class="lifetime">&#39;a</span>, F, C&gt;, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
 }
 
 <span class="doccomment">/// An enum representing the two types of proofs that can be generated and verified.
 </span><span class="attr">#[derive(Serialize, Deserialize)]
-</span><span class="kw">pub enum </span>Proof&lt;<span class="lifetime">&#39;a</span>, C: Coprocessor&lt;S1&gt;&gt; {
+</span><span class="kw">pub enum </span>Proof&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; {
     <span class="doccomment">/// A proof for the intermediate steps of a recursive computation
-    </span>Recursive(Box&lt;RecursiveSNARK&lt;G1, G2, C1&lt;<span class="lifetime">&#39;a</span>, C&gt;, C2&gt;&gt;),
+    </span>Recursive(Box&lt;RecursiveSNARK&lt;G1&lt;F&gt;, G2&lt;F&gt;, C1&lt;<span class="lifetime">&#39;a</span>, F, C&gt;, C2&lt;F&gt;&gt;&gt;),
     <span class="doccomment">/// A proof for the final step of a recursive computation
-    </span>Compressed(Box&lt;CompressedSNARK&lt;G1, G2, C1&lt;<span class="lifetime">&#39;a</span>, C&gt;, C2, SS1, SS2&gt;&gt;),
+    </span>Compressed(Box&lt;CompressedSNARK&lt;G1&lt;F&gt;, G2&lt;F&gt;, C1&lt;<span class="lifetime">&#39;a</span>, F, C&gt;, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;&gt;),
 }
 
 <span class="doccomment">/// Generates the public parameters for the Nova proving system.
-</span><span class="kw">pub fn </span>public_params&lt;<span class="lifetime">&#39;a</span>, C: Coprocessor&lt;S1&gt;&gt;(
+</span><span class="kw">pub fn </span>public_params&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt;(
     num_iters_per_step: usize,
-    lang: Arc&lt;Lang&lt;S1, C&gt;&gt;,
-) -&gt; PublicParams&lt;<span class="lifetime">&#39;a</span>, C&gt; {
+    lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
+) -&gt; PublicParams&lt;<span class="lifetime">&#39;a</span>, F, C&gt; {
     <span class="kw">let </span>(circuit_primary, circuit_secondary) = C1::circuits(num_iters_per_step, lang);
 
     <span class="kw">let </span>pp = nova::PublicParams::setup(circuit_primary, circuit_secondary);
@@ -3811,8 +3931,8 @@
     PublicParams { pp, pk, vk }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, C: Coprocessor&lt;S1&gt;&gt; MultiFrame&lt;<span class="lifetime">&#39;a</span>, S1, IO&lt;S1&gt;, Witness&lt;S1&gt;, C&gt; {
-    <span class="kw">fn </span>circuits(count: usize, lang: Arc&lt;Lang&lt;S1, C&gt;&gt;) -&gt; (C1&lt;<span class="lifetime">&#39;a</span>, C&gt;, C2) {
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; C1&lt;<span class="lifetime">&#39;a</span>, F, C&gt; {
+    <span class="kw">fn </span>circuits(count: usize, lang: Arc&lt;Lang&lt;F, C&gt;&gt;) -&gt; (C1&lt;<span class="lifetime">&#39;a</span>, F, C&gt;, C2&lt;F&gt;) {
         (
             MultiFrame::blank(count, lang),
             TrivialTestCircuit::default(),
@@ -3822,19 +3942,19 @@
 
 <span class="doccomment">/// A struct for the Nova prover that operates on field elements of type `F`.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>NovaProver&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
+</span><span class="kw">pub struct </span>NovaProver&lt;F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; {
     <span class="comment">// `reduction_count` specifies the number of small-step reductions are performed in each recursive step.
     </span>reduction_count: usize,
     lang: Lang&lt;F, C&gt;,
     _p: PhantomData&lt;(F, C)&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, C: Coprocessor&lt;S1&gt;&gt; PublicParameters <span class="kw">for </span>PublicParams&lt;<span class="lifetime">&#39;a</span>, C&gt; {}
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; PublicParameters <span class="kw">for </span>PublicParams&lt;<span class="lifetime">&#39;a</span>, F, C&gt; {}
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, C: Coprocessor&lt;S1&gt; + <span class="lifetime">&#39;a</span>&gt; Prover&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;_</span>, S1, C&gt; <span class="kw">for </span>NovaProver&lt;S1, C&gt; {
-    <span class="kw">type </span>PublicParams = PublicParams&lt;<span class="lifetime">&#39;a</span>, C&gt;;
-    <span class="kw">fn </span>new(reduction_count: usize, lang: Lang&lt;S1, C&gt;) -&gt; <span class="self">Self </span>{
-        NovaProver::&lt;S1, C&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt; Prover&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;_</span>, F, C&gt; <span class="kw">for </span>NovaProver&lt;F, C&gt; {
+    <span class="kw">type </span>PublicParams = PublicParams&lt;<span class="lifetime">&#39;a</span>, F, C&gt;;
+    <span class="kw">fn </span>new(reduction_count: usize, lang: Lang&lt;F, C&gt;) -&gt; <span class="self">Self </span>{
+        NovaProver::&lt;F, C&gt; {
             reduction_count,
             lang,
             _p: Default::default(),
@@ -3844,21 +3964,21 @@
         <span class="self">self</span>.reduction_count
     }
 
-    <span class="kw">fn </span>lang(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Lang&lt;S1, C&gt; {
+    <span class="kw">fn </span>lang(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Lang&lt;F, C&gt; {
         <span class="kw-2">&amp;</span><span class="self">self</span>.lang
     }
 }
 
-<span class="kw">impl</span>&lt;C: Coprocessor&lt;S1&gt;&gt; NovaProver&lt;S1, C&gt; {
+<span class="kw">impl</span>&lt;F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; NovaProver&lt;F, C&gt; {
     <span class="doccomment">/// Evaluates and generates the frames of the computation given the expression, environment, and store
     </span><span class="kw">pub fn </span>get_evaluation_frames(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        expr: Ptr&lt;S1&gt;,
-        env: Ptr&lt;S1&gt;,
-        store: <span class="kw-2">&amp;mut </span>Store&lt;S1&gt;,
+        expr: Ptr&lt;F&gt;,
+        env: Ptr&lt;F&gt;,
+        store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
         limit: usize,
-        lang: <span class="kw-2">&amp;</span>Lang&lt;S1, C&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Frame&lt;IO&lt;S1&gt;, Witness&lt;S1&gt;, C&gt;&gt;, ProofError&gt; {
+        lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;&gt;, ProofError&gt; {
         <span class="kw">let </span>padding_predicate = |count| <span class="self">self</span>.needs_frame_padding(count);
 
         <span class="kw">let </span>frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate, lang)<span class="question-mark">?</span>;
@@ -3871,11 +3991,11 @@
     <span class="doccomment">/// Proves the computation given the public parameters, frames, and store.
     </span><span class="kw">pub fn </span>prove&lt;<span class="lifetime">&#39;a</span>&gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
-        pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>, C&gt;,
-        frames: <span class="kw-2">&amp;</span>[Frame&lt;IO&lt;S1&gt;, Witness&lt;S1&gt;, C&gt;],
-        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Store&lt;S1&gt;,
-        lang: Arc&lt;Lang&lt;S1, C&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;<span class="lifetime">&#39;_</span>, C&gt;, Vec&lt;S1&gt;, Vec&lt;S1&gt;, usize), ProofError&gt; {
+        pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>, F, C&gt;,
+        frames: <span class="kw-2">&amp;</span>[Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;],
+        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Store&lt;F&gt;,
+        lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;<span class="lifetime">&#39;_</span>, F, C&gt;, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
         <span class="kw">let </span>z0 = frames[<span class="number">0</span>].input.to_vector(store)<span class="question-mark">?</span>;
         <span class="kw">let </span>zi = frames.last().unwrap().output.to_vector(store)<span class="question-mark">?</span>;
         <span class="kw">let </span>circuits = MultiFrame::from_frames(<span class="self">self</span>.reduction_count(), frames, store, <span class="kw-2">&amp;</span>lang);
@@ -3889,13 +4009,13 @@
     <span class="doccomment">/// Evaluates and proves the computation given the public parameters, expression, environment, and store.
     </span><span class="kw">pub fn </span>evaluate_and_prove&lt;<span class="lifetime">&#39;a</span>&gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
-        pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>, C&gt;,
-        expr: Ptr&lt;S1&gt;,
-        env: Ptr&lt;S1&gt;,
-        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Store&lt;S1&gt;,
+        pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>, F, C&gt;,
+        expr: Ptr&lt;F&gt;,
+        env: Ptr&lt;F&gt;,
+        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Store&lt;F&gt;,
         limit: usize,
-        lang: Arc&lt;Lang&lt;S1, C&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;<span class="lifetime">&#39;_</span>, C&gt;, Vec&lt;S1&gt;, Vec&lt;S1&gt;, usize), ProofError&gt; {
+        lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;<span class="lifetime">&#39;_</span>, F, C&gt;, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
         <span class="kw">let </span>frames = <span class="self">self</span>.get_evaluation_frames(expr, env, store, limit, <span class="kw-2">&amp;</span>lang)<span class="question-mark">?</span>;
         <span class="self">self</span>.prove(pp, <span class="kw-2">&amp;</span>frames, store, lang)
     }
@@ -3962,15 +4082,15 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;b</span>, C: Coprocessor&lt;S1&gt;&gt; Proof&lt;<span class="lifetime">&#39;a</span>, C&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;b</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; Proof&lt;<span class="lifetime">&#39;a</span>, F, C&gt; {
     <span class="doccomment">/// Proves the computation recursively, generating a recursive SNARK proof.
     </span><span class="kw">pub fn </span>prove_recursively(
-        pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>, C&gt;,
-        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;S1&gt;,
-        circuits: <span class="kw-2">&amp;</span>[C1&lt;<span class="lifetime">&#39;a</span>, C&gt;],
+        pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>, F, C&gt;,
+        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
+        circuits: <span class="kw-2">&amp;</span>[C1&lt;<span class="lifetime">&#39;a</span>, F, C&gt;],
         num_iters_per_step: usize,
-        z0: Vec&lt;S1&gt;,
-        lang: Arc&lt;Lang&lt;S1, C&gt;&gt;,
+        z0: Vec&lt;F&gt;,
+        lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
         <span class="macro">assert!</span>(!circuits.is_empty());
         <span class="macro">assert_eq!</span>(circuits[<span class="number">0</span>].arity(), z0.len());
@@ -3983,11 +4103,11 @@
             num_iters_per_step
         );
         <span class="kw">let </span>(_circuit_primary, circuit_secondary): (
-            MultiFrame&lt;<span class="lifetime">&#39;_</span>, S1, IO&lt;S1&gt;, Witness&lt;S1&gt;, C&gt;,
-            TrivialTestCircuit&lt;S2&gt;,
+            MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;,
+            TrivialTestCircuit&lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar&gt;,
         ) = C1::&lt;<span class="lifetime">&#39;a</span>&gt;::circuits(num_iters_per_step, lang);
         <span class="comment">// produce a recursive SNARK
-        </span><span class="kw">let </span><span class="kw-2">mut </span>recursive_snark: <span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;G1, G2, C1&lt;<span class="lifetime">&#39;a</span>, C&gt;, C2&gt;&gt; = <span class="prelude-val">None</span>;
+        </span><span class="kw">let </span><span class="kw-2">mut </span>recursive_snark: <span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;G1&lt;F&gt;, G2&lt;F&gt;, C1&lt;<span class="lifetime">&#39;a</span>, F, C&gt;, C2&lt;F&gt;&gt;&gt; = <span class="prelude-val">None</span>;
 
         <span class="kw">for </span>circuit_primary <span class="kw">in </span>circuits.iter() {
             <span class="macro">assert_eq!</span>(
@@ -3997,7 +4117,7 @@
             <span class="kw">if </span>debug {
                 <span class="comment">// For debugging purposes, synthesize the circuit and check that the constraint system is satisfied.
                 </span><span class="kw">use </span>bellperson::util_cs::test_cs::TestConstraintSystem;
-                <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;&lt;G1 <span class="kw">as </span>Group&gt;::Scalar&gt;::new();
+                <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar&gt;::new();
 
                 <span class="kw">let </span>zi = circuit_primary.frames.as_ref().unwrap()[<span class="number">0</span>]
                     .input
@@ -4040,15 +4160,15 @@
     }
 
     <span class="doccomment">/// Compresses the proof using a (Spartan) Snark (finishing step)
-    </span><span class="kw">pub fn </span>compress(<span class="self">self</span>, pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>, C&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
+    </span><span class="kw">pub fn </span>compress(<span class="self">self</span>, pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>, F, C&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ProofError&gt; {
         <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
             <span class="self">Self</span>::Recursive(recursive_snark) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Compressed(Box::new(CompressedSNARK::&lt;
                 <span class="kw">_</span>,
                 <span class="kw">_</span>,
                 <span class="kw">_</span>,
                 <span class="kw">_</span>,
-                SS1,
-                SS2,
+                SS1&lt;F&gt;,
+                SS2&lt;F&gt;,
             &gt;::prove(
                 <span class="kw-2">&amp;</span>pp.pp,
                 <span class="kw-2">&amp;</span>pp.pk,
@@ -4061,10 +4181,10 @@
     <span class="doccomment">/// Verifies the proof given the public parameters, the number of steps, and the input and output values.
     </span><span class="kw">pub fn </span>verify(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        pp: <span class="kw-2">&amp;</span>PublicParams&lt;<span class="lifetime">&#39;_</span>, C&gt;,
+        pp: <span class="kw-2">&amp;</span>PublicParams&lt;<span class="lifetime">&#39;_</span>, F, C&gt;,
         num_steps: usize,
-        z0: <span class="kw-2">&amp;</span>[S1],
-        zi: <span class="kw-2">&amp;</span>[S1],
+        z0: <span class="kw-2">&amp;</span>[F],
+        zi: <span class="kw-2">&amp;</span>[F],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, NovaError&gt; {
         <span class="kw">let </span>(z0_primary, zi_primary) = (z0, zi);
         <span class="kw">let </span>z0_secondary = <span class="self">Self</span>::z0_secondary();
@@ -4078,8 +4198,8 @@
         <span class="prelude-val">Ok</span>(zi_primary == zi_primary_verified &amp;&amp; zi_secondary == zi_secondary_verified)
     }
 
-    <span class="kw">fn </span>z0_secondary() -&gt; Vec&lt;S2&gt; {
-        <span class="macro">vec!</span>[&lt;G2 <span class="kw">as </span>Group&gt;::Scalar::zero()]
+    <span class="kw">fn </span>z0_secondary() -&gt; Vec&lt;&lt;F::G2 <span class="kw">as </span>Group&gt;::Scalar&gt; {
+        <span class="macro">vec!</span>[&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar::ZERO]
     }
 }
 
