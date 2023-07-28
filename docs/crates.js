@@ -1,1 +1,1 @@
-window.ALL_CRATES = ["clutch","fcomm","lurk","lurk_macros"];
+window.ALL_CRATES = ["clutch","fcomm","lurk","lurk_macros","lurk_metrics"];
