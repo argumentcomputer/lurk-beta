@@ -6,6 +6,8 @@ use crate::{
     hash::PoseidonCache,
     lem::Tag,
     tag::ExprTag::*,
+    syntax::Syntax,
+    uint::UInt,
 };
 use anyhow::{bail, Result};
 use dashmap::DashMap;
@@ -209,6 +211,49 @@ impl<F: LurkField> Store<F> {
         match s {
             Symbol::Sym(path) => self.intern_symbol_path(path),
             Symbol::Key(path) => self.intern_symbol_path(path).sym_to_key(),
+        }
+    }
+
+    pub fn intern_syntax(&mut self, syn: Syntax<F>) -> Ptr<F> {
+        match syn {
+            Syntax::Num(_, x) => Ptr::Leaf(Tag::Expr(Num), x.into_scalar()),
+            Syntax::UInt(_, UInt::U64(x)) => Ptr::Leaf(Tag::Expr(U64), x.into()),
+            Syntax::Char(_, x) => Ptr::Leaf(Tag::Expr(Char), (x as u64).into()),
+            Syntax::Symbol(_, x) => {
+                let path = x.path.iter().map(|s| Arc::from(s.clone())).collect();
+                self.intern_symbol(&Symbol::Sym(path))
+            },
+            Syntax::Keyword(_, x) => {
+                let path = x.path.iter().map(|s| Arc::from(s.clone())).collect();
+                self.intern_symbol(&Symbol::Key(path))
+            },
+            Syntax::LurkSym(_, x) => {
+                self.intern_symbol(&Symbol::lurk_sym(&format!("{x}")))
+            },
+            Syntax::String(_, x) => {
+                self.intern_string(&x)
+            },
+            Syntax::Quote(pos, x) => {
+                let quote = crate::symbol::Symbol::lurk_sym("quote");
+                let xs = vec![Syntax::Symbol(pos, quote), *x];
+                self.intern_syntax(Syntax::List(pos, xs))
+            }
+            Syntax::List(_, xs) => {
+                let mut cdr = self.intern_symbol(&Symbol::lurk_sym(&"nil"));
+                for x in xs.into_iter().rev() {
+                    let car = self.intern_syntax(x);
+                    cdr = self.intern_2_ptrs(Tag::Expr(Cons), car, cdr);
+                }
+                cdr
+            }
+            Syntax::Improper(_, xs, end) => {
+                let mut cdr = self.intern_syntax(*end);
+                for x in xs.into_iter().rev() {
+                    let car = self.intern_syntax(x);
+                    cdr = self.intern_2_ptrs(Tag::Expr(Cons), car, cdr);
+                }
+                cdr
+            }
         }
     }
 

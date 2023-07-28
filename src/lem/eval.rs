@@ -764,8 +764,11 @@ fn apply_cont() -> Func {
                                 return(hidden, env, continuation, makethunk)
                             }
                             Op2::Equal => {
-                                // TODO
-                                return (result, env, err, errctrl)
+                                // TODO should we check whether the tags are also equal?
+                                if evaled_arg == result {
+                                    return (t, env, continuation, makethunk)
+                                }
+                                return (nil, env, continuation, makethunk)
                             }
                             Op2::Sum => {
                                 // TODO deal with U64
@@ -879,8 +882,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 8027;
-    const NUM_CONSTRAINTS: usize = 9967;
+    const NUM_AUX: usize = 8032;
+    const NUM_CONSTRAINTS: usize = 9981;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,
