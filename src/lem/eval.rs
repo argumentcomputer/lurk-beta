@@ -99,122 +99,50 @@ fn reduce() -> Func {
             }
         }
     });
-    // TODO these `choose_unop` and `choose_binop` functions might
-    // be unnecessary. Instead of passing tags, we could pass the
-    // symbols themselves to the continuation
     let choose_unop = func!((head): 1 => {
+        let nil: Expr::Nil;
+        let t = Symbol("t");
         match head.val {
-            Symbol("car") => {
-                let op: Op1::Car;
-                return (op)
-            }
-            Symbol("cdr") => {
-                let op: Op1::Cdr;
-                return (op)
-            }
-            Symbol("commit") => {
-                let op: Op1::Commit;
-                return (op)
-            }
-            Symbol("num") => {
-                let op: Op1::Num;
-                return (op)
-            }
-            Symbol("u64") => {
-                let op: Op1::U64;
-                return (op)
-            }
-            Symbol("comm") => {
-                let op: Op1::Comm;
-                return (op)
-            }
-            Symbol("char") => {
-                let op: Op1::Char;
-                return (op)
-            }
-            Symbol("open") => {
-                let op: Op1::Open;
-                return (op)
-            }
-            Symbol("secret") => {
-                let op: Op1::Secret;
-                return (op)
-            }
-            Symbol("atom") => {
-                let op: Op1::Atom;
-                return (op)
-            }
-            Symbol("emit") => {
-                let op: Op1::Emit;
-                return (op)
+            Symbol("car")
+            | Symbol("cdr")
+            | Symbol("commit")
+            | Symbol("num")
+            | Symbol("u64")
+            | Symbol("comm")
+            | Symbol("char")
+            | Symbol("open")
+            | Symbol("secret")
+            | Symbol("atom")
+            | Symbol("emit") => {
+                return (t)
             }
         };
-        let dummy = Symbol("dummy");
-        return (dummy)
+        return (nil)
     });
 
     let choose_binop = func!((head): 1 => {
+        let nil: Expr::Nil;
+        let t = Symbol("t");
         match head.val {
-            Symbol("cons") => {
-                let op: Op2::Cons;
-                return (op)
-            }
-            Symbol("strcons") => {
-                let op: Op2::StrCons;
-                return (op)
-            }
-            Symbol("hide") => {
-                let op: Op2::Hide;
-                return (op)
-            }
-            Symbol("+") => {
-                let op: Op2::Sum;
-                return (op)
-            }
-            Symbol("-") => {
-                let op: Op2::Diff;
-                return (op)
-            }
-            Symbol("*") => {
-                let op: Op2::Product;
-                return (op)
-            }
-            // TODO: bellperson complains if we use "/"
-            Symbol("div") => {
-                let op: Op2::Quotient;
-                return (op)
-            }
-            Symbol("%") => {
-                let op: Op2::Modulo;
-                return (op)
-            }
-            Symbol("=") => {
-                let op: Op2::NumEqual;
-                return (op)
-            }
-            Symbol("eq") => {
-                let op: Op2::Equal;
-                return (op)
-            }
-            Symbol("<") => {
-                let op: Op2::Less;
-                return (op)
-            }
-            Symbol(">") => {
-                let op: Op2::Greater;
-                return (op)
-            }
-            Symbol("<=") => {
-                let op: Op2::LessEqual;
-                return (op)
-            }
-            Symbol(">=") => {
-                let op: Op2::GreaterEqual;
-                return (op)
+            Symbol("cons")
+            | Symbol("strcons")
+            | Symbol("hide")
+            | Symbol("+")
+            | Symbol("-")
+            | Symbol("*")
+              // TODO: bellperson complains if we use "/"
+            | Symbol("div")
+            | Symbol("%")
+            | Symbol("=")
+            | Symbol("eq")
+            | Symbol("<")
+            | Symbol(">")
+            | Symbol("<=")
+            | Symbol(">=") => {
+                return (t)
             }
         };
-        let dummy = Symbol("dummy");
-        return (dummy)
+        return (nil)
     });
     let is_potentially_fun = func!((head): 1 => {
         let t = Symbol("t");
@@ -404,8 +332,7 @@ fn reduce() -> Func {
                                 return (arg1, env, cont, ret)
                             }
                         };
-                        let op2: Op2::Begin;
-                        let cont: Cont::Binop = hash4(op2, env, more, cont);
+                        let cont: Cont::Binop = hash4(head, env, more, cont);
                         return (arg1, env, cont, ret)
                     }
                     Symbol("eval") => {
@@ -417,13 +344,11 @@ fn reduce() -> Func {
                         let (arg1, more) = safe_uncons(rest);
                         match more.tag {
                             Expr::Nil => {
-                                let op1: Op1::Eval;
-                                let cont: Cont::Unop = hash2(op1, cont);
+                                let cont: Cont::Unop = hash2(head, cont);
                                 return (arg1, env, cont, ret)
                             }
                         };
-                        let op2: Op2::Eval;
-                        let cont: Cont::Binop = hash4(op2, env, more, cont);
+                        let cont: Cont::Binop = hash4(head, env, more, cont);
                         return (arg1, env, cont, ret)
                     }
                     Symbol("if") => {
@@ -450,8 +375,7 @@ fn reduce() -> Func {
                 // TODO this is a hack since if statements only look at the hash
                 // value, not the tag, as of now. Later, it might be that we decouple
                 // hashes and tags
-                let dummy = Symbol("dummy");
-                if op != dummy {
+                if op == t {
                     match rest.tag {
                         Expr::Nil => {
                             return (expr, env, err, errctrl)
@@ -460,7 +384,7 @@ fn reduce() -> Func {
                     let (arg1, end) = unhash2(rest);
                     match end.tag {
                         Expr::Nil => {
-                            let cont: Cont::Unop = hash2(op, cont);
+                            let cont: Cont::Unop = hash2(head, cont);
                             return (arg1, env, cont, ret)
                         }
                     };
@@ -468,7 +392,7 @@ fn reduce() -> Func {
                 }
                 // binops
                 let (op) = choose_binop(head);
-                if op != dummy {
+                if op == t {
                     match rest.tag {
                         Expr::Nil => {
                             return (expr, env, err, errctrl)
@@ -480,7 +404,7 @@ fn reduce() -> Func {
                             return (expr, env, err, errctrl)
                         }
                     };
-                    let cont: Cont::Binop = hash4(op, env, more, cont);
+                    let cont: Cont::Binop = hash4(head, env, more, cont);
                     return (arg1, env, cont, ret)
                 }
 
@@ -644,16 +568,16 @@ fn apply_cont() -> Func {
                     }
                     Cont::Unop => {
                         let (operator, continuation) = unhash2(cont);
-                        match operator.tag {
-                            Op1::Car => {
+                        match operator.val {
+                            Symbol("car") => {
                                 let (car, _cdr) = safe_uncons(result);
                                 return (car, env, continuation, makethunk)
                             }
-                            Op1::Cdr => {
+                            Symbol("cdr") => {
                                 let (_car, cdr) = safe_uncons(result);
                                 return (cdr, env, continuation, makethunk)
                             }
-                            Op1::Atom => {
+                            Symbol("atom") => {
                                 match result.tag {
                                     Expr::Cons => {
                                         return (nil, env, continuation, makethunk)
@@ -661,25 +585,25 @@ fn apply_cont() -> Func {
                                 };
                                 return (t, env, continuation, makethunk)
                             }
-                            Op1::Emit => {
+                            Symbol("emit") => {
                                 // TODO Does this make sense?
                                 let emit: Cont::Emit = hash2(cont, nil);
                                 return (result, env, emit, makethunk)
                             }
-                            Op1::Open => {
+                            Symbol("open") => {
                                 let (_secret, payload) = open(result);
                                 return(payload, env, continuation, makethunk)
                             }
-                            Op1::Secret => {
+                            Symbol("secret") => {
                                 let (secret, _payload) = open(result);
                                 return(secret, env, continuation, makethunk)
                             }
-                            Op1::Commit => {
+                            Symbol("commit") => {
                                 let zero = Num(0);
                                 let comm = hide(zero, result);
                                 return(comm, env, continuation, makethunk)
                             }
-                            Op1::Num => {
+                            Symbol("num") => {
                                 match result.tag {
                                     Expr::Num | Expr::Comm | Expr::Char | Expr::U64 => {
                                         let cast = cast(result, Expr::Num);
@@ -688,7 +612,7 @@ fn apply_cont() -> Func {
                                 };
                                 return(result, env, err, errctrl)
                             }
-                            Op1::U64 => {
+                            Symbol("u64") => {
                                 match result.tag {
                                     Expr::Num => {
                                         // TODO we also need to use `Mod` to truncate
@@ -704,7 +628,7 @@ fn apply_cont() -> Func {
                                 };
                                 return(result, env, err, errctrl)
                             }
-                            Op1::Comm => {
+                            Symbol("comm") => {
                                 match result.tag {
                                     Expr::Num | Expr::Comm => {
                                         let cast = cast(result, Expr::Num);
@@ -713,7 +637,7 @@ fn apply_cont() -> Func {
                                 };
                                 return(result, env, err, errctrl)
                             }
-                            Op1::Char => {
+                            Symbol("char") => {
                                 match result.tag {
                                     Expr::Num | Expr::Char => {
                                         // TODO we also need to use `Mod` to truncate
@@ -724,7 +648,7 @@ fn apply_cont() -> Func {
                                 };
                                 return(result, env, err, errctrl)
                             }
-                            Op1::Eval => {
+                            Symbol("eval") => {
                                 return(result, nil, continuation, ret)
                             }
                         };
@@ -733,8 +657,8 @@ fn apply_cont() -> Func {
                     Cont::Binop => {
                         let (operator, saved_env, unevaled_args, continuation) = unhash4(cont);
                         let (arg2, rest) = safe_uncons(unevaled_args);
-                        match operator.tag {
-                            Op2::Begin => {
+                        match operator.val {
+                            Symbol("begin") => {
                                 match rest.tag {
                                     Expr::Nil => {
                                         return (arg2, saved_env, continuation, ret)
@@ -755,15 +679,15 @@ fn apply_cont() -> Func {
                     }
                     Cont::Binop2 => {
                         let (operator, evaled_arg, continuation) = unhash3(cont);
-                        match operator.tag {
-                            Op2::Eval => {
+                        match operator.val {
+                            Symbol("eval") => {
                                 return (evaled_arg, result, continuation, ret)
                             }
-                            Op2::Cons => {
+                            Symbol("cons") => {
                                 let val: Expr::Cons = hash2(evaled_arg, result);
                                 return (val, env, continuation, makethunk)
                             }
-                            Op2::StrCons => {
+                            Symbol("strcons") => {
                                 match evaled_arg.tag {
                                     Expr::Char => {
                                         match evaled_arg.tag {
@@ -777,57 +701,57 @@ fn apply_cont() -> Func {
                                 };
                                 return (result, env, err, errctrl)
                             }
-                            Op2::Hide => {
+                            Symbol("hide") => {
                                 let num = cast(evaled_arg, Expr::Num);
                                 let hidden = hide(num, result);
                                 return(hidden, env, continuation, makethunk)
                             }
-                            Op2::Equal => {
+                            Symbol("eq") => {
                                 // TODO should we check whether the tags are also equal?
                                 if evaled_arg == result {
                                     return (t, env, continuation, makethunk)
                                 }
                                 return (nil, env, continuation, makethunk)
                             }
-                            Op2::Sum => {
+                            Symbol("+") => {
                                 // TODO deal with U64
                                 let val = add(evaled_arg, result);
                                 return (val, env, continuation, makethunk)
                             }
-                            Op2::Diff => {
+                            Symbol("-") => {
                                 // TODO deal with U64
                                 let val = sub(evaled_arg, result);
                                 return (val, env, continuation, makethunk)
                             }
-                            Op2::Product => {
+                            Symbol("*") => {
                                 // TODO deal with U64
                                 let val = mul(evaled_arg, result);
                                 return (val, env, continuation, makethunk)
                             }
-                            Op2::Quotient => {
+                            Symbol("div") => {
                                 return (result, env, err, errctrl)
                             }
-                            Op2::Modulo => {
+                            Symbol("%") => {
                                 // TODO
                                 return (result, env, err, errctrl)
                             }
-                            Op2::NumEqual => {
+                            Symbol("=") => {
                                 // TODO
                                 return (result, env, err, errctrl)
                             }
-                            Op2::Less => {
+                            Symbol("<") => {
                                 // TODO
                                 return (result, env, err, errctrl)
                             }
-                            Op2::Greater => {
+                            Symbol(">") => {
                                 // TODO
                                 return (result, env, err, errctrl)
                             }
-                            Op2::LessEqual => {
+                            Symbol("<=") => {
                                 // TODO
                                 return (result, env, err, errctrl)
                             }
-                            Op2::GreaterEqual => {
+                            Symbol(">=") => {
                                 // TODO
                                 return (result, env, err, errctrl)
                             }
@@ -900,8 +824,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 8032;
-    const NUM_CONSTRAINTS: usize = 9981;
+    const NUM_AUX: usize = 8056;
+    const NUM_CONSTRAINTS: usize = 10053;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,
