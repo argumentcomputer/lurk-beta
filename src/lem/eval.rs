@@ -646,11 +646,11 @@ fn apply_cont() -> Func {
                         let (operator, continuation) = unhash2(cont);
                         match operator.tag {
                             Op1::Car => {
-                                let (car, _cdr) = unhash2(result);
+                                let (car, _cdr) = safe_uncons(result);
                                 return (car, env, continuation, makethunk)
                             }
                             Op1::Cdr => {
-                                let (_car, cdr) = unhash2(result);
+                                let (_car, cdr) = safe_uncons(result);
                                 return (cdr, env, continuation, makethunk)
                             }
                             Op1::Atom => {

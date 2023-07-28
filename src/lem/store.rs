@@ -216,11 +216,10 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn intern_lurk_symbol(&mut self, s: LurkSym) -> Ptr<F> {
-        let ptr = self.intern_symbol(&Symbol::lurk_sym(&format!("{s}")));
         if matches!(s, LurkSym::Nil) {
-            return ptr.cast(Tag::Expr(Nil));
+            return Ptr::Leaf(Tag::Expr(Nil), F::ZERO);
         }
-        ptr
+        self.intern_symbol(&Symbol::lurk_sym(&format!("{s}")))
     }
 
     pub fn intern_nil(&mut self) -> Ptr<F> {
