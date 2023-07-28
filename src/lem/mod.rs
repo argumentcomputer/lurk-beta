@@ -70,7 +70,7 @@ mod symbol;
 mod var_map;
 
 use crate::field::LurkField;
-use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag as TagTrait};
+use crate::tag::{ContTag, ExprTag, Tag as TagTrait};
 use anyhow::{bail, Result};
 use indexmap::IndexMap;
 use std::sync::Arc;
@@ -98,8 +98,6 @@ pub struct Var(AString);
 pub enum Tag {
     Expr(ExprTag),
     Cont(ContTag),
-    Op1(Op1),
-    Op2(Op2),
     Ctrl(CtrlTag),
 }
 
@@ -118,8 +116,6 @@ impl Tag {
         match self {
             Expr(tag) => tag.to_field(),
             Cont(tag) => tag.to_field(),
-            Op1(tag) => tag.to_field(),
-            Op2(tag) => tag.to_field(),
             Ctrl(tag) => tag.to_field(),
         }
     }
@@ -149,8 +145,6 @@ impl std::fmt::Display for Tag {
         match self {
             Expr(tag) => write!(f, "expr.{}", tag),
             Cont(tag) => write!(f, "cont.{}", tag),
-            Op1(tag) => write!(f, "op1.{}", tag),
-            Op2(tag) => write!(f, "op2.{}", tag),
             Ctrl(tag) => write!(f, "ctrl.{}", tag),
         }
     }
@@ -401,8 +395,6 @@ impl Func {
                         let tag_kind = match tag {
                             Tag::Expr(..) => 0,
                             Tag::Cont(..) => 1,
-                            Tag::Op1(..) => 2,
-                            Tag::Op2(..) => 3,
                             Tag::Ctrl(..) => 4,
                         };
                         if let Some(kind) = kind {

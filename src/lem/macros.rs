@@ -35,12 +35,6 @@ macro_rules! tag {
     ( Cont::$tag:ident ) => {
         $crate::lem::Tag::Cont($crate::tag::ContTag::$tag)
     };
-    ( Op1::$tag:ident ) => {
-        $crate::lem::Tag::Op1($crate::tag::Op1::$tag)
-    };
-    ( Op2::$tag:ident ) => {
-        $crate::lem::Tag::Op2($crate::tag::Op2::$tag)
-    };
     ( Ctrl::$tag:ident ) => {
         $crate::lem::Tag::Ctrl($crate::lem::CtrlTag::$tag)
     };

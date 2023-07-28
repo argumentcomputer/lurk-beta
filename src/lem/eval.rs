@@ -818,7 +818,7 @@ fn make_thunk() -> Func {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lem::{circuit::SlotsCounter, pointers::Ptr, store::Store, symbol::Symbol, Tag};
+    use crate::lem::{circuit::SlotsCounter, pointers::Ptr, store::Store, Tag};
     use crate::tag::ContTag::*;
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
     use blstrs::Scalar as Fr;
