@@ -9,7 +9,6 @@ use proptest_derive::Arbitrary;
 
 use ff::PrimeField;
 use hex::FromHex;
-use lurk::error::ReductionError;
 #[cfg(not(target_arch = "wasm32"))]
 use lurk::field::FWrap;
 use lurk::{
@@ -38,6 +37,7 @@ use lurk_macros::serde_test;
 #[cfg(not(target_arch = "wasm32"))]
 use lurk::z_data;
 
+use lurk::{error::ReductionError, proof::nova::CurveCycleEquipped};
 use once_cell::sync::OnceCell;
 use pasta_curves::pallas;
 use rand::rngs::OsRng;
@@ -269,9 +269,9 @@ pub struct VerificationResult {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Proof<'a, F: LurkField> {
+pub struct Proof<'a, F: CurveCycleEquipped> {
     pub claim: Claim<F>,
-    pub proof: nova::Proof<'a, Coproc<S1>>,
+    pub proof: nova::Proof<'a, F, Coproc<F>>,
     pub num_steps: usize,
     pub reduction_count: ReductionCount,
 }
@@ -632,7 +632,7 @@ impl<'a> Opening<S1> {
         chain: bool,
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1, Coproc<S1>>,
-        pp: &'a PublicParams<'_, Coproc<S1>>,
+        pp: &'a PublicParams<'_, S1, Coproc<S1>>,
         lang: Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Proof<'a, S1>, Error> {
         let claim = Self::apply(s, input, function, limit, chain, &lang)?;
@@ -653,7 +653,7 @@ impl<'a> Opening<S1> {
         limit: usize,
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1, Coproc<S1>>,
-        pp: &'a PublicParams<'_, Coproc<S1>>,
+        pp: &'a PublicParams<'_, S1, Coproc<S1>>,
         lang: Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Proof<'a, S1>, Error> {
         let input = request.input.expr.ptr(s, limit, &lang);
@@ -787,7 +787,7 @@ impl<'a> Proof<'a, S1> {
         limit: usize,
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1, Coproc<S1>>,
-        pp: &'a PublicParams<'_, Coproc<S1>>,
+        pp: &'a PublicParams<'_, S1, Coproc<S1>>,
         lang: Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Self, Error> {
         let env = supplied_env.unwrap_or_else(|| empty_sym_env(s));
@@ -825,7 +825,7 @@ impl<'a> Proof<'a, S1> {
         limit: usize,
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1, Coproc<S1>>,
-        pp: &'a PublicParams<'_, Coproc<S1>>,
+        pp: &'a PublicParams<'_, S1, Coproc<S1>>,
         lang: &Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Self, Error> {
         let reduction_count = nova_prover.reduction_count();
@@ -911,7 +911,7 @@ impl<'a> Proof<'a, S1> {
 
     pub fn verify(
         &self,
-        pp: &PublicParams<'_, Coproc<S1>>,
+        pp: &PublicParams<'_, S1, Coproc<S1>>,
         lang: &Lang<S1, Coproc<S1>>,
     ) -> Result<VerificationResult, Error> {
         let (public_inputs, public_outputs) = self.io_vecs(lang)?;

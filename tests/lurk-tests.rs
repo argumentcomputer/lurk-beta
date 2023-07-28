@@ -1,8 +1,8 @@
 use lurk::{
     eval::lang::{Coproc, Lang},
-    proof::nova,
     repl::{repl, ReplState},
 };
+use pasta_curves::pallas::Scalar as S1;
 use std::path::Path;
 
 #[test]
@@ -37,10 +37,6 @@ fn lurk_tests() {
     for f in test_files {
         let joined = example_dir.join(f);
 
-        repl::<nova::S1, ReplState<nova::S1, Coproc<nova::S1>>, _, Coproc<nova::S1>>(
-            Some(joined),
-            Lang::new(),
-        )
-        .unwrap();
+        repl::<S1, ReplState<S1, Coproc<S1>>, _, Coproc<S1>>(Some(joined), Lang::new()).unwrap();
     }
 }

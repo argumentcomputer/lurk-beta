@@ -4,7 +4,7 @@ use lurk::{
     coprocessor::Coprocessor,
     eval::lang::{Coproc, Lang},
     field::LurkField,
-    proof::nova,
+    proof::nova::{self, CurveCycleEquipped},
     z_ptr::{ZContPtr, ZExprPtr},
     z_store::ZStore,
 };
@@ -35,16 +35,14 @@ impl<F: LurkField> HasFieldModulus for LurkProofMeta<F> {
     }
 }
 
-type Pallas = pasta_curves::pallas::Scalar; // TODO: generalize this
-
 /// Minimal data structure containing just enough for proof verification
 #[derive(Serialize, Deserialize)]
-pub enum LurkProof<'a, F: LurkField>
+pub enum LurkProof<'a, F: CurveCycleEquipped>
 where
-    Coproc<F>: Coprocessor<Pallas>,
+    Coproc<F>: Coprocessor<F>,
 {
     Nova {
-        proof: nova::Proof<'a, Coproc<F>>,
+        proof: nova::Proof<'a, F, Coproc<F>>,
         public_inputs: Vec<F>,
         public_outputs: Vec<F>,
         num_steps: usize,
@@ -53,9 +51,9 @@ where
     },
 }
 
-impl<'a, F: LurkField> HasFieldModulus for LurkProof<'a, F>
+impl<'a, F: CurveCycleEquipped> HasFieldModulus for LurkProof<'a, F>
 where
-    Coproc<F>: Coprocessor<Pallas>,
+    Coproc<F>: Coprocessor<F>,
 {
     fn field_modulus() -> String {
         F::MODULUS.to_owned()
@@ -71,11 +69,12 @@ mod non_wasm {
     use anyhow::Result;
     use lurk::{
         coprocessor::Coprocessor, eval::lang::Coproc, field::LurkField,
-        public_parameters::public_params,
+        proof::nova::CurveCycleEquipped, public_parameters::public_params,
     };
     use serde::Serialize;
 
-    use super::{LurkProof, LurkProofMeta, Pallas};
+    use super::{LurkProof, LurkProofMeta};
+    use pasta_curves::pallas::Scalar;
 
     impl<F: LurkField + Serialize> LurkProofMeta<F> {
         #[inline]
@@ -84,9 +83,9 @@ mod non_wasm {
         }
     }
 
-    impl<'a, F: LurkField + Serialize> LurkProof<'a, F>
+    impl<'a, F: CurveCycleEquipped + Serialize> LurkProof<'a, F>
     where
-        Coproc<F>: Coprocessor<Pallas>,
+        Coproc<F>: Coprocessor<F>,
     {
         #[inline]
         pub fn persist(self, proof_key: &str) -> Result<()> {
@@ -94,7 +93,7 @@ mod non_wasm {
         }
     }
 
-    impl<'a> LurkProof<'a, Pallas> {
+    impl<'a> LurkProof<'a, Scalar> {
         fn verify(self) -> Result<bool> {
             match self {
                 Self::Nova {
@@ -113,7 +112,7 @@ mod non_wasm {
         }
 
         pub fn verify_proof(proof_key: &str) -> Result<()> {
-            let lurk_proof: LurkProof<'_, Pallas> = load(proof_path(proof_key))?;
+            let lurk_proof: LurkProof<'_, Scalar> = load(proof_path(proof_key))?;
             if lurk_proof.verify()? {
                 println!("✓ Proof \"{proof_key}\" verified");
             } else {

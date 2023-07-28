@@ -5,6 +5,7 @@
 //! as an extension of the ff::PrimeField trait, with conveniance methods
 //! relating this field to the expresions of the language.
 use ff::{PrimeField, PrimeFieldBits};
+use nova::provider::bn256_grumpkin::bn256;
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::hash::Hash;
@@ -40,6 +41,10 @@ pub enum LanguageField {
     Vesta,
     /// The BLS12-381 scalar field,
     BLS12_381,
+    /// The BN256 scalar field,
+    BN256,
+    /// THe Grumpkin scalar field,
+    Grumpkin,
 }
 
 impl std::fmt::Display for LanguageField {
@@ -48,6 +53,8 @@ impl std::fmt::Display for LanguageField {
             Self::Pallas => write!(f, "Pallas"),
             Self::Vesta => write!(f, "Vesta"),
             Self::BLS12_381 => write!(f, "BLS12-381"),
+            Self::BN256 => write!(f, "BN256"),
+            Self::Grumpkin => write!(f, "Grumpkin"),
         }
     }
 }
@@ -246,6 +253,12 @@ impl LurkField for pasta_curves::pallas::Scalar {
 impl LurkField for pasta_curves::vesta::Scalar {
     const FIELD: LanguageField = LanguageField::Vesta;
 }
+
+impl LurkField for bn256::Scalar {
+    const FIELD: LanguageField = LanguageField::BN256;
+}
+
+// The impl LurkField for grumpkin::Scalar is technically possible, but voluntarily omitted to avoid confusion.
 
 // For working around the orphan trait impl rule
 /// Wrapper struct around a field element that implements additional traits
