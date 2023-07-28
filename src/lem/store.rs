@@ -6,6 +6,7 @@ use crate::{
     hash::PoseidonCache,
     lem::Tag,
     symbol::LurkSym,
+    symbol::Symbol,
     syntax::Syntax,
     tag::ExprTag::*,
     uint::UInt,
@@ -13,13 +14,8 @@ use crate::{
 use anyhow::{bail, Result};
 use dashmap::DashMap;
 use indexmap::IndexSet;
-use std::sync::Arc;
 
-use super::{
-    pointers::{Ptr, ZChildren, ZPtr},
-    symbol::Symbol,
-    AString, AVec,
-};
+use super::pointers::{Ptr, ZChildren, ZPtr};
 
 /// The `Store` is a crucial part of Lurk's implementation and tries to be a
 /// vesatile data structure for many parts of Lurk's data pipeline.
@@ -46,9 +42,9 @@ pub struct Store<F: LurkField> {
     ptrs3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
     ptrs4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
 
-    str_cache: HashMap<AString, Ptr<F>>,
-    sym_cache: HashMap<AVec<AString>, Ptr<F>>,
-    sym_path_cache: HashMap<Ptr<F>, AVec<AString>>,
+    str_cache: HashMap<String, Ptr<F>>,
+    sym_cache: HashMap<Vec<String>, Ptr<F>>,
+    sym_path_cache: HashMap<Ptr<F>, Vec<String>>,
 
     pub poseidon_cache: PoseidonCache<F>,
     dehydrated: Vec<Ptr<F>>,
@@ -171,22 +167,21 @@ impl<F: LurkField> Store<F> {
     }
 
     /// Interns a symbol path recursively
-    pub fn intern_symbol_path(&mut self, path: &[AString]) -> Ptr<F> {
+    pub fn intern_symbol_path(&mut self, path: Vec<String>) -> Ptr<F> {
         if path.is_empty() {
             let ptr = Ptr::null(Tag::Expr(Sym));
-            self.sym_path_cache.insert(ptr, Arc::new([]));
+            self.sym_path_cache.insert(ptr, vec![]);
             return ptr;
         }
 
-        match self.sym_cache.get(path) {
+        match self.sym_cache.get(&path) {
             Some(ptr_cache) => *ptr_cache,
             None => {
                 let tail = &path[1..];
-                let tail_ptr = self.intern_symbol_path(tail);
+                let tail_ptr = self.intern_symbol_path(tail.to_vec());
                 let head = &path[0];
                 let head_ptr = self.intern_string(head);
                 let path_ptr = self.intern_2_ptrs(Tag::Expr(Sym), head_ptr, tail_ptr);
-                let path: Arc<[Arc<str>]> = path.into();
                 self.sym_cache.insert(path.clone(), path_ptr);
                 self.sym_path_cache.insert(path_ptr, path);
                 path_ptr
@@ -195,31 +190,29 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn fetch_sym_path(&self, ptr: &Ptr<F>) -> Option<&AVec<AString>> {
+    pub fn fetch_sym_path(&self, ptr: &Ptr<F>) -> Option<&Vec<String>> {
         self.sym_path_cache.get(ptr)
     }
 
     #[inline]
     pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<Symbol> {
         match ptr.tag() {
-            Tag::Expr(Sym) => Some(Symbol::sym(self.fetch_sym_path(ptr)?)),
-            Tag::Expr(Key) => Some(Symbol::key(self.fetch_sym_path(&ptr.key_to_sym())?)),
+            Tag::Expr(Sym) | Tag::Expr(Key) => Some(Symbol {
+                path: self.fetch_sym_path(ptr)?.to_vec(),
+            }),
             _ => None,
         }
     }
 
-    pub fn intern_symbol(&mut self, s: &Symbol) -> Ptr<F> {
-        match s {
-            Symbol::Sym(path) => self.intern_symbol_path(path),
-            Symbol::Key(path) => self.intern_symbol_path(path).sym_to_key(),
-        }
+    pub fn intern_symbol(&mut self, s: Symbol) -> Ptr<F> {
+        self.intern_symbol_path(s.path)
     }
 
     pub fn intern_lurk_symbol(&mut self, s: LurkSym) -> Ptr<F> {
         if matches!(s, LurkSym::Nil) {
             return Ptr::Leaf(Tag::Expr(Nil), F::ZERO);
         }
-        self.intern_symbol(&Symbol::lurk_sym(&format!("{s}")))
+        self.intern_symbol(Symbol::lurk_sym(&format!("{s}")))
     }
 
     pub fn intern_nil(&mut self) -> Ptr<F> {
@@ -231,14 +224,7 @@ impl<F: LurkField> Store<F> {
             Syntax::Num(_, x) => Ptr::Leaf(Tag::Expr(Num), x.into_scalar()),
             Syntax::UInt(_, UInt::U64(x)) => Ptr::Leaf(Tag::Expr(U64), x.into()),
             Syntax::Char(_, x) => Ptr::Leaf(Tag::Expr(Char), (x as u64).into()),
-            Syntax::Symbol(_, x) => {
-                let path = x.path.iter().map(|s| Arc::from(s.clone())).collect();
-                self.intern_symbol(&Symbol::Sym(path))
-            }
-            Syntax::Keyword(_, x) => {
-                let path = x.path.iter().map(|s| Arc::from(s.clone())).collect();
-                self.intern_symbol(&Symbol::Key(path))
-            }
+            Syntax::Symbol(_, x) | Syntax::Keyword(_, x) => self.intern_symbol(x),
             Syntax::LurkSym(_, x) => self.intern_lurk_symbol(x),
             Syntax::String(_, x) => self.intern_string(&x),
             Syntax::Quote(pos, x) => {

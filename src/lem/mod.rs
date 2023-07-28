@@ -66,19 +66,18 @@ mod macros;
 mod path;
 mod pointers;
 mod store;
-mod symbol;
 mod var_map;
 
 use crate::field::LurkField;
+use crate::symbol::Symbol;
 use crate::tag::{ContTag, ExprTag, Tag as TagTrait};
 use anyhow::{bail, Result};
 use indexmap::IndexMap;
 use std::sync::Arc;
 
-use self::{pointers::Ptr, store::Store, symbol::Symbol, var_map::VarMap};
+use self::{pointers::Ptr, store::Store, var_map::VarMap};
 
 pub type AString = Arc<str>;
-pub type AVec<A> = Arc<[A]>;
 
 /// A `Func` is a LEM function. It consist of input params, output size and a
 /// function body, which is a `Block`
@@ -162,7 +161,7 @@ pub enum Lit {
 impl Lit {
     pub fn to_ptr<F: LurkField>(&self, store: &mut Store<F>) -> Ptr<F> {
         match self {
-            Self::Symbol(s) => store.intern_symbol(s),
+            Self::Symbol(s) => store.intern_symbol(s.clone()),
             Self::String(s) => store.intern_string(s),
             Self::Num(num) => Ptr::num((*num).into()),
         }
