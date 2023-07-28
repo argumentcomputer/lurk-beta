@@ -875,9 +875,8 @@ fn make_thunk() -> Func {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::field::LurkField;
     use crate::lem::{circuit::SlotsCounter, pointers::Ptr, store::Store, symbol::Symbol, Tag};
-    use crate::tag::{ContTag::*, ExprTag::*};
+    use crate::tag::ContTag::*;
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
     use blstrs::Scalar as Fr;
 
@@ -913,13 +912,11 @@ mod tests {
         for (expr_in, expr_out) in pairs {
             let input = vec![expr_in, nil, outermost];
             let (frames, paths) = eval_step.call_until(input, store, stop_cond).unwrap();
-            assert!(
-                frames
-                    .last()
-                    .expect("eval should add at least one frame")
-                    .output[0]
-                    == expr_out
-            );
+            let frame_expr_out = frames
+                .last()
+                .expect("eval should add at least one frame")
+                .output[0];
+            assert!(frame_expr_out == expr_out);
             store.hydrate_z_cache();
             let mut cs = TestConstraintSystem::<Fr>::new();
             for frame in frames.iter() {
@@ -942,10 +939,11 @@ mod tests {
         // eval_step.assert_all_paths_taken(&all_paths);
     }
 
-    fn expr_in_expr_out_pairs(_store: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
-        let num = Ptr::num(Fr::from_u64(42));
-        let nil = Ptr::null(Tag::Expr(Nil));
-        let strnil = Ptr::null(Tag::Expr(Str));
+    fn expr_in_expr_out_pairs(s: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
+        let num = s.read("42").unwrap();
+        let sum = s.read("(+ 21 21)").unwrap();
+        let nil = s.read("nil").unwrap();
+        let strnil = s.read("\"\"").unwrap();
         vec![(num, num), (nil, nil), (strnil, strnil)]
     }
 

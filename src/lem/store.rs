@@ -5,6 +5,7 @@ use crate::{
     field::{FWrap, LurkField},
     hash::PoseidonCache,
     lem::Tag,
+    symbol::LurkSym,
     syntax::Syntax,
     tag::ExprTag::*,
     uint::UInt,
@@ -214,6 +215,14 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    pub fn intern_lurk_symbol(&mut self, s: LurkSym) -> Ptr<F> {
+        let ptr = self.intern_symbol(&Symbol::lurk_sym(&format!("{s}")));
+        if matches!(s, LurkSym::Nil) {
+            return ptr.cast(Tag::Expr(Nil));
+        }
+        ptr
+    }
+
     pub fn intern_syntax(&mut self, syn: Syntax<F>) -> Ptr<F> {
         match syn {
             Syntax::Num(_, x) => Ptr::Leaf(Tag::Expr(Num), x.into_scalar()),
@@ -227,7 +236,7 @@ impl<F: LurkField> Store<F> {
                 let path = x.path.iter().map(|s| Arc::from(s.clone())).collect();
                 self.intern_symbol(&Symbol::Key(path))
             }
-            Syntax::LurkSym(_, x) => self.intern_symbol(&Symbol::lurk_sym(&format!("{x}"))),
+            Syntax::LurkSym(_, x) => self.intern_lurk_symbol(x),
             Syntax::String(_, x) => self.intern_string(&x),
             Syntax::Quote(pos, x) => {
                 let quote = crate::symbol::Symbol::lurk_sym("quote");
@@ -235,7 +244,7 @@ impl<F: LurkField> Store<F> {
                 self.intern_syntax(Syntax::List(pos, xs))
             }
             Syntax::List(_, xs) => {
-                let mut cdr = self.intern_symbol(&Symbol::lurk_sym("nil"));
+                let mut cdr = self.intern_lurk_symbol(LurkSym::Nil);
                 for x in xs.into_iter().rev() {
                     let car = self.intern_syntax(x);
                     cdr = self.intern_2_ptrs(Tag::Expr(Cons), car, cdr);
@@ -250,6 +259,16 @@ impl<F: LurkField> Store<F> {
                 }
                 cdr
             }
+        }
+    }
+
+    pub fn read(&mut self, input: &str) -> Result<Ptr<F>> {
+        use crate::parser::*;
+        use nom::sequence::preceded;
+        use nom::Parser;
+        match preceded(syntax::parse_space, syntax::parse_syntax()).parse(Span::new(input)) {
+            Ok((_i, x)) => Ok(self.intern_syntax(x)),
+            Err(e) => bail!("{}", e),
         }
     }
 
