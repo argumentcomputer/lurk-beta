@@ -223,6 +223,10 @@ impl<F: LurkField> Store<F> {
         ptr
     }
 
+    pub fn intern_nil(&mut self) -> Ptr<F> {
+        self.intern_lurk_symbol(LurkSym::Nil)
+    }
+
     pub fn intern_syntax(&mut self, syn: Syntax<F>) -> Ptr<F> {
         match syn {
             Syntax::Num(_, x) => Ptr::Leaf(Tag::Expr(Num), x.into_scalar()),

@@ -796,6 +796,7 @@ impl Func {
                     Op::Div(_tgt, _a, _b) => {
                         // TODO
                     }
+                    Op::Emit(_) => (),
                     Op::Hide(tgt, _sec, _pay) => {
                         // TODO
                         let allocated_ptr = AllocatedPtr::from_parts(
@@ -1085,6 +1086,7 @@ impl Func {
                     Op::Div(_, _, _) => {
                         // TODO
                     }
+                    Op::Emit(_) => (),
                     Op::Hash2(_, tag, _) => {
                         // tag for the image
                         globals.insert(FWrap(tag.to_field()));

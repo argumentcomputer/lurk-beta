@@ -250,6 +250,8 @@ pub enum Op {
     Mul(Var, Var, Var),
     /// `Div(y, a, b)` binds `y` to the sum of `a` and `b`
     Div(Var, Var, Var),
+    /// `Emit(s)` simply emits message `s` when interpreting
+    Emit(String),
     /// `Hash2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
     Hash2(Var, Tag, [Var; 2]),
     /// `Hash3(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 3 children `ys`
@@ -343,6 +345,7 @@ impl Func {
                         is_bound(b, map)?;
                         is_unique(tgt, map);
                     }
+                    Op::Emit(_) => (),
                     Op::Hash2(img, _tag, preimg) => {
                         preimg.iter().try_for_each(|arg| is_bound(arg, map))?;
                         is_unique(img, map);
@@ -564,6 +567,7 @@ impl Block {
                     let tgt = insert_one(map, uniq, &tgt);
                     ops.push(Op::Div(tgt, a, b))
                 }
+                Op::Emit(_) => ops.push(op),
                 Op::Hash2(img, tag, preimg) => {
                     let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
                     let img = insert_one(map, uniq, &img);
@@ -675,7 +679,7 @@ mod tests {
         let outermost = Ptr::null(Tag::Cont(Outermost));
         let terminal = Ptr::null(Tag::Cont(Terminal));
         let error = Ptr::null(Tag::Cont(Error));
-        let nil = store.intern_symbol(&Symbol::lurk_sym("nil"));
+        let nil = store.intern_nil();
         let stop_cond = |output: &[Ptr<Fr>]| output[2] == terminal || output[2] == error;
 
         let slots_count = func.body.count_slots();

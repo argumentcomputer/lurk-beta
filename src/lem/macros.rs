@@ -92,6 +92,9 @@ macro_rules! op {
             $crate::var!($b),
         )
     };
+    ( emit($s:literal) ) => {
+        $crate::lem::Op::Emit($s.into())
+    };
     ( let $tgt:ident : $kind:ident::$tag:ident = hash2($src1:ident, $src2:ident) ) => {
         $crate::lem::Op::Hash2(
             $crate::var!($tgt),
@@ -282,6 +285,16 @@ macro_rules! block {
             {
                 $($limbs)*
                 $crate::op!(let $tgt = div($a, $b))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, emit($s:literal) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(emit($s))
             },
             $($tail)*
         )

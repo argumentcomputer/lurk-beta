@@ -121,6 +121,7 @@ impl Block {
                     };
                     bindings.insert(tgt.clone(), c);
                 }
+                Op::Emit(s) => println!("{}", s),
                 Op::Hash2(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
                     let tgt_ptr = store.intern_2_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1]);
@@ -237,7 +238,13 @@ impl Block {
             Ctrl::MatchVal(match_var, cases, def) => {
                 let ptr = bindings.get(match_var)?;
                 let Some(lit) = Lit::from_ptr(ptr, store) else {
-                    bail!("Literal not found for {match_var}");
+                    // If we can't find it in the store, it most certaily is not equal to any
+                    // of the cases, which are all interned
+                    path.push_default_inplace();
+                    match def {
+                        Some(def) => return def.run(input, store, bindings, preimages, path),
+                        None => bail!("No match for literal"),
+                    }
                 };
                 match cases.get(&lit) {
                     Some(block) => {

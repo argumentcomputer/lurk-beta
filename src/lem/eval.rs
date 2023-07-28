@@ -216,6 +216,25 @@ fn reduce() -> Func {
         let dummy = Symbol("dummy");
         return (dummy)
     });
+    let is_potentially_fun = func!((head): 1 => {
+        let t = Symbol("t");
+        let nil: Expr::Nil;
+        match head.tag {
+            Expr::Fun => {
+                return (t)
+            }
+            Expr::Cons => {
+                return (t)
+            }
+            Expr::Sym => {
+                return (t)
+            }
+            Expr::Thunk => {
+                return (t)
+            }
+        };
+        return (nil)
+    });
 
     func!((expr, env, cont): 4 => {
         // Useful constants
@@ -225,6 +244,7 @@ fn reduce() -> Func {
         let errctrl: Ctrl::Error;
         let err: Cont::Error;
         let nil: Expr::Nil;
+        let t = Symbol("t");
 
         match cont.tag {
             Cont::Terminal | Cont::Error => {
@@ -466,29 +486,28 @@ fn reduce() -> Func {
 
                 // TODO coprocessors (could it be simply a `func`?)
                 // head -> fn, rest -> args
-                match head.tag {
-                    Expr::Fun => {
-                        match rest.tag {
-                            Expr::Nil => {
-                                let cont: Cont::Call0 = hash2(env, cont);
-                                return (head, env, cont, ret)
-                            }
-                            Expr::Cons => {
-                                let (arg, more_args) = unhash2(rest);
-                                match more_args.tag {
-                                    Expr::Nil => {
-                                        let cont: Cont::Call = hash3(arg, env, cont);
-                                        return (head, env, cont, ret)
-                                    }
-                                };
-                                let expanded_inner0: Expr::Cons = hash2(arg, nil);
-                                let expanded_inner: Expr::Cons = hash2(head, expanded_inner0);
-                                let expanded: Expr::Cons = hash2(expanded_inner, more_args);
-                                return (expanded, env, cont, ret)
-                            }
+                let (potentially_fun) = is_potentially_fun(head);
+                if potentially_fun == t {
+                    match rest.tag {
+                        Expr::Nil => {
+                            let cont: Cont::Call0 = hash2(env, cont);
+                            return (head, env, cont, ret)
+                        }
+                        Expr::Cons => {
+                            let (arg, more_args) = unhash2(rest);
+                            match more_args.tag {
+                                Expr::Nil => {
+                                    let cont: Cont::Call = hash3(arg, env, cont);
+                                    return (head, env, cont, ret)
+                                }
+                            };
+                            let expanded_inner0: Expr::Cons = hash2(arg, nil);
+                            let expanded_inner: Expr::Cons = hash2(head, expanded_inner0);
+                            let expanded: Expr::Cons = hash2(expanded_inner, more_args);
+                            return (expanded, env, cont, ret)
                         }
                     }
-                };
+                }
                 return (expr, env, err, errctrl)
             }
         }
@@ -904,7 +923,7 @@ mod tests {
         let outermost = Ptr::null(Tag::Cont(Outermost));
         let terminal = Ptr::null(Tag::Cont(Terminal));
         let error = Ptr::null(Tag::Cont(Error));
-        let nil = store.intern_symbol(&Symbol::lurk_sym("nil"));
+        let nil = store.intern_nil();
 
         // Stop condition: the continuation is either terminal or error
         let stop_cond = |output: &[Ptr<Fr>]| output[2] == terminal || output[2] == error;
@@ -912,11 +931,8 @@ mod tests {
         for (expr_in, expr_out) in pairs {
             let input = vec![expr_in, nil, outermost];
             let (frames, paths) = eval_step.call_until(input, store, stop_cond).unwrap();
-            let frame_expr_out = frames
-                .last()
-                .expect("eval should add at least one frame")
-                .output[0];
-            assert!(frame_expr_out == expr_out);
+            let last_frame = frames.last().expect("eval should add at least one frame");
+            assert_eq!(last_frame.output[0], expr_out);
             store.hydrate_z_cache();
             let mut cs = TestConstraintSystem::<Fr>::new();
             for frame in frames.iter() {
