@@ -5,8 +5,8 @@ use crate::{
     field::{FWrap, LurkField},
     hash::PoseidonCache,
     lem::Tag,
-    tag::ExprTag::*,
     syntax::Syntax,
+    tag::ExprTag::*,
     uint::UInt,
 };
 use anyhow::{bail, Result};
@@ -222,24 +222,20 @@ impl<F: LurkField> Store<F> {
             Syntax::Symbol(_, x) => {
                 let path = x.path.iter().map(|s| Arc::from(s.clone())).collect();
                 self.intern_symbol(&Symbol::Sym(path))
-            },
+            }
             Syntax::Keyword(_, x) => {
                 let path = x.path.iter().map(|s| Arc::from(s.clone())).collect();
                 self.intern_symbol(&Symbol::Key(path))
-            },
-            Syntax::LurkSym(_, x) => {
-                self.intern_symbol(&Symbol::lurk_sym(&format!("{x}")))
-            },
-            Syntax::String(_, x) => {
-                self.intern_string(&x)
-            },
+            }
+            Syntax::LurkSym(_, x) => self.intern_symbol(&Symbol::lurk_sym(&format!("{x}"))),
+            Syntax::String(_, x) => self.intern_string(&x),
             Syntax::Quote(pos, x) => {
                 let quote = crate::symbol::Symbol::lurk_sym("quote");
                 let xs = vec![Syntax::Symbol(pos, quote), *x];
                 self.intern_syntax(Syntax::List(pos, xs))
             }
             Syntax::List(_, xs) => {
-                let mut cdr = self.intern_symbol(&Symbol::lurk_sym(&"nil"));
+                let mut cdr = self.intern_symbol(&Symbol::lurk_sym("nil"));
                 for x in xs.into_iter().rev() {
                     let car = self.intern_syntax(x);
                     cdr = self.intern_2_ptrs(Tag::Expr(Cons), car, cdr);
