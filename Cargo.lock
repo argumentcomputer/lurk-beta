@@ -1690,8 +1690,9 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 
 [[package]]
 name = "nova-snark"
-version = "0.22.0"
-source = "git+https://github.com/microsoft/Nova.git#a62bccf2063da5f8843352f5d1acb242252ac775"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e12911ac9672ad436acfc992f09e26a5960513bbe81d1572005cadd8c1be8f4"
 dependencies = [
  "bellperson",
  "bincode",
