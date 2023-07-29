@@ -86,8 +86,8 @@ macro_rules! op {
             $crate::var!($b),
         )
     };
-    ( emit($s:literal) ) => {
-        $crate::lem::Op::Emit($s.into())
+    ( emit($v:ident) ) => {
+        $crate::lem::Op::Emit($crate::var!($v))
     };
     ( let $tgt:ident : $kind:ident::$tag:ident = hash2($src1:ident, $src2:ident) ) => {
         $crate::lem::Op::Hash2(
@@ -283,12 +283,12 @@ macro_rules! block {
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, emit($s:literal) ; $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, emit($v:ident) ; $($tail:tt)*) => {
         $crate::block! (
             @seq
             {
                 $($limbs)*
-                $crate::op!(emit($s))
+                $crate::op!(emit($v))
             },
             $($tail)*
         )

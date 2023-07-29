@@ -177,8 +177,7 @@ impl Lit {
                 }
                 _ => unreachable!(),
             },
-            // TODO write fetch_string
-            Expr(Str) => todo!(),
+            Expr(Str) => store.fetch_string(ptr).cloned().map(Lit::String),
             Expr(Sym) => store.fetch_symbol(ptr).map(Lit::Symbol),
             _ => None,
         }
@@ -243,8 +242,8 @@ pub enum Op {
     Mul(Var, Var, Var),
     /// `Div(y, a, b)` binds `y` to the sum of `a` and `b`
     Div(Var, Var, Var),
-    /// `Emit(s)` simply emits message `s` when interpreting
-    Emit(String),
+    /// `Emit(v)` simply prints out the value of `v` when interpreting the code
+    Emit(Var),
     /// `Hash2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
     Hash2(Var, Tag, [Var; 2]),
     /// `Hash3(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 3 children `ys`
@@ -338,7 +337,9 @@ impl Func {
                         is_bound(b, map)?;
                         is_unique(tgt, map);
                     }
-                    Op::Emit(_) => (),
+                    Op::Emit(a) => {
+                        is_bound(a, map)?;
+                    }
                     Op::Hash2(img, _tag, preimg) => {
                         preimg.iter().try_for_each(|arg| is_bound(arg, map))?;
                         is_unique(img, map);
@@ -558,7 +559,10 @@ impl Block {
                     let tgt = insert_one(map, uniq, &tgt);
                     ops.push(Op::Div(tgt, a, b))
                 }
-                Op::Emit(_) => ops.push(op),
+                Op::Emit(a) => {
+                    let a = map.get_cloned(&a)?;
+                    ops.push(Op::Emit(a))
+                }
                 Op::Hash2(img, tag, preimg) => {
                     let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
                     let img = insert_one(map, uniq, &img);

@@ -43,8 +43,9 @@ pub struct Store<F: LurkField> {
     ptrs4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
 
     str_cache: HashMap<String, Ptr<F>>,
+    ptr_str_cache: HashMap<Ptr<F>, String>,
     sym_cache: HashMap<Vec<String>, Ptr<F>>,
-    sym_path_cache: HashMap<Ptr<F>, Vec<String>>,
+    ptr_sym_cache: HashMap<Ptr<F>, Vec<String>>,
 
     pub poseidon_cache: PoseidonCache<F>,
     dehydrated: Vec<Ptr<F>>,
@@ -150,7 +151,9 @@ impl<F: LurkField> Store<F> {
     /// Interns a string recursively
     pub fn intern_string(&mut self, s: &str) -> Ptr<F> {
         if s.is_empty() {
-            return Ptr::null(Tag::Expr(Str));
+            let ptr = Ptr::null(Tag::Expr(Str));
+            self.ptr_str_cache.insert(ptr, "".into());
+            return ptr;
         }
 
         match self.str_cache.get(s) {
@@ -161,8 +164,17 @@ impl<F: LurkField> Store<F> {
                 let head = s.chars().next().unwrap();
                 let s_ptr = self.intern_2_ptrs(Tag::Expr(Str), Ptr::char(head), tail_ptr);
                 self.str_cache.insert(s.into(), s_ptr);
+                self.ptr_str_cache.insert(s_ptr, s.into());
                 s_ptr
             }
+        }
+    }
+
+    #[inline]
+    pub fn fetch_string(&self, ptr: &Ptr<F>) -> Option<&String> {
+        match ptr.tag() {
+            Tag::Expr(Str) => self.ptr_str_cache.get(ptr),
+            _ => None,
         }
     }
 
@@ -170,7 +182,7 @@ impl<F: LurkField> Store<F> {
     pub fn intern_symbol_path(&mut self, path: Vec<String>) -> Ptr<F> {
         if path.is_empty() {
             let ptr = Ptr::null(Tag::Expr(Sym));
-            self.sym_path_cache.insert(ptr, vec![]);
+            self.ptr_sym_cache.insert(ptr, vec![]);
             return ptr;
         }
 
@@ -183,7 +195,7 @@ impl<F: LurkField> Store<F> {
                 let head_ptr = self.intern_string(head);
                 let path_ptr = self.intern_2_ptrs(Tag::Expr(Sym), head_ptr, tail_ptr);
                 self.sym_cache.insert(path.clone(), path_ptr);
-                self.sym_path_cache.insert(path_ptr, path);
+                self.ptr_sym_cache.insert(path_ptr, path);
                 path_ptr
             }
         }
@@ -191,7 +203,7 @@ impl<F: LurkField> Store<F> {
 
     #[inline]
     pub fn fetch_sym_path(&self, ptr: &Ptr<F>) -> Option<&Vec<String>> {
-        self.sym_path_cache.get(ptr)
+        self.ptr_sym_cache.get(ptr)
     }
 
     #[inline]
@@ -359,5 +371,55 @@ impl<F: LurkField> Store<F> {
             self.hash_ptr(ptr).expect("failed to hydrate pointer");
         });
         self.dehydrated = Vec::new();
+    }
+}
+
+impl<F: LurkField> Ptr<F> {
+    pub fn to_string(self, store: &Store<F>) -> String {
+        if let Some(s) = store.fetch_string(&self) {
+            return format!("\"{}\"", s);
+        }
+        if let Some(s) = store.fetch_symbol(&self) {
+            return format!("{}", s);
+        }
+        match self {
+            Ptr::Leaf(tag, f) => {
+                if let Some(x) = f.to_u64() {
+                    format!("{}{}", tag, x)
+                } else {
+                    format!("{}{:?}", tag, f)
+                }
+            }
+            Ptr::Tree2(tag, x) => {
+                let (p1, p2) = store.fetch_2_ptrs(x).unwrap();
+                format!(
+                    "({} {} {})",
+                    tag,
+                    (*p1).to_string(store),
+                    (*p2).to_string(store)
+                )
+            }
+            Ptr::Tree3(tag, x) => {
+                let (p1, p2, p3) = store.fetch_3_ptrs(x).unwrap();
+                format!(
+                    "({} {} {} {})",
+                    tag,
+                    (*p1).to_string(store),
+                    (*p2).to_string(store),
+                    (*p3).to_string(store)
+                )
+            }
+            Ptr::Tree4(tag, x) => {
+                let (p1, p2, p3, p4) = store.fetch_4_ptrs(x).unwrap();
+                format!(
+                    "({} {} {} {} {})",
+                    tag,
+                    (*p1).to_string(store),
+                    (*p2).to_string(store),
+                    (*p3).to_string(store),
+                    (*p4).to_string(store)
+                )
+            }
+        }
     }
 }

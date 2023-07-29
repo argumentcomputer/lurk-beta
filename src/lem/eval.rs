@@ -483,6 +483,7 @@ fn apply_cont() -> Func {
                         return (result, env, cont, ret)
                     }
                     Cont::Emit => {
+                        emit(result);
                         // TODO Does this make sense?
                         let (cont, _rest) = unhash2(cont);
                         return (result, env, cont, makethunk)
