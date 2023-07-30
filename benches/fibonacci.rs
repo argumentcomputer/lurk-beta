@@ -59,6 +59,7 @@ fn fibo_total<M: measurement::Measurement>(
     // use cached public params
     let pp = public_params(
         reduction_count,
+        true,
         lang_rc.clone(),
         Utf8Path::new(PUBLIC_PARAMS_PATH),
     )
@@ -125,6 +126,7 @@ fn fibo_prove<M: measurement::Measurement>(
     let reduction_count = DEFAULT_REDUCTION_COUNT;
     let pp = public_params(
         reduction_count,
+        true,
         lang_rc.clone(),
         Utf8Path::new(PUBLIC_PARAMS_PATH),
     )

@@ -11,7 +11,7 @@ use lurk::eval::{empty_sym_env, lang::Lang};
 use lurk::field::LurkField;
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::ptr::Ptr;
-use lurk::public_parameters::{public_params, public_params_default_dir};
+use lurk::public_parameters::with_public_params;
 use lurk::state::user_sym;
 use lurk::store::Store;
 use lurk_macros::Coproc;
@@ -26,7 +26,7 @@ use pasta_curves::pallas::Scalar as Fr;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-const REDUCTION_COUNT: usize = 10;
+const REDUCTION_COUNT: usize = 100;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Sha256Coprocessor<F: LurkField> {
@@ -177,51 +177,48 @@ fn main() {
         store,
         vec![(cproc_sym, Sha256Coprocessor::new(input_size, u).into())],
     );
+    let lang_rc = Arc::new(lang.clone());
 
     let cproc_call = store.list(&[cproc_sym_ptr]);
 
     let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang.clone());
-    let lang_rc = Arc::new(lang);
 
-    println!("Setting up public parameters...");
+    println!("Setting up public parameters (rc = {REDUCTION_COUNT})...");
 
     let pp_start = Instant::now();
-    let pp = public_params::<_, Sha256Coproc<Fr>>(
-        REDUCTION_COUNT,
-        lang_rc.clone(),
-        &public_params_default_dir(),
-    )
+    
+    // see the documentation on `with_public_params`
+    with_public_params(REDUCTION_COUNT, lang_rc.clone(), |pp| {
+        let pp_end = pp_start.elapsed();
+        println!("Public parameters took {:?}", pp_end);
+
+        if setup_only {
+            return;
+        }
+
+        println!("Beginning proof step...");
+        let proof_start = Instant::now();
+        let (proof, z0, zi, num_steps) = nova_prover
+            .evaluate_and_prove(pp, cproc_call, empty_sym_env(store), store, 10000, lang_rc)
+            .unwrap();
+        let proof_end = proof_start.elapsed();
+
+        println!("Proofs took {:?}", proof_end);
+
+        println!("Verifying proof...");
+
+        let verify_start = Instant::now();
+        let res = proof.verify(&pp, num_steps, &z0, &zi).unwrap();
+        let verify_end = verify_start.elapsed();
+
+        println!("Verify took {:?}", verify_end);
+
+        if res {
+            println!(
+                "Congratulations! You proved and verified a SHA256 hash calculation in {:?} time!",
+                pp_end + proof_end + verify_end
+            );
+        }
+    })
     .unwrap();
-    let pp_end = pp_start.elapsed();
-
-    println!("Public parameters took {:?}", pp_end);
-
-    if setup_only {
-        return;
-    }
-
-    println!("Beginning proof step...");
-
-    let proof_start = Instant::now();
-    let (proof, z0, zi, num_steps) = nova_prover
-        .evaluate_and_prove(&pp, cproc_call, empty_sym_env(store), store, 10000, lang_rc)
-        .unwrap();
-    let proof_end = proof_start.elapsed();
-
-    println!("Proofs took {:?}", proof_end);
-
-    println!("Verifying proof...");
-
-    let verify_start = Instant::now();
-    let res = proof.verify(&pp, num_steps, &z0, &zi).unwrap();
-    let verify_end = verify_start.elapsed();
-
-    println!("Verify took {:?}", verify_end);
-
-    if res {
-        println!(
-            "Congratulations! You proved and verified a SHA256 hash calculation in {:?} time!",
-            pp_end + proof_end + verify_end
-        );
-    }
 }

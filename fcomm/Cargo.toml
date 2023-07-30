@@ -12,6 +12,7 @@ name = "fcomm"
 path = "src/bin/fcomm.rs"
 
 [dependencies]
+abomonation = { workspace = true }
 anyhow = { workspace = true }
 base64 = { workspace = true }
 bellpepper-core = { workspace = true }
@@ -24,6 +25,7 @@ hex = { version = "0.4.3", features = ["serde"] }
 log = { workspace = true }
 lurk = { path = "../", package = "lurk" }
 lurk-macros = { path = "../lurk-macros" }
+nova = { workspace = true }
 once_cell = { workspace = true }
 pairing = { workspace = true }
 pasta_curves = { workspace = true, features = ["repr-c", "serde"] }

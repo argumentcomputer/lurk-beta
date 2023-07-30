@@ -245,7 +245,8 @@ impl Repl<F> {
                         }
 
                         info!("Loading public parameters");
-                        let pp = public_params(self.rc, self.lang.clone(), &public_params_dir())?;
+                        let pp =
+                            public_params(self.rc, true, self.lang.clone(), &public_params_dir())?;
 
                         let prover = NovaProver::new(self.rc, (*self.lang).clone());
 

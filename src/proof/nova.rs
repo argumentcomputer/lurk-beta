@@ -2,6 +2,7 @@
 
 use std::marker::PhantomData;
 
+use abomonation::Abomonation;
 use bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
 use ff::Field;
 use nova::{
@@ -117,20 +118,54 @@ pub type C2<F> = TrivialTestCircuit<<G2<F> as Group>::Scalar>;
 pub type NovaPublicParams<'a, F, C> = nova::PublicParams<G1<F>, G2<F>, C1<'a, F, C>, C2<F>>;
 
 /// A struct that contains public parameters for the Nova proving system.
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(bound = "")]
-pub struct PublicParams<'a, F: CurveCycleEquipped, C: Coprocessor<F>>
+pub struct PublicParams<'a, F, C: Coprocessor<F>>
 where
     F: CurveCycleEquipped,
+    // technical bounds that would disappear once associated_type_bounds stabilizes
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     pp: NovaPublicParams<'a, F, C>,
     pk: ProverKey<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>,
     vk: VerifierKey<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>,
 }
 
+impl<'c, F: CurveCycleEquipped, C: Coprocessor<F>> Abomonation for PublicParams<'c, F, C>
+where
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
+    unsafe fn entomb<W: std::io::Write>(&self, bytes: &mut W) -> std::io::Result<()> {
+        self.pp.entomb(bytes)?;
+        self.pk.entomb(bytes)?;
+        self.vk.entomb(bytes)?;
+        Ok(())
+    }
+
+    unsafe fn exhume<'b>(&mut self, mut bytes: &'b mut [u8]) -> Option<&'b mut [u8]> {
+        let temp = bytes;
+        bytes = self.pp.exhume(temp)?;
+        let temp = bytes;
+        bytes = self.pk.exhume(temp)?;
+        let temp = bytes;
+        bytes = self.vk.exhume(temp)?;
+        Some(bytes)
+    }
+
+    fn extent(&self) -> usize {
+        self.pp.extent() + self.pk.extent() + self.vk.extent()
+    }
+}
+
 /// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
-pub enum Proof<'a, F: CurveCycleEquipped, C: Coprocessor<F>> {
+pub enum Proof<'a, F: CurveCycleEquipped, C: Coprocessor<F>>
+where
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
     /// A proof for the intermediate steps of a recursive computation
     Recursive(Box<RecursiveSNARK<G1<F>, G2<F>, C1<'a, F, C>, C2<F>>>),
     /// A proof for the final step of a recursive computation
@@ -141,7 +176,11 @@ pub enum Proof<'a, F: CurveCycleEquipped, C: Coprocessor<F>> {
 pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F>>(
     num_iters_per_step: usize,
     lang: Arc<Lang<F, C>>,
-) -> PublicParams<'a, F, C> {
+) -> PublicParams<'a, F, C>
+where
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
     let (circuit_primary, circuit_secondary) = C1::circuits(num_iters_per_step, lang);
 
     let pp = nova::PublicParams::setup(&circuit_primary, &circuit_secondary);
@@ -167,9 +206,18 @@ pub struct NovaProver<F: CurveCycleEquipped, C: Coprocessor<F>> {
     _p: PhantomData<(F, C)>,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> PublicParameters for PublicParams<'a, F, C> {}
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> PublicParameters for PublicParams<'a, F, C>
+where
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
+}
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, '_, F, C> for NovaProver<F, C> {
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, '_, F, C> for NovaProver<F, C>
+where
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
     type PublicParams = PublicParams<'a, F, C>;
     fn new(reduction_count: usize, lang: Lang<F, C>) -> Self {
         NovaProver::<F, C> {
@@ -187,7 +235,11 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, '_, F, C> for
     }
 }
 
-impl<F: CurveCycleEquipped, C: Coprocessor<F>> NovaProver<F, C> {
+impl<F: CurveCycleEquipped, C: Coprocessor<F>> NovaProver<F, C>
+where
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
     /// Evaluates and generates the frames of the computation given the expression, environment, and store
     pub fn get_evaluation_frames(
         &self,
@@ -291,7 +343,11 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F>
 
 }
 
-impl<'a: 'b, 'b, F: CurveCycleEquipped, C: Coprocessor<F>> Proof<'a, F, C> {
+impl<'a: 'b, 'b, F: CurveCycleEquipped, C: Coprocessor<F>> Proof<'a, F, C>
+where
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
     /// Proves the computation recursively, generating a recursive SNARK proof.
     pub fn prove_recursively(
         pp: &'a PublicParams<'_, F, C>,

@@ -58,6 +58,8 @@ tap = "1.0.1"
 stable_deref_trait = "1.2.0"
 thiserror = { workspace = true }
 camino = { workspace = true }
+abomonation = { workspace = true}
+abomonation_derive = { git = "https://github.com/winston-h-zhang/abomonation_derive.git" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 memmap = { version = "0.5.10", package = "memmap2" }
@@ -114,6 +116,7 @@ members = [
 
 # Dependencies that should be kept in sync through the whole workspace
 [workspace.dependencies]
+abomonation = "0.7.3"
 anyhow = "1.0.72"
 base64 = "0.13.1"
 bellpepper = { git = "https://github.com/lurk-lab/bellpepper", branch = "dev" }
@@ -177,4 +180,5 @@ harness = false
 
 [patch.crates-io]
 sppark = { git = "https://github.com/supranational/sppark", rev="5fea26f43cc5d12a77776c70815e7c722fd1f8a7" }
-pasta_curves = { git = "https://github.com/lurk-lab/pasta_curves", branch="dev" }
+# This is needed to ensure halo2curves, which imports pasta-curves, uses the *same* traits in bn256_grumpkin
+pasta_curves = { git="https://github.com/lurk-lab/pasta_curves", branch="dev" }

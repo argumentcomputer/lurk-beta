@@ -11,6 +11,16 @@ checksum = "56e72913c99b1f927aa7bd59a41518fdd9995f63ffc8760f211609e0241c4fb2"
 [[package]]
 name = "abomonation_derive"
 version = "0.5.0"
+source = "git+https://github.com/lurk-lab/abomonation_derive.git#b2ce264619f64b6eebd18a43f7e68318e6f5533a"
+dependencies = [
+ "proc-macro2 1.0.66",
+ "quote 1.0.31",
+ "syn 2.0.26",
+]
+
+[[package]]
+name = "abomonation_derive"
+version = "0.5.0"
 source = "git+https://github.com/winston-h-zhang/abomonation_derive.git#b2ce264619f64b6eebd18a43f7e68318e6f5533a"
 dependencies = [
  "proc-macro2 1.0.66",
@@ -993,6 +1003,7 @@ dependencies = [
 name = "fcomm"
 version = "0.1.1"
 dependencies = [
+ "abomonation",
  "anyhow",
  "assert_cmd",
  "base64",
@@ -1008,6 +1019,7 @@ dependencies = [
  "log",
  "lurk",
  "lurk-macros",
+ "nova-snark",
  "num_cpus",
  "once_cell",
  "pairing",
@@ -1183,9 +1195,9 @@ checksum = "eabb4a44450da02c90444cf74558da904edde8fb4e9035a9a6a4e15445af0bd7"
 
 [[package]]
 name = "halo2curves"
-version = "0.1.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6b1142bd1059aacde1b477e0c80c142910f1ceae67fc619311d6a17428007ab"
+checksum = "6d0263c2933ee18bf416552719c5621f677f87acca8d50afe4ee74c81bb8ecca"
 dependencies = [
  "blake2b_simd",
  "ff",
@@ -1193,6 +1205,7 @@ dependencies = [
  "lazy_static",
  "num-bigint 0.4.3",
  "num-traits",
+ "pairing",
  "pasta_curves",
  "paste",
  "rand",
@@ -1480,6 +1493,8 @@ checksum = "b06a4cde4c0f271a446782e3eff8de789548ce57dbc8eca9292c27f4a42004b4"
 name = "lurk"
 version = "0.2.0"
 dependencies = [
+ "abomonation",
+ "abomonation_derive 0.5.0 (git+https://github.com/winston-h-zhang/abomonation_derive.git)",
  "ahash 0.7.6",
  "anyhow",
  "anymap",
@@ -1636,10 +1651,10 @@ dependencies = [
 [[package]]
 name = "neptune"
 version = "11.0.0"
-source = "git+https://github.com/lurk-lab/neptune?branch=dev#e4a8215aa68eb3e0ed305729db755ca079d447c9"
+source = "git+https://github.com/lurk-lab/neptune?branch=dev#d6ef1656e3267098b3ea0a57d90364a1d94e4f4b"
 dependencies = [
  "abomonation",
- "abomonation_derive",
+ "abomonation_derive 0.5.0 (git+https://github.com/lurk-lab/abomonation_derive.git)",
  "bellpepper",
  "bellpepper-core",
  "blake2s_simd 0.5.11",
@@ -1701,7 +1716,7 @@ version = "0.23.0"
 source = "git+https://github.com/lurk-lab/nova?branch=dev#8d3dadebb792adef04180681f9695dddcda7e373"
 dependencies = [
  "abomonation",
- "abomonation_derive",
+ "abomonation_derive 0.5.0 (git+https://github.com/winston-h-zhang/abomonation_derive.git)",
  "bellpepper",
  "bellpepper-core",
  "bincode",
@@ -1711,6 +1726,7 @@ dependencies = [
  "ff",
  "generic-array",
  "getrandom",
+ "group",
  "halo2curves",
  "neptune",
  "num-bigint 0.4.3",

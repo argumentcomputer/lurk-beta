@@ -1,3 +1,5 @@
+use ::nova::traits::Group;
+use abomonation::Abomonation;
 use log::info;
 use std::convert::TryFrom;
 use std::sync::Arc;
@@ -21,7 +23,7 @@ use lurk::{
     field::LurkField,
     hash::PoseidonCache,
     lurk_sym_ptr,
-    proof::nova::{self, NovaProver, PublicParams},
+    proof::nova::{self, NovaProver, PublicParams, G1, G2},
     proof::Prover,
     ptr::{ContPtr, Ptr},
     state::initial_lurk_state,
@@ -278,7 +280,11 @@ pub struct VerificationResult {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Proof<'a, F: CurveCycleEquipped> {
+pub struct Proof<'a, F: CurveCycleEquipped>
+where
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
     pub claim: Claim<F>,
     pub proof: nova::Proof<'a, F, Coproc<F>>,
     pub num_steps: usize,
@@ -1209,6 +1215,7 @@ mod test {
         let rc = ReductionCount::One;
         let pp = public_params(
             rc.count(),
+            true,
             lang_rc.clone(),
             &fcomm_path_val.join("public_params"),
         )
