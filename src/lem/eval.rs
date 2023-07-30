@@ -859,8 +859,8 @@ mod tests {
             let last_frame = frames.last().expect("eval should add at least one frame");
             assert_eq!(last_frame.output[0], expr_out);
             store.hydrate_z_cache();
-            let mut cs = TestConstraintSystem::<Fr>::new();
             for frame in frames.iter() {
+                let mut cs = TestConstraintSystem::<Fr>::new();
                 eval_step
                     .synthesize(&mut cs, store, &slots_count, frame)
                     .unwrap();
