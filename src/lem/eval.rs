@@ -168,7 +168,6 @@ fn reduce() -> Func {
         // Useful constants
         let ret: Ctrl::Return;
         let apply: Ctrl::ApplyContinuation;
-        let makethunk: Ctrl::MakeThunk;
         let errctrl: Ctrl::Error;
         let err: Cont::Error;
         let nil: Expr::Nil;
@@ -187,7 +186,7 @@ fn reduce() -> Func {
             }
             Expr::Thunk => {
                 let (thunk_expr, thunk_continuation) = unhash2(expr);
-                return (thunk_expr, env, thunk_continuation, makethunk)
+                return (thunk_expr, env, thunk_continuation, apply)
             }
             Expr::Sym => {
                 match expr.val {
@@ -881,11 +880,11 @@ mod tests {
     }
 
     fn expr_in_expr_out_pairs(s: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
-        let num = s.read("42").unwrap();
         let sum = s.read("(+ 21 21)").unwrap();
-        let nil = s.read("nil").unwrap();
-        let strnil = s.read("\"\"").unwrap();
-        vec![(sum, num), (nil, nil), (strnil, strnil)]
+        let sum_res = s.read("42").unwrap();
+        let car = s.read("(car (cons 1 2))").unwrap();
+        let car_res = s.read("1").unwrap();
+        vec![(sum, sum_res), (car, car_res)]
     }
 
     #[test]
