@@ -665,8 +665,8 @@ impl Func {
                         // Retrieve preimage hashes and tags create the full preimage pointers
                         // and add them to bound allocations
                         for i in 0..preallocated_preimg.len() / 2 {
-                            let preimg_tag = &preallocated_preimg[2*i];
-                            let preimg_hash = &preallocated_preimg[2*i + 1];
+                            let preimg_tag = &preallocated_preimg[2 * i];
+                            let preimg_hash = &preallocated_preimg[2 * i + 1];
                             let preimg_ptr =
                                 AllocatedPtr::from_parts(preimg_tag.clone(), preimg_hash.clone());
                             bound_allocations.insert($preimg[i].clone(), preimg_ptr);

@@ -83,6 +83,7 @@ pub type AString = Arc<str>;
 /// function body, which is a `Block`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Func {
+    name: String,
     input_params: Vec<Var>,
     output_size: usize,
     body: Block,
@@ -266,8 +267,14 @@ pub enum Op {
 
 impl Func {
     /// Instantiates a `Func` with the appropriate transformations and checks
-    pub fn new(input_params: Vec<Var>, output_size: usize, body: Block) -> Result<Func> {
+    pub fn new(
+        name: String,
+        input_params: Vec<Var>,
+        output_size: usize,
+        body: Block,
+    ) -> Result<Func> {
         let func = Func {
+            name,
             input_params,
             output_size,
             body,
@@ -501,7 +508,12 @@ impl Func {
         ops.extend_from_slice(&self.body.ops);
         let ctrl = self.body.ctrl.clone();
         let body = Block { ops, ctrl };
-        Self::new(self.input_params.clone(), self.output_size, body)
+        Self::new(
+            self.name.clone(),
+            self.input_params.clone(),
+            self.output_size,
+            body,
+        )
     }
 }
 
@@ -707,7 +719,7 @@ mod tests {
 
     #[test]
     fn accepts_virtual_nested_match_tag() {
-        let lem = func!((expr_in, env_in, cont_in): 3 => {
+        let lem = func!(foo(expr_in, env_in, cont_in): 3 => {
             match expr_in.tag {
                 Expr::Num => {
                     let cont_out_terminal: Cont::Terminal;
@@ -746,7 +758,7 @@ mod tests {
 
     #[test]
     fn resolves_conflicts_of_clashing_names_in_parallel_branches() {
-        let lem = func!((expr_in, env_in, _cont_in): 3 => {
+        let lem = func!(foo(expr_in, env_in, _cont_in): 3 => {
             match expr_in.tag {
                 // This match is creating `cont_out_terminal` on two different
                 // branches, which, in theory, would cause troubles at allocation
@@ -770,7 +782,7 @@ mod tests {
 
     #[test]
     fn handles_non_ssa() {
-        let func = func!((expr_in, _env_in, _cont_in): 3 => {
+        let func = func!(foo(expr_in, _env_in, _cont_in): 3 => {
             let x: Expr::Cons = hash2(expr_in, expr_in);
             // The next line rewrites `x` and it should move on smoothly, matching
             // the expected number of constraints accordingly
@@ -785,7 +797,7 @@ mod tests {
 
     #[test]
     fn test_simple_all_paths_delta() {
-        let lem = func!((expr_in, env_in, _cont_in): 3 => {
+        let lem = func!(foo(expr_in, env_in, _cont_in): 3 => {
             let cont_out_terminal: Cont::Terminal;
             return (expr_in, env_in, cont_out_terminal);
         });
@@ -796,7 +808,7 @@ mod tests {
 
     #[test]
     fn test_match_all_paths_delta() {
-        let lem = func!((expr_in, env_in, _cont_in): 3 => {
+        let lem = func!(foo(expr_in, env_in, _cont_in): 3 => {
             match expr_in.tag {
                 Expr::Num => {
                     let cont_out_terminal: Cont::Terminal;
@@ -815,7 +827,7 @@ mod tests {
 
     #[test]
     fn test_hash_slots() {
-        let lem = func!((expr_in, env_in, cont_in): 3 => {
+        let lem = func!(foo(expr_in, env_in, cont_in): 3 => {
             let _x: Expr::Cons = hash2(expr_in, env_in);
             let _y: Expr::Cons = hash3(expr_in, env_in, cont_in);
             let _z: Expr::Cons = hash4(expr_in, env_in, cont_in, cont_in);
@@ -846,7 +858,7 @@ mod tests {
 
     #[test]
     fn test_unhash_slots() {
-        let lem = func!((expr_in, env_in, cont_in): 3 => {
+        let lem = func!(foo(expr_in, env_in, cont_in): 3 => {
             let _x: Expr::Cons = hash2(expr_in, env_in);
             let _y: Expr::Cons = hash3(expr_in, env_in, cont_in);
             let _z: Expr::Cons = hash4(expr_in, env_in, cont_in, cont_in);
@@ -880,7 +892,7 @@ mod tests {
 
     #[test]
     fn test_unhash_nested_slots() {
-        let lem = func!((expr_in, env_in, cont_in): 3 => {
+        let lem = func!(foo(expr_in, env_in, cont_in): 3 => {
             let _x: Expr::Cons = hash2(expr_in, env_in);
             let _y: Expr::Cons = hash3(expr_in, env_in, cont_in);
             let _z: Expr::Cons = hash4(expr_in, env_in, cont_in, cont_in);

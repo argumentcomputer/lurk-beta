@@ -475,8 +475,9 @@ macro_rules! block {
 
 #[macro_export]
 macro_rules! func {
-    (($( $in:ident ),*): $size:expr => $lem:tt) => {
+    ($name:ident($( $in:ident ),*): $size:expr => $lem:tt) => {
         $crate::lem::Func::new(
+            stringify!($name).into(),
             vec![$($crate::var!($in)),*],
             $size,
             $crate::block!($lem),

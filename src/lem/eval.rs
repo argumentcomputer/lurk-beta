@@ -9,7 +9,7 @@ pub(crate) fn eval_step() -> Func {
     let apply_cont = apply_cont();
     let make_thunk = make_thunk();
 
-    func!((expr, env, cont): 3 => {
+    func!(step(expr, env, cont): 3 => {
         let (expr, env, cont, ctrl) = reduce(expr, env, cont);
         let (expr, env, cont, ctrl) = apply_cont(expr, env, cont, ctrl);
         let (expr, env, cont, _ctrl) = make_thunk(expr, env, cont, ctrl);
@@ -18,7 +18,7 @@ pub(crate) fn eval_step() -> Func {
 }
 
 fn safe_uncons() -> Func {
-    func!((xs): 2 => {
+    func!(safe_uncons(xs): 2 => {
         let nil: Expr::Nil;
         let nilstr = Symbol("");
         match xs.tag {
@@ -41,7 +41,7 @@ fn safe_uncons() -> Func {
 }
 
 fn make_tail_continuation() -> Func {
-    func!((env, continuation): 1 => {
+    func!(make_tail_continuation(env, continuation): 1 => {
         match continuation.tag {
             Cont::Tail => {
                 return (continuation);
@@ -55,7 +55,7 @@ fn make_tail_continuation() -> Func {
 fn reduce() -> Func {
     // Auxiliary functions
     let safe_uncons = safe_uncons();
-    let env_to_use = func!((smaller_env, smaller_rec_env): 1 => {
+    let env_to_use = func!(env_to_use(smaller_env, smaller_rec_env): 1 => {
         match smaller_rec_env.tag {
             Expr::Nil => {
                 return (smaller_env)
@@ -64,7 +64,7 @@ fn reduce() -> Func {
         let env: Expr::Cons = hash2(smaller_rec_env, smaller_env);
         return (env)
     });
-    let extract_arg = func!((args): 2 => {
+    let extract_arg = func!(extract_arg(args): 2 => {
         match args.tag {
             Expr::Nil => {
                 let dummy = Symbol("dummy");
@@ -77,7 +77,7 @@ fn reduce() -> Func {
             }
         }
     });
-    let expand_bindings = func!((head, body, body1, rest_bindings): 1 => {
+    let expand_bindings = func!(expand_bindings(head, body, body1, rest_bindings): 1 => {
         match rest_bindings.tag {
             Expr::Nil => {
                 return (body1)
@@ -87,7 +87,7 @@ fn reduce() -> Func {
         let expanded: Expr::Cons = hash2(head, expanded_0);
         return (expanded)
     });
-    let choose_let_cont = func!((head, var, env, expanded, cont): 1 => {
+    let choose_let_cont = func!(choose_let_cont(head, var, env, expanded, cont): 1 => {
         match head.val {
             Symbol("let") => {
                 let cont: Cont::Let = hash4(var, env, expanded, cont);
@@ -99,7 +99,7 @@ fn reduce() -> Func {
             }
         }
     });
-    let choose_unop = func!((head): 1 => {
+    let choose_unop = func!(choose_unop(head): 1 => {
         let nil: Expr::Nil;
         let t = Symbol("t");
         match head.val {
@@ -120,7 +120,7 @@ fn reduce() -> Func {
         return (nil)
     });
 
-    let choose_binop = func!((head): 1 => {
+    let choose_binop = func!(choose_binop(head): 1 => {
         let nil: Expr::Nil;
         let t = Symbol("t");
         match head.val {
@@ -144,7 +144,7 @@ fn reduce() -> Func {
         };
         return (nil)
     });
-    let is_potentially_fun = func!((head): 1 => {
+    let is_potentially_fun = func!(is_potentially_fun(head): 1 => {
         let t = Symbol("t");
         let nil: Expr::Nil;
         match head.tag {
@@ -164,7 +164,7 @@ fn reduce() -> Func {
         return (nil)
     });
 
-    func!((expr, env, cont): 4 => {
+    func!(reduce(expr, env, cont): 4 => {
         // Useful constants
         let ret: Ctrl::Return;
         let apply: Ctrl::ApplyContinuation;
@@ -440,7 +440,7 @@ fn reduce() -> Func {
 fn apply_cont() -> Func {
     let safe_uncons = safe_uncons();
     let make_tail_continuation = make_tail_continuation();
-    let extend_rec = func!((env, var, result): 1 => {
+    let extend_rec = func!(extend_rec(env, var, result): 1 => {
 
         let (binding_or_env, rest) = unhash2(env);
         let (var_or_binding, _val_or_more_bindings) = unhash2(binding_or_env);
@@ -462,7 +462,7 @@ fn apply_cont() -> Func {
             }
         }
     });
-    func!((result, env, cont, ctrl): 4 => {
+    func!(apply_cont(result, env, cont, ctrl): 4 => {
         // Useful constants
         let ret: Ctrl::Return;
         let makethunk: Ctrl::MakeThunk;
@@ -790,7 +790,7 @@ fn apply_cont() -> Func {
 }
 
 fn make_thunk() -> Func {
-    func!((expr, env, cont, ctrl): 4 => {
+    func!(make_thunk(expr, env, cont, ctrl): 4 => {
         let ret: Ctrl::Return;
         match ctrl.tag {
             Ctrl::MakeThunk => {
