@@ -1,11 +1,12 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use bellperson::{
-    gadgets::{boolean::Boolean, num::AllocatedNum},
-    util_cs::Comparable,
-    Circuit, ConstraintSystem, SynthesisError,
+use bellpepper::util_cs::{witness_cs::WitnessCS, Comparable};
+use bellpepper_core::{
+    boolean::Boolean, num::AllocatedNum, Circuit, ConstraintSystem, SynthesisError,
 };
+use rayon::prelude::*;
 
 use crate::{
     circuit::gadgets::{
@@ -13,8 +14,12 @@ use crate::{
         data::GlobalAllocations,
         pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents},
     },
+    config::CONFIG,
     field::LurkField,
-    hash_witness::{ConsName, ContName},
+    hash::HashConst,
+    hash_witness::{
+        ConsCircuitWitness, ConsName, ContCircuitWitness, ContName, HashCircuitWitnessCache,
+    },
     store::NamedConstants,
     tag::Tag,
 };
@@ -52,12 +57,13 @@ pub struct CircuitFrame<'a, F: LurkField, T, W, C: Coprocessor<F>> {
 }
 
 #[derive(Clone)]
-pub struct MultiFrame<'a, F: LurkField, T: Copy, W, C: Coprocessor<F>> {
+pub struct MultiFrame<'a, F: LurkField, T: Copy + Sync, W: Sync, C: Coprocessor<F>> {
     pub store: Option<&'a Store<F>>,
     pub lang: Option<Arc<Lang<F, C>>>,
     pub input: Option<T>,
     pub output: Option<T>,
     pub frames: Option<Vec<CircuitFrame<'a, F, T, W, C>>>,
+    pub cached_witness: Option<WitnessCS<F>>,
     pub count: usize,
 }
 
@@ -83,8 +89,14 @@ impl<'a, F: LurkField, T: Clone + Copy, W: Copy, C: Coprocessor<F>> CircuitFrame
     }
 }
 
-impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coprocessor<F>>
-    MultiFrame<'a, F, T, W, C>
+impl<
+        'a,
+        F: LurkField,
+        // T: Clone + Copy + std::cmp::PartialEq + Sync,
+        //W: Copy + Sync,
+        C: Coprocessor<F>,
+        //    > MultiFrame<'a, F, T, W, C>
+    > MultiFrame<'a, F, IO<F>, Witness<F>, C>
 {
     pub fn blank(count: usize, lang: Arc<Lang<F, C>>) -> Self {
         Self {
@@ -93,6 +105,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
             input: None,
             output: None,
             frames: None,
+            cached_witness: None,
             count,
         }
     }
@@ -103,9 +116,9 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
 
     pub fn from_frames(
         count: usize,
-        frames: &[Frame<T, W, C>],
+        frames: &[Frame<IO<F>, Witness<F>, C>],
         store: &'a Store<F>,
-        lang: &Arc<Lang<F, C>>,
+        lang: Arc<Lang<F, C>>,
     ) -> Vec<Self> {
         // `count` is the number of `Frames` to include per `MultiFrame`.
         let total_frames = frames.len();
@@ -140,6 +153,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
                 input: Some(chunk[0].input),
                 output: Some(output),
                 frames: Some(inner_frames),
+                cached_witness: None,
                 count,
             };
 
@@ -152,7 +166,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
     /// Make a dummy `MultiFrame`, duplicating `self`'s final `CircuitFrame`.
     pub(crate) fn make_dummy(
         count: usize,
-        circuit_frame: Option<CircuitFrame<'a, F, T, W, C>>,
+        circuit_frame: Option<CircuitFrame<'a, F, IO<F>, Witness<F>, C>>,
         store: &'a Store<F>,
         lang: Arc<Lang<F, C>>,
     ) -> Self {
@@ -171,6 +185,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
             input,
             output,
             frames,
+            cached_witness: None,
             count,
         }
     }
@@ -185,6 +200,28 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
         frames: &[CircuitFrame<'_, F, IO<F>, Witness<F>, C>],
         g: &GlobalAllocations<F>,
     ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
+        if cs.is_witness_generator() && CONFIG.parallelism.synthesis.is_parallel() {
+            self.synthesize_frames_parallel(cs, store, input_expr, input_env, input_cont, frames, g)
+        } else {
+            self.synthesize_frames_sequential(
+                cs, store, input_expr, input_env, input_cont, frames, None, g,
+            )
+        }
+    }
+
+    pub fn synthesize_frames_sequential<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        store: &Store<F>,
+        input_expr: AllocatedPtr<F>,
+        input_env: AllocatedPtr<F>,
+        input_cont: AllocatedContPtr<F>,
+        frames: &[CircuitFrame<'_, F, IO<F>, Witness<F>, C>],
+        cons_and_cont_witnesses: Option<Vec<(ConsCircuitWitness<F>, ContCircuitWitness<F>)>>,
+        g: &GlobalAllocations<F>,
+    ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
+        let mut hash_circuit_witness_cache = HashMap::new();
+
         let acc = (input_expr, input_env, input_cont);
 
         let (_, (new_expr, new_env, new_cont)) =
@@ -222,21 +259,146 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
                         "cont mismatch"
                     );
                 };
-                (
-                    i + 1,
-                    frame
-                        .synthesize(
-                            cs,
-                            i,
-                            allocated_io,
-                            self.lang.as_ref().expect("Lang missing"),
-                            g,
+                let (cons_witnesses, cont_witnesses) =
+                    if let Some(cons_and_cont_witnesses) = &cons_and_cont_witnesses {
+                        (
+                            Some(cons_and_cont_witnesses[i].0.clone()),
+                            Some(cons_and_cont_witnesses[i].1.clone()),
                         )
-                        .unwrap(),
-                )
+                    } else {
+                        (None, None)
+                    };
+
+                let new_allocated_io = frame
+                    .synthesize(
+                        cs,
+                        i,
+                        allocated_io,
+                        self.lang.as_ref().expect("Lang missing"),
+                        g,
+                        &mut hash_circuit_witness_cache,
+                        cons_witnesses,
+                        cont_witnesses,
+                    )
+                    .unwrap();
+
+                (i + 1, new_allocated_io)
             });
 
         (new_expr, new_env, new_cont)
+    }
+
+    pub fn synthesize_frames_parallel<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        store: &Store<F>,
+        input_expr: AllocatedPtr<F>,
+        input_env: AllocatedPtr<F>,
+        input_cont: AllocatedContPtr<F>,
+        frames: &[CircuitFrame<'_, F, IO<F>, Witness<F>, C>],
+        g: &GlobalAllocations<F>,
+    ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
+        assert!(cs.is_witness_generator());
+        assert!(CONFIG.parallelism.synthesis.is_parallel());
+
+        // TODO: this probably belongs in config, perhaps per-Flow.
+        const MIN_CHUNK_SIZE: usize = 10;
+
+        let num_frames = frames.len();
+
+        let chunk_size = CONFIG
+            .parallelism
+            .synthesis
+            .chunk_size(num_frames, MIN_CHUNK_SIZE);
+
+        let css = frames
+            .par_chunks(chunk_size)
+            .enumerate()
+            .map(|(i, chunk)| {
+                let (input_expr, input_env, input_cont) = if i == 0 {
+                    (input_expr.clone(), input_env.clone(), input_cont.clone())
+                } else {
+                    let previous_frame = &frames[i * chunk_size];
+                    let mut bogus_cs = WitnessCS::new();
+                    let x = previous_frame.input.unwrap().expr;
+                    let input_expr =
+                        AllocatedPtr::alloc_ptr(&mut bogus_cs, store, || Ok(&x)).unwrap();
+                    let y = previous_frame.input.unwrap().env;
+                    let input_env =
+                        AllocatedPtr::alloc_ptr(&mut bogus_cs, store, || Ok(&y)).unwrap();
+                    let z = previous_frame.input.unwrap().cont;
+                    let input_cont =
+                        AllocatedContPtr::alloc_cont_ptr(&mut bogus_cs, store, || Ok(&z)).unwrap();
+                    (input_expr, input_env, input_cont)
+                };
+
+                let cons_and_cont_witnesses = {
+                    macro_rules! f {
+                        () => {
+                            |frame| {
+                                let cons_circuit_witness: ConsCircuitWitness<F> = frame
+                                    .witness
+                                    .map(|x| x.conses)
+                                    .unwrap_or_else(|| HashWitness::new_blank())
+                                    .into();
+
+                                let cons_constants: HashConst<'_, F> =
+                                    store.poseidon_constants().constants(4.into());
+
+                                // Force generating the witness. This is the important part!
+                                cons_circuit_witness.circuit_witness_blocks(store, cons_constants);
+
+                                let cont_circuit_witness: ContCircuitWitness<F> = frame
+                                    .witness
+                                    .map(|x| x.conts)
+                                    .unwrap_or_else(|| HashWitness::new_blank())
+                                    .into();
+
+                                let cont_constants: HashConst<'_, F> =
+                                    store.poseidon_constants().constants(8.into());
+
+                                // Force generating the witness. This is the important part!
+                                cont_circuit_witness.circuit_witness_blocks(store, cont_constants);
+
+                                (cons_circuit_witness, cont_circuit_witness)
+                            }
+                        };
+                    }
+
+                    if CONFIG.parallelism.poseidon_witnesses.is_parallel() {
+                        chunk.par_iter().map(f!()).collect::<Vec<_>>()
+                    } else {
+                        chunk.iter().map(f!()).collect::<Vec<_>>()
+                    }
+                };
+
+                let mut cs = WitnessCS::new();
+
+                let output = self.synthesize_frames_sequential(
+                    &mut cs,
+                    store,
+                    input_expr,
+                    input_env,
+                    input_cont,
+                    chunk,
+                    Some(cons_and_cont_witnesses),
+                    g,
+                );
+
+                (cs, output)
+            })
+            .collect::<Vec<_>>();
+
+        let mut final_output = None;
+
+        for (frames_cs, output) in css.into_iter() {
+            final_output = Some(output);
+
+            let aux = frames_cs.aux_slice();
+            cs.extend_aux(aux);
+        }
+
+        final_output.unwrap()
     }
 }
 
@@ -246,13 +408,19 @@ impl<F: LurkField, T: PartialEq + Debug, W, C: Coprocessor<F>> CircuitFrame<'_, 
     }
 }
 
-impl<F: LurkField, T: PartialEq + Debug + Copy, W, C: Coprocessor<F>> MultiFrame<'_, F, T, W, C> {
+impl<F: LurkField, T: PartialEq + Debug + Copy + Sync, W: Sync, C: Coprocessor<F>>
+    MultiFrame<'_, F, T, W, C>
+{
     pub fn precedes(&self, maybe_next: &Self) -> bool {
         self.output == maybe_next.input
     }
 }
 
-impl<F: LurkField, W: Copy, C: Coprocessor<F>> Provable<F> for MultiFrame<'_, F, IO<F>, W, C> {
+impl<
+        F: LurkField, // W: Copy + Sync,
+        C: Coprocessor<F>,
+    > Provable<F> for MultiFrame<'_, F, IO<F>, Witness<F>, C>
+{
     fn public_inputs(&self) -> Vec<F> {
         let mut inputs: Vec<_> = Vec::with_capacity(Self::public_input_size());
 
@@ -290,27 +458,42 @@ impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, IO<F>, Witness<F>, C> 
         inputs: AllocatedIO<F>,
         lang: &Lang<F, C>,
         g: &GlobalAllocations<F>,
+        _hash_circuit_witness_cache: &mut HashCircuitWitnessCache<F>, // Currently unused.
+        cons_circuit_witness: Option<ConsCircuitWitness<F>>,
+        cont_circuit_witness: Option<ContCircuitWitness<F>>,
     ) -> Result<AllocatedIO<F>, SynthesisError> {
         let (input_expr, input_env, input_cont) = inputs;
 
-        let mut reduce = |store| {
-            let cons_witness = self
-                .witness
-                .map_or_else(|| HashWitness::new_blank(), |x| x.conses);
+        let reduce = |store| {
+            let cons_circuit_witness = if let Some(ccw) = cons_circuit_witness {
+                ccw
+            } else {
+                let cons_witness = self
+                    .witness
+                    .map_or_else(|| HashWitness::new_blank(), |x| x.conses);
+
+                (cons_witness).into()
+            };
+
             let mut allocated_cons_witness = AllocatedConsWitness::from_cons_witness(
                 &mut cs.namespace(|| format!("allocated_cons_witness {i}")),
                 store,
-                &cons_witness,
+                &cons_circuit_witness,
             )?;
 
-            let cont_witness = self
-                .witness
-                .map_or_else(|| HashWitness::new_blank(), |x| x.conts);
+            let cont_circuit_witness = if let Some(ccw) = cont_circuit_witness {
+                ccw
+            } else {
+                let cont_witness = self
+                    .witness
+                    .map_or_else(|| HashWitness::new_blank(), |x| x.conts);
+                (cont_witness).into()
+            };
 
             let mut allocated_cont_witness = AllocatedContWitness::from_cont_witness(
                 &mut cs.namespace(|| format!("allocated_cont_witness {i}")),
                 store,
-                &cont_witness,
+                &cont_circuit_witness,
             )?;
 
             reduce_expression(
@@ -938,7 +1121,6 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     )?;
 
     allocated_cons_witness.assert_final_invariants();
-    allocated_cont_witness.witness.all_names();
     allocated_cont_witness.assert_final_invariants();
 
     // dbg!(&result_expr.fetch_and_write_str(store));
@@ -5293,7 +5475,7 @@ mod tests {
                     _p: Default::default(),
                 }],
                 store,
-                &lang,
+                lang.clone(),
             );
 
             let multiframe = &multiframes[0];
@@ -5304,6 +5486,7 @@ mod tests {
                 .expect("failed to synthesize");
 
             let delta = cs.delta(&cs_blank, false);
+            dbg!(&delta);
             assert!(delta == Delta::Equal);
 
             //println!("{}", print_cs(&cs));
@@ -5409,7 +5592,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                &lang,
+                lang.clone(),
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5489,7 +5672,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                &lang,
+                lang.clone(),
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5571,7 +5754,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                &lang,
+                lang.clone(),
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5653,7 +5836,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                &lang,
+                lang,
             )[0]
             .clone()
             .synthesize(&mut cs)

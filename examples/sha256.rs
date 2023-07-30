@@ -181,12 +181,12 @@ fn main() {
 
     let cproc_call = store.list(&[cproc_sym_ptr]);
 
-    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang.clone());
+    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang);
 
     println!("Setting up public parameters (rc = {REDUCTION_COUNT})...");
 
     let pp_start = Instant::now();
-    
+
     // see the documentation on `with_public_params`
     with_public_params(REDUCTION_COUNT, lang_rc.clone(), |pp| {
         let pp_end = pp_start.elapsed();
@@ -208,7 +208,7 @@ fn main() {
         println!("Verifying proof...");
 
         let verify_start = Instant::now();
-        let res = proof.verify(&pp, num_steps, &z0, &zi).unwrap();
+        let res = proof.verify(pp, num_steps, &z0, &zi).unwrap();
         let verify_end = verify_start.elapsed();
 
         println!("Verify took {:?}", verify_end);

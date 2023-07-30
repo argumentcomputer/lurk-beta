@@ -12,7 +12,6 @@ use lurk::{
     eval::{
         empty_sym_env,
         lang::{Coproc, Lang},
-        Evaluator,
     },
     field::LurkField,
     proof::nova::NovaProver,
@@ -24,108 +23,59 @@ use lurk::{
 };
 
 const PUBLIC_PARAMS_PATH: &str = "/var/tmp/lurk_benches/public_params";
-const DEFAULT_REDUCTION_COUNT: usize = 100;
+fn fib<F: LurkField>(store: &mut Store<F>, state: Rc<RefCell<State>>, _a: u64) -> Ptr<F> {
+    let program = r#"
+(letrec ((next (lambda (a b) (next b (+ a b))))
+           (fib (next 0 1)))
+  (fib))
+"#;
 
-fn fib<F: LurkField>(store: &mut Store<F>, state: Rc<RefCell<State>>, a: u64) -> Ptr<F> {
-    let program = format!(
-        r#"
-(let ((fib (lambda (target)
-              (letrec ((next (lambda (a b target)
-                               (if (= 0 target)
-                                     a
-                                     (next b
-                                           (+ a b)
-                                           (- target 1))))))
-                (next 0 1 target)))))
-  (fib {a}))
-"#
-    );
-
-    store.read_with_state(state, &program).unwrap()
+    store.read_with_state(state, program).unwrap()
 }
 
-#[allow(dead_code)]
-fn fibo_total<M: measurement::Measurement>(
-    name: &str,
-    iterations: u64,
-    c: &mut BenchmarkGroup<'_, M>,
-    state: Rc<RefCell<State>>,
-) {
-    let limit: usize = 10_000_000_000;
-    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
-    let lang_rc = Arc::new(lang_pallas.clone());
-    let reduction_count = DEFAULT_REDUCTION_COUNT;
-
-    // use cached public params
-    let pp = public_params(
-        reduction_count,
-        true,
-        lang_rc.clone(),
-        Utf8Path::new(PUBLIC_PARAMS_PATH),
-    )
-    .unwrap();
-
-    c.bench_with_input(
-        BenchmarkId::new(name.to_string(), iterations),
-        &(iterations),
-        |b, iterations| {
-            let mut store = Store::default();
-            let env = empty_sym_env(&store);
-            let ptr = fib::<pallas::Scalar>(&mut store, state.clone(), black_box(*iterations));
-            let prover = NovaProver::new(reduction_count, lang_pallas.clone());
-
-            b.iter_batched(
-                || lang_rc.clone(),
-                |lang_rc| {
-                    let result = prover
-                        .evaluate_and_prove(&pp, ptr, env, &mut store, limit, lang_rc)
-                        .unwrap();
-                    black_box(result);
-                },
-                BatchSize::SmallInput,
-            )
-        },
-    );
+// The env output in the `fib_frame`th frame of the above, infinite Fibonacci computation will contain a binding of the
+// nth Fibonacci number to `a`.
+// means of computing it.]
+fn fib_frame(n: usize) -> usize {
+    11 + 16 * n
 }
 
-#[allow(dead_code)]
-fn fibo_eval<M: measurement::Measurement>(
-    name: &str,
-    iterations: u64,
-    c: &mut BenchmarkGroup<'_, M>,
-    state: Rc<RefCell<State>>,
-) {
-    let limit = 10_000_000_000;
-    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
+// Set the limit so the last step will be filled exactly, since Lurk currently only pads terminal/error continuations.
+fn fib_limit(n: usize, rc: usize) -> usize {
+    let frame = fib_frame(n);
+    rc * (frame / rc + usize::from(frame % rc != 0))
+}
 
-    c.bench_with_input(
-        BenchmarkId::new(name.to_string(), iterations),
-        &(iterations),
-        |b, iterations| {
-            let mut store = Store::default();
-            let ptr = fib::<pallas::Scalar>(&mut store, state.clone(), black_box(*iterations));
-            b.iter(|| {
-                let result =
-                    Evaluator::new(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
-                        .eval();
-                black_box(result)
-            });
-        },
-    );
+struct ProveParams {
+    fib_n: usize,
+    reduction_count: usize,
+}
+
+impl ProveParams {
+    fn name(&self) -> String {
+        let date = env!("VERGEN_GIT_COMMIT_DATE");
+        let sha = env!("VERGEN_GIT_SHA");
+        format!("{date}:{sha}:Fibonacci-rc={}", self.reduction_count)
+    }
 }
 
 fn fibo_prove<M: measurement::Measurement>(
-    name: &str,
-    iterations: u64,
+    prove_params: ProveParams,
     c: &mut BenchmarkGroup<'_, M>,
     state: Rc<RefCell<State>>,
 ) {
-    let limit = 10_000_000_000;
+    let ProveParams {
+        fib_n,
+        reduction_count,
+    } = prove_params;
+
+    let limit = fib_limit(fib_n, reduction_count);
     let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
     let lang_rc = Arc::new(lang_pallas.clone());
-    let reduction_count = DEFAULT_REDUCTION_COUNT;
+
+    // use cached public params
     let pp = public_params(
-        reduction_count,
+        prove_params.reduction_count,
         true,
         lang_rc.clone(),
         Utf8Path::new(PUBLIC_PARAMS_PATH),
@@ -133,23 +83,24 @@ fn fibo_prove<M: measurement::Measurement>(
     .unwrap();
 
     c.bench_with_input(
-        BenchmarkId::new(name.to_string(), iterations),
-        &iterations,
-        |b, iterations| {
+        BenchmarkId::new(prove_params.name(), fib_n),
+        &prove_params,
+        |b, _prove_params| {
             let mut store = Store::default();
+
             let env = empty_sym_env(&store);
-            let ptr = fib::<pallas::Scalar>(&mut store, state.clone(), black_box(*iterations));
+            let ptr = fib::<pasta_curves::Fq>(&mut store, state.clone(), black_box(fib_n as u64));
             let prover = NovaProver::new(reduction_count, lang_pallas.clone());
 
-            let frames = prover
+            let frames = &prover
                 .get_evaluation_frames(ptr, env, &mut store, limit, &lang_pallas)
                 .unwrap();
 
             b.iter_batched(
-                || (frames.clone(), lang_rc.clone()), // avoid cloning the frames in the benchmark
+                || (frames, lang_rc.clone()),
                 |(frames, lang_rc)| {
-                    let result = prover.prove(&pp, &frames, &mut store, lang_rc).unwrap();
-                    black_box(result);
+                    let result = prover.prove(&pp, frames, &mut store, lang_rc);
+                    let _ = black_box(result);
                 },
                 BatchSize::LargeInput,
             )
@@ -157,49 +108,28 @@ fn fibo_prove<M: measurement::Measurement>(
     );
 }
 
-#[allow(dead_code)]
-fn fibonacci_eval(c: &mut Criterion) {
-    static BATCH_SIZES: [u64; 2] = [100, 1000];
-    let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("Evaluate");
-    let state = State::init_lurk_state().rccell();
-
-    for size in BATCH_SIZES.iter() {
-        fibo_eval("Fibonacci", *size, &mut group, state.clone());
-    }
-}
-
 fn fibonacci_prove(c: &mut Criterion) {
-    static BATCH_SIZES: [u64; 2] = [100, 1000];
+    let _ = dbg!(&*lurk::config::CONFIG);
+    let reduction_counts = vec![100, 600, 700, 800, 900];
+    let batch_sizes = vec![100, 200];
     let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("Prove");
     group.sampling_mode(SamplingMode::Flat); // This can take a *while*
     group.sample_size(10);
     let state = State::init_lurk_state().rccell();
 
-    for size in BATCH_SIZES.iter() {
-        fibo_prove("Fibonacci", *size, &mut group, state.clone());
-    }
-}
-
-#[allow(dead_code)]
-fn fibonacci_total(c: &mut Criterion) {
-    static BATCH_SIZES: [u64; 2] = [100, 1000];
-    let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("Total");
-    group.sampling_mode(SamplingMode::Flat); // This can take a *while*
-    group.sample_size(10);
-    let state = State::init_lurk_state().rccell();
-
-    for size in BATCH_SIZES.iter() {
-        fibo_total("Fibonacci", *size, &mut group, state.clone());
+    for fib_n in batch_sizes.iter() {
+        for reduction_count in reduction_counts.iter() {
+            let prove_params = ProveParams {
+                fib_n: *fib_n,
+                reduction_count: *reduction_count,
+            };
+            fibo_prove(prove_params, &mut group, state.clone());
+        }
     }
 }
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "flamegraph")] {
-        // In order to collect a flamegraph, you need to indicate a profile time, see
-        // https://github.com/tikv/pprof-rs#integrate-with-criterion
-        // Example usage :
-        // cargo criterion --bench fibonacci --features flamegraph -- --profile-time 5
-        // Warning: it is not recommended to run this on an M1 Mac, as making pprof work well there is hard.
         criterion_group! {
             name = benches;
             config = Criterion::default()
@@ -207,8 +137,8 @@ cfg_if::cfg_if! {
             .sample_size(10)
             .with_profiler(pprof::criterion::PProfProfiler::new(100, pprof::criterion::Output::Flamegraph(None)));
             targets =
-            fibonacci_prove,
-        }
+             fibonacci_prove,
+         }
     } else {
         criterion_group! {
             name = benches;
@@ -216,8 +146,8 @@ cfg_if::cfg_if! {
             .measurement_time(Duration::from_secs(120))
             .sample_size(10);
             targets =
-            fibonacci_prove,
-        }
+             fibonacci_prove,
+         }
     }
 }
 

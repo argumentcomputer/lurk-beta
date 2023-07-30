@@ -1,6 +1,7 @@
 use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
 use neptune::{
     circuit2::poseidon_hash_allocated as poseidon_hash,
+    circuit2_witness::poseidon_hash_allocated_witness,
     poseidon::{Arity, PoseidonConstants},
 };
 
@@ -282,11 +283,15 @@ impl<F: LurkField> GlobalAllocations<F> {
 }
 
 pub(crate) fn hash_poseidon<CS: ConstraintSystem<F>, F: LurkField, A: Arity<F>>(
-    cs: CS,
+    mut cs: CS,
     preimage: Vec<AllocatedNum<F>>,
     constants: &PoseidonConstants<F, A>,
 ) -> Result<AllocatedNum<F>, SynthesisError> {
-    poseidon_hash(cs, preimage, constants)
+    if cs.is_witness_generator() {
+        poseidon_hash_allocated_witness(&mut cs, &preimage, constants)
+    } else {
+        poseidon_hash(cs, preimage, constants)
+    }
 }
 
 impl<F: LurkField> Ptr<F> {
