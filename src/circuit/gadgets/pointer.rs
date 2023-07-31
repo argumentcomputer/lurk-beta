@@ -1,9 +1,6 @@
 use std::fmt::Debug;
 
-use bellperson::{
-    gadgets::{boolean::Boolean, num::AllocatedNum},
-    ConstraintSystem, SynthesisError,
-};
+use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
 use ff::PrimeField;
 
 use crate::{

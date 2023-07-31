@@ -1,7 +1,4 @@
-use bellperson::{
-    gadgets::{boolean::Boolean, num::AllocatedNum},
-    ConstraintSystem, SynthesisError,
-};
+use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
 use neptune::{
     circuit2::poseidon_hash_allocated as poseidon_hash,
     poseidon::{Arity, PoseidonConstants},

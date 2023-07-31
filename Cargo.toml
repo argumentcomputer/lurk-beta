@@ -16,6 +16,8 @@ anymap = "1.0.0-beta.2"
 base32ct = { version = "0.2.0", features = ["std"] }
 base64 = { workspace = true }
 base-x = "0.2.11"
+bellpepper = { workspace = true }
+bellpepper-core = { workspace = true }
 bellperson = { workspace = true }
 bincode = { workspace = true }
 blstrs = { workspace = true }

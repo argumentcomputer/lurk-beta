@@ -16,11 +16,11 @@ use lurk::state::user_sym;
 use lurk::store::Store;
 use lurk_macros::Coproc;
 
-use bellperson::gadgets::boolean::{AllocatedBit, Boolean};
-use bellperson::gadgets::multipack::pack_bits;
-use bellperson::gadgets::num::AllocatedNum;
-use bellperson::gadgets::sha256::sha256;
-use bellperson::{ConstraintSystem, SynthesisError};
+use bellpepper::gadgets::multipack::pack_bits;
+use bellpepper::gadgets::sha256::sha256;
+use bellpepper_core::boolean::{AllocatedBit, Boolean};
+use bellpepper_core::num::AllocatedNum;
+use bellpepper_core::{ConstraintSystem, SynthesisError};
 
 use pasta_curves::pallas::Scalar as Fr;
 use serde::{Deserialize, Serialize};

@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
+use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 
 use neptune::circuit2::poseidon_hash_allocated as poseidon_hash;
 

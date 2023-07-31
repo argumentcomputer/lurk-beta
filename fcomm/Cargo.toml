@@ -14,7 +14,7 @@ path = "src/bin/fcomm.rs"
 [dependencies]
 anyhow = { workspace = true }
 base64 = { workspace = true }
-bellperson = { workspace = true }
+bellpepper-core = { workspace = true }
 bincode = { workspace = true }
 blstrs = { workspace = true }
 clap = { workspace = true, features = ["derive"] }

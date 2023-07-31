@@ -1,15 +1,13 @@
+use bellpepper_core::SynthesisError;
 #[cfg(not(target_arch = "wasm32"))]
 use bellperson::groth16::aggregate::setup_fake_srs;
-use bellperson::{
-    groth16::{
-        self,
-        aggregate::{
-            aggregate_proofs_and_instances, verify_aggregate_proof_and_aggregate_instances,
-            AggregateProofAndInstance, AggregateVersion, GenericSRS, VerifierSRS,
-        },
-        verify_proof,
+use bellperson::groth16::{
+    self,
+    aggregate::{
+        aggregate_proofs_and_instances, verify_aggregate_proof_and_aggregate_instances,
+        AggregateProofAndInstance, AggregateVersion, GenericSRS, VerifierSRS,
     },
-    SynthesisError,
+    verify_proof,
 };
 use blstrs::{Bls12, Scalar};
 #[cfg(not(target_arch = "wasm32"))]
@@ -331,11 +329,9 @@ mod tests {
     use crate::eval::{empty_sym_env, lang::Coproc, Frame};
     use crate::lurk_sym_ptr;
     use crate::proof::{verify_sequential_css, SequentialCS};
-    use bellperson::{
-        groth16::aggregate::verify_aggregate_proof_and_aggregate_instances,
-        util_cs::{metric_cs::MetricCS, Comparable, Delta},
-        Circuit,
-    };
+    use bellpepper::util_cs::{metric_cs::MetricCS, Comparable};
+    use bellpepper_core::{Circuit, Delta};
+    use bellperson::groth16::aggregate::verify_aggregate_proof_and_aggregate_instances;
 
     use blstrs::Scalar as Fr;
     use rand::rngs::OsRng;

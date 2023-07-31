@@ -55,9 +55,9 @@ pub trait CurveCycleEquipped: LurkField {
     /// (properties are unwieldy to encode) in the form of this CommitmentKeyExtTrait.
 
     /// The type of the commitment key used for points of the first curve in the cycle.
-    type CK1: CommitmentKeyExtTrait<Self::G1, CE = <Self::G1 as Group>::CE>;
+    type CK1: CommitmentKeyExtTrait<Self::G1>;
     /// The type of the commitment key used for points of the second curve in the cycle.
-    type CK2: CommitmentKeyExtTrait<Self::G2, CE = <Self::G2 as Group>::CE>;
+    type CK2: CommitmentKeyExtTrait<Self::G2>;
     /// The commitment engine type for the first curve in the cycle.
     type CE1: CommitmentEngineTrait<Self::G1, CommitmentKey = Self::CK1>;
     /// The commitment engine type for the second curve in the cycle.
@@ -144,7 +144,7 @@ pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F>>(
 ) -> PublicParams<'a, F, C> {
     let (circuit_primary, circuit_secondary) = C1::circuits(num_iters_per_step, lang);
 
-    let pp = nova::PublicParams::setup(circuit_primary, circuit_secondary);
+    let pp = nova::PublicParams::setup(&circuit_primary, &circuit_secondary);
     let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
     PublicParams { pp, pk, vk }
 }
@@ -289,15 +289,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F>
         ])
     }
 
-    fn output(&self, z: &[F]) -> Vec<F> {
-        // sanity check
-        assert_eq!(z, self.input.unwrap().to_vector(self.get_store()).unwrap());
-        assert_eq!(
-            self.frames.as_ref().unwrap().last().unwrap().output,
-            self.output
-        );
-        self.output.unwrap().to_vector(self.get_store()).unwrap()
-    }
 }
 
 impl<'a: 'b, 'b, F: CurveCycleEquipped, C: Coprocessor<F>> Proof<'a, F, C> {

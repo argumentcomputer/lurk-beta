@@ -76,7 +76,7 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
                 }
             }
 
-            fn synthesize<CS: bellperson::ConstraintSystem<F>>(
+            fn synthesize<CS: bellpepper_core::ConstraintSystem<F>>(
                 &self,
                 cs: &mut CS,
                 g: &lurk::circuit::gadgets::data::GlobalAllocations<F>,
@@ -84,7 +84,7 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
                 input_exprs: &[lurk::circuit::gadgets::pointer::AllocatedPtr<F>],
                 input_env: &lurk::circuit::gadgets::pointer::AllocatedPtr<F>,
                 input_cont: &lurk::circuit::gadgets::pointer::AllocatedContPtr<F>,
-            ) -> Result<(lurk::circuit::gadgets::pointer::AllocatedPtr<F>, lurk::circuit::gadgets::pointer::AllocatedPtr<F>, lurk::circuit::gadgets::pointer::AllocatedContPtr<F>), bellperson::SynthesisError> {
+            ) -> Result<(lurk::circuit::gadgets::pointer::AllocatedPtr<F>, lurk::circuit::gadgets::pointer::AllocatedPtr<F>, lurk::circuit::gadgets::pointer::AllocatedContPtr<F>), bellpepper_core::SynthesisError> {
                 match self {
                     #synthesize_arms
                 }
