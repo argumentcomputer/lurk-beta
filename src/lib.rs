@@ -18,6 +18,7 @@ pub mod hash_witness;
 pub mod error;
 pub mod lem;
 mod num;
+pub mod package;
 pub mod parser;
 pub mod proof;
 pub mod ptr;
