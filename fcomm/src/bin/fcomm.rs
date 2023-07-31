@@ -21,7 +21,7 @@ use lurk::ptr::{Ptr, TypePredicates};
 use lurk::public_parameters::error;
 use lurk::store::Store;
 
-use clap::{AppSettings, Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
 
 use fcomm::{
@@ -34,7 +34,6 @@ use lurk::public_parameters::{public_params, FileStore};
 /// Functional commitments
 #[derive(Parser, Debug)]
 #[clap(version, about, long_about = None)]
-#[clap(global_setting(AppSettings::DeriveDisplayOrder))]
 struct Cli {
     /// Evaluate inputs before passing to function (outside the proof) when opening. Otherwise inputs are unevaluated.
     #[clap(long, value_parser)]
