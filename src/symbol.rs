@@ -199,7 +199,7 @@ impl Symbol {
     }
 
     pub fn direct_parent(&self) -> Option<Symbol> {
-        if self.path.is_empty() {
+        if self.is_root() {
             None
         } else {
             Some(Self {
@@ -209,9 +209,9 @@ impl Symbol {
         }
     }
 
-    pub fn direct_child(&self, child: String) -> Symbol {
+    pub fn direct_child(&self, child: &str) -> Symbol {
         let mut path = self.path.clone();
-        path.push(child);
+        path.push(child.into());
         Self { path }
     }
 }
@@ -459,8 +459,8 @@ pub mod test {
     fn test_sym() {
         assert_eq!("a.b.c", format!("{}", Symbol::new(&["a", "b", "c"])));
         let root = Symbol::root();
-        let a = root.direct_child("a".into());
-        let a_b = a.direct_child("b".into());
+        let a = root.direct_child("a");
+        let a_b = a.direct_child("b");
         let a_b_path = vec!["a", "b"];
 
         assert_eq!("a", format!("{}", a));
@@ -476,8 +476,8 @@ pub mod test {
         let root = Symbol::root();
         let key_root = Symbol::new(&["keyword"]);
 
-        let apple = root.direct_child("apple".into());
-        let orange = key_root.direct_child("orange".into());
+        let apple = root.direct_child("apple");
+        let orange = key_root.direct_child("orange");
 
         assert_eq!("apple", format!("{}", apple));
         assert_eq!(":orange", format!("{}", orange));
