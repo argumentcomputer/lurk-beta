@@ -65,6 +65,7 @@ mod interpreter;
 mod macros;
 mod path;
 mod pointers;
+mod slot;
 mod store;
 mod var_map;
 
@@ -668,7 +669,7 @@ impl Var {
 
 #[cfg(test)]
 mod tests {
-    use super::circuit::SlotsCounter;
+    use super::slot::SlotsCounter;
     use super::{store::Store, *};
     use crate::{func, lem::pointers::Ptr};
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable, Delta};
