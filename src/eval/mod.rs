@@ -423,7 +423,7 @@ where
         let mut iterations = 0;
         let mut emitted_vec = vec![];
         for _ in 0..self.limit {
-            if matches!(io.cont.tag, ContTag::Terminal | ContTag::Error) {
+            if Evaluable::<F, Witness<F>, C>::is_complete(&io) {
                 break;
             }
             (io, _) = io.reduce(self.store, self.lang)?;
