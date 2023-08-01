@@ -6,15 +6,17 @@ use std::{
 
 use crate::Symbol;
 
+pub type SymbolRef = Rc<Symbol>;
+
 pub struct Package {
-    name: Symbol,
-    symbols: HashMap<String, Rc<Symbol>>,
-    local: HashSet<Symbol>,
+    name: SymbolRef,
+    symbols: HashMap<String, SymbolRef>,
+    local: HashSet<SymbolRef>,
 }
 
 impl Package {
     #[inline]
-    pub fn new(name: Symbol) -> Self {
+    pub fn new(name: SymbolRef) -> Self {
         Self {
             name,
             symbols: Default::default(),
@@ -23,40 +25,41 @@ impl Package {
     }
 
     #[inline]
-    pub fn name(&self) -> &Symbol {
+    pub fn name(&self) -> &SymbolRef {
         &self.name
     }
 
     #[inline]
-    pub fn resolve(&self, symbol_name: &str) -> Option<&Rc<Symbol>> {
-        self.symbols.get(symbol_name)
+    pub fn resolve(&self, symbol_name: &str) -> Option<SymbolRef> {
+        self.symbols.get(symbol_name).cloned()
     }
 
     /// Given a symbol name, returns the corresponding symbol if it's accessible
     /// in the package. If it's not, make it so by creating a new symbol prefixed
     /// by the package's name.
-    pub fn intern(&mut self, symbol_name: String) -> &Symbol {
+    pub fn intern(&mut self, symbol_name: String) -> SymbolRef {
         self.symbols
             .entry(symbol_name)
             .or_insert_with_key(|symbol_name| {
-                let symbol = self.name.direct_child(symbol_name);
-                self.local.insert(symbol.clone());
-                symbol.into()
+                let symbol_ref: SymbolRef = self.name.direct_child(symbol_name).into();
+                self.local.insert(symbol_ref.clone());
+                symbol_ref
             })
+            .clone()
     }
 
     /// Tries to import a list of symbols so they become accessible in the package.
     /// If some symbol can't be imported due to an error (i.e. it conflicts with
     /// another accessible symbol), none of the symbols are effectively imported.
     /// In other words, importing is an atomic operation.
-    pub fn import(&mut self, symbols: &[Rc<Symbol>]) -> Result<()> {
+    pub fn import(&mut self, symbols: &[SymbolRef]) -> Result<()> {
         let mut symbols_names = Vec::with_capacity(symbols.len());
         // first we look for potential errors
         for symbol in symbols {
             let symbol_name = symbol.name()?;
             // check conflicts with accessible symbols
             if let Some(symbol_resolved) = self.resolve(symbol_name) {
-                if symbol != symbol_resolved {
+                if *symbol != symbol_resolved {
                     bail!("{symbol} conflicts with {symbol_resolved}, which is already accessible")
                 }
             }

@@ -42,7 +42,7 @@ const LURK_PACKAGE_SYMBOLS_NAMES: [&str; 36] = [
 ];
 
 pub fn create_lurk_package() -> Package {
-    let mut package = Package::new(crate::Symbol::new(&LURK_PACKAGE_NAME_PATH));
+    let mut package = Package::new(crate::Symbol::new(&LURK_PACKAGE_NAME_PATH).into());
     LURK_PACKAGE_SYMBOLS_NAMES.iter().for_each(|symbol_name| {
         package.intern(symbol_name.to_string());
     });
