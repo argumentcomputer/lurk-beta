@@ -97,6 +97,7 @@ impl Status {
             Self::Terminal | Self::Incomplete => false,
         }
     }
+
     pub fn is_incomplete(&self) -> bool {
         match self {
             Self::Incomplete => true,
@@ -182,12 +183,13 @@ impl<F: LurkField, C: Coprocessor<F>> Evaluable<F, Witness<F>, C> for IO<F> {
     fn is_complete(&self) -> bool {
         <IO<F> as Evaluable<F, Witness<F>, C>>::status(self).is_complete()
     }
+
     fn is_terminal(&self) -> bool {
-        <IO<F> as Evaluable<F, Witness<F>, C>>::status(self).is_complete()
+        <IO<F> as Evaluable<F, Witness<F>, C>>::status(self).is_terminal()
     }
 
     fn is_error(&self) -> bool {
-        <IO<F> as Evaluable<F, Witness<F>, C>>::status(self).is_complete()
+        <IO<F> as Evaluable<F, Witness<F>, C>>::status(self).is_error()
     }
 
     fn log(&self, store: &Store<F>, i: usize) {
