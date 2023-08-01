@@ -107,7 +107,7 @@ impl<F: LurkField> Ptr<F> {
 /// An important note is that computing the respective `ZPtr` of a `Ptr` can be
 /// expensive because of the Poseidon hashes. That's why we operate on `Ptr`s
 /// when interpreting LEMs and delay the need for `ZPtr`s as much as possible.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ZPtr<F: LurkField> {
     pub tag: Tag,
     pub hash: F,

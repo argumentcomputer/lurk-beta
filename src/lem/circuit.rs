@@ -685,12 +685,11 @@ impl Func {
                         let output_vals = if not_dummy.get_value().unwrap() {
                             g.call_outputs.pop_front().unwrap()
                         } else {
-                            // TODO Is this okay to do?
                             let dummy = Ptr::Leaf(Tag::Expr(Nil), F::ZERO);
                             (0..out.len()).map(|_| dummy).collect()
                         };
                         assert_eq!(output_vals.len(), out.len());
-                        let mut output_ptrs = vec![];
+                        let mut output_ptrs = Vec::with_capacity(out.len());
                         for (ptr, var) in output_vals.iter().zip(out.iter()) {
                             let zptr = &g.store.hash_ptr(ptr)?;
                             output_ptrs.push(Func::allocate_ptr(cs, zptr, var, bound_allocations)?);
@@ -845,30 +844,32 @@ impl Func {
                     let not_dummy_and_not_eq =
                         and(&mut cs.namespace(|| "if_eq.and.2"), not_dummy, &not_eq)?;
 
-                    let saved_slot = &mut next_slot.clone();
+                    let mut branch_slot = *next_slot;
                     recurse(
                         &mut cs.namespace(|| "if_eq.true"),
                         eq_block,
                         &not_dummy_and_eq,
-                        saved_slot,
+                        &mut branch_slot,
                         bound_allocations,
                         preallocated_outputs,
                         g,
                     )?;
-                    let saved_slot = &mut next_slot.clone();
                     recurse(
                         &mut cs.namespace(|| "if_eq.false"),
                         else_block,
                         &not_dummy_and_not_eq,
-                        saved_slot,
+                        next_slot,
                         bound_allocations,
                         preallocated_outputs,
                         g,
-                    )
+                    )?;
+                    *next_slot = next_slot.max(branch_slot);
+                    Ok(())
                 }
                 Ctrl::MatchTag(match_var, cases, def) => {
                     let allocated_match_tag = bound_allocations.get(match_var)?.tag().clone();
-                    let mut selector = Vec::new();
+                    let mut selector = Vec::with_capacity(cases.len() + 1);
+                    let mut branch_slots = Vec::with_capacity(cases.len());
                     for (tag, block) in cases {
                         let allocated_has_match = alloc_equal_const(
                             &mut cs.namespace(|| format!("{tag}.alloc_equal_const")),
@@ -886,16 +887,17 @@ impl Func {
 
                         selector.push(allocated_has_match);
 
-                        let saved_slot = &mut next_slot.clone();
+                        let mut branch_slot = *next_slot;
                         recurse(
                             &mut cs.namespace(|| format!("{}", tag)),
                             block,
                             &not_dummy_and_has_match,
-                            saved_slot,
+                            &mut branch_slot,
                             bound_allocations,
                             preallocated_outputs,
                             g,
                         )?;
+                        branch_slots.push(branch_slot);
                     }
 
                     match def {
@@ -915,12 +917,11 @@ impl Func {
 
                             selector.push(allocated_has_match);
 
-                            let saved_slot = &mut next_slot.clone();
                             recurse(
                                 &mut cs.namespace(|| "_"),
                                 def,
                                 &not_dummy_and_has_match,
-                                saved_slot,
+                                next_slot,
                                 bound_allocations,
                                 preallocated_outputs,
                                 g,
@@ -928,6 +929,11 @@ impl Func {
                         }
                         None => (),
                     }
+
+                    // The number of slots the match used is the max number of slots of each branch
+                    *next_slot = branch_slots
+                        .into_iter()
+                        .fold(*next_slot, |acc, branch_slot| acc.max(branch_slot));
 
                     // Now we need to enforce that at exactly one path was taken. We do that by enforcing
                     // that the sum of the previously collected `Boolean`s is one. But, of course, this
@@ -941,7 +947,8 @@ impl Func {
                 }
                 Ctrl::MatchVal(match_var, cases, def) => {
                     let allocated_lit = bound_allocations.get(match_var)?.hash().clone();
-                    let mut selector = Vec::new();
+                    let mut selector = Vec::with_capacity(cases.len() + 1);
+                    let mut branch_slots = Vec::with_capacity(cases.len());
                     for (lit, block) in cases {
                         let lit_ptr = lit.to_ptr(g.store);
                         let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
@@ -961,16 +968,17 @@ impl Func {
 
                         selector.push(allocated_has_match);
 
-                        let saved_slot = &mut next_slot.clone();
+                        let mut branch_slot = *next_slot;
                         recurse(
                             &mut cs.namespace(|| format!("{:?}", lit)),
                             block,
                             &not_dummy_and_has_match,
-                            saved_slot,
+                            &mut branch_slot,
                             bound_allocations,
                             preallocated_outputs,
                             g,
                         )?;
+                        branch_slots.push(branch_slot);
                     }
 
                     match def {
@@ -990,12 +998,11 @@ impl Func {
 
                             selector.push(allocated_has_match);
 
-                            let saved_slot = &mut next_slot.clone();
                             recurse(
                                 &mut cs.namespace(|| "_"),
                                 def,
                                 &not_dummy_and_has_match,
-                                saved_slot,
+                                next_slot,
                                 bound_allocations,
                                 preallocated_outputs,
                                 g,
@@ -1003,6 +1010,11 @@ impl Func {
                         }
                         None => (),
                     }
+
+                    // The number of slots the match used is the max number of slots of each branch
+                    *next_slot = branch_slots
+                        .into_iter()
+                        .fold(*next_slot, |acc, branch_slot| acc.max(branch_slot));
 
                     // Now we need to enforce that at exactly one path was taken. We do that by enforcing
                     // that the sum of the previously collected `Boolean`s is one. But, of course, this
