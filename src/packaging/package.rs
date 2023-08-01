@@ -57,7 +57,7 @@ impl Package {
             // check conflicts with accessible symbols
             if let Some(symbol_resolved) = self.resolve(symbol_name) {
                 if symbol != symbol_resolved {
-                    bail!("Conflicting symbol for {symbol_name}")
+                    bail!("{symbol} conflicts with {symbol_resolved}, which is already accessible")
                 }
             }
             // memoize the symbols' names for efficiency
