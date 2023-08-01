@@ -7,7 +7,7 @@ use std::path::Path;
 
 #[test]
 #[ignore]
-fn lurk_tests() {
+fn lurk_cli_tests() {
     let test_files = [
         "test.lurk",
         "micro-tests.lurk",

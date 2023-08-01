@@ -105,7 +105,7 @@ struct LoadCli {
 }
 
 impl LoadArgs {
-    pub fn into_cli(self) -> LoadCli {
+    fn into_cli(self) -> LoadCli {
         LoadCli {
             lurk_file: self.lurk_file,
             zstore: self.zstore,
@@ -175,7 +175,7 @@ struct ReplCli {
 }
 
 impl ReplArgs {
-    pub fn into_cli(self) -> ReplCli {
+    fn into_cli(self) -> ReplCli {
         ReplCli {
             load: self.load,
             zstore: self.zstore,
@@ -364,17 +364,9 @@ struct VerifyArgs {
     proof_id: String,
 }
 
-/// Parses CLI arguments and continues the program flow accordingly
-pub fn parse_and_run() -> Result<()> {
-    #[cfg(not(target_arch = "wasm32"))]
-    paths::non_wasm::create_lurk_dirs()?;
-
-    if let Ok(repl_cli) = ReplCli::try_parse() {
-        repl_cli.run()
-    } else if let Ok(load_cli) = LoadCli::try_parse() {
-        load_cli.run()
-    } else {
-        match Cli::parse().command {
+impl Cli {
+    fn run(self) -> Result<()> {
+        match self.command {
             Command::Repl(repl_args) => repl_args.into_cli().run(),
             Command::Load(load_args) => load_args.into_cli().run(),
             #[allow(unused_variables)]
@@ -387,5 +379,23 @@ pub fn parse_and_run() -> Result<()> {
                 Ok(())
             }
         }
+    }
+}
+
+/// Parses CLI arguments and continues the program flow accordingly
+pub fn parse_and_run() -> Result<()> {
+    #[cfg(not(target_arch = "wasm32"))]
+    paths::non_wasm::create_lurk_dirs()?;
+
+    if let Ok(cli) = Cli::try_parse() {
+        cli.run()
+    } else if let Ok(repl_cli) = ReplCli::try_parse() {
+        repl_cli.run()
+    } else if let Ok(load_cli) = LoadCli::try_parse() {
+        load_cli.run()
+    } else {
+        // force printing help
+        Cli::parse();
+        Ok(())
     }
 }
