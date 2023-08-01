@@ -532,6 +532,8 @@
 <a href="#532" id="532">532</a>
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
 <span class="kw">use </span><span class="kw">crate</span>::error::ReductionError;
 <span class="kw">use </span><span class="kw">crate</span>::expr::Expression;
@@ -631,6 +633,7 @@
             <span class="self">Self</span>::Terminal | <span class="self">Self</span>::Incomplete =&gt; <span class="bool-val">false</span>,
         }
     }
+
     <span class="kw">pub fn </span>is_incomplete(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Incomplete =&gt; <span class="bool-val">true</span>,
@@ -716,12 +719,13 @@
     <span class="kw">fn </span>is_complete(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         &lt;IO&lt;F&gt; <span class="kw">as </span>Evaluable&lt;F, Witness&lt;F&gt;, C&gt;&gt;::status(<span class="self">self</span>).is_complete()
     }
+
     <span class="kw">fn </span>is_terminal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        &lt;IO&lt;F&gt; <span class="kw">as </span>Evaluable&lt;F, Witness&lt;F&gt;, C&gt;&gt;::status(<span class="self">self</span>).is_complete()
+        &lt;IO&lt;F&gt; <span class="kw">as </span>Evaluable&lt;F, Witness&lt;F&gt;, C&gt;&gt;::status(<span class="self">self</span>).is_terminal()
     }
 
     <span class="kw">fn </span>is_error(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        &lt;IO&lt;F&gt; <span class="kw">as </span>Evaluable&lt;F, Witness&lt;F&gt;, C&gt;&gt;::status(<span class="self">self</span>).is_complete()
+        &lt;IO&lt;F&gt; <span class="kw">as </span>Evaluable&lt;F, Witness&lt;F&gt;, C&gt;&gt;::status(<span class="self">self</span>).is_error()
     }
 
     <span class="kw">fn </span>log(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, i: usize) {
