@@ -55,7 +55,6 @@ impl Package {
         }
         // now we finally import as an atomic operation
         for (symbol, symbol_name) in symbols.iter().zip(symbols_names) {
-            // TODO: intern if the symbol has no home package
             self.to_symbol.insert(symbol_name.clone(), symbol.clone());
         }
         Ok(())
