@@ -1,5 +1,7 @@
 use std::fmt;
 
+use anyhow::{bail, Result};
+
 use crate::parser::LURK_WHITESPACE;
 #[cfg(not(target_arch = "wasm32"))]
 use lurk_macros::serde_test;
@@ -37,6 +39,11 @@ impl Symbol {
     #[inline]
     pub fn is_root(&self) -> bool {
         self.path.is_empty()
+    }
+
+    #[inline]
+    pub fn is_root_keyword(&self) -> bool {
+        self.path == ["keyword"]
     }
 
     /// Creates a new Symbol with the path extended by the given vector of path segments.
@@ -110,7 +117,11 @@ impl Symbol {
     }
 
     pub fn is_keyword(&self) -> bool {
-        self == &Self::new(&["keyword"]) || self.has_parent(&Self::new(&["keyword"]))
+        if self.is_root() {
+            false
+        } else {
+            self.path[0] == "keyword"
+        }
     }
 
     pub fn lurk_sym(name: &str) -> Symbol {
@@ -213,6 +224,16 @@ impl Symbol {
         let mut path = self.path.clone();
         path.push(child.into());
         Self { path }
+    }
+
+    pub fn name(&self) -> Result<&String> {
+        if self.is_root() {
+            bail!("The root symbol doesn't have a name")
+        } else if self.is_root_keyword() {
+            bail!("The root keyword doesn't have a name")
+        } else {
+            Ok(&self.path[self.path.len() - 1])
+        }
     }
 }
 
@@ -479,6 +500,7 @@ pub mod test {
         let apple = root.direct_child("apple");
         let orange = key_root.direct_child("orange");
 
+        assert!(!root.is_keyword());
         assert_eq!("apple", format!("{}", apple));
         assert_eq!(":orange", format!("{}", orange));
         assert!(!apple.is_keyword());
