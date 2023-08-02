@@ -554,14 +554,14 @@ fn apply_cont() -> Func {
                         return (result, env, err, errctrl)
                     }
                     Cont::Let => {
-                        let (var, body, saved_env, cont) = unhash4(cont);
+                        let (var, saved_env, body, cont) = unhash4(cont);
                         let binding: Expr::Cons = hash2(var, result);
                         let extended_env: Expr::Cons = hash2(binding, env);
                         let (cont) = make_tail_continuation(saved_env, cont);
                         return (body, extended_env, cont, ret)
                     }
                     Cont::LetRec => {
-                        let (var, body, saved_env, cont) = unhash4(cont);
+                        let (var, saved_env, body, cont) = unhash4(cont);
                         let (extended_env) = extend_rec(env, var, result);
                         let (cont) = make_tail_continuation(saved_env, cont);
                         return (body, extended_env, cont, ret)
@@ -880,7 +880,9 @@ mod tests {
         let sum_res = s.read("42").unwrap();
         let car = s.read("(car (cons 1 2))").unwrap();
         let car_res = s.read("1").unwrap();
-        vec![(sum, sum_res), (car, car_res)]
+        let let_ = s.read("(let ((x (cons 1 2))) (cons (car x) (cdr x)))").unwrap();
+        let let_res = s.read("(1 . 2)").unwrap();
+        vec![(sum, sum_res), (car, car_res), (let_, let_res)]
     }
 
     #[test]
