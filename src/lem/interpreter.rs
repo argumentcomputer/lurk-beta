@@ -9,11 +9,31 @@ use super::{
 use crate::tag::ExprTag::*;
 
 #[derive(Clone, Default)]
+/// `Preimages` hold the non-deterministic advices for hashes and `Func` calls.
+/// The hash preimages must have the same shape as the allocated slots for the
+/// `Func`, and the `None` values are used to fill the unused slots, which are
+/// later filled by dummy values.
 pub struct Preimages<F: LurkField> {
-    pub hash2_ptrs: Vec<Vec<Ptr<F>>>,
-    pub hash3_ptrs: Vec<Vec<Ptr<F>>>,
-    pub hash4_ptrs: Vec<Vec<Ptr<F>>>,
+    pub hash2_ptrs: Vec<Option<Vec<Ptr<F>>>>,
+    pub hash3_ptrs: Vec<Option<Vec<Ptr<F>>>>,
+    pub hash4_ptrs: Vec<Option<Vec<Ptr<F>>>>,
     pub call_outputs: VecDeque<Vec<Ptr<F>>>,
+}
+
+impl<F: LurkField> Preimages<F> {
+    pub fn new_from_func(func: &Func) -> Preimages<F> {
+        let slot = func.slot;
+        let hash2_ptrs = Vec::with_capacity(slot.hash2);
+        let hash3_ptrs = Vec::with_capacity(slot.hash3);
+        let hash4_ptrs = Vec::with_capacity(slot.hash4);
+        let call_outputs = VecDeque::new();
+        Preimages {
+            hash2_ptrs,
+            hash3_ptrs,
+            hash4_ptrs,
+            call_outputs,
+        }
+    }
 }
 
 /// A `Frame` carries the data that results from interpreting a LEM. That is,
@@ -129,14 +149,14 @@ impl Block {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
                     let tgt_ptr = store.intern_2_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1]);
                     bindings.insert(img.clone(), tgt_ptr);
-                    preimages.hash2_ptrs.push(preimg_ptrs);
+                    preimages.hash2_ptrs.push(Some(preimg_ptrs));
                 }
                 Op::Hash3(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
                     let tgt_ptr =
                         store.intern_3_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]);
                     bindings.insert(img.clone(), tgt_ptr);
-                    preimages.hash3_ptrs.push(preimg_ptrs);
+                    preimages.hash3_ptrs.push(Some(preimg_ptrs));
                 }
                 Op::Hash4(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
@@ -148,7 +168,7 @@ impl Block {
                         preimg_ptrs[3],
                     );
                     bindings.insert(img.clone(), tgt_ptr);
-                    preimages.hash4_ptrs.push(preimg_ptrs);
+                    preimages.hash4_ptrs.push(Some(preimg_ptrs));
                 }
                 Op::Unhash2(preimg, img) => {
                     let img_ptr = bindings.get(img)?;
@@ -162,7 +182,7 @@ impl Block {
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert(var.clone(), *ptr);
                     }
-                    preimages.hash2_ptrs.push(preimg_ptrs.to_vec());
+                    preimages.hash2_ptrs.push(Some(preimg_ptrs.to_vec()));
                 }
                 Op::Unhash3(preimg, img) => {
                     let img_ptr = bindings.get(img)?;
@@ -176,7 +196,7 @@ impl Block {
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert(var.clone(), *ptr);
                     }
-                    preimages.hash3_ptrs.push(preimg_ptrs.to_vec());
+                    preimages.hash3_ptrs.push(Some(preimg_ptrs.to_vec()));
                 }
                 Op::Unhash4(preimg, img) => {
                     let img_ptr = bindings.get(img)?;
@@ -190,7 +210,7 @@ impl Block {
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert(var.clone(), *ptr);
                     }
-                    preimages.hash4_ptrs.push(preimg_ptrs.to_vec());
+                    preimages.hash4_ptrs.push(Some(preimg_ptrs.to_vec()));
                 }
                 Op::Hide(tgt, sec, src) => {
                     let src_ptr = bindings.get(src)?;
@@ -304,8 +324,31 @@ impl Func {
             bindings.insert(param.clone(), args[i]);
         }
 
-        self.body
-            .run(args, store, bindings, preimages, Path::default())
+        // We must fill any unused slots with `None` values so we save
+        // the initial size of preimages, which might not be zero
+        let hash2_init = preimages.hash2_ptrs.len();
+        let hash3_init = preimages.hash3_ptrs.len();
+        let hash4_init = preimages.hash4_ptrs.len();
+
+        let mut res = self
+            .body
+            .run(args, store, bindings, preimages, Path::default())?;
+        let preimages = &mut res.0.preimages;
+
+        let hash2_used = preimages.hash2_ptrs.len() - hash2_init;
+        let hash3_used = preimages.hash3_ptrs.len() - hash3_init;
+        let hash4_used = preimages.hash4_ptrs.len() - hash4_init;
+        for _ in hash2_used..self.slot.hash2 {
+            preimages.hash2_ptrs.push(None);
+        }
+        for _ in hash3_used..self.slot.hash3 {
+            preimages.hash3_ptrs.push(None);
+        }
+        for _ in hash4_used..self.slot.hash4 {
+            preimages.hash4_ptrs.push(None);
+        }
+
+        Ok(res)
     }
 
     /// Calls a `Func` on an input until the stop contidion is satisfied, using the output of one
@@ -328,7 +371,7 @@ impl Func {
         let mut paths = vec![];
 
         loop {
-            let preimages = Preimages::default();
+            let preimages = Preimages::new_from_func(self);
             let (frame, path) = self.call(args, store, preimages)?;
             if stop_cond(&frame.output) {
                 frames.push(frame);

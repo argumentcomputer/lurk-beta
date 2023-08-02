@@ -194,78 +194,78 @@ impl Func {
     /// Allocates unconstrained slots
     fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        preimgs: &[Vec<Ptr<F>>],
+        preimgs: &[Option<Vec<Ptr<F>>>],
         slot_type: SlotType,
         num_slots: usize,
         store: &mut Store<F>,
     ) -> Result<Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>> {
         assert!(
-            preimgs.len() <= num_slots,
-            "collected preimages exceeded the number of available slots"
+            preimgs.len() == num_slots,
+            "collected preimages not equal to the number of available slots"
         );
 
         let mut preallocations = Vec::with_capacity(num_slots);
 
-        // First we perform the allocations for the slots containing data collected
-        // by the interpreter
-        for (slot_idx, preimg) in preimgs.iter().enumerate() {
-            let slot = Slot {
-                idx: slot_idx,
-                typ: slot_type,
-            };
-            // Allocate the preimage because the image depends on it
-            let mut preallocated_preimg = Vec::with_capacity(2 * preimg.len());
+        // We must perform the allocations for the slots containing data collected
+        // by the interpreter. The `None` cases must be filled with dummy values
+        for (slot_idx, maybe_preimg) in preimgs.iter().enumerate() {
+            if let Some(preimg) = maybe_preimg {
+                let slot = Slot {
+                    idx: slot_idx,
+                    typ: slot_type,
+                };
+                // Allocate the preimage because the image depends on it
+                let mut preallocated_preimg = Vec::with_capacity(2 * preimg.len());
 
-            let mut component_idx = 0;
-            for ptr in preimg {
-                let z_ptr = store.hash_ptr(ptr)?;
+                let mut component_idx = 0;
+                for ptr in preimg {
+                    let z_ptr = store.hash_ptr(ptr)?;
 
-                // allocate pointer tag
-                preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
-                    cs,
-                    &slot,
-                    component_idx,
-                    z_ptr.tag.to_field(),
-                )?);
+                    // allocate pointer tag
+                    preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
+                        cs,
+                        &slot,
+                        component_idx,
+                        z_ptr.tag.to_field(),
+                    )?);
 
-                component_idx += 1;
+                    component_idx += 1;
 
-                // allocate pointer hash
-                preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
-                    cs,
-                    &slot,
-                    component_idx,
-                    z_ptr.hash,
-                )?);
+                    // allocate pointer hash
+                    preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
+                        cs,
+                        &slot,
+                        component_idx,
+                        z_ptr.hash,
+                    )?);
 
-                component_idx += 1;
+                    component_idx += 1;
+                }
+
+                // Allocate the image by calling the arithmetic function according
+                // to the slot type
+                let preallocated_img =
+                    Self::allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
+
+                preallocations.push((preallocated_preimg, preallocated_img));
+            } else {
+                let slot = Slot {
+                    idx: slot_idx,
+                    typ: slot_type,
+                };
+                let preallocated_preimg: Vec<_> = (0..slot_type.preimg_size())
+                    .map(|component_idx| {
+                        Self::allocate_preimg_component_for_slot(cs, &slot, component_idx, F::ZERO)
+                    })
+                    .collect::<Result<_, _>>()?;
+
+                let preallocated_img =
+                    Self::allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
+
+                preallocations.push((preallocated_preimg, preallocated_img));
             }
-
-            // Allocate the image by calling the arithmetic function according
-            // to the slot type
-            let preallocated_img =
-                Self::allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
-
-            preallocations.push((preallocated_preimg, preallocated_img));
         }
 
-        // Then we do the same with dummies for the remaining slots
-        for slot_idx in preallocations.len()..num_slots {
-            let slot = Slot {
-                idx: slot_idx,
-                typ: slot_type,
-            };
-            let preallocated_preimg: Vec<_> = (0..slot_type.preimg_size())
-                .map(|component_idx| {
-                    Self::allocate_preimg_component_for_slot(cs, &slot, component_idx, F::ZERO)
-                })
-                .collect::<Result<_, _>>()?;
-
-            let preallocated_img =
-                Self::allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
-
-            preallocations.push((preallocated_preimg, preallocated_img));
-        }
         Ok(preallocations)
     }
 
