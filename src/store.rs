@@ -465,7 +465,7 @@ impl<F: LurkField> Store<F> {
                 let str_ptr = self.intern_string(s);
                 ptr = self.intern_symcons(str_ptr, ptr);
             }
-            if sym == Symbol::nil() {
+            if sym == Symbol::lurk_sym("nil") {
                 Ptr {
                     tag: ExprTag::Nil,
                     raw: ptr.raw,
@@ -487,7 +487,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn get_sym(&self, sym: &Symbol) -> Option<Ptr<F>> {
         let ptr = self.symbol_cache.get(sym).cloned()?;
-        if *sym == Symbol::nil() {
+        if *sym == Symbol::lurk_sym("nil") {
             Some(Ptr {
                 tag: ExprTag::Nil,
                 raw: ptr.raw,
@@ -695,7 +695,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<Symbol> {
         if ptr.tag == ExprTag::Nil {
-            return Some(Symbol::nil());
+            return Some(Symbol::lurk_sym("nil"));
         }
         let mut ptr = *ptr;
         let mut path = Vec::new();

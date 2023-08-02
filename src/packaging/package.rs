@@ -11,7 +11,7 @@ pub type SymbolRef = Rc<Symbol>;
 pub struct Package {
     name: SymbolRef,
     symbols: HashMap<String, SymbolRef>,
-    local: HashSet<SymbolRef>,
+    accessible: HashSet<SymbolRef>,
 }
 
 impl Package {
@@ -20,7 +20,7 @@ impl Package {
         Self {
             name,
             symbols: Default::default(),
-            local: Default::default(),
+            accessible: Default::default(),
         }
     }
 
@@ -41,9 +41,9 @@ impl Package {
         self.symbols
             .entry(symbol_name)
             .or_insert_with_key(|symbol_name| {
-                let symbol_ref: SymbolRef = self.name.direct_child(symbol_name).into();
-                self.local.insert(symbol_ref.clone());
-                symbol_ref
+                let symbol: SymbolRef = self.name.direct_child(symbol_name).into();
+                self.accessible.insert(symbol.clone());
+                symbol
             })
             .clone()
     }
@@ -69,7 +69,16 @@ impl Package {
         // now we finally import as an atomic operation
         for (symbol, symbol_name) in symbols.iter().zip(symbols_names) {
             self.symbols.insert(symbol_name.clone(), symbol.clone());
+            self.accessible.insert(symbol.clone());
         }
         Ok(())
+    }
+
+    pub fn print(&self, symbol: SymbolRef) -> Result<String> {
+        if self.accessible.contains(&symbol) {
+            Ok(Symbol::escape_symbol_element(symbol.name()?))
+        } else {
+            todo!()
+        }
     }
 }

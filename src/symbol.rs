@@ -65,10 +65,6 @@ impl Symbol {
         Self { path }
     }
 
-    pub fn nil() -> Symbol {
-        Self::new(&["lurk", "nil"])
-    }
-
     pub fn keyword<A: AsRef<str>>(key: &[A]) -> Symbol {
         Self::new(&["keyword"]).extend(key)
     }
@@ -126,10 +122,6 @@ impl Symbol {
 
     pub fn lurk_sym(name: &str) -> Symbol {
         Self::new(&["lurk", name])
-    }
-
-    pub fn is_lurk_sym(&self) -> bool {
-        self.has_parent(&Self::new(&["lurk"]))
     }
 
     pub fn lurk_syms() -> HashMap<Symbol, LurkSym> {
