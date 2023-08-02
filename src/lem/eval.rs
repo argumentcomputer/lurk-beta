@@ -441,9 +441,8 @@ fn apply_cont() -> Func {
     let safe_uncons = safe_uncons();
     let make_tail_continuation = make_tail_continuation();
     let extend_rec = func!(extend_rec(env, var, result): 1 => {
-
-        let (binding_or_env, rest) = unhash2(env);
-        let (var_or_binding, _val_or_more_bindings) = unhash2(binding_or_env);
+        let (binding_or_env, rest) = safe_uncons(env);
+        let (var_or_binding, _val_or_more_bindings) = safe_uncons(binding_or_env);
         let cons: Expr::Cons = hash2(var, result);
         match var_or_binding.tag {
             // It's a var, so we are extending a simple env with a recursive env.
@@ -824,8 +823,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 8056;
-    const NUM_CONSTRAINTS: usize = 10053;
+    const NUM_AUX: usize = 8092;
+    const NUM_CONSTRAINTS: usize = 10125;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,
@@ -891,12 +890,23 @@ mod tests {
         let lam0_res = s.read("1").unwrap();
         let lam = s.read("((lambda (x y) (+ x y)) 3 4)").unwrap();
         let lam_res = s.read("7").unwrap();
+        let fold = s.read("(letrec ((build (lambda (x)
+                                             (if (eq x 0)
+                                                 nil
+                                               (cons x (build (- x 1))))))
+                                    (sum (lambda (xs)
+                                           (if (eq xs nil)
+                                               0
+                                             (+ (car xs) (sum (cdr xs)))))))
+                             (sum (build 10)))").unwrap();
+        let fold_res = s.read("55").unwrap();
         vec![
             (sum, sum_res),
             (car, car_res),
             (let_, let_res),
             (lam0, lam0_res),
             (lam, lam_res),
+            (fold, fold_res),
         ]
     }
 
