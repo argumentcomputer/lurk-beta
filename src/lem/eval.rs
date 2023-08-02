@@ -40,18 +40,6 @@ fn safe_uncons() -> Func {
     })
 }
 
-fn make_tail_continuation() -> Func {
-    func!(make_tail_continuation(env, continuation): 1 => {
-        match continuation.tag {
-            Cont::Tail => {
-                return (continuation);
-            }
-        };
-        let tail_continuation: Cont::Tail = hash2(env, continuation);
-        return (tail_continuation);
-    })
-}
-
 fn reduce() -> Func {
     // Auxiliary functions
     let safe_uncons = safe_uncons();
@@ -371,9 +359,6 @@ fn reduce() -> Func {
                 };
                 // unops
                 let (op) = choose_unop(head);
-                // TODO this is a hack since if statements only look at the hash
-                // value, not the tag, as of now. Later, it might be that we decouple
-                // hashes and tags
                 if op == t {
                     match rest.tag {
                         Expr::Nil => {
@@ -439,7 +424,16 @@ fn reduce() -> Func {
 
 fn apply_cont() -> Func {
     let safe_uncons = safe_uncons();
-    let make_tail_continuation = make_tail_continuation();
+    let make_tail_continuation = func!(make_tail_continuation(env, continuation): 1 => {
+        match continuation.tag {
+            Cont::Tail => {
+                return (continuation);
+            }
+        };
+        let tail_continuation: Cont::Tail = hash2(env, continuation);
+        return (tail_continuation);
+    });
+
     let extend_rec = func!(extend_rec(env, var, result): 1 => {
         let (binding_or_env, rest) = safe_uncons(env);
         let (var_or_binding, _val_or_more_bindings) = safe_uncons(binding_or_env);
@@ -890,7 +884,9 @@ mod tests {
         let lam0_res = s.read("1").unwrap();
         let lam = s.read("((lambda (x y) (+ x y)) 3 4)").unwrap();
         let lam_res = s.read("7").unwrap();
-        let fold = s.read("(letrec ((build (lambda (x)
+        let fold = s
+            .read(
+                "(letrec ((build (lambda (x)
                                              (if (eq x 0)
                                                  nil
                                                (cons x (build (- x 1))))))
@@ -898,7 +894,9 @@ mod tests {
                                            (if (eq xs nil)
                                                0
                                              (+ (car xs) (sum (cdr xs)))))))
-                             (sum (build 10)))").unwrap();
+                             (sum (build 10)))",
+            )
+            .unwrap();
         let fold_res = s.read("55").unwrap();
         vec![
             (sum, sum_res),
