@@ -189,7 +189,7 @@ fn main() {
     println!("Setting up public parameters...");
 
     let pp_start = Instant::now();
-    let pp = public_params::<_, Sha256Coproc<Fr>>(REDUCTION_COUNT, lang_rc.clone()).unwrap();
+    let pp = public_params::<_, Sha256Coproc<Fr>>(REDUCTION_COUNT, lang_rc.clone(), None).unwrap();
     let pp_end = pp_start.elapsed();
 
     println!("Public parameters took {:?}", pp_end);

@@ -41,4 +41,4 @@ camino = "1.1.6"
 insta = { version = "1.31.0", features = ["json"] }
 num_cpus = "1.16.0"
 predicates = "2.1.5"
-tempfile = "3.6.0"
+tempfile = { workspace = true }

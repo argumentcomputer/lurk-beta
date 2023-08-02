@@ -44,10 +44,12 @@ use rand::rngs::OsRng;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::file_map::FileMap;
+
 pub mod error;
+pub mod file_map;
 
 use error::Error;
-use lurk::public_parameters::file_map::FileMap;
 
 pub const DEFAULT_REDUCTION_COUNT: ReductionCount = ReductionCount::Ten;
 pub static VERBOSE: OnceCell<bool> = OnceCell::new();
@@ -1088,8 +1090,8 @@ pub fn evaluate<F: LurkField>(
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::file_map::FileStore;
     use insta::assert_json_snapshot;
-    use lurk::public_parameters::FileStore;
     use std::path::Path;
     use std::sync::Arc;
     use tempfile::Builder;
@@ -1183,7 +1185,11 @@ mod test {
         std::env::set_var(fcomm_path_key, fcomm_path_val.clone());
         assert_eq!(
             std::env::var(fcomm_path_key),
-            Ok(fcomm_path_val.into_os_string().into_string().unwrap())
+            Ok(fcomm_path_val
+                .clone()
+                .into_os_string()
+                .into_string()
+                .unwrap())
         );
 
         let function_source = "(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))";
@@ -1199,7 +1205,8 @@ mod test {
         let lang = Lang::new();
         let lang_rc = Arc::new(lang.clone());
         let rc = ReductionCount::One;
-        let pp = public_params(rc.count(), lang_rc.clone()).expect("public params");
+        let pp = public_params(rc.count(), lang_rc.clone(), Some(&fcomm_path_val))
+            .expect("public params");
         let chained = true;
         let s = &mut Store::<S1>::default();
 

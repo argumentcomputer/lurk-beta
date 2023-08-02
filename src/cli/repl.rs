@@ -238,7 +238,11 @@ impl Repl<F> {
                         }
 
                         info!("Loading public parameters");
-                        let pp = public_params(self.rc, self.lang.clone())?;
+                        let pp = public_params(
+                            self.rc,
+                            self.lang.clone(),
+                            Some(&crate::cli::paths::non_wasm::public_param_dir()),
+                        )?;
 
                         let prover = NovaProver::new(self.rc, (*self.lang).clone());
 

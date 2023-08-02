@@ -8,6 +8,8 @@ use anyhow::{bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
 use config::{Config, Environment, File};
 use pasta_curves::pallas;
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::Path;
 use std::{collections::HashMap, fs, path::PathBuf};
 
 use lurk::{
@@ -24,6 +26,19 @@ use self::repl::{Backend, Repl};
 const DEFAULT_LIMIT: usize = 100_000_000;
 const DEFAULT_RC: usize = 10;
 const DEFAULT_BACKEND: Backend = Backend::Nova;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod cache_dirs {
+    use std::path::PathBuf;
+    use std::sync::OnceLock;
+
+    pub static PUBLIC_PARAM_DIR: OnceLock<PathBuf> = OnceLock::new();
+    pub static COMMIT_DIR: OnceLock<PathBuf> = OnceLock::new();
+    pub static PROOF_DIR: OnceLock<PathBuf> = OnceLock::new();
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub use cache_dirs::*;
 
 #[derive(Parser, Debug)]
 #[clap(version)]
@@ -75,6 +90,18 @@ struct LoadArgs {
     /// Arithmetic field (defaults to the backend's standard field)
     #[clap(long, value_parser)]
     field: Option<String>,
+
+    /// Path for cached public parameters
+    #[clap(long, value_parser)]
+    public_param_path: Option<PathBuf>,
+
+    /// Path for cached proofs
+    #[clap(long, value_parser)]
+    proof_path: Option<PathBuf>,
+
+    /// Path for cached commitments
+    #[clap(long, value_parser)]
+    commit_path: Option<PathBuf>,
 }
 
 #[derive(Parser, Debug)]
@@ -102,6 +129,18 @@ struct LoadCli {
 
     #[clap(long, value_parser)]
     field: Option<String>,
+
+    /// Path for cached public parameters
+    #[clap(long, value_parser)]
+    public_param_path: Option<PathBuf>,
+
+    /// Path for cached proofs
+    #[clap(long, value_parser)]
+    proof_path: Option<PathBuf>,
+
+    /// Path for cached commitments
+    #[clap(long, value_parser)]
+    commit_path: Option<PathBuf>,
 }
 
 impl LoadArgs {
@@ -115,6 +154,9 @@ impl LoadArgs {
             limit: self.limit,
             backend: self.backend,
             field: self.field,
+            public_param_path: self.public_param_path,
+            proof_path: self.proof_path,
+            commit_path: self.commit_path,
         }
     }
 }
@@ -148,6 +190,18 @@ struct ReplArgs {
     /// Arithmetic field (defaults to the backend's standard field)
     #[clap(long, value_parser)]
     field: Option<String>,
+
+    /// Path for cached public parameters
+    #[clap(long, value_parser)]
+    public_param_path: Option<PathBuf>,
+
+    /// Path for cached proofs
+    #[clap(long, value_parser)]
+    proof_path: Option<PathBuf>,
+
+    /// Path for cached commitments
+    #[clap(long, value_parser)]
+    commit_path: Option<PathBuf>,
 }
 
 #[derive(Parser, Debug)]
@@ -172,6 +226,18 @@ struct ReplCli {
 
     #[clap(long, value_parser)]
     field: Option<String>,
+
+    /// Path for cached public parameters
+    #[clap(long, value_parser)]
+    public_param_path: Option<PathBuf>,
+
+    /// Path for cached proofs
+    #[clap(long, value_parser)]
+    proof_path: Option<PathBuf>,
+
+    /// Path for cached commitments
+    #[clap(long, value_parser)]
+    commit_path: Option<PathBuf>,
 }
 
 impl ReplArgs {
@@ -184,6 +250,9 @@ impl ReplArgs {
             limit: self.limit,
             backend: self.backend,
             field: self.field,
+            public_param_path: self.public_param_path,
+            proof_path: self.proof_path,
+            commit_path: self.commit_path,
         }
     }
 }
@@ -239,8 +308,10 @@ fn get_parsed<T>(
 fn get_config(config_path: &Option<PathBuf>) -> Result<HashMap<String, String>> {
     // First load from the config file
     let builder = match config_path {
-        Some(config_path) => Config::builder().add_source(File::from(config_path.to_owned())),
-        None => Config::builder(),
+        Some(config_path) if config_path.exists() => {
+            Config::builder().add_source(File::from(config_path.to_owned()))
+        }
+        _ => Config::builder(),
     };
     // Then potentially overwrite with environment variables
     let builder = builder.add_source(Environment::with_prefix("LURK"));
@@ -281,6 +352,9 @@ impl ReplCli {
             }};
         }
         let config = get_config(&self.config)?;
+        log::info!("Configured variables: {:?}", config);
+        #[cfg(not(target_arch = "wasm32"))]
+        self.set_lurk_dirs(&config);
         let rc = get_parsed_usize("rc", &self.rc, &config, DEFAULT_RC)?;
         let limit = get_parsed_usize("limit", &self.limit, &config, DEFAULT_LIMIT)?;
         let backend = get_parsed(
@@ -309,6 +383,42 @@ impl ReplCli {
             LanguageField::Grumpkin => todo!(),
         }
     }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn set_lurk_dirs(&self, config: &HashMap<String, String>) {
+        let public_param_path = if let Some(path) = &self.public_param_path {
+            path.to_owned()
+        } else {
+            match config.get("public_params") {
+                Some(dir) => PathBuf::from(dir),
+                None => {
+                    let home = home::home_dir().unwrap();
+                    home.join(Path::new(".lurk/public_params"))
+                }
+            }
+        };
+        let proof_path = if let Some(path) = &self.proof_path {
+            path.to_owned()
+        } else {
+            match config.get("proofs") {
+                Some(dir) => PathBuf::from(dir),
+                None => PathBuf::from("./proofs"),
+            }
+        };
+        let commit_path = if let Some(path) = &self.commit_path {
+            path.to_owned()
+        } else {
+            match config.get("commits") {
+                Some(dir) => PathBuf::from(dir),
+                None => PathBuf::from("./commits"),
+            }
+        };
+        PUBLIC_PARAM_DIR.get_or_init(|| public_param_path);
+        PROOF_DIR.get_or_init(|| proof_path);
+        COMMIT_DIR.get_or_init(|| commit_path);
+
+        paths::non_wasm::create_lurk_dirs().unwrap();
+    }
 }
 
 impl LoadCli {
@@ -325,6 +435,8 @@ impl LoadCli {
             }};
         }
         let config = get_config(&self.config)?;
+        #[cfg(not(target_arch = "wasm32"))]
+        self.set_lurk_dirs(&config);
         let rc = get_parsed_usize("rc", &self.rc, &config, DEFAULT_RC)?;
         let limit = get_parsed_usize("limit", &self.limit, &config, DEFAULT_LIMIT)?;
         let backend = get_parsed(
@@ -352,6 +464,42 @@ impl LoadCli {
             LanguageField::BN256 => todo!(),
             LanguageField::Grumpkin => todo!(),
         }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn set_lurk_dirs(&self, config: &HashMap<String, String>) {
+        let public_param_path = if let Some(path) = &self.public_param_path {
+            path.to_owned()
+        } else {
+            match config.get("public_params") {
+                Some(dir) => PathBuf::from(dir),
+                None => {
+                    let home = home::home_dir().unwrap();
+                    home.join(Path::new(".lurk/public_params"))
+                }
+            }
+        };
+        let proof_path = if let Some(path) = &self.proof_path {
+            path.to_owned()
+        } else {
+            match config.get("proofs") {
+                Some(dir) => PathBuf::from(dir),
+                None => PathBuf::from("./proofs"),
+            }
+        };
+        let commit_path = if let Some(path) = &self.commit_path {
+            path.to_owned()
+        } else {
+            match config.get("commits") {
+                Some(dir) => PathBuf::from(dir),
+                None => PathBuf::from("./commits"),
+            }
+        };
+        PUBLIC_PARAM_DIR.get_or_init(|| public_param_path);
+        PROOF_DIR.get_or_init(|| proof_path);
+        COMMIT_DIR.get_or_init(|| commit_path);
+
+        paths::non_wasm::create_lurk_dirs().unwrap();
     }
 }
 
@@ -382,9 +530,6 @@ impl Cli {
 
 /// Parses CLI arguments and continues the program flow accordingly
 pub fn parse_and_run() -> Result<()> {
-    #[cfg(not(target_arch = "wasm32"))]
-    paths::non_wasm::create_lurk_dirs()?;
-
     if let Ok(cli) = Cli::try_parse() {
         cli.run()
     } else if let Ok(repl_cli) = ReplCli::try_parse() {
@@ -395,5 +540,93 @@ pub fn parse_and_run() -> Result<()> {
         // force printing help
         Cli::parse();
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use assert_cmd::Command;
+    use std::fs::File;
+    use std::io::prelude::*;
+    use tempfile::Builder;
+
+    fn lurk_cmd() -> Command {
+        Command::cargo_bin("lurk").unwrap()
+    }
+
+    #[test]
+    fn test_bad_command() {
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().unwrap();
+        let bad_file = tmp_dir.path().join("uiop");
+
+        let mut cmd = lurk_cmd();
+        cmd.arg(bad_file.to_str().unwrap());
+        cmd.assert().failure();
+    }
+
+    #[test]
+    fn test_config_file() {
+        pretty_env_logger::formatted_builder()
+            .is_test(true)
+            .try_init()
+            .unwrap();
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().unwrap();
+        let config_dir = tmp_dir.path().join("lurk.toml");
+        let public_param_dir = tmp_dir.path().join("public_params");
+        let proof_dir = tmp_dir.path().join("proofs");
+        let commit_dir = tmp_dir.path().join("commits");
+
+        let public_params = public_param_dir.to_str().unwrap();
+        let proofs = proof_dir.to_str().unwrap();
+        let commits = commit_dir.to_str().unwrap();
+
+        let mut config_file = File::create(&config_dir).unwrap();
+        config_file
+            .write_all(format!("public_params = \"{}\"\n", public_params).as_bytes())
+            .unwrap();
+        config_file
+            .write_all(format!("proofs = \"{}\"\n", proofs).as_bytes())
+            .unwrap();
+        config_file
+            .write_all(format!("commits = \"{}\"\n", commits).as_bytes())
+            .unwrap();
+
+        // Overwrite proof dir with env var
+        let proof_dir_env = tmp_dir.path().join("proofs_env");
+        let proofs_env = proof_dir_env.to_str().unwrap();
+
+        std::env::set_var("LURK_PROOFS", proofs_env);
+
+        let config = crate::cli::get_config(&Some(config_dir)).unwrap();
+
+        assert_eq!(config.get("public_params").unwrap(), public_params);
+        assert_eq!(config.get("proofs").unwrap(), proofs_env);
+        assert_eq!(config.get("commits").unwrap(), commits);
+    }
+
+    // TODO: Use a snapshot test for the proof ID and/or test the REPL process
+    #[test]
+    fn test_prove_and_verify() {
+        let tmp_dir = Builder::new().prefix("tmp").tempdir().unwrap();
+        let public_param_dir = tmp_dir.path().join("public_params");
+        let proof_dir = tmp_dir.path().join("proofs");
+        let commit_dir = tmp_dir.path().join("commits");
+        let lurk_file = &tmp_dir.path().join("prove_verify.lurk");
+
+        let mut file = File::create(lurk_file).unwrap();
+        file.write_all(b"!(prove (+ 1 1))\n").unwrap();
+        file.write_all(b"!(verify \"Nova_Pallas_10_049abe0ff3b8c08c6022f44c3da7e27962b4a92af7c204a38976e52c94c9cea6\")\n").unwrap();
+
+        let mut cmd = lurk_cmd();
+        cmd.arg("load");
+        cmd.arg(lurk_file.to_str().unwrap());
+        cmd.arg("--public-param-path");
+        cmd.arg(public_param_dir);
+        cmd.arg("--proof-path");
+        cmd.arg(proof_dir);
+        cmd.arg("--commit-path");
+        cmd.arg(commit_dir);
+
+        cmd.assert().success();
     }
 }

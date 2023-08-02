@@ -64,7 +64,7 @@ where
 mod non_wasm {
     use crate::cli::{
         field_data::non_wasm::{dump, load},
-        paths::non_wasm::{proof_meta_path, proof_path},
+        paths::non_wasm::{proof_meta_path, proof_path, public_param_dir},
     };
     use anyhow::Result;
     use lurk::{
@@ -105,7 +105,8 @@ mod non_wasm {
                     lang,
                 } => {
                     log::info!("Loading public parameters");
-                    let pp = public_params(rc, std::sync::Arc::new(lang))?;
+                    let pp =
+                        public_params(rc, std::sync::Arc::new(lang), Some(&public_param_dir()))?;
                     Ok(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?)
                 }
             }
