@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/eval/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (db7ff98a7 2023-07-31)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-6d2c9675f3d09c26.css" data-theme-dark-css="dark-45ceb8f2e522f4d1.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-6d2c9675f3d09c26.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-45ceb8f2e522f4d1.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/eval/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (d12c6e947 2023-08-01)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-6d2c9675f3d09c26.css" data-theme-dark-css="dark-45ceb8f2e522f4d1.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-6d2c9675f3d09c26.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-45ceb8f2e522f4d1.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -597,6 +597,19 @@
     <span class="kw">pub </span>_p: PhantomData&lt;C&gt;,
 }
 
+<span class="kw">impl</span>&lt;T: Copy, W: Copy, C&gt; Frame&lt;T, W, C&gt; {
+    <span class="attr">#[inline]
+    </span><span class="kw">fn </span>new(input: T, output: T, i: usize, witness: W) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            input,
+            output,
+            i,
+            witness,
+            _p: Default::default(),
+        }
+    }
+}
+
 <span class="attr">#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), serde_test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -730,7 +743,7 @@
 
     <span class="kw">fn </span>log(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, i: usize) {
         <span class="macro">info!</span>(
-            <span class="string">&quot;Frame: {}\n\tExpr: {}\n\tEnv: {}\n\tCont: {}{}\n&quot;</span>,
+            <span class="string">&quot;Frame: {}\n\tExpr: {}\n\tEnv: {}\n\tCont: {}{}&quot;</span>,
             i,
             <span class="self">self</span>.expr.fmt_to_string(store),
             <span class="self">self</span>.env.fmt_to_string(store),
@@ -855,35 +868,6 @@
             lang,
         })
     }
-
-    <span class="doccomment">/// Like `.iter().take(n).last()`, but skips intermediary stages, to optimize
-    /// for evaluation.
-    </span><span class="kw">fn </span>next_n(
-        <span class="kw-2">mut </span><span class="self">self</span>,
-        n: usize,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;
-        (
-            Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;,
-            Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;,
-            Vec&lt;Ptr&lt;F&gt;&gt;,
-        ),
-        ReductionError,
-    &gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>previous_frame = <span class="self">self</span>.frame.clone();
-        <span class="kw">let </span><span class="kw-2">mut </span>emitted: Vec&lt;Ptr&lt;F&gt;&gt; = Vec::new();
-        <span class="kw">for _ in </span><span class="number">0</span>..n {
-            <span class="kw">if </span><span class="self">self</span>.frame.is_complete() {
-                <span class="kw">break</span>;
-            }
-            <span class="kw">let </span>new_frame = <span class="self">self</span>.frame.next(<span class="self">self</span>.store, <span class="self">self</span>.lang)<span class="question-mark">?</span>;
-
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(expr) = new_frame.output.maybe_emitted_expression(<span class="self">self</span>.store) {
-                emitted.push(expr);
-            }
-            previous_frame = std::mem::replace(<span class="kw-2">&amp;mut </span><span class="self">self</span>.frame, new_frame);
-        }
-        <span class="prelude-val">Ok</span>((<span class="self">self</span>.frame, previous_frame, emitted))
-    }
 }
 
 <span class="comment">// Wrapper struct to preserve errors that would otherwise be lost during iteration
@@ -954,7 +938,8 @@
 <span class="kw">where
     </span>IO&lt;F&gt;: Copy,
 {
-    <span class="kw">pub fn </span>new(
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>new(
         expr: Ptr&lt;F&gt;,
         env: Ptr&lt;F&gt;,
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Store&lt;F&gt;,
@@ -966,31 +951,31 @@
             env,
             store,
             limit,
-            terminal_frame: <span class="prelude-val">None</span>,
             lang,
         }
     }
 
     <span class="kw">pub fn </span>eval(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;F&gt;, usize, Vec&lt;Ptr&lt;F&gt;&gt;), ReductionError&gt; {
-        <span class="kw">let </span>initial_input = <span class="self">self</span>.initial();
-        <span class="kw">let </span>frame_iterator = FrameIt::new(initial_input, <span class="self">self</span>.store, <span class="self">self</span>.lang)<span class="question-mark">?</span>;
-
-        <span class="comment">// Initial input performs one reduction, so we need limit - 1 more.
-        </span><span class="kw">let </span>(ultimate_frame, _penultimate_frame, emitted) =
-            frame_iterator.next_n(<span class="self">self</span>.limit - <span class="number">1</span>)<span class="question-mark">?</span>;
-        <span class="kw">let </span>output = ultimate_frame.output;
-
-        <span class="kw">let </span>was_terminal = ultimate_frame.is_complete();
-        <span class="kw">let </span>i = ultimate_frame.i;
-        <span class="kw">if </span>was_terminal {
-            <span class="self">self</span>.terminal_frame = <span class="prelude-val">Some</span>(ultimate_frame);
+        <span class="kw">let </span><span class="kw-2">mut </span>io = <span class="self">self</span>.initial();
+        Evaluable::&lt;F, Witness&lt;F&gt;, C&gt;::log(<span class="kw-2">&amp;</span>io, <span class="self">self</span>.store, <span class="number">0</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>iterations = <span class="number">0</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>emitted_vec = <span class="macro">vec!</span>[];
+        <span class="kw">for _ in </span><span class="number">0</span>..<span class="self">self</span>.limit {
+            <span class="kw">if </span>Evaluable::&lt;F, Witness&lt;F&gt;, C&gt;::is_complete(<span class="kw-2">&amp;</span>io) {
+                <span class="kw">break</span>;
+            }
+            (io, <span class="kw">_</span>) = io.reduce(<span class="self">self</span>.store, <span class="self">self</span>.lang)<span class="question-mark">?</span>;
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(emitted) = io.maybe_emitted_expression(<span class="self">self</span>.store) {
+                emitted_vec.push(emitted);
+            }
+            iterations += <span class="number">1</span>;
+            Evaluable::&lt;F, Witness&lt;F&gt;, C&gt;::log(<span class="kw-2">&amp;</span>io, <span class="self">self</span>.store, iterations);
         }
-        <span class="kw">let </span>iterations = <span class="kw">if </span>was_terminal { i } <span class="kw">else </span>{ i + <span class="number">1 </span>};
-        <span class="comment">// NOTE: We compute a terminal frame but don&#39;t include it in the iteration count.
-        </span><span class="prelude-val">Ok</span>((output, iterations, emitted))
+        <span class="prelude-val">Ok</span>((io, iterations, emitted_vec))
     }
 
-    <span class="kw">pub fn </span>initial(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; IO&lt;F&gt; {
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>initial(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; IO&lt;F&gt; {
         IO {
             expr: <span class="self">self</span>.expr,
             env: <span class="self">self</span>.env,
@@ -1004,12 +989,28 @@
         <span class="prelude-val">Ok</span>(FrameIt::new(initial_input, <span class="self">self</span>.store, <span class="self">self</span>.lang)<span class="question-mark">?</span>.take(<span class="self">self</span>.limit))
     }
 
-    <span class="comment">// Wraps frames in Result type in order to fail gracefully
+    <span class="doccomment">/// Wraps frames in Result type in order to fail gracefully.
+    ///
+    /// Note: the output will have an identity frame at the end if there&#39;s still
+    /// room, that is, if `self.limit` hasn&#39;t been reached. This is useful for
+    /// proving when padding the last frame is necessary.
     </span><span class="kw">pub fn </span>get_frames(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;&gt;, ReductionError&gt; {
-        <span class="kw">let </span>frame = FrameIt::new(<span class="self">self</span>.initial(), <span class="self">self</span>.store, <span class="self">self</span>.lang)<span class="question-mark">?</span>;
-        <span class="kw">let </span>result_frame = ResultFrame(<span class="prelude-val">Ok</span>(frame)).take(<span class="self">self</span>.limit);
-        <span class="kw">let </span>ret: <span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt; = result_frame.collect();
-        ret
+        <span class="kw">let </span><span class="kw-2">mut </span>input = <span class="self">self</span>.initial();
+        Evaluable::&lt;F, Witness&lt;F&gt;, C&gt;::log(<span class="kw-2">&amp;</span>input, <span class="self">self</span>.store, <span class="number">0</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>frames = <span class="macro">vec!</span>[];
+        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="self">self</span>.limit {
+            <span class="kw">let </span>(output, witness) = input.reduce(<span class="self">self</span>.store, <span class="self">self</span>.lang)<span class="question-mark">?</span>;
+            <span class="kw">let </span>frame = Frame::new(input, output, i, witness);
+            <span class="kw">let </span>is_complete = frame.is_complete();
+            frames.push(frame);
+            <span class="kw">if </span>is_complete {
+                <span class="kw">break</span>;
+            }
+            <span class="comment">// logging after `break` to ignore the identity frame
+            </span>Evaluable::&lt;F, Witness&lt;F&gt;, C&gt;::log(<span class="kw-2">&amp;</span>output, <span class="self">self</span>.store, i + <span class="number">1</span>);
+            input = output;
+        }
+        <span class="prelude-val">Ok</span>(frames)
     }
 
     <span class="kw">pub fn </span>generate_frames&lt;Fp: Fn(usize) -&gt; bool&gt;(
@@ -1067,7 +1068,6 @@
     env: Ptr&lt;F&gt;,
     store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Store&lt;F&gt;,
     limit: usize,
-    terminal_frame: <span class="prelude-ty">Option</span>&lt;Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;&gt;,
     lang: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Lang&lt;F, C&gt;,
 }
 </code></pre></div></section></main></body></html>
