@@ -168,7 +168,7 @@ impl Block {
                 Op::Hash2(..) | Op::Unhash2(..) => SlotsCounter::new((1, 0, 0)),
                 Op::Hash3(..) | Op::Unhash3(..) => SlotsCounter::new((0, 1, 0)),
                 Op::Hash4(..) | Op::Unhash4(..) => SlotsCounter::new((0, 0, 1)),
-                Op::Call(_, func, _) => func.body.count_slots(),
+                Op::Call(_, func, _) => func.slot,
                 _ => SlotsCounter::default(),
             };
             acc.add(val)

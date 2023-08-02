@@ -281,7 +281,6 @@ impl Func {
         &self,
         cs: &mut CS,
         store: &mut Store<F>,
-        num_slots: &SlotsCounter,
         frame: &Frame<F>,
     ) -> Result<()> {
         let mut global_allocator = GlobalAllocator::default();
@@ -299,7 +298,7 @@ impl Func {
             cs,
             &frame.preimages.hash2_ptrs,
             SlotType::Hash2,
-            num_slots.hash2,
+            self.slot.hash2,
             store,
         )?;
 
@@ -307,7 +306,7 @@ impl Func {
             cs,
             &frame.preimages.hash3_ptrs,
             SlotType::Hash3,
-            num_slots.hash3,
+            self.slot.hash3,
             store,
         )?;
 
@@ -315,7 +314,7 @@ impl Func {
             cs,
             &frame.preimages.hash4_ptrs,
             SlotType::Hash4,
-            num_slots.hash4,
+            self.slot.hash4,
             store,
         )?;
 
@@ -813,11 +812,7 @@ impl Func {
     /// Computes the number of constraints that `synthesize` should create. It's
     /// also an explicit way to document and attest how the number of constraints
     /// grow.
-    pub fn num_constraints<F: LurkField>(
-        &self,
-        num_slots: &SlotsCounter,
-        store: &mut Store<F>,
-    ) -> usize {
+    pub fn num_constraints<F: LurkField>(&self, store: &mut Store<F>) -> usize {
         fn recurse<F: LurkField>(
             block: &Block,
             nested: bool,
@@ -943,7 +938,7 @@ impl Func {
         let globals = &mut HashSet::default();
         // fixed cost for each slot
         let slot_constraints =
-            289 * num_slots.hash2 + 337 * num_slots.hash3 + 388 * num_slots.hash4;
+            289 * self.slot.hash2 + 337 * self.slot.hash3 + 388 * self.slot.hash4;
         let num_constraints = recurse::<F>(&self.body, false, globals, store);
         slot_constraints + num_constraints + globals.len()
     }

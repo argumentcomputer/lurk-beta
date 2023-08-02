@@ -76,7 +76,7 @@ use anyhow::{bail, Result};
 use indexmap::IndexMap;
 use std::sync::Arc;
 
-use self::{pointers::Ptr, store::Store, var_map::VarMap};
+use self::{pointers::Ptr, slot::SlotsCounter, store::Store, var_map::VarMap};
 
 pub type AString = Arc<str>;
 
@@ -88,6 +88,7 @@ pub struct Func {
     input_params: Vec<Var>,
     output_size: usize,
     body: Block,
+    slot: SlotsCounter,
 }
 
 /// LEM variables
@@ -274,7 +275,9 @@ impl Func {
         output_size: usize,
         body: Block,
     ) -> Result<Func> {
+        let slot = body.count_slots();
         let func = Func {
+            slot,
             name,
             input_params,
             output_size,
@@ -690,11 +693,9 @@ mod tests {
         let nil = store.intern_nil();
         let stop_cond = |output: &[Ptr<Fr>]| output[2] == terminal || output[2] == error;
 
-        let slots_count = func.body.count_slots();
+        assert_eq!(func.slot, expected_num_slots);
 
-        assert_eq!(slots_count, expected_num_slots);
-
-        let computed_num_constraints = func.num_constraints::<Fr>(&slots_count, store);
+        let computed_num_constraints = func.num_constraints::<Fr>(store);
 
         let mut cs_prev = None;
         for input in inputs.into_iter() {
@@ -705,8 +706,7 @@ mod tests {
 
             for frame in frames.clone() {
                 cs = TestConstraintSystem::<Fr>::new();
-                func.synthesize(&mut cs, store, &slots_count, &frame)
-                    .unwrap();
+                func.synthesize(&mut cs, store, &frame).unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(computed_num_constraints, cs.num_constraints());
                 if let Some(cs_prev) = cs_prev {

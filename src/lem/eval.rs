@@ -835,11 +835,9 @@ mod tests {
     fn test_eval_and_constrain_aux(store: &mut Store<Fr>, pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>) {
         let eval_step = eval_step();
 
-        let slots_count = eval_step.body.count_slots();
+        assert_eq!(eval_step.slot, NUM_SLOTS);
 
-        assert_eq!(slots_count, NUM_SLOTS);
-
-        let computed_num_constraints = eval_step.num_constraints::<Fr>(&slots_count, store);
+        let computed_num_constraints = eval_step.num_constraints::<Fr>(store);
 
         let mut all_paths = vec![];
 
@@ -860,9 +858,7 @@ mod tests {
             store.hydrate_z_cache();
             for frame in frames.iter() {
                 let mut cs = TestConstraintSystem::<Fr>::new();
-                eval_step
-                    .synthesize(&mut cs, store, &slots_count, frame)
-                    .unwrap();
+                eval_step.synthesize(&mut cs, store, frame).unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(cs.num_inputs(), NUM_INPUTS);
                 assert_eq!(cs.aux().len(), NUM_AUX);
