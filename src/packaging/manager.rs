@@ -52,4 +52,8 @@ impl PackageManager {
     pub fn import(&mut self, symbols: &[SymbolRef]) -> Result<()> {
         self.get_current_mut().import(symbols)
     }
+
+    pub fn format(&self, symbol: &SymbolRef) -> String {
+        self.get_current().format(symbol)
+    }
 }

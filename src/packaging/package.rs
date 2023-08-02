@@ -1,8 +1,5 @@
 use anyhow::{bail, Result};
-use std::{
-    collections::{HashMap, HashSet},
-    rc::Rc,
-};
+use std::{collections::HashMap, rc::Rc};
 
 use crate::Symbol;
 
@@ -11,7 +8,7 @@ pub type SymbolRef = Rc<Symbol>;
 pub struct Package {
     name: SymbolRef,
     symbols: HashMap<String, SymbolRef>,
-    accessible: HashSet<SymbolRef>,
+    names: HashMap<SymbolRef, String>,
 }
 
 impl Package {
@@ -20,7 +17,7 @@ impl Package {
         Self {
             name,
             symbols: Default::default(),
-            accessible: Default::default(),
+            names: Default::default(),
         }
     }
 
@@ -42,7 +39,7 @@ impl Package {
             .entry(symbol_name)
             .or_insert_with_key(|symbol_name| {
                 let symbol: SymbolRef = self.name.direct_child(symbol_name).into();
-                self.accessible.insert(symbol.clone());
+                self.names.insert(symbol.clone(), symbol_name.clone());
                 symbol
             })
             .clone()
@@ -69,16 +66,21 @@ impl Package {
         // now we finally import as an atomic operation
         for (symbol, symbol_name) in symbols.iter().zip(symbols_names) {
             self.symbols.insert(symbol_name.clone(), symbol.clone());
-            self.accessible.insert(symbol.clone());
+            self.names.insert(symbol.clone(), symbol_name.clone());
         }
         Ok(())
     }
 
-    pub fn print(&self, symbol: SymbolRef) -> Result<String> {
-        if self.accessible.contains(&symbol) {
-            Ok(Symbol::escape_symbol_element(symbol.name()?))
-        } else {
-            todo!()
+    pub fn format(&self, symbol: &SymbolRef) -> String {
+        match self.names.get(symbol) {
+            None => symbol.format(),
+            Some(name) => {
+                if symbol.is_keyword() {
+                    format!(":{}", Symbol::format_path_component(name))
+                } else {
+                    Symbol::format_path_component(name)
+                }
+            }
         }
     }
 }

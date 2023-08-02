@@ -1,6 +1,7 @@
 use std::fmt;
 
 use anyhow::{bail, Result};
+use itertools::Itertools;
 
 use crate::parser::LURK_WHITESPACE;
 #[cfg(not(target_arch = "wasm32"))]
@@ -225,6 +226,59 @@ impl Symbol {
             bail!("The root keyword doesn't have a name")
         } else {
             Ok(&self.path[self.path.len() - 1])
+        }
+    }
+
+    fn start_needs_escaping(component: &str) -> bool {
+        component.starts_with([
+            '~', '#', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '.', ':', '[', ']', '(',
+            ')', '{', '}', '"', '\\',
+        ]) || component.starts_with("-1")
+            || component.starts_with("-2")
+            || component.starts_with("-3")
+            || component.starts_with("-4")
+            || component.starts_with("-5")
+            || component.starts_with("-6")
+            || component.starts_with("-7")
+            || component.starts_with("-8")
+            || component.starts_with("-9")
+            || component.starts_with("-0")
+            || component.starts_with(char::is_control)
+    }
+
+    pub fn format_path_component(component: &str) -> String {
+        let mut res = String::new();
+        let mut has_whitespace = false;
+        for c in component.chars() {
+            if ESCAPE_CHARS.chars().any(|x| x == c) {
+                res.push_str(&format!("\\{}", c));
+            } else if c.is_whitespace() {
+                res.push_str(&format!("{}", c.escape_unicode()));
+                has_whitespace = true
+            } else {
+                res.push(c)
+            }
+        }
+        if res.is_empty() {
+            "||".into()
+        } else if has_whitespace || Self::start_needs_escaping(&res) {
+            format!("|{res}|")
+        } else {
+            res
+        }
+    }
+
+    fn format_path(path: &[String]) -> String {
+        path.iter()
+            .map(|s| Self::format_path_component(s))
+            .join(".")
+    }
+
+    pub fn format(&self) -> String {
+        if self.is_keyword() {
+            format!(":{}", Self::format_path(&self.path[1..]))
+        } else {
+            format!(".{}", Self::format_path(&self.path))
         }
     }
 }
