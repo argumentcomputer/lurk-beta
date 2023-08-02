@@ -880,9 +880,24 @@ mod tests {
         let sum_res = s.read("42").unwrap();
         let car = s.read("(car (cons 1 2))").unwrap();
         let car_res = s.read("1").unwrap();
-        let let_ = s.read("(let ((x (cons 1 2))) (cons (car x) (cdr x)))").unwrap();
+        let let_ = s
+            .read(
+                "(let ((x (cons 1 2)))
+                   (cons (car x) (cdr x)))",
+            )
+            .unwrap();
         let let_res = s.read("(1 . 2)").unwrap();
-        vec![(sum, sum_res), (car, car_res), (let_, let_res)]
+        let lam0 = s.read("((lambda () 1))").unwrap();
+        let lam0_res = s.read("1").unwrap();
+        let lam = s.read("((lambda (x y) (+ x y)) 3 4)").unwrap();
+        let lam_res = s.read("7").unwrap();
+        vec![
+            (sum, sum_res),
+            (car, car_res),
+            (let_, let_res),
+            (lam0, lam0_res),
+            (lam, lam_res),
+        ]
     }
 
     #[test]
