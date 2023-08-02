@@ -24,9 +24,9 @@ use lurk::{
     parser,
     ptr::Ptr,
     store::Store,
-    tag::{ContTag, ExprTag},
+    tag::ContTag,
     writer::Write,
-    Num, UInt,
+    Num,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -106,9 +106,9 @@ struct Evaluation<F: LurkField> {
 pub struct Repl<F: LurkField> {
     store: Store<F>,
     env: Ptr<F>,
-    limit: usize,
     lang: Arc<Lang<F, Coproc<F>>>,
     rc: usize,
+    limit: usize,
     backend: Backend,
     evaluation: Option<Evaluation<F>>,
 }
@@ -124,7 +124,6 @@ pub fn validate_non_zero(name: &str, x: usize) -> Result<()> {
 ///
 /// Panics if `m` is zero
 #[inline]
-#[allow(dead_code)]
 fn pad(a: usize, m: usize) -> usize {
     (a + m - 1) / m * m
 }
@@ -132,17 +131,18 @@ fn pad(a: usize, m: usize) -> usize {
 type F = pasta_curves::pallas::Scalar; // TODO: generalize this
 
 impl Repl<F> {
-    pub fn new(store: Store<F>, env: Ptr<F>, limit: usize, rc: usize, backend: Backend) -> Repl<F> {
+    pub fn new(store: Store<F>, env: Ptr<F>, rc: usize, limit: usize, backend: Backend) -> Repl<F> {
+        let limit = pad(limit, rc);
         info!(
-            "Launching REPL with backend {backend} and field {}",
+            "Launching REPL with backend {backend}, field {}, rc {rc} and limit {limit}",
             F::FIELD
         );
         Repl {
             store,
             env,
-            limit,
             lang: Arc::new(Lang::new()),
             rc,
+            limit,
             backend,
             evaluation: None,
         }
@@ -200,9 +200,11 @@ impl Repl<F> {
                     info!("Hydrating the store");
                     self.store.hydrate_scalar_cache();
 
+                    let mut n_frames = frames.len();
+
                     // saving to avoid clones
                     let input = &frames[0].input;
-                    let output = &frames[*iterations].output;
+                    let output = &frames[n_frames - 1].output;
                     let mut zstore = Some(ZStore::<F>::default());
                     let expr = self.store.get_z_expr(&input.expr, &mut zstore)?.0;
                     let env = self.store.get_z_expr(&input.env, &mut zstore)?.0;
@@ -229,7 +231,6 @@ impl Repl<F> {
                     } else {
                         info!("Proof not cached");
                         // padding the frames, if needed
-                        let mut n_frames = frames.len();
                         let n_pad = pad(n_frames, self.rc) - n_frames;
                         if n_pad != 0 {
                             frames.extend(vec![frames[n_frames - 1].clone(); n_pad]);
@@ -241,9 +242,10 @@ impl Repl<F> {
 
                         let prover = NovaProver::new(self.rc, (*self.lang).clone());
 
-                        info!("Proving and compressing");
+                        info!("Proving");
                         let (proof, public_inputs, public_outputs, num_steps) =
                             prover.prove(&pp, frames, &mut self.store, self.lang.clone())?;
+                        info!("Compressing proof");
                         let proof = proof.compress(&pp)?;
                         assert_eq!(self.rc * num_steps, n_frames);
                         assert!(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?);
@@ -297,7 +299,7 @@ impl Repl<F> {
 
     #[cfg(not(target_arch = "wasm32"))]
     fn fetch(&mut self, hash: &F, print_data: bool) -> Result<()> {
-        use lurk::z_ptr::ZExprPtr;
+        use lurk::{tag::ExprTag, z_ptr::ZExprPtr};
 
         use super::{
             commitment::Commitment, field_data::non_wasm::load, paths::non_wasm::commitment_path,
@@ -350,23 +352,24 @@ impl Repl<F> {
         }
     }
 
-    fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
-        self.eval_expr_and_memoize(expr_ptr)
-            .map(|(output, iterations)| {
-                let iterations_display = Self::pretty_iterations_display(iterations);
-                match output.cont.tag {
-                    ContTag::Terminal => {
-                        println!(
-                            "[{iterations_display}] => {}",
-                            output.expr.fmt_to_string(&self.store)
-                        )
-                    }
-                    ContTag::Error => {
-                        println!("Evaluation encountered an error after {iterations_display}")
-                    }
-                    _ => println!("Limit reached after {iterations_display}"),
-                }
-            })
+    fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize)> {
+        let frames = Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang)
+            .get_frames()?;
+
+        let n_frames = frames.len();
+        let last_frame = &frames[n_frames - 1];
+        let last_output = last_frame.output;
+
+        let iterations = if last_frame.is_complete() {
+            // do not consider the identity frame
+            n_frames - 1
+        } else {
+            n_frames
+        };
+
+        self.evaluation = Some(Evaluation { frames, iterations });
+
+        Ok((last_output, iterations))
     }
 
     fn peek1(&self, cmd: &str, args: &Ptr<F>) -> Result<Ptr<F>> {
@@ -384,26 +387,6 @@ impl Repl<F> {
             bail!("`{cmd}` accepts at most two arguments")
         }
         Ok((first, second))
-    }
-
-    fn peek_usize(&self, cmd: &str, args: &Ptr<F>) -> Result<usize> {
-        let first = self.peek1(cmd, args)?;
-        match first.tag {
-            ExprTag::Num => match self.store.fetch_num(&first).unwrap() {
-                Num::U64(u) => Ok(*u as usize),
-                _ => bail!(
-                    "Invalid value for `{cmd}`: {}",
-                    first.fmt_to_string(&self.store)
-                ),
-            },
-            ExprTag::U64 => match self.store.fetch_uint(&first).unwrap() {
-                UInt::U64(u) => Ok(u as usize),
-            },
-            _ => bail!(
-                "Invalid value for `{cmd}`: {}",
-                first.fmt_to_string(&self.store)
-            ),
-        }
     }
 
     #[allow(dead_code)]
@@ -592,16 +575,6 @@ impl Repl<F> {
                 let (first_io, ..) = self.eval_expr(first)?;
                 self.env = first_io.expr;
             }
-            "set-limit" => {
-                let limit = self.peek_usize(cmd, args)?;
-                validate_non_zero("limit", limit)?;
-                self.limit = limit;
-            }
-            "set-rc" => {
-                let rc = self.peek_usize(cmd, args)?;
-                validate_non_zero("rc", rc)?;
-                self.rc = rc;
-            }
             "prove" => {
                 if !args.is_nil() {
                     self.eval_expr_and_memoize(self.peek1(cmd, args)?)?;
@@ -629,6 +602,25 @@ impl Repl<F> {
         Ok(())
     }
 
+    fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
+        self.eval_expr_and_memoize(expr_ptr)
+            .map(|(output, iterations)| {
+                let iterations_display = Self::pretty_iterations_display(iterations);
+                match output.cont.tag {
+                    ContTag::Terminal => {
+                        println!(
+                            "[{iterations_display}] => {}",
+                            output.expr.fmt_to_string(&self.store)
+                        )
+                    }
+                    ContTag::Error => {
+                        println!("Evaluation encountered an error after {iterations_display}")
+                    }
+                    _ => println!("Limit reached after {iterations_display}"),
+                }
+            })
+    }
+
     fn handle_meta(&mut self, expr_ptr: Ptr<F>, pwd_path: &Path) -> Result<()> {
         let (car, cdr) = self.store.car_cdr(&expr_ptr)?;
         match &self.store.fetch_symbol(&car) {
@@ -641,26 +633,6 @@ impl Repl<F> {
             ),
         }
         Ok(())
-    }
-
-    fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize)> {
-        let frames = Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang)
-            .get_frames()?;
-
-        let last_idx = frames.len() - 1;
-        let last_frame = &frames[last_idx];
-        let last_output = last_frame.output;
-
-        let mut iterations = last_idx;
-
-        // FIXME: proving is not working for incomplete computations
-        if last_frame.is_complete() {
-            self.evaluation = Some(Evaluation { frames, iterations })
-        } else {
-            iterations += 1;
-        }
-
-        Ok((last_output, iterations))
     }
 
     fn handle_form<'a>(

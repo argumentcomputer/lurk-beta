@@ -61,6 +61,19 @@ pub struct Frame<T: Copy, W: Copy, C> {
     pub _p: PhantomData<C>,
 }
 
+impl<T: Copy, W: Copy, C> Frame<T, W, C> {
+    #[inline]
+    fn new(input: T, output: T, i: usize, witness: W) -> Self {
+        Self {
+            input,
+            output,
+            i,
+            witness,
+            _p: Default::default(),
+        }
+    }
+}
+
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), serde_test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -194,7 +207,7 @@ impl<F: LurkField, C: Coprocessor<F>> Evaluable<F, Witness<F>, C> for IO<F> {
 
     fn log(&self, store: &Store<F>, i: usize) {
         info!(
-            "Frame: {}\n\tExpr: {}\n\tEnv: {}\n\tCont: {}{}\n",
+            "Frame: {}\n\tExpr: {}\n\tEnv: {}\n\tCont: {}{}",
             i,
             self.expr.fmt_to_string(store),
             self.env.fmt_to_string(store),
@@ -319,35 +332,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> FrameIt<'a, Witness<F>, F, C> {
             lang,
         })
     }
-
-    /// Like `.iter().take(n).last()`, but skips intermediary stages, to optimize
-    /// for evaluation.
-    fn next_n(
-        mut self,
-        n: usize,
-    ) -> Result<
-        (
-            Frame<IO<F>, Witness<F>, C>,
-            Frame<IO<F>, Witness<F>, C>,
-            Vec<Ptr<F>>,
-        ),
-        ReductionError,
-    > {
-        let mut previous_frame = self.frame.clone();
-        let mut emitted: Vec<Ptr<F>> = Vec::new();
-        for _ in 0..n {
-            if self.frame.is_complete() {
-                break;
-            }
-            let new_frame = self.frame.next(self.store, self.lang)?;
-
-            if let Some(expr) = new_frame.output.maybe_emitted_expression(self.store) {
-                emitted.push(expr);
-            }
-            previous_frame = std::mem::replace(&mut self.frame, new_frame);
-        }
-        Ok((self.frame, previous_frame, emitted))
-    }
 }
 
 // Wrapper struct to preserve errors that would otherwise be lost during iteration
@@ -418,6 +402,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Evaluator<'a, F, C>
 where
     IO<F>: Copy,
 {
+    #[inline]
     pub fn new(
         expr: Ptr<F>,
         env: Ptr<F>,
@@ -430,30 +415,30 @@ where
             env,
             store,
             limit,
-            terminal_frame: None,
             lang,
         }
     }
 
     pub fn eval(&mut self) -> Result<(IO<F>, usize, Vec<Ptr<F>>), ReductionError> {
-        let initial_input = self.initial();
-        let frame_iterator = FrameIt::new(initial_input, self.store, self.lang)?;
-
-        // Initial input performs one reduction, so we need limit - 1 more.
-        let (ultimate_frame, _penultimate_frame, emitted) =
-            frame_iterator.next_n(self.limit - 1)?;
-        let output = ultimate_frame.output;
-
-        let was_terminal = ultimate_frame.is_complete();
-        let i = ultimate_frame.i;
-        if was_terminal {
-            self.terminal_frame = Some(ultimate_frame);
+        let mut io = self.initial();
+        Evaluable::<F, Witness<F>, C>::log(&io, self.store, 0);
+        let mut iterations = 0;
+        let mut emitted_vec = vec![];
+        for _ in 0..self.limit {
+            if Evaluable::<F, Witness<F>, C>::is_complete(&io) {
+                break;
+            }
+            (io, _) = io.reduce(self.store, self.lang)?;
+            if let Some(emitted) = io.maybe_emitted_expression(self.store) {
+                emitted_vec.push(emitted);
+            }
+            iterations += 1;
+            Evaluable::<F, Witness<F>, C>::log(&io, self.store, iterations);
         }
-        let iterations = if was_terminal { i } else { i + 1 };
-        // NOTE: We compute a terminal frame but don't include it in the iteration count.
-        Ok((output, iterations, emitted))
+        Ok((io, iterations, emitted_vec))
     }
 
+    #[inline]
     pub fn initial(&mut self) -> IO<F> {
         IO {
             expr: self.expr,
@@ -468,12 +453,28 @@ where
         Ok(FrameIt::new(initial_input, self.store, self.lang)?.take(self.limit))
     }
 
-    // Wraps frames in Result type in order to fail gracefully
+    /// Wraps frames in Result type in order to fail gracefully.
+    ///
+    /// Note: the output will have an identity frame at the end if there's still
+    /// room, that is, if `self.limit` hasn't been reached. This is useful for
+    /// proving when padding the last frame is necessary.
     pub fn get_frames(&mut self) -> Result<Vec<Frame<IO<F>, Witness<F>, C>>, ReductionError> {
-        let frame = FrameIt::new(self.initial(), self.store, self.lang)?;
-        let result_frame = ResultFrame(Ok(frame)).take(self.limit);
-        let ret: Result<Vec<_>, _> = result_frame.collect();
-        ret
+        let mut input = self.initial();
+        Evaluable::<F, Witness<F>, C>::log(&input, self.store, 0);
+        let mut frames = vec![];
+        for i in 0..self.limit {
+            let (output, witness) = input.reduce(self.store, self.lang)?;
+            let frame = Frame::new(input, output, i, witness);
+            let is_complete = frame.is_complete();
+            frames.push(frame);
+            if is_complete {
+                break;
+            }
+            // logging after `break` to ignore the identity frame
+            Evaluable::<F, Witness<F>, C>::log(&output, self.store, i + 1);
+            input = output;
+        }
+        Ok(frames)
     }
 
     pub fn generate_frames<Fp: Fn(usize) -> bool>(
@@ -531,6 +532,5 @@ pub struct Evaluator<'a, F: LurkField, C: Coprocessor<F>> {
     env: Ptr<F>,
     store: &'a mut Store<F>,
     limit: usize,
-    terminal_frame: Option<Frame<IO<F>, Witness<F>, C>>,
     lang: &'a Lang<F, C>,
 }
