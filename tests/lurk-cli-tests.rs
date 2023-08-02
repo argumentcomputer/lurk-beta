@@ -12,3 +12,11 @@ fn test_help_command() {
     cmd.arg("--help");
     cmd.assert().success();
 }
+
+#[test]
+fn test_repl_command() {
+    let mut cmd = lurk_cmd();
+
+    cmd.arg("repl");
+    cmd.assert().success();
+}
