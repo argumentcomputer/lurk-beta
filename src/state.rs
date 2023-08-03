@@ -78,8 +78,7 @@ impl State {
             .use_package(&lurk_package)
             .expect("all symbols in the lurk package are importable");
 
-        // initiate the state with the root package and add the keyword
-        // and the lurk packages
+        // initiate the state with the lurk user package then add the others
         let mut state = Self::new_with_package(lurk_user_package);
         state.add_package(root_package);
         state.add_package(keyword_package);

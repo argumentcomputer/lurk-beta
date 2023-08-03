@@ -85,13 +85,7 @@ impl Package {
     pub fn print_to_string(&self, symbol: &SymbolRef) -> String {
         match self.names.get(symbol) {
             None => symbol.format(),
-            Some(name) => {
-                if symbol.is_keyword() {
-                    format!(":{}", Symbol::format_path_component(name))
-                } else {
-                    Symbol::format_path_component(name)
-                }
-            }
+            Some(name) => Symbol::format_path_component(name),
         }
     }
 }

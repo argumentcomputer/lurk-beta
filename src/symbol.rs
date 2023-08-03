@@ -252,7 +252,8 @@ impl Symbol {
         for c in component.chars() {
             if ESCAPE_CHARS.chars().any(|x| x == c) {
                 res.push_str(&format!("\\{}", c));
-            } else if c.is_whitespace() {
+            } else if c.is_whitespace() || Self::is_whitespace(c) {
+                // TODO: do we need the "or" above?
                 res.push_str(&format!("{}", c.escape_unicode()));
                 has_whitespace = true
             } else {
