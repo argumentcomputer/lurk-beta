@@ -1,5 +1,8 @@
 use anyhow::{bail, Result};
-use std::{collections::HashMap, rc::Rc};
+use std::{
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 use crate::Symbol;
 
@@ -9,6 +12,7 @@ pub struct Package {
     name: SymbolRef,
     symbols: HashMap<String, SymbolRef>,
     names: HashMap<SymbolRef, String>,
+    local: HashSet<SymbolRef>,
 }
 
 impl Package {
@@ -18,6 +22,7 @@ impl Package {
             name,
             symbols: Default::default(),
             names: Default::default(),
+            local: Default::default(),
         }
     }
 
@@ -27,8 +32,8 @@ impl Package {
     }
 
     #[inline]
-    pub fn resolve(&self, symbol_name: &str) -> Option<SymbolRef> {
-        self.symbols.get(symbol_name).cloned()
+    pub fn resolve(&self, symbol_name: &str) -> Option<&SymbolRef> {
+        self.symbols.get(symbol_name)
     }
 
     /// Given a symbol name, returns the corresponding symbol if it's accessible
@@ -40,6 +45,7 @@ impl Package {
             .or_insert_with_key(|symbol_name| {
                 let symbol: SymbolRef = self.name.direct_child(symbol_name).into();
                 self.names.insert(symbol.clone(), symbol_name.clone());
+                self.local.insert(symbol.clone());
                 symbol
             })
             .clone()
@@ -56,7 +62,7 @@ impl Package {
             let symbol_name = symbol.name()?;
             // check conflicts with accessible symbols
             if let Some(symbol_resolved) = self.resolve(symbol_name) {
-                if *symbol != symbol_resolved {
+                if symbol != symbol_resolved {
                     bail!("{symbol} conflicts with {symbol_resolved}, which is already accessible")
                 }
             }
@@ -71,7 +77,12 @@ impl Package {
         Ok(())
     }
 
-    pub fn format(&self, symbol: &SymbolRef) -> String {
+    /// Import the local symbols of another package
+    pub fn use_package(&mut self, package: &Package) -> Result<()> {
+        self.import(&package.local.iter().cloned().collect::<Vec<_>>())
+    }
+
+    pub fn print_to_string(&self, symbol: &SymbolRef) -> String {
         match self.names.get(symbol) {
             None => symbol.format(),
             Some(name) => {
