@@ -7,7 +7,7 @@ use std::{fs::read_dir, path::PathBuf};
 
 use anyhow::{bail, Result};
 use bellperson::{ConstraintSystem, SynthesisError};
-use nova_scotia::r1cs::CircomConfig;
+use circom_scotia::r1cs::CircomConfig;
 
 use crate::{
     circuit::gadgets::{
@@ -69,16 +69,11 @@ fn validate_gadget<F: LurkField, C: CircomGadget<F>>(gadget: &C) -> Result<()> {
         }
     }
 
-    bail!(
-        "
-error: no circom gadget named `foo`.
-Available circom gadgets:
-    bar
-    baz
+    if subdirs.contains(&gadget.name().into()) {
+        return Ok(());
+    }
 
-If you want to setup a new circom gadget `foo`, run
-    `lurk coprocessor --name foo <FOO_CIRCOM_FOLDER>`"
-    );
+    print_error(gadget.name(), subdirs)
 }
 
 #[derive(Debug)]
@@ -109,8 +104,8 @@ impl<F: LurkField, C: CircomGadget<F>> CoCircuit<F> for CircomCoprocessor<F, C> 
         input_cont: &AllocatedContPtr<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         let input = self.gadget.into_circom_input(input_exprs);
-        let witness = nova_scotia::calculate_witness(&self.config, input, true).expect("msg");
-        let output = nova_scotia::synthesize(cs, self.config.r1cs.clone(), Some(witness))?;
+        let witness = circom_scotia::calculate_witness(&self.config, input, true).expect("msg");
+        let output = circom_scotia::synthesize(cs, self.config.r1cs.clone(), Some(witness))?;
 
         let res = AllocatedPtr::from_parts(g.num_tag.clone(), output);
 
@@ -135,17 +130,6 @@ impl<F: LurkField, C: CircomGadget<F> + Debug> Coprocessor<F> for CircomCoproces
 
 impl<F: LurkField, C: CircomGadget<F>> CircomCoprocessor<F, C> {
     /// Creates a CircomConfig by loading in the data in `.lurk/circom-gadgets/<name>/*`
-    /// TODO: better error handling when name doesn't exist
-    /// Should look something like:
-    /// ```dead
-    /// error: no circom gadget named `foo`.
-    /// Available circom gadgets:
-    ///     bar
-    ///     baz
-    ///
-    /// If you want to setup a new circom gadget `foo`, run
-    ///     `lurk coprocessor --name foo <FOO_CIRCOM_FOLDER>`
-    /// ```
     pub fn create(gadget: C) -> Result<Self> {
         validate_gadget(&gadget)?;
 
