@@ -277,9 +277,17 @@ impl Symbol {
 
     pub fn format(&self) -> String {
         if self.is_keyword() {
-            format!(":{}", Self::format_path(&self.path[1..]))
+            if self.is_root_keyword() {
+                ".keyword".into()
+            } else {
+                format!(":{}", Self::format_path(&self.path[1..]))
+            }
         } else {
-            format!(".{}", Self::format_path(&self.path))
+            if self.is_root() {
+                "~()".into()
+            } else {
+                format!(".{}", Self::format_path(&self.path))
+            }
         }
     }
 }

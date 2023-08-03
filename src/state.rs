@@ -56,6 +56,10 @@ impl State {
         self.get_current_package_mut().import(symbols)
     }
 
+    pub fn use_package(&mut self, package: &Package) -> Result<()> {
+        self.get_current_package_mut().use_package(package)
+    }
+
     pub fn print_to_string(&self, symbol: &SymbolRef) -> String {
         self.get_current_package().print_to_string(symbol)
     }
@@ -125,3 +129,46 @@ const LURK_PACKAGE_SYMBOLS_NAMES: [&str; 36] = [
     ">=",
     "_",
 ];
+
+#[cfg(test)]
+pub mod test {
+    use super::{State, LURK_PACKAGE_SYMBOLS_NAMES};
+    use crate::{package::{SymbolRef, Package}, Symbol};
+
+    #[inline]
+    fn test_printing_helper(state: &State, symbol: SymbolRef, expected: &str) {
+        assert_eq!(
+            state.print_to_string(&symbol),
+            expected.to_string()
+        );
+    }
+
+    #[test]
+    fn test_lurk_state_printing() {
+        let mut state = State::initial_lurk_state();
+
+        LURK_PACKAGE_SYMBOLS_NAMES
+            .iter()
+            .for_each(|s| test_printing_helper(&state, Symbol::lurk_sym(s).into(), s));
+
+        let user_sym = state.intern("user-sym".into());
+        test_printing_helper(&state, user_sym.clone(), "user-sym");
+
+        let my_package_name = SymbolRef::new(Symbol::new(&["my-package"]));
+        let mut my_package = Package::new(my_package_name.clone());
+        let my_symbol = my_package.intern("my-symbol".into());
+        state.add_package(my_package);
+
+        test_printing_helper(&state, my_symbol.clone(), ".my-package.my-symbol");
+
+        let lambda_sym = SymbolRef::new(Symbol::lurk_sym("lambda"));
+
+        state.set_current_package(my_package_name).unwrap();
+        test_printing_helper(&state, my_symbol, "my-symbol");
+        test_printing_helper(&state, lambda_sym.clone(), ".lurk.lambda");
+
+        state.import(&[lambda_sym.clone()]).unwrap();
+        test_printing_helper(&state, lambda_sym, "lambda");
+        test_printing_helper(&state, user_sym, ".lurk-user.user-sym");
+    }
+}
