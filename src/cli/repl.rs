@@ -412,7 +412,7 @@ impl Repl<F> {
     #[allow(dead_code)]
     fn get_comm_hash(&mut self, cmd: &str, args: &Ptr<F>) -> Result<F> {
         let first = self.peek1(cmd, args)?;
-        let n = self.store.lurk_sym("num");
+        let n = self.store.num_ptr();
         let expr = self.store.list(&[n, first]);
         let (expr_io, ..) = self
             .eval_expr(expr)
@@ -436,8 +436,8 @@ impl Repl<F> {
                 //
                 // And the state's env is set to the result.
                 let (first, second) = self.peek2(cmd, args)?;
-                let l = &self.store.lurk_sym("let");
-                let current_env = &self.store.lurk_sym("current-env");
+                let l = &self.store.let_ptr();
+                let current_env = &self.store.current_env_ptr();
                 let binding = &self.store.list(&[first, second]);
                 let bindings = &self.store.list(&[*binding]);
                 let current_env_call = &self.store.list(&[*current_env]);
@@ -460,8 +460,8 @@ impl Repl<F> {
                 //
                 // And the state's env is set to the result.
                 let (first, second) = self.peek2(cmd, args)?;
-                let l = &self.store.lurk_sym("letrec");
-                let current_env = &self.store.lurk_sym("current-env");
+                let l = &self.store.letrec_ptr();
+                let current_env = &self.store.current_env_ptr();
                 let binding = &self.store.list(&[first, second]);
                 let bindings = &self.store.list(&[*binding]);
                 let current_env_call = &self.store.list(&[*current_env]);
@@ -588,7 +588,7 @@ impl Repl<F> {
                     self.fetch(&hash, true)?;
                 }
             }
-            "clear" => self.env = self.store.nil(),
+            "clear" => self.env = self.store.nil_ptr(),
             "set-env" => {
                 // The state's env is set to the result of evaluating the first argument.
                 let first = self.peek1(cmd, args)?;

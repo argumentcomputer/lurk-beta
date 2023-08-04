@@ -562,9 +562,9 @@ impl ClutchState<F, Coproc<F>> {
         let result = proof.verify(&pp, &self.lang()).unwrap();
 
         if result.verified {
-            Ok(Some(store.get_t()))
+            Ok(Some(store.t_ptr()))
         } else {
-            Ok(Some(store.get_nil()))
+            Ok(Some(store.nil_ptr()))
         }
     }
 }

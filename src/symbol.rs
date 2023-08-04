@@ -38,7 +38,7 @@ impl Symbol {
     }
 
     #[inline]
-    pub fn new(keyword: bool) -> Self {
+    pub fn root(keyword: bool) -> Self {
         Self {
             path: vec![],
             keyword,
@@ -48,13 +48,13 @@ impl Symbol {
     /// Creates a new `Symbol` with an empty path.
     #[inline]
     pub fn root_sym() -> Self {
-        Self::new(false)
+        Self::root(false)
     }
 
     /// Creates a new `Symbol` with an empty path.
     #[inline]
     pub fn root_key() -> Self {
-        Self::new(true)
+        Self::root(true)
     }
 
     #[inline]
@@ -300,13 +300,31 @@ impl Symbol {
             } else {
                 format!(":{}", Self::format_path(&self.path))
             }
+        } else if self.is_root() {
+            "~()".into()
         } else {
-            if self.is_root() {
-                "~()".into()
-            } else {
-                format!(".{}", Self::format_path(&self.path))
-            }
+            format!(".{}", Self::format_path(&self.path))
         }
+    }
+
+    pub fn from_str_impl(name: &str) -> Option<Self> {
+        use crate::parser::{
+            syntax::{parse_path, parse_space},
+            Span,
+        };
+        use crate::syntax::Syntax;
+        use nom::{sequence::preceded, Parser};
+        use pasta_curves::pallas::Scalar;
+        match preceded(parse_space::<Scalar>, parse_path()).parse(Span::new(name)) {
+            Ok((_, Syntax::Path(_, path, keyword))) => Some(Symbol { path, keyword }),
+            _ => None,
+        }
+    }
+}
+
+impl From<&'static str> for Symbol {
+    fn from(value: &'static str) -> Self {
+        Symbol::from_str_impl(value).unwrap()
     }
 }
 

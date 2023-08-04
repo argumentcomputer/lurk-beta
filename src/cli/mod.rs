@@ -263,8 +263,8 @@ fn get_store<F: LurkField + for<'a> serde::de::Deserialize<'a>>(
 
 macro_rules! new_repl {
     ( $cli: expr, $limit: expr, $rc: expr, $field: path, $backend: expr ) => {{
-        let mut store = get_store(&$cli.zstore).with_context(|| "reading store from file")?;
-        let env = store.nil();
+        let store = get_store(&$cli.zstore).with_context(|| "reading store from file")?;
+        let env = store.nil_ptr();
         Repl::<$field>::new(store, env, $limit, $rc, $backend)
     }};
 }

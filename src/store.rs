@@ -171,6 +171,26 @@ impl<F: LurkField> Store<F> {
         self.expect_constants().dummy.ptr()
     }
 
+    pub fn let_ptr(&self) -> Ptr<F> {
+        self.expect_constants().let_.ptr()
+    }
+
+    pub fn letrec_ptr(&self) -> Ptr<F> {
+        self.expect_constants().letrec.ptr()
+    }
+
+    pub fn current_env_ptr(&self) -> Ptr<F> {
+        self.expect_constants().current_env.ptr()
+    }
+
+    pub fn open_ptr(&self) -> Ptr<F> {
+        self.expect_constants().open.ptr()
+    }
+
+    pub fn num_ptr(&self) -> Ptr<F> {
+        self.expect_constants().num.ptr()
+    }
+
     #[inline]
     pub fn cons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         self.intern_cons(car, cdr)
