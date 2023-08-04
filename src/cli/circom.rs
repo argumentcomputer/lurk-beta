@@ -9,7 +9,7 @@ use std::{
 
 use anyhow::Result;
 use reqwest::Url;
-use tokio::runtime::{Runtime, Builder};
+use tokio::runtime::Builder;
 
 use super::paths::non_wasm::{circom_binary, circom_dir};
 
