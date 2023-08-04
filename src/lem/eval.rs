@@ -136,16 +136,7 @@ fn reduce() -> Func {
         let t = Symbol("t");
         let nil: Expr::Nil;
         match head.tag {
-            Expr::Fun => {
-                return (t)
-            }
-            Expr::Cons => {
-                return (t)
-            }
-            Expr::Sym => {
-                return (t)
-            }
-            Expr::Thunk => {
+            Expr::Fun | Expr::Cons | Expr::Sym | Expr::Thunk => {
                 return (t)
             }
         };
