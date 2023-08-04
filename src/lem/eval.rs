@@ -87,7 +87,7 @@ fn reduce() -> Func {
             }
         }
     });
-    let choose_unop = func!(choose_unop(head): 1 => {
+    let is_unop = func!(is_unop(head): 1 => {
         let nil: Expr::Nil;
         let t = Symbol("t");
         match head.val {
@@ -108,7 +108,7 @@ fn reduce() -> Func {
         return (nil)
     });
 
-    let choose_binop = func!(choose_binop(head): 1 => {
+    let is_binop = func!(is_binop(head): 1 => {
         let nil: Expr::Nil;
         let t = Symbol("t");
         match head.val {
@@ -349,7 +349,7 @@ fn reduce() -> Func {
                     }
                 };
                 // unops
-                let (op) = choose_unop(head);
+                let (op) = is_unop(head);
                 if op == t {
                     match rest.tag {
                         Expr::Nil => {
@@ -366,7 +366,7 @@ fn reduce() -> Func {
                     return (expr, env, err, errctrl)
                 }
                 // binops
-                let (op) = choose_binop(head);
+                let (op) = is_binop(head);
                 if op == t {
                     match rest.tag {
                         Expr::Nil => {
