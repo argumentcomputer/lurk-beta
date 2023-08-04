@@ -481,52 +481,39 @@ impl<F: LurkField> Store<F> {
             .fold(self.nil_ptr(), |acc, elt| self.intern_cons(*elt, acc))
     }
 
-    pub fn intern_symbol(&mut self, sym: &Symbol) -> Ptr<F> {
-        let ptr = if sym.path().is_empty() {
-            Ptr::null(ExprTag::Sym)
-        } else {
-            let mut ptr = self.symnil();
-            for s in sym.path().iter() {
-                let str_ptr = self.intern_string(s);
-                ptr = self.intern_symcons(str_ptr, ptr);
-            }
-            if *sym == lurk_sym("nil") {
-                Ptr {
-                    tag: ExprTag::Nil,
-                    raw: ptr.raw,
-                    _f: ptr._f,
-                }
-            } else if sym.is_keyword() {
-                Ptr {
-                    tag: ExprTag::Key,
-                    raw: ptr.raw,
-                    _f: ptr._f,
-                }
-            } else {
-                ptr
-            }
-        };
-        self.symbol_cache.insert(sym.clone(), Box::new(ptr));
-        ptr
+    pub fn intern_symbol_path(&mut self, path: &[String]) -> Ptr<F> {
+        path.iter().fold(self.symnil(), |acc, s| {
+            let s_ptr = self.intern_string(s);
+            self.intern_symcons(s_ptr, acc)
+        })
     }
 
-    // pub fn get_sym(&self, sym: &Symbol) -> Option<Ptr<F>> {
-    //     let ptr = self.symbol_cache.get(sym).cloned()?;
-    //     if *sym == lurk_sym("nil") {
-    //         Some(Ptr {
-    //             tag: ExprTag::Nil,
-    //             raw: ptr.raw,
-    //             _f: ptr._f,
-    //         })
-    //     } else {
-    //         Some(*ptr)
-    //     }
-    // }
-
-    // pub fn get_lurk_sym<T: AsRef<str>>(&self, name: T) -> Option<Ptr<F>> {
-    //     let sym = Symbol::lurk_sym(name.as_ref());
-    //     self.get_sym(&sym)
-    // }
+    pub fn intern_symbol(&mut self, sym: &Symbol) -> Ptr<F> {
+        match self.symbol_cache.get(sym) {
+            Some(ptr) => **ptr,
+            None => {
+                use crate::tag::ExprTag::{Key, Nil};
+                let path_ptr = self.intern_symbol_path(sym.path());
+                let sym_ptr = if sym == &lurk_sym("nil") {
+                    Ptr {
+                        tag: Nil,
+                        raw: path_ptr.raw,
+                        _f: path_ptr._f,
+                    }
+                } else if !sym.is_keyword() {
+                    path_ptr
+                } else {
+                    Ptr {
+                        tag: Key,
+                        raw: path_ptr.raw,
+                        _f: path_ptr._f,
+                    }
+                };
+                self.symbol_cache.insert(sym.clone(), sym_ptr.into());
+                sym_ptr
+            }
+        }
+    }
 
     pub fn intern_num<T: Into<Num<F>>>(&mut self, num: T) -> Ptr<F> {
         let num = num.into();

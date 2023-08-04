@@ -217,11 +217,11 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn intern_symbol(&mut self, s: &Symbol) -> Ptr<F> {
-        let path_ptr = self.intern_symbol_path(s.path());
-        if s == &lurk_sym("nil") {
+    pub fn intern_symbol(&mut self, sym: &Symbol) -> Ptr<F> {
+        let path_ptr = self.intern_symbol_path(sym.path());
+        if sym == &lurk_sym("nil") {
             path_ptr.cast(Tag::Expr(Nil))
-        } else if !s.is_keyword() {
+        } else if !sym.is_keyword() {
             path_ptr
         } else {
             path_ptr.cast(Tag::Expr(Key))
