@@ -1,9 +1,9 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
-    path::Path,
     sync::{Arc, Mutex},
 };
 
+use camino::Utf8Path;
 use log::info;
 use once_cell::sync::Lazy;
 use tap::TapFallible;
@@ -41,7 +41,7 @@ impl PublicParamMemCache {
         rc: usize,
         default: Fn,
         lang: Arc<Lang<F, C>>,
-        disk_cache_path: Option<&Path>,
+        disk_cache_path: &Utf8Path,
     ) -> Result<Arc<PublicParams<'static, F, C>>, Error> {
         // subdirectory search
         let disk_cache = PublicParamDiskCache::new(disk_cache_path).unwrap();
@@ -74,7 +74,7 @@ impl PublicParamMemCache {
         rc: usize,
         default: Fn,
         lang: Arc<Lang<F, C>>,
-        disk_cache_path: Option<&Path>,
+        disk_cache_path: &Utf8Path,
     ) -> Result<Arc<PublicParams<'static, F, C>>, Error>
     where
         F::CK1: Sync + Send,

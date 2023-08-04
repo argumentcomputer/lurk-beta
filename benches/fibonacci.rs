@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
+use camino::Utf8Path;
 use criterion::{
     black_box, criterion_group, criterion_main, measurement, BatchSize, BenchmarkGroup,
     BenchmarkId, Criterion, SamplingMode,
@@ -48,7 +49,12 @@ fn fibo_total<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut 
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
     // use cached public params
-    let pp = public_params(reduction_count, lang_rc.clone(), None).unwrap();
+    let pp = public_params(
+        reduction_count,
+        lang_rc.clone(),
+        Utf8Path::new("/var/tmp/lurk_benches/public_params"),
+    )
+    .unwrap();
 
     c.bench_with_input(
         BenchmarkId::new(name.to_string(), iterations),
@@ -99,7 +105,12 @@ fn fibo_prove<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut 
     let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
     let lang_rc = Arc::new(lang_pallas.clone());
     let reduction_count = DEFAULT_REDUCTION_COUNT;
-    let pp = public_params(reduction_count, lang_rc.clone(), None).unwrap();
+    let pp = public_params(
+        reduction_count,
+        lang_rc.clone(),
+        Utf8Path::new("/var/tmp/lurk_benches/public_params"),
+    )
+    .unwrap();
 
     c.bench_with_input(
         BenchmarkId::new(name.to_string(), iterations),

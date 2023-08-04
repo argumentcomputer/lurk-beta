@@ -19,34 +19,28 @@ impl<F: LurkField> HasFieldModulus for Commitment<F> {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-mod non_wasm {
-    use anyhow::Result;
-    use lurk::{field::LurkField, ptr::Ptr, store::Store, z_store::ZStore};
-    use serde::Serialize;
+use anyhow::Result;
+use lurk::{ptr::Ptr, store::Store};
 
-    use crate::cli::{field_data::non_wasm::dump, paths::non_wasm::commitment_path};
+use crate::cli::{field_data::dump, paths::commitment_path};
 
-    use super::Commitment;
-
-    impl<F: LurkField> Commitment<F> {
-        pub fn new(secret: Option<F>, payload: Ptr<F>, store: &mut Store<F>) -> Result<Self> {
-            let comm_ptr = match secret {
-                Some(secret) => store.hide(secret, payload),
-                None => store.commit(payload),
-            };
-            let mut zstore = Some(ZStore::<F>::default());
-            let hash = *store.get_z_expr(&comm_ptr, &mut zstore)?.0.value();
-            let zstore = zstore.unwrap();
-            Ok(Self { hash, zstore })
-        }
+impl<F: LurkField> Commitment<F> {
+    pub fn new(secret: Option<F>, payload: Ptr<F>, store: &mut Store<F>) -> Result<Self> {
+        let comm_ptr = match secret {
+            Some(secret) => store.hide(secret, payload),
+            None => store.commit(payload),
+        };
+        let mut zstore = Some(ZStore::<F>::default());
+        let hash = *store.get_z_expr(&comm_ptr, &mut zstore)?.0.value();
+        let zstore = zstore.unwrap();
+        Ok(Self { hash, zstore })
     }
+}
 
-    impl<F: LurkField + Serialize> Commitment<F> {
-        #[inline]
-        pub fn persist(self) -> Result<()> {
-            let hash_str = &self.hash.hex_digits();
-            dump(self, commitment_path(hash_str))
-        }
+impl<F: LurkField + Serialize> Commitment<F> {
+    #[inline]
+    pub fn persist(self) -> Result<()> {
+        let hash_str = &self.hash.hex_digits();
+        dump(self, commitment_path(hash_str))
     }
 }

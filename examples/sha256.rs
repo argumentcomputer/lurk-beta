@@ -11,7 +11,7 @@ use lurk::eval::{empty_sym_env, lang::Lang};
 use lurk::field::LurkField;
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::ptr::Ptr;
-use lurk::public_parameters::public_params;
+use lurk::public_parameters::{public_params, public_params_default_dir};
 use lurk::store::Store;
 use lurk::sym;
 use lurk_macros::Coproc;
@@ -189,7 +189,12 @@ fn main() {
     println!("Setting up public parameters...");
 
     let pp_start = Instant::now();
-    let pp = public_params::<_, Sha256Coproc<Fr>>(REDUCTION_COUNT, lang_rc.clone(), None).unwrap();
+    let pp = public_params::<_, Sha256Coproc<Fr>>(
+        REDUCTION_COUNT,
+        lang_rc.clone(),
+        &public_params_default_dir(),
+    )
+    .unwrap();
     let pp_end = pp_start.elapsed();
 
     println!("Public parameters took {:?}", pp_end);

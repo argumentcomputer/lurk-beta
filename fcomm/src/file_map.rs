@@ -2,18 +2,20 @@ use std::fs::create_dir_all;
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter};
 use std::marker::PhantomData;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use lurk::public_parameters::error::Error;
 
+use camino::Utf8PathBuf;
 use serde::{Deserialize, Serialize};
 
-pub(crate) fn data_dir() -> PathBuf {
+pub fn data_dir() -> Utf8PathBuf {
     match std::env::var("FCOMM_DATA_PATH") {
         Ok(name) => name.into(),
-        Err(_) => PathBuf::from("/var/tmp/fcomm_data/"),
+        Err(_) => Utf8PathBuf::from("/var/tmp/fcomm_data/"),
     }
 }
+
 pub trait FileStore
 where
     Self: Sized,
@@ -61,14 +63,14 @@ where
 }
 
 pub struct FileMap<K: ToString, V: FileStore> {
-    dir: PathBuf,
+    dir: Utf8PathBuf,
     _t: PhantomData<(K, V)>,
 }
 
 impl<K: ToString, V: FileStore> FileMap<K, V> {
     pub fn new<P: AsRef<Path>>(name: P) -> Result<Self, Error> {
-        let data_dir = data_dir();
-        let dir = PathBuf::from(&data_dir).join(name.as_ref());
+        let data_dir = data_dir().as_std_path().join(name);
+        let dir = Utf8PathBuf::from_path_buf(data_dir).expect("path contains invalid Unicode");
         create_dir_all(&dir)?;
 
         Ok(Self {
@@ -77,8 +79,8 @@ impl<K: ToString, V: FileStore> FileMap<K, V> {
         })
     }
 
-    fn key_path(&self, key: &K) -> PathBuf {
-        self.dir.join(PathBuf::from(key.to_string()))
+    fn key_path(&self, key: &K) -> Utf8PathBuf {
+        self.dir.join(Utf8PathBuf::from(key.to_string()))
     }
 
     pub fn get(&self, key: &K) -> Option<V> {
