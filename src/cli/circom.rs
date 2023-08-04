@@ -9,7 +9,7 @@ use std::{
 
 use anyhow::Result;
 use reqwest::Url;
-use tokio::runtime::Runtime;
+use tokio::runtime::{Runtime, Builder};
 
 use super::paths::non_wasm::{circom_binary, circom_dir};
 
@@ -73,7 +73,7 @@ fn get_circom_binary() -> Result<Command> {
     if success {
         Ok(Command::new(circom_path))
     } else {
-        let rt = Runtime::new()?;
+        let rt = Builder::new_current_thread().build()?;
         rt.block_on(download_circom_binary(circom_path))
     }
 }
