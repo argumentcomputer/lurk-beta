@@ -1,5 +1,6 @@
 use crate::field::LurkField;
 use crate::ptr::Ptr;
+use crate::state::State;
 use crate::store::Store;
 use nom::sequence::preceded;
 use nom::Parser;
@@ -28,23 +29,45 @@ pub enum Error {
     NoInput,
     #[error("Syntax error: {0}")]
     Syntax(String),
+    #[error("Interning error: {0}")]
+    Interning(String),
 }
 
 impl<F: LurkField> Store<F> {
     pub fn read(&mut self, input: &str) -> Result<Ptr<F>, Error> {
         match preceded(syntax::parse_space, syntax::parse_syntax()).parse(Span::new(input)) {
-            Ok((_i, x)) => Ok(self.intern_syntax(x)),
+            Ok((_i, x)) => {
+                let state = &mut State::initial_lurk_state();
+                match self.intern_syntax(state, x) {
+                    Ok(ptr) => Ok(ptr),
+                    Err(e) => Err(Error::Interning(format!("{}", e))),
+                }
+            },
+            Err(e) => Err(Error::Syntax(format!("{}", e))),
+        }
+    }
+
+    pub fn read_with_state(&mut self, state: &mut State, input: &str) -> Result<Ptr<F>, Error> {
+        match preceded(syntax::parse_space, syntax::parse_syntax()).parse(Span::new(input)) {
+            Ok((_i, x)) => match self.intern_syntax(state, x) {
+                Ok(ptr) => Ok(ptr),
+                Err(e) => Err(Error::Interning(format!("{}", e))),
+            },
             Err(e) => Err(Error::Syntax(format!("{}", e))),
         }
     }
 
     pub fn read_maybe_meta<'a>(
         &mut self,
+        state: &mut State,
         input: Span<'a>,
     ) -> Result<(Span<'a>, Ptr<F>, bool), Error> {
         use syntax::*;
         match preceded(parse_space, parse_maybe_meta()).parse(input) {
-            Ok((i, Some((is_meta, x)))) => Ok((i, self.intern_syntax(x), is_meta)),
+            Ok((i, Some((is_meta, x)))) => match self.intern_syntax(state, x) {
+                Ok(ptr) => Ok((i, ptr, is_meta)),
+                Err(e) => Err(Error::Interning(format!("{}", e))),
+            },
             Ok((_, None)) => Err(Error::NoInput),
             Err(e) => Err(Error::Syntax(format!("{}", e))),
         }

@@ -257,15 +257,15 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn lurk_sym<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        self.intern_symbol(Symbol::new(&["lurk", name.as_ref()]))
+        self.intern_symbol(Symbol::sym(&["lurk", name.as_ref()]))
     }
 
     pub fn sym<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        self.intern_symbol(Symbol::new(&[name.as_ref()]))
+        self.intern_symbol(Symbol::sym(&[name.as_ref()]))
     }
 
     pub fn key<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        self.intern_symbol(Symbol::new(&["keyword", name.as_ref()]))
+        self.intern_symbol(Symbol::key(&[name.as_ref()]))
     }
 
     pub fn car(&self, expr: &Ptr<F>) -> Result<Ptr<F>, Error> {
@@ -457,11 +457,11 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn intern_symbol(&mut self, sym: Symbol) -> Ptr<F> {
-        let ptr = if sym.path.is_empty() {
+        let ptr = if sym.path().is_empty() {
             Ptr::null(ExprTag::Sym)
         } else {
             let mut ptr = self.symnil();
-            for s in sym.path.iter() {
+            for s in sym.path().iter() {
                 let str_ptr = self.intern_string(s);
                 ptr = self.intern_symcons(str_ptr, ptr);
             }
@@ -704,9 +704,7 @@ impl<F: LurkField> Store<F> {
             path.push(string);
             ptr = cdr
         }
-        Some(Symbol {
-            path: path.into_iter().rev().collect(),
-        })
+        Some(Symbol::sym(&path.into_iter().rev().collect::<Vec<_>>()))
     }
 
     pub fn fetch_strcons(&self, ptr: &Ptr<F>) -> Option<(Ptr<F>, Ptr<F>)> {
@@ -1928,6 +1926,7 @@ impl<F: LurkField> ZStore<F> {
 pub mod test {
     use super::*;
 
+    use crate::state::State;
     use crate::writer::Write;
     use crate::{
         eval::{
@@ -2322,7 +2321,7 @@ pub mod test {
     fn sym_and_key_hashes() {
         let s = &mut Store::<Fr>::default();
 
-        let root = s.intern_symbol(Symbol::root());
+        let root = s.intern_symbol(Symbol::root_sym());
         let str1 = s.str("keyword");
         let sym1 = s.intern_symcons(str1, root);
         let str2 = s.str("orange");
@@ -2340,16 +2339,18 @@ pub mod test {
 
     #[test]
     fn sym_in_list() {
-        let s = &mut Store::<Fr>::default();
+        let store = &mut Store::<Fr>::default();
 
         let foo_list = list!(Fr, [symbol!(["foo"])]);
         let foo_sym = symbol!(Fr, ["foo"]);
 
-        let expr = s.intern_syntax(foo_list);
-        let sym = s.intern_syntax(foo_sym);
-        let sym1 = s.car(&expr).unwrap();
-        let sss = s.fetch_sym(&sym);
-        let hash = s.hash_expr(&sym);
+        let mut state = State::minimal();
+
+        let expr = store.intern_syntax(&mut state, foo_list).unwrap();
+        let sym = store.intern_syntax(&mut state, foo_sym).unwrap();
+        let sym1 = store.car(&expr).unwrap();
+        let sss = store.fetch_sym(&sym);
+        let hash = store.hash_expr(&sym);
         dbg!(&sym1, &sss, &hash);
 
         assert_eq!(sym, sym1);
@@ -2465,8 +2466,9 @@ pub mod test {
     #[test]
     fn commitment_z_store_roundtrip() {
         let store = &mut Store::<S1>::default();
-        let two = store.read("(+ 1 1)").unwrap();
-        let three = store.read("(+ 1 2)").unwrap();
+        let state = &mut State::initial_lurk_state();
+        let two = store.read_with_state(state, "(+ 1 1)").unwrap();
+        let three = store.read_with_state(state, "(+ 1 2)").unwrap();
 
         let comm2 = commit_and_open(store, two);
         let comm3 = commit_and_open(store, three);

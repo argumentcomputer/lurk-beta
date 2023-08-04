@@ -5,6 +5,7 @@ use crate::expr::Expression;
 use crate::field::LurkField;
 use crate::parser;
 use crate::ptr::{ContPtr, Ptr};
+use crate::state::State;
 use crate::store::Store;
 use crate::symbol::Symbol;
 use crate::tag::ContTag;
@@ -70,14 +71,15 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
     fn handle_form<'a, P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
+        state: &mut State,
         input: parser::Span<'a>,
         pwd: P,
     ) -> Result<parser::Span<'a>> {
-        let (input, ptr, is_meta) = store.read_maybe_meta(input)?;
+        let (input, ptr, is_meta) = store.read_maybe_meta(state, input)?;
 
         if is_meta {
             let pwd: &Path = pwd.as_ref();
-            self.handle_meta(store, ptr, pwd)?;
+            self.handle_meta(store, state, ptr, pwd)?;
             Ok(input)
         } else {
             self.handle_non_meta(store, ptr).map(|_| ())?;
@@ -85,14 +87,15 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
         }
     }
 
-    fn handle_load<P: AsRef<Path>>(&mut self, store: &mut Store<F>, file_path: P) -> Result<()> {
+    fn handle_load<P: AsRef<Path>>(&mut self, store: &mut Store<F>, state: &mut State, file_path: P) -> Result<()> {
         eprintln!("Loading from {}.", file_path.as_ref().to_str().unwrap());
-        self.handle_file(store, file_path.as_ref())
+        self.handle_file(store, state, file_path.as_ref())
     }
 
     fn handle_file<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
+        state: &mut State,
         file_path: P,
     ) -> Result<()> {
         let file_path = file_path;
@@ -108,6 +111,7 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
         loop {
             match self.handle_form(
                 store,
+                state,
                 input,
                 // use this file's dir as pwd for further loading
                 file_path.as_ref().parent().unwrap(),
@@ -128,6 +132,7 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
     fn handle_meta<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
+        state: &mut State,
         expr_ptr: Ptr<F>,
         p: P,
     ) -> Result<()>;
@@ -250,10 +255,11 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
         let name = T::name();
         eprintln!("{name} welcomes you.");
     }
+    let state = &mut State::initial_lurk_state();
 
     {
         if let Some(lurk_file) = lurk_file {
-            repl.state.handle_load(s, &lurk_file).unwrap();
+            repl.state.handle_load(s, state, &lurk_file).unwrap();
             return Ok(());
         }
     }
@@ -271,10 +277,10 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
                 #[cfg(not(target_arch = "wasm32"))]
                 repl.save_history()?;
 
-                match s.read_maybe_meta(input) {
+                match s.read_maybe_meta(state, input) {
                     Ok((_, expr, is_meta)) => {
                         if is_meta {
-                            if let Err(e) = repl.state.handle_meta(s, expr, p) {
+                            if let Err(e) = repl.state.handle_meta(s, state, expr, p) {
                                 eprintln!("!Error: {e:?}");
                             };
                             continue;
@@ -384,6 +390,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
     fn handle_meta<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
+        state: &mut State,
         expr_ptr: Ptr<F>,
         p: P,
     ) -> Result<()> {
@@ -526,7 +533,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                                         .fetch_string(car)
                                         .ok_or(Error::msg("handle_meta fetch_string"))?;
                                     let joined = p.as_ref().join(Path::new(&path));
-                                    self.handle_load(store, &joined)?
+                                    self.handle_load(store, state, &joined)?
                                 }
                                 _ => bail!("Argument to LOAD must be a string."),
                             }

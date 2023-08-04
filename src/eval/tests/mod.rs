@@ -2330,7 +2330,7 @@ fn test_root_sym() {
 
     let s = &mut Store::<Fr>::default();
 
-    let sym = Symbol::root();
+    let sym = Symbol::root_sym();
     let x = s.intern_symbol(sym);
 
     let z_ptr = &s.hash_expr(&x).unwrap();
@@ -2365,7 +2365,7 @@ fn test_sym_hash_values() {
 
     let toplevel_sym = s.read(".asdf").unwrap();
 
-    let root = Symbol::root();
+    let root = Symbol::root_sym();
     let root_sym = s.intern_symbol(root);
 
     let asdf = s.str("asdf");

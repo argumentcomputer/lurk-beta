@@ -8,6 +8,7 @@ use fcomm::{
 };
 use lurk::public_parameters::public_params;
 
+use lurk::state::State;
 use pasta_curves::pallas;
 
 use lurk::coprocessor::Coprocessor;
@@ -193,6 +194,7 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
     fn handle_meta<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
+        state: &mut State,
         expr_ptr: Ptr<F>,
         p: P,
     ) -> Result<()> {
@@ -200,7 +202,7 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
 
         macro_rules! delegate {
             () => {
-                self.repl_state.handle_meta(store, expr_ptr, p)
+                self.repl_state.handle_meta(store, state, expr_ptr, p)
             };
         }
 

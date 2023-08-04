@@ -107,7 +107,7 @@ macro_rules! sym {
     [$( $x:expr ),*] => {
         {
             let temp_vec = vec![ $( $x.to_string() ),* ];
-            $crate::symbol::Symbol::new(&temp_vec)
+            $crate::symbol::Symbol::sym(&temp_vec)
         }
     };
 }

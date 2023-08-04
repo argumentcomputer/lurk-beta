@@ -62,7 +62,7 @@ impl<F: LurkField> Write<F> for Expression<F> {
 
         match self {
             Nil => write!(w, "nil"),
-            RootSym => write_symbol(w, &Symbol::root()),
+            RootSym => write_symbol(w, &Symbol::root_sym()),
             Sym(car, cdr) => {
                 let head = store.fetch_string(car).expect("missing symbol head");
                 let tail = store.fetch_sym(cdr).expect("missing symbol tail");
@@ -360,7 +360,7 @@ pub mod test {
     #[test]
     fn print_expr2() {
         let mut s = Store::<Fr>::default();
-        let expr = s.intern_symbol(Symbol::new(&["foo", "bar", "baz"]));
+        let expr = s.intern_symbol(Symbol::sym(&["foo", "bar", "baz"]));
         let output = expr.fmt_to_string(&s);
 
         assert_eq!("foo.bar.baz".to_string(), output);

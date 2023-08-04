@@ -68,7 +68,7 @@ impl State {
 
     pub fn intern_path(&mut self, path: &[&str]) -> Result<SymbolRef> {
         path.iter()
-            .try_fold(SymbolRef::new(Symbol::root()), |acc, s| {
+            .try_fold(SymbolRef::new(Symbol::root_sym()), |acc, s| {
                 match self.symbol_packages.get_mut(&acc) {
                     Some(package) => Ok(package.intern(s.to_string())),
                     None => bail!("Package {acc} not found"),
@@ -76,11 +76,16 @@ impl State {
             })
     }
 
+    #[inline]
+    pub fn minimal() -> Self {
+        Self::new_with_package(Package::new(SymbolRef::new(Symbol::root_sym())))
+    }
+
     pub fn initial_lurk_state() -> Self {
-        let mut root_package = Package::new(SymbolRef::new(crate::Symbol::root()));
+        let mut root_package = Package::new(SymbolRef::new(Symbol::root_sym()));
 
         // bootstrap the keyword package
-        let keyword_package = Package::new(root_package.intern("keyword".into()));
+        let keyword_package = Package::new(SymbolRef::new(Symbol::root_key()));
 
         // bootstrap the lurk package
         let mut lurk_package = Package::new(root_package.intern("lurk".into()));
@@ -166,7 +171,7 @@ pub mod test {
         let user_sym = state.intern("user-sym".into());
         test_printing_helper(&state, user_sym.clone(), "user-sym");
 
-        let my_package_name = SymbolRef::new(Symbol::new(&["my-package"]));
+        let my_package_name = SymbolRef::new(Symbol::sym(&["my-package"]));
         let mut my_package = Package::new(my_package_name.clone());
         let my_symbol = my_package.intern("my-symbol".into());
         state.add_package(my_package);
@@ -187,7 +192,7 @@ pub mod test {
         state.intern_path(&path).unwrap();
         test_printing_helper(
             &state,
-            SymbolRef::new(Symbol::new(&path)),
+            SymbolRef::new(Symbol::sym(&path)),
             "my-other-symbol",
         );
     }

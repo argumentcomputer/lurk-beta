@@ -3677,7 +3677,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::new();
 
         let mut lang = Lang::<Fr, DumbCoproc<Fr>>::new();
-        let name = Symbol::new(&["cproc", "dumb"]);
+        let name = Symbol::sym(&["cproc", "dumb"]);
         let dumb = DumbCoprocessor::new();
         let coproc = DumbCoproc::DC(dumb);
 
