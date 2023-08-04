@@ -5381,7 +5381,7 @@ mod tests {
     fn nil_self_evaluating() {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
-        let nil = store.nil();
+        let nil = store.nil_ptr();
 
         let input = IO {
             expr: nil,
@@ -5461,7 +5461,7 @@ mod tests {
     fn t_self_evaluating() {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
-        let t = store.t();
+        let t = store.t_ptr();
 
         let input = IO {
             expr: t,

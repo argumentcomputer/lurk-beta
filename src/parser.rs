@@ -42,7 +42,7 @@ impl<F: LurkField> Store<F> {
                     Ok(ptr) => Ok(ptr),
                     Err(e) => Err(Error::Interning(format!("{}", e))),
                 }
-            },
+            }
             Err(e) => Err(Error::Syntax(format!("{}", e))),
         }
     }
@@ -57,7 +57,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn read_maybe_meta<'a>(
+    pub fn read_maybe_meta_with_state<'a>(
         &mut self,
         state: &mut State,
         input: Span<'a>,

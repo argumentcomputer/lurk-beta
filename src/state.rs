@@ -67,13 +67,12 @@ impl State {
     }
 
     pub fn intern_path<A: AsRef<str>>(&mut self, path: &[A], keyword: bool) -> Result<SymbolRef> {
-        path.iter()
-            .try_fold(Symbol::new(keyword).into(), |acc, s| {
-                match self.symbol_packages.get_mut(&acc) {
-                    Some(package) => Ok(package.intern(String::from(s.as_ref()))),
-                    None => bail!("Package {acc} not found"),
-                }
-            })
+        path.iter().try_fold(Symbol::new(keyword).into(), |acc, s| {
+            match self.symbol_packages.get_mut(&acc) {
+                Some(package) => Ok(package.intern(String::from(s.as_ref()))),
+                None => bail!("Package {acc} not found"),
+            }
+        })
     }
 
     #[inline]
@@ -88,7 +87,7 @@ impl State {
         let keyword_package = Package::new(SymbolRef::new(Symbol::root_key()));
 
         // bootstrap the lurk package
-        let mut lurk_package = Package::new(root_package.intern("lurk".into()));
+        let mut lurk_package = Package::new(root_package.intern(LURK_PACKAGE_SYMBOL_NAME.into()));
         LURK_PACKAGE_SYMBOLS_NAMES.iter().for_each(|symbol_name| {
             lurk_package.intern(symbol_name.to_string());
         });
@@ -107,6 +106,12 @@ impl State {
         state
     }
 }
+
+pub fn lurk_sym(name: &str) -> Symbol {
+    Symbol::sym(&[LURK_PACKAGE_SYMBOL_NAME, name])
+}
+
+const LURK_PACKAGE_SYMBOL_NAME: &str = "lurk";
 
 const LURK_PACKAGE_SYMBOLS_NAMES: [&str; 36] = [
     "atom",
@@ -149,7 +154,7 @@ const LURK_PACKAGE_SYMBOLS_NAMES: [&str; 36] = [
 
 #[cfg(test)]
 pub mod test {
-    use super::{State, LURK_PACKAGE_SYMBOLS_NAMES};
+    use super::{State, LURK_PACKAGE_SYMBOLS_NAMES, lurk_sym};
     use crate::{
         package::{Package, SymbolRef},
         Symbol,
@@ -166,7 +171,7 @@ pub mod test {
 
         LURK_PACKAGE_SYMBOLS_NAMES
             .iter()
-            .for_each(|s| test_printing_helper(&state, Symbol::lurk_sym(s).into(), s));
+            .for_each(|s| test_printing_helper(&state, lurk_sym(s).into(), s));
 
         let user_sym = state.intern("user-sym".into());
         test_printing_helper(&state, user_sym.clone(), "user-sym");
@@ -178,7 +183,7 @@ pub mod test {
 
         test_printing_helper(&state, my_symbol.clone(), ".my-package.my-symbol");
 
-        let lambda_sym = SymbolRef::new(Symbol::lurk_sym("lambda"));
+        let lambda_sym = SymbolRef::new(lurk_sym("lambda"));
 
         state.set_current_package(my_package_name).unwrap();
         test_printing_helper(&state, my_symbol, "my-symbol");

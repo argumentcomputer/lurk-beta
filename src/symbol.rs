@@ -39,7 +39,10 @@ impl Symbol {
 
     #[inline]
     pub fn new(keyword: bool) -> Self {
-        Self { path: vec![], keyword }
+        Self {
+            path: vec![],
+            keyword,
+        }
     }
 
     /// Creates a new `Symbol` with an empty path.
@@ -144,10 +147,6 @@ impl Symbol {
                 keyword,
             })
         }
-    }
-
-    pub fn lurk_sym(name: &str) -> Symbol {
-        Self::sym(&["lurk", name])
     }
 
     pub fn is_whitespace(c: char) -> bool {
@@ -315,6 +314,16 @@ impl fmt::Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.format())
     }
+}
+
+#[macro_export]
+macro_rules! sym {
+    [$( $x:expr ),*] => {
+        {
+            let temp_vec = vec![ $( $x.to_string() ),* ];
+            $crate::symbol::Symbol::sym(&temp_vec)
+        }
+    };
 }
 
 #[cfg(test)]

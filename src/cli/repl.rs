@@ -7,6 +7,7 @@ use anyhow::{bail, Context, Result};
 
 use log::info;
 
+use lurk::state::State;
 use rustyline::{
     error::ReadlineError,
     history::DefaultHistory,
@@ -105,6 +106,7 @@ struct Evaluation<F: LurkField> {
 #[allow(dead_code)]
 pub struct Repl<F: LurkField> {
     store: Store<F>,
+    state: State,
     env: Ptr<F>,
     limit: usize,
     lang: Arc<Lang<F, Coproc<F>>>,
@@ -139,6 +141,7 @@ impl Repl<F> {
         );
         Repl {
             store,
+            state: State::initial_lurk_state(),
             env,
             limit,
             lang: Arc::new(Lang::new()),
@@ -668,7 +671,9 @@ impl Repl<F> {
         input: parser::Span<'a>,
         pwd_path: &Path,
     ) -> Result<parser::Span<'a>> {
-        let (input, ptr, is_meta) = self.store.read_maybe_meta(input)?;
+        let (input, ptr, is_meta) = self
+            .store
+            .read_maybe_meta_with_state(&mut self.state, input)?;
 
         if is_meta {
             self.handle_meta(ptr, pwd_path)?;
@@ -727,7 +732,10 @@ impl Repl<F> {
                 Ok(line) => {
                     #[cfg(not(target_arch = "wasm32"))]
                     editor.save_history(history_path)?;
-                    match self.store.read_maybe_meta(parser::Span::new(&line)) {
+                    match self
+                        .store
+                        .read_maybe_meta_with_state(&mut self.state, parser::Span::new(&line))
+                    {
                         Ok((_, expr_ptr, is_meta)) => {
                             if is_meta {
                                 if let Err(e) = self.handle_meta(expr_ptr, pwd_path) {

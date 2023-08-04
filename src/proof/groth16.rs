@@ -515,7 +515,7 @@ mod tests {
     fn outer_prove_eq() {
         outer_prove_aux(
             "(eq 5 5)",
-            |store| store.t(),
+            |store| store.t_ptr(),
             3,
             true, // Always check Groth16 in at least one test.
             true,
@@ -529,7 +529,7 @@ mod tests {
     fn outer_prove_num_equal() {
         outer_prove_aux(
             "(= 5 5)",
-            |store| store.t(),
+            |store| store.t_ptr(),
             3,
             DEFAULT_CHECK_GROTH16,
             true,
@@ -538,7 +538,7 @@ mod tests {
         );
         outer_prove_aux(
             "(= 5 6)",
-            |store| store.nil(),
+            |store| store.nil_ptr(),
             3,
             DEFAULT_CHECK_GROTH16,
             true,

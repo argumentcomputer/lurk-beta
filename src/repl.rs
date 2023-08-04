@@ -75,7 +75,7 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
         input: parser::Span<'a>,
         pwd: P,
     ) -> Result<parser::Span<'a>> {
-        let (input, ptr, is_meta) = store.read_maybe_meta(state, input)?;
+        let (input, ptr, is_meta) = store.read_maybe_meta_with_state(state, input)?;
 
         if is_meta {
             let pwd: &Path = pwd.as_ref();
@@ -87,7 +87,12 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
         }
     }
 
-    fn handle_load<P: AsRef<Path>>(&mut self, store: &mut Store<F>, state: &mut State, file_path: P) -> Result<()> {
+    fn handle_load<P: AsRef<Path>>(
+        &mut self,
+        store: &mut Store<F>,
+        state: &mut State,
+        file_path: P,
+    ) -> Result<()> {
         eprintln!("Loading from {}.", file_path.as_ref().to_str().unwrap());
         self.handle_file(store, state, file_path.as_ref())
     }
@@ -277,7 +282,7 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
                 #[cfg(not(target_arch = "wasm32"))]
                 repl.save_history()?;
 
-                match s.read_maybe_meta(state, input) {
+                match s.read_maybe_meta_with_state(state, input) {
                     Ok((_, expr, is_meta)) => {
                         if is_meta {
                             if let Err(e) = repl.state.handle_meta(s, state, expr, p) {

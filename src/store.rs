@@ -13,6 +13,7 @@ use crate::expr;
 use crate::expr::{Expression, Thunk};
 use crate::field::{FWrap, LurkField};
 use crate::ptr::{ContPtr, Ptr, RawPtr};
+use crate::state::{lurk_sym, State};
 use crate::symbol::Symbol;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
 use crate::z_cont::ZCont;
@@ -83,7 +84,7 @@ pub struct Store<F: LurkField> {
 
 impl<F: LurkField> Default for Store<F> {
     fn default() -> Self {
-        let store = Store {
+        Self {
             cons_store: Default::default(),
             comm_store: Default::default(),
             sym_store: Default::default(),
@@ -116,13 +117,7 @@ impl<F: LurkField> Default for Store<F> {
             str_cache: Default::default(),
             symbol_cache: Default::default(),
             constants: Default::default(),
-        };
-
-        // for (sym, _) in Symbol::lurk_syms() {
-        //     store.intern_symbol(sym);
-        // }
-
-        store
+        }
     }
 }
 
@@ -140,18 +135,42 @@ impl fmt::Display for Error {
 /// Prefer these methods when constructing literal data or assembling program fragments in
 /// tests or during evaluation, etc.
 impl<F: LurkField> Store<F> {
-    pub fn nil(&mut self) -> Ptr<F> {
-        self.lurk_sym("nil")
+    #[inline]
+    pub fn nil_ptr(&mut self) -> Ptr<F> {
+        self.get_constants().nil.ptr()
     }
 
-    pub fn t(&mut self) -> Ptr<F> {
-        self.lurk_sym("t")
+    #[inline]
+    pub fn t_ptr(&mut self) -> Ptr<F> {
+        self.get_constants().t.ptr()
     }
 
+    #[inline]
+    pub fn cons_ptr(&mut self) -> Ptr<F> {
+        self.get_constants().cons.ptr()
+    }
+
+    #[inline]
+    pub fn eq_ptr(&mut self) -> Ptr<F> {
+        self.get_constants().equal.ptr()
+    }
+
+    #[inline]
+    pub fn quote_ptr(&mut self) -> Ptr<F> {
+        self.get_constants().quote.ptr()
+    }
+
+    #[inline]
+    pub fn dummy_ptr(&mut self) -> Ptr<F> {
+        self.get_constants().dummy.ptr()
+    }
+
+    #[inline]
     pub fn cons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         self.intern_cons(car, cdr)
     }
 
+    #[inline]
     pub fn strcons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         self.intern_strcons(car, cdr)
     }
@@ -290,22 +309,6 @@ impl<F: LurkField> Store<F> {
 
     pub fn intern_strnil(&self) -> Ptr<F> {
         Ptr::null(ExprTag::Str)
-    }
-
-    pub fn get_nil(&self) -> Ptr<F> {
-        self.get_lurk_sym("nil").expect("missing NIL")
-    }
-
-    pub fn get_begin(&self) -> Ptr<F> {
-        self.get_lurk_sym("begin").expect("missing BEGIN")
-    }
-
-    pub fn get_quote(&self) -> Ptr<F> {
-        self.get_lurk_sym("quote").expect("missing QUOTE")
-    }
-
-    pub fn get_t(&self) -> Ptr<F> {
-        self.get_lurk_sym("t").expect("missing T")
     }
 
     pub fn intern_cons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
@@ -449,7 +452,7 @@ impl<F: LurkField> Store<F> {
     pub fn intern_list(&mut self, elts: &[Ptr<F>]) -> Ptr<F> {
         elts.iter()
             .rev()
-            .fold(self.lurk_sym("nil"), |acc, elt| self.intern_cons(*elt, acc))
+            .fold(self.nil_ptr(), |acc, elt| self.intern_cons(*elt, acc))
     }
 
     pub fn intern_symbol(&mut self, sym: &Symbol) -> Ptr<F> {
@@ -461,7 +464,7 @@ impl<F: LurkField> Store<F> {
                 let str_ptr = self.intern_string(s);
                 ptr = self.intern_symcons(str_ptr, ptr);
             }
-            if sym == Symbol::lurk_sym("nil") {
+            if sym == lurk_sym("nil") {
                 Ptr {
                     tag: ExprTag::Nil,
                     raw: ptr.raw,
@@ -477,27 +480,27 @@ impl<F: LurkField> Store<F> {
                 ptr
             }
         };
-        self.symbol_cache.insert(sym, Box::new(ptr));
+        self.symbol_cache.insert(sym.clone(), Box::new(ptr));
         ptr
     }
 
-    pub fn get_sym(&self, sym: &Symbol) -> Option<Ptr<F>> {
-        let ptr = self.symbol_cache.get(sym).cloned()?;
-        if *sym == Symbol::lurk_sym("nil") {
-            Some(Ptr {
-                tag: ExprTag::Nil,
-                raw: ptr.raw,
-                _f: ptr._f,
-            })
-        } else {
-            Some(*ptr)
-        }
-    }
+    // pub fn get_sym(&self, sym: &Symbol) -> Option<Ptr<F>> {
+    //     let ptr = self.symbol_cache.get(sym).cloned()?;
+    //     if *sym == lurk_sym("nil") {
+    //         Some(Ptr {
+    //             tag: ExprTag::Nil,
+    //             raw: ptr.raw,
+    //             _f: ptr._f,
+    //         })
+    //     } else {
+    //         Some(*ptr)
+    //     }
+    // }
 
-    pub fn get_lurk_sym<T: AsRef<str>>(&self, name: T) -> Option<Ptr<F>> {
-        let sym = Symbol::lurk_sym(name.as_ref());
-        self.get_sym(&sym)
-    }
+    // pub fn get_lurk_sym<T: AsRef<str>>(&self, name: T) -> Option<Ptr<F>> {
+    //     let sym = Symbol::lurk_sym(name.as_ref());
+    //     self.get_sym(&sym)
+    // }
 
     pub fn intern_num<T: Into<Num<F>>>(&mut self, num: T) -> Ptr<F> {
         let num = num.into();
@@ -691,7 +694,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<Symbol> {
         if ptr.tag == ExprTag::Nil {
-            return Some(Symbol::lurk_sym("nil"));
+            return Some(lurk_sym("nil"));
         }
         let mut ptr = *ptr;
         let mut path = Vec::new();
@@ -1323,7 +1326,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn car_cdr(&self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), Error> {
         match ptr.tag {
-            ExprTag::Nil => Ok((self.get_nil(), self.get_nil())),
+            ExprTag::Nil => Ok((self.nil_ptr(), self.nil_ptr())),
             ExprTag::Cons => match self.fetch(ptr) {
                 Some(Expression::Cons(car, cdr)) => Ok((car, cdr)),
                 e => Err(Error(format!(
@@ -1333,7 +1336,7 @@ impl<F: LurkField> Store<F> {
             },
             ExprTag::Str => match self.fetch(ptr) {
                 Some(Expression::Str(car, cdr)) => Ok((car, cdr)),
-                Some(Expression::EmptyStr) => Ok((self.get_nil(), self.strnil())),
+                Some(Expression::EmptyStr) => Ok((self.nil_ptr(), self.strnil())),
                 _ => unreachable!(),
             },
             _ => Err(Error("Can only extract car_cdr from Cons".into())),
@@ -1450,7 +1453,7 @@ impl<F: LurkField> Store<F> {
             use ZExpr::*;
             match (z_ptr.tag(), z_store.get_expr(z_ptr)) {
                 (ExprTag::Nil, Some(Nil)) => {
-                    let ptr = self.lurk_sym("nil");
+                    let ptr = self.nil_ptr();
                     self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
@@ -1802,17 +1805,22 @@ pub struct NamedConstants<F: LurkField> {
 
 impl<F: LurkField> NamedConstants<F> {
     pub fn new(store: &Store<F>) -> Self {
-        let hash_sym = |name: &str| {
-            let ptr = store.get_lurk_sym(name).unwrap();
+        let state = State::initial_lurk_state();
+        let resolve = |name: &str| {
+            state.resolve(name).expect("symbol must have been interned")
+        };
+        let mut hash_sym = |name: &str| {
+            let symbol = resolve(name);
+            let ptr = store.intern_symbol(&symbol);
             let maybe_z_ptr = store.hash_expr(&ptr);
             ConstantPtrs(maybe_z_ptr, ptr)
         };
 
-        let t = hash_sym("t");
         let nil = ConstantPtrs(
             Some(ZExpr::Nil.z_ptr(&store.poseidon_cache)),
-            store.get_nil(),
+            store.intern_symbol(&resolve("nil")),
         );
+        let t = hash_sym("t");
         let lambda = hash_sym("lambda");
         let quote = hash_sym("quote");
         let let_ = hash_sym("let");
@@ -2030,9 +2038,9 @@ pub mod test {
         let opaque_fun = store.intern_opaque_fun(*fun_hash.value());
         let opaque_fun2 = store.intern_opaque_fun(*fun_hash2.value());
 
-        let eq = store.lurk_sym("eq");
-        let t = store.lurk_sym("t");
-        let nil = store.nil();
+        let eq = store.eq_ptr();
+        let t = store.t_ptr();
+        let nil = store.nil_ptr();
         let limit = 10;
         let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
         {
@@ -2065,7 +2073,7 @@ pub mod test {
             // without this affecting equality semantics.
 
             let n = store.num(123);
-            let cons = store.lurk_sym("cons");
+            let cons = store.cons_ptr();
             let cons_expr1 = store.list(&[cons, fun, n]);
             let cons_expr2 = store.list(&[cons, opaque_fun, n]);
 
@@ -2090,15 +2098,15 @@ pub mod test {
         let opaque_sym = store.intern_opaque_sym(*sym_hash.value());
         let opaque_sym2 = store.intern_opaque_sym(*sym_hash2.value());
 
-        let quote = store.lurk_sym("quote");
+        let quote = store.quote_ptr();
         let qsym = store.list(&[quote, sym]);
         let qsym2 = store.list(&[quote, sym2]);
         let qsym_opaque = store.list(&[quote, opaque_sym]);
         let qsym_opaque2 = store.list(&[quote, opaque_sym2]);
 
-        let eq = store.lurk_sym("eq");
-        let t = store.lurk_sym("t");
-        let nil = store.nil();
+        let eq = store.eq_ptr();
+        let t = store.t_ptr();
+        let nil = store.nil_ptr();
         let limit = 10;
 
         // When an opaque sym is inserted into a store which contains the same sym, the store knows its identity.
@@ -2166,7 +2174,7 @@ pub mod test {
             // without this affecting equality semantics.
 
             let n = store.num(123);
-            let cons = store.lurk_sym("cons");
+            let cons = store.cons_ptr();
             let cons_expr1 = store.list(&[cons, qsym, n]);
             let cons_expr2 = store.list(&[cons, qsym_opaque, n]);
 
@@ -2194,11 +2202,11 @@ pub mod test {
         let opaque_cons = store.intern_opaque_cons(*cons_hash.value());
         let opaque_cons2 = store.intern_opaque_cons(*cons_hash2.value());
 
-        let eq = store.lurk_sym("eq");
-        let t = store.lurk_sym("t");
-        let nil = store.nil();
+        let eq = store.eq_ptr();
+        let t = store.t_ptr();
+        let nil = store.nil_ptr();
         let limit = 10;
-        let quote = store.lurk_sym("quote");
+        let quote = store.quote_ptr();
         let qcons = store.list(&[quote, cons]);
         let qcons2 = store.list(&[quote, cons2]);
         let qcons_opaque = store.list(&[quote, opaque_cons]);
@@ -2242,7 +2250,7 @@ pub mod test {
 
             let n = store.num(123);
             let n2 = store.num(321);
-            let cons_sym = store.lurk_sym("cons");
+            let cons_sym = store.cons_ptr();
             let cons_expr1 = store.list(&[cons_sym, qcons, n]);
             let cons_expr2 = store.list(&[cons_sym, qcons_opaque, n]);
             let cons_expr3 = store.list(&[cons_sym, qcons_opaque, n2]);

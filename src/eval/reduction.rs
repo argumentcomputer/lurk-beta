@@ -101,7 +101,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                 },
 
                 ExprTag::Sym => {
-                    if expr == c.nil.ptr() || (expr == store.t()) {
+                    if expr == c.nil.ptr() || (expr == store.t_ptr()) {
                         // NIL and T are self-evaluating symbols, pass them to the continuation in a thunk.
                         // NOTE: For now, NIL is its own type, but this will change soon, so leave the check here.
 
@@ -323,7 +323,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                         let (arg, _rest) = if args.is_nil() {
                             // (LAMBDA () STUFF)
                             // becomes (LAMBDA (DUMMY) STUFF)
-                            (dummy_arg, store.nil())
+                            (dummy_arg, store.nil_ptr())
                         } else {
                             cons_witness.car_cdr_named(ConsName::ExprCadr, store, &args)?
                         };
@@ -345,7 +345,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                 );
                                 let l =
                                     cons_witness.cons_named(ConsName::Lambda, store, lambda, inner);
-                                let nil = store.nil();
+                                let nil = store.nil_ptr();
                                 cons_witness.cons_named(ConsName::InnerBody, store, l, nil)
                             };
                             let function = store.intern_fun(arg, inner_body, env);
@@ -602,7 +602,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                 _ => {
                                     // Interpreting as multi-arg call.
                                     // (fn arg . more_args) => ((fn arg) . more_args)
-                                    let nil = store.nil();
+                                    let nil = store.nil_ptr();
                                     let expanded_inner0 = cons_witness.cons_named(
                                         ConsName::ExpandedInner0,
                                         store,
@@ -886,8 +886,8 @@ fn apply_continuation<F: LurkField>(
                         }
                     }
                     Op1::Atom => match result.tag {
-                        ExprTag::Cons => store.nil(),
-                        _ => store.t(),
+                        ExprTag::Cons => store.nil_ptr(),
+                        _ => store.t_ptr(),
                     },
                     Op1::Emit => {
                         println!("{}", result.fmt_to_string(store));
@@ -1329,7 +1329,7 @@ fn extend_rec<F: LurkField>(
     match var_or_binding.tag {
         // It's a var, so we are extending a simple env with a recursive env.
         ExprTag::Sym | ExprTag::Nil => {
-            let nil = store.nil();
+            let nil = store.nil_ptr();
             let list = cons_witness.cons_named(ConsName::NewRec, store, cons, nil);
             let res = cons_witness.cons_named(ConsName::ExtendedRec, store, list, env);
 
@@ -1377,9 +1377,9 @@ fn extend_closure<F: LurkField>(
 impl<F: LurkField> Store<F> {
     pub fn as_lurk_boolean(&mut self, x: bool) -> Ptr<F> {
         if x {
-            self.t()
+            self.t_ptr()
         } else {
-            self.nil()
+            self.nil_ptr()
         }
     }
 }

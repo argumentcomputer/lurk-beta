@@ -80,7 +80,7 @@ impl<F: LurkField> Write<F> for Expression<F> {
                 write!(w, "\"{head}{tail}\"")
             }
             Fun(arg, body, _closed_env) => {
-                let is_zero_arg = *arg == store.get_lurk_sym("_").expect("dummy_arg (_) missing");
+                let is_zero_arg = *arg == store.dummy_ptr();
                 let arg = store.fetch(arg).unwrap();
                 write!(w, "<FUNCTION (")?;
                 if !is_zero_arg {
@@ -95,7 +95,7 @@ impl<F: LurkField> Write<F> for Expression<F> {
                         expr.fmt(store, w)?;
                     }
                     Expression::Nil => {
-                        store.get_nil().fmt(store, w)?;
+                        store.nil_ptr().fmt(store, w)?;
                     }
                     _ => {
                         panic!("Function body was neither a Cons nor Nil");
@@ -342,7 +342,7 @@ pub mod test {
     #[test]
     fn print_expr() {
         let mut s = Store::<Fr>::default();
-        let nil = s.nil();
+        let nil = s.nil_ptr();
         let x = s.sym("x");
         let lambda = s.read("lambda").unwrap();
         let val = s.num(123);

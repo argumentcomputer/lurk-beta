@@ -127,7 +127,7 @@ fn test_reduce_simple() {
 
     {
         let (result, _new_env, _cont, _witness) = reduce(
-            store.nil(),
+            store.nil_ptr(),
             empty_sym_env(&store),
             store.intern_cont_outermost(),
             &mut store,
@@ -372,14 +372,14 @@ fn evaluate_num_equal() {
     {
         let expr = "(= 5 5)";
 
-        let expected = s.t();
+        let expected = s.t_ptr();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
     {
         let expr = "(= 5 6)";
 
-        let expected = s.nil();
+        let expected = s.nil_ptr();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
@@ -507,7 +507,7 @@ fn evaluate_letrec_body_nil() {
     let s = &mut Store::<Fr>::default();
     let expr = "(eq nil (let () nil))";
 
-    let expected = s.t();
+    let expected = s.t_ptr();
     let terminal = s.get_cont_terminal();
     test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 4, None);
 }
@@ -531,7 +531,7 @@ fn evaluate_arithmetic_let() {
                    (/ (+ a b) c))";
 
     let expected = s.num(3);
-    let new_env = s.nil();
+    let new_env = s.nil_ptr();
     let terminal = s.get_cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -909,7 +909,7 @@ fn evaluate_eq() {
         let s = &mut Store::<Fr>::default();
         let expr = "(eq 'a 'a)";
 
-        let expected = s.t();
+        let expected = s.t_ptr();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
@@ -917,7 +917,7 @@ fn evaluate_eq() {
         let s = &mut Store::<Fr>::default();
         let expr = "(eq 1 1)";
 
-        let expected = s.t();
+        let expected = s.t_ptr();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
@@ -925,7 +925,7 @@ fn evaluate_eq() {
         let s = &mut Store::<Fr>::default();
         let expr = "(eq 'a 1)";
 
-        let expected = s.nil();
+        let expected = s.nil_ptr();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
@@ -934,7 +934,7 @@ fn evaluate_eq() {
         let s = &mut Store::<Fr>::default();
         let expr = "(eq 1 'a)";
 
-        let expected = s.nil();
+        let expected = s.nil_ptr();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
@@ -954,7 +954,7 @@ fn evaluate_zero_arg_lambda() {
             let arg = s.sym("x");
             let num = s.num(123);
             let body = s.list(&[num]);
-            let env = s.nil();
+            let env = s.nil_ptr();
             s.intern_fun(arg, body, env)
         };
 
@@ -1135,7 +1135,7 @@ fn evaluate_map_tree_numequal_bug() {
                                                (= (map-tree f (car tree))
                                                   (map-tree f (cdr tree)))))))
                        (map-tree (lambda (x) (+ 1 x)) '((1 . 2) . (3 . 4))))";
-        let expected = s.nil();
+        let expected = s.nil_ptr();
         let error = s.get_cont_error();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(error), None, 169, None);
     }
@@ -1161,7 +1161,7 @@ fn env_lost_bug() {
      )
   (foo '()))
 ";
-        let expected = s.nil();
+        let expected = s.nil_ptr();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -1209,7 +1209,7 @@ fn test_str_car_cdr_cons() {
     let a_pple = s.read(r#" (#\a . "pple") "#).unwrap();
     let pple = s.read(r#" "pple" "#).unwrap();
     let empty = s.intern_string("");
-    let nil = s.nil();
+    let nil = s.nil_ptr();
     let terminal = s.get_cont_terminal();
     let error = s.get_cont_error();
 
@@ -1316,7 +1316,7 @@ fn test_one_arg_cons_error() {
 #[test]
 fn test_car_nil() {
     let s = &mut Store::<Fr>::default();
-    let expected = s.nil();
+    let expected = s.nil_ptr();
     let terminal = s.get_cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -1333,7 +1333,7 @@ fn test_car_nil() {
 #[test]
 fn test_cdr_nil() {
     let s = &mut Store::<Fr>::default();
-    let expected = s.nil();
+    let expected = s.nil_ptr();
     let terminal = s.get_cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -1438,7 +1438,7 @@ fn begin_current_env() {
     {
         let s = &mut Store::<Fr>::default();
         let expr = "(begin (current-env))";
-        let expected = s.nil();
+        let expected = s.nil_ptr();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, None, None, 2, None);
     }
 }
@@ -1817,7 +1817,7 @@ fn secret_opaque_commit() {
 
 fn relational_aux(s: &mut Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
     let expr = &format!("({op} {a} {b})");
-    let expected = if res { s.t() } else { s.nil() };
+    let expected = if res { s.t_ptr() } else { s.nil_ptr() };
     let terminal = s.get_cont_terminal();
 
     test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
@@ -1938,7 +1938,7 @@ fn test_relational() {
 #[test]
 fn test_relational_edge_case_identity() {
     let s = &mut Store::<Fr>::default();
-    let t = s.t();
+    let t = s.t_ptr();
     let terminal = s.get_cont_terminal();
 
     // Normally, a value cannot be less than the result of incrementing it.
@@ -1967,7 +1967,7 @@ fn test_relational_edge_case_identity() {
 #[test]
 fn test_num_syntax_implications() {
     let s = &mut Store::<Fr>::default();
-    let t = s.t();
+    let t = s.t_ptr();
     let terminal = s.get_cont_terminal();
 
     {
@@ -2196,8 +2196,8 @@ fn test_u64_comp() {
     let expr11 = "(= 0u64 0u64)";
     let expr12 = "(= 0u64 1u64)";
 
-    let t = s.t();
-    let nil = s.nil();
+    let t = s.t_ptr();
+    let nil = s.nil_ptr();
     let terminal = s.get_cont_terminal();
 
     test_aux::<Coproc<Fr>>(s, expr, Some(t), None, Some(terminal), None, 3, None);
@@ -2277,8 +2277,8 @@ fn test_u64_num_comparison() {
 
     let expr = "(= 1 1u64)";
     let expr2 = "(= 1 2u64)";
-    let t = s.t();
-    let nil = s.nil();
+    let t = s.t_ptr();
+    let nil = s.nil_ptr();
     let terminal = s.get_cont_terminal();
 
     test_aux::<Coproc<Fr>>(s, expr, Some(t), None, Some(terminal), None, 3, None);

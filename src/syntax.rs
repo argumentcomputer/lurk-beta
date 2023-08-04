@@ -129,7 +129,7 @@ impl<F: LurkField> Store<F> {
                 self.intern_syntax(state, Syntax::List(pos, xs))
             }
             Syntax::List(_, xs) => {
-                let mut cdr = self.nil();
+                let mut cdr = self.nil_ptr();
                 for x in xs.into_iter().rev() {
                     let car = self.intern_syntax(state, x)?;
                     cdr = self.intern_cons(car, cdr);

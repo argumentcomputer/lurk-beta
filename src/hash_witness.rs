@@ -250,7 +250,7 @@ impl<F: LurkField> HashWitness<ConsName, Cons<F>, MAX_CONSES_PER_REDUCTION, F> {
             match p {
                 Stub::Value(hash) => {
                     if let Some(existing_name) = digests.insert(hash.cons, name) {
-                        let nil = store.get_nil();
+                        let nil = store.nil_ptr();
                         if !store.ptr_eq(&hash.cons, &nil).unwrap() {
                             use crate::writer::Write;
                             let cons = hash.cons.fmt_to_string(store);

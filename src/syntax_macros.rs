@@ -100,25 +100,3 @@ macro_rules! list {
         }
     };
 }
-
-#[allow(unused_macros)]
-#[macro_export]
-macro_rules! sym {
-    [$( $x:expr ),*] => {
-        {
-            let temp_vec = vec![ $( $x.to_string() ),* ];
-            $crate::symbol::Symbol::sym(&temp_vec)
-        }
-    };
-}
-
-#[allow(unused_macros)]
-#[macro_export]
-macro_rules! lurksym {
-    [$( $x:expr ),*] => {
-        {
-            let temp_vec = vec![ "lurk".to_owned(), $( $x.to_string() ),* ];
-            $crate::symbol::Symbol::new(&temp_vec)
-        }
-    };
-}
