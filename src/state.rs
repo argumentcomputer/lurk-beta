@@ -1,6 +1,8 @@
 use anyhow::{bail, Result};
 use std::collections::HashMap;
 
+use crate::Symbol;
+
 use super::package::{Package, SymbolRef};
 
 pub struct State {
@@ -62,6 +64,15 @@ impl State {
 
     pub fn print_to_string(&self, symbol: &SymbolRef) -> String {
         self.get_current_package().print_to_string(symbol)
+    }
+
+    pub fn intern_path(&mut self, path: &[&str]) -> Result<SymbolRef> {
+        path.iter().try_fold(SymbolRef::new(Symbol::root()), |acc, s| {
+            match self.symbol_packages.get_mut(&acc) {
+                Some(package) => Ok(package.intern(s.to_string())),
+                None => bail!("Package {acc} not found"),
+            }
+        })
     }
 
     pub fn initial_lurk_state() -> Self {
@@ -170,5 +181,9 @@ pub mod test {
         state.import(&[lambda_sym.clone()]).unwrap();
         test_printing_helper(&state, lambda_sym, "lambda");
         test_printing_helper(&state, user_sym, ".lurk-user.user-sym");
+
+        let path = ["my-package", "my-other-symbol"];
+        state.intern_path(&path).unwrap();
+        test_printing_helper(&state, SymbolRef::new(Symbol::new(&path)), "my-other-symbol");
     }
 }
