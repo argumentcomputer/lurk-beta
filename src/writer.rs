@@ -53,12 +53,7 @@ impl<F: LurkField> Write<F> for ContPtr<F> {
 }
 
 fn write_symbol<W: io::Write>(w: &mut W, sym: &Symbol) -> io::Result<()> {
-    let lurk_syms = Symbol::lurk_syms();
-    if let Some(sym) = lurk_syms.get(sym) {
-        write!(w, "{}", sym)
-    } else {
-        write!(w, "{}", sym)
-    }
+    write!(w, "{}", sym)
 }
 
 impl<F: LurkField> Write<F> for Expression<F> {

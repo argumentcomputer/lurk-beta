@@ -41,60 +41,38 @@ macro_rules! char {
     };
 }
 
-#[allow(unused_macros)]
 #[macro_export]
 macro_rules! symbol {
-    ([$( $x:expr ),*]) => {
+    ( [$( $x:expr ),*] ) => {
         {
             let temp_vec = vec![ $( $x.to_string() ),* ];
-            $crate::syntax::Syntax::Symbol(Pos::No, $crate::symbol::Symbol { path: temp_vec })
+            $crate::syntax::Syntax::Path(Pos::No, temp_vec, false)
         }
     };
-    ($f:ty, [$( $x:expr ),*] ) => {
+    ( $f:ty, [$( $x:expr ),*] ) => {
         {
             let temp_vec = vec![ $( $x.to_owned() ),* ];
-            $crate::syntax::Syntax::<$f>::Symbol(Pos::No, $crate::symbol::Symbol {path: temp_vec})
-        }
-    };
-}
-
-#[allow(unused_macros)]
-#[macro_export]
-macro_rules! sym {
-    [$( $x:expr ),*] => {
-        {
-            let temp_vec = vec![ $( $x.to_string() ),* ];
-            $crate::symbol::Symbol::new(&temp_vec)
-        }
-    };
-}
-
-#[allow(unused_macros)]
-#[macro_export]
-macro_rules! lurksym {
-    [$( $x:expr ),*] => {
-        {
-            let temp_vec = vec![ "lurk".to_owned(), $( $x.to_string() ),* ];
-            $crate::symbol::Symbol::new(&temp_vec)
+            $crate::syntax::Syntax::<$f>::Path(Pos::No, temp_vec, false)
         }
     };
 }
 
 #[macro_export]
 macro_rules! keyword {
-    ([$( $x:expr ),*]) => {
+    ( [$( $x:expr ),*] ) => {
         {
-            let temp_vec = vec![ "keyword", $( $x ),* ];
-            $crate::syntax::Syntax::Keyword(Pos::No, $crate::symbol::Symbol::new(&temp_vec))
+            let temp_vec = vec![ $( $x.to_string() ),* ];
+            $crate::syntax::Syntax::Path(Pos::No, temp_vec, true)
         }
     };
-    ($f:ty, [$( $x:expr ),*]) => {
+    ( $f:ty, [$( $x:expr ),*] ) => {
         {
-            let temp_vec = vec![ "keyword".to_owned(), $( $x.to_string() ),* ];
-            $crate::syntax::Syntax::Keyword(Pos::No, $crate::symbol::Symbol {path: temp_vec})
+            let temp_vec = vec![ $( $x.to_owned() ),* ];
+            $crate::syntax::Syntax::<$f>::Path(Pos::No, temp_vec, true)
         }
     };
 }
+
 #[macro_export]
 macro_rules! list {
     ([$( $x:expr ),*], $end:expr ) => {
@@ -119,6 +97,28 @@ macro_rules! list {
         {
             let temp_vec = vec![ $( $x ),* ];
             $crate::syntax::Syntax::<$f>::List(Pos::No, temp_vec)
+        }
+    };
+}
+
+#[allow(unused_macros)]
+#[macro_export]
+macro_rules! sym {
+    [$( $x:expr ),*] => {
+        {
+            let temp_vec = vec![ $( $x.to_string() ),* ];
+            $crate::symbol::Symbol::new(&temp_vec)
+        }
+    };
+}
+
+#[allow(unused_macros)]
+#[macro_export]
+macro_rules! lurksym {
+    [$( $x:expr ),*] => {
+        {
+            let temp_vec = vec![ "lurk".to_owned(), $( $x.to_string() ),* ];
+            $crate::symbol::Symbol::new(&temp_vec)
         }
     };
 }

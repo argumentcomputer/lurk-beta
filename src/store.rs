@@ -83,7 +83,7 @@ pub struct Store<F: LurkField> {
 
 impl<F: LurkField> Default for Store<F> {
     fn default() -> Self {
-        let mut store = Store {
+        let store = Store {
             cons_store: Default::default(),
             comm_store: Default::default(),
             sym_store: Default::default(),
@@ -118,9 +118,9 @@ impl<F: LurkField> Default for Store<F> {
             constants: Default::default(),
         };
 
-        for (sym, _) in Symbol::lurk_syms() {
-            store.intern_symbol(sym);
-        }
+        // for (sym, _) in Symbol::lurk_syms() {
+        //     store.intern_symbol(sym);
+        // }
 
         store
     }

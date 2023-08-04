@@ -67,12 +67,13 @@ impl State {
     }
 
     pub fn intern_path(&mut self, path: &[&str]) -> Result<SymbolRef> {
-        path.iter().try_fold(SymbolRef::new(Symbol::root()), |acc, s| {
-            match self.symbol_packages.get_mut(&acc) {
-                Some(package) => Ok(package.intern(s.to_string())),
-                None => bail!("Package {acc} not found"),
-            }
-        })
+        path.iter()
+            .try_fold(SymbolRef::new(Symbol::root()), |acc, s| {
+                match self.symbol_packages.get_mut(&acc) {
+                    Some(package) => Ok(package.intern(s.to_string())),
+                    None => bail!("Package {acc} not found"),
+                }
+            })
     }
 
     pub fn initial_lurk_state() -> Self {
@@ -144,14 +145,14 @@ const LURK_PACKAGE_SYMBOLS_NAMES: [&str; 36] = [
 #[cfg(test)]
 pub mod test {
     use super::{State, LURK_PACKAGE_SYMBOLS_NAMES};
-    use crate::{package::{SymbolRef, Package}, Symbol};
+    use crate::{
+        package::{Package, SymbolRef},
+        Symbol,
+    };
 
     #[inline]
     fn test_printing_helper(state: &State, symbol: SymbolRef, expected: &str) {
-        assert_eq!(
-            state.print_to_string(&symbol),
-            expected.to_string()
-        );
+        assert_eq!(state.print_to_string(&symbol), expected.to_string());
     }
 
     #[test]
@@ -184,6 +185,10 @@ pub mod test {
 
         let path = ["my-package", "my-other-symbol"];
         state.intern_path(&path).unwrap();
-        test_printing_helper(&state, SymbolRef::new(Symbol::new(&path)), "my-other-symbol");
+        test_printing_helper(
+            &state,
+            SymbolRef::new(Symbol::new(&path)),
+            "my-other-symbol",
+        );
     }
 }

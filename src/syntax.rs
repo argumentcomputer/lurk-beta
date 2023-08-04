@@ -6,9 +6,8 @@ use crate::num::Num;
 use crate::parser::position::Pos;
 use crate::ptr::Ptr;
 use crate::store::Store;
-use crate::symbol::{LurkSym, Symbol};
+use crate::symbol::Symbol;
 use crate::uint::UInt;
-use std::collections::HashMap;
 
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
@@ -19,12 +18,8 @@ pub enum Syntax<F: LurkField> {
     Num(Pos, Num<F>),
     // A u64 integer: 1u64, 0xffu64
     UInt(Pos, UInt),
-    // A hierarchical symbol foo, foo.bar.baz or keyword :foo
-    Symbol(Pos, Symbol),
-    // A hierarchical symbol foo, foo.bar.baz or keyword :foo
-    Keyword(Pos, Symbol),
-    // Temporary shim until packages are correctly implemented
-    LurkSym(Pos, LurkSym),
+    // A path to be read as a hierarchical symbol and a flag to indicate a keyword
+    Path(Pos, Vec<String>, bool),
     // A string literal: "foobar", "foo\nbar"
     String(Pos, String),
     // A character literal: #\A #\λ #\u03BB
@@ -37,12 +32,6 @@ pub enum Syntax<F: LurkField> {
     Improper(Pos, Vec<Syntax<F>>, Box<Syntax<F>>),
 }
 
-impl<F: LurkField> Syntax<F> {
-    pub fn nil(pos: Pos) -> Syntax<F> {
-        Syntax::LurkSym(pos, LurkSym::Nil)
-    }
-}
-
 #[cfg(not(target_arch = "wasm32"))]
 impl<Fr: LurkField> Arbitrary for Syntax<Fr> {
     type Parameters = ();
@@ -52,16 +41,7 @@ impl<Fr: LurkField> Arbitrary for Syntax<Fr> {
         let leaf = prop_oneof![
             any::<Num<Fr>>().prop_map(|x| Syntax::Num(Pos::No, x)),
             any::<UInt>().prop_map(|x| Syntax::UInt(Pos::No, x)),
-            any::<Symbol>()
-                .prop_map(|x| Syntax::Keyword(Pos::No, Symbol::new(&["keyword"]).extend(&x.path))),
-            any::<Symbol>().prop_map(|x| {
-                if let Some(val) = Symbol::lurk_syms().get(&Symbol::lurk_sym(&format!("{}", x))) {
-                    Syntax::LurkSym(Pos::No, *val)
-                } else {
-                    Syntax::Symbol(Pos::No, x)
-                }
-            }),
-            any::<LurkSym>().prop_map(|x| Syntax::LurkSym(Pos::No, x)),
+            any::<(Vec<String>, bool)>().prop_map(|(ss, b)| Syntax::Path(Pos::No, ss, b)),
             any::<String>().prop_map(|x| Syntax::String(Pos::No, x)),
             any::<char>().prop_map(|x| Syntax::Char(Pos::No, x))
         ];
@@ -86,8 +66,14 @@ impl<F: LurkField> fmt::Display for Syntax<F> {
         match self {
             Self::Num(_, x) => write!(f, "{}", x),
             Self::UInt(_, x) => write!(f, "{}u64", x),
-            Self::Symbol(_, sym) | Self::Keyword(_, sym) => write!(f, "{}", sym),
-            Self::LurkSym(_, sym) => write!(f, "{}", sym),
+            Self::Path(_, path, key) => {
+                let sym = if *key {
+                    Symbol::keyword(path)
+                } else {
+                    Symbol::new(path)
+                };
+                write!(f, "{}", sym)
+            }
             Self::String(_, x) => write!(f, "\"{}\"", x.escape_default()),
             Self::Char(_, x) => {
                 if *x == '(' || *x == ')' {
@@ -129,11 +115,20 @@ impl<F: LurkField> Store<F> {
             Syntax::Num(_, x) => self.intern_num(x),
             Syntax::UInt(_, x) => self.intern_uint(x),
             Syntax::Char(_, x) => self.intern_char(x),
-            Syntax::Symbol(_, x) | Syntax::Keyword(_, x) => self.intern_symbol(x),
-            Syntax::LurkSym(_, x) => self.intern_symbol(Symbol::lurk_sym(&format!("{x}"))),
+            Syntax::Path(_, path, key) => {
+                let sym = if key {
+                    Symbol::keyword(&path)
+                } else {
+                    Symbol::new(&path)
+                };
+                self.intern_symbol(sym)
+            }
             Syntax::String(_, x) => self.intern_string(x),
             Syntax::Quote(pos, x) => {
-                let xs = vec![Syntax::Symbol(pos, Symbol::lurk_sym("quote")), *x];
+                let xs = vec![
+                    Syntax::Path(pos, vec!["lurk".into(), "quote".into()], false),
+                    *x,
+                ];
                 self.intern_syntax(Syntax::List(pos, xs))
             }
             Syntax::List(_, xs) => {
@@ -169,13 +164,7 @@ impl<F: LurkField> Store<F> {
                     ptr = cdr;
                 }
                 Expression::Nil => {
-                    return match (list.len(), list.get(0)) {
-                        (0, _) => Some(Syntax::LurkSym(Pos::No, LurkSym::Nil)),
-                        (2, Some(Syntax::LurkSym(_, LurkSym::Quote))) => {
-                            Some(Syntax::Quote(Pos::No, Box::new(list[1].clone())))
-                        }
-                        _ => Some(Syntax::List(Pos::No, list)),
-                    }
+                    return Some(Syntax::List(Pos::No, list));
                 }
                 _ => {
                     if list.is_empty() {
@@ -189,11 +178,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    fn fetch_syntax_aux(
-        &self,
-        lurk_syms: &HashMap<Symbol, LurkSym>,
-        ptr: Ptr<F>,
-    ) -> Option<Syntax<F>> {
+    pub fn fetch_syntax(&self, ptr: Ptr<F>) -> Option<Syntax<F>> {
         let expr = self.fetch(&ptr)?;
         match expr {
             Expression::Num(f) => Some(Syntax::Num(Pos::No, f)),
@@ -202,26 +187,17 @@ impl<F: LurkField> Store<F> {
             Expression::Nil | Expression::Cons(..) => self.fetch_syntax_list(ptr),
             Expression::EmptyStr => Some(Syntax::String(Pos::No, "".to_string())),
             Expression::Str(..) => Some(Syntax::String(Pos::No, self.fetch_string(&ptr)?)),
-            Expression::RootSym => Some(Syntax::Symbol(Pos::No, Symbol::root())),
+            Expression::RootSym => Some(Syntax::Path(Pos::No, vec![], false)),
             Expression::Sym(..) => {
-                let sym = self.fetch_symbol(&ptr)?;
-                if let Some(sym) = lurk_syms.get(&sym) {
-                    Some(Syntax::LurkSym(Pos::No, *sym))
-                } else {
-                    Some(Syntax::Symbol(Pos::No, sym))
-                }
+                let sym = self.fetch_sym(&ptr)?;
+                Some(Syntax::Path(Pos::No, sym.path, false))
             }
             Expression::Key(..) => {
-                let sym = self.fetch_symbol(&ptr)?;
-                Some(Syntax::Keyword(Pos::No, sym))
+                let sym = self.fetch_key(&ptr)?;
+                Some(Syntax::Path(Pos::No, sym.path[1..].to_vec(), true))
             }
             Expression::Comm(..) | Expression::Thunk(..) | Expression::Fun(..) => None,
         }
-    }
-
-    pub fn fetch_syntax(&self, ptr: Ptr<F>) -> Option<Syntax<F>> {
-        let lurk_syms = Symbol::lurk_syms();
-        self.fetch_syntax_aux(&lurk_syms, ptr)
     }
 }
 
@@ -233,7 +209,6 @@ mod test {
     #[test]
     fn display_syntax() {
         let mut s = Store::<Fr>::default();
-        let lurk_syms = Symbol::lurk_syms();
 
         macro_rules! improper {
             ( $( $x:expr ),+ ) => {
@@ -263,12 +238,7 @@ mod test {
 
         macro_rules! sym {
             ( $sym:ident ) => {{
-                let sym = stringify!($sym);
-                if lurk_syms.contains_key(&Symbol::lurk_sym(sym)) {
-                    s.lurk_sym(sym)
-                } else {
-                    s.sym(sym)
-                }
+                s.sym(stringify!($sym))
             }};
         }
 
@@ -298,7 +268,7 @@ mod test {
     #[test]
     fn syntax_rootkey_roundtrip() {
         let mut store1 = Store::<Fr>::default();
-        let ptr1 = store1.intern_syntax(Syntax::Keyword(Pos::No, Symbol::new(&["keyword"])));
+        let ptr1 = store1.intern_syntax(Syntax::Path(Pos::No, vec![], true));
         let (z_store, z_ptr) = store1.to_z_store_with_ptr(&ptr1).unwrap();
         let (store2, ptr2) = z_store.to_store_with_z_ptr(&z_ptr).unwrap();
         let y = store2.fetch_syntax(ptr2).unwrap();
@@ -308,7 +278,7 @@ mod test {
     #[test]
     fn syntax_empty_keyword_roundtrip() {
         let mut store1 = Store::<Fr>::default();
-        let ptr1 = store1.intern_syntax(Syntax::Keyword(Pos::No, Symbol::new(&["keyword", ""])));
+        let ptr1 = store1.intern_syntax(Syntax::Path(Pos::No, vec!["".into()], true));
         let (z_store, z_ptr) = store1.to_z_store_with_ptr(&ptr1).unwrap();
         let (store2, ptr2) = z_store.to_store_with_z_ptr(&z_ptr).unwrap();
         let y = store2.fetch_syntax(ptr2).unwrap();
