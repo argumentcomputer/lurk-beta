@@ -344,7 +344,7 @@ pub mod test {
         let mut s = Store::<Fr>::default();
         let nil = s.nil();
         let x = s.sym("x");
-        let lambda = s.lurk_sym("lambda");
+        let lambda = s.read("lambda").unwrap();
         let val = s.num(123);
         let lambda_args = s.cons(x, nil);
         let body = s.cons(x, nil);
@@ -360,7 +360,7 @@ pub mod test {
     #[test]
     fn print_expr2() {
         let mut s = Store::<Fr>::default();
-        let expr = s.intern_symbol(Symbol::sym(&["foo", "bar", "baz"]));
+        let expr = s.intern_symbol(&Symbol::sym(&["foo", "bar", "baz"]));
         let output = expr.fmt_to_string(&s);
 
         assert_eq!("foo.bar.baz".to_string(), output);

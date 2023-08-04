@@ -66,11 +66,11 @@ impl State {
         self.get_current_package().print_to_string(symbol)
     }
 
-    pub fn intern_path(&mut self, path: &[&str]) -> Result<SymbolRef> {
+    pub fn intern_path<A: AsRef<str>>(&mut self, path: &[A], keyword: bool) -> Result<SymbolRef> {
         path.iter()
-            .try_fold(SymbolRef::new(Symbol::root_sym()), |acc, s| {
+            .try_fold(Symbol::new(keyword).into(), |acc, s| {
                 match self.symbol_packages.get_mut(&acc) {
-                    Some(package) => Ok(package.intern(s.to_string())),
+                    Some(package) => Ok(package.intern(String::from(s.as_ref()))),
                     None => bail!("Package {acc} not found"),
                 }
             })
@@ -189,7 +189,7 @@ pub mod test {
         test_printing_helper(&state, user_sym, ".lurk-user.user-sym");
 
         let path = ["my-package", "my-other-symbol"];
-        state.intern_path(&path).unwrap();
+        state.intern_path(&path, false).unwrap();
         test_printing_helper(
             &state,
             SymbolRef::new(Symbol::sym(&path)),

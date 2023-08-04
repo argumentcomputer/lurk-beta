@@ -331,6 +331,7 @@ mod tests {
     use crate::circuit::ToInputs;
     use crate::eval::{empty_sym_env, lang::Coproc, Frame};
     use crate::proof::{verify_sequential_css, SequentialCS};
+    use crate::state::State;
     use bellperson::{
         groth16::aggregate::verify_aggregate_proof_and_aggregate_instances,
         util_cs::{metric_cs::MetricCS, Comparable, Delta},
@@ -628,9 +629,11 @@ mod tests {
     #[ignore]
     fn outer_prove_chained_functional_commitment() {
         let mut s = Store::<Fr>::default();
+        let state = &mut State::initial_lurk_state();
 
         let fun_src = s
-            .read(
+            .read_with_state(
+                state,
                 "(letrec ((secret 12345)
                           (a (lambda (acc x)
                                (let ((acc (+ acc x)))
@@ -647,8 +650,8 @@ mod tests {
 
         let fun = evaled.expr;
 
-        let cdr = s.lurk_sym("cdr");
-        let quote = s.lurk_sym("quote");
+        let cdr = s.read_with_state(state, "cdr").unwrap();
+        let quote = s.read_with_state(state, "quote").unwrap();
 
         let zero = s.num(0);
         let five = s.num(5);

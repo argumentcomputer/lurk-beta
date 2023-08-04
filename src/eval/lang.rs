@@ -119,7 +119,7 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
     ) {
         let name = name.into();
         // TODO: Check if intern_symbol should take a reference
-        let ptr = store.intern_symbol(name.clone());
+        let ptr = store.intern_symbol(&name);
         let z_ptr = store.hash_expr(&ptr).unwrap();
 
         self.coprocessors.insert(name, (cproc.into(), z_ptr));
@@ -127,7 +127,7 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
 
     pub fn add_binding<B: Into<Binding<F, C>>>(&mut self, binding: B, store: &mut Store<F>) {
         let Binding { name, coproc, _p } = binding.into();
-        let ptr = store.intern_symbol(name.clone());
+        let ptr = store.intern_symbol(&name);
         let z_ptr = store.hash_expr(&ptr).unwrap();
 
         self.coprocessors.insert(name, (coproc, z_ptr));

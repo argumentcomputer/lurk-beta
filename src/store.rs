@@ -256,16 +256,12 @@ impl<F: LurkField> Store<F> {
         self.intern_string(name)
     }
 
-    pub fn lurk_sym<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        self.intern_symbol(Symbol::sym(&["lurk", name.as_ref()]))
-    }
-
     pub fn sym<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        self.intern_symbol(Symbol::sym(&[name.as_ref()]))
+        self.intern_symbol(&Symbol::sym(&[name.as_ref()]))
     }
 
     pub fn key<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        self.intern_symbol(Symbol::key(&[name.as_ref()]))
+        self.intern_symbol(&Symbol::key(&[name.as_ref()]))
     }
 
     pub fn car(&self, expr: &Ptr<F>) -> Result<Ptr<F>, Error> {
@@ -456,7 +452,7 @@ impl<F: LurkField> Store<F> {
             .fold(self.lurk_sym("nil"), |acc, elt| self.intern_cons(*elt, acc))
     }
 
-    pub fn intern_symbol(&mut self, sym: Symbol) -> Ptr<F> {
+    pub fn intern_symbol(&mut self, sym: &Symbol) -> Ptr<F> {
         let ptr = if sym.path().is_empty() {
             Ptr::null(ExprTag::Sym)
         } else {
@@ -1318,7 +1314,7 @@ impl<F: LurkField> Store<F> {
             .0
     }
 
-    pub fn hash_symbol(&mut self, s: Symbol) -> ZExprPtr<F> {
+    pub fn hash_symbol(&mut self, s: &Symbol) -> ZExprPtr<F> {
         let ptr = self.intern_symbol(s);
         self.get_z_expr(&ptr, &mut None)
             .expect("known symbol can't be opaque")
@@ -2321,7 +2317,7 @@ pub mod test {
     fn sym_and_key_hashes() {
         let s = &mut Store::<Fr>::default();
 
-        let root = s.intern_symbol(Symbol::root_sym());
+        let root = s.intern_symbol(&Symbol::root_sym());
         let str1 = s.str("keyword");
         let sym1 = s.intern_symcons(str1, root);
         let str2 = s.str("orange");

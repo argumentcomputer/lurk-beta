@@ -117,12 +117,8 @@ impl<F: LurkField> Store<F> {
             Syntax::UInt(_, x) => Ok(self.intern_uint(x)),
             Syntax::Char(_, x) => Ok(self.intern_char(x)),
             Syntax::Path(_, path, key) => {
-                let sym = if key {
-                    Symbol::key(&path)
-                } else {
-                    Symbol::sym(&path)
-                };
-                self.intern_symbol(sym)
+                let sym = state.intern_path(&path, key)?;
+                Ok(self.intern_symbol(&sym))
             }
             Syntax::String(_, x) => Ok(self.intern_string(x)),
             Syntax::Quote(pos, x) => {
@@ -138,15 +134,15 @@ impl<F: LurkField> Store<F> {
                     let car = self.intern_syntax(state, x)?;
                     cdr = self.intern_cons(car, cdr);
                 }
-                cdr
+                Ok(cdr)
             }
             Syntax::Improper(_, xs, end) => {
-                let mut cdr = self.intern_syntax(*end);
+                let mut cdr = self.intern_syntax(state, *end)?;
                 for x in xs.into_iter().rev() {
-                    let car = self.intern_syntax(x);
+                    let car = self.intern_syntax(state, x)?;
                     cdr = self.intern_cons(car, cdr);
                 }
-                cdr
+                Ok(cdr)
             }
         }
     }

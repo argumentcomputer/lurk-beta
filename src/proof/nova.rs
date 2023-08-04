@@ -424,6 +424,7 @@ impl<'a: 'b, 'b, F: CurveCycleEquipped, C: Coprocessor<F>> Proof<'a, F, C> {
 #[cfg(test)]
 pub mod tests {
     use crate::num::Num;
+    use crate::state::State;
 
     use super::*;
     use crate::eval::empty_sym_env;
@@ -915,7 +916,7 @@ pub mod tests {
 
     fn test_prove_unop_regression_aux(chunk_count: usize) {
         let s = &mut Store::<Fr>::default();
-        let expected = s.lurk_sym("t");
+        let expected = s.read("t").unwrap();
         let terminal = s.get_cont_terminal();
         nova_test_full_aux::<Coproc<Fr>>(
             s,
@@ -3625,45 +3626,47 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
 
-        let hash_num = |s: &mut Store<Fr>, name| {
-            let sym = s.lurk_sym(name);
+        let hash_num = |s: &mut Store<Fr>, state: &mut State, name| {
+            let sym = s.read_with_state(state, name).unwrap();
             let z_ptr = s.hash_expr(&sym).unwrap();
             let hash = *z_ptr.value();
             Num::Scalar(hash)
         };
+
+        let state = &mut State::initial_lurk_state();
         {
             // binop
-            let expr = format!("({} 1 1)", hash_num(s, "+"));
+            let expr = format!("({} 1 1)", hash_num(s, state, "+"));
             test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         {
             // unop
-            let expr = format!("({} '(1 . 2))", hash_num(s, "car"));
+            let expr = format!("({} '(1 . 2))", hash_num(s, state, "car"));
             test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         {
             // let_or_letrec
-            let expr = format!("({} ((a 1)) a)", hash_num(s, "let"));
+            let expr = format!("({} ((a 1)) a)", hash_num(s, state, "let"));
             test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         {
             // current-env
-            let expr = format!("({})", hash_num(s, "current-env"));
+            let expr = format!("({})", hash_num(s, state, "current-env"));
             test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         {
             // lambda
-            let expr = format!("({} (x) 123)", hash_num(s, "lambda"));
+            let expr = format!("({} (x) 123)", hash_num(s, state, "lambda"));
             test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         {
             // quote
-            let expr = format!("({} asdf)", hash_num(s, "quote"));
+            let expr = format!("({} asdf)", hash_num(s, state, "quote"));
             test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         {
             // if
-            let expr = format!("({} t 123 456)", hash_num(s, "if"));
+            let expr = format!("({} t 123 456)", hash_num(s, state, "if"));
             test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
         }
     }

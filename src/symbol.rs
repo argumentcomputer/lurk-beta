@@ -37,22 +37,21 @@ impl Symbol {
         self.keyword
     }
 
+    #[inline]
+    pub fn new(keyword: bool) -> Self {
+        Self { path: vec![], keyword }
+    }
+
     /// Creates a new `Symbol` with an empty path.
     #[inline]
     pub fn root_sym() -> Self {
-        Self {
-            path: vec![],
-            keyword: false,
-        }
+        Self::new(false)
     }
 
     /// Creates a new `Symbol` with an empty path.
     #[inline]
     pub fn root_key() -> Self {
-        Self {
-            path: vec![],
-            keyword: true,
-        }
+        Self::new(true)
     }
 
     #[inline]

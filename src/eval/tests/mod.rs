@@ -3,6 +3,7 @@ use crate::coprocessor::Coprocessor;
 use crate::eval::lang::Coproc;
 use crate::eval::reduction::{extend, lookup, reduce};
 use crate::num::Num;
+use crate::state::State;
 use crate::tag::{ExprTag, Op, Op1, Op2};
 
 use lurk_macros::{let_store, lurk, Coproc};
@@ -1487,7 +1488,9 @@ fn hide_opaque_open_available() {
 
     assert!(!comm.is_opaque());
 
-    let open = s.lurk_sym("open");
+    let state = &mut State::initial_lurk_state();
+
+    let open = s.read_with_state(state, "open").unwrap();
     let x = s.sym("x");
     let lang = Lang::new();
 
@@ -1497,7 +1500,7 @@ fn hide_opaque_open_available() {
     }
 
     {
-        let secret = s.lurk_sym("secret");
+        let secret = s.read_with_state(state, "secret").unwrap();
         let expr = s.list(&[secret, comm]);
         let sec = s.num(123);
         test_aux2::<Coproc<Fr>>(s, &expr, Some(sec), None, None, None, 2, &lang);
@@ -1522,7 +1525,7 @@ fn hide_opaque_open_unavailable() {
 
     let s2 = &mut Store::<Fr>::default();
     let comm = s2.intern_maybe_opaque_comm(*c);
-    let open = s2.lurk_sym("open");
+    let open = s2.read("open").unwrap();
     let x = s2.sym("x");
 
     let expr = s2.list(&[open, comm]);
@@ -2330,8 +2333,7 @@ fn test_root_sym() {
 
     let s = &mut Store::<Fr>::default();
 
-    let sym = Symbol::root_sym();
-    let x = s.intern_symbol(sym);
+    let x = s.intern_symbol(&Symbol::root_sym());
 
     let z_ptr = &s.hash_expr(&x).unwrap();
 
@@ -2344,11 +2346,12 @@ fn test_sym_hash_values() {
     use crate::Symbol;
 
     let s = &mut Store::<Fr>::default();
+    let state = &mut State::initial_lurk_state();
 
-    let sym = s.read(".asdf.fdsa").unwrap();
+    let sym = s.read_with_state(state, ".asdf.fdsa").unwrap();
     // TODO: No longer true for keywords
     //let key = s.read(":asdf.fdsa").unwrap();
-    let expr = s.read("(cons \"fdsa\" 'asdf)").unwrap();
+    let expr = s.read_with_state(state, "(cons \"fdsa\" 'asdf)").unwrap();
 
     let limit = 10;
     let env = empty_sym_env(s);
@@ -2363,10 +2366,9 @@ fn test_sym_hash_values() {
         _emitted,
     ) = Evaluator::new(expr, env, s, limit, &lang).eval().unwrap();
 
-    let toplevel_sym = s.read(".asdf").unwrap();
+    let toplevel_sym = s.read_with_state(state, ".asdf").unwrap();
 
-    let root = Symbol::root_sym();
-    let root_sym = s.intern_symbol(root);
+    let root_sym = s.intern_symbol(&Symbol::root_sym());
 
     let asdf = s.str("asdf");
     let consed_with_root = s.cons(asdf, root_sym);
