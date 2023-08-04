@@ -1412,8 +1412,10 @@ impl<F: LurkField> Store<F> {
     }
 
     fn ensure_constants(&mut self) {
-        // This will clobber whatever was there before.
-        let _ = self.constants.set(NamedConstants::new(self));
+        if self.constants.get().is_none() {
+            let new = NamedConstants::new(self);
+            self.constants.set(new).expect("constants are not set");
+        }
     }
 
     /// The only places that `ZPtr`s for `Ptr`s should be created, to
