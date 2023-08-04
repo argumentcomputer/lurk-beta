@@ -1,11 +1,12 @@
 use std::collections::HashSet;
 
-use super::{symbol::Symbol, tag::Tag, Block, Ctrl, Func, Op};
+use super::{Block, Ctrl, Func, Lit, Op, Tag};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) enum PathNode {
     Tag(Tag),
-    Symbol(Symbol),
+    Lit(Lit),
+    Bool(bool),
     Default,
 }
 
@@ -13,7 +14,8 @@ impl std::fmt::Display for PathNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Tag(tag) => write!(f, "Tag({})", tag),
-            Self::Symbol(symbol) => write!(f, "Symbol({})", symbol),
+            Self::Lit(lit) => write!(f, "{:?}", lit),
+            Self::Bool(b) => write!(f, "Bool({})", b),
             Self::Default => write!(f, "Default"),
         }
     }
@@ -36,9 +38,15 @@ impl Path {
         Path(path)
     }
 
-    pub fn push_symbol(&self, symbol: &Symbol) -> Path {
+    pub fn push_bool(&self, b: bool) -> Path {
         let mut path = self.0.clone();
-        path.push(PathNode::Symbol(symbol.clone()));
+        path.push(PathNode::Bool(b));
+        Path(path)
+    }
+
+    pub fn push_lit(&self, lit: &Lit) -> Path {
+        let mut path = self.0.clone();
+        path.push(PathNode::Lit(lit.clone()));
         Path(path)
     }
 
@@ -54,8 +62,13 @@ impl Path {
     }
 
     #[inline]
-    pub fn push_symbol_inplace(&mut self, symbol: &Symbol) {
-        self.0.push(PathNode::Symbol(symbol.clone()));
+    pub fn push_bool_inplace(&mut self, b: bool) {
+        self.0.push(PathNode::Bool(b));
+    }
+
+    #[inline]
+    pub fn push_lit_inplace(&mut self, lit: &Lit) {
+        self.0.push(PathNode::Lit(lit.clone()));
     }
 
     #[inline]
@@ -100,12 +113,19 @@ impl Block {
             }
         }
         num_paths *= match &self.ctrl {
-            Ctrl::MatchTag(_, cases) => {
-                cases.values().fold(0, |acc, block| acc + block.num_paths())
+            Ctrl::MatchTag(_, cases, def) => {
+                let init = def.as_ref().map_or(0, |def| def.num_paths());
+                cases
+                    .values()
+                    .fold(init, |acc, block| acc + block.num_paths())
             }
-            Ctrl::MatchSymbol(_, cases, def) => cases
-                .values()
-                .fold(def.num_paths(), |acc, block| acc + block.num_paths()),
+            Ctrl::MatchVal(_, cases, def) => {
+                let init = def.as_ref().map_or(0, |def| def.num_paths());
+                cases
+                    .values()
+                    .fold(init, |acc, block| acc + block.num_paths())
+            }
+            Ctrl::IfEq(_, _, eq_block, else_block) => eq_block.num_paths() + else_block.num_paths(),
             Ctrl::Return(..) => 1,
         };
         num_paths
