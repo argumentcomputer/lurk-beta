@@ -237,6 +237,17 @@ impl<F: LurkField> Store<F> {
                 let sym = state.intern_path(&path, key)?;
                 Ok(self.intern_symbol(&sym))
             }
+            Syntax::RelPath(_, path) => {
+                if path.is_empty() {
+                    todo!()
+                } else {
+                    let name = &path[path.len() - 1];
+                    match state.resolve(name) {
+                        Some(sym) => Ok(self.intern_symbol(sym)),
+                        None => bail!("Can't resolve {name}"),
+                    }
+                }
+            }
             Syntax::String(_, x) => Ok(self.intern_string(&x)),
             Syntax::Quote(pos, x) => {
                 let quote_sym = lurk_sym("quote");

@@ -100,7 +100,7 @@ pub fn parse_relative_path<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'
     move |from: Span<'_>| {
         let (i, _) = peek(none_of(",~#(){}[]1234567890."))(from)?;
         let (upto, path) = parse_path_components()(i)?;
-        Ok((upto, Syntax::Path(Pos::from_upto(from, upto), path, false)))
+        Ok((upto, Syntax::RelPath(Pos::from_upto(from, upto), path)))
     }
 }
 
@@ -123,18 +123,17 @@ pub fn parse_raw_keyword_path<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResul
     }
 }
 
-// raw: ~(foo bar baz) = .|foo|.|bar|.|baz|
-// absolute: .foo.bar.baz (escaped limbs: .|foo|.|bar|.|baz|)
-// keyword: :foo.bar
-// relative: foo.bar
-
+/// relative: foo.bar
+/// absolute: .foo.bar.baz, :foo.bar (escaped limbs: .|foo|.|bar|.|baz|)
+/// raw: ~(foo bar baz) = .|foo|.|bar|.|baz|
+/// raw keyword: ~:(foo bar)
 pub fn parse_path<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
         alt((
+            parse_relative_path(),
+            parse_absolute_path(),
             parse_raw_path(),
             parse_raw_keyword_path(),
-            parse_absolute_path(),
-            parse_relative_path(),
         ))(from)
     }
 }

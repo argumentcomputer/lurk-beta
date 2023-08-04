@@ -290,7 +290,7 @@ impl Symbol {
         }
     }
 
-    fn format_path(path: &[String]) -> String {
+    pub fn format_path(path: &[String]) -> String {
         path.iter()
             .map(|s| Self::format_path_component(s))
             .join(".")

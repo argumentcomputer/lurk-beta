@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use std::fmt;
 
 use crate::field::LurkField;
@@ -18,8 +18,10 @@ pub enum Syntax<F: LurkField> {
     Num(Pos, Num<F>),
     // A u64 integer: 1u64, 0xffu64
     UInt(Pos, UInt),
-    // A path to be read as a hierarchical symbol and a flag to indicate a keyword
+    // An absolute path with a keyword flag: .a.b, :a.b
     Path(Pos, Vec<String>, bool),
+    // A relative path: a.b
+    RelPath(Pos, Vec<String>),
     // A string literal: "foobar", "foo\nbar"
     String(Pos, String),
     // A character literal: #\A #\λ #\u03BB
@@ -63,17 +65,20 @@ impl<Fr: LurkField> Arbitrary for Syntax<Fr> {
 
 impl<F: LurkField> fmt::Display for Syntax<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use crate::symbol::Symbol;
         match self {
             Self::Num(_, x) => write!(f, "{}", x),
             Self::UInt(_, x) => write!(f, "{}u64", x),
             Self::Path(_, path, key) => {
-                use crate::symbol::Symbol;
                 let sym = if *key {
                     Symbol::key(path)
                 } else {
                     Symbol::sym(path)
                 };
                 write!(f, "{}", sym)
+            }
+            Self::RelPath(_, path) => {
+                write!(f, "{}", Symbol::format_path(path))
             }
             Self::String(_, x) => write!(f, "\"{}\"", x.escape_default()),
             Self::Char(_, x) => {
@@ -119,6 +124,17 @@ impl<F: LurkField> Store<F> {
             Syntax::Path(_, path, key) => {
                 let sym = state.intern_path(&path, key)?;
                 Ok(self.intern_symbol(&sym))
+            }
+            Syntax::RelPath(_, path) => {
+                if path.is_empty() {
+                    todo!()
+                } else {
+                    let name = &path[path.len() - 1];
+                    match state.resolve(name) {
+                        Some(sym) => Ok(self.intern_symbol(sym)),
+                        None => bail!("Can't resolve {name}"),
+                    }
+                }
             }
             Syntax::String(_, x) => Ok(self.intern_string(x)),
             Syntax::Quote(pos, x) => {
