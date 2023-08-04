@@ -103,7 +103,7 @@ impl<F: LurkField, C: CircomGadget<F>> CoCircuit<F> for CircomCoprocessor<F, C> 
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        let input = self.gadget.into_circom_input(input_exprs);
+        let input = self.gadget.clone().into_circom_input(input_exprs);
         let witness = circom_scotia::calculate_witness(&self.config, input, true).expect("msg");
         let output = circom_scotia::synthesize(cs, self.config.r1cs.clone(), Some(witness))?;
 

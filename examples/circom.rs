@@ -38,7 +38,7 @@ impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
         "circom_sha256"
     }
 
-    fn into_circom_input(&self, _input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)> {
+    fn into_circom_input(self, _input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)> {
         // TODO: actually use the lurk inputs
         let arg_in = ("arg_in".into(), vec![F::ZERO, F::ZERO]);
         vec![arg_in]

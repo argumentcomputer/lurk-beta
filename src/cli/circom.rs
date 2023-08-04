@@ -13,7 +13,7 @@ use tokio::runtime::Runtime;
 
 use super::paths::non_wasm::{circom_binary, circom_dir};
 
-const CIRCOM_VERSION: &'static str = "2.1.6";
+const CIRCOM_VERSION: &str = "2.1.6";
 
 async fn download_circom_binary(path: impl AsRef<Path>) -> Result<Command> {
     let url = match env::consts::OS {
@@ -32,7 +32,7 @@ async fn download_circom_binary(path: impl AsRef<Path>) -> Result<Command> {
 
     let bytes = response.bytes().await?;
     let mut out = File::create(path.as_ref())?;
-    let _ = out.write_all(&bytes)?;
+    out.write_all(&bytes)?;
 
     #[cfg(unix)]
     fs::set_permissions(path.as_ref(), fs::Permissions::from_mode(0o755))?;

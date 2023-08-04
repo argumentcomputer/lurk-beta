@@ -20,7 +20,7 @@ use super::pointer::AllocatedPtr;
 pub trait CircomGadget<F: LurkField>: Send + Sync + Clone {
     fn name(&self) -> &str;
 
-    fn into_circom_input(&self, input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)>;
+    fn into_circom_input(self, input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)>;
 
     fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F>;
 }
