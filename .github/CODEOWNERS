@@ -6,12 +6,20 @@
 /.config/** @lurk-lab/lurk-ci
 /.github/** @lurk-lab/lurk-ci
 
-# Circuit
-/src/circuit/** @lurk-lab/lurk-circuit
+# Benchmarks
+/benches/** @lurk-lab/lurk-benches
+
+# CLI tools
+/src/cli/** @lurk-lab/lurk-cli-tools
+/fcomm/** @lurk-lab/lurk-cli-tools
+/clutch/** @lurk-lab/lurk-cli-tools
 
 # LEM
 /src/lem/** @lurk-lab/lurk-lem
 
+# Circuit
+/src/circuit/** @lurk-lab/lurk-circuit
+
 # Order is important; the last matching pattern takes the most
-# precedence. This excludes @everyone but @porcuquine for /src/eval.rs
+# precedence. This excludes @everyone but @porcuquine for /src/eval/**
 /src/eval/** @porcuquine

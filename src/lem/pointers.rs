@@ -1,6 +1,6 @@
-use crate::field::*;
+use crate::{field::*, tag::ContTag::Dummy, tag::ExprTag::*};
 
-use super::tag::Tag;
+use super::Tag;
 
 /// `Ptr` is the main piece of data LEMs operate on. We can think of a pointer
 /// as a building block for trees that represent Lurk data. A pointer can be a
@@ -42,40 +42,34 @@ impl<F: LurkField> Ptr<F> {
         }
     }
 
-    pub fn sym_to_key(&self) -> Self {
-        match self {
-            Ptr::Leaf(Tag::Sym, f) => Ptr::Leaf(Tag::Key, *f),
-            Ptr::Tree2(Tag::Sym, x) => Ptr::Tree2(Tag::Key, *x),
-            _ => panic!("Malformed sym pointer"),
-        }
-    }
-
-    pub fn key_to_sym(&self) -> Self {
-        match self {
-            Ptr::Leaf(Tag::Key, f) => Ptr::Leaf(Tag::Sym, *f),
-            Ptr::Tree2(Tag::Key, x) => Ptr::Tree2(Tag::Sym, *x),
-            _ => panic!("Malformed key pointer"),
-        }
-    }
-
     #[inline]
     pub fn num(f: F) -> Self {
-        Ptr::Leaf(Tag::Num, f)
+        Ptr::Leaf(Tag::Expr(Num), f)
     }
 
     #[inline]
     pub fn char(c: char) -> Self {
-        Ptr::Leaf(Tag::Char, F::from_char(c))
+        Ptr::Leaf(Tag::Expr(Char), F::from_char(c))
     }
 
     #[inline]
     pub fn comm(hash: F) -> Self {
-        Ptr::Leaf(Tag::Comm, hash)
+        Ptr::Leaf(Tag::Expr(Comm), hash)
     }
 
     #[inline]
     pub fn null(tag: Tag) -> Self {
         Ptr::Leaf(tag, F::ZERO)
+    }
+
+    #[inline]
+    pub fn cast(&self, tag: Tag) -> Self {
+        match self {
+            Ptr::Leaf(_, f) => Ptr::Leaf(tag, *f),
+            Ptr::Tree2(_, x) => Ptr::Tree2(tag, *x),
+            Ptr::Tree3(_, x) => Ptr::Tree3(tag, *x),
+            Ptr::Tree4(_, x) => Ptr::Tree4(tag, *x),
+        }
     }
 
     #[inline]
@@ -113,7 +107,7 @@ impl<F: LurkField> Ptr<F> {
 /// An important note is that computing the respective `ZPtr` of a `Ptr` can be
 /// expensive because of the Poseidon hashes. That's why we operate on `Ptr`s
 /// when interpreting LEMs and delay the need for `ZPtr`s as much as possible.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ZPtr<F: LurkField> {
     pub tag: Tag,
     pub hash: F,
@@ -132,7 +126,7 @@ impl<F: LurkField> ZPtr<F> {
     #[inline]
     pub fn dummy() -> Self {
         Self {
-            tag: Tag::Dummy,
+            tag: Tag::Cont(Dummy),
             hash: F::ZERO,
         }
     }

@@ -4,18 +4,18 @@ use std::collections::HashMap;
 use crate::{
     field::{FWrap, LurkField},
     hash::PoseidonCache,
-    lem::tag::Tag,
+    lem::Tag,
+    state::{lurk_sym, State},
+    symbol::Symbol,
+    syntax::Syntax,
+    tag::ExprTag::*,
+    uint::UInt,
 };
 use anyhow::{bail, Result};
 use dashmap::DashMap;
 use indexmap::IndexSet;
-use std::sync::Arc;
 
-use super::{
-    pointers::{Ptr, ZChildren, ZPtr},
-    symbol::Symbol,
-    AString, AVec,
-};
+use super::pointers::{Ptr, ZChildren, ZPtr};
 
 /// The `Store` is a crucial part of Lurk's implementation and tries to be a
 /// vesatile data structure for many parts of Lurk's data pipeline.
@@ -42,9 +42,10 @@ pub struct Store<F: LurkField> {
     ptrs3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
     ptrs4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
 
-    str_cache: HashMap<AString, Ptr<F>>,
-    sym_cache: HashMap<AVec<AString>, Ptr<F>>,
-    sym_path_cache: HashMap<Ptr<F>, AVec<AString>>,
+    str_cache: HashMap<String, Ptr<F>>,
+    ptr_str_cache: HashMap<Ptr<F>, String>,
+    sym_cache: HashMap<Vec<String>, Ptr<F>>,
+    ptr_sym_cache: HashMap<Ptr<F>, Vec<String>>,
 
     pub poseidon_cache: PoseidonCache<F>,
     dehydrated: Vec<Ptr<F>>,
@@ -150,7 +151,9 @@ impl<F: LurkField> Store<F> {
     /// Interns a string recursively
     pub fn intern_string(&mut self, s: &str) -> Ptr<F> {
         if s.is_empty() {
-            return Ptr::null(Tag::Str);
+            let ptr = Ptr::null(Tag::Expr(Str));
+            self.ptr_str_cache.insert(ptr, "".into());
+            return ptr;
         }
 
         match self.str_cache.get(s) {
@@ -159,18 +162,27 @@ impl<F: LurkField> Store<F> {
                 let tail = &s.chars().skip(1).collect::<String>();
                 let tail_ptr = self.intern_string(tail);
                 let head = s.chars().next().unwrap();
-                let s_ptr = self.intern_2_ptrs(Tag::Str, Ptr::char(head), tail_ptr);
+                let s_ptr = self.intern_2_ptrs(Tag::Expr(Str), Ptr::char(head), tail_ptr);
                 self.str_cache.insert(s.into(), s_ptr);
+                self.ptr_str_cache.insert(s_ptr, s.into());
                 s_ptr
             }
         }
     }
 
+    #[inline]
+    pub fn fetch_string(&self, ptr: &Ptr<F>) -> Option<&String> {
+        match ptr.tag() {
+            Tag::Expr(Str) => self.ptr_str_cache.get(ptr),
+            _ => None,
+        }
+    }
+
     /// Interns a symbol path recursively
-    pub fn intern_symbol_path(&mut self, path: &[AString]) -> Ptr<F> {
+    pub fn intern_symbol_path(&mut self, path: &[String]) -> Ptr<F> {
         if path.is_empty() {
-            let ptr = Ptr::null(Tag::Sym);
-            self.sym_path_cache.insert(ptr, Arc::new([]));
+            let ptr = Ptr::null(Tag::Expr(Sym));
+            self.ptr_sym_cache.insert(ptr, vec![]);
             return ptr;
         }
 
@@ -181,33 +193,82 @@ impl<F: LurkField> Store<F> {
                 let tail_ptr = self.intern_symbol_path(tail);
                 let head = &path[0];
                 let head_ptr = self.intern_string(head);
-                let path_ptr = self.intern_2_ptrs(Tag::Sym, head_ptr, tail_ptr);
-                let path: Arc<[Arc<str>]> = path.into();
-                self.sym_cache.insert(path.clone(), path_ptr);
-                self.sym_path_cache.insert(path_ptr, path);
+                let path_ptr = self.intern_2_ptrs(Tag::Expr(Sym), head_ptr, tail_ptr);
+                self.sym_cache.insert(path.to_vec(), path_ptr);
+                self.ptr_sym_cache.insert(path_ptr, path.to_vec());
                 path_ptr
             }
         }
     }
 
     #[inline]
-    pub fn fetch_sym_path(&self, ptr: &Ptr<F>) -> Option<&AVec<AString>> {
-        self.sym_path_cache.get(ptr)
+    pub fn fetch_sym_path(&self, ptr: &Ptr<F>) -> Option<&Vec<String>> {
+        self.ptr_sym_cache.get(ptr)
     }
 
     #[inline]
     pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<Symbol> {
         match ptr.tag() {
-            Tag::Sym => Some(Symbol::sym(self.fetch_sym_path(ptr)?)),
-            Tag::Key => Some(Symbol::key(self.fetch_sym_path(&ptr.key_to_sym())?)),
+            Tag::Expr(Sym) | Tag::Expr(Key) => Some(Symbol::new(
+                self.fetch_sym_path(ptr)?,
+                ptr.tag() == &Tag::Expr(Key),
+            )),
             _ => None,
         }
     }
 
     pub fn intern_symbol(&mut self, s: &Symbol) -> Ptr<F> {
-        match s {
-            Symbol::Sym(path) => self.intern_symbol_path(path),
-            Symbol::Key(path) => self.intern_symbol_path(path).sym_to_key(),
+        let path_ptr = self.intern_symbol_path(s.path());
+        if s == &lurk_sym("nil") {
+            path_ptr.cast(Tag::Expr(Nil))
+        } else if !s.is_keyword() {
+            path_ptr
+        } else {
+            path_ptr.cast(Tag::Expr(Key))
+        }
+    }
+
+    pub fn intern_syntax(&mut self, state: &mut State, syn: Syntax<F>) -> Result<Ptr<F>> {
+        match syn {
+            Syntax::Num(_, x) => Ok(Ptr::Leaf(Tag::Expr(Num), x.into_scalar())),
+            Syntax::UInt(_, UInt::U64(x)) => Ok(Ptr::Leaf(Tag::Expr(U64), x.into())),
+            Syntax::Char(_, x) => Ok(Ptr::Leaf(Tag::Expr(Char), (x as u64).into())),
+            Syntax::Path(_, path, key) => {
+                let sym = state.intern_path(&path, key)?;
+                Ok(self.intern_symbol(&sym))
+            }
+            Syntax::String(_, x) => Ok(self.intern_string(&x)),
+            Syntax::Quote(pos, x) => {
+                let quote_sym = lurk_sym("quote");
+                let xs = vec![Syntax::Path(pos, quote_sym.path().to_vec(), false), *x];
+                self.intern_syntax(state, Syntax::List(pos, xs))
+            }
+            Syntax::List(_, xs) => {
+                let mut cdr = self.intern_symbol(&lurk_sym("nil"));
+                for x in xs.into_iter().rev() {
+                    let car = self.intern_syntax(state, x)?;
+                    cdr = self.intern_2_ptrs(Tag::Expr(Cons), car, cdr);
+                }
+                Ok(cdr)
+            }
+            Syntax::Improper(_, xs, end) => {
+                let mut cdr = self.intern_syntax(state, *end)?;
+                for x in xs.into_iter().rev() {
+                    let car = self.intern_syntax(state, x)?;
+                    cdr = self.intern_2_ptrs(Tag::Expr(Cons), car, cdr);
+                }
+                Ok(cdr)
+            }
+        }
+    }
+
+    pub fn read(&mut self, state: &mut State, input: &str) -> Result<Ptr<F>> {
+        use crate::parser::*;
+        use nom::sequence::preceded;
+        use nom::Parser;
+        match preceded(syntax::parse_space, syntax::parse_syntax()).parse(Span::new(input)) {
+            Ok((_i, x)) => self.intern_syntax(state, x),
+            Err(e) => bail!("{}", e),
         }
     }
 
@@ -309,5 +370,55 @@ impl<F: LurkField> Store<F> {
             self.hash_ptr(ptr).expect("failed to hydrate pointer");
         });
         self.dehydrated = Vec::new();
+    }
+}
+
+impl<F: LurkField> Ptr<F> {
+    pub fn to_string(self, store: &Store<F>) -> String {
+        if let Some(s) = store.fetch_string(&self) {
+            return format!("\"{}\"", s);
+        }
+        if let Some(s) = store.fetch_symbol(&self) {
+            return format!("{}", s);
+        }
+        match self {
+            Ptr::Leaf(tag, f) => {
+                if let Some(x) = f.to_u64() {
+                    format!("{}{}", tag, x)
+                } else {
+                    format!("{}{:?}", tag, f)
+                }
+            }
+            Ptr::Tree2(tag, x) => {
+                let (p1, p2) = store.fetch_2_ptrs(x).unwrap();
+                format!(
+                    "({} {} {})",
+                    tag,
+                    (*p1).to_string(store),
+                    (*p2).to_string(store)
+                )
+            }
+            Ptr::Tree3(tag, x) => {
+                let (p1, p2, p3) = store.fetch_3_ptrs(x).unwrap();
+                format!(
+                    "({} {} {} {})",
+                    tag,
+                    (*p1).to_string(store),
+                    (*p2).to_string(store),
+                    (*p3).to_string(store)
+                )
+            }
+            Ptr::Tree4(tag, x) => {
+                let (p1, p2, p3, p4) = store.fetch_4_ptrs(x).unwrap();
+                format!(
+                    "({} {} {} {} {})",
+                    tag,
+                    (*p1).to_string(store),
+                    (*p2).to_string(store),
+                    (*p3).to_string(store),
+                    (*p4).to_string(store)
+                )
+            }
+        }
     }
 }

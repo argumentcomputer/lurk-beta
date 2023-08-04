@@ -60,13 +60,13 @@ struct LoadArgs {
     #[clap(long, value_parser)]
     config: Option<PathBuf>,
 
-    /// Maximum number of iterations allowed (defaults to 100_000_000)
-    #[clap(long, value_parser)]
-    limit: Option<usize>,
-
     /// Reduction count used for proofs (defaults to 10)
     #[clap(long, value_parser)]
     rc: Option<usize>,
+
+    /// Iterations allowed (defaults to 100_000_000; rounded up to the next multiple of rc)
+    #[clap(long, value_parser)]
+    limit: Option<usize>,
 
     /// Prover backend (defaults to "Nova")
     #[clap(long, value_parser)]
@@ -92,10 +92,10 @@ struct LoadCli {
     config: Option<PathBuf>,
 
     #[clap(long, value_parser)]
-    limit: Option<usize>,
+    rc: Option<usize>,
 
     #[clap(long, value_parser)]
-    rc: Option<usize>,
+    limit: Option<usize>,
 
     #[clap(long, value_parser)]
     backend: Option<String>,
@@ -105,14 +105,14 @@ struct LoadCli {
 }
 
 impl LoadArgs {
-    pub fn into_cli(self) -> LoadCli {
+    fn into_cli(self) -> LoadCli {
         LoadCli {
             lurk_file: self.lurk_file,
             zstore: self.zstore,
             prove: self.prove,
             config: self.config,
-            limit: self.limit,
             rc: self.rc,
+            limit: self.limit,
             backend: self.backend,
             field: self.field,
         }
@@ -133,13 +133,13 @@ struct ReplArgs {
     #[clap(long, value_parser)]
     config: Option<PathBuf>,
 
-    /// Maximum number of iterations allowed (defaults to 100_000_000)
-    #[clap(long, value_parser)]
-    limit: Option<usize>,
-
     /// Reduction count used for proofs (defaults to 10)
     #[clap(long, value_parser)]
     rc: Option<usize>,
+
+    /// Iterations allowed (defaults to 100_000_000; rounded up to the next multiple of rc)
+    #[clap(long, value_parser)]
+    limit: Option<usize>,
 
     /// Prover backend (defaults to "Nova")
     #[clap(long, value_parser)]
@@ -162,10 +162,10 @@ struct ReplCli {
     config: Option<PathBuf>,
 
     #[clap(long, value_parser)]
-    limit: Option<usize>,
+    rc: Option<usize>,
 
     #[clap(long, value_parser)]
-    rc: Option<usize>,
+    limit: Option<usize>,
 
     #[clap(long, value_parser)]
     backend: Option<String>,
@@ -175,13 +175,13 @@ struct ReplCli {
 }
 
 impl ReplArgs {
-    pub fn into_cli(self) -> ReplCli {
+    fn into_cli(self) -> ReplCli {
         ReplCli {
             load: self.load,
             zstore: self.zstore,
             config: self.config,
-            limit: self.limit,
             rc: self.rc,
+            limit: self.limit,
             backend: self.backend,
             field: self.field,
         }
@@ -262,18 +262,18 @@ fn get_store<F: LurkField + for<'a> serde::de::Deserialize<'a>>(
 }
 
 macro_rules! new_repl {
-    ( $cli: expr, $limit: expr, $rc: expr, $field: path, $backend: expr ) => {{
+    ( $cli: expr, $rc: expr, $limit: expr, $field: path, $backend: expr ) => {{
         let store = get_store(&$cli.zstore).with_context(|| "reading store from file")?;
         let env = store.nil_ptr();
-        Repl::<$field>::new(store, env, $limit, $rc, $backend)
+        Repl::<$field>::new(store, env, $rc, $limit, $backend)
     }};
 }
 
 impl ReplCli {
     pub fn run(&self) -> Result<()> {
         macro_rules! repl {
-            ( $limit: expr, $rc: expr, $field: path, $backend: expr ) => {{
-                let mut repl = new_repl!(self, $limit, $rc, $field, $backend);
+            ( $rc: expr, $limit: expr, $field: path, $backend: expr ) => {{
+                let mut repl = new_repl!(self, $rc, $limit, $field, $backend);
                 if let Some(lurk_file) = &self.load {
                     repl.load_file(lurk_file)?;
                 }
@@ -281,8 +281,8 @@ impl ReplCli {
             }};
         }
         let config = get_config(&self.config)?;
-        let limit = get_parsed_usize("limit", &self.limit, &config, DEFAULT_LIMIT)?;
         let rc = get_parsed_usize("rc", &self.rc, &config, DEFAULT_RC)?;
+        let limit = get_parsed_usize("limit", &self.limit, &config, DEFAULT_LIMIT)?;
         let backend = get_parsed(
             "backend",
             &self.backend,
@@ -297,13 +297,12 @@ impl ReplCli {
             parse_field,
             backend.default_field(),
         )?;
-        validate_non_zero("limit", limit)?;
         validate_non_zero("rc", rc)?;
         backend.validate_field(&field)?;
         match field {
-            LanguageField::Pallas => repl!(limit, rc, pallas::Scalar, backend),
-            // LanguageField::Vesta => repl!(limit, rc, vesta::Scalar, backend),
-            // LanguageField::BLS12_381 => repl!(limit, rc, blstrs::Scalar, backend),
+            LanguageField::Pallas => repl!(rc, limit, pallas::Scalar, backend),
+            // LanguageField::Vesta => repl!(rc, limit, vesta::Scalar, backend),
+            // LanguageField::BLS12_381 => repl!(rc, limit, blstrs::Scalar, backend),
             LanguageField::Vesta => todo!(),
             LanguageField::BLS12_381 => todo!(),
             LanguageField::BN256 => todo!(),
@@ -315,8 +314,8 @@ impl ReplCli {
 impl LoadCli {
     pub fn run(&self) -> Result<()> {
         macro_rules! load {
-            ( $limit: expr, $rc: expr, $field: path, $backend: expr ) => {{
-                let mut repl = new_repl!(self, $limit, $rc, $field, $backend);
+            ( $rc: expr, $limit: expr, $field: path, $backend: expr ) => {{
+                let mut repl = new_repl!(self, $rc, $limit, $field, $backend);
                 repl.load_file(&self.lurk_file)?;
                 if self.prove {
                     #[cfg(not(target_arch = "wasm32"))]
@@ -326,8 +325,8 @@ impl LoadCli {
             }};
         }
         let config = get_config(&self.config)?;
-        let limit = get_parsed_usize("limit", &self.limit, &config, DEFAULT_LIMIT)?;
         let rc = get_parsed_usize("rc", &self.rc, &config, DEFAULT_RC)?;
+        let limit = get_parsed_usize("limit", &self.limit, &config, DEFAULT_LIMIT)?;
         let backend = get_parsed(
             "backend",
             &self.backend,
@@ -342,13 +341,12 @@ impl LoadCli {
             parse_field,
             backend.default_field(),
         )?;
-        validate_non_zero("limit", limit)?;
         validate_non_zero("rc", rc)?;
         backend.validate_field(&field)?;
         match field {
-            LanguageField::Pallas => load!(limit, rc, pallas::Scalar, backend),
-            // LanguageField::Vesta => load!(limit, rc, vesta::Scalar, backend),
-            // LanguageField::BLS12_381 => load!(limit, rc, blstrs::Scalar, backend),
+            LanguageField::Pallas => load!(rc, limit, pallas::Scalar, backend),
+            // LanguageField::Vesta => load!(rc, limit, vesta::Scalar, backend),
+            // LanguageField::BLS12_381 => load!(rc, limit, blstrs::Scalar, backend),
             LanguageField::Vesta => todo!(),
             LanguageField::BLS12_381 => todo!(),
             LanguageField::BN256 => todo!(),
@@ -364,17 +362,9 @@ struct VerifyArgs {
     proof_id: String,
 }
 
-/// Parses CLI arguments and continues the program flow accordingly
-pub fn parse_and_run() -> Result<()> {
-    #[cfg(not(target_arch = "wasm32"))]
-    paths::non_wasm::create_lurk_dirs()?;
-
-    if let Ok(repl_cli) = ReplCli::try_parse() {
-        repl_cli.run()
-    } else if let Ok(load_cli) = LoadCli::try_parse() {
-        load_cli.run()
-    } else {
-        match Cli::parse().command {
+impl Cli {
+    fn run(self) -> Result<()> {
+        match self.command {
             Command::Repl(repl_args) => repl_args.into_cli().run(),
             Command::Load(load_args) => load_args.into_cli().run(),
             #[allow(unused_variables)]
@@ -387,5 +377,23 @@ pub fn parse_and_run() -> Result<()> {
                 Ok(())
             }
         }
+    }
+}
+
+/// Parses CLI arguments and continues the program flow accordingly
+pub fn parse_and_run() -> Result<()> {
+    #[cfg(not(target_arch = "wasm32"))]
+    paths::non_wasm::create_lurk_dirs()?;
+
+    if let Ok(cli) = Cli::try_parse() {
+        cli.run()
+    } else if let Ok(repl_cli) = ReplCli::try_parse() {
+        repl_cli.run()
+    } else if let Ok(load_cli) = LoadCli::try_parse() {
+        load_cli.run()
+    } else {
+        // force printing help
+        Cli::parse();
+        Ok(())
     }
 }

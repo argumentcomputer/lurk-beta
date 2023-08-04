@@ -73,18 +73,21 @@ impl Symbol {
         self.is_root() && self.keyword
     }
 
-    pub fn sym<A: AsRef<str>>(path: &[A]) -> Self {
+    pub fn new<A: AsRef<str>>(path: &[A], keyword: bool) -> Self {
         Self {
             path: path.iter().map(|x| String::from(x.as_ref())).collect(),
-            keyword: false,
+            keyword,
         }
     }
 
+    #[inline]
+    pub fn sym<A: AsRef<str>>(path: &[A]) -> Self {
+        Self::new(path, false)
+    }
+
+    #[inline]
     pub fn key<A: AsRef<str>>(path: &[A]) -> Self {
-        Self {
-            path: path.iter().map(|x| String::from(x.as_ref())).collect(),
-            keyword: true,
-        }
+        Self::new(path, true)
     }
 
     /// Creates a new Symbol with the path extended by the given vector of path segments.

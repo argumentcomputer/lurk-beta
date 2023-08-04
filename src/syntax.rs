@@ -1,11 +1,11 @@
-use anyhow::{bail, Result};
+use anyhow::Result;
 use std::fmt;
 
 use crate::field::LurkField;
 use crate::num::Num;
 use crate::parser::position::Pos;
 use crate::ptr::Ptr;
-use crate::state::State;
+use crate::state::{lurk_sym, State};
 use crate::store::Store;
 use crate::uint::UInt;
 
@@ -122,9 +122,7 @@ impl<F: LurkField> Store<F> {
             }
             Syntax::String(_, x) => Ok(self.intern_string(x)),
             Syntax::Quote(pos, x) => {
-                let Some(quote_sym) = state.resolve("quote") else {
-                    bail!("Couldn't resolve 'quote'")
-                };
+                let quote_sym = lurk_sym("quote");
                 let xs = vec![Syntax::Path(pos, quote_sym.path().to_vec(), false), *x];
                 self.intern_syntax(state, Syntax::List(pos, xs))
             }

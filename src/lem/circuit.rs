@@ -20,218 +20,38 @@
 //! With that in mind, we can keep track of booleans that tell us whether we're
 //! on a concrete or a virtual path and use such booleans as the premises to build
 //! the constraints we care about with implication gadgets.
-//!
-//! ### Slot optimizations
-//!
-//! Some LEM functions may require expensive gadgets, such as Poseidon hashing.
-//! So we use the concept of "slots" to avoid wasting constraints. To explore
-//! this idea, let's use the following LEM as an example:
-//!
-//! ```text
-//! (a, b, c): 3 => {
-//!     match_tag c {
-//!         Num => {
-//!             let x: Cons = hash2(a, b);
-//!             return (x, x, x);
-//!         },
-//!         Char => {
-//!             let m: Cons = hash2(b, a);
-//!             let n: Cons = hash2(c, a);
-//!             return (m, m, n);
-//!         }
-//!     }
-//! }
-//! ```
-//!
-//! On a first impression, one might think that we need to perform three hashing
-//! operations in the circuit when in fact we can get away with only two. That
-//! is so because interpretation can only follow one of the paths:
-//!
-//! * If it goes through `Num`, we need to get one hash right
-//! * If it goes through `Char`, we need to get two hashes right
-//!
-//! Either way, that's at most two hashes that we really care about. So we say
-//! that we need to allocate two slots. The first slot is for the the hash of `x`
-//! or `m` and the second slot is for the hash of `n` (or a "dummy value", as
-//! explained ahead). Let's see a sketch of part of the circuit:
-//!
-//! ```text
-//!     ┌─────┐        ┌─────┐
-//! s0i0┤slot0├s0  s1i0┤slot1├s1
-//! s0i1┤hash2│    s1i1┤hash2│
-//!     └─────┘        └─────┘
-//! ...
-//! PNum = c.tag == Num
-//! PChar = c.tag == Char
-//!
-//! PNum → a == s0i0
-//! PNum → b == s0i1
-//! PNum → x.hash == s0
-//!
-//! PChar → b == s0i0
-//! PChar → a == s0i1
-//! PChar → m.hash == s0
-//!
-//! PChar → c == s1i0
-//! PChar → a == s1i1
-//! PChar → n.hash == s1
-//! ```
-//!
-//! `PNum` and `PChar` are boolean premises that indicate whether interpretation
-//! went through `Num` or `Char` respectively. They're used as inputs for gadgets
-//! that implement implications (hence the right arrows above). We will talk
-//! about "concrete" vs "virtual" paths elsewhere.
-//!
-//! Now we're able to feed the slots with the data that comes from interpretation:
-//!
-//! 1. If it goes through `Num`, we will collect `[[a, b]]` for the preimages of
-//! the slots. So we can feed the preimage of `slot0` with `[a, b]` and the
-//! preimage of `slot1` with dummies
-//!
-//! 2. If it goes through `Char`, we will collect `[[b, a], [c, a]]` for the
-//! preimages of the slots. So we can feed the preimage of `slot0` with `[b, a]`
-//! and the preimage of `slot1` with `[c, a]`.
-//!
-//! In the first case, `PNum` will be true, requiring that the conclusions of the
-//! implications for which it is the premise must also be true (which is fine!).
-//! `PChar`, on the other hand, will be false, making the conclusions of the
-//! implications for which it is the premise irrelevant. This is crucial because
-//! interpretation won't even produce bindings for `m` or `n`, thus we don't
-//! expect to fulfill `m.hash == s0` nor `n.hash == s1`. In fact, we don't expect
-//! to fulfill any conclusion in the implications deriving from the `PChar` premise.
-//!
-//! Finally, we have an analogous situation for the second case, when
-//! interpretation goes through `Char`.
-//!
-//! This example explored slots of type "hash2", but the same line of thought can
-//! be expanded to different types of slots, orthogonally.
-//!
-//! #### The slot optimization algorithm
-//!
-//! We've separated the process in three steps:
-//!
-//! 1. Perform a static analysis to compute the number of slots (for each slot
-//! type) that are needed. This piece of information will live on a `SlotsCounter`
-//! structure, which is populated by the function `Block::count_slots`;
-//!
-//! 2. Interpret the LEM function and collect the data that will be fed to some
-//! (or all) slots, along with all bindings from `Var`s to `Ptr`s. This piece of
-//! information will live on a `Frame` structure;
-//!
-//! 3. Build the circuit with `SlotsCounter` and `Frame` at hand. This step is
-//! better explained in the `Func::synthesize` function.
-//!
-//! The 3 steps above will be further referred to as *STEP 1*, *STEP 2* and
-//! *STEP 3* respectively. STEP 1 should be performed once per function. Then
-//! STEP 2 will need as many iterations as it takes to evaluate the Lurk
-//! expression and so will STEP 3.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use bellperson::{
-    gadgets::{boolean::Boolean, num::AllocatedNum},
+    gadgets::{
+        boolean::{AllocatedBit, Boolean},
+        num::AllocatedNum,
+    },
     ConstraintSystem,
 };
 
 use crate::circuit::gadgets::{
-    constraints::{alloc_equal_const, and, enforce_selector_with_premise, implies_equal},
+    constraints::{
+        add, alloc_equal, alloc_equal_const, and, enforce_selector_with_premise, implies_equal,
+        mul, sub,
+    },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
 };
 
 use crate::field::{FWrap, LurkField};
+use crate::tag::ExprTag::*;
 
 use super::{
     interpreter::Frame,
     pointers::{Ptr, ZPtr},
+    slot::*,
     store::Store,
     var_map::VarMap,
-    Block, Ctrl, Func, Op, Var,
+    Block, Ctrl, Func, Op, Tag, Var,
 };
-
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SlotsCounter {
-    pub hash2: usize,
-    pub hash3: usize,
-    pub hash4: usize,
-}
-
-impl SlotsCounter {
-    /// This interface is mostly for testing
-    #[inline]
-    pub(crate) fn new(num_slots: (usize, usize, usize)) -> Self {
-        Self {
-            hash2: num_slots.0,
-            hash3: num_slots.1,
-            hash4: num_slots.2,
-        }
-    }
-
-    #[inline]
-    pub(crate) fn consume_hash2(&mut self) -> usize {
-        self.hash2 += 1;
-        self.hash2 - 1
-    }
-
-    #[inline]
-    pub(crate) fn consume_hash3(&mut self) -> usize {
-        self.hash3 += 1;
-        self.hash3 - 1
-    }
-
-    #[inline]
-    pub(crate) fn consume_hash4(&mut self) -> usize {
-        self.hash4 += 1;
-        self.hash4 - 1
-    }
-
-    #[inline]
-    pub(crate) fn max(&self, other: Self) -> Self {
-        use std::cmp::max;
-        Self {
-            hash2: max(self.hash2, other.hash2),
-            hash3: max(self.hash3, other.hash3),
-            hash4: max(self.hash4, other.hash4),
-        }
-    }
-
-    #[inline]
-    pub(crate) fn add(&self, other: Self) -> Self {
-        Self {
-            hash2: self.hash2 + other.hash2,
-            hash3: self.hash3 + other.hash3,
-            hash4: self.hash4 + other.hash4,
-        }
-    }
-}
-
-impl Block {
-    pub fn count_slots(&self) -> SlotsCounter {
-        let ops_slots = self.ops.iter().fold(SlotsCounter::default(), |acc, op| {
-            let val = match op {
-                Op::Hash2(..) | Op::Unhash2(..) => SlotsCounter::new((1, 0, 0)),
-                Op::Hash3(..) | Op::Unhash3(..) => SlotsCounter::new((0, 1, 0)),
-                Op::Hash4(..) | Op::Unhash4(..) => SlotsCounter::new((0, 0, 1)),
-                Op::Call(_, func, _) => func.body.count_slots(),
-                _ => SlotsCounter::default(),
-            };
-            acc.add(val)
-        });
-        let ctrl_slots = match &self.ctrl {
-            Ctrl::MatchTag(_, cases) => {
-                cases.values().fold(SlotsCounter::default(), |acc, block| {
-                    acc.max(block.count_slots())
-                })
-            }
-            Ctrl::MatchSymbol(_, cases, def) => cases
-                .values()
-                .fold(def.count_slots(), |acc, block| acc.max(block.count_slots())),
-            Ctrl::Return(..) => SlotsCounter::default(),
-        };
-        ops_slots.add(ctrl_slots)
-    }
-}
 
 /// Manages global allocations for constants in a constraint system
 #[derive(Default)]
@@ -276,46 +96,6 @@ impl<F: LurkField> GlobalAllocator<F> {
                 Ok(allocated_num)
             }
         }
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub(crate) enum SlotType {
-    Hash2,
-    Hash3,
-    Hash4,
-}
-
-impl SlotType {
-    pub(crate) fn preimg_size(&self) -> usize {
-        match self {
-            Self::Hash2 => 4,
-            Self::Hash3 => 6,
-            Self::Hash4 => 8,
-        }
-    }
-}
-
-impl std::fmt::Display for SlotType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Hash2 => write!(f, "Hash2"),
-            Self::Hash3 => write!(f, "Hash3"),
-            Self::Hash4 => write!(f, "Hash4"),
-        }
-    }
-}
-
-/// A `Slot` is characterized by an index and a type
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-struct Slot {
-    idx: usize,
-    typ: SlotType,
-}
-
-impl std::fmt::Display for Slot {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Slot({}, {})", self.idx, self.typ)
     }
 }
 
@@ -414,78 +194,78 @@ impl Func {
     /// Allocates unconstrained slots
     fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        preimgs: &[Vec<Ptr<F>>],
+        preimgs: &[Option<Vec<Ptr<F>>>],
         slot_type: SlotType,
         num_slots: usize,
         store: &mut Store<F>,
     ) -> Result<Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>> {
         assert!(
-            preimgs.len() <= num_slots,
-            "collected preimages exceeded the number of available slots"
+            preimgs.len() == num_slots,
+            "collected preimages not equal to the number of available slots"
         );
 
         let mut preallocations = Vec::with_capacity(num_slots);
 
-        // First we perform the allocations for the slots containing data collected
-        // by the interpreter
-        for (slot_idx, preimg) in preimgs.iter().enumerate() {
-            let slot = Slot {
-                idx: slot_idx,
-                typ: slot_type,
-            };
-            // Allocate the preimage because the image depends on it
-            let mut preallocated_preimg = Vec::with_capacity(2 * preimg.len());
+        // We must perform the allocations for the slots containing data collected
+        // by the interpreter. The `None` cases must be filled with dummy values
+        for (slot_idx, maybe_preimg) in preimgs.iter().enumerate() {
+            if let Some(preimg) = maybe_preimg {
+                let slot = Slot {
+                    idx: slot_idx,
+                    typ: slot_type,
+                };
+                // Allocate the preimage because the image depends on it
+                let mut preallocated_preimg = Vec::with_capacity(2 * preimg.len());
 
-            let mut component_idx = 0;
-            for ptr in preimg {
-                let z_ptr = store.hash_ptr(ptr)?;
+                let mut component_idx = 0;
+                for ptr in preimg {
+                    let z_ptr = store.hash_ptr(ptr)?;
 
-                // allocate pointer tag
-                preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
-                    cs,
-                    &slot,
-                    component_idx,
-                    z_ptr.tag.to_field(),
-                )?);
+                    // allocate pointer tag
+                    preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
+                        cs,
+                        &slot,
+                        component_idx,
+                        z_ptr.tag.to_field(),
+                    )?);
 
-                component_idx += 1;
+                    component_idx += 1;
 
-                // allocate pointer hash
-                preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
-                    cs,
-                    &slot,
-                    component_idx,
-                    z_ptr.hash,
-                )?);
+                    // allocate pointer hash
+                    preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
+                        cs,
+                        &slot,
+                        component_idx,
+                        z_ptr.hash,
+                    )?);
 
-                component_idx += 1;
+                    component_idx += 1;
+                }
+
+                // Allocate the image by calling the arithmetic function according
+                // to the slot type
+                let preallocated_img =
+                    Self::allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
+
+                preallocations.push((preallocated_preimg, preallocated_img));
+            } else {
+                let slot = Slot {
+                    idx: slot_idx,
+                    typ: slot_type,
+                };
+                let preallocated_preimg: Vec<_> = (0..slot_type.preimg_size())
+                    .map(|component_idx| {
+                        Self::allocate_preimg_component_for_slot(cs, &slot, component_idx, F::ZERO)
+                    })
+                    .collect::<Result<_, _>>()?;
+
+                let preallocated_img =
+                    Self::allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
+
+                preallocations.push((preallocated_preimg, preallocated_img));
             }
-
-            // Allocate the image by calling the arithmetic function according
-            // to the slot type
-            let preallocated_img =
-                Self::allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
-
-            preallocations.push((preallocated_preimg, preallocated_img));
         }
 
-        // Then we do the same with dummies for the remaining slots
-        for slot_idx in preallocations.len()..num_slots {
-            let slot = Slot {
-                idx: slot_idx,
-                typ: slot_type,
-            };
-            let preallocated_preimg: Vec<_> = (0..slot_type.preimg_size())
-                .map(|component_idx| {
-                    Self::allocate_preimg_component_for_slot(cs, &slot, component_idx, F::ZERO)
-                })
-                .collect::<Result<_, _>>()?;
-
-            let preallocated_img =
-                Self::allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
-
-            preallocations.push((preallocated_preimg, preallocated_img));
-        }
         Ok(preallocations)
     }
 
@@ -501,7 +281,6 @@ impl Func {
         &self,
         cs: &mut CS,
         store: &mut Store<F>,
-        num_slots: &SlotsCounter,
         frame: &Frame<F>,
     ) -> Result<()> {
         let mut global_allocator = GlobalAllocator::default();
@@ -519,7 +298,7 @@ impl Func {
             cs,
             &frame.preimages.hash2_ptrs,
             SlotType::Hash2,
-            num_slots.hash2,
+            self.slot.hash2,
             store,
         )?;
 
@@ -527,7 +306,7 @@ impl Func {
             cs,
             &frame.preimages.hash3_ptrs,
             SlotType::Hash3,
-            num_slots.hash3,
+            self.slot.hash3,
             store,
         )?;
 
@@ -535,7 +314,7 @@ impl Func {
             cs,
             &frame.preimages.hash4_ptrs,
             SlotType::Hash4,
-            num_slots.hash4,
+            self.slot.hash4,
             store,
         )?;
 
@@ -545,14 +324,14 @@ impl Func {
             preallocated_hash2_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash3_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash4_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
-            call_outputs: Vec<Vec<Ptr<F>>>,
+            call_outputs: VecDeque<Vec<Ptr<F>>>,
             call_count: usize,
         }
 
         fn recurse<F: LurkField, CS: ConstraintSystem<F>>(
             cs: &mut CS,
             block: &Block,
-            concrete_path: &Boolean,
+            not_dummy: &Boolean,
             next_slot: &mut SlotsCounter,
             bound_allocations: &mut BoundAllocations<F>,
             preallocated_outputs: &Vec<AllocatedPtr<F>>,
@@ -589,7 +368,7 @@ impl Func {
                                         &op
                                     )
                                 }),
-                                &concrete_path,
+                                not_dummy,
                                 allocated_ptr.tag(),
                                 &preallocated_preimg[ptr_idx], // tag index
                             )?;
@@ -600,7 +379,7 @@ impl Func {
                                         &op
                                     )
                                 }),
-                                &concrete_path,
+                                not_dummy,
                                 allocated_ptr.hash(),
                                 &preallocated_preimg[ptr_idx + 1], // hash index
                             )?;
@@ -638,7 +417,7 @@ impl Func {
                             &mut cs.namespace(|| {
                                 format!("implies equal for {}'s hash (LEMOP {:?})", $img, &op)
                             }),
-                            &concrete_path,
+                            not_dummy,
                             allocated_img.hash(),
                             &preallocated_img,
                         )?;
@@ -646,8 +425,8 @@ impl Func {
                         // Retrieve preimage hashes and tags create the full preimage pointers
                         // and add them to bound allocations
                         for i in 0..preallocated_preimg.len() / 2 {
-                            let preimg_hash = &preallocated_preimg[i];
-                            let preimg_tag = &preallocated_preimg[i + 1];
+                            let preimg_tag = &preallocated_preimg[2 * i];
+                            let preimg_hash = &preallocated_preimg[2 * i + 1];
                             let preimg_ptr =
                                 AllocatedPtr::from_parts(preimg_tag.clone(), preimg_hash.clone());
                             bound_allocations.insert($preimg[i].clone(), preimg_ptr);
@@ -663,8 +442,14 @@ impl Func {
                         // Note that, because there's currently no way of deferring giving
                         // a value to the allocated nums to be filled later, we must either
                         // add the results of the call to the witness, or recompute them.
-                        let output_vals = g.call_outputs.pop().unwrap();
-                        let mut output_ptrs = vec![];
+                        let output_vals = if not_dummy.get_value().unwrap() {
+                            g.call_outputs.pop_front().unwrap()
+                        } else {
+                            let dummy = Ptr::Leaf(Tag::Expr(Nil), F::ZERO);
+                            (0..out.len()).map(|_| dummy).collect()
+                        };
+                        assert_eq!(output_vals.len(), out.len());
+                        let mut output_ptrs = Vec::with_capacity(out.len());
                         for (ptr, var) in output_vals.iter().zip(out.iter()) {
                             let zptr = &g.store.hash_ptr(ptr)?;
                             output_ptrs.push(Func::allocate_ptr(cs, zptr, var, bound_allocations)?);
@@ -682,7 +467,7 @@ impl Func {
                         recurse(
                             &mut cs.namespace(|| format!("Call {}", g.call_count)),
                             &func.body,
-                            concrete_path,
+                            not_dummy,
                             next_slot,
                             bound_allocations,
                             &output_ptrs,
@@ -708,13 +493,86 @@ impl Func {
                         unhash_helper!(preimg, img, SlotType::Hash4);
                     }
                     Op::Null(tgt, tag) => {
+                        let tag = g.global_allocator.get_or_alloc_const(cs, tag.to_field())?;
+                        let zero = g.global_allocator.get_or_alloc_const(cs, F::ZERO)?;
+                        let allocated_ptr = AllocatedPtr::from_parts(tag, zero);
+                        bound_allocations.insert(tgt.clone(), allocated_ptr);
+                    }
+                    Op::Lit(tgt, lit) => {
+                        let lit_ptr = lit.to_ptr(g.store);
+                        let lit_tag = lit_ptr.tag().to_field();
+                        let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
+                        let allocated_tag = g.global_allocator.get_or_alloc_const(cs, lit_tag)?;
+                        let allocated_hash = g.global_allocator.get_or_alloc_const(cs, lit_hash)?;
+                        let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
+                        bound_allocations.insert(tgt.clone(), allocated_ptr);
+                    }
+                    Op::Cast(tgt, tag, src) => {
+                        let src = bound_allocations.get(src)?;
+                        let tag = g.global_allocator.get_or_alloc_const(cs, tag.to_field())?;
+                        let allocated_ptr = AllocatedPtr::from_parts(tag, src.hash().clone());
+                        bound_allocations.insert(tgt.clone(), allocated_ptr);
+                    }
+                    Op::Add(tgt, a, b) => {
+                        let a = bound_allocations.get(a)?;
+                        let b = bound_allocations.get(b)?;
+                        // TODO check that the tags are correct
+                        let a_num = a.hash();
+                        let b_num = b.hash();
+                        let c_num = add(&mut cs.namespace(|| "add"), a_num, b_num)?;
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let c = AllocatedPtr::from_parts(tag, c_num);
+                        bound_allocations.insert(tgt.clone(), c);
+                    }
+                    Op::Sub(tgt, a, b) => {
+                        let a = bound_allocations.get(a)?;
+                        let b = bound_allocations.get(b)?;
+                        // TODO check that the tags are correct
+                        let a_num = a.hash();
+                        let b_num = b.hash();
+                        let c_num = sub(&mut cs.namespace(|| "sub"), a_num, b_num)?;
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let c = AllocatedPtr::from_parts(tag, c_num);
+                        bound_allocations.insert(tgt.clone(), c);
+                    }
+                    Op::Mul(tgt, a, b) => {
+                        let a = bound_allocations.get(a)?;
+                        let b = bound_allocations.get(b)?;
+                        // TODO check that the tags are correct
+                        let a_num = a.hash();
+                        let b_num = b.hash();
+                        let c_num = mul(&mut cs.namespace(|| "mul"), a_num, b_num)?;
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let c = AllocatedPtr::from_parts(tag, c_num);
+                        bound_allocations.insert(tgt.clone(), c);
+                    }
+                    Op::Div(_tgt, _a, _b) => {
+                        // TODO
+                    }
+                    Op::Emit(_) => (),
+                    Op::Hide(tgt, _sec, _pay) => {
+                        // TODO
                         let allocated_ptr = AllocatedPtr::from_parts(
-                            g.global_allocator.get_or_alloc_const(cs, tag.to_field())?,
+                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
                             g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
                         );
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
-                    _ => todo!(),
+                    Op::Open(pay, sec, _comm_or_num) => {
+                        // TODO
+                        let allocated_ptr = AllocatedPtr::from_parts(
+                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
+                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
+                        );
+                        bound_allocations.insert(pay.clone(), allocated_ptr.clone());
+                        bound_allocations.insert(sec.clone(), allocated_ptr);
+                    }
                 }
             }
 
@@ -728,17 +586,51 @@ impl Func {
                                 &mut cs.namespace(|| {
                                     format!("implies_ptr_equal {return_var} (return_var {i})")
                                 }),
-                                concrete_path,
+                                not_dummy,
                                 &preallocated_outputs[i],
                             )
                             .with_context(|| "couldn't constrain `implies_ptr_equal`")?;
                     }
                     Ok(())
                 }
-                Ctrl::MatchTag(match_var, cases) => {
+                Ctrl::IfEq(x, y, eq_block, else_block) => {
+                    let x = bound_allocations.get(x)?.hash();
+                    let y = bound_allocations.get(y)?.hash();
+                    // TODO should we check whether the tags are equal too?
+                    let eq = alloc_equal(&mut cs.namespace(|| "if_eq.alloc_equal"), x, y)?;
+                    let not_eq = eq.not();
+                    // TODO is this the most efficient way of doing if statements?
+                    let not_dummy_and_eq = and(&mut cs.namespace(|| "if_eq.and"), not_dummy, &eq)?;
+                    let not_dummy_and_not_eq =
+                        and(&mut cs.namespace(|| "if_eq.and.2"), not_dummy, &not_eq)?;
+
+                    let mut branch_slot = *next_slot;
+                    recurse(
+                        &mut cs.namespace(|| "if_eq.true"),
+                        eq_block,
+                        &not_dummy_and_eq,
+                        &mut branch_slot,
+                        bound_allocations,
+                        preallocated_outputs,
+                        g,
+                    )?;
+                    recurse(
+                        &mut cs.namespace(|| "if_eq.false"),
+                        else_block,
+                        &not_dummy_and_not_eq,
+                        next_slot,
+                        bound_allocations,
+                        preallocated_outputs,
+                        g,
+                    )?;
+                    *next_slot = next_slot.max(branch_slot);
+                    Ok(())
+                }
+                Ctrl::MatchTag(match_var, cases, def) => {
                     let allocated_match_tag = bound_allocations.get(match_var)?.tag().clone();
-                    let mut concrete_path_vec = Vec::new();
-                    for (tag, op) in cases {
+                    let mut selector = Vec::with_capacity(cases.len() + 1);
+                    let mut branch_slots = Vec::with_capacity(cases.len());
+                    for (tag, block) in cases {
                         let allocated_has_match = alloc_equal_const(
                             &mut cs.namespace(|| format!("{tag}.alloc_equal_const")),
                             &allocated_match_tag,
@@ -746,43 +638,158 @@ impl Func {
                         )
                         .with_context(|| "couldn't allocate equal const")?;
 
-                        let concrete_path_and_has_match = and(
+                        let not_dummy_and_has_match = and(
                             &mut cs.namespace(|| format!("{tag}.and")),
-                            concrete_path,
+                            not_dummy,
                             &allocated_has_match,
                         )
                         .with_context(|| "failed to constrain `and`")?;
 
-                        concrete_path_vec.push(allocated_has_match);
+                        selector.push(allocated_has_match);
 
-                        let saved_slot = &mut next_slot.clone();
+                        let mut branch_slot = *next_slot;
                         recurse(
                             &mut cs.namespace(|| format!("{}", tag)),
-                            op,
-                            &concrete_path_and_has_match,
-                            saved_slot,
+                            block,
+                            &not_dummy_and_has_match,
+                            &mut branch_slot,
                             bound_allocations,
                             preallocated_outputs,
                             g,
                         )?;
+                        branch_slots.push(branch_slot);
                     }
+
+                    match def {
+                        Some(def) => {
+                            let default = selector.iter().all(|b| !b.get_value().unwrap());
+                            let allocated_has_match = Boolean::Is(AllocatedBit::alloc(
+                                &mut cs.namespace(|| "_.allocated_bit"),
+                                Some(default),
+                            )?);
+
+                            let not_dummy_and_has_match = and(
+                                &mut cs.namespace(|| "_.and"),
+                                not_dummy,
+                                &allocated_has_match,
+                            )
+                            .with_context(|| "failed to constrain `and`")?;
+
+                            selector.push(allocated_has_match);
+
+                            recurse(
+                                &mut cs.namespace(|| "_"),
+                                def,
+                                &not_dummy_and_has_match,
+                                next_slot,
+                                bound_allocations,
+                                preallocated_outputs,
+                                g,
+                            )?;
+                        }
+                        None => (),
+                    }
+
+                    // The number of slots the match used is the max number of slots of each branch
+                    *next_slot = branch_slots
+                        .into_iter()
+                        .fold(*next_slot, |acc, branch_slot| acc.max(branch_slot));
 
                     // Now we need to enforce that at exactly one path was taken. We do that by enforcing
                     // that the sum of the previously collected `Boolean`s is one. But, of course, this
                     // irrelevant if we're on a virtual path and thus we use an implication gadget.
                     enforce_selector_with_premise(
                         &mut cs.namespace(|| "enforce_selector_with_premise"),
-                        concrete_path,
-                        &concrete_path_vec,
+                        not_dummy,
+                        &selector,
                     )
-                    .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
-                    Ok(())
+                    .with_context(|| " couldn't constrain `enforce_selector_with_premise`")
                 }
-                // Fixme: finish match symbol
-                Ctrl::MatchSymbol(..) => bail!("TODO"),
+                Ctrl::MatchVal(match_var, cases, def) => {
+                    let allocated_lit = bound_allocations.get(match_var)?.hash().clone();
+                    let mut selector = Vec::with_capacity(cases.len() + 1);
+                    let mut branch_slots = Vec::with_capacity(cases.len());
+                    for (lit, block) in cases {
+                        let lit_ptr = lit.to_ptr(g.store);
+                        let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
+                        let allocated_has_match = alloc_equal_const(
+                            &mut cs.namespace(|| format!("{:?}.alloc_equal_const", lit)),
+                            &allocated_lit,
+                            lit_hash,
+                        )
+                        .with_context(|| "couldn't allocate equal const")?;
+
+                        let not_dummy_and_has_match = and(
+                            &mut cs.namespace(|| format!("{:?}.and", lit)),
+                            not_dummy,
+                            &allocated_has_match,
+                        )
+                        .with_context(|| "failed to constrain `and`")?;
+
+                        selector.push(allocated_has_match);
+
+                        let mut branch_slot = *next_slot;
+                        recurse(
+                            &mut cs.namespace(|| format!("{:?}", lit)),
+                            block,
+                            &not_dummy_and_has_match,
+                            &mut branch_slot,
+                            bound_allocations,
+                            preallocated_outputs,
+                            g,
+                        )?;
+                        branch_slots.push(branch_slot);
+                    }
+
+                    match def {
+                        Some(def) => {
+                            let default = selector.iter().all(|b| !b.get_value().unwrap());
+                            let allocated_has_match = Boolean::Is(AllocatedBit::alloc(
+                                &mut cs.namespace(|| "_.alloc_equal_const"),
+                                Some(default),
+                            )?);
+
+                            let not_dummy_and_has_match = and(
+                                &mut cs.namespace(|| "_.and"),
+                                not_dummy,
+                                &allocated_has_match,
+                            )
+                            .with_context(|| "failed to constrain `and`")?;
+
+                            selector.push(allocated_has_match);
+
+                            recurse(
+                                &mut cs.namespace(|| "_"),
+                                def,
+                                &not_dummy_and_has_match,
+                                next_slot,
+                                bound_allocations,
+                                preallocated_outputs,
+                                g,
+                            )?;
+                        }
+                        None => (),
+                    }
+
+                    // The number of slots the match used is the max number of slots of each branch
+                    *next_slot = branch_slots
+                        .into_iter()
+                        .fold(*next_slot, |acc, branch_slot| acc.max(branch_slot));
+
+                    // Now we need to enforce that at exactly one path was taken. We do that by enforcing
+                    // that the sum of the previously collected `Boolean`s is one. But, of course, this
+                    // irrelevant if we're on a virtual path and thus we use an implication gadget.
+                    enforce_selector_with_premise(
+                        &mut cs.namespace(|| "enforce_selector_with_premise"),
+                        not_dummy,
+                        &selector,
+                    )
+                    .with_context(|| " couldn't constrain `enforce_selector_with_premise`")
+                }
             }
         }
 
+        let call_outputs = frame.preimages.call_outputs.clone();
         recurse(
             cs,
             &self.body,
@@ -796,7 +803,7 @@ impl Func {
                 preallocated_hash2_slots,
                 preallocated_hash3_slots,
                 preallocated_hash4_slots,
-                call_outputs: frame.preimages.call_outputs.clone(),
+                call_outputs,
                 call_count: 0,
             },
         )
@@ -805,23 +812,49 @@ impl Func {
     /// Computes the number of constraints that `synthesize` should create. It's
     /// also an explicit way to document and attest how the number of constraints
     /// grow.
-    pub fn num_constraints<F: LurkField>(&self, num_slots: &SlotsCounter) -> usize {
+    pub fn num_constraints<F: LurkField>(&self, store: &mut Store<F>) -> usize {
         fn recurse<F: LurkField>(
             block: &Block,
             nested: bool,
             globals: &mut HashSet<FWrap<F>>,
+            store: &mut Store<F>,
         ) -> usize {
             let mut num_constraints = 0;
             for op in &block.ops {
                 match op {
                     Op::Call(_, func, _) => {
-                        num_constraints += recurse(&func.body, nested, globals);
+                        num_constraints += recurse(&func.body, nested, globals, store);
                     }
                     Op::Null(_, tag) => {
                         // constrain tag and hash
                         globals.insert(FWrap(tag.to_field()));
                         globals.insert(FWrap(F::ZERO));
                     }
+                    Op::Lit(_, lit) => {
+                        let lit_ptr = lit.to_ptr(store);
+                        let lit_hash = store.hash_ptr(&lit_ptr).unwrap().hash;
+                        globals.insert(FWrap(Tag::Expr(Sym).to_field()));
+                        globals.insert(FWrap(lit_hash));
+                    }
+                    Op::Cast(_tgt, tag, _src) => {
+                        globals.insert(FWrap(tag.to_field()));
+                    }
+                    Op::Add(_, _, _) => {
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        num_constraints += 1;
+                    }
+                    Op::Sub(_, _, _) => {
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        num_constraints += 1;
+                    }
+                    Op::Mul(_, _, _) => {
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        num_constraints += 1;
+                    }
+                    Op::Div(_, _, _) => {
+                        // TODO
+                    }
+                    Op::Emit(_) => (),
                     Op::Hash2(_, tag, _) => {
                         // tag for the image
                         globals.insert(FWrap(tag.to_field()));
@@ -844,15 +877,28 @@ impl Func {
                         // one constraint for the image's hash
                         num_constraints += 1;
                     }
-                    _ => todo!(),
+                    Op::Hide(..) => {
+                        // TODO
+                        globals.insert(FWrap(F::ZERO));
+                    }
+                    Op::Open(..) => {
+                        // TODO
+                        globals.insert(FWrap(F::ZERO));
+                    }
                 }
             }
             match &block.ctrl {
                 Ctrl::Return(vars) => num_constraints + 2 * vars.len(),
-                Ctrl::MatchTag(_, cases) => {
+                Ctrl::IfEq(_, _, eq_block, else_block) => {
+                    num_constraints
+                        + if nested { 6 } else { 4 }
+                        + recurse(eq_block, true, globals, store)
+                        + recurse(else_block, true, globals, store)
+                }
+                Ctrl::MatchTag(_, cases, def) => {
                     // `alloc_equal_const` adds 3 constraints for each case and
                     // the `and` is free for non-nested `MatchTag`s, since we
-                    // start `concrete_path` with a constant `true`
+                    // start `not_dummy` with a constant `true`
                     let multiplier = if nested { 4 } else { 3 };
 
                     // then we add 1 constraint from `enforce_selector_with_premise`
@@ -860,18 +906,40 @@ impl Func {
 
                     // stacked ops are now nested
                     for block in cases.values() {
-                        num_constraints += recurse(block, true, globals);
+                        num_constraints += recurse(block, true, globals, store);
                     }
+                    match def {
+                        Some(def) => {
+                            // constraints for the boolean and the default case
+                            num_constraints += multiplier - 2;
+                            num_constraints += recurse(def, true, globals, store);
+                        }
+                        None => (),
+                    };
                     num_constraints
                 }
-                Ctrl::MatchSymbol(..) => todo!(),
+                Ctrl::MatchVal(_, cases, def) => {
+                    let multiplier = if nested { 4 } else { 3 };
+                    num_constraints += multiplier * cases.len() + 1;
+                    for block in cases.values() {
+                        num_constraints += recurse(block, true, globals, store);
+                    }
+                    match def {
+                        Some(def) => {
+                            num_constraints += multiplier - 2;
+                            num_constraints += recurse(def, true, globals, store);
+                        }
+                        None => (),
+                    };
+                    num_constraints
+                }
             }
         }
         let globals = &mut HashSet::default();
         // fixed cost for each slot
         let slot_constraints =
-            289 * num_slots.hash2 + 337 * num_slots.hash3 + 388 * num_slots.hash4;
-        let num_constraints = recurse::<F>(&self.body, false, globals);
+            289 * self.slot.hash2 + 337 * self.slot.hash3 + 388 * self.slot.hash4;
+        let num_constraints = recurse::<F>(&self.body, false, globals, store);
         slot_constraints + num_constraints + globals.len()
     }
 }

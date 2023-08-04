@@ -114,52 +114,42 @@ Lurk REPL welcomes you.
 	Expr: (let ((square (lambda (x) (* x x)))) (square 8))
 	Env: nil
 	Cont: Outermost
-
  INFO  lurk::eval > Frame: 1
 	Expr: (lambda (x) (* x x))
 	Env: nil
 	Cont: Let{ var: square, body: (square 8), saved_env: nil, continuation: Outermost }
-
  INFO  lurk::eval > Frame: 2
 	Expr: (square 8)
 	Env: ((square . <FUNCTION (x) (* x x)>))
 	Cont: Tail{ saved_env: nil, continuation: Outermost }
-
  INFO  lurk::eval > Frame: 3
 	Expr: square
 	Env: ((square . <FUNCTION (x) (* x x)>))
 	Cont: Call{ unevaled_arg: 8, saved_env: ((square . <FUNCTION (x) (* x x)>)), continuation: Tail{ saved_env: nil, continuation: Outermost } }
-
  INFO  lurk::eval > Frame: 4
 	Expr: 8
 	Env: ((square . <FUNCTION (x) (* x x)>))
 	Cont: Call2{ function: <FUNCTION (x) (* x x)>, saved_env: ((square . <FUNCTION (x) (* x x)>)), continuation: Tail{ saved_env: nil, continuation: Outermost } }
-
  INFO  lurk::eval > Frame: 5
 	Expr: (* x x)
 	Env: ((x . 8))
 	Cont: Tail{ saved_env: nil, continuation: Outermost }
-
  INFO  lurk::eval > Frame: 6
 	Expr: x
 	Env: ((x . 8))
 	Cont: Binop{ operator: product#, unevaled_args: (x), saved_env: ((x . 8)), continuation: Tail{ saved_env: nil, continuation: Outermost } }
-
  INFO  lurk::eval > Frame: 7
 	Expr: x
 	Env: ((x . 8))
 	Cont: Binop2{ operator: product#, evaled_arg: 8, continuation: Tail{ saved_env: nil, continuation: Outermost } }
-
  INFO  lurk::eval > Frame: 8
 	Expr: Thunk{ value: 64 => cont: Outermost}
 	Env: nil
 	Cont: Dummy
-
  INFO  lurk::eval > Frame: 9
 	Expr: 64
 	Env: nil
 	Cont: Terminal
-
 [9 iterations] => 64
 > 
 ```
