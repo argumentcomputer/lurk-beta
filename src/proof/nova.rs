@@ -3181,8 +3181,8 @@ pub mod tests {
         let expr2 = "(eq :asdf :asdf)";
         let expr3 = "(eq :asdf 'asdf)";
         let res = s.key("asdf");
-        let res2 = s.get_t();
-        let res3 = s.get_nil();
+        let res2 = s.t_ptr();
+        let res3 = s.nil_ptr();
 
         let terminal = s.get_cont_terminal();
 
@@ -3535,7 +3535,7 @@ pub mod tests {
     #[test]
     fn test_prove_call_literal_fun() {
         let s = &mut Store::<Fr>::default();
-        let empty_env = s.get_nil();
+        let empty_env = s.nil_ptr();
         let arg = s.sym("x");
         let body = s.read("((+ x 1))").unwrap();
         let fun = s.intern_fun(arg, body, empty_env);

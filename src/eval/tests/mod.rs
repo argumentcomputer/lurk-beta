@@ -2317,8 +2317,8 @@ fn test_keyword() {
     let expr2 = "(eq :asdf :asdf)";
     let expr3 = "(eq :asdf 'asdf)";
     let res = s.key("asdf");
-    let res2 = s.get_t();
-    let res3 = s.get_nil();
+    let res2 = s.t_ptr();
+    let res3 = s.nil_ptr();
 
     let terminal = s.get_cont_terminal();
 

@@ -154,7 +154,7 @@ const LURK_PACKAGE_SYMBOLS_NAMES: [&str; 36] = [
 
 #[cfg(test)]
 pub mod test {
-    use super::{State, LURK_PACKAGE_SYMBOLS_NAMES, lurk_sym};
+    use super::{lurk_sym, State, LURK_PACKAGE_SYMBOLS_NAMES};
     use crate::{
         package::{Package, SymbolRef},
         Symbol,

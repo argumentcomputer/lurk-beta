@@ -502,7 +502,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         store: &Store<F>,
         boolean: &Boolean,
     ) -> Result<AllocatedPtr<F>, SynthesisError> {
-        let c = store.get_constants();
+        let c = store.expect_constants();
         AllocatedPtr::pick_const(
             cs.namespace(|| "allocated lurk bool"),
             boolean,

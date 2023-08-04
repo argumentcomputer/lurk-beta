@@ -137,7 +137,9 @@ impl<F: LurkField> ZStore<F> {
 
     /// Stores a null symbol in the `ZStore` and returns the resulting pointer
     pub fn nil_z_ptr(&mut self, poseidon_cache: &PoseidonCache<F>) -> ZExprPtr<F> {
-        let z_ptr = self.put_symbol(&crate::state::lurk_sym("nil"), poseidon_cache).0;
+        let z_ptr = self
+            .put_symbol(&crate::state::lurk_sym("nil"), poseidon_cache)
+            .0;
         ZPtr(ExprTag::Nil, z_ptr.1)
     }
 

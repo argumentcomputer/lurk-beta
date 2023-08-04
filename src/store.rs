@@ -13,7 +13,7 @@ use crate::expr;
 use crate::expr::{Expression, Thunk};
 use crate::field::{FWrap, LurkField};
 use crate::ptr::{ContPtr, Ptr, RawPtr};
-use crate::state::{lurk_sym, State};
+use crate::state::lurk_sym;
 use crate::symbol::Symbol;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
 use crate::z_cont::ZCont;
@@ -84,7 +84,7 @@ pub struct Store<F: LurkField> {
 
 impl<F: LurkField> Default for Store<F> {
     fn default() -> Self {
-        Self {
+        let mut store = Self {
             cons_store: Default::default(),
             comm_store: Default::default(),
             sym_store: Default::default(),
@@ -117,7 +117,9 @@ impl<F: LurkField> Default for Store<F> {
             str_cache: Default::default(),
             symbol_cache: Default::default(),
             constants: Default::default(),
-        }
+        };
+        store.ensure_constants();
+        store
     }
 }
 
@@ -135,34 +137,38 @@ impl fmt::Display for Error {
 /// Prefer these methods when constructing literal data or assembling program fragments in
 /// tests or during evaluation, etc.
 impl<F: LurkField> Store<F> {
-    #[inline]
-    pub fn nil_ptr(&mut self) -> Ptr<F> {
-        self.get_constants().nil.ptr()
+    pub fn expect_constants(&self) -> &NamedConstants<F> {
+        self.constants
+            .get()
+            .expect("Constants must have been set during instatiation")
     }
 
-    #[inline]
-    pub fn t_ptr(&mut self) -> Ptr<F> {
-        self.get_constants().t.ptr()
+    pub fn nil_ptr(&self) -> Ptr<F> {
+        self.expect_constants().nil.ptr()
     }
 
-    #[inline]
-    pub fn cons_ptr(&mut self) -> Ptr<F> {
-        self.get_constants().cons.ptr()
+    pub fn cons_ptr(&self) -> Ptr<F> {
+        self.expect_constants().cons.ptr()
     }
 
-    #[inline]
-    pub fn eq_ptr(&mut self) -> Ptr<F> {
-        self.get_constants().equal.ptr()
+    pub fn begin_ptr(&self) -> Ptr<F> {
+        self.expect_constants().begin.ptr()
     }
 
-    #[inline]
-    pub fn quote_ptr(&mut self) -> Ptr<F> {
-        self.get_constants().quote.ptr()
+    pub fn eq_ptr(&self) -> Ptr<F> {
+        self.expect_constants().equal.ptr()
     }
 
-    #[inline]
-    pub fn dummy_ptr(&mut self) -> Ptr<F> {
-        self.get_constants().dummy.ptr()
+    pub fn quote_ptr(&self) -> Ptr<F> {
+        self.expect_constants().quote.ptr()
+    }
+
+    pub fn t_ptr(&self) -> Ptr<F> {
+        self.expect_constants().t.ptr()
+    }
+
+    pub fn dummy_ptr(&self) -> Ptr<F> {
+        self.expect_constants().dummy.ptr()
     }
 
     #[inline]
@@ -464,7 +470,7 @@ impl<F: LurkField> Store<F> {
                 let str_ptr = self.intern_string(s);
                 ptr = self.intern_symcons(str_ptr, ptr);
             }
-            if sym == lurk_sym("nil") {
+            if *sym == lurk_sym("nil") {
                 Ptr {
                     tag: ExprTag::Nil,
                     raw: ptr.raw,
@@ -1410,10 +1416,6 @@ impl<F: LurkField> Store<F> {
         let _ = self.constants.set(NamedConstants::new(self));
     }
 
-    pub fn get_constants(&self) -> &NamedConstants<F> {
-        self.constants.get_or_init(|| NamedConstants::new(self))
-    }
-
     /// The only places that `ZPtr`s for `Ptr`s should be created, to
     /// ensure that they are cached properly
     fn create_z_expr_ptr(&self, ptr: Ptr<F>, hash: F) -> ZExprPtr<F> {
@@ -1804,22 +1806,17 @@ pub struct NamedConstants<F: LurkField> {
 }
 
 impl<F: LurkField> NamedConstants<F> {
-    pub fn new(store: &Store<F>) -> Self {
-        let state = State::initial_lurk_state();
-        let resolve = |name: &str| {
-            state.resolve(name).expect("symbol must have been interned")
-        };
+    pub fn new(store: &mut Store<F>) -> Self {
+        let nil_ptr = store.intern_symbol(&lurk_sym("nil"));
+        let nil_z_ptr = Some(ZExpr::Nil.z_ptr(&store.poseidon_cache));
+
         let mut hash_sym = |name: &str| {
-            let symbol = resolve(name);
-            let ptr = store.intern_symbol(&symbol);
+            let ptr = store.intern_symbol(&lurk_sym(name));
             let maybe_z_ptr = store.hash_expr(&ptr);
             ConstantPtrs(maybe_z_ptr, ptr)
         };
 
-        let nil = ConstantPtrs(
-            Some(ZExpr::Nil.z_ptr(&store.poseidon_cache)),
-            store.intern_symbol(&resolve("nil")),
-        );
+        let nil = ConstantPtrs(nil_z_ptr, nil_ptr);
         let t = hash_sym("t");
         let lambda = hash_sym("lambda");
         let quote = hash_sym("quote");

@@ -505,8 +505,9 @@ where
     }
 }
 
+#[inline]
 pub fn empty_sym_env<F: LurkField>(store: &Store<F>) -> Ptr<F> {
-    store.get_nil()
+    store.nil_ptr()
 }
 
 // Convenience functions, mostly for use in tests.

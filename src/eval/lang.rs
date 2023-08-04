@@ -36,7 +36,7 @@ impl<F: LurkField> Coprocessor<F> for DummyCoprocessor<F> {
     /// but for now it exists as an exemplar demonstrating the intended shape of enums like the default, `Coproc`.
     fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
         assert!(args.is_empty());
-        s.get_nil()
+        s.nil_ptr()
     }
 }
 

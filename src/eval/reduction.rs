@@ -20,7 +20,7 @@ pub(crate) fn reduce<F: LurkField, C: Coprocessor<F>>(
     store: &mut Store<F>,
     lang: &Lang<F, C>,
 ) -> Result<(Ptr<F>, Ptr<F>, ContPtr<F>, Witness<F>), ReductionError> {
-    let c = *store.get_constants();
+    let c = *store.expect_constants();
     let (ctrl, witness) = reduce_with_witness(expr, env, cont, store, &c, lang)?;
     let (new_expr, new_env, new_cont) = ctrl.into_results(store);
 
@@ -1393,7 +1393,7 @@ pub(crate) fn lookup<F: LurkField>(
 ) -> Result<Ptr<F>, store::Error> {
     assert!(matches!(var.tag, ExprTag::Sym));
     match env.tag {
-        ExprTag::Nil => Ok(store.get_nil()),
+        ExprTag::Nil => Ok(store.nil_ptr()),
         ExprTag::Cons => {
             let (binding, smaller_env) = store.car_cdr(env)?;
             let (v, val) = store.car_cdr(&binding)?;
