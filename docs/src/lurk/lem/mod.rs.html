@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (d12c6e947 2023-08-01)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-6d2c9675f3d09c26.css" data-theme-dark-css="dark-45ceb8f2e522f4d1.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-6d2c9675f3d09c26.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-45ceb8f2e522f4d1.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (474709a9a 2023-08-03)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-6d2c9675f3d09c26.css" data-theme-dark-css="dark-45ceb8f2e522f4d1.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-6d2c9675f3d09c26.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-45ceb8f2e522f4d1.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -728,6 +728,216 @@
 <a href="#728" id="728">728</a>
 <a href="#729" id="729">729</a>
 <a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Lurk Evaluation Model (LEM)
 //!
 //! LEM is a simple, first order, referentially transparent language, designed to
@@ -786,6 +996,8 @@
 //!    the correct number of variables
 //! 4. No match statements should have conflicting cases
 //! 5. LEM should be transformed to SSA to make it simple to synthesize
+//! 6. We also check for variables that are not used. If intended they should
+//!    be prefixed by &quot;_&quot;
 
 </span><span class="kw">mod </span>circuit;
 <span class="kw">mod </span>eval;
@@ -793,34 +1005,127 @@
 <span class="kw">mod </span>macros;
 <span class="kw">mod </span>path;
 <span class="kw">mod </span>pointers;
+<span class="kw">mod </span>slot;
 <span class="kw">mod </span>store;
-<span class="kw">mod </span>symbol;
-<span class="kw">mod </span>tag;
 <span class="kw">mod </span>var_map;
 
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
-<span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span><span class="kw">crate</span>::symbol::Symbol;
+<span class="kw">use </span><span class="kw">crate</span>::tag::{ContTag, ExprTag, Tag <span class="kw">as </span>TagTrait};
+<span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>indexmap::IndexMap;
-<span class="kw">use </span>std::collections::HashSet;
 <span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span><span class="self">self</span>::{store::Store, symbol::Symbol, tag::Tag, var_map::VarMap};
+<span class="kw">use </span><span class="self">self</span>::{pointers::Ptr, slot::SlotsCounter, store::Store, var_map::VarMap};
 
 <span class="kw">pub type </span>AString = Arc&lt;str&gt;;
-<span class="kw">pub type </span>AVec&lt;A&gt; = Arc&lt;[A]&gt;;
 
 <span class="doccomment">/// A `Func` is a LEM function. It consist of input params, output size and a
 /// function body, which is a `Block`
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>Func {
+    name: String,
     input_params: Vec&lt;Var&gt;,
     output_size: usize,
     body: Block,
+    slot: SlotsCounter,
 }
 
 <span class="doccomment">/// LEM variables
 </span><span class="attr">#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 </span><span class="kw">pub struct </span>Var(AString);
+
+<span class="doccomment">/// LEM tags
+</span><span class="attr">#[derive(Copy, Debug, PartialEq, Clone, Eq, Hash)]
+</span><span class="kw">pub enum </span>Tag {
+    Expr(ExprTag),
+    Cont(ContTag),
+    Ctrl(CtrlTag),
+}
+
+<span class="attr">#[derive(Copy, Debug, PartialEq, Clone, Eq, Hash)]
+</span><span class="kw">pub enum </span>CtrlTag {
+    Return,
+    MakeThunk,
+    ApplyContinuation,
+    Error,
+}
+
+<span class="kw">impl </span>Tag {
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>to_field&lt;F: LurkField&gt;(<span class="self">self</span>) -&gt; F {
+        <span class="kw">use </span>Tag::<span class="kw-2">*</span>;
+        <span class="kw">match </span><span class="self">self </span>{
+            Expr(tag) =&gt; tag.to_field(),
+            Cont(tag) =&gt; tag.to_field(),
+            Ctrl(tag) =&gt; tag.to_field(),
+        }
+    }
+}
+
+<span class="kw">impl </span>CtrlTag {
+    <span class="attr">#[inline]
+    </span><span class="kw">fn </span>to_field&lt;F: LurkField&gt;(<span class="self">self</span>) -&gt; F {
+        F::from(<span class="self">self </span><span class="kw">as </span>u64)
+    }
+}
+
+<span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>CtrlTag {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::Return =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;return#&quot;</span>),
+            <span class="self">Self</span>::ApplyContinuation =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;apply-cont#&quot;</span>),
+            <span class="self">Self</span>::MakeThunk =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;make-thunk#&quot;</span>),
+            <span class="self">Self</span>::Error =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;error#&quot;</span>),
+        }
+    }
+}
+
+<span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>Tag {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="kw">use </span>Tag::<span class="kw-2">*</span>;
+        <span class="kw">match </span><span class="self">self </span>{
+            Expr(tag) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;expr.{}&quot;</span>, tag),
+            Cont(tag) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;cont.{}&quot;</span>, tag),
+            Ctrl(tag) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;ctrl.{}&quot;</span>, tag),
+        }
+    }
+}
+
+<span class="doccomment">/// LEM literals
+</span><span class="attr">#[derive(Debug, PartialEq, Clone, Eq, Hash)]
+</span><span class="kw">pub enum </span>Lit {
+    <span class="comment">// TODO maybe it should be a LurkField instead of u64
+    </span>Num(u64),
+    String(String),
+    Symbol(Symbol),
+}
+
+<span class="kw">impl </span>Lit {
+    <span class="kw">pub fn </span>to_ptr&lt;F: LurkField&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::Symbol(s) =&gt; store.intern_symbol(s.clone()),
+            <span class="self">Self</span>::String(s) =&gt; store.intern_string(s),
+            <span class="self">Self</span>::Num(num) =&gt; Ptr::num((<span class="kw-2">*</span>num).into()),
+        }
+    }
+    <span class="kw">pub fn </span>from_ptr&lt;F: LurkField&gt;(ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">use </span>ExprTag::<span class="kw-2">*</span>;
+        <span class="kw">use </span>Tag::<span class="kw-2">*</span>;
+        <span class="kw">match </span>ptr.tag() {
+            Expr(Num) =&gt; <span class="kw">match </span>ptr {
+                Ptr::Leaf(<span class="kw">_</span>, f) =&gt; {
+                    <span class="kw">let </span>num = LurkField::to_u64_unchecked(f);
+                    <span class="prelude-val">Some</span>(<span class="self">Self</span>::Num(num))
+                }
+                <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
+            },
+            Expr(Str) =&gt; store.fetch_string(ptr).cloned().map(Lit::String),
+            Expr(Sym) =&gt; store.fetch_symbol(ptr).map(Lit::Symbol),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+        }
+    }
+}
 
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>Var {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
@@ -849,11 +1154,14 @@
 </span><span class="kw">pub enum </span>Ctrl {
     <span class="doccomment">/// `MatchTag(x, cases)` performs a match on the tag of `x`, choosing the
     /// appropriate `Block` among the ones provided in `cases`
-    </span>MatchTag(Var, IndexMap&lt;Tag, Block&gt;),
+    </span>MatchTag(Var, IndexMap&lt;Tag, Block&gt;, <span class="prelude-ty">Option</span>&lt;Box&lt;Block&gt;&gt;),
     <span class="doccomment">/// `MatchSymbol(x, cases, def)` checks whether `x` matches some symbol among
     /// the ones provided in `cases`. If so, run the corresponding `Block`. Run
     /// `def` otherwise
-    </span>MatchSymbol(Var, IndexMap&lt;Symbol, Block&gt;, Box&lt;Block&gt;),
+    </span>MatchVal(Var, IndexMap&lt;Lit, Block&gt;, <span class="prelude-ty">Option</span>&lt;Box&lt;Block&gt;&gt;),
+    <span class="doccomment">/// `IfEq(x, y, eq_block, else_block)` runs `eq_block` if `x == y`, and
+    /// otherwise runs `else_block`
+    </span>IfEq(Var, Var, Box&lt;Block&gt;, Box&lt;Block&gt;),
     <span class="doccomment">/// `Return(rets)` sets the output to `rets`
     </span>Return(Vec&lt;Var&gt;),
 }
@@ -865,6 +1173,20 @@
     </span>Call(Vec&lt;Var&gt;, Box&lt;Func&gt;, Vec&lt;Var&gt;),
     <span class="doccomment">/// `Null(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
     </span>Null(Var, Tag),
+    <span class="doccomment">/// `Lit(x, l)` binds `x` to the pointer representing that `Lit`
+    </span>Lit(Var, Lit),
+    <span class="doccomment">/// `Cast(y, t, x)` binds `y` to a pointer with tag `t` and the hash of `x`
+    </span>Cast(Var, Tag, Var),
+    <span class="doccomment">/// `Add(y, a, b)` binds `y` to the sum of `a` and `b`
+    </span>Add(Var, Var, Var),
+    <span class="doccomment">/// `Sub(y, a, b)` binds `y` to the sum of `a` and `b`
+    </span>Sub(Var, Var, Var),
+    <span class="doccomment">/// `Mul(y, a, b)` binds `y` to the sum of `a` and `b`
+    </span>Mul(Var, Var, Var),
+    <span class="doccomment">/// `Div(y, a, b)` binds `y` to the sum of `a` and `b`
+    </span>Div(Var, Var, Var),
+    <span class="doccomment">/// `Emit(v)` simply prints out the value of `v` when interpreting the code
+    </span>Emit(Var),
     <span class="doccomment">/// `Hash2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
     </span>Hash2(Var, Tag, [Var; <span class="number">2</span>]),
     <span class="doccomment">/// `Hash3(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 3 children `ys`
@@ -887,8 +1209,16 @@
 
 <span class="kw">impl </span>Func {
     <span class="doccomment">/// Instantiates a `Func` with the appropriate transformations and checks
-    </span><span class="kw">pub fn </span>new(input_params: Vec&lt;Var&gt;, output_size: usize, body: Block) -&gt; <span class="prelude-ty">Result</span>&lt;Func&gt; {
+    </span><span class="kw">pub fn </span>new(
+        name: String,
+        input_params: Vec&lt;Var&gt;,
+        output_size: usize,
+        body: Block,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Func&gt; {
+        <span class="kw">let </span>slot = body.count_slots();
         <span class="kw">let </span>func = Func {
+            slot,
+            name,
             input_params,
             output_size,
             body,
@@ -902,20 +1232,22 @@
     </span><span class="kw">pub fn </span>check(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="comment">// Check if variable has already been defined. Panics
         // if it is repeated (means `deconflict` is broken)
-        </span><span class="attr">#[inline(always)]
-        </span><span class="kw">fn </span>is_unique(var: <span class="kw-2">&amp;</span>Var, map: <span class="kw-2">&amp;mut </span>HashSet&lt;Var&gt;) {
-            <span class="kw">if </span>!map.insert(var.clone()) {
+        </span><span class="kw">use </span>std::collections::{HashMap, HashSet};
+        <span class="attr">#[inline(always)]
+        </span><span class="kw">fn </span>is_unique(var: <span class="kw-2">&amp;</span>Var, map: <span class="kw-2">&amp;mut </span>HashMap&lt;Var, bool&gt;) {
+            <span class="kw">if </span>map.insert(var.clone(), <span class="bool-val">false</span>).is_some() {
                 <span class="macro">panic!</span>(<span class="string">&quot;Variable {var} already defined. `deconflict` implementation broken.&quot;</span>);
             }
         }
-        <span class="comment">// Check if variable is bound
+        <span class="comment">// Check if variable is bound and sets it as &quot;used&quot;
         </span><span class="attr">#[inline(always)]
-        </span><span class="kw">fn </span>is_bound(var: <span class="kw-2">&amp;</span>Var, map: <span class="kw-2">&amp;</span>HashSet&lt;Var&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-            map.get(var)
-                .context(<span class="macro">format!</span>(<span class="string">&quot;Variable {var} is unbound.&quot;</span>))<span class="question-mark">?</span>;
+        </span><span class="kw">fn </span>is_bound(var: <span class="kw-2">&amp;</span>Var, map: <span class="kw-2">&amp;mut </span>HashMap&lt;Var, bool&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+            <span class="kw">if </span>map.insert(var.clone(), <span class="bool-val">true</span>).is_none() {
+                <span class="macro">bail!</span>(<span class="string">&quot;Variable {var} is unbound.&quot;</span>);
+            }
             <span class="prelude-val">Ok</span>(())
         }
-        <span class="kw">fn </span>recurse(block: <span class="kw-2">&amp;</span>Block, return_size: usize, map: <span class="kw-2">&amp;mut </span>HashSet&lt;Var&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">fn </span>recurse(block: <span class="kw-2">&amp;</span>Block, return_size: usize, map: <span class="kw-2">&amp;mut </span>HashMap&lt;Var, bool&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
             <span class="kw">for </span>op <span class="kw">in </span><span class="kw-2">&amp;</span>block.ops {
                 <span class="kw">match </span>op {
                     Op::Call(out, func, inp) =&gt; {
@@ -940,6 +1272,24 @@
                     }
                     Op::Null(tgt, _tag) =&gt; {
                         is_unique(tgt, map);
+                    }
+                    Op::Lit(tgt, _lit) =&gt; {
+                        is_unique(tgt, map);
+                    }
+                    Op::Cast(tgt, _tag, src) =&gt; {
+                        is_bound(src, map)<span class="question-mark">?</span>;
+                        is_unique(tgt, map);
+                    }
+                    Op::Add(tgt, a, b)
+                    | Op::Sub(tgt, a, b)
+                    | Op::Mul(tgt, a, b)
+                    | Op::Div(tgt, a, b) =&gt; {
+                        is_bound(a, map)<span class="question-mark">?</span>;
+                        is_bound(b, map)<span class="question-mark">?</span>;
+                        is_unique(tgt, map);
+                    }
+                    Op::Emit(a) =&gt; {
+                        is_bound(a, map)<span class="question-mark">?</span>;
                     }
                     Op::Hash2(img, _tag, preimg) =&gt; {
                         preimg.iter().try_for_each(|arg| is_bound(arg, map))<span class="question-mark">?</span>;
@@ -988,33 +1338,79 @@
                         )
                     }
                 }
-                Ctrl::MatchTag(var, cases) =&gt; {
+                Ctrl::MatchTag(var, cases, def) =&gt; {
                     is_bound(var, map)<span class="question-mark">?</span>;
                     <span class="kw">let </span><span class="kw-2">mut </span>tags = HashSet::new();
+                    <span class="kw">let </span><span class="kw-2">mut </span>kind = <span class="prelude-val">None</span>;
                     <span class="kw">for </span>(tag, block) <span class="kw">in </span>cases {
+                        <span class="kw">let </span>tag_kind = <span class="kw">match </span>tag {
+                            Tag::Expr(..) =&gt; <span class="number">0</span>,
+                            Tag::Cont(..) =&gt; <span class="number">1</span>,
+                            Tag::Ctrl(..) =&gt; <span class="number">4</span>,
+                        };
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>(kind) = kind {
+                            <span class="kw">if </span>kind != tag_kind {
+                                <span class="macro">bail!</span>(<span class="string">&quot;Only tags of the same kind allowed.&quot;</span>);
+                            }
+                        } <span class="kw">else </span>{
+                            kind = <span class="prelude-val">Some</span>(tag_kind)
+                        }
                         <span class="kw">if </span>!tags.insert(tag) {
                             <span class="macro">bail!</span>(<span class="string">&quot;Tag {tag} already defined.&quot;</span>);
                         }
                         recurse(block, return_size, map)<span class="question-mark">?</span>;
                     }
+                    <span class="kw">match </span>def {
+                        <span class="prelude-val">Some</span>(def) =&gt; recurse(def, return_size, map)<span class="question-mark">?</span>,
+                        <span class="prelude-val">None </span>=&gt; (),
+                    }
                 }
-                Ctrl::MatchSymbol(var, cases, def) =&gt; {
+                Ctrl::MatchVal(var, cases, def) =&gt; {
                     is_bound(var, map)<span class="question-mark">?</span>;
-                    <span class="kw">let </span><span class="kw-2">mut </span>symbols = HashSet::new();
-                    <span class="kw">for </span>(symbol, block) <span class="kw">in </span>cases {
-                        <span class="kw">if </span>!symbols.insert(symbol) {
-                            <span class="macro">bail!</span>(<span class="string">&quot;Symbol {symbol} already defined.&quot;</span>);
+                    <span class="kw">let </span><span class="kw-2">mut </span>lits = HashSet::new();
+                    <span class="kw">let </span><span class="kw-2">mut </span>kind = <span class="prelude-val">None</span>;
+                    <span class="kw">for </span>(lit, block) <span class="kw">in </span>cases {
+                        <span class="kw">let </span>lit_kind = <span class="kw">match </span>lit {
+                            Lit::Num(..) =&gt; <span class="number">0</span>,
+                            Lit::String(..) =&gt; <span class="number">1</span>,
+                            Lit::Symbol(..) =&gt; <span class="number">2</span>,
+                        };
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>(kind) = kind {
+                            <span class="kw">if </span>kind != lit_kind {
+                                <span class="macro">bail!</span>(<span class="string">&quot;Only values of the same kind allowed.&quot;</span>);
+                            }
+                        } <span class="kw">else </span>{
+                            kind = <span class="prelude-val">Some</span>(lit_kind)
+                        }
+                        <span class="kw">if </span>!lits.insert(lit) {
+                            <span class="macro">bail!</span>(<span class="string">&quot;Case {:?} already defined.&quot;</span>, lit);
                         }
                         recurse(block, return_size, map)<span class="question-mark">?</span>;
                     }
-                    recurse(def, return_size, map)<span class="question-mark">?</span>;
+                    <span class="kw">match </span>def {
+                        <span class="prelude-val">Some</span>(def) =&gt; recurse(def, return_size, map)<span class="question-mark">?</span>,
+                        <span class="prelude-val">None </span>=&gt; (),
+                    }
+                }
+                Ctrl::IfEq(x, y, eq_block, else_block) =&gt; {
+                    is_bound(x, map)<span class="question-mark">?</span>;
+                    is_bound(y, map)<span class="question-mark">?</span>;
+                    recurse(eq_block, return_size, map)<span class="question-mark">?</span>;
+                    recurse(else_block, return_size, map)<span class="question-mark">?</span>;
                 }
             }
             <span class="prelude-val">Ok</span>(())
         }
-        <span class="kw">let </span>map = <span class="kw-2">&amp;mut </span>HashSet::new();
+        <span class="kw">let </span>map = <span class="kw-2">&amp;mut </span>HashMap::new();
         <span class="self">self</span>.input_params.iter().for_each(|var| is_unique(var, map));
-        recurse(<span class="kw-2">&amp;</span><span class="self">self</span>.body, <span class="self">self</span>.output_size, map)
+        recurse(<span class="kw-2">&amp;</span><span class="self">self</span>.body, <span class="self">self</span>.output_size, map)<span class="question-mark">?</span>;
+        <span class="kw">for </span>(var, u) <span class="kw">in </span>map.iter() {
+            <span class="kw">let </span>ch = var.<span class="number">0</span>.chars().next().unwrap();
+            <span class="kw">if </span>!u &amp;&amp; ch != <span class="string">&#39;_&#39; </span>{
+                <span class="macro">bail!</span>(<span class="string">&quot;Variable {var} not used. If intended, please prefix it with \&quot;_\&quot;&quot;</span>)
+            }
+        }
+        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="doccomment">/// Deconflict will replace conflicting names and make the function SSA. The
@@ -1028,7 +1424,7 @@
             </span>.input_params
             .into_iter()
             .map(|var| {
-                <span class="kw">let </span>new_var = var.make_unique(<span class="kw-2">*</span>uniq);
+                <span class="kw">let </span>new_var = var.make_unique(uniq);
                 map.insert(var, new_var.clone());
                 new_var
             })
@@ -1056,13 +1452,12 @@
         </span>ops.extend_from_slice(<span class="kw-2">&amp;</span><span class="self">self</span>.body.ops);
         <span class="kw">let </span>ctrl = <span class="self">self</span>.body.ctrl.clone();
         <span class="kw">let </span>body = Block { ops, ctrl };
-        <span class="self">Self</span>::new(<span class="self">self</span>.input_params.clone(), <span class="self">self</span>.output_size, body)
-    }
-
-    <span class="doccomment">/// Intern all symbols that are matched on `MatchSymbol`s
-    </span><span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>intern_matched_symbols&lt;F: LurkField&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;) {
-        <span class="self">self</span>.body.intern_matched_symbols(store);
+        <span class="self">Self</span>::new(
+            <span class="self">self</span>.name.clone(),
+            <span class="self">self</span>.input_params.clone(),
+            <span class="self">self</span>.output_size,
+            body,
+        )
     }
 }
 
@@ -1070,8 +1465,7 @@
     <span class="kw">fn </span>deconflict(<span class="self">self</span>, map: <span class="kw-2">&amp;mut </span>VarMap&lt;Var&gt;, uniq: <span class="kw-2">&amp;mut </span>usize) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="attr">#[inline]
         </span><span class="kw">fn </span>insert_one(map: <span class="kw-2">&amp;mut </span>VarMap&lt;Var&gt;, uniq: <span class="kw-2">&amp;mut </span>usize, var: <span class="kw-2">&amp;</span>Var) -&gt; Var {
-            <span class="kw">let </span>new_var = var.make_unique(<span class="kw-2">*</span>uniq);
-            <span class="kw-2">*</span>uniq += <span class="number">1</span>;
+            <span class="kw">let </span>new_var = var.make_unique(uniq);
             map.insert(var.clone(), new_var.clone());
             new_var
         }
@@ -1091,6 +1485,40 @@
                     ops.push(Op::Call(out, func, inp))
                 }
                 Op::Null(tgt, tag) =&gt; ops.push(Op::Null(insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt), tag)),
+                Op::Lit(tgt, lit) =&gt; ops.push(Op::Lit(insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt), lit)),
+                Op::Cast(tgt, tag, src) =&gt; {
+                    <span class="kw">let </span>src = map.get_cloned(<span class="kw-2">&amp;</span>src)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>tgt = insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt);
+                    ops.push(Op::Cast(tgt, tag, src))
+                }
+                Op::Add(tgt, a, b) =&gt; {
+                    <span class="kw">let </span>a = map.get_cloned(<span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>b = map.get_cloned(<span class="kw-2">&amp;</span>b)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>tgt = insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt);
+                    ops.push(Op::Add(tgt, a, b))
+                }
+                Op::Sub(tgt, a, b) =&gt; {
+                    <span class="kw">let </span>a = map.get_cloned(<span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>b = map.get_cloned(<span class="kw-2">&amp;</span>b)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>tgt = insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt);
+                    ops.push(Op::Sub(tgt, a, b))
+                }
+                Op::Mul(tgt, a, b) =&gt; {
+                    <span class="kw">let </span>a = map.get_cloned(<span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>b = map.get_cloned(<span class="kw-2">&amp;</span>b)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>tgt = insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt);
+                    ops.push(Op::Mul(tgt, a, b))
+                }
+                Op::Div(tgt, a, b) =&gt; {
+                    <span class="kw">let </span>a = map.get_cloned(<span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>b = map.get_cloned(<span class="kw-2">&amp;</span>b)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>tgt = insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt);
+                    ops.push(Op::Div(tgt, a, b))
+                }
+                Op::Emit(a) =&gt; {
+                    <span class="kw">let </span>a = map.get_cloned(<span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>;
+                    ops.push(Op::Emit(a))
+                }
                 Op::Hash2(img, tag, preimg) =&gt; {
                     <span class="kw">let </span>preimg = map.get_many_cloned(<span class="kw-2">&amp;</span>preimg)<span class="question-mark">?</span>.try_into().unwrap();
                     <span class="kw">let </span>img = insert_one(map, uniq, <span class="kw-2">&amp;</span>img);
@@ -1121,68 +1549,70 @@
                     <span class="kw">let </span>preimg = insert_many(map, uniq, <span class="kw-2">&amp;</span>preimg);
                     ops.push(Op::Unhash4(preimg.try_into().unwrap(), img))
                 }
-                Op::Hide(..) =&gt; <span class="macro">todo!</span>(),
-                Op::Open(..) =&gt; <span class="macro">todo!</span>(),
+                Op::Hide(tgt, sec, pay) =&gt; {
+                    <span class="kw">let </span>sec = map.get_cloned(<span class="kw-2">&amp;</span>sec)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>pay = map.get_cloned(<span class="kw-2">&amp;</span>pay)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>tgt = insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt);
+                    ops.push(Op::Hide(tgt, sec, pay))
+                }
+                Op::Open(sec, pay, comm_or_num) =&gt; {
+                    <span class="kw">let </span>comm_or_num = map.get_cloned(<span class="kw-2">&amp;</span>comm_or_num)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>sec = insert_one(map, uniq, <span class="kw-2">&amp;</span>sec);
+                    <span class="kw">let </span>pay = insert_one(map, uniq, <span class="kw-2">&amp;</span>pay);
+                    ops.push(Op::Open(sec, pay, comm_or_num))
+                }
             }
         }
         <span class="kw">let </span>ctrl = <span class="kw">match </span><span class="self">self</span>.ctrl {
-            Ctrl::MatchTag(var, cases) =&gt; {
+            Ctrl::MatchTag(var, cases, def) =&gt; {
+                <span class="kw">let </span>var = map.get_cloned(<span class="kw-2">&amp;</span>var)<span class="question-mark">?</span>;
                 <span class="kw">let </span><span class="kw-2">mut </span>new_cases = Vec::with_capacity(cases.len());
                 <span class="kw">for </span>(tag, case) <span class="kw">in </span>cases {
                     <span class="kw">let </span>new_case = case.deconflict(<span class="kw-2">&amp;mut </span>map.clone(), uniq)<span class="question-mark">?</span>;
                     new_cases.push((tag, new_case));
                 }
-                Ctrl::MatchTag(map.get_cloned(<span class="kw-2">&amp;</span>var)<span class="question-mark">?</span>, IndexMap::from_iter(new_cases))
+                <span class="kw">let </span>new_def = <span class="kw">match </span>def {
+                    <span class="prelude-val">Some</span>(def) =&gt; <span class="prelude-val">Some</span>(Box::new(def.deconflict(map, uniq)<span class="question-mark">?</span>)),
+                    <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
+                };
+                Ctrl::MatchTag(var, IndexMap::from_iter(new_cases), new_def)
             }
-            Ctrl::MatchSymbol(var, cases, def) =&gt; {
+            Ctrl::MatchVal(var, cases, def) =&gt; {
+                <span class="kw">let </span>var = map.get_cloned(<span class="kw-2">&amp;</span>var)<span class="question-mark">?</span>;
                 <span class="kw">let </span><span class="kw-2">mut </span>new_cases = Vec::with_capacity(cases.len());
-                <span class="kw">for </span>(symbol, case) <span class="kw">in </span>cases {
+                <span class="kw">for </span>(lit, case) <span class="kw">in </span>cases {
                     <span class="kw">let </span>new_case = case.deconflict(<span class="kw-2">&amp;mut </span>map.clone(), uniq)<span class="question-mark">?</span>;
-                    new_cases.push((symbol.clone(), new_case));
+                    new_cases.push((lit.clone(), new_case));
                 }
-                <span class="kw">let </span>new_def = def.deconflict(map, uniq)<span class="question-mark">?</span>;
-                Ctrl::MatchSymbol(
-                    map.get_cloned(<span class="kw-2">&amp;</span>var)<span class="question-mark">?</span>,
-                    IndexMap::from_iter(new_cases),
-                    Box::new(new_def),
-                )
+                <span class="kw">let </span>new_def = <span class="kw">match </span>def {
+                    <span class="prelude-val">Some</span>(def) =&gt; <span class="prelude-val">Some</span>(Box::new(def.deconflict(map, uniq)<span class="question-mark">?</span>)),
+                    <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
+                };
+                Ctrl::MatchVal(var, IndexMap::from_iter(new_cases), new_def)
+            }
+            Ctrl::IfEq(x, y, eq_block, else_block) =&gt; {
+                <span class="kw">let </span>x = map.get_cloned(<span class="kw-2">&amp;</span>x)<span class="question-mark">?</span>;
+                <span class="kw">let </span>y = map.get_cloned(<span class="kw-2">&amp;</span>y)<span class="question-mark">?</span>;
+                <span class="kw">let </span>eq_block = Box::new(eq_block.deconflict(<span class="kw-2">&amp;mut </span>map.clone(), uniq)<span class="question-mark">?</span>);
+                <span class="kw">let </span>else_block = Box::new(else_block.deconflict(<span class="kw-2">&amp;mut </span>map.clone(), uniq)<span class="question-mark">?</span>);
+                Ctrl::IfEq(x, y, eq_block, else_block)
             }
             Ctrl::Return(o) =&gt; Ctrl::Return(map.get_many_cloned(<span class="kw-2">&amp;</span>o)<span class="question-mark">?</span>),
         };
         <span class="prelude-val">Ok</span>(Block { ops, ctrl })
     }
-
-    <span class="kw">fn </span>intern_matched_symbols&lt;F: LurkField&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;) {
-        <span class="kw">for </span>op <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.ops {
-            <span class="kw">if let </span>Op::Call(<span class="kw">_</span>, func, <span class="kw">_</span>) = op {
-                func.intern_matched_symbols(store)
-            }
-        }
-        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.ctrl {
-            Ctrl::MatchSymbol(<span class="kw">_</span>, cases, def) =&gt; {
-                cases.iter().for_each(|(symbol, block)| {
-                    store.intern_symbol(symbol);
-                    block.intern_matched_symbols(store)
-                });
-                def.intern_matched_symbols(store);
-            }
-            Ctrl::MatchTag(<span class="kw">_</span>, cases) =&gt; cases
-                .values()
-                .for_each(|block| block.intern_matched_symbols(store)),
-            Ctrl::Return(..) =&gt; (),
-        }
-    }
 }
 
 <span class="kw">impl </span>Var {
-    <span class="kw">fn </span>make_unique(<span class="kw-2">&amp;</span><span class="self">self</span>, uniq: usize) -&gt; Var {
-        Var(<span class="macro">format!</span>(<span class="string">&quot;#{}.{}&quot;</span>, uniq, <span class="self">self</span>.name()).into())
+    <span class="kw">fn </span>make_unique(<span class="kw-2">&amp;</span><span class="self">self</span>, uniq: <span class="kw-2">&amp;mut </span>usize) -&gt; Var {
+        <span class="kw-2">*</span>uniq += <span class="number">1</span>;
+        Var(<span class="macro">format!</span>(<span class="string">&quot;{}#{}&quot;</span>, <span class="self">self</span>.name(), uniq).into())
     }
 }
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use </span><span class="kw">super</span>::circuit::SlotsCounter;
+    <span class="kw">use </span><span class="kw">super</span>::slot::SlotsCounter;
     <span class="kw">use super</span>::{store::Store, <span class="kw-2">*</span>};
     <span class="kw">use crate</span>::{func, lem::pointers::Ptr};
     <span class="kw">use </span>bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable, Delta};
@@ -1195,18 +1625,17 @@
     ///   provided expressions.
     ///   - `expected_slots` gives the number of expected slots for each type of hash.
     </span><span class="kw">fn </span>synthesize_test_helper(func: <span class="kw-2">&amp;</span>Func, inputs: Vec&lt;Ptr&lt;Fr&gt;&gt;, expected_num_slots: SlotsCounter) {
+        <span class="kw">use </span><span class="kw">crate</span>::tag::ContTag::<span class="kw-2">*</span>;
         <span class="kw">let </span>store = <span class="kw-2">&amp;mut </span>Store::default();
-        <span class="kw">let </span>outermost = Ptr::null(Tag::Outermost);
-        <span class="kw">let </span>terminal = Ptr::null(Tag::Terminal);
-        <span class="kw">let </span>error = Ptr::null(Tag::Error);
-        <span class="kw">let </span>nil = store.intern_symbol(<span class="kw-2">&amp;</span>Symbol::lurk_sym(<span class="string">&quot;nil&quot;</span>));
+        <span class="kw">let </span>outermost = Ptr::null(Tag::Cont(Outermost));
+        <span class="kw">let </span>terminal = Ptr::null(Tag::Cont(Terminal));
+        <span class="kw">let </span>error = Ptr::null(Tag::Cont(Error));
+        <span class="kw">let </span>nil = store.intern_nil();
         <span class="kw">let </span>stop_cond = |output: <span class="kw-2">&amp;</span>[Ptr&lt;Fr&gt;]| output[<span class="number">2</span>] == terminal || output[<span class="number">2</span>] == error;
 
-        <span class="kw">let </span>slots_count = func.body.count_slots();
+        <span class="macro">assert_eq!</span>(func.slot, expected_num_slots);
 
-        <span class="macro">assert_eq!</span>(slots_count, expected_num_slots);
-
-        <span class="kw">let </span>computed_num_constraints = func.num_constraints::&lt;Fr&gt;(<span class="kw-2">&amp;</span>slots_count);
+        <span class="kw">let </span>computed_num_constraints = func.num_constraints::&lt;Fr&gt;(store);
 
         <span class="kw">let </span><span class="kw-2">mut </span>cs_prev = <span class="prelude-val">None</span>;
         <span class="kw">for </span>input <span class="kw">in </span>inputs.into_iter() {
@@ -1217,8 +1646,7 @@
 
             <span class="kw">for </span>frame <span class="kw">in </span>frames.clone() {
                 cs = TestConstraintSystem::&lt;Fr&gt;::new();
-                func.synthesize(<span class="kw-2">&amp;mut </span>cs, store, <span class="kw-2">&amp;</span>slots_count, <span class="kw-2">&amp;</span>frame)
-                    .unwrap();
+                func.synthesize(<span class="kw-2">&amp;mut </span>cs, store, <span class="kw-2">&amp;</span>frame).unwrap();
                 <span class="macro">assert!</span>(cs.is_satisfied());
                 <span class="macro">assert_eq!</span>(computed_num_constraints, cs.num_constraints());
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(cs_prev) = cs_prev {
@@ -1232,39 +1660,38 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>accepts_virtual_nested_match_tag() {
-        <span class="kw">let </span>lem = <span class="macro">func!</span>((expr_in, env_in, cont_in): <span class="number">3 </span>=&gt; {
-            match_tag expr_in {
-                Num =&gt; {
-                    <span class="kw">let </span>cont_out_terminal: Terminal;
+        <span class="kw">let </span>lem = <span class="macro">func!</span>(foo(expr_in, env_in, cont_in): <span class="number">3 </span>=&gt; {
+            <span class="kw">match </span>expr_in.tag {
+                Expr::Num =&gt; {
+                    <span class="kw">let </span>cont_out_terminal: Cont::Terminal;
                     <span class="kw">return </span>(expr_in, env_in, cont_out_terminal);
-                },
-                Char =&gt; {
-                    match_tag expr_in {
+                }
+                Expr::Char =&gt; {
+                    <span class="kw">match </span>expr_in.tag {
                         <span class="comment">// This nested match excercises the need to pass on the
                         // information that we are on a virtual branch, because a
                         // constraint will be created for `cont_out_error` and it
                         // will need to be relaxed by an implication with a false
                         // premise.
-                        </span>Num =&gt; {
-                            <span class="kw">let </span>cont_out_error: Error;
+                        </span>Expr::Num =&gt; {
+                            <span class="kw">let </span>cont_out_error: Cont::Error;
                             <span class="kw">return </span>(env_in, expr_in, cont_out_error);
                         }
-                    };
-                },
-                Sym =&gt; {
-                    match_tag expr_in {
+                    }
+                }
+                Expr::Sym =&gt; {
+                    <span class="kw">match </span>expr_in.tag {
                         <span class="comment">// This nested match exercises the need to relax `popcount`
                         // because there is no match but it&#39;s on a virtual path, so
                         // we don&#39;t want to be too restrictive and demand that at
                         // least one path must be taken.
-                        </span>Char =&gt; {
+                        </span>Expr::Char =&gt; {
                             <span class="kw">return </span>(cont_in, cont_in, cont_in);
                         }
-                    };
+                    }
                 }
-            };
-        })
-        .unwrap();
+            }
+        });
 
         <span class="kw">let </span>inputs = <span class="macro">vec!</span>[Ptr::num(Fr::from_u64(<span class="number">42</span>))];
         synthesize_test_helper(<span class="kw-2">&amp;</span>lem, inputs, SlotsCounter::default());
@@ -1272,24 +1699,23 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>resolves_conflicts_of_clashing_names_in_parallel_branches() {
-        <span class="kw">let </span>lem = <span class="macro">func!</span>((expr_in, env_in, cont_in): <span class="number">3 </span>=&gt; {
-            match_tag expr_in {
+        <span class="kw">let </span>lem = <span class="macro">func!</span>(foo(expr_in, env_in, _cont_in): <span class="number">3 </span>=&gt; {
+            <span class="kw">match </span>expr_in.tag {
                 <span class="comment">// This match is creating `cont_out_terminal` on two different
                 // branches, which, in theory, would cause troubles at allocation
                 // time. We solve this problem by calling `LEMOP::deconflict`,
                 // which turns one into `Num.cont_out_terminal` and the other into
                 // `Char.cont_out_terminal`.
-                </span>Num =&gt; {
-                    <span class="kw">let </span>cont_out_terminal: Terminal;
-                    <span class="kw">return </span>(expr_in, env_in, cont_out_terminal);
-                },
-                Char =&gt; {
-                    <span class="kw">let </span>cont_out_terminal: Terminal;
+                </span>Expr::Num =&gt; {
+                    <span class="kw">let </span>cont_out_terminal: Cont::Terminal;
                     <span class="kw">return </span>(expr_in, env_in, cont_out_terminal);
                 }
-            };
-        })
-        .unwrap();
+                Expr::Char =&gt; {
+                    <span class="kw">let </span>cont_out_terminal: Cont::Terminal;
+                    <span class="kw">return </span>(expr_in, env_in, cont_out_terminal);
+                }
+            }
+        });
 
         <span class="kw">let </span>inputs = <span class="macro">vec!</span>[Ptr::num(Fr::from_u64(<span class="number">42</span>))];
         synthesize_test_helper(<span class="kw-2">&amp;</span>lem, inputs, SlotsCounter::default());
@@ -1297,15 +1723,14 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>handles_non_ssa() {
-        <span class="kw">let </span>func = <span class="macro">func!</span>((expr_in, env_in, cont_in): <span class="number">3 </span>=&gt; {
-            <span class="kw">let </span>x: Cons = hash2(expr_in, expr_in);
+        <span class="kw">let </span>func = <span class="macro">func!</span>(foo(expr_in, _env_in, _cont_in): <span class="number">3 </span>=&gt; {
+            <span class="kw">let </span>x: Expr::Cons = hash2(expr_in, expr_in);
             <span class="comment">// The next line rewrites `x` and it should move on smoothly, matching
             // the expected number of constraints accordingly
-            </span><span class="kw">let </span>x: Cons = hash2(x, x);
-            <span class="kw">let </span>cont_out_terminal: Terminal;
+            </span><span class="kw">let </span>x: Expr::Cons = hash2(x, x);
+            <span class="kw">let </span>cont_out_terminal: Cont::Terminal;
             <span class="kw">return </span>(x, x, cont_out_terminal);
-        })
-        .unwrap();
+        });
 
         <span class="kw">let </span>inputs = <span class="macro">vec!</span>[Ptr::num(Fr::from_u64(<span class="number">42</span>))];
         synthesize_test_helper(<span class="kw-2">&amp;</span>func, inputs, SlotsCounter::new((<span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>)));
@@ -1313,11 +1738,10 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_simple_all_paths_delta() {
-        <span class="kw">let </span>lem = <span class="macro">func!</span>((expr_in, env_in, cont_in): <span class="number">3 </span>=&gt; {
-            <span class="kw">let </span>cont_out_terminal: Terminal;
+        <span class="kw">let </span>lem = <span class="macro">func!</span>(foo(expr_in, env_in, _cont_in): <span class="number">3 </span>=&gt; {
+            <span class="kw">let </span>cont_out_terminal: Cont::Terminal;
             <span class="kw">return </span>(expr_in, env_in, cont_out_terminal);
-        })
-        .unwrap();
+        });
 
         <span class="kw">let </span>inputs = <span class="macro">vec!</span>[Ptr::num(Fr::from_u64(<span class="number">42</span>)), Ptr::char(<span class="string">&#39;c&#39;</span>)];
         synthesize_test_helper(<span class="kw-2">&amp;</span>lem, inputs, SlotsCounter::default());
@@ -1325,19 +1749,18 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_match_all_paths_delta() {
-        <span class="kw">let </span>lem = <span class="macro">func!</span>((expr_in, env_in, cont_in): <span class="number">3 </span>=&gt; {
-            match_tag expr_in {
-                Num =&gt; {
-                    <span class="kw">let </span>cont_out_terminal: Terminal;
+        <span class="kw">let </span>lem = <span class="macro">func!</span>(foo(expr_in, env_in, _cont_in): <span class="number">3 </span>=&gt; {
+            <span class="kw">match </span>expr_in.tag {
+                Expr::Num =&gt; {
+                    <span class="kw">let </span>cont_out_terminal: Cont::Terminal;
                     <span class="kw">return </span>(expr_in, env_in, cont_out_terminal);
-                },
-                Char =&gt; {
-                    <span class="kw">let </span>cont_out_error: Error;
+                }
+                Expr::Char =&gt; {
+                    <span class="kw">let </span>cont_out_error: Cont::Error;
                     <span class="kw">return </span>(expr_in, env_in, cont_out_error);
                 }
-            };
-        })
-        .unwrap();
+            }
+        });
 
         <span class="kw">let </span>inputs = <span class="macro">vec!</span>[Ptr::num(Fr::from_u64(<span class="number">42</span>)), Ptr::char(<span class="string">&#39;c&#39;</span>)];
         synthesize_test_helper(<span class="kw-2">&amp;</span>lem, inputs, SlotsCounter::default());
@@ -1345,31 +1768,30 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_hash_slots() {
-        <span class="kw">let </span>lem = <span class="macro">func!</span>((expr_in, env_in, cont_in): <span class="number">3 </span>=&gt; {
-            <span class="kw">let </span>x: Cons = hash2(expr_in, env_in);
-            <span class="kw">let </span>y: Cons = hash3(expr_in, env_in, cont_in);
-            <span class="kw">let </span>z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
-            <span class="kw">let </span>t: Terminal;
-            <span class="kw">let </span>p: Nil;
-            match_tag expr_in {
-                Num =&gt; {
-                    <span class="kw">let </span>m: Cons = hash2(env_in, expr_in);
-                    <span class="kw">let </span>n: Cons = hash3(cont_in, env_in, expr_in);
-                    <span class="kw">let </span>k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+        <span class="kw">let </span>lem = <span class="macro">func!</span>(foo(expr_in, env_in, cont_in): <span class="number">3 </span>=&gt; {
+            <span class="kw">let </span>_x: Expr::Cons = hash2(expr_in, env_in);
+            <span class="kw">let </span>_y: Expr::Cons = hash3(expr_in, env_in, cont_in);
+            <span class="kw">let </span>_z: Expr::Cons = hash4(expr_in, env_in, cont_in, cont_in);
+            <span class="kw">let </span>t: Cont::Terminal;
+            <span class="kw">let </span>p: Expr::Nil;
+            <span class="kw">match </span>expr_in.tag {
+                Expr::Num =&gt; {
+                    <span class="kw">let </span>m: Expr::Cons = hash2(env_in, expr_in);
+                    <span class="kw">let </span>n: Expr::Cons = hash3(cont_in, env_in, expr_in);
+                    <span class="kw">let </span>_k: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
                     <span class="kw">return </span>(m, n, t);
-                },
-                Char =&gt; {
-                    <span class="kw">return </span>(p, p, t);
-                },
-                Cons =&gt; {
-                    <span class="kw">return </span>(p, p, t);
-                },
-                Nil =&gt; {
+                }
+                Expr::Char =&gt; {
                     <span class="kw">return </span>(p, p, t);
                 }
-            };
-        })
-        .unwrap();
+                Expr::Cons =&gt; {
+                    <span class="kw">return </span>(p, p, t);
+                }
+                Expr::Nil =&gt; {
+                    <span class="kw">return </span>(p, p, t);
+                }
+            }
+        });
 
         <span class="kw">let </span>inputs = <span class="macro">vec!</span>[Ptr::num(Fr::from_u64(<span class="number">42</span>)), Ptr::char(<span class="string">&#39;c&#39;</span>)];
         synthesize_test_helper(<span class="kw-2">&amp;</span>lem, inputs, SlotsCounter::new((<span class="number">2</span>, <span class="number">2</span>, <span class="number">2</span>)));
@@ -1377,34 +1799,33 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_unhash_slots() {
-        <span class="kw">let </span>lem = <span class="macro">func!</span>((expr_in, env_in, cont_in): <span class="number">3 </span>=&gt; {
-            <span class="kw">let </span>x: Cons = hash2(expr_in, env_in);
-            <span class="kw">let </span>y: Cons = hash3(expr_in, env_in, cont_in);
-            <span class="kw">let </span>z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
-            <span class="kw">let </span>t: Terminal;
-            <span class="kw">let </span>p: Nil;
-            match_tag expr_in {
-                Num =&gt; {
-                    <span class="kw">let </span>m: Cons = hash2(env_in, expr_in);
-                    <span class="kw">let </span>n: Cons = hash3(cont_in, env_in, expr_in);
-                    <span class="kw">let </span>k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
-                    <span class="kw">let </span>(m1, m2) = unhash2(m);
-                    <span class="kw">let </span>(n1, n2, n3) = unhash3(n);
-                    <span class="kw">let </span>(k1, k2, k3, k4) = unhash4(k);
+        <span class="kw">let </span>lem = <span class="macro">func!</span>(foo(expr_in, env_in, cont_in): <span class="number">3 </span>=&gt; {
+            <span class="kw">let </span>_x: Expr::Cons = hash2(expr_in, env_in);
+            <span class="kw">let </span>_y: Expr::Cons = hash3(expr_in, env_in, cont_in);
+            <span class="kw">let </span>_z: Expr::Cons = hash4(expr_in, env_in, cont_in, cont_in);
+            <span class="kw">let </span>t: Cont::Terminal;
+            <span class="kw">let </span>p: Expr::Nil;
+            <span class="kw">match </span>expr_in.tag {
+                Expr::Num =&gt; {
+                    <span class="kw">let </span>m: Expr::Cons = hash2(env_in, expr_in);
+                    <span class="kw">let </span>n: Expr::Cons = hash3(cont_in, env_in, expr_in);
+                    <span class="kw">let </span>k: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                    <span class="kw">let </span>(_m1, _m2) = unhash2(m);
+                    <span class="kw">let </span>(_n1, _n2, _n3) = unhash3(n);
+                    <span class="kw">let </span>(_k1, _k2, _k3, _k4) = unhash4(k);
                     <span class="kw">return </span>(m, n, t);
-                },
-                Char =&gt; {
+                }
+                Expr::Char =&gt; {
                     <span class="kw">return </span>(p, p, t);
-                },
-                Cons =&gt; {
-                    <span class="kw">return </span>(p, p, p);
-                },
-                Nil =&gt; {
+                }
+                Expr::Cons =&gt; {
                     <span class="kw">return </span>(p, p, p);
                 }
-            };
-        })
-        .unwrap();
+                Expr::Nil =&gt; {
+                    <span class="kw">return </span>(p, p, p);
+                }
+            }
+        });
 
         <span class="kw">let </span>inputs = <span class="macro">vec!</span>[Ptr::num(Fr::from_u64(<span class="number">42</span>)), Ptr::char(<span class="string">&#39;c&#39;</span>)];
         synthesize_test_helper(<span class="kw-2">&amp;</span>lem, inputs, SlotsCounter::new((<span class="number">3</span>, <span class="number">3</span>, <span class="number">3</span>)));
@@ -1412,47 +1833,46 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_unhash_nested_slots() {
-        <span class="kw">let </span>lem = <span class="macro">func!</span>((expr_in, env_in, cont_in): <span class="number">3 </span>=&gt; {
-            <span class="kw">let </span>x: Cons = hash2(expr_in, env_in);
-            <span class="kw">let </span>y: Cons = hash3(expr_in, env_in, cont_in);
-            <span class="kw">let </span>z: Cons = hash4(expr_in, env_in, cont_in, cont_in);
-            <span class="kw">let </span>t: Terminal;
-            <span class="kw">let </span>p: Nil;
-            match_tag expr_in {
-                Num =&gt; {
-                    <span class="kw">let </span>m: Cons = hash2(env_in, expr_in);
-                    <span class="kw">let </span>n: Cons = hash3(cont_in, env_in, expr_in);
-                    <span class="kw">let </span>k: Cons = hash4(expr_in, cont_in, env_in, expr_in);
-                    <span class="kw">let </span>(m1, m2) = unhash2(m);
-                    <span class="kw">let </span>(n1, n2, n3) = unhash3(n);
-                    <span class="kw">let </span>(k1, k2, k3, k4) = unhash4(k);
-                    match_tag cont_in {
-                        Outermost =&gt; {
-                            <span class="kw">let </span>a: Cons = hash2(env_in, expr_in);
-                            <span class="kw">let </span>b: Cons = hash3(cont_in, env_in, expr_in);
-                            <span class="kw">let </span>c: Cons = hash4(expr_in, cont_in, env_in, expr_in);
-                            <span class="kw">return </span>(m, n, t);
-                        },
-                        Cons =&gt; {
-                            <span class="kw">let </span>d: Cons = hash2(env_in, expr_in);
-                            <span class="kw">let </span>e: Cons = hash3(cont_in, env_in, expr_in);
-                            <span class="kw">let </span>f: Cons = hash4(expr_in, cont_in, env_in, expr_in);
+        <span class="kw">let </span>lem = <span class="macro">func!</span>(foo(expr_in, env_in, cont_in): <span class="number">3 </span>=&gt; {
+            <span class="kw">let </span>_x: Expr::Cons = hash2(expr_in, env_in);
+            <span class="kw">let </span>_y: Expr::Cons = hash3(expr_in, env_in, cont_in);
+            <span class="kw">let </span>_z: Expr::Cons = hash4(expr_in, env_in, cont_in, cont_in);
+            <span class="kw">let </span>t: Cont::Terminal;
+            <span class="kw">let </span>p: Expr::Nil;
+            <span class="kw">match </span>expr_in.tag {
+                Expr::Num =&gt; {
+                    <span class="kw">let </span>m: Expr::Cons = hash2(env_in, expr_in);
+                    <span class="kw">let </span>n: Expr::Cons = hash3(cont_in, env_in, expr_in);
+                    <span class="kw">let </span>k: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                    <span class="kw">let </span>(_m1, _m2) = unhash2(m);
+                    <span class="kw">let </span>(_n1, _n2, _n3) = unhash3(n);
+                    <span class="kw">let </span>(_k1, _k2, _k3, _k4) = unhash4(k);
+                    <span class="kw">match </span>cont_in.tag {
+                        Cont::Outermost =&gt; {
+                            <span class="kw">let </span>_a: Expr::Cons = hash2(env_in, expr_in);
+                            <span class="kw">let </span>_b: Expr::Cons = hash3(cont_in, env_in, expr_in);
+                            <span class="kw">let </span>_c: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
                             <span class="kw">return </span>(m, n, t);
                         }
-                    };
-                },
-                Char =&gt; {
+                        Cont::Terminal =&gt; {
+                            <span class="kw">let </span>_d: Expr::Cons = hash2(env_in, expr_in);
+                            <span class="kw">let </span>_e: Expr::Cons = hash3(cont_in, env_in, expr_in);
+                            <span class="kw">let </span>_f: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                            <span class="kw">return </span>(m, n, t);
+                        }
+                    }
+                }
+                Expr::Char =&gt; {
                     <span class="kw">return </span>(p, p, t);
-                },
-                Cons =&gt; {
-                    <span class="kw">return </span>(p, p, p);
-                },
-                Nil =&gt; {
+                }
+                Expr::Cons =&gt; {
                     <span class="kw">return </span>(p, p, p);
                 }
-            };
-        })
-        .unwrap();
+                Expr::Nil =&gt; {
+                    <span class="kw">return </span>(p, p, p);
+                }
+            }
+        });
 
         <span class="kw">let </span>inputs = <span class="macro">vec!</span>[Ptr::num(Fr::from_u64(<span class="number">42</span>)), Ptr::char(<span class="string">&#39;c&#39;</span>)];
         synthesize_test_helper(<span class="kw-2">&amp;</span>lem, inputs, SlotsCounter::new((<span class="number">4</span>, <span class="number">4</span>, <span class="number">4</span>)));
