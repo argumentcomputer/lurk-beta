@@ -1562,7 +1562,7 @@ fn commit_nil() {
     let expr = "(num (commit nil))";
     test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, 4, None);
 
-    let expr = "(num (commit 'lurk.nil))";
+    let expr = "(num (commit '.lurk.nil))";
     test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, 4, None);
 }
 
@@ -2565,7 +2565,6 @@ pub(crate) mod coproc {
     use super::*;
     use crate::coprocessor::test::DumbCoprocessor;
     use crate::store::Store;
-    use crate::sym;
 
     #[derive(Clone, Debug, Coproc)]
     pub(crate) enum DumbCoproc<F: LurkField> {
@@ -2578,18 +2577,18 @@ pub(crate) mod coproc {
 
         let lang = Lang::<Fr, DumbCoproc<Fr>>::new_with_bindings(
             s,
-            vec![(sym!("cproc", "dumb"), DumbCoprocessor::new().into())],
+            vec![(".lurk-user.cproc-dumb", DumbCoprocessor::new().into())],
         );
 
         // 9^2 + 8 = 89
-        let expr = "(.cproc.dumb 9 8)";
+        let expr = "(cproc-dumb 9 8)";
 
         // The dumb coprocessor cannot be shadowed.
-        let expr2 = "(let ((.cproc.dumb (lambda (a b) (* a b))))
-                   (.cproc.dumb 9 8))";
+        let expr2 = "(let ((cproc-dumb (lambda (a b) (* a b))))
+                   (cproc-dumb 9 8))";
 
         // The dumb coprocessor cannot be shadowed.
-        let expr3 = "(.cproc.dumb 9 8 123))";
+        let expr3 = "(cproc-dumb 9 8 123))";
 
         let res = s.num(89);
         let error = s.get_cont_error();

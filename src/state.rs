@@ -66,14 +66,24 @@ impl State {
         self.get_current_package().print_to_string(symbol)
     }
 
-    pub fn intern_path<A: AsRef<str>>(&mut self, path: &[A], keyword: bool) -> Result<SymbolRef> {
+    pub fn intern_fold<A: AsRef<str>>(&mut self, init: SymbolRef, path: &[A]) -> Result<SymbolRef> {
         path.iter()
-            .try_fold(Symbol::root(keyword).into(), |acc, s| {
+            .try_fold(init, |acc, s| {
                 match self.symbol_packages.get_mut(&acc) {
                     Some(package) => Ok(package.intern(String::from(s.as_ref()))),
                     None => bail!("Package {acc} not found"),
                 }
             })
+    }
+
+    #[inline]
+    pub fn intern_path<A: AsRef<str>>(&mut self, path: &[A], keyword: bool) -> Result<SymbolRef> {
+        self.intern_fold(Symbol::root(keyword).into(), path)
+    }
+
+    #[inline]
+    pub fn intern_relative_path<A: AsRef<str>>(&mut self, path: &[A]) -> Result<SymbolRef> {
+        self.intern_fold(self.current_package.clone(), path)
     }
 
     #[inline]
