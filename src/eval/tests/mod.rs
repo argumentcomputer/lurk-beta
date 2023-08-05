@@ -10,6 +10,7 @@ use lurk_macros::{let_store, lurk, Coproc};
 use pasta_curves::pallas::Scalar as Fr;
 
 use crate as lurk;
+mod mod2;
 mod trie;
 
 fn test_aux<C: Coprocessor<Fr>>(
