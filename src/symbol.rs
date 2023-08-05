@@ -1,7 +1,6 @@
 use std::fmt;
 
 use anyhow::{bail, Result};
-use itertools::Itertools;
 
 use crate::parser::LURK_WHITESPACE;
 #[cfg(not(target_arch = "wasm32"))]
@@ -281,9 +280,7 @@ impl Symbol {
                 res.push(c)
             }
         }
-        if res.is_empty() {
-            "||".into()
-        } else if has_whitespace || Self::start_needs_escaping(&res) {
+        if has_whitespace || Self::start_needs_escaping(&res) {
             format!("|{res}|")
         } else {
             res
@@ -291,9 +288,15 @@ impl Symbol {
     }
 
     pub fn format_path(path: &[String]) -> String {
-        path.iter()
-            .map(|s| Self::format_path_component(s))
-            .join(".")
+        let mut res = String::new();
+        let mut iter = path.iter().peekable();
+        while let Some(next) = iter.next() {
+            res.push_str(&Self::format_path_component(next));
+            if iter.peek().is_some() || next.is_empty() {
+                res.push('.');
+            }
+        }
+        res
     }
 
     pub fn format(&self) -> String {

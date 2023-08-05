@@ -385,7 +385,11 @@ pub mod tests {
         assert!(test(parse_path(), "..", Some(sym_path!([""]))));
         assert!(test(parse_path(), "foo", Some(rel_path!(["foo"]))));
         assert!(test(parse_path(), "|foo|", Some(rel_path!(["foo"]))));
-        assert!(test(parse_path(), "|Hi, bye|", Some(rel_path!(["Hi, bye"]))));
+        assert!(test(
+            parse_path(),
+            "|Hi, bye|",
+            Some(rel_path!(["Hi, bye"]))
+        ));
         assert!(test(
             parse_path(),
             "|foo|.|bar|",
@@ -427,7 +431,11 @@ pub mod tests {
             ".foo\\u{00}.bar\\u{00}",
             Some(sym_path!(["foo\u{00}", "bar\u{00}"]))
         ));
-        assert!(test(parse_path(), ".foo\\.bar", Some(sym_path!(["foo.bar"]))));
+        assert!(test(
+            parse_path(),
+            ".foo\\.bar",
+            Some(sym_path!(["foo.bar"]))
+        ));
         assert!(test(parse_path(), "~(asdf )", Some(sym_path!(["asdf"]))));
         assert!(test(parse_path(), "~( asdf )", Some(sym_path!(["asdf"]))));
         assert!(test(parse_path(), "~( asdf)", Some(sym_path!(["asdf"]))));
@@ -508,7 +516,10 @@ pub mod tests {
         assert!(test(
             parse_syntax(),
             "(.foo.bar .foo.bar)",
-            Some(list!([sym_path!(["foo", "bar"]), sym_path!(["foo", "bar"])])),
+            Some(list!([
+                sym_path!(["foo", "bar"]),
+                sym_path!(["foo", "bar"])
+            ])),
         ));
         assert!(test(
             parse_syntax(),
@@ -523,7 +534,10 @@ pub mod tests {
         assert!(test(
             parse_syntax(),
             "(a b . c)",
-            Some(list!([rel_path!(["a"]), rel_path!(["b"])], rel_path!(["c"]))),
+            Some(list!(
+                [rel_path!(["a"]), rel_path!(["b"])],
+                rel_path!(["c"])
+            )),
         ));
         assert!(test(
             parse_syntax(),
@@ -536,7 +550,11 @@ pub mod tests {
         assert!(test(
             parse_syntax(),
             "(a b c)",
-            Some(list!([rel_path!(["a"]), rel_path!(["b"]), rel_path!(["c"])])),
+            Some(list!([
+                rel_path!(["a"]),
+                rel_path!(["b"]),
+                rel_path!(["c"])
+            ])),
         ));
         assert!(test(
             parse_syntax(),
@@ -547,7 +565,11 @@ pub mod tests {
         assert!(test(
             parse_syntax(),
             "(a. b. c.)",
-            Some(list!([rel_path!(["a"]), rel_path!(["b"]), rel_path!(["c"])])),
+            Some(list!([
+                rel_path!(["a"]),
+                rel_path!(["b"]),
+                rel_path!(["c"])
+            ])),
         ));
         assert!(test(
             parse_syntax(),
@@ -750,8 +772,8 @@ pub mod tests {
                 "{}",
                 list!(
                     Scalar,
-                    [Syntax::Quote(Pos::No, Box::new(rel_path!([""])))],
-                    sym_path!(["a"])
+                    [Syntax::Quote(Pos::No, Box::new(sym_path!([""])))],
+                    rel_path!(["a"])
                 )
             )
         );
