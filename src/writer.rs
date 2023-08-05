@@ -343,8 +343,8 @@ pub mod test {
     fn print_expr() {
         let mut s = Store::<Fr>::default();
         let nil = s.nil_ptr();
-        let x = s.sym("x");
-        let lambda = s.read("lambda").unwrap();
+        let x = s.user_sym("x");
+        let lambda = s.lambda_ptr();
         let val = s.num(123);
         let lambda_args = s.cons(x, nil);
         let body = s.cons(x, nil);

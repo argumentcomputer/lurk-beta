@@ -1975,7 +1975,7 @@ pub mod tests {
     fn test_prove_zero_arg_lambda3() {
         let s = &mut Store::<Fr>::default();
         let expected = {
-            let arg = s.sym("x");
+            let arg = s.user_sym("x");
             let num = s.num(123);
             let body = s.list(&[num]);
             let env = s.nil_ptr();
@@ -2664,7 +2664,7 @@ pub mod tests {
     fn test_prove_hide_open_sym() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open (hide 123 'x))";
-        let x = s.sym("x");
+        let x = s.user_sym("x");
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(x), None, Some(terminal), None, 5, None);
     }
@@ -2673,7 +2673,7 @@ pub mod tests {
     fn test_prove_commit_open_sym() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open (commit 'x))";
-        let x = s.sym("x");
+        let x = s.user_sym("x");
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(x), None, Some(terminal), None, 4, None);
     }
@@ -2887,7 +2887,7 @@ pub mod tests {
     fn test_prove_terminal_sym() {
         let s = &mut Store::<Fr>::default();
         let expr = "(quote x)";
-        let x = s.sym("x");
+        let x = s.user_sym("x");
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(x), None, Some(terminal), None, 1, None);
     }
@@ -3536,7 +3536,7 @@ pub mod tests {
     fn test_prove_call_literal_fun() {
         let s = &mut Store::<Fr>::default();
         let empty_env = s.nil_ptr();
-        let arg = s.sym("x");
+        let arg = s.user_sym("x");
         let body = s.read("((+ x 1))").unwrap();
         let fun = s.intern_fun(arg, body, empty_env);
         let input = s.num(9);

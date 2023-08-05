@@ -191,6 +191,10 @@ impl<F: LurkField> Store<F> {
         self.expect_constants().num.ptr()
     }
 
+    pub fn lambda_ptr(&self) -> Ptr<F> {
+        self.expect_constants().lambda.ptr()
+    }
+
     #[inline]
     pub fn cons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         self.intern_cons(car, cdr)
@@ -2335,20 +2339,17 @@ pub mod test {
     fn sym_and_key_hashes() {
         let s = &mut Store::<Fr>::default();
 
-        let root = s.intern_symbol(&Symbol::root_sym());
-        let str1 = s.str("keyword");
-        let sym1 = s.intern_symcons(str1, root);
-        let str2 = s.str("orange");
-        let sym2 = s.intern_symcons(str2, sym1);
-        let key = s.key("orange");
+        let sym_ptr = s.intern_symbol(&Symbol::sym(&["a", "b", "c"]));
+        let key_ptr = s.intern_symbol(&Symbol::key(&["a", "b", "c"]));
 
-        let sym_ptr = s.hash_expr(&sym2).unwrap();
-        let key_ptr = s.hash_expr(&key).unwrap();
-        let sym_hash = sym_ptr.1;
-        let key_hash = key_ptr.1;
+        let sym_z_ptr = s.hash_expr(&sym_ptr).unwrap();
+        let key_z_ptr = s.hash_expr(&key_ptr).unwrap();
+        let sym_hash = sym_z_ptr.1;
+        let key_hash = key_z_ptr.1;
 
+        assert_ne!(sym_ptr, key_ptr);
+        assert_ne!(sym_z_ptr, key_z_ptr);
         assert_eq!(sym_hash, key_hash);
-        assert!(sym_ptr != key_ptr);
     }
 
     #[test]
