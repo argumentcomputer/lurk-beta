@@ -102,7 +102,8 @@ impl State {
         });
 
         // bootstrap the lurk user package
-        let mut lurk_user_package = Package::new(root_package.intern("lurk-user".into()));
+        let mut lurk_user_package =
+            Package::new(root_package.intern(LURK_USER_PACKAGE_SYMBOL_NAME.into()));
         lurk_user_package
             .use_package(&lurk_package)
             .expect("all symbols in the lurk package are importable");
@@ -116,9 +117,17 @@ impl State {
     }
 }
 
+#[inline]
 pub fn lurk_sym(name: &str) -> Symbol {
     Symbol::sym(&[LURK_PACKAGE_SYMBOL_NAME, name])
 }
+
+#[inline]
+pub fn user_sym(name: &str) -> Symbol {
+    Symbol::sym(&[LURK_USER_PACKAGE_SYMBOL_NAME, name])
+}
+
+const LURK_USER_PACKAGE_SYMBOL_NAME: &str = "lurk-user";
 
 const LURK_PACKAGE_SYMBOL_NAME: &str = "lurk";
 

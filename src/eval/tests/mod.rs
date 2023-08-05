@@ -3,14 +3,14 @@ use crate::coprocessor::Coprocessor;
 use crate::eval::lang::Coproc;
 use crate::eval::reduction::{extend, lookup, reduce};
 use crate::num::Num;
-use crate::state::State;
+use crate::package::Package;
+use crate::state::{user_sym, State};
 use crate::tag::{ExprTag, Op, Op1, Op2};
 
 use lurk_macros::{let_store, lurk, Coproc};
 use pasta_curves::pallas::Scalar as Fr;
 
 use crate as lurk;
-mod mod2;
 mod trie;
 
 fn test_aux<C: Coprocessor<Fr>>(
@@ -952,7 +952,7 @@ fn evaluate_zero_arg_lambda() {
     }
     {
         let expected = {
-            let arg = s.sym("x");
+            let arg = s.user_sym("x");
             let num = s.num(123);
             let body = s.list(&[num]);
             let env = s.nil_ptr();
@@ -1460,7 +1460,7 @@ fn begin_current_env1() {
         let s = &mut Store::<Fr>::default();
         let expr = "(let ((a 1))
                        (begin 123 (current-env)))";
-        let a = s.sym("a");
+        let a = s.user_sym("a");
         let one = s.num(1);
         let binding = s.cons(a, one);
         let expected = s.list(&[binding]);
@@ -1472,7 +1472,7 @@ fn begin_current_env1() {
 fn hide_open() {
     let s = &mut Store::<Fr>::default();
     let expr = "(open (hide 123 'x))";
-    let x = s.sym("x");
+    let x = s.user_sym("x");
     test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, 5, None);
 }
 
@@ -1492,7 +1492,7 @@ fn hide_opaque_open_available() {
     let state = &mut State::initial_lurk_state();
 
     let open = s.read_with_state(state, "open").unwrap();
-    let x = s.sym("x");
+    let x = s.user_sym("x");
     let lang = Lang::new();
 
     {
@@ -1527,7 +1527,7 @@ fn hide_opaque_open_unavailable() {
     let s2 = &mut Store::<Fr>::default();
     let comm = s2.intern_maybe_opaque_comm(*c);
     let open = s2.read("open").unwrap();
-    let x = s2.sym("x");
+    let x = s2.user_sym("x");
 
     let expr = s2.list(&[open, comm]);
     let lang = Lang::new();
@@ -1539,7 +1539,7 @@ fn hide_opaque_open_unavailable() {
 fn commit_open_sym() {
     let s = &mut Store::<Fr>::default();
     let expr = "(open (commit 'x))";
-    let x = s.sym("x");
+    let x = s.user_sym("x");
     test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, 4, None);
 }
 
@@ -1771,7 +1771,7 @@ fn char_invalid_tag() {
 fn terminal_sym() {
     let s = &mut Store::<Fr>::default();
     let expr = "(quote x)";
-    let x = s.sym("x");
+    let x = s.user_sym("x");
     let terminal = s.get_cont_terminal();
     test_aux::<Coproc<Fr>>(s, expr, Some(x), None, Some(terminal), None, 1, None);
 }
@@ -2349,10 +2349,17 @@ fn test_sym_hash_values() {
     let s = &mut Store::<Fr>::default();
     let state = &mut State::initial_lurk_state();
 
+    let asdf_sym_package_name = state.intern_path(&["asdf"], false).unwrap();
+    let asdf_sym_package = Package::new(asdf_sym_package_name.into());
+    state.add_package(asdf_sym_package);
+
+    let asdf_key_package_name = state.intern_path(&["asdf"], true).unwrap();
+    let asdf_key_package = Package::new(asdf_key_package_name.into());
+    state.add_package(asdf_key_package);
+
     let sym = s.read_with_state(state, ".asdf.fdsa").unwrap();
-    // TODO: No longer true for keywords
-    //let key = s.read(":asdf.fdsa").unwrap();
-    let expr = s.read_with_state(state, "(cons \"fdsa\" 'asdf)").unwrap();
+    let key = s.read_with_state(state, ":asdf.fdsa").unwrap();
+    let expr = s.read_with_state(state, "(cons \"fdsa\" '.asdf)").unwrap();
 
     let limit = 10;
     let env = empty_sym_env(s);
@@ -2376,7 +2383,7 @@ fn test_sym_hash_values() {
 
     let cons_z_ptr = &s.hash_expr(&new_expr).unwrap();
     let sym_z_ptr = &s.hash_expr(&sym).unwrap();
-    //let key_z_ptr = &s.hash_expr(&key).unwrap();
+    let key_z_ptr = &s.hash_expr(&key).unwrap();
 
     let consed_with_root_z_ptr = &s.hash_expr(&consed_with_root).unwrap();
     let toplevel_z_ptr = &s.hash_expr(&toplevel_sym).unwrap();
@@ -2384,14 +2391,14 @@ fn test_sym_hash_values() {
     // Symbol and keyword scalar hash values are the same as
     // those of the name string consed onto the parent symbol.
     assert_eq!(cons_z_ptr.value(), sym_z_ptr.value());
-    //assert_eq!(cons_z_ptr.value(), key_z_ptr.value());
+    assert_eq!(cons_z_ptr.value(), key_z_ptr.value());
 
     // Toplevel symbols also have this property, and their parent symbol is the root symbol.
     assert_eq!(consed_with_root_z_ptr.value(), toplevel_z_ptr.value());
 
     // The tags differ though.
     assert_eq!(ExprTag::Sym, sym_z_ptr.tag());
-    //assert_eq!(ExprTag::Key, key_z_ptr.tag());
+    assert_eq!(ExprTag::Key, key_z_ptr.tag());
 }
 
 #[test]
@@ -2578,7 +2585,7 @@ pub(crate) mod coproc {
 
         let lang = Lang::<Fr, DumbCoproc<Fr>>::new_with_bindings(
             s,
-            vec![(".lurk-user.cproc-dumb", DumbCoprocessor::new().into())],
+            vec![(user_sym("cproc-dumb"), DumbCoprocessor::new().into())],
         );
 
         // 9^2 + 8 = 89

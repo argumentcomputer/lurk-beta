@@ -13,7 +13,7 @@ use crate::expr;
 use crate::expr::{Expression, Thunk};
 use crate::field::{FWrap, LurkField};
 use crate::ptr::{ContPtr, Ptr, RawPtr};
-use crate::state::lurk_sym;
+use crate::state::{lurk_sym, user_sym};
 use crate::symbol::Symbol;
 use crate::tag::{ContTag, ExprTag, Op1, Op2, Tag};
 use crate::z_cont::ZCont;
@@ -513,6 +513,10 @@ impl<F: LurkField> Store<F> {
                 sym_ptr
             }
         }
+    }
+
+    pub fn user_sym(&mut self, name: &str) -> Ptr<F> {
+        self.intern_symbol(&user_sym(name))
     }
 
     pub fn intern_num<T: Into<Num<F>>>(&mut self, num: T) -> Ptr<F> {
