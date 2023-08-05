@@ -1950,7 +1950,7 @@ pub mod test {
         },
         parser::position::Pos,
     };
-    use crate::{list, num, symbol};
+    use crate::{list, num, sym_path};
 
     use blstrs::Scalar as Fr;
     use ff::Field;
@@ -2355,8 +2355,8 @@ pub mod test {
     fn sym_in_list() {
         let store = &mut Store::<Fr>::default();
 
-        let foo_list = list!(Fr, [symbol!(["foo"])]);
-        let foo_sym = symbol!(Fr, ["foo"]);
+        let foo_list = list!(Fr, [sym_path!(["foo"])]);
+        let foo_sym = sym_path!(Fr, ["foo"]);
 
         let mut state = State::minimal();
 
