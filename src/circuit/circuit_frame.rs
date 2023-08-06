@@ -114,7 +114,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     ) -> Vec<Self> {
         // `count` is the number of `Frames` to include per `MultiFrame`.
         let total_frames = frames.len();
-        let n = total_frames / count + usize::from(total_frames % count != 0);
+        let n = (total_frames + count - 1) / count;
         let mut multi_frames = Vec::with_capacity(n);
 
         for chunk in frames.chunks(count) {
@@ -132,9 +132,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                 .clone();
 
             // Fill out the MultiFrame, if needed, and capture output of the final actual frame.
-            for _ in chunk.len()..count {
-                inner_frames.push(last_circuit_frame.clone());
-            }
+            inner_frames.resize(count, last_circuit_frame.clone());
 
             let output = last_frame.output;
             debug_assert!(!inner_frames.is_empty());
