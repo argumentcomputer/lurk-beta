@@ -23,6 +23,7 @@ use lurk::{
     proof::nova::{self, NovaProver, PublicParams},
     proof::Prover,
     ptr::{ContPtr, Ptr},
+    state::initial_lurk_state,
     store::Store,
     tag::ExprTag,
     writer::Write,
@@ -412,13 +413,13 @@ impl Evaluation {
             };
         }
 
-        let expr = input.expr.fmt_to_string(s);
-        let env = input.env.fmt_to_string(s);
-        let cont = input.cont.fmt_to_string(s);
+        let expr = input.expr.fmt_to_string(s, &initial_lurk_state());
+        let env = input.env.fmt_to_string(s, &initial_lurk_state());
+        let cont = input.cont.fmt_to_string(s, &initial_lurk_state());
 
-        let expr_out = maybe_hide!(output.expr.fmt_to_string(s));
-        let env_out = maybe_hide!(output.env.fmt_to_string(s));
-        let cont_out = maybe_hide!(output.cont.fmt_to_string(s));
+        let expr_out = maybe_hide!(output.expr.fmt_to_string(s, &initial_lurk_state()));
+        let env_out = maybe_hide!(output.env.fmt_to_string(s, &initial_lurk_state()));
+        let cont_out = maybe_hide!(output.cont.fmt_to_string(s, &initial_lurk_state()));
 
         Self {
             expr,
@@ -753,12 +754,12 @@ impl<'a> Opening<S1> {
             (None, public_output.expr)
         };
 
-        let input_string = input.fmt_to_string(s);
+        let input_string = input.fmt_to_string(s, &initial_lurk_state());
         let status =
             <lurk::eval::IO<S1> as Evaluable<S1, Witness<S1>, Coproc<S1>>>::status(&public_output);
         let output_string = if status.is_terminal() {
             // Only actual output if result is terminal.
-            output_expr.fmt_to_string(s)
+            output_expr.fmt_to_string(s, &initial_lurk_state())
         } else {
             // We don't want to leak any internal information in the case of incomplete computations.
             // Provers might want to expose results in the case of explicit errors.

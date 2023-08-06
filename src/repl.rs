@@ -82,7 +82,7 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
             self.handle_meta(store, state, ptr, pwd)?;
             Ok(input)
         } else {
-            self.handle_non_meta(store, ptr).map(|_| ())?;
+            self.handle_non_meta(store, state, ptr).map(|_| ())?;
             Ok(input)
         }
     }
@@ -145,6 +145,7 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
     fn handle_non_meta(
         &mut self,
         store: &mut Store<F>,
+        state: &State,
         expr_ptr: Ptr<F>,
     ) -> Result<(IO<F>, IO<F>, usize)>;
 }
@@ -260,7 +261,7 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
         let name = T::name();
         eprintln!("{name} welcomes you.");
     }
-    let state = &mut State::initial_lurk_state();
+    let state = &mut State::init_lurk_state();
 
     {
         if let Some(lurk_file) = lurk_file {
@@ -290,7 +291,7 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
                             };
                             continue;
                         } else {
-                            if let Err(e) = repl.state.handle_non_meta(s, expr) {
+                            if let Err(e) = repl.state.handle_non_meta(s, state, expr) {
                                 eprintln!("REPL Error: {e:?}");
                             }
 
@@ -433,10 +434,10 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             assert!(
                                 store.ptr_eq(&first_evaled, &second_evaled).unwrap(),
                                 "Assertion failed {:?} = {:?},\n {:?} != {:?}",
-                                first.fmt_to_string(store),
-                                second.fmt_to_string(store),
-                                first_evaled.fmt_to_string(store),
-                                second_evaled.fmt_to_string(store)
+                                first.fmt_to_string(store, state),
+                                second.fmt_to_string(store, state),
+                                first_evaled.fmt_to_string(store, state),
+                                second_evaled.fmt_to_string(store, state)
                             );
                             None
                         }
@@ -457,8 +458,8 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                                     panic!(
                                             ":ASSERT-EMITTED failed at position {}. Expected {}, but found {}.",
                                             i,
-                                            first_emitted.fmt_to_string(store),
-                                            elem.fmt_to_string(store),
+                                            first_emitted.fmt_to_string(store, state),
+                                            elem.fmt_to_string(store, state),
                                         );
                                 }
                                 (first_emitted, rest_emitted) = store.car_cdr(&rest_emitted)?;
@@ -554,18 +555,21 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             None
                         }
                         _ => {
-                            bail!("Unsupported command: {}", car.fmt_to_string(store));
+                            bail!("Unsupported command: {}", car.fmt_to_string(store, state));
                         }
                     }
                 }
-                _ => bail!("Unsupported command: {}", car.fmt_to_string(store)),
+                _ => bail!("Unsupported command: {}", car.fmt_to_string(store, state)),
             },
-            _ => bail!("Unsupported meta form: {}", expr_ptr.fmt_to_string(store)),
+            _ => bail!(
+                "Unsupported meta form: {}",
+                expr_ptr.fmt_to_string(store, state)
+            ),
         };
 
         if let Some(expr) = res {
             let mut handle = io::stdout().lock();
-            expr.fmt(store, &mut handle)?;
+            expr.fmt(store, state, &mut handle)?;
 
             // TODO: Why is this seemingly necessary to flush?
             // This doesn't work: io::stdout().flush().unwrap();
@@ -580,6 +584,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
     fn handle_non_meta(
         &mut self,
         store: &mut Store<F>,
+        state: &State,
         expr_ptr: Ptr<F>,
     ) -> Result<(IO<F>, IO<F>, usize)> {
         match Evaluator::new(expr_ptr, self.env, store, self.limit, &self.lang).eval() {
@@ -602,7 +607,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                         ContTag::Outermost | ContTag::Terminal => {
                             let mut handle = io::stdout().lock();
 
-                            result.fmt(store, &mut handle)?;
+                            result.fmt(store, state, &mut handle)?;
 
                             println!();
                         }

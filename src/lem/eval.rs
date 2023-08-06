@@ -861,7 +861,7 @@ mod tests {
     }
 
     fn expr_in_expr_out_pairs(s: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
-        let state = &mut State::initial_lurk_state();
+        let state = &mut State::init_lurk_state();
         let sum = s.read(state, "(+ 21 21)").unwrap();
         let sum_res = s.read(state, "42").unwrap();
         let car = s.read(state, "(car (cons 1 2))").unwrap();

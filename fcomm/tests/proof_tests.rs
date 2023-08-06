@@ -1,4 +1,5 @@
 use assert_cmd::prelude::*;
+use lurk::state::initial_lurk_state;
 use predicates::prelude::*;
 use std::fs::File;
 use std::io::Write;
@@ -237,12 +238,12 @@ fn test_function_aux(
         let mut store = Store::<S1>::default();
 
         let input = store.read(function_input).expect("store read");
-        let canonical_input = input.fmt_to_string(&store);
+        let canonical_input = input.fmt_to_string(&store, &initial_lurk_state());
 
         let canonical_output = store
             .read(expected_output)
             .expect("store read")
-            .fmt_to_string(&store);
+            .fmt_to_string(&store, &initial_lurk_state());
 
         assert_eq!(canonical_input, opening.input);
         assert_eq!(*expected_output, canonical_output);

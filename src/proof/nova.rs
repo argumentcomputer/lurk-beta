@@ -3633,7 +3633,7 @@ pub mod tests {
             Num::Scalar(hash)
         };
 
-        let state = &mut State::initial_lurk_state();
+        let state = &mut State::init_lurk_state();
         {
             // binop
             let expr = format!("({} 1 1)", hash_num(s, state, "+"));

@@ -1944,7 +1944,7 @@ impl<F: LurkField> ZStore<F> {
 pub mod test {
     use super::*;
 
-    use crate::state::State;
+    use crate::state::{initial_lurk_state, State};
     use crate::writer::Write;
     use crate::{
         eval::{
@@ -1960,14 +1960,6 @@ pub mod test {
     use ff::Field;
     use pasta_curves::pallas::Scalar as S1;
     use rand::rngs::OsRng;
-
-    #[test]
-    fn test_print_num() {
-        let mut store = Store::<Fr>::default();
-        let num = store.num(5);
-        let res = num.fmt_to_string(&store);
-        assert_eq!(&res, &"5");
-    }
 
     #[test]
     fn tag_vals() {
@@ -2067,7 +2059,6 @@ pub mod test {
         }
         {
             let comparison_expr = store.list(&[eq, fun2, opaque_fun]);
-            println!("comparison_expr: {}", comparison_expr.fmt_to_string(&store));
             let (result, _, _) =
                 Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
                     .eval()
@@ -2123,6 +2114,8 @@ pub mod test {
         let nil = store.nil_ptr();
         let limit = 10;
 
+        let state = &initial_lurk_state();
+
         // When an opaque sym is inserted into a store which contains the same sym, the store knows its identity.
         // Should we just immediately coalesce and never create an opaque version in that case? Probably not because
         // that may interact badly with explicit hiding to be implemented.
@@ -2132,7 +2125,7 @@ pub mod test {
         // assert_eq!(sym.fmt_to_string(&store), opaque_sym.fmt_to_string(&store));
 
         // For now, all opaque data remains opaque, even if the Store has enough information to clarify it.
-        assert!(sym.fmt_to_string(&store) != opaque_sym.fmt_to_string(&store));
+        assert!(sym.fmt_to_string(&store, state) != opaque_sym.fmt_to_string(&store, state));
 
         let mut other_store = Store::<Fr>::default();
         let other_opaque_sym = other_store.intern_opaque_sym(*sym_hash.value());
@@ -2142,16 +2135,17 @@ pub mod test {
         // TODO: we could check for this and fix when inserting non-opaque syms. If we decide to clarify opaque data
         // when possible, we should do this too.
         assert!(
-            other_sym.fmt_to_string(&other_store) != other_opaque_sym.fmt_to_string(&other_store)
+            other_sym.fmt_to_string(&other_store, state)
+                != other_opaque_sym.fmt_to_string(&other_store, state)
         );
 
         let num = num::Num::from_scalar(*sym_hash.value());
         assert_eq!(
             format!(
                 "<Opaque Sym {}>",
-                Expression::Num(num).fmt_to_string(&store)
+                Expression::Num(num).fmt_to_string(&store, state)
             ),
-            other_opaque_sym.fmt_to_string(&other_store)
+            other_opaque_sym.fmt_to_string(&other_store, state)
         );
 
         // We need to insert a few opaque syms in other_store, in order to acquire a raw_ptr that doesn't exist in
@@ -2229,9 +2223,11 @@ pub mod test {
         let num = Expression::Num(num::Num::Scalar(*cons_hash.value()));
         let lang = Lang::<Fr, Coproc<Fr>>::new();
 
+        let state = &initial_lurk_state();
+
         assert_eq!(
-            format!("<Opaque Cons {}>", num.fmt_to_string(&store)),
-            opaque_cons.fmt_to_string(&store)
+            format!("<Opaque Cons {}>", num.fmt_to_string(&store, state)),
+            opaque_cons.fmt_to_string(&store, state)
         );
 
         {
@@ -2463,9 +2459,13 @@ pub mod test {
         let opaque_comm = s.intern_opaque_comm(Fr::from(123));
 
         let num = num::Num::from_scalar(scalar);
+        let state = &initial_lurk_state();
         assert_eq!(
-            format!("<Opaque Comm {}>", Expression::Num(num).fmt_to_string(s)),
-            opaque_comm.fmt_to_string(s),
+            format!(
+                "<Opaque Comm {}>",
+                Expression::Num(num).fmt_to_string(s, state)
+            ),
+            opaque_comm.fmt_to_string(s, state),
         );
     }
 
@@ -2481,7 +2481,7 @@ pub mod test {
     #[test]
     fn commitment_z_store_roundtrip() {
         let store = &mut Store::<S1>::default();
-        let state = &mut State::initial_lurk_state();
+        let state = &mut State::init_lurk_state();
         let two = store.read_with_state(state, "(+ 1 1)").unwrap();
         let three = store.read_with_state(state, "(+ 1 2)").unwrap();
 

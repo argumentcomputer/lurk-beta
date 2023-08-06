@@ -629,7 +629,7 @@ mod tests {
     #[ignore]
     fn outer_prove_chained_functional_commitment() {
         let mut s = Store::<Fr>::default();
-        let state = &mut State::initial_lurk_state();
+        let state = &mut State::init_lurk_state();
 
         let fun_src = s
             .read_with_state(

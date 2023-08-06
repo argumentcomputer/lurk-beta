@@ -1,5 +1,6 @@
 use anyhow::{bail, Result};
-use std::collections::HashMap;
+use once_cell::sync::Lazy;
+use std::{collections::HashMap, sync::Mutex};
 
 use crate::Symbol;
 
@@ -50,8 +51,9 @@ impl State {
         self.get_current_package().resolve(symbol_name)
     }
 
-    pub fn intern(&mut self, symbol_name: String) -> SymbolRef {
-        self.get_current_package_mut().intern(symbol_name)
+    pub fn intern<A: AsRef<str>>(&mut self, symbol_name: A) -> SymbolRef {
+        self.get_current_package_mut()
+            .intern(String::from(symbol_name.as_ref()))
     }
 
     pub fn import(&mut self, symbols: &[SymbolRef]) -> Result<()> {
@@ -62,8 +64,8 @@ impl State {
         self.get_current_package_mut().use_package(package)
     }
 
-    pub fn print_to_string(&self, symbol: &SymbolRef) -> String {
-        self.get_current_package().print_to_string(symbol)
+    pub fn fmt_to_string(&self, symbol: &SymbolRef) -> String {
+        self.get_current_package().fmt_to_string(symbol)
     }
 
     pub fn intern_fold<A: AsRef<str>>(&mut self, init: SymbolRef, path: &[A]) -> Result<SymbolRef> {
@@ -89,7 +91,7 @@ impl State {
         Self::new_with_package(Package::new(SymbolRef::new(Symbol::root_sym())))
     }
 
-    pub fn initial_lurk_state() -> Self {
+    pub fn init_lurk_state() -> Self {
         let mut root_package = Package::new(SymbolRef::new(Symbol::root_sym()));
 
         // bootstrap the keyword package
@@ -125,6 +127,13 @@ pub fn lurk_sym(name: &str) -> Symbol {
 #[inline]
 pub fn user_sym(name: &str) -> Symbol {
     Symbol::sym(&[LURK_USER_PACKAGE_SYMBOL_NAME, name])
+}
+
+static INITIAL_LURK_STATE_CELL: Lazy<Mutex<State>> =
+    Lazy::new(|| Mutex::new(State::init_lurk_state()));
+
+pub fn initial_lurk_state() -> std::sync::MutexGuard<'static, State> {
+    INITIAL_LURK_STATE_CELL.lock().unwrap()
 }
 
 const LURK_USER_PACKAGE_SYMBOL_NAME: &str = "lurk-user";
@@ -180,18 +189,18 @@ pub mod test {
 
     #[inline]
     fn test_printing_helper(state: &State, symbol: SymbolRef, expected: &str) {
-        assert_eq!(state.print_to_string(&symbol), expected.to_string());
+        assert_eq!(state.fmt_to_string(&symbol), expected.to_string());
     }
 
     #[test]
     fn test_lurk_state_printing() {
-        let mut state = State::initial_lurk_state();
+        let mut state = State::init_lurk_state();
 
         LURK_PACKAGE_SYMBOLS_NAMES
             .iter()
             .for_each(|s| test_printing_helper(&state, lurk_sym(s).into(), s));
 
-        let user_sym = state.intern("user-sym".into());
+        let user_sym = state.intern("user-sym");
         test_printing_helper(&state, user_sym.clone(), "user-sym");
 
         let my_package_name = SymbolRef::new(Symbol::sym(&["my-package"]));

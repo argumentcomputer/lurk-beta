@@ -37,7 +37,7 @@ impl<F: LurkField> Store<F> {
     pub fn read(&mut self, input: &str) -> Result<Ptr<F>, Error> {
         match preceded(syntax::parse_space, syntax::parse_syntax()).parse(Span::new(input)) {
             Ok((_i, x)) => {
-                let state = &mut State::initial_lurk_state();
+                let state = &mut State::init_lurk_state();
                 match self.intern_syntax(state, x) {
                     Ok(ptr) => Ok(ptr),
                     Err(e) => Err(Error::Interning(format!("{}", e))),

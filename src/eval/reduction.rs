@@ -8,6 +8,7 @@ use crate::field::LurkField;
 use crate::hash_witness::{ConsName, ConsWitness, ContName, ContWitness};
 use crate::num::Num;
 use crate::ptr::{ContPtr, Ptr, TypePredicates};
+use crate::state::initial_lurk_state;
 use crate::store;
 use crate::store::{NamedConstants, Store};
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
@@ -890,7 +891,7 @@ fn apply_continuation<F: LurkField>(
                         _ => store.t_ptr(),
                     },
                     Op1::Emit => {
-                        println!("{}", result.fmt_to_string(store));
+                        println!("{}", result.fmt_to_string(store, &initial_lurk_state()));
                         return Ok(Control::MakeThunk(
                             result,
                             env,

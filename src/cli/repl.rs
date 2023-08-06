@@ -141,7 +141,7 @@ impl Repl<F> {
         );
         Repl {
             store,
-            state: State::initial_lurk_state(),
+            state: State::init_lurk_state(),
             env,
             lang: Arc::new(Lang::new()),
             rc,
@@ -295,7 +295,7 @@ impl Repl<F> {
         commitment.persist()?;
         println!(
             "Data: {}\nHash: 0x{hash_str}",
-            payload.fmt_to_string(&self.store)
+            payload.fmt_to_string(&self.store, &self.state)
         );
         Ok(())
     }
@@ -322,7 +322,7 @@ impl Repl<F> {
                 .unwrap();
             if print_data {
                 let data = self.store.fetch_comm(&comm_ptr).unwrap().1;
-                println!("{}", data.fmt_to_string(&self.store));
+                println!("{}", data.fmt_to_string(&self.store, &self.state));
             } else {
                 println!("Data is now available");
             }
@@ -431,7 +431,7 @@ impl Repl<F> {
 
                 let (new_binding, _) = &self.store.car_cdr(&expanded_io.expr)?;
                 let (new_name, _) = self.store.car_cdr(new_binding)?;
-                println!("{}", new_name.fmt_to_string(&self.store));
+                println!("{}", new_name.fmt_to_string(&self.store, &self.state));
             }
             "defrec" => {
                 // Extends env with a recursive binding.
@@ -456,7 +456,7 @@ impl Repl<F> {
                 let (new_binding_outer, _) = &self.store.car_cdr(&expanded_io.expr)?;
                 let (new_binding_inner, _) = &self.store.car_cdr(new_binding_outer)?;
                 let (new_name, _) = self.store.car_cdr(new_binding_inner)?;
-                println!("{}", new_name.fmt_to_string(&self.store));
+                println!("{}", new_name.fmt_to_string(&self.store, &self.state));
             }
             "load" => {
                 let first = self.peek1(cmd, args)?;
@@ -475,7 +475,7 @@ impl Repl<F> {
                 if first_io.expr.is_nil() {
                     eprintln!(
                         "`assert` failed. {} evaluates to nil",
-                        first.fmt_to_string(&self.store)
+                        first.fmt_to_string(&self.store, &self.state)
                     );
                     process::exit(1);
                 }
@@ -491,10 +491,10 @@ impl Repl<F> {
                 if !&self.store.ptr_eq(&first_io.expr, &second_io.expr)? {
                     eprintln!(
                         "`assert-eq` failed. Expected:\n  {} = {}\nGot:\n  {} ≠ {}",
-                        first.fmt_to_string(&self.store),
-                        second.fmt_to_string(&self.store),
-                        first_io.expr.fmt_to_string(&self.store),
-                        second_io.expr.fmt_to_string(&self.store)
+                        first.fmt_to_string(&self.store, &self.state),
+                        second.fmt_to_string(&self.store, &self.state),
+                        first_io.expr.fmt_to_string(&self.store, &self.state),
+                        second_io.expr.fmt_to_string(&self.store, &self.state)
                     );
                     process::exit(1);
                 }
@@ -512,8 +512,8 @@ impl Repl<F> {
                     if elem != &first_emitted {
                         eprintln!(
                             "`assert-emitted` failed at position {i}. Expected {}, but found {}.",
-                            first_emitted.fmt_to_string(&self.store),
-                            elem.fmt_to_string(&self.store),
+                            first_emitted.fmt_to_string(&self.store, &self.state),
+                            elem.fmt_to_string(&self.store, &self.state),
                         );
                         process::exit(1);
                     }
@@ -525,7 +525,7 @@ impl Repl<F> {
                 if self.eval_expr(first).is_ok() {
                     eprintln!(
                         "`assert-error` failed. {} doesn't result on evaluation error.",
-                        first.fmt_to_string(&self.store)
+                        first.fmt_to_string(&self.store, &self.state)
                     );
                     process::exit(1);
                 }
@@ -551,7 +551,7 @@ impl Repl<F> {
                     let Some(secret) = self.store.fetch_num(&first_io.expr) else {
                         bail!(
                             "Secret must be a number. Got {}",
-                            first_io.expr.fmt_to_string(&self.store)
+                            first_io.expr.fmt_to_string(&self.store, &self.state)
                         )
                     };
                     self.hide(secret.into_scalar(), second_io.expr)?;
@@ -592,7 +592,7 @@ impl Repl<F> {
                     match self.store.fetch_string(&first) {
                         None => bail!(
                             "Proof ID {} not parsed as a string",
-                            first.fmt_to_string(&self.store)
+                            first.fmt_to_string(&self.store, &self.state)
                         ),
                         Some(proof_id) => {
                             LurkProof::verify_proof(&proof_id)?;
@@ -613,7 +613,7 @@ impl Repl<F> {
                     ContTag::Terminal => {
                         println!(
                             "[{iterations_display}] => {}",
-                            output.expr.fmt_to_string(&self.store)
+                            output.expr.fmt_to_string(&self.store, &self.state)
                         )
                     }
                     ContTag::Error => {
@@ -632,7 +632,7 @@ impl Repl<F> {
             }
             None => bail!(
                 "Meta command must be a symbol. Found {}",
-                car.fmt_to_string(&self.store)
+                car.fmt_to_string(&self.store, &self.state)
             ),
         }
         Ok(())

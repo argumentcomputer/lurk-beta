@@ -1489,7 +1489,7 @@ fn hide_opaque_open_available() {
 
     assert!(!comm.is_opaque());
 
-    let state = &mut State::initial_lurk_state();
+    let state = &mut State::init_lurk_state();
 
     let open = s.read_with_state(state, "open").unwrap();
     let x = s.user_sym("x");
@@ -2347,7 +2347,7 @@ fn test_sym_hash_values() {
     use crate::Symbol;
 
     let s = &mut Store::<Fr>::default();
-    let state = &mut State::initial_lurk_state();
+    let state = &mut State::init_lurk_state();
 
     let asdf_sym_package_name = state.intern_path(&["asdf"], false).unwrap();
     let asdf_sym_package = Package::new(asdf_sym_package_name.into());

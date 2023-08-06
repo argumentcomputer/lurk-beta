@@ -4,6 +4,7 @@ use crate::expr::Expression;
 use crate::field::LurkField;
 use crate::hash_witness::{ConsWitness, ContWitness};
 use crate::ptr::{ContPtr, Ptr};
+use crate::state::{initial_lurk_state, State};
 use crate::store;
 use crate::store::Store;
 use crate::tag::ContTag;
@@ -35,13 +36,18 @@ pub struct IO<F: LurkField> {
 }
 
 impl<F: LurkField> Write<F> for IO<F> {
-    fn fmt<W: std::io::Write>(&self, store: &Store<F>, w: &mut W) -> std::io::Result<()> {
+    fn fmt<W: std::io::Write>(
+        &self,
+        store: &Store<F>,
+        state: &State,
+        w: &mut W,
+    ) -> std::io::Result<()> {
         write!(w, "IO {{ expr: ")?;
-        self.expr.fmt(store, w)?;
+        self.expr.fmt(store, state, w)?;
         write!(w, ", env: ")?;
-        self.env.fmt(store, w)?;
+        self.env.fmt(store, state, w)?;
         write!(w, ", cont: ")?;
-        self.cont.fmt(store, w)?;
+        self.cont.fmt(store, state, w)?;
         write!(w, " }}")
     }
 }
@@ -209,11 +215,14 @@ impl<F: LurkField, C: Coprocessor<F>> Evaluable<F, Witness<F>, C> for IO<F> {
         info!(
             "Frame: {}\n\tExpr: {}\n\tEnv: {}\n\tCont: {}{}",
             i,
-            self.expr.fmt_to_string(store),
-            self.env.fmt_to_string(store),
-            self.cont.fmt_to_string(store),
+            self.expr.fmt_to_string(store, &initial_lurk_state()),
+            self.env.fmt_to_string(store, &initial_lurk_state()),
+            self.cont.fmt_to_string(store, &initial_lurk_state()),
             if let Some(emitted) = self.maybe_emitted_expression(store) {
-                format!("\n\tOutput: {}", emitted.fmt_to_string(store))
+                format!(
+                    "\n\tOutput: {}",
+                    emitted.fmt_to_string(store, &initial_lurk_state())
+                )
             } else {
                 "".to_string()
             }

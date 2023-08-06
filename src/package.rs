@@ -1,12 +1,12 @@
 use anyhow::{bail, Result};
 use std::{
     collections::{HashMap, HashSet},
-    rc::Rc,
+    sync::Arc,
 };
 
 use crate::Symbol;
 
-pub type SymbolRef = Rc<Symbol>;
+pub type SymbolRef = Arc<Symbol>;
 
 pub struct Package {
     name: SymbolRef,
@@ -82,7 +82,7 @@ impl Package {
         self.import(&package.local.iter().cloned().collect::<Vec<_>>())
     }
 
-    pub fn print_to_string(&self, symbol: &SymbolRef) -> String {
+    pub fn fmt_to_string(&self, symbol: &SymbolRef) -> String {
         match self.names.get(symbol) {
             None => symbol.format(),
             Some(name) => Symbol::format_path_component(name),

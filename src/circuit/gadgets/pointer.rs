@@ -6,13 +6,14 @@ use bellperson::{
 };
 use ff::PrimeField;
 
-use crate::hash::IntoHashComponents;
 use crate::{
     cont::Continuation,
     expr::{Expression, Thunk},
     field::LurkField,
+    hash::IntoHashComponents,
     hash_witness::{ConsName, ContName},
     ptr::{ContPtr, Ptr},
+    state::initial_lurk_state,
     store::Store,
     tag::{ExprTag, Tag},
     writer::Write,
@@ -259,7 +260,7 @@ impl<F: LurkField> AllocatedPtr<F> {
 
     pub fn fetch_and_write_str(&self, store: &Store<F>) -> String {
         self.ptr(store)
-            .map(|a| a.fmt_to_string(store))
+            .map(|a| a.fmt_to_string(store, &initial_lurk_state()))
             .unwrap_or_else(|| "<PTR MISSING>".to_string())
     }
 
@@ -694,7 +695,7 @@ impl<F: LurkField> AllocatedContPtr<F> {
 
     pub fn fetch_and_write_cont_str(&self, store: &Store<F>) -> String {
         self.get_cont_ptr(store)
-            .map(|a| a.fmt_to_string(store))
+            .map(|a| a.fmt_to_string(store, &initial_lurk_state()))
             .unwrap_or_else(|| "no cont ptr".to_string())
     }
 
