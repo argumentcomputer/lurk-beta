@@ -1,4 +1,7 @@
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use bellperson::{util_cs::test_cs::TestConstraintSystem, Circuit};
 use criterion::{
@@ -16,8 +19,14 @@ use lurk::{
     proof::nova::NovaProver,
     proof::Prover,
     ptr::Ptr,
+    state::State,
     store::Store,
 };
+use structopt::lazy_static::lazy_static;
+
+lazy_static! {
+    static ref STATE: Mutex<State> = Mutex::new(State::init_lurk_state());
+}
 
 fn fib<F: LurkField>(store: &mut Store<F>, a: u64) -> Ptr<F> {
     let program = format!(
@@ -34,7 +43,9 @@ fn fib<F: LurkField>(store: &mut Store<F>, a: u64) -> Ptr<F> {
 "#
     );
 
-    store.read(&program).unwrap()
+    store
+        .read_with_state(&mut STATE.lock().unwrap(), &program)
+        .unwrap()
 }
 
 fn synthesize<M: measurement::Measurement>(

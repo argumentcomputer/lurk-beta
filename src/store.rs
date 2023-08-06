@@ -187,6 +187,10 @@ impl<F: LurkField> Store<F> {
         self.expect_constants().open.ptr()
     }
 
+    pub fn secret_ptr(&self) -> Ptr<F> {
+        self.expect_constants().secret.ptr()
+    }
+
     pub fn num_ptr(&self) -> Ptr<F> {
         self.expect_constants().num.ptr()
     }

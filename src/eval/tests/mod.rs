@@ -1489,9 +1489,7 @@ fn hide_opaque_open_available() {
 
     assert!(!comm.is_opaque());
 
-    let state = &mut State::init_lurk_state();
-
-    let open = s.read_with_state(state, "open").unwrap();
+    let open = s.open_ptr();
     let x = s.user_sym("x");
     let lang = Lang::new();
 
@@ -1501,7 +1499,7 @@ fn hide_opaque_open_available() {
     }
 
     {
-        let secret = s.read_with_state(state, "secret").unwrap();
+        let secret = s.secret_ptr();
         let expr = s.list(&[secret, comm]);
         let sec = s.num(123);
         test_aux2::<Coproc<Fr>>(s, &expr, Some(sec), None, None, None, 2, &lang);
@@ -1526,7 +1524,7 @@ fn hide_opaque_open_unavailable() {
 
     let s2 = &mut Store::<Fr>::default();
     let comm = s2.intern_maybe_opaque_comm(*c);
-    let open = s2.read("open").unwrap();
+    let open = s2.open_ptr();
     let x = s2.user_sym("x");
 
     let expr = s2.list(&[open, comm]);

@@ -1,6 +1,9 @@
 use anyhow::{bail, Result};
 use once_cell::sync::Lazy;
-use std::{collections::HashMap, sync::Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Mutex, MutexGuard},
+};
 
 use crate::Symbol;
 
@@ -129,10 +132,11 @@ pub fn user_sym(name: &str) -> Symbol {
     Symbol::sym(&[LURK_USER_PACKAGE_SYMBOL_NAME, name])
 }
 
+/// TODO: make this immutable (how?)
 static INITIAL_LURK_STATE_CELL: Lazy<Mutex<State>> =
     Lazy::new(|| Mutex::new(State::init_lurk_state()));
 
-pub fn initial_lurk_state() -> std::sync::MutexGuard<'static, State> {
+pub fn initial_lurk_state() -> MutexGuard<'static, State> {
     INITIAL_LURK_STATE_CELL.lock().unwrap()
 }
 

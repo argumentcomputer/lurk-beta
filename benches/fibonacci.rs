@@ -1,4 +1,7 @@
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use criterion::{
     black_box, criterion_group, criterion_main, measurement, BatchSize, BenchmarkGroup,
@@ -18,10 +21,17 @@ use lurk::{
     proof::Prover,
     ptr::Ptr,
     public_parameters::public_params,
+    state::State,
     store::Store,
 };
+use structopt::lazy_static::lazy_static;
 
 const DEFAULT_REDUCTION_COUNT: usize = 100;
+
+lazy_static! {
+    static ref STATE: Mutex<State> = Mutex::new(State::init_lurk_state());
+}
+
 fn fib<F: LurkField>(store: &mut Store<F>, a: u64) -> Ptr<F> {
     let program = format!(
         r#"
@@ -37,7 +47,9 @@ fn fib<F: LurkField>(store: &mut Store<F>, a: u64) -> Ptr<F> {
 "#
     );
 
-    store.read(&program).unwrap()
+    store
+        .read_with_state(&mut STATE.lock().unwrap(), &program)
+        .unwrap()
 }
 
 #[allow(dead_code)]

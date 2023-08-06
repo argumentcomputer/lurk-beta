@@ -13,13 +13,19 @@ use lurk::{
     proof::Prover,
     ptr::Ptr,
     public_parameters,
+    state::State,
     store::Store,
 };
 use pasta_curves::pallas;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use structopt::lazy_static::lazy_static;
 
 const DEFAULT_REDUCTION_COUNT: usize = 10;
+
+lazy_static! {
+    static ref STATE: Mutex<State> = Mutex::new(State::init_lurk_state());
+}
 
 fn go_base<F: LurkField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
     let program = format!(
@@ -37,7 +43,9 @@ fn go_base<F: LurkField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
 "#
     );
 
-    store.read(&program).unwrap()
+    store
+        .read_with_state(&mut STATE.lock().unwrap(), &program)
+        .unwrap()
 }
 
 /// To run these benchmarks, do `cargo criterion end2end_benchmark`.
