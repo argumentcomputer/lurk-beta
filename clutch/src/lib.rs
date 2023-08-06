@@ -564,7 +564,7 @@ impl ClutchState<F, Coproc<F>> {
                 Claim::PtrEvaluation(_) => println!("Claim::PtrEvaluation elided."),
             }
 
-            let zid = store.str(zptr_string);
+            let zid = store.str(&zptr_string);
             Ok(Some(zid))
         } else {
             bail!("verification of new proof failed");

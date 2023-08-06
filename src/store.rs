@@ -1,7 +1,6 @@
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::Arc;
 use std::usize;
 use thiserror;
 
@@ -72,12 +71,13 @@ pub struct Store<F: LurkField> {
     pub poseidon_cache: PoseidonCache<F>,
     /// Caches poseidon preimages
     pub inverse_poseidon_cache: InversePoseidonCache<F>,
+
     /// Contains Ptrs which have not yet been hydrated.
     pub dehydrated: Vec<Ptr<F>>,
     pub dehydrated_cont: Vec<ContPtr<F>>,
 
-    str_cache: HashMap<Arc<str>, Ptr<F>>,
-    symbol_cache: HashMap<Symbol, Box<Ptr<F>>>,
+    str_cache: HashMap<String, Ptr<F>>,
+    symbol_cache: HashMap<Symbol, Ptr<F>>,
 
     pub constants: OnceCell<NamedConstants<F>>,
 }
@@ -209,10 +209,12 @@ impl<F: LurkField> Store<F> {
         self.intern_strcons(car, cdr)
     }
 
+    #[inline]
     pub fn strnil(&self) -> Ptr<F> {
         Ptr::null(ExprTag::Str)
     }
 
+    #[inline]
     pub fn symnil(&self) -> Ptr<F> {
         Ptr::null(ExprTag::Sym)
     }
@@ -305,8 +307,8 @@ impl<F: LurkField> Store<F> {
         self.intern_u64(n)
     }
 
-    pub fn str<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
-        self.intern_string(name)
+    pub fn str(&mut self, s: &str) -> Ptr<F> {
+        self.intern_string(s)
     }
 
     pub fn sym<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
@@ -339,10 +341,6 @@ impl<F: LurkField> Store<F> {
         } else {
             Ptr::null(ExprTag::Sym)
         }
-    }
-
-    pub fn intern_strnil(&self) -> Ptr<F> {
-        Ptr::null(ExprTag::Str)
     }
 
     pub fn intern_cons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
@@ -498,26 +496,18 @@ impl<F: LurkField> Store<F> {
 
     pub fn intern_symbol(&mut self, sym: &Symbol) -> Ptr<F> {
         match self.symbol_cache.get(sym) {
-            Some(ptr) => **ptr,
+            Some(ptr) => *ptr,
             None => {
                 use crate::tag::ExprTag::{Key, Nil};
                 let path_ptr = self.intern_symbol_path(sym.path());
                 let sym_ptr = if sym == &lurk_sym("nil") {
-                    Ptr {
-                        tag: Nil,
-                        raw: path_ptr.raw,
-                        _f: path_ptr._f,
-                    }
+                    path_ptr.cast(Nil)
                 } else if !sym.is_keyword() {
                     path_ptr
                 } else {
-                    Ptr {
-                        tag: Key,
-                        raw: path_ptr.raw,
-                        _f: path_ptr._f,
-                    }
+                    path_ptr.cast(Key)
                 };
-                self.symbol_cache.insert(sym.clone(), sym_ptr.into());
+                self.symbol_cache.insert(sym.clone(), sym_ptr);
                 sym_ptr
             }
         }
@@ -562,6 +552,7 @@ impl<F: LurkField> Store<F> {
             .map(|x| Ptr::index(ExprTag::Num, x))
     }
 
+    #[inline]
     pub fn intern_char(&self, c: char) -> Ptr<F> {
         Ptr::index(ExprTag::Char, u32::from(c) as usize)
     }
@@ -576,22 +567,15 @@ impl<F: LurkField> Store<F> {
         Ptr::index(ExprTag::U64, n as usize)
     }
 
-    /// Intern a string into the Store, which generates the cons'ed representation
-    pub fn intern_string<T: AsRef<str>>(&mut self, s: T) -> Ptr<F> {
-        let s = s.as_ref();
-        if s.is_empty() {
-            return self.strnil();
-        }
-
+    pub fn intern_string(&mut self, s: &str) -> Ptr<F> {
         match self.str_cache.get(s) {
-            Some(ptr_cache) => *ptr_cache,
+            Some(ptr) => *ptr,
             None => {
-                let tail = &s.chars().skip(1).collect::<String>();
-                let tail_ptr = self.intern_string(tail);
-                let head = s.chars().next().unwrap();
-                let s_ptr = self.intern_strcons(self.intern_char(head), tail_ptr);
-                self.str_cache.insert(s.into(), s_ptr);
-                s_ptr
+                let ptr = s.chars().rev().fold(self.strnil(), |acc, c| {
+                    self.intern_strcons(self.intern_char(c), acc)
+                });
+                self.str_cache.insert(s.to_string(), ptr);
+                ptr
             }
         }
     }
@@ -624,6 +608,7 @@ impl<F: LurkField> Store<F> {
     pub fn get_cont_outermost(&self) -> ContPtr<F> {
         Continuation::Outermost.get_simple_cont()
     }
+
     pub fn get_cont_error(&self) -> ContPtr<F> {
         Continuation::Error.get_simple_cont()
     }
@@ -768,7 +753,6 @@ impl<F: LurkField> Store<F> {
         debug_assert!(matches!(ptr.tag, ExprTag::Fun));
         if ptr.raw.is_opaque() {
             None
-            // Some(&self.opaque_fun)
         } else {
             self.fun_store.get_index(ptr.raw.idx()?)
         }
@@ -1494,7 +1478,7 @@ impl<F: LurkField> Store<F> {
                     Some(ptr)
                 }
                 (ExprTag::Str, Some(EmptyStr)) => {
-                    let ptr = self.intern_strnil();
+                    let ptr = self.strnil();
                     self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }

@@ -424,7 +424,7 @@ impl<'a: 'b, 'b, F: CurveCycleEquipped, C: Coprocessor<F>> Proof<'a, F, C> {
 #[cfg(test)]
 pub mod tests {
     use crate::num::Num;
-    use crate::state::{State, user_sym};
+    use crate::state::{user_sym, State};
 
     use super::*;
     use crate::eval::empty_sym_env;

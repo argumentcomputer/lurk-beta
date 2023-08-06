@@ -129,7 +129,7 @@ impl<F: LurkField> Store<F> {
                 let sym = state.intern_relative_path(&path)?;
                 Ok(self.intern_symbol(&sym))
             }
-            Syntax::String(_, x) => Ok(self.intern_string(x)),
+            Syntax::String(_, x) => Ok(self.intern_string(&x)),
             Syntax::Quote(pos, x) => {
                 let quote_sym = lurk_sym("quote");
                 let xs = vec![Syntax::Path(pos, quote_sym.path().to_vec(), false), *x];
