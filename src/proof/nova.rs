@@ -424,7 +424,7 @@ impl<'a: 'b, 'b, F: CurveCycleEquipped, C: Coprocessor<F>> Proof<'a, F, C> {
 #[cfg(test)]
 pub mod tests {
     use crate::num::Num;
-    use crate::state::State;
+    use crate::state::{State, user_sym};
 
     use super::*;
     use crate::eval::empty_sym_env;
@@ -3675,26 +3675,25 @@ pub mod tests {
     fn test_dumb_lang() {
         use crate::coprocessor::test::DumbCoprocessor;
         use crate::eval::tests::coproc::DumbCoproc;
-        use crate::symbol::Symbol;
 
         let s = &mut Store::<Fr>::new();
 
         let mut lang = Lang::<Fr, DumbCoproc<Fr>>::new();
-        let name = Symbol::sym(&["cproc", "dumb"]);
+        let name = user_sym("cproc-dumb");
         let dumb = DumbCoprocessor::new();
         let coproc = DumbCoproc::DC(dumb);
 
         lang.add_coprocessor(name, coproc, s);
 
         // 9^2 + 8 = 89
-        let expr = "(.cproc.dumb 9 8)";
+        let expr = "(cproc-dumb 9 8)";
 
         // The dumb coprocessor cannot be shadowed.
-        let expr2 = "(let ((.cproc.dumb (lambda (a b) (* a b))))
-                   (.cproc.dumb 9 8))";
+        let expr2 = "(let ((cproc-dumb (lambda (a b) (* a b))))
+                   (cproc-dumb 9 8))";
 
-        let expr3 = "(.cproc.dumb 9 8 123)";
-        let expr4 = "(.cproc.dumb 9)";
+        let expr3 = "(cproc-dumb 9 8 123)";
+        let expr4 = "(cproc-dumb 9)";
 
         let res = s.num(89);
         let error = s.get_cont_error();
