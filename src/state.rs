@@ -123,6 +123,11 @@ impl State {
 }
 
 #[inline]
+pub fn lurk_sym_path(name: &str) -> Vec<String> {
+    vec![LURK_PACKAGE_SYMBOL_NAME.to_string(), name.to_string()]
+}
+
+#[inline]
 pub fn lurk_sym(name: &str) -> Symbol {
     Symbol::sym(&[LURK_PACKAGE_SYMBOL_NAME, name])
 }

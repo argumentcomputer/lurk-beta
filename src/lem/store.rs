@@ -5,7 +5,7 @@ use crate::{
     field::{FWrap, LurkField},
     hash::PoseidonCache,
     lem::Tag,
-    state::{lurk_sym, State},
+    state::{lurk_sym, lurk_sym_path, State},
     symbol::Symbol,
     syntax::Syntax,
     tag::ExprTag::*,
@@ -243,8 +243,7 @@ impl<F: LurkField> Store<F> {
             }
             Syntax::String(_, x) => Ok(self.intern_string(&x)),
             Syntax::Quote(pos, x) => {
-                let quote_sym = lurk_sym("quote");
-                let xs = vec![Syntax::Path(pos, quote_sym.path().to_vec(), false), *x];
+                let xs = vec![Syntax::Path(pos, lurk_sym_path("quote"), false), *x];
                 self.intern_syntax(state, Syntax::List(pos, xs))
             }
             Syntax::List(_, xs) => {

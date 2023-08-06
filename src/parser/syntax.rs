@@ -44,12 +44,12 @@ pub fn parse_path_component<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> ParseResult<'_, F, String> {
     move |from: Span<'_>| {
         let (i, s) = alt((
+            string::parse_string_inner1(symbol::SYM_SEPARATOR, false, escape),
             delimited(
                 tag("|"),
                 string::parse_string_inner1('|', true, "|"),
                 tag("|"),
             ),
-            string::parse_string_inner1(symbol::SYM_SEPARATOR, false, escape),
             value(String::from(""), peek(tag("."))),
         ))(from)?;
         Ok((i, s))
@@ -61,12 +61,12 @@ pub fn parse_path_component_raw<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> ParseResult<'_, F, String> {
     move |from: Span<'_>| {
         let (i, s) = alt((
+            string::parse_string_inner1(' ', false, escape),
             delimited(
                 tag("|"),
                 string::parse_string_inner1('|', true, "|"),
                 tag("|"),
             ),
-            string::parse_string_inner1(' ', false, escape),
             value(String::from(""), peek(tag("."))),
         ))(from)?;
         Ok((i, s))
@@ -297,13 +297,13 @@ pub fn parse_quote<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Sy
 pub fn parse_syntax<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
         alt((
-            parse_hash_char(),
+            context("list", parse_list()),
             parse_uint(),
             parse_num(),
             context("path", parse_path()),
             parse_string(),
             context("quote", parse_quote()),
-            context("list", parse_list()),
+            parse_hash_char(),
         ))(from)
     }
 }

@@ -5,7 +5,7 @@ use crate::field::LurkField;
 use crate::num::Num;
 use crate::parser::position::Pos;
 use crate::ptr::Ptr;
-use crate::state::{lurk_sym, State};
+use crate::state::{lurk_sym_path, State};
 use crate::store::Store;
 use crate::uint::UInt;
 
@@ -131,8 +131,7 @@ impl<F: LurkField> Store<F> {
             }
             Syntax::String(_, x) => Ok(self.intern_string(&x)),
             Syntax::Quote(pos, x) => {
-                let quote_sym = lurk_sym("quote");
-                let xs = vec![Syntax::Path(pos, quote_sym.path().to_vec(), false), *x];
+                let xs = vec![Syntax::Path(pos, lurk_sym_path("quote"), false), *x];
                 self.intern_syntax(state, Syntax::List(pos, xs))
             }
             Syntax::List(_, xs) => {
