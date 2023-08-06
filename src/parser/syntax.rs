@@ -107,8 +107,9 @@ pub fn parse_relative_path<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'
 pub fn parse_raw_path<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
         let (i, _) = tag("~(")(from)?;
-        let (i, path) = many0(preceded(parse_space, parse_path_component_raw("|()")))(i)?;
+        let (i, mut path) = many0(preceded(parse_space, parse_path_component_raw("|()")))(i)?;
         let (upto, _) = many_till(parse_space, tag(")"))(i)?;
+        path.reverse();
         Ok((upto, Syntax::Path(Pos::from_upto(from, upto), path, false)))
     }
 }
@@ -117,16 +118,17 @@ pub fn parse_raw_keyword_path<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResul
 {
     move |from: Span<'_>| {
         let (i, _) = tag("~:(")(from)?;
-        let (i, path) = many0(preceded(parse_space, parse_path_component_raw("|()")))(i)?;
+        let (i, mut path) = many0(preceded(parse_space, parse_path_component_raw("|()")))(i)?;
         let (upto, _) = many_till(parse_space, tag(")"))(i)?;
+        path.reverse();
         Ok((upto, Syntax::Path(Pos::from_upto(from, upto), path, true)))
     }
 }
 
 /// relative: foo.bar
 /// absolute: .foo.bar.baz, :foo.bar (escaped limbs: .|foo|.|bar|.|baz|)
-/// raw: ~(foo bar baz) = .|foo|.|bar|.|baz|
-/// raw keyword: ~:(foo bar)
+/// raw: ~(foo bar baz) = .baz.bar.foo
+/// raw keyword: ~:(foo bar) = :bar.foo
 pub fn parse_path<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
         alt((
@@ -447,12 +449,12 @@ pub mod tests {
         assert!(test(
             parse_path(),
             "~(asdf.fdsa arst)",
-            Some(sym_path!(["asdf.fdsa", "arst"]))
+            Some(sym_path!(["arst", "asdf.fdsa"]))
         ));
         assert!(test(
             parse_path(),
             "~(asdf.fdsa arst |wfp qwf|)",
-            Some(sym_path!(["asdf.fdsa", "arst", "wfp qwf"]))
+            Some(sym_path!(["wfp qwf", "arst", "asdf.fdsa"]))
         ));
     }
 
@@ -494,6 +496,11 @@ pub mod tests {
             parse_path(),
             ":foo\\.bar",
             Some(key_path!(["foo.bar"]))
+        ));
+        assert!(test(
+            parse_path(),
+            "~:(x y z)",
+            Some(key_path!(["z", "y", "x"]))
         ));
     }
 
