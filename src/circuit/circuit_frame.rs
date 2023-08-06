@@ -218,34 +218,39 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
             frames.iter().fold((0, acc), |(i, allocated_io), frame| {
                 if let Some(next_input) = frame.input {
                     // Ensure all intermediate allocated I/O values match the provided executation trace.
+
+                    let next_expr_hash = store.hash_expr(&next_input.expr);
+                    let next_env_hash = store.hash_expr(&next_input.env);
+                    let next_cont_hash = store.hash_cont(&next_input.cont);
+
                     assert_eq!(
                         allocated_io.0.tag().get_value(),
-                        store.hash_expr(&next_input.expr).map(|x| x.tag_field()),
+                        next_expr_hash.map(|x| x.tag_field()),
                         "expr tag mismatch"
                     );
                     assert_eq!(
                         allocated_io.0.hash().get_value(),
-                        store.hash_expr(&next_input.expr).map(|x| *x.value()),
+                        next_expr_hash.map(|x| *x.value()),
                         "expr mismatch"
                     );
                     assert_eq!(
                         allocated_io.1.tag().get_value(),
-                        store.hash_expr(&next_input.env).map(|x| x.tag_field()),
+                        next_env_hash.map(|x| x.tag_field()),
                         "env tag mismatch"
                     );
                     assert_eq!(
                         allocated_io.1.hash().get_value(),
-                        store.hash_expr(&next_input.env).map(|x| *x.value()),
+                        next_env_hash.map(|x| *x.value()),
                         "env mismatch"
                     );
                     assert_eq!(
                         allocated_io.2.tag().get_value(),
-                        store.hash_cont(&next_input.cont).map(|x| x.tag_field()),
+                        next_cont_hash.map(|x| x.tag_field()),
                         "cont tag mismatch"
                     );
                     assert_eq!(
                         allocated_io.2.hash().get_value(),
-                        store.hash_cont(&next_input.cont).map(|x| *x.value()),
+                        next_cont_hash.map(|x| *x.value()),
                         "cont mismatch"
                     );
                 };
