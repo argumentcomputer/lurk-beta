@@ -38,6 +38,11 @@ impl State {
         }
     }
 
+    #[inline]
+    pub fn get_current_package_name(&self) -> &SymbolRef {
+        &self.current_package
+    }
+
     fn get_current_package(&self) -> &Package {
         self.symbol_packages
             .get(&self.current_package)
@@ -136,6 +141,11 @@ pub fn lurk_sym_path(name: &str) -> Vec<String> {
 #[inline]
 pub fn lurk_sym(name: &str) -> Symbol {
     Symbol::sym(&[LURK_PACKAGE_SYMBOL_NAME, name])
+}
+
+#[inline]
+pub fn meta_package_symbol() -> Symbol {
+    lurk_sym(META_PACKAGE_SYMBOL_NAME)
 }
 
 #[inline]

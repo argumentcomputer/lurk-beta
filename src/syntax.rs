@@ -1,11 +1,11 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use std::fmt;
 
 use crate::field::LurkField;
 use crate::num::Num;
 use crate::parser::position::Pos;
 use crate::ptr::Ptr;
-use crate::state::{lurk_sym_path, State};
+use crate::state::{lurk_sym_path, meta_package_symbol, State};
 use crate::store::Store;
 use crate::uint::UInt;
 
@@ -150,6 +150,41 @@ impl<F: LurkField> Store<F> {
                 }
                 Ok(cdr)
             }
+        }
+    }
+
+    pub fn intern_syntax_meta(&mut self, state: &mut State, syn: Syntax<F>) -> Result<Ptr<F>> {
+        if let Syntax::List(pos_list, mut list) = syn {
+            macro_rules! pre {
+                () => {{
+                    let saved_package_name = state.get_current_package_name().clone();
+                    state.set_current_package(meta_package_symbol().into())?;
+                    saved_package_name
+                }};
+            }
+            macro_rules! pos {
+                ( $saved_package_name:expr, $pos_path:expr, $sym:expr ) => {{
+                    state.set_current_package($saved_package_name)?;
+                    let sym_syn = Syntax::Path(*$pos_path, $sym.path().to_vec(), false);
+                    list[0] = sym_syn;
+                    self.intern_syntax(state, Syntax::List(pos_list, list))
+                }};
+            }
+            match list.first() {
+                Some(Syntax::RelPath(pos_path, path)) => {
+                    let saved_package_name = pre!();
+                    let sym = state.intern_relative_path(path)?;
+                    pos!(saved_package_name, pos_path, sym)
+                }
+                Some(Syntax::Path(pos_path, path, false)) => {
+                    let saved_package_name = pre!();
+                    let sym = state.intern_path(path, false)?;
+                    pos!(saved_package_name, pos_path, sym)
+                }
+                _ => bail!("The head of a meta command must be a symbol"),
+            }
+        } else {
+            bail!("Meta commands must be lists: !(<cmd> <args...>)")
         }
     }
 
