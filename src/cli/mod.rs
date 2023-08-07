@@ -256,6 +256,14 @@ fn parse_field(field_str: &String) -> Result<LanguageField> {
     }
 }
 
+fn parse_filename(file: &str) -> Result<PathBuf> {
+    if file == "help" {
+        bail!("help is not a valid filename. printing help console instead");
+    }
+    let path: PathBuf = file.into();
+    Ok(path)
+}
+
 fn get_parsed_usize(
     param_name: &str,
     arg: &Option<usize>,
