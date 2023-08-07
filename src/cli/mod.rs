@@ -482,6 +482,7 @@ impl Cli {
                 LurkProof::verify_proof(&verify_args.proof_id)?;
                 Ok(())
             }
+            #[allow(unused_variables)]
             Command::Circom(circom_args) => {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
