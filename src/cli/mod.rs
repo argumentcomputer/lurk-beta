@@ -485,6 +485,7 @@ impl Cli {
             Command::Circom(circom_args) => {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
+                    use crate::cli::circom::non_wasm::create_circom_gadget;
                     if circom_args.name == "main" {
                         bail!("Circom gadget name cannot be `main`")
                     }
