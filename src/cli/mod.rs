@@ -426,6 +426,18 @@ struct VerifyArgs {
     /// ID of the proof to be verified
     #[clap(value_parser)]
     proof_id: String,
+
+    /// Config file, containing the lowest precedence parameters
+    #[clap(long, value_parser)]
+    config: Option<Utf8PathBuf>,
+
+    /// Path to public parameters directory
+    #[clap(long, value_parser)]
+    public_params_dir: Option<Utf8PathBuf>,
+
+    /// Path to proofs directory
+    #[clap(long, value_parser)]
+    proofs_dir: Option<Utf8PathBuf>,
 }
 
 impl Cli {
@@ -436,6 +448,14 @@ impl Cli {
             #[allow(unused_variables)]
             Command::Verify(verify_args) => {
                 use crate::cli::lurk_proof::LurkProof;
+                let config = get_config(&verify_args.config)?;
+                log::info!("Configured variables: {:?}", config);
+                set_lurk_dirs(
+                    &config,
+                    &verify_args.public_params_dir,
+                    &verify_args.proofs_dir,
+                    &None,
+                );
                 LurkProof::verify_proof(&verify_args.proof_id)?;
                 Ok(())
             }
