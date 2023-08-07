@@ -1,6 +1,6 @@
+use std::fs::read_to_string;
+use std::process;
 use std::sync::Arc;
-
-use std::{fs::read_to_string, process};
 
 use anyhow::{bail, Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
@@ -13,8 +13,9 @@ use rustyline::{
 };
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 
-use crate::cli::paths::public_params_dir;
-use lurk::{
+use super::{commitment::Commitment, field_data::load, paths::commitment_path};
+use crate::cli::paths::{proof_path, public_params_dir};
+use crate::{
     eval::{
         lang::{Coproc, Lang},
         Evaluator, Frame, Witness, IO,
@@ -23,12 +24,13 @@ use lurk::{
     parser,
     ptr::Ptr,
     store::Store,
-    tag::ContTag,
+    tag::{ContTag, ExprTag},
     writer::Write,
+    z_ptr::ZExprPtr,
     Num,
 };
 
-use lurk::{
+use crate::{
     proof::{nova::NovaProver, Prover},
     public_parameters::public_params,
     z_store::ZStore,
@@ -47,7 +49,7 @@ impl Validator for InputValidator {
     }
 }
 
-pub enum Backend {
+pub(crate) enum Backend {
     Nova,
     SnarkPackPlus,
 }
@@ -62,7 +64,7 @@ impl std::fmt::Display for Backend {
 }
 
 impl Backend {
-    pub fn default_field(&self) -> LanguageField {
+    pub(crate) fn default_field(&self) -> LanguageField {
         match self {
             Self::Nova => LanguageField::Pallas,
             Self::SnarkPackPlus => LanguageField::BLS12_381,
@@ -77,7 +79,7 @@ impl Backend {
         }
     }
 
-    pub fn validate_field(&self, field: &LanguageField) -> Result<()> {
+    pub(crate) fn validate_field(&self, field: &LanguageField) -> Result<()> {
         let compatible_fields = self.compatible_fields();
         if !compatible_fields.contains(field) {
             bail!(
@@ -100,7 +102,7 @@ struct Evaluation<F: LurkField> {
 }
 
 #[allow(dead_code)]
-pub struct Repl<F: LurkField> {
+pub(crate) struct Repl<F: LurkField> {
     store: Store<F>,
     env: Ptr<F>,
     lang: Arc<Lang<F, Coproc<F>>>,
@@ -110,7 +112,7 @@ pub struct Repl<F: LurkField> {
     evaluation: Option<Evaluation<F>>,
 }
 
-pub fn validate_non_zero(name: &str, x: usize) -> Result<()> {
+pub(crate) fn validate_non_zero(name: &str, x: usize) -> Result<()> {
     if x == 0 {
         bail!("`{name}` can't be zero")
     }
@@ -128,7 +130,13 @@ fn pad(a: usize, m: usize) -> usize {
 type F = pasta_curves::pallas::Scalar; // TODO: generalize this
 
 impl Repl<F> {
-    pub fn new(store: Store<F>, env: Ptr<F>, rc: usize, limit: usize, backend: Backend) -> Repl<F> {
+    pub(crate) fn new(
+        store: Store<F>,
+        env: Ptr<F>,
+        rc: usize,
+        limit: usize,
+        backend: Backend,
+    ) -> Repl<F> {
         let limit = pad(limit, rc);
         info!(
             "Launching REPL with backend {backend}, field {}, rc {rc} and limit {limit}",
@@ -186,9 +194,7 @@ impl Repl<F> {
         format!("{backend}_{field}_{rc}_{claim_hash}")
     }
 
-    pub fn prove_last_frames(&mut self) -> Result<()> {
-        use crate::cli::{commitment::Commitment, paths::proof_path};
-
+    pub(crate) fn prove_last_frames(&mut self) -> Result<()> {
         match self.evaluation.as_mut() {
             None => bail!("No evaluation to prove"),
             Some(Evaluation { frames, iterations }) => match self.backend {
@@ -280,8 +286,6 @@ impl Repl<F> {
     }
 
     fn hide(&mut self, secret: F, payload: Ptr<F>) -> Result<()> {
-        use super::commitment::Commitment;
-
         let commitment = Commitment::new(Some(secret), payload, &mut self.store)?;
         let hash_str = &commitment.hash.hex_digits();
         commitment.persist()?;
@@ -293,10 +297,6 @@ impl Repl<F> {
     }
 
     fn fetch(&mut self, hash: &F, print_data: bool) -> Result<()> {
-        use lurk::{tag::ExprTag, z_ptr::ZExprPtr};
-
-        use super::{commitment::Commitment, field_data::load, paths::commitment_path};
-
         let commitment: Commitment<F> = load(commitment_path(&hash.hex_digits()))?;
         let comm_hash = commitment.hash;
         if &comm_hash != hash {
@@ -626,7 +626,7 @@ impl Repl<F> {
         Ok(input)
     }
 
-    pub fn load_file(&mut self, file_path: &Utf8Path) -> Result<()> {
+    pub(crate) fn load_file(&mut self, file_path: &Utf8Path) -> Result<()> {
         let input = read_to_string(file_path)?;
         println!("Loading {}", file_path);
 
@@ -646,7 +646,7 @@ impl Repl<F> {
         }
     }
 
-    pub fn start(&mut self) -> Result<()> {
+    pub(crate) fn start(&mut self) -> Result<()> {
         println!("Lurk REPL welcomes you.");
 
         let pwd_path = Utf8PathBuf::from_path_buf(std::env::current_dir()?)

@@ -75,8 +75,8 @@ impl<T: Serialize + HasFieldModulus> Serialize for FieldData<T> {
 
 #[cfg(test)]
 mod tests {
+    use crate::field::LurkField;
     use ff::Field;
-    use lurk::field::LurkField;
     use pasta_curves::Fq;
     use serde::{Deserialize, Serialize};
 

@@ -1,14 +1,21 @@
-use lurk::{field::LurkField, z_store::ZStore};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use super::field_data::HasFieldModulus;
+use crate::field::LurkField;
+use crate::z_store::ZStore;
+use crate::{ptr::Ptr, store::Store};
+
+use super::{
+    field_data::{dump, HasFieldModulus},
+    paths::commitment_path,
+};
 
 /// Holds data for commitments.
 ///
 /// **Warning**: holds private data. The `ZStore` contains the secret used to
 /// hide the original payload.
 #[derive(Serialize, Deserialize)]
-pub struct Commitment<F: LurkField> {
+pub(crate) struct Commitment<F: LurkField> {
     pub(crate) hash: F,
     pub(crate) zstore: ZStore<F>,
 }
@@ -19,13 +26,8 @@ impl<F: LurkField> HasFieldModulus for Commitment<F> {
     }
 }
 
-use anyhow::Result;
-use lurk::{ptr::Ptr, store::Store};
-
-use crate::cli::{field_data::dump, paths::commitment_path};
-
 impl<F: LurkField> Commitment<F> {
-    pub fn new(secret: Option<F>, payload: Ptr<F>, store: &mut Store<F>) -> Result<Self> {
+    pub(crate) fn new(secret: Option<F>, payload: Ptr<F>, store: &mut Store<F>) -> Result<Self> {
         let comm_ptr = match secret {
             Some(secret) => store.hide(secret, payload),
             None => store.commit(payload),
@@ -39,7 +41,7 @@ impl<F: LurkField> Commitment<F> {
 
 impl<F: LurkField + Serialize> Commitment<F> {
     #[inline]
-    pub fn persist(self) -> Result<()> {
+    pub(crate) fn persist(self) -> Result<()> {
         let hash_str = &self.hash.hex_digits();
         dump(self, commitment_path(hash_str))
     }

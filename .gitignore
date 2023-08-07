@@ -1,7 +1,8 @@
 /target
 result*
 /scratch
-.direnv/
+/.direnv
+*.commit
 
 # Configurations for VSCode
 .vscode/

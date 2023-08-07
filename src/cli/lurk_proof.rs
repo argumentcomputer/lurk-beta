@@ -1,12 +1,20 @@
+use anyhow::Result;
+use pasta_curves::pallas::Scalar;
 use serde::{Deserialize, Serialize};
 
-use lurk::{
+use crate::{
     coprocessor::Coprocessor,
     eval::lang::{Coproc, Lang},
     field::LurkField,
     proof::nova::{self, CurveCycleEquipped},
+    public_parameters::public_params,
     z_ptr::{ZContPtr, ZExprPtr},
     z_store::ZStore,
+};
+
+use crate::cli::{
+    field_data::{dump, load},
+    paths::{proof_meta_path, proof_path, public_params_dir},
 };
 
 use super::field_data::HasFieldModulus;
@@ -18,7 +26,7 @@ use super::field_data::HasFieldModulus;
 /// continuation `cont`, is reduced to `expr_out`, resulting on environment
 /// `env_out` and continuation `cont_out`. It doesn't contain private data.
 #[derive(Serialize, Deserialize)]
-pub struct LurkProofMeta<F: LurkField> {
+pub(crate) struct LurkProofMeta<F: LurkField> {
     pub(crate) iterations: usize,
     pub(crate) expr: ZExprPtr<F>,
     pub(crate) env: ZExprPtr<F>,
@@ -37,7 +45,7 @@ impl<F: LurkField> HasFieldModulus for LurkProofMeta<F> {
 
 /// Minimal data structure containing just enough for proof verification
 #[derive(Serialize, Deserialize)]
-pub enum LurkProof<'a, F: CurveCycleEquipped>
+pub(crate) enum LurkProof<'a, F: CurveCycleEquipped>
 where
     Coproc<F>: Coprocessor<F>,
 {
@@ -60,18 +68,9 @@ where
     }
 }
 
-use crate::cli::{
-    field_data::{dump, load},
-    paths::{proof_meta_path, proof_path, public_params_dir},
-};
-use anyhow::Result;
-use lurk::public_parameters::public_params;
-
-use pasta_curves::pallas::Scalar;
-
 impl<F: LurkField + Serialize> LurkProofMeta<F> {
     #[inline]
-    pub fn persist(self, proof_key: &str) -> Result<()> {
+    pub(crate) fn persist(self, proof_key: &str) -> Result<()> {
         dump(self, proof_meta_path(proof_key))
     }
 }
@@ -81,7 +80,7 @@ where
     Coproc<F>: Coprocessor<F>,
 {
     #[inline]
-    pub fn persist(self, proof_key: &str) -> Result<()> {
+    pub(crate) fn persist(self, proof_key: &str) -> Result<()> {
         dump(self, proof_path(proof_key))
     }
 }
@@ -104,7 +103,7 @@ impl<'a> LurkProof<'a, Scalar> {
         }
     }
 
-    pub fn verify_proof(proof_key: &str) -> Result<()> {
+    pub(crate) fn verify_proof(proof_key: &str) -> Result<()> {
         let lurk_proof: LurkProof<'_, Scalar> = load(proof_path(proof_key))?;
         if lurk_proof.verify()? {
             println!("✓ Proof \"{proof_key}\" verified");
