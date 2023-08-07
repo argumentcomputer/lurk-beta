@@ -62,6 +62,7 @@
 mod circuit;
 mod eval;
 mod interpreter;
+mod lemo;
 mod macros;
 mod path;
 mod pointers;
