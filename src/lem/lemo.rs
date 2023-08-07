@@ -151,7 +151,9 @@ fn test() {
         op!(let xx: Expr::Cons = hash2(a, b)),
         op!(let (m, n) = unhash2(xx)),
         op!(let z: Expr::Cons = hash2(xx, x)),
-        op!(let (aa, bb) = unhash2(z)),
+        op!(let (x_, x__) = unhash2(z)),
+        op!(let (aa, bb) = unhash2(x_)),
+        op!(let (aaa, bbb) = unhash2(x__)),
     ];
     let ctx = &mut Context::default();
     let ops = process_ops(&ops, ctx).unwrap();
