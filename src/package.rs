@@ -71,8 +71,8 @@ impl Package {
         }
         // now we finally import as an atomic operation
         for (symbol, symbol_name) in symbols.iter().zip(symbols_names) {
-            self.symbols.insert(symbol_name.clone(), symbol.clone());
-            self.names.insert(symbol.clone(), symbol_name.clone());
+            self.symbols.insert(symbol_name.to_string(), symbol.clone());
+            self.names.insert(symbol.clone(), symbol_name.to_string());
         }
         Ok(())
     }

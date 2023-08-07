@@ -212,11 +212,11 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
                     let s: Symbol = store
                         .fetch_sym(&car)
                         .ok_or(Error::msg("handle_meta fetch symbol"))?;
-                    match format!("{}", s).as_str() {
+                    match s.name()? {
                         "call" => self.call(store, state, rest)?,
                         "chain" => self.chain(store, state, rest)?,
-                        "lurk.commit" => self.commit(store, rest)?,
-                        "lurk.open" => self.open(store, rest)?,
+                        "commit" => self.commit(store, rest)?,
+                        "open" => self.open(store, rest)?,
                         "proof-in-expr" => self.proof_in_expr(store, state, rest)?,
                         "proof-out-expr" => self.proof_out_expr(store, state, rest)?,
                         "proof-claim" => self.proof_claim(store, rest)?,

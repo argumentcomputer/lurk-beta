@@ -241,7 +241,7 @@ impl Symbol {
         }
     }
 
-    pub fn name(&self) -> Result<&String> {
+    pub fn name(&self) -> Result<&str> {
         if self.is_root() {
             bail!("Root symbols don't have names")
         } else {

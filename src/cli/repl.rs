@@ -530,7 +530,7 @@ impl Repl<F> {
                     process::exit(1);
                 }
             }
-            "lurk.commit" => {
+            "commit" => {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     let first = self.peek1(cmd, args)?;
@@ -538,7 +538,7 @@ impl Repl<F> {
                     self.hide(ff::Field::ZERO, first_io.expr)?;
                 }
             }
-            "lurk.hide" => {
+            "hide" => {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     let (first, second) = self.peek2(cmd, args)?;
@@ -564,7 +564,7 @@ impl Repl<F> {
                     self.fetch(&hash, false)?;
                 }
             }
-            "lurk.open" => {
+            "open" => {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     let hash = self.get_comm_hash(cmd, args)?;
@@ -626,9 +626,9 @@ impl Repl<F> {
 
     fn handle_meta(&mut self, expr_ptr: Ptr<F>, pwd_path: &Path) -> Result<()> {
         let (car, cdr) = self.store.car_cdr(&expr_ptr)?;
-        match &self.store.fetch_symbol(&car) {
+        match &self.store.fetch_sym(&car) {
             Some(symbol) => {
-                self.handle_meta_cases(format!("{}", symbol).as_str(), &cdr, pwd_path)?
+                self.handle_meta_cases(symbol.name()?, &cdr, pwd_path)?
             }
             None => bail!(
                 "Meta command must be a symbol. Found {}",
