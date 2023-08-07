@@ -483,10 +483,14 @@ impl Cli {
                 Ok(())
             }
             Command::Circom(circom_args) => {
-                if circom_args.name == "main" {
-                    bail!("Circom gadget name cannot be `main`")
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    if circom_args.name == "main" {
+                        bail!("Circom gadget name cannot be `main`")
+                    }
+                    create_circom_gadget(circom_args.circom_folder, circom_args.name)?;
                 }
-                create_circom_gadget(circom_args.circom_folder, circom_args.name)
+                Ok(())
             }
         }
     }
