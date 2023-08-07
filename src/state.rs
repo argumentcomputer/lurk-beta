@@ -106,18 +106,24 @@ impl State {
             lurk_package.intern(symbol_name.to_string());
         });
 
-        // bootstrap the lurk user package
-        let mut lurk_user_package =
-            Package::new(root_package.intern(LURK_USER_PACKAGE_SYMBOL_NAME.into()));
-        lurk_user_package
+        // bootstrap the meta package
+        let mut meta_package = Package::new(lurk_package.intern(META_PACKAGE_SYMBOL_NAME.into()));
+        META_PACKAGE_SYMBOLS_NAMES.iter().for_each(|symbol_name| {
+            meta_package.intern(symbol_name.to_string());
+        });
+
+        // bootstrap the user package
+        let mut user_package = Package::new(lurk_package.intern(USER_PACKAGE_SYMBOL_NAME.into()));
+        user_package
             .use_package(&lurk_package)
             .expect("all symbols in the lurk package are importable");
 
         // initiate the state with the lurk user package then add the others
-        let mut state = Self::new_with_package(lurk_user_package);
+        let mut state = Self::new_with_package(user_package);
         state.add_package(root_package);
         state.add_package(keyword_package);
         state.add_package(lurk_package);
+        state.add_package(meta_package);
         state
     }
 }
@@ -134,7 +140,7 @@ pub fn lurk_sym(name: &str) -> Symbol {
 
 #[inline]
 pub fn user_sym(name: &str) -> Symbol {
-    Symbol::sym(&[LURK_USER_PACKAGE_SYMBOL_NAME, name])
+    Symbol::sym(&[LURK_PACKAGE_SYMBOL_NAME, USER_PACKAGE_SYMBOL_NAME, name])
 }
 
 /// TODO: make this immutable (how?)
@@ -145,9 +151,9 @@ pub fn initial_lurk_state() -> MutexGuard<'static, State> {
     INITIAL_LURK_STATE_CELL.lock().unwrap()
 }
 
-const LURK_USER_PACKAGE_SYMBOL_NAME: &str = "lurk-user";
-
 const LURK_PACKAGE_SYMBOL_NAME: &str = "lurk";
+const USER_PACKAGE_SYMBOL_NAME: &str = "user";
+const META_PACKAGE_SYMBOL_NAME: &str = "meta";
 
 const LURK_PACKAGE_SYMBOLS_NAMES: [&str; 36] = [
     "atom",
@@ -186,6 +192,24 @@ const LURK_PACKAGE_SYMBOLS_NAMES: [&str; 36] = [
     "<=",
     ">=",
     "_",
+];
+
+const META_PACKAGE_SYMBOLS_NAMES: [&str; 15] = [
+    "def",
+    "defrec",
+    "load",
+    "assert",
+    "assert-eq",
+    "assert-emitted",
+    "assert-error",
+    "commit",
+    "hide",
+    "fetch",
+    "open",
+    "clear",
+    "set-env",
+    "prove",
+    "verify",
 ];
 
 #[cfg(test)]
@@ -227,7 +251,7 @@ pub mod test {
 
         state.import(&[lambda_sym.clone()]).unwrap();
         test_printing_helper(&state, lambda_sym, "lambda");
-        test_printing_helper(&state, user_sym, ".lurk-user.user-sym");
+        test_printing_helper(&state, user_sym, ".lurk.user.user-sym");
 
         let path = ["my-package", "my-other-symbol"];
         state.intern_path(&path, false).unwrap();
