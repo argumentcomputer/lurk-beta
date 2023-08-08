@@ -1,3 +1,24 @@
+//! # Circom Gadgets
+//! 
+//! ## Setting up a Circom Gadget with Lurk
+//! 
+//! Run the following commands:
+//!     `cargo run --release -- circom --name sha256_2 examples/sha256/`
+//!     `cargo run --release --example circom`
+//! 
+//! The new `sha256_2` gadget is stored in `.lurk/circom/sha256_2/*`. 
+//! Next, to use the gadget, create a `CircomSha256` struct and implement
+//! the [CircomGadget] trait. Finally, declare the sha256 coprocessor:
+//! 
+//! ```rust
+//! #[derive(Clone, Debug, Coproc)]
+//! enum Sha256Coproc<F: LurkField> {
+//!    SC(CircomCoprocessor<F, CircomSha256<F>>),
+//! }
+//! ```
+//! 
+//! Hooray! Now we can use a [CircomSha256] coprocessor just like a normal one.
+
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -35,7 +56,7 @@ impl<F: LurkField> CircomSha256<F> {
 
 impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
     fn name(&self) -> &str {
-        "circom_sha256"
+        "circom_sha25"
     }
 
     fn into_circom_input(self, _input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)> {
@@ -62,6 +83,7 @@ enum Sha256Coproc<F: LurkField> {
 }
 
 /// Run the example in this file with
+/// `cargo run --release -- circom --name sha256_2 examples/sha256/`
 /// `cargo run --release --example circom`
 fn main() {
     let store = &mut Store::<Fr>::new();

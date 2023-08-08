@@ -9,7 +9,8 @@ pub mod non_wasm {
         process::{exit, Command},
     };
 
-    use anyhow::Result;
+    use ansi_term::Colour::{Green, Red};
+    use anyhow::{Result, bail};
     use reqwest::Url;
     use tokio::runtime::Builder;
 
@@ -93,7 +94,7 @@ pub mod non_wasm {
             circom_gadget
         );
         fs::create_dir_all(&circom_gadget)?;
-        get_circom_binary()?
+        let output = get_circom_binary()?
             .arg(circom_file)
             .arg("--r1cs")
             .arg("--wasm")
@@ -104,6 +105,12 @@ pub mod non_wasm {
             .output()
             .expect("circom failed");
 
+        if !output.status.success() {
+            println!("{} Please check that your input files are correct,", Red.bold().paint("Circom failed."));
+            println!("  and refer to the circom stderr output for further information:\n");
+            bail!("{}", String::from_utf8_lossy(&output.stderr));
+        }
+
         // get out `name`_js/`name`.wasm and `name`.r1cs
         // and put them in circom_gadgets()/`name`/*
         fs::copy(
@@ -112,7 +119,7 @@ pub mod non_wasm {
         )?;
         fs::remove_dir_all(circom_gadget.join(format!("{}_js", &name)))?;
 
-        println!("Circom success");
+        println!("{}", Green.bold().paint("Circom success"));
         Ok(())
     }
 }

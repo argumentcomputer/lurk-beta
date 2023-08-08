@@ -46,7 +46,16 @@ enum Command {
     Repl(ReplArgs),
     /// Verifies a Lurk proof
     Verify(VerifyArgs),
-    /// Instansiates a new circom component to interface with bellperson
+    /// Instansiates a new circom gadget to interface with bellperson.
+    /// 
+    /// To setup a new circom gadget `<NAME>`, place your circom files in a designated folder and
+    /// create a file called `<NAME>.circom`. `<CIRCOM_FOLDER>/<NAME>.circom` is the input file
+    /// for the `circom` binary; in this file you must declare your circom main component.
+    /// 
+    /// Then run `lurk circom --name <NAME> <CIRCOM_FOLDER>` to instansiate a new gadget `<NAME>`.
+    /// The new components are stored in `.lurk/circom/<NAME>/*`. 
+    // (TODO: replace `.lurk` with env var)
+    #[command(verbatim_doc_comment)]
     Circom(CircomArgs),
 }
 
@@ -455,10 +464,13 @@ struct VerifyArgs {
 
 #[derive(Args, Debug)]
 struct CircomArgs {
-    /// Path to the circom folder to be integrated
+    /// Path to the circom folder to be integrated. 
+    /// Lurk will look for `<CIRCOM_FOLDER>/<NAME>.circom` 
+    /// as the input file for the `circom` binary.
     #[clap(value_parser)]
+    #[arg(verbatim_doc_comment)]
     circom_folder: PathBuf,
-    /// The name of the circom gadget
+    /// The name of the circom gadget (the name cannot be `main`, for internal circom reasons)
     #[clap(long, value_parser)]
     name: String,
 }
@@ -488,7 +500,7 @@ impl Cli {
                 {
                     use crate::cli::circom::non_wasm::create_circom_gadget;
                     if circom_args.name == "main" {
-                        bail!("Circom gadget name cannot be `main`")
+                        bail!("Circom gadget name cannot be `main`, for internal circom reasons")
                     }
                     create_circom_gadget(circom_args.circom_folder, circom_args.name)?;
                 }

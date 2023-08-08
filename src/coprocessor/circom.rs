@@ -7,6 +7,7 @@ pub mod non_wasm {
     use core::fmt::Debug;
     use std::{fs::read_dir, path::PathBuf};
 
+    use ansi_term::Colour::Red;
     use anyhow::{bail, Result};
     use bellperson::{ConstraintSystem, SynthesisError};
     use circom_scotia::r1cs::CircomConfig;
@@ -30,16 +31,26 @@ pub mod non_wasm {
             .join(".lurk/circom")
     }
 
-    fn print_error(name: &str, avaliable: Vec<String>) -> Result<()> {
-        let avaliable = avaliable.join("\n    ");
+    /// To setup a new circom gadget `<NAME>`, place your circom files in a designated folder and
+    /// create a file called `<NAME>.circom`. `<CIRCOM_FOLDER>/<NAME>.circom` is the input file
+    /// for the `circom` binary; in this file you must declare your circom main component.
+    fn print_error(name: &str, available: Vec<String>) -> Result<()> {
+        let available = available.join("\n    ");
         bail!(
             "
-error: no circom gadget named `{name}`.
-Available circom gadgets:{avaliable}
+{}: no circom gadget named `{name}`.
+Available circom gadgets:
 
-If you want to setup a new circom gadget `{name}`, run
-    `lurk coprocessor --name {name} <{}_FOLDER>`",
-            name.to_ascii_uppercase()
+    {available}
+
+If you want to setup a new circom gadget `{name}`, place your circom files in a designated folder and
+create a file called `{name}.circom`. The circom binary expects `{}_FOLDER>/{name}.circom` 
+as the input file; in this file you must declare your circom main component.
+
+Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instansiate a new gadget `{name}`.",
+            Red.bold().paint("error"),
+            name.to_ascii_uppercase(),
+            name.to_ascii_uppercase(),
         );
     }
 
