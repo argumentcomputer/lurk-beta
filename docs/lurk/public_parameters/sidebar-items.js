@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["public_params"],"mod":["error","file_map"],"trait":["FileStore"]};
+window.SIDEBAR_ITEMS = {"fn":["public_params","public_params_default_dir"],"mod":["error"]};

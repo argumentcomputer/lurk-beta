@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `clutch/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="clutch" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (474709a9a 2023-08-03)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-6d2c9675f3d09c26.css" data-theme-dark-css="dark-45ceb8f2e522f4d1.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-6d2c9675f3d09c26.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-45ceb8f2e522f4d1.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../clutch/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `clutch/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="clutch" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (03a119b0b 2023-08-07)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../clutch/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -566,13 +566,21 @@
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
 </pre></div><pre class="rust"><code><span class="attr">#![doc = <span class="macro">include_str!</span>(<span class="string">&quot;../README.md&quot;</span>)]
 
 </span><span class="kw">use </span>anyhow::{anyhow, bail, Context, Error, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>camino::Utf8PathBuf;
 <span class="kw">use </span>clap::{Arg, ArgAction, Command};
 <span class="kw">use </span>fcomm::{
-    committed_expression_store, nova_proof_cache, Claim, Commitment, CommittedExpression,
-    CommittedExpressionMap, LurkCont, LurkPtr, NovaProofCache, Opening, Proof, PtrEvaluation,
+    committed_expression_store, file_map::data_dir, nova_proof_cache, Claim, Commitment,
+    CommittedExpression, CommittedExpressionMap, LurkCont, LurkPtr, NovaProofCache, Opening, Proof,
+    PtrEvaluation,
 };
 <span class="kw">use </span>lurk::public_parameters::public_params;
 
@@ -600,6 +608,10 @@
 <span class="kw">use </span>std::thread;
 
 <span class="kw">const </span>DEFAULT_REDUCTION_COUNT: usize = <span class="number">10</span>;
+
+<span class="kw">pub fn </span>public_param_dir() -&gt; Utf8PathBuf {
+    data_dir().join(<span class="string">&quot;public_params&quot;</span>)
+}
 
 <span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">struct </span>Demo {
@@ -705,7 +717,7 @@
 
         <span class="kw">let </span>lang_rc = Arc::new(lang.clone());
         <span class="comment">// Load params from disk cache, or generate them in the background.
-        </span>thread::spawn(<span class="kw">move </span>|| public_params(reduction_count, lang_rc));
+        </span>thread::spawn(<span class="kw">move </span>|| public_params(reduction_count, lang_rc, <span class="kw-2">&amp;</span>public_param_dir()));
 
         <span class="self">Self </span>{
             repl_state: ReplState::new(s, limit, command, lang),
@@ -1065,7 +1077,7 @@
         <span class="kw">let </span>(proof_in_expr, _rest1) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>prover = NovaProver::&lt;F, Coproc&lt;F&gt;&gt;::new(<span class="self">self</span>.reduction_count, (<span class="kw-2">*</span><span class="self">self</span>.lang()).clone());
-        <span class="kw">let </span>pp = public_params(<span class="self">self</span>.reduction_count, <span class="self">self</span>.lang())<span class="question-mark">?</span>;
+        <span class="kw">let </span>pp = public_params(<span class="self">self</span>.reduction_count, <span class="self">self</span>.lang(), <span class="kw-2">&amp;</span>public_param_dir())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>proof = <span class="kw">if </span>rest.is_nil() {
             <span class="self">self</span>.last_claim
@@ -1124,7 +1136,7 @@
             .get(<span class="kw-2">&amp;</span>zptr_string)
             .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;proof not found: {zptr_string}&quot;</span>))<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>pp = public_params(<span class="self">self</span>.reduction_count, <span class="self">self</span>.lang())<span class="question-mark">?</span>;
+        <span class="kw">let </span>pp = public_params(<span class="self">self</span>.reduction_count, <span class="self">self</span>.lang(), <span class="kw-2">&amp;</span>public_param_dir())<span class="question-mark">?</span>;
         <span class="kw">let </span>result = proof.verify(<span class="kw-2">&amp;</span>pp, <span class="kw-2">&amp;</span><span class="self">self</span>.lang()).unwrap();
 
         <span class="kw">if </span>result.verified {
