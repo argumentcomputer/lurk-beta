@@ -102,11 +102,14 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
 
     pub fn key(&self) -> String {
         let mut key = String::new();
+        if self.has_coprocessors() {
+            for coprocessor in &self.coprocessors {
+                let name = coprocessor.0.path.join("-");
 
-        for coprocessor in &self.coprocessors {
-            let name = coprocessor.0.path.join("-");
-
-            key += name.as_str()
+                key += name.as_str()
+            }
+        } else {
+            key += "none"
         }
         key
     }

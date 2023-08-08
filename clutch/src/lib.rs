@@ -1,10 +1,12 @@
 #![doc = include_str!("../README.md")]
 
 use anyhow::{anyhow, bail, Context, Error, Result};
+use camino::Utf8PathBuf;
 use clap::{Arg, ArgAction, Command};
 use fcomm::{
-    committed_expression_store, nova_proof_cache, Claim, Commitment, CommittedExpression,
-    CommittedExpressionMap, LurkCont, LurkPtr, NovaProofCache, Opening, Proof, PtrEvaluation,
+    committed_expression_store, file_map::data_dir, nova_proof_cache, Claim, Commitment,
+    CommittedExpression, CommittedExpressionMap, LurkCont, LurkPtr, NovaProofCache, Opening, Proof,
+    PtrEvaluation,
 };
 use lurk::public_parameters::public_params;
 
@@ -32,6 +34,10 @@ use std::sync::Arc;
 use std::thread;
 
 const DEFAULT_REDUCTION_COUNT: usize = 10;
+
+pub fn public_param_dir() -> Utf8PathBuf {
+    data_dir().join("public_params")
+}
 
 #[derive(Clone, Debug)]
 struct Demo {
@@ -137,7 +143,7 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
 
         let lang_rc = Arc::new(lang.clone());
         // Load params from disk cache, or generate them in the background.
-        thread::spawn(move || public_params(reduction_count, lang_rc));
+        thread::spawn(move || public_params(reduction_count, lang_rc, &public_param_dir()));
 
         Self {
             repl_state: ReplState::new(s, limit, command, lang),
@@ -497,7 +503,7 @@ impl ClutchState<F, Coproc<F>> {
         let (proof_in_expr, _rest1) = store.car_cdr(&rest)?;
 
         let prover = NovaProver::<F, Coproc<F>>::new(self.reduction_count, (*self.lang()).clone());
-        let pp = public_params(self.reduction_count, self.lang())?;
+        let pp = public_params(self.reduction_count, self.lang(), &public_param_dir())?;
 
         let proof = if rest.is_nil() {
             self.last_claim
@@ -556,7 +562,7 @@ impl ClutchState<F, Coproc<F>> {
             .get(&zptr_string)
             .ok_or_else(|| anyhow!("proof not found: {zptr_string}"))?;
 
-        let pp = public_params(self.reduction_count, self.lang())?;
+        let pp = public_params(self.reduction_count, self.lang(), &public_param_dir())?;
         let result = proof.verify(&pp, &self.lang()).unwrap();
 
         if result.verified {

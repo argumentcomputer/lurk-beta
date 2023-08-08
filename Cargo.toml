@@ -55,6 +55,7 @@ serde_repr = "0.1.14"
 tap = "1.0.1"
 stable_deref_trait = "1.2.0"
 thiserror = { workspace = true }
+camino = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 memmap = { version = "0.5.10", package = "memmap2" }
@@ -86,7 +87,7 @@ pprof = { version = "0.11" }
 sha2 = { version = "0.10.7" }
 structopt = { version = "0.3", default-features = false }
 tap = "1.0.1"
-tempfile = "3.6.0"
+tempfile = { workspace = true }
 
 [workspace]
 resolver = "2"
@@ -121,6 +122,8 @@ rand = "0.8"
 serde = "1.0"
 serde_json = { version = "1.0" }
 thiserror = "1.0.43"
+tempfile = "3.6.0"
+camino = "1.1.6"
 
 [[bin]]
 name = "lurk"

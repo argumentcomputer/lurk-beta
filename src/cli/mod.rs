@@ -5,21 +5,24 @@ mod paths;
 mod repl;
 
 use anyhow::{bail, Context, Result};
+use camino::Utf8PathBuf;
 use clap::{Args, Parser, Subcommand};
 use config::{Config, Environment, File};
 use pasta_curves::pallas;
-use std::{collections::HashMap, fs, path::PathBuf};
 
-use lurk::{
+use std::{collections::HashMap, fs};
+
+use crate::{
     field::{LanguageField, LurkField},
     store::Store,
     z_data::{from_z_data, ZData},
     z_store::ZStore,
 };
 
-use crate::cli::repl::validate_non_zero;
-
-use self::repl::{Backend, Repl};
+use crate::cli::{
+    paths::set_lurk_dirs,
+    repl::{validate_non_zero, Backend, Repl},
+};
 
 const DEFAULT_LIMIT: usize = 100_000_000;
 const DEFAULT_RC: usize = 10;
@@ -46,11 +49,11 @@ enum Command {
 struct LoadArgs {
     /// The file to be loaded
     #[clap(value_parser)]
-    lurk_file: PathBuf,
+    lurk_file: Utf8PathBuf,
 
     /// ZStore to be preloaded before the loading the file
     #[clap(long, value_parser)]
-    zstore: Option<PathBuf>,
+    zstore: Option<Utf8PathBuf>,
 
     /// Flag to prove the last evaluation
     #[arg(long)]
@@ -58,7 +61,7 @@ struct LoadArgs {
 
     /// Config file, containing the lowest precedence parameters
     #[clap(long, value_parser)]
-    config: Option<PathBuf>,
+    config: Option<Utf8PathBuf>,
 
     /// Reduction count used for proofs (defaults to 10)
     #[clap(long, value_parser)]
@@ -75,21 +78,33 @@ struct LoadArgs {
     /// Arithmetic field (defaults to the backend's standard field)
     #[clap(long, value_parser)]
     field: Option<String>,
+
+    /// Path to public parameters directory
+    #[clap(long, value_parser)]
+    public_params_dir: Option<Utf8PathBuf>,
+
+    /// Path to proofs directory
+    #[clap(long, value_parser)]
+    proofs_dir: Option<Utf8PathBuf>,
+
+    /// Path to commitments directory
+    #[clap(long, value_parser)]
+    commits_dir: Option<Utf8PathBuf>,
 }
 
 #[derive(Parser, Debug)]
 struct LoadCli {
     #[clap(value_parser)]
-    lurk_file: PathBuf,
+    lurk_file: Utf8PathBuf,
 
     #[clap(long, value_parser)]
-    zstore: Option<PathBuf>,
+    zstore: Option<Utf8PathBuf>,
 
     #[arg(long)]
     prove: bool,
 
     #[clap(long, value_parser)]
-    config: Option<PathBuf>,
+    config: Option<Utf8PathBuf>,
 
     #[clap(long, value_parser)]
     rc: Option<usize>,
@@ -102,6 +117,15 @@ struct LoadCli {
 
     #[clap(long, value_parser)]
     field: Option<String>,
+
+    #[clap(long, value_parser)]
+    public_params_dir: Option<Utf8PathBuf>,
+
+    #[clap(long, value_parser)]
+    proofs_dir: Option<Utf8PathBuf>,
+
+    #[clap(long, value_parser)]
+    commits_dir: Option<Utf8PathBuf>,
 }
 
 impl LoadArgs {
@@ -115,6 +139,9 @@ impl LoadArgs {
             limit: self.limit,
             backend: self.backend,
             field: self.field,
+            public_params_dir: self.public_params_dir,
+            proofs_dir: self.proofs_dir,
+            commits_dir: self.commits_dir,
         }
     }
 }
@@ -123,15 +150,15 @@ impl LoadArgs {
 struct ReplArgs {
     /// ZStore to be preloaded before entering the REPL (and loading a file)
     #[clap(long, value_parser)]
-    zstore: Option<PathBuf>,
+    zstore: Option<Utf8PathBuf>,
 
     /// Optional file to be loaded before entering the REPL
     #[clap(long, value_parser)]
-    load: Option<PathBuf>,
+    load: Option<Utf8PathBuf>,
 
     /// Config file, containing the lowest precedence parameters
     #[clap(long, value_parser)]
-    config: Option<PathBuf>,
+    config: Option<Utf8PathBuf>,
 
     /// Reduction count used for proofs (defaults to 10)
     #[clap(long, value_parser)]
@@ -148,18 +175,30 @@ struct ReplArgs {
     /// Arithmetic field (defaults to the backend's standard field)
     #[clap(long, value_parser)]
     field: Option<String>,
+
+    /// Path to public parameters directory
+    #[clap(long, value_parser)]
+    public_params_dir: Option<Utf8PathBuf>,
+
+    /// Path to proofs directory
+    #[clap(long, value_parser)]
+    proofs_dir: Option<Utf8PathBuf>,
+
+    /// Path to commitments directory
+    #[clap(long, value_parser)]
+    commits_dir: Option<Utf8PathBuf>,
 }
 
 #[derive(Parser, Debug)]
 struct ReplCli {
     #[clap(long, value_parser)]
-    load: Option<PathBuf>,
+    load: Option<Utf8PathBuf>,
 
     #[clap(long, value_parser)]
-    zstore: Option<PathBuf>,
+    zstore: Option<Utf8PathBuf>,
 
     #[clap(long, value_parser)]
-    config: Option<PathBuf>,
+    config: Option<Utf8PathBuf>,
 
     #[clap(long, value_parser)]
     rc: Option<usize>,
@@ -172,6 +211,15 @@ struct ReplCli {
 
     #[clap(long, value_parser)]
     field: Option<String>,
+
+    #[clap(long, value_parser)]
+    public_params_dir: Option<Utf8PathBuf>,
+
+    #[clap(long, value_parser)]
+    proofs_dir: Option<Utf8PathBuf>,
+
+    #[clap(long, value_parser)]
+    commits_dir: Option<Utf8PathBuf>,
 }
 
 impl ReplArgs {
@@ -184,6 +232,9 @@ impl ReplArgs {
             limit: self.limit,
             backend: self.backend,
             field: self.field,
+            public_params_dir: self.public_params_dir,
+            proofs_dir: self.proofs_dir,
+            commits_dir: self.commits_dir,
         }
     }
 }
@@ -236,11 +287,13 @@ fn get_parsed<T>(
     }
 }
 
-fn get_config(config_path: &Option<PathBuf>) -> Result<HashMap<String, String>> {
+pub fn get_config(config_path: &Option<Utf8PathBuf>) -> Result<HashMap<String, String>> {
     // First load from the config file
     let builder = match config_path {
-        Some(config_path) => Config::builder().add_source(File::from(config_path.to_owned())),
-        None => Config::builder(),
+        Some(config_path) if config_path.exists() => {
+            Config::builder().add_source(File::with_name(config_path.as_str()))
+        }
+        _ => Config::builder(),
     };
     // Then potentially overwrite with environment variables
     let builder = builder.add_source(Environment::with_prefix("LURK"));
@@ -248,7 +301,7 @@ fn get_config(config_path: &Option<PathBuf>) -> Result<HashMap<String, String>> 
 }
 
 fn get_store<F: LurkField + for<'a> serde::de::Deserialize<'a>>(
-    zstore_path: &Option<PathBuf>,
+    zstore_path: &Option<Utf8PathBuf>,
 ) -> Result<Store<F>> {
     match zstore_path {
         None => Ok(Store::default()),
@@ -270,7 +323,7 @@ macro_rules! new_repl {
 }
 
 impl ReplCli {
-    pub fn run(&self) -> Result<()> {
+    fn run(&self) -> Result<()> {
         macro_rules! repl {
             ( $rc: expr, $limit: expr, $field: path, $backend: expr ) => {{
                 let mut repl = new_repl!(self, $rc, $limit, $field, $backend);
@@ -281,6 +334,13 @@ impl ReplCli {
             }};
         }
         let config = get_config(&self.config)?;
+        log::info!("Configured variables: {:?}", config);
+        set_lurk_dirs(
+            &config,
+            &self.public_params_dir,
+            &self.proofs_dir,
+            &self.commits_dir,
+        );
         let rc = get_parsed_usize("rc", &self.rc, &config, DEFAULT_RC)?;
         let limit = get_parsed_usize("limit", &self.limit, &config, DEFAULT_LIMIT)?;
         let backend = get_parsed(
@@ -312,19 +372,25 @@ impl ReplCli {
 }
 
 impl LoadCli {
-    pub fn run(&self) -> Result<()> {
+    fn run(&self) -> Result<()> {
         macro_rules! load {
             ( $rc: expr, $limit: expr, $field: path, $backend: expr ) => {{
                 let mut repl = new_repl!(self, $rc, $limit, $field, $backend);
                 repl.load_file(&self.lurk_file)?;
                 if self.prove {
-                    #[cfg(not(target_arch = "wasm32"))]
                     repl.prove_last_frames()?;
                 }
                 Ok(())
             }};
         }
         let config = get_config(&self.config)?;
+        log::info!("Configured variables: {:?}", config);
+        set_lurk_dirs(
+            &config,
+            &self.public_params_dir,
+            &self.proofs_dir,
+            &self.commits_dir,
+        );
         let rc = get_parsed_usize("rc", &self.rc, &config, DEFAULT_RC)?;
         let limit = get_parsed_usize("limit", &self.limit, &config, DEFAULT_LIMIT)?;
         let backend = get_parsed(
@@ -360,6 +426,18 @@ struct VerifyArgs {
     /// ID of the proof to be verified
     #[clap(value_parser)]
     proof_id: String,
+
+    /// Config file, containing the lowest precedence parameters
+    #[clap(long, value_parser)]
+    config: Option<Utf8PathBuf>,
+
+    /// Path to public parameters directory
+    #[clap(long, value_parser)]
+    public_params_dir: Option<Utf8PathBuf>,
+
+    /// Path to proofs directory
+    #[clap(long, value_parser)]
+    proofs_dir: Option<Utf8PathBuf>,
 }
 
 impl Cli {
@@ -369,11 +447,16 @@ impl Cli {
             Command::Load(load_args) => load_args.into_cli().run(),
             #[allow(unused_variables)]
             Command::Verify(verify_args) => {
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    use crate::cli::lurk_proof::LurkProof;
-                    LurkProof::verify_proof(&verify_args.proof_id)?;
-                }
+                use crate::cli::lurk_proof::LurkProof;
+                let config = get_config(&verify_args.config)?;
+                log::info!("Configured variables: {:?}", config);
+                set_lurk_dirs(
+                    &config,
+                    &verify_args.public_params_dir,
+                    &verify_args.proofs_dir,
+                    &None,
+                );
+                LurkProof::verify_proof(&verify_args.proof_id)?;
                 Ok(())
             }
         }
@@ -382,9 +465,6 @@ impl Cli {
 
 /// Parses CLI arguments and continues the program flow accordingly
 pub fn parse_and_run() -> Result<()> {
-    #[cfg(not(target_arch = "wasm32"))]
-    paths::non_wasm::create_lurk_dirs()?;
-
     if let Ok(cli) = Cli::try_parse() {
         cli.run()
     } else if let Ok(repl_cli) = ReplCli::try_parse() {

@@ -1,12 +1,10 @@
-use std::path::Path;
+use std::fs::read_to_string;
+use std::process;
 use std::sync::Arc;
 
-use std::{fs::read_to_string, process};
-
 use anyhow::{bail, Context, Result};
-
+use camino::{Utf8Path, Utf8PathBuf};
 use log::info;
-
 use rustyline::{
     error::ReadlineError,
     history::DefaultHistory,
@@ -15,7 +13,9 @@ use rustyline::{
 };
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 
-use lurk::{
+use super::{commitment::Commitment, field_data::load, paths::commitment_path};
+use crate::cli::paths::{proof_path, public_params_dir};
+use crate::{
     eval::{
         lang::{Coproc, Lang},
         Evaluator, Frame, Witness, IO,
@@ -24,19 +24,18 @@ use lurk::{
     parser,
     ptr::Ptr,
     store::Store,
-    tag::ContTag,
+    tag::{ContTag, ExprTag},
     writer::Write,
+    z_ptr::ZExprPtr,
     Num,
 };
 
-#[cfg(not(target_arch = "wasm32"))]
-use lurk::{
+use crate::{
     proof::{nova::NovaProver, Prover},
     public_parameters::public_params,
     z_store::ZStore,
 };
 
-#[cfg(not(target_arch = "wasm32"))]
 use super::lurk_proof::{LurkProof, LurkProofMeta};
 
 #[derive(Completer, Helper, Highlighter, Hinter)]
@@ -50,7 +49,7 @@ impl Validator for InputValidator {
     }
 }
 
-pub enum Backend {
+pub(crate) enum Backend {
     Nova,
     SnarkPackPlus,
 }
@@ -65,7 +64,7 @@ impl std::fmt::Display for Backend {
 }
 
 impl Backend {
-    pub fn default_field(&self) -> LanguageField {
+    pub(crate) fn default_field(&self) -> LanguageField {
         match self {
             Self::Nova => LanguageField::Pallas,
             Self::SnarkPackPlus => LanguageField::BLS12_381,
@@ -80,7 +79,7 @@ impl Backend {
         }
     }
 
-    pub fn validate_field(&self, field: &LanguageField) -> Result<()> {
+    pub(crate) fn validate_field(&self, field: &LanguageField) -> Result<()> {
         let compatible_fields = self.compatible_fields();
         if !compatible_fields.contains(field) {
             bail!(
@@ -103,7 +102,7 @@ struct Evaluation<F: LurkField> {
 }
 
 #[allow(dead_code)]
-pub struct Repl<F: LurkField> {
+pub(crate) struct Repl<F: LurkField> {
     store: Store<F>,
     env: Ptr<F>,
     lang: Arc<Lang<F, Coproc<F>>>,
@@ -113,7 +112,7 @@ pub struct Repl<F: LurkField> {
     evaluation: Option<Evaluation<F>>,
 }
 
-pub fn validate_non_zero(name: &str, x: usize) -> Result<()> {
+pub(crate) fn validate_non_zero(name: &str, x: usize) -> Result<()> {
     if x == 0 {
         bail!("`{name}` can't be zero")
     }
@@ -131,7 +130,13 @@ fn pad(a: usize, m: usize) -> usize {
 type F = pasta_curves::pallas::Scalar; // TODO: generalize this
 
 impl Repl<F> {
-    pub fn new(store: Store<F>, env: Ptr<F>, rc: usize, limit: usize, backend: Backend) -> Repl<F> {
+    pub(crate) fn new(
+        store: Store<F>,
+        env: Ptr<F>,
+        rc: usize,
+        limit: usize,
+        backend: Backend,
+    ) -> Repl<F> {
         let limit = pad(limit, rc);
         info!(
             "Launching REPL with backend {backend}, field {}, rc {rc} and limit {limit}",
@@ -189,10 +194,7 @@ impl Repl<F> {
         format!("{backend}_{field}_{rc}_{claim_hash}")
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn prove_last_frames(&mut self) -> Result<()> {
-        use crate::cli::{commitment::Commitment, paths::non_wasm::proof_path};
-
+    pub(crate) fn prove_last_frames(&mut self) -> Result<()> {
         match self.evaluation.as_mut() {
             None => bail!("No evaluation to prove"),
             Some(Evaluation { frames, iterations }) => match self.backend {
@@ -238,7 +240,7 @@ impl Repl<F> {
                         }
 
                         info!("Loading public parameters");
-                        let pp = public_params(self.rc, self.lang.clone())?;
+                        let pp = public_params(self.rc, self.lang.clone(), &public_params_dir())?;
 
                         let prover = NovaProver::new(self.rc, (*self.lang).clone());
 
@@ -283,10 +285,7 @@ impl Repl<F> {
         }
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn hide(&mut self, secret: F, payload: Ptr<F>) -> Result<()> {
-        use super::commitment::Commitment;
-
         let commitment = Commitment::new(Some(secret), payload, &mut self.store)?;
         let hash_str = &commitment.hash.hex_digits();
         commitment.persist()?;
@@ -297,14 +296,7 @@ impl Repl<F> {
         Ok(())
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn fetch(&mut self, hash: &F, print_data: bool) -> Result<()> {
-        use lurk::{tag::ExprTag, z_ptr::ZExprPtr};
-
-        use super::{
-            commitment::Commitment, field_data::non_wasm::load, paths::non_wasm::commitment_path,
-        };
-
         let commitment: Commitment<F> = load(commitment_path(&hash.hex_digits()))?;
         let comm_hash = commitment.hash;
         if &comm_hash != hash {
@@ -404,7 +396,7 @@ impl Repl<F> {
         Ok(hash.into_scalar())
     }
 
-    fn handle_meta_cases(&mut self, cmd: &str, args: &Ptr<F>, pwd_path: &Path) -> Result<()> {
+    fn handle_meta_cases(&mut self, cmd: &str, args: &Ptr<F>, pwd_path: &Utf8Path) -> Result<()> {
         match cmd {
             "def" => {
                 // Extends env with a non-recursive binding.
@@ -459,7 +451,7 @@ impl Repl<F> {
                 let first = self.peek1(cmd, args)?;
                 match self.store.fetch_string(&first) {
                     Some(path) => {
-                        let joined = pwd_path.join(Path::new(&path));
+                        let joined = pwd_path.join(Utf8Path::new(&path));
                         self.load_file(&joined)?
                     }
                     _ => bail!("Argument of `load` must be a string."),
@@ -528,45 +520,33 @@ impl Repl<F> {
                 }
             }
             "lurk.commit" => {
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    let first = self.peek1(cmd, args)?;
-                    let (first_io, ..) = self.eval_expr(first)?;
-                    self.hide(ff::Field::ZERO, first_io.expr)?;
-                }
+                let first = self.peek1(cmd, args)?;
+                let (first_io, ..) = self.eval_expr(first)?;
+                self.hide(ff::Field::ZERO, first_io.expr)?;
             }
             "lurk.hide" => {
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    let (first, second) = self.peek2(cmd, args)?;
-                    let (first_io, ..) = self
-                        .eval_expr(first)
-                        .with_context(|| "evaluating first arg")?;
-                    let (second_io, ..) = self
-                        .eval_expr(second)
-                        .with_context(|| "evaluating second arg")?;
-                    let Some(secret) = self.store.fetch_num(&first_io.expr) else {
+                let (first, second) = self.peek2(cmd, args)?;
+                let (first_io, ..) = self
+                    .eval_expr(first)
+                    .with_context(|| "evaluating first arg")?;
+                let (second_io, ..) = self
+                    .eval_expr(second)
+                    .with_context(|| "evaluating second arg")?;
+                let Some(secret) = self.store.fetch_num(&first_io.expr) else {
                         bail!(
                             "Secret must be a number. Got {}",
                             first_io.expr.fmt_to_string(&self.store)
                         )
                     };
-                    self.hide(secret.into_scalar(), second_io.expr)?;
-                }
+                self.hide(secret.into_scalar(), second_io.expr)?;
             }
             "fetch" => {
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    let hash = self.get_comm_hash(cmd, args)?;
-                    self.fetch(&hash, false)?;
-                }
+                let hash = self.get_comm_hash(cmd, args)?;
+                self.fetch(&hash, false)?;
             }
             "lurk.open" => {
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    let hash = self.get_comm_hash(cmd, args)?;
-                    self.fetch(&hash, true)?;
-                }
+                let hash = self.get_comm_hash(cmd, args)?;
+                self.fetch(&hash, true)?;
             }
             "clear" => self.env = self.store.nil(),
             "set-env" => {
@@ -579,21 +559,17 @@ impl Repl<F> {
                 if !args.is_nil() {
                     self.eval_expr_and_memoize(self.peek1(cmd, args)?)?;
                 }
-                #[cfg(not(target_arch = "wasm32"))]
                 self.prove_last_frames()?;
             }
             "verify" => {
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    let first = self.peek1(cmd, args)?;
-                    match self.store.fetch_string(&first) {
-                        None => bail!(
-                            "Proof ID {} not parsed as a string",
-                            first.fmt_to_string(&self.store)
-                        ),
-                        Some(proof_id) => {
-                            LurkProof::verify_proof(&proof_id)?;
-                        }
+                let first = self.peek1(cmd, args)?;
+                match self.store.fetch_string(&first) {
+                    None => bail!(
+                        "Proof ID {} not parsed as a string",
+                        first.fmt_to_string(&self.store)
+                    ),
+                    Some(proof_id) => {
+                        LurkProof::verify_proof(&proof_id)?;
                     }
                 }
             }
@@ -621,7 +597,7 @@ impl Repl<F> {
             })
     }
 
-    fn handle_meta(&mut self, expr_ptr: Ptr<F>, pwd_path: &Path) -> Result<()> {
+    fn handle_meta(&mut self, expr_ptr: Ptr<F>, pwd_path: &Utf8Path) -> Result<()> {
         let (car, cdr) = self.store.car_cdr(&expr_ptr)?;
         match &self.store.fetch_symbol(&car) {
             Some(symbol) => {
@@ -638,7 +614,7 @@ impl Repl<F> {
     fn handle_form<'a>(
         &mut self,
         input: parser::Span<'a>,
-        pwd_path: &Path,
+        pwd_path: &Utf8Path,
     ) -> Result<parser::Span<'a>> {
         let (input, ptr, is_meta) = self.store.read_maybe_meta(input)?;
 
@@ -650,9 +626,9 @@ impl Repl<F> {
         Ok(input)
     }
 
-    pub fn load_file(&mut self, file_path: &Path) -> Result<()> {
+    pub(crate) fn load_file(&mut self, file_path: &Utf8Path) -> Result<()> {
         let input = read_to_string(file_path)?;
-        println!("Loading {}", file_path.display());
+        println!("Loading {}", file_path);
 
         let mut input = parser::Span::new(&input);
         loop {
@@ -670,10 +646,11 @@ impl Repl<F> {
         }
     }
 
-    pub fn start(&mut self) -> Result<()> {
+    pub(crate) fn start(&mut self) -> Result<()> {
         println!("Lurk REPL welcomes you.");
 
-        let pwd_path = &std::env::current_dir()?;
+        let pwd_path = Utf8PathBuf::from_path_buf(std::env::current_dir()?)
+            .expect("path contains invalid Unicode");
 
         let mut editor: Editor<InputValidator, DefaultHistory> = Editor::with_config(
             Config::builder()
@@ -686,10 +663,8 @@ impl Repl<F> {
             brackets: MatchingBracketValidator::new(),
         }));
 
-        #[cfg(not(target_arch = "wasm32"))]
-        let history_path = &crate::cli::paths::non_wasm::repl_history();
+        let history_path = &crate::cli::paths::repl_history();
 
-        #[cfg(not(target_arch = "wasm32"))]
         if history_path.exists() {
             editor.load_history(history_path)?;
         }
@@ -697,12 +672,11 @@ impl Repl<F> {
         loop {
             match editor.readline("> ") {
                 Ok(line) => {
-                    #[cfg(not(target_arch = "wasm32"))]
                     editor.save_history(history_path)?;
                     match self.store.read_maybe_meta(parser::Span::new(&line)) {
                         Ok((_, expr_ptr, is_meta)) => {
                             if is_meta {
-                                if let Err(e) = self.handle_meta(expr_ptr, pwd_path) {
+                                if let Err(e) = self.handle_meta(expr_ptr, &pwd_path) {
                                     println!("!Error: {e}");
                                 }
                             } else if let Err(e) = self.handle_non_meta(expr_ptr) {

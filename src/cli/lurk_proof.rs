@@ -1,12 +1,20 @@
+use anyhow::Result;
+use pasta_curves::pallas::Scalar;
 use serde::{Deserialize, Serialize};
 
-use lurk::{
+use crate::{
     coprocessor::Coprocessor,
     eval::lang::{Coproc, Lang},
     field::LurkField,
     proof::nova::{self, CurveCycleEquipped},
+    public_parameters::public_params,
     z_ptr::{ZContPtr, ZExprPtr},
     z_store::ZStore,
+};
+
+use crate::cli::{
+    field_data::{dump, load},
+    paths::{proof_meta_path, proof_path, public_params_dir},
 };
 
 use super::field_data::HasFieldModulus;
@@ -18,7 +26,7 @@ use super::field_data::HasFieldModulus;
 /// continuation `cont`, is reduced to `expr_out`, resulting on environment
 /// `env_out` and continuation `cont_out`. It doesn't contain private data.
 #[derive(Serialize, Deserialize)]
-pub struct LurkProofMeta<F: LurkField> {
+pub(crate) struct LurkProofMeta<F: LurkField> {
     pub(crate) iterations: usize,
     pub(crate) expr: ZExprPtr<F>,
     pub(crate) env: ZExprPtr<F>,
@@ -37,7 +45,7 @@ impl<F: LurkField> HasFieldModulus for LurkProofMeta<F> {
 
 /// Minimal data structure containing just enough for proof verification
 #[derive(Serialize, Deserialize)]
-pub enum LurkProof<'a, F: CurveCycleEquipped>
+pub(crate) enum LurkProof<'a, F: CurveCycleEquipped>
 where
     Coproc<F>: Coprocessor<F>,
 {
@@ -60,65 +68,48 @@ where
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-mod non_wasm {
-    use crate::cli::{
-        field_data::non_wasm::{dump, load},
-        paths::non_wasm::{proof_meta_path, proof_path},
-    };
-    use anyhow::Result;
-    use lurk::{
-        coprocessor::Coprocessor, eval::lang::Coproc, field::LurkField,
-        proof::nova::CurveCycleEquipped, public_parameters::public_params,
-    };
-    use serde::Serialize;
+impl<F: LurkField + Serialize> LurkProofMeta<F> {
+    #[inline]
+    pub(crate) fn persist(self, proof_key: &str) -> Result<()> {
+        dump(self, proof_meta_path(proof_key))
+    }
+}
 
-    use super::{LurkProof, LurkProofMeta};
-    use pasta_curves::pallas::Scalar;
+impl<'a, F: CurveCycleEquipped + Serialize> LurkProof<'a, F>
+where
+    Coproc<F>: Coprocessor<F>,
+{
+    #[inline]
+    pub(crate) fn persist(self, proof_key: &str) -> Result<()> {
+        dump(self, proof_path(proof_key))
+    }
+}
 
-    impl<F: LurkField + Serialize> LurkProofMeta<F> {
-        #[inline]
-        pub fn persist(self, proof_key: &str) -> Result<()> {
-            dump(self, proof_meta_path(proof_key))
+impl<'a> LurkProof<'a, Scalar> {
+    fn verify(self) -> Result<bool> {
+        match self {
+            Self::Nova {
+                proof,
+                public_inputs,
+                public_outputs,
+                num_steps,
+                rc,
+                lang,
+            } => {
+                log::info!("Loading public parameters");
+                let pp = public_params(rc, std::sync::Arc::new(lang), &public_params_dir())?;
+                Ok(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?)
+            }
         }
     }
 
-    impl<'a, F: CurveCycleEquipped + Serialize> LurkProof<'a, F>
-    where
-        Coproc<F>: Coprocessor<F>,
-    {
-        #[inline]
-        pub fn persist(self, proof_key: &str) -> Result<()> {
-            dump(self, proof_path(proof_key))
+    pub(crate) fn verify_proof(proof_key: &str) -> Result<()> {
+        let lurk_proof: LurkProof<'_, Scalar> = load(proof_path(proof_key))?;
+        if lurk_proof.verify()? {
+            println!("✓ Proof \"{proof_key}\" verified");
+        } else {
+            println!("✗ Proof \"{proof_key}\" failed on verification");
         }
-    }
-
-    impl<'a> LurkProof<'a, Scalar> {
-        fn verify(self) -> Result<bool> {
-            match self {
-                Self::Nova {
-                    proof,
-                    public_inputs,
-                    public_outputs,
-                    num_steps,
-                    rc,
-                    lang,
-                } => {
-                    log::info!("Loading public parameters");
-                    let pp = public_params(rc, std::sync::Arc::new(lang))?;
-                    Ok(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?)
-                }
-            }
-        }
-
-        pub fn verify_proof(proof_key: &str) -> Result<()> {
-            let lurk_proof: LurkProof<'_, Scalar> = load(proof_path(proof_key))?;
-            if lurk_proof.verify()? {
-                println!("✓ Proof \"{proof_key}\" verified");
-            } else {
-                println!("✗ Proof \"{proof_key}\" failed on verification");
-            }
-            Ok(())
-        }
+        Ok(())
     }
 }
