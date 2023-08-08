@@ -79,6 +79,13 @@ impl Symbol {
         }
     }
 
+    pub fn new_of_vec(path: Vec<String>, keyword: bool) -> Self {
+        Self {
+            path,
+            keyword,
+        }
+    }
+
     #[inline]
     pub fn sym<A: AsRef<str>>(path: &[A]) -> Self {
         Self::new(path, false)
@@ -87,6 +94,16 @@ impl Symbol {
     #[inline]
     pub fn key<A: AsRef<str>>(path: &[A]) -> Self {
         Self::new(path, true)
+    }
+
+    #[inline]
+    pub fn sym_of_vec(path: Vec<String>) -> Self {
+        Self::new_of_vec(path, false)
+    }
+
+    #[inline]
+    pub fn key_of_vec(path: Vec<String>) -> Self {
+        Self::new_of_vec(path, true)
     }
 
     /// Creates a new Symbol with the path extended by the given vector of path segments.
@@ -315,14 +332,14 @@ impl Symbol {
 
     pub fn from_str_impl(name: &str) -> Option<Self> {
         use crate::parser::{
-            syntax::{parse_path, parse_space},
+            syntax::{parse_symbol, parse_space},
             Span,
         };
         use crate::syntax::Syntax;
         use nom::{sequence::preceded, Parser};
         use pasta_curves::pallas::Scalar;
-        match preceded(parse_space::<Scalar>, parse_path()).parse(Span::new(name)) {
-            Ok((_, Syntax::Path(_, path, keyword))) => Some(Symbol { path, keyword }),
+        match preceded(parse_space::<Scalar>, parse_symbol()).parse(Span::new(name)) {
+            Ok((_, Syntax::Symbol(_, symbol))) => Some(symbol),
             _ => None,
         }
     }

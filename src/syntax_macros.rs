@@ -42,49 +42,33 @@ macro_rules! char {
 }
 
 #[macro_export]
-macro_rules! sym_path {
+macro_rules! symbol {
     ( [$( $x:expr ),*] ) => {
         {
             let temp_vec = vec![ $( $x.to_string() ),* ];
-            $crate::syntax::Syntax::Path(Pos::No, temp_vec, false)
+            $crate::syntax::Syntax::Symbol(Pos::No, $crate::symbol::Symbol::sym_of_vec(temp_vec))
         }
     };
     ( $f:ty, [$( $x:expr ),*] ) => {
         {
             let temp_vec = vec![ $( $x.to_owned() ),* ];
-            $crate::syntax::Syntax::<$f>::Path(Pos::No, temp_vec, false)
+            $crate::syntax::Syntax::<$f>::Symbol(Pos::No, $crate::symbol::Symbol::sym_of_vec(temp_vec))
         }
     };
 }
 
 #[macro_export]
-macro_rules! key_path {
+macro_rules! keyword {
     ( [$( $x:expr ),*] ) => {
         {
             let temp_vec = vec![ $( $x.to_string() ),* ];
-            $crate::syntax::Syntax::Path(Pos::No, temp_vec, true)
+            $crate::syntax::Syntax::Symbol(Pos::No, $crate::symbol::Symbol::key_of_vec(temp_vec))
         }
     };
     ( $f:ty, [$( $x:expr ),*] ) => {
         {
             let temp_vec = vec![ $( $x.to_owned() ),* ];
-            $crate::syntax::Syntax::<$f>::Path(Pos::No, temp_vec, true)
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! rel_path {
-    ( [$( $x:expr ),*] ) => {
-        {
-            let temp_vec = vec![ $( $x.to_string() ),* ];
-            $crate::syntax::Syntax::RelPath(Pos::No, temp_vec)
-        }
-    };
-    ( $f:ty, [$( $x:expr ),*] ) => {
-        {
-            let temp_vec = vec![ $( $x.to_owned() ),* ];
-            $crate::syntax::Syntax::<$f>::RelPath(Pos::No, temp_vec)
+            $crate::syntax::Syntax::<$f>::Path(Pos::No, $crate::symbol::Symbol::key_of_vec(temp_vec))
         }
     };
 }

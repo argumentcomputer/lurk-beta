@@ -5,7 +5,7 @@ use crate::{
     field::{FWrap, LurkField},
     hash::PoseidonCache,
     lem::Tag,
-    state::{lurk_sym, lurk_sym_path, State},
+    state::{lurk_sym, State},
     symbol::Symbol,
     syntax::Syntax,
     tag::ExprTag::*,
@@ -228,36 +228,29 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn intern_syntax(&mut self, state: &mut State, syn: Syntax<F>) -> Result<Ptr<F>> {
+    pub fn intern_syntax(&mut self, syn: Syntax<F>) -> Result<Ptr<F>> {
         match syn {
             Syntax::Num(_, x) => Ok(Ptr::Leaf(Tag::Expr(Num), x.into_scalar())),
             Syntax::UInt(_, UInt::U64(x)) => Ok(Ptr::Leaf(Tag::Expr(U64), x.into())),
             Syntax::Char(_, x) => Ok(Ptr::Leaf(Tag::Expr(Char), (x as u64).into())),
-            Syntax::Path(_, path, key) => {
-                let sym = state.intern_path(&path, key)?;
-                Ok(self.intern_symbol(&sym))
-            }
-            Syntax::RelPath(_, path) => {
-                let sym = state.intern_relative_path(&path)?;
-                Ok(self.intern_symbol(&sym))
-            }
+            Syntax::Symbol(_, symbol) => Ok(self.intern_symbol(&symbol)),
             Syntax::String(_, x) => Ok(self.intern_string(&x)),
             Syntax::Quote(pos, x) => {
-                let xs = vec![Syntax::Path(pos, lurk_sym_path("quote"), false), *x];
-                self.intern_syntax(state, Syntax::List(pos, xs))
+                let xs = vec![Syntax::Symbol(pos, lurk_sym("quote")), *x];
+                self.intern_syntax(Syntax::List(pos, xs))
             }
             Syntax::List(_, xs) => {
                 let mut cdr = self.intern_symbol(&lurk_sym("nil"));
                 for x in xs.into_iter().rev() {
-                    let car = self.intern_syntax(state, x)?;
+                    let car = self.intern_syntax(x)?;
                     cdr = self.intern_2_ptrs(Tag::Expr(Cons), car, cdr);
                 }
                 Ok(cdr)
             }
             Syntax::Improper(_, xs, end) => {
-                let mut cdr = self.intern_syntax(state, *end)?;
+                let mut cdr = self.intern_syntax(*end)?;
                 for x in xs.into_iter().rev() {
-                    let car = self.intern_syntax(state, x)?;
+                    let car = self.intern_syntax(x)?;
                     cdr = self.intern_2_ptrs(Tag::Expr(Cons), car, cdr);
                 }
                 Ok(cdr)
@@ -270,7 +263,7 @@ impl<F: LurkField> Store<F> {
         use nom::sequence::preceded;
         use nom::Parser;
         match preceded(syntax::parse_space, syntax::parse_syntax()).parse(Span::new(input)) {
-            Ok((_i, x)) => self.intern_syntax(state, x),
+            Ok((_i, x)) => self.intern_syntax(x),
             Err(e) => bail!("{}", e),
         }
     }

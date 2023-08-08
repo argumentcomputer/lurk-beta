@@ -1,4 +1,4 @@
-use crate::field::LurkField;
+use crate::{field::LurkField, Symbol};
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_till},
@@ -39,89 +39,88 @@ pub fn parse_space1<F: LurkField>(i: Span<'_>) -> ParseResult<'_, F, Vec<Span<'_
     Ok((i, com))
 }
 
-pub fn parse_path_component<F: LurkField>(
+pub fn parse_symbol_limb<F: LurkField>(
     escape: &'static str,
 ) -> impl Fn(Span<'_>) -> ParseResult<'_, F, String> {
     move |from: Span<'_>| {
         let (i, s) = alt((
+            delimited(
+                tag("|"),
+                string::parse_string_inner1('|', true, "|"),
+                tag("|"),
+            ),
             string::parse_string_inner1(symbol::SYM_SEPARATOR, false, escape),
-            delimited(
-                tag("|"),
-                string::parse_string_inner1('|', true, "|"),
-                tag("|"),
-            ),
             value(String::from(""), peek(tag("."))),
         ))(from)?;
         Ok((i, s))
     }
 }
 
-pub fn parse_path_component_raw<F: LurkField>(
+pub fn parse_symbol_limb_raw<F: LurkField>(
     escape: &'static str,
 ) -> impl Fn(Span<'_>) -> ParseResult<'_, F, String> {
     move |from: Span<'_>| {
         let (i, s) = alt((
-            string::parse_string_inner1(' ', false, escape),
             delimited(
                 tag("|"),
                 string::parse_string_inner1('|', true, "|"),
                 tag("|"),
             ),
+            string::parse_string_inner1(' ', false, escape),
             value(String::from(""), peek(tag("."))),
         ))(from)?;
         Ok((i, s))
     }
 }
 
-pub fn parse_path_components<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Vec<String>>
-{
+pub fn parse_symbol_limbs<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Vec<String>> {
     move |from: Span<'_>| {
         let (i, path) = separated_list1(
             char(symbol::SYM_SEPARATOR),
-            parse_path_component(symbol::ESCAPE_CHARS),
+            parse_symbol_limb(symbol::ESCAPE_CHARS),
         )(from)?;
         let (upto, _) = opt(tag("."))(i)?;
         Ok((upto, path))
     }
 }
 
-pub fn parse_absolute_path<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
+pub fn parse_absolute_symbol<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Symbol> {
     move |from: Span<'_>| {
         let (i, is_key) = alt((
             value(false, char(symbol::SYM_MARKER)),
             value(true, char(symbol::KEYWORD_MARKER)),
         ))(from)?;
-        let (upto, path) = parse_path_components()(i)?;
-        Ok((upto, Syntax::Path(Pos::from_upto(from, upto), path, is_key)))
+        let (upto, path) = parse_symbol_limbs()(i)?;
+        Ok((upto, Symbol::new(&path, is_key)))
     }
 }
 
-pub fn parse_relative_path<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
+pub fn parse_relative_symbol<F: LurkField>(
+    parent: Symbol,
+) -> impl Fn(Span<'_>) -> ParseResult<'_, F, Symbol> {
     move |from: Span<'_>| {
         let (i, _) = peek(none_of(",~#(){}[]1234567890."))(from)?;
-        let (upto, path) = parse_path_components()(i)?;
-        Ok((upto, Syntax::RelPath(Pos::from_upto(from, upto), path)))
+        let (upto, path) = parse_symbol_limbs()(i)?;
+        Ok((upto, parent.extend(&path)))
     }
 }
 
-pub fn parse_raw_path<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
+pub fn parse_raw_symbol<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Symbol> {
     move |from: Span<'_>| {
         let (i, _) = tag("~(")(from)?;
-        let (i, mut path) = many0(preceded(parse_space, parse_path_component_raw("|()")))(i)?;
+        let (i, path) = many0(preceded(parse_space, parse_symbol_limb_raw("|()")))(i)?;
         let (upto, _) = many_till(parse_space, tag(")"))(i)?;
-        path.reverse();
-        Ok((upto, Syntax::Path(Pos::from_upto(from, upto), path, false)))
+        Ok((upto, Symbol::sym_of_vec(path)))
     }
 }
 
-pub fn parse_raw_keyword_path<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>>
+pub fn parse_raw_keyword<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Symbol>
 {
     move |from: Span<'_>| {
         let (i, _) = tag("~:(")(from)?;
-        let (i, mut path) = many0(preceded(parse_space, parse_path_component_raw("|()")))(i)?;
+        let (i, path) = many0(preceded(parse_space, parse_symbol_limb_raw("|()")))(i)?;
         let (upto, _) = many_till(parse_space, tag(")"))(i)?;
-        path.reverse();
-        Ok((upto, Syntax::Path(Pos::from_upto(from, upto), path, true)))
+        Ok((upto, Symbol::key_of_vec(path)))
     }
 }
 
@@ -129,14 +128,15 @@ pub fn parse_raw_keyword_path<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResul
 /// absolute: .foo.bar.baz, :foo.bar (escaped limbs: .|foo|.|bar|.|baz|)
 /// raw: ~(foo bar baz) = .baz.bar.foo
 /// raw keyword: ~:(foo bar) = :bar.foo
-pub fn parse_path<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
+pub fn parse_symbol<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
-        alt((
-            parse_relative_path(),
-            parse_absolute_path(),
-            parse_raw_path(),
-            parse_raw_keyword_path(),
-        ))(from)
+        let (upto, sym) = alt((
+            parse_raw_symbol(),
+            parse_absolute_symbol(),
+            // temporary root argument until packages are reimplemented
+            parse_relative_symbol(Symbol::root(true)),
+        ))(from)?;
+        Ok((upto, Syntax::Symbol(Pos::from_upto(from, upto), sym)))
     }
 }
 
@@ -262,7 +262,6 @@ pub fn parse_char<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syn
 pub fn parse_list<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
         let (i, _) = tag("(")(from)?;
-        //let (i, _) = parse_space(i)?;
         let (i, xs) = many0(preceded(parse_space, parse_syntax()))(i)?;
         let (i, end) = opt(preceded(
             preceded(parse_space, tag(".")),
@@ -300,7 +299,7 @@ pub fn parse_syntax<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, S
             context("list", parse_list()),
             parse_uint(),
             parse_num(),
-            context("path", parse_path()),
+            context("path", parse_symbol()),
             parse_string(),
             context("quote", parse_quote()),
             parse_hash_char(),
@@ -334,8 +333,9 @@ pub mod tests {
     use proptest::prelude::*;
 
     use super::*;
+    use crate::Symbol;
     #[allow(unused_imports)]
-    use crate::{char, key_path, list, num, rel_path, str, sym_path, uint};
+    use crate::{char, keyword, list, num, str, symbol, uint};
 
     fn test<'a, P, R>(mut p: P, i: &'a str, expected: Option<R>) -> bool
     where
@@ -377,130 +377,131 @@ pub mod tests {
     }
 
     #[test]
-    fn unit_parse_path() {
-        assert!(test(parse_raw_path(), "", None));
-        assert!(test(parse_absolute_path(), "", None));
-        assert!(test(parse_relative_path(), "", None));
-        assert!(test(parse_path(), "", None));
-        assert!(test(parse_path(), "~()", Some(sym_path!([]))));
-        assert!(test(parse_path(), ".", None));
-        assert!(test(parse_path(), "..", Some(sym_path!([""]))));
-        assert!(test(parse_path(), "foo", Some(rel_path!(["foo"]))));
-        assert!(test(parse_path(), "|foo|", Some(rel_path!(["foo"]))));
+    fn unit_parse_symbol() {
+        assert!(test(parse_raw_symbol(), "", None));
+        assert!(test(parse_absolute_symbol(), "", None));
+        assert!(test(parse_relative_symbol(Symbol::root(true)), "", None));
+        assert!(test(parse_relative_symbol(Symbol::root(false)), "", None));
+        assert!(test(parse_symbol(), "", None));
+        assert!(test(parse_symbol(), "~()", Some(symbol!([]))));
+        assert!(test(parse_symbol(), ".", None));
+        assert!(test(parse_symbol(), "..", Some(symbol!([""]))));
+        assert!(test(parse_symbol(), "foo", Some(symbol!(["foo"]))));
+        assert!(test(parse_symbol(), "|foo|", Some(symbol!(["foo"]))));
         assert!(test(
-            parse_path(),
+            parse_symbol(),
             "|Hi, bye|",
-            Some(rel_path!(["Hi, bye"]))
+            Some(symbol!(["Hi, bye"]))
         ));
         assert!(test(
-            parse_path(),
+            parse_symbol(),
             "|foo|.|bar|",
-            Some(rel_path!(["foo", "bar"]))
+            Some(symbol!(["foo", "bar"]))
         ));
         assert!(test(
-            parse_path(),
+            parse_symbol(),
             ".|foo|.|bar|",
-            Some(sym_path!(["foo", "bar"]))
+            Some(symbol!(["foo", "bar"]))
         ));
-        assert!(test(parse_path(), ".foo", Some(sym_path!(["foo"]))));
-        assert!(test(parse_path(), "..foo", Some(sym_path!(["", "foo"]))));
-        assert!(test(parse_path(), "foo.", Some(rel_path!(["foo"]))));
-        assert!(test(parse_path(), "foo..", Some(rel_path!(["foo", ""]))));
-        assert!(test(parse_path(), ".foo..", Some(sym_path!(["foo", ""]))));
-        assert!(test(parse_path(), ".foo..", Some(sym_path!(["foo", ""]))));
+        assert!(test(parse_symbol(), ".foo", Some(symbol!(["foo"]))));
+        assert!(test(parse_symbol(), "..foo", Some(symbol!(["", "foo"]))));
+        assert!(test(parse_symbol(), "foo.", Some(symbol!(["foo"]))));
+        assert!(test(parse_symbol(), "foo..", Some(symbol!(["foo", ""]))));
+        assert!(test(parse_symbol(), ".foo..", Some(symbol!(["foo", ""]))));
+        assert!(test(parse_symbol(), ".foo..", Some(symbol!(["foo", ""]))));
         assert!(test(
-            parse_path(),
+            parse_symbol(),
             ".foo.bar",
-            Some(sym_path!(["foo", "bar"]))
+            Some(symbol!(["foo", "bar"]))
         ));
         assert!(test(
-            parse_path(),
+            parse_symbol(),
             ".foo?.bar?",
-            Some(sym_path!(["foo?", "bar?"]))
+            Some(symbol!(["foo?", "bar?"]))
         ));
         assert!(test(
-            parse_path(),
+            parse_symbol(),
             ".fooλ.barλ",
-            Some(sym_path!(["fooλ", "barλ"]))
+            Some(symbol!(["fooλ", "barλ"]))
         ));
         assert!(test(
-            parse_path(),
+            parse_symbol(),
             ".foo\\n.bar\\n",
-            Some(sym_path!(["foo\n", "bar\n"]))
+            Some(symbol!(["foo\n", "bar\n"]))
         ));
         assert!(test(
-            parse_path(),
+            parse_symbol(),
             ".foo\\u{00}.bar\\u{00}",
-            Some(sym_path!(["foo\u{00}", "bar\u{00}"]))
+            Some(symbol!(["foo\u{00}", "bar\u{00}"]))
         ));
         assert!(test(
-            parse_path(),
+            parse_symbol(),
             ".foo\\.bar",
-            Some(sym_path!(["foo.bar"]))
+            Some(symbol!(["foo.bar"]))
         ));
-        assert!(test(parse_path(), "~(asdf )", Some(sym_path!(["asdf"]))));
-        assert!(test(parse_path(), "~( asdf )", Some(sym_path!(["asdf"]))));
-        assert!(test(parse_path(), "~( asdf)", Some(sym_path!(["asdf"]))));
+        assert!(test(parse_symbol(), "~(asdf )", Some(symbol!(["asdf"]))));
+        assert!(test(parse_symbol(), "~( asdf )", Some(symbol!(["asdf"]))));
+        assert!(test(parse_symbol(), "~( asdf)", Some(symbol!(["asdf"]))));
         assert!(test(
-            parse_path(),
+            parse_symbol(),
             "~(asdf.fdsa)",
-            Some(sym_path!(["asdf.fdsa"]))
+            Some(symbol!(["asdf.fdsa"]))
         ));
         assert!(test(
-            parse_path(),
+            parse_symbol(),
             "~(asdf.fdsa arst)",
-            Some(sym_path!(["arst", "asdf.fdsa"]))
+            Some(symbol!(["arst", "asdf.fdsa"]))
         ));
         assert!(test(
-            parse_path(),
+            parse_symbol(),
             "~(asdf.fdsa arst |wfp qwf|)",
-            Some(sym_path!(["wfp qwf", "arst", "asdf.fdsa"]))
+            Some(symbol!(["wfp qwf", "arst", "asdf.fdsa"]))
         ));
     }
 
     #[test]
     fn unit_parse_keyword() {
-        assert!(test(parse_path(), "", None));
-        assert!(test(parse_path(), ":", None));
-        assert!(test(parse_path(), "~:()", Some(key_path!([]))));
-        assert!(test(parse_path(), ":.", Some(key_path!([""]))));
-        assert!(test(parse_path(), ":foo", Some(key_path!(["foo"]))));
-        assert!(test(parse_path(), ":foo.", Some(key_path!(["foo"]))));
-        assert!(test(parse_path(), ":foo..", Some(key_path!(["foo", ""]))));
+        assert!(test(parse_symbol(), "", None));
+        assert!(test(parse_symbol(), ":", None));
+        assert!(test(parse_symbol(), "~:()", Some(keyword!([]))));
+        assert!(test(parse_symbol(), ":.", Some(keyword!([""]))));
+        assert!(test(parse_symbol(), ":foo", Some(keyword!(["foo"]))));
+        assert!(test(parse_symbol(), ":foo.", Some(keyword!(["foo"]))));
+        assert!(test(parse_symbol(), ":foo..", Some(keyword!(["foo", ""]))));
         assert!(test(
-            parse_path(),
+            parse_symbol(),
             ":foo.bar",
-            Some(key_path!(["foo", "bar"]))
+            Some(keyword!(["foo", "bar"]))
         ));
         assert!(test(
-            parse_path(),
+            parse_symbol(),
             ":foo?.bar?",
-            Some(key_path!(["foo?", "bar?"]))
+            Some(keyword!(["foo?", "bar?"]))
         ));
         assert!(test(
-            parse_path(),
+            parse_symbol(),
             ":fooλ.barλ",
-            Some(key_path!(["fooλ", "barλ"]))
+            Some(keyword!(["fooλ", "barλ"]))
         ));
         assert!(test(
-            parse_path(),
+            parse_symbol(),
             ":foo\\n.bar\\n",
-            Some(key_path!(["foo\n", "bar\n"]))
+            Some(keyword!(["foo\n", "bar\n"]))
         ));
         assert!(test(
-            parse_path(),
+            parse_symbol(),
             ":foo\\u{00}.bar\\u{00}",
-            Some(key_path!(["foo\u{00}", "bar\u{00}"]))
+            Some(keyword!(["foo\u{00}", "bar\u{00}"]))
         ));
         assert!(test(
-            parse_path(),
+            parse_symbol(),
             ":foo\\.bar",
-            Some(key_path!(["foo.bar"]))
+            Some(keyword!(["foo.bar"]))
         ));
         assert!(test(
-            parse_path(),
+            parse_symbol(),
             "~:(x y z)",
-            Some(key_path!(["z", "y", "x"]))
+            Some(keyword!(["z", "y", "x"]))
         ));
     }
 
@@ -509,58 +510,58 @@ pub mod tests {
         assert!(test(parse_list(), "()", Some(list!([]))));
         assert!(test(parse_list(), "(1 2)", Some(list!([num!(1), num!(2)])),));
         assert!(test(parse_list(), "(1)", Some(list!([num!(1)])),));
-        assert!(test(parse_list(), "(a)", Some(list!([rel_path!(["a"])])),));
+        assert!(test(parse_list(), "(a)", Some(list!([symbol!(["a"])])),));
         assert!(test(
             parse_list(),
             "(a b)",
-            Some(list!([rel_path!(["a"]), rel_path!(["b"])])),
+            Some(list!([symbol!(["a"]), symbol!(["b"])])),
         ));
         assert!(test(
             parse_syntax(),
             "(.a .b)",
-            Some(list!([sym_path!(["a"]), sym_path!(["b"])])),
+            Some(list!([symbol!(["a"]), symbol!(["b"])])),
         ));
         assert!(test(
             parse_syntax(),
             "(.foo.bar .foo.bar)",
             Some(list!([
-                sym_path!(["foo", "bar"]),
-                sym_path!(["foo", "bar"])
+                symbol!(["foo", "bar"]),
+                symbol!(["foo", "bar"])
             ])),
         ));
         assert!(test(
             parse_syntax(),
             "(a . b)",
-            Some(list!([rel_path!(["a"])], rel_path!(["b"]))),
+            Some(list!([symbol!(["a"])], symbol!(["b"]))),
         ));
         assert!(test(
             parse_syntax(),
             "(.a . .b)",
-            Some(list!([sym_path!(["a"])], sym_path!(["b"]))),
+            Some(list!([symbol!(["a"])], symbol!(["b"]))),
         ));
         assert!(test(
             parse_syntax(),
             "(a b . c)",
             Some(list!(
-                [rel_path!(["a"]), rel_path!(["b"])],
-                rel_path!(["c"])
+                [symbol!(["a"]), symbol!(["b"])],
+                symbol!(["c"])
             )),
         ));
         assert!(test(
             parse_syntax(),
             "(a . (b . c))",
             Some(list!(
-                [rel_path!(["a"])],
-                list!([rel_path!(["b"])], rel_path!(["c"]))
+                [symbol!(["a"])],
+                list!([symbol!(["b"])], symbol!(["c"]))
             ))
         ));
         assert!(test(
             parse_syntax(),
             "(a b c)",
             Some(list!([
-                rel_path!(["a"]),
-                rel_path!(["b"]),
-                rel_path!(["c"])
+                symbol!(["a"]),
+                symbol!(["b"]),
+                symbol!(["c"])
             ])),
         ));
         assert!(test(
@@ -573,18 +574,18 @@ pub mod tests {
             parse_syntax(),
             "(a. b. c.)",
             Some(list!([
-                rel_path!(["a"]),
-                rel_path!(["b"]),
-                rel_path!(["c"])
+                symbol!(["a"]),
+                symbol!(["b"]),
+                symbol!(["c"])
             ])),
         ));
         assert!(test(
             parse_syntax(),
             "(a.. b.. c..)",
             Some(list!([
-                rel_path!(["a", ""]),
-                rel_path!(["b", ""]),
-                rel_path!(["c", ""])
+                symbol!(["a", ""]),
+                symbol!(["b", ""]),
+                symbol!(["c", ""])
             ])),
         ));
     }
@@ -615,17 +616,17 @@ pub mod tests {
         assert!(test(
             parse_quote(),
             "'.a",
-            Some(Syntax::Quote(Pos::No, Box::new(sym_path!(["a"]))))
+            Some(Syntax::Quote(Pos::No, Box::new(symbol!(["a"]))))
         ));
         assert!(test(
             parse_syntax(),
             "':a",
-            Some(Syntax::Quote(Pos::No, Box::new(key_path!(["a"]))))
+            Some(Syntax::Quote(Pos::No, Box::new(keyword!(["a"]))))
         ));
         assert!(test(
             parse_syntax(),
             "'a",
-            Some(Syntax::Quote(Pos::No, Box::new(rel_path!(["a"]))))
+            Some(Syntax::Quote(Pos::No, Box::new(symbol!(["a"]))))
         ));
         assert!(test(parse_quote(), "'a'", Some(char!('a'))));
         assert!(test(parse_quote(), "'a'", Some(char!('a'))));
@@ -634,13 +635,13 @@ pub mod tests {
             "'(a b)",
             Some(Syntax::Quote(
                 Pos::No,
-                Box::new(list!([rel_path!(["a"]), rel_path!(["b"])]))
+                Box::new(list!([symbol!(["a"]), symbol!(["b"])]))
             ))
         ));
         assert!(test(
             parse_syntax(),
             "('a)",
-            Some(list!([Syntax::Quote(Pos::No, Box::new(rel_path!(['a'])))]))
+            Some(list!([Syntax::Quote(Pos::No, Box::new(symbol!(['a'])))]))
         ));
 
         assert!(test(
@@ -715,20 +716,20 @@ pub mod tests {
             Some(list!([num!(Num::Scalar(f_from_le_bytes(&vec)))])),
         ));
 
-        assert!(test(parse_syntax(), ".\\.", Some(sym_path!(["."]))));
-        assert!(test(parse_syntax(), ".\\'", Some(sym_path!(["'"]))));
+        assert!(test(parse_syntax(), ".\\.", Some(symbol!(["."]))));
+        assert!(test(parse_syntax(), ".\\'", Some(symbol!(["'"]))));
         assert!(test(
             parse_syntax(),
             ".\\'\\u{8e}\\u{fffc}\\u{201b}",
-            Some(sym_path!(["'\u{8e}\u{fffc}\u{201b}"])),
+            Some(symbol!(["'\u{8e}\u{fffc}\u{201b}"])),
         ));
         assert!(test(
             parse_syntax(),
             "(lambda (🚀) 🚀)",
             Some(list!([
-                rel_path!(["lambda"]),
-                list!([rel_path!(["🚀"])]),
-                rel_path!(["🚀"])
+                symbol!(["lambda"]),
+                list!([symbol!(["🚀"])]),
+                symbol!(["🚀"])
             ])),
         ));
         assert!(test(
@@ -740,14 +741,14 @@ pub mod tests {
         assert!(test(
             parse_syntax(),
             ":\u{ae}\u{60500}\u{87}..)",
-            Some(key_path!(["®\u{60500}\u{87}", ""]))
+            Some(keyword!(["®\u{60500}\u{87}", ""]))
         ));
         assert!(test(
             parse_syntax(),
             "(~:() 11242421860377074631u64 . :\u{ae}\u{60500}\u{87}..)",
             Some(list!(
-                [key_path!([]), uint!(11242421860377074631)],
-                key_path!(["®\u{60500}\u{87}", ""])
+                [keyword!([]), uint!(11242421860377074631)],
+                keyword!(["®\u{60500}\u{87}", ""])
             ))
         ));
         assert!(test(
@@ -759,19 +760,19 @@ pub mod tests {
         assert!(test(
             parse_syntax(),
             "((=))",
-            Some(list!([list!([rel_path!(["="])])]))
+            Some(list!([list!([symbol!(["="])])]))
         ));
         assert!(test(
             parse_syntax(),
             "('.. . a)",
             Some(list!(
-                [Syntax::Quote(Pos::No, Box::new(sym_path!([""])))],
-                rel_path!(["a"])
+                [Syntax::Quote(Pos::No, Box::new(symbol!([""])))],
+                symbol!(["a"])
             ))
         ));
         assert_eq!(
             "(.. . a)",
-            format!("{}", list!(Scalar, [sym_path!([""])], rel_path!(["a"])))
+            format!("{}", list!(Scalar, [symbol!([""])], symbol!(["a"])))
         );
         assert_eq!(
             "('.. . a)",
@@ -779,8 +780,8 @@ pub mod tests {
                 "{}",
                 list!(
                     Scalar,
-                    [Syntax::Quote(Pos::No, Box::new(sym_path!([""])))],
-                    rel_path!(["a"])
+                    [Syntax::Quote(Pos::No, Box::new(symbol!([""])))],
+                    symbol!(["a"])
                 )
             )
         );
@@ -788,12 +789,12 @@ pub mod tests {
         assert_eq!("'\\('", format!("{}", char!(Scalar, '(')));
         assert_eq!(
             "(' ' . a)",
-            format!("{}", list!(Scalar, [char!(' ')], rel_path!(["a"])))
+            format!("{}", list!(Scalar, [char!(' ')], symbol!(["a"])))
         );
         assert!(test(
             parse_syntax(),
             "(' ' . a)",
-            Some(list!([char!(' ')], rel_path!(["a"])))
+            Some(list!([char!(' ')], symbol!(["a"])))
         ));
         assert!(test(parse_syntax(), "(cons # \"\")", None));
         assert!(test(parse_syntax(), "#", None));
@@ -801,7 +802,7 @@ pub mod tests {
 
     #[test]
     fn test_minus_zero_symbol() {
-        let x: Syntax<Scalar> = sym_path!(["-0"]);
+        let x: Syntax<Scalar> = symbol!(["-0"]);
         let text = format!("{}", x);
         let (_, res) = parse_syntax()(Span::new(&text)).expect("valid parse");
         // eprintln!("------------------");

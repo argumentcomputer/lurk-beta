@@ -1,11 +1,12 @@
 use anyhow::{bail, Result};
 use std::fmt;
 
+use crate::Symbol;
 use crate::field::LurkField;
 use crate::num::Num;
 use crate::parser::position::Pos;
 use crate::ptr::Ptr;
-use crate::state::{lurk_sym_path, meta_package_symbol, State};
+use crate::state::{meta_package_symbol, State, lurk_sym};
 use crate::store::Store;
 use crate::uint::UInt;
 
@@ -18,10 +19,8 @@ pub enum Syntax<F: LurkField> {
     Num(Pos, Num<F>),
     // A u64 integer: 1u64, 0xffu64
     UInt(Pos, UInt),
-    // An absolute path with a keyword flag: .a.b, :a.b
-    Path(Pos, Vec<String>, bool),
-    // A relative path: a.b
-    RelPath(Pos, Vec<String>),
+    // A hierarchical symbol foo, foo.bar.baz or keyword :foo
+    Symbol(Pos, Symbol),
     // A string literal: "foobar", "foo\nbar"
     String(Pos, String),
     // A character literal: #\A #\λ #\u03BB
@@ -43,7 +42,7 @@ impl<Fr: LurkField> Arbitrary for Syntax<Fr> {
         let leaf = prop_oneof![
             any::<Num<Fr>>().prop_map(|x| Syntax::Num(Pos::No, x)),
             any::<UInt>().prop_map(|x| Syntax::UInt(Pos::No, x)),
-            any::<(Vec<String>, bool)>().prop_map(|(ss, b)| Syntax::Path(Pos::No, ss, b)),
+            any::<Symbol>().prop_map(|x| Syntax::Symbol(Pos::No, x)),
             any::<String>().prop_map(|x| Syntax::String(Pos::No, x)),
             any::<char>().prop_map(|x| Syntax::Char(Pos::No, x))
         ];
@@ -65,21 +64,10 @@ impl<Fr: LurkField> Arbitrary for Syntax<Fr> {
 
 impl<F: LurkField> fmt::Display for Syntax<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use crate::symbol::Symbol;
         match self {
             Self::Num(_, x) => write!(f, "{}", x),
             Self::UInt(_, x) => write!(f, "{}u64", x),
-            Self::Path(_, path, key) => {
-                let sym = if *key {
-                    Symbol::key(path)
-                } else {
-                    Symbol::sym(path)
-                };
-                write!(f, "{}", sym)
-            }
-            Self::RelPath(_, path) => {
-                write!(f, "{}", Symbol::format_path(path))
-            }
+            Self::Symbol(_, x) => write!(f, "{}", x),
             Self::String(_, x) => write!(f, "\"{}\"", x.escape_default()),
             Self::Char(_, x) => {
                 if *x == '(' || *x == ')' {
@@ -121,17 +109,10 @@ impl<F: LurkField> Store<F> {
             Syntax::Num(_, x) => Ok(self.intern_num(x)),
             Syntax::UInt(_, x) => Ok(self.intern_uint(x)),
             Syntax::Char(_, x) => Ok(self.intern_char(x)),
-            Syntax::Path(_, path, key) => {
-                let sym = state.intern_path(&path, key)?;
-                Ok(self.intern_symbol(&sym))
-            }
-            Syntax::RelPath(_, path) => {
-                let sym = state.intern_relative_path(&path)?;
-                Ok(self.intern_symbol(&sym))
-            }
+            Syntax::Symbol(_, symbol) => Ok(self.intern_symbol(&symbol)),
             Syntax::String(_, x) => Ok(self.intern_string(&x)),
             Syntax::Quote(pos, x) => {
-                let xs = vec![Syntax::Path(pos, lurk_sym_path("quote"), false), *x];
+                let xs = vec![Syntax::Symbol(pos, lurk_sym("quote")), *x];
                 self.intern_syntax(state, Syntax::List(pos, xs))
             }
             Syntax::List(_, xs) => {
@@ -150,41 +131,6 @@ impl<F: LurkField> Store<F> {
                 }
                 Ok(cdr)
             }
-        }
-    }
-
-    pub fn intern_syntax_meta(&mut self, state: &mut State, syn: Syntax<F>) -> Result<Ptr<F>> {
-        if let Syntax::List(pos_list, mut list) = syn {
-            macro_rules! pre {
-                () => {{
-                    let saved_package_name = state.get_current_package_name().clone();
-                    state.set_current_package(meta_package_symbol().into())?;
-                    saved_package_name
-                }};
-            }
-            macro_rules! pos {
-                ( $saved_package_name:expr, $pos_path:expr, $sym:expr ) => {{
-                    state.set_current_package($saved_package_name)?;
-                    let sym_syn = Syntax::Path(*$pos_path, $sym.path().to_vec(), false);
-                    list[0] = sym_syn;
-                    self.intern_syntax(state, Syntax::List(pos_list, list))
-                }};
-            }
-            match list.first() {
-                Some(Syntax::RelPath(pos_path, path)) => {
-                    let saved_package_name = pre!();
-                    let sym = state.intern_relative_path(path)?;
-                    pos!(saved_package_name, pos_path, sym)
-                }
-                Some(Syntax::Path(pos_path, path, false)) => {
-                    let saved_package_name = pre!();
-                    let sym = state.intern_path(path, false)?;
-                    pos!(saved_package_name, pos_path, sym)
-                }
-                _ => bail!("The head of a meta command must be a symbol"),
-            }
-        } else {
-            bail!("Meta commands must be lists: !(<cmd> <args...>)")
         }
     }
 
