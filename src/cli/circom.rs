@@ -5,14 +5,15 @@ pub mod non_wasm {
         fs::{self, File},
         io::Write,
         os::unix::prelude::PermissionsExt,
-        path::{Path, PathBuf},
+        path::Path,
         process::{exit, Command},
     };
 
     use ansi_term::Colour::{Green, Red};
     use anyhow::{bail, Result};
+    use camino::Utf8PathBuf;
 
-    use crate::cli::paths::non_wasm::{circom_binary, circom_dir};
+    use crate::cli::paths::{circom_binary_path, circom_dir};
 
     const CIRCOM_VERSION: &str = "2.1.6";
 
@@ -58,8 +59,8 @@ pub mod non_wasm {
     /// the binary to the location and return the path.
     fn get_circom_binary() -> Result<Command> {
         let circom_path = match env::var("LURK_CIRCOM_PATH") {
-            Ok(path) => Path::new(&path).to_path_buf(),
-            Err(_) => circom_binary(),
+            Ok(path) => Utf8PathBuf::from(&path),
+            Err(_) => circom_binary_path(),
         };
 
         let output = Command::new(&circom_path).arg("--version").output();
@@ -80,7 +81,7 @@ pub mod non_wasm {
         }
     }
 
-    pub fn create_circom_gadget(circom_folder: PathBuf, name: String) -> Result<()> {
+    pub fn create_circom_gadget(circom_folder: Utf8PathBuf, name: String) -> Result<()> {
         let circom_gadget = circom_dir().join(&name);
         let circom_file = circom_folder.join(&name).with_extension("circom");
 

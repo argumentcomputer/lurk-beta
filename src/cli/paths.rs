@@ -93,6 +93,7 @@ pub(crate) fn set_lurk_dirs(
     public_params_dir: &Option<Utf8PathBuf>,
     proofs_dir: &Option<Utf8PathBuf>,
     commits_dir: &Option<Utf8PathBuf>,
+    circom_dir: &Option<Utf8PathBuf>,
 ) {
     let get_path = |given_path: &Option<Utf8PathBuf>, config_key: &str, default: Utf8PathBuf| {
         given_path.clone().unwrap_or_else(|| {

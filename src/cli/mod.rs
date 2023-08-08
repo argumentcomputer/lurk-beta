@@ -362,6 +362,7 @@ impl ReplCli {
             &self.public_params_dir,
             &self.proofs_dir,
             &self.commits_dir,
+            &None, // TODO: help
         );
         let rc = get_parsed_usize("rc", &self.rc, &config, DEFAULT_RC)?;
         let limit = get_parsed_usize("limit", &self.limit, &config, DEFAULT_LIMIT)?;
@@ -412,6 +413,7 @@ impl LoadCli {
             &self.public_params_dir,
             &self.proofs_dir,
             &self.commits_dir,
+            &None, // TODO: help
         );
         let rc = get_parsed_usize("rc", &self.rc, &config, DEFAULT_RC)?;
         let limit = get_parsed_usize("limit", &self.limit, &config, DEFAULT_LIMIT)?;
@@ -469,7 +471,7 @@ struct CircomArgs {
     /// as the input file for the `circom` binary.
     #[clap(value_parser)]
     #[arg(verbatim_doc_comment)]
-    circom_folder: PathBuf,
+    circom_folder: Utf8PathBuf,
     /// The name of the circom gadget (the name cannot be `main`, for internal circom reasons)
     #[clap(long, value_parser)]
     name: String,
@@ -489,6 +491,7 @@ impl Cli {
                     &config,
                     &verify_args.public_params_dir,
                     &verify_args.proofs_dir,
+                    &None,
                     &None,
                 );
                 LurkProof::verify_proof(&verify_args.proof_id)?;
