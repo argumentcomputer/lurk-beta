@@ -1,22 +1,22 @@
 //! # Circom Gadgets
-//! 
+//!
 //! ## Setting up a Circom Gadget with Lurk
-//! 
+//!
 //! Run the following commands:
 //!     `cargo run --release -- circom --name sha256_2 examples/sha256/`
 //!     `cargo run --release --example circom`
-//! 
-//! The new `sha256_2` gadget is stored in `.lurk/circom/sha256_2/*`. 
+//!
+//! The new `sha256_2` gadget is stored in `.lurk/circom/sha256_2/*`.
 //! Next, to use the gadget, create a `CircomSha256` struct and implement
 //! the [CircomGadget] trait. Finally, declare the sha256 coprocessor:
-//! 
+//!
 //! ```rust
 //! #[derive(Clone, Debug, Coproc)]
 //! enum Sha256Coproc<F: LurkField> {
 //!    SC(CircomCoprocessor<F, CircomSha256<F>>),
 //! }
 //! ```
-//! 
+//!
 //! Hooray! Now we can use a [CircomSha256] coprocessor just like a normal one.
 
 use std::fmt::Debug;

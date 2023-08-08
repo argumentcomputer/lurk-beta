@@ -10,7 +10,7 @@ pub mod non_wasm {
     };
 
     use ansi_term::Colour::{Green, Red};
-    use anyhow::{Result, bail};
+    use anyhow::{bail, Result};
     use reqwest::Url;
     use tokio::runtime::Builder;
 
@@ -106,7 +106,10 @@ pub mod non_wasm {
             .expect("circom failed");
 
         if !output.status.success() {
-            println!("{} Please check that your input files are correct,", Red.bold().paint("Circom failed."));
+            println!(
+                "{} Please check that your input files are correct,",
+                Red.bold().paint("Circom failed.")
+            );
             println!("  and refer to the circom stderr output for further information:\n");
             bail!("{}", String::from_utf8_lossy(&output.stderr));
         }
