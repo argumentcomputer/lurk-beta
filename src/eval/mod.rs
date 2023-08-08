@@ -215,13 +215,13 @@ impl<F: LurkField, C: Coprocessor<F>> Evaluable<F, Witness<F>, C> for IO<F> {
         info!(
             "Frame: {}\n\tExpr: {}\n\tEnv: {}\n\tCont: {}{}",
             i,
-            self.expr.fmt_to_string(store, &initial_lurk_state()),
-            self.env.fmt_to_string(store, &initial_lurk_state()),
-            self.cont.fmt_to_string(store, &initial_lurk_state()),
+            self.expr.fmt_to_string(store, initial_lurk_state()),
+            self.env.fmt_to_string(store, initial_lurk_state()),
+            self.cont.fmt_to_string(store, initial_lurk_state()),
             if let Some(emitted) = self.maybe_emitted_expression(store) {
                 format!(
                     "\n\tOutput: {}",
-                    emitted.fmt_to_string(store, &initial_lurk_state())
+                    emitted.fmt_to_string(store, initial_lurk_state())
                 )
             } else {
                 "".to_string()

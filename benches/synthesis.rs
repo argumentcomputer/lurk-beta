@@ -1,7 +1,4 @@
-use std::{
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
 use bellperson::{util_cs::test_cs::TestConstraintSystem, Circuit};
 use criterion::{
@@ -22,13 +19,8 @@ use lurk::{
     state::State,
     store::Store,
 };
-use structopt::lazy_static::lazy_static;
 
-lazy_static! {
-    static ref STATE: Mutex<State> = Mutex::new(State::init_lurk_state());
-}
-
-fn fib<F: LurkField>(store: &mut Store<F>, a: u64) -> Ptr<F> {
+fn fib<F: LurkField>(store: &mut Store<F>, state: Rc<RefCell<State>>, a: u64) -> Ptr<F> {
     let program = format!(
         r#"
 (let ((fib (lambda (target)
@@ -43,9 +35,7 @@ fn fib<F: LurkField>(store: &mut Store<F>, a: u64) -> Ptr<F> {
 "#
     );
 
-    store
-        .read_with_state(&mut STATE.lock().unwrap(), &program)
-        .unwrap()
+    store.read_with_state(state, &program).unwrap()
 }
 
 fn synthesize<M: measurement::Measurement>(
@@ -56,6 +46,7 @@ fn synthesize<M: measurement::Measurement>(
     let limit = 1_000_000;
     let lang_pallas = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
     let lang_rc = Arc::new(lang_pallas.clone());
+    let state = State::init_lurk_state().mutable();
 
     c.bench_with_input(
         BenchmarkId::new(name.to_string(), reduction_count),
@@ -64,7 +55,7 @@ fn synthesize<M: measurement::Measurement>(
             let mut store = Store::default();
             let env = empty_sym_env(&store);
             let fib_n = (reduction_count / 3) as u64; // Heuristic, since one fib is 35 iterations.
-            let ptr = fib::<pasta_curves::Fq>(&mut store, black_box(fib_n));
+            let ptr = fib::<pasta_curves::Fq>(&mut store, state.clone(), black_box(fib_n));
             let prover = NovaProver::new(*reduction_count, lang_pallas.clone());
 
             let frames = prover

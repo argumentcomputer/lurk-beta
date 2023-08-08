@@ -373,7 +373,7 @@ pub mod test {
     fn test_print_num() {
         let mut store = Store::<Fr>::default();
         let num = store.num(5);
-        let res = num.fmt_to_string(&store, &initial_lurk_state());
+        let res = num.fmt_to_string(&store, initial_lurk_state());
         assert_eq!(&res, &"5");
     }
 }

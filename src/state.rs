@@ -1,9 +1,6 @@
 use anyhow::{bail, Result};
-use once_cell::sync::Lazy;
-use std::{
-    collections::HashMap,
-    sync::{Mutex, MutexGuard},
-};
+use once_cell::sync::OnceCell;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::Symbol;
 
@@ -15,6 +12,11 @@ pub struct State {
 }
 
 impl State {
+    #[inline]
+    pub fn mutable(self) -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(self))
+    }
+
     pub fn new_with_package(package: Package) -> Self {
         let current_package = package.name().clone();
         let mut symbol_packages = HashMap::default();
@@ -148,12 +150,10 @@ pub fn user_sym(name: &str) -> Symbol {
     Symbol::sym(&[LURK_PACKAGE_SYMBOL_NAME, USER_PACKAGE_SYMBOL_NAME, name])
 }
 
-/// TODO: make this immutable (how?)
-static INITIAL_LURK_STATE_CELL: Lazy<Mutex<State>> =
-    Lazy::new(|| Mutex::new(State::init_lurk_state()));
+static INITIAL_LURK_STATE_CELL: OnceCell<State> = OnceCell::new();
 
-pub fn initial_lurk_state() -> MutexGuard<'static, State> {
-    INITIAL_LURK_STATE_CELL.lock().unwrap()
+pub fn initial_lurk_state() -> &'static State {
+    INITIAL_LURK_STATE_CELL.get_or_init(State::init_lurk_state)
 }
 
 const LURK_PACKAGE_SYMBOL_NAME: &str = "lurk";

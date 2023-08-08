@@ -861,26 +861,28 @@ mod tests {
     }
 
     fn expr_in_expr_out_pairs(s: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
-        let state = &mut State::init_lurk_state();
-        let sum = s.read(state, "(+ 21 21)").unwrap();
-        let sum_res = s.read(state, "42").unwrap();
-        let car = s.read(state, "(car (cons 1 2))").unwrap();
-        let car_res = s.read(state, "1").unwrap();
+        let state = State::init_lurk_state().mutable();
+        let sum = s.read(state.clone(), "(+ 21 21)").unwrap();
+        let sum_res = s.read(state.clone(), "42").unwrap();
+        let car = s.read(state.clone(), "(car (cons 1 2))").unwrap();
+        let car_res = s.read(state.clone(), "1").unwrap();
         let let_ = s
             .read(
-                state,
+                state.clone(),
                 "(let ((x (cons 1 2)))
                    (cons (car x) (cdr x)))",
             )
             .unwrap();
-        let let_res = s.read(state, "(1 . 2)").unwrap();
-        let lam0 = s.read(state, "((lambda () 1))").unwrap();
-        let lam0_res = s.read(state, "1").unwrap();
-        let lam = s.read(state, "((lambda (x y) (+ x y)) 3 4)").unwrap();
-        let lam_res = s.read(state, "7").unwrap();
+        let let_res = s.read(state.clone(), "(1 . 2)").unwrap();
+        let lam0 = s.read(state.clone(), "((lambda () 1))").unwrap();
+        let lam0_res = s.read(state.clone(), "1").unwrap();
+        let lam = s
+            .read(state.clone(), "((lambda (x y) (+ x y)) 3 4)")
+            .unwrap();
+        let lam_res = s.read(state.clone(), "7").unwrap();
         let fold = s
             .read(
-                state,
+                state.clone(),
                 "(letrec ((build (lambda (x)
                                              (if (eq x 0)
                                                  nil

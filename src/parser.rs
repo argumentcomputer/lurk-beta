@@ -1,3 +1,6 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::field::LurkField;
 use crate::ptr::Ptr;
 use crate::state::State;
@@ -35,21 +38,27 @@ pub enum Error {
 
 impl<F: LurkField> Store<F> {
     pub fn read(&mut self, input: &str) -> Result<Ptr<F>, Error> {
-        match preceded(syntax::parse_space, syntax::parse_syntax()).parse(Span::new(input)) {
-            Ok((_i, x)) => {
-                let state = &mut State::init_lurk_state();
-                match self.intern_syntax(state, x) {
-                    Ok(ptr) => Ok(ptr),
-                    Err(e) => Err(Error::Interning(format!("{}", e))),
-                }
-            }
+        let state = State::init_lurk_state().mutable();
+        match preceded(syntax::parse_space, syntax::parse_syntax(state, false))
+            .parse(Span::new(input))
+        {
+            Ok((_i, x)) => match self.intern_syntax(x) {
+                Ok(ptr) => Ok(ptr),
+                Err(e) => Err(Error::Interning(format!("{}", e))),
+            },
             Err(e) => Err(Error::Syntax(format!("{}", e))),
         }
     }
 
-    pub fn read_with_state(&mut self, state: &mut State, input: &str) -> Result<Ptr<F>, Error> {
-        match preceded(syntax::parse_space, syntax::parse_syntax()).parse(Span::new(input)) {
-            Ok((_i, x)) => match self.intern_syntax(state, x) {
+    pub fn read_with_state(
+        &mut self,
+        state: Rc<RefCell<State>>,
+        input: &str,
+    ) -> Result<Ptr<F>, Error> {
+        match preceded(syntax::parse_space, syntax::parse_syntax(state, false))
+            .parse(Span::new(input))
+        {
+            Ok((_i, x)) => match self.intern_syntax(x) {
                 Ok(ptr) => Ok(ptr),
                 Err(e) => Err(Error::Interning(format!("{}", e))),
             },
@@ -59,15 +68,15 @@ impl<F: LurkField> Store<F> {
 
     pub fn read_maybe_meta_with_state<'a>(
         &mut self,
-        state: &mut State,
+        state: Rc<RefCell<State>>,
         input: Span<'a>,
     ) -> Result<(Span<'a>, Ptr<F>, bool), Error> {
         use syntax::*;
-        match preceded(parse_space, parse_maybe_meta()).parse(input) {
-            Ok((i, Some((is_meta, x)))) => match self.intern_syntax(state, x) {
-                    Ok(ptr) => Ok((i, ptr, is_meta)),
-                    Err(e) => Err(Error::Interning(format!("{}", e))),
-                }
+        match preceded(parse_space, parse_maybe_meta(state)).parse(input) {
+            Ok((i, Some((is_meta, x)))) => match self.intern_syntax(x) {
+                Ok(ptr) => Ok((i, ptr, is_meta)),
+                Err(e) => Err(Error::Interning(format!("{}", e))),
+            },
             Ok((_, None)) => Err(Error::NoInput),
             Err(e) => Err(Error::Syntax(format!("{}", e))),
         }

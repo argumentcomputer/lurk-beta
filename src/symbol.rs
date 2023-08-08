@@ -80,10 +80,7 @@ impl Symbol {
     }
 
     pub fn new_of_vec(path: Vec<String>, keyword: bool) -> Self {
-        Self {
-            path,
-            keyword,
-        }
+        Self { path, keyword }
     }
 
     #[inline]
@@ -332,7 +329,7 @@ impl Symbol {
 
     pub fn from_str_impl(name: &str) -> Option<Self> {
         use crate::parser::{
-            syntax::{parse_symbol, parse_space},
+            syntax::{parse_space, parse_symbol},
             Span,
         };
         use crate::syntax::Syntax;

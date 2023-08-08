@@ -629,11 +629,11 @@ mod tests {
     #[ignore]
     fn outer_prove_chained_functional_commitment() {
         let mut s = Store::<Fr>::default();
-        let state = &mut State::init_lurk_state();
+        let state = State::init_lurk_state().mutable();
 
         let fun_src = s
             .read_with_state(
-                state,
+                state.clone(),
                 "(letrec ((secret 12345)
                           (a (lambda (acc x)
                                (let ((acc (+ acc x)))
@@ -650,7 +650,7 @@ mod tests {
 
         let fun = evaled.expr;
 
-        let cdr = s.read_with_state(state, "cdr").unwrap();
+        let cdr = s.read_with_state(state.clone(), "cdr").unwrap();
         let quote = s.read_with_state(state, "quote").unwrap();
 
         let zero = s.num(0);

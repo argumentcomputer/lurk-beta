@@ -1,7 +1,4 @@
-use std::{
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
 use criterion::{
     black_box, criterion_group, criterion_main, measurement, BatchSize, BenchmarkGroup,
@@ -24,15 +21,10 @@ use lurk::{
     state::State,
     store::Store,
 };
-use structopt::lazy_static::lazy_static;
 
 const DEFAULT_REDUCTION_COUNT: usize = 100;
 
-lazy_static! {
-    static ref STATE: Mutex<State> = Mutex::new(State::init_lurk_state());
-}
-
-fn fib<F: LurkField>(store: &mut Store<F>, a: u64) -> Ptr<F> {
+fn fib<F: LurkField>(store: &mut Store<F>, state: Rc<RefCell<State>>, a: u64) -> Ptr<F> {
     let program = format!(
         r#"
 (let ((fib (lambda (target)
@@ -47,13 +39,16 @@ fn fib<F: LurkField>(store: &mut Store<F>, a: u64) -> Ptr<F> {
 "#
     );
 
-    store
-        .read_with_state(&mut STATE.lock().unwrap(), &program)
-        .unwrap()
+    store.read_with_state(state, &program).unwrap()
 }
 
 #[allow(dead_code)]
-fn fibo_total<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut BenchmarkGroup<M>) {
+fn fibo_total<M: measurement::Measurement>(
+    name: &str,
+    iterations: u64,
+    c: &mut BenchmarkGroup<M>,
+    state: Rc<RefCell<State>>,
+) {
     let limit: usize = 10_000_000_000;
     let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
     let lang_rc = Arc::new(lang_pallas.clone());
@@ -68,7 +63,7 @@ fn fibo_total<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut 
         |b, iterations| {
             let mut store = Store::default();
             let env = empty_sym_env(&store);
-            let ptr = fib::<pallas::Scalar>(&mut store, black_box(*iterations));
+            let ptr = fib::<pallas::Scalar>(&mut store, state.clone(), black_box(*iterations));
             let prover = NovaProver::new(reduction_count, lang_pallas.clone());
 
             b.iter_batched(
@@ -86,7 +81,12 @@ fn fibo_total<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut 
 }
 
 #[allow(dead_code)]
-fn fibo_eval<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut BenchmarkGroup<M>) {
+fn fibo_eval<M: measurement::Measurement>(
+    name: &str,
+    iterations: u64,
+    c: &mut BenchmarkGroup<M>,
+    state: Rc<RefCell<State>>,
+) {
     let limit = 10_000_000_000;
     let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
 
@@ -95,7 +95,7 @@ fn fibo_eval<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut B
         &(iterations),
         |b, iterations| {
             let mut store = Store::default();
-            let ptr = fib::<pallas::Scalar>(&mut store, black_box(*iterations));
+            let ptr = fib::<pallas::Scalar>(&mut store, state.clone(), black_box(*iterations));
             b.iter(|| {
                 let result =
                     Evaluator::new(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
@@ -106,7 +106,12 @@ fn fibo_eval<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut B
     );
 }
 
-fn fibo_prove<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut BenchmarkGroup<M>) {
+fn fibo_prove<M: measurement::Measurement>(
+    name: &str,
+    iterations: u64,
+    c: &mut BenchmarkGroup<M>,
+    state: Rc<RefCell<State>>,
+) {
     let limit = 10_000_000_000;
     let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
     let lang_rc = Arc::new(lang_pallas.clone());
@@ -119,7 +124,7 @@ fn fibo_prove<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut 
         |b, iterations| {
             let mut store = Store::default();
             let env = empty_sym_env(&store);
-            let ptr = fib::<pallas::Scalar>(&mut store, black_box(*iterations));
+            let ptr = fib::<pallas::Scalar>(&mut store, state.clone(), black_box(*iterations));
             let prover = NovaProver::new(reduction_count, lang_pallas.clone());
 
             let frames = prover
@@ -142,8 +147,10 @@ fn fibo_prove<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut 
 fn fibonacci_eval(c: &mut Criterion) {
     static BATCH_SIZES: [u64; 2] = [100, 1000];
     let mut group: BenchmarkGroup<_> = c.benchmark_group("Evaluate");
+    let state = State::init_lurk_state().mutable();
+
     for size in BATCH_SIZES.iter() {
-        fibo_eval("Fibonacci", *size, &mut group);
+        fibo_eval("Fibonacci", *size, &mut group, state.clone());
     }
 }
 
@@ -152,9 +159,10 @@ fn fibonacci_prove(c: &mut Criterion) {
     let mut group: BenchmarkGroup<_> = c.benchmark_group("Prove");
     group.sampling_mode(SamplingMode::Flat); // This can take a *while*
     group.sample_size(10);
+    let state = State::init_lurk_state().mutable();
 
     for size in BATCH_SIZES.iter() {
-        fibo_prove("Fibonacci", *size, &mut group);
+        fibo_prove("Fibonacci", *size, &mut group, state.clone());
     }
 }
 
@@ -164,9 +172,10 @@ fn fibonacci_total(c: &mut Criterion) {
     let mut group: BenchmarkGroup<_> = c.benchmark_group("Total");
     group.sampling_mode(SamplingMode::Flat); // This can take a *while*
     group.sample_size(10);
+    let state = State::init_lurk_state().mutable();
 
     for size in BATCH_SIZES.iter() {
-        fibo_total("Fibonacci", *size, &mut group);
+        fibo_total("Fibonacci", *size, &mut group, state.clone());
     }
 }
 

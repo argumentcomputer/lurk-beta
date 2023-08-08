@@ -26,9 +26,11 @@ use lurk::symbol::Symbol;
 use lurk::tag::ExprTag;
 use lurk::writer::Write;
 
+use std::cell::RefCell;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::thread;
 
@@ -194,7 +196,7 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
     fn handle_meta<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
-        state: &mut State,
+        state: Rc<RefCell<State>>,
         expr_ptr: Ptr<F>,
         p: P,
     ) -> Result<()> {
@@ -213,12 +215,12 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
                         .fetch_sym(&car)
                         .ok_or(Error::msg("handle_meta fetch symbol"))?;
                     match s.name()? {
-                        "call" => self.call(store, state, rest)?,
-                        "chain" => self.chain(store, state, rest)?,
+                        "call" => self.call(store, &state.borrow(), rest)?,
+                        "chain" => self.chain(store, &state.borrow(), rest)?,
                         "commit" => self.commit(store, rest)?,
                         "open" => self.open(store, rest)?,
-                        "proof-in-expr" => self.proof_in_expr(store, state, rest)?,
-                        "proof-out-expr" => self.proof_out_expr(store, state, rest)?,
+                        "proof-in-expr" => self.proof_in_expr(store, &state.borrow(), rest)?,
+                        "proof-out-expr" => self.proof_out_expr(store, &state.borrow(), rest)?,
                         "proof-claim" => self.proof_claim(store, rest)?,
                         "prove" => self.prove(store, rest)?,
                         "verify" => self.verify(store, rest)?,
@@ -227,11 +229,11 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
                 }
                 Expression::Comm(_, c) => {
                     // NOTE: this cannot happen from a text-based REPL, since there is not currrently a literal Comm syntax.
-                    self.apply_comm(store, state, *c, rest)?
+                    self.apply_comm(store, &state.borrow(), *c, rest)?
                 }
                 Expression::Num(c) => {
                     let comm = store.intern_num(*c);
-                    self.apply_comm(store, state, comm, rest)?
+                    self.apply_comm(store, &state.borrow(), comm, rest)?
                 }
                 _ => return delegate!(),
             },
@@ -244,7 +246,7 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
 
         if let Some(expr) = res {
             let mut handle = io::stdout().lock();
-            expr.fmt(store, state, &mut handle)?;
+            expr.fmt(store, &state.borrow(), &mut handle)?;
             println!();
         };
         Ok(())

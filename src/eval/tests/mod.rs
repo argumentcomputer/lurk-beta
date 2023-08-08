@@ -2345,19 +2345,21 @@ fn test_sym_hash_values() {
     use crate::Symbol;
 
     let s = &mut Store::<Fr>::default();
-    let state = &mut State::init_lurk_state();
+    let state = State::init_lurk_state().mutable();
 
-    let asdf_sym_package_name = state.intern_path(&["asdf"], false).unwrap();
+    let asdf_sym_package_name = state.borrow_mut().intern_path(&["asdf"], false).unwrap();
     let asdf_sym_package = Package::new(asdf_sym_package_name.into());
-    state.add_package(asdf_sym_package);
+    state.borrow_mut().add_package(asdf_sym_package);
 
-    let asdf_key_package_name = state.intern_path(&["asdf"], true).unwrap();
+    let asdf_key_package_name = state.borrow_mut().intern_path(&["asdf"], true).unwrap();
     let asdf_key_package = Package::new(asdf_key_package_name.into());
-    state.add_package(asdf_key_package);
+    state.borrow_mut().add_package(asdf_key_package);
 
-    let sym = s.read_with_state(state, ".asdf.fdsa").unwrap();
-    let key = s.read_with_state(state, ":asdf.fdsa").unwrap();
-    let expr = s.read_with_state(state, "(cons \"fdsa\" '.asdf)").unwrap();
+    let sym = s.read_with_state(state.clone(), ".asdf.fdsa").unwrap();
+    let key = s.read_with_state(state.clone(), ":asdf.fdsa").unwrap();
+    let expr = s
+        .read_with_state(state.clone(), "(cons \"fdsa\" '.asdf)")
+        .unwrap();
 
     let limit = 10;
     let env = empty_sym_env(s);

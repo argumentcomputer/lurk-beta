@@ -2102,7 +2102,7 @@ pub mod test {
         let nil = store.nil_ptr();
         let limit = 10;
 
-        let state = &initial_lurk_state();
+        let state = initial_lurk_state();
 
         // When an opaque sym is inserted into a store which contains the same sym, the store knows its identity.
         // Should we just immediately coalesce and never create an opaque version in that case? Probably not because
@@ -2211,7 +2211,7 @@ pub mod test {
         let num = Expression::Num(num::Num::Scalar(*cons_hash.value()));
         let lang = Lang::<Fr, Coproc<Fr>>::new();
 
-        let state = &initial_lurk_state();
+        let state = initial_lurk_state();
 
         assert_eq!(
             format!("<Opaque Cons {}>", num.fmt_to_string(&store, state)),
@@ -2343,10 +2343,8 @@ pub mod test {
         let foo_list = list!(Fr, [symbol!(["foo"])]);
         let foo_sym = symbol!(Fr, ["foo"]);
 
-        let mut state = State::minimal();
-
-        let expr = store.intern_syntax(&mut state, foo_list).unwrap();
-        let sym = store.intern_syntax(&mut state, foo_sym).unwrap();
+        let expr = store.intern_syntax(foo_list).unwrap();
+        let sym = store.intern_syntax(foo_sym).unwrap();
         let sym1 = store.car(&expr).unwrap();
         let sss = store.fetch_sym(&sym);
         let hash = store.hash_expr(&sym);
@@ -2447,7 +2445,7 @@ pub mod test {
         let opaque_comm = s.intern_opaque_comm(Fr::from(123));
 
         let num = num::Num::from_scalar(scalar);
-        let state = &initial_lurk_state();
+        let state = initial_lurk_state();
         assert_eq!(
             format!(
                 "<Opaque Comm {}>",
@@ -2469,8 +2467,8 @@ pub mod test {
     #[test]
     fn commitment_z_store_roundtrip() {
         let store = &mut Store::<S1>::default();
-        let state = &mut State::init_lurk_state();
-        let two = store.read_with_state(state, "(+ 1 1)").unwrap();
+        let state = State::init_lurk_state().mutable();
+        let two = store.read_with_state(state.clone(), "(+ 1 1)").unwrap();
         let three = store.read_with_state(state, "(+ 1 2)").unwrap();
 
         let comm2 = commit_and_open(store, two);

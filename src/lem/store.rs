@@ -1,5 +1,5 @@
 use rayon::prelude::*;
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     field::{FWrap, LurkField},
@@ -258,11 +258,13 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn read(&mut self, state: &mut State, input: &str) -> Result<Ptr<F>> {
+    pub fn read(&mut self, state: Rc<RefCell<State>>, input: &str) -> Result<Ptr<F>> {
         use crate::parser::*;
         use nom::sequence::preceded;
         use nom::Parser;
-        match preceded(syntax::parse_space, syntax::parse_syntax()).parse(Span::new(input)) {
+        match preceded(syntax::parse_space, syntax::parse_syntax(state, false))
+            .parse(Span::new(input))
+        {
             Ok((_i, x)) => self.intern_syntax(x),
             Err(e) => bail!("{}", e),
         }

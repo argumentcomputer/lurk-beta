@@ -1,4 +1,6 @@
+use std::cell::RefCell;
 use std::path::Path;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use std::{fs::read_to_string, process};
@@ -109,7 +111,7 @@ struct Evaluation<F: LurkField> {
 #[allow(dead_code)]
 pub struct Repl<F: LurkField> {
     store: Store<F>,
-    state: State,
+    state: Rc<RefCell<State>>,
     env: Ptr<F>,
     lang: Arc<Lang<F, Coproc<F>>>,
     rc: usize,
@@ -144,7 +146,7 @@ impl Repl<F> {
         );
         Repl {
             store,
-            state: State::init_lurk_state(),
+            state: State::init_lurk_state().mutable(),
             env,
             lang: Arc::new(Lang::new()),
             rc,
@@ -298,7 +300,7 @@ impl Repl<F> {
         commitment.persist()?;
         println!(
             "Data: {}\nHash: 0x{hash_str}",
-            payload.fmt_to_string(&self.store, &self.state)
+            payload.fmt_to_string(&self.store, &self.state.borrow())
         );
         Ok(())
     }
@@ -325,7 +327,7 @@ impl Repl<F> {
                 .unwrap();
             if print_data {
                 let data = self.store.fetch_comm(&comm_ptr).unwrap().1;
-                println!("{}", data.fmt_to_string(&self.store, &self.state));
+                println!("{}", data.fmt_to_string(&self.store, &self.state.borrow()));
             } else {
                 println!("Data is now available");
             }
@@ -414,7 +416,7 @@ impl Repl<F> {
         match self.store.fetch_string(ptr) {
             None => bail!(
                 "Expected string. Got {}",
-                ptr.fmt_to_string(&self.store, &self.state)
+                ptr.fmt_to_string(&self.store, &self.state.borrow())
             ),
             Some(string) => Ok(string),
         }
@@ -424,7 +426,7 @@ impl Repl<F> {
         match self.store.fetch_symbol(ptr) {
             None => bail!(
                 "Expected symbol. Got {}",
-                ptr.fmt_to_string(&self.store, &self.state)
+                ptr.fmt_to_string(&self.store, &self.state.borrow())
             ),
             Some(symbol) => Ok(symbol),
         }
@@ -454,7 +456,10 @@ impl Repl<F> {
 
                 let (new_binding, _) = &self.store.car_cdr(&expanded_io.expr)?;
                 let (new_name, _) = self.store.car_cdr(new_binding)?;
-                println!("{}", new_name.fmt_to_string(&self.store, &self.state));
+                println!(
+                    "{}",
+                    new_name.fmt_to_string(&self.store, &self.state.borrow())
+                );
             }
             "defrec" => {
                 // Extends env with a recursive binding.
@@ -479,7 +484,10 @@ impl Repl<F> {
                 let (new_binding_outer, _) = &self.store.car_cdr(&expanded_io.expr)?;
                 let (new_binding_inner, _) = &self.store.car_cdr(new_binding_outer)?;
                 let (new_name, _) = self.store.car_cdr(new_binding_inner)?;
-                println!("{}", new_name.fmt_to_string(&self.store, &self.state));
+                println!(
+                    "{}",
+                    new_name.fmt_to_string(&self.store, &self.state.borrow())
+                );
             }
             "load" => {
                 let first = self.peek1(cmd, args)?;
@@ -498,7 +506,7 @@ impl Repl<F> {
                 if first_io.expr.is_nil() {
                     eprintln!(
                         "`assert` failed. {} evaluates to nil",
-                        first.fmt_to_string(&self.store, &self.state)
+                        first.fmt_to_string(&self.store, &self.state.borrow())
                     );
                     process::exit(1);
                 }
@@ -514,10 +522,14 @@ impl Repl<F> {
                 if !&self.store.ptr_eq(&first_io.expr, &second_io.expr)? {
                     eprintln!(
                         "`assert-eq` failed. Expected:\n  {} = {}\nGot:\n  {} ≠ {}",
-                        first.fmt_to_string(&self.store, &self.state),
-                        second.fmt_to_string(&self.store, &self.state),
-                        first_io.expr.fmt_to_string(&self.store, &self.state),
-                        second_io.expr.fmt_to_string(&self.store, &self.state)
+                        first.fmt_to_string(&self.store, &self.state.borrow()),
+                        second.fmt_to_string(&self.store, &self.state.borrow()),
+                        first_io
+                            .expr
+                            .fmt_to_string(&self.store, &self.state.borrow()),
+                        second_io
+                            .expr
+                            .fmt_to_string(&self.store, &self.state.borrow())
                     );
                     process::exit(1);
                 }
@@ -535,8 +547,8 @@ impl Repl<F> {
                     if elem != &first_emitted {
                         eprintln!(
                             "`assert-emitted` failed at position {i}. Expected {}, but found {}.",
-                            first_emitted.fmt_to_string(&self.store, &self.state),
-                            elem.fmt_to_string(&self.store, &self.state),
+                            first_emitted.fmt_to_string(&self.store, &self.state.borrow()),
+                            elem.fmt_to_string(&self.store, &self.state.borrow()),
                         );
                         process::exit(1);
                     }
@@ -548,7 +560,7 @@ impl Repl<F> {
                 if self.eval_expr(first).is_ok() {
                     eprintln!(
                         "`assert-error` failed. {} doesn't result on evaluation error.",
-                        first.fmt_to_string(&self.store, &self.state)
+                        first.fmt_to_string(&self.store, &self.state.borrow())
                     );
                     process::exit(1);
                 }
@@ -574,7 +586,7 @@ impl Repl<F> {
                     let Some(secret) = self.store.fetch_num(&first_io.expr) else {
                         bail!(
                             "Secret must be a number. Got {}",
-                            first_io.expr.fmt_to_string(&self.store, &self.state)
+                            first_io.expr.fmt_to_string(&self.store, &self.state.borrow())
                         )
                     };
                     self.hide(secret.into_scalar(), second_io.expr)?;
@@ -620,20 +632,20 @@ impl Repl<F> {
                 // TODO: handle args
                 let (name, _args) = self.store.car_cdr(args)?;
                 let name = match name.tag {
-                    ExprTag::Str => self.state.intern(self.get_string(&name)?),
+                    ExprTag::Str => self.state.borrow_mut().intern(self.get_string(&name)?),
                     ExprTag::Sym => self.get_symbol(&name)?.into(),
                     _ => bail!("Package name must be a string or a symbol"),
                 };
-                println!("{}", self.state.fmt_to_string(&name));
+                println!("{}", self.state.borrow().fmt_to_string(&name));
                 let package = Package::new(name);
-                self.state.add_package(package);
+                self.state.borrow_mut().add_package(package);
             }
             "import" => {
                 // TODO: handle pkg
                 let (mut symbols, _pkg) = self.store.car_cdr(args)?;
                 if symbols.tag == ExprTag::Sym {
                     let sym = SymbolRef::new(self.get_symbol(&symbols)?);
-                    self.state.import(&[sym])?;
+                    self.state.borrow_mut().import(&[sym])?;
                 } else {
                     let mut symbols_vec = vec![];
                     loop {
@@ -647,7 +659,7 @@ impl Repl<F> {
                             symbols = tail;
                         }
                     }
-                    self.state.import(&symbols_vec)?;
+                    self.state.borrow_mut().import(&symbols_vec)?;
                 }
             }
             "in-package" => {
@@ -655,16 +667,18 @@ impl Repl<F> {
                 match first.tag {
                     ExprTag::Str => {
                         let name = self.get_string(&first)?;
-                        let package_name = self.state.intern(name);
-                        self.state.set_current_package(package_name)?;
+                        let package_name = self.state.borrow_mut().intern(name);
+                        self.state.borrow_mut().set_current_package(package_name)?;
                     }
                     ExprTag::Sym => {
                         let package_name = self.get_symbol(&first)?;
-                        self.state.set_current_package(package_name.into())?;
+                        self.state
+                            .borrow_mut()
+                            .set_current_package(package_name.into())?;
                     }
                     _ => bail!(
                         "Expected string or symbol. Got {}",
-                        first.fmt_to_string(&self.store, &self.state)
+                        first.fmt_to_string(&self.store, &self.state.borrow())
                     ),
                 }
             }
@@ -681,7 +695,7 @@ impl Repl<F> {
                     ContTag::Terminal => {
                         println!(
                             "[{iterations_display}] => {}",
-                            output.expr.fmt_to_string(&self.store, &self.state)
+                            output.expr.fmt_to_string(&self.store, &self.state.borrow())
                         )
                     }
                     ContTag::Error => {
@@ -698,7 +712,7 @@ impl Repl<F> {
             Some(symbol) => self.handle_meta_cases(symbol.name()?, &cdr, pwd_path)?,
             None => bail!(
                 "Meta command must be a symbol. Found {}",
-                car.fmt_to_string(&self.store, &self.state)
+                car.fmt_to_string(&self.store, &self.state.borrow())
             ),
         }
         Ok(())
@@ -711,7 +725,7 @@ impl Repl<F> {
     ) -> Result<parser::Span<'a>> {
         let (input, ptr, is_meta) = self
             .store
-            .read_maybe_meta_with_state(&mut self.state, input)?;
+            .read_maybe_meta_with_state(self.state.clone(), input)?;
 
         if is_meta {
             self.handle_meta(ptr, pwd_path)?;
@@ -772,7 +786,7 @@ impl Repl<F> {
                     editor.save_history(history_path)?;
                     match self
                         .store
-                        .read_maybe_meta_with_state(&mut self.state, parser::Span::new(&line))
+                        .read_maybe_meta_with_state(self.state.clone(), parser::Span::new(&line))
                     {
                         Ok((_, expr_ptr, is_meta)) => {
                             if is_meta {

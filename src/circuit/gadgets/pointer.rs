@@ -260,7 +260,7 @@ impl<F: LurkField> AllocatedPtr<F> {
 
     pub fn fetch_and_write_str(&self, store: &Store<F>) -> String {
         self.ptr(store)
-            .map(|a| a.fmt_to_string(store, &initial_lurk_state()))
+            .map(|a| a.fmt_to_string(store, initial_lurk_state()))
             .unwrap_or_else(|| "<PTR MISSING>".to_string())
     }
 
@@ -695,7 +695,7 @@ impl<F: LurkField> AllocatedContPtr<F> {
 
     pub fn fetch_and_write_cont_str(&self, store: &Store<F>) -> String {
         self.get_cont_ptr(store)
-            .map(|a| a.fmt_to_string(store, &initial_lurk_state()))
+            .map(|a| a.fmt_to_string(store, initial_lurk_state()))
             .unwrap_or_else(|| "no cont ptr".to_string())
     }
 

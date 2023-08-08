@@ -423,6 +423,9 @@ impl<'a: 'b, 'b, F: CurveCycleEquipped, C: Coprocessor<F>> Proof<'a, F, C> {
 
 #[cfg(test)]
 pub mod tests {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
     use crate::num::Num;
     use crate::state::{user_sym, State};
 
@@ -3626,42 +3629,42 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
 
-        let hash_num = |s: &mut Store<Fr>, state: &mut State, name| {
+        let hash_num = |s: &mut Store<Fr>, state: Rc<RefCell<State>>, name| {
             let sym = s.read_with_state(state, name).unwrap();
             let z_ptr = s.hash_expr(&sym).unwrap();
             let hash = *z_ptr.value();
             Num::Scalar(hash)
         };
 
-        let state = &mut State::init_lurk_state();
+        let state = State::init_lurk_state().mutable();
         {
             // binop
-            let expr = format!("({} 1 1)", hash_num(s, state, "+"));
+            let expr = format!("({} 1 1)", hash_num(s, state.clone(), "+"));
             test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         {
             // unop
-            let expr = format!("({} '(1 . 2))", hash_num(s, state, "car"));
+            let expr = format!("({} '(1 . 2))", hash_num(s, state.clone(), "car"));
             test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         {
             // let_or_letrec
-            let expr = format!("({} ((a 1)) a)", hash_num(s, state, "let"));
+            let expr = format!("({} ((a 1)) a)", hash_num(s, state.clone(), "let"));
             test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         {
             // current-env
-            let expr = format!("({})", hash_num(s, state, "current-env"));
+            let expr = format!("({})", hash_num(s, state.clone(), "current-env"));
             test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         {
             // lambda
-            let expr = format!("({} (x) 123)", hash_num(s, state, "lambda"));
+            let expr = format!("({} (x) 123)", hash_num(s, state.clone(), "lambda"));
             test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         {
             // quote
-            let expr = format!("({} asdf)", hash_num(s, state, "quote"));
+            let expr = format!("({} asdf)", hash_num(s, state.clone(), "quote"));
             test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         {

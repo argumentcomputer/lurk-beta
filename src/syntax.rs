@@ -1,14 +1,14 @@
-use anyhow::{bail, Result};
+use anyhow::Result;
 use std::fmt;
 
-use crate::Symbol;
 use crate::field::LurkField;
 use crate::num::Num;
 use crate::parser::position::Pos;
 use crate::ptr::Ptr;
-use crate::state::{meta_package_symbol, State, lurk_sym};
+use crate::state::lurk_sym;
 use crate::store::Store;
 use crate::uint::UInt;
+use crate::Symbol;
 
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
@@ -104,7 +104,7 @@ impl<F: LurkField> fmt::Display for Syntax<F> {
 }
 
 impl<F: LurkField> Store<F> {
-    pub fn intern_syntax(&mut self, state: &mut State, syn: Syntax<F>) -> Result<Ptr<F>> {
+    pub fn intern_syntax(&mut self, syn: Syntax<F>) -> Result<Ptr<F>> {
         match syn {
             Syntax::Num(_, x) => Ok(self.intern_num(x)),
             Syntax::UInt(_, x) => Ok(self.intern_uint(x)),
@@ -113,20 +113,20 @@ impl<F: LurkField> Store<F> {
             Syntax::String(_, x) => Ok(self.intern_string(&x)),
             Syntax::Quote(pos, x) => {
                 let xs = vec![Syntax::Symbol(pos, lurk_sym("quote")), *x];
-                self.intern_syntax(state, Syntax::List(pos, xs))
+                self.intern_syntax(Syntax::List(pos, xs))
             }
             Syntax::List(_, xs) => {
                 let mut cdr = self.nil_ptr();
                 for x in xs.into_iter().rev() {
-                    let car = self.intern_syntax(state, x)?;
+                    let car = self.intern_syntax(x)?;
                     cdr = self.intern_cons(car, cdr);
                 }
                 Ok(cdr)
             }
             Syntax::Improper(_, xs, end) => {
-                let mut cdr = self.intern_syntax(state, *end)?;
+                let mut cdr = self.intern_syntax(*end)?;
                 for x in xs.into_iter().rev() {
-                    let car = self.intern_syntax(state, x)?;
+                    let car = self.intern_syntax(x)?;
                     cdr = self.intern_cons(car, cdr);
                 }
                 Ok(cdr)

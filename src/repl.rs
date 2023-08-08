@@ -28,6 +28,7 @@ use std::path::Path;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::{cell::RefCell, rc::Rc};
 use tap::TapOptional;
 
 #[derive(Completer, Helper, Highlighter, Hinter)]
@@ -71,18 +72,19 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
     fn handle_form<'a, P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
-        state: &mut State,
+        state: Rc<RefCell<State>>,
         input: parser::Span<'a>,
         pwd: P,
     ) -> Result<parser::Span<'a>> {
-        let (input, ptr, is_meta) = store.read_maybe_meta_with_state(state, input)?;
+        let (input, ptr, is_meta) = store.read_maybe_meta_with_state(state.clone(), input)?;
 
         if is_meta {
             let pwd: &Path = pwd.as_ref();
             self.handle_meta(store, state, ptr, pwd)?;
             Ok(input)
         } else {
-            self.handle_non_meta(store, state, ptr).map(|_| ())?;
+            self.handle_non_meta(store, &state.borrow(), ptr)
+                .map(|_| ())?;
             Ok(input)
         }
     }
@@ -90,7 +92,7 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
     fn handle_load<P: AsRef<Path>>(
         &mut self,
         store: &mut Store<F>,
-        state: &mut State,
+        state: Rc<RefCell<State>>,
         file_path: P,
     ) -> Result<()> {
         eprintln!("Loading from {}.", file_path.as_ref().to_str().unwrap());
@@ -100,7 +102,7 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
     fn handle_file<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
-        state: &mut State,
+        state: Rc<RefCell<State>>,
         file_path: P,
     ) -> Result<()> {
         let file_path = file_path;
@@ -116,7 +118,7 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
         loop {
             match self.handle_form(
                 store,
-                state,
+                state.clone(),
                 input,
                 // use this file's dir as pwd for further loading
                 file_path.as_ref().parent().unwrap(),
@@ -137,7 +139,7 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
     fn handle_meta<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
-        state: &mut State,
+        state: Rc<RefCell<State>>,
         expr_ptr: Ptr<F>,
         p: P,
     ) -> Result<()>;
@@ -261,7 +263,7 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
         let name = T::name();
         eprintln!("{name} welcomes you.");
     }
-    let state = &mut State::init_lurk_state();
+    let state = State::init_lurk_state().mutable();
 
     {
         if let Some(lurk_file) = lurk_file {
@@ -283,15 +285,15 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
                 #[cfg(not(target_arch = "wasm32"))]
                 repl.save_history()?;
 
-                match s.read_maybe_meta_with_state(state, input) {
+                match s.read_maybe_meta_with_state(state.clone(), input) {
                     Ok((_, expr, is_meta)) => {
                         if is_meta {
-                            if let Err(e) = repl.state.handle_meta(s, state, expr, p) {
+                            if let Err(e) = repl.state.handle_meta(s, state.clone(), expr, p) {
                                 eprintln!("!Error: {e:?}");
                             };
                             continue;
                         } else {
-                            if let Err(e) = repl.state.handle_non_meta(s, state, expr) {
+                            if let Err(e) = repl.state.handle_non_meta(s, &state.borrow(), expr) {
                                 eprintln!("REPL Error: {e:?}");
                             }
 
@@ -396,7 +398,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
     fn handle_meta<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
-        state: &mut State,
+        state: Rc<RefCell<State>>,
         expr_ptr: Ptr<F>,
         p: P,
     ) -> Result<()> {
@@ -434,10 +436,10 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             assert!(
                                 store.ptr_eq(&first_evaled, &second_evaled).unwrap(),
                                 "Assertion failed {:?} = {:?},\n {:?} != {:?}",
-                                first.fmt_to_string(store, state),
-                                second.fmt_to_string(store, state),
-                                first_evaled.fmt_to_string(store, state),
-                                second_evaled.fmt_to_string(store, state)
+                                first.fmt_to_string(store, &state.borrow()),
+                                second.fmt_to_string(store, &state.borrow()),
+                                first_evaled.fmt_to_string(store, &state.borrow()),
+                                second_evaled.fmt_to_string(store, &state.borrow())
                             );
                             None
                         }
@@ -458,8 +460,8 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                                     panic!(
                                             ":ASSERT-EMITTED failed at position {}. Expected {}, but found {}.",
                                             i,
-                                            first_emitted.fmt_to_string(store, state),
-                                            elem.fmt_to_string(store, state),
+                                            first_emitted.fmt_to_string(store, &state.borrow()),
+                                            elem.fmt_to_string(store, &state.borrow()),
                                         );
                                 }
                                 (first_emitted, rest_emitted) = store.car_cdr(&rest_emitted)?;
@@ -490,8 +492,9 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             let (first, rest) = store.car_cdr(&rest)?;
                             let (second, rest) = store.car_cdr(&rest)?;
                             assert!(rest.is_nil());
-                            let l = store.read_with_state(state, "let")?;
-                            let current_env = store.read_with_state(state, "current-env")?;
+                            let l = store.read_with_state(state.clone(), "let")?;
+                            let current_env =
+                                store.read_with_state(state.clone(), "current-env")?;
                             let binding = store.list(&[first, second]);
                             let bindings = store.list(&[binding]);
                             let current_env_call = store.list(&[current_env]);
@@ -516,8 +519,9 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             let (first, rest) = store.car_cdr(&rest)?;
                             let (second, rest) = store.car_cdr(&rest)?;
                             assert!(rest.is_nil());
-                            let l = store.read_with_state(state, "letrec")?;
-                            let current_env = store.read_with_state(state, "current-env")?;
+                            let l = store.read_with_state(state.clone(), "letrec")?;
+                            let current_env =
+                                store.read_with_state(state.clone(), "current-env")?;
                             let binding = store.list(&[first, second]);
                             let bindings = store.list(&[binding]);
                             let current_env_call = store.list(&[current_env]);
@@ -539,7 +543,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                                         .fetch_string(car)
                                         .ok_or(Error::msg("handle_meta fetch_string"))?;
                                     let joined = p.as_ref().join(Path::new(&path));
-                                    self.handle_load(store, state, &joined)?
+                                    self.handle_load(store, state.clone(), &joined)?
                                 }
                                 _ => bail!("Argument to LOAD must be a string."),
                             }
@@ -555,21 +559,27 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             None
                         }
                         _ => {
-                            bail!("Unsupported command: {}", car.fmt_to_string(store, state));
+                            bail!(
+                                "Unsupported command: {}",
+                                car.fmt_to_string(store, &state.borrow())
+                            );
                         }
                     }
                 }
-                _ => bail!("Unsupported command: {}", car.fmt_to_string(store, state)),
+                _ => bail!(
+                    "Unsupported command: {}",
+                    car.fmt_to_string(store, &state.borrow())
+                ),
             },
             _ => bail!(
                 "Unsupported meta form: {}",
-                expr_ptr.fmt_to_string(store, state)
+                expr_ptr.fmt_to_string(store, &state.borrow())
             ),
         };
 
         if let Some(expr) = res {
             let mut handle = io::stdout().lock();
-            expr.fmt(store, state, &mut handle)?;
+            expr.fmt(store, &state.borrow(), &mut handle)?;
 
             // TODO: Why is this seemingly necessary to flush?
             // This doesn't work: io::stdout().flush().unwrap();

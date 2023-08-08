@@ -891,7 +891,7 @@ fn apply_continuation<F: LurkField>(
                         _ => store.t_ptr(),
                     },
                     Op1::Emit => {
-                        println!("{}", result.fmt_to_string(store, &initial_lurk_state()));
+                        println!("{}", result.fmt_to_string(store, initial_lurk_state()));
                         return Ok(Control::MakeThunk(
                             result,
                             env,
