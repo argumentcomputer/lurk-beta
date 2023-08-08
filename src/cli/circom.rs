@@ -11,14 +11,12 @@ pub mod non_wasm {
 
     use ansi_term::Colour::{Green, Red};
     use anyhow::{bail, Result};
-    use reqwest::Url;
-    use tokio::runtime::Builder;
 
     use crate::cli::paths::non_wasm::{circom_binary, circom_dir};
 
     const CIRCOM_VERSION: &str = "2.1.6";
 
-    async fn download_circom_binary(path: impl AsRef<Path>) -> Result<Command> {
+    fn download_circom_binary(path: impl AsRef<Path>) -> Result<Command> {
         let url = match env::consts::OS {
             "linux" => {
                 "https://github.com/iden3/circom/releases/download/v2.1.6/circom-linux-amd64"
@@ -35,11 +33,9 @@ pub mod non_wasm {
             }
         };
 
-        let response = reqwest::get(Url::parse(url).unwrap()).await?;
-
-        let bytes = response.bytes().await?;
+        let response = reqwest::blocking::get(url)?.bytes()?;
         let mut out = File::create(path.as_ref())?;
-        out.write_all(&bytes)?;
+        out.write_all(&response)?;
 
         #[cfg(unix)]
         fs::set_permissions(path.as_ref(), fs::Permissions::from_mode(0o755))?;
@@ -80,8 +76,7 @@ pub mod non_wasm {
         if success {
             Ok(Command::new(circom_path))
         } else {
-            let rt = Builder::new_current_thread().build()?;
-            rt.block_on(download_circom_binary(circom_path))
+            download_circom_binary(circom_path)
         }
     }
 

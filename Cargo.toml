@@ -62,6 +62,11 @@ camino = { workspace = true }
 abomonation = { workspace = true}
 abomonation_derive = { git = "https://github.com/lurk-lab/abomonation_derive.git" }
 crossbeam = "0.8.2"
+byteorder = "1.4.3"
+circom-scotia = { git = "https://github.com/lurk-lab/circom-scotia.git" }
+sha2 = { version = "0.10.2" }
+reqwest = { version = "0.11.18", features = ["stream", "blocking"] }
+ansi_term = "0.12.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 memmap = { version = "0.5.10", package = "memmap2" }
