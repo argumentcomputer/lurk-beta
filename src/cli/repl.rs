@@ -7,7 +7,10 @@ use anyhow::{bail, Context, Result};
 
 use log::info;
 
+use lurk::package::{Package, SymbolRef};
 use lurk::state::State;
+use lurk::tag::ExprTag;
+use lurk::Symbol;
 use rustyline::{
     error::ReadlineError,
     history::DefaultHistory,
@@ -302,7 +305,7 @@ impl Repl<F> {
 
     #[cfg(not(target_arch = "wasm32"))]
     fn fetch(&mut self, hash: &F, print_data: bool) -> Result<()> {
-        use lurk::{tag::ExprTag, z_ptr::ZExprPtr};
+        use lurk::z_ptr::ZExprPtr;
 
         use super::{
             commitment::Commitment, field_data::non_wasm::load, paths::non_wasm::commitment_path,
@@ -405,6 +408,26 @@ impl Repl<F> {
             .fetch_num(&expr_io.expr)
             .expect("must be a number");
         Ok(hash.into_scalar())
+    }
+
+    fn get_string(&self, ptr: &Ptr<F>) -> Result<String> {
+        match self.store.fetch_string(ptr) {
+            None => bail!(
+                "Expected string. Got {}",
+                ptr.fmt_to_string(&self.store, &self.state)
+            ),
+            Some(string) => Ok(string),
+        }
+    }
+
+    fn get_symbol(&self, ptr: &Ptr<F>) -> Result<Symbol> {
+        match self.store.fetch_symbol(ptr) {
+            None => bail!(
+                "Expected symbol. Got {}",
+                ptr.fmt_to_string(&self.store, &self.state)
+            ),
+            Some(symbol) => Ok(symbol),
+        }
     }
 
     fn handle_meta_cases(&mut self, cmd: &str, args: &Ptr<F>, pwd_path: &Path) -> Result<()> {
@@ -589,15 +612,60 @@ impl Repl<F> {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     let first = self.peek1(cmd, args)?;
-                    match self.store.fetch_string(&first) {
-                        None => bail!(
-                            "Proof ID {} not parsed as a string",
-                            first.fmt_to_string(&self.store, &self.state)
-                        ),
-                        Some(proof_id) => {
-                            LurkProof::verify_proof(&proof_id)?;
+                    let proof_id = self.get_string(&first)?;
+                    LurkProof::verify_proof(&proof_id)?;
+                }
+            }
+            "defpackage" => {
+                // TODO: handle args
+                let (name, _args) = self.store.car_cdr(args)?;
+                let name = match name.tag {
+                    ExprTag::Str => self.state.intern(self.get_string(&name)?),
+                    ExprTag::Sym => self.get_symbol(&name)?.into(),
+                    _ => bail!("Package name must be a string or a symbol"),
+                };
+                println!("{}", self.state.fmt_to_string(&name));
+                let package = Package::new(name);
+                self.state.add_package(package);
+            }
+            "import" => {
+                // TODO: handle pkg
+                let (mut symbols, _pkg) = self.store.car_cdr(args)?;
+                if symbols.tag == ExprTag::Sym {
+                    let sym = SymbolRef::new(self.get_symbol(&symbols)?);
+                    self.state.import(&[sym])?;
+                } else {
+                    let mut symbols_vec = vec![];
+                    loop {
+                        {
+                            let (head, tail) = self.store.car_cdr(&symbols)?;
+                            let sym = self.get_symbol(&head)?;
+                            symbols_vec.push(SymbolRef::new(sym));
+                            if tail.is_nil() {
+                                break;
+                            }
+                            symbols = tail;
                         }
                     }
+                    self.state.import(&symbols_vec)?;
+                }
+            }
+            "in-package" => {
+                let first = self.peek1(cmd, args)?;
+                match first.tag {
+                    ExprTag::Str => {
+                        let name = self.get_string(&first)?;
+                        let package_name = self.state.intern(name);
+                        self.state.set_current_package(package_name)?;
+                    }
+                    ExprTag::Sym => {
+                        let package_name = self.get_symbol(&first)?;
+                        self.state.set_current_package(package_name.into())?;
+                    }
+                    _ => bail!(
+                        "Expected string or symbol. Got {}",
+                        first.fmt_to_string(&self.store, &self.state)
+                    ),
                 }
             }
             _ => bail!("Unsupported meta command: {cmd}"),
@@ -627,9 +695,7 @@ impl Repl<F> {
     fn handle_meta(&mut self, expr_ptr: Ptr<F>, pwd_path: &Path) -> Result<()> {
         let (car, cdr) = self.store.car_cdr(&expr_ptr)?;
         match &self.store.fetch_sym(&car) {
-            Some(symbol) => {
-                self.handle_meta_cases(symbol.name()?, &cdr, pwd_path)?
-            }
+            Some(symbol) => self.handle_meta_cases(symbol.name()?, &cdr, pwd_path)?,
             None => bail!(
                 "Meta command must be a symbol. Found {}",
                 car.fmt_to_string(&self.store, &self.state)

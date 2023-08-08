@@ -204,7 +204,7 @@ const LURK_PACKAGE_SYMBOLS_NAMES: [&str; 36] = [
     "_",
 ];
 
-const META_PACKAGE_SYMBOLS_NAMES: [&str; 15] = [
+const META_PACKAGE_SYMBOLS_NAMES: [&str; 18] = [
     "def",
     "defrec",
     "load",
@@ -220,6 +220,9 @@ const META_PACKAGE_SYMBOLS_NAMES: [&str; 15] = [
     "set-env",
     "prove",
     "verify",
+    "defpackage",
+    "import",
+    "in-package",
 ];
 
 #[cfg(test)]
