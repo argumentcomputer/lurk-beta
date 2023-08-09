@@ -7,6 +7,7 @@ extern crate alloc;
 
 pub mod cache_map;
 pub mod circuit;
+pub mod cli;
 pub mod cont;
 pub mod coprocessor;
 pub mod error;

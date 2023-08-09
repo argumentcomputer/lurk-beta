@@ -38,6 +38,7 @@ use lurk_macros::serde_test;
 #[cfg(not(target_arch = "wasm32"))]
 use lurk::z_data;
 
+use camino::Utf8PathBuf;
 use lurk::{error::ReductionError, proof::nova::CurveCycleEquipped};
 use once_cell::sync::OnceCell;
 use pasta_curves::pallas;
@@ -45,10 +46,12 @@ use rand::rngs::OsRng;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::file_map::{data_dir, FileMap};
+
 pub mod error;
+pub mod file_map;
 
 use error::Error;
-use lurk::public_parameters::file_map::FileMap;
 
 pub const DEFAULT_REDUCTION_COUNT: ReductionCount = ReductionCount::Ten;
 pub static VERBOSE: OnceCell<bool> = OnceCell::new();
@@ -78,6 +81,10 @@ pub fn nova_proof_cache(reduction_count: usize) -> NovaProofCache {
 pub type CommittedExpressionMap = FileMap<Commitment<S1>, CommittedExpression<S1>>;
 pub fn committed_expression_store() -> CommittedExpressionMap {
     FileMap::<Commitment<S1>, CommittedExpression<S1>>::new("committed_expressions").unwrap()
+}
+
+pub fn public_param_dir() -> Utf8PathBuf {
+    data_dir().join("public_params")
 }
 
 // Number of circuit reductions per step, equivalent to `chunk_frame_count`
@@ -1089,8 +1096,9 @@ pub fn evaluate<F: LurkField>(
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::file_map::FileStore;
+    use camino::Utf8Path;
     use insta::assert_json_snapshot;
-    use lurk::public_parameters::FileStore;
     use std::path::Path;
     use std::sync::Arc;
     use tempfile::Builder;
@@ -1179,12 +1187,12 @@ mod test {
     fn lurk_chained_functional_commitment() {
         let fcomm_path_key = "FCOMM_DATA_PATH";
         let tmp_dir = Builder::new().prefix("tmp").tempdir().expect("tmp dir");
-        let tmp_dir_path = Path::new(tmp_dir.path());
+        let tmp_dir_path = Utf8Path::from_path(tmp_dir.path()).unwrap();
         let fcomm_path_val = tmp_dir_path.join("fcomm_data");
         std::env::set_var(fcomm_path_key, fcomm_path_val.clone());
         assert_eq!(
             std::env::var(fcomm_path_key),
-            Ok(fcomm_path_val.into_os_string().into_string().unwrap())
+            Ok(fcomm_path_val.clone().into_string())
         );
 
         let function_source = "(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))";
@@ -1200,7 +1208,12 @@ mod test {
         let lang = Lang::new();
         let lang_rc = Arc::new(lang.clone());
         let rc = ReductionCount::One;
-        let pp = public_params(rc.count(), lang_rc.clone()).expect("public params");
+        let pp = public_params(
+            rc.count(),
+            lang_rc.clone(),
+            &fcomm_path_val.join("public_params"),
+        )
+        .expect("public params");
         let chained = true;
         let s = &mut Store::<S1>::default();
 

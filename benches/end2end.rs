@@ -1,7 +1,9 @@
 use blstrs::Scalar as Fr;
+use camino::Utf8Path;
 use criterion::{
     black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, SamplingMode,
 };
+
 use lurk::{
     eval::{
         empty_sym_env,
@@ -20,6 +22,7 @@ use pasta_curves::pallas;
 use std::time::Duration;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
+const PUBLIC_PARAMS_PATH: &str = "/var/tmp/lurk_benches/public_params";
 const DEFAULT_REDUCTION_COUNT: usize = 10;
 
 fn go_base<F: LurkField>(
@@ -67,7 +70,12 @@ fn end2end_benchmark(c: &mut Criterion) {
     let prover = NovaProver::new(reduction_count, lang_pallas);
 
     // use cached public params
-    let pp = public_parameters::public_params(reduction_count, lang_pallas_rc.clone()).unwrap();
+    let pp = public_parameters::public_params(
+        reduction_count,
+        lang_pallas_rc.clone(),
+        Utf8Path::new(PUBLIC_PARAMS_PATH),
+    )
+    .unwrap();
 
     let size = (10, 0);
     let benchmark_id = BenchmarkId::new("end2end_go_base_nova", format!("_{}_{}", size.0, size.1));
@@ -281,7 +289,12 @@ fn prove_benchmark(c: &mut Criterion) {
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<pallas::Scalar>(&mut store, state.clone(), s.0, s.1);
         let prover = NovaProver::new(reduction_count, lang_pallas.clone());
-        let pp = public_parameters::public_params(reduction_count, lang_pallas_rc.clone()).unwrap();
+        let pp = public_parameters::public_params(
+            reduction_count,
+            lang_pallas_rc.clone(),
+            Utf8Path::new(PUBLIC_PARAMS_PATH),
+        )
+        .unwrap();
         let frames = prover
             .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
             .unwrap();
@@ -322,7 +335,12 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<pallas::Scalar>(&mut store, state.clone(), s.0, s.1);
         let prover = NovaProver::new(reduction_count, lang_pallas.clone());
-        let pp = public_parameters::public_params(reduction_count, lang_pallas_rc.clone()).unwrap();
+        let pp = public_parameters::public_params(
+            reduction_count,
+            lang_pallas_rc.clone(),
+            Utf8Path::new(PUBLIC_PARAMS_PATH),
+        )
+        .unwrap();
         let frames = prover
             .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
             .unwrap();
@@ -362,8 +380,12 @@ fn verify_benchmark(c: &mut Criterion) {
         group.bench_with_input(benchmark_id, &size, |b, &s| {
             let ptr = go_base(&mut store, state.clone(), s.0, s.1);
             let prover = NovaProver::new(reduction_count, lang_pallas.clone());
-            let pp =
-                public_parameters::public_params(reduction_count, lang_pallas_rc.clone()).unwrap();
+            let pp = public_parameters::public_params(
+                reduction_count,
+                lang_pallas_rc.clone(),
+                Utf8Path::new(PUBLIC_PARAMS_PATH),
+            )
+            .unwrap();
             let frames = prover
                 .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
                 .unwrap();
@@ -409,8 +431,12 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
         group.bench_with_input(benchmark_id, &size, |b, &s| {
             let ptr = go_base(&mut store, state.clone(), s.0, s.1);
             let prover = NovaProver::new(reduction_count, lang_pallas.clone());
-            let pp =
-                public_parameters::public_params(reduction_count, lang_pallas_rc.clone()).unwrap();
+            let pp = public_parameters::public_params(
+                reduction_count,
+                lang_pallas_rc.clone(),
+                Utf8Path::new(PUBLIC_PARAMS_PATH),
+            )
+            .unwrap();
             let frames = prover
                 .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
                 .unwrap();

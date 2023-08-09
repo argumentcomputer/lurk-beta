@@ -10,7 +10,6 @@ use crate::state::lurk_sym;
 use crate::store::Store;
 use crate::tag::ExprTag;
 use crate::uint::UInt;
-use crate::Symbol;
 
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
@@ -41,6 +40,7 @@ impl<Fr: LurkField> Arbitrary for Syntax<Fr> {
     type Strategy = BoxedStrategy<Self>;
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        use crate::Symbol;
         let leaf = prop_oneof![
             any::<Num<Fr>>().prop_map(|x| Syntax::Num(Pos::No, x)),
             any::<UInt>().prop_map(|x| Syntax::UInt(Pos::No, x)),

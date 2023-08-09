@@ -1,5 +1,6 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
+use camino::Utf8Path;
 use criterion::{
     black_box, criterion_group, criterion_main, measurement, BatchSize, BenchmarkGroup,
     BenchmarkId, Criterion, SamplingMode,
@@ -22,6 +23,7 @@ use lurk::{
     store::Store,
 };
 
+const PUBLIC_PARAMS_PATH: &str = "/var/tmp/lurk_benches/public_params";
 const DEFAULT_REDUCTION_COUNT: usize = 100;
 
 fn fib<F: LurkField>(store: &mut Store<F>, state: Rc<RefCell<State>>, a: u64) -> Ptr<F> {
@@ -55,7 +57,12 @@ fn fibo_total<M: measurement::Measurement>(
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
     // use cached public params
-    let pp = public_params(reduction_count, lang_rc.clone()).unwrap();
+    let pp = public_params(
+        reduction_count,
+        lang_rc.clone(),
+        Utf8Path::new(PUBLIC_PARAMS_PATH),
+    )
+    .unwrap();
 
     c.bench_with_input(
         BenchmarkId::new(name.to_string(), iterations),
@@ -116,7 +123,12 @@ fn fibo_prove<M: measurement::Measurement>(
     let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
     let lang_rc = Arc::new(lang_pallas.clone());
     let reduction_count = DEFAULT_REDUCTION_COUNT;
-    let pp = public_params(reduction_count, lang_rc.clone()).unwrap();
+    let pp = public_params(
+        reduction_count,
+        lang_rc.clone(),
+        Utf8Path::new(PUBLIC_PARAMS_PATH),
+    )
+    .unwrap();
 
     c.bench_with_input(
         BenchmarkId::new(name.to_string(), iterations),

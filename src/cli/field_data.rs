@@ -1,5 +1,5 @@
 use anyhow::Result;
-
+use camino::Utf8PathBuf;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 // This module implements a 2-step serde protocol for data that is parametrized
@@ -28,20 +28,12 @@ pub(crate) fn de<T: DeserializeOwned + HasFieldModulus>(bytes: &[u8]) -> Result<
     Ok(data)
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub mod non_wasm {
-    use super::{de, ser, HasFieldModulus};
-    use anyhow::Result;
-    use serde::{de::DeserializeOwned, Serialize};
-    use std::path::PathBuf;
+pub(crate) fn dump<T: Serialize + HasFieldModulus>(t: T, path: Utf8PathBuf) -> Result<()> {
+    Ok(std::fs::write(path, ser(t)?)?)
+}
 
-    pub(crate) fn dump<T: Serialize + HasFieldModulus>(t: T, path: PathBuf) -> Result<()> {
-        Ok(std::fs::write(path, ser(t)?)?)
-    }
-
-    pub(crate) fn load<T: DeserializeOwned + HasFieldModulus>(path: PathBuf) -> Result<T> {
-        de(&std::fs::read(path)?)
-    }
+pub(crate) fn load<T: DeserializeOwned + HasFieldModulus>(path: Utf8PathBuf) -> Result<T> {
+    de(&std::fs::read(path)?)
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -83,8 +75,8 @@ impl<T: Serialize + HasFieldModulus> Serialize for FieldData<T> {
 
 #[cfg(test)]
 mod tests {
+    use crate::field::LurkField;
     use ff::Field;
-    use lurk::field::LurkField;
     use pasta_curves::Fq;
     use serde::{Deserialize, Serialize};
 

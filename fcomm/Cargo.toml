@@ -34,11 +34,11 @@ rand = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+camino = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = "2.0.12"
-camino = "1.1.6"
 insta = { version = "1.31.0", features = ["json"] }
 num_cpus = "1.16.0"
 predicates = "2.1.5"
-tempfile = "3.6.0"
+tempfile = { workspace = true }
