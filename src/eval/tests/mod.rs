@@ -2351,14 +2351,14 @@ fn test_sym_hash_values() {
         .borrow_mut()
         .intern_path(&["asdf"], false, false)
         .unwrap();
-    let asdf_sym_package = Package::new(asdf_sym_package_name.into());
+    let asdf_sym_package = Package::new(asdf_sym_package_name);
     state.borrow_mut().add_package(asdf_sym_package);
 
     let asdf_key_package_name = state
         .borrow_mut()
         .intern_path(&["asdf"], true, false)
         .unwrap();
-    let asdf_key_package = Package::new(asdf_key_package_name.into());
+    let asdf_key_package = Package::new(asdf_key_package_name);
     state.borrow_mut().add_package(asdf_key_package);
 
     let sym = s.read_with_state(state.clone(), ".asdf.fdsa").unwrap();

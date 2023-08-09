@@ -365,7 +365,7 @@ pub mod test {
         let whole_lambda = s.cons(lambda, rest);
         let lambda_arguments = s.cons(val, nil);
         let expr = s.cons(whole_lambda, lambda_arguments);
-        let output = expr.fmt_to_string(&s, &state);
+        let output = expr.fmt_to_string(&s, state);
 
         assert_eq!("((lambda (x) x) 123)".to_string(), output);
     }
