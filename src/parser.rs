@@ -32,8 +32,6 @@ pub enum Error {
     NoInput,
     #[error("Syntax error: {0}")]
     Syntax(String),
-    #[error("Interning error: {0}")]
-    Interning(String),
 }
 
 impl<F: LurkField> Store<F> {
@@ -42,10 +40,7 @@ impl<F: LurkField> Store<F> {
         match preceded(syntax::parse_space, syntax::parse_syntax(state, false))
             .parse(Span::new(input))
         {
-            Ok((_i, x)) => match self.intern_syntax(x) {
-                Ok(ptr) => Ok(ptr),
-                Err(e) => Err(Error::Interning(format!("{}", e))),
-            },
+            Ok((_i, x)) => Ok(self.intern_syntax(x)),
             Err(e) => Err(Error::Syntax(format!("{}", e))),
         }
     }
@@ -58,10 +53,7 @@ impl<F: LurkField> Store<F> {
         match preceded(syntax::parse_space, syntax::parse_syntax(state, false))
             .parse(Span::new(input))
         {
-            Ok((_i, x)) => match self.intern_syntax(x) {
-                Ok(ptr) => Ok(ptr),
-                Err(e) => Err(Error::Interning(format!("{}", e))),
-            },
+            Ok((_i, x)) => Ok(self.intern_syntax(x)),
             Err(e) => Err(Error::Syntax(format!("{}", e))),
         }
     }
@@ -73,10 +65,7 @@ impl<F: LurkField> Store<F> {
     ) -> Result<(Span<'a>, Ptr<F>, bool), Error> {
         use syntax::*;
         match preceded(parse_space, parse_maybe_meta(state)).parse(input) {
-            Ok((i, Some((is_meta, x)))) => match self.intern_syntax(x) {
-                Ok(ptr) => Ok((i, ptr, is_meta)),
-                Err(e) => Err(Error::Interning(format!("{}", e))),
-            },
+            Ok((i, Some((is_meta, x)))) => Ok((i, self.intern_syntax(x), is_meta)),
             Ok((_, None)) => Err(Error::NoInput),
             Err(e) => Err(Error::Syntax(format!("{}", e))),
         }

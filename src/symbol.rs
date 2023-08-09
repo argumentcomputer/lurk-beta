@@ -327,26 +327,26 @@ impl Symbol {
         }
     }
 
-    pub fn from_str_impl(name: &str) -> Option<Self> {
-        use crate::parser::{
-            syntax::{parse_space, parse_symbol},
-            Span,
-        };
-        use crate::syntax::Syntax;
-        use nom::{sequence::preceded, Parser};
-        use pasta_curves::pallas::Scalar;
-        match preceded(parse_space::<Scalar>, parse_symbol()).parse(Span::new(name)) {
-            Ok((_, Syntax::Symbol(_, symbol))) => Some(symbol),
-            _ => None,
-        }
-    }
+    // pub fn from_str_impl(name: &str) -> Option<Self> {
+    //     use crate::parser::{
+    //         syntax::{parse_space, parse_symbol},
+    //         Span,
+    //     };
+    //     use crate::syntax::Syntax;
+    //     use nom::{sequence::preceded, Parser};
+    //     use pasta_curves::pallas::Scalar;
+    //     match preceded(parse_space::<Scalar>, parse_symbol()).parse(Span::new(name)) {
+    //         Ok((_, Syntax::Symbol(_, symbol))) => Some((*symbol).clone()),
+    //         _ => None,
+    //     }
+    // }
 }
 
-impl From<&'static str> for Symbol {
-    fn from(value: &'static str) -> Self {
-        Symbol::from_str_impl(value).unwrap()
-    }
-}
+// impl From<&'static str> for Symbol {
+//     fn from(value: &'static str) -> Self {
+//         Symbol::from_str_impl(value).unwrap()
+//     }
+// }
 
 impl fmt::Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

@@ -236,7 +236,7 @@ impl<F: LurkField> Store<F> {
             Syntax::Symbol(_, symbol) => Ok(self.intern_symbol(&symbol)),
             Syntax::String(_, x) => Ok(self.intern_string(&x)),
             Syntax::Quote(pos, x) => {
-                let xs = vec![Syntax::Symbol(pos, lurk_sym("quote")), *x];
+                let xs = vec![Syntax::Symbol(pos, lurk_sym("quote").into()), *x];
                 self.intern_syntax(Syntax::List(pos, xs))
             }
             Syntax::List(_, xs) => {

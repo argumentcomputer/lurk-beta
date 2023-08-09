@@ -2343,8 +2343,8 @@ pub mod test {
         let foo_list = list!(Fr, [symbol!(["foo"])]);
         let foo_sym = symbol!(Fr, ["foo"]);
 
-        let expr = store.intern_syntax(foo_list).unwrap();
-        let sym = store.intern_syntax(foo_sym).unwrap();
+        let expr = store.intern_syntax(foo_list);
+        let sym = store.intern_syntax(foo_sym);
         let sym1 = store.car(&expr).unwrap();
         let sss = store.fetch_sym(&sym);
         let hash = store.hash_expr(&sym);

@@ -780,7 +780,12 @@ impl Repl<F> {
         }
 
         loop {
-            match editor.readline("> ") {
+            match editor.readline(&format!(
+                "{}> ",
+                self.state
+                    .borrow()
+                    .fmt_to_string(self.state.borrow().get_current_package_name())
+            )) {
                 Ok(line) => {
                     #[cfg(not(target_arch = "wasm32"))]
                     editor.save_history(history_path)?;

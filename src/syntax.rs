@@ -1,8 +1,8 @@
-use anyhow::Result;
 use std::fmt;
 
 use crate::field::LurkField;
 use crate::num::Num;
+use crate::package::SymbolRef;
 use crate::parser::position::Pos;
 use crate::ptr::Ptr;
 use crate::state::lurk_sym;
@@ -20,7 +20,7 @@ pub enum Syntax<F: LurkField> {
     // A u64 integer: 1u64, 0xffu64
     UInt(Pos, UInt),
     // A hierarchical symbol foo, foo.bar.baz or keyword :foo
-    Symbol(Pos, Symbol),
+    Symbol(Pos, SymbolRef),
     // A string literal: "foobar", "foo\nbar"
     String(Pos, String),
     // A character literal: #\A #\λ #\u03BB
@@ -42,7 +42,7 @@ impl<Fr: LurkField> Arbitrary for Syntax<Fr> {
         let leaf = prop_oneof![
             any::<Num<Fr>>().prop_map(|x| Syntax::Num(Pos::No, x)),
             any::<UInt>().prop_map(|x| Syntax::UInt(Pos::No, x)),
-            any::<Symbol>().prop_map(|x| Syntax::Symbol(Pos::No, x)),
+            any::<Symbol>().prop_map(|x| Syntax::Symbol(Pos::No, x.into())),
             any::<String>().prop_map(|x| Syntax::String(Pos::No, x)),
             any::<char>().prop_map(|x| Syntax::Char(Pos::No, x))
         ];
@@ -104,32 +104,32 @@ impl<F: LurkField> fmt::Display for Syntax<F> {
 }
 
 impl<F: LurkField> Store<F> {
-    pub fn intern_syntax(&mut self, syn: Syntax<F>) -> Result<Ptr<F>> {
+    pub fn intern_syntax(&mut self, syn: Syntax<F>) -> Ptr<F> {
         match syn {
-            Syntax::Num(_, x) => Ok(self.intern_num(x)),
-            Syntax::UInt(_, x) => Ok(self.intern_uint(x)),
-            Syntax::Char(_, x) => Ok(self.intern_char(x)),
-            Syntax::Symbol(_, symbol) => Ok(self.intern_symbol(&symbol)),
-            Syntax::String(_, x) => Ok(self.intern_string(&x)),
+            Syntax::Num(_, x) => self.intern_num(x),
+            Syntax::UInt(_, x) => self.intern_uint(x),
+            Syntax::Char(_, x) => self.intern_char(x),
+            Syntax::Symbol(_, symbol) => self.intern_symbol(&symbol),
+            Syntax::String(_, x) => self.intern_string(&x),
             Syntax::Quote(pos, x) => {
-                let xs = vec![Syntax::Symbol(pos, lurk_sym("quote")), *x];
+                let xs = vec![Syntax::Symbol(pos, lurk_sym("quote").into()), *x];
                 self.intern_syntax(Syntax::List(pos, xs))
             }
             Syntax::List(_, xs) => {
                 let mut cdr = self.nil_ptr();
                 for x in xs.into_iter().rev() {
-                    let car = self.intern_syntax(x)?;
+                    let car = self.intern_syntax(x);
                     cdr = self.intern_cons(car, cdr);
                 }
-                Ok(cdr)
+                cdr
             }
             Syntax::Improper(_, xs, end) => {
-                let mut cdr = self.intern_syntax(*end)?;
+                let mut cdr = self.intern_syntax(*end);
                 for x in xs.into_iter().rev() {
-                    let car = self.intern_syntax(x)?;
+                    let car = self.intern_syntax(x);
                     cdr = self.intern_cons(car, cdr);
                 }
-                Ok(cdr)
+                cdr
             }
         }
     }
