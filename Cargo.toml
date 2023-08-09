@@ -72,10 +72,22 @@ rustyline = { version = "11.0", features = ["derive"], default-features = false 
 
 [features]
 default = []
-opencl = ["neptune/opencl"]
-cuda = ["neptune/cuda"]
+opencl = [
+	"neptune/opencl",
+	"bellperson/opencl",
+	"nova/opencl"
+]
+cuda = [
+	"neptune/cuda",
+	"bellperson/cuda",
+	"nova/cuda"
+]
 # compile without ISA extensions
-portable = ["blstrs/portable", "pasta-msm/portable"]
+portable = [
+	"blstrs/portable",
+	"pasta-msm/portable",
+	"nova/portable"
+]
 flamegraph = ["pprof/flamegraph", "pprof/criterion"]
 
 [dev-dependencies]
