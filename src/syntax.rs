@@ -183,6 +183,7 @@ impl<F: LurkField> Store<F> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::Symbol;
     use blstrs::Scalar as Fr;
 
     #[test]
