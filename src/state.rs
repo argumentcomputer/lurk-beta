@@ -78,22 +78,45 @@ impl State {
         self.get_current_package().fmt_to_string(symbol)
     }
 
-    pub fn intern_fold<A: AsRef<str>>(&mut self, init: SymbolRef, path: &[A]) -> Result<SymbolRef> {
+    fn intern_fold<A: AsRef<str>>(
+        &mut self,
+        init: SymbolRef,
+        path: &[A],
+        create_unknown_packges: bool,
+    ) -> Result<SymbolRef> {
         path.iter()
             .try_fold(init, |acc, s| match self.symbol_packages.get_mut(&acc) {
                 Some(package) => Ok(package.intern(String::from(s.as_ref()))),
-                None => bail!("Package {acc} not found"),
+                None => {
+                    if create_unknown_packges {
+                        let mut package = Package::new(acc);
+                        let symbol = package.intern(String::from(s.as_ref()));
+                        self.add_package(package);
+                        Ok(symbol)
+                    } else {
+                        bail!("Package {acc} not found")
+                    }
+                }
             })
     }
 
     #[inline]
-    pub fn intern_path<A: AsRef<str>>(&mut self, path: &[A], keyword: bool) -> Result<SymbolRef> {
-        self.intern_fold(Symbol::root(keyword).into(), path)
+    pub fn intern_path<A: AsRef<str>>(
+        &mut self,
+        path: &[A],
+        keyword: bool,
+        create_unknown_packges: bool,
+    ) -> Result<SymbolRef> {
+        self.intern_fold(Symbol::root(keyword).into(), path, create_unknown_packges)
     }
 
     #[inline]
-    pub fn intern_relative_path<A: AsRef<str>>(&mut self, path: &[A]) -> Result<SymbolRef> {
-        self.intern_fold(self.current_package.clone(), path)
+    pub fn intern_relative_path<A: AsRef<str>>(
+        &mut self,
+        path: &[A],
+        create_unknown_packges: bool,
+    ) -> Result<SymbolRef> {
+        self.intern_fold(self.current_package.clone(), path, create_unknown_packges)
     }
 
     #[inline]
@@ -262,7 +285,7 @@ pub mod test {
         test_printing_helper(&state, user_sym, ".lurk.user.user-sym");
 
         let path = ["my-package", "my-other-symbol"];
-        state.intern_path(&path, false).unwrap();
+        state.intern_path(&path, false, false).unwrap();
         test_printing_helper(
             &state,
             SymbolRef::new(Symbol::sym(&path)),

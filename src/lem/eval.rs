@@ -862,39 +862,32 @@ mod tests {
 
     fn expr_in_expr_out_pairs(s: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
         let state = State::init_lurk_state().mutable();
-        let sum = s.read(state.clone(), "(+ 21 21)").unwrap();
-        let sum_res = s.read(state.clone(), "42").unwrap();
-        let car = s.read(state.clone(), "(car (cons 1 2))").unwrap();
-        let car_res = s.read(state.clone(), "1").unwrap();
-        let let_ = s
-            .read(
-                state.clone(),
-                "(let ((x (cons 1 2)))
-                   (cons (car x) (cdr x)))",
-            )
-            .unwrap();
-        let let_res = s.read(state.clone(), "(1 . 2)").unwrap();
-        let lam0 = s.read(state.clone(), "((lambda () 1))").unwrap();
-        let lam0_res = s.read(state.clone(), "1").unwrap();
-        let lam = s
-            .read(state.clone(), "((lambda (x y) (+ x y)) 3 4)")
-            .unwrap();
-        let lam_res = s.read(state.clone(), "7").unwrap();
-        let fold = s
-            .read(
-                state.clone(),
-                "(letrec ((build (lambda (x)
-                                             (if (eq x 0)
-                                                 nil
-                                               (cons x (build (- x 1))))))
-                                    (sum (lambda (xs)
-                                           (if (eq xs nil)
-                                               0
-                                             (+ (car xs) (sum (cdr xs)))))))
-                             (sum (build 10)))",
-            )
-            .unwrap();
-        let fold_res = s.read(state, "55").unwrap();
+        let mut read = |code: &str| s.read(state.clone(), code).unwrap();
+        let sum = read("(+ 21 21)");
+        let sum_res = read("42");
+        let car = read("(car (cons 1 2))");
+        let car_res = read("1");
+        let let_ = read(
+            "(let ((x (cons 1 2)))
+               (cons (car x) (cdr x)))",
+        );
+        let let_res = read("(1 . 2)");
+        let lam0 = read("((lambda () 1))");
+        let lam0_res = read("1");
+        let lam = read("((lambda (x y) (+ x y)) 3 4)");
+        let lam_res = read("7");
+        let fold = read(
+            "(letrec ((build (lambda (x)
+                                (if (eq x 0)
+                                    nil
+                                (cons x (build (- x 1))))))
+                    (sum (lambda (xs)
+                            (if (eq xs nil)
+                                0
+                                (+ (car xs) (sum (cdr xs)))))))
+                (sum (build 10)))",
+        );
+        let fold_res = read("55");
         vec![
             (sum, sum_res),
             (car, car_res),

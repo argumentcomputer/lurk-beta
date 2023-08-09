@@ -2347,11 +2347,17 @@ fn test_sym_hash_values() {
     let s = &mut Store::<Fr>::default();
     let state = State::init_lurk_state().mutable();
 
-    let asdf_sym_package_name = state.borrow_mut().intern_path(&["asdf"], false).unwrap();
+    let asdf_sym_package_name = state
+        .borrow_mut()
+        .intern_path(&["asdf"], false, false)
+        .unwrap();
     let asdf_sym_package = Package::new(asdf_sym_package_name.into());
     state.borrow_mut().add_package(asdf_sym_package);
 
-    let asdf_key_package_name = state.borrow_mut().intern_path(&["asdf"], true).unwrap();
+    let asdf_key_package_name = state
+        .borrow_mut()
+        .intern_path(&["asdf"], true, false)
+        .unwrap();
     let asdf_key_package = Package::new(asdf_key_package_name.into());
     state.borrow_mut().add_package(asdf_key_package);
 

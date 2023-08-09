@@ -262,8 +262,11 @@ impl<F: LurkField> Store<F> {
         use crate::parser::*;
         use nom::sequence::preceded;
         use nom::Parser;
-        match preceded(syntax::parse_space, syntax::parse_syntax(state, false))
-            .parse(Span::new(input))
+        match preceded(
+            syntax::parse_space,
+            syntax::parse_syntax(state, false, false),
+        )
+        .parse(Span::new(input))
         {
             Ok((_i, x)) => self.intern_syntax(x),
             Err(e) => bail!("{}", e),
