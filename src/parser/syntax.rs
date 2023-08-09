@@ -21,7 +21,7 @@ use crate::{
         position::Pos,
         string, ParseResult, Span,
     },
-    state::{State, meta_package_symbol},
+    state::{meta_package_symbol, State},
     symbol,
     syntax::Syntax,
     uint::UInt,
@@ -102,7 +102,7 @@ fn intern_path<'a, F: LurkField>(
         },
         None => match state.borrow_mut().intern_relative_path(&path) {
             Ok(symbol) => Ok((upto, symbol)),
-            _ => todo!(),
+            Err(e) => todo!(),
         },
     }
 }
@@ -116,7 +116,6 @@ pub fn parse_absolute_symbol<F: LurkField>(
             value(true, char(symbol::KEYWORD_MARKER)),
         ))(from)?;
         let (upto, path) = parse_symbol_limbs()(i)?;
-        let symbol = state.borrow_mut().intern_path(&path, is_key);
         intern_path(state.clone(), upto, &path, Some(is_key))
     }
 }
@@ -299,13 +298,22 @@ pub fn parse_list<F: LurkField>(
     move |from: Span<'_>| {
         let (i, _) = tag("(")(from)?;
         let (i, xs) = if meta {
-            let saved_package = state.borrow().get_current_package_name();
-            let _ = state.borrow_mut().set_current_package(meta_package_symbol().into());
-            let (i, x) = preceded(parse_space, parse_symbol(state.clone()))(i)?;
-            let _ = state.borrow_mut().set_current_package(saved_package.clone());
-            todo!()
+            let saved_package = state.borrow().get_current_package_name().clone();
+            state
+                .borrow_mut()
+                .set_current_package(meta_package_symbol().into())
+                .expect("meta package is available");
+            let (i, h) = preceded(parse_space, parse_symbol(state.clone()))(i)?;
+            state
+                .borrow_mut()
+                .set_current_package(saved_package)
+                .expect("previous package is available");
+            let (i, t) = many0(preceded(parse_space, parse_syntax(state.clone(), false)))(i)?;
+            let mut xs = vec![h];
+            xs.extend(t);
+            (i, xs)
         } else {
-            many0(preceded(parse_space, parse_syntax(state.clone(), meta)))(i)?
+            many0(preceded(parse_space, parse_syntax(state.clone(), false)))(i)?
         };
         let (i, end) = opt(preceded(
             preceded(parse_space, tag(".")),
