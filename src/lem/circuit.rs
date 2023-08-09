@@ -35,7 +35,7 @@ use bellperson::{
 use crate::circuit::gadgets::{
     constraints::{
         add, alloc_equal, alloc_equal_const, and, enforce_selector_with_premise, implies_equal,
-        mul, sub,
+        mul, sub, alloc_is_zero, pick, div,
     },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
@@ -553,7 +553,30 @@ impl Func {
                         bound_allocations.insert(tgt.clone(), c);
                     }
                     Op::Div(_tgt, _a, _b) => {
-                        // TODO
+                        let a = bound_allocations.get(a)?;
+                        let b = bound_allocations.get(b)?;
+                        // TODO check that the tags are correct
+                        let a_num = a.hash();
+                        let b_num = b.hash();
+
+                        let b_is_zero = &alloc_is_zero(&mut cs.namespace(|| "b_is_zero"), b)?;
+                        let one = g.global_allocator.get_or_alloc_const(cs, F::ONE)?;
+
+                        let divisor = pick(
+                            &mut cs.namespace(|| "maybe-dummy divisor"),
+                            b_is_zero,
+                            &one,
+                            b,
+                        )?;
+
+                        let quotient = div(&mut cs.namespace(|| "quotient"), a, &divisor)?;
+
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let c = AllocatedPtr::from_parts(tag, quotient);
+                        bound_allocations.insert(tgt.clone(), c);
+
                     }
                     Op::Emit(_) => (),
                     Op::Hide(tgt, _sec, _pay) => {
