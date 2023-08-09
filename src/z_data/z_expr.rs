@@ -209,24 +209,24 @@ impl<F: LurkField> Arbitrary for ZExpr<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    // use crate::syntax::Syntax;
+    use crate::syntax::Syntax;
     use pasta_curves::pallas::Scalar;
 
-    // proptest! {
-    //     #[test]
-    //     // TODO: Overflows stack in non-release mode
-    //     fn prop_expr_z_expr_roundtrip(x in any::<Syntax<Scalar>>()) {
-    //         let mut store = Store::<Scalar>::default();
-    //         let ptr = store.intern_syntax(x);
-    //         let expr = store.fetch(&ptr).unwrap();
+    proptest! {
+        #[test]
+        // TODO: Overflows stack in non-release mode
+        fn prop_expr_z_expr_roundtrip(x in any::<Syntax<Scalar>>()) {
+            let mut store = Store::<Scalar>::default();
+            let ptr = store.intern_syntax(x);
+            let expr = store.fetch(&ptr).unwrap();
 
-    //         let z_ptr = store.hash_expr(&ptr).unwrap();
-    //         let ptr_new = store.fetch_z_expr_ptr(&z_ptr).unwrap();
+            let z_ptr = store.hash_expr(&ptr).unwrap();
+            let ptr_new = store.fetch_z_expr_ptr(&z_ptr).unwrap();
 
-    //         assert_eq!(expr, store.fetch(&ptr_new).unwrap());
-    //         assert_eq!(ptr, ptr_new);
-    //     }
-    // }
+            assert_eq!(expr, store.fetch(&ptr_new).unwrap());
+            assert_eq!(ptr, ptr_new);
+        }
+    }
 
     #[test]
     fn unit_expr_z_expr() {
