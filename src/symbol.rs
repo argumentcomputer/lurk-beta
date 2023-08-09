@@ -2,7 +2,7 @@ use std::fmt;
 
 use anyhow::{bail, Result};
 
-use crate::parser::LURK_WHITESPACE;
+use crate::{parser::LURK_WHITESPACE, state::State};
 #[cfg(not(target_arch = "wasm32"))]
 use lurk_macros::serde_test;
 #[cfg(not(target_arch = "wasm32"))]
@@ -169,7 +169,7 @@ impl Symbol {
         LURK_WHITESPACE.iter().any(|x| *x == c)
     }
 
-    pub fn escape_symbol_element(xs: &str) -> String {
+    pub fn fmt_path_component_to_string(xs: &str) -> String {
         let mut res = String::new();
         for x in xs.chars() {
             if ESCAPE_CHARS.chars().any(|c| c == x) {
@@ -183,11 +183,11 @@ impl Symbol {
         res
     }
 
-    pub fn print_path(&self) -> String {
+    pub fn fmt_path_to_string(&self) -> String {
         let mut res = String::new();
         let mut iter = self.path.iter().peekable();
         while let Some(next) = iter.next() {
-            res.push_str(&Self::escape_symbol_element(next));
+            res.push_str(&Self::fmt_path_component_to_string(next));
             if iter.peek().is_some() || next.is_empty() {
                 res.push('.');
             }
@@ -196,7 +196,7 @@ impl Symbol {
     }
 
     // TODO: needs some kind of whitespace escaping
-    pub fn print_raw(&self) -> String {
+    pub fn fmt_to_string_raw(&self) -> String {
         let mut res = String::from("~(");
         let mut iter = self.path.iter().peekable();
         while let Some(next) = iter.next() {
@@ -263,94 +263,49 @@ impl Symbol {
         }
     }
 
-    fn start_needs_escaping(component: &str) -> bool {
-        component.starts_with([
-            '~', '#', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '.', ':', '[', ']', '(',
-            ')', '{', '}', '"', '\\',
-        ]) || component.starts_with("-1")
-            || component.starts_with("-2")
-            || component.starts_with("-3")
-            || component.starts_with("-4")
-            || component.starts_with("-5")
-            || component.starts_with("-6")
-            || component.starts_with("-7")
-            || component.starts_with("-8")
-            || component.starts_with("-9")
-            || component.starts_with("-0")
-            || component.starts_with(char::is_control)
-    }
-
-    pub fn format_path_component(component: &str) -> String {
-        let mut res = String::new();
-        let mut has_whitespace = false;
-        for c in component.chars() {
-            if ESCAPE_CHARS.chars().any(|x| x == c) {
-                res.push_str(&format!("\\{}", c));
-            } else if c.is_whitespace() || Self::is_whitespace(c) {
-                // TODO: do we need the "or" above?
-                res.push_str(&format!("{}", c.escape_unicode()));
-                has_whitespace = true
-            } else {
-                res.push(c)
-            }
-        }
-        if has_whitespace || Self::start_needs_escaping(&res) {
-            format!("|{res}|")
-        } else {
-            res
-        }
-    }
-
-    pub fn format_path(path: &[String]) -> String {
-        let mut res = String::new();
-        let mut iter = path.iter().peekable();
-        while let Some(next) = iter.next() {
-            res.push_str(&Self::format_path_component(next));
-            if iter.peek().is_some() || next.is_empty() {
-                res.push('.');
-            }
-        }
-        res
-    }
-
-    pub fn format(&self) -> String {
+    pub fn fmt_to_string(&self) -> String {
         if self.is_keyword() {
             if self.is_root() {
                 "~:()".into()
             } else {
-                format!(":{}", Self::format_path(&self.path))
+                format!(":{}", &self.fmt_path_to_string())
             }
         } else if self.is_root() {
             "~()".into()
         } else {
-            format!(".{}", Self::format_path(&self.path))
+            format!(".{}", &self.fmt_path_to_string())
         }
     }
 
-    // pub fn from_str_impl(name: &str) -> Option<Self> {
-    //     use crate::parser::{
-    //         syntax::{parse_space, parse_symbol},
-    //         Span,
-    //     };
-    //     use crate::syntax::Syntax;
-    //     use nom::{sequence::preceded, Parser};
-    //     use pasta_curves::pallas::Scalar;
-    //     match preceded(parse_space::<Scalar>, parse_symbol()).parse(Span::new(name)) {
-    //         Ok((_, Syntax::Symbol(_, symbol))) => Some((*symbol).clone()),
-    //         _ => None,
-    //     }
-    // }
+    pub fn from_str_impl(name: &str) -> Option<Self> {
+        use crate::parser::{
+            syntax::{parse_space, parse_symbol},
+            Span,
+        };
+        use crate::syntax::Syntax;
+        use nom::{sequence::preceded, Parser};
+        use pasta_curves::pallas::Scalar;
+        match preceded(
+            parse_space::<Scalar>,
+            parse_symbol(State::minimal().mutable(), true),
+        )
+        .parse(Span::new(name))
+        {
+            Ok((_, Syntax::Symbol(_, symbol))) => Some((*symbol).clone()),
+            _ => None,
+        }
+    }
 }
 
-// impl From<&'static str> for Symbol {
-//     fn from(value: &'static str) -> Self {
-//         Symbol::from_str_impl(value).unwrap()
-//     }
-// }
+impl From<&'static str> for Symbol {
+    fn from(value: &'static str) -> Self {
+        Symbol::from_str_impl(value).unwrap()
+    }
+}
 
 impl fmt::Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.format())
+        write!(f, "{}", self.fmt_to_string())
     }
 }
 

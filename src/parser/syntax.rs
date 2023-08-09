@@ -1034,9 +1034,6 @@ pub mod tests {
         fn prop_syntax(x in any::<Syntax<Scalar>>()) {
             let text = format!("{}", x);
             let (_, res) = parse_syntax(State::minimal().mutable(), false, true)(Span::new(&text)).expect("valid parse");
-            // eprintln!("------------------");
-            // eprintln!("x {} {:?}", x, x);
-            // eprintln!("res {} {:?}", res, res);
             assert_eq!(x, res)
         }
     }

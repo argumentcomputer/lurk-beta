@@ -223,26 +223,30 @@ mod test {
         }
 
         // Quote tests
-        let expr = list!(sym!(quote), list!(sym!(f), sym!(x), sym!(y)));
+        let expr = list!(s.quote_ptr(), list!(sym!(f), sym!(x), sym!(y)));
         let output = s.fetch_syntax(expr).unwrap();
-        assert_eq!("'(f x y)", &format!("{}", output));
+        assert_eq!("(.lurk.quote (.f .x .y))", &format!("{}", output));
 
-        let expr = list!(sym!(quote), sym!(f), sym!(x), sym!(y));
+        let expr = list!(s.quote_ptr(), list!(sym!(f), sym!(x), sym!(y)));
         let output = s.fetch_syntax(expr).unwrap();
-        assert_eq!("(quote f x y)", &format!("{}", output));
+        assert_eq!("(.lurk.quote (.f .x .y))", &format!("{}", output));
+
+        let expr = list!(s.quote_ptr(), sym!(f), sym!(x), sym!(y));
+        let output = s.fetch_syntax(expr).unwrap();
+        assert_eq!("(.lurk.quote .f .x .y)", &format!("{}", output));
 
         // List tests
         let expr = list!();
         let output = s.fetch_syntax(expr).unwrap();
-        assert_eq!("nil", &format!("{}", output));
+        assert_eq!(".lurk.nil", &format!("{}", output));
 
         let expr = improper!(sym!(x), sym!(y), sym!(z));
         let output = s.fetch_syntax(expr).unwrap();
-        assert_eq!("(x y . z)", &format!("{}", output));
+        assert_eq!("(.x .y . .z)", &format!("{}", output));
 
-        let expr = improper!(sym!(x), sym!(y), sym!(nil));
+        let expr = improper!(sym!(x), sym!(y), s.nil_ptr());
         let output = s.fetch_syntax(expr).unwrap();
-        assert_eq!("(x y)", &format!("{}", output));
+        assert_eq!("(.x .y)", &format!("{}", output));
     }
 
     #[test]

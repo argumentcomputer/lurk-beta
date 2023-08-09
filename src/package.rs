@@ -84,8 +84,8 @@ impl Package {
 
     pub fn fmt_to_string(&self, symbol: &SymbolRef) -> String {
         match self.names.get(symbol) {
-            None => symbol.format(),
-            Some(name) => Symbol::format_path_component(name),
+            None => symbol.fmt_to_string(),
+            Some(name) => Symbol::fmt_path_component_to_string(name),
         }
     }
 }
