@@ -22,6 +22,7 @@ use lurk::{
     store::Store,
 };
 
+const PUBLIC_PARAMS_PATH: &str = "/var/tmp/lurk_benches/public_params";
 const DEFAULT_REDUCTION_COUNT: usize = 100;
 fn fib<F: LurkField>(store: &mut Store<F>, a: u64) -> Ptr<F> {
     let program = format!(
@@ -52,7 +53,7 @@ fn fibo_total<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut 
     let pp = public_params(
         reduction_count,
         lang_rc.clone(),
-        Utf8Path::new("/var/tmp/lurk_benches/public_params"),
+        Utf8Path::new(PUBLIC_PARAMS_PATH),
     )
     .unwrap();
 
@@ -108,7 +109,7 @@ fn fibo_prove<M: measurement::Measurement>(name: &str, iterations: u64, c: &mut 
     let pp = public_params(
         reduction_count,
         lang_rc.clone(),
-        Utf8Path::new("/var/tmp/lurk_benches/public_params"),
+        Utf8Path::new(PUBLIC_PARAMS_PATH),
     )
     .unwrap();
 

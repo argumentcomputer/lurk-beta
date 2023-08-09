@@ -21,6 +21,7 @@ use pasta_curves::pallas;
 use std::sync::Arc;
 use std::time::Duration;
 
+const PUBLIC_PARAMS_PATH: &str = "/var/tmp/lurk_benches/public_params";
 const DEFAULT_REDUCTION_COUNT: usize = 10;
 
 fn go_base<F: LurkField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
@@ -66,7 +67,7 @@ fn end2end_benchmark(c: &mut Criterion) {
     let pp = public_parameters::public_params(
         reduction_count,
         lang_pallas_rc.clone(),
-        Utf8Path::new("/var/tmp/lurk_benches/public_params"),
+        Utf8Path::new(PUBLIC_PARAMS_PATH),
     )
     .unwrap();
 
@@ -275,7 +276,7 @@ fn prove_benchmark(c: &mut Criterion) {
         let pp = public_parameters::public_params(
             reduction_count,
             lang_pallas_rc.clone(),
-            Utf8Path::new("/var/tmp/lurk_benches/public_params"),
+            Utf8Path::new(PUBLIC_PARAMS_PATH),
         )
         .unwrap();
         let frames = prover
@@ -319,7 +320,7 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
         let pp = public_parameters::public_params(
             reduction_count,
             lang_pallas_rc.clone(),
-            Utf8Path::new("/var/tmp/lurk_benches/public_params"),
+            Utf8Path::new(PUBLIC_PARAMS_PATH),
         )
         .unwrap();
         let frames = prover
@@ -362,7 +363,7 @@ fn verify_benchmark(c: &mut Criterion) {
             let pp = public_parameters::public_params(
                 reduction_count,
                 lang_pallas_rc.clone(),
-                Utf8Path::new("/var/tmp/lurk_benches/public_params"),
+                Utf8Path::new(PUBLIC_PARAMS_PATH),
             )
             .unwrap();
             let frames = prover
@@ -411,7 +412,7 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
             let pp = public_parameters::public_params(
                 reduction_count,
                 lang_pallas_rc.clone(),
-                Utf8Path::new("/var/tmp/lurk_benches/public_params"),
+                Utf8Path::new(PUBLIC_PARAMS_PATH),
             )
             .unwrap();
             let frames = prover
