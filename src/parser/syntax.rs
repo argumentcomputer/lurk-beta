@@ -49,12 +49,12 @@ pub fn parse_symbol_limb<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> ParseResult<'_, F, String> {
     move |from: Span<'_>| {
         let (i, s) = alt((
+            string::parse_string_inner1(symbol::SYM_SEPARATOR, false, escape),
             delimited(
                 tag("|"),
                 string::parse_string_inner1('|', true, "|"),
                 tag("|"),
             ),
-            string::parse_string_inner1(symbol::SYM_SEPARATOR, false, escape),
             value(String::from(""), peek(tag("."))),
         ))(from)?;
         Ok((i, s))
@@ -66,12 +66,12 @@ pub fn parse_symbol_limb_raw<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> ParseResult<'_, F, String> {
     move |from: Span<'_>| {
         let (i, s) = alt((
+            string::parse_string_inner1(' ', false, escape),
             delimited(
                 tag("|"),
                 string::parse_string_inner1('|', true, "|"),
                 tag("|"),
             ),
-            string::parse_string_inner1(' ', false, escape),
             value(String::from(""), peek(tag("."))),
         ))(from)?;
         Ok((i, s))
@@ -202,10 +202,10 @@ pub fn parse_symbol<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
         let (upto, sym) = alt((
+            parse_relative_symbol(state.clone(), create_unknown_packages),
+            parse_absolute_symbol(state.clone(), create_unknown_packages),
             parse_raw_symbol(state.clone(), create_unknown_packages),
             parse_raw_keyword(state.clone(), create_unknown_packages),
-            parse_absolute_symbol(state.clone(), create_unknown_packages),
-            parse_relative_symbol(state.clone(), create_unknown_packages),
         ))(from)?;
         Ok((upto, Syntax::Symbol(Pos::from_upto(from, upto), sym)))
     }
@@ -416,7 +416,7 @@ pub fn parse_syntax<F: LurkField>(
             ),
             parse_uint(),
             parse_num(),
-            context("path", parse_symbol(state.clone(), create_unknown_packages)),
+            context("symbol", parse_symbol(state.clone(), create_unknown_packages)),
             parse_string(),
             context("quote", parse_quote(state.clone(), create_unknown_packages)),
             parse_hash_char(),
