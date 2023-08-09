@@ -416,7 +416,10 @@ pub fn parse_syntax<F: LurkField>(
             ),
             parse_uint(),
             parse_num(),
-            context("symbol", parse_symbol(state.clone(), create_unknown_packages)),
+            context(
+                "symbol",
+                parse_symbol(state.clone(), create_unknown_packages),
+            ),
             parse_string(),
             context("quote", parse_quote(state.clone(), create_unknown_packages)),
             parse_hash_char(),
