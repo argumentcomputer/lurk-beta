@@ -95,14 +95,21 @@ fn intern_path<'a, F: LurkField>(
     path: &[String],
     keyword: Option<bool>,
 ) -> ParseResult<'a, F, SymbolRef> {
+    use nom::Err::Failure;
     match keyword {
-        Some(keyword) => match state.borrow_mut().intern_path(&path, keyword) {
+        Some(keyword) => match state.borrow_mut().intern_path(path, keyword) {
             Ok(symbol) => Ok((upto, symbol)),
-            Err(e) => todo!(),
+            Err(e) => Err(Failure(ParseError::new(
+                upto,
+                ParseErrorKind::InterningError(format!("{e}")),
+            ))),
         },
-        None => match state.borrow_mut().intern_relative_path(&path) {
+        None => match state.borrow_mut().intern_relative_path(path) {
             Ok(symbol) => Ok((upto, symbol)),
-            Err(e) => todo!(),
+            Err(e) => Err(Failure(ParseError::new(
+                upto,
+                ParseErrorKind::InterningError(format!("{e}")),
+            ))),
         },
     }
 }
@@ -168,7 +175,7 @@ pub fn parse_symbol<F: LurkField>(
             parse_absolute_symbol(state.clone()),
             parse_relative_symbol(state.clone()),
         ))(from)?;
-        Ok((upto, Syntax::Symbol(Pos::from_upto(from, upto), sym.into())))
+        Ok((upto, Syntax::Symbol(Pos::from_upto(from, upto), sym)))
     }
 }
 
@@ -298,12 +305,14 @@ pub fn parse_list<F: LurkField>(
     move |from: Span<'_>| {
         let (i, _) = tag("(")(from)?;
         let (i, xs) = if meta {
+            // parse the head symbol in the meta package
             let saved_package = state.borrow().get_current_package_name().clone();
             state
                 .borrow_mut()
                 .set_current_package(meta_package_symbol().into())
                 .expect("meta package is available");
             let (i, h) = preceded(parse_space, parse_symbol(state.clone()))(i)?;
+            // then recover the previous package
             state
                 .borrow_mut()
                 .set_current_package(saved_package)

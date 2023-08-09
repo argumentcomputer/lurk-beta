@@ -79,7 +79,7 @@ impl Symbol {
         }
     }
 
-    pub fn new_of_vec(path: Vec<String>, keyword: bool) -> Self {
+    pub fn new_from_vec(path: Vec<String>, keyword: bool) -> Self {
         Self { path, keyword }
     }
 
@@ -94,13 +94,13 @@ impl Symbol {
     }
 
     #[inline]
-    pub fn sym_of_vec(path: Vec<String>) -> Self {
-        Self::new_of_vec(path, false)
+    pub fn sym_from_vec(path: Vec<String>) -> Self {
+        Self::new_from_vec(path, false)
     }
 
     #[inline]
-    pub fn key_of_vec(path: Vec<String>) -> Self {
-        Self::new_of_vec(path, true)
+    pub fn key_from_vec(path: Vec<String>) -> Self {
+        Self::new_from_vec(path, true)
     }
 
     /// Creates a new Symbol with the path extended by the given vector of path segments.

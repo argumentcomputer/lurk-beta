@@ -107,6 +107,7 @@ impl<F: LurkField> ZStore<F> {
             ZPtr(ExprTag::Num, val) => Some(ZExpr::Num(*val)),
             ZPtr(ExprTag::Str, val) if *val == F::ZERO => Some(ZExpr::EmptyStr),
             ZPtr(ExprTag::Sym, val) if *val == F::ZERO => Some(ZExpr::RootSym),
+            ZPtr(ExprTag::Key, val) if *val == F::ZERO => Some(ZExpr::RootSym),
             _ => None,
         }
     }

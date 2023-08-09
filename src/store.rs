@@ -703,17 +703,22 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<Symbol> {
-        if ptr.tag == ExprTag::Nil {
-            return Some(lurk_sym("nil"));
+        match ptr.tag {
+            ExprTag::Nil => Some(lurk_sym("nil")),
+            ExprTag::Sym | ExprTag::Key => {
+                let is_key = ptr.tag == ExprTag::Key;
+                let mut ptr = *ptr;
+                let mut path = Vec::new();
+                while let Some((car, cdr)) = self.fetch_symcons(&ptr) {
+                    let string = self.fetch_string(&car)?;
+                    path.push(string);
+                    ptr = cdr
+                }
+                path.reverse();
+                Some(Symbol::new_from_vec(path, is_key))
+            }
+            _ => None,
         }
-        let mut ptr = *ptr;
-        let mut path = Vec::new();
-        while let Some((car, cdr)) = self.fetch_symcons(&ptr) {
-            let string = self.fetch_string(&car)?;
-            path.push(string);
-            ptr = cdr
-        }
-        Some(Symbol::sym(&path.into_iter().rev().collect::<Vec<_>>()))
     }
 
     pub fn fetch_strcons(&self, ptr: &Ptr<F>) -> Option<(Ptr<F>, Ptr<F>)> {
@@ -807,6 +812,7 @@ impl<F: LurkField> Store<F> {
             ExprTag::Sym => self
                 .fetch_symcons(ptr)
                 .map(|(car, cdr)| Expression::Sym(car, cdr)),
+            ExprTag::Key if ptr.raw.is_null() => Some(Expression::RootKey),
             ExprTag::Key => self
                 .fetch_symcons(ptr)
                 .map(|(car, cdr)| Expression::Key(car, cdr)),
@@ -1018,6 +1024,10 @@ impl<F: LurkField> Store<F> {
                 Some(Expression::RootSym) => (
                     ZExpr::RootSym.z_ptr(&self.poseidon_cache),
                     Some(ZExpr::RootSym),
+                ),
+                Some(Expression::RootKey) => (
+                    ZExpr::RootKey.z_ptr(&self.poseidon_cache),
+                    Some(ZExpr::RootKey),
                 ),
                 Some(Expression::Sym(car, cdr)) => {
                     let (z_car, _) = self.get_z_expr(&car, z_store)?;
@@ -1494,6 +1504,11 @@ impl<F: LurkField> Store<F> {
                     self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
+                (ExprTag::Key, Some(RootSym)) => {
+                    let ptr = self.intern_symnil(true);
+                    self.create_z_expr_ptr(ptr, *z_ptr.value());
+                    Some(ptr)
+                }
                 (ExprTag::Sym, Some(Sym(symcar, symcdr))) => {
                     let symcar = self.intern_z_expr_ptr(&symcar, z_store)?;
                     let symcdr = self.intern_z_expr_ptr(&symcdr, z_store)?;
@@ -1546,7 +1561,7 @@ impl<F: LurkField> Store<F> {
                     Some(ptr)
                 }
                 _ => {
-                    //println!("Failed to get ptr for zptr: {:?}", z_ptr);
+                    // println!("Failed to get ptr for zptr: {:?}", z_ptr);
                     None
                 }
             }
@@ -1687,9 +1702,9 @@ impl<F: LurkField> Store<F> {
 }
 
 impl<F: LurkField> Expression<F> {
-    pub fn is_keyword_sym(&self) -> bool {
-        matches!(self, Expression::Key(_, _))
-    }
+    // pub fn is_keyword_sym(&self) -> bool {
+    //     matches!(self, Expression::Key(_, _))
+    // }
 
     pub const fn as_str(&self) -> Option<&str> {
         match self {
@@ -1915,11 +1930,11 @@ impl<F: LurkField> ZStore<F> {
     pub fn to_store_with_z_ptr(&self, z_ptr: &ZExprPtr<F>) -> Result<(Store<F>, Ptr<F>), Error> {
         let mut store = Store::new();
 
-        for ptr in self.expr_map.keys() {
-            store.intern_z_expr_ptr(ptr, self);
+        for z_ptr in self.expr_map.keys() {
+            store.intern_z_expr_ptr(z_ptr, self);
         }
-        for ptr in self.cont_map.keys() {
-            store.intern_z_cont_ptr(ptr, self);
+        for z_ptr in self.cont_map.keys() {
+            store.intern_z_cont_ptr(z_ptr, self);
         }
         match store.intern_z_expr_ptr(z_ptr, self) {
             Some(ptr_ret) => Ok((store, ptr_ret)),

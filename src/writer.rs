@@ -66,6 +66,7 @@ impl<F: LurkField> Write<F> for Expression<F> {
         match self {
             Nil => write!(w, "nil"),
             RootSym => write_symbol(w, Symbol::root_sym(), state),
+            RootKey => write_symbol(w, Symbol::root_key(), state),
             Sym(car, cdr) => {
                 let head = store.fetch_string(car).expect("missing symbol head");
                 let tail = store.fetch_sym(cdr).expect("missing symbol tail");
@@ -73,7 +74,7 @@ impl<F: LurkField> Write<F> for Expression<F> {
             }
             Key(car, cdr) => {
                 let head = store.fetch_string(car).expect("missing keyword head");
-                let tail = store.fetch_sym(cdr).expect("missing keyword tail");
+                let tail = store.fetch_key(cdr).expect("missing keyword tail");
                 write_symbol(w, tail.extend(&[head]), state)
             }
             EmptyStr => write!(w, "\"\""),

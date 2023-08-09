@@ -31,6 +31,7 @@ pub enum ZExpr<F: LurkField> {
     /// A commitment, which contains an opaque value and a pointer to the hidden data in the `ZStore`
     Comm(F, ZExprPtr<F>),
     RootSym,
+    RootKey,
     /// Contains a symbol (a list of strings) and a pointer to the tail.
     Sym(ZExprPtr<F>, ZExprPtr<F>),
     Key(ZExprPtr<F>, ZExprPtr<F>),
@@ -63,6 +64,7 @@ impl<F: LurkField> std::fmt::Display for ZExpr<F> {
             }
             ZExpr::EmptyStr => write!(f, "emptystr"),
             ZExpr::RootSym => write!(f, "rootsym"),
+            ZExpr::RootKey => write!(f, "rootkey"),
             ZExpr::Thunk(val, cont) => write!(f, "(thunk {} {})", val, cont),
             ZExpr::Fun {
                 arg,
@@ -88,6 +90,7 @@ impl<F: LurkField> ZExpr<F> {
             ),
             ZExpr::Comm(f, x) => ZPtr(ExprTag::Comm, cache.hash3(&[*f, x.0.to_field(), x.1])),
             ZExpr::RootSym => ZPtr(ExprTag::Sym, F::ZERO),
+            ZExpr::RootKey => ZPtr(ExprTag::Key, F::ZERO),
             ZExpr::Sym(x, y) => ZPtr(
                 ExprTag::Sym,
                 cache.hash4(&[x.0.to_field(), x.1, y.0.to_field(), y.1]),

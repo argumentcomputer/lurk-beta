@@ -46,13 +46,13 @@ macro_rules! symbol {
     ( [$( $x:expr ),*] ) => {
         {
             let temp_vec = vec![ $( $x.to_string() ),* ];
-            $crate::syntax::Syntax::Symbol(Pos::No, $crate::symbol::Symbol::sym_of_vec(temp_vec).into())
+            $crate::syntax::Syntax::Symbol(Pos::No, $crate::symbol::Symbol::sym_from_vec(temp_vec).into())
         }
     };
     ( $f:ty, [$( $x:expr ),*] ) => {
         {
             let temp_vec = vec![ $( $x.to_owned() ),* ];
-            $crate::syntax::Syntax::<$f>::Symbol(Pos::No, $crate::symbol::Symbol::sym_of_vec(temp_vec).into())
+            $crate::syntax::Syntax::<$f>::Symbol(Pos::No, $crate::symbol::Symbol::sym_from_vec(temp_vec).into())
         }
     };
 }
@@ -62,13 +62,13 @@ macro_rules! keyword {
     ( [$( $x:expr ),*] ) => {
         {
             let temp_vec = vec![ $( $x.to_string() ),* ];
-            $crate::syntax::Syntax::Symbol(Pos::No, $crate::symbol::Symbol::key_of_vec(temp_vec).into())
+            $crate::syntax::Syntax::Symbol(Pos::No, $crate::symbol::Symbol::key_from_vec(temp_vec).into())
         }
     };
     ( $f:ty, [$( $x:expr ),*] ) => {
         {
             let temp_vec = vec![ $( $x.to_owned() ),* ];
-            $crate::syntax::Syntax::<$f>::Path(Pos::No, $crate::symbol::Symbol::key_of_vec(temp_vec).into())
+            $crate::syntax::Syntax::<$f>::Path(Pos::No, $crate::symbol::Symbol::key_from_vec(temp_vec).into())
         }
     };
 }
