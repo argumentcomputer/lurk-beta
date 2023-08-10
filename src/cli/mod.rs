@@ -522,19 +522,17 @@ impl Cli {
                 LurkProof::verify_proof(&verify_args.proof_id)?;
                 Ok(())
             }
-            #[allow(unused_variables)]
             Command::Circom(circom_args) => {
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    use crate::cli::circom::non_wasm::create_circom_gadget;
-                    if circom_args.name == "main" {
-                        bail!("Circom gadget name cannot be `main`, for internal circom reasons")
-                    }
-                    let config = get_config(&circom_args.config)?;
-                    log::info!("Configured variables: {:?}", config);
-                    set_lurk_dirs(&config, &None, &None, &None, &circom_args.circom_dir);
-                    create_circom_gadget(circom_args.circom_folder, circom_args.name)?;
+                use crate::cli::circom::create_circom_gadget;
+                if circom_args.name == "main" {
+                    bail!("Circom gadget name cannot be `main`, for internal circom reasons")
                 }
+
+                let config = get_config(&circom_args.config)?;
+                log::info!("Configured variables: {:?}", config);
+                set_lurk_dirs(&config, &None, &None, &None, &circom_args.circom_dir);
+
+                create_circom_gadget(circom_args.circom_folder, circom_args.name)?;
                 Ok(())
             }
         }

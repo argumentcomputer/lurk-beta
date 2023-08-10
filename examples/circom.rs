@@ -26,7 +26,7 @@ use std::time::Instant;
 
 use lurk::circuit::gadgets::circom::CircomGadget;
 use lurk::circuit::gadgets::pointer::AllocatedPtr;
-use lurk::coprocessor::circom::non_wasm::CircomCoprocessor;
+use lurk::coprocessor::circom::CircomCoprocessor;
 use lurk::eval::{empty_sym_env, lang::Lang};
 use lurk::field::LurkField;
 use lurk::proof::{nova::NovaProver, Prover};
