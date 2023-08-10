@@ -104,6 +104,10 @@ struct LoadArgs {
     /// Path to commitments directory
     #[clap(long, value_parser)]
     commits_dir: Option<Utf8PathBuf>,
+
+    /// Path to commitments directory
+    #[clap(long, value_parser)]
+    circom_dir: Option<Utf8PathBuf>,
 }
 
 #[derive(Parser, Debug)]
@@ -140,6 +144,9 @@ struct LoadCli {
 
     #[clap(long, value_parser)]
     commits_dir: Option<Utf8PathBuf>,
+
+    #[clap(long, value_parser)]
+    circom_dir: Option<Utf8PathBuf>,
 }
 
 impl LoadArgs {
@@ -156,6 +163,7 @@ impl LoadArgs {
             public_params_dir: self.public_params_dir,
             proofs_dir: self.proofs_dir,
             commits_dir: self.commits_dir,
+            circom_dir: self.circom_dir,
         }
     }
 }
@@ -201,6 +209,10 @@ struct ReplArgs {
     /// Path to commitments directory
     #[clap(long, value_parser)]
     commits_dir: Option<Utf8PathBuf>,
+
+    /// Path to circom directory
+    #[clap(long, value_parser)]
+    circom_dir: Option<Utf8PathBuf>,
 }
 
 #[derive(Parser, Debug)]
@@ -234,6 +246,9 @@ struct ReplCli {
 
     #[clap(long, value_parser)]
     commits_dir: Option<Utf8PathBuf>,
+
+    #[clap(long, value_parser)]
+    circom_dir: Option<Utf8PathBuf>,
 }
 
 impl ReplArgs {
@@ -249,6 +264,7 @@ impl ReplArgs {
             public_params_dir: self.public_params_dir,
             proofs_dir: self.proofs_dir,
             commits_dir: self.commits_dir,
+            circom_dir: self.circom_dir,
         }
     }
 }
@@ -362,7 +378,7 @@ impl ReplCli {
             &self.public_params_dir,
             &self.proofs_dir,
             &self.commits_dir,
-            &None, // TODO: help
+            &self.circom_dir,
         );
         let rc = get_parsed_usize("rc", &self.rc, &config, DEFAULT_RC)?;
         let limit = get_parsed_usize("limit", &self.limit, &config, DEFAULT_LIMIT)?;
@@ -413,7 +429,7 @@ impl LoadCli {
             &self.public_params_dir,
             &self.proofs_dir,
             &self.commits_dir,
-            &None, // TODO: help
+            &self.circom_dir,
         );
         let rc = get_parsed_usize("rc", &self.rc, &config, DEFAULT_RC)?;
         let limit = get_parsed_usize("limit", &self.limit, &config, DEFAULT_LIMIT)?;
@@ -472,9 +488,18 @@ struct CircomArgs {
     #[clap(value_parser)]
     #[arg(verbatim_doc_comment)]
     circom_folder: Utf8PathBuf,
+
     /// The name of the circom gadget (the name cannot be `main`, for internal circom reasons)
     #[clap(long, value_parser)]
     name: String,
+
+    /// Config file, containing the lowest precedence parameters
+    #[clap(long, value_parser)]
+    config: Option<Utf8PathBuf>,
+
+    /// Path to proofs directory
+    #[clap(long, value_parser)]
+    circom_dir: Option<Utf8PathBuf>,
 }
 
 impl Cli {
@@ -505,6 +530,9 @@ impl Cli {
                     if circom_args.name == "main" {
                         bail!("Circom gadget name cannot be `main`, for internal circom reasons")
                     }
+                    let config = get_config(&circom_args.config)?;
+                    log::info!("Configured variables: {:?}", config);
+                    set_lurk_dirs(&config, &None, &None, &None, &circom_args.circom_dir);
                     create_circom_gadget(circom_args.circom_folder, circom_args.name)?;
                 }
                 Ok(())

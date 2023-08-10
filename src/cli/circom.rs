@@ -1,5 +1,5 @@
 #[cfg(not(target_arch = "wasm32"))]
-pub mod non_wasm {
+pub(crate) mod non_wasm {
     use std::{
         env,
         fs::{self, File},
@@ -44,9 +44,9 @@ pub mod non_wasm {
         Ok(Command::new(path.as_ref().as_os_str()))
     }
 
-    /// We try the following places to find `circom`, in this order
-    ///  1. `LURK_CIRCOM_PATH`
-    ///  2. `.lurk/circom/circom`
+    /// We try to find the circom binary at `<CIRCOM_DIR>/circom`,
+    /// where `<CIRCOM_DIR>` can be configured via the config file,
+    /// a environment variable, or through a CLI argument, in that order.
     ///
     /// We *do not* consider the case where the user already has some
     /// `circom` binary downloaded. The user will have two possibly
@@ -58,10 +58,7 @@ pub mod non_wasm {
     /// exists. If it does, we return the path. Otherwise we download
     /// the binary to the location and return the path.
     fn get_circom_binary() -> Result<Command> {
-        let circom_path = match env::var("LURK_CIRCOM_PATH") {
-            Ok(path) => Utf8PathBuf::from(&path),
-            Err(_) => circom_binary_path(),
-        };
+        let circom_path = circom_binary_path();
 
         let output = Command::new(&circom_path).arg("--version").output();
 
@@ -81,7 +78,7 @@ pub mod non_wasm {
         }
     }
 
-    pub fn create_circom_gadget(circom_folder: Utf8PathBuf, name: String) -> Result<()> {
+    pub(crate) fn create_circom_gadget(circom_folder: Utf8PathBuf, name: String) -> Result<()> {
         let circom_gadget = circom_dir().join(&name);
         let circom_file = circom_folder.join(&name).with_extension("circom");
 
