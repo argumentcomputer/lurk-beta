@@ -1,8 +1,4 @@
-use std::{
-    fs,
-    path::Path,
-    process::Command,
-};
+use std::{fs, path::Path, process::Command};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -14,7 +10,6 @@ use camino::Utf8PathBuf;
 use crate::cli::paths::{circom_binary_path, circom_dir};
 
 const CIRCOM_VERSION: &str = "2.1.6";
-
 
 #[cfg(target_arch = "wasm32")]
 fn download_circom_binary(_path: impl AsRef<Path>) -> Result<Command> {
