@@ -41,6 +41,7 @@ impl<V> VarMap<V> {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn get_many(&self, args: &[Var]) -> Result<Vec<&V>> {
         args.iter().map(|arg| self.get(arg)).collect()
     }

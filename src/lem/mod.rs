@@ -611,6 +611,22 @@ mod tests {
     }
 
     #[test]
+    fn handles_non_ssa() {
+        let func = func!(foo(expr_in, _env_in, _cont_in): 3 => {
+            let x: Expr::Cons = hash2(expr_in, expr_in);
+            // The next lines rewrite `x` and it should move on smoothly, matching
+            // the expected number of constraints accordingly
+            let x: Expr::Cons = hash2(x, x);
+            let x: Expr::Cons = hash2(x, x);
+            let cont_out_terminal: Cont::Terminal;
+            return (x, x, cont_out_terminal);
+        });
+
+        let inputs = vec![Ptr::num(Fr::from_u64(42))];
+        synthesize_test_helper(&func, inputs, SlotsCounter::new((3, 0, 0)));
+    }
+
+    #[test]
     fn test_simple_all_paths_delta() {
         let lem = func!(foo(expr_in, env_in, _cont_in): 3 => {
             let cont_out_terminal: Cont::Terminal;

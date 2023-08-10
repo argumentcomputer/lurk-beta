@@ -42,6 +42,7 @@ once_cell = { workspace = true }
 pairing = { workspace = true }
 pasta_curves = { workspace = true, features = ["repr-c", "serde"] }
 peekmore = "1.3.0"
+pfds = "0.4.0"
 pretty_env_logger = { workspace = true }
 rand = { workspace = true }
 rand_core = { version = "0.6.4", default-features = false }

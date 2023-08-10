@@ -1520,6 +1520,7 @@ dependencies = [
  "pasta-msm",
  "pasta_curves",
  "peekmore",
+ "pfds",
  "pprof",
  "pretty_env_logger",
  "proptest",
@@ -1966,6 +1967,12 @@ dependencies = [
  "pest",
  "sha2",
 ]
+
+[[package]]
+name = "pfds"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7bc04d80d908460af0693af20e27f1326999862d88970dd8a479f648162b5e8c"
 
 [[package]]
 name = "plotters"
