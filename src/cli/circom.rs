@@ -102,7 +102,7 @@ pub(crate) fn create_circom_gadget(circom_folder: Utf8PathBuf, name: String) -> 
     }
 
     // get out `name`_js/`name`.wasm and `name`.r1cs
-    // and put them in circom_gadgets()/`name`/*
+    // and put them in <CIRCOM_DIR>/`name`/*
     fs::copy(
         circom_gadget.join(format!("{}_js/{}.wasm", &name, &name)),
         circom_gadget.join(format!("{}.wasm", &name)),
