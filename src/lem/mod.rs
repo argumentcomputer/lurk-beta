@@ -288,7 +288,7 @@ impl Func {
 
     /// Performs the static checks described in LEM's docstring.
     pub fn check(&self) -> Result<()> {
-        use std::collections::{HashMap, HashSet};
+        use std::collections::HashMap;
         #[inline(always)]
         fn bind(var: &Var, map: &mut HashMap<Var, bool>) -> Result<()> {
             if let Some(u) = map.insert(var.clone(), false) {
@@ -398,7 +398,6 @@ impl Func {
                 }
                 Ctrl::MatchTag(var, cases, def) => {
                     use_var(var, map)?;
-                    let mut tags = HashSet::new();
                     let mut kind = None;
                     for (tag, block) in cases {
                         let tag_kind = match tag {
@@ -413,9 +412,6 @@ impl Func {
                         } else {
                             kind = Some(tag_kind)
                         }
-                        if !tags.insert(tag) {
-                            bail!("Tag {tag} already defined.");
-                        }
                         recurse(block, return_size, map)?;
                     }
                     match def {
@@ -425,7 +421,6 @@ impl Func {
                 }
                 Ctrl::MatchVal(var, cases, def) => {
                     use_var(var, map)?;
-                    let mut lits = HashSet::new();
                     let mut kind = None;
                     for (lit, block) in cases {
                         let lit_kind = match lit {
@@ -439,9 +434,6 @@ impl Func {
                             }
                         } else {
                             kind = Some(lit_kind)
-                        }
-                        if !lits.insert(lit) {
-                            bail!("Case {:?} already defined.", lit);
                         }
                         recurse(block, return_size, map)?;
                     }
@@ -589,25 +581,34 @@ mod tests {
     }
 
     #[test]
-    fn resolves_conflicts_of_clashing_names_in_parallel_branches() {
+    fn fails_on_not_defined() {
+        use crate::tag::ContTag::*;
+
         let lem = func!(foo(expr_in, env_in, _cont_in): 3 => {
             match expr_in.tag {
-                // This match is creating `cont_out_terminal` on two different
-                // branches, which, in theory, would cause troubles at allocation
-                // time.
                 Expr::Num => {
                     let cont_out_terminal: Cont::Terminal;
                     return (expr_in, env_in, cont_out_terminal);
                 }
                 Expr::Char => {
-                    let cont_out_terminal: Cont::Terminal;
                     return (expr_in, env_in, cont_out_terminal);
                 }
             }
         });
 
-        let inputs = vec![Ptr::num(Fr::from_u64(42))];
-        synthesize_test_helper(&lem, inputs, SlotsCounter::default());
+        let store = &mut Store::default();
+        let outermost = Ptr::null(Tag::Cont(Outermost));
+        let terminal = Ptr::null(Tag::Cont(Terminal));
+        let error = Ptr::null(Tag::Cont(Error));
+        let nil = store.intern_nil();
+        let stop_cond = |output: &[Ptr<Fr>]| output[2] == terminal || output[2] == error;
+
+        let input = vec![Ptr::num(Fr::from_u64(42)), nil, outermost];
+
+        let (frames, _) = lem.call_until(input, store, stop_cond).unwrap();
+
+        let cs = &mut TestConstraintSystem::<Fr>::new();
+        assert!(lem.synthesize(cs, store, &frames[0]).is_err());
     }
 
     #[test]
