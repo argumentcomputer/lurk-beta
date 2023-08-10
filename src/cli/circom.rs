@@ -1,9 +1,7 @@
 use std::{
-    env,
-    fs::{self, File},
-    io::Write,
+    fs,
     path::Path,
-    process::{exit, Command},
+    process::Command,
 };
 
 #[cfg(unix)]
@@ -25,7 +23,9 @@ fn download_circom_binary(_path: impl AsRef<Path>) -> Result<Command> {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn download_circom_binary(path: impl AsRef<Path>) -> Result<Command> {
-    let url = match env::consts::OS {
+    use std::io::Write;
+
+    let url = match std::env::consts::OS {
         "linux" => "https://github.com/iden3/circom/releases/download/v2.1.6/circom-linux-amd64",
         "macos" => "https://github.com/iden3/circom/releases/download/v2.1.6/circom-macos-amd64",
         "windows" => {
@@ -33,12 +33,12 @@ fn download_circom_binary(path: impl AsRef<Path>) -> Result<Command> {
         }
         _ => {
             eprintln!("Unsupported OS");
-            exit(1);
+            std::process::exit(1);
         }
     };
 
     let response = reqwest::blocking::get(url)?.bytes()?;
-    let mut out = File::create(path.as_ref())?;
+    let mut out = fs::File::create(path.as_ref())?;
     out.write_all(&response)?;
 
     #[cfg(unix)]
