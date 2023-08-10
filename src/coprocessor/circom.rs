@@ -23,13 +23,6 @@ use crate::{
     store::Store,
 };
 
-/// TODO: fix this duplication with the one in `cli::paths`
-// fn circom_dir() -> PathBuf {
-//     home::home_dir()
-//         .expect("no home directory")
-//         .join(".lurk/circom")
-// }
-
 /// To setup a new circom gadget `<NAME>`, place your circom files in a designated folder and
 /// create a file called `<NAME>.circom`. `<CIRCOM_FOLDER>/<NAME>.circom` is the input file
 /// for the `circom` binary; in this file you must declare your circom main component.

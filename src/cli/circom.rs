@@ -2,10 +2,12 @@ use std::{
     env,
     fs::{self, File},
     io::Write,
-    os::unix::prelude::PermissionsExt,
     path::Path,
     process::{exit, Command},
 };
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 use ansi_term::Colour::{Green, Red};
 use anyhow::{bail, Result};
