@@ -75,7 +75,7 @@ use anyhow::{bail, Result};
 use indexmap::IndexMap;
 use std::sync::Arc;
 
-use self::{pointers::Ptr, slot::SlotsCounter, store::Store, var_map::VarMap};
+use self::{pointers::Ptr, slot::SlotsCounter, store::Store};
 
 pub type AString = Arc<str>;
 
@@ -326,10 +326,7 @@ impl Func {
                         }
                         inp.iter().try_for_each(|arg| use_var(arg, map))?;
                         out.iter().try_for_each(|var| bind(var, map))?;
-                        func.input_params
-                            .iter()
-                            .try_for_each(|var| bind(var, map))?;
-                        recurse(&func.body, func.output_size, map)?;
+                        // No need to check `func` itself, since it should already be checked
                     }
                     Op::Null(tgt, _tag) => {
                         bind(tgt, map)?;
@@ -597,9 +594,7 @@ mod tests {
             match expr_in.tag {
                 // This match is creating `cont_out_terminal` on two different
                 // branches, which, in theory, would cause troubles at allocation
-                // time. We solve this problem by calling `LEMOP::deconflict`,
-                // which turns one into `Num.cont_out_terminal` and the other into
-                // `Char.cont_out_terminal`.
+                // time.
                 Expr::Num => {
                     let cont_out_terminal: Cont::Terminal;
                     return (expr_in, env_in, cont_out_terminal);
