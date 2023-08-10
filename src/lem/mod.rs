@@ -55,8 +55,7 @@
 //! 3. Function calls must have the correct number of arguments and must bind
 //!    the correct number of variables
 //! 4. No match statements should have conflicting cases
-//! 5. LEM should be transformed to SSA to make it simple to synthesize
-//! 6. We also check for variables that are not used. If intended they should
+//! 5. We also check for variables that are not used. If intended they should
 //!    be prefixed by "_"
 
 mod circuit;
@@ -282,26 +281,26 @@ impl Func {
             input_params,
             output_size,
             body,
-        }
-        .deconflict(&mut VarMap::new(), &mut 0)?;
+        };
         func.check()?;
         Ok(func)
     }
 
     /// Performs the static checks described in LEM's docstring.
     pub fn check(&self) -> Result<()> {
-        // Check if variable has already been defined. Panics
-        // if it is repeated (means `deconflict` is broken)
         use std::collections::{HashMap, HashSet};
         #[inline(always)]
-        fn is_unique(var: &Var, map: &mut HashMap<Var, bool>) {
-            if map.insert(var.clone(), false).is_some() {
-                panic!("Variable {var} already defined. `deconflict` implementation broken.");
+        fn bind(var: &Var, map: &mut HashMap<Var, bool>) -> Result<()> {
+            if let Some(u) = map.insert(var.clone(), false) {
+                let ch = var.0.chars().next().unwrap();
+                if !u && ch != '_' {
+                    bail!("Variable {var} not used. If intended, please prefix it with \"_\"")
+                }
             }
+            Ok(())
         }
-        // Check if variable is bound and sets it as "used"
         #[inline(always)]
-        fn is_bound(var: &Var, map: &mut HashMap<Var, bool>) -> Result<()> {
+        fn use_var(var: &Var, map: &mut HashMap<Var, bool>) -> Result<()> {
             if map.insert(var.clone(), true).is_none() {
                 bail!("Variable {var} is unbound.");
             }
@@ -325,71 +324,73 @@ impl Func {
                                 func.input_params.len()
                             )
                         }
-                        inp.iter().try_for_each(|arg| is_bound(arg, map))?;
-                        out.iter().for_each(|var| is_unique(var, map));
-                        func.input_params.iter().for_each(|var| is_unique(var, map));
+                        inp.iter().try_for_each(|arg| use_var(arg, map))?;
+                        out.iter().try_for_each(|var| bind(var, map))?;
+                        func.input_params
+                            .iter()
+                            .try_for_each(|var| bind(var, map))?;
                         recurse(&func.body, func.output_size, map)?;
                     }
                     Op::Null(tgt, _tag) => {
-                        is_unique(tgt, map);
+                        bind(tgt, map)?;
                     }
                     Op::Lit(tgt, _lit) => {
-                        is_unique(tgt, map);
+                        bind(tgt, map)?;
                     }
                     Op::Cast(tgt, _tag, src) => {
-                        is_bound(src, map)?;
-                        is_unique(tgt, map);
+                        use_var(src, map)?;
+                        bind(tgt, map)?;
                     }
                     Op::Add(tgt, a, b)
                     | Op::Sub(tgt, a, b)
                     | Op::Mul(tgt, a, b)
                     | Op::Div(tgt, a, b) => {
-                        is_bound(a, map)?;
-                        is_bound(b, map)?;
-                        is_unique(tgt, map);
+                        use_var(a, map)?;
+                        use_var(b, map)?;
+                        bind(tgt, map)?;
                     }
                     Op::Emit(a) => {
-                        is_bound(a, map)?;
+                        use_var(a, map)?;
                     }
                     Op::Hash2(img, _tag, preimg) => {
-                        preimg.iter().try_for_each(|arg| is_bound(arg, map))?;
-                        is_unique(img, map);
+                        preimg.iter().try_for_each(|arg| use_var(arg, map))?;
+                        bind(img, map)?;
                     }
                     Op::Hash3(img, _tag, preimg) => {
-                        preimg.iter().try_for_each(|arg| is_bound(arg, map))?;
-                        is_unique(img, map);
+                        preimg.iter().try_for_each(|arg| use_var(arg, map))?;
+                        bind(img, map)?;
                     }
                     Op::Hash4(img, _tag, preimg) => {
-                        preimg.iter().try_for_each(|arg| is_bound(arg, map))?;
-                        is_unique(img, map);
+                        preimg.iter().try_for_each(|arg| use_var(arg, map))?;
+                        bind(img, map)?;
                     }
                     Op::Unhash2(preimg, img) => {
-                        is_bound(img, map)?;
-                        preimg.iter().for_each(|var| is_unique(var, map))
+                        use_var(img, map)?;
+                        preimg.iter().try_for_each(|var| bind(var, map))?;
                     }
                     Op::Unhash3(preimg, img) => {
-                        is_bound(img, map)?;
-                        preimg.iter().for_each(|var| is_unique(var, map))
+                        use_var(img, map)?;
+                        preimg.iter().try_for_each(|var| bind(var, map))?;
                     }
                     Op::Unhash4(preimg, img) => {
-                        is_bound(img, map)?;
-                        preimg.iter().for_each(|var| is_unique(var, map))
+                        use_var(img, map)?;
+                        preimg.iter().try_for_each(|var| bind(var, map))?;
                     }
                     Op::Hide(tgt, sec, src) => {
-                        is_bound(sec, map)?;
-                        is_bound(src, map)?;
-                        is_unique(tgt, map);
+                        use_var(sec, map)?;
+                        use_var(src, map)?;
+                        bind(tgt, map)?;
                     }
                     Op::Open(tgt_secret, tgt_ptr, comm_or_num) => {
-                        is_bound(comm_or_num, map)?;
-                        is_unique(tgt_secret, map);
-                        is_unique(tgt_ptr, map);
+                        use_var(comm_or_num, map)?;
+                        bind(tgt_secret, map)?;
+                        bind(tgt_ptr, map)?;
                     }
                 }
             }
             match &block.ctrl {
                 Ctrl::Return(return_vars) => {
-                    return_vars.iter().try_for_each(|arg| is_bound(arg, map))?;
+                    return_vars.iter().try_for_each(|arg| use_var(arg, map))?;
                     if return_vars.len() != return_size {
                         bail!(
                             "Return size {} different from expected size of return {}",
@@ -399,7 +400,7 @@ impl Func {
                     }
                 }
                 Ctrl::MatchTag(var, cases, def) => {
-                    is_bound(var, map)?;
+                    use_var(var, map)?;
                     let mut tags = HashSet::new();
                     let mut kind = None;
                     for (tag, block) in cases {
@@ -426,7 +427,7 @@ impl Func {
                     }
                 }
                 Ctrl::MatchVal(var, cases, def) => {
-                    is_bound(var, map)?;
+                    use_var(var, map)?;
                     let mut lits = HashSet::new();
                     let mut kind = None;
                     for (lit, block) in cases {
@@ -453,8 +454,8 @@ impl Func {
                     }
                 }
                 Ctrl::IfEq(x, y, eq_block, else_block) => {
-                    is_bound(x, map)?;
-                    is_bound(y, map)?;
+                    use_var(x, map)?;
+                    use_var(y, map)?;
                     recurse(eq_block, return_size, map)?;
                     recurse(else_block, return_size, map)?;
                 }
@@ -462,7 +463,9 @@ impl Func {
             Ok(())
         }
         let map = &mut HashMap::new();
-        self.input_params.iter().for_each(|var| is_unique(var, map));
+        self.input_params
+            .iter()
+            .try_for_each(|var| bind(var, map))?;
         recurse(&self.body, self.output_size, map)?;
         for (var, u) in map.iter() {
             let ch = var.0.chars().next().unwrap();
@@ -471,26 +474,6 @@ impl Func {
             }
         }
         Ok(())
-    }
-
-    /// Deconflict will replace conflicting names and make the function SSA. The
-    /// conflict resolution is achieved by prepending conflicting variables by
-    /// a unique identifier.
-    ///
-    /// Note: this function is not supposed to be called manually. It's used by
-    /// `Func::new`, which is the API that should be used directly.
-    fn deconflict(mut self, map: &mut VarMap<Var>, uniq: &mut usize) -> Result<Self> {
-        self.input_params = self
-            .input_params
-            .into_iter()
-            .map(|var| {
-                let new_var = var.make_unique(uniq);
-                map.insert(var, new_var.clone());
-                new_var
-            })
-            .collect();
-        self.body = self.body.deconflict(map, uniq)?;
-        Ok(self)
     }
 
     /// Unrolls a function of equal input/output sizes `n` times
@@ -518,155 +501,6 @@ impl Func {
             self.output_size,
             body,
         )
-    }
-}
-
-impl Block {
-    fn deconflict(self, map: &mut VarMap<Var>, uniq: &mut usize) -> Result<Self> {
-        #[inline]
-        fn insert_one(map: &mut VarMap<Var>, uniq: &mut usize, var: &Var) -> Var {
-            let new_var = var.make_unique(uniq);
-            map.insert(var.clone(), new_var.clone());
-            new_var
-        }
-
-        #[inline]
-        fn insert_many(map: &mut VarMap<Var>, uniq: &mut usize, vars: &[Var]) -> Vec<Var> {
-            vars.iter().map(|var| insert_one(map, uniq, var)).collect()
-        }
-
-        let mut ops = Vec::with_capacity(self.ops.len());
-        for op in self.ops {
-            match op {
-                Op::Call(out, func, inp) => {
-                    let inp = map.get_many_cloned(&inp)?;
-                    let out = insert_many(map, uniq, &out);
-                    let func = Box::new(func.deconflict(map, uniq)?);
-                    ops.push(Op::Call(out, func, inp))
-                }
-                Op::Null(tgt, tag) => ops.push(Op::Null(insert_one(map, uniq, &tgt), tag)),
-                Op::Lit(tgt, lit) => ops.push(Op::Lit(insert_one(map, uniq, &tgt), lit)),
-                Op::Cast(tgt, tag, src) => {
-                    let src = map.get_cloned(&src)?;
-                    let tgt = insert_one(map, uniq, &tgt);
-                    ops.push(Op::Cast(tgt, tag, src))
-                }
-                Op::Add(tgt, a, b) => {
-                    let a = map.get_cloned(&a)?;
-                    let b = map.get_cloned(&b)?;
-                    let tgt = insert_one(map, uniq, &tgt);
-                    ops.push(Op::Add(tgt, a, b))
-                }
-                Op::Sub(tgt, a, b) => {
-                    let a = map.get_cloned(&a)?;
-                    let b = map.get_cloned(&b)?;
-                    let tgt = insert_one(map, uniq, &tgt);
-                    ops.push(Op::Sub(tgt, a, b))
-                }
-                Op::Mul(tgt, a, b) => {
-                    let a = map.get_cloned(&a)?;
-                    let b = map.get_cloned(&b)?;
-                    let tgt = insert_one(map, uniq, &tgt);
-                    ops.push(Op::Mul(tgt, a, b))
-                }
-                Op::Div(tgt, a, b) => {
-                    let a = map.get_cloned(&a)?;
-                    let b = map.get_cloned(&b)?;
-                    let tgt = insert_one(map, uniq, &tgt);
-                    ops.push(Op::Div(tgt, a, b))
-                }
-                Op::Emit(a) => {
-                    let a = map.get_cloned(&a)?;
-                    ops.push(Op::Emit(a))
-                }
-                Op::Hash2(img, tag, preimg) => {
-                    let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
-                    let img = insert_one(map, uniq, &img);
-                    ops.push(Op::Hash2(img, tag, preimg))
-                }
-                Op::Hash3(img, tag, preimg) => {
-                    let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
-                    let img = insert_one(map, uniq, &img);
-                    ops.push(Op::Hash3(img, tag, preimg))
-                }
-                Op::Hash4(img, tag, preimg) => {
-                    let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
-                    let img = insert_one(map, uniq, &img);
-                    ops.push(Op::Hash4(img, tag, preimg))
-                }
-                Op::Unhash2(preimg, img) => {
-                    let img = map.get_cloned(&img)?;
-                    let preimg = insert_many(map, uniq, &preimg);
-                    ops.push(Op::Unhash2(preimg.try_into().unwrap(), img))
-                }
-                Op::Unhash3(preimg, img) => {
-                    let img = map.get_cloned(&img)?;
-                    let preimg = insert_many(map, uniq, &preimg);
-                    ops.push(Op::Unhash3(preimg.try_into().unwrap(), img))
-                }
-                Op::Unhash4(preimg, img) => {
-                    let img = map.get_cloned(&img)?;
-                    let preimg = insert_many(map, uniq, &preimg);
-                    ops.push(Op::Unhash4(preimg.try_into().unwrap(), img))
-                }
-                Op::Hide(tgt, sec, pay) => {
-                    let sec = map.get_cloned(&sec)?;
-                    let pay = map.get_cloned(&pay)?;
-                    let tgt = insert_one(map, uniq, &tgt);
-                    ops.push(Op::Hide(tgt, sec, pay))
-                }
-                Op::Open(sec, pay, comm_or_num) => {
-                    let comm_or_num = map.get_cloned(&comm_or_num)?;
-                    let sec = insert_one(map, uniq, &sec);
-                    let pay = insert_one(map, uniq, &pay);
-                    ops.push(Op::Open(sec, pay, comm_or_num))
-                }
-            }
-        }
-        let ctrl = match self.ctrl {
-            Ctrl::MatchTag(var, cases, def) => {
-                let var = map.get_cloned(&var)?;
-                let mut new_cases = Vec::with_capacity(cases.len());
-                for (tag, case) in cases {
-                    let new_case = case.deconflict(&mut map.clone(), uniq)?;
-                    new_cases.push((tag, new_case));
-                }
-                let new_def = match def {
-                    Some(def) => Some(Box::new(def.deconflict(map, uniq)?)),
-                    None => None,
-                };
-                Ctrl::MatchTag(var, IndexMap::from_iter(new_cases), new_def)
-            }
-            Ctrl::MatchVal(var, cases, def) => {
-                let var = map.get_cloned(&var)?;
-                let mut new_cases = Vec::with_capacity(cases.len());
-                for (lit, case) in cases {
-                    let new_case = case.deconflict(&mut map.clone(), uniq)?;
-                    new_cases.push((lit.clone(), new_case));
-                }
-                let new_def = match def {
-                    Some(def) => Some(Box::new(def.deconflict(map, uniq)?)),
-                    None => None,
-                };
-                Ctrl::MatchVal(var, IndexMap::from_iter(new_cases), new_def)
-            }
-            Ctrl::IfEq(x, y, eq_block, else_block) => {
-                let x = map.get_cloned(&x)?;
-                let y = map.get_cloned(&y)?;
-                let eq_block = Box::new(eq_block.deconflict(&mut map.clone(), uniq)?);
-                let else_block = Box::new(else_block.deconflict(&mut map.clone(), uniq)?);
-                Ctrl::IfEq(x, y, eq_block, else_block)
-            }
-            Ctrl::Return(o) => Ctrl::Return(map.get_many_cloned(&o)?),
-        };
-        Ok(Block { ops, ctrl })
-    }
-}
-
-impl Var {
-    fn make_unique(&self, uniq: &mut usize) -> Var {
-        *uniq += 1;
-        Var(format!("{}#{}", self.name(), uniq).into())
     }
 }
 
@@ -779,21 +613,6 @@ mod tests {
 
         let inputs = vec![Ptr::num(Fr::from_u64(42))];
         synthesize_test_helper(&lem, inputs, SlotsCounter::default());
-    }
-
-    #[test]
-    fn handles_non_ssa() {
-        let func = func!(foo(expr_in, _env_in, _cont_in): 3 => {
-            let x: Expr::Cons = hash2(expr_in, expr_in);
-            // The next line rewrites `x` and it should move on smoothly, matching
-            // the expected number of constraints accordingly
-            let x: Expr::Cons = hash2(x, x);
-            let cont_out_terminal: Cont::Terminal;
-            return (x, x, cont_out_terminal);
-        });
-
-        let inputs = vec![Ptr::num(Fr::from_u64(42))];
-        synthesize_test_helper(&func, inputs, SlotsCounter::new((2, 0, 0)));
     }
 
     #[test]
