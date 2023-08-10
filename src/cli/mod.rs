@@ -94,7 +94,7 @@ struct LoadArgs {
 
 #[derive(Parser, Debug)]
 struct LoadCli {
-    #[clap(value_parser)]
+    #[clap(value_parser = parse_filename)]
     lurk_file: Utf8PathBuf,
 
     #[clap(long, value_parser)]
@@ -256,11 +256,11 @@ fn parse_field(field_str: &String) -> Result<LanguageField> {
     }
 }
 
-fn parse_filename(file: &str) -> Result<PathBuf> {
+fn parse_filename(file: &str) -> Result<Utf8PathBuf> {
     if file == "help" {
         bail!("help is not a valid filename. printing help console instead");
     }
-    let path: PathBuf = file.into();
+    let path: Utf8PathBuf = file.into();
     Ok(path)
 }
 
