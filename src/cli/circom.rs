@@ -17,6 +17,13 @@ use crate::cli::paths::{circom_binary_path, circom_dir};
 
 const CIRCOM_VERSION: &str = "2.1.6";
 
+
+#[cfg(target_arch = "wasm32")]
+fn download_circom_binary(_path: impl AsRef<Path>) -> Result<Command> {
+    bail!("wasm does not support downloading")
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 fn download_circom_binary(path: impl AsRef<Path>) -> Result<Command> {
     let url = match env::consts::OS {
         "linux" => "https://github.com/iden3/circom/releases/download/v2.1.6/circom-linux-amd64",

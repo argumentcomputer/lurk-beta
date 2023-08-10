@@ -2,13 +2,33 @@
 //!
 //! ## Setting up a Circom Gadget with Lurk
 //!
-//! Run the following commands:
-//!     `cargo run --release -- circom --name sha256_2 examples/sha256/`
-//!     `cargo run --release --example circom`
+//! First, in a separate directory from `lurk-rs`, clone the circomlib repo with the `Sha256_2` circuit.
+//! ```
+//! git clone git@github.com:iden3/circomlib.git && cd circomlib
+//! ```
+//! In the `circuits` folder, create a new file called `sha256_2.circom`.
+//! ```
+//! cd circuits && touch sha256.circom
+//! ```
+//! In this new file, reate the main component that simply calls the `Sha256_2` circuit.
+//! ```
+//! pragma circom 2.1.4;
+//! 
+//! include "circomlib/sha256/sha256_2.circom";
+//! 
+//! component main = Sha256_2();
+//! ```
+//! 
+//! Now return to the `lurk-rs` directory and run the following commands
+//! ```
+//! cargo run --release -- circom --name sha256_2 <PATH_TO_CIRCOMLIB>/circuits
+//! cargo run --release --example circom
+//! ```
 //!
-//! The new `sha256_2` gadget is stored in `.lurk/circom/sha256_2/*`.
-//! Next, to use the gadget, create a `CircomSha256` struct and implement
-//! the [CircomGadget] trait. Finally, declare the sha256 coprocessor:
+//! This compiles the circom project and processes it for lurk to interface with.
+//! The new `sha256_2` gadget is stored in `.lurk/circom/sha256_2/*`. To use the gadget, 
+//! create a `CircomSha256` struct and implement the [CircomGadget] trait. Refer to the 
+//! example code below. Finally, declare the sha256 coprocessor:
 //!
 //! ```rust
 //! #[derive(Clone, Debug, Coproc)]
