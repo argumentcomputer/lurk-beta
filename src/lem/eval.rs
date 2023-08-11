@@ -804,7 +804,7 @@ mod tests {
     use super::*;
     use crate::lem::{pointers::Ptr, slot::SlotsCounter, store::Store, Tag};
     use crate::tag::ContTag::*;
-    use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
+    use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable, Delta};
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
@@ -834,6 +834,9 @@ mod tests {
         // Stop condition: the continuation is either terminal or error
         let stop_cond = |output: &[Ptr<Fr>]| output[2] == terminal || output[2] == error;
 
+        // Previous constraint system for uniformity checks
+        let mut cs_prev = None;
+
         for (expr_in, expr_out) in pairs {
             let input = vec![expr_in, nil, outermost];
             let (frames, paths) = eval_step.call_until(input, store, stop_cond).unwrap();
@@ -850,7 +853,11 @@ mod tests {
                 let num_constraints = cs.num_constraints();
                 assert_eq!(computed_num_constraints, num_constraints);
                 assert_eq!(num_constraints, NUM_CONSTRAINTS);
-                // TODO: assert uniformity with `Delta` from bellperson
+                if let Some(cs_prev) = cs_prev {
+                    // Check for all input expresssions that all frames are uniform.
+                    assert_eq!(cs.delta(&cs_prev, true), Delta::Equal);
+                }
+                cs_prev = Some(cs);
             }
             all_paths.extend(paths);
         }

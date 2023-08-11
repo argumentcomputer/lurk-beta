@@ -150,11 +150,11 @@ impl Func {
     fn allocate_ptr<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         z_ptr: &ZPtr<F>,
-        var: &Var,
+        name: &str,
     ) -> Result<AllocatedPtr<F>> {
         let allocated_tag =
-            allocate_num(cs, &format!("allocate {var}'s tag"), z_ptr.tag.to_field())?;
-        let allocated_hash = allocate_num(cs, &format!("allocate {var}'s hash"), z_ptr.hash)?;
+            allocate_num(cs, &format!("allocate {name}'s tag"), z_ptr.tag.to_field())?;
+        let allocated_hash = allocate_num(cs, &format!("allocate {name}'s hash"), z_ptr.hash)?;
         Ok(AllocatedPtr::from_parts(allocated_tag, allocated_hash))
     }
 
@@ -172,7 +172,7 @@ impl Func {
             .enumerate()
             .try_fold(bound_allocations, |ba, (i, ptr)| {
                 let param = &self.input_params[i];
-                let allocated_ptr = Self::allocate_ptr(cs, &store.hash_ptr(ptr)?, param)?;
+                let allocated_ptr = Self::allocate_ptr(cs, &store.hash_ptr(ptr)?, param.name())?;
                 Ok(ba.insert(param.clone(), allocated_ptr))
             })
     }
@@ -182,17 +182,19 @@ impl Func {
         cs: &mut CS,
         store: &mut Store<F>,
         frame: &Frame<F>,
-        bound_allocations: BoundAllocations<F>,
-    ) -> Result<(Vec<AllocatedPtr<F>>, BoundAllocations<F>)> {
-        frame.output.iter().enumerate().try_fold(
-            (vec![], bound_allocations),
-            |(mut vec, ba), (i, ptr)| {
-                let var = Var(format!("output[{i}]").into());
-                let allocated_ptr = Func::allocate_ptr(cs, &store.hash_ptr(ptr)?, &var)?;
-                vec.push(allocated_ptr.clone());
-                Ok((vec, ba.insert(var, allocated_ptr)))
-            },
-        )
+    ) -> Result<Vec<AllocatedPtr<F>>> {
+        frame
+            .output
+            .iter()
+            .enumerate()
+            .try_fold(vec![], |mut vec, (i, ptr)| {
+                vec.push(Func::allocate_ptr(
+                    cs,
+                    &store.hash_ptr(ptr)?,
+                    &format!("output[{i}]"),
+                )?);
+                Ok(vec)
+            })
     }
 
     #[inline]
@@ -330,8 +332,7 @@ impl Func {
         // Inputs are constrained by their usage inside the function body
         let bound_allocations = self.allocate_input(cs, store, frame, bound_allocations)?;
         // Outputs are constrained by the return statement. All functions return
-        let (preallocated_outputs, bound_allocations) =
-            Func::allocate_output(cs, store, frame, bound_allocations)?;
+        let preallocated_outputs = Func::allocate_output(cs, store, frame)?;
 
         // Slots are constrained by their usage inside the function body. The ones
         // not used in throughout the concrete path are effectively unconstrained,
@@ -368,6 +369,7 @@ impl Func {
             preallocated_hash4_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             call_outputs: VecDeque<Vec<Ptr<F>>>,
             call_count: usize,
+            hash_op_count: usize,
         }
 
         fn recurse<F: LurkField, CS: ConstraintSystem<F>>(
@@ -407,25 +409,27 @@ impl Func {
                             implies_equal(
                                 &mut cs.namespace(|| {
                                     format!(
-                                        "implies equal for {var}'s tag (LEMOP {:?}, pos {i})",
-                                        &op
+                                        "implies equal for {var}'s tag (hash Op {}, pos {i})",
+                                        g.hash_op_count,
                                     )
                                 }),
                                 not_dummy,
                                 allocated_ptr.tag(),
                                 &preallocated_preimg[ptr_idx], // tag index
                             )?;
+                            g.hash_op_count += 1;
                             implies_equal(
                                 &mut cs.namespace(|| {
                                     format!(
-                                        "implies equal for {var}'s hash (LEMOP {:?}, pos {i})",
-                                        &op
+                                        "implies equal for {var}'s hash (hash Op {}, pos {i})",
+                                        g.hash_op_count,
                                     )
                                 }),
                                 not_dummy,
                                 allocated_ptr.hash(),
                                 &preallocated_preimg[ptr_idx + 1], // hash index
                             )?;
+                            g.hash_op_count += 1;
                         }
 
                         // Allocate the image tag if it hasn't been allocated before,
@@ -458,12 +462,16 @@ impl Func {
                         // Add the implication constraint for the image
                         implies_equal(
                             &mut cs.namespace(|| {
-                                format!("implies equal for {}'s hash (LEMOP {:?})", $img, &op)
+                                format!(
+                                    "implies equal for {}'s hash (hash Op {})",
+                                    $img, g.hash_op_count
+                                )
                             }),
                             not_dummy,
                             allocated_img.hash(),
                             &preallocated_img,
                         )?;
+                        g.hash_op_count += 1;
 
                         // Retrieve preimage hashes and tags create the full preimage pointers
                         // and add them to bound allocations
@@ -494,9 +502,14 @@ impl Func {
                         };
                         assert_eq!(output_vals.len(), out.len());
                         let mut output_ptrs = Vec::with_capacity(out.len());
-                        for (ptr, var) in output_vals.iter().zip(out.iter()) {
+                        g.call_count += 1;
+                        for (i, (ptr, var)) in output_vals.iter().zip(out).enumerate() {
                             let zptr = &g.store.hash_ptr(ptr)?;
-                            let allocated_ptr = Func::allocate_ptr(cs, zptr, var)?;
+                            let allocated_ptr = Func::allocate_ptr(
+                                cs,
+                                zptr,
+                                &format!("Call {}, input {i}", g.call_count),
+                            )?;
                             bound_allocations =
                                 bound_allocations.insert(var.clone(), allocated_ptr.clone());
                             output_ptrs.push(allocated_ptr);
@@ -506,19 +519,18 @@ impl Func {
                         // These are the input parameters (formal variables)
                         let param_list = func.input_params.iter();
                         // Now we bind the `Func`'s input parameters to the arguments in the call.
-                        bound_allocations = param_list
+                        let bound_allocations_call = param_list
                             .zip(args.into_iter())
-                            .fold(bound_allocations, |ba, (param, arg)| {
+                            .fold(bound_allocations.clone(), |ba, (param, arg)| {
                                 ba.insert(param.clone(), arg)
                             });
                         // Finally, we synthesize the circuit for the function body
-                        g.call_count += 1;
                         recurse(
                             &mut cs.namespace(|| format!("Call {}", g.call_count)),
                             &func.body,
                             not_dummy,
                             next_slot,
-                            &bound_allocations,
+                            &bound_allocations_call,
                             &output_ptrs,
                             g,
                         )?;
@@ -849,6 +861,7 @@ impl Func {
                 preallocated_hash4_slots,
                 call_outputs,
                 call_count: 0,
+                hash_op_count: 0,
             },
         )
     }
