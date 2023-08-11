@@ -1706,42 +1706,6 @@ impl<F: LurkField> Store<F> {
 }
 
 impl<F: LurkField> Expression<F> {
-    // pub fn is_keyword_sym(&self) -> bool {
-    //     matches!(self, Expression::Key(_, _))
-    // }
-
-    pub const fn as_str(&self) -> Option<&str> {
-        match self {
-            Expression::Str(_, _) => todo!(),
-            Expression::EmptyStr => Some(""),
-            _ => None,
-        }
-    }
-
-    //pub fn as_sym_str(&self) -> Option<String> {
-    //    todo!()
-    //    //match self {
-    //    //    Expression::Sym(s) => Some(s.full_name()),
-    //    //    _ => None,
-    //    //}
-    //}
-
-    //pub const fn as_sym(&self) -> Option<&Symbol> {
-    //    todo!()
-    //    //match self {
-    //    //    Expression::Sym(s) => Some(s),
-    //    //    _ => None,
-    //    //}
-    //}
-
-    //pub fn as_simple_keyword_string(&self) -> Option<String> {
-    //    todo!()
-    //    //match self {
-    //    //    Expression::Sym(s) => s.simple_keyword_name(),
-    //    //    _ => None,
-    //    //}
-    //}
-
     pub const fn is_null(&self) -> bool {
         matches!(self, Self::Nil)
     }

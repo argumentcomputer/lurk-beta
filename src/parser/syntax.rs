@@ -98,29 +98,20 @@ fn intern_path<'a, F: LurkField>(
 ) -> ParseResult<'a, F, SymbolRef> {
     use nom::Err::Failure;
     match keyword {
-        Some(keyword) => {
-            match state
-                .borrow_mut()
-                .intern_path(path, keyword, create_unknown_packages)
-            {
-                Ok(symbol) => Ok((upto, symbol)),
-                Err(e) => Err(Failure(ParseError::new(
-                    upto,
-                    ParseErrorKind::InterningError(format!("{e}")),
-                ))),
-            }
-        }
-        None => match state
+        Some(keyword) => state
             .borrow_mut()
-            .intern_relative_path(path, create_unknown_packages)
-        {
-            Ok(symbol) => Ok((upto, symbol)),
-            Err(e) => Err(Failure(ParseError::new(
-                upto,
-                ParseErrorKind::InterningError(format!("{e}")),
-            ))),
-        },
+            .intern_path(path, keyword, create_unknown_packages),
+        None => state
+            .borrow_mut()
+            .intern_relative_path(path, create_unknown_packages),
     }
+    .map(|symbol| (upto, symbol))
+    .map_err(|e| {
+        Failure(ParseError::new(
+            upto,
+            ParseErrorKind::InterningError(format!("{e}")),
+        ))
+    })
 }
 
 pub fn parse_absolute_symbol<F: LurkField>(
