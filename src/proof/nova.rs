@@ -919,7 +919,7 @@ pub mod tests {
 
     fn test_prove_unop_regression_aux(chunk_count: usize) {
         let s = &mut Store::<Fr>::default();
-        let expected = s.read("t").unwrap();
+        let expected = s.t_ptr();
         let terminal = s.get_cont_terminal();
         nova_test_full_aux::<Coproc<Fr>>(
             s,

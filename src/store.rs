@@ -151,6 +151,10 @@ impl<F: LurkField> Store<F> {
         self.expect_constants().cons.ptr()
     }
 
+    pub fn cdr_ptr(&self) -> Ptr<F> {
+        self.expect_constants().cdr.ptr()
+    }
+
     pub fn begin_ptr(&self) -> Ptr<F> {
         self.expect_constants().begin.ptr()
     }

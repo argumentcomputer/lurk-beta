@@ -492,9 +492,8 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             let (first, rest) = store.car_cdr(&rest)?;
                             let (second, rest) = store.car_cdr(&rest)?;
                             assert!(rest.is_nil());
-                            let l = store.read_with_state(state.clone(), "let")?;
-                            let current_env =
-                                store.read_with_state(state.clone(), "current-env")?;
+                            let l = store.let_ptr();
+                            let current_env = store.current_env_ptr();
                             let binding = store.list(&[first, second]);
                             let bindings = store.list(&[binding]);
                             let current_env_call = store.list(&[current_env]);
@@ -519,9 +518,8 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             let (first, rest) = store.car_cdr(&rest)?;
                             let (second, rest) = store.car_cdr(&rest)?;
                             assert!(rest.is_nil());
-                            let l = store.read_with_state(state.clone(), "letrec")?;
-                            let current_env =
-                                store.read_with_state(state.clone(), "current-env")?;
+                            let l = store.letrec_ptr();
+                            let current_env = store.current_env_ptr();
                             let binding = store.list(&[first, second]);
                             let bindings = store.list(&[binding]);
                             let current_env_call = store.list(&[current_env]);

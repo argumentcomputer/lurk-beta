@@ -579,11 +579,8 @@ impl Repl<F> {
                 self.fetch(&hash, false)?;
             }
             "open" => {
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    let hash = self.get_comm_hash(cmd, args)?;
-                    self.fetch(&hash, true)?;
-                }
+                let hash = self.get_comm_hash(cmd, args)?;
+                self.fetch(&hash, true)?;
             }
             "clear" => self.env = self.store.nil_ptr(),
             "set-env" => {
@@ -599,12 +596,9 @@ impl Repl<F> {
                 self.prove_last_frames()?;
             }
             "verify" => {
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    let first = self.peek1(cmd, args)?;
-                    let proof_id = self.get_string(&first)?;
-                    LurkProof::verify_proof(&proof_id)?;
-                }
+                let first = self.peek1(cmd, args)?;
+                let proof_id = self.get_string(&first)?;
+                LurkProof::verify_proof(&proof_id)?;
             }
             "defpackage" => {
                 // TODO: handle args
