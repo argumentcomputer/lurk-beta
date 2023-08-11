@@ -10,7 +10,15 @@ fn lurk_cmd() -> Command {
 }
 
 #[test]
-fn test_help_command() {
+fn test_help_subcommand() {
+    let mut cmd = lurk_cmd();
+
+    cmd.arg("help");
+    cmd.assert().success();
+}
+
+#[test]
+fn test_help_flag_command() {
     let mut cmd = lurk_cmd();
 
     cmd.arg("--help");
