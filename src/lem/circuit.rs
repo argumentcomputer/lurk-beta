@@ -109,11 +109,12 @@ impl pfds::Hashable for Var {
     }
 }
 
+#[derive(Clone)]
 struct BoundAllocations<F: LurkField>(pfds::HashMap<Var, AllocatedPtr<F>>);
 
 impl<F: LurkField> BoundAllocations<F> {
     #[inline]
-    fn insert(self, var: Var, ptr: AllocatedPtr<F>) -> Self {
+    fn insert(&self, var: Var, ptr: AllocatedPtr<F>) -> Self {
         Self(self.0.insert(var, ptr))
     }
 
@@ -377,7 +378,7 @@ impl Func {
             bound_allocations: BoundAllocations<F>,
             preallocated_outputs: &Vec<AllocatedPtr<F>>,
             g: &mut Globals<'_, F>,
-        ) -> Result<BoundAllocations<F>> {
+        ) -> Result<()> {
             let mut bound_allocations = bound_allocations;
             for op in &block.ops {
                 macro_rules! hash_helper {
@@ -512,12 +513,12 @@ impl Func {
                             });
                         // Finally, we synthesize the circuit for the function body
                         g.call_count += 1;
-                        bound_allocations = recurse(
+                        recurse(
                             &mut cs.namespace(|| format!("Call {}", g.call_count)),
                             &func.body,
                             not_dummy,
                             next_slot,
-                            bound_allocations,
+                            bound_allocations.clone(),
                             &output_ptrs,
                             g,
                         )?;
@@ -640,7 +641,7 @@ impl Func {
                             )
                             .with_context(|| "couldn't constrain `implies_ptr_equal`")?;
                     }
-                    Ok(bound_allocations)
+                    Ok(())
                 }
                 Ctrl::IfEq(x, y, eq_block, else_block) => {
                     let x = bound_allocations.get(x)?.hash();
@@ -654,16 +655,16 @@ impl Func {
                         and(&mut cs.namespace(|| "if_eq.and.2"), not_dummy, &not_eq)?;
 
                     let mut branch_slot = *next_slot;
-                    let bound_allocations = recurse(
+                    recurse(
                         &mut cs.namespace(|| "if_eq.true"),
                         eq_block,
                         &not_dummy_and_eq,
                         &mut branch_slot,
-                        bound_allocations,
+                        bound_allocations.clone(),
                         preallocated_outputs,
                         g,
                     )?;
-                    let bound_allocations = recurse(
+                    recurse(
                         &mut cs.namespace(|| "if_eq.false"),
                         else_block,
                         &not_dummy_and_not_eq,
@@ -673,13 +674,12 @@ impl Func {
                         g,
                     )?;
                     *next_slot = next_slot.max(branch_slot);
-                    Ok(bound_allocations)
+                    Ok(())
                 }
                 Ctrl::MatchTag(match_var, cases, def) => {
                     let allocated_match_tag = bound_allocations.get(match_var)?.tag().clone();
                     let mut selector = Vec::with_capacity(cases.len() + 1);
                     let mut branch_slots = Vec::with_capacity(cases.len());
-                    let mut bound_allocations = bound_allocations;
                     for (tag, block) in cases {
                         let allocated_has_match = alloc_equal_const(
                             &mut cs.namespace(|| format!("{tag}.alloc_equal_const")),
@@ -698,46 +698,43 @@ impl Func {
                         selector.push(allocated_has_match);
 
                         let mut branch_slot = *next_slot;
-                        bound_allocations = recurse(
+                        recurse(
                             &mut cs.namespace(|| format!("{}", tag)),
                             block,
                             &not_dummy_and_has_match,
                             &mut branch_slot,
-                            bound_allocations,
+                            bound_allocations.clone(),
                             preallocated_outputs,
                             g,
                         )?;
                         branch_slots.push(branch_slot);
                     }
 
-                    match def {
-                        Some(def) => {
-                            let default = selector.iter().all(|b| !b.get_value().unwrap());
-                            let allocated_has_match = Boolean::Is(AllocatedBit::alloc(
-                                &mut cs.namespace(|| "_.allocated_bit"),
-                                Some(default),
-                            )?);
+                    if let Some(def) = def {
+                        let default = selector.iter().all(|b| !b.get_value().unwrap());
+                        let allocated_has_match = Boolean::Is(AllocatedBit::alloc(
+                            &mut cs.namespace(|| "_.allocated_bit"),
+                            Some(default),
+                        )?);
 
-                            let not_dummy_and_has_match = and(
-                                &mut cs.namespace(|| "_.and"),
-                                not_dummy,
-                                &allocated_has_match,
-                            )
-                            .with_context(|| "failed to constrain `and`")?;
+                        let not_dummy_and_has_match = and(
+                            &mut cs.namespace(|| "_.and"),
+                            not_dummy,
+                            &allocated_has_match,
+                        )
+                        .with_context(|| "failed to constrain `and`")?;
 
-                            selector.push(allocated_has_match);
+                        selector.push(allocated_has_match);
 
-                            bound_allocations = recurse(
-                                &mut cs.namespace(|| "_"),
-                                def,
-                                &not_dummy_and_has_match,
-                                next_slot,
-                                bound_allocations,
-                                preallocated_outputs,
-                                g,
-                            )?;
-                        }
-                        None => (),
+                        recurse(
+                            &mut cs.namespace(|| "_"),
+                            def,
+                            &not_dummy_and_has_match,
+                            next_slot,
+                            bound_allocations,
+                            preallocated_outputs,
+                            g,
+                        )?;
                     }
 
                     // The number of slots the match used is the max number of slots of each branch
@@ -753,14 +750,12 @@ impl Func {
                         not_dummy,
                         &selector,
                     )
-                    .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
-                    Ok(bound_allocations)
+                    .with_context(|| " couldn't constrain `enforce_selector_with_premise`")
                 }
                 Ctrl::MatchVal(match_var, cases, def) => {
                     let allocated_lit = bound_allocations.get(match_var)?.hash().clone();
                     let mut selector = Vec::with_capacity(cases.len() + 1);
                     let mut branch_slots = Vec::with_capacity(cases.len());
-                    let mut bound_allocations = bound_allocations;
                     for (lit, block) in cases {
                         let lit_ptr = lit.to_ptr(g.store);
                         let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
@@ -781,46 +776,43 @@ impl Func {
                         selector.push(allocated_has_match);
 
                         let mut branch_slot = *next_slot;
-                        bound_allocations = recurse(
+                        recurse(
                             &mut cs.namespace(|| format!("{:?}", lit)),
                             block,
                             &not_dummy_and_has_match,
                             &mut branch_slot,
-                            bound_allocations,
+                            bound_allocations.clone(),
                             preallocated_outputs,
                             g,
                         )?;
                         branch_slots.push(branch_slot);
                     }
 
-                    match def {
-                        Some(def) => {
-                            let default = selector.iter().all(|b| !b.get_value().unwrap());
-                            let allocated_has_match = Boolean::Is(AllocatedBit::alloc(
-                                &mut cs.namespace(|| "_.alloc_equal_const"),
-                                Some(default),
-                            )?);
+                    if let Some(def) = def {
+                        let default = selector.iter().all(|b| !b.get_value().unwrap());
+                        let allocated_has_match = Boolean::Is(AllocatedBit::alloc(
+                            &mut cs.namespace(|| "_.alloc_equal_const"),
+                            Some(default),
+                        )?);
 
-                            let not_dummy_and_has_match = and(
-                                &mut cs.namespace(|| "_.and"),
-                                not_dummy,
-                                &allocated_has_match,
-                            )
-                            .with_context(|| "failed to constrain `and`")?;
+                        let not_dummy_and_has_match = and(
+                            &mut cs.namespace(|| "_.and"),
+                            not_dummy,
+                            &allocated_has_match,
+                        )
+                        .with_context(|| "failed to constrain `and`")?;
 
-                            selector.push(allocated_has_match);
+                        selector.push(allocated_has_match);
 
-                            bound_allocations = recurse(
-                                &mut cs.namespace(|| "_"),
-                                def,
-                                &not_dummy_and_has_match,
-                                next_slot,
-                                bound_allocations,
-                                preallocated_outputs,
-                                g,
-                            )?;
-                        }
-                        None => (),
+                        recurse(
+                            &mut cs.namespace(|| "_"),
+                            def,
+                            &not_dummy_and_has_match,
+                            next_slot,
+                            bound_allocations,
+                            preallocated_outputs,
+                            g,
+                        )?;
                     }
 
                     // The number of slots the match used is the max number of slots of each branch
@@ -836,8 +828,7 @@ impl Func {
                         not_dummy,
                         &selector,
                     )
-                    .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
-                    Ok(bound_allocations)
+                    .with_context(|| " couldn't constrain `enforce_selector_with_premise`")
                 }
             }
         }
@@ -859,8 +850,7 @@ impl Func {
                 call_outputs,
                 call_count: 0,
             },
-        )?;
-        Ok(())
+        )
     }
 
     /// Computes the number of constraints that `synthesize` should create. It's
