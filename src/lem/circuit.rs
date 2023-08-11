@@ -375,11 +375,11 @@ impl Func {
             block: &Block,
             not_dummy: &Boolean,
             next_slot: &mut SlotsCounter,
-            bound_allocations: BoundAllocations<F>,
+            bound_allocations: &BoundAllocations<F>,
             preallocated_outputs: &Vec<AllocatedPtr<F>>,
             g: &mut Globals<'_, F>,
         ) -> Result<()> {
-            let mut bound_allocations = bound_allocations;
+            let mut bound_allocations = bound_allocations.clone();
             for op in &block.ops {
                 macro_rules! hash_helper {
                     ( $img: expr, $tag: expr, $preimg: expr, $slot: expr ) => {
@@ -518,7 +518,7 @@ impl Func {
                             &func.body,
                             not_dummy,
                             next_slot,
-                            bound_allocations.clone(),
+                            &bound_allocations,
                             &output_ptrs,
                             g,
                         )?;
@@ -660,7 +660,7 @@ impl Func {
                         eq_block,
                         &not_dummy_and_eq,
                         &mut branch_slot,
-                        bound_allocations.clone(),
+                        &bound_allocations,
                         preallocated_outputs,
                         g,
                     )?;
@@ -669,7 +669,7 @@ impl Func {
                         else_block,
                         &not_dummy_and_not_eq,
                         next_slot,
-                        bound_allocations,
+                        &bound_allocations,
                         preallocated_outputs,
                         g,
                     )?;
@@ -703,7 +703,7 @@ impl Func {
                             block,
                             &not_dummy_and_has_match,
                             &mut branch_slot,
-                            bound_allocations.clone(),
+                            &bound_allocations,
                             preallocated_outputs,
                             g,
                         )?;
@@ -731,7 +731,7 @@ impl Func {
                             def,
                             &not_dummy_and_has_match,
                             next_slot,
-                            bound_allocations,
+                            &bound_allocations,
                             preallocated_outputs,
                             g,
                         )?;
@@ -781,7 +781,7 @@ impl Func {
                             block,
                             &not_dummy_and_has_match,
                             &mut branch_slot,
-                            bound_allocations.clone(),
+                            &bound_allocations,
                             preallocated_outputs,
                             g,
                         )?;
@@ -809,7 +809,7 @@ impl Func {
                             def,
                             &not_dummy_and_has_match,
                             next_slot,
-                            bound_allocations,
+                            &bound_allocations,
                             preallocated_outputs,
                             g,
                         )?;
@@ -839,7 +839,7 @@ impl Func {
             &self.body,
             &Boolean::Constant(true),
             &mut SlotsCounter::default(),
-            bound_allocations,
+            &bound_allocations,
             &preallocated_outputs,
             &mut Globals {
                 store,
