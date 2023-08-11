@@ -1,3 +1,6 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use super::*;
 use crate::coprocessor::Coprocessor;
 use crate::eval::lang::Coproc;
@@ -12,6 +15,45 @@ use pasta_curves::pallas::Scalar as Fr;
 
 use crate as lurk;
 mod trie;
+
+fn test_aux_with_state<C: Coprocessor<Fr>>(
+    s: &mut Store<Fr>,
+    state: Rc<RefCell<State>>,
+    expr: &str,
+    expected_result: Option<Ptr<Fr>>,
+    expected_env: Option<Ptr<Fr>>,
+    expected_cont: Option<ContPtr<Fr>>,
+    expected_emitted: Option<Vec<Ptr<Fr>>>,
+    expected_iterations: usize,
+    lang: Option<&Lang<Fr, C>>,
+) {
+    let ptr = s.read_with_state(state, expr).unwrap();
+
+    if let Some(lang) = lang {
+        test_aux2(
+            s,
+            &ptr,
+            expected_result,
+            expected_env,
+            expected_cont,
+            expected_emitted,
+            expected_iterations,
+            lang,
+        )
+    } else {
+        let lang = Lang::<Fr, Coproc<Fr>>::new();
+        test_aux2(
+            s,
+            &ptr,
+            expected_result,
+            expected_env,
+            expected_cont,
+            expected_emitted,
+            expected_iterations,
+            &lang,
+        )
+    }
+}
 
 fn test_aux<C: Coprocessor<Fr>>(
     s: &mut Store<Fr>,
