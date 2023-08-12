@@ -796,6 +796,16 @@ pub(crate) fn implies_equal<CS: ConstraintSystem<F>, F: PrimeField>(
     })
 }
 
+/// Enforce equality of an allocated number and a constant given an implication premise
+pub(crate) fn implies_equal_const<CS: ConstraintSystem<F>, F: PrimeField>(
+    cs: &mut CS,
+    premise: &Boolean,
+    a: &AllocatedNum<F>,
+    b: F,
+) -> Result<(), SynthesisError> {
+    enforce_implication_lc_zero(cs, premise, |lc| lc + a.get_variable() - (b, CS::one()))
+}
+
 /// Enforce equality of two allocated numbers given an implication premise
 #[allow(dead_code)]
 pub(crate) fn implies_equal_zero<CS: ConstraintSystem<F>, F: PrimeField>(
