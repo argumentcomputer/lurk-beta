@@ -36,7 +36,7 @@ use crate::circuit::gadgets::{
     constraints::{
         add, alloc_equal, alloc_is_zero, allocate_is_negative, and, boolean_to_num, div,
         enforce_pack, enforce_product_and_sum, enforce_selector_with_premise, implies_equal, 
-        implies_equal_const, implies_unequal, implies_u64, mul, pick, sub,
+        implies_equal_const, implies_unequal, implies_unequal_const, implies_u64, mul, pick, sub,
     },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
@@ -954,6 +954,19 @@ impl Func {
 
                     match def {
                         Some(def) => {
+                            for (b, (tag, _)) in selector.iter().zip(cases.iter()) {
+                                let not_eq = and(
+                                    &mut cs.namespace(|| format!("{tag} not_eq")),
+                                    not_dummy,
+                                    &b.not(),
+                                )?;
+                                implies_unequal_const(
+                                    &mut cs.namespace(|| format!("{tag} implies_unequal")),
+                                    &not_eq,
+                                    &match_tag,
+                                    tag.to_field(),
+                                )?;
+                            }
                             let default = selector.iter().fold(not_dummy.get_value(), |acc, b| {
                                 acc.and_then(|acc| b.get_value().map(|b| acc && !b))
                             });
@@ -961,8 +974,6 @@ impl Func {
                                 &mut cs.namespace(|| "_.allocated_bit"),
                                 default,
                             )?);
-                            // TODO Add constraints that are impossible to be satisfied by any
-                            // of the other branches.
 
                             selector.push(has_match.clone());
 
@@ -1036,6 +1047,21 @@ impl Func {
 
                     match def {
                         Some(def) => {
+                            for (i, (b, (lit, _))) in selector.iter().zip(cases.iter()).enumerate() {
+                                let lit_ptr = lit.to_ptr(g.store);
+                                let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
+                                let not_eq = and(
+                                    &mut cs.namespace(|| format!("{i} not_eq")),
+                                    not_dummy,
+                                    &b.not(),
+                                )?;
+                                implies_unequal_const(
+                                    &mut cs.namespace(|| format!("{i} implies_unequal")),
+                                    &not_eq,
+                                    &match_lit,
+                                    lit_hash,
+                                )?;
+                            }
                             let default = selector.iter().fold(not_dummy.get_value(), |acc, b| {
                                 acc.and_then(|acc| b.get_value().map(|b| acc && !b))
                             });
@@ -1043,8 +1069,6 @@ impl Func {
                                 &mut cs.namespace(|| "_.allocated_bit"),
                                 default,
                             )?);
-                            // TODO Add constraints that are impossible to be satisfied by any
-                            // of the other branches.
 
                             selector.push(has_match.clone());
 
@@ -1212,8 +1236,9 @@ impl Func {
                     }
                     match def {
                         Some(def) => {
-                            // constraints for the boolean and the default case
-                            num_constraints += 1;
+                            // constraints for the boolean, the unequalities and the default case
+                            let multiplier = if nested { 2 } else { 1 };
+                            num_constraints += 1 + multiplier * cases.len();
                             num_constraints += recurse(def, true, globals, store);
                         }
                         None => (),
@@ -1227,7 +1252,8 @@ impl Func {
                     }
                     match def {
                         Some(def) => {
-                            num_constraints += 1;
+                            let multiplier = if nested { 2 } else { 1 };
+                            num_constraints += 1 + multiplier * cases.len();
                             num_constraints += recurse(def, true, globals, store);
                         }
                         None => (),
