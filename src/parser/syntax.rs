@@ -485,7 +485,7 @@ pub mod tests {
 
     #[test]
     fn unit_parse_symbol() {
-        let state_ = State::minimal().mutable();
+        let state_ = State::default().mutable();
         let state = || state_.clone();
         assert!(test(parse_raw_symbol(state(), true), "", None));
         assert!(test(parse_absolute_symbol(state(), true), "", None));
@@ -614,7 +614,7 @@ pub mod tests {
 
     #[test]
     fn unit_parse_keyword() {
-        let state_ = State::minimal().mutable();
+        let state_ = State::default().mutable();
         let state = || state_.clone();
         assert!(test(parse_symbol(state(), true), "", None));
         assert!(test(parse_symbol(state(), true), ":", None));
@@ -682,7 +682,7 @@ pub mod tests {
 
     #[test]
     fn unit_parse_list() {
-        let state_ = State::minimal().mutable();
+        let state_ = State::default().mutable();
         let state = || state_.clone();
         assert!(test(
             parse_list(state(), false, true),
@@ -780,7 +780,7 @@ pub mod tests {
 
     #[test]
     fn unit_parse_hash_char() {
-        let state_ = State::minimal().mutable();
+        let state_ = State::default().mutable();
         let state = || state_.clone();
         assert!(test(parse_hash_char(), "#\\a", Some(char!('a'))));
         assert!(test(parse_hash_char(), "#\\b", Some(char!('b'))));
@@ -810,7 +810,7 @@ pub mod tests {
 
     #[test]
     fn unit_parse_quote() {
-        let state_ = State::minimal().mutable();
+        let state_ = State::default().mutable();
         let state = || state_.clone();
         assert!(test(
             parse_quote(state(), true),
@@ -908,7 +908,7 @@ pub mod tests {
         .into_iter()
         .rev()
         .collect();
-        let state_ = State::minimal().mutable();
+        let state_ = State::default().mutable();
         let state = || state_.clone();
 
         assert!(test(
@@ -1018,7 +1018,7 @@ pub mod tests {
     fn test_minus_zero_symbol() {
         let x: Syntax<Scalar> = symbol!(["-0"]);
         let text = format!("{}", x);
-        let (_, res) = parse_syntax(State::minimal().mutable(), false, true)(Span::new(&text))
+        let (_, res) = parse_syntax(State::default().mutable(), false, true)(Span::new(&text))
             .expect("valid parse");
         assert_eq!(x, res)
     }
@@ -1027,7 +1027,7 @@ pub mod tests {
         #[test]
         fn prop_syntax(x in any::<Syntax<Scalar>>()) {
             let text = format!("{}", x);
-            let (_, res) = parse_syntax(State::minimal().mutable(), false, true)(Span::new(&text)).expect("valid parse");
+            let (_, res) = parse_syntax(State::default().mutable(), false, true)(Span::new(&text)).expect("valid parse");
             assert_eq!(x, res)
         }
     }

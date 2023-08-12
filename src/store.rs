@@ -506,10 +506,10 @@ impl<F: LurkField> Store<F> {
                 let path_ptr = self.intern_symbol_path(sym.path());
                 let sym_ptr = if sym == &lurk_sym("nil") {
                     path_ptr.cast(Nil)
-                } else if !sym.is_keyword() {
-                    path_ptr
-                } else {
+                } else if sym.is_keyword() {
                     path_ptr.cast(Key)
+                } else {
+                    path_ptr
                 };
                 self.symbol_cache.insert(sym.clone(), sym_ptr);
                 sym_ptr

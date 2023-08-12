@@ -27,7 +27,7 @@ impl Package {
     }
 
     #[inline]
-    pub fn name(&self) -> &SymbolRef {
+    pub const fn name(&self) -> &SymbolRef {
         &self.name
     }
 

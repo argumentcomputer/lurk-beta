@@ -32,12 +32,12 @@ impl Symbol {
     }
 
     #[inline]
-    pub fn is_keyword(&self) -> bool {
+    pub const fn is_keyword(&self) -> bool {
         self.keyword
     }
 
     #[inline]
-    pub fn root(keyword: bool) -> Self {
+    pub const fn root(keyword: bool) -> Self {
         Self {
             path: vec![],
             keyword,
@@ -287,7 +287,7 @@ impl Symbol {
         use pasta_curves::pallas::Scalar;
         match preceded(
             parse_space::<Scalar>,
-            parse_symbol(State::minimal().mutable(), true),
+            parse_symbol(State::default().mutable(), true),
         )
         .parse(Span::new(name))
         {

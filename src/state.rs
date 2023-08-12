@@ -41,7 +41,7 @@ impl State {
     }
 
     #[inline]
-    pub fn get_current_package_name(&self) -> &SymbolRef {
+    pub const fn get_current_package_name(&self) -> &SymbolRef {
         &self.current_package
     }
 
@@ -119,11 +119,6 @@ impl State {
         self.intern_fold(self.current_package.clone(), path, create_unknown_packges)
     }
 
-    #[inline]
-    pub fn minimal() -> Self {
-        Self::new_with_package(Package::new(SymbolRef::new(Symbol::root_sym())))
-    }
-
     pub fn init_lurk_state() -> Self {
         let mut root_package = Package::new(SymbolRef::new(Symbol::root_sym()));
 
@@ -155,6 +150,15 @@ impl State {
         state.add_package(lurk_package);
         state.add_package(meta_package);
         state
+    }
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            current_package: SymbolRef::new(Symbol::root_sym()),
+            symbol_packages: Default::default(),
+        }
     }
 }
 
