@@ -806,6 +806,46 @@ pub(crate) fn implies_equal_const<CS: ConstraintSystem<F>, F: PrimeField>(
     enforce_implication_lc_zero(cs, premise, |lc| lc + a.get_variable() - (b, CS::one()))
 }
 
+/// Enforce inequality of two allocated numbers given an implication premise
+pub(crate) fn implies_unequal<CS: ConstraintSystem<F>, F: PrimeField>(
+    cs: &mut CS,
+    premise: &Boolean,
+    a: &AllocatedNum<F>,
+    b: &AllocatedNum<F>,
+) -> Result<(), SynthesisError> {
+    // We know that `a != b` iff `a-b` has an inverse, i.e. that there exists
+    // `c` such that `c * (a-b) = 1`. Thus, we can add the constraint that there
+    // must exist `c` such that `c * (a-b) = premise`, enforcing the difference
+    // only when `premise = 1`; otherwise the constraint is trivially satisfied
+    // for `c = 0`
+    let q = cs.alloc(
+        || "q",
+        || {
+            let premise = premise
+                .get_value()
+                .ok_or(SynthesisError::AssignmentMissing)?;
+            if premise {
+                let a = a.get_value().ok_or(SynthesisError::AssignmentMissing)?;
+                let b = b.get_value().ok_or(SynthesisError::AssignmentMissing)?;
+                let inv = (a - b).invert();
+                if inv.is_some().into() {
+                    Ok(inv.unwrap())
+                } else {
+                    Ok(F::ZERO)
+                }
+            } else {
+                Ok(F::ZERO)
+            }
+        },
+    )?;
+    let maybe_inverse = |lc| lc + q;
+    let implication_lc = |lc| lc + a.get_variable() - b.get_variable();
+    let premise = |_| premise.lc(CS::one(), F::ONE);
+
+    cs.enforce(|| "implication", maybe_inverse, implication_lc, premise);
+    Ok(())
+}
+
 /// Enforce equality of two allocated numbers given an implication premise
 #[allow(dead_code)]
 pub(crate) fn implies_equal_zero<CS: ConstraintSystem<F>, F: PrimeField>(

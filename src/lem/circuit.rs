@@ -36,7 +36,7 @@ use crate::circuit::gadgets::{
     constraints::{
         add, alloc_equal, alloc_is_zero, allocate_is_negative, and, boolean_to_num, div,
         enforce_pack, enforce_product_and_sum, enforce_selector_with_premise, implies_equal, 
-        implies_equal_const, implies_u64, mul, pick, sub,
+        implies_equal_const, implies_unequal, implies_u64, mul, pick, sub,
     },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
@@ -858,24 +858,31 @@ impl Func {
                     let x_ptr = bound_allocations.get(x)?.hash();
                     let y_ptr = bound_allocations.get(y)?.hash();
                     let mut selector = Vec::with_capacity(3);
-                    let is_eq = not_dummy.get_value().and_then(|not_dummy| {
+
+                    let eq_val = not_dummy.get_value().and_then(|not_dummy| {
                         x_ptr
                             .get_value()
                             .and_then(|x| y_ptr.get_value().map(|y| not_dummy && x == y))
                     });
                     let is_eq = Boolean::Is(AllocatedBit::alloc(
-                        &mut cs.namespace(|| format!("if_eq.alloc_equal")),
-                        is_eq,
+                        &mut cs.namespace(|| "if_eq.alloc_equal"),
+                        eq_val,
                     )?);
-                    implies_equal(
-                        &mut cs.namespace(|| format!("implies equal for {x} and {y}")),
-                        &is_eq,
-                        &x_ptr,
-                        &y_ptr,
-                    )?;
-
                     let is_not_eq =
                         and(&mut cs.namespace(|| "if_eq.and"), not_dummy, &is_eq.not())?;
+                    implies_equal(
+                        &mut cs.namespace(|| format!("{x} = {y}")),
+                        &is_eq,
+                        x_ptr,
+                        y_ptr,
+                    )?;
+                    implies_unequal(
+                        &mut cs.namespace(|| format!("{x} != {y}")),
+                        &is_not_eq,
+                        x_ptr,
+                        y_ptr,
+                    )?;
+
                     selector.push(not_dummy.not());
                     selector.push(is_eq.clone());
                     selector.push(is_not_eq.clone());
@@ -1190,7 +1197,7 @@ impl Func {
                 Ctrl::Return(vars) => num_constraints + 2 * vars.len(),
                 Ctrl::IfEq(_, _, eq_block, else_block) => {
                     num_constraints
-                        + if nested { 4 } else { 3 }
+                        + if nested { 5 } else { 4 }
                         + recurse(eq_block, true, globals, store)
                         + recurse(else_block, true, globals, store)
                 }
