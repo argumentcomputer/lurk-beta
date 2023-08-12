@@ -35,7 +35,7 @@ use bellpepper_core::{
 use crate::circuit::gadgets::{
     constraints::{
         add, alloc_equal, alloc_is_zero, allocate_is_negative, and, boolean_to_num, div,
-        enforce_pack, enforce_product_and_sum, enforce_selector_with_premise, implies_equal,
+        enforce_pack, enforce_product_and_sum, enforce_selector_with_premise, implies_equal, 
         implies_equal_const, implies_u64, mul, pick, sub,
     },
     data::{allocate_constant, hash_poseidon},
@@ -855,19 +855,42 @@ impl Func {
                     Ok(())
                 }
                 Ctrl::IfEq(x, y, eq_block, else_block) => {
-                    let x = bound_allocations.get(x)?.hash();
-                    let y = bound_allocations.get(y)?.hash();
-                    let eq = alloc_equal(&mut cs.namespace(|| "if_eq.alloc_equal"), x, y)?;
-                    let not_eq = eq.not();
-                    let not_dummy_and_eq = and(&mut cs.namespace(|| "if_eq.and"), not_dummy, &eq)?;
-                    let not_dummy_and_not_eq =
-                        and(&mut cs.namespace(|| "if_eq.and.2"), not_dummy, &not_eq)?;
+                    let x_ptr = bound_allocations.get(x)?.hash();
+                    let y_ptr = bound_allocations.get(y)?.hash();
+                    let mut selector = Vec::with_capacity(3);
+                    let is_eq = not_dummy.get_value().and_then(|not_dummy| {
+                        x_ptr
+                            .get_value()
+                            .and_then(|x| y_ptr.get_value().map(|y| not_dummy && x == y))
+                    });
+                    let is_eq = Boolean::Is(AllocatedBit::alloc(
+                        &mut cs.namespace(|| format!("if_eq.alloc_equal")),
+                        is_eq,
+                    )?);
+                    implies_equal(
+                        &mut cs.namespace(|| format!("implies equal for {x} and {y}")),
+                        &is_eq,
+                        &x_ptr,
+                        &y_ptr,
+                    )?;
+
+                    let is_not_eq =
+                        and(&mut cs.namespace(|| "if_eq.and"), not_dummy, &is_eq.not())?;
+                    selector.push(not_dummy.not());
+                    selector.push(is_eq.clone());
+                    selector.push(is_not_eq.clone());
+                    enforce_selector_with_premise(
+                        &mut cs.namespace(|| "if_enforce_selector_with_premise"),
+                        not_dummy,
+                        &selector,
+                    )
+                    .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
 
                     let mut branch_slot = *next_slot;
                     recurse(
                         &mut cs.namespace(|| "if_eq.true"),
                         eq_block,
-                        &not_dummy_and_eq,
+                        &is_eq,
                         &mut branch_slot,
                         bound_allocations,
                         preallocated_outputs,
@@ -876,7 +899,7 @@ impl Func {
                     recurse(
                         &mut cs.namespace(|| "if_eq.false"),
                         else_block,
-                        &not_dummy_and_not_eq,
+                        &is_not_eq,
                         next_slot,
                         bound_allocations,
                         preallocated_outputs,
@@ -1167,18 +1190,16 @@ impl Func {
                 Ctrl::Return(vars) => num_constraints + 2 * vars.len(),
                 Ctrl::IfEq(_, _, eq_block, else_block) => {
                     num_constraints
-                        + if nested { 6 } else { 4 }
+                        + if nested { 4 } else { 3 }
                         + recurse(eq_block, true, globals, store)
                         + recurse(else_block, true, globals, store)
                 }
                 Ctrl::MatchTag(_, cases, def) => {
-                    // `alloc_equal_const` adds 3 constraints for each case and
-                    // the `and` is free for non-nested `MatchTag`s, since we
-                    // start `not_dummy` with a constant `true`
-                    // then we add 1 constraint from `enforce_selector_with_premise`
+                    // We allocate one boolean per case and constrain it once
+                    // per case. Then we add 1 constraint to enforce only one
+                    // case was selected
                     num_constraints += 2 * cases.len() + 1;
 
-                    // stacked ops are now nested
                     for block in cases.values() {
                         num_constraints += recurse(block, true, globals, store);
                     }
