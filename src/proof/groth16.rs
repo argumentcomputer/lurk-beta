@@ -129,7 +129,6 @@ impl<C: Coprocessor<Scalar>> Groth16Prover<Bls12, C, Scalar> {
 
     /// Generates an outer Groth16 proof using the given parameters, SRS, expression, environment,
     /// store, limit, and random number generator.
-    #[allow(clippy::too_many_arguments)]
     pub fn outer_prove<R: RngCore + Clone>(
         &self,
         params: &groth16::Parameters<Bls12>,

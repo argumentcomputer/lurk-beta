@@ -251,16 +251,29 @@ impl<F: LurkField> HashWitness<ConsName, Cons<F>, MAX_CONSES_PER_REDUCTION, F> {
         let mut digests = HashMap::new();
 
         for (name, p) in self.slots.iter() {
-            if let Stub::Value(hash) = p {
-                if let Some(existing_name) = digests.insert(hash.cons, name) {
-                    let nil = lurk_sym_ptr!(store, nil);
-                    if !store.ptr_eq(&hash.cons, &nil).unwrap() {
-                        use crate::writer::Write;
-                        let cons = hash.cons.fmt_to_string(store, state);
-                        dbg!(hash.cons, cons, name, existing_name);
-                        panic!("duplicate");
-                    }
+254 ~             if let Stub::Value(hash) = p {
+255 +                 if let Some(existing_name) = digests.insert(hash.cons, name) {
+256 +                     let nil = lurk_sym_ptr!(store, nil);
+257 +                     if !store.ptr_eq(&hash.cons, &nil).unwrap() {
+258 +                         use crate::writer::Write;
+259 +                         let cons = hash.cons.fmt_to_string(store, state);
+260 +                         dbg!(hash.cons, cons, name, existing_name);
+261 +                         panic!("duplicate");
+262 +                     }
+263 +                 };
+264 ~             };            match p {
+                Stubnn::Value(hash) => {
+                    if let Some(existing_name) = digests.insert(hash.cons, name) {
+                        let nil = lurk_sym_ptr!(store, nil);
+                        if !store.ptr_eq(&hash.cons, &nil).unwrap() {
+                            use crate::writer::Write;
+                            let cons = hash.cons.fmt_to_string(store, state);
+                            dbg!(hash.cons, cons, name, existing_name);
+                            panic!("duplicate");
+                        }
+                    };
                 }
+                _ => (),
             };
         }
     }

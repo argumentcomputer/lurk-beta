@@ -1,4 +1,4 @@
-#![allow(clippy::single_match, clippy::type_complexity)]
+#![deny(unreachable_pub)]
 #![allow(clippy::uninlined_format_args)]
 #![warn(rust_2018_idioms, unreachable_pub)]
 

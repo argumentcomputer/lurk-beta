@@ -1,3 +1,4 @@
+type-complexity-threshold = 999
 too-many-arguments-threshold = 20
 disallowed-methods = [
     # we use strict naming for pasta fields
