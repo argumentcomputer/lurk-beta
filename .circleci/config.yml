@@ -8,6 +8,11 @@ setup-env: &setup-env
   RUST_LOG: info
 
 executors:
+  arm64:
+    machine:
+      image: ubuntu-2004:202101-01
+    working_directory: ~/lurk
+    resource_class: arm.xlarge
   darwin:
     macos:
       xcode: "14.3.1"
@@ -89,44 +94,47 @@ commands:
             cargo --version
             rustc --version
 
-  install_gpu_deps:
-    steps:
-      - run: sudo apt update && sudo apt install -y ocl-icd-opencl-dev curl build-essential
-
 jobs:
-  mac:
-    executor: darwin
-    environment: *setup-env
+  test:
+    parameters:
+     os:
+       type: executor
+    executor: << parameters.os >>
     steps:
       - checkout
       - run:
           name: Update submodules
-          command: git submodule update --init --recursive
+          command: |
+            git submodule update --init --recursive
       - attach_workspace:
-           at: "~/"
+          at: "~/"
       - set_versions_n_runners
       - set_env_path
       - setup-sccache
       - restore-sccache-cache
       - run:
-          name: MacOS Tests
+          name: Run cargo tests
           command: cargo nextest run --profile ci --workspace --cargo-profile dev-ci
           no_output_timeout: 120m
       - run:
           name: Benches build successfully
           command: cargo bench --no-run --profile dev-ci
       - run:
-          name: MacOS Doc Tests
+          name: Doc Tests
           command: cargo test --doc --workspace --profile dev-ci
       - save-sccache-cache
       - run:
           name: Print sccache stats
           command: sccache -s
 
+
 workflows:
   test-all:
     jobs:
-      - mac:
+      - test:
+          matrix:
+            parameters:
+              os: [arm64, darwin]
           filters:
             branches:
                 ignore:
