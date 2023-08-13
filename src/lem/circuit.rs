@@ -34,9 +34,9 @@ use bellpepper_core::{
 
 use crate::circuit::gadgets::{
     constraints::{
-        add, alloc_equal, alloc_is_zero, allocate_is_negative, and, boolean_to_num, div,
-        enforce_pack, enforce_product_and_sum, enforce_selector_with_premise, implies_equal, 
-        implies_equal_const, implies_unequal, implies_unequal_const, implies_u64, mul, pick, sub,
+        add, alloc_equal, alloc_is_zero, allocate_is_negative, boolean_to_num, div, enforce_pack,
+        enforce_product_and_sum, enforce_selector_with_premise, implies_equal, implies_equal_const,
+        implies_u64, implies_unequal, implies_unequal_const, mul, pick, sub,
     },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
@@ -864,12 +864,17 @@ impl Func {
                             .get_value()
                             .and_then(|x| y_ptr.get_value().map(|y| not_dummy && x == y))
                     });
-                    let is_eq = Boolean::Is(AllocatedBit::alloc(
-                        &mut cs.namespace(|| "if_eq.alloc_equal"),
-                        eq_val,
+                    let neq_val = not_dummy.get_value().and_then(|not_dummy| {
+                        x_ptr
+                            .get_value()
+                            .and_then(|x| y_ptr.get_value().map(|y| not_dummy && x != y))
+                    });
+                    let is_eq =
+                        Boolean::Is(AllocatedBit::alloc(&mut cs.namespace(|| "if_eq"), eq_val)?);
+                    let is_neq = Boolean::Is(AllocatedBit::alloc(
+                        &mut cs.namespace(|| "if_neq"),
+                        neq_val,
                     )?);
-                    let is_not_eq =
-                        and(&mut cs.namespace(|| "if_eq.and"), not_dummy, &is_eq.not())?;
                     implies_equal(
                         &mut cs.namespace(|| format!("{x} = {y}")),
                         &is_eq,
@@ -878,14 +883,14 @@ impl Func {
                     )?;
                     implies_unequal(
                         &mut cs.namespace(|| format!("{x} != {y}")),
-                        &is_not_eq,
+                        &is_neq,
                         x_ptr,
                         y_ptr,
                     )?;
 
                     selector.push(not_dummy.not());
                     selector.push(is_eq.clone());
-                    selector.push(is_not_eq.clone());
+                    selector.push(is_neq.clone());
                     enforce_selector_with_premise(
                         &mut cs.namespace(|| "if_enforce_selector_with_premise"),
                         not_dummy,
@@ -906,7 +911,7 @@ impl Func {
                     recurse(
                         &mut cs.namespace(|| "if_eq.false"),
                         else_block,
-                        &is_not_eq,
+                        &is_neq,
                         next_slot,
                         bound_allocations,
                         preallocated_outputs,
@@ -954,19 +959,6 @@ impl Func {
 
                     match def {
                         Some(def) => {
-                            for (b, (tag, _)) in selector.iter().zip(cases.iter()) {
-                                let not_eq = and(
-                                    &mut cs.namespace(|| format!("{tag} not_eq")),
-                                    not_dummy,
-                                    &b.not(),
-                                )?;
-                                implies_unequal_const(
-                                    &mut cs.namespace(|| format!("{tag} implies_unequal")),
-                                    &not_eq,
-                                    &match_tag,
-                                    tag.to_field(),
-                                )?;
-                            }
                             let default = selector.iter().fold(not_dummy.get_value(), |acc, b| {
                                 acc.and_then(|acc| b.get_value().map(|b| acc && !b))
                             });
@@ -974,6 +966,14 @@ impl Func {
                                 &mut cs.namespace(|| "_.allocated_bit"),
                                 default,
                             )?);
+                            for (tag, _) in cases {
+                                implies_unequal_const(
+                                    &mut cs.namespace(|| format!("{tag} implies_unequal")),
+                                    &has_match,
+                                    &match_tag,
+                                    tag.to_field(),
+                                )?;
+                            }
 
                             selector.push(has_match.clone());
 
@@ -1047,21 +1047,6 @@ impl Func {
 
                     match def {
                         Some(def) => {
-                            for (i, (b, (lit, _))) in selector.iter().zip(cases.iter()).enumerate() {
-                                let lit_ptr = lit.to_ptr(g.store);
-                                let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
-                                let not_eq = and(
-                                    &mut cs.namespace(|| format!("{i} not_eq")),
-                                    not_dummy,
-                                    &b.not(),
-                                )?;
-                                implies_unequal_const(
-                                    &mut cs.namespace(|| format!("{i} implies_unequal")),
-                                    &not_eq,
-                                    &match_lit,
-                                    lit_hash,
-                                )?;
-                            }
                             let default = selector.iter().fold(not_dummy.get_value(), |acc, b| {
                                 acc.and_then(|acc| b.get_value().map(|b| acc && !b))
                             });
@@ -1069,6 +1054,16 @@ impl Func {
                                 &mut cs.namespace(|| "_.allocated_bit"),
                                 default,
                             )?);
+                            for (i, (lit, _)) in cases.iter().enumerate() {
+                                let lit_ptr = lit.to_ptr(g.store);
+                                let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
+                                implies_unequal_const(
+                                    &mut cs.namespace(|| format!("{i} implies_unequal")),
+                                    &has_match,
+                                    &match_lit,
+                                    lit_hash,
+                                )?;
+                            }
 
                             selector.push(has_match.clone());
 
@@ -1132,7 +1127,6 @@ impl Func {
     pub fn num_constraints<F: LurkField>(&self, store: &mut Store<F>) -> usize {
         fn recurse<F: LurkField>(
             block: &Block,
-            nested: bool,
             globals: &mut HashSet<FWrap<F>>,
             store: &mut Store<F>,
         ) -> usize {
@@ -1140,7 +1134,7 @@ impl Func {
             for op in &block.ops {
                 match op {
                     Op::Call(_, func, _) => {
-                        num_constraints += recurse(&func.body, nested, globals, store);
+                        num_constraints += recurse(&func.body, globals, store);
                     }
                     Op::Null(_, tag) => {
                         // constrain tag and hash
@@ -1221,9 +1215,9 @@ impl Func {
                 Ctrl::Return(vars) => num_constraints + 2 * vars.len(),
                 Ctrl::IfEq(_, _, eq_block, else_block) => {
                     num_constraints
-                        + if nested { 5 } else { 4 }
-                        + recurse(eq_block, true, globals, store)
-                        + recurse(else_block, true, globals, store)
+                        + 5
+                        + recurse(eq_block, globals, store)
+                        + recurse(else_block, globals, store)
                 }
                 Ctrl::MatchTag(_, cases, def) => {
                     // We allocate one boolean per case and constrain it once
@@ -1232,14 +1226,13 @@ impl Func {
                     num_constraints += 2 * cases.len() + 1;
 
                     for block in cases.values() {
-                        num_constraints += recurse(block, true, globals, store);
+                        num_constraints += recurse(block, globals, store);
                     }
                     match def {
                         Some(def) => {
                             // constraints for the boolean, the unequalities and the default case
-                            let multiplier = if nested { 2 } else { 1 };
-                            num_constraints += 1 + multiplier * cases.len();
-                            num_constraints += recurse(def, true, globals, store);
+                            num_constraints += 1 + cases.len();
+                            num_constraints += recurse(def, globals, store);
                         }
                         None => (),
                     };
@@ -1248,13 +1241,12 @@ impl Func {
                 Ctrl::MatchVal(_, cases, def) => {
                     num_constraints += 2 * cases.len() + 1;
                     for block in cases.values() {
-                        num_constraints += recurse(block, true, globals, store);
+                        num_constraints += recurse(block, globals, store);
                     }
                     match def {
                         Some(def) => {
-                            let multiplier = if nested { 2 } else { 1 };
-                            num_constraints += 1 + multiplier * cases.len();
-                            num_constraints += recurse(def, true, globals, store);
+                            num_constraints += 1 + cases.len();
+                            num_constraints += recurse(def, globals, store);
                         }
                         None => (),
                     };
@@ -1269,7 +1261,7 @@ impl Func {
             + 388 * self.slot.hash4
             + 265 * self.slot.commitment
             + 391 * self.slot.less_than;
-        let num_constraints = recurse::<F>(&self.body, false, globals, store);
+        let num_constraints = recurse::<F>(&self.body, globals, store);
         slot_constraints + num_constraints + globals.len()
     }
 }

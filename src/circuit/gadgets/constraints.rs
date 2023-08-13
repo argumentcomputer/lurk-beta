@@ -692,6 +692,7 @@ pub(crate) fn and_v<CS: ConstraintSystem<F>, F: PrimeField>(
 
 /// This is a replication of Bellperson's original `and`, but receives a mutable
 /// reference for the constraint system instead of a copy
+#[allow(dead_code)]
 pub(crate) fn and<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: &mut CS,
     a: &Boolean,
