@@ -94,17 +94,15 @@ impl TypePredicates for ExprTag {
     }
     fn is_self_evaluating(&self) -> bool {
         match self {
-            Self::Cons => false,
-            Self::Thunk => false,
-            Self::Sym => false,
-            Self::Nil => true,
-            Self::Fun => true,
-            Self::Num => true,
-            Self::Str => true,
-            Self::Char => true,
-            Self::Comm => true,
-            Self::U64 => true,
-            Self::Key => true,
+            Self::Cons | Self::Thunk | Self::Sym => false,
+            Self::Nil
+            | Self::Fun
+            | Self::Num
+            | Self::Str
+            | Self::Char
+            | Self::Comm
+            | Self::U64
+            | Self::Key => true,
         }
     }
 

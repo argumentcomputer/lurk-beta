@@ -90,20 +90,7 @@ impl<F: LurkField> ZCont<F> {
     /// Creates a list of field elements corresponding to the `ZCont` for hashing
     pub fn hash_components(&self) -> [F; 8] {
         match self {
-            Self::Outermost => [F::ZERO; 8],
-            Self::Call0 {
-                saved_env,
-                continuation,
-            } => [
-                saved_env.0.to_field(),
-                saved_env.1,
-                continuation.0.to_field(),
-                continuation.1,
-                F::ZERO,
-                F::ZERO,
-                F::ZERO,
-                F::ZERO,
-            ],
+            Self::Outermost | Self::Error | Self::Dummy | Self::Terminal => [F::ZERO; 8],
             Self::Call {
                 saved_env,
                 unevaled_arg,
@@ -132,21 +119,15 @@ impl<F: LurkField> ZCont<F> {
                 F::ZERO,
                 F::ZERO,
             ],
-            Self::Tail {
+            Self::Call0 {
                 saved_env,
                 continuation,
-            } => [
-                saved_env.0.to_field(),
-                saved_env.1,
-                continuation.0.to_field(),
-                continuation.1,
-                F::ZERO,
-                F::ZERO,
-                F::ZERO,
-                F::ZERO,
-            ],
-            Self::Error => [F::ZERO; 8],
-            Self::Lookup {
+            }
+            | Self::Tail {
+                saved_env,
+                continuation,
+            }
+            | Self::Lookup {
                 saved_env,
                 continuation,
             } => [
@@ -219,17 +200,8 @@ impl<F: LurkField> ZCont<F> {
                 body,
                 saved_env,
                 continuation,
-            } => [
-                var.0.to_field(),
-                var.1,
-                body.0.to_field(),
-                body.1,
-                saved_env.0.to_field(),
-                saved_env.1,
-                continuation.0.to_field(),
-                continuation.1,
-            ],
-            Self::LetRec {
+            }
+            | Self::LetRec {
                 var,
                 body,
                 saved_env,
@@ -254,8 +226,6 @@ impl<F: LurkField> ZCont<F> {
                 F::ZERO,
                 F::ZERO,
             ],
-            Self::Dummy => [F::ZERO; 8],
-            Self::Terminal => [F::ZERO; 8],
         }
     }
 

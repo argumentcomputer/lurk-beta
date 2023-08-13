@@ -85,34 +85,20 @@ impl HashName for ConsName {
         match self {
             Self::NeverUsed => MAX_CONSES_PER_REDUCTION + 1,
             Self::Expr => 0,
-            Self::ExprCdr => 1,
-            Self::UnevaledArgsCdr => 1,
+            Self::ExprCdr | Self::UnevaledArgsCdr => 1,
             Self::ExprCadr => 2,
-            Self::ExprCddr => 3,
-            Self::UnopConsLike => 3,
-            Self::Lambda => 3,
-            Self::ExprCaadr => 4,
-            Self::Begin => 4,
-            Self::InnerBody => 4,
-            Self::ExtendedClosureEnv => 4,
-            Self::UnevaledArgs => 5,
-            Self::ExprCaaadr => 5,
-            Self::ExtendedRec => 5,
-            Self::EnvToUse => 5,
-            Self::Binding => 5,
-            Self::FunBody => 6,
-            Self::NewRecCadr => 6,
-            Self::NewRec => 7,
-            Self::ClosedEnv => 7,
-            Self::Env => 8,
-            Self::ExpandedInner0 => 8,
-            Self::FunExpanded => 9,
-            Self::Expanded => 9,
-            Self::EnvCar => 9,
-            Self::InnerLambda => 10,
-            Self::TheCons => 10,
-            Self::EnvCaar => 10,
-            Self::ExpandedInner => 10,
+            Self::ExprCddr | Self::UnopConsLike | Self::Lambda => 3,
+            Self::ExprCaadr | Self::Begin | Self::InnerBody | Self::ExtendedClosureEnv => 4,
+            Self::UnevaledArgs
+            | Self::ExprCaaadr
+            | Self::ExtendedRec
+            | Self::EnvToUse
+            | Self::Binding => 5,
+            Self::FunBody | Self::NewRecCadr => 6,
+            Self::NewRec | Self::ClosedEnv => 7,
+            Self::Env | Self::ExpandedInner0 => 8,
+            Self::FunExpanded | Self::Expanded | Self::EnvCar => 9,
+            Self::InnerLambda | Self::TheCons | Self::EnvCaar | Self::ExpandedInner => 10,
         }
     }
 }
@@ -133,12 +119,8 @@ impl HashName for ContName {
     fn index(&self) -> usize {
         match self {
             Self::NeverUsed => MAX_CONTS_PER_REDUCTION + 1,
-            Self::ApplyContinuation => 0,
-            Self::Lookup => 0,
-            Self::NewerCont => 1,
-            Self::NewerCont2 => 1,
-            Self::LetLike => 1,
-            Self::MakeThunk => 1,
+            Self::ApplyContinuation | Self::Lookup => 0,
+            Self::NewerCont | Self::NewerCont2 | Self::LetLike | Self::MakeThunk => 1,
         }
     }
 }
