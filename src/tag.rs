@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use lurk_macros::TryFromRepr;
 #[cfg(not(target_arch = "wasm32"))]
 use proptest_derive::Arbitrary;
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -20,7 +20,9 @@ pub trait Tag: Into<u16> + TryFrom<u16> + Copy + Sized + Eq + fmt::Debug {
 }
 
 /// A tag for expressions. Note that ExprTag, ContTag, Op1, Op2 all live in the same u16 namespace
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize_repr, Deserialize_repr)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize_repr, Deserialize_repr, TryFromRepr,
+)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
 pub enum ExprTag {
@@ -46,27 +48,6 @@ impl From<ExprTag> for u16 {
 impl From<ExprTag> for u64 {
     fn from(val: ExprTag) -> Self {
         val as u64
-    }
-}
-
-impl TryFrom<u16> for ExprTag {
-    type Error = anyhow::Error;
-
-    fn try_from(x: u16) -> Result<Self, <ExprTag as TryFrom<u16>>::Error> {
-        match x {
-            f if f == ExprTag::Nil as u16 => Ok(ExprTag::Nil),
-            f if f == ExprTag::Cons as u16 => Ok(ExprTag::Cons),
-            f if f == ExprTag::Sym as u16 => Ok(ExprTag::Sym),
-            f if f == ExprTag::Fun as u16 => Ok(ExprTag::Fun),
-            f if f == ExprTag::Thunk as u16 => Ok(ExprTag::Thunk),
-            f if f == ExprTag::Num as u16 => Ok(ExprTag::Num),
-            f if f == ExprTag::Str as u16 => Ok(ExprTag::Str),
-            f if f == ExprTag::Char as u16 => Ok(ExprTag::Char),
-            f if f == ExprTag::Comm as u16 => Ok(ExprTag::Comm),
-            f if f == ExprTag::U64 as u16 => Ok(ExprTag::U64),
-            f if f == ExprTag::Key as u16 => Ok(ExprTag::Key),
-            f => Err(anyhow!("Invalid ExprTag value: {}", f)),
-        }
     }
 }
 
@@ -129,7 +110,9 @@ impl Tag for ExprTag {
 }
 
 /// A tag for continuations. Note that ExprTag, ContTag, Op1, Op2 all live in the same u16 namespace
-#[derive(Serialize_repr, Deserialize_repr, Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(
+    Serialize_repr, Deserialize_repr, Debug, Copy, Clone, PartialEq, Eq, Hash, TryFromRepr,
+)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
 pub enum ContTag {
@@ -160,32 +143,6 @@ impl From<ContTag> for u16 {
 impl From<ContTag> for u64 {
     fn from(val: ContTag) -> Self {
         val as u64
-    }
-}
-
-impl TryFrom<u16> for ContTag {
-    type Error = anyhow::Error;
-
-    fn try_from(x: u16) -> Result<Self, <ContTag as TryFrom<u16>>::Error> {
-        match x {
-            f if f == ContTag::Outermost as u16 => Ok(ContTag::Outermost),
-            f if f == ContTag::Call0 as u16 => Ok(ContTag::Call0),
-            f if f == ContTag::Call as u16 => Ok(ContTag::Call),
-            f if f == ContTag::Call2 as u16 => Ok(ContTag::Call2),
-            f if f == ContTag::Tail as u16 => Ok(ContTag::Tail),
-            f if f == ContTag::Error as u16 => Ok(ContTag::Error),
-            f if f == ContTag::Lookup as u16 => Ok(ContTag::Lookup),
-            f if f == ContTag::Unop as u16 => Ok(ContTag::Unop),
-            f if f == ContTag::Binop as u16 => Ok(ContTag::Binop),
-            f if f == ContTag::Binop2 as u16 => Ok(ContTag::Binop2),
-            f if f == ContTag::If as u16 => Ok(ContTag::If),
-            f if f == ContTag::Let as u16 => Ok(ContTag::Let),
-            f if f == ContTag::LetRec as u16 => Ok(ContTag::LetRec),
-            f if f == ContTag::Dummy as u16 => Ok(ContTag::Dummy),
-            f if f == ContTag::Terminal as u16 => Ok(ContTag::Terminal),
-            f if f == ContTag::Emit as u16 => Ok(ContTag::Emit),
-            f => Err(anyhow!("Invalid ContTag value: {}", f)),
-        }
     }
 }
 
@@ -229,7 +186,18 @@ impl fmt::Display for ContTag {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash, Serialize_repr, Deserialize_repr)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    PartialOrd,
+    Eq,
+    Hash,
+    Serialize_repr,
+    Deserialize_repr,
+    TryFromRepr,
+)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
 pub enum Op1 {
@@ -256,28 +224,6 @@ impl From<Op1> for u16 {
 impl From<Op1> for u64 {
     fn from(val: Op1) -> Self {
         val as u64
-    }
-}
-
-impl TryFrom<u16> for Op1 {
-    type Error = anyhow::Error;
-
-    fn try_from(x: u16) -> Result<Self, <Op1 as TryFrom<u16>>::Error> {
-        match x {
-            f if f == Op1::Car as u16 => Ok(Op1::Car),
-            f if f == Op1::Cdr as u16 => Ok(Op1::Cdr),
-            f if f == Op1::Atom as u16 => Ok(Op1::Atom),
-            f if f == Op1::Emit as u16 => Ok(Op1::Emit),
-            f if f == Op1::Open as u16 => Ok(Op1::Open),
-            f if f == Op1::Secret as u16 => Ok(Op1::Secret),
-            f if f == Op1::Commit as u16 => Ok(Op1::Commit),
-            f if f == Op1::Num as u16 => Ok(Op1::Num),
-            f if f == Op1::Comm as u16 => Ok(Op1::Comm),
-            f if f == Op1::Char as u16 => Ok(Op1::Char),
-            f if f == Op1::Eval as u16 => Ok(Op1::Eval),
-            f if f == Op1::U64 as u16 => Ok(Op1::U64),
-            f => Err(anyhow!("Invalid Op1 value: {}", f)),
-        }
     }
 }
 
@@ -369,7 +315,18 @@ impl fmt::Display for Op1 {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Hash, Serialize_repr, Deserialize_repr)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    PartialOrd,
+    Eq,
+    Hash,
+    Serialize_repr,
+    Deserialize_repr,
+    TryFromRepr,
+)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[repr(u16)]
 pub enum Op2 {
@@ -400,32 +357,6 @@ impl From<Op2> for u16 {
 impl From<Op2> for u64 {
     fn from(val: Op2) -> Self {
         val as u64
-    }
-}
-
-impl TryFrom<u16> for Op2 {
-    type Error = anyhow::Error;
-
-    fn try_from(x: u16) -> Result<Self, <Op2 as TryFrom<u16>>::Error> {
-        match x {
-            f if f == Op2::Sum as u16 => Ok(Op2::Sum),
-            f if f == Op2::Diff as u16 => Ok(Op2::Diff),
-            f if f == Op2::Product as u16 => Ok(Op2::Product),
-            f if f == Op2::Quotient as u16 => Ok(Op2::Quotient),
-            f if f == Op2::Equal as u16 => Ok(Op2::Equal),
-            f if f == Op2::NumEqual as u16 => Ok(Op2::NumEqual),
-            f if f == Op2::Less as u16 => Ok(Op2::Less),
-            f if f == Op2::Greater as u16 => Ok(Op2::Greater),
-            f if f == Op2::LessEqual as u16 => Ok(Op2::LessEqual),
-            f if f == Op2::GreaterEqual as u16 => Ok(Op2::GreaterEqual),
-            f if f == Op2::Cons as u16 => Ok(Op2::Cons),
-            f if f == Op2::StrCons as u16 => Ok(Op2::StrCons),
-            f if f == Op2::Begin as u16 => Ok(Op2::Begin),
-            f if f == Op2::Hide as u16 => Ok(Op2::Hide),
-            f if f == Op2::Modulo as u16 => Ok(Op2::Modulo),
-            f if f == Op2::Eval as u16 => Ok(Op2::Eval),
-            f => Err(anyhow!("Invalid Op2 value: {}", f)),
-        }
     }
 }
 
