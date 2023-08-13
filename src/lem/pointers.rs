@@ -35,10 +35,7 @@ impl<F: LurkField> std::hash::Hash for Ptr<F> {
 impl<F: LurkField> Ptr<F> {
     pub fn tag(&self) -> &Tag {
         match self {
-            Ptr::Leaf(tag, _) => tag,
-            Ptr::Tree2(tag, _) => tag,
-            Ptr::Tree3(tag, _) => tag,
-            Ptr::Tree4(tag, _) => tag,
+            Ptr::Leaf(tag, _) | Ptr::Tree2(tag, _) | Ptr::Tree3(tag, _) | Ptr::Tree4(tag, _) => tag,
         }
     }
 

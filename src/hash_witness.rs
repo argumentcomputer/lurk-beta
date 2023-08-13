@@ -82,6 +82,7 @@ pub trait HashName {
 
 impl HashName for ConsName {
     fn index(&self) -> usize {
+        #[allow(clippy::match_same_arms)]
         match self {
             Self::NeverUsed => MAX_CONSES_PER_REDUCTION + 1,
             Self::Expr => 0,
@@ -131,6 +132,7 @@ pub enum ContName {
 
 impl HashName for ContName {
     fn index(&self) -> usize {
+        #[allow(clippy::match_same_arms)]
         match self {
             Self::NeverUsed => MAX_CONTS_PER_REDUCTION + 1,
             Self::ApplyContinuation => 0,
