@@ -147,7 +147,7 @@ impl<F: LurkField> Store<F> {
     pub fn expect_constants(&self) -> &NamedConstants<F> {
         self.constants
             .get()
-            .expect("Constants must have been set during instatiation")
+            .expect("Constants must have been set during instantiation")
     }
 
     #[inline]
