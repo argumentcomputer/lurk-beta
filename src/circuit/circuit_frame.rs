@@ -109,7 +109,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
     ) -> Vec<Self> {
         // `count` is the number of `Frames` to include per `MultiFrame`.
         let total_frames = frames.len();
-        let n = total_frames / count + (total_frames % count != 0) as usize;
+        let n = total_frames / count + usize::from(total_frames % count != 0);
         let mut multi_frames = Vec::with_capacity(n);
 
         for chunk in frames.chunks(count) {
@@ -5860,7 +5860,7 @@ mod tests {
                 .unwrap();
             let popcount_result =
                 AllocatedNum::alloc(&mut cs.namespace(|| format!("alloc popcount {x}")), || {
-                    Ok(Fr::from(x.count_ones() as u64))
+                    Ok(Fr::from(u64::from(x.count_ones())))
                 })
                 .unwrap();
 

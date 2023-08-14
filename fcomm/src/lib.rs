@@ -941,7 +941,7 @@ impl<'a> Proof<'a, S1> {
 
             let chunk_frame_count = self.reduction_count.count();
             let expected_steps =
-                (iterations / chunk_frame_count) + (iterations % chunk_frame_count != 0) as usize;
+                (iterations / chunk_frame_count) + usize::from(iterations % chunk_frame_count != 0);
 
             expected_steps == num_steps
         } else {

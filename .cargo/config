@@ -8,4 +8,5 @@ xclippy = [
     "-Wclippy::all",
     "-Wclippy::disallowed_methods",
     "-Wclippy::match_same_arms",
+    "-Wclippy::cast_lossless",
 ]

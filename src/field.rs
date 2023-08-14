@@ -162,11 +162,11 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
 
     /// Constructs a field element from a u32
     fn from_u32(x: u32) -> Self {
-        (x as u64).into()
+        u64::from(x).into()
     }
     /// Constructs a field element from a u16
     fn from_u16(x: u16) -> Self {
-        (x as u64).into()
+        u64::from(x).into()
     }
     /// Constructs a field element from a char
     fn from_char(x: char) -> Self {
@@ -377,7 +377,7 @@ pub mod tests {
         let mut res = F::ZERO;
         let mut bs = bs.iter().rev().peekable();
         while let Some(b) = bs.next() {
-            let b: F = (*b as u64).into();
+            let b: F = u64::from(*b).into();
             if bs.peek().is_none() {
                 res.add_assign(b)
             } else {

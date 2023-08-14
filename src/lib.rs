@@ -1,7 +1,4 @@
-#![deny(unreachable_pub)]
-#![allow(clippy::uninlined_format_args)]
-#![warn(rust_2018_idioms, unreachable_pub)]
-
+#![deny(rust_2018_idioms, unreachable_pub)]
 #[macro_use]
 extern crate alloc;
 
