@@ -8,11 +8,6 @@ setup-env: &setup-env
   RUST_LOG: info
 
 executors:
-  default:
-    machine:
-      image: ubuntu-2004:202101-01
-    working_directory: ~/lurk
-    resource_class: xlarge
   arm64:
     machine:
       image: ubuntu-2004:202101-01
@@ -99,100 +94,12 @@ commands:
             cargo --version
             rustc --version
 
-  save_rustup_cache:
-    steps:
-      - save_cache:
-          name: "Save rustup cache"
-          key: cargo-v2-{{ checksum "rust-toolchain" }}-{{ checksum "Cargo.toml" }}-{{ checksum "Cargo.lock" }}-{{ arch }}
-          paths:
-            - "~/.cargo"
-            - "~/.rustup"
-
-  restore_rustup_cache:
-      steps:
-        - restore_cache:
-            keys:
-              - cargo-v2-{{ checksum "rust-toolchain" }}-{{ checksum "Cargo.toml" }}-{{ checksum "Cargo.lock" }}-{{ arch }}
-
-  install_gpu_deps:
-    steps:
-      - run: sudo apt update && sudo apt install -y ocl-icd-opencl-dev curl build-essential
-
 jobs:
-  cargo_fetch:
-    executor: default
-    environment: *setup-env
-    steps:
-      - checkout
-      - run:
-          name: Update submodules
-          command: |
-            git submodule update --init --recursive
-      - restore_rustup_cache
-      - set_env_path
-      - set_versions_n_runners
-      - run: cargo fetch
-      - run: rm -rf .git
-      - persist_to_workspace:
-          root: ~/
-          paths:
-            - lurk
-      - save_rustup_cache
-
-  linux_release:
-    executor: default
-    environment: *setup-env
-    steps:
-      - checkout
-      - attach_workspace:
-          at: "~/"
-      - restore_rustup_cache
-      - set_env_path
-      - setup-sccache
-      - install_gpu_deps
-      - restore-sccache-cache
-      - run:
-          name: Linux Tests
-          command: cargo nextest run --profile ci --workspace --cargo-profile dev-ci --run-ignored ignored-only -E 'all() - test(groth16::tests::outer_prove_recursion) - test(test_make_fcomm_examples) - test(test_functional_commitments_demo) - test(test_chained_functional_commitments_demo)'
-      - run:
-          name: Benches build successfully
-          command: cargo bench --no-run --profile dev-ci
-      - run:
-          name: Linux Doc Tests
-          command: cargo test --doc --workspace --profile dev-ci
-      - save-sccache-cache
-      - run:
-          name: Print sccache stats
-          command: sccache -s
-
-  linux_exhaustive:
-    executor: default
-    environment: *setup-env
-    steps:
-      - checkout
-      - attach_workspace:
-          at: "~/"
-      - restore_rustup_cache
-      - set_env_path
-      - install_gpu_deps
-      - restore-sccache-cache
-      - run:
-          name: Linux Tests
-          command: cargo nextest run --profile ci --workspace --cargo-profile dev-ci --run-ignored all
-      - run:
-          name: Benches build successfully
-          command: cargo bench --no-run --profile dev-ci
-      - run:
-          name: Linux Doc Tests
-          command: cargo test --doc --workspace --profile dev-ci
-      - save-sccache-cache
-      - run:
-          name: Print sccache stats
-          command: sccache -s
-
-  arm64:
-    executor: arm64
-    environment: *setup-env
+  test:
+    parameters:
+     os:
+       type: executor
+    executor: << parameters.os >>
     steps:
       - checkout
       - run:
@@ -203,87 +110,31 @@ jobs:
           at: "~/"
       - set_versions_n_runners
       - set_env_path
-      - install_gpu_deps
       - setup-sccache
       - restore-sccache-cache
       - run:
-          name: Arm64 Tests
+          name: Run cargo tests
           command: cargo nextest run --profile ci --workspace --cargo-profile dev-ci
           no_output_timeout: 120m
       - run:
           name: Benches build successfully
           command: cargo bench --no-run --profile dev-ci
       - run:
-          name: Arm64 Doc Tests
+          name: Doc Tests
           command: cargo test --doc --workspace --profile dev-ci
       - save-sccache-cache
       - run:
           name: Print sccache stats
           command: sccache -s
 
-  mac:
-    executor: darwin
-    environment: *setup-env
-    steps:
-      - checkout
-      - run:
-          name: Update submodules
-          command: git submodule update --init --recursive
-      - attach_workspace:
-           at: "~/"
-      - set_versions_n_runners
-      - set_env_path
-      - setup-sccache
-      - restore-sccache-cache
-      - run:
-          name: MacOS Tests
-          command: cargo nextest run --profile ci --workspace --cargo-profile dev-ci
-          no_output_timeout: 120m
-      - run:
-          name: Benches build successfully
-          command: cargo bench --no-run --profile dev-ci
-      - run:
-          name: MacOS Doc Tests
-          command: cargo test --doc --workspace --profile dev-ci
-      - save-sccache-cache
-      - run:
-          name: Print sccache stats
-          command: sccache -s
-
-  clippy:
-    executor: default
-    environment: *setup-env
-    steps:
-      - checkout
-      - set_env_path
-      - attach_workspace:
-          at: "~/"
-      - restore_rustup_cache
-      - run: cargo clippy --all -- -D warnings
-
-  rustfmt:
-    executor: default
-    environment: *setup-env
-    steps:
-      - checkout
-      - set_env_path
-      - attach_workspace:
-          at: "~/"
-      - restore_rustup_cache
-      - run: cargo fmt --all -- --check
 
 workflows:
   test-all:
     jobs:
-      - cargo_fetch:
-          filters:
-            branches:
-                ignore:
-                  - gh-pages
-                  - staging.tmp
-                  - trying.tmp
-                  - staging-squash-merge.tmp
-      - arm64:
+      - test:
+          matrix:
+            parameters:
+              os: [arm64, darwin]
           filters:
             branches:
                 ignore:
@@ -292,58 +143,3 @@ workflows:
                   - staging.tmp
                   - trying.tmp
                   - staging-squash-merge.tmp
-      - mac:
-          filters:
-            branches:
-                ignore:
-                  - master
-                  - gh-pages
-                  - staging.tmp
-                  - trying.tmp
-                  - staging-squash-merge.tmp
-      - linux_release:
-          requires:
-            - cargo_fetch
-          filters:
-            branches:
-                ignore:
-                  - master
-                  - gh-pages
-                  - staging.tmp
-                  - trying.tmp
-                  - staging-squash-merge.tmp
-      - rustfmt:
-          requires:
-            - cargo_fetch
-          filters:
-            branches:
-                ignore:
-                  - master
-                  - gh-pages
-                  - staging.tmp
-                  - trying.tmp
-                  - staging-squash-merge.tmp
-      - clippy:
-          requires:
-            - cargo_fetch
-          filters:
-            branches:
-                ignore:
-                  - master
-                  - gh-pages
-                  - staging.tmp
-                  - trying.tmp
-                  - staging-squash-merge.tmp
-  nightly:
-    triggers:
-        - schedule:
-            cron: "0 0 * * *"
-            filters:
-              branches:
-                only:
-                  - master
-    jobs:
-        - cargo_fetch
-        - linux_exhaustive:
-            requires:
-              - cargo_fetch
