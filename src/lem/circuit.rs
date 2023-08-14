@@ -552,7 +552,7 @@ impl Func {
                         let c = AllocatedPtr::from_parts(tag, c_num);
                         bound_allocations.insert(tgt.clone(), c);
                     }
-                    Op::Div(_tgt, _a, _b) => {
+                    Op::Div(tgt, a, b) => {
                         let a = bound_allocations.get(a)?;
                         let b = bound_allocations.get(b)?;
                         // TODO check that the tags are correct
