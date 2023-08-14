@@ -1,4 +1,5 @@
 use crate::field::{FWrap, LurkField};
+use crate::num::Num;
 use anyhow::{bail, Result};
 use std::collections::VecDeque;
 
@@ -142,7 +143,18 @@ impl Block {
                     bindings.insert(tgt.clone(), c);
                 }
                 Op::Lt(tgt, a, b) => {
-                    todo!()
+                    let a = bindings.get(a)?;
+                    let b = bindings.get(b)?;
+                    let c = match (a, b) {
+                        (Ptr::Leaf(Tag::Expr(Num), f), Ptr::Leaf(Tag::Expr(Num), g)) => {
+                            let f = Num::Scalar(*f);
+                            let g = Num::Scalar(*g);
+                            let b = if f < g { F::ONE } else { F::ZERO };
+                            Ptr::Leaf(Tag::Expr(Num), b)
+                        }
+                        _ => bail!("`<` only works on numbers"),
+                    };
+                    bindings.insert(tgt.clone(), c);
                 }
                 Op::Emit(a) => {
                     let a = bindings.get(a)?;

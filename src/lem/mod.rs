@@ -245,7 +245,7 @@ pub enum Op {
     Mul(Var, Var, Var),
     /// `Div(y, a, b)` binds `y` to the sum of `a` and `b`
     Div(Var, Var, Var),
-    /// `Div(y, a, b)` binds `y` to `t` if `a < b`, or to `nil` otherwise
+    /// `Lt(y, a, b)` binds `y` to `t` if `a < b`, or to `nil` otherwise
     Lt(Var, Var, Var),
     /// `Emit(v)` simply prints out the value of `v` when interpreting the code
     Emit(Var),

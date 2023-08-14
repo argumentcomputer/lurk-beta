@@ -34,8 +34,8 @@ use bellperson::{
 
 use crate::circuit::gadgets::{
     constraints::{
-        add, alloc_equal, alloc_equal_const, and, enforce_selector_with_premise, implies_equal,
-        mul, sub, alloc_is_zero, pick, div,
+        add, alloc_equal, alloc_equal_const, alloc_is_zero, and, div,
+        enforce_selector_with_premise, implies_equal, mul, pick, sub,
     },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
@@ -559,27 +559,31 @@ impl Func {
                         let a_num = a.hash();
                         let b_num = b.hash();
 
-                        let b_is_zero = &alloc_is_zero(&mut cs.namespace(|| "b_is_zero"), b)?;
+                        let b_is_zero = &alloc_is_zero(&mut cs.namespace(|| "b_is_zero"), b_num)?;
                         let one = g.global_allocator.get_or_alloc_const(cs, F::ONE)?;
 
                         let divisor = pick(
                             &mut cs.namespace(|| "maybe-dummy divisor"),
                             b_is_zero,
                             &one,
-                            b,
+                            b_num,
                         )?;
 
-                        let quotient = div(&mut cs.namespace(|| "quotient"), a, &divisor)?;
+                        let quotient = div(&mut cs.namespace(|| "quotient"), a_num, &divisor)?;
 
                         let tag = g
                             .global_allocator
                             .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
                         let c = AllocatedPtr::from_parts(tag, quotient);
                         bound_allocations.insert(tgt.clone(), c);
-
                     }
-                    Op::Lt(_tgt, _a, _b) => {
+                    Op::Lt(tgt, _a, _b) => {
                         // TODO
+                        let allocated_ptr = AllocatedPtr::from_parts(
+                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
+                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
+                        );
+                        bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
                     Op::Emit(_) => (),
                     Op::Hide(tgt, _sec, _pay) => {
@@ -870,7 +874,8 @@ impl Func {
                         num_constraints += 1;
                     }
                     Op::Div(_, _, _) => {
-                        // TODO
+                        globals.insert(FWrap(F::ONE));
+                        num_constraints += 5;
                     }
                     Op::Lt(_, _, _) => {
                         // TODO

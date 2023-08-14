@@ -713,7 +713,9 @@ fn apply_cont() -> Func {
                                 return (val, env, continuation, makethunk)
                             }
                             Symbol("div") => {
-                                return (result, env, err, errctrl)
+                                // TODO deal with U64
+                                let val = div(evaled_arg, result);
+                                return (val, env, continuation, makethunk)
                             }
                             Symbol("%") => {
                                 // TODO
@@ -724,20 +726,48 @@ fn apply_cont() -> Func {
                                 return (result, env, err, errctrl)
                             }
                             Symbol("<") => {
-                                // TODO
-                                return (result, env, err, errctrl)
+                                let val = lt(evaled_arg, result);
+                                match val.val {
+                                    Num(0) => {
+                                        return (nil, env, continuation, makethunk)
+                                    }
+                                    Num(1) => {
+                                        return (t, env, continuation, makethunk)
+                                    }
+                                }
                             }
                             Symbol(">") => {
-                                // TODO
-                                return (result, env, err, errctrl)
+                                let val = lt(result, evaled_arg);
+                                match val.val {
+                                    Num(0) => {
+                                        return (nil, env, continuation, makethunk)
+                                    }
+                                    Num(1) => {
+                                        return (t, env, continuation, makethunk)
+                                    }
+                                }
                             }
                             Symbol("<=") => {
-                                // TODO
-                                return (result, env, err, errctrl)
+                                let val = lt(result, evaled_arg);
+                                match val.val {
+                                    Num(0) => {
+                                        return (t, env, continuation, makethunk)
+                                    }
+                                    Num(1) => {
+                                        return (nil, env, continuation, makethunk)
+                                    }
+                                }
                             }
                             Symbol(">=") => {
-                                // TODO
-                                return (result, env, err, errctrl)
+                                let val = lt(evaled_arg, result);
+                                match val.val {
+                                    Num(0) => {
+                                        return (t, env, continuation, makethunk)
+                                    }
+                                    Num(1) => {
+                                        return (nil, env, continuation, makethunk)
+                                    }
+                                }
                             }
                         };
                         return (result, env, err, errctrl)
@@ -808,8 +838,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 8092;
-    const NUM_CONSTRAINTS: usize = 10125;
+    const NUM_AUX: usize = 8120;
+    const NUM_CONSTRAINTS: usize = 10198;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,

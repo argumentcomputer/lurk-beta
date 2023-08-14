@@ -86,6 +86,13 @@ macro_rules! op {
             $crate::var!($b),
         )
     };
+    ( let $tgt:ident = lt($a:ident, $b:ident) ) => {
+        $crate::lem::Op::Lt(
+            $crate::var!($tgt),
+            $crate::var!($a),
+            $crate::var!($b),
+        )
+    };
     ( emit($v:ident) ) => {
         $crate::lem::Op::Emit($crate::var!($v))
     };
@@ -279,6 +286,16 @@ macro_rules! block {
             {
                 $($limbs)*
                 $crate::op!(let $tgt = div($a, $b))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = lt($a:ident, $b:ident) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = lt($a, $b))
             },
             $($tail)*
         )
