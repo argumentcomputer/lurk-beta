@@ -34,8 +34,8 @@ use bellperson::{
 
 use crate::circuit::gadgets::{
     constraints::{
-        add, alloc_equal, alloc_equal_const, alloc_is_zero, and, div,
-        enforce_selector_with_premise, implies_equal, mul, pick, sub,
+        add, alloc_equal, alloc_equal_const, alloc_is_zero, allocate_is_negative, and,
+        boolean_to_num, div, enforce_selector_with_premise, implies_equal, mul, pick, sub,
     },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
@@ -577,13 +577,25 @@ impl Func {
                         let c = AllocatedPtr::from_parts(tag, quotient);
                         bound_allocations.insert(tgt.clone(), c);
                     }
-                    Op::Lt(tgt, _a, _b) => {
-                        // TODO
-                        let allocated_ptr = AllocatedPtr::from_parts(
-                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
-                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
-                        );
-                        bound_allocations.insert(tgt.clone(), allocated_ptr);
+                    Op::Lt(tgt, a, b) => {
+                        let a = bound_allocations.get(a)?;
+                        let b = bound_allocations.get(b)?;
+                        // TODO check that the tags are correct
+                        let a_num = a.hash();
+                        let b_num = b.hash();
+                        let diff = sub(&mut cs.namespace(|| "diff"), a_num, b_num).unwrap();
+                        let diff_is_negative =
+                            allocate_is_negative(&mut cs.namespace(|| "diff_is_negative"), &diff)?;
+
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let lt = boolean_to_num(
+                            &mut cs.namespace(|| "boolean_to_num"),
+                            &diff_is_negative,
+                        )?;
+                        let c = AllocatedPtr::from_parts(tag, lt);
+                        bound_allocations.insert(tgt.clone(), c);
                     }
                     Op::Emit(_) => (),
                     Op::Hide(tgt, _sec, _pay) => {
@@ -878,7 +890,9 @@ impl Func {
                         num_constraints += 5;
                     }
                     Op::Lt(_, _, _) => {
-                        // TODO
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        num_constraints += 2;
+                        num_constraints += 389;
                     }
                     Op::Emit(_) => (),
                     Op::Hash2(_, tag, _) => {

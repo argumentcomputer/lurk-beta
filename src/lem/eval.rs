@@ -838,8 +838,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 8120;
-    const NUM_CONSTRAINTS: usize = 10198;
+    const NUM_AUX: usize = 9680;
+    const NUM_CONSTRAINTS: usize = 11762;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,
@@ -890,6 +890,15 @@ mod tests {
     }
 
     fn expr_in_expr_out_pairs(s: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
+        let t = s.read("t").unwrap();
+        let nil = s.read("nil").unwrap();
+        let le1 = s.read("(<= 4 8)").unwrap();
+        let le2 = s.read("(<= 8 8)").unwrap();
+        let le3 = s.read("(<= 10 8)").unwrap();
+        let gt1 = s.read("(> 4 8)").unwrap();
+        let gt2 = s.read("(> 8 8)").unwrap();
+        let gt3 = s.read("(> 10 8)").unwrap();
+        let ltz = s.read("(< (- 0 10) 0)").unwrap();
         let sum = s.read("(+ 21 21)").unwrap();
         let sum_res = s.read("42").unwrap();
         let car = s.read("(car (cons 1 2))").unwrap();
@@ -920,6 +929,13 @@ mod tests {
             .unwrap();
         let fold_res = s.read("55").unwrap();
         vec![
+            (le1, t),
+            (le2, t),
+            (le3, nil),
+            (gt1, nil),
+            (gt2, nil),
+            (gt3, t),
+            (ltz, t),
             (sum, sum_res),
             (car, car_res),
             (let_, let_res),
