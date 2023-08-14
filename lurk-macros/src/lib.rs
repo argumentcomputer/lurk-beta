@@ -19,7 +19,7 @@ use proc_macro2::Span;
 use quote::{quote, ToTokens};
 use syn::{
     parse_macro_input, AttributeArgs, Data, DataEnum, DeriveInput, Ident, Item, Lit, Meta,
-    MetaList, NestedMeta, Type,
+    MetaList, NestedMeta, Path, Type,
 };
 
 #[proc_macro_derive(Coproc)]
@@ -374,4 +374,103 @@ fn parse_type(m: &NestedMeta) -> Type {
             panic!("expected type");
         }
     }
+}
+
+fn try_from_match_arms(
+    name: &Ident,
+    variant_names: &[&Ident],
+    ty: syn::Path,
+) -> proc_macro2::TokenStream {
+    let mut match_arms = quote! {};
+    for variant in variant_names {
+        match_arms.extend(quote! {
+            x if x == #name::#variant as #ty => Ok(#name::#variant),
+        });
+    }
+    match_arms
+}
+
+fn get_type_from_attrs(attrs: &[syn::Attribute], attr_name: &str) -> syn::Result<Path> {
+    let Some(nested_arg) = attrs.iter().find_map(|arg| {
+        let Ok(Meta::List(MetaList { path, nested, .. })) = arg.parse_meta() else {
+            return None;
+        };
+        if !path.is_ident(attr_name) {
+            return None;
+        }
+        nested.first().cloned()
+    }) else {
+        return Err(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            format!("Could not find attribute {}", attr_name),
+        ));
+    };
+
+    match nested_arg {
+        NestedMeta::Meta(Meta::Path(path)) => Ok(path),
+        bad => Err(syn::Error::new_spanned(
+            bad,
+            &format!("Could not parse {} attribute", attr_name)[..],
+        )),
+    }
+}
+
+/// This macro derives an impl of TryFrom<foo> for an enum type T with `#[repr(foo)]`.
+///
+/// # Example
+/// ```
+/// use lurk_macros::TryFromRepr;
+///
+/// #[derive(TryFromRepr)]
+/// #[repr(u8)]
+/// enum Foo {
+///     Bar = 0,
+///     Baz
+/// }
+/// ```
+///
+/// This will derive the natural impl that compares the input representation type to
+/// the automatic conversions of each variant into that representation type.
+#[proc_macro_derive(TryFromRepr)]
+pub fn derive_try_from_repr(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+    let res_ty = get_type_from_attrs(&ast.attrs, "repr");
+
+    let name = &ast.ident;
+    let variants = match ast.data {
+        Data::Enum(ref variants) => variants
+            .variants
+            .iter()
+            .map(|v| &v.ident)
+            .collect::<Vec<_>>(),
+        Data::Struct(_) | Data::Union(_) => {
+            panic!("#[derive(TryFromRepr)] is only defined for enums")
+        }
+    };
+
+    match res_ty {
+        Err(e) => {
+            // If no explicit repr were given for us, we can't pursue
+            panic!(
+                "TryFromRepr macro requires a repr parameter, which couldn't be parsed: {:?}",
+                e
+            );
+        }
+        Ok(ty) => {
+            let match_arms = try_from_match_arms(name, &variants, ty.clone());
+            let name_str = name.to_string();
+            quote! {
+                impl std::convert::TryFrom<#ty> for #name {
+                    type Error = anyhow::Error;
+                    fn try_from(v: #ty) -> Result<Self, <Self as TryFrom<#ty>>::Error> {
+                        match v {
+                            #match_arms
+                            _ => Err(anyhow::anyhow!("invalid variant for enum {}", #name_str)),
+                        }
+                    }
+                }
+            }
+        }
+    }
+    .into()
 }

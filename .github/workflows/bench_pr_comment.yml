@@ -1,3 +1,4 @@
+# Creates a PR benchmark comment with a comparison to master
 name: Benchmark pull requests
 on:
   issue_comment:

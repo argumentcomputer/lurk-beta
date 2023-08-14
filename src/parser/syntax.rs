@@ -451,17 +451,7 @@ pub mod tests {
     {
         match (expected, p.parse(Span::<'a>::new(i))) {
             (Some(expected), Ok((_, x))) if x == expected => true,
-            (Some(_), Ok(..)) => {
-                // println!("input: {:?}", i);
-                // println!("expected: {} {:?}", expected.clone(), expected);
-                // println!("detected: {} {:?}", x.clone(), x);
-                false
-            }
-            (Some(..), Err(_)) => {
-                // println!("{}", e);
-                false
-            }
-            (None, Ok(..)) => {
+            (Some(_), Ok(..)) | (Some(..), Err(_)) | (None, Ok(..)) => {
                 // println!("input: {:?}", i);
                 // println!("expected parse error");
                 // println!("detected: {:?}", x);

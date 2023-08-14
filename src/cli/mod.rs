@@ -94,7 +94,7 @@ struct LoadArgs {
 
 #[derive(Parser, Debug)]
 struct LoadCli {
-    #[clap(value_parser)]
+    #[clap(value_parser = parse_filename)]
     lurk_file: Utf8PathBuf,
 
     #[clap(long, value_parser)]
@@ -254,6 +254,14 @@ fn parse_field(field_str: &String) -> Result<LanguageField> {
         "bls12-381" => Ok(LanguageField::BLS12_381),
         _ => bail!("Field not supported: {field_str}"),
     }
+}
+
+fn parse_filename(file: &str) -> Result<Utf8PathBuf> {
+    if file == "help" {
+        bail!("help is not a valid filename. printing help console instead");
+    }
+    let path: Utf8PathBuf = file.into();
+    Ok(path)
 }
 
 fn get_parsed_usize(

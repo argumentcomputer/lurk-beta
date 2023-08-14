@@ -39,9 +39,9 @@ enum Control<F: LurkField> {
 impl<F: LurkField> Control<F> {
     fn into_results(self, store: &mut Store<F>) -> (Ptr<F>, Ptr<F>, ContPtr<F>) {
         match self {
-            Self::Return(expr, env, cont) => (expr, env, cont),
-            Self::MakeThunk(expr, env, cont) => (expr, env, cont),
-            Self::ApplyContinuation(expr, env, cont) => (expr, env, cont),
+            Self::Return(expr, env, cont)
+            | Self::MakeThunk(expr, env, cont)
+            | Self::ApplyContinuation(expr, env, cont) => (expr, env, cont),
             Self::Error(expr, env) => (expr, env, store.intern_cont_error()),
         }
     }

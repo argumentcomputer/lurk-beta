@@ -19,6 +19,7 @@ proptest-derive = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
+anyhow.workspace = true
 bincode = { workspace = true }
 lurk_crate = { path = "../", package = "lurk" }
 pasta_curves = { workspace = true, features = ["repr-c", "serde"] }
