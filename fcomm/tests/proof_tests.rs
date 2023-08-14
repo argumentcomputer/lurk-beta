@@ -23,9 +23,9 @@ fn test_bad_command() {
     let mut cmd = fcomm_cmd();
 
     cmd.arg("uiop");
-    cmd.assert().failure().stderr(predicate::str::contains(
-        "error: Found argument 'uiop' which wasn't expected, or isn't valid in this context",
-    ));
+    cmd.assert()
+        .failure()
+        .stderr(predicate::str::contains("unrecognized subcommand \'uiop\'"));
 }
 
 #[test]

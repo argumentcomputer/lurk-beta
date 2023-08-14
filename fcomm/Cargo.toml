@@ -17,8 +17,8 @@ base64 = { workspace = true }
 bellperson = { workspace = true }
 bincode = { workspace = true }
 blstrs = { workspace = true }
-clap = { version = "3.2", features = ["derive"] }
-clap-verbosity-flag = "1.0"
+clap = { workspace = true, features = ["derive"] }
+clap-verbosity-flag = "2.0"
 ff = { workspace = true }
 hex = { version = "0.4.3", features = ["serde"] }
 log = { workspace = true }

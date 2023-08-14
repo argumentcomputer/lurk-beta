@@ -245,6 +245,8 @@ pub enum Op {
     Mul(Var, Var, Var),
     /// `Div(y, a, b)` binds `y` to the sum of `a` and `b`
     Div(Var, Var, Var),
+    /// `Div(y, a, b)` binds `y` to `t` if `a < b`, or to `nil` otherwise
+    Lt(Var, Var, Var),
     /// `Emit(v)` simply prints out the value of `v` when interpreting the code
     Emit(Var),
     /// `Hash2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
@@ -343,7 +345,8 @@ impl Func {
                     Op::Add(tgt, a, b)
                     | Op::Sub(tgt, a, b)
                     | Op::Mul(tgt, a, b)
-                    | Op::Div(tgt, a, b) => {
+                    | Op::Div(tgt, a, b)
+                    | Op::Lt(tgt, a, b) => {
                         is_bound(a, map)?;
                         is_bound(b, map)?;
                         is_unique(tgt, map);
@@ -574,6 +577,12 @@ impl Block {
                     let b = map.get_cloned(&b)?;
                     let tgt = insert_one(map, uniq, &tgt);
                     ops.push(Op::Div(tgt, a, b))
+                }
+                Op::Lt(tgt, a, b) => {
+                    let a = map.get_cloned(&a)?;
+                    let b = map.get_cloned(&b)?;
+                    let tgt = insert_one(map, uniq, &tgt);
+                    ops.push(Op::Lt(tgt, a, b))
                 }
                 Op::Emit(a) => {
                     let a = map.get_cloned(&a)?;

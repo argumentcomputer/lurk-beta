@@ -7,4 +7,5 @@ xclippy = [
     "clippy", "--workspace", "--all-targets", "--",
     "-Wclippy::all",
     "-Wclippy::disallowed_methods",
+    "-Wclippy::match_same_arms",
 ]

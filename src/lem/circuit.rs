@@ -578,6 +578,9 @@ impl Func {
                         bound_allocations.insert(tgt.clone(), c);
 
                     }
+                    Op::Lt(_tgt, _a, _b) => {
+                        // TODO
+                    }
                     Op::Emit(_) => (),
                     Op::Hide(tgt, _sec, _pay) => {
                         // TODO
@@ -862,19 +865,14 @@ impl Func {
                     Op::Cast(_tgt, tag, _src) => {
                         globals.insert(FWrap(tag.to_field()));
                     }
-                    Op::Add(_, _, _) => {
-                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
-                        num_constraints += 1;
-                    }
-                    Op::Sub(_, _, _) => {
-                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
-                        num_constraints += 1;
-                    }
-                    Op::Mul(_, _, _) => {
+                    Op::Add(_, _, _) | Op::Sub(_, _, _) | Op::Mul(_, _, _) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
                         num_constraints += 1;
                     }
                     Op::Div(_, _, _) => {
+                        // TODO
+                    }
+                    Op::Lt(_, _, _) => {
                         // TODO
                     }
                     Op::Emit(_) => (),
@@ -900,11 +898,7 @@ impl Func {
                         // one constraint for the image's hash
                         num_constraints += 1;
                     }
-                    Op::Hide(..) => {
-                        // TODO
-                        globals.insert(FWrap(F::ZERO));
-                    }
-                    Op::Open(..) => {
+                    Op::Hide(..) | Op::Open(..) => {
                         // TODO
                         globals.insert(FWrap(F::ZERO));
                     }
