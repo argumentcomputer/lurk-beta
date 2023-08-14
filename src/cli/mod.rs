@@ -47,7 +47,7 @@ enum Command {
     /// Verifies a Lurk proof
     Verify(VerifyArgs),
     /// Instansiates a new circom gadget to interface with bellperson.
-    /// 
+    ///
     /// See `lurk circom --help` for more details
     #[command(verbatim_doc_comment)]
     Circom(CircomArgs),
