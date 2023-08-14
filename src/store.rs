@@ -132,6 +132,13 @@ impl fmt::Display for Error {
     }
 }
 
+#[macro_export]
+macro_rules! lurk_sym_ptr {
+    ( $store:expr, $sym:ident ) => {{
+        $store.expect_constants().$sym.ptr()
+    }};
+}
+
 /// These methods provide a more ergonomic means of constructing and manipulating Lurk data.
 /// They can be thought of as a minimal DSL for working with Lurk data in Rust code.
 /// Prefer these methods when constructing literal data or assembling program fragments in
@@ -141,66 +148,6 @@ impl<F: LurkField> Store<F> {
         self.constants
             .get()
             .expect("Constants must have been set during instatiation")
-    }
-
-    pub fn nil_ptr(&self) -> Ptr<F> {
-        self.expect_constants().nil.ptr()
-    }
-
-    pub fn cons_ptr(&self) -> Ptr<F> {
-        self.expect_constants().cons.ptr()
-    }
-
-    pub fn cdr_ptr(&self) -> Ptr<F> {
-        self.expect_constants().cdr.ptr()
-    }
-
-    pub fn begin_ptr(&self) -> Ptr<F> {
-        self.expect_constants().begin.ptr()
-    }
-
-    pub fn eq_ptr(&self) -> Ptr<F> {
-        self.expect_constants().equal.ptr()
-    }
-
-    pub fn quote_ptr(&self) -> Ptr<F> {
-        self.expect_constants().quote.ptr()
-    }
-
-    pub fn t_ptr(&self) -> Ptr<F> {
-        self.expect_constants().t.ptr()
-    }
-
-    pub fn dummy_ptr(&self) -> Ptr<F> {
-        self.expect_constants().dummy.ptr()
-    }
-
-    pub fn let_ptr(&self) -> Ptr<F> {
-        self.expect_constants().let_.ptr()
-    }
-
-    pub fn letrec_ptr(&self) -> Ptr<F> {
-        self.expect_constants().letrec.ptr()
-    }
-
-    pub fn current_env_ptr(&self) -> Ptr<F> {
-        self.expect_constants().current_env.ptr()
-    }
-
-    pub fn open_ptr(&self) -> Ptr<F> {
-        self.expect_constants().open.ptr()
-    }
-
-    pub fn secret_ptr(&self) -> Ptr<F> {
-        self.expect_constants().secret.ptr()
-    }
-
-    pub fn num_ptr(&self) -> Ptr<F> {
-        self.expect_constants().num.ptr()
-    }
-
-    pub fn lambda_ptr(&self) -> Ptr<F> {
-        self.expect_constants().lambda.ptr()
     }
 
     #[inline]
@@ -488,7 +435,9 @@ impl<F: LurkField> Store<F> {
     pub fn intern_list(&mut self, elts: &[Ptr<F>]) -> Ptr<F> {
         elts.iter()
             .rev()
-            .fold(self.nil_ptr(), |acc, elt| self.intern_cons(*elt, acc))
+            .fold(lurk_sym_ptr!(self, nil), |acc, elt| {
+                self.intern_cons(*elt, acc)
+            })
     }
 
     pub fn intern_symbol_path(&mut self, path: &[String]) -> Ptr<F> {
@@ -1342,7 +1291,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn car_cdr(&self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), Error> {
         match ptr.tag {
-            ExprTag::Nil => Ok((self.nil_ptr(), self.nil_ptr())),
+            ExprTag::Nil => Ok((lurk_sym_ptr!(self, nil), lurk_sym_ptr!(self, nil))),
             ExprTag::Cons => match self.fetch(ptr) {
                 Some(Expression::Cons(car, cdr)) => Ok((car, cdr)),
                 e => Err(Error(format!(
@@ -1352,7 +1301,7 @@ impl<F: LurkField> Store<F> {
             },
             ExprTag::Str => match self.fetch(ptr) {
                 Some(Expression::Str(car, cdr)) => Ok((car, cdr)),
-                Some(Expression::EmptyStr) => Ok((self.nil_ptr(), self.strnil())),
+                Some(Expression::EmptyStr) => Ok((lurk_sym_ptr!(self, nil), self.strnil())),
                 _ => unreachable!(),
             },
             _ => Err(Error("Can only extract car_cdr from Cons".into())),
@@ -1467,7 +1416,7 @@ impl<F: LurkField> Store<F> {
             use ZExpr::*;
             match (z_ptr.tag(), z_store.get_expr(z_ptr)) {
                 (ExprTag::Nil, Some(Nil)) => {
-                    let ptr = self.nil_ptr();
+                    let ptr = lurk_sym_ptr!(self, nil);
                     self.create_z_expr_ptr(ptr, *z_ptr.value());
                     Some(ptr)
                 }
@@ -2008,9 +1957,9 @@ pub mod test {
         let opaque_fun = store.intern_opaque_fun(*fun_hash.value());
         let opaque_fun2 = store.intern_opaque_fun(*fun_hash2.value());
 
-        let eq = store.eq_ptr();
-        let t = store.t_ptr();
-        let nil = store.nil_ptr();
+        let eq = lurk_sym_ptr!(store, equal);
+        let t = lurk_sym_ptr!(store, t);
+        let nil = lurk_sym_ptr!(store, nil);
         let limit = 10;
         let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
         {
@@ -2042,7 +1991,7 @@ pub mod test {
             // without this affecting equality semantics.
 
             let n = store.num(123);
-            let cons = store.cons_ptr();
+            let cons = lurk_sym_ptr!(store, cons);
             let cons_expr1 = store.list(&[cons, fun, n]);
             let cons_expr2 = store.list(&[cons, opaque_fun, n]);
 
@@ -2067,15 +2016,15 @@ pub mod test {
         let opaque_sym = store.intern_opaque_sym(*sym_hash.value());
         let opaque_sym2 = store.intern_opaque_sym(*sym_hash2.value());
 
-        let quote = store.quote_ptr();
+        let quote = lurk_sym_ptr!(store, quote);
         let qsym = store.list(&[quote, sym]);
         let qsym2 = store.list(&[quote, sym2]);
         let qsym_opaque = store.list(&[quote, opaque_sym]);
         let qsym_opaque2 = store.list(&[quote, opaque_sym2]);
 
-        let eq = store.eq_ptr();
-        let t = store.t_ptr();
-        let nil = store.nil_ptr();
+        let eq = lurk_sym_ptr!(store, equal);
+        let t = lurk_sym_ptr!(store, t);
+        let nil = lurk_sym_ptr!(store, nil);
         let limit = 10;
 
         let state = initial_lurk_state();
@@ -2146,7 +2095,7 @@ pub mod test {
             // without this affecting equality semantics.
 
             let n = store.num(123);
-            let cons = store.cons_ptr();
+            let cons = lurk_sym_ptr!(store, cons);
             let cons_expr1 = store.list(&[cons, qsym, n]);
             let cons_expr2 = store.list(&[cons, qsym_opaque, n]);
 
@@ -2174,11 +2123,11 @@ pub mod test {
         let opaque_cons = store.intern_opaque_cons(*cons_hash.value());
         let opaque_cons2 = store.intern_opaque_cons(*cons_hash2.value());
 
-        let eq = store.eq_ptr();
-        let t = store.t_ptr();
-        let nil = store.nil_ptr();
+        let eq = lurk_sym_ptr!(store, equal);
+        let t = lurk_sym_ptr!(store, t);
+        let nil = lurk_sym_ptr!(store, nil);
         let limit = 10;
-        let quote = store.quote_ptr();
+        let quote = lurk_sym_ptr!(store, quote);
         let qcons = store.list(&[quote, cons]);
         let qcons2 = store.list(&[quote, cons2]);
         let qcons_opaque = store.list(&[quote, opaque_cons]);
@@ -2224,7 +2173,7 @@ pub mod test {
 
             let n = store.num(123);
             let n2 = store.num(321);
-            let cons_sym = store.cons_ptr();
+            let cons_sym = lurk_sym_ptr!(store, cons);
             let cons_expr1 = store.list(&[cons_sym, qcons, n]);
             let cons_expr2 = store.list(&[cons_sym, qcons_opaque, n]);
             let cons_expr3 = store.list(&[cons_sym, qcons_opaque, n2]);

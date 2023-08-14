@@ -426,6 +426,7 @@ pub mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
 
+    use crate::lurk_sym_ptr;
     use crate::num::Num;
     use crate::state::{user_sym, State};
 
@@ -681,7 +682,7 @@ pub mod tests {
     #[ignore]
     fn test_prove_eq() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.t_ptr();
+        let expected = lurk_sym_ptr!(s, t);
         let terminal = s.get_cont_terminal();
         nova_test_full_aux::<Coproc<Fr>>(
             s,
@@ -702,7 +703,7 @@ pub mod tests {
     #[ignore]
     fn test_prove_num_equal() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.t_ptr();
+        let expected = lurk_sym_ptr!(s, t);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -715,7 +716,7 @@ pub mod tests {
             None,
         );
 
-        let expected = s.nil_ptr();
+        let expected = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -732,7 +733,7 @@ pub mod tests {
     #[test]
     fn test_prove_invalid_num_equal() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.nil_ptr();
+        let expected = lurk_sym_ptr!(s, nil);
         let error = s.get_cont_error();
         test_aux::<Coproc<Fr>>(
             s,
@@ -761,8 +762,8 @@ pub mod tests {
     #[test]
     fn test_prove_equal() {
         let s = &mut Store::<Fr>::default();
-        let nil = s.nil_ptr();
-        let t = s.t_ptr();
+        let nil = lurk_sym_ptr!(s, nil);
+        let t = lurk_sym_ptr!(s, t);
         let terminal = s.get_cont_terminal();
 
         test_aux::<Coproc<Fr>>(
@@ -919,7 +920,7 @@ pub mod tests {
 
     fn test_prove_unop_regression_aux(chunk_count: usize) {
         let s = &mut Store::<Fr>::default();
-        let expected = s.t_ptr();
+        let expected = lurk_sym_ptr!(s, t);
         let terminal = s.get_cont_terminal();
         nova_test_full_aux::<Coproc<Fr>>(
             s,
@@ -1280,7 +1281,7 @@ pub mod tests {
     #[test]
     fn test_prove_error_invalid_type_and_not_cons() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.nil_ptr();
+        let expected = lurk_sym_ptr!(s, nil);
         let error = s.get_cont_error();
         test_aux::<Coproc<Fr>>(
             s,
@@ -1319,7 +1320,7 @@ pub mod tests {
     #[test]
     fn test_prove_current_env_simple() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.nil_ptr();
+        let expected = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -1457,7 +1458,7 @@ pub mod tests {
     #[test]
     fn test_prove_let_body_nil() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.t_ptr();
+        let expected = lurk_sym_ptr!(s, t);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -1588,7 +1589,7 @@ pub mod tests {
     #[ignore]
     fn test_prove_comparison() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.t_ptr();
+        let expected = lurk_sym_ptr!(s, t);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -1830,7 +1831,7 @@ pub mod tests {
     #[ignore]
     fn test_prove_no_mutual_recursion() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.t_ptr();
+        let expected = lurk_sym_ptr!(s, t);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -1981,7 +1982,7 @@ pub mod tests {
             let arg = s.user_sym("x");
             let num = s.num(123);
             let body = s.list(&[num]);
-            let env = s.nil_ptr();
+            let env = lurk_sym_ptr!(s, nil);
             s.intern_fun(arg, body, env)
         };
         let terminal = s.get_cont_terminal();
@@ -2385,7 +2386,7 @@ pub mod tests {
     #[test]
     fn test_prove_begin_empty() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.nil_ptr();
+        let expected = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -2454,7 +2455,7 @@ pub mod tests {
     #[test]
     fn test_prove_str_car_empty() {
         let s = &mut Store::<Fr>::default();
-        let expected_nil = s.nil_ptr();
+        let expected_nil = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -2528,7 +2529,7 @@ pub mod tests {
     #[test]
     fn test_prove_car_nil() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.nil_ptr();
+        let expected = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -2545,7 +2546,7 @@ pub mod tests {
     #[test]
     fn test_prove_cdr_nil() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.nil_ptr();
+        let expected = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -2927,7 +2928,7 @@ pub mod tests {
         let a_pple = s.read(r#" (#\a . "pple") "#).unwrap();
         let pple = s.read(r#" "pple" "#).unwrap();
         let empty = s.intern_string("");
-        let nil = s.nil_ptr();
+        let nil = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
         let error = s.get_cont_error();
 
@@ -3029,7 +3030,11 @@ pub mod tests {
 
     fn relational_aux(s: &mut Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
         let expr = &format!("({op} {a} {b})");
-        let expected = if res { s.t_ptr() } else { s.nil_ptr() };
+        let expected = if res {
+            lurk_sym_ptr!(s, t)
+        } else {
+            lurk_sym_ptr!(s, nil)
+        };
         let terminal = s.get_cont_terminal();
 
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
@@ -3157,7 +3162,7 @@ pub mod tests {
         let expr = "(let ((most-positive (/ (- 0 1) 2))
                           (most-negative (+ 1 most-positive)))
                       (< most-negative most-positive))";
-        let t = s.t_ptr();
+        let t = lurk_sym_ptr!(s, t);
         let terminal = s.get_cont_terminal();
 
         test_aux::<Coproc<Fr>>(s, expr, Some(t), None, Some(terminal), None, 19, None);
@@ -3184,8 +3189,8 @@ pub mod tests {
         let expr2 = "(eq :asdf :asdf)";
         let expr3 = "(eq :asdf 'asdf)";
         let res = s.key("asdf");
-        let res2 = s.t_ptr();
-        let res3 = s.nil_ptr();
+        let res2 = lurk_sym_ptr!(s, t);
+        let res3 = lurk_sym_ptr!(s, nil);
 
         let terminal = s.get_cont_terminal();
 
@@ -3441,8 +3446,8 @@ pub mod tests {
         let expr9 = "(<= 0u64 0u64)";
         let expr10 = "(>= 0u64 0u64)";
 
-        let t = s.t_ptr();
-        let nil = s.nil_ptr();
+        let t = lurk_sym_ptr!(s, t);
+        let nil = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
 
         test_aux::<Coproc<Fr>>(s, expr, Some(t), None, Some(terminal), None, 3, None);
@@ -3484,8 +3489,8 @@ pub mod tests {
 
         let expr = "(= 1 1u64)";
         let expr2 = "(= 1 2u64)";
-        let t = s.t_ptr();
-        let nil = s.nil_ptr();
+        let t = lurk_sym_ptr!(s, t);
+        let nil = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
 
         test_aux::<Coproc<Fr>>(s, expr, Some(t), None, Some(terminal), None, 3, None);
@@ -3538,7 +3543,7 @@ pub mod tests {
     #[test]
     fn test_prove_call_literal_fun() {
         let s = &mut Store::<Fr>::default();
-        let empty_env = s.nil_ptr();
+        let empty_env = lurk_sym_ptr!(s, nil);
         let arg = s.user_sym("x");
         let body = s.read("((+ x 1))").unwrap();
         let fun = s.intern_fun(arg, body, empty_env);
@@ -3721,7 +3726,7 @@ pub mod tests {
     #[test]
     fn test_prove_lambda_body_nil() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.nil_ptr();
+        let expected = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,

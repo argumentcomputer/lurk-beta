@@ -12,7 +12,7 @@ use crate::store::Store;
 use crate::symbol::Symbol;
 use crate::z_ptr::ZExprPtr;
 
-use crate as lurk;
+use crate::{self as lurk, lurk_sym_ptr};
 
 /// `DummyCoprocessor` is a concrete implementation of the [`crate::coprocessor::Coprocessor`] trait.
 ///
@@ -36,7 +36,7 @@ impl<F: LurkField> Coprocessor<F> for DummyCoprocessor<F> {
     /// but for now it exists as an exemplar demonstrating the intended shape of enums like the default, `Coproc`.
     fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
         assert!(args.is_empty());
-        s.nil_ptr()
+        lurk_sym_ptr!(s, nil)
     }
 }
 

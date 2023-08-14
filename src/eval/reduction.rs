@@ -9,10 +9,10 @@ use crate::hash_witness::{ConsName, ConsWitness, ContName, ContWitness};
 use crate::num::Num;
 use crate::ptr::{ContPtr, Ptr, TypePredicates};
 use crate::state::initial_lurk_state;
-use crate::store;
 use crate::store::{NamedConstants, Store};
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 use crate::writer::Write;
+use crate::{lurk_sym_ptr, store};
 
 pub(crate) fn reduce<F: LurkField, C: Coprocessor<F>>(
     expr: Ptr<F>,
@@ -102,7 +102,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                 },
 
                 ExprTag::Sym => {
-                    if expr == c.nil.ptr() || (expr == store.t_ptr()) {
+                    if expr == c.nil.ptr() || (expr == lurk_sym_ptr!(store, t)) {
                         // NIL and T are self-evaluating symbols, pass them to the continuation in a thunk.
                         // NOTE: For now, NIL is its own type, but this will change soon, so leave the check here.
 
@@ -324,7 +324,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                         let (arg, _rest) = if args.is_nil() {
                             // (LAMBDA () STUFF)
                             // becomes (LAMBDA (DUMMY) STUFF)
-                            (dummy_arg, store.nil_ptr())
+                            (dummy_arg, lurk_sym_ptr!(store, nil))
                         } else {
                             cons_witness.car_cdr_named(ConsName::ExprCadr, store, &args)?
                         };
@@ -346,7 +346,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                 );
                                 let l =
                                     cons_witness.cons_named(ConsName::Lambda, store, lambda, inner);
-                                let nil = store.nil_ptr();
+                                let nil = lurk_sym_ptr!(store, nil);
                                 cons_witness.cons_named(ConsName::InnerBody, store, l, nil)
                             };
                             let function = store.intern_fun(arg, inner_body, env);
@@ -603,7 +603,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                 _ => {
                                     // Interpreting as multi-arg call.
                                     // (fn arg . more_args) => ((fn arg) . more_args)
-                                    let nil = store.nil_ptr();
+                                    let nil = lurk_sym_ptr!(store, nil);
                                     let expanded_inner0 = cons_witness.cons_named(
                                         ConsName::ExpandedInner0,
                                         store,
@@ -887,8 +887,8 @@ fn apply_continuation<F: LurkField>(
                         }
                     }
                     Op1::Atom => match result.tag {
-                        ExprTag::Cons => store.nil_ptr(),
-                        _ => store.t_ptr(),
+                        ExprTag::Cons => lurk_sym_ptr!(store, nil),
+                        _ => lurk_sym_ptr!(store, t),
                     },
                     Op1::Emit => {
                         println!("{}", result.fmt_to_string(store, initial_lurk_state()));
@@ -1330,7 +1330,7 @@ fn extend_rec<F: LurkField>(
     match var_or_binding.tag {
         // It's a var, so we are extending a simple env with a recursive env.
         ExprTag::Sym | ExprTag::Nil => {
-            let nil = store.nil_ptr();
+            let nil = lurk_sym_ptr!(store, nil);
             let list = cons_witness.cons_named(ConsName::NewRec, store, cons, nil);
             let res = cons_witness.cons_named(ConsName::ExtendedRec, store, list, env);
 
@@ -1378,9 +1378,9 @@ fn extend_closure<F: LurkField>(
 impl<F: LurkField> Store<F> {
     pub fn as_lurk_boolean(&mut self, x: bool) -> Ptr<F> {
         if x {
-            self.t_ptr()
+            lurk_sym_ptr!(self, t)
         } else {
-            self.nil_ptr()
+            lurk_sym_ptr!(self, nil)
         }
     }
 }
@@ -1394,7 +1394,7 @@ pub(crate) fn lookup<F: LurkField>(
 ) -> Result<Ptr<F>, store::Error> {
     assert!(matches!(var.tag, ExprTag::Sym));
     match env.tag {
-        ExprTag::Nil => Ok(store.nil_ptr()),
+        ExprTag::Nil => Ok(lurk_sym_ptr!(store, nil)),
         ExprTag::Cons => {
             let (binding, smaller_env) = store.car_cdr(env)?;
             let (v, val) = store.car_cdr(&binding)?;

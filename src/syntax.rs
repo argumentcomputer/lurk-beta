@@ -2,6 +2,7 @@ use std::fmt;
 
 use crate::expr::Expression;
 use crate::field::LurkField;
+use crate::lurk_sym_ptr;
 use crate::num::Num;
 use crate::package::SymbolRef;
 use crate::parser::position::Pos;
@@ -118,7 +119,7 @@ impl<F: LurkField> Store<F> {
                 self.intern_syntax(Syntax::List(pos, xs))
             }
             Syntax::List(_, xs) => {
-                let mut cdr = self.nil_ptr();
+                let mut cdr = lurk_sym_ptr!(self, nil);
                 for x in xs.into_iter().rev() {
                     let car = self.intern_syntax(x);
                     cdr = self.intern_cons(car, cdr);
@@ -207,7 +208,7 @@ mod test {
             ( $( $x:expr ),* ) => {
                 {
                     let mut vec = vec!($($x,)*);
-                    let mut tmp = s.nil_ptr();
+                    let mut tmp = lurk_sym_ptr!(s, nil);
                     while let Some(x) = vec.pop() {
                         tmp = s.cons(x, tmp);
                     }
@@ -223,15 +224,15 @@ mod test {
         }
 
         // Quote tests
-        let expr = list!(s.quote_ptr(), list!(sym!(f), sym!(x), sym!(y)));
+        let expr = list!(lurk_sym_ptr!(s, quote), list!(sym!(f), sym!(x), sym!(y)));
         let output = s.fetch_syntax(expr).unwrap();
         assert_eq!("(.lurk.quote (.f .x .y))", &format!("{}", output));
 
-        let expr = list!(s.quote_ptr(), list!(sym!(f), sym!(x), sym!(y)));
+        let expr = list!(lurk_sym_ptr!(s, quote), list!(sym!(f), sym!(x), sym!(y)));
         let output = s.fetch_syntax(expr).unwrap();
         assert_eq!("(.lurk.quote (.f .x .y))", &format!("{}", output));
 
-        let expr = list!(s.quote_ptr(), sym!(f), sym!(x), sym!(y));
+        let expr = list!(lurk_sym_ptr!(s, quote), sym!(f), sym!(x), sym!(y));
         let output = s.fetch_syntax(expr).unwrap();
         assert_eq!("(.lurk.quote .f .x .y)", &format!("{}", output));
 
@@ -244,7 +245,7 @@ mod test {
         let output = s.fetch_syntax(expr).unwrap();
         assert_eq!("(.x .y . .z)", &format!("{}", output));
 
-        let expr = improper!(sym!(x), sym!(y), s.nil_ptr());
+        let expr = improper!(sym!(x), sym!(y), lurk_sym_ptr!(s, nil));
         let output = s.fetch_syntax(expr).unwrap();
         assert_eq!("(.x .y)", &format!("{}", output));
     }

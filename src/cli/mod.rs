@@ -24,6 +24,8 @@ use crate::cli::{
     repl::{validate_non_zero, Backend, Repl},
 };
 
+use crate::lurk_sym_ptr;
+
 const DEFAULT_LIMIT: usize = 100_000_000;
 const DEFAULT_RC: usize = 10;
 const DEFAULT_BACKEND: Backend = Backend::Nova;
@@ -325,7 +327,7 @@ fn get_store<F: LurkField + for<'a> serde::de::Deserialize<'a>>(
 macro_rules! new_repl {
     ( $cli: expr, $rc: expr, $limit: expr, $field: path, $backend: expr ) => {{
         let store = get_store(&$cli.zstore).with_context(|| "reading store from file")?;
-        let env = store.nil_ptr();
+        let env = lurk_sym_ptr!(store, nil);
         Repl::<$field>::new(store, env, $rc, $limit, $backend)
     }};
 }

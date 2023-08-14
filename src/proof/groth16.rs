@@ -330,6 +330,7 @@ mod tests {
     use super::*;
     use crate::circuit::ToInputs;
     use crate::eval::{empty_sym_env, lang::Coproc, Frame};
+    use crate::lurk_sym_ptr;
     use crate::proof::{verify_sequential_css, SequentialCS};
     use bellperson::{
         groth16::aggregate::verify_aggregate_proof_and_aggregate_instances,
@@ -514,7 +515,7 @@ mod tests {
     fn outer_prove_eq() {
         outer_prove_aux(
             "(eq 5 5)",
-            |store| store.t_ptr(),
+            |store| lurk_sym_ptr!(store, t),
             3,
             true, // Always check Groth16 in at least one test.
             true,
@@ -528,7 +529,7 @@ mod tests {
     fn outer_prove_num_equal() {
         outer_prove_aux(
             "(= 5 5)",
-            |store| store.t_ptr(),
+            |store| lurk_sym_ptr!(store, t),
             3,
             DEFAULT_CHECK_GROTH16,
             true,
@@ -537,7 +538,7 @@ mod tests {
         );
         outer_prove_aux(
             "(= 5 6)",
-            |store| store.nil_ptr(),
+            |store| lurk_sym_ptr!(store, nil),
             3,
             DEFAULT_CHECK_GROTH16,
             true,
@@ -647,8 +648,8 @@ mod tests {
 
         let fun = evaled.expr;
 
-        let cdr = s.cdr_ptr();
-        let quote = s.quote_ptr();
+        let cdr = lurk_sym_ptr!(s, cdr);
+        let quote = lurk_sym_ptr!(s, quote);
 
         let zero = s.num(0);
         let five = s.num(5);

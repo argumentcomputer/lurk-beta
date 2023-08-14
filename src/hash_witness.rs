@@ -5,6 +5,7 @@ use std::marker::PhantomData;
 use crate::cont::Continuation;
 use crate::error::ReductionError;
 use crate::field::LurkField;
+use crate::lurk_sym_ptr;
 use crate::ptr::{ContPtr, Ptr};
 use crate::state::State;
 use crate::store::{self, Store};
@@ -253,7 +254,7 @@ impl<F: LurkField> HashWitness<ConsName, Cons<F>, MAX_CONSES_PER_REDUCTION, F> {
             match p {
                 Stub::Value(hash) => {
                     if let Some(existing_name) = digests.insert(hash.cons, name) {
-                        let nil = store.nil_ptr();
+                        let nil = lurk_sym_ptr!(store, nil);
                         if !store.ptr_eq(&hash.cons, &nil).unwrap() {
                             use crate::writer::Write;
                             let cons = hash.cons.fmt_to_string(store, state);

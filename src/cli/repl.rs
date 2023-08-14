@@ -24,6 +24,7 @@ use crate::{
         Evaluator, Frame, Witness, IO,
     },
     field::{LanguageField, LurkField},
+    lurk_sym_ptr,
     package::{Package, SymbolRef},
     parser,
     proof::{nova::NovaProver, Prover},
@@ -388,8 +389,8 @@ impl Repl<F> {
     #[allow(dead_code)]
     fn get_comm_hash(&mut self, cmd: &str, args: &Ptr<F>) -> Result<F> {
         let first = self.peek1(cmd, args)?;
-        let n = self.store.num_ptr();
-        let expr = self.store.list(&[n, first]);
+        let num = lurk_sym_ptr!(self.store, num);
+        let expr = self.store.list(&[num, first]);
         let (expr_io, ..) = self
             .eval_expr(expr)
             .with_context(|| "evaluating first arg")?;
@@ -432,12 +433,12 @@ impl Repl<F> {
                 //
                 // And the state's env is set to the result.
                 let (first, second) = self.peek2(cmd, args)?;
-                let l = &self.store.let_ptr();
-                let current_env = &self.store.current_env_ptr();
+                let l = lurk_sym_ptr!(&self.store, let_);
+                let current_env = lurk_sym_ptr!(&self.store, current_env);
                 let binding = &self.store.list(&[first, second]);
                 let bindings = &self.store.list(&[*binding]);
-                let current_env_call = &self.store.list(&[*current_env]);
-                let expanded = &self.store.list(&[*l, *bindings, *current_env_call]);
+                let current_env_call = &self.store.list(&[current_env]);
+                let expanded = &self.store.list(&[l, *bindings, *current_env_call]);
                 let (expanded_io, ..) = self.eval_expr(*expanded)?;
 
                 self.env = expanded_io.expr;
@@ -459,12 +460,12 @@ impl Repl<F> {
                 //
                 // And the state's env is set to the result.
                 let (first, second) = self.peek2(cmd, args)?;
-                let l = &self.store.letrec_ptr();
-                let current_env = &self.store.current_env_ptr();
+                let l = lurk_sym_ptr!(&self.store, letrec);
+                let current_env = lurk_sym_ptr!(&self.store, current_env);
                 let binding = &self.store.list(&[first, second]);
                 let bindings = &self.store.list(&[*binding]);
-                let current_env_call = &self.store.list(&[*current_env]);
-                let expanded = &self.store.list(&[*l, *bindings, *current_env_call]);
+                let current_env_call = &self.store.list(&[current_env]);
+                let expanded = &self.store.list(&[l, *bindings, *current_env_call]);
                 let (expanded_io, ..) = self.eval_expr(*expanded)?;
 
                 self.env = expanded_io.expr;
@@ -582,7 +583,7 @@ impl Repl<F> {
                 let hash = self.get_comm_hash(cmd, args)?;
                 self.fetch(&hash, true)?;
             }
-            "clear" => self.env = self.store.nil_ptr(),
+            "clear" => self.env = lurk_sym_ptr!(&self.store, nil),
             "set-env" => {
                 // The state's env is set to the result of evaluating the first argument.
                 let first = self.peek1(cmd, args)?;

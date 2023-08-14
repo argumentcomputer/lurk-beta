@@ -1,6 +1,7 @@
 use crate::cont::Continuation;
 use crate::expr::Expression;
 use crate::field::LurkField;
+use crate::lurk_sym_ptr;
 use crate::package::SymbolRef;
 use crate::ptr::{ContPtr, Ptr};
 use crate::state::State;
@@ -84,7 +85,7 @@ impl<F: LurkField> Write<F> for Expression<F> {
                 write!(w, "\"{head}{tail}\"")
             }
             Fun(arg, body, _closed_env) => {
-                let is_zero_arg = *arg == store.dummy_ptr();
+                let is_zero_arg = *arg == lurk_sym_ptr!(store, dummy);
                 let arg = store.fetch(arg).unwrap();
                 write!(w, "<FUNCTION (")?;
                 if !is_zero_arg {
@@ -99,7 +100,7 @@ impl<F: LurkField> Write<F> for Expression<F> {
                         expr.fmt(store, state, w)?;
                     }
                     Expression::Nil => {
-                        store.nil_ptr().fmt(store, state, w)?;
+                        lurk_sym_ptr!(store, nil).fmt(store, state, w)?;
                     }
                     _ => {
                         panic!("Function body was neither a Cons nor Nil");
@@ -354,10 +355,10 @@ pub mod test {
     fn print_expr() {
         let mut s = Store::<Fr>::default();
         let state = &mut State::init_lurk_state();
-        let nil = s.nil_ptr();
+        let nil = lurk_sym_ptr!(s, nil);
         let x = s.user_sym("x");
         state.intern("x");
-        let lambda = s.lambda_ptr();
+        let lambda = lurk_sym_ptr!(&s, lambda);
         let val = s.num(123);
         let lambda_args = s.cons(x, nil);
         let body = s.cons(x, nil);

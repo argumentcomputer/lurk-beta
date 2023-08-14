@@ -5,10 +5,10 @@ use crate::field::LurkField;
 use crate::hash_witness::{ConsWitness, ContWitness};
 use crate::ptr::{ContPtr, Ptr};
 use crate::state::{initial_lurk_state, State};
-use crate::store;
 use crate::store::Store;
 use crate::tag::ContTag;
 use crate::writer::Write;
+use crate::{lurk_sym_ptr, store};
 use lang::Lang;
 
 use log::info;
@@ -519,7 +519,7 @@ where
 
 #[inline]
 pub fn empty_sym_env<F: LurkField>(store: &Store<F>) -> Ptr<F> {
-    store.nil_ptr()
+    lurk_sym_ptr!(store, nil)
 }
 
 // Convenience functions, mostly for use in tests.

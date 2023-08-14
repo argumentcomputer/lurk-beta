@@ -8,6 +8,7 @@ use fcomm::{
     CommittedExpression, CommittedExpressionMap, LurkCont, LurkPtr, NovaProofCache, Opening, Proof,
     PtrEvaluation,
 };
+use lurk::lurk_sym_ptr;
 use lurk::public_parameters::public_params;
 
 use lurk::state::State;
@@ -594,9 +595,9 @@ impl ClutchState<F, Coproc<F>> {
         let result = proof.verify(&pp, &self.lang()).unwrap();
 
         if result.verified {
-            Ok(Some(store.t_ptr()))
+            Ok(Some(lurk_sym_ptr!(store, t)))
         } else {
-            Ok(Some(store.nil_ptr()))
+            Ok(Some(lurk_sym_ptr!(store, nil)))
         }
     }
 }
