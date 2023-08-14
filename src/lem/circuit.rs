@@ -555,6 +555,9 @@ impl Func {
                     Op::Div(_tgt, _a, _b) => {
                         // TODO
                     }
+                    Op::Lt(_tgt, _a, _b) => {
+                        // TODO
+                    }
                     Op::Emit(_) => (),
                     Op::Hide(tgt, _sec, _pay) => {
                         // TODO
@@ -844,6 +847,9 @@ impl Func {
                         num_constraints += 1;
                     }
                     Op::Div(_, _, _) => {
+                        // TODO
+                    }
+                    Op::Lt(_, _, _) => {
                         // TODO
                     }
                     Op::Emit(_) => (),

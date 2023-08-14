@@ -141,9 +141,12 @@ impl Block {
                     };
                     bindings.insert(tgt.clone(), c);
                 }
+                Op::Lt(tgt, a, b) => {
+                    todo!()
+                }
                 Op::Emit(a) => {
                     let a = bindings.get(a)?;
-                    println!("{}", a.to_string(store))
+                    println!("{}", a.fmt_to_string(store))
                 }
                 Op::Hash2(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
