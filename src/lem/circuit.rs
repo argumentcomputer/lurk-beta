@@ -41,11 +41,13 @@ use crate::circuit::gadgets::{
     pointer::AllocatedPtr,
 };
 
-use crate::field::{FWrap, LurkField};
-use crate::tag::ExprTag::*;
+use crate::{
+    field::{FWrap, LurkField},
+    tag::ExprTag::*,
+};
 
 use super::{
-    interpreter::Frame,
+    interpreter::{Frame, PreimageData},
     pointers::{Ptr, ZPtr},
     slot::*,
     store::Store,
@@ -174,7 +176,7 @@ impl Func {
         preallocated_preimg: Vec<AllocatedNum<F>>,
         store: &mut Store<F>,
     ) -> Result<AllocatedNum<F>> {
-        let cs = &mut cs.namespace(|| format!("poseidon for slot {slot}"));
+        let cs = &mut cs.namespace(|| format!("image for slot {slot}"));
         let preallocated_img = {
             match slot.typ {
                 SlotType::Hash2 => {
@@ -186,6 +188,25 @@ impl Func {
                 SlotType::Hash4 => {
                     hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c8())?
                 }
+                SlotType::IsDiffNeg => {
+                    let a_num = &preallocated_preimg[0];
+                    let b_num = &preallocated_preimg[1];
+                    let diff = sub(
+                        &mut cs.namespace(|| format!("diff for slot {slot}")),
+                        a_num,
+                        b_num,
+                    )
+                    .unwrap();
+                    let diff_is_negative = allocate_is_negative(
+                        &mut cs.namespace(|| format!("diff_is_negative for slot {slot}")),
+                        &diff,
+                    )?;
+
+                    boolean_to_num(
+                        &mut cs.namespace(|| format!("boolean_to_num for slot {slot}")),
+                        &diff_is_negative,
+                    )?
+                }
             }
         };
         Ok(preallocated_img)
@@ -194,13 +215,13 @@ impl Func {
     /// Allocates unconstrained slots
     fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        preimgs: &[Option<Vec<Ptr<F>>>],
+        preimg_data: &[Option<PreimageData<F>>],
         slot_type: SlotType,
         num_slots: usize,
         store: &mut Store<F>,
     ) -> Result<Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>> {
         assert!(
-            preimgs.len() == num_slots,
+            preimg_data.len() == num_slots,
             "collected preimages not equal to the number of available slots"
         );
 
@@ -208,38 +229,52 @@ impl Func {
 
         // We must perform the allocations for the slots containing data collected
         // by the interpreter. The `None` cases must be filled with dummy values
-        for (slot_idx, maybe_preimg) in preimgs.iter().enumerate() {
-            if let Some(preimg) = maybe_preimg {
+        for (slot_idx, maybe_preimg_data) in preimg_data.iter().enumerate() {
+            if let Some(preimg_data) = maybe_preimg_data {
                 let slot = Slot {
                     idx: slot_idx,
                     typ: slot_type,
                 };
+
                 // Allocate the preimage because the image depends on it
-                let mut preallocated_preimg = Vec::with_capacity(2 * preimg.len());
+                let mut preallocated_preimg = Vec::with_capacity(slot_type.preimg_size());
 
-                let mut component_idx = 0;
-                for ptr in preimg {
-                    let z_ptr = store.hash_ptr(ptr)?;
+                match preimg_data {
+                    PreimageData::PtrVec(ptr_vec) => {
+                        let mut component_idx = 0;
+                        for ptr in ptr_vec {
+                            let z_ptr = store.hash_ptr(ptr)?;
 
-                    // allocate pointer tag
-                    preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
-                        cs,
-                        &slot,
-                        component_idx,
-                        z_ptr.tag.to_field(),
-                    )?);
+                            // allocate pointer tag
+                            preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
+                                cs,
+                                &slot,
+                                component_idx,
+                                z_ptr.tag.to_field(),
+                            )?);
 
-                    component_idx += 1;
+                            component_idx += 1;
 
-                    // allocate pointer hash
-                    preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
-                        cs,
-                        &slot,
-                        component_idx,
-                        z_ptr.hash,
-                    )?);
+                            // allocate pointer hash
+                            preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
+                                cs,
+                                &slot,
+                                component_idx,
+                                z_ptr.hash,
+                            )?);
 
-                    component_idx += 1;
+                            component_idx += 1;
+                        }
+                    }
+                    PreimageData::FPair(a, b) => {
+                        // allocate first element
+                        preallocated_preimg
+                            .push(Self::allocate_preimg_component_for_slot(cs, &slot, 0, *a)?);
+
+                        // allocate second element
+                        preallocated_preimg
+                            .push(Self::allocate_preimg_component_for_slot(cs, &slot, 1, *b)?);
+                    }
                 }
 
                 // Allocate the image by calling the arithmetic function according
@@ -318,12 +353,21 @@ impl Func {
             store,
         )?;
 
+        let preallocated_is_diff_neg_slots = Func::allocate_slots(
+            cs,
+            &frame.preimages.is_diff_neg,
+            SlotType::IsDiffNeg,
+            self.slot.is_diff_neg,
+            store,
+        )?;
+
         struct Globals<'a, F: LurkField> {
             store: &'a mut Store<F>,
             global_allocator: &'a mut GlobalAllocator<F>,
             preallocated_hash2_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash3_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash4_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
+            preallocated_is_diff_neg_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             call_outputs: VecDeque<Vec<Ptr<F>>>,
             call_count: usize,
         }
@@ -354,6 +398,7 @@ impl Func {
                             SlotType::Hash4 => {
                                 &g.preallocated_hash4_slots[next_slot.consume_hash4()]
                             }
+                            _ => panic!("Invalid slot type for hash_helper macro"),
                         };
 
                         // For each component of the preimage, add implication constraints
@@ -363,10 +408,7 @@ impl Func {
                             let ptr_idx = 2 * i;
                             implies_equal(
                                 &mut cs.namespace(|| {
-                                    format!(
-                                        "implies equal for {var}'s tag (LEMOP {:?}, pos {i})",
-                                        &op
-                                    )
+                                    format!("implies equal for {var}'s tag (OP {:?}, pos {i})", &op)
                                 }),
                                 not_dummy,
                                 allocated_ptr.tag(),
@@ -375,7 +417,7 @@ impl Func {
                             implies_equal(
                                 &mut cs.namespace(|| {
                                     format!(
-                                        "implies equal for {var}'s hash (LEMOP {:?}, pos {i})",
+                                        "implies equal for {var}'s hash (OP {:?}, pos {i})",
                                         &op
                                     )
                                 }),
@@ -410,12 +452,13 @@ impl Func {
                             SlotType::Hash4 => {
                                 &g.preallocated_hash4_slots[next_slot.consume_hash4()]
                             }
+                            _ => panic!("Invalid slot type for unhash_helper macro"),
                         };
 
                         // Add the implication constraint for the image
                         implies_equal(
                             &mut cs.namespace(|| {
-                                format!("implies equal for {}'s hash (LEMOP {:?})", $img, &op)
+                                format!("implies equal for {}'s hash (OP {:?})", $img, &op)
                             }),
                             not_dummy,
                             allocated_img.hash(),
@@ -581,20 +624,28 @@ impl Func {
                         let a = bound_allocations.get(a)?;
                         let b = bound_allocations.get(b)?;
                         // TODO check that the tags are correct
-                        let a_num = a.hash();
-                        let b_num = b.hash();
-                        let diff = sub(&mut cs.namespace(|| "diff"), a_num, b_num).unwrap();
-                        let diff_is_negative =
-                            allocate_is_negative(&mut cs.namespace(|| "diff_is_negative"), &diff)?;
-
                         let tag = g
                             .global_allocator
                             .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
-                        let lt = boolean_to_num(
-                            &mut cs.namespace(|| "boolean_to_num"),
-                            &diff_is_negative,
+                        let (preallocated_preimg, lt) =
+                            &g.preallocated_is_diff_neg_slots[next_slot.consume_is_diff_neg()];
+                        implies_equal(
+                            &mut cs.namespace(|| {
+                                format!("implies equal for first component (OP {:?})", &op)
+                            }),
+                            not_dummy,
+                            a.hash(),
+                            &preallocated_preimg[0],
                         )?;
-                        let c = AllocatedPtr::from_parts(tag, lt);
+                        implies_equal(
+                            &mut cs.namespace(|| {
+                                format!("implies equal for second component (OP {:?})", &op)
+                            }),
+                            not_dummy,
+                            b.hash(),
+                            &preallocated_preimg[1],
+                        )?;
+                        let c = AllocatedPtr::from_parts(tag, lt.clone());
                         bound_allocations.insert(tgt.clone(), c);
                     }
                     Op::Emit(_) => (),
@@ -845,6 +896,7 @@ impl Func {
                 preallocated_hash2_slots,
                 preallocated_hash3_slots,
                 preallocated_hash4_slots,
+                preallocated_is_diff_neg_slots,
                 call_outputs,
                 call_count: 0,
             },
@@ -892,7 +944,6 @@ impl Func {
                     Op::Lt(_, _, _) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
                         num_constraints += 2;
-                        num_constraints += 389;
                     }
                     Op::Emit(_) => (),
                     Op::Hash2(_, tag, _) => {
@@ -973,8 +1024,10 @@ impl Func {
         }
         let globals = &mut HashSet::default();
         // fixed cost for each slot
-        let slot_constraints =
-            289 * self.slot.hash2 + 337 * self.slot.hash3 + 388 * self.slot.hash4;
+        let slot_constraints = 289 * self.slot.hash2
+            + 337 * self.slot.hash3
+            + 388 * self.slot.hash4
+            + 391 * self.slot.is_diff_neg;
         let num_constraints = recurse::<F>(&self.body, false, globals, store);
         slot_constraints + num_constraints + globals.len()
     }

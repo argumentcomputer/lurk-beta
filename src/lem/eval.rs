@@ -838,12 +838,13 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 9680;
-    const NUM_CONSTRAINTS: usize = 11762;
+    const NUM_AUX: usize = 8512;
+    const NUM_CONSTRAINTS: usize = 10597;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,
         hash4: 2,
+        is_diff_neg: 1,
     };
 
     fn test_eval_and_constrain_aux(store: &mut Store<Fr>, pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>) {

@@ -9,15 +9,22 @@ use super::{
 
 use crate::tag::ExprTag::*;
 
+#[derive(Clone)]
+pub enum PreimageData<F: LurkField> {
+    PtrVec(Vec<Ptr<F>>),
+    FPair(F, F),
+}
+
 #[derive(Clone, Default)]
 /// `Preimages` hold the non-deterministic advices for hashes and `Func` calls.
 /// The hash preimages must have the same shape as the allocated slots for the
 /// `Func`, and the `None` values are used to fill the unused slots, which are
 /// later filled by dummy values.
 pub struct Preimages<F: LurkField> {
-    pub hash2_ptrs: Vec<Option<Vec<Ptr<F>>>>,
-    pub hash3_ptrs: Vec<Option<Vec<Ptr<F>>>>,
-    pub hash4_ptrs: Vec<Option<Vec<Ptr<F>>>>,
+    pub hash2_ptrs: Vec<Option<PreimageData<F>>>,
+    pub hash3_ptrs: Vec<Option<PreimageData<F>>>,
+    pub hash4_ptrs: Vec<Option<PreimageData<F>>>,
+    pub is_diff_neg: Vec<Option<PreimageData<F>>>,
     pub call_outputs: VecDeque<Vec<Ptr<F>>>,
 }
 
@@ -27,11 +34,13 @@ impl<F: LurkField> Preimages<F> {
         let hash2_ptrs = Vec::with_capacity(slot.hash2);
         let hash3_ptrs = Vec::with_capacity(slot.hash3);
         let hash4_ptrs = Vec::with_capacity(slot.hash4);
+        let is_diff_neg = Vec::with_capacity(slot.is_diff_neg);
         let call_outputs = VecDeque::new();
         Preimages {
             hash2_ptrs,
             hash3_ptrs,
             hash4_ptrs,
+            is_diff_neg,
             call_outputs,
         }
     }
@@ -147,6 +156,9 @@ impl Block {
                     let b = bindings.get(b)?;
                     let c = match (a, b) {
                         (Ptr::Leaf(Tag::Expr(Num), f), Ptr::Leaf(Tag::Expr(Num), g)) => {
+                            preimages
+                                .is_diff_neg
+                                .push(Some(PreimageData::FPair(*f, *g)));
                             let f = Num::Scalar(*f);
                             let g = Num::Scalar(*g);
                             let b = if f < g { F::ONE } else { F::ZERO };
@@ -164,14 +176,18 @@ impl Block {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
                     let tgt_ptr = store.intern_2_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1]);
                     bindings.insert(img.clone(), tgt_ptr);
-                    preimages.hash2_ptrs.push(Some(preimg_ptrs));
+                    preimages
+                        .hash2_ptrs
+                        .push(Some(PreimageData::PtrVec(preimg_ptrs)));
                 }
                 Op::Hash3(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
                     let tgt_ptr =
                         store.intern_3_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]);
                     bindings.insert(img.clone(), tgt_ptr);
-                    preimages.hash3_ptrs.push(Some(preimg_ptrs));
+                    preimages
+                        .hash3_ptrs
+                        .push(Some(PreimageData::PtrVec(preimg_ptrs)));
                 }
                 Op::Hash4(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
@@ -183,7 +199,9 @@ impl Block {
                         preimg_ptrs[3],
                     );
                     bindings.insert(img.clone(), tgt_ptr);
-                    preimages.hash4_ptrs.push(Some(preimg_ptrs));
+                    preimages
+                        .hash4_ptrs
+                        .push(Some(PreimageData::PtrVec(preimg_ptrs)));
                 }
                 Op::Unhash2(preimg, img) => {
                     let img_ptr = bindings.get(img)?;
@@ -197,7 +215,9 @@ impl Block {
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert(var.clone(), *ptr);
                     }
-                    preimages.hash2_ptrs.push(Some(preimg_ptrs.to_vec()));
+                    preimages
+                        .hash2_ptrs
+                        .push(Some(PreimageData::PtrVec(preimg_ptrs.to_vec())));
                 }
                 Op::Unhash3(preimg, img) => {
                     let img_ptr = bindings.get(img)?;
@@ -211,7 +231,9 @@ impl Block {
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert(var.clone(), *ptr);
                     }
-                    preimages.hash3_ptrs.push(Some(preimg_ptrs.to_vec()));
+                    preimages
+                        .hash3_ptrs
+                        .push(Some(PreimageData::PtrVec(preimg_ptrs.to_vec())));
                 }
                 Op::Unhash4(preimg, img) => {
                     let img_ptr = bindings.get(img)?;
@@ -225,7 +247,9 @@ impl Block {
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert(var.clone(), *ptr);
                     }
-                    preimages.hash4_ptrs.push(Some(preimg_ptrs.to_vec()));
+                    preimages
+                        .hash4_ptrs
+                        .push(Some(PreimageData::PtrVec(preimg_ptrs.to_vec())));
                 }
                 Op::Hide(tgt, sec, src) => {
                     let src_ptr = bindings.get(src)?;
@@ -344,6 +368,7 @@ impl Func {
         let hash2_init = preimages.hash2_ptrs.len();
         let hash3_init = preimages.hash3_ptrs.len();
         let hash4_init = preimages.hash4_ptrs.len();
+        let is_diff_neg_init = preimages.is_diff_neg.len();
 
         let mut res = self
             .body
@@ -353,6 +378,8 @@ impl Func {
         let hash2_used = preimages.hash2_ptrs.len() - hash2_init;
         let hash3_used = preimages.hash3_ptrs.len() - hash3_init;
         let hash4_used = preimages.hash4_ptrs.len() - hash4_init;
+        let is_diff_neg_used = preimages.is_diff_neg.len() - is_diff_neg_init;
+
         for _ in hash2_used..self.slot.hash2 {
             preimages.hash2_ptrs.push(None);
         }
@@ -361,6 +388,9 @@ impl Func {
         }
         for _ in hash4_used..self.slot.hash4 {
             preimages.hash4_ptrs.push(None);
+        }
+        for _ in is_diff_neg_used..self.slot.is_diff_neg {
+            preimages.is_diff_neg.push(None);
         }
 
         Ok(res)
