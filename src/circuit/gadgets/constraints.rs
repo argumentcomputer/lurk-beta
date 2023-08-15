@@ -160,9 +160,12 @@ fn implies_u64<F: LurkField, CS: ConstraintSystem<F>>(
     let mut a_u64 = a.get_value().and_then(|a| a.to_u64()).unwrap_or(0);
 
     let mut bits: Vec<Boolean> = vec![];
-    for _ in 0..64 {
-        let b = a_u64 % 2;
-        let b_bool = Boolean::Constant(b == 1);
+    for i in 0..64 {
+        let b = a_u64 & 1;
+        let b_bool = Boolean::Is(AllocatedBit::alloc(
+            &mut cs.namespace(|| format!("b.{i}")),
+            Some(b == 1),
+        )?);
         bits.push(b_bool);
 
         a_u64 /= 2;
