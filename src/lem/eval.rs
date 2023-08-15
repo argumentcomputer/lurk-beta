@@ -446,6 +446,39 @@ fn apply_cont() -> Func {
             }
         }
     });
+    // Returns 2 if both arguments are U64, 1 if both arguments are numbers, and 0 otherwise
+    let args_num_type = func!(args_num_type(arg1, arg2): 1 => {
+        let other = Num(0);
+        match arg1.tag {
+            Expr::Num => {
+                match arg2.tag {
+                    Expr::Num => {
+                        let ret = Num(1);
+                        return (ret)
+                    }
+                    Expr::U64 => {
+                        let ret = Num(1);
+                        return (ret)
+                    }
+                };
+                return (other)
+            }
+            Expr::U64 => {
+                match arg2.tag {
+                    Expr::Num => {
+                        let ret = Num(1);
+                        return (ret)
+                    }
+                    Expr::U64 => {
+                        let ret = Num(2);
+                        return (ret)
+                    }
+                };
+                return (other)
+            }
+        };
+        return (other)
+    });
     func!(apply_cont(result, env, cont, ctrl): 4 => {
         // Useful constants
         let ret: Ctrl::Return;
@@ -663,6 +696,7 @@ fn apply_cont() -> Func {
                     }
                     Cont::Binop2 => {
                         let (operator, evaled_arg, continuation) = unhash3(cont);
+                        let (args_num_type) = args_num_type(evaled_arg, result);
                         match operator.val {
                             Symbol("eval") => {
                                 return (evaled_arg, result, continuation, ret)
@@ -698,32 +732,84 @@ fn apply_cont() -> Func {
                                 return (nil, env, continuation, makethunk)
                             }
                             Symbol("+") => {
-                                // TODO deal with U64
-                                let val = add(evaled_arg, result);
-                                return (val, env, continuation, makethunk)
+                                match args_num_type.val {
+                                    Num(0) => {
+                                        return (result, env, err, errctrl)
+                                    }
+                                    Num(1) => {
+                                        let val = add(evaled_arg, result);
+                                        return (val, env, continuation, makethunk)
+                                    }
+                                    Num(2) => {
+                                        // TODO
+                                        return (result, env, err, errctrl)
+                                    }
+                                }
                             }
                             Symbol("-") => {
-                                // TODO deal with U64
-                                let val = sub(evaled_arg, result);
-                                return (val, env, continuation, makethunk)
+                                match args_num_type.val {
+                                    Num(0) => {
+                                        return (result, env, err, errctrl)
+                                    }
+                                    Num(1) => {
+                                        let val = sub(evaled_arg, result);
+                                        return (val, env, continuation, makethunk)
+                                    }
+                                    Num(2) => {
+                                        // TODO
+                                        return (result, env, err, errctrl)
+                                    }
+                                }
                             }
                             Symbol("*") => {
-                                // TODO deal with U64
-                                let val = mul(evaled_arg, result);
-                                return (val, env, continuation, makethunk)
+                                match args_num_type.val {
+                                    Num(0) => {
+                                        return (result, env, err, errctrl)
+                                    }
+                                    Num(1) => {
+                                        let val = mul(evaled_arg, result);
+                                        return (val, env, continuation, makethunk)
+                                    }
+                                    Num(2) => {
+                                        // TODO
+                                        return (result, env, err, errctrl)
+                                    }
+                                }
                             }
                             Symbol("div") => {
-                                // TODO deal with U64
-                                let val = div(evaled_arg, result);
-                                return (val, env, continuation, makethunk)
+                                match args_num_type.val {
+                                    Num(0) => {
+                                        return (result, env, err, errctrl)
+                                    }
+                                    Num(1) => {
+                                        let val = div(evaled_arg, result);
+                                        return (val, env, continuation, makethunk)
+                                    }
+                                    Num(2) => {
+                                        // TODO
+                                        return (result, env, err, errctrl)
+                                    }
+                                }
                             }
                             Symbol("%") => {
-                                // TODO
+                                match args_num_type.val {
+                                    Num(2) => {
+                                        // TODO
+                                        return (result, env, err, errctrl)
+                                    }
+                                };
                                 return (result, env, err, errctrl)
                             }
                             Symbol("=") => {
-                                // TODO
-                                return (result, env, err, errctrl)
+                                match args_num_type.val {
+                                    Num(0) => {
+                                        return (result, env, err, errctrl)
+                                    }
+                                };
+                                if evaled_arg == result {
+                                    return (t, env, continuation, makethunk)
+                                }
+                                return (nil, env, continuation, makethunk)
                             }
                             Symbol("<") => {
                                 let val = lt(evaled_arg, result);
