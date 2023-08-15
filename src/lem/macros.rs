@@ -23,7 +23,7 @@ macro_rules! lit {
         $crate::lem::Lit::String($lit.into())
     };
     ( Symbol($lit:literal) ) => {
-        $crate::lem::Lit::Symbol($crate::lem::Symbol::lurk_sym(&$lit))
+        $crate::lem::Lit::Symbol($crate::state::lurk_sym(&$lit))
     };
 }
 
@@ -488,7 +488,7 @@ macro_rules! func {
 #[cfg(test)]
 mod tests {
     use crate::lem::{Block, Ctrl, Lit, Op, Tag, Var};
-    use crate::symbol::Symbol;
+    use crate::state::lurk_sym;
     use crate::tag::ExprTag::*;
 
     #[inline]
@@ -632,14 +632,14 @@ mod tests {
                 mptr("www"),
                 vec![
                     (
-                        Lit::Symbol(Symbol::lurk_sym("nil")),
+                        Lit::Symbol(lurk_sym("nil")),
                         Block {
                             ops: vec![],
                             ctrl: Ctrl::Return(vec![mptr("foo"), mptr("foo"), mptr("foo")]),
                         }
                     ),
                     (
-                        Lit::Symbol(Symbol::lurk_sym("cons")),
+                        Lit::Symbol(lurk_sym("cons")),
                         Block {
                             ops: vec![
                                 Op::Null(mptr("foo"), Tag::Expr(Num)),

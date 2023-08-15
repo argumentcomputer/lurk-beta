@@ -1,4 +1,5 @@
-use crate::field::LurkField;
+use std::{cell::RefCell, rc::Rc};
+
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_till},
@@ -8,17 +9,20 @@ use nom::{
     multi::{many0, many_till, separated_list1},
     sequence::{delimited, preceded, terminated},
 };
+use nom_locate::LocatedSpan;
 
 use crate::{
+    field::LurkField,
     num::Num,
+    package::SymbolRef,
     parser::{
         base,
         error::{ParseError, ParseErrorKind},
         position::Pos,
         string, ParseResult, Span,
     },
+    state::{meta_package_symbol, State},
     symbol,
-    symbol::Symbol,
     syntax::Syntax,
     uint::UInt,
 };
@@ -45,12 +49,12 @@ pub fn parse_symbol_limb<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> ParseResult<'_, F, String> {
     move |from: Span<'_>| {
         let (i, s) = alt((
+            string::parse_string_inner1(symbol::SYM_SEPARATOR, false, escape),
             delimited(
                 tag("|"),
                 string::parse_string_inner1('|', true, "|"),
                 tag("|"),
             ),
-            string::parse_string_inner1(symbol::SYM_SEPARATOR, false, escape),
             value(String::from(""), peek(tag("."))),
         ))(from)?;
         Ok((i, s))
@@ -62,12 +66,12 @@ pub fn parse_symbol_limb_raw<F: LurkField>(
 ) -> impl Fn(Span<'_>) -> ParseResult<'_, F, String> {
     move |from: Span<'_>| {
         let (i, s) = alt((
+            string::parse_string_inner1(' ', false, escape),
             delimited(
                 tag("|"),
                 string::parse_string_inner1('|', true, "|"),
                 tag("|"),
             ),
-            string::parse_string_inner1(' ', false, escape),
             value(String::from(""), peek(tag("."))),
         ))(from)?;
         Ok((i, s))
@@ -85,61 +89,116 @@ pub fn parse_symbol_limbs<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_
     }
 }
 
-pub fn parse_absolute_symbol<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Symbol> {
+fn intern_path<'a, F: LurkField>(
+    state: Rc<RefCell<State>>,
+    upto: LocatedSpan<&'a str>,
+    path: &[String],
+    keyword: Option<bool>,
+    create_unknown_packages: bool,
+) -> ParseResult<'a, F, SymbolRef> {
+    use nom::Err::Failure;
+    match keyword {
+        Some(keyword) => state
+            .borrow_mut()
+            .intern_path(path, keyword, create_unknown_packages),
+        None => state
+            .borrow_mut()
+            .intern_relative_path(path, create_unknown_packages),
+    }
+    .map(|symbol| (upto, symbol))
+    .map_err(|e| {
+        Failure(ParseError::new(
+            upto,
+            ParseErrorKind::InterningError(format!("{e}")),
+        ))
+    })
+}
+
+pub fn parse_absolute_symbol<F: LurkField>(
+    state: Rc<RefCell<State>>,
+    create_unknown_packages: bool,
+) -> impl Fn(Span<'_>) -> ParseResult<'_, F, SymbolRef> {
     move |from: Span<'_>| {
         let (i, is_key) = alt((
             value(false, char(symbol::SYM_MARKER)),
             value(true, char(symbol::KEYWORD_MARKER)),
         ))(from)?;
         let (upto, path) = parse_symbol_limbs()(i)?;
-        if is_key {
-            Ok((upto, Symbol::new(&["keyword"]).extend(&path)))
-        } else {
-            Ok((upto, Symbol { path }))
-        }
+        intern_path(
+            state.clone(),
+            upto,
+            &path,
+            Some(is_key),
+            create_unknown_packages,
+        )
     }
 }
 
 pub fn parse_relative_symbol<F: LurkField>(
-    parent: Symbol,
-) -> impl Fn(Span<'_>) -> ParseResult<'_, F, Symbol> {
+    state: Rc<RefCell<State>>,
+    create_unknown_packages: bool,
+) -> impl Fn(Span<'_>) -> ParseResult<'_, F, SymbolRef> {
     move |from: Span<'_>| {
         let (i, _) = peek(none_of(",~#(){}[]1234567890."))(from)?;
         let (upto, path) = parse_symbol_limbs()(i)?;
-        Ok((upto, parent.extend(&path)))
+        intern_path(state.clone(), upto, &path, None, create_unknown_packages)
     }
 }
 
-pub fn parse_raw_symbol<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Symbol> {
+pub fn parse_raw_symbol<F: LurkField>(
+    state: Rc<RefCell<State>>,
+    create_unknown_packages: bool,
+) -> impl Fn(Span<'_>) -> ParseResult<'_, F, SymbolRef> {
     move |from: Span<'_>| {
         let (i, _) = tag("~(")(from)?;
-        let (i, path) = many0(preceded(parse_space, parse_symbol_limb_raw("|()")))(i)?;
+        let (i, mut path) = many0(preceded(parse_space, parse_symbol_limb_raw("|()")))(i)?;
         let (upto, _) = many_till(parse_space, tag(")"))(i)?;
-        Ok((upto, Symbol { path }))
+        path.reverse();
+        intern_path(
+            state.clone(),
+            upto,
+            &path,
+            Some(false),
+            create_unknown_packages,
+        )
     }
 }
 
-// raw: ~(foo bar baz) = .|foo|.|bar|.|baz|
-// absolute: .foo.bar.baz (escaped limbs: .|foo|.|bar|.|baz|)
-// keyword: :foo.bar = .keyword.foo.bar
-// relative: foo.bar
+pub fn parse_raw_keyword<F: LurkField>(
+    state: Rc<RefCell<State>>,
+    create_unknown_packages: bool,
+) -> impl Fn(Span<'_>) -> ParseResult<'_, F, SymbolRef> {
+    move |from: Span<'_>| {
+        let (i, _) = tag("~:(")(from)?;
+        let (i, mut path) = many0(preceded(parse_space, parse_symbol_limb_raw("|()")))(i)?;
+        let (upto, _) = many_till(parse_space, tag(")"))(i)?;
+        path.reverse();
+        intern_path(
+            state.clone(),
+            upto,
+            &path,
+            Some(true),
+            create_unknown_packages,
+        )
+    }
+}
 
-pub fn parse_symbol<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
+/// relative: foo.bar
+/// absolute: .foo.bar.baz, :foo.bar (escaped limbs: .|foo|.|bar|.|baz|)
+/// raw: ~(foo bar baz) = .baz.bar.foo
+/// raw keyword: ~:(foo bar) = :bar.foo
+pub fn parse_symbol<F: LurkField>(
+    state: Rc<RefCell<State>>,
+    create_unknown_packages: bool,
+) -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
         let (upto, sym) = alt((
-            parse_raw_symbol(),
-            parse_absolute_symbol(),
-            // temporary root argument until packages are reimplemented
-            parse_relative_symbol(Symbol::root()),
+            parse_relative_symbol(state.clone(), create_unknown_packages),
+            parse_absolute_symbol(state.clone(), create_unknown_packages),
+            parse_raw_symbol(state.clone(), create_unknown_packages),
+            parse_raw_keyword(state.clone(), create_unknown_packages),
         ))(from)?;
-        let pos = Pos::from_upto(from, upto);
-        if let Some(val) = Symbol::lurk_syms().get(&Symbol::lurk_sym(&format!("{}", sym))) {
-            Ok((upto, Syntax::LurkSym(pos, *val)))
-        } else if sym.is_keyword() {
-            Ok((upto, Syntax::Keyword(pos, sym)))
-        } else {
-            Ok((upto, Syntax::Symbol(pos, sym)))
-        }
+        Ok((upto, Syntax::Symbol(Pos::from_upto(from, upto), sym)))
     }
 }
 
@@ -262,14 +321,48 @@ pub fn parse_char<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syn
     }
 }
 
-pub fn parse_list<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
+pub fn parse_list<F: LurkField>(
+    state: Rc<RefCell<State>>,
+    meta: bool,
+    create_unknown_packages: bool,
+) -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
         let (i, _) = tag("(")(from)?;
-        //let (i, _) = parse_space(i)?;
-        let (i, xs) = many0(preceded(parse_space, parse_syntax()))(i)?;
+        let (i, xs) = if meta {
+            // parse the head symbol in the meta package
+            let saved_package = state.borrow().get_current_package_name().clone();
+            state
+                .borrow_mut()
+                .set_current_package(meta_package_symbol().into())
+                .expect("meta package is available");
+            let (i, h) = preceded(
+                parse_space,
+                parse_symbol(state.clone(), create_unknown_packages),
+            )(i)?;
+            // then recover the previous package
+            state
+                .borrow_mut()
+                .set_current_package(saved_package)
+                .expect("previous package is available");
+            let (i, t) = many0(preceded(
+                parse_space,
+                parse_syntax(state.clone(), false, create_unknown_packages),
+            ))(i)?;
+            let mut xs = vec![h];
+            xs.extend(t);
+            (i, xs)
+        } else {
+            many0(preceded(
+                parse_space,
+                parse_syntax(state.clone(), false, create_unknown_packages),
+            ))(i)?
+        };
         let (i, end) = opt(preceded(
             preceded(parse_space, tag(".")),
-            preceded(parse_space, parse_syntax()),
+            preceded(
+                parse_space,
+                parse_syntax(state.clone(), false, create_unknown_packages),
+            ),
         ))(i)?;
         let (i, _) = parse_space(i)?;
         let (upto, _) = tag(")")(i)?;
@@ -282,14 +375,17 @@ pub fn parse_list<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syn
     }
 }
 
-pub fn parse_quote<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
+pub fn parse_quote<F: LurkField>(
+    state: Rc<RefCell<State>>,
+    create_unknown_packages: bool,
+) -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
         let (i, c) = opt(parse_char())(from)?;
         if let Some(c) = c {
             Ok((i, c))
         } else {
             let (i, _) = tag("'")(from)?;
-            let (upto, s) = parse_syntax()(i)?;
+            let (upto, s) = parse_syntax(state.clone(), false, create_unknown_packages)(i)?;
             let pos = Pos::from_upto(from, upto);
             Ok((upto, Syntax::Quote(pos, Box::new(s))))
         }
@@ -297,21 +393,34 @@ pub fn parse_quote<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Sy
 }
 
 // top-level syntax parser
-pub fn parse_syntax<F: LurkField>() -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
+pub fn parse_syntax<F: LurkField>(
+    state: Rc<RefCell<State>>,
+    meta: bool,
+    // this parameter triggers a less strict mode for testing purposes
+    create_unknown_packages: bool,
+) -> impl Fn(Span<'_>) -> ParseResult<'_, F, Syntax<F>> {
     move |from: Span<'_>| {
         alt((
-            parse_hash_char(),
+            context(
+                "list",
+                parse_list(state.clone(), meta, create_unknown_packages),
+            ),
             parse_uint(),
             parse_num(),
-            context("symbol", parse_symbol()),
+            context(
+                "symbol",
+                parse_symbol(state.clone(), create_unknown_packages),
+            ),
             parse_string(),
-            context("quote", parse_quote()),
-            context("list", parse_list()),
+            context("quote", parse_quote(state.clone(), create_unknown_packages)),
+            parse_hash_char(),
         ))(from)
     }
 }
 
 pub fn parse_maybe_meta<F: LurkField>(
+    state: Rc<RefCell<State>>,
+    create_unknown_packages: bool,
 ) -> impl Fn(Span<'_>) -> ParseResult<'_, F, Option<(bool, Syntax<F>)>> {
     move |from: Span<'_>| {
         let (_, is_eof) = opt(nom::combinator::eof)(from)?;
@@ -319,26 +428,20 @@ pub fn parse_maybe_meta<F: LurkField>(
             return Ok((from, None));
         }
         let (next, meta) = opt(char('!'))(from)?;
-        if meta.is_some() {
-            let (end, syntax) = parse_syntax()(next)?;
-            Ok((end, Some((true, syntax))))
-        } else {
-            let (end, syntax) = parse_syntax()(from)?;
-            Ok((end, Some((false, syntax))))
-        }
+        let meta = meta.is_some();
+        let (end, syntax) = parse_syntax(state.clone(), meta, create_unknown_packages)(next)?;
+        Ok((end, Some((meta, syntax))))
     }
 }
 
 #[cfg(test)]
 pub mod tests {
-    use crate::symbol::LurkSym;
     use blstrs::Scalar;
     use nom::Parser;
     #[cfg(not(target_arch = "wasm32"))]
     use proptest::prelude::*;
 
     use super::*;
-    #[allow(unused_imports)]
     use crate::{char, keyword, list, num, str, symbol, uint};
 
     fn test<'a, P, R>(mut p: P, i: &'a str, expected: Option<R>) -> bool
@@ -372,169 +475,257 @@ pub mod tests {
 
     #[test]
     fn unit_parse_symbol() {
-        assert!(test(parse_raw_symbol(), "", None));
-        assert!(test(parse_absolute_symbol(), "", None));
-        assert!(test(parse_relative_symbol(Symbol::root()), "", None));
-        assert!(test(parse_symbol(), "", None));
-        assert!(test(parse_symbol(), "~()", Some(symbol!([]))));
-        assert!(test(parse_symbol(), ".", None));
-        assert!(test(parse_symbol(), "..", Some(symbol!([""]))));
-        assert!(test(parse_symbol(), "foo", Some(symbol!(["foo"]))));
-        assert!(test(parse_symbol(), "|foo|", Some(symbol!(["foo"]))));
+        let state_ = State::default().rccell();
+        let state = || state_.clone();
+        assert!(test(parse_raw_symbol(state(), true), "", None));
+        assert!(test(parse_absolute_symbol(state(), true), "", None));
+        assert!(test(parse_relative_symbol(state(), true), "", None));
+        assert!(test(parse_relative_symbol(state(), true), "", None));
+        assert!(test(parse_symbol(state(), true), "", None));
+        assert!(test(parse_symbol(state(), true), "~()", Some(symbol!([]))));
+        assert!(test(parse_symbol(state(), true), ".", None));
+        assert!(test(parse_symbol(state(), true), "..", Some(symbol!([""]))));
         assert!(test(
-            parse_symbol(),
+            parse_symbol(state(), true),
+            "foo",
+            Some(symbol!(["foo"]))
+        ));
+        assert!(test(
+            parse_symbol(state(), true),
+            "|foo|",
+            Some(symbol!(["foo"]))
+        ));
+        assert!(test(
+            parse_symbol(state(), true),
             "|Hi, bye|",
             Some(symbol!(["Hi, bye"]))
         ));
         assert!(test(
-            parse_symbol(),
+            parse_symbol(state(), true),
             "|foo|.|bar|",
             Some(symbol!(["foo", "bar"]))
         ));
         assert!(test(
-            parse_symbol(),
+            parse_symbol(state(), true),
             ".|foo|.|bar|",
             Some(symbol!(["foo", "bar"]))
         ));
-        assert!(test(parse_symbol(), ".foo", Some(symbol!(["foo"]))));
-        assert!(test(parse_symbol(), "..foo", Some(symbol!(["", "foo"]))));
-        assert!(test(parse_symbol(), "foo.", Some(symbol!(["foo"]))));
-        assert!(test(parse_symbol(), "foo..", Some(symbol!(["foo", ""]))));
-        assert!(test(parse_symbol(), ".foo..", Some(symbol!(["foo", ""]))));
-        assert!(test(parse_symbol(), ".foo..", Some(symbol!(["foo", ""]))));
         assert!(test(
-            parse_symbol(),
+            parse_symbol(state(), true),
+            ".foo",
+            Some(symbol!(["foo"]))
+        ));
+        assert!(test(
+            parse_symbol(state(), true),
+            "..foo",
+            Some(symbol!(["", "foo"]))
+        ));
+        assert!(test(
+            parse_symbol(state(), true),
+            "foo.",
+            Some(symbol!(["foo"]))
+        ));
+        assert!(test(
+            parse_symbol(state(), true),
+            "foo..",
+            Some(symbol!(["foo", ""]))
+        ));
+        assert!(test(
+            parse_symbol(state(), true),
+            ".foo..",
+            Some(symbol!(["foo", ""]))
+        ));
+        assert!(test(
+            parse_symbol(state(), true),
+            ".foo..",
+            Some(symbol!(["foo", ""]))
+        ));
+        assert!(test(
+            parse_symbol(state(), true),
             ".foo.bar",
             Some(symbol!(["foo", "bar"]))
         ));
         assert!(test(
-            parse_symbol(),
+            parse_symbol(state(), true),
             ".foo?.bar?",
             Some(symbol!(["foo?", "bar?"]))
         ));
         assert!(test(
-            parse_symbol(),
+            parse_symbol(state(), true),
             ".fooλ.barλ",
             Some(symbol!(["fooλ", "barλ"]))
         ));
         assert!(test(
-            parse_symbol(),
+            parse_symbol(state(), true),
             ".foo\\n.bar\\n",
             Some(symbol!(["foo\n", "bar\n"]))
         ));
         assert!(test(
-            parse_symbol(),
+            parse_symbol(state(), true),
             ".foo\\u{00}.bar\\u{00}",
             Some(symbol!(["foo\u{00}", "bar\u{00}"]))
         ));
         assert!(test(
-            parse_symbol(),
+            parse_symbol(state(), true),
             ".foo\\.bar",
             Some(symbol!(["foo.bar"]))
         ));
         assert!(test(
-            parse_symbol(),
-            "nil",
-            Some(Syntax::LurkSym(Pos::No, LurkSym::Nil))
+            parse_symbol(state(), true),
+            "~(asdf )",
+            Some(symbol!(["asdf"]))
         ));
-        assert!(test(parse_symbol(), "~(asdf )", Some(symbol!(["asdf"]))));
-        assert!(test(parse_symbol(), "~( asdf )", Some(symbol!(["asdf"]))));
-        assert!(test(parse_symbol(), "~( asdf)", Some(symbol!(["asdf"]))));
         assert!(test(
-            parse_symbol(),
+            parse_symbol(state(), true),
+            "~( asdf )",
+            Some(symbol!(["asdf"]))
+        ));
+        assert!(test(
+            parse_symbol(state(), true),
+            "~( asdf)",
+            Some(symbol!(["asdf"]))
+        ));
+        assert!(test(
+            parse_symbol(state(), true),
             "~(asdf.fdsa)",
             Some(symbol!(["asdf.fdsa"]))
         ));
         assert!(test(
-            parse_symbol(),
+            parse_symbol(state(), true),
             "~(asdf.fdsa arst)",
-            Some(symbol!(["asdf.fdsa", "arst"]))
+            Some(symbol!(["arst", "asdf.fdsa"]))
         ));
         assert!(test(
-            parse_symbol(),
+            parse_symbol(state(), true),
             "~(asdf.fdsa arst |wfp qwf|)",
-            Some(symbol!(["asdf.fdsa", "arst", "wfp qwf"]))
+            Some(symbol!(["wfp qwf", "arst", "asdf.fdsa"]))
         ));
     }
 
     #[test]
     fn unit_parse_keyword() {
-        assert!(test(parse_symbol(), "", None));
-        assert!(test(parse_symbol(), ":", None));
-        assert!(test(parse_symbol(), ":.", Some(keyword!([""]))));
-        assert!(test(parse_symbol(), ":foo", Some(keyword!(["foo"]))));
-        assert!(test(parse_symbol(), ":foo.", Some(keyword!(["foo"]))));
-        assert!(test(parse_symbol(), ":foo..", Some(keyword!(["foo", ""]))));
+        let state_ = State::default().rccell();
+        let state = || state_.clone();
+        assert!(test(parse_symbol(state(), true), "", None));
+        assert!(test(parse_symbol(state(), true), ":", None));
         assert!(test(
-            parse_symbol(),
+            parse_symbol(state(), true),
+            "~:()",
+            Some(keyword!([]))
+        ));
+        assert!(test(
+            parse_symbol(state(), true),
+            ":.",
+            Some(keyword!([""]))
+        ));
+        assert!(test(
+            parse_symbol(state(), true),
+            ":foo",
+            Some(keyword!(["foo"]))
+        ));
+        assert!(test(
+            parse_symbol(state(), true),
+            ":foo.",
+            Some(keyword!(["foo"]))
+        ));
+        assert!(test(
+            parse_symbol(state(), true),
+            ":foo..",
+            Some(keyword!(["foo", ""]))
+        ));
+        assert!(test(
+            parse_symbol(state(), true),
             ":foo.bar",
             Some(keyword!(["foo", "bar"]))
         ));
         assert!(test(
-            parse_symbol(),
+            parse_symbol(state(), true),
             ":foo?.bar?",
             Some(keyword!(["foo?", "bar?"]))
         ));
         assert!(test(
-            parse_symbol(),
+            parse_symbol(state(), true),
             ":fooλ.barλ",
             Some(keyword!(["fooλ", "barλ"]))
         ));
         assert!(test(
-            parse_symbol(),
+            parse_symbol(state(), true),
             ":foo\\n.bar\\n",
             Some(keyword!(["foo\n", "bar\n"]))
         ));
         assert!(test(
-            parse_symbol(),
+            parse_symbol(state(), true),
             ":foo\\u{00}.bar\\u{00}",
             Some(keyword!(["foo\u{00}", "bar\u{00}"]))
         ));
         assert!(test(
-            parse_symbol(),
+            parse_symbol(state(), true),
             ":foo\\.bar",
             Some(keyword!(["foo.bar"]))
+        ));
+        assert!(test(
+            parse_symbol(state(), true),
+            "~:(x y z)",
+            Some(keyword!(["z", "y", "x"]))
         ));
     }
 
     #[test]
     fn unit_parse_list() {
-        assert!(test(parse_list(), "()", Some(list!([]))));
-        assert!(test(parse_list(), "(1 2)", Some(list!([num!(1), num!(2)])),));
-        assert!(test(parse_list(), "(1)", Some(list!([num!(1)])),));
-        assert!(test(parse_list(), "(a)", Some(list!([symbol!(["a"])])),));
+        let state_ = State::default().rccell();
+        let state = || state_.clone();
         assert!(test(
-            parse_list(),
+            parse_list(state(), false, true),
+            "()",
+            Some(list!([]))
+        ));
+        assert!(test(
+            parse_list(state(), false, true),
+            "(1 2)",
+            Some(list!([num!(1), num!(2)])),
+        ));
+        assert!(test(
+            parse_list(state(), false, true),
+            "(1)",
+            Some(list!([num!(1)])),
+        ));
+        assert!(test(
+            parse_list(state(), false, true),
+            "(a)",
+            Some(list!([symbol!(["a"])])),
+        ));
+        assert!(test(
+            parse_list(state(), false, true),
             "(a b)",
             Some(list!([symbol!(["a"]), symbol!(["b"])])),
         ));
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "(.a .b)",
             Some(list!([symbol!(["a"]), symbol!(["b"])])),
         ));
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "(.foo.bar .foo.bar)",
             Some(list!([symbol!(["foo", "bar"]), symbol!(["foo", "bar"])])),
         ));
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "(a . b)",
             Some(list!([symbol!(["a"])], symbol!(["b"]))),
         ));
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "(.a . .b)",
             Some(list!([symbol!(["a"])], symbol!(["b"]))),
         ));
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "(a b . c)",
             Some(list!([symbol!(["a"]), symbol!(["b"])], symbol!(["c"]))),
         ));
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "(a . (b . c))",
             Some(list!(
                 [symbol!(["a"])],
@@ -542,23 +733,22 @@ pub mod tests {
             ))
         ));
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "(a b c)",
             Some(list!([symbol!(["a"]), symbol!(["b"]), symbol!(["c"])])),
         ));
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "('a' 'b' 'c')",
             Some(list!([char!('a'), char!('b'), char!('c')])),
         ));
-
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "(a. b. c.)",
             Some(list!([symbol!(["a"]), symbol!(["b"]), symbol!(["c"])])),
         ));
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "(a.. b.. c..)",
             Some(list!([
                 symbol!(["a", ""]),
@@ -577,34 +767,60 @@ pub mod tests {
         assert!(test(parse_char(), "'('", None));
         assert!(test(parse_char(), "'\\('", Some(char!('('))));
     }
+
     #[test]
     fn unit_parse_hash_char() {
+        let state_ = State::default().rccell();
+        let state = || state_.clone();
         assert!(test(parse_hash_char(), "#\\a", Some(char!('a'))));
         assert!(test(parse_hash_char(), "#\\b", Some(char!('b'))));
         assert!(test(parse_hash_char(), r"#\b", Some(char!('b'))));
         assert!(test(parse_hash_char(), "#\\u{8f}", Some(char!('\u{8f}'))));
-        assert!(test(parse_syntax(), "#\\a", Some(char!('a'))));
-        assert!(test(parse_syntax(), "#\\b", Some(char!('b'))));
-        assert!(test(parse_syntax(), r"#\b", Some(char!('b'))));
-        assert!(test(parse_syntax(), r"#\u{8f}", Some(char!('\u{8f}'))));
+        assert!(test(
+            parse_syntax(state(), false, false),
+            "#\\a",
+            Some(char!('a'))
+        ));
+        assert!(test(
+            parse_syntax(state(), false, false),
+            "#\\b",
+            Some(char!('b'))
+        ));
+        assert!(test(
+            parse_syntax(state(), false, false),
+            r"#\b",
+            Some(char!('b'))
+        ));
+        assert!(test(
+            parse_syntax(state(), false, false),
+            r"#\u{8f}",
+            Some(char!('\u{8f}'))
+        ));
     }
 
     #[test]
     fn unit_parse_quote() {
+        let state_ = State::default().rccell();
+        let state = || state_.clone();
         assert!(test(
-            parse_quote(),
-            "'a",
+            parse_quote(state(), true),
+            "'.a",
             Some(Syntax::Quote(Pos::No, Box::new(symbol!(["a"]))))
         ));
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
+            "':a",
+            Some(Syntax::Quote(Pos::No, Box::new(keyword!(["a"]))))
+        ));
+        assert!(test(
+            parse_syntax(state(), false, true),
             "'a",
             Some(Syntax::Quote(Pos::No, Box::new(symbol!(["a"]))))
         ));
-        assert!(test(parse_quote(), "'a'", Some(char!('a'))));
-        assert!(test(parse_quote(), "'a'", Some(char!('a'))));
+        assert!(test(parse_quote(state(), true), "'a'", Some(char!('a'))));
+        assert!(test(parse_quote(state(), true), "'a'", Some(char!('a'))));
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "'(a b)",
             Some(Syntax::Quote(
                 Pos::No,
@@ -612,13 +828,12 @@ pub mod tests {
             ))
         ));
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "('a)",
             Some(list!([Syntax::Quote(Pos::No, Box::new(symbol!(['a'])))]))
         ));
-
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "('a' 'b' 'c')",
             Some(list!([char!('a'), char!('b'), char!('c')])),
         ));
@@ -683,60 +898,68 @@ pub mod tests {
         .into_iter()
         .rev()
         .collect();
+        let state_ = State::default().rccell();
+        let state = || state_.clone();
+
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "(0x6e2e5055dcf61486b03bb80ed2b3f1a35c30e122defebae824fae4ed32408e87)",
             Some(list!([num!(Num::Scalar(f_from_le_bytes(&vec)))])),
         ));
-
-        assert!(test(parse_syntax(), ".\\.", Some(symbol!(["."]))));
-        assert!(test(parse_syntax(), ".\\'", Some(symbol!(["'"]))));
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
+            ".\\.",
+            Some(symbol!(["."]))
+        ));
+        assert!(test(
+            parse_syntax(state(), false, true),
+            ".\\'",
+            Some(symbol!(["'"]))
+        ));
+        assert!(test(
+            parse_syntax(state(), false, true),
             ".\\'\\u{8e}\\u{fffc}\\u{201b}",
             Some(symbol!(["'\u{8e}\u{fffc}\u{201b}"])),
         ));
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "(lambda (🚀) 🚀)",
             Some(list!([
-                Syntax::LurkSym(Pos::No, LurkSym::Lambda),
+                symbol!(["lambda"]),
                 list!([symbol!(["🚀"])]),
                 symbol!(["🚀"])
             ])),
         ));
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "11242421860377074631u64",
             Some(uint!(11242421860377074631))
         ));
-
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             ":\u{ae}\u{60500}\u{87}..)",
             Some(keyword!(["®\u{60500}\u{87}", ""]))
         ));
         assert!(test(
-            parse_syntax(),
-            "(.keyword 11242421860377074631u64 . :\u{ae}\u{60500}\u{87}..)",
+            parse_syntax(state(), false, true),
+            "(~:() 11242421860377074631u64 . :\u{ae}\u{60500}\u{87}..)",
             Some(list!(
                 [keyword!([]), uint!(11242421860377074631)],
                 keyword!(["®\u{60500}\u{87}", ""])
             ))
         ));
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "((\"\"))",
             Some(list!([list!([Syntax::String(Pos::No, "".to_string())])]))
         ));
-
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "((=))",
-            Some(list!([list!([Syntax::LurkSym(Pos::No, LurkSym::OpEql)])]))
+            Some(list!([list!([symbol!(["="])])]))
         ));
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "('.. . a)",
             Some(list!(
                 [Syntax::Quote(Pos::No, Box::new(symbol!([""])))],
@@ -744,11 +967,11 @@ pub mod tests {
             ))
         ));
         assert_eq!(
-            "(.. . a)",
+            "(.. . .a)",
             format!("{}", list!(Scalar, [symbol!([""])], symbol!(["a"])))
         );
         assert_eq!(
-            "('.. . a)",
+            "('.. . .a)",
             format!(
                 "{}",
                 list!(
@@ -758,30 +981,35 @@ pub mod tests {
                 )
             )
         );
-        assert!(test(parse_syntax(), "'\\('", Some(char!('('))));
+        assert!(test(
+            parse_syntax(state(), false, true),
+            "'\\('",
+            Some(char!('('))
+        ));
         assert_eq!("'\\('", format!("{}", char!(Scalar, '(')));
         assert_eq!(
-            "(' ' . a)",
+            "(' ' . .a)",
             format!("{}", list!(Scalar, [char!(' ')], symbol!(["a"])))
         );
         assert!(test(
-            parse_syntax(),
+            parse_syntax(state(), false, true),
             "(' ' . a)",
             Some(list!([char!(' ')], symbol!(["a"])))
         ));
-        assert!(test(parse_syntax(), "(cons # \"\")", None));
-        assert!(test(parse_syntax(), "#", None));
+        assert!(test(
+            parse_syntax(state(), false, true),
+            "(cons # \"\")",
+            None
+        ));
+        assert!(test(parse_syntax(state(), false, true), "#", None));
     }
 
     #[test]
     fn test_minus_zero_symbol() {
         let x: Syntax<Scalar> = symbol!(["-0"]);
         let text = format!("{}", x);
-        let (_, res) = parse_syntax()(Span::new(&text)).expect("valid parse");
-        // eprintln!("------------------");
-        // eprintln!("{}", text);
-        // eprintln!("{} {:?}", x, x);
-        // eprintln!("{} {:?}", res, res);
+        let (_, res) = parse_syntax(State::default().rccell(), false, true)(Span::new(&text))
+            .expect("valid parse");
         assert_eq!(x, res)
     }
 
@@ -789,10 +1017,7 @@ pub mod tests {
         #[test]
         fn prop_syntax(x in any::<Syntax<Scalar>>()) {
             let text = format!("{}", x);
-            let (_, res) = parse_syntax()(Span::new(&text)).expect("valid parse");
-            // eprintln!("------------------");
-            // eprintln!("x {} {:?}", x, x);
-            // eprintln!("res {} {:?}", res, res);
+            let (_, res) = parse_syntax(State::default().rccell(), false, true)(Span::new(&text)).expect("valid parse");
             assert_eq!(x, res)
         }
     }

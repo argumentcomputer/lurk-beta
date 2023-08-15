@@ -32,6 +32,7 @@ use crate::coprocessor::Coprocessor;
 use crate::eval::{lang::Lang, Frame, Witness, IO};
 use crate::expr::Thunk;
 use crate::hash_witness::HashWitness;
+use crate::lurk_sym_ptr;
 use crate::proof::Provable;
 use crate::ptr::Ptr;
 use crate::store::Store;
@@ -1305,7 +1306,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                 head.alloc_hash_equal(&mut cs.namespace(|| stringify!($var)), $name.value())?;
         };
     }
-    let c = store.get_constants();
+    let c = store.expect_constants();
     // SOUNDNESS: All symbols with their own case clause must be represented in this list
     def_head_val!(head_is_lambda0, c.lambda);
     def_head_val!(head_is_let, c.let_);
@@ -3108,7 +3109,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             .and_then(|commit| store.open(commit))
             .unwrap_or_else(|| {
                 // nil is dummy
-                (F::ZERO, store.get_nil())
+                (F::ZERO, lurk_sym_ptr!(store, nil))
             });
 
         let open_expr = AllocatedPtr::alloc(&mut cs.namespace(|| "open_expr"), || {
@@ -3617,7 +3618,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         let rest_is_nil = allocated_rest.is_nil(&mut cs.namespace(|| "rest_is_nil"), g)?;
         let rest_not_nil = rest_is_nil.not();
 
-        let begin = store.get_begin();
+        let begin = lurk_sym_ptr!(store, begin);
 
         let allocated_begin =
             AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "begin"), store, || Ok(&begin))?;
@@ -3934,7 +3935,7 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             b,
             &diff,
             op2.tag(),
-            store.get_constants(),
+            store.expect_constants(),
         )?;
 
         let field_arithmetic_result = AllocatedPtr::pick(
@@ -5160,10 +5161,12 @@ fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
                 .car_cdr(ptr)
                 .map_err(|_| SynthesisError::AssignmentMissing)?
         } else {
-            (store.get_nil(), store.get_nil())
+            let nil_ptr = lurk_sym_ptr!(store, nil);
+            (nil_ptr, nil_ptr)
         }
     } else {
-        (store.get_nil(), store.get_nil())
+        let nil_ptr = lurk_sym_ptr!(store, nil);
+        (nil_ptr, nil_ptr)
     };
 
     let allocated_car = AllocatedPtr::alloc_ptr(&mut cs.namespace(|| "car"), store, || Ok(&car))?;
@@ -5381,7 +5384,7 @@ mod tests {
     fn nil_self_evaluating() {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
-        let nil = store.nil();
+        let nil = lurk_sym_ptr!(store, nil);
 
         let input = IO {
             expr: nil,
@@ -5461,7 +5464,7 @@ mod tests {
     fn t_self_evaluating() {
         let mut store = Store::default();
         let env = empty_sym_env(&store);
-        let t = store.t();
+        let t = lurk_sym_ptr!(store, t);
 
         let input = IO {
             expr: t,
@@ -5700,7 +5703,7 @@ mod tests {
             alloc_b.hash(),
             &diff,
             &g.op2_less_tag,
-            s.get_constants(),
+            s.expect_constants(),
         )
         .unwrap();
         assert!(cs.is_satisfied());

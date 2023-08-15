@@ -12,8 +12,8 @@ use lurk::field::LurkField;
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::ptr::Ptr;
 use lurk::public_parameters::{public_params, public_params_default_dir};
+use lurk::state::user_sym;
 use lurk::store::Store;
-use lurk::sym;
 use lurk_macros::Coproc;
 
 use bellperson::gadgets::boolean::{AllocatedBit, Boolean};
@@ -170,18 +170,15 @@ fn main() {
     u.reverse();
 
     let store = &mut Store::<Fr>::new();
-    let sym_str = sym!("sha256", format!("{}-zero-bytes", input_size));
+    let cproc_sym = user_sym(&format!("sha256-{input_size}-zero-bytes"));
+    let cproc_sym_ptr = store.intern_symbol(&cproc_sym);
 
     let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
         store,
-        vec![(
-            sym_str.clone(),
-            Sha256Coprocessor::new(input_size, u).into(),
-        )],
+        vec![(cproc_sym, Sha256Coprocessor::new(input_size, u).into())],
     );
 
-    let coproc_expr = format!("({})", sym_str);
-    let ptr = store.read(&coproc_expr).unwrap();
+    let cproc_call = store.list(&[cproc_sym_ptr]);
 
     let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang.clone());
     let lang_rc = Arc::new(lang);
@@ -207,7 +204,7 @@ fn main() {
 
     let proof_start = Instant::now();
     let (proof, z0, zi, num_steps) = nova_prover
-        .evaluate_and_prove(&pp, ptr, empty_sym_env(store), store, 10000, lang_rc)
+        .evaluate_and_prove(&pp, cproc_call, empty_sym_env(store), store, 10000, lang_rc)
         .unwrap();
     let proof_end = proof_start.elapsed();
 

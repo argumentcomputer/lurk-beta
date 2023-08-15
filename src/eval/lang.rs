@@ -12,7 +12,7 @@ use crate::store::Store;
 use crate::symbol::Symbol;
 use crate::z_ptr::ZExprPtr;
 
-use crate as lurk;
+use crate::{self as lurk, lurk_sym_ptr};
 
 /// `DummyCoprocessor` is a concrete implementation of the [`crate::coprocessor::Coprocessor`] trait.
 ///
@@ -36,7 +36,7 @@ impl<F: LurkField> Coprocessor<F> for DummyCoprocessor<F> {
     /// but for now it exists as an exemplar demonstrating the intended shape of enums like the default, `Coproc`.
     fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
         assert!(args.is_empty());
-        s.get_nil()
+        lurk_sym_ptr!(s, nil)
     }
 }
 
@@ -104,8 +104,7 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         let mut key = String::new();
         if self.has_coprocessors() {
             for coprocessor in &self.coprocessors {
-                let name = coprocessor.0.path.join("-");
-
+                let name = coprocessor.0.path().join("-");
                 key += name.as_str()
             }
         } else {
@@ -122,7 +121,7 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
     ) {
         let name = name.into();
         // TODO: Check if intern_symbol should take a reference
-        let ptr = store.intern_symbol(name.clone());
+        let ptr = store.intern_symbol(&name);
         let z_ptr = store.hash_expr(&ptr).unwrap();
 
         self.coprocessors.insert(name, (cproc.into(), z_ptr));
@@ -130,7 +129,7 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
 
     pub fn add_binding<B: Into<Binding<F, C>>>(&mut self, binding: B, store: &mut Store<F>) {
         let Binding { name, coproc, _p } = binding.into();
-        let ptr = store.intern_symbol(name.clone());
+        let ptr = store.intern_symbol(&name);
         let z_ptr = store.hash_expr(&ptr).unwrap();
 
         self.coprocessors.insert(name, (coproc, z_ptr));

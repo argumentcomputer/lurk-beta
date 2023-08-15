@@ -1,5 +1,9 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::field::LurkField;
 use crate::ptr::Ptr;
+use crate::state::State;
 use crate::store::Store;
 use nom::sequence::preceded;
 use nom::Parser;
@@ -32,18 +36,41 @@ pub enum Error {
 
 impl<F: LurkField> Store<F> {
     pub fn read(&mut self, input: &str) -> Result<Ptr<F>, Error> {
-        match preceded(syntax::parse_space, syntax::parse_syntax()).parse(Span::new(input)) {
+        let state = State::init_lurk_state().rccell();
+        match preceded(
+            syntax::parse_space,
+            syntax::parse_syntax(state, false, false),
+        )
+        .parse(Span::new(input))
+        {
             Ok((_i, x)) => Ok(self.intern_syntax(x)),
             Err(e) => Err(Error::Syntax(format!("{}", e))),
         }
     }
 
-    pub fn read_maybe_meta<'a>(
+    pub fn read_with_state(
         &mut self,
+        state: Rc<RefCell<State>>,
+        input: &str,
+    ) -> Result<Ptr<F>, Error> {
+        match preceded(
+            syntax::parse_space,
+            syntax::parse_syntax(state, false, false),
+        )
+        .parse(Span::new(input))
+        {
+            Ok((_i, x)) => Ok(self.intern_syntax(x)),
+            Err(e) => Err(Error::Syntax(format!("{}", e))),
+        }
+    }
+
+    pub fn read_maybe_meta_with_state<'a>(
+        &mut self,
+        state: Rc<RefCell<State>>,
         input: Span<'a>,
     ) -> Result<(Span<'a>, Ptr<F>, bool), Error> {
         use syntax::*;
-        match preceded(parse_space, parse_maybe_meta()).parse(input) {
+        match preceded(parse_space, parse_maybe_meta(state, false)).parse(input) {
             Ok((i, Some((is_meta, x)))) => Ok((i, self.intern_syntax(x), is_meta)),
             Ok((_, None)) => Err(Error::NoInput),
             Err(e) => Err(Error::Syntax(format!("{}", e))),

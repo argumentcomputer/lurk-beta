@@ -147,6 +147,15 @@ impl<F: LurkField> Ptr<F> {
             _f: Default::default(),
         }
     }
+
+    #[inline]
+    pub fn cast(self, tag: ExprTag) -> Self {
+        Ptr {
+            tag,
+            raw: self.raw,
+            _f: self._f,
+        }
+    }
 }
 
 impl<F: LurkField> From<char> for Ptr<F> {

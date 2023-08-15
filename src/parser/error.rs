@@ -15,6 +15,7 @@ pub enum ParseErrorKind<F: LurkField> {
     ParseIntErr(ParseIntError),
     InvalidChar(String),
     Nom(ErrorKind),
+    InterningError(String),
 }
 
 impl<F: LurkField> fmt::Display for ParseErrorKind<F> {

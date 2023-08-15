@@ -10,17 +10,21 @@
 //! proof, will actually be a proof *verifying* that the vanilla operation was correctly performed. Therefore, the
 //! vanilla operation needs to provide such a proof so the circuit can verify it.
 
+use std::cell::RefCell;
 // TODO:
 //  - Implement circuit (https://github.com/lurk-lab/lurk-rs/issues/421).
 //  - Adapt to ongoing changes to general coprocessor API, most importantly, absorb
 //    https://github.com/lurk-lab/lurk-rs/issues/398. - If #398 is smooth enough, no actual implementation changes
 //    should be required here, but the test in src/eval/tests/trie.rs can and should be updated.
 use std::marker::PhantomData;
+use std::rc::Rc;
 
 use lurk_macros::Coproc;
 use serde::{Deserialize, Serialize};
 
-use crate::{self as lurk, sym};
+use crate::package::Package;
+use crate::state::State;
+use crate::{self as lurk, Symbol};
 
 use crate::coprocessor::{CoCircuit, Coprocessor};
 use crate::eval::lang::Lang;
@@ -124,28 +128,27 @@ impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {}
 
 /// Add the `Trie`-associated functions to a `Lang` with standard bindings.
 // TODO: define standard patterns for such modularity.
-pub fn install<F: LurkField>(s: &mut Store<F>, lang: &mut Lang<F, TrieCoproc<F>>) {
+pub fn install<F: LurkField>(
+    s: &mut Store<F>,
+    state: Rc<RefCell<State>>,
+    lang: &mut Lang<F, TrieCoproc<F>>,
+) {
+    lang.add_binding((".lurk.trie.new", NewCoprocessor::default().into()), s);
     lang.add_binding(
-        (
-            sym!("lurk", "trie", "new"),
-            NewCoprocessor::default().into(),
-        ),
+        (".lurk.trie.lookup", LookupCoprocessor::default().into()),
         s,
     );
     lang.add_binding(
-        (
-            sym!("lurk", "trie", "lookup"),
-            LookupCoprocessor::default().into(),
-        ),
+        (".lurk.trie.insert", InsertCoprocessor::default().into()),
         s,
     );
-    lang.add_binding(
-        (
-            sym!("lurk", "trie", "insert"),
-            InsertCoprocessor::default().into(),
-        ),
-        s,
-    );
+
+    let name: Symbol = ".lurk.trie".into();
+    let mut package = Package::new(name.into());
+    package.intern("new".into());
+    package.intern("lookup".into());
+    package.intern("insert".into());
+    state.borrow_mut().add_package(package);
 }
 
 //pub type ChildMap<F: LurkField, const ARITY: usize> = HashMap<FWrap<F>, [F; ARITY]>;

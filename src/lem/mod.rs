@@ -164,7 +164,7 @@ pub enum Lit {
 impl Lit {
     pub fn to_ptr<F: LurkField>(&self, store: &mut Store<F>) -> Ptr<F> {
         match self {
-            Self::Symbol(s) => store.intern_symbol(s.clone()),
+            Self::Symbol(s) => store.intern_symbol(s),
             Self::String(s) => store.intern_string(s),
             Self::Num(num) => Ptr::num((*num).into()),
         }
@@ -674,6 +674,7 @@ impl Var {
 mod tests {
     use super::slot::SlotsCounter;
     use super::{store::Store, *};
+    use crate::state::lurk_sym;
     use crate::{func, lem::pointers::Ptr};
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable, Delta};
     use blstrs::Scalar as Fr;
@@ -690,7 +691,7 @@ mod tests {
         let outermost = Ptr::null(Tag::Cont(Outermost));
         let terminal = Ptr::null(Tag::Cont(Terminal));
         let error = Ptr::null(Tag::Cont(Error));
-        let nil = store.intern_nil();
+        let nil = store.intern_symbol(&lurk_sym("nil"));
         let stop_cond = |output: &[Ptr<Fr>]| output[2] == terminal || output[2] == error;
 
         assert_eq!(func.slot, expected_num_slots);

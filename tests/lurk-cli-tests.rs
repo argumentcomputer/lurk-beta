@@ -91,7 +91,7 @@ fn test_prove_and_verify() {
 
     let mut file = File::create(lurk_file.clone()).unwrap();
     file.write_all(b"!(prove (+ 1 1))\n").unwrap();
-    file.write_all(b"!(verify \"Nova_Pallas_10_049abe0ff3b8c08c6022f44c3da7e27962b4a92af7c204a38976e52c94c9cea6\")\n").unwrap();
+    file.write_all(b"!(verify \"Nova_Pallas_10_0d723f6dd68729d7d119a13386f81d04daf6e1715f9ad53fb1ea54646771108a\")\n").unwrap();
 
     let mut cmd = lurk_cmd();
     cmd.arg("load");
