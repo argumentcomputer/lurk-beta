@@ -263,7 +263,7 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
         let name = T::name();
         eprintln!("{name} welcomes you.");
     }
-    let state = State::init_lurk_state().mutable();
+    let state = State::init_lurk_state().rccell();
 
     {
         if let Some(lurk_file) = lurk_file {

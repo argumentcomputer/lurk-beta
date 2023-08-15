@@ -80,7 +80,7 @@ fn end2end_benchmark(c: &mut Criterion) {
     let size = (10, 0);
     let benchmark_id = BenchmarkId::new("end2end_go_base_nova", format!("_{}_{}", size.0, size.1));
 
-    let state = State::init_lurk_state().mutable();
+    let state = State::init_lurk_state().rccell();
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         b.iter(|| {
@@ -106,7 +106,7 @@ fn store_benchmark(c: &mut Criterion) {
     let mut bls12_store = Store::<Fr>::default();
     let mut pallas_store = Store::<pallas::Scalar>::default();
 
-    let state = State::init_lurk_state().mutable();
+    let state = State::init_lurk_state().rccell();
 
     // todo!() rfc out into more flexible test cases
     let sizes = vec![(10, 16), (10, 160)];
@@ -145,7 +145,7 @@ fn hydration_benchmark(c: &mut Criterion) {
     let mut bls12_store = Store::<Fr>::default();
     let mut pallas_store = Store::<pallas::Scalar>::default();
 
-    let state = State::init_lurk_state().mutable();
+    let state = State::init_lurk_state().rccell();
 
     // todo!() rfc out into more flexible test cases
     let sizes = vec![(10, 16), (10, 160)];
@@ -187,7 +187,7 @@ fn eval_benchmark(c: &mut Criterion) {
     let mut bls12_store = Store::<Fr>::default();
     let mut pallas_store = Store::<pallas::Scalar>::default();
 
-    let state = State::init_lurk_state().mutable();
+    let state = State::init_lurk_state().rccell();
 
     // todo!() rfc out into more flexible test cases
     let sizes = vec![(10, 16), (10, 160)];
@@ -284,7 +284,7 @@ fn prove_benchmark(c: &mut Criterion) {
     let size = (10, 0);
     let benchmark_id = BenchmarkId::new("prove_go_base_nova", format!("_{}_{}", size.0, size.1));
 
-    let state = State::init_lurk_state().mutable();
+    let state = State::init_lurk_state().rccell();
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<pallas::Scalar>(&mut store, state.clone(), s.0, s.1);
@@ -330,7 +330,7 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
         format!("_{}_{}", size.0, size.1),
     );
 
-    let state = State::init_lurk_state().mutable();
+    let state = State::init_lurk_state().rccell();
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<pallas::Scalar>(&mut store, state.clone(), s.0, s.1);
@@ -371,7 +371,7 @@ fn verify_benchmark(c: &mut Criterion) {
     let mut store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
-    let state = State::init_lurk_state().mutable();
+    let state = State::init_lurk_state().rccell();
 
     let sizes = vec![(10, 0)];
     for size in sizes {
@@ -422,7 +422,7 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
     let mut store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
-    let state = State::init_lurk_state().mutable();
+    let state = State::init_lurk_state().rccell();
 
     let sizes = vec![(10, 0)];
     for size in sizes {

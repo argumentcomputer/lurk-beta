@@ -6,7 +6,7 @@ fn trie_lang() {
     use crate::coprocessor::trie::{install, TrieCoproc};
 
     let s = &mut Store::<Fr>::default();
-    let state = State::init_lurk_state().mutable();
+    let state = State::init_lurk_state().rccell();
     let mut lang = Lang::<Fr, TrieCoproc<Fr>>::new();
 
     install(s, state.clone(), &mut lang);

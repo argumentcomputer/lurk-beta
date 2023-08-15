@@ -287,7 +287,7 @@ impl Symbol {
         use pasta_curves::pallas::Scalar;
         match preceded(
             parse_space::<Scalar>,
-            parse_symbol(State::default().mutable(), true),
+            parse_symbol(State::default().rccell(), true),
         )
         .parse(Span::new(name))
         {

@@ -20,7 +20,7 @@ pub struct State {
 impl State {
     /// Wraps a state with `Rc<RefCell<...>>`
     #[inline]
-    pub fn mutable(self) -> Rc<RefCell<Self>> {
+    pub fn rccell(self) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(self))
     }
 

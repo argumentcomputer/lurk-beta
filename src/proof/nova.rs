@@ -3641,7 +3641,7 @@ pub mod tests {
             Num::Scalar(hash)
         };
 
-        let state = State::init_lurk_state().mutable();
+        let state = State::init_lurk_state().rccell();
         {
             // binop
             let expr = format!("({} 1 1)", hash_num(s, state.clone(), "+"));

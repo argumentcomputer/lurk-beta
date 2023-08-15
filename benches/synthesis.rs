@@ -46,7 +46,7 @@ fn synthesize<M: measurement::Measurement>(
     let limit = 1_000_000;
     let lang_pallas = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
     let lang_rc = Arc::new(lang_pallas.clone());
-    let state = State::init_lurk_state().mutable();
+    let state = State::init_lurk_state().rccell();
 
     c.bench_with_input(
         BenchmarkId::new(name.to_string(), reduction_count),

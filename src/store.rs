@@ -2392,7 +2392,7 @@ pub mod test {
     #[test]
     fn commitment_z_store_roundtrip() {
         let store = &mut Store::<S1>::default();
-        let state = State::init_lurk_state().mutable();
+        let state = State::init_lurk_state().rccell();
         let two = store.read_with_state(state.clone(), "(+ 1 1)").unwrap();
         let three = store.read_with_state(state, "(+ 1 2)").unwrap();
 

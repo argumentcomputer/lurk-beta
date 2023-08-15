@@ -36,7 +36,7 @@ pub enum Error {
 
 impl<F: LurkField> Store<F> {
     pub fn read(&mut self, input: &str) -> Result<Ptr<F>, Error> {
-        let state = State::init_lurk_state().mutable();
+        let state = State::init_lurk_state().rccell();
         match preceded(
             syntax::parse_space,
             syntax::parse_syntax(state, false, false),

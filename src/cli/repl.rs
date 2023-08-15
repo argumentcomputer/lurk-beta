@@ -148,7 +148,7 @@ impl Repl<F> {
         );
         Repl {
             store,
-            state: State::init_lurk_state().mutable(),
+            state: State::init_lurk_state().rccell(),
             env,
             lang: Arc::new(Lang::new()),
             rc,

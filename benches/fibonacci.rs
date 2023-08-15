@@ -159,7 +159,7 @@ fn fibo_prove<M: measurement::Measurement>(
 fn fibonacci_eval(c: &mut Criterion) {
     static BATCH_SIZES: [u64; 2] = [100, 1000];
     let mut group: BenchmarkGroup<_> = c.benchmark_group("Evaluate");
-    let state = State::init_lurk_state().mutable();
+    let state = State::init_lurk_state().rccell();
 
     for size in BATCH_SIZES.iter() {
         fibo_eval("Fibonacci", *size, &mut group, state.clone());
@@ -171,7 +171,7 @@ fn fibonacci_prove(c: &mut Criterion) {
     let mut group: BenchmarkGroup<_> = c.benchmark_group("Prove");
     group.sampling_mode(SamplingMode::Flat); // This can take a *while*
     group.sample_size(10);
-    let state = State::init_lurk_state().mutable();
+    let state = State::init_lurk_state().rccell();
 
     for size in BATCH_SIZES.iter() {
         fibo_prove("Fibonacci", *size, &mut group, state.clone());
@@ -184,7 +184,7 @@ fn fibonacci_total(c: &mut Criterion) {
     let mut group: BenchmarkGroup<_> = c.benchmark_group("Total");
     group.sampling_mode(SamplingMode::Flat); // This can take a *while*
     group.sample_size(10);
-    let state = State::init_lurk_state().mutable();
+    let state = State::init_lurk_state().rccell();
 
     for size in BATCH_SIZES.iter() {
         fibo_total("Fibonacci", *size, &mut group, state.clone());

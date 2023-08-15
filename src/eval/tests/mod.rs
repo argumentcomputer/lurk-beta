@@ -2391,7 +2391,7 @@ fn test_sym_hash_values() {
     use crate::Symbol;
 
     let s = &mut Store::<Fr>::default();
-    let state = State::init_lurk_state().mutable();
+    let state = State::init_lurk_state().rccell();
 
     let asdf_sym_package_name = state
         .borrow_mut()
