@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/symbol.rs`."><title>symbol.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (28eb857b9 2023-08-12)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../lurk/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/symbol.rs`."><title>symbol.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (180dffba1 2023-08-14)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../lurk/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -440,56 +440,11 @@
 <a href="#440" id="440">440</a>
 <a href="#441" id="441">441</a>
 <a href="#442" id="442">442</a>
-<a href="#443" id="443">443</a>
-<a href="#444" id="444">444</a>
-<a href="#445" id="445">445</a>
-<a href="#446" id="446">446</a>
-<a href="#447" id="447">447</a>
-<a href="#448" id="448">448</a>
-<a href="#449" id="449">449</a>
-<a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
-<a href="#460" id="460">460</a>
-<a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
-<a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
-<a href="#476" id="476">476</a>
-<a href="#477" id="477">477</a>
-<a href="#478" id="478">478</a>
-<a href="#479" id="479">479</a>
-<a href="#480" id="480">480</a>
-<a href="#481" id="481">481</a>
-<a href="#482" id="482">482</a>
-<a href="#483" id="483">483</a>
-<a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a>
-<a href="#486" id="486">486</a>
-<a href="#487" id="487">487</a>
-<a href="#488" id="488">488</a>
-<a href="#489" id="489">489</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt;
 
-<span class="kw">use </span><span class="kw">crate</span>::parser::LURK_WHITESPACE;
+<span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
+
+<span class="kw">use crate</span>::{parser::LURK_WHITESPACE, state::State};
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>lurk_macros::serde_test;
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
@@ -497,7 +452,6 @@
 
 <span class="doccomment">/// Module for symbol type, Sym.
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">pub const </span>KEYWORD_MARKER: char = <span class="string">&#39;:&#39;</span>;
 <span class="kw">pub const </span>SYM_SEPARATOR: char = <span class="string">&#39;.&#39;</span>;
@@ -508,31 +462,87 @@
 #[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), serde_test)]
 </span><span class="doccomment">/// Type for hierarchical symbol names.
-///
-/// The symbol path is encoded with a vector of strings. Keywords are symbols
-/// whose first path component is the string &quot;keyword&quot;.
 </span><span class="kw">pub struct </span>Symbol {
-    <span class="kw">pub </span>path: Vec&lt;String&gt;,
+    path: Vec&lt;String&gt;,
+    keyword: bool,
 }
 
 <span class="kw">impl </span>Symbol {
-    <span class="doccomment">/// Creates a new `Symbol` with an empty path.
-    </span><span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>root() -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{ path: <span class="macro">vec!</span>[] }
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>path(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[String] {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.path
     }
 
-    <span class="doccomment">/// Returns true if the `Symbol` is the root symbol, i.e. if it has an empty path.
+    <span class="attr">#[inline]
+    </span><span class="kw">pub const fn </span>is_keyword(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.keyword
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub const fn </span>root(keyword: bool) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            path: <span class="macro">vec!</span>[],
+            keyword,
+        }
+    }
+
+    <span class="doccomment">/// Creates a new `Symbol` with an empty path.
     </span><span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>root_sym() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::root(<span class="bool-val">false</span>)
+    }
+
+    <span class="doccomment">/// Creates a new `Symbol` with an empty path.
+    </span><span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>root_key() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::root(<span class="bool-val">true</span>)
+    }
+
+    <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>is_root(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.path.is_empty()
     }
 
-    <span class="doccomment">/// Creates a new Symbol with the path extended by the given vector of path segments.
-    </span><span class="kw">pub fn </span>new&lt;A: AsRef&lt;str&gt;&gt;(path: <span class="kw-2">&amp;</span>[A]) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Returns true if the `Symbol` is the root symbol
+    </span><span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>is_root_sym(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.is_root() &amp;&amp; !<span class="self">self</span>.keyword
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>is_root_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.is_root() &amp;&amp; <span class="self">self</span>.keyword
+    }
+
+    <span class="kw">pub fn </span>new&lt;A: AsRef&lt;str&gt;&gt;(path: <span class="kw-2">&amp;</span>[A], keyword: bool) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             path: path.iter().map(|x| String::from(x.as_ref())).collect(),
+            keyword,
         }
+    }
+
+    <span class="kw">pub fn </span>new_from_vec(path: Vec&lt;String&gt;, keyword: bool) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ path, keyword }
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>sym&lt;A: AsRef&lt;str&gt;&gt;(path: <span class="kw-2">&amp;</span>[A]) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new(path, <span class="bool-val">false</span>)
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>key&lt;A: AsRef&lt;str&gt;&gt;(path: <span class="kw-2">&amp;</span>[A]) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new(path, <span class="bool-val">true</span>)
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>sym_from_vec(path: Vec&lt;String&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new_from_vec(path, <span class="bool-val">false</span>)
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>key_from_vec(path: Vec&lt;String&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new_from_vec(path, <span class="bool-val">true</span>)
     }
 
     <span class="doccomment">/// Creates a new Symbol with the path extended by the given vector of path segments.
@@ -544,15 +554,10 @@
         <span class="kw">for </span>elt <span class="kw">in </span>child.iter() {
             path.push(String::from(elt.as_ref()));
         }
-        <span class="self">Self </span>{ path }
-    }
-
-    <span class="kw">pub fn </span>nil() -&gt; Symbol {
-        <span class="self">Self</span>::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;lurk&quot;</span>, <span class="string">&quot;nil&quot;</span>])
-    }
-
-    <span class="kw">pub fn </span>keyword&lt;A: AsRef&lt;str&gt;&gt;(key: <span class="kw-2">&amp;</span>[A]) -&gt; Symbol {
-        <span class="self">Self</span>::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;keyword&quot;</span>]).extend(key)
+        <span class="self">Self </span>{
+            path,
+            keyword: <span class="self">self</span>.keyword,
+        }
     }
 
     <span class="kw">pub fn </span>has_parent(<span class="kw-2">&amp;</span><span class="self">self</span>, parent: <span class="kw-2">&amp;</span>Symbol) -&gt; bool {
@@ -574,6 +579,7 @@
         </span><span class="kw">if </span><span class="self">self</span>.path.len() &lt; parent.path.len() {
             <span class="prelude-val">None
         </span>} <span class="kw">else </span>{
+            <span class="kw">let </span>keyword = parent.keyword;
             <span class="kw">let </span><span class="kw-2">mut </span>parent = parent.path.iter();
             <span class="kw">let </span><span class="kw-2">mut </span>child = <span class="self">self</span>.path.iter().peekable();
 
@@ -590,39 +596,22 @@
                 </span>} <span class="kw">else </span>{
                     <span class="kw">let </span>path = child.cloned().collect();
                     <span class="comment">// return the remaining child path
-                    </span><span class="kw">return </span><span class="prelude-val">Some</span>(Symbol { path });
+                    </span><span class="kw">return </span><span class="prelude-val">Some</span>(Symbol { path, keyword });
                 }
             }
             <span class="comment">// only reachable if self == parent
-            </span><span class="prelude-val">Some</span>(Symbol::root())
+            </span><span class="prelude-val">Some</span>(Symbol {
+                path: <span class="macro">vec!</span>[],
+                keyword,
+            })
         }
-    }
-
-    <span class="kw">pub fn </span>is_keyword(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="self">self </span>== <span class="kw-2">&amp;</span><span class="self">Self</span>::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;keyword&quot;</span>]) || <span class="self">self</span>.has_parent(<span class="kw-2">&amp;</span><span class="self">Self</span>::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;keyword&quot;</span>]))
-    }
-
-    <span class="kw">pub fn </span>lurk_sym(name: <span class="kw-2">&amp;</span>str) -&gt; Symbol {
-        <span class="self">Self</span>::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;lurk&quot;</span>, name])
-    }
-
-    <span class="kw">pub fn </span>is_lurk_sym(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="self">self</span>.has_parent(<span class="kw-2">&amp;</span><span class="self">Self</span>::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;lurk&quot;</span>]))
-    }
-
-    <span class="kw">pub fn </span>lurk_syms() -&gt; HashMap&lt;Symbol, LurkSym&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>syms = HashMap::new();
-        <span class="kw">for </span>lurk_sym <span class="kw">in </span>LURK_SYMBOLS {
-            syms.insert(<span class="self">Self</span>::lurk_sym(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, lurk_sym)), <span class="kw-2">*</span>lurk_sym);
-        }
-        syms
     }
 
     <span class="kw">pub fn </span>is_whitespace(c: char) -&gt; bool {
         LURK_WHITESPACE.iter().any(|x| <span class="kw-2">*</span>x == c)
     }
 
-    <span class="kw">pub fn </span>escape_symbol_element(xs: <span class="kw-2">&amp;</span>str) -&gt; String {
+    <span class="kw">pub fn </span>fmt_path_component_to_string(xs: <span class="kw-2">&amp;</span>str) -&gt; String {
         <span class="kw">let </span><span class="kw-2">mut </span>res = String::new();
         <span class="kw">for </span>x <span class="kw">in </span>xs.chars() {
             <span class="kw">if </span>ESCAPE_CHARS.chars().any(|c| c == x) {
@@ -636,11 +625,11 @@
         res
     }
 
-    <span class="kw">pub fn </span>print_path(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+    <span class="kw">pub fn </span>fmt_path_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="kw">let </span><span class="kw-2">mut </span>res = String::new();
         <span class="kw">let </span><span class="kw-2">mut </span>iter = <span class="self">self</span>.path.iter().peekable();
         <span class="kw">while let </span><span class="prelude-val">Some</span>(next) = iter.next() {
-            res.push_str(<span class="kw-2">&amp;</span><span class="self">Self</span>::escape_symbol_element(next));
+            res.push_str(<span class="kw-2">&amp;</span><span class="self">Self</span>::fmt_path_component_to_string(next));
             <span class="kw">if </span>iter.peek().is_some() || next.is_empty() {
                 res.push(<span class="string">&#39;.&#39;</span>);
             }
@@ -649,7 +638,7 @@
     }
 
     <span class="comment">// TODO: needs some kind of whitespace escaping
-    </span><span class="kw">pub fn </span>print_raw(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+    </span><span class="kw">pub fn </span>fmt_to_string_raw(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="kw">let </span><span class="kw-2">mut </span>res = String::from(<span class="string">&quot;~(&quot;</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>iter = <span class="self">self</span>.path.iter().peekable();
         <span class="kw">while let </span><span class="prelude-val">Some</span>(next) = iter.next() {
@@ -688,12 +677,13 @@
     }
 
     <span class="kw">pub fn </span>direct_parent(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Symbol&gt; {
-        <span class="kw">if </span><span class="self">self</span>.path.is_empty() {
+        <span class="kw">if </span><span class="self">self</span>.is_root() {
             <span class="prelude-val">None
         </span>} <span class="kw">else </span>{
             <span class="prelude-val">Some</span>(<span class="self">Self </span>{
                 <span class="comment">// drop the last component of the path
                 </span>path: <span class="self">self</span>.path[<span class="number">0</span>..<span class="self">self</span>.path.len() - <span class="number">1</span>].to_vec(),
+                keyword: <span class="self">self</span>.keyword,
             })
         }
     }
@@ -701,151 +691,75 @@
     <span class="kw">pub fn </span>direct_child(<span class="kw-2">&amp;</span><span class="self">self</span>, child: <span class="kw-2">&amp;</span>str) -&gt; Symbol {
         <span class="kw">let </span><span class="kw-2">mut </span>path = <span class="self">self</span>.path.clone();
         path.push(child.into());
-        <span class="self">Self </span>{ path }
+        <span class="self">Self </span>{
+            path,
+            keyword: <span class="self">self</span>.keyword,
+        }
+    }
+
+    <span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>str&gt; {
+        <span class="kw">if </span><span class="self">self</span>.is_root() {
+            <span class="macro">bail!</span>(<span class="string">&quot;Root symbols don&#39;t have names&quot;</span>)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.path[<span class="self">self</span>.path.len() - <span class="number">1</span>])
+        }
+    }
+
+    <span class="kw">pub fn </span>fmt_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        <span class="kw">if </span><span class="self">self</span>.is_keyword() {
+            <span class="kw">if </span><span class="self">self</span>.is_root() {
+                <span class="string">&quot;~:()&quot;</span>.into()
+            } <span class="kw">else </span>{
+                <span class="macro">format!</span>(<span class="string">&quot;:{}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.fmt_path_to_string())
+            }
+        } <span class="kw">else if </span><span class="self">self</span>.is_root() {
+            <span class="string">&quot;~()&quot;</span>.into()
+        } <span class="kw">else </span>{
+            <span class="macro">format!</span>(<span class="string">&quot;.{}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.fmt_path_to_string())
+        }
+    }
+
+    <span class="kw">pub fn </span>from_str_impl(name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">use </span><span class="kw">crate</span>::parser::{
+            syntax::{parse_space, parse_symbol},
+            Span,
+        };
+        <span class="kw">use </span><span class="kw">crate</span>::syntax::Syntax;
+        <span class="kw">use </span>nom::{sequence::preceded, Parser};
+        <span class="kw">use </span>pasta_curves::pallas::Scalar;
+        <span class="kw">match </span>preceded(
+            parse_space::&lt;Scalar&gt;,
+            parse_symbol(State::default().rccell(), <span class="bool-val">true</span>),
+        )
+        .parse(Span::new(name))
+        {
+            <span class="prelude-val">Ok</span>((<span class="kw">_</span>, Syntax::Symbol(<span class="kw">_</span>, symbol))) =&gt; <span class="prelude-val">Some</span>((<span class="kw-2">*</span>symbol).clone()),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+        }
+    }
+}
+
+<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; <span class="kw">for </span>Symbol {
+    <span class="kw">fn </span>from(value: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; <span class="self">Self </span>{
+        Symbol::from_str_impl(value).unwrap()
     }
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>Symbol {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(child) = <span class="self">self</span>.as_child(<span class="kw-2">&amp;</span>Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;keyword&quot;</span>])) {
-            <span class="kw">if </span>child.path.is_empty() {
-                <span class="macro">write!</span>(f, <span class="string">&quot;.keyword&quot;</span>)<span class="question-mark">?</span>;
-            } <span class="kw">else </span>{
-                <span class="macro">write!</span>(f, <span class="string">&quot;:{}&quot;</span>, child.print_path())<span class="question-mark">?</span>;
-            }
-        } <span class="kw">else if </span><span class="self">self</span>.is_root() {
-            <span class="macro">write!</span>(f, <span class="string">&quot;~()&quot;</span>)<span class="question-mark">?</span>;
-        } <span class="kw">else if </span><span class="self">self</span>.prints_as_absolute() {
-            <span class="macro">write!</span>(f, <span class="string">&quot;.{}&quot;</span>, <span class="self">self</span>.print_path())<span class="question-mark">?</span>;
-        } <span class="kw">else </span>{
-            <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.print_path())<span class="question-mark">?</span>;
-        }
-        <span class="prelude-val">Ok</span>(())
+        <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.fmt_to_string())
     }
 }
 
-<span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Copy)]
-#[cfg_attr(not(target_arch = <span class="string">&quot;wasm32&quot;</span>), derive(Arbitrary))]
-</span><span class="kw">pub enum </span>LurkSym {
-    Atom,
-    Begin,
-    Car,
-    Cdr,
-    Char,
-    Comm,
-    Commit,
-    Cons,
-    CurrentEnv,
-    Emit,
-    Eval,
-    Eq,
-    Hide,
-    If,
-    Lambda,
-    Let,
-    Letrec,
-    Nil,
-    Num,
-    U64,
-    Open,
-    Quote,
-    Secret,
-    Strcons,
-    T,
-    OpAdd,
-    OpSub,
-    OpMul,
-    OpDiv,
-    OpMod,
-    OpEql,
-    OpLth,
-    OpGth,
-    OpLte,
-    OpGte,
-    Dummy,
-}
-
-<span class="kw">impl </span>fmt::Display <span class="kw">for </span>LurkSym {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
-        <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Atom =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;atom&quot;</span>),
-            <span class="self">Self</span>::Begin =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;begin&quot;</span>),
-            <span class="self">Self</span>::Car =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;car&quot;</span>),
-            <span class="self">Self</span>::Cdr =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;cdr&quot;</span>),
-            <span class="self">Self</span>::Char =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;char&quot;</span>),
-            <span class="self">Self</span>::Comm =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;comm&quot;</span>),
-            <span class="self">Self</span>::Commit =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;commit&quot;</span>),
-            <span class="self">Self</span>::Cons =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;cons&quot;</span>),
-            <span class="self">Self</span>::CurrentEnv =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;current-env&quot;</span>),
-            <span class="self">Self</span>::Emit =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;emit&quot;</span>),
-            <span class="self">Self</span>::Eval =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;eval&quot;</span>),
-            <span class="self">Self</span>::Eq =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;eq&quot;</span>),
-            <span class="self">Self</span>::Hide =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;hide&quot;</span>),
-            <span class="self">Self</span>::If =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;if&quot;</span>),
-            <span class="self">Self</span>::Lambda =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;lambda&quot;</span>),
-            <span class="self">Self</span>::Let =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;let&quot;</span>),
-            <span class="self">Self</span>::Letrec =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;letrec&quot;</span>),
-            <span class="self">Self</span>::Nil =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;nil&quot;</span>),
-            <span class="self">Self</span>::Num =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;num&quot;</span>),
-            <span class="self">Self</span>::U64 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;u64&quot;</span>),
-            <span class="self">Self</span>::Open =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;open&quot;</span>),
-            <span class="self">Self</span>::Quote =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;quote&quot;</span>),
-            <span class="self">Self</span>::Secret =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;secret&quot;</span>),
-            <span class="self">Self</span>::Strcons =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;strcons&quot;</span>),
-            <span class="self">Self</span>::T =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;t&quot;</span>),
-            <span class="self">Self</span>::OpAdd =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;+&quot;</span>),
-            <span class="self">Self</span>::OpSub =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;-&quot;</span>),
-            <span class="self">Self</span>::OpMul =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;*&quot;</span>),
-            <span class="self">Self</span>::OpDiv =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;/&quot;</span>),
-            <span class="self">Self</span>::OpMod =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;%&quot;</span>),
-            <span class="self">Self</span>::OpEql =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;=&quot;</span>),
-            <span class="self">Self</span>::OpLth =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;&lt;&quot;</span>),
-            <span class="self">Self</span>::OpGth =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;&gt;&quot;</span>),
-            <span class="self">Self</span>::OpLte =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;&lt;=&quot;</span>),
-            <span class="self">Self</span>::OpGte =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;&gt;=&quot;</span>),
-            <span class="self">Self</span>::Dummy =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;_&quot;</span>),
+<span class="attr">#[macro_export]
+</span><span class="macro">macro_rules! </span>sym {
+    [$( <span class="macro-nonterminal">$x</span>:expr ),<span class="kw-2">*</span>] =&gt; {
+        {
+            <span class="kw">let </span>temp_vec = <span class="macro">vec!</span>[ $( <span class="macro-nonterminal">$x</span>.to_string() ),* ];
+            <span class="macro-nonterminal">$crate::symbol::Symbol::sym</span>(<span class="kw-2">&amp;</span>temp_vec)
         }
-    }
+    };
 }
-
-<span class="kw">pub const </span>LURK_SYMBOLS: <span class="kw-2">&amp;</span>[LurkSym] = <span class="kw-2">&amp;</span>[
-    LurkSym::Atom,
-    LurkSym::Begin,
-    LurkSym::Car,
-    LurkSym::Cdr,
-    LurkSym::Char,
-    LurkSym::Comm,
-    LurkSym::Commit,
-    LurkSym::Cons,
-    LurkSym::CurrentEnv,
-    LurkSym::Emit,
-    LurkSym::Eval,
-    LurkSym::Eq,
-    LurkSym::Hide,
-    LurkSym::If,
-    LurkSym::Lambda,
-    LurkSym::Let,
-    LurkSym::Letrec,
-    LurkSym::Nil,
-    LurkSym::Num,
-    LurkSym::U64,
-    LurkSym::Open,
-    LurkSym::Quote,
-    LurkSym::Secret,
-    LurkSym::Strcons,
-    LurkSym::T,
-    LurkSym::OpAdd,
-    LurkSym::OpSub,
-    LurkSym::OpMul,
-    LurkSym::OpDiv,
-    LurkSym::OpMod,
-    LurkSym::OpEql,
-    LurkSym::OpLth,
-    LurkSym::OpGth,
-    LurkSym::OpLte,
-    LurkSym::OpGte,
-    LurkSym::Dummy,
-];
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub mod </span>test {
@@ -853,107 +767,97 @@
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
     <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_new() {
-        <span class="kw">let </span>a = Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;bar&quot;</span>]);
-        <span class="kw">let </span>b = Symbol {
-            path: <span class="macro">vec!</span>[<span class="string">&quot;foo&quot;</span>.to_string(), <span class="string">&quot;bar&quot;</span>.to_string()],
-        };
-
-        <span class="macro">assert_eq!</span>(a, b)
-    }
-
-    <span class="attr">#[test]
     </span><span class="kw">fn </span>test_parent_child() {
-        <span class="kw">let </span>a = Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;bar&quot;</span>]);
-        <span class="kw">let </span>b = Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;baz&quot;</span>, <span class="string">&quot;bam&quot;</span>]);
-        <span class="kw">let </span>c = Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;bar&quot;</span>, <span class="string">&quot;baz&quot;</span>, <span class="string">&quot;bam&quot;</span>]);
+        <span class="kw">let </span>a = Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;bar&quot;</span>]);
+        <span class="kw">let </span>b = Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;baz&quot;</span>, <span class="string">&quot;bam&quot;</span>]);
+        <span class="kw">let </span>c = Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;bar&quot;</span>, <span class="string">&quot;baz&quot;</span>, <span class="string">&quot;bam&quot;</span>]);
 
         <span class="macro">assert_eq!</span>(a.extend(<span class="kw-2">&amp;</span>b.path), c);
         <span class="macro">assert!</span>(c.has_parent(<span class="kw-2">&amp;</span>a));
         <span class="macro">assert_eq!</span>(c.as_child(<span class="kw-2">&amp;</span>a), <span class="prelude-val">Some</span>(b));
         <span class="macro">assert_eq!</span>(
-            Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>]).as_child(<span class="kw-2">&amp;</span>Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>])),
-            <span class="prelude-val">Some</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;b&quot;</span>]))
+            Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>]).as_child(<span class="kw-2">&amp;</span>Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>])),
+            <span class="prelude-val">Some</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;b&quot;</span>]))
         );
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>]).has_parent(<span class="kw-2">&amp;</span>Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>])),);
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>]).has_parent(<span class="kw-2">&amp;</span>Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>])),);
         <span class="macro">assert_eq!</span>(
-            Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>]).as_child(<span class="kw-2">&amp;</span>Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>])),
-            <span class="prelude-val">Some</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>]))
+            Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>]).as_child(<span class="kw-2">&amp;</span>Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>])),
+            <span class="prelude-val">Some</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>]))
         );
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>]).has_parent(<span class="kw-2">&amp;</span>Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>])),);
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>]).has_parent(<span class="kw-2">&amp;</span>Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>])),);
         <span class="macro">assert_eq!</span>(
-            Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>]).as_child(<span class="kw-2">&amp;</span>Symbol::root()),
-            <span class="prelude-val">Some</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>]))
+            Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>]).as_child(<span class="kw-2">&amp;</span>Symbol::root_sym()),
+            <span class="prelude-val">Some</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>]))
         );
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>]).has_parent(<span class="kw-2">&amp;</span>Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>])),);
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>]).has_parent(<span class="kw-2">&amp;</span>Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>])),);
         <span class="macro">assert_eq!</span>(
-            Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>]).as_child(<span class="kw-2">&amp;</span>Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>])),
-            <span class="prelude-val">Some</span>(Symbol::root())
+            Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>]).as_child(<span class="kw-2">&amp;</span>Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>])),
+            <span class="prelude-val">Some</span>(Symbol::root_sym())
         );
-        <span class="macro">assert!</span>(Symbol::root().has_parent(<span class="kw-2">&amp;</span>Symbol::root(),));
+        <span class="macro">assert!</span>(Symbol::root_sym().has_parent(<span class="kw-2">&amp;</span>Symbol::root_sym(),));
         <span class="macro">assert_eq!</span>(
-            Symbol::root().as_child(<span class="kw-2">&amp;</span>Symbol::root()),
-            <span class="prelude-val">Some</span>(Symbol::root())
+            Symbol::root_sym().as_child(<span class="kw-2">&amp;</span>Symbol::root_sym()),
+            <span class="prelude-val">Some</span>(Symbol::root_sym())
         );
-        <span class="macro">assert_eq!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>]).as_child(<span class="kw-2">&amp;</span>Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;b&quot;</span>])), <span class="prelude-val">None</span>,);
-        <span class="macro">assert!</span>(!Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>]).has_parent(<span class="kw-2">&amp;</span>Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;b&quot;</span>])));
+        <span class="macro">assert_eq!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>]).as_child(<span class="kw-2">&amp;</span>Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;b&quot;</span>])), <span class="prelude-val">None</span>,);
+        <span class="macro">assert!</span>(!Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>]).has_parent(<span class="kw-2">&amp;</span>Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;b&quot;</span>])));
         <span class="macro">assert_eq!</span>(
-            Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>]).as_child(<span class="kw-2">&amp;</span>Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a,&quot;</span>, <span class="string">&quot;b&quot;</span>])),
+            Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>]).as_child(<span class="kw-2">&amp;</span>Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a,&quot;</span>, <span class="string">&quot;b&quot;</span>])),
             <span class="prelude-val">None</span>,
         );
-        <span class="macro">assert!</span>(!Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>]).has_parent(<span class="kw-2">&amp;</span>Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>])));
+        <span class="macro">assert!</span>(!Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>]).has_parent(<span class="kw-2">&amp;</span>Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>])));
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_prints_as_absolute() {
-        <span class="macro">assert!</span>(!Symbol::root().prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;~&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;#&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;1&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;2&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;3&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;4&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;5&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;6&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;7&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;8&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;9&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;0&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;.&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;:&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;[&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;]&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;(&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;)&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;{&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;}&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;\&quot;&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;\\&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;-1&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;-2&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;-3&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;-4&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;-5&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;-6&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;-7&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;-8&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;-9&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;-0&quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot; &quot;</span>]).prints_as_absolute());
-        <span class="macro">assert!</span>(Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;\x00&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(!Symbol::root_sym().prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;~&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;#&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;1&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;2&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;3&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;4&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;5&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;6&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;7&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;8&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;9&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;0&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;.&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;:&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;[&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;]&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;(&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;)&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;{&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;}&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;\&quot;&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;\\&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;-1&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;-2&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;-3&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;-4&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;-5&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;-6&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;-7&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;-8&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;-9&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;-0&quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot; &quot;</span>]).prints_as_absolute());
+        <span class="macro">assert!</span>(Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;\x00&quot;</span>]).prints_as_absolute());
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_sym() {
-        <span class="macro">assert_eq!</span>(<span class="string">&quot;a.b.c&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>])));
-        <span class="kw">let </span>root = Symbol::root();
+        <span class="macro">assert_eq!</span>(<span class="string">&quot;.a.b.c&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, Symbol::sym(<span class="kw-2">&amp;</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>])));
+        <span class="kw">let </span>root = Symbol::root_sym();
         <span class="kw">let </span>a = root.direct_child(<span class="string">&quot;a&quot;</span>);
         <span class="kw">let </span>a_b = a.direct_child(<span class="string">&quot;b&quot;</span>);
         <span class="kw">let </span>a_b_path = <span class="macro">vec!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>];
 
-        <span class="macro">assert_eq!</span>(<span class="string">&quot;a&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, a));
-        <span class="macro">assert_eq!</span>(<span class="string">&quot;a.b&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, a_b));
+        <span class="macro">assert_eq!</span>(<span class="string">&quot;.a&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, a));
+        <span class="macro">assert_eq!</span>(<span class="string">&quot;.a.b&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, a_b));
         <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>a_b_path, <span class="kw-2">&amp;</span>a_b.path);
         <span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>(a.clone()), a_b.direct_parent());
         <span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>(root.clone()), a.direct_parent());
@@ -962,13 +866,15 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_keywords() {
-        <span class="kw">let </span>root = Symbol::root();
-        <span class="kw">let </span>key_root = Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;keyword&quot;</span>]);
+        <span class="kw">let </span>root = Symbol::root_sym();
+        <span class="kw">let </span>key_root = Symbol::root_key();
 
         <span class="kw">let </span>apple = root.direct_child(<span class="string">&quot;apple&quot;</span>);
         <span class="kw">let </span>orange = key_root.direct_child(<span class="string">&quot;orange&quot;</span>);
 
-        <span class="macro">assert_eq!</span>(<span class="string">&quot;apple&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, apple));
+        <span class="macro">assert!</span>(!root.is_keyword());
+        <span class="macro">assert!</span>(key_root.is_keyword());
+        <span class="macro">assert_eq!</span>(<span class="string">&quot;.apple&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, apple));
         <span class="macro">assert_eq!</span>(<span class="string">&quot;:orange&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, orange));
         <span class="macro">assert!</span>(!apple.is_keyword());
         <span class="macro">assert!</span>(orange.is_keyword());

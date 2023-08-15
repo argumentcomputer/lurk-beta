@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/nova.rs`."><title>nova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (28eb857b9 2023-08-12)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/nova.rs`."><title>nova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (180dffba1 2023-08-14)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -3780,6 +3780,16 @@
 <a href="#3780" id="3780">3780</a>
 <a href="#3781" id="3781">3781</a>
 <a href="#3782" id="3782">3782</a>
+<a href="#3783" id="3783">3783</a>
+<a href="#3784" id="3784">3784</a>
+<a href="#3785" id="3785">3785</a>
+<a href="#3786" id="3786">3786</a>
+<a href="#3787" id="3787">3787</a>
+<a href="#3788" id="3788">3788</a>
+<a href="#3789" id="3789">3789</a>
+<a href="#3790" id="3790">3790</a>
+<a href="#3791" id="3791">3791</a>
+<a href="#3792" id="3792">3792</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>std::marker::PhantomData;
@@ -4205,7 +4215,12 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub mod </span>tests {
+    <span class="kw">use </span>std::cell::RefCell;
+    <span class="kw">use </span>std::rc::Rc;
+
+    <span class="kw">use </span><span class="kw">crate</span>::lurk_sym_ptr;
     <span class="kw">use </span><span class="kw">crate</span>::num::Num;
+    <span class="kw">use </span><span class="kw">crate</span>::state::{user_sym, State};
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::eval::empty_sym_env;
@@ -4459,7 +4474,7 @@
     #[ignore]
     </span><span class="kw">fn </span>test_prove_eq() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>expected = s.t();
+        <span class="kw">let </span>expected = <span class="macro">lurk_sym_ptr!</span>(s, t);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
         nova_test_full_aux::&lt;Coproc&lt;Fr&gt;&gt;(
             s,
@@ -4480,7 +4495,7 @@
     #[ignore]
     </span><span class="kw">fn </span>test_prove_num_equal() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>expected = s.t();
+        <span class="kw">let </span>expected = <span class="macro">lurk_sym_ptr!</span>(s, t);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(
             s,
@@ -4493,7 +4508,7 @@
             <span class="prelude-val">None</span>,
         );
 
-        <span class="kw">let </span>expected = s.nil();
+        <span class="kw">let </span>expected = <span class="macro">lurk_sym_ptr!</span>(s, nil);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(
             s,
@@ -4510,7 +4525,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_prove_invalid_num_equal() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>expected = s.nil();
+        <span class="kw">let </span>expected = <span class="macro">lurk_sym_ptr!</span>(s, nil);
         <span class="kw">let </span>error = s.get_cont_error();
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(
             s,
@@ -4539,8 +4554,8 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_prove_equal() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>nil = s.nil();
-        <span class="kw">let </span>t = s.t();
+        <span class="kw">let </span>nil = <span class="macro">lurk_sym_ptr!</span>(s, nil);
+        <span class="kw">let </span>t = <span class="macro">lurk_sym_ptr!</span>(s, t);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
 
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(
@@ -4697,7 +4712,7 @@
 
     <span class="kw">fn </span>test_prove_unop_regression_aux(chunk_count: usize) {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>expected = s.lurk_sym(<span class="string">&quot;t&quot;</span>);
+        <span class="kw">let </span>expected = <span class="macro">lurk_sym_ptr!</span>(s, t);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
         nova_test_full_aux::&lt;Coproc&lt;Fr&gt;&gt;(
             s,
@@ -5058,7 +5073,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_prove_error_invalid_type_and_not_cons() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>expected = s.nil();
+        <span class="kw">let </span>expected = <span class="macro">lurk_sym_ptr!</span>(s, nil);
         <span class="kw">let </span>error = s.get_cont_error();
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(
             s,
@@ -5097,7 +5112,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_prove_current_env_simple() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>expected = s.nil();
+        <span class="kw">let </span>expected = <span class="macro">lurk_sym_ptr!</span>(s, nil);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(
             s,
@@ -5235,7 +5250,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_prove_let_body_nil() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>expected = s.t();
+        <span class="kw">let </span>expected = <span class="macro">lurk_sym_ptr!</span>(s, t);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(
             s,
@@ -5366,7 +5381,7 @@
     #[ignore]
     </span><span class="kw">fn </span>test_prove_comparison() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>expected = s.t();
+        <span class="kw">let </span>expected = <span class="macro">lurk_sym_ptr!</span>(s, t);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(
             s,
@@ -5608,7 +5623,7 @@
     #[ignore]
     </span><span class="kw">fn </span>test_prove_no_mutual_recursion() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>expected = s.t();
+        <span class="kw">let </span>expected = <span class="macro">lurk_sym_ptr!</span>(s, t);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(
             s,
@@ -5756,10 +5771,10 @@
     </span><span class="kw">fn </span>test_prove_zero_arg_lambda3() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
         <span class="kw">let </span>expected = {
-            <span class="kw">let </span>arg = s.sym(<span class="string">&quot;x&quot;</span>);
+            <span class="kw">let </span>arg = s.user_sym(<span class="string">&quot;x&quot;</span>);
             <span class="kw">let </span>num = s.num(<span class="number">123</span>);
             <span class="kw">let </span>body = s.list(<span class="kw-2">&amp;</span>[num]);
-            <span class="kw">let </span>env = s.nil();
+            <span class="kw">let </span>env = <span class="macro">lurk_sym_ptr!</span>(s, nil);
             s.intern_fun(arg, body, env)
         };
         <span class="kw">let </span>terminal = s.get_cont_terminal();
@@ -6163,7 +6178,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_prove_begin_empty() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>expected = s.nil();
+        <span class="kw">let </span>expected = <span class="macro">lurk_sym_ptr!</span>(s, nil);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(
             s,
@@ -6232,7 +6247,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_prove_str_car_empty() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>expected_nil = s.nil();
+        <span class="kw">let </span>expected_nil = <span class="macro">lurk_sym_ptr!</span>(s, nil);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(
             s,
@@ -6306,7 +6321,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_prove_car_nil() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>expected = s.nil();
+        <span class="kw">let </span>expected = <span class="macro">lurk_sym_ptr!</span>(s, nil);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(
             s,
@@ -6323,7 +6338,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_prove_cdr_nil() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>expected = s.nil();
+        <span class="kw">let </span>expected = <span class="macro">lurk_sym_ptr!</span>(s, nil);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(
             s,
@@ -6445,7 +6460,7 @@
     </span><span class="kw">fn </span>test_prove_hide_open_sym() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
         <span class="kw">let </span>expr = <span class="string">&quot;(open (hide 123 &#39;x))&quot;</span>;
-        <span class="kw">let </span>x = s.sym(<span class="string">&quot;x&quot;</span>);
+        <span class="kw">let </span>x = s.user_sym(<span class="string">&quot;x&quot;</span>);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(s, expr, <span class="prelude-val">Some</span>(x), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(terminal), <span class="prelude-val">None</span>, <span class="number">5</span>, <span class="prelude-val">None</span>);
     }
@@ -6454,7 +6469,7 @@
     </span><span class="kw">fn </span>test_prove_commit_open_sym() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
         <span class="kw">let </span>expr = <span class="string">&quot;(open (commit &#39;x))&quot;</span>;
-        <span class="kw">let </span>x = s.sym(<span class="string">&quot;x&quot;</span>);
+        <span class="kw">let </span>x = s.user_sym(<span class="string">&quot;x&quot;</span>);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(s, expr, <span class="prelude-val">Some</span>(x), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(terminal), <span class="prelude-val">None</span>, <span class="number">4</span>, <span class="prelude-val">None</span>);
     }
@@ -6668,7 +6683,7 @@
     </span><span class="kw">fn </span>test_prove_terminal_sym() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
         <span class="kw">let </span>expr = <span class="string">&quot;(quote x)&quot;</span>;
-        <span class="kw">let </span>x = s.sym(<span class="string">&quot;x&quot;</span>);
+        <span class="kw">let </span>x = s.user_sym(<span class="string">&quot;x&quot;</span>);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(s, expr, <span class="prelude-val">Some</span>(x), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(terminal), <span class="prelude-val">None</span>, <span class="number">1</span>, <span class="prelude-val">None</span>);
     }
@@ -6705,7 +6720,7 @@
         <span class="kw">let </span>a_pple = s.read(<span class="string">r#&quot; (#\a . &quot;pple&quot;) &quot;#</span>).unwrap();
         <span class="kw">let </span>pple = s.read(<span class="string">r#&quot; &quot;pple&quot; &quot;#</span>).unwrap();
         <span class="kw">let </span>empty = s.intern_string(<span class="string">&quot;&quot;</span>);
-        <span class="kw">let </span>nil = s.nil();
+        <span class="kw">let </span>nil = <span class="macro">lurk_sym_ptr!</span>(s, nil);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
         <span class="kw">let </span>error = s.get_cont_error();
 
@@ -6807,7 +6822,11 @@
 
     <span class="kw">fn </span>relational_aux(s: <span class="kw-2">&amp;mut </span>Store&lt;Fr&gt;, op: <span class="kw-2">&amp;</span>str, a: <span class="kw-2">&amp;</span>str, b: <span class="kw-2">&amp;</span>str, res: bool) {
         <span class="kw">let </span>expr = <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;({op} {a} {b})&quot;</span>);
-        <span class="kw">let </span>expected = <span class="kw">if </span>res { s.t() } <span class="kw">else </span>{ s.nil() };
+        <span class="kw">let </span>expected = <span class="kw">if </span>res {
+            <span class="macro">lurk_sym_ptr!</span>(s, t)
+        } <span class="kw">else </span>{
+            <span class="macro">lurk_sym_ptr!</span>(s, nil)
+        };
         <span class="kw">let </span>terminal = s.get_cont_terminal();
 
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(s, expr, <span class="prelude-val">Some</span>(expected), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(terminal), <span class="prelude-val">None</span>, <span class="number">3</span>, <span class="prelude-val">None</span>);
@@ -6935,7 +6954,7 @@
         </span><span class="kw">let </span>expr = <span class="string">&quot;(let ((most-positive (/ (- 0 1) 2))
                           (most-negative (+ 1 most-positive)))
                       (&lt; most-negative most-positive))&quot;</span>;
-        <span class="kw">let </span>t = s.t();
+        <span class="kw">let </span>t = <span class="macro">lurk_sym_ptr!</span>(s, t);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
 
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(s, expr, <span class="prelude-val">Some</span>(t), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(terminal), <span class="prelude-val">None</span>, <span class="number">19</span>, <span class="prelude-val">None</span>);
@@ -6962,8 +6981,8 @@
         <span class="kw">let </span>expr2 = <span class="string">&quot;(eq :asdf :asdf)&quot;</span>;
         <span class="kw">let </span>expr3 = <span class="string">&quot;(eq :asdf &#39;asdf)&quot;</span>;
         <span class="kw">let </span>res = s.key(<span class="string">&quot;asdf&quot;</span>);
-        <span class="kw">let </span>res2 = s.get_t();
-        <span class="kw">let </span>res3 = s.get_nil();
+        <span class="kw">let </span>res2 = <span class="macro">lurk_sym_ptr!</span>(s, t);
+        <span class="kw">let </span>res3 = <span class="macro">lurk_sym_ptr!</span>(s, nil);
 
         <span class="kw">let </span>terminal = s.get_cont_terminal();
 
@@ -7219,8 +7238,8 @@
         <span class="kw">let </span>expr9 = <span class="string">&quot;(&lt;= 0u64 0u64)&quot;</span>;
         <span class="kw">let </span>expr10 = <span class="string">&quot;(&gt;= 0u64 0u64)&quot;</span>;
 
-        <span class="kw">let </span>t = s.t();
-        <span class="kw">let </span>nil = s.nil();
+        <span class="kw">let </span>t = <span class="macro">lurk_sym_ptr!</span>(s, t);
+        <span class="kw">let </span>nil = <span class="macro">lurk_sym_ptr!</span>(s, nil);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
 
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(s, expr, <span class="prelude-val">Some</span>(t), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(terminal), <span class="prelude-val">None</span>, <span class="number">3</span>, <span class="prelude-val">None</span>);
@@ -7262,8 +7281,8 @@
 
         <span class="kw">let </span>expr = <span class="string">&quot;(= 1 1u64)&quot;</span>;
         <span class="kw">let </span>expr2 = <span class="string">&quot;(= 1 2u64)&quot;</span>;
-        <span class="kw">let </span>t = s.t();
-        <span class="kw">let </span>nil = s.nil();
+        <span class="kw">let </span>t = <span class="macro">lurk_sym_ptr!</span>(s, t);
+        <span class="kw">let </span>nil = <span class="macro">lurk_sym_ptr!</span>(s, nil);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
 
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(s, expr, <span class="prelude-val">Some</span>(t), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(terminal), <span class="prelude-val">None</span>, <span class="number">3</span>, <span class="prelude-val">None</span>);
@@ -7316,8 +7335,8 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_prove_call_literal_fun() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>empty_env = s.get_nil();
-        <span class="kw">let </span>arg = s.sym(<span class="string">&quot;x&quot;</span>);
+        <span class="kw">let </span>empty_env = <span class="macro">lurk_sym_ptr!</span>(s, nil);
+        <span class="kw">let </span>arg = s.user_sym(<span class="string">&quot;x&quot;</span>);
         <span class="kw">let </span>body = s.read(<span class="string">&quot;((+ x 1))&quot;</span>).unwrap();
         <span class="kw">let </span>fun = s.intern_fun(arg, body, empty_env);
         <span class="kw">let </span>input = s.num(<span class="number">9</span>);
@@ -7407,45 +7426,47 @@
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
         <span class="kw">let </span>error = s.get_cont_error();
 
-        <span class="kw">let </span>hash_num = |s: <span class="kw-2">&amp;mut </span>Store&lt;Fr&gt;, name| {
-            <span class="kw">let </span>sym = s.lurk_sym(name);
+        <span class="kw">let </span>hash_num = |s: <span class="kw-2">&amp;mut </span>Store&lt;Fr&gt;, state: Rc&lt;RefCell&lt;State&gt;&gt;, name| {
+            <span class="kw">let </span>sym = s.read_with_state(state, name).unwrap();
             <span class="kw">let </span>z_ptr = s.hash_expr(<span class="kw-2">&amp;</span>sym).unwrap();
             <span class="kw">let </span>hash = <span class="kw-2">*</span>z_ptr.value();
             Num::Scalar(hash)
         };
+
+        <span class="kw">let </span>state = State::init_lurk_state().rccell();
         {
             <span class="comment">// binop
-            </span><span class="kw">let </span>expr = <span class="macro">format!</span>(<span class="string">&quot;({} 1 1)&quot;</span>, hash_num(s, <span class="string">&quot;+&quot;</span>));
+            </span><span class="kw">let </span>expr = <span class="macro">format!</span>(<span class="string">&quot;({} 1 1)&quot;</span>, hash_num(s, state.clone(), <span class="string">&quot;+&quot;</span>));
             test_aux::&lt;Coproc&lt;Fr&gt;&gt;(s, <span class="kw-2">&amp;</span>expr, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(error), <span class="prelude-val">None</span>, <span class="number">1</span>, <span class="prelude-val">None</span>);
         }
         {
             <span class="comment">// unop
-            </span><span class="kw">let </span>expr = <span class="macro">format!</span>(<span class="string">&quot;({} &#39;(1 . 2))&quot;</span>, hash_num(s, <span class="string">&quot;car&quot;</span>));
+            </span><span class="kw">let </span>expr = <span class="macro">format!</span>(<span class="string">&quot;({} &#39;(1 . 2))&quot;</span>, hash_num(s, state.clone(), <span class="string">&quot;car&quot;</span>));
             test_aux::&lt;Coproc&lt;Fr&gt;&gt;(s, <span class="kw-2">&amp;</span>expr, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(error), <span class="prelude-val">None</span>, <span class="number">1</span>, <span class="prelude-val">None</span>);
         }
         {
             <span class="comment">// let_or_letrec
-            </span><span class="kw">let </span>expr = <span class="macro">format!</span>(<span class="string">&quot;({} ((a 1)) a)&quot;</span>, hash_num(s, <span class="string">&quot;let&quot;</span>));
+            </span><span class="kw">let </span>expr = <span class="macro">format!</span>(<span class="string">&quot;({} ((a 1)) a)&quot;</span>, hash_num(s, state.clone(), <span class="string">&quot;let&quot;</span>));
             test_aux::&lt;Coproc&lt;Fr&gt;&gt;(s, <span class="kw-2">&amp;</span>expr, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(error), <span class="prelude-val">None</span>, <span class="number">1</span>, <span class="prelude-val">None</span>);
         }
         {
             <span class="comment">// current-env
-            </span><span class="kw">let </span>expr = <span class="macro">format!</span>(<span class="string">&quot;({})&quot;</span>, hash_num(s, <span class="string">&quot;current-env&quot;</span>));
+            </span><span class="kw">let </span>expr = <span class="macro">format!</span>(<span class="string">&quot;({})&quot;</span>, hash_num(s, state.clone(), <span class="string">&quot;current-env&quot;</span>));
             test_aux::&lt;Coproc&lt;Fr&gt;&gt;(s, <span class="kw-2">&amp;</span>expr, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(error), <span class="prelude-val">None</span>, <span class="number">1</span>, <span class="prelude-val">None</span>);
         }
         {
             <span class="comment">// lambda
-            </span><span class="kw">let </span>expr = <span class="macro">format!</span>(<span class="string">&quot;({} (x) 123)&quot;</span>, hash_num(s, <span class="string">&quot;lambda&quot;</span>));
+            </span><span class="kw">let </span>expr = <span class="macro">format!</span>(<span class="string">&quot;({} (x) 123)&quot;</span>, hash_num(s, state.clone(), <span class="string">&quot;lambda&quot;</span>));
             test_aux::&lt;Coproc&lt;Fr&gt;&gt;(s, <span class="kw-2">&amp;</span>expr, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(error), <span class="prelude-val">None</span>, <span class="number">1</span>, <span class="prelude-val">None</span>);
         }
         {
             <span class="comment">// quote
-            </span><span class="kw">let </span>expr = <span class="macro">format!</span>(<span class="string">&quot;({} asdf)&quot;</span>, hash_num(s, <span class="string">&quot;quote&quot;</span>));
+            </span><span class="kw">let </span>expr = <span class="macro">format!</span>(<span class="string">&quot;({} asdf)&quot;</span>, hash_num(s, state.clone(), <span class="string">&quot;quote&quot;</span>));
             test_aux::&lt;Coproc&lt;Fr&gt;&gt;(s, <span class="kw-2">&amp;</span>expr, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(error), <span class="prelude-val">None</span>, <span class="number">1</span>, <span class="prelude-val">None</span>);
         }
         {
             <span class="comment">// if
-            </span><span class="kw">let </span>expr = <span class="macro">format!</span>(<span class="string">&quot;({} t 123 456)&quot;</span>, hash_num(s, <span class="string">&quot;if&quot;</span>));
+            </span><span class="kw">let </span>expr = <span class="macro">format!</span>(<span class="string">&quot;({} t 123 456)&quot;</span>, hash_num(s, state, <span class="string">&quot;if&quot;</span>));
             test_aux::&lt;Coproc&lt;Fr&gt;&gt;(s, <span class="kw-2">&amp;</span>expr, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(error), <span class="prelude-val">None</span>, <span class="number">1</span>, <span class="prelude-val">None</span>);
         }
     }
@@ -7454,26 +7475,25 @@
     </span><span class="kw">fn </span>test_dumb_lang() {
         <span class="kw">use </span><span class="kw">crate</span>::coprocessor::test::DumbCoprocessor;
         <span class="kw">use </span><span class="kw">crate</span>::eval::tests::coproc::DumbCoproc;
-        <span class="kw">use </span><span class="kw">crate</span>::symbol::Symbol;
 
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::new();
 
         <span class="kw">let </span><span class="kw-2">mut </span>lang = Lang::&lt;Fr, DumbCoproc&lt;Fr&gt;&gt;::new();
-        <span class="kw">let </span>name = Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;cproc&quot;</span>, <span class="string">&quot;dumb&quot;</span>]);
+        <span class="kw">let </span>name = user_sym(<span class="string">&quot;cproc-dumb&quot;</span>);
         <span class="kw">let </span>dumb = DumbCoprocessor::new();
         <span class="kw">let </span>coproc = DumbCoproc::DC(dumb);
 
         lang.add_coprocessor(name, coproc, s);
 
         <span class="comment">// 9^2 + 8 = 89
-        </span><span class="kw">let </span>expr = <span class="string">&quot;(.cproc.dumb 9 8)&quot;</span>;
+        </span><span class="kw">let </span>expr = <span class="string">&quot;(cproc-dumb 9 8)&quot;</span>;
 
         <span class="comment">// The dumb coprocessor cannot be shadowed.
-        </span><span class="kw">let </span>expr2 = <span class="string">&quot;(let ((.cproc.dumb (lambda (a b) (* a b))))
-                   (.cproc.dumb 9 8))&quot;</span>;
+        </span><span class="kw">let </span>expr2 = <span class="string">&quot;(let ((cproc-dumb (lambda (a b) (* a b))))
+                   (cproc-dumb 9 8))&quot;</span>;
 
-        <span class="kw">let </span>expr3 = <span class="string">&quot;(.cproc.dumb 9 8 123)&quot;</span>;
-        <span class="kw">let </span>expr4 = <span class="string">&quot;(.cproc.dumb 9)&quot;</span>;
+        <span class="kw">let </span>expr3 = <span class="string">&quot;(cproc-dumb 9 8 123)&quot;</span>;
+        <span class="kw">let </span>expr4 = <span class="string">&quot;(cproc-dumb 9)&quot;</span>;
 
         <span class="kw">let </span>res = s.num(<span class="number">89</span>);
         <span class="kw">let </span>error = s.get_cont_error();
@@ -7498,7 +7518,7 @@
     </span><span class="attr">#[test]
     </span><span class="kw">fn </span>test_prove_lambda_body_nil() {
         <span class="kw">let </span>s = <span class="kw-2">&amp;mut </span>Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>expected = s.nil();
+        <span class="kw">let </span>expected = <span class="macro">lurk_sym_ptr!</span>(s, nil);
         <span class="kw">let </span>terminal = s.get_cont_terminal();
         test_aux::&lt;Coproc&lt;Fr&gt;&gt;(
             s,

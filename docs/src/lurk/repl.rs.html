@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/repl.rs`."><title>repl.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (28eb857b9 2023-08-12)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../lurk/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/repl.rs`."><title>repl.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (180dffba1 2023-08-14)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../lurk/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -632,19 +632,45 @@
 <a href="#632" id="632">632</a>
 <a href="#633" id="633">633</a>
 <a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
 <span class="kw">use </span><span class="kw">crate</span>::error::LurkError;
 <span class="kw">use </span><span class="kw">crate</span>::eval::{empty_sym_env, lang::Lang, Evaluator, IO};
 <span class="kw">use </span><span class="kw">crate</span>::expr::Expression;
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
-<span class="kw">use </span><span class="kw">crate</span>::parser;
 <span class="kw">use </span><span class="kw">crate</span>::ptr::{ContPtr, Ptr};
+<span class="kw">use </span><span class="kw">crate</span>::state::State;
 <span class="kw">use </span><span class="kw">crate</span>::store::Store;
 <span class="kw">use </span><span class="kw">crate</span>::symbol::Symbol;
 <span class="kw">use </span><span class="kw">crate</span>::tag::ContTag;
 <span class="kw">use </span><span class="kw">crate</span>::writer::Write;
 <span class="kw">use </span><span class="kw">crate</span>::z_data::{from_z_data, ZData};
 <span class="kw">use </span><span class="kw">crate</span>::z_store::ZStore;
+<span class="kw">use crate</span>::{lurk_sym_ptr, parser};
 <span class="kw">use </span>anyhow::{bail, Context, Error, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::{Arg, ArgAction, Command};
 <span class="kw">use </span>rustyline::error::ReadlineError;
@@ -661,6 +687,7 @@
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>std::path::PathBuf;
 <span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::{cell::RefCell, rc::Rc};
 <span class="kw">use </span>tap::TapOptional;
 
 <span class="attr">#[derive(Completer, Helper, Highlighter, Hinter)]
@@ -704,29 +731,37 @@
     <span class="kw">fn </span>handle_form&lt;<span class="lifetime">&#39;a</span>, P: AsRef&lt;Path&gt; + Copy&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        state: Rc&lt;RefCell&lt;State&gt;&gt;,
         input: parser::Span&lt;<span class="lifetime">&#39;a</span>&gt;,
         pwd: P,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;parser::Span&lt;<span class="lifetime">&#39;a</span>&gt;&gt; {
-        <span class="kw">let </span>(input, ptr, is_meta) = store.read_maybe_meta(input)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(input, ptr, is_meta) = store.read_maybe_meta_with_state(state.clone(), input)<span class="question-mark">?</span>;
 
         <span class="kw">if </span>is_meta {
             <span class="kw">let </span>pwd: <span class="kw-2">&amp;</span>Path = pwd.as_ref();
-            <span class="self">self</span>.handle_meta(store, ptr, pwd)<span class="question-mark">?</span>;
+            <span class="self">self</span>.handle_meta(store, state, ptr, pwd)<span class="question-mark">?</span>;
             <span class="prelude-val">Ok</span>(input)
         } <span class="kw">else </span>{
-            <span class="self">self</span>.handle_non_meta(store, ptr).map(|<span class="kw">_</span>| ())<span class="question-mark">?</span>;
+            <span class="self">self</span>.handle_non_meta(store, <span class="kw-2">&amp;</span>state.borrow(), ptr)
+                .map(|<span class="kw">_</span>| ())<span class="question-mark">?</span>;
             <span class="prelude-val">Ok</span>(input)
         }
     }
 
-    <span class="kw">fn </span>handle_load&lt;P: AsRef&lt;Path&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, file_path: P) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">fn </span>handle_load&lt;P: AsRef&lt;Path&gt;&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        state: Rc&lt;RefCell&lt;State&gt;&gt;,
+        file_path: P,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">eprintln!</span>(<span class="string">&quot;Loading from {}.&quot;</span>, file_path.as_ref().to_str().unwrap());
-        <span class="self">self</span>.handle_file(store, file_path.as_ref())
+        <span class="self">self</span>.handle_file(store, state, file_path.as_ref())
     }
 
     <span class="kw">fn </span>handle_file&lt;P: AsRef&lt;Path&gt; + Copy&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        state: Rc&lt;RefCell&lt;State&gt;&gt;,
         file_path: P,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>file_path = file_path;
@@ -742,6 +777,7 @@
         <span class="kw">loop </span>{
             <span class="kw">match </span><span class="self">self</span>.handle_form(
                 store,
+                state.clone(),
                 input,
                 <span class="comment">// use this file&#39;s dir as pwd for further loading
                 </span>file_path.as_ref().parent().unwrap(),
@@ -762,6 +798,7 @@
     <span class="kw">fn </span>handle_meta&lt;P: AsRef&lt;Path&gt; + Copy&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        state: Rc&lt;RefCell&lt;State&gt;&gt;,
         expr_ptr: Ptr&lt;F&gt;,
         p: P,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
@@ -769,6 +806,7 @@
     <span class="kw">fn </span>handle_non_meta(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        state: <span class="kw-2">&amp;</span>State,
         expr_ptr: Ptr&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;F&gt;, IO&lt;F&gt;, usize)&gt;;
 }
@@ -884,10 +922,11 @@
         <span class="kw">let </span>name = T::name();
         <span class="macro">eprintln!</span>(<span class="string">&quot;{name} welcomes you.&quot;</span>);
     }
+    <span class="kw">let </span>state = State::init_lurk_state().rccell();
 
     {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(lurk_file) = lurk_file {
-            repl.state.handle_load(s, <span class="kw-2">&amp;</span>lurk_file).unwrap();
+            repl.state.handle_load(s, state, <span class="kw-2">&amp;</span>lurk_file).unwrap();
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
     }
@@ -905,15 +944,15 @@
                 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
                 </span>repl.save_history()<span class="question-mark">?</span>;
 
-                <span class="kw">match </span>s.read_maybe_meta(input) {
+                <span class="kw">match </span>s.read_maybe_meta_with_state(state.clone(), input) {
                     <span class="prelude-val">Ok</span>((<span class="kw">_</span>, expr, is_meta)) =&gt; {
                         <span class="kw">if </span>is_meta {
-                            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = repl.state.handle_meta(s, expr, p) {
+                            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = repl.state.handle_meta(s, state.clone(), expr, p) {
                                 <span class="macro">eprintln!</span>(<span class="string">&quot;!Error: {e:?}&quot;</span>);
                             };
                             <span class="kw">continue</span>;
                         } <span class="kw">else </span>{
-                            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = repl.state.handle_non_meta(s, expr) {
+                            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = repl.state.handle_non_meta(s, <span class="kw-2">&amp;</span>state.borrow(), expr) {
                                 <span class="macro">eprintln!</span>(<span class="string">&quot;REPL Error: {e:?}&quot;</span>);
                             }
 
@@ -1018,6 +1057,7 @@
     <span class="kw">fn </span>handle_meta&lt;P: AsRef&lt;Path&gt; + Copy&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        state: Rc&lt;RefCell&lt;State&gt;&gt;,
         expr_ptr: Ptr&lt;F&gt;,
         p: P,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -1029,7 +1069,7 @@
                     <span class="kw">let </span>s: Symbol = store
                         .fetch_sym(<span class="kw-2">&amp;</span>car)
                         .ok_or(Error::msg(<span class="string">&quot;handle_meta fetch symbol&quot;</span>))<span class="question-mark">?</span>;
-                    <span class="kw">match </span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, s).as_str() {
+                    <span class="kw">match </span>s.name()<span class="question-mark">? </span>{
                         <span class="string">&quot;assert&quot; </span>=&gt; {
                             <span class="kw">let </span>(first, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
                             <span class="macro">assert!</span>(rest.is_nil());
@@ -1055,10 +1095,10 @@
                             <span class="macro">assert!</span>(
                                 store.ptr_eq(<span class="kw-2">&amp;</span>first_evaled, <span class="kw-2">&amp;</span>second_evaled).unwrap(),
                                 <span class="string">&quot;Assertion failed {:?} = {:?},\n {:?} != {:?}&quot;</span>,
-                                first.fmt_to_string(store),
-                                second.fmt_to_string(store),
-                                first_evaled.fmt_to_string(store),
-                                second_evaled.fmt_to_string(store)
+                                first.fmt_to_string(store, <span class="kw-2">&amp;</span>state.borrow()),
+                                second.fmt_to_string(store, <span class="kw-2">&amp;</span>state.borrow()),
+                                first_evaled.fmt_to_string(store, <span class="kw-2">&amp;</span>state.borrow()),
+                                second_evaled.fmt_to_string(store, <span class="kw-2">&amp;</span>state.borrow())
                             );
                             <span class="prelude-val">None
                         </span>}
@@ -1079,8 +1119,8 @@
                                     <span class="macro">panic!</span>(
                                             <span class="string">&quot;:ASSERT-EMITTED failed at position {}. Expected {}, but found {}.&quot;</span>,
                                             i,
-                                            first_emitted.fmt_to_string(store),
-                                            elem.fmt_to_string(store),
+                                            first_emitted.fmt_to_string(store, <span class="kw-2">&amp;</span>state.borrow()),
+                                            elem.fmt_to_string(store, <span class="kw-2">&amp;</span>state.borrow()),
                                         );
                                 }
                                 (first_emitted, rest_emitted) = store.car_cdr(<span class="kw-2">&amp;</span>rest_emitted)<span class="question-mark">?</span>;
@@ -1111,8 +1151,8 @@
                             </span><span class="kw">let </span>(first, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
                             <span class="kw">let </span>(second, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
                             <span class="macro">assert!</span>(rest.is_nil());
-                            <span class="kw">let </span>l = store.lurk_sym(<span class="string">&quot;let&quot;</span>);
-                            <span class="kw">let </span>current_env = store.lurk_sym(<span class="string">&quot;current-env&quot;</span>);
+                            <span class="kw">let </span>l = <span class="macro">lurk_sym_ptr!</span>(store, let_);
+                            <span class="kw">let </span>current_env = <span class="macro">lurk_sym_ptr!</span>(store, current_env);
                             <span class="kw">let </span>binding = store.list(<span class="kw-2">&amp;</span>[first, second]);
                             <span class="kw">let </span>bindings = store.list(<span class="kw-2">&amp;</span>[binding]);
                             <span class="kw">let </span>current_env_call = store.list(<span class="kw-2">&amp;</span>[current_env]);
@@ -1137,8 +1177,8 @@
                             </span><span class="kw">let </span>(first, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
                             <span class="kw">let </span>(second, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
                             <span class="macro">assert!</span>(rest.is_nil());
-                            <span class="kw">let </span>l = store.lurk_sym(<span class="string">&quot;letrec&quot;</span>);
-                            <span class="kw">let </span>current_env = store.lurk_sym(<span class="string">&quot;current-env&quot;</span>);
+                            <span class="kw">let </span>l = <span class="macro">lurk_sym_ptr!</span>(store, letrec);
+                            <span class="kw">let </span>current_env = <span class="macro">lurk_sym_ptr!</span>(store, current_env);
                             <span class="kw">let </span>binding = store.list(<span class="kw-2">&amp;</span>[first, second]);
                             <span class="kw">let </span>bindings = store.list(<span class="kw-2">&amp;</span>[binding]);
                             <span class="kw">let </span>current_env_call = store.list(<span class="kw-2">&amp;</span>[current_env]);
@@ -1160,7 +1200,7 @@
                                         .fetch_string(car)
                                         .ok_or(Error::msg(<span class="string">&quot;handle_meta fetch_string&quot;</span>))<span class="question-mark">?</span>;
                                     <span class="kw">let </span>joined = p.as_ref().join(Path::new(<span class="kw-2">&amp;</span>path));
-                                    <span class="self">self</span>.handle_load(store, <span class="kw-2">&amp;</span>joined)<span class="question-mark">?
+                                    <span class="self">self</span>.handle_load(store, state.clone(), <span class="kw-2">&amp;</span>joined)<span class="question-mark">?
                                 </span>}
                                 <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Argument to LOAD must be a string.&quot;</span>),
                             }
@@ -1176,18 +1216,27 @@
                             <span class="prelude-val">None
                         </span>}
                         <span class="kw">_ </span>=&gt; {
-                            <span class="macro">bail!</span>(<span class="string">&quot;Unsupported command: {}&quot;</span>, car.fmt_to_string(store));
+                            <span class="macro">bail!</span>(
+                                <span class="string">&quot;Unsupported command: {}&quot;</span>,
+                                car.fmt_to_string(store, <span class="kw-2">&amp;</span>state.borrow())
+                            );
                         }
                     }
                 }
-                <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Unsupported command: {}&quot;</span>, car.fmt_to_string(store)),
+                <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(
+                    <span class="string">&quot;Unsupported command: {}&quot;</span>,
+                    car.fmt_to_string(store, <span class="kw-2">&amp;</span>state.borrow())
+                ),
             },
-            <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Unsupported meta form: {}&quot;</span>, expr_ptr.fmt_to_string(store)),
+            <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(
+                <span class="string">&quot;Unsupported meta form: {}&quot;</span>,
+                expr_ptr.fmt_to_string(store, <span class="kw-2">&amp;</span>state.borrow())
+            ),
         };
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(expr) = res {
             <span class="kw">let </span><span class="kw-2">mut </span>handle = io::stdout().lock();
-            expr.fmt(store, <span class="kw-2">&amp;mut </span>handle)<span class="question-mark">?</span>;
+            expr.fmt(store, <span class="kw-2">&amp;</span>state.borrow(), <span class="kw-2">&amp;mut </span>handle)<span class="question-mark">?</span>;
 
             <span class="comment">// TODO: Why is this seemingly necessary to flush?
             // This doesn&#39;t work: io::stdout().flush().unwrap();
@@ -1202,6 +1251,7 @@
     <span class="kw">fn </span>handle_non_meta(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        state: <span class="kw-2">&amp;</span>State,
         expr_ptr: Ptr&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;F&gt;, IO&lt;F&gt;, usize)&gt; {
         <span class="kw">match </span>Evaluator::new(expr_ptr, <span class="self">self</span>.env, store, <span class="self">self</span>.limit, <span class="kw-2">&amp;</span><span class="self">self</span>.lang).eval() {
@@ -1224,7 +1274,7 @@
                         ContTag::Outermost | ContTag::Terminal =&gt; {
                             <span class="kw">let </span><span class="kw-2">mut </span>handle = io::stdout().lock();
 
-                            result.fmt(store, <span class="kw-2">&amp;mut </span>handle)<span class="question-mark">?</span>;
+                            result.fmt(store, state, <span class="kw-2">&amp;mut </span>handle)<span class="question-mark">?</span>;
 
                             <span class="macro">println!</span>();
                         }

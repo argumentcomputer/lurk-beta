@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/circuit_frame.rs`."><title>circuit_frame.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (28eb857b9 2023-08-12)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/circuit_frame.rs`."><title>circuit_frame.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (180dffba1 2023-08-14)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -5944,6 +5944,9 @@
 <a href="#5944" id="5944">5944</a>
 <a href="#5945" id="5945">5945</a>
 <a href="#5946" id="5946">5946</a>
+<a href="#5947" id="5947">5947</a>
+<a href="#5948" id="5948">5948</a>
+<a href="#5949" id="5949">5949</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
 
@@ -5978,6 +5981,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::eval::{lang::Lang, Frame, Witness, IO};
 <span class="kw">use </span><span class="kw">crate</span>::expr::Thunk;
 <span class="kw">use </span><span class="kw">crate</span>::hash_witness::HashWitness;
+<span class="kw">use </span><span class="kw">crate</span>::lurk_sym_ptr;
 <span class="kw">use </span><span class="kw">crate</span>::proof::Provable;
 <span class="kw">use </span><span class="kw">crate</span>::ptr::Ptr;
 <span class="kw">use </span><span class="kw">crate</span>::store::Store;
@@ -7251,7 +7255,7 @@
                 head.alloc_hash_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">stringify!</span>(<span class="macro-nonterminal">$var</span>)), <span class="macro-nonterminal">$name</span>.value())<span class="question-mark">?</span>;
         };
     }
-    <span class="kw">let </span>c = store.get_constants();
+    <span class="kw">let </span>c = store.expect_constants();
     <span class="comment">// SOUNDNESS: All symbols with their own case clause must be represented in this list
     </span><span class="macro">def_head_val!</span>(head_is_lambda0, c.lambda);
     <span class="macro">def_head_val!</span>(head_is_let, c.let_);
@@ -9054,7 +9058,7 @@
             .and_then(|commit| store.open(commit))
             .unwrap_or_else(|| {
                 <span class="comment">// nil is dummy
-                </span>(F::ZERO, store.get_nil())
+                </span>(F::ZERO, <span class="macro">lurk_sym_ptr!</span>(store, nil))
             });
 
         <span class="kw">let </span>open_expr = AllocatedPtr::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;open_expr&quot;</span>), || {
@@ -9563,7 +9567,7 @@
         <span class="kw">let </span>rest_is_nil = allocated_rest.is_nil(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;rest_is_nil&quot;</span>), g)<span class="question-mark">?</span>;
         <span class="kw">let </span>rest_not_nil = rest_is_nil.not();
 
-        <span class="kw">let </span>begin = store.get_begin();
+        <span class="kw">let </span>begin = <span class="macro">lurk_sym_ptr!</span>(store, begin);
 
         <span class="kw">let </span>allocated_begin =
             AllocatedPtr::alloc_ptr(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;begin&quot;</span>), store, || <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span>begin))<span class="question-mark">?</span>;
@@ -9880,7 +9884,7 @@
             b,
             <span class="kw-2">&amp;</span>diff,
             op2.tag(),
-            store.get_constants(),
+            store.expect_constants(),
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>field_arithmetic_result = AllocatedPtr::pick(
@@ -11106,10 +11110,12 @@
                 .car_cdr(ptr)
                 .map_err(|<span class="kw">_</span>| SynthesisError::AssignmentMissing)<span class="question-mark">?
         </span>} <span class="kw">else </span>{
-            (store.get_nil(), store.get_nil())
+            <span class="kw">let </span>nil_ptr = <span class="macro">lurk_sym_ptr!</span>(store, nil);
+            (nil_ptr, nil_ptr)
         }
     } <span class="kw">else </span>{
-        (store.get_nil(), store.get_nil())
+        <span class="kw">let </span>nil_ptr = <span class="macro">lurk_sym_ptr!</span>(store, nil);
+        (nil_ptr, nil_ptr)
     };
 
     <span class="kw">let </span>allocated_car = AllocatedPtr::alloc_ptr(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;car&quot;</span>), store, || <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span>car))<span class="question-mark">?</span>;
@@ -11327,7 +11333,7 @@
     </span><span class="kw">fn </span>nil_self_evaluating() {
         <span class="kw">let </span><span class="kw-2">mut </span>store = Store::default();
         <span class="kw">let </span>env = empty_sym_env(<span class="kw-2">&amp;</span>store);
-        <span class="kw">let </span>nil = store.nil();
+        <span class="kw">let </span>nil = <span class="macro">lurk_sym_ptr!</span>(store, nil);
 
         <span class="kw">let </span>input = IO {
             expr: nil,
@@ -11407,7 +11413,7 @@
     </span><span class="kw">fn </span>t_self_evaluating() {
         <span class="kw">let </span><span class="kw-2">mut </span>store = Store::default();
         <span class="kw">let </span>env = empty_sym_env(<span class="kw-2">&amp;</span>store);
-        <span class="kw">let </span>t = store.t();
+        <span class="kw">let </span>t = <span class="macro">lurk_sym_ptr!</span>(store, t);
 
         <span class="kw">let </span>input = IO {
             expr: t,
@@ -11646,7 +11652,7 @@
             alloc_b.hash(),
             <span class="kw-2">&amp;</span>diff,
             <span class="kw-2">&amp;</span>g.op2_less_tag,
-            s.get_constants(),
+            s.expect_constants(),
         )
         .unwrap();
         <span class="macro">assert!</span>(cs.is_satisfied());

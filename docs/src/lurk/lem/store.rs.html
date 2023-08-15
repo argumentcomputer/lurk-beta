@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/store.rs`."><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (28eb857b9 2023-08-12)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/store.rs`."><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (180dffba1 2023-08-14)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -424,13 +424,13 @@
 <a href="#424" id="424">424</a>
 <a href="#425" id="425">425</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>rayon::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>std::collections::HashMap;
+<span class="kw">use </span>std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 <span class="kw">use crate</span>::{
     field::{FWrap, LurkField},
     hash::PoseidonCache,
     lem::Tag,
-    symbol::LurkSym,
+    state::{lurk_sym, State},
     symbol::Symbol,
     syntax::Syntax,
     tag::ExprTag::<span class="kw-2">*</span>,
@@ -604,23 +604,23 @@
     }
 
     <span class="doccomment">/// Interns a symbol path recursively
-    </span><span class="kw">pub fn </span>intern_symbol_path(<span class="kw-2">&amp;mut </span><span class="self">self</span>, path: Vec&lt;String&gt;) -&gt; Ptr&lt;F&gt; {
+    </span><span class="kw">pub fn </span>intern_symbol_path(<span class="kw-2">&amp;mut </span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>[String]) -&gt; Ptr&lt;F&gt; {
         <span class="kw">if </span>path.is_empty() {
             <span class="kw">let </span>ptr = Ptr::null(Tag::Expr(Sym));
             <span class="self">self</span>.ptr_sym_cache.insert(ptr, <span class="macro">vec!</span>[]);
             <span class="kw">return </span>ptr;
         }
 
-        <span class="kw">match </span><span class="self">self</span>.sym_cache.get(<span class="kw-2">&amp;</span>path) {
+        <span class="kw">match </span><span class="self">self</span>.sym_cache.get(path) {
             <span class="prelude-val">Some</span>(ptr_cache) =&gt; <span class="kw-2">*</span>ptr_cache,
             <span class="prelude-val">None </span>=&gt; {
                 <span class="kw">let </span>tail = <span class="kw-2">&amp;</span>path[<span class="number">1</span>..];
-                <span class="kw">let </span>tail_ptr = <span class="self">self</span>.intern_symbol_path(tail.to_vec());
+                <span class="kw">let </span>tail_ptr = <span class="self">self</span>.intern_symbol_path(tail);
                 <span class="kw">let </span>head = <span class="kw-2">&amp;</span>path[<span class="number">0</span>];
                 <span class="kw">let </span>head_ptr = <span class="self">self</span>.intern_string(head);
                 <span class="kw">let </span>path_ptr = <span class="self">self</span>.intern_2_ptrs(Tag::Expr(Sym), head_ptr, tail_ptr);
-                <span class="self">self</span>.sym_cache.insert(path.clone(), path_ptr);
-                <span class="self">self</span>.ptr_sym_cache.insert(path_ptr, path);
+                <span class="self">self</span>.sym_cache.insert(path.to_vec(), path_ptr);
+                <span class="self">self</span>.ptr_sym_cache.insert(path_ptr, path.to_vec());
                 path_ptr
             }
         }
@@ -634,66 +634,66 @@
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>fetch_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Symbol&gt; {
         <span class="kw">match </span>ptr.tag() {
-            Tag::Expr(Sym) | Tag::Expr(Key) =&gt; <span class="prelude-val">Some</span>(Symbol {
-                path: <span class="self">self</span>.fetch_sym_path(ptr)<span class="question-mark">?</span>.to_vec(),
-            }),
+            Tag::Expr(Sym) | Tag::Expr(Key) =&gt; <span class="prelude-val">Some</span>(Symbol::new(
+                <span class="self">self</span>.fetch_sym_path(ptr)<span class="question-mark">?</span>,
+                ptr.tag() == <span class="kw-2">&amp;</span>Tag::Expr(Key),
+            )),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
 
-    <span class="kw">pub fn </span>intern_symbol(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: Symbol) -&gt; Ptr&lt;F&gt; {
-        <span class="self">self</span>.intern_symbol_path(s.path)
-    }
-
-    <span class="kw">pub fn </span>intern_lurk_symbol(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: LurkSym) -&gt; Ptr&lt;F&gt; {
-        <span class="kw">if </span><span class="macro">matches!</span>(s, LurkSym::Nil) {
-            <span class="kw">return </span>Ptr::Leaf(Tag::Expr(Nil), F::ZERO);
+    <span class="kw">pub fn </span>intern_symbol(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sym: <span class="kw-2">&amp;</span>Symbol) -&gt; Ptr&lt;F&gt; {
+        <span class="kw">let </span>path_ptr = <span class="self">self</span>.intern_symbol_path(sym.path());
+        <span class="kw">if </span>sym == <span class="kw-2">&amp;</span>lurk_sym(<span class="string">&quot;nil&quot;</span>) {
+            path_ptr.cast(Tag::Expr(Nil))
+        } <span class="kw">else if </span>!sym.is_keyword() {
+            path_ptr
+        } <span class="kw">else </span>{
+            path_ptr.cast(Tag::Expr(Key))
         }
-        <span class="self">self</span>.intern_symbol(Symbol::lurk_sym(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{s}&quot;</span>)))
     }
 
-    <span class="kw">pub fn </span>intern_nil(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Ptr&lt;F&gt; {
-        <span class="self">self</span>.intern_lurk_symbol(LurkSym::Nil)
-    }
-
-    <span class="kw">pub fn </span>intern_syntax(<span class="kw-2">&amp;mut </span><span class="self">self</span>, syn: Syntax&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
+    <span class="kw">pub fn </span>intern_syntax(<span class="kw-2">&amp;mut </span><span class="self">self</span>, syn: Syntax&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;&gt; {
         <span class="kw">match </span>syn {
-            Syntax::Num(<span class="kw">_</span>, x) =&gt; Ptr::Leaf(Tag::Expr(Num), x.into_scalar()),
-            Syntax::UInt(<span class="kw">_</span>, UInt::U64(x)) =&gt; Ptr::Leaf(Tag::Expr(U64), x.into()),
-            Syntax::Char(<span class="kw">_</span>, x) =&gt; Ptr::Leaf(Tag::Expr(Char), (x <span class="kw">as </span>u64).into()),
-            Syntax::Symbol(<span class="kw">_</span>, x) | Syntax::Keyword(<span class="kw">_</span>, x) =&gt; <span class="self">self</span>.intern_symbol(x),
-            Syntax::LurkSym(<span class="kw">_</span>, x) =&gt; <span class="self">self</span>.intern_lurk_symbol(x),
-            Syntax::String(<span class="kw">_</span>, x) =&gt; <span class="self">self</span>.intern_string(<span class="kw-2">&amp;</span>x),
+            Syntax::Num(<span class="kw">_</span>, x) =&gt; <span class="prelude-val">Ok</span>(Ptr::Leaf(Tag::Expr(Num), x.into_scalar())),
+            Syntax::UInt(<span class="kw">_</span>, UInt::U64(x)) =&gt; <span class="prelude-val">Ok</span>(Ptr::Leaf(Tag::Expr(U64), x.into())),
+            Syntax::Char(<span class="kw">_</span>, x) =&gt; <span class="prelude-val">Ok</span>(Ptr::Leaf(Tag::Expr(Char), (x <span class="kw">as </span>u64).into())),
+            Syntax::Symbol(<span class="kw">_</span>, symbol) =&gt; <span class="prelude-val">Ok</span>(<span class="self">self</span>.intern_symbol(<span class="kw-2">&amp;</span>symbol)),
+            Syntax::String(<span class="kw">_</span>, x) =&gt; <span class="prelude-val">Ok</span>(<span class="self">self</span>.intern_string(<span class="kw-2">&amp;</span>x)),
             Syntax::Quote(pos, x) =&gt; {
-                <span class="kw">let </span>quote = <span class="kw">crate</span>::symbol::Symbol::lurk_sym(<span class="string">&quot;quote&quot;</span>);
-                <span class="kw">let </span>xs = <span class="macro">vec!</span>[Syntax::Symbol(pos, quote), <span class="kw-2">*</span>x];
+                <span class="kw">let </span>xs = <span class="macro">vec!</span>[Syntax::Symbol(pos, lurk_sym(<span class="string">&quot;quote&quot;</span>).into()), <span class="kw-2">*</span>x];
                 <span class="self">self</span>.intern_syntax(Syntax::List(pos, xs))
             }
             Syntax::List(<span class="kw">_</span>, xs) =&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>cdr = <span class="self">self</span>.intern_lurk_symbol(LurkSym::Nil);
+                <span class="kw">let </span><span class="kw-2">mut </span>cdr = <span class="self">self</span>.intern_symbol(<span class="kw-2">&amp;</span>lurk_sym(<span class="string">&quot;nil&quot;</span>));
                 <span class="kw">for </span>x <span class="kw">in </span>xs.into_iter().rev() {
-                    <span class="kw">let </span>car = <span class="self">self</span>.intern_syntax(x);
+                    <span class="kw">let </span>car = <span class="self">self</span>.intern_syntax(x)<span class="question-mark">?</span>;
                     cdr = <span class="self">self</span>.intern_2_ptrs(Tag::Expr(Cons), car, cdr);
                 }
-                cdr
+                <span class="prelude-val">Ok</span>(cdr)
             }
             Syntax::Improper(<span class="kw">_</span>, xs, end) =&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>cdr = <span class="self">self</span>.intern_syntax(<span class="kw-2">*</span>end);
+                <span class="kw">let </span><span class="kw-2">mut </span>cdr = <span class="self">self</span>.intern_syntax(<span class="kw-2">*</span>end)<span class="question-mark">?</span>;
                 <span class="kw">for </span>x <span class="kw">in </span>xs.into_iter().rev() {
-                    <span class="kw">let </span>car = <span class="self">self</span>.intern_syntax(x);
+                    <span class="kw">let </span>car = <span class="self">self</span>.intern_syntax(x)<span class="question-mark">?</span>;
                     cdr = <span class="self">self</span>.intern_2_ptrs(Tag::Expr(Cons), car, cdr);
                 }
-                cdr
+                <span class="prelude-val">Ok</span>(cdr)
             }
         }
     }
 
-    <span class="kw">pub fn </span>read(<span class="kw-2">&amp;mut </span><span class="self">self</span>, input: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;&gt; {
+    <span class="kw">pub fn </span>read(<span class="kw-2">&amp;mut </span><span class="self">self</span>, state: Rc&lt;RefCell&lt;State&gt;&gt;, input: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;&gt; {
         <span class="kw">use </span><span class="kw">crate</span>::parser::<span class="kw-2">*</span>;
         <span class="kw">use </span>nom::sequence::preceded;
         <span class="kw">use </span>nom::Parser;
-        <span class="kw">match </span>preceded(syntax::parse_space, syntax::parse_syntax()).parse(Span::new(input)) {
-            <span class="prelude-val">Ok</span>((_i, x)) =&gt; <span class="prelude-val">Ok</span>(<span class="self">self</span>.intern_syntax(x)),
+        <span class="kw">match </span>preceded(
+            syntax::parse_space,
+            syntax::parse_syntax(state, <span class="bool-val">false</span>, <span class="bool-val">false</span>),
+        )
+        .parse(Span::new(input))
+        {
+            <span class="prelude-val">Ok</span>((_i, x)) =&gt; <span class="self">self</span>.intern_syntax(x),
             <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">bail!</span>(<span class="string">&quot;{}&quot;</span>, e),
         }
     }

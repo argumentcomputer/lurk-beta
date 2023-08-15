@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/syntax.rs`."><title>syntax.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (28eb857b9 2023-08-12)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../lurk/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/syntax.rs`."><title>syntax.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (180dffba1 2023-08-14)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../lurk/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -286,61 +286,19 @@
 <a href="#286" id="286">286</a>
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt;
 
 <span class="kw">use </span><span class="kw">crate</span>::expr::Expression;
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
+<span class="kw">use </span><span class="kw">crate</span>::lurk_sym_ptr;
 <span class="kw">use </span><span class="kw">crate</span>::num::Num;
+<span class="kw">use </span><span class="kw">crate</span>::package::SymbolRef;
 <span class="kw">use </span><span class="kw">crate</span>::parser::position::Pos;
 <span class="kw">use </span><span class="kw">crate</span>::ptr::Ptr;
+<span class="kw">use </span><span class="kw">crate</span>::state::lurk_sym;
 <span class="kw">use </span><span class="kw">crate</span>::store::Store;
-<span class="kw">use </span><span class="kw">crate</span>::symbol::{LurkSym, Symbol};
+<span class="kw">use </span><span class="kw">crate</span>::tag::ExprTag;
 <span class="kw">use </span><span class="kw">crate</span>::uint::UInt;
-<span class="kw">use </span>std::collections::HashMap;
 
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>proptest::prelude::<span class="kw-2">*</span>;
@@ -352,11 +310,7 @@
     <span class="comment">// A u64 integer: 1u64, 0xffu64
     </span>UInt(Pos, UInt),
     <span class="comment">// A hierarchical symbol foo, foo.bar.baz or keyword :foo
-    </span>Symbol(Pos, Symbol),
-    <span class="comment">// A hierarchical symbol foo, foo.bar.baz or keyword :foo
-    </span>Keyword(Pos, Symbol),
-    <span class="comment">// Temporary shim until packages are correctly implemented
-    </span>LurkSym(Pos, LurkSym),
+    </span>Symbol(Pos, SymbolRef),
     <span class="comment">// A string literal: &quot;foobar&quot;, &quot;foo\nbar&quot;
     </span>String(Pos, String),
     <span class="comment">// A character literal: #\A #\λ #\u03BB
@@ -369,31 +323,17 @@
     </span>Improper(Pos, Vec&lt;Syntax&lt;F&gt;&gt;, Box&lt;Syntax&lt;F&gt;&gt;),
 }
 
-<span class="kw">impl</span>&lt;F: LurkField&gt; Syntax&lt;F&gt; {
-    <span class="kw">pub fn </span>nil(pos: Pos) -&gt; Syntax&lt;F&gt; {
-        Syntax::LurkSym(pos, LurkSym::Nil)
-    }
-}
-
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">impl</span>&lt;Fr: LurkField&gt; Arbitrary <span class="kw">for </span>Syntax&lt;Fr&gt; {
     <span class="kw">type </span>Parameters = ();
     <span class="kw">type </span>Strategy = BoxedStrategy&lt;<span class="self">Self</span>&gt;;
 
     <span class="kw">fn </span>arbitrary_with(_args: <span class="self">Self</span>::Parameters) -&gt; <span class="self">Self</span>::Strategy {
+        <span class="kw">use </span><span class="kw">crate</span>::Symbol;
         <span class="kw">let </span>leaf = <span class="macro">prop_oneof!</span>[
             any::&lt;Num&lt;Fr&gt;&gt;().prop_map(|x| Syntax::Num(Pos::No, x)),
             any::&lt;UInt&gt;().prop_map(|x| Syntax::UInt(Pos::No, x)),
-            any::&lt;Symbol&gt;()
-                .prop_map(|x| Syntax::Keyword(Pos::No, Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;keyword&quot;</span>]).extend(<span class="kw-2">&amp;</span>x.path))),
-            any::&lt;Symbol&gt;().prop_map(|x| {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(val) = Symbol::lurk_syms().get(<span class="kw-2">&amp;</span>Symbol::lurk_sym(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, x))) {
-                    Syntax::LurkSym(Pos::No, <span class="kw-2">*</span>val)
-                } <span class="kw">else </span>{
-                    Syntax::Symbol(Pos::No, x)
-                }
-            }),
-            any::&lt;LurkSym&gt;().prop_map(|x| Syntax::LurkSym(Pos::No, x)),
+            any::&lt;Symbol&gt;().prop_map(|x| Syntax::Symbol(Pos::No, x.into())),
             any::&lt;String&gt;().prop_map(|x| Syntax::String(Pos::No, x)),
             any::&lt;char&gt;().prop_map(|x| Syntax::Char(Pos::No, x))
         ];
@@ -418,8 +358,7 @@
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Num(<span class="kw">_</span>, x) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, x),
             <span class="self">Self</span>::UInt(<span class="kw">_</span>, x) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}u64&quot;</span>, x),
-            <span class="self">Self</span>::Symbol(<span class="kw">_</span>, sym) | <span class="self">Self</span>::Keyword(<span class="kw">_</span>, sym) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, sym),
-            <span class="self">Self</span>::LurkSym(<span class="kw">_</span>, sym) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, sym),
+            <span class="self">Self</span>::Symbol(<span class="kw">_</span>, x) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, x),
             <span class="self">Self</span>::String(<span class="kw">_</span>, x) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;\&quot;{}\&quot;&quot;</span>, x.escape_default()),
             <span class="self">Self</span>::Char(<span class="kw">_</span>, x) =&gt; {
                 <span class="kw">if </span><span class="kw-2">*</span>x == <span class="string">&#39;(&#39; </span>|| <span class="kw-2">*</span>x == <span class="string">&#39;)&#39; </span>{
@@ -461,15 +400,14 @@
             Syntax::Num(<span class="kw">_</span>, x) =&gt; <span class="self">self</span>.intern_num(x),
             Syntax::UInt(<span class="kw">_</span>, x) =&gt; <span class="self">self</span>.intern_uint(x),
             Syntax::Char(<span class="kw">_</span>, x) =&gt; <span class="self">self</span>.intern_char(x),
-            Syntax::Symbol(<span class="kw">_</span>, x) | Syntax::Keyword(<span class="kw">_</span>, x) =&gt; <span class="self">self</span>.intern_symbol(x),
-            Syntax::LurkSym(<span class="kw">_</span>, x) =&gt; <span class="self">self</span>.intern_symbol(Symbol::lurk_sym(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{x}&quot;</span>))),
-            Syntax::String(<span class="kw">_</span>, x) =&gt; <span class="self">self</span>.intern_string(x),
+            Syntax::Symbol(<span class="kw">_</span>, symbol) =&gt; <span class="self">self</span>.intern_symbol(<span class="kw-2">&amp;</span>symbol),
+            Syntax::String(<span class="kw">_</span>, x) =&gt; <span class="self">self</span>.intern_string(<span class="kw-2">&amp;</span>x),
             Syntax::Quote(pos, x) =&gt; {
-                <span class="kw">let </span>xs = <span class="macro">vec!</span>[Syntax::Symbol(pos, Symbol::lurk_sym(<span class="string">&quot;quote&quot;</span>)), <span class="kw-2">*</span>x];
+                <span class="kw">let </span>xs = <span class="macro">vec!</span>[Syntax::Symbol(pos, lurk_sym(<span class="string">&quot;quote&quot;</span>).into()), <span class="kw-2">*</span>x];
                 <span class="self">self</span>.intern_syntax(Syntax::List(pos, xs))
             }
             Syntax::List(<span class="kw">_</span>, xs) =&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>cdr = <span class="self">self</span>.nil();
+                <span class="kw">let </span><span class="kw-2">mut </span>cdr = <span class="macro">lurk_sym_ptr!</span>(<span class="self">self</span>, nil);
                 <span class="kw">for </span>x <span class="kw">in </span>xs.into_iter().rev() {
                     <span class="kw">let </span>car = <span class="self">self</span>.intern_syntax(x);
                     cdr = <span class="self">self</span>.intern_cons(car, cdr);
@@ -492,6 +430,7 @@
     /// return None. If after traversing zero or more cons cells we hit a `nil`, we return a proper
     /// list (`Syntax::List`), otherwise an improper list (`Syntax::Improper`). If the proper list
     /// is a quotation `(quote x)`, then we return the syntactic quotation `Syntax::Quote`
+    </span><span class="attr">#[allow(dead_code)]
     </span><span class="kw">fn </span>fetch_syntax_list(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>ptr: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Syntax&lt;F&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>list = <span class="macro">vec!</span>[];
         <span class="kw">loop </span>{
@@ -501,13 +440,7 @@
                     ptr = cdr;
                 }
                 Expression::Nil =&gt; {
-                    <span class="kw">return match </span>(list.len(), list.get(<span class="number">0</span>)) {
-                        (<span class="number">0</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(Syntax::LurkSym(Pos::No, LurkSym::Nil)),
-                        (<span class="number">2</span>, <span class="prelude-val">Some</span>(Syntax::LurkSym(<span class="kw">_</span>, LurkSym::Quote))) =&gt; {
-                            <span class="prelude-val">Some</span>(Syntax::Quote(Pos::No, Box::new(list[<span class="number">1</span>].clone())))
-                        }
-                        <span class="kw">_ </span>=&gt; <span class="prelude-val">Some</span>(Syntax::List(Pos::No, list)),
-                    }
+                    <span class="kw">return </span><span class="prelude-val">Some</span>(Syntax::List(Pos::No, list));
                 }
                 <span class="kw">_ </span>=&gt; {
                     <span class="kw">if </span>list.is_empty() {
@@ -521,51 +454,30 @@
         }
     }
 
-    <span class="kw">fn </span>fetch_syntax_aux(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        lurk_syms: <span class="kw-2">&amp;</span>HashMap&lt;Symbol, LurkSym&gt;,
-        ptr: Ptr&lt;F&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;Syntax&lt;F&gt;&gt; {
-        <span class="kw">let </span>expr = <span class="self">self</span>.fetch(<span class="kw-2">&amp;</span>ptr)<span class="question-mark">?</span>;
-        <span class="kw">match </span>expr {
-            Expression::Num(f) =&gt; <span class="prelude-val">Some</span>(Syntax::Num(Pos::No, f)),
-            Expression::Char(<span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(Syntax::Char(Pos::No, <span class="self">self</span>.fetch_char(<span class="kw-2">&amp;</span>ptr)<span class="question-mark">?</span>)),
-            Expression::UInt(<span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(Syntax::UInt(Pos::No, <span class="self">self</span>.fetch_uint(<span class="kw-2">&amp;</span>ptr)<span class="question-mark">?</span>)),
-            Expression::Nil | Expression::Cons(..) =&gt; <span class="self">self</span>.fetch_syntax_list(ptr),
-            Expression::EmptyStr =&gt; <span class="prelude-val">Some</span>(Syntax::String(Pos::No, <span class="string">&quot;&quot;</span>.to_string())),
-            Expression::Str(..) =&gt; <span class="prelude-val">Some</span>(Syntax::String(Pos::No, <span class="self">self</span>.fetch_string(<span class="kw-2">&amp;</span>ptr)<span class="question-mark">?</span>)),
-            Expression::RootSym =&gt; <span class="prelude-val">Some</span>(Syntax::Symbol(Pos::No, Symbol::root())),
-            Expression::Sym(..) =&gt; {
-                <span class="kw">let </span>sym = <span class="self">self</span>.fetch_symbol(<span class="kw-2">&amp;</span>ptr)<span class="question-mark">?</span>;
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(sym) = lurk_syms.get(<span class="kw-2">&amp;</span>sym) {
-                    <span class="prelude-val">Some</span>(Syntax::LurkSym(Pos::No, <span class="kw-2">*</span>sym))
-                } <span class="kw">else </span>{
-                    <span class="prelude-val">Some</span>(Syntax::Symbol(Pos::No, sym))
-                }
-            }
-            Expression::Key(..) =&gt; {
-                <span class="kw">let </span>sym = <span class="self">self</span>.fetch_symbol(<span class="kw-2">&amp;</span>ptr)<span class="question-mark">?</span>;
-                <span class="prelude-val">Some</span>(Syntax::Keyword(Pos::No, sym))
-            }
-            Expression::Comm(..) | Expression::Thunk(..) | Expression::Fun(..) =&gt; <span class="prelude-val">None</span>,
+    <span class="kw">fn </span>fetch_syntax(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Syntax&lt;F&gt;&gt; {
+        <span class="kw">match </span>ptr.tag {
+            ExprTag::Num =&gt; <span class="prelude-val">Some</span>(Syntax::Num(Pos::No, <span class="kw-2">*</span><span class="self">self</span>.fetch_num(<span class="kw-2">&amp;</span>ptr)<span class="question-mark">?</span>)),
+            ExprTag::Char =&gt; <span class="prelude-val">Some</span>(Syntax::Char(Pos::No, <span class="self">self</span>.fetch_char(<span class="kw-2">&amp;</span>ptr)<span class="question-mark">?</span>)),
+            ExprTag::U64 =&gt; <span class="prelude-val">Some</span>(Syntax::UInt(Pos::No, <span class="self">self</span>.fetch_uint(<span class="kw-2">&amp;</span>ptr)<span class="question-mark">?</span>)),
+            ExprTag::Str =&gt; <span class="prelude-val">Some</span>(Syntax::String(Pos::No, <span class="self">self</span>.fetch_string(<span class="kw-2">&amp;</span>ptr)<span class="question-mark">?</span>)),
+            ExprTag::Nil =&gt; <span class="prelude-val">Some</span>(Syntax::Symbol(Pos::No, lurk_sym(<span class="string">&quot;nil&quot;</span>).into())),
+            ExprTag::Cons =&gt; <span class="self">self</span>.fetch_syntax_list(ptr),
+            ExprTag::Sym =&gt; <span class="prelude-val">Some</span>(Syntax::Symbol(Pos::No, <span class="self">self</span>.fetch_sym(<span class="kw-2">&amp;</span>ptr)<span class="question-mark">?</span>.into())),
+            ExprTag::Key =&gt; <span class="prelude-val">Some</span>(Syntax::Symbol(Pos::No, <span class="self">self</span>.fetch_key(<span class="kw-2">&amp;</span>ptr)<span class="question-mark">?</span>.into())),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
-    }
-
-    <span class="kw">pub fn </span>fetch_syntax(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Syntax&lt;F&gt;&gt; {
-        <span class="kw">let </span>lurk_syms = Symbol::lurk_syms();
-        <span class="self">self</span>.fetch_syntax_aux(<span class="kw-2">&amp;</span>lurk_syms, ptr)
     }
 }
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>test {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span><span class="kw">crate</span>::Symbol;
     <span class="kw">use </span>blstrs::Scalar <span class="kw">as </span>Fr;
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>display_syntax() {
         <span class="kw">let </span><span class="kw-2">mut </span>s = Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>lurk_syms = Symbol::lurk_syms();
 
         <span class="macro">macro_rules! </span>improper {
             ( $( <span class="macro-nonterminal">$x</span>:expr ),+ ) =&gt; {
@@ -584,7 +496,7 @@
             ( $( <span class="macro-nonterminal">$x</span>:expr ),* ) =&gt; {
                 {
                     <span class="kw">let </span><span class="kw-2">mut </span>vec = <span class="macro">vec!</span>($(<span class="macro-nonterminal">$x</span>,)<span class="kw-2">*</span>);
-                    <span class="kw">let </span><span class="kw-2">mut </span>tmp = s.nil();
+                    <span class="kw">let </span><span class="kw-2">mut </span>tmp = <span class="macro">lurk_sym_ptr!</span>(s, nil);
                     <span class="kw">while let </span><span class="prelude-val">Some</span>(x) = vec.pop() {
                         tmp = s.cons(x, tmp);
                     }
@@ -595,52 +507,52 @@
 
         <span class="macro">macro_rules! </span>sym {
             ( <span class="macro-nonterminal">$sym</span>:ident ) =&gt; {{
-                <span class="kw">let </span>sym = <span class="macro">stringify!</span>(<span class="macro-nonterminal">$sym</span>);
-                <span class="kw">if </span>lurk_syms.contains_key(<span class="kw-2">&amp;</span>Symbol::lurk_sym(sym)) {
-                    s.lurk_sym(sym)
-                } <span class="kw">else </span>{
-                    s.sym(sym)
-                }
+                s.sym(<span class="macro">stringify!</span>(<span class="macro-nonterminal">$sym</span>))
             }};
         }
 
         <span class="comment">// Quote tests
-        </span><span class="kw">let </span>expr = <span class="macro">list!</span>(<span class="macro">sym!</span>(quote), <span class="macro">list!</span>(<span class="macro">sym!</span>(f), <span class="macro">sym!</span>(x), <span class="macro">sym!</span>(y)));
+        </span><span class="kw">let </span>expr = <span class="macro">list!</span>(<span class="macro">lurk_sym_ptr!</span>(s, quote), <span class="macro">list!</span>(<span class="macro">sym!</span>(f), <span class="macro">sym!</span>(x), <span class="macro">sym!</span>(y)));
         <span class="kw">let </span>output = s.fetch_syntax(expr).unwrap();
-        <span class="macro">assert_eq!</span>(<span class="string">&quot;&#39;(f x y)&quot;</span>.to_string(), <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, output));
+        <span class="macro">assert_eq!</span>(<span class="string">&quot;(.lurk.quote (.f .x .y))&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, output));
 
-        <span class="kw">let </span>expr = <span class="macro">list!</span>(<span class="macro">sym!</span>(quote), <span class="macro">sym!</span>(f), <span class="macro">sym!</span>(x), <span class="macro">sym!</span>(y));
+        <span class="kw">let </span>expr = <span class="macro">list!</span>(<span class="macro">lurk_sym_ptr!</span>(s, quote), <span class="macro">list!</span>(<span class="macro">sym!</span>(f), <span class="macro">sym!</span>(x), <span class="macro">sym!</span>(y)));
         <span class="kw">let </span>output = s.fetch_syntax(expr).unwrap();
-        <span class="macro">assert_eq!</span>(<span class="string">&quot;(quote f x y)&quot;</span>.to_string(), <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, output));
+        <span class="macro">assert_eq!</span>(<span class="string">&quot;(.lurk.quote (.f .x .y))&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, output));
+
+        <span class="kw">let </span>expr = <span class="macro">list!</span>(<span class="macro">lurk_sym_ptr!</span>(s, quote), <span class="macro">sym!</span>(f), <span class="macro">sym!</span>(x), <span class="macro">sym!</span>(y));
+        <span class="kw">let </span>output = s.fetch_syntax(expr).unwrap();
+        <span class="macro">assert_eq!</span>(<span class="string">&quot;(.lurk.quote .f .x .y)&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, output));
 
         <span class="comment">// List tests
         </span><span class="kw">let </span>expr = <span class="macro">list!</span>();
         <span class="kw">let </span>output = s.fetch_syntax(expr).unwrap();
-        <span class="macro">assert_eq!</span>(<span class="string">&quot;nil&quot;</span>.to_string(), <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, output));
+        <span class="macro">assert_eq!</span>(<span class="string">&quot;.lurk.nil&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, output));
 
         <span class="kw">let </span>expr = <span class="macro">improper!</span>(<span class="macro">sym!</span>(x), <span class="macro">sym!</span>(y), <span class="macro">sym!</span>(z));
         <span class="kw">let </span>output = s.fetch_syntax(expr).unwrap();
-        <span class="macro">assert_eq!</span>(<span class="string">&quot;(x y . z)&quot;</span>.to_string(), <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, output));
+        <span class="macro">assert_eq!</span>(<span class="string">&quot;(.x .y . .z)&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, output));
 
-        <span class="kw">let </span>expr = <span class="macro">improper!</span>(<span class="macro">sym!</span>(x), <span class="macro">sym!</span>(y), <span class="macro">sym!</span>(nil));
+        <span class="kw">let </span>expr = <span class="macro">improper!</span>(<span class="macro">sym!</span>(x), <span class="macro">sym!</span>(y), <span class="macro">lurk_sym_ptr!</span>(s, nil));
         <span class="kw">let </span>output = s.fetch_syntax(expr).unwrap();
-        <span class="macro">assert_eq!</span>(<span class="string">&quot;(x y)&quot;</span>.to_string(), <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, output));
+        <span class="macro">assert_eq!</span>(<span class="string">&quot;(.x .y)&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, output));
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>syntax_rootkey_roundtrip() {
         <span class="kw">let </span><span class="kw-2">mut </span>store1 = Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>ptr1 = store1.intern_syntax(Syntax::Keyword(Pos::No, Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;keyword&quot;</span>])));
+        <span class="kw">let </span>ptr1 = store1.intern_syntax(Syntax::Symbol(Pos::No, Symbol::root_key().into()));
         <span class="kw">let </span>(z_store, z_ptr) = store1.to_z_store_with_ptr(<span class="kw-2">&amp;</span>ptr1).unwrap();
         <span class="kw">let </span>(store2, ptr2) = z_store.to_store_with_z_ptr(<span class="kw-2">&amp;</span>z_ptr).unwrap();
         <span class="kw">let </span>y = store2.fetch_syntax(ptr2).unwrap();
         <span class="kw">let </span>ptr2 = store1.intern_syntax(y);
         <span class="macro">assert!</span>(store1.ptr_eq(<span class="kw-2">&amp;</span>ptr1, <span class="kw-2">&amp;</span>ptr2).unwrap());
     }
+
     <span class="attr">#[test]
     </span><span class="kw">fn </span>syntax_empty_keyword_roundtrip() {
         <span class="kw">let </span><span class="kw-2">mut </span>store1 = Store::&lt;Fr&gt;::default();
-        <span class="kw">let </span>ptr1 = store1.intern_syntax(Syntax::Keyword(Pos::No, Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;keyword&quot;</span>, <span class="string">&quot;&quot;</span>])));
+        <span class="kw">let </span>ptr1 = store1.intern_syntax(Syntax::Symbol(Pos::No, Symbol::key(<span class="kw-2">&amp;</span>[<span class="string">&quot;&quot;</span>]).into()));
         <span class="kw">let </span>(z_store, z_ptr) = store1.to_z_store_with_ptr(<span class="kw-2">&amp;</span>ptr1).unwrap();
         <span class="kw">let </span>(store2, ptr2) = z_store.to_store_with_z_ptr(<span class="kw-2">&amp;</span>z_ptr).unwrap();
         <span class="kw">let </span>y = store2.fetch_syntax(ptr2).unwrap();

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/parser/syntax.rs`."><title>syntax.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (28eb857b9 2023-08-12)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/parser/syntax.rs`."><title>syntax.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (180dffba1 2023-08-14)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -797,7 +797,233 @@
 <a href="#797" id="797">797</a>
 <a href="#798" id="798">798</a>
 <a href="#799" id="799">799</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{cell::RefCell, rc::Rc};
+
 <span class="kw">use </span>nom::{
     branch::alt,
     bytes::complete::{tag, take_till},
@@ -807,17 +1033,20 @@
     multi::{many0, many_till, separated_list1},
     sequence::{delimited, preceded, terminated},
 };
+<span class="kw">use </span>nom_locate::LocatedSpan;
 
 <span class="kw">use crate</span>::{
+    field::LurkField,
     num::Num,
+    package::SymbolRef,
     parser::{
         base,
         error::{ParseError, ParseErrorKind},
         position::Pos,
         string, ParseResult, Span,
     },
+    state::{meta_package_symbol, State},
     symbol,
-    symbol::Symbol,
     syntax::Syntax,
     uint::UInt,
 };
@@ -844,12 +1073,12 @@
 ) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, String&gt; {
     <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;_</span>&gt;| {
         <span class="kw">let </span>(i, s) = alt((
+            string::parse_string_inner1(symbol::SYM_SEPARATOR, <span class="bool-val">false</span>, escape),
             delimited(
                 tag(<span class="string">&quot;|&quot;</span>),
                 string::parse_string_inner1(<span class="string">&#39;|&#39;</span>, <span class="bool-val">true</span>, <span class="string">&quot;|&quot;</span>),
                 tag(<span class="string">&quot;|&quot;</span>),
             ),
-            string::parse_string_inner1(symbol::SYM_SEPARATOR, <span class="bool-val">false</span>, escape),
             value(String::from(<span class="string">&quot;&quot;</span>), peek(tag(<span class="string">&quot;.&quot;</span>))),
         ))(from)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>((i, s))
@@ -861,12 +1090,12 @@
 ) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, String&gt; {
     <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;_</span>&gt;| {
         <span class="kw">let </span>(i, s) = alt((
+            string::parse_string_inner1(<span class="string">&#39; &#39;</span>, <span class="bool-val">false</span>, escape),
             delimited(
                 tag(<span class="string">&quot;|&quot;</span>),
                 string::parse_string_inner1(<span class="string">&#39;|&#39;</span>, <span class="bool-val">true</span>, <span class="string">&quot;|&quot;</span>),
                 tag(<span class="string">&quot;|&quot;</span>),
             ),
-            string::parse_string_inner1(<span class="string">&#39; &#39;</span>, <span class="bool-val">false</span>, escape),
             value(String::from(<span class="string">&quot;&quot;</span>), peek(tag(<span class="string">&quot;.&quot;</span>))),
         ))(from)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>((i, s))
@@ -884,61 +1113,116 @@
     }
 }
 
-<span class="kw">pub fn </span>parse_absolute_symbol&lt;F: LurkField&gt;() -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, Symbol&gt; {
+<span class="kw">fn </span>intern_path&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt;(
+    state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    upto: LocatedSpan&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str&gt;,
+    path: <span class="kw-2">&amp;</span>[String],
+    keyword: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+    create_unknown_packages: bool,
+) -&gt; ParseResult&lt;<span class="lifetime">&#39;a</span>, F, SymbolRef&gt; {
+    <span class="kw">use </span>nom::Err::Failure;
+    <span class="kw">match </span>keyword {
+        <span class="prelude-val">Some</span>(keyword) =&gt; state
+            .borrow_mut()
+            .intern_path(path, keyword, create_unknown_packages),
+        <span class="prelude-val">None </span>=&gt; state
+            .borrow_mut()
+            .intern_relative_path(path, create_unknown_packages),
+    }
+    .map(|symbol| (upto, symbol))
+    .map_err(|e| {
+        Failure(ParseError::new(
+            upto,
+            ParseErrorKind::InterningError(<span class="macro">format!</span>(<span class="string">&quot;{e}&quot;</span>)),
+        ))
+    })
+}
+
+<span class="kw">pub fn </span>parse_absolute_symbol&lt;F: LurkField&gt;(
+    state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    create_unknown_packages: bool,
+) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, SymbolRef&gt; {
     <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;_</span>&gt;| {
         <span class="kw">let </span>(i, is_key) = alt((
             value(<span class="bool-val">false</span>, char(symbol::SYM_MARKER)),
             value(<span class="bool-val">true</span>, char(symbol::KEYWORD_MARKER)),
         ))(from)<span class="question-mark">?</span>;
         <span class="kw">let </span>(upto, path) = parse_symbol_limbs()(i)<span class="question-mark">?</span>;
-        <span class="kw">if </span>is_key {
-            <span class="prelude-val">Ok</span>((upto, Symbol::new(<span class="kw-2">&amp;</span>[<span class="string">&quot;keyword&quot;</span>]).extend(<span class="kw-2">&amp;</span>path)))
-        } <span class="kw">else </span>{
-            <span class="prelude-val">Ok</span>((upto, Symbol { path }))
-        }
+        intern_path(
+            state.clone(),
+            upto,
+            <span class="kw-2">&amp;</span>path,
+            <span class="prelude-val">Some</span>(is_key),
+            create_unknown_packages,
+        )
     }
 }
 
 <span class="kw">pub fn </span>parse_relative_symbol&lt;F: LurkField&gt;(
-    parent: Symbol,
-) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, Symbol&gt; {
+    state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    create_unknown_packages: bool,
+) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, SymbolRef&gt; {
     <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;_</span>&gt;| {
         <span class="kw">let </span>(i, <span class="kw">_</span>) = peek(none_of(<span class="string">&quot;,~#(){}[]1234567890.&quot;</span>))(from)<span class="question-mark">?</span>;
         <span class="kw">let </span>(upto, path) = parse_symbol_limbs()(i)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>((upto, parent.extend(<span class="kw-2">&amp;</span>path)))
+        intern_path(state.clone(), upto, <span class="kw-2">&amp;</span>path, <span class="prelude-val">None</span>, create_unknown_packages)
     }
 }
 
-<span class="kw">pub fn </span>parse_raw_symbol&lt;F: LurkField&gt;() -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, Symbol&gt; {
+<span class="kw">pub fn </span>parse_raw_symbol&lt;F: LurkField&gt;(
+    state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    create_unknown_packages: bool,
+) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, SymbolRef&gt; {
     <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;_</span>&gt;| {
         <span class="kw">let </span>(i, <span class="kw">_</span>) = tag(<span class="string">&quot;~(&quot;</span>)(from)<span class="question-mark">?</span>;
-        <span class="kw">let </span>(i, path) = many0(preceded(parse_space, parse_symbol_limb_raw(<span class="string">&quot;|()&quot;</span>)))(i)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(i, <span class="kw-2">mut </span>path) = many0(preceded(parse_space, parse_symbol_limb_raw(<span class="string">&quot;|()&quot;</span>)))(i)<span class="question-mark">?</span>;
         <span class="kw">let </span>(upto, <span class="kw">_</span>) = many_till(parse_space, tag(<span class="string">&quot;)&quot;</span>))(i)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>((upto, Symbol { path }))
+        path.reverse();
+        intern_path(
+            state.clone(),
+            upto,
+            <span class="kw-2">&amp;</span>path,
+            <span class="prelude-val">Some</span>(<span class="bool-val">false</span>),
+            create_unknown_packages,
+        )
     }
 }
 
-<span class="comment">// raw: ~(foo bar baz) = .|foo|.|bar|.|baz|
-// absolute: .foo.bar.baz (escaped limbs: .|foo|.|bar|.|baz|)
-// keyword: :foo.bar = .keyword.foo.bar
-// relative: foo.bar
+<span class="kw">pub fn </span>parse_raw_keyword&lt;F: LurkField&gt;(
+    state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    create_unknown_packages: bool,
+) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, SymbolRef&gt; {
+    <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;_</span>&gt;| {
+        <span class="kw">let </span>(i, <span class="kw">_</span>) = tag(<span class="string">&quot;~:(&quot;</span>)(from)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(i, <span class="kw-2">mut </span>path) = many0(preceded(parse_space, parse_symbol_limb_raw(<span class="string">&quot;|()&quot;</span>)))(i)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(upto, <span class="kw">_</span>) = many_till(parse_space, tag(<span class="string">&quot;)&quot;</span>))(i)<span class="question-mark">?</span>;
+        path.reverse();
+        intern_path(
+            state.clone(),
+            upto,
+            <span class="kw-2">&amp;</span>path,
+            <span class="prelude-val">Some</span>(<span class="bool-val">true</span>),
+            create_unknown_packages,
+        )
+    }
+}
 
-</span><span class="kw">pub fn </span>parse_symbol&lt;F: LurkField&gt;() -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, Syntax&lt;F&gt;&gt; {
+<span class="doccomment">/// relative: foo.bar
+/// absolute: .foo.bar.baz, :foo.bar (escaped limbs: .|foo|.|bar|.|baz|)
+/// raw: ~(foo bar baz) = .baz.bar.foo
+/// raw keyword: ~:(foo bar) = :bar.foo
+</span><span class="kw">pub fn </span>parse_symbol&lt;F: LurkField&gt;(
+    state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    create_unknown_packages: bool,
+) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, Syntax&lt;F&gt;&gt; {
     <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;_</span>&gt;| {
         <span class="kw">let </span>(upto, sym) = alt((
-            parse_raw_symbol(),
-            parse_absolute_symbol(),
-            <span class="comment">// temporary root argument until packages are reimplemented
-            </span>parse_relative_symbol(Symbol::root()),
+            parse_relative_symbol(state.clone(), create_unknown_packages),
+            parse_absolute_symbol(state.clone(), create_unknown_packages),
+            parse_raw_symbol(state.clone(), create_unknown_packages),
+            parse_raw_keyword(state.clone(), create_unknown_packages),
         ))(from)<span class="question-mark">?</span>;
-        <span class="kw">let </span>pos = Pos::from_upto(from, upto);
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(val) = Symbol::lurk_syms().get(<span class="kw-2">&amp;</span>Symbol::lurk_sym(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, sym))) {
-            <span class="prelude-val">Ok</span>((upto, Syntax::LurkSym(pos, <span class="kw-2">*</span>val)))
-        } <span class="kw">else if </span>sym.is_keyword() {
-            <span class="prelude-val">Ok</span>((upto, Syntax::Keyword(pos, sym)))
-        } <span class="kw">else </span>{
-            <span class="prelude-val">Ok</span>((upto, Syntax::Symbol(pos, sym)))
-        }
+        <span class="prelude-val">Ok</span>((upto, Syntax::Symbol(Pos::from_upto(from, upto), sym)))
     }
 }
 
@@ -1061,14 +1345,48 @@
     }
 }
 
-<span class="kw">pub fn </span>parse_list&lt;F: LurkField&gt;() -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, Syntax&lt;F&gt;&gt; {
+<span class="kw">pub fn </span>parse_list&lt;F: LurkField&gt;(
+    state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    meta: bool,
+    create_unknown_packages: bool,
+) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, Syntax&lt;F&gt;&gt; {
     <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;_</span>&gt;| {
         <span class="kw">let </span>(i, <span class="kw">_</span>) = tag(<span class="string">&quot;(&quot;</span>)(from)<span class="question-mark">?</span>;
-        <span class="comment">//let (i, _) = parse_space(i)?;
-        </span><span class="kw">let </span>(i, xs) = many0(preceded(parse_space, parse_syntax()))(i)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(i, xs) = <span class="kw">if </span>meta {
+            <span class="comment">// parse the head symbol in the meta package
+            </span><span class="kw">let </span>saved_package = state.borrow().get_current_package_name().clone();
+            state
+                .borrow_mut()
+                .set_current_package(meta_package_symbol().into())
+                .expect(<span class="string">&quot;meta package is available&quot;</span>);
+            <span class="kw">let </span>(i, h) = preceded(
+                parse_space,
+                parse_symbol(state.clone(), create_unknown_packages),
+            )(i)<span class="question-mark">?</span>;
+            <span class="comment">// then recover the previous package
+            </span>state
+                .borrow_mut()
+                .set_current_package(saved_package)
+                .expect(<span class="string">&quot;previous package is available&quot;</span>);
+            <span class="kw">let </span>(i, t) = many0(preceded(
+                parse_space,
+                parse_syntax(state.clone(), <span class="bool-val">false</span>, create_unknown_packages),
+            ))(i)<span class="question-mark">?</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>xs = <span class="macro">vec!</span>[h];
+            xs.extend(t);
+            (i, xs)
+        } <span class="kw">else </span>{
+            many0(preceded(
+                parse_space,
+                parse_syntax(state.clone(), <span class="bool-val">false</span>, create_unknown_packages),
+            ))(i)<span class="question-mark">?
+        </span>};
         <span class="kw">let </span>(i, end) = opt(preceded(
             preceded(parse_space, tag(<span class="string">&quot;.&quot;</span>)),
-            preceded(parse_space, parse_syntax()),
+            preceded(
+                parse_space,
+                parse_syntax(state.clone(), <span class="bool-val">false</span>, create_unknown_packages),
+            ),
         ))(i)<span class="question-mark">?</span>;
         <span class="kw">let </span>(i, <span class="kw">_</span>) = parse_space(i)<span class="question-mark">?</span>;
         <span class="kw">let </span>(upto, <span class="kw">_</span>) = tag(<span class="string">&quot;)&quot;</span>)(i)<span class="question-mark">?</span>;
@@ -1081,14 +1399,17 @@
     }
 }
 
-<span class="kw">pub fn </span>parse_quote&lt;F: LurkField&gt;() -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, Syntax&lt;F&gt;&gt; {
+<span class="kw">pub fn </span>parse_quote&lt;F: LurkField&gt;(
+    state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    create_unknown_packages: bool,
+) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, Syntax&lt;F&gt;&gt; {
     <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;_</span>&gt;| {
         <span class="kw">let </span>(i, c) = opt(parse_char())(from)<span class="question-mark">?</span>;
         <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = c {
             <span class="prelude-val">Ok</span>((i, c))
         } <span class="kw">else </span>{
             <span class="kw">let </span>(i, <span class="kw">_</span>) = tag(<span class="string">&quot;&#39;&quot;</span>)(from)<span class="question-mark">?</span>;
-            <span class="kw">let </span>(upto, s) = parse_syntax()(i)<span class="question-mark">?</span>;
+            <span class="kw">let </span>(upto, s) = parse_syntax(state.clone(), <span class="bool-val">false</span>, create_unknown_packages)(i)<span class="question-mark">?</span>;
             <span class="kw">let </span>pos = Pos::from_upto(from, upto);
             <span class="prelude-val">Ok</span>((upto, Syntax::Quote(pos, Box::new(s))))
         }
@@ -1096,21 +1417,34 @@
 }
 
 <span class="comment">// top-level syntax parser
-</span><span class="kw">pub fn </span>parse_syntax&lt;F: LurkField&gt;() -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, Syntax&lt;F&gt;&gt; {
+</span><span class="kw">pub fn </span>parse_syntax&lt;F: LurkField&gt;(
+    state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    meta: bool,
+    <span class="comment">// this parameter triggers a less strict mode for testing purposes
+    </span>create_unknown_packages: bool,
+) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, Syntax&lt;F&gt;&gt; {
     <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;_</span>&gt;| {
         alt((
-            parse_hash_char(),
+            context(
+                <span class="string">&quot;list&quot;</span>,
+                parse_list(state.clone(), meta, create_unknown_packages),
+            ),
             parse_uint(),
             parse_num(),
-            context(<span class="string">&quot;symbol&quot;</span>, parse_symbol()),
+            context(
+                <span class="string">&quot;symbol&quot;</span>,
+                parse_symbol(state.clone(), create_unknown_packages),
+            ),
             parse_string(),
-            context(<span class="string">&quot;quote&quot;</span>, parse_quote()),
-            context(<span class="string">&quot;list&quot;</span>, parse_list()),
+            context(<span class="string">&quot;quote&quot;</span>, parse_quote(state.clone(), create_unknown_packages)),
+            parse_hash_char(),
         ))(from)
     }
 }
 
 <span class="kw">pub fn </span>parse_maybe_meta&lt;F: LurkField&gt;(
+    state: Rc&lt;RefCell&lt;State&gt;&gt;,
+    create_unknown_packages: bool,
 ) -&gt; <span class="kw">impl </span>Fn(Span&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; ParseResult&lt;<span class="lifetime">&#39;_</span>, F, <span class="prelude-ty">Option</span>&lt;(bool, Syntax&lt;F&gt;)&gt;&gt; {
     <span class="kw">move </span>|from: Span&lt;<span class="lifetime">&#39;_</span>&gt;| {
         <span class="kw">let </span>(<span class="kw">_</span>, is_eof) = opt(nom::combinator::eof)(from)<span class="question-mark">?</span>;
@@ -1118,27 +1452,21 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>((from, <span class="prelude-val">None</span>));
         }
         <span class="kw">let </span>(next, meta) = opt(char(<span class="string">&#39;!&#39;</span>))(from)<span class="question-mark">?</span>;
-        <span class="kw">if </span>meta.is_some() {
-            <span class="kw">let </span>(end, syntax) = parse_syntax()(next)<span class="question-mark">?</span>;
-            <span class="prelude-val">Ok</span>((end, <span class="prelude-val">Some</span>((<span class="bool-val">true</span>, syntax))))
-        } <span class="kw">else </span>{
-            <span class="kw">let </span>(end, syntax) = parse_syntax()(from)<span class="question-mark">?</span>;
-            <span class="prelude-val">Ok</span>((end, <span class="prelude-val">Some</span>((<span class="bool-val">false</span>, syntax))))
-        }
+        <span class="kw">let </span>meta = meta.is_some();
+        <span class="kw">let </span>(end, syntax) = parse_syntax(state.clone(), meta, create_unknown_packages)(next)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>((end, <span class="prelude-val">Some</span>((meta, syntax))))
     }
 }
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub mod </span>tests {
-    <span class="kw">use </span><span class="kw">crate</span>::symbol::LurkSym;
     <span class="kw">use </span>blstrs::Scalar;
     <span class="kw">use </span>nom::Parser;
     <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
     </span><span class="kw">use </span>proptest::prelude::<span class="kw-2">*</span>;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="attr">#[allow(unused_imports)]
-    </span><span class="kw">use crate</span>::{char, keyword, list, num, str, symbol, uint};
+    <span class="kw">use crate</span>::{char, keyword, list, num, str, symbol, uint};
 
     <span class="kw">fn </span>test&lt;<span class="lifetime">&#39;a</span>, P, R&gt;(<span class="kw-2">mut </span>p: P, i: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str, expected: <span class="prelude-ty">Option</span>&lt;R&gt;) -&gt; bool
     <span class="kw">where
@@ -1171,169 +1499,257 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>unit_parse_symbol() {
-        <span class="macro">assert!</span>(test(parse_raw_symbol(), <span class="string">&quot;&quot;</span>, <span class="prelude-val">None</span>));
-        <span class="macro">assert!</span>(test(parse_absolute_symbol(), <span class="string">&quot;&quot;</span>, <span class="prelude-val">None</span>));
-        <span class="macro">assert!</span>(test(parse_relative_symbol(Symbol::root()), <span class="string">&quot;&quot;</span>, <span class="prelude-val">None</span>));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;&quot;</span>, <span class="prelude-val">None</span>));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;~()&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([]))));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;.&quot;</span>, <span class="prelude-val">None</span>));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;..&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;&quot;</span>]))));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;foo&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo&quot;</span>]))));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;|foo|&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo&quot;</span>]))));
+        <span class="kw">let </span>state_ = State::default().rccell();
+        <span class="kw">let </span>state = || state_.clone();
+        <span class="macro">assert!</span>(test(parse_raw_symbol(state(), <span class="bool-val">true</span>), <span class="string">&quot;&quot;</span>, <span class="prelude-val">None</span>));
+        <span class="macro">assert!</span>(test(parse_absolute_symbol(state(), <span class="bool-val">true</span>), <span class="string">&quot;&quot;</span>, <span class="prelude-val">None</span>));
+        <span class="macro">assert!</span>(test(parse_relative_symbol(state(), <span class="bool-val">true</span>), <span class="string">&quot;&quot;</span>, <span class="prelude-val">None</span>));
+        <span class="macro">assert!</span>(test(parse_relative_symbol(state(), <span class="bool-val">true</span>), <span class="string">&quot;&quot;</span>, <span class="prelude-val">None</span>));
+        <span class="macro">assert!</span>(test(parse_symbol(state(), <span class="bool-val">true</span>), <span class="string">&quot;&quot;</span>, <span class="prelude-val">None</span>));
+        <span class="macro">assert!</span>(test(parse_symbol(state(), <span class="bool-val">true</span>), <span class="string">&quot;~()&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([]))));
+        <span class="macro">assert!</span>(test(parse_symbol(state(), <span class="bool-val">true</span>), <span class="string">&quot;.&quot;</span>, <span class="prelude-val">None</span>));
+        <span class="macro">assert!</span>(test(parse_symbol(state(), <span class="bool-val">true</span>), <span class="string">&quot;..&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;&quot;</span>]))));
         <span class="macro">assert!</span>(test(
-            parse_symbol(),
+            parse_symbol(state(), <span class="bool-val">true</span>),
+            <span class="string">&quot;foo&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo&quot;</span>]))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_symbol(state(), <span class="bool-val">true</span>),
+            <span class="string">&quot;|foo|&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo&quot;</span>]))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_symbol(state(), <span class="bool-val">true</span>),
             <span class="string">&quot;|Hi, bye|&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;Hi, bye&quot;</span>]))
         ));
         <span class="macro">assert!</span>(test(
-            parse_symbol(),
+            parse_symbol(state(), <span class="bool-val">true</span>),
             <span class="string">&quot;|foo|.|bar|&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;bar&quot;</span>]))
         ));
         <span class="macro">assert!</span>(test(
-            parse_symbol(),
+            parse_symbol(state(), <span class="bool-val">true</span>),
             <span class="string">&quot;.|foo|.|bar|&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;bar&quot;</span>]))
         ));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;.foo&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo&quot;</span>]))));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;..foo&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;&quot;</span>, <span class="string">&quot;foo&quot;</span>]))));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;foo.&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo&quot;</span>]))));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;foo..&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;&quot;</span>]))));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;.foo..&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;&quot;</span>]))));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;.foo..&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;&quot;</span>]))));
         <span class="macro">assert!</span>(test(
-            parse_symbol(),
+            parse_symbol(state(), <span class="bool-val">true</span>),
+            <span class="string">&quot;.foo&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo&quot;</span>]))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_symbol(state(), <span class="bool-val">true</span>),
+            <span class="string">&quot;..foo&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;&quot;</span>, <span class="string">&quot;foo&quot;</span>]))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_symbol(state(), <span class="bool-val">true</span>),
+            <span class="string">&quot;foo.&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo&quot;</span>]))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_symbol(state(), <span class="bool-val">true</span>),
+            <span class="string">&quot;foo..&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;&quot;</span>]))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_symbol(state(), <span class="bool-val">true</span>),
+            <span class="string">&quot;.foo..&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;&quot;</span>]))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_symbol(state(), <span class="bool-val">true</span>),
+            <span class="string">&quot;.foo..&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;&quot;</span>]))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_symbol(state(), <span class="bool-val">true</span>),
             <span class="string">&quot;.foo.bar&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;bar&quot;</span>]))
         ));
         <span class="macro">assert!</span>(test(
-            parse_symbol(),
+            parse_symbol(state(), <span class="bool-val">true</span>),
             <span class="string">&quot;.foo?.bar?&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo?&quot;</span>, <span class="string">&quot;bar?&quot;</span>]))
         ));
         <span class="macro">assert!</span>(test(
-            parse_symbol(),
+            parse_symbol(state(), <span class="bool-val">true</span>),
             <span class="string">&quot;.fooλ.barλ&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;fooλ&quot;</span>, <span class="string">&quot;barλ&quot;</span>]))
         ));
         <span class="macro">assert!</span>(test(
-            parse_symbol(),
+            parse_symbol(state(), <span class="bool-val">true</span>),
             <span class="string">&quot;.foo\\n.bar\\n&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo\n&quot;</span>, <span class="string">&quot;bar\n&quot;</span>]))
         ));
         <span class="macro">assert!</span>(test(
-            parse_symbol(),
+            parse_symbol(state(), <span class="bool-val">true</span>),
             <span class="string">&quot;.foo\\u{00}.bar\\u{00}&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo\u{00}&quot;</span>, <span class="string">&quot;bar\u{00}&quot;</span>]))
         ));
         <span class="macro">assert!</span>(test(
-            parse_symbol(),
+            parse_symbol(state(), <span class="bool-val">true</span>),
             <span class="string">&quot;.foo\\.bar&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;foo.bar&quot;</span>]))
         ));
         <span class="macro">assert!</span>(test(
-            parse_symbol(),
-            <span class="string">&quot;nil&quot;</span>,
-            <span class="prelude-val">Some</span>(Syntax::LurkSym(Pos::No, LurkSym::Nil))
+            parse_symbol(state(), <span class="bool-val">true</span>),
+            <span class="string">&quot;~(asdf )&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;asdf&quot;</span>]))
         ));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;~(asdf )&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;asdf&quot;</span>]))));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;~( asdf )&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;asdf&quot;</span>]))));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;~( asdf)&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;asdf&quot;</span>]))));
         <span class="macro">assert!</span>(test(
-            parse_symbol(),
+            parse_symbol(state(), <span class="bool-val">true</span>),
+            <span class="string">&quot;~( asdf )&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;asdf&quot;</span>]))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_symbol(state(), <span class="bool-val">true</span>),
+            <span class="string">&quot;~( asdf)&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;asdf&quot;</span>]))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_symbol(state(), <span class="bool-val">true</span>),
             <span class="string">&quot;~(asdf.fdsa)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;asdf.fdsa&quot;</span>]))
         ));
         <span class="macro">assert!</span>(test(
-            parse_symbol(),
+            parse_symbol(state(), <span class="bool-val">true</span>),
             <span class="string">&quot;~(asdf.fdsa arst)&quot;</span>,
-            <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;asdf.fdsa&quot;</span>, <span class="string">&quot;arst&quot;</span>]))
+            <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;arst&quot;</span>, <span class="string">&quot;asdf.fdsa&quot;</span>]))
         ));
         <span class="macro">assert!</span>(test(
-            parse_symbol(),
+            parse_symbol(state(), <span class="bool-val">true</span>),
             <span class="string">&quot;~(asdf.fdsa arst |wfp qwf|)&quot;</span>,
-            <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;asdf.fdsa&quot;</span>, <span class="string">&quot;arst&quot;</span>, <span class="string">&quot;wfp qwf&quot;</span>]))
+            <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;wfp qwf&quot;</span>, <span class="string">&quot;arst&quot;</span>, <span class="string">&quot;asdf.fdsa&quot;</span>]))
         ));
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>unit_parse_keyword() {
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;&quot;</span>, <span class="prelude-val">None</span>));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;:&quot;</span>, <span class="prelude-val">None</span>));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;:.&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">keyword!</span>([<span class="string">&quot;&quot;</span>]))));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;:foo&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">keyword!</span>([<span class="string">&quot;foo&quot;</span>]))));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;:foo.&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">keyword!</span>([<span class="string">&quot;foo&quot;</span>]))));
-        <span class="macro">assert!</span>(test(parse_symbol(), <span class="string">&quot;:foo..&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">keyword!</span>([<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;&quot;</span>]))));
+        <span class="kw">let </span>state_ = State::default().rccell();
+        <span class="kw">let </span>state = || state_.clone();
+        <span class="macro">assert!</span>(test(parse_symbol(state(), <span class="bool-val">true</span>), <span class="string">&quot;&quot;</span>, <span class="prelude-val">None</span>));
+        <span class="macro">assert!</span>(test(parse_symbol(state(), <span class="bool-val">true</span>), <span class="string">&quot;:&quot;</span>, <span class="prelude-val">None</span>));
         <span class="macro">assert!</span>(test(
-            parse_symbol(),
+            parse_symbol(state(), <span class="bool-val">true</span>),
+            <span class="string">&quot;~:()&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">keyword!</span>([]))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_symbol(state(), <span class="bool-val">true</span>),
+            <span class="string">&quot;:.&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">keyword!</span>([<span class="string">&quot;&quot;</span>]))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_symbol(state(), <span class="bool-val">true</span>),
+            <span class="string">&quot;:foo&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">keyword!</span>([<span class="string">&quot;foo&quot;</span>]))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_symbol(state(), <span class="bool-val">true</span>),
+            <span class="string">&quot;:foo.&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">keyword!</span>([<span class="string">&quot;foo&quot;</span>]))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_symbol(state(), <span class="bool-val">true</span>),
+            <span class="string">&quot;:foo..&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">keyword!</span>([<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;&quot;</span>]))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_symbol(state(), <span class="bool-val">true</span>),
             <span class="string">&quot;:foo.bar&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">keyword!</span>([<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;bar&quot;</span>]))
         ));
         <span class="macro">assert!</span>(test(
-            parse_symbol(),
+            parse_symbol(state(), <span class="bool-val">true</span>),
             <span class="string">&quot;:foo?.bar?&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">keyword!</span>([<span class="string">&quot;foo?&quot;</span>, <span class="string">&quot;bar?&quot;</span>]))
         ));
         <span class="macro">assert!</span>(test(
-            parse_symbol(),
+            parse_symbol(state(), <span class="bool-val">true</span>),
             <span class="string">&quot;:fooλ.barλ&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">keyword!</span>([<span class="string">&quot;fooλ&quot;</span>, <span class="string">&quot;barλ&quot;</span>]))
         ));
         <span class="macro">assert!</span>(test(
-            parse_symbol(),
+            parse_symbol(state(), <span class="bool-val">true</span>),
             <span class="string">&quot;:foo\\n.bar\\n&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">keyword!</span>([<span class="string">&quot;foo\n&quot;</span>, <span class="string">&quot;bar\n&quot;</span>]))
         ));
         <span class="macro">assert!</span>(test(
-            parse_symbol(),
+            parse_symbol(state(), <span class="bool-val">true</span>),
             <span class="string">&quot;:foo\\u{00}.bar\\u{00}&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">keyword!</span>([<span class="string">&quot;foo\u{00}&quot;</span>, <span class="string">&quot;bar\u{00}&quot;</span>]))
         ));
         <span class="macro">assert!</span>(test(
-            parse_symbol(),
+            parse_symbol(state(), <span class="bool-val">true</span>),
             <span class="string">&quot;:foo\\.bar&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">keyword!</span>([<span class="string">&quot;foo.bar&quot;</span>]))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_symbol(state(), <span class="bool-val">true</span>),
+            <span class="string">&quot;~:(x y z)&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">keyword!</span>([<span class="string">&quot;z&quot;</span>, <span class="string">&quot;y&quot;</span>, <span class="string">&quot;x&quot;</span>]))
         ));
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>unit_parse_list() {
-        <span class="macro">assert!</span>(test(parse_list(), <span class="string">&quot;()&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">list!</span>([]))));
-        <span class="macro">assert!</span>(test(parse_list(), <span class="string">&quot;(1 2)&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">num!</span>(<span class="number">1</span>), <span class="macro">num!</span>(<span class="number">2</span>)])),));
-        <span class="macro">assert!</span>(test(parse_list(), <span class="string">&quot;(1)&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">num!</span>(<span class="number">1</span>)])),));
-        <span class="macro">assert!</span>(test(parse_list(), <span class="string">&quot;(a)&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">symbol!</span>([<span class="string">&quot;a&quot;</span>])])),));
+        <span class="kw">let </span>state_ = State::default().rccell();
+        <span class="kw">let </span>state = || state_.clone();
         <span class="macro">assert!</span>(test(
-            parse_list(),
+            parse_list(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
+            <span class="string">&quot;()&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">list!</span>([]))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_list(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
+            <span class="string">&quot;(1 2)&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">num!</span>(<span class="number">1</span>), <span class="macro">num!</span>(<span class="number">2</span>)])),
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_list(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
+            <span class="string">&quot;(1)&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">num!</span>(<span class="number">1</span>)])),
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_list(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
+            <span class="string">&quot;(a)&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">symbol!</span>([<span class="string">&quot;a&quot;</span>])])),
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_list(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;(a b)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">symbol!</span>([<span class="string">&quot;a&quot;</span>]), <span class="macro">symbol!</span>([<span class="string">&quot;b&quot;</span>])])),
         ));
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;(.a .b)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">symbol!</span>([<span class="string">&quot;a&quot;</span>]), <span class="macro">symbol!</span>([<span class="string">&quot;b&quot;</span>])])),
         ));
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;(.foo.bar .foo.bar)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">symbol!</span>([<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;bar&quot;</span>]), <span class="macro">symbol!</span>([<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;bar&quot;</span>])])),
         ));
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;(a . b)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">symbol!</span>([<span class="string">&quot;a&quot;</span>])], <span class="macro">symbol!</span>([<span class="string">&quot;b&quot;</span>]))),
         ));
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;(.a . .b)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">symbol!</span>([<span class="string">&quot;a&quot;</span>])], <span class="macro">symbol!</span>([<span class="string">&quot;b&quot;</span>]))),
         ));
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;(a b . c)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">symbol!</span>([<span class="string">&quot;a&quot;</span>]), <span class="macro">symbol!</span>([<span class="string">&quot;b&quot;</span>])], <span class="macro">symbol!</span>([<span class="string">&quot;c&quot;</span>]))),
         ));
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;(a . (b . c))&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>(
                 [<span class="macro">symbol!</span>([<span class="string">&quot;a&quot;</span>])],
@@ -1341,23 +1757,22 @@
             ))
         ));
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;(a b c)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">symbol!</span>([<span class="string">&quot;a&quot;</span>]), <span class="macro">symbol!</span>([<span class="string">&quot;b&quot;</span>]), <span class="macro">symbol!</span>([<span class="string">&quot;c&quot;</span>])])),
         ));
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;(&#39;a&#39; &#39;b&#39; &#39;c&#39;)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">char!</span>(<span class="string">&#39;a&#39;</span>), <span class="macro">char!</span>(<span class="string">&#39;b&#39;</span>), <span class="macro">char!</span>(<span class="string">&#39;c&#39;</span>)])),
         ));
-
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;(a. b. c.)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">symbol!</span>([<span class="string">&quot;a&quot;</span>]), <span class="macro">symbol!</span>([<span class="string">&quot;b&quot;</span>]), <span class="macro">symbol!</span>([<span class="string">&quot;c&quot;</span>])])),
         ));
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;(a.. b.. c..)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>([
                 <span class="macro">symbol!</span>([<span class="string">&quot;a&quot;</span>, <span class="string">&quot;&quot;</span>]),
@@ -1376,34 +1791,60 @@
         <span class="macro">assert!</span>(test(parse_char(), <span class="string">&quot;&#39;(&#39;&quot;</span>, <span class="prelude-val">None</span>));
         <span class="macro">assert!</span>(test(parse_char(), <span class="string">&quot;&#39;\\(&#39;&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">char!</span>(<span class="string">&#39;(&#39;</span>))));
     }
+
     <span class="attr">#[test]
     </span><span class="kw">fn </span>unit_parse_hash_char() {
+        <span class="kw">let </span>state_ = State::default().rccell();
+        <span class="kw">let </span>state = || state_.clone();
         <span class="macro">assert!</span>(test(parse_hash_char(), <span class="string">&quot;#\\a&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">char!</span>(<span class="string">&#39;a&#39;</span>))));
         <span class="macro">assert!</span>(test(parse_hash_char(), <span class="string">&quot;#\\b&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">char!</span>(<span class="string">&#39;b&#39;</span>))));
         <span class="macro">assert!</span>(test(parse_hash_char(), <span class="string">r&quot;#\b&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">char!</span>(<span class="string">&#39;b&#39;</span>))));
         <span class="macro">assert!</span>(test(parse_hash_char(), <span class="string">&quot;#\\u{8f}&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">char!</span>(<span class="string">&#39;\u{8f}&#39;</span>))));
-        <span class="macro">assert!</span>(test(parse_syntax(), <span class="string">&quot;#\\a&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">char!</span>(<span class="string">&#39;a&#39;</span>))));
-        <span class="macro">assert!</span>(test(parse_syntax(), <span class="string">&quot;#\\b&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">char!</span>(<span class="string">&#39;b&#39;</span>))));
-        <span class="macro">assert!</span>(test(parse_syntax(), <span class="string">r&quot;#\b&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">char!</span>(<span class="string">&#39;b&#39;</span>))));
-        <span class="macro">assert!</span>(test(parse_syntax(), <span class="string">r&quot;#\u{8f}&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">char!</span>(<span class="string">&#39;\u{8f}&#39;</span>))));
+        <span class="macro">assert!</span>(test(
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">false</span>),
+            <span class="string">&quot;#\\a&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">char!</span>(<span class="string">&#39;a&#39;</span>))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">false</span>),
+            <span class="string">&quot;#\\b&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">char!</span>(<span class="string">&#39;b&#39;</span>))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">false</span>),
+            <span class="string">r&quot;#\b&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">char!</span>(<span class="string">&#39;b&#39;</span>))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">false</span>),
+            <span class="string">r&quot;#\u{8f}&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">char!</span>(<span class="string">&#39;\u{8f}&#39;</span>))
+        ));
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>unit_parse_quote() {
+        <span class="kw">let </span>state_ = State::default().rccell();
+        <span class="kw">let </span>state = || state_.clone();
         <span class="macro">assert!</span>(test(
-            parse_quote(),
-            <span class="string">&quot;&#39;a&quot;</span>,
+            parse_quote(state(), <span class="bool-val">true</span>),
+            <span class="string">&quot;&#39;.a&quot;</span>,
             <span class="prelude-val">Some</span>(Syntax::Quote(Pos::No, Box::new(<span class="macro">symbol!</span>([<span class="string">&quot;a&quot;</span>]))))
         ));
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
+            <span class="string">&quot;&#39;:a&quot;</span>,
+            <span class="prelude-val">Some</span>(Syntax::Quote(Pos::No, Box::new(<span class="macro">keyword!</span>([<span class="string">&quot;a&quot;</span>]))))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;&#39;a&quot;</span>,
             <span class="prelude-val">Some</span>(Syntax::Quote(Pos::No, Box::new(<span class="macro">symbol!</span>([<span class="string">&quot;a&quot;</span>]))))
         ));
-        <span class="macro">assert!</span>(test(parse_quote(), <span class="string">&quot;&#39;a&#39;&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">char!</span>(<span class="string">&#39;a&#39;</span>))));
-        <span class="macro">assert!</span>(test(parse_quote(), <span class="string">&quot;&#39;a&#39;&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">char!</span>(<span class="string">&#39;a&#39;</span>))));
+        <span class="macro">assert!</span>(test(parse_quote(state(), <span class="bool-val">true</span>), <span class="string">&quot;&#39;a&#39;&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">char!</span>(<span class="string">&#39;a&#39;</span>))));
+        <span class="macro">assert!</span>(test(parse_quote(state(), <span class="bool-val">true</span>), <span class="string">&quot;&#39;a&#39;&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">char!</span>(<span class="string">&#39;a&#39;</span>))));
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;&#39;(a b)&quot;</span>,
             <span class="prelude-val">Some</span>(Syntax::Quote(
                 Pos::No,
@@ -1411,13 +1852,12 @@
             ))
         ));
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;(&#39;a)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>([Syntax::Quote(Pos::No, Box::new(<span class="macro">symbol!</span>([<span class="string">&#39;a&#39;</span>])))]))
         ));
-
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;(&#39;a&#39; &#39;b&#39; &#39;c&#39;)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">char!</span>(<span class="string">&#39;a&#39;</span>), <span class="macro">char!</span>(<span class="string">&#39;b&#39;</span>), <span class="macro">char!</span>(<span class="string">&#39;c&#39;</span>)])),
         ));
@@ -1482,60 +1922,68 @@
         .into_iter()
         .rev()
         .collect();
+        <span class="kw">let </span>state_ = State::default().rccell();
+        <span class="kw">let </span>state = || state_.clone();
+
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;(0x6e2e5055dcf61486b03bb80ed2b3f1a35c30e122defebae824fae4ed32408e87)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">num!</span>(Num::Scalar(f_from_le_bytes(<span class="kw-2">&amp;</span>vec)))])),
         ));
-
-        <span class="macro">assert!</span>(test(parse_syntax(), <span class="string">&quot;.\\.&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;.&quot;</span>]))));
-        <span class="macro">assert!</span>(test(parse_syntax(), <span class="string">&quot;.\\&#39;&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;&#39;&quot;</span>]))));
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
+            <span class="string">&quot;.\\.&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;.&quot;</span>]))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
+            <span class="string">&quot;.\\&#39;&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;&#39;&quot;</span>]))
+        ));
+        <span class="macro">assert!</span>(test(
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;.\\&#39;\\u{8e}\\u{fffc}\\u{201b}&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">symbol!</span>([<span class="string">&quot;&#39;\u{8e}\u{fffc}\u{201b}&quot;</span>])),
         ));
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;(lambda (🚀) 🚀)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>([
-                Syntax::LurkSym(Pos::No, LurkSym::Lambda),
+                <span class="macro">symbol!</span>([<span class="string">&quot;lambda&quot;</span>]),
                 <span class="macro">list!</span>([<span class="macro">symbol!</span>([<span class="string">&quot;🚀&quot;</span>])]),
                 <span class="macro">symbol!</span>([<span class="string">&quot;🚀&quot;</span>])
             ])),
         ));
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;11242421860377074631u64&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">uint!</span>(<span class="number">11242421860377074631</span>))
         ));
-
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;:\u{ae}\u{60500}\u{87}..)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">keyword!</span>([<span class="string">&quot;®\u{60500}\u{87}&quot;</span>, <span class="string">&quot;&quot;</span>]))
         ));
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
-            <span class="string">&quot;(.keyword 11242421860377074631u64 . :\u{ae}\u{60500}\u{87}..)&quot;</span>,
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
+            <span class="string">&quot;(~:() 11242421860377074631u64 . :\u{ae}\u{60500}\u{87}..)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>(
                 [<span class="macro">keyword!</span>([]), <span class="macro">uint!</span>(<span class="number">11242421860377074631</span>)],
                 <span class="macro">keyword!</span>([<span class="string">&quot;®\u{60500}\u{87}&quot;</span>, <span class="string">&quot;&quot;</span>])
             ))
         ));
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;((\&quot;\&quot;))&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">list!</span>([Syntax::String(Pos::No, <span class="string">&quot;&quot;</span>.to_string())])]))
         ));
-
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;((=))&quot;</span>,
-            <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">list!</span>([Syntax::LurkSym(Pos::No, LurkSym::OpEql)])]))
+            <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">list!</span>([<span class="macro">symbol!</span>([<span class="string">&quot;=&quot;</span>])])]))
         ));
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;(&#39;.. . a)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>(
                 [Syntax::Quote(Pos::No, Box::new(<span class="macro">symbol!</span>([<span class="string">&quot;&quot;</span>])))],
@@ -1543,11 +1991,11 @@
             ))
         ));
         <span class="macro">assert_eq!</span>(
-            <span class="string">&quot;(.. . a)&quot;</span>,
+            <span class="string">&quot;(.. . .a)&quot;</span>,
             <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="macro">list!</span>(Scalar, [<span class="macro">symbol!</span>([<span class="string">&quot;&quot;</span>])], <span class="macro">symbol!</span>([<span class="string">&quot;a&quot;</span>])))
         );
         <span class="macro">assert_eq!</span>(
-            <span class="string">&quot;(&#39;.. . a)&quot;</span>,
+            <span class="string">&quot;(&#39;.. . .a)&quot;</span>,
             <span class="macro">format!</span>(
                 <span class="string">&quot;{}&quot;</span>,
                 <span class="macro">list!</span>(
@@ -1557,42 +2005,44 @@
                 )
             )
         );
-        <span class="macro">assert!</span>(test(parse_syntax(), <span class="string">&quot;&#39;\\(&#39;&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">char!</span>(<span class="string">&#39;(&#39;</span>))));
+        <span class="macro">assert!</span>(test(
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
+            <span class="string">&quot;&#39;\\(&#39;&quot;</span>,
+            <span class="prelude-val">Some</span>(<span class="macro">char!</span>(<span class="string">&#39;(&#39;</span>))
+        ));
         <span class="macro">assert_eq!</span>(<span class="string">&quot;&#39;\\(&#39;&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="macro">char!</span>(Scalar, <span class="string">&#39;(&#39;</span>)));
         <span class="macro">assert_eq!</span>(
-            <span class="string">&quot;(&#39; &#39; . a)&quot;</span>,
+            <span class="string">&quot;(&#39; &#39; . .a)&quot;</span>,
             <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="macro">list!</span>(Scalar, [<span class="macro">char!</span>(<span class="string">&#39; &#39;</span>)], <span class="macro">symbol!</span>([<span class="string">&quot;a&quot;</span>])))
         );
         <span class="macro">assert!</span>(test(
-            parse_syntax(),
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
             <span class="string">&quot;(&#39; &#39; . a)&quot;</span>,
             <span class="prelude-val">Some</span>(<span class="macro">list!</span>([<span class="macro">char!</span>(<span class="string">&#39; &#39;</span>)], <span class="macro">symbol!</span>([<span class="string">&quot;a&quot;</span>])))
         ));
-        <span class="macro">assert!</span>(test(parse_syntax(), <span class="string">&quot;(cons # \&quot;\&quot;)&quot;</span>, <span class="prelude-val">None</span>));
-        <span class="macro">assert!</span>(test(parse_syntax(), <span class="string">&quot;#&quot;</span>, <span class="prelude-val">None</span>));
+        <span class="macro">assert!</span>(test(
+            parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>),
+            <span class="string">&quot;(cons # \&quot;\&quot;)&quot;</span>,
+            <span class="prelude-val">None
+        </span>));
+        <span class="macro">assert!</span>(test(parse_syntax(state(), <span class="bool-val">false</span>, <span class="bool-val">true</span>), <span class="string">&quot;#&quot;</span>, <span class="prelude-val">None</span>));
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_minus_zero_symbol() {
         <span class="kw">let </span>x: Syntax&lt;Scalar&gt; = <span class="macro">symbol!</span>([<span class="string">&quot;-0&quot;</span>]);
         <span class="kw">let </span>text = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, x);
-        <span class="kw">let </span>(<span class="kw">_</span>, res) = parse_syntax()(Span::new(<span class="kw-2">&amp;</span>text)).expect(<span class="string">&quot;valid parse&quot;</span>);
-        <span class="comment">// eprintln!(&quot;------------------&quot;);
-        // eprintln!(&quot;{}&quot;, text);
-        // eprintln!(&quot;{} {:?}&quot;, x, x);
-        // eprintln!(&quot;{} {:?}&quot;, res, res);
-        </span><span class="macro">assert_eq!</span>(x, res)
+        <span class="kw">let </span>(<span class="kw">_</span>, res) = parse_syntax(State::default().rccell(), <span class="bool-val">false</span>, <span class="bool-val">true</span>)(Span::new(<span class="kw-2">&amp;</span>text))
+            .expect(<span class="string">&quot;valid parse&quot;</span>);
+        <span class="macro">assert_eq!</span>(x, res)
     }
 
     <span class="macro">proptest! </span>{
         <span class="attr">#[test]
         </span><span class="kw">fn </span>prop_syntax(x <span class="kw">in </span>any::&lt;Syntax&lt;Scalar&gt;&gt;()) {
             <span class="kw">let </span>text = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, x);
-            <span class="kw">let </span>(<span class="kw">_</span>, res) = parse_syntax()(Span::new(<span class="kw-2">&amp;</span>text)).expect(<span class="string">&quot;valid parse&quot;</span>);
-            <span class="comment">// eprintln!(&quot;------------------&quot;);
-            // eprintln!(&quot;x {} {:?}&quot;, x, x);
-            // eprintln!(&quot;res {} {:?}&quot;, res, res);
-            </span><span class="macro">assert_eq!</span>(x, res)
+            <span class="kw">let </span>(<span class="kw">_</span>, res) = parse_syntax(State::default().rccell(), <span class="bool-val">false</span>, <span class="bool-val">true</span>)(Span::new(<span class="kw-2">&amp;</span>text)).expect(<span class="string">&quot;valid parse&quot;</span>);
+            <span class="macro">assert_eq!</span>(x, res)
         }
     }
 }
