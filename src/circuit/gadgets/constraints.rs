@@ -152,6 +152,34 @@ pub(crate) fn add_to_lc<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok(v_lc)
 }
 
+fn enforce_u64<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    a: &AllocatedNum<F>,
+) -> Result<(), SynthesisError> {
+    let mut a_u64 = match a.get_value() {
+        Some(v) => v.to_u64_unchecked(),
+        None => 0, // Blank and Dummy
+    };
+
+    let mut bits: Vec<Boolean> = vec![];
+    for _ in 0..64 {
+        let b = a_u64 % 2;
+        let b_bool = Boolean::Constant(b == 1);
+        bits.push(b_bool);
+
+        a_u64 /= 2;
+    }
+
+    // enforce a = sum(bits)
+    enforce_pack(
+        &mut cs.namespace(|| "u64 bit decomposition check"),
+        &bits,
+        a,
+    )?;
+
+    Ok(())
+}
+
 // Enforce v is the bit decomposition of num, therefore we have that 0 <= num < 2ˆ(sizeof(v)).
 pub(crate) fn enforce_pack<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
@@ -1281,5 +1309,31 @@ mod tests {
         .expect("enforce_implication_lc failed");
 
         assert!(cs.is_satisfied());
+    }
+
+    #[test]
+    fn test_enforce_u64() {
+        let mut cs = TestConstraintSystem::<Fr>::new();
+
+        let alloc_num = AllocatedNum::alloc(&mut cs.namespace(|| "num"), || {
+            Ok(Fr::from_str_vartime("42").unwrap())
+        })
+        .unwrap();
+
+        enforce_u64(&mut cs.namespace(|| "enforce u64"), &alloc_num).unwrap();
+        assert!(cs.is_satisfied());
+    }
+
+    #[test]
+    fn test_enforce_u64_negative() {
+        let mut cs = TestConstraintSystem::<Fr>::new();
+
+        let alloc_num = AllocatedNum::alloc(&mut cs.namespace(|| "num"), || {
+            Ok(Fr::from_str_vartime("18446744073709551616").unwrap())
+        })
+        .unwrap();
+
+        enforce_u64(&mut cs.namespace(|| "enforce u64"), &alloc_num).unwrap();
+        assert!(!cs.is_satisfied());
     }
 }
