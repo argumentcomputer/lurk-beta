@@ -12,6 +12,7 @@ use crate::tag::ExprTag::*;
 #[derive(Clone)]
 pub enum PreimageData<F: LurkField> {
     PtrVec(Vec<Ptr<F>>),
+    FPtr(F, Ptr<F>),
     FPair(F, F),
 }
 
@@ -24,6 +25,7 @@ pub struct Preimages<F: LurkField> {
     pub hash2_ptrs: Vec<Option<PreimageData<F>>>,
     pub hash3_ptrs: Vec<Option<PreimageData<F>>>,
     pub hash4_ptrs: Vec<Option<PreimageData<F>>>,
+    pub hiding: Vec<Option<PreimageData<F>>>,
     pub is_diff_neg: Vec<Option<PreimageData<F>>>,
     pub call_outputs: VecDeque<Vec<Ptr<F>>>,
 }
@@ -34,12 +36,14 @@ impl<F: LurkField> Preimages<F> {
         let hash2_ptrs = Vec::with_capacity(slot.hash2);
         let hash3_ptrs = Vec::with_capacity(slot.hash3);
         let hash4_ptrs = Vec::with_capacity(slot.hash4);
+        let hiding = Vec::with_capacity(slot.hiding);
         let is_diff_neg = Vec::with_capacity(slot.is_diff_neg);
         let call_outputs = VecDeque::new();
         Preimages {
             hash2_ptrs,
             hash3_ptrs,
             hash4_ptrs,
+            hiding,
             is_diff_neg,
             call_outputs,
         }
@@ -263,20 +267,24 @@ impl Block {
                             .hash3(&[*secret, z_ptr.tag.to_field(), z_ptr.hash]);
                     let tgt_ptr = Ptr::comm(hash);
                     store.comms.insert(FWrap::<F>(hash), (*secret, *src_ptr));
+                    preimages
+                        .hiding
+                        .push(Some(PreimageData::FPtr(*secret, *src_ptr)));
                     bindings.insert(tgt.clone(), tgt_ptr);
                 }
-                Op::Open(tgt_secret, tgt_ptr, comm_or_num) => match bindings.get(comm_or_num)? {
-                    Ptr::Leaf(Tag::Expr(Num), hash) | Ptr::Leaf(Tag::Expr(Comm), hash) => {
-                        let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
-                            bail!("No committed data for hash {}", &hash.hex_digits())
-                        };
-                        bindings.insert(tgt_ptr.clone(), *ptr);
-                        bindings.insert(tgt_secret.clone(), Ptr::Leaf(Tag::Expr(Num), *secret));
-                    }
-                    _ => {
-                        bail!("{comm_or_num} is not a num/comm pointer")
-                    }
-                },
+                Op::Open(tgt_secret, tgt_ptr, comm) => {
+                    let Ptr::Leaf(Tag::Expr(Comm), hash) = bindings.get(comm)? else {
+                        bail!("{comm} is not a comm pointer")
+                    };
+                    let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
+                        bail!("No committed data for hash {}", &hash.hex_digits())
+                    };
+                    bindings.insert(tgt_ptr.clone(), *ptr);
+                    bindings.insert(tgt_secret.clone(), Ptr::Leaf(Tag::Expr(Num), *secret));
+                    preimages
+                        .hiding
+                        .push(Some(PreimageData::FPtr(*secret, *ptr)))
+                }
             }
         }
         match &self.ctrl {
@@ -368,6 +376,7 @@ impl Func {
         let hash2_init = preimages.hash2_ptrs.len();
         let hash3_init = preimages.hash3_ptrs.len();
         let hash4_init = preimages.hash4_ptrs.len();
+        let hiding_init = preimages.hiding.len();
         let is_diff_neg_init = preimages.is_diff_neg.len();
 
         let mut res = self
@@ -378,6 +387,7 @@ impl Func {
         let hash2_used = preimages.hash2_ptrs.len() - hash2_init;
         let hash3_used = preimages.hash3_ptrs.len() - hash3_init;
         let hash4_used = preimages.hash4_ptrs.len() - hash4_init;
+        let hiding_used = preimages.hiding.len() - hiding_init;
         let is_diff_neg_used = preimages.is_diff_neg.len() - is_diff_neg_init;
 
         for _ in hash2_used..self.slot.hash2 {
@@ -388,6 +398,9 @@ impl Func {
         }
         for _ in hash4_used..self.slot.hash4 {
             preimages.hash4_ptrs.push(None);
+        }
+        for _ in hiding_used..self.slot.hiding {
+            preimages.hiding.push(None);
         }
         for _ in is_diff_neg_used..self.slot.is_diff_neg {
             preimages.is_diff_neg.push(None);

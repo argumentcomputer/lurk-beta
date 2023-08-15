@@ -188,6 +188,9 @@ impl Func {
                 SlotType::Hash4 => {
                     hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c8())?
                 }
+                SlotType::Hiding => {
+                    hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c3())?
+                }
                 SlotType::IsDiffNeg => {
                     let a_num = &preallocated_preimg[0];
                     let b_num = &preallocated_preimg[1];
@@ -266,12 +269,29 @@ impl Func {
                             component_idx += 1;
                         }
                     }
+                    PreimageData::FPtr(f, ptr) => {
+                        let z_ptr = store.hash_ptr(ptr)?;
+                        // allocate first component
+                        preallocated_preimg
+                            .push(Self::allocate_preimg_component_for_slot(cs, &slot, 0, *f)?);
+                        // allocate second component
+                        preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
+                            cs,
+                            &slot,
+                            1,
+                            z_ptr.tag.to_field(),
+                        )?);
+                        // allocate third component
+                        preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
+                            cs, &slot, 2, z_ptr.hash,
+                        )?);
+                    }
                     PreimageData::FPair(a, b) => {
-                        // allocate first element
+                        // allocate first component
                         preallocated_preimg
                             .push(Self::allocate_preimg_component_for_slot(cs, &slot, 0, *a)?);
 
-                        // allocate second element
+                        // allocate second component
                         preallocated_preimg
                             .push(Self::allocate_preimg_component_for_slot(cs, &slot, 1, *b)?);
                     }
@@ -353,6 +373,14 @@ impl Func {
             store,
         )?;
 
+        let preallocated_hiding_slots = Func::allocate_slots(
+            cs,
+            &frame.preimages.hiding,
+            SlotType::Hiding,
+            self.slot.hiding,
+            store,
+        )?;
+
         let preallocated_is_diff_neg_slots = Func::allocate_slots(
             cs,
             &frame.preimages.is_diff_neg,
@@ -367,6 +395,7 @@ impl Func {
             preallocated_hash2_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash3_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash4_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
+            preallocated_hiding_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_is_diff_neg_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             call_outputs: VecDeque<Vec<Ptr<F>>>,
             call_count: usize,
@@ -649,22 +678,86 @@ impl Func {
                         bound_allocations.insert(tgt.clone(), c);
                     }
                     Op::Emit(_) => (),
-                    Op::Hide(tgt, _sec, _pay) => {
-                        // TODO
-                        let allocated_ptr = AllocatedPtr::from_parts(
-                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
-                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
-                        );
+                    Op::Hide(tgt, sec, pay) => {
+                        let sec = bound_allocations.get(sec)?;
+                        let pay = bound_allocations.get(pay)?;
+                        let sec_tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let (preallocated_preimg, hash) =
+                            &g.preallocated_hiding_slots[next_slot.consume_hiding()];
+                        implies_equal(
+                            &mut cs.namespace(|| {
+                                format!("implies equal for first component (OP {:?})", &op)
+                            }),
+                            not_dummy,
+                            sec.tag(),
+                            &sec_tag,
+                        )?;
+                        implies_equal(
+                            &mut cs.namespace(|| {
+                                format!("implies equal for second component (OP {:?})", &op)
+                            }),
+                            not_dummy,
+                            sec.hash(),
+                            &preallocated_preimg[0],
+                        )?;
+                        implies_equal(
+                            &mut cs.namespace(|| {
+                                format!("implies equal for third component (OP {:?})", &op)
+                            }),
+                            not_dummy,
+                            pay.tag(),
+                            &preallocated_preimg[1],
+                        )?;
+                        implies_equal(
+                            &mut cs.namespace(|| {
+                                format!("implies equal for forth component (OP {:?})", &op)
+                            }),
+                            not_dummy,
+                            pay.hash(),
+                            &preallocated_preimg[2],
+                        )?;
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Comm).to_field())?;
+                        let allocated_ptr = AllocatedPtr::from_parts(tag, hash.clone());
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
-                    Op::Open(pay, sec, _comm_or_num) => {
-                        // TODO
-                        let allocated_ptr = AllocatedPtr::from_parts(
-                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
-                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
+                    Op::Open(sec, pay, comm) => {
+                        let comm = bound_allocations.get(comm)?;
+                        let (preallocated_preimg, hash) =
+                            &g.preallocated_hiding_slots[next_slot.consume_hiding()];
+                        let comm_tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Comm).to_field())?;
+                        implies_equal(
+                            &mut cs.namespace(|| {
+                                format!("implies equal for first component (OP {:?})", &op)
+                            }),
+                            not_dummy,
+                            comm.tag(),
+                            &comm_tag,
+                        )?;
+                        implies_equal(
+                            &mut cs.namespace(|| {
+                                format!("implies equal for second component (OP {:?})", &op)
+                            }),
+                            not_dummy,
+                            comm.hash(),
+                            hash,
+                        )?;
+                        let sec_tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let allocated_sec_ptr =
+                            AllocatedPtr::from_parts(sec_tag, preallocated_preimg[0].clone());
+                        let allocated_pay_ptr = AllocatedPtr::from_parts(
+                            preallocated_preimg[1].clone(),
+                            preallocated_preimg[2].clone(),
                         );
-                        bound_allocations.insert(pay.clone(), allocated_ptr.clone());
-                        bound_allocations.insert(sec.clone(), allocated_ptr);
+                        bound_allocations.insert(sec.clone(), allocated_sec_ptr);
+                        bound_allocations.insert(pay.clone(), allocated_pay_ptr);
                     }
                 }
             }
@@ -896,6 +989,7 @@ impl Func {
                 preallocated_hash2_slots,
                 preallocated_hash3_slots,
                 preallocated_hash4_slots,
+                preallocated_hiding_slots,
                 preallocated_is_diff_neg_slots,
                 call_outputs,
                 call_count: 0,
@@ -968,9 +1062,15 @@ impl Func {
                         // one constraint for the image's hash
                         num_constraints += 1;
                     }
-                    Op::Hide(..) | Op::Open(..) => {
-                        // TODO
-                        globals.insert(FWrap(F::ZERO));
+                    Op::Hide(..) => {
+                        num_constraints += 4;
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        globals.insert(FWrap(Tag::Expr(Comm).to_field()));
+                    }
+                    Op::Open(..) => {
+                        num_constraints += 2;
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        globals.insert(FWrap(Tag::Expr(Comm).to_field()));
                     }
                 }
             }
@@ -1027,6 +1127,7 @@ impl Func {
         let slot_constraints = 289 * self.slot.hash2
             + 337 * self.slot.hash3
             + 388 * self.slot.hash4
+            + 265 * self.slot.hiding
             + 391 * self.slot.is_diff_neg;
         let num_constraints = recurse::<F>(&self.body, false, globals, store);
         slot_constraints + num_constraints + globals.len()

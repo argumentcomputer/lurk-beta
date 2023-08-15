@@ -802,7 +802,7 @@ mod tests {
         });
 
         let inputs = vec![Ptr::num(Fr::from_u64(42))];
-        synthesize_test_helper(&func, inputs, SlotsCounter::new((2, 0, 0, 0)));
+        synthesize_test_helper(&func, inputs, SlotsCounter::new((2, 0, 0, 0, 0)));
     }
 
     #[test]
@@ -863,7 +863,7 @@ mod tests {
         });
 
         let inputs = vec![Ptr::num(Fr::from_u64(42)), Ptr::char('c')];
-        synthesize_test_helper(&lem, inputs, SlotsCounter::new((2, 2, 2, 0)));
+        synthesize_test_helper(&lem, inputs, SlotsCounter::new((2, 2, 2, 0, 0)));
     }
 
     #[test]
@@ -897,7 +897,7 @@ mod tests {
         });
 
         let inputs = vec![Ptr::num(Fr::from_u64(42)), Ptr::char('c')];
-        synthesize_test_helper(&lem, inputs, SlotsCounter::new((3, 3, 3, 0)));
+        synthesize_test_helper(&lem, inputs, SlotsCounter::new((3, 3, 3, 0, 0)));
     }
 
     #[test]
@@ -944,6 +944,6 @@ mod tests {
         });
 
         let inputs = vec![Ptr::num(Fr::from_u64(42)), Ptr::char('c')];
-        synthesize_test_helper(&lem, inputs, SlotsCounter::new((4, 4, 4, 0)));
+        synthesize_test_helper(&lem, inputs, SlotsCounter::new((4, 4, 4, 0, 0)));
     }
 }

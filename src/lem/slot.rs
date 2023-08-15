@@ -110,18 +110,20 @@ pub struct SlotsCounter {
     pub hash2: usize,
     pub hash3: usize,
     pub hash4: usize,
+    pub hiding: usize,
     pub is_diff_neg: usize,
 }
 
 impl SlotsCounter {
     /// This interface is mostly for testing
     #[inline]
-    pub fn new(num_slots: (usize, usize, usize, usize)) -> Self {
+    pub fn new(num_slots: (usize, usize, usize, usize, usize)) -> Self {
         Self {
             hash2: num_slots.0,
             hash3: num_slots.1,
             hash4: num_slots.2,
-            is_diff_neg: num_slots.3,
+            hiding: num_slots.3,
+            is_diff_neg: num_slots.4,
         }
     }
 
@@ -144,6 +146,12 @@ impl SlotsCounter {
     }
 
     #[inline]
+    pub fn consume_hiding(&mut self) -> usize {
+        self.hiding += 1;
+        self.hiding - 1
+    }
+
+    #[inline]
     pub fn consume_is_diff_neg(&mut self) -> usize {
         self.is_diff_neg += 1;
         self.is_diff_neg - 1
@@ -156,6 +164,7 @@ impl SlotsCounter {
             hash2: max(self.hash2, other.hash2),
             hash3: max(self.hash3, other.hash3),
             hash4: max(self.hash4, other.hash4),
+            hiding: max(self.hiding, other.hiding),
             is_diff_neg: max(self.is_diff_neg, other.is_diff_neg),
         }
     }
@@ -166,6 +175,7 @@ impl SlotsCounter {
             hash2: self.hash2 + other.hash2,
             hash3: self.hash3 + other.hash3,
             hash4: self.hash4 + other.hash4,
+            hiding: self.hiding + other.hiding,
             is_diff_neg: self.is_diff_neg + other.is_diff_neg,
         }
     }
@@ -175,10 +185,11 @@ impl Block {
     pub fn count_slots(&self) -> SlotsCounter {
         let ops_slots = self.ops.iter().fold(SlotsCounter::default(), |acc, op| {
             let val = match op {
-                Op::Hash2(..) | Op::Unhash2(..) => SlotsCounter::new((1, 0, 0, 0)),
-                Op::Hash3(..) | Op::Unhash3(..) => SlotsCounter::new((0, 1, 0, 0)),
-                Op::Hash4(..) | Op::Unhash4(..) => SlotsCounter::new((0, 0, 1, 0)),
-                Op::Lt(..) => SlotsCounter::new((0, 0, 0, 1)),
+                Op::Hash2(..) | Op::Unhash2(..) => SlotsCounter::new((1, 0, 0, 0, 0)),
+                Op::Hash3(..) | Op::Unhash3(..) => SlotsCounter::new((0, 1, 0, 0, 0)),
+                Op::Hash4(..) | Op::Unhash4(..) => SlotsCounter::new((0, 0, 1, 0, 0)),
+                Op::Hide(..) | Op::Open(..) => SlotsCounter::new((0, 0, 0, 1, 0)),
+                Op::Lt(..) => SlotsCounter::new((0, 0, 0, 0, 1)),
                 Op::Call(_, func, _) => func.slot,
                 _ => SlotsCounter::default(),
             };
@@ -216,6 +227,7 @@ pub(crate) enum SlotType {
     Hash2,
     Hash3,
     Hash4,
+    Hiding,
     IsDiffNeg,
 }
 
@@ -225,6 +237,7 @@ impl SlotType {
             Self::Hash2 => 4,
             Self::Hash3 => 6,
             Self::Hash4 => 8,
+            Self::Hiding => 3,
             Self::IsDiffNeg => 2,
         }
     }
@@ -236,6 +249,7 @@ impl std::fmt::Display for SlotType {
             Self::Hash2 => write!(f, "Hash2"),
             Self::Hash3 => write!(f, "Hash3"),
             Self::Hash4 => write!(f, "Hash4"),
+            Self::Hiding => write!(f, "Hiding"),
             Self::IsDiffNeg => write!(f, "IsDiffNeg"),
         }
     }
