@@ -238,6 +238,10 @@ pub enum Op {
     /// `Cast(y, t, x)` binds `y` to a pointer with tag `t` and the hash of `x`
     Cast(Var, Tag, Var),
     /// `Add(y, a, b)` binds `y` to the sum of `a` and `b`
+    EqTag(Var, Var, Var),
+    /// `EqVal(y, a, b)` binds `y` to `1` if `a.val != b.val`, or to `0` otherwise
+    EqVal(Var, Var, Var),
+    /// `Lt(y, a, b)` binds `y` to `1` if `a < b`, or to `0` otherwise
     Add(Var, Var, Var),
     /// `Sub(y, a, b)` binds `y` to the sum of `a` and `b`
     Sub(Var, Var, Var),
@@ -245,7 +249,7 @@ pub enum Op {
     Mul(Var, Var, Var),
     /// `Div(y, a, b)` binds `y` to the sum of `a` and `b`
     Div(Var, Var, Var),
-    /// `Lt(y, a, b)` binds `y` to `t` if `a < b`, or to `nil` otherwise
+    /// `Lt(y, a, b)` binds `y` to `1` if `a < b`, or to `0` otherwise
     Lt(Var, Var, Var),
     /// `Emit(v)` simply prints out the value of `v` when interpreting the code
     Emit(Var),
@@ -342,7 +346,9 @@ impl Func {
                         is_bound(src, map)?;
                         is_unique(tgt, map);
                     }
-                    Op::Add(tgt, a, b)
+                    Op::EqTag(tgt, a, b)
+                    | Op::EqVal(tgt, a, b)
+                    | Op::Add(tgt, a, b)
                     | Op::Sub(tgt, a, b)
                     | Op::Mul(tgt, a, b)
                     | Op::Div(tgt, a, b)
@@ -553,6 +559,18 @@ impl Block {
                     let src = map.get_cloned(&src)?;
                     let tgt = insert_one(map, uniq, &tgt);
                     ops.push(Op::Cast(tgt, tag, src))
+                }
+                Op::EqTag(tgt, a, b) => {
+                    let a = map.get_cloned(&a)?;
+                    let b = map.get_cloned(&b)?;
+                    let tgt = insert_one(map, uniq, &tgt);
+                    ops.push(Op::EqTag(tgt, a, b))
+                }
+                Op::EqVal(tgt, a, b) => {
+                    let a = map.get_cloned(&a)?;
+                    let b = map.get_cloned(&b)?;
+                    let tgt = insert_one(map, uniq, &tgt);
+                    ops.push(Op::EqVal(tgt, a, b))
                 }
                 Op::Add(tgt, a, b) => {
                     let a = map.get_cloned(&a)?;

@@ -111,6 +111,30 @@ impl Block {
                     let tgt_ptr = src_ptr.cast(*tag);
                     bindings.insert(tgt.clone(), tgt_ptr);
                 }
+                Op::EqTag(tgt, a, b) => {
+                    let a = bindings.get(a)?;
+                    let b = bindings.get(b)?;
+                    let c = if a.tag() == b.tag() {
+                        Ptr::Leaf(Tag::Expr(Num), F::ONE)
+                    } else {
+                        Ptr::Leaf(Tag::Expr(Num), F::ZERO)
+                    };
+                    bindings.insert(tgt.clone(), c);
+                }
+                Op::EqVal(tgt, a, b) => {
+                    let a = bindings.get(a)?;
+                    let b = bindings.get(b)?;
+                    // In order to compare Ptrs, we *must* resolve the hashes. Otherwise, we risk failing to recognize equality of
+                    // compound data with opaque data in either element's transitive closure.
+                    let a_hash = store.hash_ptr(a)?.hash;
+                    let b_hash = store.hash_ptr(b)?.hash;
+                    let c = if a_hash == b_hash {
+                        Ptr::Leaf(Tag::Expr(Num), F::ONE)
+                    } else {
+                        Ptr::Leaf(Tag::Expr(Num), F::ZERO)
+                    };
+                    bindings.insert(tgt.clone(), c);
+                }
                 Op::Add(tgt, a, b) => {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;

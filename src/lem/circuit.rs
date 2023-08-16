@@ -585,10 +585,35 @@ impl Func {
                         let allocated_ptr = AllocatedPtr::from_parts(tag, src.hash().clone());
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
+                    Op::EqTag(tgt, a, b) => {
+                        let a = bound_allocations.get(a)?;
+                        let b = bound_allocations.get(b)?;
+                        let a_num = a.tag();
+                        let b_num = b.tag();
+                        let eq = alloc_equal(&mut cs.namespace(|| "equal_tag"), a_num, b_num)?;
+                        let c_num = boolean_to_num(&mut cs.namespace(|| "equal_tag.to_num"), &eq)?;
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let c = AllocatedPtr::from_parts(tag, c_num);
+                        bound_allocations.insert(tgt.clone(), c);
+                    }
+                    Op::EqVal(tgt, a, b) => {
+                        let a = bound_allocations.get(a)?;
+                        let b = bound_allocations.get(b)?;
+                        let a_num = a.hash();
+                        let b_num = b.hash();
+                        let eq = alloc_equal(&mut cs.namespace(|| "equal_val"), a_num, b_num)?;
+                        let c_num = boolean_to_num(&mut cs.namespace(|| "equal_val.to_num"), &eq)?;
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let c = AllocatedPtr::from_parts(tag, c_num);
+                        bound_allocations.insert(tgt.clone(), c);
+                    }
                     Op::Add(tgt, a, b) => {
                         let a = bound_allocations.get(a)?;
                         let b = bound_allocations.get(b)?;
-                        // TODO check that the tags are correct
                         let a_num = a.hash();
                         let b_num = b.hash();
                         let c_num = add(&mut cs.namespace(|| "add"), a_num, b_num)?;
@@ -601,7 +626,6 @@ impl Func {
                     Op::Sub(tgt, a, b) => {
                         let a = bound_allocations.get(a)?;
                         let b = bound_allocations.get(b)?;
-                        // TODO check that the tags are correct
                         let a_num = a.hash();
                         let b_num = b.hash();
                         let c_num = sub(&mut cs.namespace(|| "sub"), a_num, b_num)?;
@@ -614,7 +638,6 @@ impl Func {
                     Op::Mul(tgt, a, b) => {
                         let a = bound_allocations.get(a)?;
                         let b = bound_allocations.get(b)?;
-                        // TODO check that the tags are correct
                         let a_num = a.hash();
                         let b_num = b.hash();
                         let c_num = mul(&mut cs.namespace(|| "mul"), a_num, b_num)?;
@@ -627,7 +650,6 @@ impl Func {
                     Op::Div(tgt, a, b) => {
                         let a = bound_allocations.get(a)?;
                         let b = bound_allocations.get(b)?;
-                        // TODO check that the tags are correct
                         let a_num = a.hash();
                         let b_num = b.hash();
 
@@ -652,7 +674,6 @@ impl Func {
                     Op::Lt(tgt, a, b) => {
                         let a = bound_allocations.get(a)?;
                         let b = bound_allocations.get(b)?;
-                        // TODO check that the tags are correct
                         let tag = g
                             .global_allocator
                             .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
@@ -782,10 +803,8 @@ impl Func {
                 Ctrl::IfEq(x, y, eq_block, else_block) => {
                     let x = bound_allocations.get(x)?.hash();
                     let y = bound_allocations.get(y)?.hash();
-                    // TODO should we check whether the tags are equal too?
                     let eq = alloc_equal(&mut cs.namespace(|| "if_eq.alloc_equal"), x, y)?;
                     let not_eq = eq.not();
-                    // TODO is this the most efficient way of doing if statements?
                     let not_dummy_and_eq = and(&mut cs.namespace(|| "if_eq.and"), not_dummy, &eq)?;
                     let not_dummy_and_not_eq =
                         and(&mut cs.namespace(|| "if_eq.and.2"), not_dummy, &not_eq)?;
@@ -1026,6 +1045,10 @@ impl Func {
                     }
                     Op::Cast(_tgt, tag, _src) => {
                         globals.insert(FWrap(tag.to_field()));
+                    }
+                    Op::EqTag(_, _, _) | Op::EqVal(_, _, _) => {
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        num_constraints += 5;
                     }
                     Op::Add(_, _, _) | Op::Sub(_, _, _) | Op::Mul(_, _, _) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));

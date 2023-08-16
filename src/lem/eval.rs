@@ -725,11 +725,17 @@ fn apply_cont() -> Func {
                                 return(hidden, env, continuation, makethunk)
                             }
                             Symbol("eq") => {
-                                // TODO should we check whether the tags are also equal?
-                                if evaled_arg == result {
-                                    return (t, env, continuation, makethunk)
+                                let eq_tag = eq_tag(evaled_arg, result);
+                                let eq_val = eq_val(evaled_arg, result);
+                                let eq = mul(eq_tag, eq_val);
+                                match eq.val {
+                                    Num(0) => {
+                                        return (nil, env, continuation, makethunk)
+                                    }
+                                    Num(1) => {
+                                        return (t, env, continuation, makethunk)
+                                    }
                                 }
-                                return (nil, env, continuation, makethunk)
                             }
                             Symbol("+") => {
                                 match args_num_type.val {
@@ -924,8 +930,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 8781;
-    const NUM_CONSTRAINTS: usize = 10875;
+    const NUM_AUX: usize = 8868;
+    const NUM_CONSTRAINTS: usize = 11096;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,

@@ -58,6 +58,20 @@ macro_rules! op {
             $crate::var!($src),
         )
     };
+    ( let $tgt:ident = eq_tag($a:ident, $b:ident) ) => {
+        $crate::lem::Op::EqTag(
+            $crate::var!($tgt),
+            $crate::var!($a),
+            $crate::var!($b),
+        )
+    };
+    ( let $tgt:ident = eq_val($a:ident, $b:ident) ) => {
+        $crate::lem::Op::EqVal(
+            $crate::var!($tgt),
+            $crate::var!($a),
+            $crate::var!($b),
+        )
+    };
     ( let $tgt:ident = add($a:ident, $b:ident) ) => {
         $crate::lem::Op::Add(
             $crate::var!($tgt),
@@ -246,6 +260,26 @@ macro_rules! block {
             {
                 $($limbs)*
                 $crate::op!(let $tgt = cast($src, $kind::$tag))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = eq_tag($a:ident, $b:ident) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = eq_tag($a, $b))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = eq_val($a:ident, $b:ident) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = eq_val($a, $b))
             },
             $($tail)*
         )
