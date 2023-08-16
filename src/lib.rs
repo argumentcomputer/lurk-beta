@@ -1,4 +1,4 @@
-#![deny(rust_2018_idioms, unreachable_pub)]
+#![deny(unreachable_pub)]
 #[macro_use]
 extern crate alloc;
 

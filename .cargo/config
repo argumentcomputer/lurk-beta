@@ -9,4 +9,5 @@ xclippy = [
     "-Wclippy::disallowed_methods",
     "-Wclippy::match_same_arms",
     "-Wclippy::cast_lossless",
+    "-Wrust_2018_idioms",
 ]
