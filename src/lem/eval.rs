@@ -955,8 +955,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 8868;
-    const NUM_CONSTRAINTS: usize = 11096;
+    const NUM_AUX: usize = 8885;
+    const NUM_CONSTRAINTS: usize = 11139;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,
