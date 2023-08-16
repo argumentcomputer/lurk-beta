@@ -19,7 +19,8 @@ pub(crate) fn eval_step() -> Func {
 
 fn safe_uncons() -> Func {
     func!(safe_uncons(xs): 2 => {
-        let nil: Expr::Nil;
+        let nil = Symbol("nil");
+        let nil = cast(nil, Expr::Nil);
         let nilstr = Symbol("");
         match xs.tag {
             Expr::Nil => {
@@ -56,7 +57,8 @@ fn reduce() -> Func {
         match args.tag {
             Expr::Nil => {
                 let dummy = Symbol("dummy");
-                let nil: Expr::Nil;
+                let nil = Symbol("nil");
+                let nil = cast(nil, Expr::Nil);
                 return (dummy, nil)
             }
             Expr::Cons => {
@@ -88,7 +90,8 @@ fn reduce() -> Func {
         }
     });
     let is_unop = func!(is_unop(head): 1 => {
-        let nil: Expr::Nil;
+        let nil = Symbol("nil");
+        let nil = cast(nil, Expr::Nil);
         let t = Symbol("t");
         match head.val {
             Symbol("car")
@@ -109,7 +112,8 @@ fn reduce() -> Func {
     });
 
     let is_binop = func!(is_binop(head): 1 => {
-        let nil: Expr::Nil;
+        let nil = Symbol("nil");
+        let nil = cast(nil, Expr::Nil);
         let t = Symbol("t");
         match head.val {
             Symbol("cons")
@@ -133,7 +137,8 @@ fn reduce() -> Func {
     });
     let is_potentially_fun = func!(is_potentially_fun(head): 1 => {
         let t = Symbol("t");
-        let nil: Expr::Nil;
+        let nil = Symbol("nil");
+        let nil = cast(nil, Expr::Nil);
         match head.tag {
             Expr::Fun | Expr::Cons | Expr::Sym | Expr::Thunk => {
                 return (t)
@@ -148,7 +153,8 @@ fn reduce() -> Func {
         let apply: Ctrl::ApplyContinuation;
         let errctrl: Ctrl::Error;
         let err: Cont::Error;
-        let nil: Expr::Nil;
+        let nil = Symbol("nil");
+        let nil = cast(nil, Expr::Nil);
         let t = Symbol("t");
 
         match cont.tag {
@@ -431,7 +437,8 @@ fn apply_cont() -> Func {
         match var_or_binding.tag {
             // It's a var, so we are extending a simple env with a recursive env.
             Expr::Sym | Expr::Nil => {
-                let nil: Expr::Nil;
+                let nil = Symbol("nil");
+                let nil = cast(nil, Expr::Nil);
                 let list: Expr::Cons = hash2(cons, nil);
                 let res: Expr::Cons = hash2(list, env);
                 return (res)
@@ -484,7 +491,8 @@ fn apply_cont() -> Func {
         let makethunk: Ctrl::MakeThunk;
         let errctrl: Ctrl::Error;
         let err: Cont::Error;
-        let nil: Expr::Nil;
+        let nil = Symbol("nil");
+        let nil = cast(nil, Expr::Nil);
         let t = Symbol("t");
         let zero = Num(0);
         let size_u64 = Num(18446744073709551616);
@@ -962,8 +970,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 10045;
-    const NUM_CONSTRAINTS: usize = 12306;
+    const NUM_AUX: usize = 10046;
+    const NUM_CONSTRAINTS: usize = 12307;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,
