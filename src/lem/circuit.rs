@@ -733,17 +733,25 @@ impl Func {
                         let b = bound_allocations.get(b)?.hash();
                         let div_rem = a.get_value().and_then(|a| {
                             b.get_value().map(|b| {
-                                let a = a.to_u64_unchecked();
-                                let b = b.to_u64_unchecked();
-                                (F::from_u64(a / b), F::from_u64(a % b))
+                                if not_dummy.get_value().unwrap() {
+                                    let a = a.to_u64_unchecked();
+                                    let b = b.to_u64_unchecked();
+                                    (F::from_u64(a / b), F::from_u64(a % b))
+                                } else {
+                                    (F::ZERO, a)
+                                }
                             })
                         });
                         let div =
                             AllocatedNum::alloc(cs.namespace(|| "div"), || Ok(div_rem.unwrap().0))?;
                         let rem =
                             AllocatedNum::alloc(cs.namespace(|| "rem"), || Ok(div_rem.unwrap().1))?;
+
+                        let diff = sub(cs.namespace(|| "diff for slot {slot}"), b, &rem)?;
                         implies_u64(cs.namespace(|| "div_u64"), not_dummy, &div)?;
                         implies_u64(cs.namespace(|| "rem_u64"), not_dummy, &rem)?;
+                        implies_u64(cs.namespace(|| "diff_u64"), not_dummy, &diff)?;
+
                         linear(cs, || "linear", b, &div, &rem, a);
                         let tag = g
                             .global_allocator
@@ -1124,8 +1132,8 @@ impl Func {
                     }
                     Op::DivRem64(_, _, _) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
-                        // two implies_u64 and one linear
-                        num_constraints += 131;
+                        // three implies_u64, one sub and one linear
+                        num_constraints += 197;
                     }
                     Op::Emit(_) => (),
                     Op::Hash2(_, tag, _) => {
