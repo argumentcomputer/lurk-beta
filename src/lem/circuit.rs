@@ -199,13 +199,11 @@ impl Func {
                         &mut cs.namespace(|| format!("diff for slot {slot}")),
                         a_num,
                         b_num,
-                    )
-                    .unwrap();
+                    )?;
                     let diff_is_negative = allocate_is_negative(
                         &mut cs.namespace(|| format!("diff_is_negative for slot {slot}")),
                         &diff,
                     )?;
-
                     boolean_to_num(
                         &mut cs.namespace(|| format!("boolean_to_num for slot {slot}")),
                         &diff_is_negative,
@@ -680,22 +678,16 @@ impl Func {
                             .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
                         let (preallocated_preimg, lt) =
                             &g.preallocated_is_diff_neg_slots[next_slot.consume_is_diff_neg()];
-                        implies_equal(
-                            &mut cs.namespace(|| {
-                                format!("implies equal for first component (OP {:?})", &op)
-                            }),
-                            not_dummy,
-                            a.hash(),
-                            &preallocated_preimg[0],
-                        )?;
-                        implies_equal(
-                            &mut cs.namespace(|| {
-                                format!("implies equal for second component (OP {:?})", &op)
-                            }),
-                            not_dummy,
-                            b.hash(),
-                            &preallocated_preimg[1],
-                        )?;
+                        for (i, n) in [a.hash(), b.hash()].into_iter().enumerate() {
+                            implies_equal(
+                                &mut cs.namespace(|| {
+                                    format!("implies equal for component {i} (OP {:?})", &op)
+                                }),
+                                not_dummy,
+                                n,
+                                &preallocated_preimg[i],
+                            )?;
+                        }
                         let c = AllocatedPtr::from_parts(tag, lt.clone());
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -772,7 +764,7 @@ impl Func {
                             &g.preallocated_hiding_slots[next_slot.consume_hiding()];
                         implies_equal(
                             &mut cs.namespace(|| {
-                                format!("implies equal for first component (OP {:?})", &op)
+                                format!("implies equal for the secret's tag (OP {:?})", &op)
                             }),
                             not_dummy,
                             sec.tag(),
@@ -780,7 +772,7 @@ impl Func {
                         )?;
                         implies_equal(
                             &mut cs.namespace(|| {
-                                format!("implies equal for second component (OP {:?})", &op)
+                                format!("implies equal for the secret's hash (OP {:?})", &op)
                             }),
                             not_dummy,
                             sec.hash(),
@@ -788,7 +780,7 @@ impl Func {
                         )?;
                         implies_equal(
                             &mut cs.namespace(|| {
-                                format!("implies equal for third component (OP {:?})", &op)
+                                format!("implies equal for the payload's tag (OP {:?})", &op)
                             }),
                             not_dummy,
                             pay.tag(),
@@ -796,7 +788,7 @@ impl Func {
                         )?;
                         implies_equal(
                             &mut cs.namespace(|| {
-                                format!("implies equal for forth component (OP {:?})", &op)
+                                format!("implies equal for the payload's hash (OP {:?})", &op)
                             }),
                             not_dummy,
                             pay.hash(),
@@ -810,14 +802,14 @@ impl Func {
                     }
                     Op::Open(sec, pay, comm) => {
                         let comm = bound_allocations.get(comm)?;
-                        let (preallocated_preimg, hash) =
+                        let (preallocated_preimg, com_hash) =
                             &g.preallocated_hiding_slots[next_slot.consume_hiding()];
                         let comm_tag = g
                             .global_allocator
                             .get_or_alloc_const(cs, Tag::Expr(Comm).to_field())?;
                         implies_equal(
                             &mut cs.namespace(|| {
-                                format!("implies equal for first component (OP {:?})", &op)
+                                format!("implies equal for comm's tag (OP {:?})", &op)
                             }),
                             not_dummy,
                             comm.tag(),
@@ -825,11 +817,11 @@ impl Func {
                         )?;
                         implies_equal(
                             &mut cs.namespace(|| {
-                                format!("implies equal for second component (OP {:?})", &op)
+                                format!("implies equal for comm's hash (OP {:?})", &op)
                             }),
                             not_dummy,
                             comm.hash(),
-                            hash,
+                            com_hash,
                         )?;
                         let sec_tag = g
                             .global_allocator
