@@ -35,8 +35,8 @@ use bellperson::{
 use crate::circuit::gadgets::{
     constraints::{
         add, alloc_equal, alloc_equal_const, alloc_is_zero, allocate_is_negative, and,
-        boolean_to_num, div, enforce_pack, enforce_selector_with_premise, implies_equal, mul, pick,
-        sub,
+        boolean_to_num, div, enforce_pack, enforce_selector_with_premise, implies_equal,
+        implies_u64, linear, mul, pick, sub,
     },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
@@ -713,7 +713,7 @@ impl Func {
                             }
                             b_rest /= 2;
                         }
-                        let trunc = AllocatedNum::alloc(cs.namespace(|| ""), || {
+                        let trunc = AllocatedNum::alloc(cs.namespace(|| "trunc"), || {
                             let val = a
                                 .hash()
                                 .get_value()
@@ -727,6 +727,31 @@ impl Func {
                             .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
                         let c = AllocatedPtr::from_parts(tag, trunc);
                         bound_allocations.insert(tgt.clone(), c);
+                    }
+                    Op::DivRem64(tgt, a, b) => {
+                        let a = bound_allocations.get(a)?.hash();
+                        let b = bound_allocations.get(b)?.hash();
+                        let div_rem = a.get_value().and_then(|a| {
+                            b.get_value().map(|b| {
+                                let a = a.to_u64_unchecked();
+                                let b = b.to_u64_unchecked();
+                                (F::from_u64(a / b), F::from_u64(a % b))
+                            })
+                        });
+                        let div =
+                            AllocatedNum::alloc(cs.namespace(|| "div"), || Ok(div_rem.unwrap().0))?;
+                        let rem =
+                            AllocatedNum::alloc(cs.namespace(|| "rem"), || Ok(div_rem.unwrap().1))?;
+                        implies_u64(cs.namespace(|| "div_u64"), not_dummy, &div)?;
+                        implies_u64(cs.namespace(|| "rem_u64"), not_dummy, &rem)?;
+                        linear(cs, || "linear", b, &div, &rem, a);
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let div_ptr = AllocatedPtr::from_parts(tag.clone(), div);
+                        let rem_ptr = AllocatedPtr::from_parts(tag, rem);
+                        bound_allocations.insert(tgt[0].clone(), div_ptr);
+                        bound_allocations.insert(tgt[1].clone(), rem_ptr);
                     }
                     Op::Emit(_) => (),
                     Op::Hide(tgt, sec, pay) => {
@@ -1096,6 +1121,11 @@ impl Func {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
                         // bit decomposition + enforce_pack
                         num_constraints += 257;
+                    }
+                    Op::DivRem64(_, _, _) => {
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        // two implies_u64 and one linear
+                        num_constraints += 131;
                     }
                     Op::Emit(_) => (),
                     Op::Hash2(_, tag, _) => {

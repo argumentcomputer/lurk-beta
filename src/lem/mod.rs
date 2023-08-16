@@ -253,6 +253,8 @@ pub enum Op {
     Lt(Var, Var, Var),
     /// `BitAnd(y, a, b)` binds `y` to `a & b`
     BitAnd(Var, Var, u64),
+    /// `DivRem64(ys, a, b)` binds `ys` to `(a / b, a % b)` as if they were u64
+    DivRem64([Var; 2], Var, Var),
     /// `Emit(v)` simply prints out the value of `v` when interpreting the code
     Emit(Var),
     /// `Hash2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
@@ -362,6 +364,11 @@ impl Func {
                     Op::BitAnd(tgt, a, _) => {
                         is_bound(a, map)?;
                         is_unique(tgt, map);
+                    }
+                    Op::DivRem64(tgt, a, b) => {
+                        is_bound(a, map)?;
+                        is_bound(b, map)?;
+                        tgt.iter().for_each(|var| is_unique(var, map))
                     }
                     Op::Emit(a) => {
                         is_bound(a, map)?;
@@ -612,6 +619,12 @@ impl Block {
                     let a = map.get_cloned(&a)?;
                     let tgt = insert_one(map, uniq, &tgt);
                     ops.push(Op::BitAnd(tgt, a, b))
+                }
+                Op::DivRem64(tgt, a, b) => {
+                    let a = map.get_cloned(&a)?;
+                    let b = map.get_cloned(&b)?;
+                    let tgt = insert_many(map, uniq, &tgt);
+                    ops.push(Op::DivRem64(tgt.try_into().unwrap(), a, b))
                 }
                 Op::Emit(a) => {
                     let a = map.get_cloned(&a)?;

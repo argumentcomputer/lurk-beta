@@ -152,7 +152,7 @@ pub(crate) fn add_to_lc<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok(v_lc)
 }
 
-fn implies_u64<F: LurkField, CS: ConstraintSystem<F>>(
+pub(crate) fn implies_u64<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     premise: &Boolean,
     a: &AllocatedNum<F>,

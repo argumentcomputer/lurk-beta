@@ -114,6 +114,13 @@ macro_rules! op {
             $b,
         )
     };
+    ( let ($tgt1:ident, $tgt2:ident) = div_rem64($a:ident, $b:ident) ) => {
+        $crate::lem::Op::DivRem64(
+            $crate::vars!($tgt1, $tgt2),
+            $crate::var!($a),
+            $crate::var!($b),
+        )
+    };
     ( emit($v:ident) ) => {
         $crate::lem::Op::Emit($crate::var!($v))
     };
@@ -347,6 +354,16 @@ macro_rules! block {
             {
                 $($limbs)*
                 $crate::op!(let $tgt = bitwise_and($a, $b))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*},  let ($tgt1:ident, $tgt2:ident) = div_rem64($a:ident, $b:ident) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let ($tgt1, $tgt2) = div_rem64($a, $b))
             },
             $($tail)*
         )

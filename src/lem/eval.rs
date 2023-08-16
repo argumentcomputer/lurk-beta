@@ -821,16 +821,18 @@ fn apply_cont() -> Func {
                                         return (val, env, continuation, makethunk)
                                     }
                                     Num(2) => {
-                                        // TODO
-                                        return (result, env, err, errctrl)
+                                        let (div, _rem) = div_rem64(evaled_arg, result);
+                                        let div = cast(div, Expr::U64);
+                                        return (div, env, continuation, makethunk)
                                     }
                                 }
                             }
                             Symbol("%") => {
                                 match args_num_type.val {
                                     Num(2) => {
-                                        // TODO
-                                        return (result, env, err, errctrl)
+                                        let (_div, rem) = div_rem64(evaled_arg, result);
+                                        let rem = cast(rem, Expr::U64);
+                                        return (rem, env, continuation, makethunk)
                                     }
                                 };
                                 return (result, env, err, errctrl)
@@ -959,8 +961,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 9655;
-    const NUM_CONSTRAINTS: usize = 11912;
+    const NUM_AUX: usize = 9915;
+    const NUM_CONSTRAINTS: usize = 12174;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,
@@ -1013,6 +1015,10 @@ mod tests {
     }
 
     fn expr_in_expr_out_pairs(s: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
+        let div = s.read("(/ 70u64 8u64)").unwrap();
+        let div_res = s.read("8u64").unwrap();
+        let rem = s.read("(% 70u64 8u64)").unwrap();
+        let rem_res = s.read("6u64").unwrap();
         let u64_1 = s.read("(u64 100000000)").unwrap();
         let u64_1_res = s.read("100000000u64").unwrap();
         let u64_2 = s.read("(u64 1000000000000000000000000)").unwrap();
@@ -1021,6 +1027,8 @@ mod tests {
         let mul_overflow_res = s.read("15908979783594147840u64").unwrap();
         let char_conv = s.read("(char 97)").unwrap();
         let char_conv_res = s.read("'a'").unwrap();
+        let char_overflow = s.read("(char 4294967393)").unwrap();
+        let char_overflow_res = s.read("'a'").unwrap();
         let t = s.read("t").unwrap();
         let nil = s.read("nil").unwrap();
         let le1 = s.read("(<= 4 8)").unwrap();
@@ -1060,10 +1068,13 @@ mod tests {
             .unwrap();
         let fold_res = s.read("55").unwrap();
         vec![
+            (div, div_res),
+            (rem, rem_res),
             (u64_1, u64_1_res),
             (u64_2, u64_2_res),
             (mul_overflow, mul_overflow_res),
             (char_conv, char_conv_res),
+            (char_overflow, char_overflow_res),
             (le1, t),
             (le2, t),
             (le3, nil),

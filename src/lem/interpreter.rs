@@ -201,6 +201,23 @@ impl Block {
                     };
                     bindings.insert(tgt.clone(), c);
                 }
+                Op::DivRem64(tgt, a, b) => {
+                    let a = bindings.get(a)?;
+                    let b = bindings.get(b)?;
+
+                    let (c1, c2) = match (a, b) {
+                        (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) => {
+                            let f = f.to_u64_unchecked();
+                            let g = g.to_u64_unchecked();
+                            let c1 = Ptr::Leaf(Tag::Expr(Num), F::from_u64(f / g));
+                            let c2 = Ptr::Leaf(Tag::Expr(Num), F::from_u64(f % g));
+                            (c1, c2)
+                        }
+                        _ => bail!("`<` only works on numbers"),
+                    };
+                    bindings.insert(tgt[0].clone(), c1);
+                    bindings.insert(tgt[1].clone(), c2);
+                }
                 Op::Emit(a) => {
                     let a = bindings.get(a)?;
                     println!("{}", a.dgb_display(store))
