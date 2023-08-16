@@ -10,5 +10,6 @@ xclippy = [
     "-Wclippy::match_same_arms",
     "-Wclippy::cast_lossless",
     "-Wclippy::derive_partial_eq_without_eq",
+    "-Wclippy::large_types_passed_by_value",
     "-Wrust_2018_idioms",
 ]
