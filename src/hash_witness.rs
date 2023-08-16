@@ -222,7 +222,7 @@ impl<F: LurkField> ConsStub<F> {
 
 impl<F: LurkField> ContStub<F> {}
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct HashWitness<Name: HashName, T, const L: usize, F: LurkField> {
     pub slots: [(Name, Stub<T>); L],
     _f: PhantomData<F>,

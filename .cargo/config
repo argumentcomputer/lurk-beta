@@ -9,5 +9,6 @@ xclippy = [
     "-Wclippy::disallowed_methods",
     "-Wclippy::match_same_arms",
     "-Wclippy::cast_lossless",
+    "-Wclippy::derive_partial_eq_without_eq",
     "-Wrust_2018_idioms",
 ]

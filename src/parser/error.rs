@@ -5,7 +5,7 @@ use nom::{error::ErrorKind, AsBytes, Err, IResult, InputLength};
 
 use crate::parser::{base, Span};
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum ParseErrorKind<F: LurkField> {
     InvalidBase16EscapeSequence(String, Option<ParseIntError>),
     InvalidBaseEncoding(base::LitBase),
@@ -38,7 +38,7 @@ impl<F: LurkField> ParseErrorKind<F> {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct ParseError<I: AsBytes, F: LurkField> {
     pub input: I,
     pub expected: Option<&'static str>,

@@ -31,7 +31,7 @@ use crate::tag::{ContTag, ExprTag, Op1, Op2};
 /// Because confusion on this point, perhaps combined with cargo-cult copying of incorrect previous usage has led to
 /// inconsistencies and inaccuracies in the code base, please prefer the named Scalar forms when correspondence to a
 /// named `LanguageField` is important.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), serde_test)]
 pub enum LanguageField {
