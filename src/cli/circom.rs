@@ -92,7 +92,6 @@ pub(crate) fn create_circom_gadget(circom_folder: Utf8PathBuf, name: String) -> 
         default_field
     };
 
-
     println!(
         "Running circom binary to generate r1cs and witness files to {:?}",
         circom_gadget
