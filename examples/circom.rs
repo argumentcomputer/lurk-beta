@@ -10,9 +10,9 @@
 //! ```
 //! cd circuits && touch sha256.circom
 //! ```
-//! In this new file, reate the main component that simply calls the `Sha256_2` circuit.
+//! In this new file, create the main component that simply calls the `Sha256_2` circuit.
 //! ```
-//! pragma circom 2.1.4;
+//! pragma circom 2.1.6;
 //!
 //! include "circomlib/sha256/sha256_2.circom";
 //!

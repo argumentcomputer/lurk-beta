@@ -75,9 +75,23 @@ fn get_circom_binary() -> Result<Command> {
     }
 }
 
-pub(crate) fn create_circom_gadget(circom_folder: Utf8PathBuf, name: String, prime: String) -> Result<()> {
+pub(crate) fn create_circom_gadget(circom_folder: Utf8PathBuf, name: String) -> Result<()> {
     let circom_gadget = circom_dir().join(&name);
     let circom_file = circom_folder.join(&name).with_extension("circom");
+
+    // TODO: support for other fields
+    let default_field = "vesta";
+    let field = if let Ok(lurk_field) = std::env::var("LURK_FIELD") {
+        match lurk_field.as_str() {
+            "BLS12-381" => "bls12381",
+            "PALLAS" => "pallas",
+            "VESTA" => "vesta",
+            _ => bail!("unsupported field"),
+        }
+    } else {
+        default_field
+    };
+
 
     println!(
         "Running circom binary to generate r1cs and witness files to {:?}",
@@ -92,7 +106,7 @@ pub(crate) fn create_circom_gadget(circom_folder: Utf8PathBuf, name: String, pri
             "--output".into(),
             circom_gadget.clone(),
             "--prime".into(),
-            prime.into(),
+            field.into(),
         ])
         .output()
         .expect("circom failed");

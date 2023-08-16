@@ -494,12 +494,6 @@ struct CircomArgs {
     #[clap(long, value_parser)]
     name: String,
 
-    /// Choose the prime number to use to generate the circuit. Receives the
-    /// name of the curve (bn128, bls12381, goldilocks, grumpkin, pallas, vesta)
-    /// [default: vesta]
-    #[clap(long, value_parser)]
-    prime: Option<String>,
-
     /// Config file, containing the lowest precedence parameters
     #[clap(long, value_parser)]
     config: Option<Utf8PathBuf>,
@@ -539,8 +533,7 @@ impl Cli {
                 log::info!("Configured variables: {:?}", config);
                 set_lurk_dirs(&config, &None, &None, &None, &circom_args.circom_dir);
 
-                let prime = circom_args.prime.unwrap_or("vesta".into());
-                create_circom_gadget(circom_args.circom_folder, circom_args.name, prime)?;
+                create_circom_gadget(circom_args.circom_folder, circom_args.name)?;
                 Ok(())
             }
         }
