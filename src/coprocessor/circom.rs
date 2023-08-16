@@ -1,6 +1,6 @@
-//! # Usage of circom coprocessors.
-//!
-//! See `examples/circom.rs` for a quick example of how to declare a circom coprocessor.
+// # Usage of circom coprocessors.
+//
+// See `examples/circom.rs` for a quick example of how to declare a circom coprocessor.
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod non_wasm {
@@ -83,6 +83,7 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instansiate a new gadge
         print_error(gadget.name(), subdirs)
     }
 
+    /// hi
     #[derive(Debug)]
     pub struct CircomCoprocessor<F: LurkField, C: CircomGadget<F>> {
         gadget: C,
@@ -112,7 +113,11 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instansiate a new gadge
         ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError>
         {
             let input = self.gadget.clone().into_circom_input(input_exprs);
-            let witness = circom_scotia::calculate_witness(&self.config, input, true).expect("msg");
+            let witness =
+                circom_scotia::calculate_witness(&self.config, input, true).map_err(|e| {
+                    eprintln!("{:?}", e);
+                    SynthesisError::Unsatisfiable
+                })?;
             let output = circom_scotia::synthesize(cs, self.config.r1cs.clone(), Some(witness))?;
 
             let res = AllocatedPtr::from_parts(g.num_tag.clone(), output);
@@ -153,10 +158,12 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instansiate a new gadge
             Ok(coprocessor)
         }
 
+        /// Calls [CircomCoprocessor::create()] and panics if it fails
         pub fn new(gadget: C) -> Self {
             CircomCoprocessor::create(gadget).unwrap()
         }
 
+        /// The defined name of this coprocessor, which is just the inner gadget's name
         pub fn name(&self) -> &str {
             self.gadget.name()
         }

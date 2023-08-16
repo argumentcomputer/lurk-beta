@@ -21,14 +21,13 @@ fn download_circom_binary(path: impl AsRef<Path>) -> Result<Command> {
     use std::io::Write;
 
     let url = match std::env::consts::OS {
-        "linux" => "https://github.com/iden3/circom/releases/download/v2.1.6/circom-linux-amd64",
-        "macos" => "https://github.com/iden3/circom/releases/download/v2.1.6/circom-macos-amd64",
+        "linux" => format!("https://github.com/iden3/circom/releases/download/v{CIRCOM_VERSION}/circom-linux-amd64"),
+        "macos" => format!("https://github.com/iden3/circom/releases/download/v{CIRCOM_VERSION}/circom-macos-amd64"),
         "windows" => {
-            "https://github.com/iden3/circom/releases/download/v2.1.6/circom-windows-amd64.exe"
+            format!("https://github.com/iden3/circom/releases/download/v{CIRCOM_VERSION}/circom-windows-amd64.exe")
         }
-        _ => {
-            eprintln!("Unsupported OS");
-            std::process::exit(1);
+        os => {
+            bail!("Unsupported OS: {os}. Unable to automatically download the necessary circom binary, please manually download Circom v2.1.6 to `.lurk/circom/circom`");
         }
     };
 
@@ -47,8 +46,8 @@ fn download_circom_binary(path: impl AsRef<Path>) -> Result<Command> {
 /// a environment variable, or through a CLI argument, in that order.
 ///
 /// We *do not* consider the case where the user already has some
-/// `circom` binary downloaded. The user will have two possibly
-/// conflicting circom binaries floating around. However, things
+/// `circom` binary available in their `$PATH`. The user will have two
+/// possibly conflicting circom binaries floating around. However, things
 /// should be kept separate as Lurk will never touch the user binary
 /// and the user should never manually call the Lurk Circom binary.
 ///
@@ -76,7 +75,7 @@ fn get_circom_binary() -> Result<Command> {
     }
 }
 
-pub(crate) fn create_circom_gadget(circom_folder: Utf8PathBuf, name: String) -> Result<()> {
+pub(crate) fn create_circom_gadget(circom_folder: Utf8PathBuf, name: String, prime: String) -> Result<()> {
     let circom_gadget = circom_dir().join(&name);
     let circom_file = circom_folder.join(&name).with_extension("circom");
 
@@ -86,13 +85,15 @@ pub(crate) fn create_circom_gadget(circom_folder: Utf8PathBuf, name: String) -> 
     );
     fs::create_dir_all(&circom_gadget)?;
     let output = get_circom_binary()?
-        .arg(circom_file)
-        .arg("--r1cs")
-        .arg("--wasm")
-        .arg("--output")
-        .arg(&circom_gadget)
-        .arg("--prime")
-        .arg("vesta")
+        .args(&[
+            circom_file,
+            "--r1cs".into(),
+            "--wasm".into(),
+            "--output".into(),
+            circom_gadget.clone(),
+            "--prime".into(),
+            prime.into(),
+        ])
         .output()
         .expect("circom failed");
 

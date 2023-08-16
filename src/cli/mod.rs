@@ -490,9 +490,15 @@ struct CircomArgs {
     #[arg(verbatim_doc_comment)]
     circom_folder: Utf8PathBuf,
 
-    /// The name of the circom gadget (the name cannot be `main`, for internal circom reasons)
+    /// The name of the circom gadget (the name cannot be `main`, see circom documentation)
     #[clap(long, value_parser)]
     name: String,
+
+    /// Choose the prime number to use to generate the circuit. Receives the
+    /// name of the curve (bn128, bls12381, goldilocks, grumpkin, pallas, vesta)
+    /// [default: vesta]
+    #[clap(long, value_parser)]
+    prime: Option<String>,
 
     /// Config file, containing the lowest precedence parameters
     #[clap(long, value_parser)]
@@ -526,14 +532,15 @@ impl Cli {
             Command::Circom(circom_args) => {
                 use crate::cli::circom::create_circom_gadget;
                 if circom_args.name == "main" {
-                    bail!("Circom gadget name cannot be `main`, for internal circom reasons")
+                    bail!("Circom gadget name cannot be `main`, see circom documentation")
                 }
 
                 let config = get_config(&circom_args.config)?;
                 log::info!("Configured variables: {:?}", config);
                 set_lurk_dirs(&config, &None, &None, &None, &circom_args.circom_dir);
 
-                create_circom_gadget(circom_args.circom_folder, circom_args.name)?;
+                let prime = circom_args.prime.unwrap_or("vesta".into());
+                create_circom_gadget(circom_args.circom_folder, circom_args.name, prime)?;
                 Ok(())
             }
         }
