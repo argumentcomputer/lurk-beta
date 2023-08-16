@@ -85,8 +85,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          repository: iden3/circomlib
+      - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
-      - run: cd ../.. && git clone git@github.com:iden3/circomlib.git && cd lurkrs/lurkrs
+      - run: ls ../..
       - run: cargo run --release -- circom --name sha256_2_test ../../circomlib/tests/circuits/sha256_2_test.circom
       - run: cargo run --release --example circom
   
