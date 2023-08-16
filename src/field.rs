@@ -141,6 +141,18 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         Some(u64::from_le_bytes(byte_array))
     }
 
+    /// Attempts to convert the field element to a u64
+    fn to_u128(&self) -> Option<u128> {
+        for x in &self.to_repr().as_ref()[16..] {
+            if *x != 0 {
+                return None;
+            }
+        }
+        let mut byte_array = [0u8; 16];
+        byte_array.copy_from_slice(&self.to_repr().as_ref()[0..16]);
+        Some(u128::from_le_bytes(byte_array))
+    }
+
     /// Converts the first 4 bytes of the field element to a u32
     fn to_u32_unchecked(&self) -> u32 {
         let mut byte_array = [0u8; 4];
@@ -153,6 +165,13 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         let mut byte_array = [0u8; 8];
         byte_array.copy_from_slice(&self.to_repr().as_ref()[0..8]);
         u64::from_le_bytes(byte_array)
+    }
+
+    /// Converts the first 16 bytes of the field element to a u128
+    fn to_u128_unchecked(&self) -> u128 {
+        let mut byte_array = [0u8; 16];
+        byte_array.copy_from_slice(&self.to_repr().as_ref()[0..16]);
+        u128::from_le_bytes(byte_array)
     }
 
     /// Constructs a field element from a u64

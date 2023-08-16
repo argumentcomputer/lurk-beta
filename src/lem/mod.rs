@@ -155,8 +155,8 @@ impl std::fmt::Display for Tag {
 /// LEM literals
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub enum Lit {
-    // TODO maybe it should be a LurkField instead of u64
-    Num(u64),
+    // TODO maybe it should be a LurkField instead of u128
+    Num(u128),
     String(String),
     Symbol(Symbol),
 }
@@ -166,7 +166,7 @@ impl Lit {
         match self {
             Self::Symbol(s) => store.intern_symbol(s.clone()),
             Self::String(s) => store.intern_string(s),
-            Self::Num(num) => Ptr::num((*num).into()),
+            Self::Num(num) => Ptr::num(F::from_u128(*num)),
         }
     }
     pub fn from_ptr<F: LurkField>(ptr: &Ptr<F>, store: &Store<F>) -> Option<Self> {
@@ -175,7 +175,7 @@ impl Lit {
         match ptr.tag() {
             Expr(Num) => match ptr {
                 Ptr::Leaf(_, f) => {
-                    let num = LurkField::to_u64_unchecked(f);
+                    let num = LurkField::to_u128_unchecked(f);
                     Some(Self::Num(num))
                 }
                 _ => unreachable!(),

@@ -486,6 +486,8 @@ fn apply_cont() -> Func {
         let err: Cont::Error;
         let nil: Expr::Nil;
         let t = Symbol("t");
+        let zero = Num(0);
+        let size_u64 = Num(18446744073709551616);
 
         match ctrl.tag {
             Ctrl::ApplyContinuation => {
@@ -615,7 +617,6 @@ fn apply_cont() -> Func {
                                 return(secret, env, continuation, makethunk)
                             }
                             Symbol("commit") => {
-                                let zero = Num(0);
                                 let comm = hide(zero, result);
                                 return(comm, env, continuation, makethunk)
                             }
@@ -746,8 +747,19 @@ fn apply_cont() -> Func {
                                         return (val, env, continuation, makethunk)
                                     }
                                     Num(2) => {
-                                        // TODO
-                                        return (result, env, err, errctrl)
+                                        let val = add(evaled_arg, result);
+                                        let not_overflow = lt(val, size_u64);
+                                        match not_overflow.val {
+                                            Num(0) => {
+                                                let val = sub(val, size_u64);
+                                                let val = cast(val, Expr::U64);
+                                                return (val, env, continuation, makethunk)
+                                            }
+                                            Num(1) => {
+                                                let val = cast(val, Expr::U64);
+                                                return (val, env, continuation, makethunk)
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -761,8 +773,22 @@ fn apply_cont() -> Func {
                                         return (val, env, continuation, makethunk)
                                     }
                                     Num(2) => {
-                                        // TODO
-                                        return (result, env, err, errctrl)
+                                        // Subtraction in U64 is almost the same as subtraction
+                                        // in the field. If the difference is negative, we need
+                                        // to add 2^64 to get back to U64 domain.
+                                        let val = sub(evaled_arg, result);
+                                        let is_neg = lt(val, zero);
+                                        match is_neg.val {
+                                            Num(0) => {
+                                                let val = add(val, size_u64);
+                                                let val = cast(val, Expr::U64);
+                                                return (val, env, continuation, makethunk)
+                                            }
+                                            Num(1) => {
+                                                let val = cast(val, Expr::U64);
+                                                return (val, env, continuation, makethunk)
+                                            }
+                                        }
                                     }
                                 }
                             }
