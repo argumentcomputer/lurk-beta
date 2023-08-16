@@ -118,8 +118,7 @@ fn reduce() -> Func {
             | Symbol("+")
             | Symbol("-")
             | Symbol("*")
-              // TODO: bellperson complains if we use "/"
-            | Symbol("div")
+            | Symbol("/")
             | Symbol("%")
             | Symbol("=")
             | Symbol("eq")
@@ -782,7 +781,7 @@ fn apply_cont() -> Func {
                                     }
                                 }
                             }
-                            Symbol("div") => {
+                            Symbol("/") => {
                                 match args_num_type.val {
                                     Num(0) => {
                                         return (result, env, err, errctrl)

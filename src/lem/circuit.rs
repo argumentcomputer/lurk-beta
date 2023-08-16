@@ -914,18 +914,18 @@ impl Func {
                     let allocated_lit = bound_allocations.get(match_var)?.hash().clone();
                     let mut selector = Vec::with_capacity(cases.len() + 1);
                     let mut branch_slots = Vec::with_capacity(cases.len());
-                    for (lit, block) in cases {
+                    for (i, (lit, block)) in cases.iter().enumerate() {
                         let lit_ptr = lit.to_ptr(g.store);
                         let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
                         let allocated_has_match = alloc_equal_const(
-                            &mut cs.namespace(|| format!("{:?}.alloc_equal_const", lit)),
+                            &mut cs.namespace(|| format!("{i}.alloc_equal_const")),
                             &allocated_lit,
                             lit_hash,
                         )
                         .with_context(|| "couldn't allocate equal const")?;
 
                         let not_dummy_and_has_match = and(
-                            &mut cs.namespace(|| format!("{:?}.and", lit)),
+                            &mut cs.namespace(|| format!("{i}.and")),
                             not_dummy,
                             &allocated_has_match,
                         )
@@ -935,7 +935,7 @@ impl Func {
 
                         let mut branch_slot = *next_slot;
                         recurse(
-                            &mut cs.namespace(|| format!("{:?}", lit)),
+                            &mut cs.namespace(|| format!("{i}.case")),
                             block,
                             &not_dummy_and_has_match,
                             &mut branch_slot,
