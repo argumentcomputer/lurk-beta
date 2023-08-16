@@ -107,6 +107,13 @@ macro_rules! op {
             $crate::var!($b),
         )
     };
+    ( let $tgt:ident = bitwise_and($a:ident, $b:literal) ) => {
+        $crate::lem::Op::BitAnd(
+            $crate::var!($tgt),
+            $crate::var!($a),
+            $b,
+        )
+    };
     ( emit($v:ident) ) => {
         $crate::lem::Op::Emit($crate::var!($v))
     };
@@ -330,6 +337,16 @@ macro_rules! block {
             {
                 $($limbs)*
                 $crate::op!(let $tgt = lt($a, $b))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = bitwise_and($a:ident, $b:literal) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = bitwise_and($a, $b))
             },
             $($tail)*
         )

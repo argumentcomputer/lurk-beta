@@ -139,9 +139,7 @@ impl Block {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
                     let c = match (a, b) {
-                        (Ptr::Leaf(Tag::Expr(Num), f), Ptr::Leaf(Tag::Expr(Num), g)) => {
-                            Ptr::Leaf(Tag::Expr(Num), *f + *g)
-                        }
+                        (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) => Ptr::Leaf(Tag::Expr(Num), *f + *g),
                         _ => bail!("Addition only works on numbers"),
                     };
                     bindings.insert(tgt.clone(), c);
@@ -150,9 +148,7 @@ impl Block {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
                     let c = match (a, b) {
-                        (Ptr::Leaf(Tag::Expr(Num), f), Ptr::Leaf(Tag::Expr(Num), g)) => {
-                            Ptr::Leaf(Tag::Expr(Num), *f - *g)
-                        }
+                        (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) => Ptr::Leaf(Tag::Expr(Num), *f - *g),
                         _ => bail!("Addition only works on numbers"),
                     };
                     bindings.insert(tgt.clone(), c);
@@ -161,9 +157,7 @@ impl Block {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
                     let c = match (a, b) {
-                        (Ptr::Leaf(Tag::Expr(Num), f), Ptr::Leaf(Tag::Expr(Num), g)) => {
-                            Ptr::Leaf(Tag::Expr(Num), *f * *g)
-                        }
+                        (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) => Ptr::Leaf(Tag::Expr(Num), *f * *g),
                         _ => bail!("Addition only works on numbers"),
                     };
                     bindings.insert(tgt.clone(), c);
@@ -172,7 +166,7 @@ impl Block {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
                     let c = match (a, b) {
-                        (Ptr::Leaf(Tag::Expr(Num), f), Ptr::Leaf(Tag::Expr(Num), g)) => {
+                        (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) => {
                             Ptr::Leaf(Tag::Expr(Num), *f * g.invert().unwrap())
                         }
                         _ => bail!("Division only works on numbers"),
@@ -183,7 +177,7 @@ impl Block {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
                     let c = match (a, b) {
-                        (Ptr::Leaf(Tag::Expr(Num), f), Ptr::Leaf(Tag::Expr(Num), g)) => {
+                        (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) => {
                             preimages
                                 .is_diff_neg
                                 .push(Some(PreimageData::FPair(*f, *g)));
@@ -193,6 +187,17 @@ impl Block {
                             Ptr::Leaf(Tag::Expr(Num), b)
                         }
                         _ => bail!("`<` only works on numbers"),
+                    };
+                    bindings.insert(tgt.clone(), c);
+                }
+                Op::BitAnd(tgt, a, b) => {
+                    let a = bindings.get(a)?;
+
+                    let c = match a {
+                        Ptr::Leaf(_, f) => {
+                            Ptr::Leaf(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() & b))
+                        }
+                        _ => bail!("`&` only works on numbers"),
                     };
                     bindings.insert(tgt.clone(), c);
                 }

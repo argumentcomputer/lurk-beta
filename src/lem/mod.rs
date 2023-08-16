@@ -251,6 +251,8 @@ pub enum Op {
     Div(Var, Var, Var),
     /// `Lt(y, a, b)` binds `y` to `1` if `a < b`, or to `0` otherwise
     Lt(Var, Var, Var),
+    /// `BitAnd(y, a, b)` binds `y` to `a & b`
+    BitAnd(Var, Var, u64),
     /// `Emit(v)` simply prints out the value of `v` when interpreting the code
     Emit(Var),
     /// `Hash2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
@@ -355,6 +357,10 @@ impl Func {
                     | Op::Lt(tgt, a, b) => {
                         is_bound(a, map)?;
                         is_bound(b, map)?;
+                        is_unique(tgt, map);
+                    }
+                    Op::BitAnd(tgt, a, _) => {
+                        is_bound(a, map)?;
                         is_unique(tgt, map);
                     }
                     Op::Emit(a) => {
@@ -601,6 +607,11 @@ impl Block {
                     let b = map.get_cloned(&b)?;
                     let tgt = insert_one(map, uniq, &tgt);
                     ops.push(Op::Lt(tgt, a, b))
+                }
+                Op::BitAnd(tgt, a, b) => {
+                    let a = map.get_cloned(&a)?;
+                    let tgt = insert_one(map, uniq, &tgt);
+                    ops.push(Op::BitAnd(tgt, a, b))
                 }
                 Op::Emit(a) => {
                     let a = map.get_cloned(&a)?;

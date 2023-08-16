@@ -632,11 +632,9 @@ fn apply_cont() -> Func {
                             Symbol("u64") => {
                                 match result.tag {
                                     Expr::Num => {
-                                        // TODO we also need to use `Mod` to truncate
-                                        // But 2^64 is out-of-range of u64, so we will
-                                        // maybe use u128
-                                        // let limit = Num(18446744073709551616);
-                                        let cast = cast(result, Expr::U64);
+                                        // The limit is 2**64 - 1
+                                        let trunc = bitwise_and(result, 18446744073709551615);
+                                        let cast = cast(trunc, Expr::U64);
                                         return(cast, env, continuation, makethunk)
                                     }
                                     Expr::U64 => {
@@ -656,11 +654,14 @@ fn apply_cont() -> Func {
                             }
                             Symbol("char") => {
                                 match result.tag {
-                                    Expr::Num | Expr::Char => {
-                                        // TODO we also need to use `Mod` to truncate
-                                        // let limit = Num(4294967296);
-                                        let cast = cast(result, Expr::Num);
+                                    Expr::Num => {
+                                        // The limit is 2**32 - 1
+                                        let trunc = bitwise_and(result, 4294967295);
+                                        let cast = cast(trunc, Expr::Char);
                                         return(cast, env, continuation, makethunk)
+                                    }
+                                    Expr::Char => {
+                                        return(result, env, continuation, makethunk)
                                     }
                                 };
                                 return(result, env, err, errctrl)
@@ -802,8 +803,11 @@ fn apply_cont() -> Func {
                                         return (val, env, continuation, makethunk)
                                     }
                                     Num(2) => {
-                                        // TODO
-                                        return (result, env, err, errctrl)
+                                        let val = mul(evaled_arg, result);
+                                        // The limit is 2**64 - 1
+                                        let trunc = bitwise_and(val, 18446744073709551615);
+                                        let cast = cast(trunc, Expr::U64);
+                                        return (cast, env, continuation, makethunk)
                                     }
                                 }
                             }
@@ -955,8 +959,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 8885;
-    const NUM_CONSTRAINTS: usize = 11139;
+    const NUM_AUX: usize = 9655;
+    const NUM_CONSTRAINTS: usize = 11912;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,
@@ -1009,6 +1013,14 @@ mod tests {
     }
 
     fn expr_in_expr_out_pairs(s: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
+        let u64_1 = s.read("(u64 100000000)").unwrap();
+        let u64_1_res = s.read("100000000u64").unwrap();
+        let u64_2 = s.read("(u64 1000000000000000000000000)").unwrap();
+        let u64_2_res = s.read("2003764205206896640u64").unwrap();
+        let mul_overflow = s.read("(* 1000000000000u64 100000000000000u64)").unwrap();
+        let mul_overflow_res = s.read("15908979783594147840u64").unwrap();
+        let char_conv = s.read("(char 97)").unwrap();
+        let char_conv_res = s.read("'a'").unwrap();
         let t = s.read("t").unwrap();
         let nil = s.read("nil").unwrap();
         let le1 = s.read("(<= 4 8)").unwrap();
@@ -1048,6 +1060,10 @@ mod tests {
             .unwrap();
         let fold_res = s.read("55").unwrap();
         vec![
+            (u64_1, u64_1_res),
+            (u64_2, u64_2_res),
+            (mul_overflow, mul_overflow_res),
+            (char_conv, char_conv_res),
             (le1, t),
             (le2, t),
             (le3, nil),

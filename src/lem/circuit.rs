@@ -35,7 +35,8 @@ use bellperson::{
 use crate::circuit::gadgets::{
     constraints::{
         add, alloc_equal, alloc_equal_const, alloc_is_zero, allocate_is_negative, and,
-        boolean_to_num, div, enforce_selector_with_premise, implies_equal, mul, pick, sub,
+        boolean_to_num, div, enforce_pack, enforce_selector_with_premise, implies_equal, mul, pick,
+        sub,
     },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
@@ -698,6 +699,35 @@ impl Func {
                         let c = AllocatedPtr::from_parts(tag, lt.clone());
                         bound_allocations.insert(tgt.clone(), c);
                     }
+                    Op::BitAnd(tgt, a, b) => {
+                        let a = bound_allocations.get(a)?;
+                        let a_bits = a.hash().to_bits_le(&mut cs.namespace(|| "bitwise_and"))?;
+                        let mut trunc_bits = Vec::with_capacity(64);
+                        let mut b_rest = *b;
+                        for a_bit in a_bits {
+                            let b_bit = b_rest & 1;
+                            if b_bit == 1 {
+                                trunc_bits.push(a_bit.clone());
+                            } else {
+                                trunc_bits.push(Boolean::Constant(false))
+                            }
+                            b_rest /= 2;
+                        }
+                        let trunc = AllocatedNum::alloc(cs.namespace(|| ""), || {
+                            let val = a
+                                .hash()
+                                .get_value()
+                                .map(|a| F::from_u64(a.to_u64_unchecked() & b))
+                                .unwrap();
+                            Ok(val)
+                        })?;
+                        enforce_pack(&mut cs.namespace(|| "enforce_trunc"), &trunc_bits, &trunc)?;
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let c = AllocatedPtr::from_parts(tag, trunc);
+                        bound_allocations.insert(tgt.clone(), c);
+                    }
                     Op::Emit(_) => (),
                     Op::Hide(tgt, sec, pay) => {
                         let sec = bound_allocations.get(sec)?;
@@ -1061,6 +1091,11 @@ impl Func {
                     Op::Lt(_, _, _) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
                         num_constraints += 2;
+                    }
+                    Op::BitAnd(_, _, _) => {
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        // bit decomposition + enforce_pack
+                        num_constraints += 257;
                     }
                     Op::Emit(_) => (),
                     Op::Hash2(_, tag, _) => {
