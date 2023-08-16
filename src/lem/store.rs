@@ -1,11 +1,11 @@
 use rayon::prelude::*;
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     field::{FWrap, LurkField},
     hash::PoseidonCache,
     lem::Tag,
-    symbol::LurkSym,
+    state::{lurk_sym, State},
     symbol::Symbol,
     syntax::Syntax,
     tag::ExprTag::*,
@@ -179,23 +179,23 @@ impl<F: LurkField> Store<F> {
     }
 
     /// Interns a symbol path recursively
-    pub fn intern_symbol_path(&mut self, path: Vec<String>) -> Ptr<F> {
+    pub fn intern_symbol_path(&mut self, path: &[String]) -> Ptr<F> {
         if path.is_empty() {
             let ptr = Ptr::null(Tag::Expr(Sym));
             self.ptr_sym_cache.insert(ptr, vec![]);
             return ptr;
         }
 
-        match self.sym_cache.get(&path) {
+        match self.sym_cache.get(path) {
             Some(ptr_cache) => *ptr_cache,
             None => {
                 let tail = &path[1..];
-                let tail_ptr = self.intern_symbol_path(tail.to_vec());
+                let tail_ptr = self.intern_symbol_path(tail);
                 let head = &path[0];
                 let head_ptr = self.intern_string(head);
                 let path_ptr = self.intern_2_ptrs(Tag::Expr(Sym), head_ptr, tail_ptr);
-                self.sym_cache.insert(path.clone(), path_ptr);
-                self.ptr_sym_cache.insert(path_ptr, path);
+                self.sym_cache.insert(path.to_vec(), path_ptr);
+                self.ptr_sym_cache.insert(path_ptr, path.to_vec());
                 path_ptr
             }
         }
@@ -209,66 +209,66 @@ impl<F: LurkField> Store<F> {
     #[inline]
     pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<Symbol> {
         match ptr.tag() {
-            Tag::Expr(Sym) | Tag::Expr(Key) => Some(Symbol {
-                path: self.fetch_sym_path(ptr)?.to_vec(),
-            }),
+            Tag::Expr(Sym) | Tag::Expr(Key) => Some(Symbol::new(
+                self.fetch_sym_path(ptr)?,
+                ptr.tag() == &Tag::Expr(Key),
+            )),
             _ => None,
         }
     }
 
-    pub fn intern_symbol(&mut self, s: Symbol) -> Ptr<F> {
-        self.intern_symbol_path(s.path)
-    }
-
-    pub fn intern_lurk_symbol(&mut self, s: LurkSym) -> Ptr<F> {
-        if matches!(s, LurkSym::Nil) {
-            return Ptr::Leaf(Tag::Expr(Nil), F::ZERO);
+    pub fn intern_symbol(&mut self, sym: &Symbol) -> Ptr<F> {
+        let path_ptr = self.intern_symbol_path(sym.path());
+        if sym == &lurk_sym("nil") {
+            path_ptr.cast(Tag::Expr(Nil))
+        } else if !sym.is_keyword() {
+            path_ptr
+        } else {
+            path_ptr.cast(Tag::Expr(Key))
         }
-        self.intern_symbol(Symbol::lurk_sym(&format!("{s}")))
     }
 
-    pub fn intern_nil(&mut self) -> Ptr<F> {
-        self.intern_lurk_symbol(LurkSym::Nil)
-    }
-
-    pub fn intern_syntax(&mut self, syn: Syntax<F>) -> Ptr<F> {
+    pub fn intern_syntax(&mut self, syn: Syntax<F>) -> Result<Ptr<F>> {
         match syn {
-            Syntax::Num(_, x) => Ptr::Leaf(Tag::Expr(Num), x.into_scalar()),
-            Syntax::UInt(_, UInt::U64(x)) => Ptr::Leaf(Tag::Expr(U64), x.into()),
-            Syntax::Char(_, x) => Ptr::Leaf(Tag::Expr(Char), (x as u64).into()),
-            Syntax::Symbol(_, x) | Syntax::Keyword(_, x) => self.intern_symbol(x),
-            Syntax::LurkSym(_, x) => self.intern_lurk_symbol(x),
-            Syntax::String(_, x) => self.intern_string(&x),
+            Syntax::Num(_, x) => Ok(Ptr::Leaf(Tag::Expr(Num), x.into_scalar())),
+            Syntax::UInt(_, UInt::U64(x)) => Ok(Ptr::Leaf(Tag::Expr(U64), x.into())),
+            Syntax::Char(_, x) => Ok(Ptr::Leaf(Tag::Expr(Char), (x as u64).into())),
+            Syntax::Symbol(_, symbol) => Ok(self.intern_symbol(&symbol)),
+            Syntax::String(_, x) => Ok(self.intern_string(&x)),
             Syntax::Quote(pos, x) => {
-                let quote = crate::symbol::Symbol::lurk_sym("quote");
-                let xs = vec![Syntax::Symbol(pos, quote), *x];
+                let xs = vec![Syntax::Symbol(pos, lurk_sym("quote").into()), *x];
                 self.intern_syntax(Syntax::List(pos, xs))
             }
             Syntax::List(_, xs) => {
-                let mut cdr = self.intern_lurk_symbol(LurkSym::Nil);
+                let mut cdr = self.intern_symbol(&lurk_sym("nil"));
                 for x in xs.into_iter().rev() {
-                    let car = self.intern_syntax(x);
+                    let car = self.intern_syntax(x)?;
                     cdr = self.intern_2_ptrs(Tag::Expr(Cons), car, cdr);
                 }
-                cdr
+                Ok(cdr)
             }
             Syntax::Improper(_, xs, end) => {
-                let mut cdr = self.intern_syntax(*end);
+                let mut cdr = self.intern_syntax(*end)?;
                 for x in xs.into_iter().rev() {
-                    let car = self.intern_syntax(x);
+                    let car = self.intern_syntax(x)?;
                     cdr = self.intern_2_ptrs(Tag::Expr(Cons), car, cdr);
                 }
-                cdr
+                Ok(cdr)
             }
         }
     }
 
-    pub fn read(&mut self, input: &str) -> Result<Ptr<F>> {
+    pub fn read(&mut self, state: Rc<RefCell<State>>, input: &str) -> Result<Ptr<F>> {
         use crate::parser::*;
         use nom::sequence::preceded;
         use nom::Parser;
-        match preceded(syntax::parse_space, syntax::parse_syntax()).parse(Span::new(input)) {
-            Ok((_i, x)) => Ok(self.intern_syntax(x)),
+        match preceded(
+            syntax::parse_space,
+            syntax::parse_syntax(state, false, false),
+        )
+        .parse(Span::new(input))
+        {
+            Ok((_i, x)) => self.intern_syntax(x),
             Err(e) => bail!("{}", e),
         }
     }

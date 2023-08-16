@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 72dda53aa591d94f5466c82b7f57c179c5b7e39a1fa3d88058bbe1fc5b05a501 # shrinks to x = Quote(No, List(No, [Path(No, ["."], false)]))

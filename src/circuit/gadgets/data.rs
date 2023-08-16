@@ -194,7 +194,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             Ok(Op2::Equal.to_field())
         })?;
 
-        let c = store.get_constants();
+        let c = store.expect_constants();
 
         macro_rules! defsym {
             ($var:ident, $name:expr, $cname:ident) => {

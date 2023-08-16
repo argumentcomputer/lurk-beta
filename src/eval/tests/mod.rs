@@ -1,8 +1,13 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use super::*;
 use crate::coprocessor::Coprocessor;
 use crate::eval::lang::Coproc;
 use crate::eval::reduction::{extend, lookup, reduce};
 use crate::num::Num;
+use crate::package::Package;
+use crate::state::{user_sym, State};
 use crate::tag::{ExprTag, Op, Op1, Op2};
 
 use lurk_macros::{let_store, lurk, Coproc};
@@ -10,6 +15,45 @@ use pasta_curves::pallas::Scalar as Fr;
 
 use crate as lurk;
 mod trie;
+
+fn test_aux_with_state<C: Coprocessor<Fr>>(
+    s: &mut Store<Fr>,
+    state: Rc<RefCell<State>>,
+    expr: &str,
+    expected_result: Option<Ptr<Fr>>,
+    expected_env: Option<Ptr<Fr>>,
+    expected_cont: Option<ContPtr<Fr>>,
+    expected_emitted: Option<Vec<Ptr<Fr>>>,
+    expected_iterations: usize,
+    lang: Option<&Lang<Fr, C>>,
+) {
+    let ptr = s.read_with_state(state, expr).unwrap();
+
+    if let Some(lang) = lang {
+        test_aux2(
+            s,
+            &ptr,
+            expected_result,
+            expected_env,
+            expected_cont,
+            expected_emitted,
+            expected_iterations,
+            lang,
+        )
+    } else {
+        let lang = Lang::<Fr, Coproc<Fr>>::new();
+        test_aux2(
+            s,
+            &ptr,
+            expected_result,
+            expected_env,
+            expected_cont,
+            expected_emitted,
+            expected_iterations,
+            &lang,
+        )
+    }
+}
 
 fn test_aux<C: Coprocessor<Fr>>(
     s: &mut Store<Fr>,
@@ -126,7 +170,7 @@ fn test_reduce_simple() {
 
     {
         let (result, _new_env, _cont, _witness) = reduce(
-            store.nil(),
+            lurk_sym_ptr!(store, nil),
             empty_sym_env(&store),
             store.intern_cont_outermost(),
             &mut store,
@@ -371,14 +415,14 @@ fn evaluate_num_equal() {
     {
         let expr = "(= 5 5)";
 
-        let expected = s.t();
+        let expected = lurk_sym_ptr!(s, t);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
     {
         let expr = "(= 5 6)";
 
-        let expected = s.nil();
+        let expected = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
@@ -506,7 +550,7 @@ fn evaluate_letrec_body_nil() {
     let s = &mut Store::<Fr>::default();
     let expr = "(eq nil (let () nil))";
 
-    let expected = s.t();
+    let expected = lurk_sym_ptr!(s, t);
     let terminal = s.get_cont_terminal();
     test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 4, None);
 }
@@ -530,7 +574,7 @@ fn evaluate_arithmetic_let() {
                    (/ (+ a b) c))";
 
     let expected = s.num(3);
-    let new_env = s.nil();
+    let new_env = lurk_sym_ptr!(s, nil);
     let terminal = s.get_cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -908,7 +952,7 @@ fn evaluate_eq() {
         let s = &mut Store::<Fr>::default();
         let expr = "(eq 'a 'a)";
 
-        let expected = s.t();
+        let expected = lurk_sym_ptr!(s, t);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
@@ -916,7 +960,7 @@ fn evaluate_eq() {
         let s = &mut Store::<Fr>::default();
         let expr = "(eq 1 1)";
 
-        let expected = s.t();
+        let expected = lurk_sym_ptr!(s, t);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
@@ -924,7 +968,7 @@ fn evaluate_eq() {
         let s = &mut Store::<Fr>::default();
         let expr = "(eq 'a 1)";
 
-        let expected = s.nil();
+        let expected = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
@@ -933,7 +977,7 @@ fn evaluate_eq() {
         let s = &mut Store::<Fr>::default();
         let expr = "(eq 1 'a)";
 
-        let expected = s.nil();
+        let expected = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
@@ -950,10 +994,10 @@ fn evaluate_zero_arg_lambda() {
     }
     {
         let expected = {
-            let arg = s.sym("x");
+            let arg = s.user_sym("x");
             let num = s.num(123);
             let body = s.list(&[num]);
-            let env = s.nil();
+            let env = lurk_sym_ptr!(s, nil);
             s.intern_fun(arg, body, env)
         };
 
@@ -1134,7 +1178,7 @@ fn evaluate_map_tree_numequal_bug() {
                                                (= (map-tree f (car tree))
                                                   (map-tree f (cdr tree)))))))
                        (map-tree (lambda (x) (+ 1 x)) '((1 . 2) . (3 . 4))))";
-        let expected = s.nil();
+        let expected = lurk_sym_ptr!(s, nil);
         let error = s.get_cont_error();
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(error), None, 169, None);
     }
@@ -1160,7 +1204,7 @@ fn env_lost_bug() {
      )
   (foo '()))
 ";
-        let expected = s.nil();
+        let expected = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -1208,7 +1252,7 @@ fn test_str_car_cdr_cons() {
     let a_pple = s.read(r#" (#\a . "pple") "#).unwrap();
     let pple = s.read(r#" "pple" "#).unwrap();
     let empty = s.intern_string("");
-    let nil = s.nil();
+    let nil = lurk_sym_ptr!(s, nil);
     let terminal = s.get_cont_terminal();
     let error = s.get_cont_error();
 
@@ -1315,7 +1359,7 @@ fn test_one_arg_cons_error() {
 #[test]
 fn test_car_nil() {
     let s = &mut Store::<Fr>::default();
-    let expected = s.nil();
+    let expected = lurk_sym_ptr!(s, nil);
     let terminal = s.get_cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -1332,7 +1376,7 @@ fn test_car_nil() {
 #[test]
 fn test_cdr_nil() {
     let s = &mut Store::<Fr>::default();
-    let expected = s.nil();
+    let expected = lurk_sym_ptr!(s, nil);
     let terminal = s.get_cont_terminal();
     test_aux::<Coproc<Fr>>(
         s,
@@ -1437,7 +1481,7 @@ fn begin_current_env() {
     {
         let s = &mut Store::<Fr>::default();
         let expr = "(begin (current-env))";
-        let expected = s.nil();
+        let expected = lurk_sym_ptr!(s, nil);
         test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, None, None, 2, None);
     }
 }
@@ -1458,7 +1502,7 @@ fn begin_current_env1() {
         let s = &mut Store::<Fr>::default();
         let expr = "(let ((a 1))
                        (begin 123 (current-env)))";
-        let a = s.sym("a");
+        let a = s.user_sym("a");
         let one = s.num(1);
         let binding = s.cons(a, one);
         let expected = s.list(&[binding]);
@@ -1470,7 +1514,7 @@ fn begin_current_env1() {
 fn hide_open() {
     let s = &mut Store::<Fr>::default();
     let expr = "(open (hide 123 'x))";
-    let x = s.sym("x");
+    let x = s.user_sym("x");
     test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, 5, None);
 }
 
@@ -1487,8 +1531,8 @@ fn hide_opaque_open_available() {
 
     assert!(!comm.is_opaque());
 
-    let open = s.lurk_sym("open");
-    let x = s.sym("x");
+    let open = lurk_sym_ptr!(s, open);
+    let x = s.user_sym("x");
     let lang = Lang::new();
 
     {
@@ -1497,7 +1541,7 @@ fn hide_opaque_open_available() {
     }
 
     {
-        let secret = s.lurk_sym("secret");
+        let secret = lurk_sym_ptr!(s, secret);
         let expr = s.list(&[secret, comm]);
         let sec = s.num(123);
         test_aux2::<Coproc<Fr>>(s, &expr, Some(sec), None, None, None, 2, &lang);
@@ -1522,8 +1566,8 @@ fn hide_opaque_open_unavailable() {
 
     let s2 = &mut Store::<Fr>::default();
     let comm = s2.intern_maybe_opaque_comm(*c);
-    let open = s2.lurk_sym("open");
-    let x = s2.sym("x");
+    let open = lurk_sym_ptr!(s2, open);
+    let x = s2.user_sym("x");
 
     let expr = s2.list(&[open, comm]);
     let lang = Lang::new();
@@ -1535,7 +1579,7 @@ fn hide_opaque_open_unavailable() {
 fn commit_open_sym() {
     let s = &mut Store::<Fr>::default();
     let expr = "(open (commit 'x))";
-    let x = s.sym("x");
+    let x = s.user_sym("x");
     test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, 4, None);
 }
 
@@ -1559,7 +1603,7 @@ fn commit_nil() {
     let expr = "(num (commit nil))";
     test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, 4, None);
 
-    let expr = "(num (commit 'lurk.nil))";
+    let expr = "(num (commit '.lurk.nil))";
     test_aux::<Coproc<Fr>>(s, expr, Some(x), None, None, None, 4, None);
 }
 
@@ -1767,7 +1811,7 @@ fn char_invalid_tag() {
 fn terminal_sym() {
     let s = &mut Store::<Fr>::default();
     let expr = "(quote x)";
-    let x = s.sym("x");
+    let x = s.user_sym("x");
     let terminal = s.get_cont_terminal();
     test_aux::<Coproc<Fr>>(s, expr, Some(x), None, Some(terminal), None, 1, None);
 }
@@ -1814,7 +1858,11 @@ fn secret_opaque_commit() {
 
 fn relational_aux(s: &mut Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
     let expr = &format!("({op} {a} {b})");
-    let expected = if res { s.t() } else { s.nil() };
+    let expected = if res {
+        lurk_sym_ptr!(s, t)
+    } else {
+        lurk_sym_ptr!(s, nil)
+    };
     let terminal = s.get_cont_terminal();
 
     test_aux::<Coproc<Fr>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
@@ -1935,7 +1983,7 @@ fn test_relational() {
 #[test]
 fn test_relational_edge_case_identity() {
     let s = &mut Store::<Fr>::default();
-    let t = s.t();
+    let t = lurk_sym_ptr!(s, t);
     let terminal = s.get_cont_terminal();
 
     // Normally, a value cannot be less than the result of incrementing it.
@@ -1964,7 +2012,7 @@ fn test_relational_edge_case_identity() {
 #[test]
 fn test_num_syntax_implications() {
     let s = &mut Store::<Fr>::default();
-    let t = s.t();
+    let t = lurk_sym_ptr!(s, t);
     let terminal = s.get_cont_terminal();
 
     {
@@ -2193,8 +2241,8 @@ fn test_u64_comp() {
     let expr11 = "(= 0u64 0u64)";
     let expr12 = "(= 0u64 1u64)";
 
-    let t = s.t();
-    let nil = s.nil();
+    let t = lurk_sym_ptr!(s, t);
+    let nil = lurk_sym_ptr!(s, nil);
     let terminal = s.get_cont_terminal();
 
     test_aux::<Coproc<Fr>>(s, expr, Some(t), None, Some(terminal), None, 3, None);
@@ -2274,8 +2322,8 @@ fn test_u64_num_comparison() {
 
     let expr = "(= 1 1u64)";
     let expr2 = "(= 1 2u64)";
-    let t = s.t();
-    let nil = s.nil();
+    let t = lurk_sym_ptr!(s, t);
+    let nil = lurk_sym_ptr!(s, nil);
     let terminal = s.get_cont_terminal();
 
     test_aux::<Coproc<Fr>>(s, expr, Some(t), None, Some(terminal), None, 3, None);
@@ -2314,8 +2362,8 @@ fn test_keyword() {
     let expr2 = "(eq :asdf :asdf)";
     let expr3 = "(eq :asdf 'asdf)";
     let res = s.key("asdf");
-    let res2 = s.get_t();
-    let res3 = s.get_nil();
+    let res2 = lurk_sym_ptr!(s, t);
+    let res3 = lurk_sym_ptr!(s, nil);
 
     let terminal = s.get_cont_terminal();
 
@@ -2330,8 +2378,7 @@ fn test_root_sym() {
 
     let s = &mut Store::<Fr>::default();
 
-    let sym = Symbol::root();
-    let x = s.intern_symbol(sym);
+    let x = s.intern_symbol(&Symbol::root_sym());
 
     let z_ptr = &s.hash_expr(&x).unwrap();
 
@@ -2344,11 +2391,27 @@ fn test_sym_hash_values() {
     use crate::Symbol;
 
     let s = &mut Store::<Fr>::default();
+    let state = State::init_lurk_state().rccell();
 
-    let sym = s.read(".asdf.fdsa").unwrap();
-    // TODO: No longer true for keywords
-    //let key = s.read(":asdf.fdsa").unwrap();
-    let expr = s.read("(cons \"fdsa\" 'asdf)").unwrap();
+    let asdf_sym_package_name = state
+        .borrow_mut()
+        .intern_path(&["asdf"], false, false)
+        .unwrap();
+    let asdf_sym_package = Package::new(asdf_sym_package_name);
+    state.borrow_mut().add_package(asdf_sym_package);
+
+    let asdf_key_package_name = state
+        .borrow_mut()
+        .intern_path(&["asdf"], true, false)
+        .unwrap();
+    let asdf_key_package = Package::new(asdf_key_package_name);
+    state.borrow_mut().add_package(asdf_key_package);
+
+    let sym = s.read_with_state(state.clone(), ".asdf.fdsa").unwrap();
+    let key = s.read_with_state(state.clone(), ":asdf.fdsa").unwrap();
+    let expr = s
+        .read_with_state(state.clone(), "(cons \"fdsa\" '.asdf)")
+        .unwrap();
 
     let limit = 10;
     let env = empty_sym_env(s);
@@ -2363,17 +2426,16 @@ fn test_sym_hash_values() {
         _emitted,
     ) = Evaluator::new(expr, env, s, limit, &lang).eval().unwrap();
 
-    let toplevel_sym = s.read(".asdf").unwrap();
+    let toplevel_sym = s.read_with_state(state, ".asdf").unwrap();
 
-    let root = Symbol::root();
-    let root_sym = s.intern_symbol(root);
+    let root_sym = s.intern_symbol(&Symbol::root_sym());
 
     let asdf = s.str("asdf");
     let consed_with_root = s.cons(asdf, root_sym);
 
     let cons_z_ptr = &s.hash_expr(&new_expr).unwrap();
     let sym_z_ptr = &s.hash_expr(&sym).unwrap();
-    //let key_z_ptr = &s.hash_expr(&key).unwrap();
+    let key_z_ptr = &s.hash_expr(&key).unwrap();
 
     let consed_with_root_z_ptr = &s.hash_expr(&consed_with_root).unwrap();
     let toplevel_z_ptr = &s.hash_expr(&toplevel_sym).unwrap();
@@ -2381,14 +2443,14 @@ fn test_sym_hash_values() {
     // Symbol and keyword scalar hash values are the same as
     // those of the name string consed onto the parent symbol.
     assert_eq!(cons_z_ptr.value(), sym_z_ptr.value());
-    //assert_eq!(cons_z_ptr.value(), key_z_ptr.value());
+    assert_eq!(cons_z_ptr.value(), key_z_ptr.value());
 
     // Toplevel symbols also have this property, and their parent symbol is the root symbol.
     assert_eq!(consed_with_root_z_ptr.value(), toplevel_z_ptr.value());
 
     // The tags differ though.
     assert_eq!(ExprTag::Sym, sym_z_ptr.tag());
-    //assert_eq!(ExprTag::Key, key_z_ptr.tag());
+    assert_eq!(ExprTag::Key, key_z_ptr.tag());
 }
 
 #[test]
@@ -2563,7 +2625,6 @@ pub(crate) mod coproc {
     use super::*;
     use crate::coprocessor::test::DumbCoprocessor;
     use crate::store::Store;
-    use crate::sym;
 
     #[derive(Clone, Debug, Coproc)]
     pub(crate) enum DumbCoproc<F: LurkField> {
@@ -2576,18 +2637,18 @@ pub(crate) mod coproc {
 
         let lang = Lang::<Fr, DumbCoproc<Fr>>::new_with_bindings(
             s,
-            vec![(sym!("cproc", "dumb"), DumbCoprocessor::new().into())],
+            vec![(user_sym("cproc-dumb"), DumbCoprocessor::new().into())],
         );
 
         // 9^2 + 8 = 89
-        let expr = "(.cproc.dumb 9 8)";
+        let expr = "(cproc-dumb 9 8)";
 
         // The dumb coprocessor cannot be shadowed.
-        let expr2 = "(let ((.cproc.dumb (lambda (a b) (* a b))))
-                   (.cproc.dumb 9 8))";
+        let expr2 = "(let ((cproc-dumb (lambda (a b) (* a b))))
+                   (cproc-dumb 9 8))";
 
         // The dumb coprocessor cannot be shadowed.
-        let expr3 = "(.cproc.dumb 9 8 123))";
+        let expr3 = "(cproc-dumb 9 8 123))";
 
         let res = s.num(89);
         let error = s.get_cont_error();

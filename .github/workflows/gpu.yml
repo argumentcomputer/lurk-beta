@@ -1,9 +1,11 @@
-name: Rust
+# Runs the test suite on a self-hosted GPU machine with CUDA and OpenCL enabled
+name: GPU tests
 
 on:
   push:
     branches:
       - master
+
 env:
   CARGO_TERM_COLOR: always
   # Disable incremental compilation.
@@ -25,55 +27,14 @@ env:
   RUSTUP_MAX_RETRIES: 10
   # Don't emit giant backtraces in the CI logs.
   RUST_BACKTRACE: short
+  RUSTFLAGS: -D warnings
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
-  test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-      fail-fast: false
-    env:
-      RUSTFLAGS: -D warnings
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - uses: actions-rs/toolchain@v1
-      - uses: taiki-e/install-action@nextest
-      - uses: Swatinem/rust-cache@v2
-      # make sure benches don't bit-rot
-      - name: build benches
-        run: cargo build --benches --release
-      - name: cargo test
-        run: |
-          cargo nextest run --profile ci --workspace --cargo-profile dev-ci --run-ignored all -E 'all() - test(groth16::tests::outer_prove_recursion) - test(test_make_fcomm_examples) - test(test_functional_commitments_demo) - test(test_chained_functional_commitments_demo)'
-      - name: Doctests
-        run: |
-          cargo test --doc
-
-  msrv:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install rustup
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - uses: Swatinem/rust-cache@v2
-      - name: Install cargo-msrv
-        run: cargo install cargo-msrv
-      - name: Check Rust MSRV
-        run: cargo msrv verify
-
-  # Runs the test suite on a self-hosted GPU machine with CUDA enabled
-  test-gpu:
+  cuda:
     name: Rust tests on CUDA
     runs-on: [self-hosted, gpu]
     env:
@@ -99,37 +60,44 @@ jobs:
       # Check that CUDA is installed with a driver-compatible version
       # This must also be compatible with the GPU architecture, see above link
       - run: nvcc --version
-      # The use of `gcc-10`/`g++-10` is a hack to work around a pasta-msm error with CUDA 11.5 and gcc 11.3:
-      # https://github.com/NVlabs/instant-ngp/issues/119#issuecomment-1231890237
-      # We could also update to CUDA 11.8+ but it breaks the self-hosted runner
       - name: CUDA tests
         env: 
           EC_GPU_FRAMEWORK: cuda
+        # Temporarily skipping CLI test due to cudaMallocAsync error: https://github.com/lurk-lab/lurk-rs/issues/596
         run: |
-          CC=gcc-10 CXX=g++-10 cargo nextest run --profile ci --cargo-profile dev-ci --features cuda
-      # Check that we can access the OpenCL headers
-      - run: clinfo
-      - name: OpenCL tests
-        env:
-          EC_GPU_FRAMEWORK: opencl
-        run: |
-          CC=gcc-10 CXX=g++-10 cargo nextest run --profile ci --cargo-profile dev-ci --features cuda,opencl
+          cargo nextest run --profile ci --cargo-profile dev-ci --features cuda -E 'all() - test(test_prove_and_verify)'
 
-  rustfmt_n_clippy:
-    runs-on: ubuntu-latest
+  opencl:
+    name: Rust tests on OpenCL
+    runs-on: [self-hosted, gpu]
+    env:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITITES: compute,utility
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
       - uses: actions-rs/toolchain@v1
-        with:
-          components: rustfmt, clippy
+      - uses: taiki-e/install-action@nextest
       - uses: Swatinem/rust-cache@v2
-      - name: rustfmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all --check
-      # See '.cargo/config' for list of enabled/disabled clippy lints
-      - name: cargo clippy
-        run: cargo xclippy -D warnings
+      # Check we have access to the machine's Nvidia drivers
+      - run: nvidia-smi
+      # The `compute`/`sm` number corresponds to the Nvidia GPU architecture
+      # In this case, the self-hosted machine uses the Ampere architecture, but we want this to be configurable
+      # See https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/
+      - name: Set env for CUDA compute
+        run: echo "CUDA_ARCH=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | sed 's/\.//g')" >> $GITHUB_ENV
+      - name: set env for EC_GPU
+        run: echo 'EC_GPU_CUDA_NVCC_ARGS=--fatbin --gpu-architecture=sm_${{ env.CUDA_ARCH }} --generate-code=arch=compute_${{ env.CUDA_ARCH }},code=sm_${{ env.CUDA_ARCH }}' >> $GITHUB_ENV
+      - run: echo "${{ env.EC_GPU_CUDA_NVCC_ARGS}}"
+      # Check that CUDA is installed with a driver-compatible version
+      # This must also be compatible with the GPU architecture, see above link
+      - run: nvcc --version
+      # Check that we can access the OpenCL headers
+      - run: clinfo
+      - name: OpenCL tests
+        env:
+          EC_GPU_FRAMEWORK: opencl
+        # Temporarily skipping CLI test due to cudaMallocAsync error: https://github.com/lurk-lab/lurk-rs/issues/596
+        run: |
+          cargo nextest run --profile ci --cargo-profile dev-ci --features cuda,opencl -E 'all() - test(test_prove_and_verify)'

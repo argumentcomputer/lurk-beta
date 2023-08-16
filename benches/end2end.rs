@@ -15,16 +15,22 @@ use lurk::{
     proof::Prover,
     ptr::Ptr,
     public_parameters,
+    state::State,
     store::Store,
 };
 use pasta_curves::pallas;
-use std::sync::Arc;
 use std::time::Duration;
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 const PUBLIC_PARAMS_PATH: &str = "/var/tmp/lurk_benches/public_params";
 const DEFAULT_REDUCTION_COUNT: usize = 10;
 
-fn go_base<F: LurkField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
+fn go_base<F: LurkField>(
+    store: &mut Store<F>,
+    state: Rc<RefCell<State>>,
+    a: u64,
+    b: u64,
+) -> Ptr<F> {
     let program = format!(
         r#"
 (let ((foo (lambda (a b)
@@ -40,7 +46,7 @@ fn go_base<F: LurkField>(store: &mut Store<F>, a: u64, b: u64) -> Ptr<F> {
 "#
     );
 
-    store.read(&program).unwrap()
+    store.read_with_state(state, &program).unwrap()
 }
 
 /// To run these benchmarks, do `cargo criterion end2end_benchmark`.
@@ -74,9 +80,11 @@ fn end2end_benchmark(c: &mut Criterion) {
     let size = (10, 0);
     let benchmark_id = BenchmarkId::new("end2end_go_base_nova", format!("_{}_{}", size.0, size.1));
 
+    let state = State::init_lurk_state().rccell();
+
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         b.iter(|| {
-            let ptr = go_base::<pallas::Scalar>(&mut store, s.0, s.1);
+            let ptr = go_base::<pallas::Scalar>(&mut store, state.clone(), s.0, s.1);
             let _result = prover
                 .evaluate_and_prove(&pp, ptr, env, &mut store, limit, lang_pallas_rc.clone())
                 .unwrap();
@@ -98,6 +106,8 @@ fn store_benchmark(c: &mut Criterion) {
     let mut bls12_store = Store::<Fr>::default();
     let mut pallas_store = Store::<pallas::Scalar>::default();
 
+    let state = State::init_lurk_state().rccell();
+
     // todo!() rfc out into more flexible test cases
     let sizes = vec![(10, 16), (10, 160)];
     for size in sizes {
@@ -106,7 +116,7 @@ fn store_benchmark(c: &mut Criterion) {
         let bls12_id = BenchmarkId::new("store_go_base_bls12", &parameter_string);
         group.bench_with_input(bls12_id, &size, |b, &s| {
             b.iter(|| {
-                let result = go_base::<Fr>(&mut bls12_store, s.0, s.1);
+                let result = go_base::<Fr>(&mut bls12_store, state.clone(), s.0, s.1);
                 black_box(result)
             })
         });
@@ -114,7 +124,7 @@ fn store_benchmark(c: &mut Criterion) {
         let pasta_id = BenchmarkId::new("store_go_base_pallas", &parameter_string);
         group.bench_with_input(pasta_id, &size, |b, &s| {
             b.iter(|| {
-                let result = go_base::<pallas::Scalar>(&mut pallas_store, s.0, s.1);
+                let result = go_base::<pallas::Scalar>(&mut pallas_store, state.clone(), s.0, s.1);
                 black_box(result)
             })
         });
@@ -135,6 +145,8 @@ fn hydration_benchmark(c: &mut Criterion) {
     let mut bls12_store = Store::<Fr>::default();
     let mut pallas_store = Store::<pallas::Scalar>::default();
 
+    let state = State::init_lurk_state().rccell();
+
     // todo!() rfc out into more flexible test cases
     let sizes = vec![(10, 16), (10, 160)];
     for size in sizes {
@@ -143,7 +155,7 @@ fn hydration_benchmark(c: &mut Criterion) {
         {
             let benchmark_id = BenchmarkId::new("hydration_go_base_bls12", &parameter_string);
             group.bench_with_input(benchmark_id, &size, |b, &s| {
-                let _ptr = go_base::<Fr>(&mut bls12_store, s.0, s.1);
+                let _ptr = go_base::<Fr>(&mut bls12_store, state.clone(), s.0, s.1);
                 b.iter(|| bls12_store.hydrate_scalar_cache())
             });
         }
@@ -151,7 +163,7 @@ fn hydration_benchmark(c: &mut Criterion) {
         {
             let benchmark_id = BenchmarkId::new("hydration_go_base_pallas", &parameter_string);
             group.bench_with_input(benchmark_id, &size, |b, &s| {
-                let _ptr = go_base::<pallas::Scalar>(&mut pallas_store, s.0, s.1);
+                let _ptr = go_base::<pallas::Scalar>(&mut pallas_store, state.clone(), s.0, s.1);
                 b.iter(|| pallas_store.hydrate_scalar_cache())
             });
         }
@@ -175,6 +187,8 @@ fn eval_benchmark(c: &mut Criterion) {
     let mut bls12_store = Store::<Fr>::default();
     let mut pallas_store = Store::<pallas::Scalar>::default();
 
+    let state = State::init_lurk_state().rccell();
+
     // todo!() rfc out into more flexible test cases
     let sizes = vec![(10, 16), (10, 160)];
     for size in sizes {
@@ -183,7 +197,7 @@ fn eval_benchmark(c: &mut Criterion) {
         {
             let benchmark_id = BenchmarkId::new("eval_go_base_bls12", &parameter_string);
             group.bench_with_input(benchmark_id, &size, |b, &s| {
-                let ptr = go_base::<Fr>(&mut bls12_store, s.0, s.1);
+                let ptr = go_base::<Fr>(&mut bls12_store, state.clone(), s.0, s.1);
                 b.iter(|| {
                     Evaluator::new(
                         ptr,
@@ -200,7 +214,7 @@ fn eval_benchmark(c: &mut Criterion) {
         {
             let benchmark_id = BenchmarkId::new("eval_go_base_pallas", &parameter_string);
             group.bench_with_input(benchmark_id, &size, |b, &s| {
-                let ptr = go_base::<pallas::Scalar>(&mut pallas_store, s.0, s.1);
+                let ptr = go_base::<pallas::Scalar>(&mut pallas_store, state.clone(), s.0, s.1);
                 b.iter(|| {
                     Evaluator::new(
                         ptr,
@@ -270,8 +284,10 @@ fn prove_benchmark(c: &mut Criterion) {
     let size = (10, 0);
     let benchmark_id = BenchmarkId::new("prove_go_base_nova", format!("_{}_{}", size.0, size.1));
 
+    let state = State::init_lurk_state().rccell();
+
     group.bench_with_input(benchmark_id, &size, |b, &s| {
-        let ptr = go_base::<pallas::Scalar>(&mut store, s.0, s.1);
+        let ptr = go_base::<pallas::Scalar>(&mut store, state.clone(), s.0, s.1);
         let prover = NovaProver::new(reduction_count, lang_pallas.clone());
         let pp = public_parameters::public_params(
             reduction_count,
@@ -314,8 +330,10 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
         format!("_{}_{}", size.0, size.1),
     );
 
+    let state = State::init_lurk_state().rccell();
+
     group.bench_with_input(benchmark_id, &size, |b, &s| {
-        let ptr = go_base::<pallas::Scalar>(&mut store, s.0, s.1);
+        let ptr = go_base::<pallas::Scalar>(&mut store, state.clone(), s.0, s.1);
         let prover = NovaProver::new(reduction_count, lang_pallas.clone());
         let pp = public_parameters::public_params(
             reduction_count,
@@ -353,12 +371,14 @@ fn verify_benchmark(c: &mut Criterion) {
     let mut store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
+    let state = State::init_lurk_state().rccell();
+
     let sizes = vec![(10, 0)];
     for size in sizes {
         let parameter_string = format!("_{}_{}", size.0, size.1);
         let benchmark_id = BenchmarkId::new("verify_go_base_nova", &parameter_string);
         group.bench_with_input(benchmark_id, &size, |b, &s| {
-            let ptr = go_base(&mut store, s.0, s.1);
+            let ptr = go_base(&mut store, state.clone(), s.0, s.1);
             let prover = NovaProver::new(reduction_count, lang_pallas.clone());
             let pp = public_parameters::public_params(
                 reduction_count,
@@ -402,12 +422,14 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
     let mut store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
+    let state = State::init_lurk_state().rccell();
+
     let sizes = vec![(10, 0)];
     for size in sizes {
         let parameter_string = format!("_{}_{}", size.0, size.1);
         let benchmark_id = BenchmarkId::new("verify_compressed_go_base_nova", &parameter_string);
         group.bench_with_input(benchmark_id, &size, |b, &s| {
-            let ptr = go_base(&mut store, s.0, s.1);
+            let ptr = go_base(&mut store, state.clone(), s.0, s.1);
             let prover = NovaProver::new(reduction_count, lang_pallas.clone());
             let pp = public_parameters::public_params(
                 reduction_count,

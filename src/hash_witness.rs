@@ -5,7 +5,9 @@ use std::marker::PhantomData;
 use crate::cont::Continuation;
 use crate::error::ReductionError;
 use crate::field::LurkField;
+use crate::lurk_sym_ptr;
 use crate::ptr::{ContPtr, Ptr};
+use crate::state::State;
 use crate::store::{self, Store};
 use crate::tag::ExprTag;
 
@@ -237,7 +239,7 @@ pub type ContWitness<F> = HashWitness<ContName, Cont<F>, MAX_CONTS_PER_REDUCTION
 
 impl<F: LurkField> HashWitness<ConsName, Cons<F>, MAX_CONSES_PER_REDUCTION, F> {
     #[allow(dead_code)]
-    fn assert_specific_invariants(&self, store: &Store<F>) {
+    fn assert_specific_invariants(&self, store: &Store<F>, state: &State) {
         // Use the commented code below to search for (non-nil) duplicated conses, which could indicate that two
         // different Cons are being used to reference the identical structural value. In that case, they could be
         // coalesced, potentially leading to fewer slots being required.
@@ -252,10 +254,10 @@ impl<F: LurkField> HashWitness<ConsName, Cons<F>, MAX_CONSES_PER_REDUCTION, F> {
             match p {
                 Stub::Value(hash) => {
                     if let Some(existing_name) = digests.insert(hash.cons, name) {
-                        let nil = store.get_nil();
+                        let nil = lurk_sym_ptr!(store, nil);
                         if !store.ptr_eq(&hash.cons, &nil).unwrap() {
                             use crate::writer::Write;
-                            let cons = hash.cons.fmt_to_string(store);
+                            let cons = hash.cons.fmt_to_string(store, state);
                             dbg!(hash.cons, cons, name, existing_name);
                             panic!("duplicate");
                         }

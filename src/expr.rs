@@ -28,6 +28,7 @@ pub enum Expression<F: LurkField> {
     Str(Ptr<F>, Ptr<F>),
     Thunk(Thunk<F>),
     RootSym,
+    RootKey,
     Sym(Ptr<F>, Ptr<F>),
     Key(Ptr<F>, Ptr<F>),
     Char(char),

@@ -1,5 +1,7 @@
+use std::cell::RefCell;
 use std::fs::read_to_string;
 use std::process;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
@@ -14,26 +16,27 @@ use rustyline::{
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 
 use super::{commitment::Commitment, field_data::load, paths::commitment_path};
-use crate::cli::paths::{proof_path, public_params_dir};
+
 use crate::{
+    cli::paths::{proof_path, public_params_dir},
     eval::{
         lang::{Coproc, Lang},
         Evaluator, Frame, Witness, IO,
     },
     field::{LanguageField, LurkField},
+    lurk_sym_ptr,
+    package::{Package, SymbolRef},
     parser,
+    proof::{nova::NovaProver, Prover},
     ptr::Ptr,
+    public_parameters::public_params,
+    state::State,
     store::Store,
     tag::{ContTag, ExprTag},
     writer::Write,
     z_ptr::ZExprPtr,
-    Num,
-};
-
-use crate::{
-    proof::{nova::NovaProver, Prover},
-    public_parameters::public_params,
     z_store::ZStore,
+    Num, Symbol,
 };
 
 use super::lurk_proof::{LurkProof, LurkProofMeta};
@@ -104,6 +107,7 @@ struct Evaluation<F: LurkField> {
 #[allow(dead_code)]
 pub(crate) struct Repl<F: LurkField> {
     store: Store<F>,
+    state: Rc<RefCell<State>>,
     env: Ptr<F>,
     lang: Arc<Lang<F, Coproc<F>>>,
     rc: usize,
@@ -144,6 +148,7 @@ impl Repl<F> {
         );
         Repl {
             store,
+            state: State::init_lurk_state().rccell(),
             env,
             lang: Arc::new(Lang::new()),
             rc,
@@ -291,7 +296,7 @@ impl Repl<F> {
         commitment.persist()?;
         println!(
             "Data: {}\nHash: 0x{hash_str}",
-            payload.fmt_to_string(&self.store)
+            payload.fmt_to_string(&self.store, &self.state.borrow())
         );
         Ok(())
     }
@@ -311,7 +316,7 @@ impl Repl<F> {
                 .unwrap();
             if print_data {
                 let data = self.store.fetch_comm(&comm_ptr).unwrap().1;
-                println!("{}", data.fmt_to_string(&self.store));
+                println!("{}", data.fmt_to_string(&self.store, &self.state.borrow()));
             } else {
                 println!("Data is now available");
             }
@@ -384,8 +389,8 @@ impl Repl<F> {
     #[allow(dead_code)]
     fn get_comm_hash(&mut self, cmd: &str, args: &Ptr<F>) -> Result<F> {
         let first = self.peek1(cmd, args)?;
-        let n = self.store.lurk_sym("num");
-        let expr = self.store.list(&[n, first]);
+        let num = lurk_sym_ptr!(self.store, num);
+        let expr = self.store.list(&[num, first]);
         let (expr_io, ..) = self
             .eval_expr(expr)
             .with_context(|| "evaluating first arg")?;
@@ -394,6 +399,26 @@ impl Repl<F> {
             .fetch_num(&expr_io.expr)
             .expect("must be a number");
         Ok(hash.into_scalar())
+    }
+
+    fn get_string(&self, ptr: &Ptr<F>) -> Result<String> {
+        match self.store.fetch_string(ptr) {
+            None => bail!(
+                "Expected string. Got {}",
+                ptr.fmt_to_string(&self.store, &self.state.borrow())
+            ),
+            Some(string) => Ok(string),
+        }
+    }
+
+    fn get_symbol(&self, ptr: &Ptr<F>) -> Result<Symbol> {
+        match self.store.fetch_symbol(ptr) {
+            None => bail!(
+                "Expected symbol. Got {}",
+                ptr.fmt_to_string(&self.store, &self.state.borrow())
+            ),
+            Some(symbol) => Ok(symbol),
+        }
     }
 
     fn handle_meta_cases(&mut self, cmd: &str, args: &Ptr<F>, pwd_path: &Utf8Path) -> Result<()> {
@@ -408,19 +433,22 @@ impl Repl<F> {
                 //
                 // And the state's env is set to the result.
                 let (first, second) = self.peek2(cmd, args)?;
-                let l = &self.store.lurk_sym("let");
-                let current_env = &self.store.lurk_sym("current-env");
+                let l = lurk_sym_ptr!(&self.store, let_);
+                let current_env = lurk_sym_ptr!(&self.store, current_env);
                 let binding = &self.store.list(&[first, second]);
                 let bindings = &self.store.list(&[*binding]);
-                let current_env_call = &self.store.list(&[*current_env]);
-                let expanded = &self.store.list(&[*l, *bindings, *current_env_call]);
+                let current_env_call = &self.store.list(&[current_env]);
+                let expanded = &self.store.list(&[l, *bindings, *current_env_call]);
                 let (expanded_io, ..) = self.eval_expr(*expanded)?;
 
                 self.env = expanded_io.expr;
 
                 let (new_binding, _) = &self.store.car_cdr(&expanded_io.expr)?;
                 let (new_name, _) = self.store.car_cdr(new_binding)?;
-                println!("{}", new_name.fmt_to_string(&self.store));
+                println!(
+                    "{}",
+                    new_name.fmt_to_string(&self.store, &self.state.borrow())
+                );
             }
             "defrec" => {
                 // Extends env with a recursive binding.
@@ -432,12 +460,12 @@ impl Repl<F> {
                 //
                 // And the state's env is set to the result.
                 let (first, second) = self.peek2(cmd, args)?;
-                let l = &self.store.lurk_sym("letrec");
-                let current_env = &self.store.lurk_sym("current-env");
+                let l = lurk_sym_ptr!(&self.store, letrec);
+                let current_env = lurk_sym_ptr!(&self.store, current_env);
                 let binding = &self.store.list(&[first, second]);
                 let bindings = &self.store.list(&[*binding]);
-                let current_env_call = &self.store.list(&[*current_env]);
-                let expanded = &self.store.list(&[*l, *bindings, *current_env_call]);
+                let current_env_call = &self.store.list(&[current_env]);
+                let expanded = &self.store.list(&[l, *bindings, *current_env_call]);
                 let (expanded_io, ..) = self.eval_expr(*expanded)?;
 
                 self.env = expanded_io.expr;
@@ -445,7 +473,10 @@ impl Repl<F> {
                 let (new_binding_outer, _) = &self.store.car_cdr(&expanded_io.expr)?;
                 let (new_binding_inner, _) = &self.store.car_cdr(new_binding_outer)?;
                 let (new_name, _) = self.store.car_cdr(new_binding_inner)?;
-                println!("{}", new_name.fmt_to_string(&self.store));
+                println!(
+                    "{}",
+                    new_name.fmt_to_string(&self.store, &self.state.borrow())
+                );
             }
             "load" => {
                 let first = self.peek1(cmd, args)?;
@@ -464,7 +495,7 @@ impl Repl<F> {
                 if first_io.expr.is_nil() {
                     eprintln!(
                         "`assert` failed. {} evaluates to nil",
-                        first.fmt_to_string(&self.store)
+                        first.fmt_to_string(&self.store, &self.state.borrow())
                     );
                     process::exit(1);
                 }
@@ -480,10 +511,14 @@ impl Repl<F> {
                 if !&self.store.ptr_eq(&first_io.expr, &second_io.expr)? {
                     eprintln!(
                         "`assert-eq` failed. Expected:\n  {} = {}\nGot:\n  {} ≠ {}",
-                        first.fmt_to_string(&self.store),
-                        second.fmt_to_string(&self.store),
-                        first_io.expr.fmt_to_string(&self.store),
-                        second_io.expr.fmt_to_string(&self.store)
+                        first.fmt_to_string(&self.store, &self.state.borrow()),
+                        second.fmt_to_string(&self.store, &self.state.borrow()),
+                        first_io
+                            .expr
+                            .fmt_to_string(&self.store, &self.state.borrow()),
+                        second_io
+                            .expr
+                            .fmt_to_string(&self.store, &self.state.borrow())
                     );
                     process::exit(1);
                 }
@@ -501,8 +536,8 @@ impl Repl<F> {
                     if elem != &first_emitted {
                         eprintln!(
                             "`assert-emitted` failed at position {i}. Expected {}, but found {}.",
-                            first_emitted.fmt_to_string(&self.store),
-                            elem.fmt_to_string(&self.store),
+                            first_emitted.fmt_to_string(&self.store, &self.state.borrow()),
+                            elem.fmt_to_string(&self.store, &self.state.borrow()),
                         );
                         process::exit(1);
                     }
@@ -514,17 +549,17 @@ impl Repl<F> {
                 if self.eval_expr(first).is_ok() {
                     eprintln!(
                         "`assert-error` failed. {} doesn't result on evaluation error.",
-                        first.fmt_to_string(&self.store)
+                        first.fmt_to_string(&self.store, &self.state.borrow())
                     );
                     process::exit(1);
                 }
             }
-            "lurk.commit" => {
+            "commit" => {
                 let first = self.peek1(cmd, args)?;
                 let (first_io, ..) = self.eval_expr(first)?;
                 self.hide(ff::Field::ZERO, first_io.expr)?;
             }
-            "lurk.hide" => {
+            "hide" => {
                 let (first, second) = self.peek2(cmd, args)?;
                 let (first_io, ..) = self
                     .eval_expr(first)
@@ -535,7 +570,7 @@ impl Repl<F> {
                 let Some(secret) = self.store.fetch_num(&first_io.expr) else {
                     bail!(
                         "Secret must be a number. Got {}",
-                        first_io.expr.fmt_to_string(&self.store)
+                        first_io.expr.fmt_to_string(&self.store, &self.state.borrow())
                     )
                 };
                 self.hide(secret.into_scalar(), second_io.expr)?;
@@ -544,11 +579,11 @@ impl Repl<F> {
                 let hash = self.get_comm_hash(cmd, args)?;
                 self.fetch(&hash, false)?;
             }
-            "lurk.open" => {
+            "open" => {
                 let hash = self.get_comm_hash(cmd, args)?;
                 self.fetch(&hash, true)?;
             }
-            "clear" => self.env = self.store.nil(),
+            "clear" => self.env = lurk_sym_ptr!(&self.store, nil),
             "set-env" => {
                 // The state's env is set to the result of evaluating the first argument.
                 let first = self.peek1(cmd, args)?;
@@ -563,14 +598,61 @@ impl Repl<F> {
             }
             "verify" => {
                 let first = self.peek1(cmd, args)?;
-                match self.store.fetch_string(&first) {
-                    None => bail!(
-                        "Proof ID {} not parsed as a string",
-                        first.fmt_to_string(&self.store)
-                    ),
-                    Some(proof_id) => {
-                        LurkProof::verify_proof(&proof_id)?;
+                let proof_id = self.get_string(&first)?;
+                LurkProof::verify_proof(&proof_id)?;
+            }
+            "defpackage" => {
+                // TODO: handle args
+                let (name, _args) = self.store.car_cdr(args)?;
+                let name = match name.tag {
+                    ExprTag::Str => self.state.borrow_mut().intern(self.get_string(&name)?),
+                    ExprTag::Sym => self.get_symbol(&name)?.into(),
+                    _ => bail!("Package name must be a string or a symbol"),
+                };
+                println!("{}", self.state.borrow().fmt_to_string(&name));
+                let package = Package::new(name);
+                self.state.borrow_mut().add_package(package);
+            }
+            "import" => {
+                // TODO: handle pkg
+                let (mut symbols, _pkg) = self.store.car_cdr(args)?;
+                if symbols.tag == ExprTag::Sym {
+                    let sym = SymbolRef::new(self.get_symbol(&symbols)?);
+                    self.state.borrow_mut().import(&[sym])?;
+                } else {
+                    let mut symbols_vec = vec![];
+                    loop {
+                        {
+                            let (head, tail) = self.store.car_cdr(&symbols)?;
+                            let sym = self.get_symbol(&head)?;
+                            symbols_vec.push(SymbolRef::new(sym));
+                            if tail.is_nil() {
+                                break;
+                            }
+                            symbols = tail;
+                        }
                     }
+                    self.state.borrow_mut().import(&symbols_vec)?;
+                }
+            }
+            "in-package" => {
+                let first = self.peek1(cmd, args)?;
+                match first.tag {
+                    ExprTag::Str => {
+                        let name = self.get_string(&first)?;
+                        let package_name = self.state.borrow_mut().intern(name);
+                        self.state.borrow_mut().set_current_package(package_name)?;
+                    }
+                    ExprTag::Sym => {
+                        let package_name = self.get_symbol(&first)?;
+                        self.state
+                            .borrow_mut()
+                            .set_current_package(package_name.into())?;
+                    }
+                    _ => bail!(
+                        "Expected string or symbol. Got {}",
+                        first.fmt_to_string(&self.store, &self.state.borrow())
+                    ),
                 }
             }
             _ => bail!("Unsupported meta command: {cmd}"),
@@ -586,7 +668,7 @@ impl Repl<F> {
                     ContTag::Terminal => {
                         println!(
                             "[{iterations_display}] => {}",
-                            output.expr.fmt_to_string(&self.store)
+                            output.expr.fmt_to_string(&self.store, &self.state.borrow())
                         )
                     }
                     ContTag::Error => {
@@ -599,13 +681,11 @@ impl Repl<F> {
 
     fn handle_meta(&mut self, expr_ptr: Ptr<F>, pwd_path: &Utf8Path) -> Result<()> {
         let (car, cdr) = self.store.car_cdr(&expr_ptr)?;
-        match &self.store.fetch_symbol(&car) {
-            Some(symbol) => {
-                self.handle_meta_cases(format!("{}", symbol).as_str(), &cdr, pwd_path)?
-            }
+        match &self.store.fetch_sym(&car) {
+            Some(symbol) => self.handle_meta_cases(symbol.name()?, &cdr, pwd_path)?,
             None => bail!(
                 "Meta command must be a symbol. Found {}",
-                car.fmt_to_string(&self.store)
+                car.fmt_to_string(&self.store, &self.state.borrow())
             ),
         }
         Ok(())
@@ -616,7 +696,9 @@ impl Repl<F> {
         input: parser::Span<'a>,
         pwd_path: &Utf8Path,
     ) -> Result<parser::Span<'a>> {
-        let (input, ptr, is_meta) = self.store.read_maybe_meta(input)?;
+        let (input, ptr, is_meta) = self
+            .store
+            .read_maybe_meta_with_state(self.state.clone(), input)?;
 
         if is_meta {
             self.handle_meta(ptr, pwd_path)?;
@@ -670,10 +752,18 @@ impl Repl<F> {
         }
 
         loop {
-            match editor.readline("> ") {
+            match editor.readline(&format!(
+                "{}> ",
+                self.state
+                    .borrow()
+                    .fmt_to_string(self.state.borrow().get_current_package_name())
+            )) {
                 Ok(line) => {
                     editor.save_history(history_path)?;
-                    match self.store.read_maybe_meta(parser::Span::new(&line)) {
+                    match self
+                        .store
+                        .read_maybe_meta_with_state(self.state.clone(), parser::Span::new(&line))
+                    {
                         Ok((_, expr_ptr, is_meta)) => {
                             if is_meta {
                                 if let Err(e) = self.handle_meta(expr_ptr, &pwd_path) {

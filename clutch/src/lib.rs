@@ -8,8 +8,10 @@ use fcomm::{
     CommittedExpression, CommittedExpressionMap, LurkCont, LurkPtr, NovaProofCache, Opening, Proof,
     PtrEvaluation,
 };
+use lurk::lurk_sym_ptr;
 use lurk::public_parameters::public_params;
 
+use lurk::state::State;
 use pasta_curves::pallas;
 
 use lurk::coprocessor::Coprocessor;
@@ -27,9 +29,11 @@ use lurk::symbol::Symbol;
 use lurk::tag::ExprTag;
 use lurk::writer::Write;
 
+use std::cell::RefCell;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::thread;
 
@@ -199,6 +203,7 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
     fn handle_meta<P: AsRef<Path> + Copy>(
         &mut self,
         store: &mut Store<F>,
+        state: Rc<RefCell<State>>,
         expr_ptr: Ptr<F>,
         p: P,
     ) -> Result<()> {
@@ -206,7 +211,7 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
 
         macro_rules! delegate {
             () => {
-                self.repl_state.handle_meta(store, expr_ptr, p)
+                self.repl_state.handle_meta(store, state, expr_ptr, p)
             };
         }
 
@@ -216,13 +221,13 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
                     let s: Symbol = store
                         .fetch_sym(&car)
                         .ok_or(Error::msg("handle_meta fetch symbol"))?;
-                    match format!("{}", s).as_str() {
-                        "call" => self.call(store, rest)?,
-                        "chain" => self.chain(store, rest)?,
-                        "lurk.commit" => self.commit(store, rest)?,
-                        "lurk.open" => self.open(store, rest)?,
-                        "proof-in-expr" => self.proof_in_expr(store, rest)?,
-                        "proof-out-expr" => self.proof_out_expr(store, rest)?,
+                    match s.name()? {
+                        "call" => self.call(store, &state.borrow(), rest)?,
+                        "chain" => self.chain(store, &state.borrow(), rest)?,
+                        "commit" => self.commit(store, rest)?,
+                        "open" => self.open(store, rest)?,
+                        "proof-in-expr" => self.proof_in_expr(store, &state.borrow(), rest)?,
+                        "proof-out-expr" => self.proof_out_expr(store, &state.borrow(), rest)?,
                         "proof-claim" => self.proof_claim(store, rest)?,
                         "prove" => self.prove(store, rest)?,
                         "verify" => self.verify(store, rest)?,
@@ -231,11 +236,11 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
                 }
                 Expression::Comm(_, c) => {
                     // NOTE: this cannot happen from a text-based REPL, since there is not currrently a literal Comm syntax.
-                    self.apply_comm(store, *c, rest)?
+                    self.apply_comm(store, &state.borrow(), *c, rest)?
                 }
                 Expression::Num(c) => {
                     let comm = store.intern_num(*c);
-                    self.apply_comm(store, comm, rest)?
+                    self.apply_comm(store, &state.borrow(), comm, rest)?
                 }
                 _ => return delegate!(),
             },
@@ -248,7 +253,7 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
 
         if let Some(expr) = res {
             let mut handle = io::stdout().lock();
-            expr.fmt(store, &mut handle)?;
+            expr.fmt(store, &state.borrow(), &mut handle)?;
             println!();
         };
         Ok(())
@@ -257,9 +262,11 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
     fn handle_non_meta(
         &mut self,
         store: &mut Store<F>,
+        state: &State,
         expr_ptr: Ptr<F>,
     ) -> Result<(IO<F>, IO<F>, usize)> {
-        let (input, output, iterations) = self.repl_state.handle_non_meta(store, expr_ptr)?;
+        let (input, output, iterations) =
+            self.repl_state.handle_non_meta(store, state, expr_ptr)?;
 
         self.history.push(output);
 
@@ -329,18 +336,29 @@ impl ClutchState<F, Coproc<F>> {
     fn apply_comm(
         &mut self,
         store: &mut Store<F>,
+        state: &State,
         comm: Ptr<F>,
         rest: Ptr<F>,
     ) -> Result<Option<Ptr<F>>> {
         let call_form = store.cons(comm, rest);
-        self.apply_comm_aux(store, call_form, false)
+        self.apply_comm_aux(store, state, call_form, false)
     }
-    fn call(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
-        self.apply_comm_aux(store, rest, false)
+    fn call(
+        &mut self,
+        store: &mut Store<F>,
+        state: &State,
+        rest: Ptr<F>,
+    ) -> Result<Option<Ptr<F>>> {
+        self.apply_comm_aux(store, state, rest, false)
     }
-    fn chain(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+    fn chain(
+        &mut self,
+        store: &mut Store<F>,
+        state: &State,
+        rest: Ptr<F>,
+    ) -> Result<Option<Ptr<F>>> {
         let (result_expr, new_comm) = self
-            .apply_comm_aux(store, rest, true)?
+            .apply_comm_aux(store, state, rest, true)?
             .and_then(|cons| store.car_cdr(&cons).ok()) // unpack pair
             .ok_or_else(|| {
                 anyhow!(
@@ -376,7 +394,7 @@ impl ClutchState<F, Coproc<F>> {
 
         let interned_commitment = store.intern_maybe_opaque_comm(new_commitment.comm);
         let mut handle = io::stdout().lock();
-        interned_commitment.fmt(store, &mut handle)?;
+        interned_commitment.fmt(store, state, &mut handle)?;
         println!();
 
         Ok(Some(result_expr))
@@ -384,6 +402,7 @@ impl ClutchState<F, Coproc<F>> {
     fn apply_comm_aux(
         &mut self,
         store: &mut Store<F>,
+        state: &State,
         rest: Ptr<F>,
         chain: bool,
     ) -> Result<Option<Ptr<F>>> {
@@ -407,8 +426,8 @@ impl ClutchState<F, Coproc<F>> {
         };
 
         let claim = Claim::Opening::<F>(Opening {
-            input: arg.fmt_to_string(store),
-            output: output.fmt_to_string(store),
+            input: arg.fmt_to_string(store, state),
+            output: output.fmt_to_string(store, state),
             status: Status::from(cont),
             commitment,
             new_commitment,
@@ -463,21 +482,31 @@ impl ClutchState<F, Coproc<F>> {
         Ok((commitment, commitment_ptr))
     }
 
-    fn proof_in_expr(&self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+    fn proof_in_expr(
+        &self,
+        store: &mut Store<F>,
+        state: &State,
+        rest: Ptr<F>,
+    ) -> Result<Option<Ptr<F>>> {
         let proof = self.get_proof(store, rest)?;
         let (input, _output) = proof.io(store, &self.lang())?;
 
         let mut handle = io::stdout().lock();
-        input.expr.fmt(store, &mut handle)?;
+        input.expr.fmt(store, state, &mut handle)?;
         println!();
         Ok(None)
     }
-    fn proof_out_expr(&self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+    fn proof_out_expr(
+        &self,
+        store: &mut Store<F>,
+        state: &State,
+        rest: Ptr<F>,
+    ) -> Result<Option<Ptr<F>>> {
         let proof = self.get_proof(store, rest)?;
         let (_input, output) = proof.io(store, &self.lang())?;
 
         let mut handle = io::stdout().lock();
-        output.expr.fmt(store, &mut handle)?;
+        output.expr.fmt(store, state, &mut handle)?;
         println!();
         Ok(None)
     }
@@ -544,7 +573,7 @@ impl ClutchState<F, Coproc<F>> {
                 Claim::PtrEvaluation(_) => println!("Claim::PtrEvaluation elided."),
             }
 
-            let zid = store.str(zptr_string);
+            let zid = store.str(&zptr_string);
             Ok(Some(zid))
         } else {
             bail!("verification of new proof failed");
@@ -566,9 +595,9 @@ impl ClutchState<F, Coproc<F>> {
         let result = proof.verify(&pp, &self.lang()).unwrap();
 
         if result.verified {
-            Ok(Some(store.get_t()))
+            Ok(Some(lurk_sym_ptr!(store, t)))
         } else {
-            Ok(Some(store.get_nil()))
+            Ok(Some(lurk_sym_ptr!(store, nil)))
         }
     }
 }

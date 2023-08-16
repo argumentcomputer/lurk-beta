@@ -1,4 +1,5 @@
 use assert_cmd::prelude::*;
+use lurk::state::initial_lurk_state;
 use predicates::prelude::*;
 use std::fs::File;
 use std::io::Write;
@@ -47,7 +48,7 @@ fn test_eval_expression() {
 
     cmd.assert()
         .success()
-        .stdout("{\"expr\":\"((lambda (a b) (+ (* a 3) b)) 9 7)\",\"env\":\"nil\",\"cont\":\"Outermost\",\"expr_out\":\"34\",\"env_out\":\"nil\",\"cont_out\":\"Terminal\",\"status\":\"Terminal\",\"iterations\":17}");
+        .stdout("{\"expr\":\"((lambda (.lurk.user.a .lurk.user.b) (+ (* .lurk.user.a 3) .lurk.user.b)) 9 7)\",\"env\":\"nil\",\"cont\":\"Outermost\",\"expr_out\":\"34\",\"env_out\":\"nil\",\"cont_out\":\"Terminal\",\"status\":\"Terminal\",\"iterations\":17}");
 }
 
 fn test_prove_expression(
@@ -236,12 +237,12 @@ fn test_function_aux(
         let mut store = Store::<S1>::default();
 
         let input = store.read(function_input).expect("store read");
-        let canonical_input = input.fmt_to_string(&store);
+        let canonical_input = input.fmt_to_string(&store, initial_lurk_state());
 
         let canonical_output = store
             .read(expected_output)
             .expect("store read")
-            .fmt_to_string(&store);
+            .fmt_to_string(&store, initial_lurk_state());
 
         assert_eq!(canonical_input, opening.input);
         assert_eq!(*expected_output, canonical_output);
@@ -325,7 +326,7 @@ fn test_create_open_and_verify_complicated_higher_order_functional_commitment2()
                                    (sum (sum-aux 0)))
                              (lambda (nums)
                                (= (sum nums) 15)))";
-    let expected_output = "BILL";
+    let expected_output = ".lurk.user.BILL";
 
     test_create_open_and_verify_functional_commitment_aux(
         function_source,

@@ -956,6 +956,7 @@ fn make_thunk() -> Func {
 mod tests {
     use super::*;
     use crate::lem::{pointers::Ptr, slot::SlotsCounter, store::Store, Tag};
+    use crate::state::{lurk_sym, State};
     use crate::tag::ContTag::*;
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
     use blstrs::Scalar as Fr;
@@ -984,7 +985,7 @@ mod tests {
         let outermost = Ptr::null(Tag::Cont(Outermost));
         let terminal = Ptr::null(Tag::Cont(Terminal));
         let error = Ptr::null(Tag::Cont(Error));
-        let nil = store.intern_nil();
+        let nil = store.intern_symbol(&lurk_sym("nil"));
 
         // Stop condition: the continuation is either terminal or error
         let stop_cond = |output: &[Ptr<Fr>]| output[2] == terminal || output[2] == error;
@@ -1015,58 +1016,56 @@ mod tests {
     }
 
     fn expr_in_expr_out_pairs(s: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
-        let div = s.read("(/ 70u64 8u64)").unwrap();
-        let div_res = s.read("8u64").unwrap();
-        let rem = s.read("(% 70u64 8u64)").unwrap();
-        let rem_res = s.read("6u64").unwrap();
-        let u64_1 = s.read("(u64 100000000)").unwrap();
-        let u64_1_res = s.read("100000000u64").unwrap();
-        let u64_2 = s.read("(u64 1000000000000000000000000)").unwrap();
-        let u64_2_res = s.read("2003764205206896640u64").unwrap();
-        let mul_overflow = s.read("(* 1000000000000u64 100000000000000u64)").unwrap();
-        let mul_overflow_res = s.read("15908979783594147840u64").unwrap();
-        let char_conv = s.read("(char 97)").unwrap();
-        let char_conv_res = s.read("'a'").unwrap();
-        let char_overflow = s.read("(char 4294967393)").unwrap();
-        let char_overflow_res = s.read("'a'").unwrap();
-        let t = s.read("t").unwrap();
-        let nil = s.read("nil").unwrap();
-        let le1 = s.read("(<= 4 8)").unwrap();
-        let le2 = s.read("(<= 8 8)").unwrap();
-        let le3 = s.read("(<= 10 8)").unwrap();
-        let gt1 = s.read("(> 4 8)").unwrap();
-        let gt2 = s.read("(> 8 8)").unwrap();
-        let gt3 = s.read("(> 10 8)").unwrap();
-        let ltz = s.read("(< (- 0 10) 0)").unwrap();
-        let sum = s.read("(+ 21 21)").unwrap();
-        let sum_res = s.read("42").unwrap();
-        let car = s.read("(car (cons 1 2))").unwrap();
-        let car_res = s.read("1").unwrap();
-        let let_ = s
-            .read(
-                "(let ((x (cons 1 2)))
-                   (cons (car x) (cdr x)))",
-            )
-            .unwrap();
-        let let_res = s.read("(1 . 2)").unwrap();
-        let lam0 = s.read("((lambda () 1))").unwrap();
-        let lam0_res = s.read("1").unwrap();
-        let lam = s.read("((lambda (x y) (+ x y)) 3 4)").unwrap();
-        let lam_res = s.read("7").unwrap();
-        let fold = s
-            .read(
-                "(letrec ((build (lambda (x)
-                                             (if (eq x 0)
-                                                 nil
-                                               (cons x (build (- x 1))))))
-                                    (sum (lambda (xs)
-                                           (if (eq xs nil)
-                                               0
-                                             (+ (car xs) (sum (cdr xs)))))))
-                             (sum (build 10)))",
-            )
-            .unwrap();
-        let fold_res = s.read("55").unwrap();
+        let state = State::init_lurk_state().rccell();
+        let mut read = |code: &str| s.read(state.clone(), code).unwrap();
+        let div = read("(/ 70u64 8u64)");
+        let div_res = read("8u64");
+        let rem = read("(% 70u64 8u64)");
+        let rem_res = read("6u64");
+        let u64_1 = read("(u64 100000000)");
+        let u64_1_res = read("100000000u64");
+        let u64_2 = read("(u64 1000000000000000000000000)");
+        let u64_2_res = read("2003764205206896640u64");
+        let mul_overflow = read("(* 1000000000000u64 100000000000000u64)");
+        let mul_overflow_res = read("15908979783594147840u64");
+        let char_conv = read("(char 97)");
+        let char_conv_res = read("'a'");
+        let char_overflow = read("(char 4294967393)");
+        let char_overflow_res = read("'a'");
+        let t = read("t");
+        let nil = read("nil");
+        let le1 = read("(<= 4 8)");
+        let le2 = read("(<= 8 8)");
+        let le3 = read("(<= 10 8)");
+        let gt1 = read("(> 4 8)");
+        let gt2 = read("(> 8 8)");
+        let gt3 = read("(> 10 8)");
+        let ltz = read("(< (- 0 10) 0)");
+        let sum = read("(+ 21 21)");
+        let sum_res = read("42");
+        let car = read("(car (cons 1 2))");
+        let car_res = read("1");
+        let let_ = read(
+            "(let ((x (cons 1 2)))
+                (cons (car x) (cdr x)))",
+        );
+        let let_res = read("(1 . 2)");
+        let lam0 = read("((lambda () 1))");
+        let lam0_res = read("1");
+        let lam = read("((lambda (x y) (+ x y)) 3 4)");
+        let lam_res = read("7");
+        let fold = read(
+            "(letrec ((build (lambda (x)
+                                (if (eq x 0)
+                                    nil
+                                (cons x (build (- x 1))))))
+                    (sum (lambda (xs)
+                            (if (eq xs nil)
+                                0
+                                (+ (car xs) (sum (cdr xs)))))))
+                (sum (build 10)))",
+        );
+        let fold_res = read("55");
         vec![
             (div, div_res),
             (rem, rem_res),
