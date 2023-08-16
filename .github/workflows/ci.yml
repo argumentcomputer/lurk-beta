@@ -87,9 +87,9 @@ jobs:
       - uses: actions/checkout@v3
         with:
           repository: iden3/circomlib
-      - run: cargo run --release -- circom --name sha256_2_test $GITHUB_WORKSPACE/circomlib/tests/circuits/sha256_2_test.circom
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
+      - run: cargo run --release -- circom --name sha256_2_test $GITHUB_WORKSPACE/circomlib/tests/circuits/sha256_2_test.circom
       - run: cargo run --release --example circom
   
   clippy:
