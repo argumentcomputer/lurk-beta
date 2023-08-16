@@ -198,7 +198,7 @@ impl Block {
                 }
                 Op::Emit(a) => {
                     let a = bindings.get(a)?;
-                    println!("{}", a.fmt_to_string(store))
+                    println!("{}", a.dgb_display(store))
                 }
                 Op::Hash2(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;

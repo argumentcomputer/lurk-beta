@@ -375,7 +375,7 @@ impl<F: LurkField> Store<F> {
 }
 
 impl<F: LurkField> Ptr<F> {
-    pub fn fmt_to_string(self, store: &Store<F>) -> String {
+    pub fn dgb_display(self, store: &Store<F>) -> String {
         if let Some(s) = store.fetch_string(&self) {
             return format!("\"{}\"", s);
         }
@@ -395,8 +395,8 @@ impl<F: LurkField> Ptr<F> {
                 format!(
                     "({} {} {})",
                     tag,
-                    (*p1).fmt_to_string(store),
-                    (*p2).fmt_to_string(store)
+                    (*p1).dgb_display(store),
+                    (*p2).dgb_display(store)
                 )
             }
             Ptr::Tree3(tag, x) => {
@@ -404,9 +404,9 @@ impl<F: LurkField> Ptr<F> {
                 format!(
                     "({} {} {} {})",
                     tag,
-                    (*p1).fmt_to_string(store),
-                    (*p2).fmt_to_string(store),
-                    (*p3).fmt_to_string(store)
+                    (*p1).dgb_display(store),
+                    (*p2).dgb_display(store),
+                    (*p3).dgb_display(store)
                 )
             }
             Ptr::Tree4(tag, x) => {
@@ -414,10 +414,10 @@ impl<F: LurkField> Ptr<F> {
                 format!(
                     "({} {} {} {} {})",
                     tag,
-                    (*p1).fmt_to_string(store),
-                    (*p2).fmt_to_string(store),
-                    (*p3).fmt_to_string(store),
-                    (*p4).fmt_to_string(store)
+                    (*p1).dgb_display(store),
+                    (*p2).dgb_display(store),
+                    (*p3).dgb_display(store),
+                    (*p4).dgb_display(store)
                 )
             }
         }
