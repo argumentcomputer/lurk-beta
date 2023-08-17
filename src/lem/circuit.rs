@@ -754,7 +754,7 @@ impl Func {
                         bound_allocations.insert(tgt[1].clone(), rem_ptr);
                     }
                     Op::Emit(_) => (),
-                    Op::Commit(tgt, sec, pay) => {
+                    Op::Hide(tgt, sec, pay) => {
                         let sec = bound_allocations.get(sec)?;
                         let pay = bound_allocations.get(pay)?;
                         let sec_tag = g
@@ -1150,7 +1150,7 @@ impl Func {
                         // one constraint for the image's hash
                         num_constraints += 1;
                     }
-                    Op::Commit(..) => {
+                    Op::Hide(..) => {
                         num_constraints += 4;
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
                         globals.insert(FWrap(Tag::Expr(Comm).to_field()));

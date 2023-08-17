@@ -625,7 +625,7 @@ fn apply_cont() -> Func {
                                 return(secret, env, continuation, makethunk)
                             }
                             Symbol("commit") => {
-                                let comm = commit(zero, result);
+                                let comm = hide(zero, result);
                                 return(comm, env, continuation, makethunk)
                             }
                             Symbol("num") => {
@@ -730,7 +730,7 @@ fn apply_cont() -> Func {
                             }
                             Symbol("hide") => {
                                 let num = cast(evaled_arg, Expr::Num);
-                                let hidden = commit(num, result);
+                                let hidden = hide(num, result);
                                 return(hidden, env, continuation, makethunk)
                             }
                             Symbol("eq") => {

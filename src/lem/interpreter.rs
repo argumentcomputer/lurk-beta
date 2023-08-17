@@ -302,7 +302,7 @@ impl Block {
                         .hash4
                         .push(Some(PreimageData::PtrVec(preimg_ptrs.to_vec())));
                 }
-                Op::Commit(tgt, sec, src) => {
+                Op::Hide(tgt, sec, src) => {
                     let src_ptr = bindings.get(src)?;
                     let Ptr::Leaf(Tag::Expr(Num), secret) = bindings.get(sec)? else {
                         bail!("{sec} is not a numeric pointer")

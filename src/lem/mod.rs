@@ -269,9 +269,9 @@ pub enum Op {
     Unhash3([Var; 3], Var),
     /// `Unhash4([a, b, c, d], x)` binds `a`, `b`, `c` and `d` to the 4 children of `x`
     Unhash4([Var; 4], Var),
-    /// `Commit(x, s, p)` binds `x` to a (comm) `Ptr` resulting from committing the
+    /// `Hide(x, s, p)` binds `x` to a (comm) `Ptr` resulting from hiding the
     /// payload `p` with (num) secret `s`
-    Commit(Var, Var, Var),
+    Hide(Var, Var, Var),
     /// `Open(s, p, h)` binds `s` and `p` to the secret and payload (respectively)
     /// of the commitment that resulted on (num or comm) `h`
     Open(Var, Var, Var),
@@ -397,7 +397,7 @@ impl Func {
                         is_bound(img, map)?;
                         preimg.iter().for_each(|var| is_unique(var, map))
                     }
-                    Op::Commit(tgt, sec, src) => {
+                    Op::Hide(tgt, sec, src) => {
                         is_bound(sec, map)?;
                         is_bound(src, map)?;
                         is_unique(tgt, map);
@@ -660,11 +660,11 @@ impl Block {
                     let preimg = insert_many(map, uniq, &preimg);
                     ops.push(Op::Unhash4(preimg.try_into().unwrap(), img))
                 }
-                Op::Commit(tgt, sec, pay) => {
+                Op::Hide(tgt, sec, pay) => {
                     let sec = map.get_cloned(&sec)?;
                     let pay = map.get_cloned(&pay)?;
                     let tgt = insert_one(map, uniq, &tgt);
-                    ops.push(Op::Commit(tgt, sec, pay))
+                    ops.push(Op::Hide(tgt, sec, pay))
                 }
                 Op::Open(sec, pay, comm_or_num) => {
                     let comm_or_num = map.get_cloned(&comm_or_num)?;

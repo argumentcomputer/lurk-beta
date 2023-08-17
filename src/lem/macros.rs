@@ -160,8 +160,8 @@ macro_rules! op {
             $crate::var!($src),
         )
     };
-    ( let $tgt:ident = commit($sec:ident, $src:ident) ) => {
-        $crate::lem::Op::Commit($crate::var!($tgt), $crate::var!($sec), $crate::var!($src))
+    ( let $tgt:ident = hide($sec:ident, $src:ident) ) => {
+        $crate::lem::Op::Hide($crate::var!($tgt), $crate::var!($sec), $crate::var!($src))
     };
     ( let ($sec:ident, $src:ident) = open($hash:ident) ) => {
         $crate::lem::Op::Open($crate::var!($sec), $crate::var!($src), $crate::var!($hash))
@@ -468,12 +468,12 @@ macro_rules! block {
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, let $tgt:ident = commit($sec:ident, $src:ident) ; $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, let $tgt:ident = hide($sec:ident, $src:ident) ; $($tail:tt)*) => {
         $crate::block! (
             @seq
             {
                 $($limbs)*
-                $crate::op!(let $tgt = commit($sec, $src) )
+                $crate::op!(let $tgt = hide($sec, $src) )
             },
             $($tail)*
         )
@@ -612,7 +612,7 @@ mod tests {
                 [mptr("foo"), mptr("goo"), mptr("moo"), mptr("noo")],
                 mptr("aaa"),
             ),
-            Op::Commit(mptr("bar"), mptr("baz"), mptr("bazz")),
+            Op::Hide(mptr("bar"), mptr("baz"), mptr("bazz")),
             Op::Open(mptr("bar"), mptr("baz"), mptr("bazz")),
         ];
         let lemops_macro = vec![
@@ -623,7 +623,7 @@ mod tests {
             op!(let (foo, goo) = unhash2(aaa)),
             op!(let (foo, goo, moo) = unhash3(aaa)),
             op!(let (foo, goo, moo, noo) = unhash4(aaa)),
-            op!(let bar = commit(baz, bazz)),
+            op!(let bar = hide(baz, bazz)),
             op!(let (bar, baz) = open(bazz)),
         ];
 
@@ -644,7 +644,7 @@ mod tests {
             let (foo, goo) = unhash2(aaa);
             let (foo, goo, moo) = unhash3(aaa);
             let (foo, goo, moo, noo) = unhash4(aaa);
-            let bar = commit(baz, bazz);
+            let bar = hide(baz, bazz);
             let (bar, baz) = open(bazz);
             return (bar, baz, bazz);
         });
