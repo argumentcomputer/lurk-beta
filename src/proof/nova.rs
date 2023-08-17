@@ -539,7 +539,7 @@ pub mod tests {
 
             let res = proof.verify(&pp, num_steps, &z0, &zi);
             if res.is_err() {
-                dbg!(&res);
+                log::debug!("{:?}", &res);
             }
             assert!(res.unwrap());
 
@@ -578,7 +578,7 @@ pub mod tests {
             if unsat.is_some() {
                 // For some reason, this isn't getting printed from within the implementation as expected.
                 // Since we always want to know this information, if the condition occurs, just print it here.
-                dbg!(unsat);
+                log::debug!("{:?}", unsat);
             }
             assert!(cs.is_satisfied());
             assert!(cs.verify(&multiframe.public_inputs()));
@@ -1169,23 +1169,23 @@ pub mod tests {
 
             if !op.supports_arity(0) {
                 let expr = format!("({name})");
-                dbg!(&expr);
+                log::debug!("{:?}", &expr);
                 test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
             }
             if !op.supports_arity(1) {
                 let expr = format!("({name} 123)");
-                dbg!(&expr);
+                log::debug!("{:?}", &expr);
                 test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
             }
             if !op.supports_arity(2) {
                 let expr = format!("({name} 123 456)");
-                dbg!(&expr);
+                log::debug!("{:?}", &expr);
                 test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
             }
 
             if !op.supports_arity(3) {
                 let expr = format!("({name} 123 456 789)");
-                dbg!(&expr);
+                log::debug!("{:?}", &expr);
                 let iterations = if op.supports_arity(2) { 2 } else { 1 };
                 test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, iterations, None);
             }

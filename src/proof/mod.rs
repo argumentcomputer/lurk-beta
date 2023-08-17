@@ -40,18 +40,18 @@ pub fn verify_sequential_css<F: LurkField + Copy, C: Coprocessor<F>>(
     for (i, (multiframe, cs)) in css.iter().enumerate() {
         if let Some(prev) = previous_frame {
             if !prev.precedes(multiframe) {
-                dbg!(i, "not preceeding frame");
+                log::debug!("{} {}", i, "not preceeding frame");
                 return Ok(false);
             }
         }
         if !cs.is_satisfied() {
-            dbg!(i, "cs not satisfied");
+            log::debug!("{} {}", i, "cs not satisfied");
             return Ok(false);
         }
 
         let public_inputs = multiframe.public_inputs();
         if !cs.verify(&public_inputs) {
-            dbg!(i, "cs not verified");
+            log::debug!("{} {}", i, "cs not verified");
             return Ok(false);
         }
         previous_frame = Some(multiframe);

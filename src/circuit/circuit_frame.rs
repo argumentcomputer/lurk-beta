@@ -4940,7 +4940,11 @@ fn car_cdr_named<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
 
     if cons_not_dummy.get_value().unwrap_or(false) && !real_cons.get_value().unwrap_or(true) {
-        dbg!(maybe_cons.hash().get_value(), &allocated_digest.get_value());
+        log::debug!(
+            "{:?} {:?}",
+            maybe_cons.hash().get_value(),
+            &allocated_digest.get_value()
+        );
         panic!(
             "tried to take car_cdr of a non-dummy cons ({:?}) but supplied wrong value",
             name

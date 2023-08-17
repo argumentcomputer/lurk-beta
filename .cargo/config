@@ -6,6 +6,7 @@
 xclippy = [
     "clippy", "--workspace", "--all-targets", "--",
     "-Wclippy::all",
+    "-Wclippy::dbg_macro",
     "-Wclippy::match_same_arms",
     "-Wclippy::cast_lossless",
     "-Wclippy::disallowed_methods",

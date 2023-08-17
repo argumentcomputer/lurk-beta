@@ -566,7 +566,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
 
                         // `fun_form` must be a function or potentially evaluate to one.
                         if !fun_form.is_potentially(ExprTag::Fun) {
-                            dbg!("not potentially fun");
+                            log::debug!("{}", "not potentially fun");
                             Control::Error(expr, env)
                         } else if args.is_nil() {
                             Control::Return(

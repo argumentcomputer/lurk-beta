@@ -257,7 +257,7 @@ impl<F: LurkField> HashWitness<ConsName, Cons<F>, MAX_CONSES_PER_REDUCTION, F> {
                     if !store.ptr_eq(&hash.cons, &nil).unwrap() {
                         use crate::writer::Write;
                         let cons = hash.cons.fmt_to_string(store, state);
-                        dbg!(hash.cons, cons, name, existing_name);
+                        log::debug!("{:?} {:?} {:?} {:?}", hash.cons, cons, name, existing_name);
                         panic!("duplicate");
                     }
                 }

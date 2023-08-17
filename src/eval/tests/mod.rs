@@ -2515,29 +2515,29 @@ fn op_syntax_error<T: Op + Copy>() {
 
         {
             let expr = format!("({name} . 1)");
-            dbg!(&expr);
+            log::debug!("{:?}", &expr);
             test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
         }
 
         if !op.supports_arity(0) {
             let expr = format!("({name})");
-            dbg!(&expr);
+            log::debug!("{:?}", &expr);
             test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         if !op.supports_arity(1) {
             let expr = format!("({name} 123)");
-            dbg!(&expr);
+            log::debug!("{:?}", &expr);
             test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         if !op.supports_arity(2) {
             let expr = format!("({name} 123 456)");
-            dbg!(&expr);
+            log::debug!("{:?}", &expr);
             test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
         }
 
         if !op.supports_arity(3) {
             let expr = format!("({name} 123 456 789)");
-            dbg!(&expr);
+            log::debug!("{:?}", &expr);
             let iterations = if op.supports_arity(2) { 2 } else { 1 };
             test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, iterations, None);
         }

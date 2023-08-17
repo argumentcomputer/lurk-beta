@@ -312,7 +312,7 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
         if !expect_dummy {
             match allocated_name {
                 Err(_) => {
-                    dbg!(&self.witness);
+                    log::debug!("{:?}", &self.witness);
                     panic!("requested {:?} but found a dummy allocation", name)
                 }
                 Ok(alloc_name) => {
