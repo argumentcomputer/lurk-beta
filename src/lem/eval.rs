@@ -452,7 +452,8 @@ fn apply_cont() -> Func {
             }
         }
     });
-    // Returns 2 if both arguments are U64, 1 if both arguments are numbers, and 0 otherwise
+    // Returns 2 if both arguments are U64, 1 if the arguments are some kind of number (either U64 or Num),
+    // and 0 otherwise
     let args_num_type = func!(args_num_type(arg1, arg2): 1 => {
         let other = Num(0);
         match arg1.tag {
@@ -641,7 +642,7 @@ fn apply_cont() -> Func {
                                 match result.tag {
                                     Expr::Num => {
                                         // The limit is 2**64 - 1
-                                        let trunc = bitwise_and(result, 18446744073709551615);
+                                        let trunc = bitwise_and(result, 0xffffffffffffffff);
                                         let cast = cast(trunc, Expr::U64);
                                         return(cast, env, continuation, makethunk)
                                     }
@@ -664,7 +665,7 @@ fn apply_cont() -> Func {
                                 match result.tag {
                                     Expr::Num => {
                                         // The limit is 2**32 - 1
-                                        let trunc = bitwise_and(result, 4294967295);
+                                        let trunc = bitwise_and(result, 0xffffffff);
                                         let cast = cast(trunc, Expr::Char);
                                         return(cast, env, continuation, makethunk)
                                     }
