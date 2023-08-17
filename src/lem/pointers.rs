@@ -59,6 +59,17 @@ impl<F: LurkField> Ptr<F> {
         Ptr::Leaf(tag, F::ZERO)
     }
 
+    pub fn is_null(&self) -> bool {
+        match self {
+            Ptr::Leaf(_, f) => f == &F::ZERO,
+            _ => false,
+        }
+    }
+
+    pub fn is_nil(&self) -> bool {
+        self.tag() == &Tag::Expr(Nil)
+    }
+
     #[inline]
     pub fn cast(&self, tag: Tag) -> Self {
         match self {
@@ -66,6 +77,14 @@ impl<F: LurkField> Ptr<F> {
             Ptr::Tree2(_, x) => Ptr::Tree2(tag, *x),
             Ptr::Tree3(_, x) => Ptr::Tree3(tag, *x),
             Ptr::Tree4(_, x) => Ptr::Tree4(tag, *x),
+        }
+    }
+
+    #[inline]
+    pub fn get_num(&self) -> Option<&F> {
+        match self {
+            Ptr::Leaf(Tag::Expr(Num), f) => Some(f),
+            _ => None,
         }
     }
 

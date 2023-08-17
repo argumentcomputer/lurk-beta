@@ -121,7 +121,7 @@ impl Func {
     fn allocate_input<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-        store: &mut Store<F>,
+        store: &Store<F>,
         frame: &Frame<F>,
         bound_allocations: &mut BoundAllocations<F>,
     ) -> Result<()> {
@@ -135,7 +135,7 @@ impl Func {
     /// Allocates an unconstrained pointer for each output of the frame
     fn allocate_output<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        store: &mut Store<F>,
+        store: &Store<F>,
         frame: &Frame<F>,
         bound_allocations: &mut BoundAllocations<F>,
     ) -> Result<Vec<AllocatedPtr<F>>> {
@@ -172,7 +172,7 @@ impl Func {
         cs: &mut CS,
         slot: &Slot,
         preallocated_preimg: Vec<AllocatedNum<F>>,
-        store: &mut Store<F>,
+        store: &Store<F>,
     ) -> Result<AllocatedNum<F>> {
         let cs = &mut cs.namespace(|| format!("poseidon for slot {slot}"));
         let preallocated_img = {
@@ -197,7 +197,7 @@ impl Func {
         preimgs: &[Option<Vec<Ptr<F>>>],
         slot_type: SlotType,
         num_slots: usize,
-        store: &mut Store<F>,
+        store: &Store<F>,
     ) -> Result<Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>> {
         assert!(
             preimgs.len() == num_slots,

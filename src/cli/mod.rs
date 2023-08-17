@@ -1,8 +1,10 @@
+mod backend;
 mod commitment;
 mod field_data;
 mod lurk_proof;
 mod paths;
 mod repl;
+mod repl_lem;
 
 use anyhow::{bail, Context, Result};
 use camino::Utf8PathBuf;
@@ -14,6 +16,7 @@ use std::{collections::HashMap, fs};
 
 use crate::{
     field::{LanguageField, LurkField},
+    lurk_sym_ptr,
     store::Store,
     z_data::{from_z_data, ZData},
     z_store::ZStore,
@@ -21,10 +24,11 @@ use crate::{
 
 use crate::cli::{
     paths::set_lurk_dirs,
-    repl::{validate_non_zero, Backend, Repl},
+    repl::{validate_non_zero, Repl},
+    repl_lem::ReplLEM,
 };
 
-use crate::lurk_sym_ptr;
+use self::backend::Backend;
 
 const DEFAULT_LIMIT: usize = 100_000_000;
 const DEFAULT_RC: usize = 10;
@@ -92,6 +96,10 @@ struct LoadArgs {
     /// Path to commitments directory
     #[clap(long, value_parser)]
     commits_dir: Option<Utf8PathBuf>,
+
+    /// Flag to use LEM
+    #[arg(long)]
+    lem: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -128,6 +136,9 @@ struct LoadCli {
 
     #[clap(long, value_parser)]
     commits_dir: Option<Utf8PathBuf>,
+
+    #[arg(long)]
+    lem: bool,
 }
 
 impl LoadArgs {
@@ -144,6 +155,7 @@ impl LoadArgs {
             public_params_dir: self.public_params_dir,
             proofs_dir: self.proofs_dir,
             commits_dir: self.commits_dir,
+            lem: self.lem,
         }
     }
 }
@@ -189,6 +201,10 @@ struct ReplArgs {
     /// Path to commitments directory
     #[clap(long, value_parser)]
     commits_dir: Option<Utf8PathBuf>,
+
+    /// Flag to use LEM
+    #[arg(long)]
+    lem: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -222,6 +238,9 @@ struct ReplCli {
 
     #[clap(long, value_parser)]
     commits_dir: Option<Utf8PathBuf>,
+
+    #[arg(long)]
+    lem: bool,
 }
 
 impl ReplArgs {
@@ -237,6 +256,7 @@ impl ReplArgs {
             public_params_dir: self.public_params_dir,
             proofs_dir: self.proofs_dir,
             commits_dir: self.commits_dir,
+            lem: self.lem,
         }
     }
 }
@@ -332,15 +352,31 @@ macro_rules! new_repl {
     }};
 }
 
+macro_rules! new_repl_lem {
+    ( $cli: expr, $rc: expr, $limit: expr, $field: path, $backend: expr ) => {{
+        let mut store = crate::lem::store::Store::default();
+        let env = store.intern_symbol(&crate::state::lurk_sym("nil"));
+        ReplLEM::<$field>::new(store, env, $rc, $limit, $backend)
+    }};
+}
+
 impl ReplCli {
     fn run(&self) -> Result<()> {
         macro_rules! repl {
-            ( $rc: expr, $limit: expr, $field: path, $backend: expr ) => {{
-                let mut repl = new_repl!(self, $rc, $limit, $field, $backend);
-                if let Some(lurk_file) = &self.load {
-                    repl.load_file(lurk_file)?;
+            ( $rc:expr, $limit:expr, $field:path, $backend:expr ) => {{
+                if self.lem {
+                    let mut repl = new_repl_lem!(self, $rc, $limit, $field, $backend);
+                    if let Some(lurk_file) = &self.load {
+                        repl.load_file(lurk_file)?;
+                    }
+                    repl.start()
+                } else {
+                    let mut repl = new_repl!(self, $rc, $limit, $field, $backend);
+                    if let Some(lurk_file) = &self.load {
+                        repl.load_file(lurk_file)?;
+                    }
+                    repl.start()
                 }
-                repl.start()
             }};
         }
         let config = get_config(&self.config)?;
@@ -371,8 +407,6 @@ impl ReplCli {
         backend.validate_field(&field)?;
         match field {
             LanguageField::Pallas => repl!(rc, limit, pallas::Scalar, backend),
-            // LanguageField::Vesta => repl!(rc, limit, vesta::Scalar, backend),
-            // LanguageField::BLS12_381 => repl!(rc, limit, blstrs::Scalar, backend),
             LanguageField::Vesta => todo!(),
             LanguageField::BLS12_381 => todo!(),
             LanguageField::BN256 => todo!(),
@@ -384,13 +418,22 @@ impl ReplCli {
 impl LoadCli {
     fn run(&self) -> Result<()> {
         macro_rules! load {
-            ( $rc: expr, $limit: expr, $field: path, $backend: expr ) => {{
-                let mut repl = new_repl!(self, $rc, $limit, $field, $backend);
-                repl.load_file(&self.lurk_file)?;
-                if self.prove {
-                    repl.prove_last_frames()?;
+            ( $rc:expr, $limit:expr, $field:path, $backend:expr ) => {{
+                if self.lem {
+                    let mut repl = new_repl_lem!(self, $rc, $limit, $field, $backend);
+                    repl.load_file(&self.lurk_file)?;
+                    if self.prove {
+                        repl.prove_last_frames()?;
+                    }
+                    Ok(())
+                } else {
+                    let mut repl = new_repl!(self, $rc, $limit, $field, $backend);
+                    repl.load_file(&self.lurk_file)?;
+                    if self.prove {
+                        repl.prove_last_frames()?;
+                    }
+                    Ok(())
                 }
-                Ok(())
             }};
         }
         let config = get_config(&self.config)?;
@@ -421,8 +464,6 @@ impl LoadCli {
         backend.validate_field(&field)?;
         match field {
             LanguageField::Pallas => load!(rc, limit, pallas::Scalar, backend),
-            // LanguageField::Vesta => load!(rc, limit, vesta::Scalar, backend),
-            // LanguageField::BLS12_381 => load!(rc, limit, blstrs::Scalar, backend),
             LanguageField::Vesta => todo!(),
             LanguageField::BLS12_381 => todo!(),
             LanguageField::BN256 => todo!(),

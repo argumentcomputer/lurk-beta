@@ -60,13 +60,13 @@
 //!    be prefixed by "_"
 
 mod circuit;
-mod eval;
-mod interpreter;
+pub mod eval;
+pub mod interpreter;
 mod macros;
 mod path;
-mod pointers;
+pub mod pointers;
 mod slot;
-mod store;
+pub mod store;
 mod var_map;
 
 use crate::field::LurkField;
@@ -181,7 +181,7 @@ impl Lit {
                 _ => unreachable!(),
             },
             Expr(Str) => store.fetch_string(ptr).cloned().map(Lit::String),
-            Expr(Sym) => store.fetch_symbol(ptr).map(Lit::Symbol),
+            Expr(Sym) => store.fetch_symbol(ptr).cloned().map(Lit::Symbol),
             _ => None,
         }
     }
@@ -700,8 +700,8 @@ mod tests {
 
         let mut cs_prev = None;
         for input in inputs.into_iter() {
-            let input = vec![input, nil, outermost];
-            let (frames, _) = func.call_until(input, store, stop_cond).unwrap();
+            let input = [input, nil, outermost];
+            let (frames, ..) = func.call_until(&input, store, stop_cond, 10).unwrap();
 
             let mut cs;
 

@@ -1,3 +1,7 @@
+use anyhow::{bail, Result};
+use dashmap::DashMap;
+use indexmap::IndexSet;
+use nom::{sequence::preceded, Parser};
 use rayon::prelude::*;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
@@ -5,15 +9,13 @@ use crate::{
     field::{FWrap, LurkField},
     hash::PoseidonCache,
     lem::Tag,
+    parser::*,
     state::{lurk_sym, State},
     symbol::Symbol,
     syntax::Syntax,
     tag::ExprTag::*,
     uint::UInt,
 };
-use anyhow::{bail, Result};
-use dashmap::DashMap;
-use indexmap::IndexSet;
 
 use super::pointers::{Ptr, ZChildren, ZPtr};
 
@@ -21,7 +23,7 @@ use super::pointers::{Ptr, ZChildren, ZPtr};
 /// vesatile data structure for many parts of Lurk's data pipeline.
 ///
 /// It holds Lurk data structured as trees of `Ptr`s (or `ZPtr`s). When a `Ptr`
-/// has children`, we store them in the `IndexSet`s available: `ptrs2`, `ptrs3`
+/// has children, we store them in the `IndexSet`s available: `ptrs2`, `ptrs3`
 /// or `ptrs4`. These data structures speed up LEM interpretation because lookups
 /// by indices are fast.
 ///
@@ -42,10 +44,11 @@ pub struct Store<F: LurkField> {
     ptrs3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
     ptrs4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
 
-    str_cache: HashMap<String, Ptr<F>>,
-    ptr_str_cache: HashMap<Ptr<F>, String>,
-    sym_cache: HashMap<Vec<String>, Ptr<F>>,
-    ptr_sym_cache: HashMap<Ptr<F>, Vec<String>>,
+    string_ptr_cache: HashMap<String, Ptr<F>>,
+    ptr_string_cache: HashMap<Ptr<F>, String>,
+
+    symbol_ptr_cache: HashMap<Symbol, Ptr<F>>,
+    ptr_symbol_cache: HashMap<Ptr<F>, Symbol>,
 
     pub poseidon_cache: PoseidonCache<F>,
     dehydrated: Vec<Ptr<F>>,
@@ -148,128 +151,170 @@ impl<F: LurkField> Store<F> {
         self.ptrs4.get_index(idx)
     }
 
-    /// Interns a string recursively
     pub fn intern_string(&mut self, s: &str) -> Ptr<F> {
-        if s.is_empty() {
-            let ptr = Ptr::null(Tag::Expr(Str));
-            self.ptr_str_cache.insert(ptr, "".into());
-            return ptr;
-        }
-
-        match self.str_cache.get(s) {
-            Some(ptr_cache) => *ptr_cache,
+        match self.string_ptr_cache.get(s) {
+            Some(ptr) => *ptr,
             None => {
-                let tail = &s.chars().skip(1).collect::<String>();
-                let tail_ptr = self.intern_string(tail);
-                let head = s.chars().next().unwrap();
-                let s_ptr = self.intern_2_ptrs(Tag::Expr(Str), Ptr::char(head), tail_ptr);
-                self.str_cache.insert(s.into(), s_ptr);
-                self.ptr_str_cache.insert(s_ptr, s.into());
-                s_ptr
+                let ptr = s.chars().rev().fold(Ptr::null(Tag::Expr(Str)), |acc, c| {
+                    self.intern_2_ptrs(Tag::Expr(Str), Ptr::char(c), acc)
+                });
+                self.string_ptr_cache.insert(s.to_string(), ptr);
+                self.ptr_string_cache.insert(ptr, s.to_string());
+                ptr
             }
         }
     }
 
     #[inline]
     pub fn fetch_string(&self, ptr: &Ptr<F>) -> Option<&String> {
-        match ptr.tag() {
-            Tag::Expr(Str) => self.ptr_str_cache.get(ptr),
-            _ => None,
-        }
+        self.ptr_string_cache.get(ptr)
     }
 
-    /// Interns a symbol path recursively
     pub fn intern_symbol_path(&mut self, path: &[String]) -> Ptr<F> {
-        if path.is_empty() {
-            let ptr = Ptr::null(Tag::Expr(Sym));
-            self.ptr_sym_cache.insert(ptr, vec![]);
-            return ptr;
-        }
+        path.iter().fold(Ptr::null(Tag::Expr(Sym)), |acc, s| {
+            let s_ptr = self.intern_string(s);
+            self.intern_2_ptrs(Tag::Expr(Sym), s_ptr, acc)
+        })
+    }
 
-        match self.sym_cache.get(path) {
-            Some(ptr_cache) => *ptr_cache,
+    pub fn intern_symbol(&mut self, sym: &Symbol) -> Ptr<F> {
+        match self.symbol_ptr_cache.get(sym) {
+            Some(ptr) => *ptr,
             None => {
-                let tail = &path[1..];
-                let tail_ptr = self.intern_symbol_path(tail);
-                let head = &path[0];
-                let head_ptr = self.intern_string(head);
-                let path_ptr = self.intern_2_ptrs(Tag::Expr(Sym), head_ptr, tail_ptr);
-                self.sym_cache.insert(path.to_vec(), path_ptr);
-                self.ptr_sym_cache.insert(path_ptr, path.to_vec());
-                path_ptr
+                let path_ptr = self.intern_symbol_path(sym.path());
+                let sym_ptr = if sym == &lurk_sym("nil") {
+                    path_ptr.cast(Tag::Expr(Nil))
+                } else if sym.is_keyword() {
+                    path_ptr.cast(Tag::Expr(Key))
+                } else {
+                    path_ptr
+                };
+                self.symbol_ptr_cache.insert(sym.clone(), sym_ptr);
+                self.ptr_symbol_cache.insert(sym_ptr, sym.clone());
+                sym_ptr
             }
         }
     }
 
     #[inline]
-    pub fn fetch_sym_path(&self, ptr: &Ptr<F>) -> Option<&Vec<String>> {
-        self.ptr_sym_cache.get(ptr)
+    pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<&Symbol> {
+        self.ptr_symbol_cache.get(ptr)
+    }
+
+    pub fn fetch_sym(&self, ptr: &Ptr<F>) -> Option<&Symbol> {
+        if ptr.tag() == &Tag::Expr(Sym) {
+            self.fetch_symbol(ptr)
+        } else {
+            None
+        }
+    }
+
+    pub fn fetch_key(&self, ptr: &Ptr<F>) -> Option<&Symbol> {
+        if ptr.tag() == &Tag::Expr(Key) {
+            self.fetch_symbol(ptr)
+        } else {
+            None
+        }
     }
 
     #[inline]
-    pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<Symbol> {
+    pub fn intern_lurk_sym(&mut self, name: &str) -> Ptr<F> {
+        self.intern_symbol(&lurk_sym(name))
+    }
+
+    #[inline]
+    pub fn intern_nil(&mut self) -> Ptr<F> {
+        self.intern_lurk_sym("nil")
+    }
+
+    #[inline]
+    pub fn car_cdr(&mut self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>)> {
         match ptr.tag() {
-            Tag::Expr(Sym) | Tag::Expr(Key) => Some(Symbol::new(
-                self.fetch_sym_path(ptr)?,
-                ptr.tag() == &Tag::Expr(Key),
-            )),
-            _ => None,
+            Tag::Expr(Nil) => {
+                let nil = self.intern_nil();
+                Ok((nil, nil))
+            }
+            Tag::Expr(Cons) => {
+                let Some(idx) = ptr.get_index2() else {
+                    bail!("malformed cons pointer")
+                };
+                match self.fetch_2_ptrs(idx) {
+                    Some(res) => Ok(*res),
+                    None => bail!("car/cdr not found"),
+                }
+            }
+            Tag::Expr(Str) => {
+                if ptr.is_null() {
+                    Ok((self.intern_nil(), Ptr::null(Tag::Expr(Str))))
+                } else {
+                    let Some(idx) = ptr.get_index2() else {
+                        bail!("malformed str pointer")
+                    };
+                    match self.fetch_2_ptrs(idx) {
+                        Some(res) => Ok(*res),
+                        None => bail!("car/cdr not found"),
+                    }
+                }
+            }
+            _ => bail!("invalid pointer to extract car/cdr from"),
         }
     }
 
-    pub fn intern_symbol(&mut self, sym: &Symbol) -> Ptr<F> {
-        let path_ptr = self.intern_symbol_path(sym.path());
-        if sym == &lurk_sym("nil") {
-            path_ptr.cast(Tag::Expr(Nil))
-        } else if !sym.is_keyword() {
-            path_ptr
-        } else {
-            path_ptr.cast(Tag::Expr(Key))
-        }
+    pub fn list(&mut self, elts: Vec<Ptr<F>>) -> Ptr<F> {
+        elts.into_iter().rev().fold(self.intern_nil(), |acc, elt| {
+            self.intern_2_ptrs(Tag::Expr(Cons), elt, acc)
+        })
     }
 
-    pub fn intern_syntax(&mut self, syn: Syntax<F>) -> Result<Ptr<F>> {
+    pub fn intern_syntax(&mut self, syn: Syntax<F>) -> Ptr<F> {
         match syn {
-            Syntax::Num(_, x) => Ok(Ptr::Leaf(Tag::Expr(Num), x.into_scalar())),
-            Syntax::UInt(_, UInt::U64(x)) => Ok(Ptr::Leaf(Tag::Expr(U64), x.into())),
-            Syntax::Char(_, x) => Ok(Ptr::Leaf(Tag::Expr(Char), (x as u64).into())),
-            Syntax::Symbol(_, symbol) => Ok(self.intern_symbol(&symbol)),
-            Syntax::String(_, x) => Ok(self.intern_string(&x)),
+            Syntax::Num(_, x) => Ptr::Leaf(Tag::Expr(Num), x.into_scalar()),
+            Syntax::UInt(_, UInt::U64(x)) => Ptr::Leaf(Tag::Expr(U64), x.into()),
+            Syntax::Char(_, x) => Ptr::Leaf(Tag::Expr(Char), (x as u64).into()),
+            Syntax::Symbol(_, symbol) => self.intern_symbol(&symbol),
+            Syntax::String(_, x) => self.intern_string(&x),
             Syntax::Quote(pos, x) => {
                 let xs = vec![Syntax::Symbol(pos, lurk_sym("quote").into()), *x];
                 self.intern_syntax(Syntax::List(pos, xs))
             }
-            Syntax::List(_, xs) => {
-                let mut cdr = self.intern_symbol(&lurk_sym("nil"));
-                for x in xs.into_iter().rev() {
-                    let car = self.intern_syntax(x)?;
-                    cdr = self.intern_2_ptrs(Tag::Expr(Cons), car, cdr);
-                }
-                Ok(cdr)
-            }
+            Syntax::List(_, xs) => xs.into_iter().rev().fold(self.intern_nil(), |acc, x| {
+                let car = self.intern_syntax(x);
+                self.intern_2_ptrs(Tag::Expr(Cons), car, acc)
+            }),
             Syntax::Improper(_, xs, end) => {
-                let mut cdr = self.intern_syntax(*end)?;
-                for x in xs.into_iter().rev() {
-                    let car = self.intern_syntax(x)?;
-                    cdr = self.intern_2_ptrs(Tag::Expr(Cons), car, cdr);
-                }
-                Ok(cdr)
+                xs.into_iter()
+                    .rev()
+                    .fold(self.intern_syntax(*end), |acc, x| {
+                        let car = self.intern_syntax(x);
+                        self.intern_2_ptrs(Tag::Expr(Cons), car, acc)
+                    })
             }
         }
     }
 
     pub fn read(&mut self, state: Rc<RefCell<State>>, input: &str) -> Result<Ptr<F>> {
-        use crate::parser::*;
-        use nom::sequence::preceded;
-        use nom::Parser;
         match preceded(
             syntax::parse_space,
             syntax::parse_syntax(state, false, false),
         )
         .parse(Span::new(input))
         {
-            Ok((_i, x)) => self.intern_syntax(x),
+            Ok((_, x)) => Ok(self.intern_syntax(x)),
             Err(e) => bail!("{}", e),
+        }
+    }
+
+    pub fn read_maybe_meta(
+        &mut self,
+        state: Rc<RefCell<State>>,
+        input: &str,
+    ) -> Result<(Ptr<F>, bool), crate::parser::Error> {
+        match preceded(syntax::parse_space, syntax::parse_maybe_meta(state, false))
+            .parse(input.into())
+        {
+            Ok((_, Some((is_meta, x)))) => Ok((self.intern_syntax(x), is_meta)),
+            Ok((_, None)) => Err(Error::NoInput),
+            Err(e) => Err(Error::Syntax(format!("{}", e))),
         }
     }
 
@@ -372,10 +417,20 @@ impl<F: LurkField> Store<F> {
         });
         self.dehydrated = Vec::new();
     }
+
+    pub fn to_vector(&self, ptrs: &[Ptr<F>]) -> Result<Vec<F>> {
+        let mut ret = Vec::with_capacity(2 * ptrs.len());
+        for ptr in ptrs {
+            let z_ptr = self.hash_ptr(ptr)?;
+            ret.push(z_ptr.tag.to_field());
+            ret.push(z_ptr.hash);
+        }
+        Ok(ret)
+    }
 }
 
 impl<F: LurkField> Ptr<F> {
-    pub fn to_string(self, store: &Store<F>) -> String {
+    pub fn dbg_display(self, store: &Store<F>) -> String {
         if let Some(s) = store.fetch_string(&self) {
             return format!("\"{}\"", s);
         }
@@ -395,8 +450,8 @@ impl<F: LurkField> Ptr<F> {
                 format!(
                     "({} {} {})",
                     tag,
-                    (*p1).to_string(store),
-                    (*p2).to_string(store)
+                    (*p1).dbg_display(store),
+                    (*p2).dbg_display(store)
                 )
             }
             Ptr::Tree3(tag, x) => {
@@ -404,9 +459,9 @@ impl<F: LurkField> Ptr<F> {
                 format!(
                     "({} {} {} {})",
                     tag,
-                    (*p1).to_string(store),
-                    (*p2).to_string(store),
-                    (*p3).to_string(store)
+                    (*p1).dbg_display(store),
+                    (*p2).dbg_display(store),
+                    (*p3).dbg_display(store)
                 )
             }
             Ptr::Tree4(tag, x) => {
@@ -414,12 +469,98 @@ impl<F: LurkField> Ptr<F> {
                 format!(
                     "({} {} {} {} {})",
                     tag,
-                    (*p1).to_string(store),
-                    (*p2).to_string(store),
-                    (*p3).to_string(store),
-                    (*p4).to_string(store)
+                    (*p1).dbg_display(store),
+                    (*p2).dbg_display(store),
+                    (*p3).dbg_display(store),
+                    (*p4).dbg_display(store)
                 )
             }
+        }
+    }
+
+    fn unfold_list(&self, store: &Store<F>) -> Option<(Vec<Ptr<F>>, Option<Ptr<F>>)> {
+        let mut idx = self.get_index2()?;
+        let mut list = vec![];
+        let mut last = None;
+        while let Some((car, cdr)) = store.fetch_2_ptrs(idx) {
+            list.push(*car);
+            match cdr.tag() {
+                Tag::Expr(Nil) => break,
+                Tag::Expr(Cons) => {
+                    idx = cdr.get_index2()?;
+                }
+                _ => {
+                    last = Some(*cdr);
+                    break;
+                }
+            }
+        }
+        Some((list, last))
+    }
+
+    pub fn fmt_to_string(&self, store: &Store<F>, state: &State) -> String {
+        match self.tag() {
+            Tag::Expr(t) => match t {
+                Nil => {
+                    if let Some(sym) = store.fetch_symbol(self) {
+                        state.fmt_to_string(&sym.clone().into())
+                    } else {
+                        "<Opaque Nil>".into()
+                    }
+                }
+                Sym => {
+                    if let Some(sym) = store.fetch_sym(self) {
+                        state.fmt_to_string(&sym.clone().into())
+                    } else {
+                        "<Opaque Sym>".into()
+                    }
+                }
+                Key => {
+                    if let Some(key) = store.fetch_key(self) {
+                        state.fmt_to_string(&key.clone().into())
+                    } else {
+                        "<Opaque Key>".into()
+                    }
+                }
+                Str => {
+                    if let Some(str) = store.fetch_string(self) {
+                        format!("\"{str}\"")
+                    } else {
+                        "<Opaque Str>".into()
+                    }
+                }
+                Char => match self.get_num().map(F::to_char) {
+                    None | Some(None) => "<Malformed Char>".into(),
+                    Some(Some(c)) => format!("\'{c}\'"),
+                },
+                Cons => {
+                    if let Some((list, last)) = self.unfold_list(store) {
+                        let list = list.iter().map(|p| p.fmt_to_string(store, state)).collect::<Vec<_>>();
+                        if let Some(last) = last {
+                            format!("({} . {})", list.join(" "), last.fmt_to_string(store, state))
+                        } else {
+                            format!("({})", list.join(" "))
+                        }
+                    } else {
+                        "<Opaque Cons>".into()
+                    }
+                },
+                Num => match self.get_num() {
+                    None => "<Malformed Num>".into(),
+                    Some(f) => {
+                        if let Some(x) = f.to_u64() {
+                            x.to_string()
+                        } else {
+                            f.hex_digits()
+                        }
+                    },
+                },
+                _ => todo!(),
+            },
+            Tag::Cont(t) => match t {
+                _ => todo!(),
+            },
+            Tag::Ctrl(_) => unreachable!(),
         }
     }
 }

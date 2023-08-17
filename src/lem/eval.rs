@@ -3,8 +3,7 @@ use crate::func;
 use super::Func;
 
 /// Lurk's step function
-#[allow(dead_code)]
-pub(crate) fn eval_step() -> Func {
+pub fn eval_step() -> Func {
     let reduce = reduce();
     let apply_cont = apply_cont();
     let make_thunk = make_thunk();
@@ -803,7 +802,7 @@ fn make_thunk() -> Func {
 mod tests {
     use super::*;
     use crate::lem::{pointers::Ptr, slot::SlotsCounter, store::Store, Tag};
-    use crate::state::{lurk_sym, State};
+    use crate::state::State;
     use crate::tag::ContTag::*;
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
     use blstrs::Scalar as Fr;
@@ -830,14 +829,18 @@ mod tests {
         let outermost = Ptr::null(Tag::Cont(Outermost));
         let terminal = Ptr::null(Tag::Cont(Terminal));
         let error = Ptr::null(Tag::Cont(Error));
-        let nil = store.intern_symbol(&lurk_sym("nil"));
+        let nil = store.intern_nil();
 
         // Stop condition: the continuation is either terminal or error
         let stop_cond = |output: &[Ptr<Fr>]| output[2] == terminal || output[2] == error;
 
+        let limit = 200;
+
         for (expr_in, expr_out) in pairs {
-            let input = vec![expr_in, nil, outermost];
-            let (frames, paths) = eval_step.call_until(input, store, stop_cond).unwrap();
+            let input = [expr_in, nil, outermost];
+            let (frames, _, paths) = eval_step
+                .call_until(&input, store, stop_cond, limit)
+                .unwrap();
             let last_frame = frames.last().expect("eval should add at least one frame");
             assert_eq!(last_frame.output[0], expr_out);
             store.hydrate_z_cache();

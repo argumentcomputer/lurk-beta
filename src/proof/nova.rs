@@ -19,13 +19,13 @@ use pasta_curves::{pallas, vesta};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::circuit::{
+use crate::{circuit::{
     gadgets::{
         data::GlobalAllocations,
         pointer::{AllocatedContPtr, AllocatedPtr},
     },
     CircuitFrame, MultiFrame,
-};
+}, lem::Func};
 use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
 use crate::eval::{lang::Lang, Evaluator, Frame, Witness, IO};
@@ -222,6 +222,20 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> NovaProver<F, C> {
             Proof::prove_recursively(pp, store, &circuits, self.reduction_count, z0.clone(), lang)?;
 
         Ok((proof, z0, zi, num_steps))
+    }
+
+    /// Proves the computation given the public parameters, frames, and store.
+    pub fn prove_lem<'a>(
+        &'a self,
+        pp: &'a PublicParams<'_, F, C>,
+        frames: &[crate::lem::interpreter::Frame<F>],
+        store: &'a mut crate::lem::store::Store<F>,
+        lang: Arc<Lang<F, C>>,
+        func: &Func,
+    ) -> Result<(Proof<'_, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
+        let z0 = store.to_vector(&frames[0].input).unwrap();
+        let zi = store.to_vector(&frames.last().unwrap().output).unwrap();
+        todo!()
     }
 
     /// Evaluates and proves the computation given the public parameters, expression, environment, and store.

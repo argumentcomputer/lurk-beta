@@ -1,4 +1,7 @@
-use crate::field::{FWrap, LurkField};
+use crate::{
+    field::{FWrap, LurkField},
+    state::initial_lurk_state,
+};
 use anyhow::{bail, Result};
 use std::collections::VecDeque;
 
@@ -54,11 +57,12 @@ impl Block {
     /// in `circuit.rs`)
     fn run<F: LurkField>(
         &self,
-        input: Vec<Ptr<F>>,
+        input: &[Ptr<F>],
         store: &mut Store<F>,
         mut bindings: VarMap<Ptr<F>>,
         mut preimages: Preimages<F>,
         mut path: Path,
+        emitted: &mut Vec<Ptr<F>>,
     ) -> Result<(Frame<F>, Path)> {
         for op in &self.ops {
             match op {
@@ -72,7 +76,7 @@ impl Block {
                     // of it, then extend `call_outputs`
                     let mut inner_call_outputs = VecDeque::new();
                     std::mem::swap(&mut inner_call_outputs, &mut preimages.call_outputs);
-                    let (mut frame, func_path) = func.call(inp_ptrs, store, preimages)?;
+                    let (mut frame, func_path) = func.call(&inp_ptrs, store, preimages, emitted)?;
                     std::mem::swap(&mut inner_call_outputs, &mut frame.preimages.call_outputs);
 
                     // Extend the path and bind the output variables to the output values
@@ -143,7 +147,8 @@ impl Block {
                 }
                 Op::Emit(a) => {
                     let a = bindings.get(a)?;
-                    println!("{}", a.to_string(store))
+                    println!("{}", a.fmt_to_string(store, initial_lurk_state()));
+                    emitted.push(a.clone());
                 }
                 Op::Hash2(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
@@ -247,12 +252,12 @@ impl Block {
                 match cases.get(tag) {
                     Some(block) => {
                         path.push_tag_inplace(tag);
-                        block.run(input, store, bindings, preimages, path)
+                        block.run(input, store, bindings, preimages, path, emitted)
                     }
                     None => {
                         path.push_default_inplace();
                         match def {
-                            Some(def) => def.run(input, store, bindings, preimages, path),
+                            Some(def) => def.run(input, store, bindings, preimages, path, emitted),
                             None => bail!("No match for tag {}", tag),
                         }
                     }
@@ -265,19 +270,19 @@ impl Block {
                     // of the cases, which are all interned
                     path.push_default_inplace();
                     match def {
-                        Some(def) => return def.run(input, store, bindings, preimages, path),
+                        Some(def) => return def.run(input, store, bindings, preimages, path, emitted),
                         None => bail!("No match for literal"),
                     }
                 };
                 match cases.get(&lit) {
                     Some(block) => {
                         path.push_lit_inplace(&lit);
-                        block.run(input, store, bindings, preimages, path)
+                        block.run(input, store, bindings, preimages, path, emitted)
                     }
                     None => {
                         path.push_default_inplace();
                         match def {
-                            Some(def) => def.run(input, store, bindings, preimages, path),
+                            Some(def) => def.run(input, store, bindings, preimages, path, emitted),
                             None => bail!("No match for literal {:?}", lit),
                         }
                     }
@@ -289,9 +294,9 @@ impl Block {
                 let b = x == y;
                 path.push_bool_inplace(b);
                 if b {
-                    eq_block.run(input, store, bindings, preimages, path)
+                    eq_block.run(input, store, bindings, preimages, path, emitted)
                 } else {
-                    else_block.run(input, store, bindings, preimages, path)
+                    else_block.run(input, store, bindings, preimages, path, emitted)
                 }
             }
             Ctrl::Return(output_vars) => {
@@ -299,6 +304,7 @@ impl Block {
                 for var in output_vars.iter() {
                     output.push(*bindings.get(var)?)
                 }
+                let input = input.to_vec();
                 Ok((
                     Frame {
                         input,
@@ -315,9 +321,10 @@ impl Block {
 impl Func {
     pub fn call<F: LurkField>(
         &self,
-        args: Vec<Ptr<F>>,
+        args: &[Ptr<F>],
         store: &mut Store<F>,
         preimages: Preimages<F>,
+        emitted: &mut Vec<Ptr<F>>,
     ) -> Result<(Frame<F>, Path)> {
         let mut bindings = VarMap::new();
         for (i, param) in self.input_params.iter().enumerate() {
@@ -332,7 +339,7 @@ impl Func {
 
         let mut res = self
             .body
-            .run(args, store, bindings, preimages, Path::default())?;
+            .run(args, store, bindings, preimages, Path::default(), emitted)?;
         let preimages = &mut res.0.preimages;
 
         let hash2_used = preimages.hash2_ptrs.len() - hash2_init;
@@ -355,24 +362,26 @@ impl Func {
     /// iteration as the input of the next one.
     pub fn call_until<F: LurkField, Stop: Fn(&[Ptr<F>]) -> bool>(
         &self,
-        mut args: Vec<Ptr<F>>,
+        args: &[Ptr<F>],
         store: &mut Store<F>,
         stop_cond: Stop,
-    ) -> Result<(Vec<Frame<F>>, Vec<Path>)> {
-        if self.input_params.len() != self.output_size {
-            assert_eq!(self.input_params.len(), self.output_size)
-        }
-        if self.input_params.len() != args.len() {
-            assert_eq!(args.len(), self.input_params.len())
-        }
+        limit: usize,
+    ) -> Result<(Vec<Frame<F>>, usize, Vec<Path>)> {
+        assert_eq!(self.input_params.len(), self.output_size);
+        assert_eq!(self.input_params.len(), args.len());
 
         // Initial path vector and frames
         let mut frames = vec![];
         let mut paths = vec![];
 
-        loop {
+        let mut iterations = 0;
+
+        let mut input = args.to_vec();
+
+        for _ in 0..limit {
             let preimages = Preimages::new_from_func(self);
-            let (frame, path) = self.call(args, store, preimages)?;
+            let (frame, path) = self.call(&input, store, preimages, &mut vec![])?;
+            iterations += 1;
             if stop_cond(&frame.output) {
                 frames.push(frame);
                 paths.push(path);
@@ -382,10 +391,35 @@ impl Func {
             // Using AVec is a possibility, but to create a dynamic AVec, currently,
             // requires 2 allocations since it must be created from a Vec and
             // Vec<T> -> Arc<[T]> uses `copy_from_slice`.
-            args = frame.output.clone();
+            input = frame.output.clone();
             frames.push(frame);
             paths.push(path);
         }
-        Ok((frames, paths))
+        Ok((frames, iterations, paths))
+    }
+
+    pub fn call_until_simple<F: LurkField, Stop: Fn(&[Ptr<F>]) -> bool>(
+        &self,
+        args: Vec<Ptr<F>>,
+        store: &mut Store<F>,
+        stop_cond: Stop,
+        limit: usize,
+    ) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
+        assert_eq!(self.input_params.len(), self.output_size);
+        assert_eq!(self.input_params.len(), args.len());
+
+        let mut iterations = 0;
+        let mut input = args;
+        let mut emitted = vec![];
+
+        for _ in 0..limit {
+            let (frame, _) = self.call(&input, store, Preimages::default(), &mut emitted)?;
+            iterations += 1;
+            if stop_cond(&frame.output) {
+                break;
+            }
+            input = frame.output.clone();
+        }
+        Ok((input, iterations, emitted))
     }
 }

@@ -15,7 +15,13 @@ use rustyline::{
 };
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 
-use super::{commitment::Commitment, field_data::load, paths::commitment_path};
+use super::{
+    backend::Backend,
+    commitment::Commitment,
+    field_data::load,
+    lurk_proof::{LurkProof, LurkProofMeta},
+    paths::commitment_path,
+};
 
 use crate::{
     cli::paths::{proof_path, public_params_dir},
@@ -23,7 +29,7 @@ use crate::{
         lang::{Coproc, Lang},
         Evaluator, Frame, Witness, IO,
     },
-    field::{LanguageField, LurkField},
+    field::LurkField,
     lurk_sym_ptr,
     package::{Package, SymbolRef},
     parser,
@@ -39,8 +45,6 @@ use crate::{
     Num, Symbol,
 };
 
-use super::lurk_proof::{LurkProof, LurkProofMeta};
-
 #[derive(Completer, Helper, Highlighter, Hinter)]
 struct InputValidator {
     brackets: MatchingBracketValidator,
@@ -49,52 +53,6 @@ struct InputValidator {
 impl Validator for InputValidator {
     fn validate(&self, ctx: &mut ValidationContext<'_>) -> rustyline::Result<ValidationResult> {
         self.brackets.validate(ctx)
-    }
-}
-
-pub(crate) enum Backend {
-    Nova,
-    SnarkPackPlus,
-}
-
-impl std::fmt::Display for Backend {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Nova => write!(f, "Nova"),
-            Self::SnarkPackPlus => write!(f, "SnarkPack+"),
-        }
-    }
-}
-
-impl Backend {
-    pub(crate) fn default_field(&self) -> LanguageField {
-        match self {
-            Self::Nova => LanguageField::Pallas,
-            Self::SnarkPackPlus => LanguageField::BLS12_381,
-        }
-    }
-
-    fn compatible_fields(&self) -> Vec<LanguageField> {
-        use LanguageField::*;
-        match self {
-            Self::Nova => vec![Pallas, Vesta],
-            Self::SnarkPackPlus => vec![BLS12_381],
-        }
-    }
-
-    pub(crate) fn validate_field(&self, field: &LanguageField) -> Result<()> {
-        let compatible_fields = self.compatible_fields();
-        if !compatible_fields.contains(field) {
-            bail!(
-                "Backend {self} is incompatible with field {field}. Compatible fields are:\n  {}",
-                compatible_fields
-                    .iter()
-                    .map(|f| f.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )
-        }
-        Ok(())
     }
 }
 
@@ -140,13 +98,13 @@ impl Repl<F> {
         rc: usize,
         limit: usize,
         backend: Backend,
-    ) -> Repl<F> {
+    ) -> Self {
         let limit = pad(limit, rc);
         info!(
             "Launching REPL with backend {backend}, field {}, rc {rc} and limit {limit}",
             F::FIELD
         );
-        Repl {
+        Self {
             store,
             state: State::init_lurk_state().rccell(),
             env,
