@@ -61,6 +61,7 @@
 
 mod circuit;
 mod eval;
+mod gadgets;
 mod interpreter;
 mod macros;
 mod path;
