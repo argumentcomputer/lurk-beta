@@ -159,7 +159,7 @@ pub(crate) fn implies_u64<F: LurkField, CS: ConstraintSystem<F>>(
 ) -> Result<(), SynthesisError> {
     let mut a_u64 = a.get_value().and_then(|a| a.to_u64()).unwrap_or(0);
 
-    let mut bits: Vec<Boolean> = vec![];
+    let mut bits: Vec<Boolean> = Vec::with_capacity(64);
     for i in 0..64 {
         let b = a_u64 & 1;
         let b_bool = Boolean::Is(AllocatedBit::alloc(

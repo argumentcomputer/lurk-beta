@@ -167,6 +167,9 @@ impl Block {
                     let b = bindings.get(b)?;
                     let c = match (a, b) {
                         (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) => {
+                            if g == &F::ZERO {
+                                bail!("Can't divide by zero")
+                            }
                             Ptr::Leaf(Tag::Expr(Num), *f * g.invert().unwrap())
                         }
                         _ => bail!("Division only works on numbers"),
