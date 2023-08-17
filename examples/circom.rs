@@ -110,7 +110,7 @@ enum Sha256Coproc<F: LurkField> {
 /// `cargo run --release --example circom`
 fn main() {
     let store = &mut Store::<Fr>::new();
-    let sym_str = Symbol::new(&[".circom_sha256_2"]); // two inputs
+    let sym_str = Symbol::new(&[".circom_sha256_2"], false); // two inputs
     let circom_sha256 = CircomSha256::new(0);
     let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
         store,
