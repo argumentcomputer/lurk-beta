@@ -296,8 +296,7 @@ impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, IO<F>, Witness<F>, C> 
         let mut reduce = |store| {
             let cons_witness = self
                 .witness
-                .map(|x| x.conses)
-                .unwrap_or_else(|| HashWitness::new_blank());
+                .map_or_else(|| HashWitness::new_blank(), |x| x.conses);
             let mut allocated_cons_witness = AllocatedConsWitness::from_cons_witness(
                 &mut cs.namespace(|| format!("allocated_cons_witness {i}")),
                 store,
@@ -306,8 +305,7 @@ impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, IO<F>, Witness<F>, C> 
 
             let cont_witness = self
                 .witness
-                .map(|x| x.conts)
-                .unwrap_or_else(|| HashWitness::new_blank());
+                .map_or_else(|| HashWitness::new_blank(), |x| x.conts);
 
             let mut allocated_cont_witness = AllocatedContWitness::from_cont_witness(
                 &mut cs.namespace(|| format!("allocated_cont_witness {i}")),

@@ -594,7 +594,7 @@ pub mod tests {
         if let Some(expected_emitted) = expected_emitted {
             let emitted_vec: Vec<_> = frames
                 .iter()
-                .flat_map(|frame| frame.output.maybe_emitted_expression(s))
+                .filter_map(|frame| frame.output.maybe_emitted_expression(s))
                 .collect();
             assert_eq!(expected_emitted, &emitted_vec);
         }
