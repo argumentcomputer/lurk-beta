@@ -233,7 +233,7 @@ impl Open {
         let pp = public_params(rc.count(), lang_rc, &public_param_dir()).expect("public params");
         let function_map = committed_expression_store();
 
-        let handle_proof = |out_path, proof: Proof<S1>| {
+        let handle_proof = |out_path, proof: Proof<'_, S1>| {
             proof.write_to_json_path(out_path);
             proof
                 .verify(&pp, lang)

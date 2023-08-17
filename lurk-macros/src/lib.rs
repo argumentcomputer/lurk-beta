@@ -12,8 +12,6 @@
 //! Although severely limited in the expressions it can represent, and still lacking quasiquoting,
 //! the `lurk` macro allows embedding Lurk code in Rust source. See tests for examples.
 
-extern crate proc_macro;
-
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{quote, ToTokens};

@@ -517,7 +517,7 @@ impl ClutchState<F, Coproc<F>> {
         Ok(None)
     }
 
-    fn get_proof(&self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Proof<F>> {
+    fn get_proof(&self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Proof<'_, F>> {
         let (proof_cid, _rest1) = store.car_cdr(&rest)?;
         let zptr_string = store
             .fetch_string(&proof_cid)

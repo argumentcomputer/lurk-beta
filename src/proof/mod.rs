@@ -91,7 +91,7 @@ pub trait Prover<'a, 'b, F: LurkField, C: Coprocessor<F>> {
         let full_multiframe_count = raw_iterations / cfc;
         let unfull_multiframe_frame_count = raw_iterations % cfc;
         let raw_multiframe_count =
-            full_multiframe_count + (unfull_multiframe_frame_count != 0) as usize;
+            full_multiframe_count + usize::from(unfull_multiframe_frame_count != 0);
         raw_multiframe_count + self.multiframe_padding_count(raw_multiframe_count)
     }
 

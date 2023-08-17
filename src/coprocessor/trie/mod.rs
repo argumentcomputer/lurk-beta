@@ -361,7 +361,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
             None => {
                 let field_significant_bits = F::NUM_BITS as usize;
                 let height_needed_for_field = field_significant_bits / arity_bits
-                    + ((field_significant_bits % arity_bits != 0) as usize);
+                    + usize::from(field_significant_bits % arity_bits != 0);
 
                 // HEIGHT must be exactly the minimum required so that every field element has a unique path.
                 assert_eq!(height_needed_for_field, HEIGHT);

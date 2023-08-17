@@ -1,4 +1,3 @@
-#![allow(clippy::too_many_arguments)]
 use crate::field::LurkField;
 
 use crate::eval::IO;

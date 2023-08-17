@@ -135,7 +135,7 @@ pub struct Commitment<F: LurkField> {
     pub comm: F,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct OpeningRequest<F: LurkField> {
     pub commitment: Commitment<F>,
     pub input: Expression<F>,
@@ -196,7 +196,7 @@ impl<F: LurkField> FromHex for Commitment<F> {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Expression<F: LurkField> {
     pub expr: LurkPtr<F>,
 }
@@ -226,7 +226,7 @@ pub struct ZBytes {
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[cfg_attr(not(target_arch = "wasm32"), serde_test(types(S1), zdata(true)))]
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ZStorePtr<F: LurkField> {
     z_store: ZStore<F>,
     z_ptr: ZExprPtr<F>,
@@ -261,7 +261,7 @@ impl<F: LurkField> Eq for LurkPtr<F> {}
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[cfg_attr(not(target_arch = "wasm32"), serde_test(types(S1), zdata(true)))]
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct CommittedExpression<F: LurkField + Serialize> {
     pub expr: LurkPtr<F>,
     #[cfg_attr(
@@ -336,7 +336,7 @@ impl<F: LurkField + Serialize + for<'de> Deserialize<'de>> Claim<F> {
 // this. Even if not entirely realistic, something with this general *shape* is likely to play a role in a recursive
 // system where the ability to aggregate proof verification more soundly is possible.
 //#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Cert<F: LurkField> {
     pub claim_cid: ZExprPtr<F>,
     pub proof_cid: ZExprPtr<F>,
@@ -632,7 +632,6 @@ impl<F: LurkField + Serialize + DeserializeOwned> Expression<F> {
 }
 
 impl<'a> Opening<S1> {
-    #[allow(clippy::too_many_arguments)]
     pub fn apply_and_prove(
         s: &'a mut Store<S1>,
         input: Ptr<S1>,
@@ -788,7 +787,6 @@ impl<'a> Opening<S1> {
 }
 
 impl<'a> Proof<'a, S1> {
-    #[allow(clippy::too_many_arguments)]
     pub fn eval_and_prove(
         s: &'a mut Store<S1>,
         expr: Ptr<S1>,
@@ -943,7 +941,7 @@ impl<'a> Proof<'a, S1> {
 
             let chunk_frame_count = self.reduction_count.count();
             let expected_steps =
-                (iterations / chunk_frame_count) + (iterations % chunk_frame_count != 0) as usize;
+                (iterations / chunk_frame_count) + usize::from(iterations % chunk_frame_count != 0);
 
             expected_steps == num_steps
         } else {

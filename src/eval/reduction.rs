@@ -57,7 +57,6 @@ impl<F: LurkField> Control<F> {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
     expr: Ptr<F>,
     env: Ptr<F>,

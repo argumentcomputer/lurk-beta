@@ -230,7 +230,7 @@ fn f_from_le_bytes<F: LurkField>(bs: &[u8]) -> F {
     let mut res = F::ZERO;
     let mut bs = bs.iter().rev().peekable();
     while let Some(b) = bs.next() {
-        let b: F = (*b as u64).into();
+        let b: F = u64::from(*b).into();
         if bs.peek().is_none() {
             res.add_assign(b)
         } else {

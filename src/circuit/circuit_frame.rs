@@ -109,7 +109,7 @@ impl<'a, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coproc
     ) -> Vec<Self> {
         // `count` is the number of `Frames` to include per `MultiFrame`.
         let total_frames = frames.len();
-        let n = total_frames / count + (total_frames % count != 0) as usize;
+        let n = total_frames / count + usize::from(total_frames % count != 0);
         let mut multi_frames = Vec::with_capacity(n);
 
         for chunk in frames.chunks(count) {
@@ -296,8 +296,7 @@ impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, IO<F>, Witness<F>, C> 
         let mut reduce = |store| {
             let cons_witness = self
                 .witness
-                .map(|x| x.conses)
-                .unwrap_or_else(|| HashWitness::new_blank());
+                .map_or_else(|| HashWitness::new_blank(), |x| x.conses);
             let mut allocated_cons_witness = AllocatedConsWitness::from_cons_witness(
                 &mut cs.namespace(|| format!("allocated_cons_witness {i}")),
                 store,
@@ -306,8 +305,7 @@ impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, IO<F>, Witness<F>, C> 
 
             let cont_witness = self
                 .witness
-                .map(|x| x.conts)
-                .unwrap_or_else(|| HashWitness::new_blank());
+                .map_or_else(|| HashWitness::new_blank(), |x| x.conts);
 
             let mut allocated_cont_witness = AllocatedContWitness::from_cont_witness(
                 &mut cs.namespace(|| format!("allocated_cont_witness {i}")),
@@ -5860,7 +5858,7 @@ mod tests {
                 .unwrap();
             let popcount_result =
                 AllocatedNum::alloc(&mut cs.namespace(|| format!("alloc popcount {x}")), || {
-                    Ok(Fr::from(x.count_ones() as u64))
+                    Ok(Fr::from(u64::from(x.count_ones())))
                 })
                 .unwrap();
 

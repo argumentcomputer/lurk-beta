@@ -1,5 +1,4 @@
 // Initially taken from: rust-fil-proofs/storage-proofs-core/src/gadgets/
-
 use crate::field::LurkField;
 use bellperson::LinearCombination;
 use bellperson::{

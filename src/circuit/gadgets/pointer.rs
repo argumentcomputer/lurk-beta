@@ -259,9 +259,10 @@ impl<F: LurkField> AllocatedPtr<F> {
     }
 
     pub fn fetch_and_write_str(&self, store: &Store<F>) -> String {
-        self.ptr(store)
-            .map(|a| a.fmt_to_string(store, initial_lurk_state()))
-            .unwrap_or_else(|| "<PTR MISSING>".to_string())
+        self.ptr(store).map_or_else(
+            || "<PTR MISSING>".to_string(),
+            |a| a.fmt_to_string(store, initial_lurk_state()),
+        )
     }
 
     pub fn allocate_thunk_components_unconstrained<CS: ConstraintSystem<F>>(
@@ -694,9 +695,10 @@ impl<F: LurkField> AllocatedContPtr<F> {
     }
 
     pub fn fetch_and_write_cont_str(&self, store: &Store<F>) -> String {
-        self.get_cont_ptr(store)
-            .map(|a| a.fmt_to_string(store, initial_lurk_state()))
-            .unwrap_or_else(|| "no cont ptr".to_string())
+        self.get_cont_ptr(store).map_or_else(
+            || "no cont ptr".to_string(),
+            |a| a.fmt_to_string(store, initial_lurk_state()),
+        )
     }
 
     /// Takes two allocated numbers (`a`, `b`) and returns `a` if the condition is true, and `b` otherwise.

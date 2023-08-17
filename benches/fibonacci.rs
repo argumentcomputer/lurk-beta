@@ -48,7 +48,7 @@ fn fib<F: LurkField>(store: &mut Store<F>, state: Rc<RefCell<State>>, a: u64) ->
 fn fibo_total<M: measurement::Measurement>(
     name: &str,
     iterations: u64,
-    c: &mut BenchmarkGroup<M>,
+    c: &mut BenchmarkGroup<'_, M>,
     state: Rc<RefCell<State>>,
 ) {
     let limit: usize = 10_000_000_000;
@@ -91,7 +91,7 @@ fn fibo_total<M: measurement::Measurement>(
 fn fibo_eval<M: measurement::Measurement>(
     name: &str,
     iterations: u64,
-    c: &mut BenchmarkGroup<M>,
+    c: &mut BenchmarkGroup<'_, M>,
     state: Rc<RefCell<State>>,
 ) {
     let limit = 10_000_000_000;
@@ -116,7 +116,7 @@ fn fibo_eval<M: measurement::Measurement>(
 fn fibo_prove<M: measurement::Measurement>(
     name: &str,
     iterations: u64,
-    c: &mut BenchmarkGroup<M>,
+    c: &mut BenchmarkGroup<'_, M>,
     state: Rc<RefCell<State>>,
 ) {
     let limit = 10_000_000_000;
@@ -158,7 +158,7 @@ fn fibo_prove<M: measurement::Measurement>(
 #[allow(dead_code)]
 fn fibonacci_eval(c: &mut Criterion) {
     static BATCH_SIZES: [u64; 2] = [100, 1000];
-    let mut group: BenchmarkGroup<_> = c.benchmark_group("Evaluate");
+    let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("Evaluate");
     let state = State::init_lurk_state().rccell();
 
     for size in BATCH_SIZES.iter() {
@@ -168,7 +168,7 @@ fn fibonacci_eval(c: &mut Criterion) {
 
 fn fibonacci_prove(c: &mut Criterion) {
     static BATCH_SIZES: [u64; 2] = [100, 1000];
-    let mut group: BenchmarkGroup<_> = c.benchmark_group("Prove");
+    let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("Prove");
     group.sampling_mode(SamplingMode::Flat); // This can take a *while*
     group.sample_size(10);
     let state = State::init_lurk_state().rccell();
@@ -181,7 +181,7 @@ fn fibonacci_prove(c: &mut Criterion) {
 #[allow(dead_code)]
 fn fibonacci_total(c: &mut Criterion) {
     static BATCH_SIZES: [u64; 2] = [100, 1000];
-    let mut group: BenchmarkGroup<_> = c.benchmark_group("Total");
+    let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("Total");
     group.sampling_mode(SamplingMode::Flat); // This can take a *while*
     group.sample_size(10);
     let state = State::init_lurk_state().rccell();

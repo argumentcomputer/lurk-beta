@@ -222,7 +222,7 @@ impl<F: LurkField> ConsStub<F> {
 
 impl<F: LurkField> ContStub<F> {}
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct HashWitness<Name: HashName, T, const L: usize, F: LurkField> {
     pub slots: [(Name, Stub<T>); L],
     _f: PhantomData<F>,
@@ -251,19 +251,16 @@ impl<F: LurkField> HashWitness<ConsName, Cons<F>, MAX_CONSES_PER_REDUCTION, F> {
         let mut digests = HashMap::new();
 
         for (name, p) in self.slots.iter() {
-            match p {
-                Stub::Value(hash) => {
-                    if let Some(existing_name) = digests.insert(hash.cons, name) {
-                        let nil = lurk_sym_ptr!(store, nil);
-                        if !store.ptr_eq(&hash.cons, &nil).unwrap() {
-                            use crate::writer::Write;
-                            let cons = hash.cons.fmt_to_string(store, state);
-                            dbg!(hash.cons, cons, name, existing_name);
-                            panic!("duplicate");
-                        }
-                    };
+            if let Stub::Value(hash) = p {
+                if let Some(existing_name) = digests.insert(hash.cons, name) {
+                    let nil = lurk_sym_ptr!(store, nil);
+                    if !store.ptr_eq(&hash.cons, &nil).unwrap() {
+                        use crate::writer::Write;
+                        let cons = hash.cons.fmt_to_string(store, state);
+                        dbg!(hash.cons, cons, name, existing_name);
+                        panic!("duplicate");
+                    }
                 }
-                _ => (),
             };
         }
     }
