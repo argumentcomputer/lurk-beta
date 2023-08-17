@@ -10,6 +10,7 @@ xclippy = [
     "-Wclippy::cast_lossless",
     "-Wclippy::disallowed_methods",
     "-Wclippy::derive_partial_eq_without_eq",
+    "-Wclippy::inefficient_to_string",
     "-Wclippy::large_types_passed_by_value",
     "-Wclippy::manual_ok_or",
     "-Wclippy::needless_borrow",
