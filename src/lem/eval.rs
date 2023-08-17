@@ -625,7 +625,7 @@ fn apply_cont() -> Func {
                                 return(secret, env, continuation, makethunk)
                             }
                             Symbol("commit") => {
-                                let comm = hide(zero, result);
+                                let comm = commit(zero, result);
                                 return(comm, env, continuation, makethunk)
                             }
                             Symbol("num") => {
@@ -730,7 +730,7 @@ fn apply_cont() -> Func {
                             }
                             Symbol("hide") => {
                                 let num = cast(evaled_arg, Expr::Num);
-                                let hidden = hide(num, result);
+                                let hidden = commit(num, result);
                                 return(hidden, env, continuation, makethunk)
                             }
                             Symbol("eq") => {
@@ -976,8 +976,8 @@ mod tests {
         hash2: 16,
         hash3: 4,
         hash4: 2,
-        hiding: 1,
-        is_diff_neg: 1,
+        commitment: 1,
+        less_than: 1,
     };
 
     fn test_eval_and_constrain_aux(store: &mut Store<Fr>, pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>) {

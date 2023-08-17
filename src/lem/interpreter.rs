@@ -22,29 +22,29 @@ pub enum PreimageData<F: LurkField> {
 /// `Func`, and the `None` values are used to fill the unused slots, which are
 /// later filled by dummy values.
 pub struct Preimages<F: LurkField> {
-    pub hash2_ptrs: Vec<Option<PreimageData<F>>>,
-    pub hash3_ptrs: Vec<Option<PreimageData<F>>>,
-    pub hash4_ptrs: Vec<Option<PreimageData<F>>>,
-    pub hiding: Vec<Option<PreimageData<F>>>,
-    pub is_diff_neg: Vec<Option<PreimageData<F>>>,
+    pub hash2: Vec<Option<PreimageData<F>>>,
+    pub hash3: Vec<Option<PreimageData<F>>>,
+    pub hash4: Vec<Option<PreimageData<F>>>,
+    pub commitment: Vec<Option<PreimageData<F>>>,
+    pub less_than: Vec<Option<PreimageData<F>>>,
     pub call_outputs: VecDeque<Vec<Ptr<F>>>,
 }
 
 impl<F: LurkField> Preimages<F> {
     pub fn new_from_func(func: &Func) -> Preimages<F> {
         let slot = func.slot;
-        let hash2_ptrs = Vec::with_capacity(slot.hash2);
-        let hash3_ptrs = Vec::with_capacity(slot.hash3);
-        let hash4_ptrs = Vec::with_capacity(slot.hash4);
-        let hiding = Vec::with_capacity(slot.hiding);
-        let is_diff_neg = Vec::with_capacity(slot.is_diff_neg);
+        let hash2 = Vec::with_capacity(slot.hash2);
+        let hash3 = Vec::with_capacity(slot.hash3);
+        let hash4 = Vec::with_capacity(slot.hash4);
+        let commitment = Vec::with_capacity(slot.commitment);
+        let less_than = Vec::with_capacity(slot.less_than);
         let call_outputs = VecDeque::new();
         Preimages {
-            hash2_ptrs,
-            hash3_ptrs,
-            hash4_ptrs,
-            hiding,
-            is_diff_neg,
+            hash2,
+            hash3,
+            hash4,
+            commitment,
+            less_than,
             call_outputs,
         }
     }
@@ -178,9 +178,7 @@ impl Block {
                     let b = bindings.get(b)?;
                     let c = match (a, b) {
                         (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) => {
-                            preimages
-                                .is_diff_neg
-                                .push(Some(PreimageData::FPair(*f, *g)));
+                            preimages.less_than.push(Some(PreimageData::FPair(*f, *g)));
                             let f = Num::Scalar(*f);
                             let g = Num::Scalar(*g);
                             let b = if f < g { F::ONE } else { F::ZERO };
@@ -220,14 +218,14 @@ impl Block {
                 }
                 Op::Emit(a) => {
                     let a = bindings.get(a)?;
-                    println!("{}", a.dgb_display(store))
+                    println!("{}", a.dbg_display(store))
                 }
                 Op::Hash2(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
                     let tgt_ptr = store.intern_2_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1]);
                     bindings.insert(img.clone(), tgt_ptr);
                     preimages
-                        .hash2_ptrs
+                        .hash2
                         .push(Some(PreimageData::PtrVec(preimg_ptrs)));
                 }
                 Op::Hash3(img, tag, preimg) => {
@@ -236,7 +234,7 @@ impl Block {
                         store.intern_3_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]);
                     bindings.insert(img.clone(), tgt_ptr);
                     preimages
-                        .hash3_ptrs
+                        .hash3
                         .push(Some(PreimageData::PtrVec(preimg_ptrs)));
                 }
                 Op::Hash4(img, tag, preimg) => {
@@ -250,7 +248,7 @@ impl Block {
                     );
                     bindings.insert(img.clone(), tgt_ptr);
                     preimages
-                        .hash4_ptrs
+                        .hash4
                         .push(Some(PreimageData::PtrVec(preimg_ptrs)));
                 }
                 Op::Unhash2(preimg, img) => {
@@ -266,7 +264,7 @@ impl Block {
                         bindings.insert(var.clone(), *ptr);
                     }
                     preimages
-                        .hash2_ptrs
+                        .hash2
                         .push(Some(PreimageData::PtrVec(preimg_ptrs.to_vec())));
                 }
                 Op::Unhash3(preimg, img) => {
@@ -282,7 +280,7 @@ impl Block {
                         bindings.insert(var.clone(), *ptr);
                     }
                     preimages
-                        .hash3_ptrs
+                        .hash3
                         .push(Some(PreimageData::PtrVec(preimg_ptrs.to_vec())));
                 }
                 Op::Unhash4(preimg, img) => {
@@ -298,10 +296,10 @@ impl Block {
                         bindings.insert(var.clone(), *ptr);
                     }
                     preimages
-                        .hash4_ptrs
+                        .hash4
                         .push(Some(PreimageData::PtrVec(preimg_ptrs.to_vec())));
                 }
-                Op::Hide(tgt, sec, src) => {
+                Op::Commit(tgt, sec, src) => {
                     let src_ptr = bindings.get(src)?;
                     let Ptr::Leaf(Tag::Expr(Num), secret) = bindings.get(sec)? else {
                         bail!("{sec} is not a numeric pointer")
@@ -314,7 +312,7 @@ impl Block {
                     let tgt_ptr = Ptr::comm(hash);
                     store.comms.insert(FWrap::<F>(hash), (*secret, *src_ptr));
                     preimages
-                        .hiding
+                        .commitment
                         .push(Some(PreimageData::FPtr(*secret, *src_ptr)));
                     bindings.insert(tgt.clone(), tgt_ptr);
                 }
@@ -328,7 +326,7 @@ impl Block {
                     bindings.insert(tgt_ptr.clone(), *ptr);
                     bindings.insert(tgt_secret.clone(), Ptr::Leaf(Tag::Expr(Num), *secret));
                     preimages
-                        .hiding
+                        .commitment
                         .push(Some(PreimageData::FPtr(*secret, *ptr)))
                 }
             }
@@ -419,37 +417,37 @@ impl Func {
 
         // We must fill any unused slots with `None` values so we save
         // the initial size of preimages, which might not be zero
-        let hash2_init = preimages.hash2_ptrs.len();
-        let hash3_init = preimages.hash3_ptrs.len();
-        let hash4_init = preimages.hash4_ptrs.len();
-        let hiding_init = preimages.hiding.len();
-        let is_diff_neg_init = preimages.is_diff_neg.len();
+        let hash2_init = preimages.hash2.len();
+        let hash3_init = preimages.hash3.len();
+        let hash4_init = preimages.hash4.len();
+        let commitment_init = preimages.commitment.len();
+        let less_than_init = preimages.less_than.len();
 
         let mut res = self
             .body
             .run(args, store, bindings, preimages, Path::default())?;
         let preimages = &mut res.0.preimages;
 
-        let hash2_used = preimages.hash2_ptrs.len() - hash2_init;
-        let hash3_used = preimages.hash3_ptrs.len() - hash3_init;
-        let hash4_used = preimages.hash4_ptrs.len() - hash4_init;
-        let hiding_used = preimages.hiding.len() - hiding_init;
-        let is_diff_neg_used = preimages.is_diff_neg.len() - is_diff_neg_init;
+        let hash2_used = preimages.hash2.len() - hash2_init;
+        let hash3_used = preimages.hash3.len() - hash3_init;
+        let hash4_used = preimages.hash4.len() - hash4_init;
+        let commitment_used = preimages.commitment.len() - commitment_init;
+        let less_than_used = preimages.less_than.len() - less_than_init;
 
         for _ in hash2_used..self.slot.hash2 {
-            preimages.hash2_ptrs.push(None);
+            preimages.hash2.push(None);
         }
         for _ in hash3_used..self.slot.hash3 {
-            preimages.hash3_ptrs.push(None);
+            preimages.hash3.push(None);
         }
         for _ in hash4_used..self.slot.hash4 {
-            preimages.hash4_ptrs.push(None);
+            preimages.hash4.push(None);
         }
-        for _ in hiding_used..self.slot.hiding {
-            preimages.hiding.push(None);
+        for _ in commitment_used..self.slot.commitment {
+            preimages.commitment.push(None);
         }
-        for _ in is_diff_neg_used..self.slot.is_diff_neg {
-            preimages.is_diff_neg.push(None);
+        for _ in less_than_used..self.slot.less_than {
+            preimages.less_than.push(None);
         }
 
         Ok(res)

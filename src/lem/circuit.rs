@@ -189,19 +189,19 @@ impl Func {
                 SlotType::Hash4 => {
                     hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c8())?
                 }
-                SlotType::Hiding => {
+                SlotType::Commitment => {
                     hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c3())?
                 }
-                SlotType::IsDiffNeg => {
+                SlotType::LessThan => {
                     let a_num = &preallocated_preimg[0];
                     let b_num = &preallocated_preimg[1];
                     let diff = sub(
-                        &mut cs.namespace(|| format!("diff for slot {slot}")),
+                        &mut cs.namespace(|| format!("sub for slot {slot}")),
                         a_num,
                         b_num,
                     )?;
                     let diff_is_negative = allocate_is_negative(
-                        &mut cs.namespace(|| format!("diff_is_negative for slot {slot}")),
+                        &mut cs.namespace(|| format!("is_negative for slot {slot}")),
                         &diff,
                     )?;
                     boolean_to_num(
@@ -350,7 +350,7 @@ impl Func {
         // that's why they are filled with dummies
         let preallocated_hash2_slots = Func::allocate_slots(
             cs,
-            &frame.preimages.hash2_ptrs,
+            &frame.preimages.hash2,
             SlotType::Hash2,
             self.slot.hash2,
             store,
@@ -358,7 +358,7 @@ impl Func {
 
         let preallocated_hash3_slots = Func::allocate_slots(
             cs,
-            &frame.preimages.hash3_ptrs,
+            &frame.preimages.hash3,
             SlotType::Hash3,
             self.slot.hash3,
             store,
@@ -366,25 +366,25 @@ impl Func {
 
         let preallocated_hash4_slots = Func::allocate_slots(
             cs,
-            &frame.preimages.hash4_ptrs,
+            &frame.preimages.hash4,
             SlotType::Hash4,
             self.slot.hash4,
             store,
         )?;
 
-        let preallocated_hiding_slots = Func::allocate_slots(
+        let preallocated_commitment_slots = Func::allocate_slots(
             cs,
-            &frame.preimages.hiding,
-            SlotType::Hiding,
-            self.slot.hiding,
+            &frame.preimages.commitment,
+            SlotType::Commitment,
+            self.slot.commitment,
             store,
         )?;
 
-        let preallocated_is_diff_neg_slots = Func::allocate_slots(
+        let preallocated_less_than_slots = Func::allocate_slots(
             cs,
-            &frame.preimages.is_diff_neg,
-            SlotType::IsDiffNeg,
-            self.slot.is_diff_neg,
+            &frame.preimages.less_than,
+            SlotType::LessThan,
+            self.slot.less_than,
             store,
         )?;
 
@@ -394,8 +394,8 @@ impl Func {
             preallocated_hash2_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash3_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash4_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
-            preallocated_hiding_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
-            preallocated_is_diff_neg_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
+            preallocated_commitment_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
+            preallocated_less_than_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             call_outputs: VecDeque<Vec<Ptr<F>>>,
             call_count: usize,
         }
@@ -677,7 +677,7 @@ impl Func {
                             .global_allocator
                             .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
                         let (preallocated_preimg, lt) =
-                            &g.preallocated_is_diff_neg_slots[next_slot.consume_is_diff_neg()];
+                            &g.preallocated_less_than_slots[next_slot.consume_less_than()];
                         for (i, n) in [a.hash(), b.hash()].into_iter().enumerate() {
                             implies_equal(
                                 &mut cs.namespace(|| {
@@ -754,14 +754,14 @@ impl Func {
                         bound_allocations.insert(tgt[1].clone(), rem_ptr);
                     }
                     Op::Emit(_) => (),
-                    Op::Hide(tgt, sec, pay) => {
+                    Op::Commit(tgt, sec, pay) => {
                         let sec = bound_allocations.get(sec)?;
                         let pay = bound_allocations.get(pay)?;
                         let sec_tag = g
                             .global_allocator
                             .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
                         let (preallocated_preimg, hash) =
-                            &g.preallocated_hiding_slots[next_slot.consume_hiding()];
+                            &g.preallocated_commitment_slots[next_slot.consume_commitment()];
                         implies_equal(
                             &mut cs.namespace(|| {
                                 format!("implies equal for the secret's tag (OP {:?})", &op)
@@ -803,7 +803,7 @@ impl Func {
                     Op::Open(sec, pay, comm) => {
                         let comm = bound_allocations.get(comm)?;
                         let (preallocated_preimg, com_hash) =
-                            &g.preallocated_hiding_slots[next_slot.consume_hiding()];
+                            &g.preallocated_commitment_slots[next_slot.consume_commitment()];
                         let comm_tag = g
                             .global_allocator
                             .get_or_alloc_const(cs, Tag::Expr(Comm).to_field())?;
@@ -1063,8 +1063,8 @@ impl Func {
                 preallocated_hash2_slots,
                 preallocated_hash3_slots,
                 preallocated_hash4_slots,
-                preallocated_hiding_slots,
-                preallocated_is_diff_neg_slots,
+                preallocated_commitment_slots,
+                preallocated_less_than_slots,
                 call_outputs,
                 call_count: 0,
             },
@@ -1150,7 +1150,7 @@ impl Func {
                         // one constraint for the image's hash
                         num_constraints += 1;
                     }
-                    Op::Hide(..) => {
+                    Op::Commit(..) => {
                         num_constraints += 4;
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
                         globals.insert(FWrap(Tag::Expr(Comm).to_field()));
@@ -1215,8 +1215,8 @@ impl Func {
         let slot_constraints = 289 * self.slot.hash2
             + 337 * self.slot.hash3
             + 388 * self.slot.hash4
-            + 265 * self.slot.hiding
-            + 391 * self.slot.is_diff_neg;
+            + 265 * self.slot.commitment
+            + 391 * self.slot.less_than;
         let num_constraints = recurse::<F>(&self.body, false, globals, store);
         slot_constraints + num_constraints + globals.len()
     }
