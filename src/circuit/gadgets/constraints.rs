@@ -74,6 +74,7 @@ pub(crate) fn enforce_sum<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     );
 }
 
+/// Compute sum and enforce it.
 pub(crate) fn add<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     a: &AllocatedNum<F>,
@@ -181,7 +182,7 @@ pub(crate) fn implies_u64<F: LurkField, CS: ConstraintSystem<F>>(
     Ok(())
 }
 
-// If premise is true, enforce v is the bit decomposition of num, therefore we have that 0 <= num < 2ˆ(sizeof(v)).
+/// If premise is true, enforce v is the bit decomposition of num, therefore we have that 0 <= num < 2ˆ(sizeof(v)).
 pub(crate) fn implies_pack<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     premise: &Boolean,
@@ -203,7 +204,7 @@ pub(crate) fn implies_pack<F: LurkField, CS: ConstraintSystem<F>>(
     Ok(())
 }
 
-// Enforce v is the bit decomposition of num, therefore we have that 0 <= num < 2ˆ(sizeof(v)).
+/// Enforce v is the bit decomposition of num, therefore we have that 0 <= num < 2ˆ(sizeof(v)).
 pub(crate) fn enforce_pack<F: LurkField, CS: ConstraintSystem<F>>(
     cs: CS,
     v: &[Boolean],
@@ -236,6 +237,7 @@ pub(crate) fn enforce_difference<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     );
 }
 
+/// Compute difference and enforce it.
 pub(crate) fn sub<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     a: &AllocatedNum<F>,
@@ -301,6 +303,7 @@ pub(crate) fn product<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     );
 }
 
+/// Compute product and enforce it.
 pub(crate) fn mul<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     a: &AllocatedNum<F>,
@@ -441,7 +444,7 @@ where
     Ok(c)
 }
 
-/// Convert from Boolean to AllocatedNum
+/// Convert from Boolean to AllocatedNum.
 pub(crate) fn boolean_to_num<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     bit: &Boolean,
@@ -468,7 +471,7 @@ where
     Ok(num)
 }
 
-// This could now use alloc_is_zero to avoid duplication.
+/// This could now use alloc_is_zero to avoid duplication.
 pub fn alloc_equal<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     a: &AllocatedNum<F>,
@@ -523,7 +526,7 @@ pub fn alloc_equal<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(Boolean::Is(result))
 }
 
-// Like `alloc_equal`, but with second argument a constant.
+/// Like `alloc_equal`, but with second argument a constant.
 pub(crate) fn alloc_equal_const<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     a: &AllocatedNum<F>,
@@ -578,6 +581,7 @@ pub(crate) fn alloc_equal_const<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(Boolean::Is(result))
 }
 
+/// Allocate a Boolean which is true if and only if `x` is zero.
 pub(crate) fn alloc_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: CS,
     x: &AllocatedNum<F>,
@@ -585,6 +589,7 @@ pub(crate) fn alloc_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     alloc_num_is_zero(cs, &Num::from(x.clone()))
 }
 
+/// Allocate a Boolean which is true if and only if `num` is zero.
 pub(crate) fn alloc_num_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     num: &Num<F>,
@@ -633,6 +638,7 @@ pub(crate) fn alloc_num_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(Boolean::Is(result))
 }
 
+/// Variadic or.
 pub(crate) fn or_v<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: CS,
     v: &[&Boolean],
@@ -645,6 +651,7 @@ pub(crate) fn or_v<CS: ConstraintSystem<F>, F: PrimeField>(
     or_v_unchecked_for_optimization(cs, v)
 }
 
+/// Unchecked variadic or.
 pub(crate) fn or_v_unchecked_for_optimization<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     v: &[&Boolean],
@@ -661,6 +668,7 @@ pub(crate) fn or_v_unchecked_for_optimization<CS: ConstraintSystem<F>, F: PrimeF
     Ok(nor.not())
 }
 
+/// Variadic and.
 pub(crate) fn and_v<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     v: &[&Boolean],
@@ -798,6 +806,7 @@ pub(crate) fn implies_equal_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     enforce_implication_lc_zero(cs, premise, |lc| lc + a.get_variable())
 }
 
+/// Use DeMorgan to constrain or.
 pub(crate) fn or<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     a: &Boolean,
@@ -819,13 +828,13 @@ pub(crate) fn must_be_simple_bit(x: &Boolean) -> AllocatedBit {
     }
 }
 
-// Allocate Boolean for predicate "num is negative".
-// We have that a number is defined to be negative if the parity bit (the
-// least significant bit) is odd after doubling, meaning that the field element
-// (after doubling) is larger than the underlying prime p that defines the
-// field, then a modular reduction must have been carried out, changing the parity that
-// should be even (since we multiplied by 2) to odd. In other words, we define
-// negative numbers to be those field elements that are larger than p/2.
+/// Allocate Boolean for predicate "num is negative".
+/// We have that a number is defined to be negative if the parity bit (the
+/// least significant bit) is odd after doubling, meaning that the field element
+/// (after doubling) is larger than the underlying prime p that defines the
+/// field, then a modular reduction must have been carried out, changing the parity that
+/// should be even (since we multiplied by 2) to odd. In other words, we define
+/// negative numbers to be those field elements that are larger than p/2.
 pub(crate) fn allocate_is_negative<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     num: &AllocatedNum<F>,
