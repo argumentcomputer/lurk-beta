@@ -192,11 +192,11 @@ impl Block {
                     bindings.insert(tgt.clone(), c);
                 }
                 Op::Trunc(tgt, a, n) => {
+                    assert!(*n <= 64);
                     let a = bindings.get(a)?;
-
                     let c = match a {
                         Ptr::Leaf(_, f) => {
-                            let b = u64::wrapping_sub(u64::wrapping_pow(2, *n), 1);
+                            let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
                             Ptr::Leaf(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() & b))
                         }
                         _ => bail!("`&` only works on numbers"),

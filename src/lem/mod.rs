@@ -361,7 +361,10 @@ impl Func {
                         is_bound(b, map)?;
                         is_unique(tgt, map);
                     }
-                    Op::Trunc(tgt, a, _) => {
+                    Op::Trunc(tgt, a, n) => {
+                        if *n > 64 {
+                            bail!("Cannot yet truncate over 64 bits")
+                        }
                         is_bound(a, map)?;
                         is_unique(tgt, map);
                     }

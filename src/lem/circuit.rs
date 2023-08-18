@@ -692,13 +692,14 @@ impl Func {
                         bound_allocations.insert(tgt.clone(), c);
                     }
                     Op::Trunc(tgt, a, n) => {
+                        assert!(*n <= 64);
                         let a = bound_allocations.get(a)?;
                         let mut trunc_bits = a
                             .hash()
                             .to_bits_le_strict(&mut cs.namespace(|| "to_bits_le"))?;
-                        trunc_bits.truncate(usize::min(64, *n as usize));
+                        trunc_bits.truncate(*n as usize);
                         let trunc = AllocatedNum::alloc(cs.namespace(|| "trunc"), || {
-                            let b = u64::wrapping_sub(u64::wrapping_pow(2, *n), 1);
+                            let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
                             a.hash()
                                 .get_value()
                                 .map(|a| F::from_u64(a.to_u64_unchecked() & b))
