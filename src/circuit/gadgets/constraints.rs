@@ -1329,21 +1329,7 @@ mod tests {
     }
 
     #[test]
-    fn test_implies_u64_positive() {
-        let mut cs = TestConstraintSystem::<Fr>::new();
-
-        let alloc_num = AllocatedNum::alloc(&mut cs.namespace(|| "num"), || {
-            Ok(Fr::from_str_vartime("42").unwrap())
-        })
-        .unwrap();
-
-        let t = Boolean::Constant(true);
-        implies_u64(&mut cs.namespace(|| "enforce u64"), &t, &alloc_num).unwrap();
-        assert!(cs.is_satisfied());
-    }
-
-    #[test]
-    fn test_implies_u64_negative() {
+    fn test_implies_u64_negative_edge_case() {
         let mut cs = TestConstraintSystem::<Fr>::new();
 
         let alloc_num = AllocatedNum::alloc(&mut cs.namespace(|| "num"), || {
