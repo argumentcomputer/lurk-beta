@@ -836,7 +836,7 @@ mod tests {
         // Stop condition: the continuation is either terminal or error
         let stop_cond = |output: &[Ptr<Fr>]| output[2] == terminal || output[2] == error;
 
-        let limit = 200;
+        let limit = 10000;
 
         for (expr_in, expr_out) in pairs {
             let input = [expr_in, nil, outermost];
