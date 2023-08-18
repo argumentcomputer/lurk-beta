@@ -24,6 +24,7 @@
 //! the constraints we care about with implication gadgets.
 
 use anyhow::{Context, Result};
+use bellpepper::util_cs::witness_cs::WitnessCS;
 use bellpepper_core::{
     ConstraintSystem,
     {
@@ -62,6 +63,7 @@ pub struct MultiFrame<'a, F: LurkField> {
     pub input: Option<Vec<Ptr<F>>>,
     pub output: Option<Vec<Ptr<F>>>,
     pub frames: Option<Vec<Frame<F>>>,
+    pub cached_witness: Option<WitnessCS<F>>,
     pub count: usize,
 }
 
@@ -73,6 +75,7 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
             input: None,
             output: None,
             frames: None,
+            cached_witness: None,
             count,
         }
     }
@@ -89,7 +92,7 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
     ) -> Vec<Self> {
         // `count` is the number of `Frames` to include per `MultiFrame`.
         let total_frames = frames.len();
-        let n = total_frames / count + (total_frames % count != 0) as usize;
+        let n = total_frames / count + usize::from(total_frames % count != 0);
         let mut multi_frames = Vec::with_capacity(n);
 
         for chunk in frames.chunks(count) {
@@ -120,6 +123,7 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
                 input: Some(input),
                 output: Some(output),
                 frames: Some(inner_frames),
+                cached_witness: None,
                 count,
             };
 
@@ -151,6 +155,7 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
             input,
             output,
             frames,
+            cached_witness: None,
             count,
         }
     }

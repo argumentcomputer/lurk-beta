@@ -624,9 +624,7 @@ impl<F: LurkField> Ptr<F> {
                     None => "<Malformed Comm>".into(),
                 },
             },
-            Tag::Cont(t) => match t {
-                _ => todo!(),
-            },
+            Tag::Cont(_) => todo!(),
             Tag::Ctrl(_) => unreachable!(),
         }
     }

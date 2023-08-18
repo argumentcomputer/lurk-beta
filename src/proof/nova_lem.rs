@@ -21,20 +21,14 @@ use nova::{
 use pasta_curves::{pallas, vesta};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
-use crate::circuit::gadgets::{
-    data::GlobalAllocations,
-    pointer::{AllocatedContPtr, AllocatedPtr},
-};
+use crate::circuit::gadgets::pointer::AllocatedPtr;
 use crate::config::CONFIG;
 
-use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
-use crate::eval::{lang::DummyCoprocessor, lang::Lang, Evaluator, Witness, IO};
+use crate::eval::{lang::DummyCoprocessor, lang::Lang};
 use crate::field::LurkField;
 use crate::proof::{Prover, PublicParameters};
-use crate::ptr::Ptr;
 
 use crate::lem::{circuit::MultiFrame, interpreter::Frame, store::Store, Func};
 
@@ -176,10 +170,10 @@ where
 }
 
 /// Generates the public parameters for the Nova proving system.
-pub fn public_params<'a, F: CurveCycleEquipped>(
-    func: &'a Func,
+pub fn public_params<F: CurveCycleEquipped>(
+    func: &Func,
     num_iters_per_step: usize,
-) -> PublicParams<'a, F>
+) -> PublicParams<'_, F>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -251,19 +245,8 @@ where
         frames: &[Frame<F>],
         store: &'a mut Store<F>,
     ) -> Result<(Proof<'a, F>, Vec<F>, Vec<F>, usize), ProofError> {
-        let arity = func.input_params.len() * 2;
-        let mut z0 = Vec::with_capacity(arity);
-        let mut zi = Vec::with_capacity(arity);
-        for i in &frames.first().unwrap().input {
-            let i = store.hash_ptr(i).unwrap();
-            z0.push(i.tag.to_field());
-            z0.push(i.hash);
-        }
-        for o in &frames.last().unwrap().output {
-            let o = store.hash_ptr(o).unwrap();
-            zi.push(o.tag.to_field());
-            zi.push(o.hash);
-        }
+        let z0 = store.to_vector(&frames.first().unwrap().input).unwrap();
+        let zi = store.to_vector(&frames.last().unwrap().output).unwrap();
         let circuits = MultiFrame::from_frames(func, self.reduction_count(), frames, store);
 
         let num_steps = circuits.len();
@@ -278,15 +261,7 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
     fn compute_witness(&self, s: &Store<F>) -> WitnessCS<F> {
         let mut wcs = WitnessCS::new();
 
-        let input = self.input.as_ref().unwrap();
-
-        let mut z_scalar = Vec::with_capacity(2 * input.len());
-
-        for ptr in input {
-            let z_ptr = s.hash_ptr(&ptr).unwrap();
-            z_scalar.push(z_ptr.tag.to_field());
-            z_scalar.push(z_ptr.hash);
-        }
+        let z_scalar = s.to_vector(self.input.as_ref().unwrap()).unwrap();
 
         let mut bogus_cs = WitnessCS::<F>::new();
         let z: Vec<AllocatedNum<F>> = z_scalar
@@ -297,7 +272,6 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
         let _ = self.clone().synthesize(&mut wcs, z.as_slice());
 
         wcs
-        // todo!()
     }
 }
 
@@ -327,7 +301,7 @@ impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F> {
         let output_ptrs = match self.frames.as_ref() {
             Some(frames) => {
                 let s = self.store.expect("store missing");
-                self.synthesize_frames(cs, &s, &input, &frames)
+                self.synthesize_frames(cs, s, &input, frames)
             }
             None => {
                 assert!(self.store.is_none());
@@ -360,131 +334,130 @@ where
         num_iters_per_step: usize,
         z0: Vec<F>,
     ) -> Result<Self, ProofError> {
-        // assert!(!circuits.is_empty());
-        // assert_eq!(circuits[0].arity(), z0.len());
-        // let debug = false;
-        // let z0_primary = z0;
-        // let z0_secondary = Self::z0_secondary();
+        assert!(!circuits.is_empty());
+        assert_eq!(circuits[0].arity(), z0.len());
+        let func = circuits[0].func;
+        let debug = false;
+        let z0_primary = z0;
+        let z0_secondary = Self::z0_secondary();
 
-        // assert_eq!(
-        //     circuits[0].frames.as_ref().unwrap().len(),
-        //     num_iters_per_step
-        // );
-        // let (_circuit_primary, circuit_secondary): (
-        //     MultiFrame<'_, F, IO<F>, Witness<F>, C>,
-        //     TrivialTestCircuit<<G2<F> as Group>::Scalar>,
-        // ) = C1::<'a>::circuits(num_iters_per_step, lang);
+        assert_eq!(
+            circuits[0].frames.as_ref().unwrap().len(),
+            num_iters_per_step
+        );
+        let (_circuit_primary, circuit_secondary): (
+            MultiFrame<'_, F>,
+            TrivialTestCircuit<<G2<F> as Group>::Scalar>,
+        ) = C1::<'a, F>::circuits(func, num_iters_per_step);
 
-        // dbg!(circuits.len());
+        dbg!(circuits.len());
 
-        // // produce a recursive SNARK
-        // let mut recursive_snark: Option<RecursiveSNARK<G1<F>, G2<F>, C1<'a, F, C>, C2<F>>> = None;
+        // produce a recursive SNARK
+        let mut recursive_snark: Option<RecursiveSNARK<G1<F>, G2<F>, C1<'a, F>, C2<F>>> = None;
 
-        // // the shadowing here is voluntary
-        // let recursive_snark = if CONFIG.parallelism.recursive_steps.is_parallel() {
-        //     let cc = circuits
-        //         .iter()
-        //         .map(|c| Mutex::new(c.clone()))
-        //         .collect::<Vec<_>>();
+        // the shadowing here is voluntary
+        let recursive_snark = if CONFIG.parallelism.recursive_steps.is_parallel() {
+            let cc = circuits
+                .iter()
+                .map(|c| Mutex::new(c.clone()))
+                .collect::<Vec<_>>();
 
-        //     crossbeam::thread::scope(|s| {
-        //         s.spawn(|_| {
-        //             // Skip the very first circuit's witness, so `prove_step` can begin immediately.
-        //             // That circuit's witness will not be cached and will just be computed on-demand.
-        //             cc.par_iter().skip(1).for_each(|mf| {
-        //                 let witness = {
-        //                     let mf1 = mf.lock().unwrap();
-        //                     mf1.compute_witness(store)
-        //                 };
-        //                 let mut mf2 = mf.lock().unwrap();
+            crossbeam::thread::scope(|s| {
+                s.spawn(|_| {
+                    // Skip the very first circuit's witness, so `prove_step` can begin immediately.
+                    // That circuit's witness will not be cached and will just be computed on-demand.
+                    cc.par_iter().skip(1).for_each(|mf| {
+                        let witness = {
+                            let mf1 = mf.lock().unwrap();
+                            mf1.compute_witness(store)
+                        };
+                        let mut mf2 = mf.lock().unwrap();
 
-        //                 mf2.cached_witness = Some(witness);
-        //             });
-        //         });
+                        mf2.cached_witness = Some(witness);
+                    });
+                });
 
-        //         for circuit_primary in cc.iter() {
-        //             let circuit_primary = circuit_primary.lock().unwrap();
-        //             assert_eq!(
-        //                 num_iters_per_step,
-        //                 circuit_primary.frames.as_ref().unwrap().len()
-        //             );
+                for circuit_primary in cc.iter() {
+                    let circuit_primary = circuit_primary.lock().unwrap();
+                    assert_eq!(
+                        num_iters_per_step,
+                        circuit_primary.frames.as_ref().unwrap().len()
+                    );
 
-        //             let mut r_snark = recursive_snark.unwrap_or_else(|| {
-        //                 RecursiveSNARK::new(
-        //                     &pp.pp,
-        //                     &circuit_primary,
-        //                     &circuit_secondary,
-        //                     z0_primary.clone(),
-        //                     z0_secondary.clone(),
-        //                 )
-        //             });
-        //             r_snark
-        //                 .prove_step(
-        //                     &pp.pp,
-        //                     &circuit_primary,
-        //                     &circuit_secondary,
-        //                     z0_primary.clone(),
-        //                     z0_secondary.clone(),
-        //                 )
-        //                 .expect("failure to prove Nova step");
-        //             recursive_snark = Some(r_snark);
-        //         }
-        //         recursive_snark
-        //     })
-        //     .unwrap()
-        // } else {
-        //     for circuit_primary in circuits.iter() {
-        //         assert_eq!(
-        //             num_iters_per_step,
-        //             circuit_primary.frames.as_ref().unwrap().len()
-        //         );
-        //         if debug {
-        //             // For debugging purposes, synthesize the circuit and check that the constraint system is satisfied.
-        //             use bellpepper_core::test_cs::TestConstraintSystem;
-        //             let mut cs = TestConstraintSystem::<<G1<F> as Group>::Scalar>::new();
+                    let mut r_snark = recursive_snark.unwrap_or_else(|| {
+                        RecursiveSNARK::new(
+                            &pp.pp,
+                            &circuit_primary,
+                            &circuit_secondary,
+                            z0_primary.clone(),
+                            z0_secondary.clone(),
+                        )
+                    });
+                    r_snark
+                        .prove_step(
+                            &pp.pp,
+                            &circuit_primary,
+                            &circuit_secondary,
+                            z0_primary.clone(),
+                            z0_secondary.clone(),
+                        )
+                        .expect("failure to prove Nova step");
+                    recursive_snark = Some(r_snark);
+                }
+                recursive_snark
+            })
+            .unwrap()
+        } else {
+            for circuit_primary in circuits.iter() {
+                assert_eq!(
+                    num_iters_per_step,
+                    circuit_primary.frames.as_ref().unwrap().len()
+                );
+                if debug {
+                    // For debugging purposes, synthesize the circuit and check that the constraint system is satisfied.
+                    use bellpepper_core::test_cs::TestConstraintSystem;
+                    let mut cs = TestConstraintSystem::<<G1<F> as Group>::Scalar>::new();
 
-        //             let zi = circuit_primary.frames.as_ref().unwrap()[0]
-        //                 .input
-        //                 .unwrap()
-        //                 .to_vector(store)?;
-        //             let zi_allocated: Vec<_> = zi
-        //                 .iter()
-        //                 .enumerate()
-        //                 .map(|(i, x)| {
-        //                     AllocatedNum::alloc(cs.namespace(|| format!("z{i}_1")), || Ok(*x))
-        //                 })
-        //                 .collect::<Result<_, _>>()?;
+                    let zi = store
+                        .to_vector(&circuit_primary.frames.as_ref().unwrap()[0].input)
+                        .unwrap();
+                    let zi_allocated: Vec<_> = zi
+                        .iter()
+                        .enumerate()
+                        .map(|(i, x)| {
+                            AllocatedNum::alloc(cs.namespace(|| format!("z{i}_1")), || Ok(*x))
+                        })
+                        .collect::<Result<_, _>>()?;
 
-        //             circuit_primary.synthesize(&mut cs, zi_allocated.as_slice())?;
+                    circuit_primary.synthesize(&mut cs, zi_allocated.as_slice())?;
 
-        //             assert!(cs.is_satisfied());
-        //         }
+                    assert!(cs.is_satisfied());
+                }
 
-        //         let mut r_snark = recursive_snark.unwrap_or_else(|| {
-        //             RecursiveSNARK::new(
-        //                 &pp.pp,
-        //                 circuit_primary,
-        //                 &circuit_secondary,
-        //                 z0_primary.clone(),
-        //                 z0_secondary.clone(),
-        //             )
-        //         });
-        //         r_snark
-        //             .prove_step(
-        //                 &pp.pp,
-        //                 circuit_primary,
-        //                 &circuit_secondary,
-        //                 z0_primary.clone(),
-        //                 z0_secondary.clone(),
-        //             )
-        //             .expect("failure to prove Nova step");
-        //         recursive_snark = Some(r_snark);
-        //     }
-        //     recursive_snark
-        // };
+                let mut r_snark = recursive_snark.unwrap_or_else(|| {
+                    RecursiveSNARK::new(
+                        &pp.pp,
+                        circuit_primary,
+                        &circuit_secondary,
+                        z0_primary.clone(),
+                        z0_secondary.clone(),
+                    )
+                });
+                r_snark
+                    .prove_step(
+                        &pp.pp,
+                        circuit_primary,
+                        &circuit_secondary,
+                        z0_primary.clone(),
+                        z0_secondary.clone(),
+                    )
+                    .expect("failure to prove Nova step");
+                recursive_snark = Some(r_snark);
+            }
+            recursive_snark
+        };
 
-        // Ok(Self::Recursive(Box::new(recursive_snark.unwrap())))
-        todo!()
+        Ok(Self::Recursive(Box::new(recursive_snark.unwrap())))
     }
 
     /// Compresses the proof using a (Spartan) Snark (finishing step)

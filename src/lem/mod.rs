@@ -164,16 +164,14 @@ pub enum Lit {
 impl Lit {
     pub fn to_ptr_cache<F: LurkField>(&self, store: &Store<F>) -> Ptr<F> {
         match self {
-            Self::Symbol(s) => store
+            Self::Symbol(s) => *store
                 .symbol_ptr_cache
                 .get(s)
-                .expect("Symbols should have been cached")
-                .clone(),
-            Self::String(s) => store
+                .expect("Symbols should have been cached"),
+            Self::String(s) => *store
                 .string_ptr_cache
                 .get(s)
-                .expect("String should have been cached")
-                .clone(),
+                .expect("String should have been cached"),
             Self::Num(num) => Ptr::num((*num).into()),
         }
     }
