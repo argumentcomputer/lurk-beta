@@ -1,3 +1,5 @@
+#![allow(unreachable_pub)]
+#![allow(dead_code)]
 //! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellperson constraints for LEM, such
@@ -53,9 +55,141 @@ use super::{
     Block, Ctrl, Func, Op, Tag, Var,
 };
 
+#[derive(Clone)]
+pub struct MultiFrame<'a, F: LurkField> {
+    pub func: &'a Func,
+    pub store: Option<&'a Store<F>>,
+    pub input: Option<Vec<Ptr<F>>>,
+    pub output: Option<Vec<Ptr<F>>>,
+    pub frames: Option<Vec<Frame<F>>>,
+    pub count: usize,
+}
+
+impl<'a, F: LurkField> MultiFrame<'a, F> {
+    pub fn blank(func: &'a Func, count: usize) -> Self {
+        Self {
+            func,
+            store: None,
+            input: None,
+            output: None,
+            frames: None,
+            count,
+        }
+    }
+
+    pub fn get_store(&self) -> &Store<F> {
+        self.store.expect("store missing")
+    }
+
+    pub fn from_frames(
+        func: &'a Func,
+        count: usize,
+        frames: &[Frame<F>],
+        store: &'a Store<F>,
+    ) -> Vec<Self> {
+        // `count` is the number of `Frames` to include per `MultiFrame`.
+        let total_frames = frames.len();
+        let n = total_frames / count + (total_frames % count != 0) as usize;
+        let mut multi_frames = Vec::with_capacity(n);
+
+        for chunk in frames.chunks(count) {
+            let mut inner_frames = Vec::with_capacity(count);
+
+            for frame in chunk {
+                inner_frames.push(frame.clone());
+            }
+
+            let last_frame = chunk.last().expect("chunk must not be empty");
+            let last_circuit_frame = inner_frames
+                .last()
+                .expect("chunk must not be empty")
+                .clone();
+
+            // Fill out the MultiFrame, if needed, and capture output of the final actual frame.
+            for _ in chunk.len()..count {
+                inner_frames.push(last_circuit_frame.clone());
+            }
+
+            let output = last_frame.output.clone();
+            let input = chunk[0].input.clone();
+            debug_assert!(!inner_frames.is_empty());
+
+            let mf = MultiFrame {
+                func,
+                store: Some(store),
+                input: Some(input),
+                output: Some(output),
+                frames: Some(inner_frames),
+                count,
+            };
+
+            multi_frames.push(mf);
+        }
+
+        multi_frames
+    }
+
+    /// Make a dummy `MultiFrame`, duplicating `self`'s final `CircuitFrame`.
+    pub(crate) fn make_dummy(
+        func: &'a Func,
+        count: usize,
+        circuit_frame: Option<Frame<F>>,
+        store: &'a Store<F>,
+    ) -> Self {
+        let (frames, input, output) = if let Some(circuit_frame) = circuit_frame {
+            (
+                Some(vec![circuit_frame.clone(); count]),
+                Some(circuit_frame.input),
+                Some(circuit_frame.output),
+            )
+        } else {
+            (None, None, None)
+        };
+        Self {
+            func,
+            store: Some(store),
+            input,
+            output,
+            frames,
+            count,
+        }
+    }
+
+    pub fn synthesize_frames<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        store: &Store<F>,
+        input: &Vec<AllocatedPtr<F>>,
+        frames: &[Frame<F>],
+    ) -> Vec<AllocatedPtr<F>> {
+        let global_allocator = &mut GlobalAllocator::default();
+        let (_, output) = frames.iter().fold((0, input.clone()), |(i, allocated_io), frame| {
+            for (alloc_ptr, input) in allocated_io.iter().zip(&frame.input) {
+                let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
+                assert_eq!(
+                    alloc_ptr.tag().get_value().expect("Assignment missing"),
+                    input_zptr.tag.to_field(),
+                );
+                assert_eq!(
+                    alloc_ptr.hash().get_value().expect("Assignment missing"),
+                    input_zptr.hash,
+                );
+            }
+            let bound_allocations = &mut BoundAllocations::new();
+            self.func.add_input(input, bound_allocations);
+            let output = self.func
+                .synthesize_aux(cs, store, frame, global_allocator, bound_allocations)
+                .unwrap();
+            (i + 1, output)
+        });
+
+        output
+    }
+}
+
 /// Manages global allocations for constants in a constraint system
 #[derive(Default)]
-pub(crate) struct GlobalAllocator<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);
+pub struct GlobalAllocator<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);
 
 #[inline]
 fn allocate_num<F: LurkField, CS: ConstraintSystem<F>>(
@@ -102,6 +236,18 @@ impl<F: LurkField> GlobalAllocator<F> {
 type BoundAllocations<F> = VarMap<AllocatedPtr<F>>;
 
 impl Func {
+    /// Add input to bound_allocations
+    fn add_input<F: LurkField>(
+        &self,
+        input: &Vec<AllocatedPtr<F>>,
+        bound_allocations: &mut BoundAllocations<F>,
+    ) {
+        assert_eq!(input.len(), self.input_params.len());
+        for (var, ptr) in self.input_params.iter().zip(input) {
+            bound_allocations.insert(var.clone(), ptr.clone());
+        }
+    }
+
     /// Allocates an unconstrained pointer
     fn allocate_ptr<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
@@ -277,19 +423,16 @@ impl Func {
     /// each slot and then, as we traverse the function, we add constraints to make
     /// sure that the witness satisfies the arithmetic equations for the
     /// corresponding slots.
-    pub fn synthesize<F: LurkField, CS: ConstraintSystem<F>>(
+    pub fn synthesize_aux<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         store: &Store<F>,
         frame: &Frame<F>,
-    ) -> Result<()> {
-        let mut global_allocator = GlobalAllocator::default();
-        let mut bound_allocations = BoundAllocations::new();
-
-        // Inputs are constrained by their usage inside the function body
-        self.allocate_input(cs, store, frame, &mut bound_allocations)?;
+        global_allocator: &mut GlobalAllocator<F>,
+        bound_allocations: &mut BoundAllocations<F>,
+    ) -> Result<Vec<AllocatedPtr<F>>> {
         // Outputs are constrained by the return statement. All functions return
-        let preallocated_outputs = Func::allocate_output(cs, store, frame, &mut bound_allocations)?;
+        let preallocated_outputs = Func::allocate_output(cs, store, frame, bound_allocations)?;
 
         // Slots are constrained by their usage inside the function body. The ones
         // not used in throughout the concrete path are effectively unconstrained,
@@ -795,18 +938,32 @@ impl Func {
             &self.body,
             &Boolean::Constant(true),
             &mut SlotsCounter::default(),
-            &mut bound_allocations,
+            bound_allocations,
             &preallocated_outputs,
             &mut Globals {
                 store,
-                global_allocator: &mut global_allocator,
+                global_allocator,
                 preallocated_hash2_slots,
                 preallocated_hash3_slots,
                 preallocated_hash4_slots,
                 call_outputs,
                 call_count: 0,
             },
-        )
+        )?;
+        Ok(preallocated_outputs)
+    }
+
+    pub fn synthesize<F: LurkField, CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        store: &Store<F>,
+        frame: &Frame<F>,
+    ) -> Result<()> {
+        let bound_allocations = &mut BoundAllocations::new();
+        let global_allocator = &mut GlobalAllocator::default();
+        self.allocate_input(cs, store, frame, bound_allocations)?;
+        self.synthesize_aux(cs, store, frame, global_allocator, bound_allocations)?;
+        Ok(())
     }
 
     /// Computes the number of constraints that `synthesize` should create. It's
