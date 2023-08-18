@@ -107,8 +107,8 @@ macro_rules! op {
             $crate::var!($b),
         )
     };
-    ( let $tgt:ident = bitwise_and($a:ident, $b:literal) ) => {
-        $crate::lem::Op::BitAnd(
+    ( let $tgt:ident = truncate($a:ident, $b:literal) ) => {
+        $crate::lem::Op::Trunc(
             $crate::var!($tgt),
             $crate::var!($a),
             $b,
@@ -348,12 +348,12 @@ macro_rules! block {
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, let $tgt:ident = bitwise_and($a:ident, $b:literal) ; $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, let $tgt:ident = truncate($a:ident, $b:literal) ; $($tail:tt)*) => {
         $crate::block! (
             @seq
             {
                 $($limbs)*
-                $crate::op!(let $tgt = bitwise_and($a, $b))
+                $crate::op!(let $tgt = truncate($a, $b))
             },
             $($tail)*
         )

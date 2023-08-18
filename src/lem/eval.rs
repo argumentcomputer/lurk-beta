@@ -642,7 +642,7 @@ fn apply_cont() -> Func {
                                 match result.tag {
                                     Expr::Num => {
                                         // The limit is 2**64 - 1
-                                        let trunc = bitwise_and(result, 0xffffffffffffffff);
+                                        let trunc = truncate(result, 64);
                                         let cast = cast(trunc, Expr::U64);
                                         return(cast, env, continuation, makethunk)
                                     }
@@ -665,7 +665,7 @@ fn apply_cont() -> Func {
                                 match result.tag {
                                     Expr::Num => {
                                         // The limit is 2**32 - 1
-                                        let trunc = bitwise_and(result, 0xffffffff);
+                                        let trunc = truncate(result, 32);
                                         let cast = cast(trunc, Expr::Char);
                                         return(cast, env, continuation, makethunk)
                                     }
@@ -814,7 +814,7 @@ fn apply_cont() -> Func {
                                     Num(2) => {
                                         let val = mul(evaled_arg, result);
                                         // The limit is 2**64 - 1
-                                        let trunc = bitwise_and(val, 18446744073709551615);
+                                        let trunc = truncate(val, 64);
                                         let cast = cast(trunc, Expr::U64);
                                         return (cast, env, continuation, makethunk)
                                     }
@@ -971,8 +971,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 10046;
-    const NUM_CONSTRAINTS: usize = 12307;
+    const NUM_AUX: usize = 10442;
+    const NUM_CONSTRAINTS: usize = 12703;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,

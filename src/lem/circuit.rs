@@ -691,11 +691,14 @@ impl Func {
                         let c = AllocatedPtr::from_parts(tag, lt.clone());
                         bound_allocations.insert(tgt.clone(), c);
                     }
-                    Op::BitAnd(tgt, a, b) => {
+                    Op::Trunc(tgt, a, n) => {
+                        let b = u64::wrapping_sub(u64::wrapping_pow(2, *n), 1);
                         let a = bound_allocations.get(a)?;
-                        let a_bits = a.hash().to_bits_le(&mut cs.namespace(|| "bitwise_and"))?;
+                        let a_bits = a
+                            .hash()
+                            .to_bits_le_strict(&mut cs.namespace(|| "bitwise_and"))?;
                         let mut trunc_bits = Vec::with_capacity(64);
-                        let mut b_rest = *b;
+                        let mut b_rest = b;
                         for a_bit in a_bits {
                             let b_bit = b_rest & 1;
                             if b_bit == 1 {
@@ -703,7 +706,7 @@ impl Func {
                             } else {
                                 trunc_bits.push(Boolean::Constant(false))
                             }
-                            b_rest /= 2;
+                            b_rest >>= 1;
                         }
                         let trunc = AllocatedNum::alloc(cs.namespace(|| "trunc"), || {
                             let val = a
@@ -1117,10 +1120,10 @@ impl Func {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
                         num_constraints += 2;
                     }
-                    Op::BitAnd(_, _, _) => {
+                    Op::Trunc(_, _, _) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
                         // bit decomposition + enforce_pack
-                        num_constraints += 257;
+                        num_constraints += 389;
                     }
                     Op::DivRem64(_, _, _) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));

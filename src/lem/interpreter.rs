@@ -191,11 +191,12 @@ impl Block {
                     };
                     bindings.insert(tgt.clone(), c);
                 }
-                Op::BitAnd(tgt, a, b) => {
+                Op::Trunc(tgt, a, n) => {
                     let a = bindings.get(a)?;
 
                     let c = match a {
                         Ptr::Leaf(_, f) => {
+                            let b = u64::wrapping_sub(u64::wrapping_pow(2, *n), 1);
                             Ptr::Leaf(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() & b))
                         }
                         _ => bail!("`&` only works on numbers"),

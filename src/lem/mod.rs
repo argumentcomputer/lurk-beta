@@ -251,8 +251,8 @@ pub enum Op {
     Div(Var, Var, Var),
     /// `Lt(y, a, b)` binds `y` to `1` if `a < b`, or to `0` otherwise
     Lt(Var, Var, Var),
-    /// `BitAnd(y, a, b)` binds `y` to `a & b`
-    BitAnd(Var, Var, u64),
+    /// `Trunc(y, a, n)` binds `y` to `a` truncated to `n` bits, up to 64 bits
+    Trunc(Var, Var, u32),
     /// `DivRem64(ys, a, b)` binds `ys` to `(a / b, a % b)` as if they were u64
     DivRem64([Var; 2], Var, Var),
     /// `Emit(v)` simply prints out the value of `v` when interpreting the code
@@ -361,7 +361,7 @@ impl Func {
                         is_bound(b, map)?;
                         is_unique(tgt, map);
                     }
-                    Op::BitAnd(tgt, a, _) => {
+                    Op::Trunc(tgt, a, _) => {
                         is_bound(a, map)?;
                         is_unique(tgt, map);
                     }
@@ -615,10 +615,10 @@ impl Block {
                     let tgt = insert_one(map, uniq, &tgt);
                     ops.push(Op::Lt(tgt, a, b))
                 }
-                Op::BitAnd(tgt, a, b) => {
+                Op::Trunc(tgt, a, b) => {
                     let a = map.get_cloned(&a)?;
                     let tgt = insert_one(map, uniq, &tgt);
-                    ops.push(Op::BitAnd(tgt, a, b))
+                    ops.push(Op::Trunc(tgt, a, b))
                 }
                 Op::DivRem64(tgt, a, b) => {
                     let a = map.get_cloned(&a)?;
