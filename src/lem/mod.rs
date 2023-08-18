@@ -538,7 +538,9 @@ impl Func {
     }
 
     pub fn init_store<F: LurkField>(&self) -> Store<F> {
-        todo!()
+        let mut store = Store::default();
+        self.body.intern_lits(&mut store);
+        store
     }
 }
 
@@ -681,6 +683,40 @@ impl Block {
             Ctrl::Return(o) => Ctrl::Return(map.get_many_cloned(&o)?),
         };
         Ok(Block { ops, ctrl })
+    }
+
+    fn intern_lits<F: LurkField>(&self, store: &mut Store<F>) {
+        for op in &self.ops {
+            match op {
+                Op::Call(_, func, _) => func.body.intern_lits(store),
+                Op::Lit(_, lit) => {
+                    lit.to_ptr(store);
+                }
+                _ => (),
+            }
+        }
+        match &self.ctrl {
+            Ctrl::IfEq(.., a, b) => {
+                a.intern_lits(store);
+                b.intern_lits(store);
+            }
+            Ctrl::MatchTag(_, cases, def) => {
+                cases.values().for_each(|block| block.intern_lits(store));
+                if let Some(def) = def {
+                    def.intern_lits(store);
+                }
+            }
+            Ctrl::MatchVal(_, cases, def) => {
+                for (lit, b) in cases {
+                    lit.to_ptr(store);
+                    b.intern_lits(store);
+                }
+                if let Some(def) = def {
+                    def.intern_lits(store);
+                }
+            }
+            Ctrl::Return(..) => (),
+        }
     }
 }
 
