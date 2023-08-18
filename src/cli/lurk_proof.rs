@@ -1,3 +1,5 @@
+use ::nova::traits::Group;
+use abomonation::Abomonation;
 use anyhow::Result;
 use pasta_curves::pallas::Scalar;
 use serde::{Deserialize, Serialize};
@@ -6,7 +8,7 @@ use crate::{
     coprocessor::Coprocessor,
     eval::lang::{Coproc, Lang},
     field::LurkField,
-    proof::nova::{self, CurveCycleEquipped},
+    proof::nova::{self, CurveCycleEquipped, G1, G2},
     public_parameters::public_params,
     z_ptr::{ZContPtr, ZExprPtr},
     z_store::ZStore,
@@ -48,6 +50,8 @@ impl<F: LurkField> HasFieldModulus for LurkProofMeta<F> {
 pub(crate) enum LurkProof<'a, F: CurveCycleEquipped>
 where
     Coproc<F>: Coprocessor<F>,
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     Nova {
         proof: nova::Proof<'a, F, Coproc<F>>,
@@ -62,6 +66,8 @@ where
 impl<'a, F: CurveCycleEquipped> HasFieldModulus for LurkProof<'a, F>
 where
     Coproc<F>: Coprocessor<F>,
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     fn field_modulus() -> String {
         F::MODULUS.to_owned()
@@ -78,6 +84,8 @@ impl<F: LurkField + Serialize> LurkProofMeta<F> {
 impl<'a, F: CurveCycleEquipped + Serialize> LurkProof<'a, F>
 where
     Coproc<F>: Coprocessor<F>,
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     #[inline]
     pub(crate) fn persist(self, proof_key: &str) -> Result<()> {
@@ -97,7 +105,7 @@ impl<'a> LurkProof<'a, Scalar> {
                 lang,
             } => {
                 log::info!("Loading public parameters");
-                let pp = public_params(rc, std::sync::Arc::new(lang), &public_params_dir())?;
+                let pp = public_params(rc, true, std::sync::Arc::new(lang), &public_params_dir())?;
                 Ok(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?)
             }
         }

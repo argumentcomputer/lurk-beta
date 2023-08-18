@@ -10,12 +10,11 @@ pub mod groth16;
 /// An adapter to a Nova proving system implementation.
 pub mod nova;
 
-use bellperson::{util_cs::test_cs::TestConstraintSystem, Circuit, SynthesisError};
-
 use crate::circuit::MultiFrame;
 use crate::coprocessor::Coprocessor;
 use crate::eval::{lang::Lang, Witness, IO};
 use crate::field::LurkField;
+use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, SynthesisError};
 
 /// Represents a sequential Constraint System for a given proof.
 pub(crate) type SequentialCS<'a, F, IO, Witness, C> =
