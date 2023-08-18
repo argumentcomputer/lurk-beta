@@ -227,7 +227,6 @@ impl<F: LurkField> Store<F> {
         self.intern_lurk_sym("nil")
     }
 
-    #[inline]
     pub fn car_cdr(&mut self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>)> {
         match ptr.tag() {
             Tag::Expr(Nil) => {
@@ -529,33 +528,101 @@ impl<F: LurkField> Ptr<F> {
                         "<Opaque Str>".into()
                     }
                 }
-                Char => match self.get_num().map(F::to_char) {
-                    None | Some(None) => "<Malformed Char>".into(),
+                Char => match self.get_leaf().map(F::to_char) {
                     Some(Some(c)) => format!("\'{c}\'"),
+                    _ => "<Malformed Char>".into(),
                 },
                 Cons => {
                     if let Some((list, last)) = self.unfold_list(store) {
-                        let list = list.iter().map(|p| p.fmt_to_string(store, state)).collect::<Vec<_>>();
+                        let list = list
+                            .iter()
+                            .map(|p| p.fmt_to_string(store, state))
+                            .collect::<Vec<_>>();
                         if let Some(last) = last {
-                            format!("({} . {})", list.join(" "), last.fmt_to_string(store, state))
+                            format!(
+                                "({} . {})",
+                                list.join(" "),
+                                last.fmt_to_string(store, state)
+                            )
                         } else {
                             format!("({})", list.join(" "))
                         }
                     } else {
                         "<Opaque Cons>".into()
                     }
-                },
-                Num => match self.get_num() {
+                }
+                Num => match self.get_leaf() {
                     None => "<Malformed Num>".into(),
                     Some(f) => {
-                        if let Some(x) = f.to_u64() {
-                            x.to_string()
+                        if let Some(u) = f.to_u64() {
+                            u.to_string()
                         } else {
                             f.hex_digits()
                         }
-                    },
+                    }
                 },
-                _ => todo!(),
+                U64 => match self.get_leaf().map(F::to_u64) {
+                    Some(Some(u)) => format!("{u}u64"),
+                    _ => "<Malformed U64>".into(),
+                },
+                Fun => match self.get_index3() {
+                    None => "<Malformed Fun>".into(),
+                    Some(idx) => {
+                        if let Some((arg, bod, _)) = store.fetch_3_ptrs(idx) {
+                            match bod.tag() {
+                                Tag::Expr(Nil) => {
+                                    format!(
+                                        "<FUNCTION ({}) {}>",
+                                        arg.fmt_to_string(store, state),
+                                        bod.fmt_to_string(store, state)
+                                    )
+                                }
+                                Tag::Expr(Cons) => {
+                                    if let Some(idx) = bod.get_index2() {
+                                        if let Some((bod, _)) = store.fetch_2_ptrs(idx) {
+                                            format!(
+                                                "<FUNCTION ({}) {}>",
+                                                arg.fmt_to_string(store, state),
+                                                bod.fmt_to_string(store, state)
+                                            )
+                                        } else {
+                                            "<Opaque Fun>".into()
+                                        }
+                                    } else {
+                                        "<Malformed Fun>".into()
+                                    }
+                                }
+                                _ => "<Malformed Fun>".into(),
+                            }
+                        } else {
+                            "<Opaque Fun>".into()
+                        }
+                    }
+                },
+                Thunk => match self.get_index2() {
+                    None => "<Malformed Thunk>".into(),
+                    Some(idx) => {
+                        if let Some((val, cont)) = store.fetch_2_ptrs(idx) {
+                            format!(
+                                "Thunk{{ value: {} => cont: {} }}",
+                                val.fmt_to_string(store, state),
+                                cont.fmt_to_string(store, state)
+                            )
+                        } else {
+                            "<Opaque Thunk>".into()
+                        }
+                    }
+                },
+                Comm => match self.get_leaf() {
+                    Some(f) => {
+                        if store.comms.contains_key(&FWrap(*f)) {
+                            format!("(comm {})", f.hex_digits())
+                        } else {
+                            format!("<Opaque Comm {}>", f.hex_digits())
+                        }
+                    }
+                    None => "<Malformed Comm>".into(),
+                },
             },
             Tag::Cont(t) => match t {
                 _ => todo!(),

@@ -614,7 +614,7 @@ fn apply_cont() -> Func {
                             Symbol("comm") => {
                                 match result.tag {
                                     Expr::Num | Expr::Comm => {
-                                        let cast = cast(result, Expr::Num);
+                                        let cast = cast(result, Expr::Comm);
                                         return(cast, env, continuation, makethunk)
                                     }
                                 };

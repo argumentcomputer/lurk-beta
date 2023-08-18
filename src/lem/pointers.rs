@@ -81,9 +81,9 @@ impl<F: LurkField> Ptr<F> {
     }
 
     #[inline]
-    pub fn get_num(&self) -> Option<&F> {
+    pub fn get_leaf(&self) -> Option<&F> {
         match self {
-            Ptr::Leaf(Tag::Expr(Num), f) => Some(f),
+            Ptr::Leaf(_, f) => Some(f),
             _ => None,
         }
     }

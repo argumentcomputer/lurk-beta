@@ -19,13 +19,6 @@ use pasta_curves::{pallas, vesta};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::{circuit::{
-    gadgets::{
-        data::GlobalAllocations,
-        pointer::{AllocatedContPtr, AllocatedPtr},
-    },
-    CircuitFrame, MultiFrame,
-}, lem::Func};
 use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
 use crate::eval::{lang::Lang, Evaluator, Frame, Witness, IO};
@@ -33,6 +26,16 @@ use crate::field::LurkField;
 use crate::proof::{Prover, PublicParameters};
 use crate::ptr::Ptr;
 use crate::store::Store;
+use crate::{
+    circuit::{
+        gadgets::{
+            data::GlobalAllocations,
+            pointer::{AllocatedContPtr, AllocatedPtr},
+        },
+        CircuitFrame, MultiFrame,
+    },
+    lem::Func,
+};
 
 /// This trait defines most of the requirements for programming generically over the supported Nova curve cycles
 /// (currently Pallas/Vesta and BN254/Grumpkin). It being pegged on the `LurkField` trait encodes that we do
