@@ -1504,7 +1504,7 @@ name = "lurk"
 version = "0.2.0"
 dependencies = [
  "abomonation",
- "abomonation_derive 0.5.0 (git+https://github.com/winston-h-zhang/abomonation_derive.git)",
+ "abomonation_derive 0.5.0 (git+https://github.com/lurk-lab/abomonation_derive.git)",
  "ahash 0.7.6",
  "anyhow",
  "anymap",

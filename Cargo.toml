@@ -60,7 +60,7 @@ stable_deref_trait = "1.2.0"
 thiserror = { workspace = true }
 camino = { workspace = true }
 abomonation = { workspace = true}
-abomonation_derive = { git = "https://github.com/winston-h-zhang/abomonation_derive.git" }
+abomonation_derive = { git = "https://github.com/lurk-lab/abomonation_derive.git" }
 crossbeam = "0.8.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
