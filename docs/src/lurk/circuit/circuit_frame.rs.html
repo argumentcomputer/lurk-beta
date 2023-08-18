@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/circuit_frame.rs`."><title>circuit_frame.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (07438b092 2023-08-16)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/circuit_frame.rs`."><title>circuit_frame.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (076887268 2023-08-17)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -5945,14 +5945,198 @@
 <a href="#5945" id="5945">5945</a>
 <a href="#5946" id="5946">5946</a>
 <a href="#5947" id="5947">5947</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::Debug;
+<a href="#5948" id="5948">5948</a>
+<a href="#5949" id="5949">5949</a>
+<a href="#5950" id="5950">5950</a>
+<a href="#5951" id="5951">5951</a>
+<a href="#5952" id="5952">5952</a>
+<a href="#5953" id="5953">5953</a>
+<a href="#5954" id="5954">5954</a>
+<a href="#5955" id="5955">5955</a>
+<a href="#5956" id="5956">5956</a>
+<a href="#5957" id="5957">5957</a>
+<a href="#5958" id="5958">5958</a>
+<a href="#5959" id="5959">5959</a>
+<a href="#5960" id="5960">5960</a>
+<a href="#5961" id="5961">5961</a>
+<a href="#5962" id="5962">5962</a>
+<a href="#5963" id="5963">5963</a>
+<a href="#5964" id="5964">5964</a>
+<a href="#5965" id="5965">5965</a>
+<a href="#5966" id="5966">5966</a>
+<a href="#5967" id="5967">5967</a>
+<a href="#5968" id="5968">5968</a>
+<a href="#5969" id="5969">5969</a>
+<a href="#5970" id="5970">5970</a>
+<a href="#5971" id="5971">5971</a>
+<a href="#5972" id="5972">5972</a>
+<a href="#5973" id="5973">5973</a>
+<a href="#5974" id="5974">5974</a>
+<a href="#5975" id="5975">5975</a>
+<a href="#5976" id="5976">5976</a>
+<a href="#5977" id="5977">5977</a>
+<a href="#5978" id="5978">5978</a>
+<a href="#5979" id="5979">5979</a>
+<a href="#5980" id="5980">5980</a>
+<a href="#5981" id="5981">5981</a>
+<a href="#5982" id="5982">5982</a>
+<a href="#5983" id="5983">5983</a>
+<a href="#5984" id="5984">5984</a>
+<a href="#5985" id="5985">5985</a>
+<a href="#5986" id="5986">5986</a>
+<a href="#5987" id="5987">5987</a>
+<a href="#5988" id="5988">5988</a>
+<a href="#5989" id="5989">5989</a>
+<a href="#5990" id="5990">5990</a>
+<a href="#5991" id="5991">5991</a>
+<a href="#5992" id="5992">5992</a>
+<a href="#5993" id="5993">5993</a>
+<a href="#5994" id="5994">5994</a>
+<a href="#5995" id="5995">5995</a>
+<a href="#5996" id="5996">5996</a>
+<a href="#5997" id="5997">5997</a>
+<a href="#5998" id="5998">5998</a>
+<a href="#5999" id="5999">5999</a>
+<a href="#6000" id="6000">6000</a>
+<a href="#6001" id="6001">6001</a>
+<a href="#6002" id="6002">6002</a>
+<a href="#6003" id="6003">6003</a>
+<a href="#6004" id="6004">6004</a>
+<a href="#6005" id="6005">6005</a>
+<a href="#6006" id="6006">6006</a>
+<a href="#6007" id="6007">6007</a>
+<a href="#6008" id="6008">6008</a>
+<a href="#6009" id="6009">6009</a>
+<a href="#6010" id="6010">6010</a>
+<a href="#6011" id="6011">6011</a>
+<a href="#6012" id="6012">6012</a>
+<a href="#6013" id="6013">6013</a>
+<a href="#6014" id="6014">6014</a>
+<a href="#6015" id="6015">6015</a>
+<a href="#6016" id="6016">6016</a>
+<a href="#6017" id="6017">6017</a>
+<a href="#6018" id="6018">6018</a>
+<a href="#6019" id="6019">6019</a>
+<a href="#6020" id="6020">6020</a>
+<a href="#6021" id="6021">6021</a>
+<a href="#6022" id="6022">6022</a>
+<a href="#6023" id="6023">6023</a>
+<a href="#6024" id="6024">6024</a>
+<a href="#6025" id="6025">6025</a>
+<a href="#6026" id="6026">6026</a>
+<a href="#6027" id="6027">6027</a>
+<a href="#6028" id="6028">6028</a>
+<a href="#6029" id="6029">6029</a>
+<a href="#6030" id="6030">6030</a>
+<a href="#6031" id="6031">6031</a>
+<a href="#6032" id="6032">6032</a>
+<a href="#6033" id="6033">6033</a>
+<a href="#6034" id="6034">6034</a>
+<a href="#6035" id="6035">6035</a>
+<a href="#6036" id="6036">6036</a>
+<a href="#6037" id="6037">6037</a>
+<a href="#6038" id="6038">6038</a>
+<a href="#6039" id="6039">6039</a>
+<a href="#6040" id="6040">6040</a>
+<a href="#6041" id="6041">6041</a>
+<a href="#6042" id="6042">6042</a>
+<a href="#6043" id="6043">6043</a>
+<a href="#6044" id="6044">6044</a>
+<a href="#6045" id="6045">6045</a>
+<a href="#6046" id="6046">6046</a>
+<a href="#6047" id="6047">6047</a>
+<a href="#6048" id="6048">6048</a>
+<a href="#6049" id="6049">6049</a>
+<a href="#6050" id="6050">6050</a>
+<a href="#6051" id="6051">6051</a>
+<a href="#6052" id="6052">6052</a>
+<a href="#6053" id="6053">6053</a>
+<a href="#6054" id="6054">6054</a>
+<a href="#6055" id="6055">6055</a>
+<a href="#6056" id="6056">6056</a>
+<a href="#6057" id="6057">6057</a>
+<a href="#6058" id="6058">6058</a>
+<a href="#6059" id="6059">6059</a>
+<a href="#6060" id="6060">6060</a>
+<a href="#6061" id="6061">6061</a>
+<a href="#6062" id="6062">6062</a>
+<a href="#6063" id="6063">6063</a>
+<a href="#6064" id="6064">6064</a>
+<a href="#6065" id="6065">6065</a>
+<a href="#6066" id="6066">6066</a>
+<a href="#6067" id="6067">6067</a>
+<a href="#6068" id="6068">6068</a>
+<a href="#6069" id="6069">6069</a>
+<a href="#6070" id="6070">6070</a>
+<a href="#6071" id="6071">6071</a>
+<a href="#6072" id="6072">6072</a>
+<a href="#6073" id="6073">6073</a>
+<a href="#6074" id="6074">6074</a>
+<a href="#6075" id="6075">6075</a>
+<a href="#6076" id="6076">6076</a>
+<a href="#6077" id="6077">6077</a>
+<a href="#6078" id="6078">6078</a>
+<a href="#6079" id="6079">6079</a>
+<a href="#6080" id="6080">6080</a>
+<a href="#6081" id="6081">6081</a>
+<a href="#6082" id="6082">6082</a>
+<a href="#6083" id="6083">6083</a>
+<a href="#6084" id="6084">6084</a>
+<a href="#6085" id="6085">6085</a>
+<a href="#6086" id="6086">6086</a>
+<a href="#6087" id="6087">6087</a>
+<a href="#6088" id="6088">6088</a>
+<a href="#6089" id="6089">6089</a>
+<a href="#6090" id="6090">6090</a>
+<a href="#6091" id="6091">6091</a>
+<a href="#6092" id="6092">6092</a>
+<a href="#6093" id="6093">6093</a>
+<a href="#6094" id="6094">6094</a>
+<a href="#6095" id="6095">6095</a>
+<a href="#6096" id="6096">6096</a>
+<a href="#6097" id="6097">6097</a>
+<a href="#6098" id="6098">6098</a>
+<a href="#6099" id="6099">6099</a>
+<a href="#6100" id="6100">6100</a>
+<a href="#6101" id="6101">6101</a>
+<a href="#6102" id="6102">6102</a>
+<a href="#6103" id="6103">6103</a>
+<a href="#6104" id="6104">6104</a>
+<a href="#6105" id="6105">6105</a>
+<a href="#6106" id="6106">6106</a>
+<a href="#6107" id="6107">6107</a>
+<a href="#6108" id="6108">6108</a>
+<a href="#6109" id="6109">6109</a>
+<a href="#6110" id="6110">6110</a>
+<a href="#6111" id="6111">6111</a>
+<a href="#6112" id="6112">6112</a>
+<a href="#6113" id="6113">6113</a>
+<a href="#6114" id="6114">6114</a>
+<a href="#6115" id="6115">6115</a>
+<a href="#6116" id="6116">6116</a>
+<a href="#6117" id="6117">6117</a>
+<a href="#6118" id="6118">6118</a>
+<a href="#6119" id="6119">6119</a>
+<a href="#6120" id="6120">6120</a>
+<a href="#6121" id="6121">6121</a>
+<a href="#6122" id="6122">6122</a>
+<a href="#6123" id="6123">6123</a>
+<a href="#6124" id="6124">6124</a>
+<a href="#6125" id="6125">6125</a>
+<a href="#6126" id="6126">6126</a>
+<a href="#6127" id="6127">6127</a>
+<a href="#6128" id="6128">6128</a>
+<a href="#6129" id="6129">6129</a>
+<a href="#6130" id="6130">6130</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
+<span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
 
-<span class="kw">use </span>bellperson::{
-    gadgets::{boolean::Boolean, num::AllocatedNum},
-    util_cs::Comparable,
-    Circuit, ConstraintSystem, SynthesisError,
+<span class="kw">use </span>bellpepper::util_cs::{witness_cs::WitnessCS, Comparable};
+<span class="kw">use </span>bellpepper_core::{
+    boolean::Boolean, num::AllocatedNum, Circuit, ConstraintSystem, SynthesisError,
 };
+<span class="kw">use </span>rayon::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use crate</span>::{
     circuit::gadgets::{
@@ -5960,8 +6144,12 @@
         data::GlobalAllocations,
         pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents},
     },
+    config::CONFIG,
     field::LurkField,
-    hash_witness::{ConsName, ContName},
+    hash::HashConst,
+    hash_witness::{
+        ConsCircuitWitness, ConsName, ContCircuitWitness, ContName, HashCircuitWitnessCache,
+    },
     store::NamedConstants,
     tag::Tag,
 };
@@ -5999,12 +6187,13 @@
 }
 
 <span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>MultiFrame&lt;<span class="lifetime">&#39;a</span>, F: LurkField, T: Copy, W, C: Coprocessor&lt;F&gt;&gt; {
+</span><span class="kw">pub struct </span>MultiFrame&lt;<span class="lifetime">&#39;a</span>, F: LurkField, T: Copy + Sync, W: Sync, C: Coprocessor&lt;F&gt;&gt; {
     <span class="kw">pub </span>store: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;&gt;,
     <span class="kw">pub </span>lang: <span class="prelude-ty">Option</span>&lt;Arc&lt;Lang&lt;F, C&gt;&gt;&gt;,
     <span class="kw">pub </span>input: <span class="prelude-ty">Option</span>&lt;T&gt;,
     <span class="kw">pub </span>output: <span class="prelude-ty">Option</span>&lt;T&gt;,
     <span class="kw">pub </span>frames: <span class="prelude-ty">Option</span>&lt;Vec&lt;CircuitFrame&lt;<span class="lifetime">&#39;a</span>, F, T, W, C&gt;&gt;&gt;,
+    <span class="kw">pub </span>cached_witness: <span class="prelude-ty">Option</span>&lt;WitnessCS&lt;F&gt;&gt;,
     <span class="kw">pub </span>count: usize,
 }
 
@@ -6030,8 +6219,14 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: LurkField, T: Clone + Copy + std::cmp::PartialEq, W: Copy, C: Coprocessor&lt;F&gt;&gt;
-    MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, T, W, C&gt;
+<span class="kw">impl</span>&lt;
+        <span class="lifetime">&#39;a</span>,
+        F: LurkField,
+        <span class="comment">// T: Clone + Copy + std::cmp::PartialEq + Sync,
+        //W: Copy + Sync,
+        </span>C: Coprocessor&lt;F&gt;,
+        <span class="comment">//    &gt; MultiFrame&lt;&#39;a, F, T, W, C&gt;
+    </span>&gt; MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;
 {
     <span class="kw">pub fn </span>blank(count: usize, lang: Arc&lt;Lang&lt;F, C&gt;&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
@@ -6040,6 +6235,7 @@
             input: <span class="prelude-val">None</span>,
             output: <span class="prelude-val">None</span>,
             frames: <span class="prelude-val">None</span>,
+            cached_witness: <span class="prelude-val">None</span>,
             count,
         }
     }
@@ -6050,9 +6246,9 @@
 
     <span class="kw">pub fn </span>from_frames(
         count: usize,
-        frames: <span class="kw-2">&amp;</span>[Frame&lt;T, W, C&gt;],
+        frames: <span class="kw-2">&amp;</span>[Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;],
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
-        lang: <span class="kw-2">&amp;</span>Arc&lt;Lang&lt;F, C&gt;&gt;,
+        lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     ) -&gt; Vec&lt;<span class="self">Self</span>&gt; {
         <span class="comment">// `count` is the number of `Frames` to include per `MultiFrame`.
         </span><span class="kw">let </span>total_frames = frames.len();
@@ -6087,6 +6283,7 @@
                 input: <span class="prelude-val">Some</span>(chunk[<span class="number">0</span>].input),
                 output: <span class="prelude-val">Some</span>(output),
                 frames: <span class="prelude-val">Some</span>(inner_frames),
+                cached_witness: <span class="prelude-val">None</span>,
                 count,
             };
 
@@ -6099,7 +6296,7 @@
     <span class="doccomment">/// Make a dummy `MultiFrame`, duplicating `self`&#39;s final `CircuitFrame`.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>make_dummy(
         count: usize,
-        circuit_frame: <span class="prelude-ty">Option</span>&lt;CircuitFrame&lt;<span class="lifetime">&#39;a</span>, F, T, W, C&gt;&gt;,
+        circuit_frame: <span class="prelude-ty">Option</span>&lt;CircuitFrame&lt;<span class="lifetime">&#39;a</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;&gt;,
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
         lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     ) -&gt; <span class="self">Self </span>{
@@ -6118,6 +6315,7 @@
             input,
             output,
             frames,
+            cached_witness: <span class="prelude-val">None</span>,
             count,
         }
     }
@@ -6132,6 +6330,28 @@
         frames: <span class="kw-2">&amp;</span>[CircuitFrame&lt;<span class="lifetime">&#39;_</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;],
         g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
     ) -&gt; (AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedContPtr&lt;F&gt;) {
+        <span class="kw">if </span>cs.is_witness_generator() &amp;&amp; CONFIG.parallelism.synthesis.is_parallel() {
+            <span class="self">self</span>.synthesize_frames_parallel(cs, store, input_expr, input_env, input_cont, frames, g)
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.synthesize_frames_sequential(
+                cs, store, input_expr, input_env, input_cont, frames, <span class="prelude-val">None</span>, g,
+            )
+        }
+    }
+
+    <span class="kw">pub fn </span>synthesize_frames_sequential&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        cs: <span class="kw-2">&amp;mut </span>CS,
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        input_expr: AllocatedPtr&lt;F&gt;,
+        input_env: AllocatedPtr&lt;F&gt;,
+        input_cont: AllocatedContPtr&lt;F&gt;,
+        frames: <span class="kw-2">&amp;</span>[CircuitFrame&lt;<span class="lifetime">&#39;_</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;],
+        cons_and_cont_witnesses: <span class="prelude-ty">Option</span>&lt;Vec&lt;(ConsCircuitWitness&lt;F&gt;, ContCircuitWitness&lt;F&gt;)&gt;&gt;,
+        g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
+    ) -&gt; (AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedContPtr&lt;F&gt;) {
+        <span class="kw">let </span><span class="kw-2">mut </span>hash_circuit_witness_cache = HashMap::new();
+
         <span class="kw">let </span>acc = (input_expr, input_env, input_cont);
 
         <span class="kw">let </span>(<span class="kw">_</span>, (new_expr, new_env, new_cont)) =
@@ -6169,21 +6389,146 @@
                         <span class="string">&quot;cont mismatch&quot;
                     </span>);
                 };
-                (
-                    i + <span class="number">1</span>,
-                    frame
-                        .synthesize(
-                            cs,
-                            i,
-                            allocated_io,
-                            <span class="self">self</span>.lang.as_ref().expect(<span class="string">&quot;Lang missing&quot;</span>),
-                            g,
+                <span class="kw">let </span>(cons_witnesses, cont_witnesses) =
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(cons_and_cont_witnesses) = <span class="kw-2">&amp;</span>cons_and_cont_witnesses {
+                        (
+                            <span class="prelude-val">Some</span>(cons_and_cont_witnesses[i].<span class="number">0</span>.clone()),
+                            <span class="prelude-val">Some</span>(cons_and_cont_witnesses[i].<span class="number">1</span>.clone()),
                         )
-                        .unwrap(),
-                )
+                    } <span class="kw">else </span>{
+                        (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+                    };
+
+                <span class="kw">let </span>new_allocated_io = frame
+                    .synthesize(
+                        cs,
+                        i,
+                        allocated_io,
+                        <span class="self">self</span>.lang.as_ref().expect(<span class="string">&quot;Lang missing&quot;</span>),
+                        g,
+                        <span class="kw-2">&amp;mut </span>hash_circuit_witness_cache,
+                        cons_witnesses,
+                        cont_witnesses,
+                    )
+                    .unwrap();
+
+                (i + <span class="number">1</span>, new_allocated_io)
             });
 
         (new_expr, new_env, new_cont)
+    }
+
+    <span class="kw">pub fn </span>synthesize_frames_parallel&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        cs: <span class="kw-2">&amp;mut </span>CS,
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        input_expr: AllocatedPtr&lt;F&gt;,
+        input_env: AllocatedPtr&lt;F&gt;,
+        input_cont: AllocatedContPtr&lt;F&gt;,
+        frames: <span class="kw-2">&amp;</span>[CircuitFrame&lt;<span class="lifetime">&#39;_</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;],
+        g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
+    ) -&gt; (AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedContPtr&lt;F&gt;) {
+        <span class="macro">assert!</span>(cs.is_witness_generator());
+        <span class="macro">assert!</span>(CONFIG.parallelism.synthesis.is_parallel());
+
+        <span class="comment">// TODO: this probably belongs in config, perhaps per-Flow.
+        </span><span class="kw">const </span>MIN_CHUNK_SIZE: usize = <span class="number">10</span>;
+
+        <span class="kw">let </span>num_frames = frames.len();
+
+        <span class="kw">let </span>chunk_size = CONFIG
+            .parallelism
+            .synthesis
+            .chunk_size(num_frames, MIN_CHUNK_SIZE);
+
+        <span class="kw">let </span>css = frames
+            .par_chunks(chunk_size)
+            .enumerate()
+            .map(|(i, chunk)| {
+                <span class="kw">let </span>(input_expr, input_env, input_cont) = <span class="kw">if </span>i == <span class="number">0 </span>{
+                    (input_expr.clone(), input_env.clone(), input_cont.clone())
+                } <span class="kw">else </span>{
+                    <span class="kw">let </span>previous_frame = <span class="kw-2">&amp;</span>frames[i * chunk_size];
+                    <span class="kw">let </span><span class="kw-2">mut </span>bogus_cs = WitnessCS::new();
+                    <span class="kw">let </span>x = previous_frame.input.unwrap().expr;
+                    <span class="kw">let </span>input_expr =
+                        AllocatedPtr::alloc_ptr(<span class="kw-2">&amp;mut </span>bogus_cs, store, || <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span>x)).unwrap();
+                    <span class="kw">let </span>y = previous_frame.input.unwrap().env;
+                    <span class="kw">let </span>input_env =
+                        AllocatedPtr::alloc_ptr(<span class="kw-2">&amp;mut </span>bogus_cs, store, || <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span>y)).unwrap();
+                    <span class="kw">let </span>z = previous_frame.input.unwrap().cont;
+                    <span class="kw">let </span>input_cont =
+                        AllocatedContPtr::alloc_cont_ptr(<span class="kw-2">&amp;mut </span>bogus_cs, store, || <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span>z)).unwrap();
+                    (input_expr, input_env, input_cont)
+                };
+
+                <span class="kw">let </span>cons_and_cont_witnesses = {
+                    <span class="macro">macro_rules! </span>f {
+                        () =&gt; {
+                            |frame| {
+                                <span class="kw">let </span>cons_circuit_witness: ConsCircuitWitness&lt;F&gt; = frame
+                                    .witness
+                                    .map(|x| x.conses)
+                                    .unwrap_or_else(|| HashWitness::new_blank())
+                                    .into();
+
+                                <span class="kw">let </span>cons_constants: HashConst&lt;<span class="lifetime">&#39;_</span>, F&gt; =
+                                    store.poseidon_constants().constants(<span class="number">4</span>.into());
+
+                                <span class="comment">// Force generating the witness. This is the important part!
+                                </span>cons_circuit_witness.circuit_witness_blocks(store, cons_constants);
+
+                                <span class="kw">let </span>cont_circuit_witness: ContCircuitWitness&lt;F&gt; = frame
+                                    .witness
+                                    .map(|x| x.conts)
+                                    .unwrap_or_else(|| HashWitness::new_blank())
+                                    .into();
+
+                                <span class="kw">let </span>cont_constants: HashConst&lt;<span class="lifetime">&#39;_</span>, F&gt; =
+                                    store.poseidon_constants().constants(<span class="number">8</span>.into());
+
+                                <span class="comment">// Force generating the witness. This is the important part!
+                                </span>cont_circuit_witness.circuit_witness_blocks(store, cont_constants);
+
+                                (cons_circuit_witness, cont_circuit_witness)
+                            }
+                        };
+                    }
+
+                    <span class="kw">if </span>CONFIG.parallelism.poseidon_witnesses.is_parallel() {
+                        chunk.par_iter().map(<span class="macro">f!</span>()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+                    } <span class="kw">else </span>{
+                        chunk.iter().map(<span class="macro">f!</span>()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+                    }
+                };
+
+                <span class="kw">let </span><span class="kw-2">mut </span>cs = WitnessCS::new();
+
+                <span class="kw">let </span>output = <span class="self">self</span>.synthesize_frames_sequential(
+                    <span class="kw-2">&amp;mut </span>cs,
+                    store,
+                    input_expr,
+                    input_env,
+                    input_cont,
+                    chunk,
+                    <span class="prelude-val">Some</span>(cons_and_cont_witnesses),
+                    g,
+                );
+
+                (cs, output)
+            })
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+        <span class="kw">let </span><span class="kw-2">mut </span>final_output = <span class="prelude-val">None</span>;
+
+        <span class="kw">for </span>(frames_cs, output) <span class="kw">in </span>css.into_iter() {
+            final_output = <span class="prelude-val">Some</span>(output);
+
+            <span class="kw">let </span>aux = frames_cs.aux_slice();
+            cs.extend_aux(aux);
+        }
+
+        final_output.unwrap()
     }
 }
 
@@ -6193,13 +6538,19 @@
     }
 }
 
-<span class="kw">impl</span>&lt;F: LurkField, T: PartialEq + Debug + Copy, W, C: Coprocessor&lt;F&gt;&gt; MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, T, W, C&gt; {
+<span class="kw">impl</span>&lt;F: LurkField, T: PartialEq + Debug + Copy + Sync, W: Sync, C: Coprocessor&lt;F&gt;&gt;
+    MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, T, W, C&gt;
+{
     <span class="kw">pub fn </span>precedes(<span class="kw-2">&amp;</span><span class="self">self</span>, maybe_next: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
         <span class="self">self</span>.output == maybe_next.input
     }
 }
 
-<span class="kw">impl</span>&lt;F: LurkField, W: Copy, C: Coprocessor&lt;F&gt;&gt; Provable&lt;F&gt; <span class="kw">for </span>MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, IO&lt;F&gt;, W, C&gt; {
+<span class="kw">impl</span>&lt;
+        F: LurkField, <span class="comment">// W: Copy + Sync,
+        </span>C: Coprocessor&lt;F&gt;,
+    &gt; Provable&lt;F&gt; <span class="kw">for </span>MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;
+{
     <span class="kw">fn </span>public_inputs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;F&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>inputs: Vec&lt;<span class="kw">_</span>&gt; = Vec::with_capacity(<span class="self">Self</span>::public_input_size());
 
@@ -6237,27 +6588,42 @@
         inputs: AllocatedIO&lt;F&gt;,
         lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
         g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
+        _hash_circuit_witness_cache: <span class="kw-2">&amp;mut </span>HashCircuitWitnessCache&lt;F&gt;, <span class="comment">// Currently unused.
+        </span>cons_circuit_witness: <span class="prelude-ty">Option</span>&lt;ConsCircuitWitness&lt;F&gt;&gt;,
+        cont_circuit_witness: <span class="prelude-ty">Option</span>&lt;ContCircuitWitness&lt;F&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedIO&lt;F&gt;, SynthesisError&gt; {
         <span class="kw">let </span>(input_expr, input_env, input_cont) = inputs;
 
-        <span class="kw">let </span><span class="kw-2">mut </span>reduce = |store| {
-            <span class="kw">let </span>cons_witness = <span class="self">self
-                </span>.witness
-                .map_or_else(|| HashWitness::new_blank(), |x| x.conses);
+        <span class="kw">let </span>reduce = |store| {
+            <span class="kw">let </span>cons_circuit_witness = <span class="kw">if let </span><span class="prelude-val">Some</span>(ccw) = cons_circuit_witness {
+                ccw
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>cons_witness = <span class="self">self
+                    </span>.witness
+                    .map_or_else(|| HashWitness::new_blank(), |x| x.conses);
+
+                (cons_witness).into()
+            };
+
             <span class="kw">let </span><span class="kw-2">mut </span>allocated_cons_witness = AllocatedConsWitness::from_cons_witness(
                 <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;allocated_cons_witness {i}&quot;</span>)),
                 store,
-                <span class="kw-2">&amp;</span>cons_witness,
+                <span class="kw-2">&amp;</span>cons_circuit_witness,
             )<span class="question-mark">?</span>;
 
-            <span class="kw">let </span>cont_witness = <span class="self">self
-                </span>.witness
-                .map_or_else(|| HashWitness::new_blank(), |x| x.conts);
+            <span class="kw">let </span>cont_circuit_witness = <span class="kw">if let </span><span class="prelude-val">Some</span>(ccw) = cont_circuit_witness {
+                ccw
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>cont_witness = <span class="self">self
+                    </span>.witness
+                    .map_or_else(|| HashWitness::new_blank(), |x| x.conts);
+                (cont_witness).into()
+            };
 
             <span class="kw">let </span><span class="kw-2">mut </span>allocated_cont_witness = AllocatedContWitness::from_cont_witness(
                 <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;allocated_cont_witness {i}&quot;</span>)),
                 store,
-                <span class="kw-2">&amp;</span>cont_witness,
+                <span class="kw-2">&amp;</span>cont_circuit_witness,
             )<span class="question-mark">?</span>;
 
             reduce_expression(
@@ -6885,7 +7251,6 @@
     )<span class="question-mark">?</span>;
 
     allocated_cons_witness.assert_final_invariants();
-    allocated_cont_witness.witness.all_names();
     allocated_cont_witness.assert_final_invariants();
 
     <span class="comment">// dbg!(&amp;result_expr.fetch_and_write_str(store));
@@ -11179,10 +11544,10 @@
     <span class="kw">use </span><span class="kw">crate</span>::proof::groth16::Groth16Prover;
     <span class="kw">use </span><span class="kw">crate</span>::proof::{Provable, Prover};
     <span class="kw">use </span><span class="kw">crate</span>::store::Store;
+    <span class="kw">use </span>bellpepper::util_cs::metric_cs::MetricCS;
+    <span class="kw">use </span>bellpepper_core::test_cs::TestConstraintSystem;
+    <span class="kw">use </span>bellpepper_core::{Comparable, Delta};
     <span class="kw">use </span>bellperson::groth16;
-    <span class="kw">use </span>bellperson::util_cs::{
-        metric_cs::MetricCS, test_cs::TestConstraintSystem, Comparable, Delta,
-    };
     <span class="kw">use </span>blstrs::{Bls12, Scalar <span class="kw">as </span>Fr};
     <span class="kw">use </span>ff::{Field, PrimeField};
     <span class="kw">use </span>pairing::Engine;
@@ -11240,7 +11605,7 @@
                     _p: Default::default(),
                 }],
                 store,
-                <span class="kw-2">&amp;</span>lang,
+                lang.clone(),
             );
 
             <span class="kw">let </span>multiframe = <span class="kw-2">&amp;</span>multiframes[<span class="number">0</span>];
@@ -11251,6 +11616,7 @@
                 .expect(<span class="string">&quot;failed to synthesize&quot;</span>);
 
             <span class="kw">let </span>delta = cs.delta(<span class="kw-2">&amp;</span>cs_blank, <span class="bool-val">false</span>);
+            <span class="macro">dbg!</span>(<span class="kw-2">&amp;</span>delta);
             <span class="macro">assert!</span>(delta == Delta::Equal);
 
             <span class="comment">//println!(&quot;{}&quot;, print_cs(&amp;cs));
@@ -11356,7 +11722,7 @@
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
-                <span class="kw-2">&amp;</span>lang,
+                lang.clone(),
             )[<span class="number">0</span>]
             .clone()
             .synthesize(<span class="kw-2">&amp;mut </span>cs)
@@ -11436,7 +11802,7 @@
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
-                <span class="kw-2">&amp;</span>lang,
+                lang.clone(),
             )[<span class="number">0</span>]
             .clone()
             .synthesize(<span class="kw-2">&amp;mut </span>cs)
@@ -11518,7 +11884,7 @@
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
-                <span class="kw-2">&amp;</span>lang,
+                lang.clone(),
             )[<span class="number">0</span>]
             .clone()
             .synthesize(<span class="kw-2">&amp;mut </span>cs)
@@ -11600,7 +11966,7 @@
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
-                <span class="kw-2">&amp;</span>lang,
+                lang,
             )[<span class="number">0</span>]
             .clone()
             .synthesize(<span class="kw-2">&amp;mut </span>cs)

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["public_params","public_params_default_dir"],"mod":["error"]};
+window.SIDEBAR_ITEMS = {"fn":["public_params","public_params_default_dir","with_public_params"],"mod":["error"]};
