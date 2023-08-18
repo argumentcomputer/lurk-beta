@@ -36,7 +36,7 @@ use crate::circuit::gadgets::{
     constraints::{
         add, alloc_equal, alloc_equal_const, alloc_is_zero, allocate_is_negative, and,
         boolean_to_num, div, enforce_pack, enforce_selector_with_premise, implies_equal,
-        implies_u64, linear, mul, pick, sub,
+        implies_u64, enforce_product_and_sum, mul, pick, sub,
     },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
@@ -736,7 +736,7 @@ impl Func {
                         implies_u64(cs.namespace(|| "rem_u64"), not_dummy, &rem)?;
                         implies_u64(cs.namespace(|| "diff_u64"), not_dummy, &diff)?;
 
-                        linear(cs, || "linear", b, &div, &rem, a);
+                        enforce_product_and_sum(cs, || "enforce a = b * div + rem", b, &div, &rem, a);
                         let tag = g
                             .global_allocator
                             .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
