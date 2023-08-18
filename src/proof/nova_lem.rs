@@ -163,6 +163,7 @@ impl<'a, F: CurveCycleEquipped> MultiFrame<'a, F> {
 pub struct NovaProver<F: CurveCycleEquipped> {
     // `reduction_count` specifies the number of small-step reductions are performed in each recursive step.
     reduction_count: usize,
+    lang: Lang<F, DummyCoprocessor<F>>,
     _p: PhantomData<F>,
 }
 
@@ -173,6 +174,7 @@ impl<'a, F: CurveCycleEquipped> Prover<'a, '_, F, DummyCoprocessor<F>> for NovaP
     fn new(reduction_count: usize, lang: Lang<F, DummyCoprocessor<F>>) -> Self {
         NovaProver::<F> {
             reduction_count,
+            lang,
             _p: Default::default(),
         }
     }
@@ -181,7 +183,7 @@ impl<'a, F: CurveCycleEquipped> Prover<'a, '_, F, DummyCoprocessor<F>> for NovaP
     }
 
     fn lang(&self) -> &Lang<F, DummyCoprocessor<F>> {
-        todo!()
+        &self.lang
     }
 }
 
@@ -239,8 +241,7 @@ impl<F: CurveCycleEquipped> NovaProver<F> {
 
 impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F> {
     fn arity(&self) -> usize {
-        // 6
-        todo!()
+        self.func.input_params.len() * 2
     }
 
     fn synthesize<CS>(
@@ -251,40 +252,36 @@ impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F> {
     where
         CS: ConstraintSystem<F>,
     {
-        // assert_eq!(self.arity(), z.len());
+        assert_eq!(self.arity(), z.len());
+        let mut input = Vec::with_capacity(self.arity() / 2);
+        let mut z_iter = z.iter();
+        while let Some(tag) = z_iter.next() {
+            let hash = z_iter.next().unwrap();
+            input.push(AllocatedPtr::from_parts(tag.clone(), hash.clone()))
+        }
 
-        // let input_expr = AllocatedPtr::by_index(0, z);
-        // let input_env = AllocatedPtr::by_index(1, z);
-        // let input_cont = AllocatedContPtr::by_index(2, z);
+        let count = self.count;
 
-        // let count = self.count;
+        let output_ptrs = match self.frames.as_ref() {
+            Some(frames) => {
+                let s = self.store.expect("store missing");
+                self.synthesize_frames(cs, &s, &input, &frames)
+            }
+            None => {
+                assert!(self.store.is_none());
+                let s = Store::default();
+                let blank_frame = Frame::default();
+                let frames = vec![blank_frame; count];
+                self.synthesize_frames(cs, &s, &input, &frames)
+            }
+        };
 
-        // let (new_expr, new_env, new_cont) = match self.frames.as_ref() {
-        //     Some(frames) => {
-        //         let s = self.store.expect("store missing");
-        //         let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?;
-        //         self.synthesize_frames(cs, s, input_expr, input_env, input_cont, frames, &g)
-        //     }
-        //     None => {
-        //         assert!(self.store.is_none());
-        //         let s = Store::default();
-        //         let blank_frame = CircuitFrame::blank();
-        //         let frames = vec![blank_frame; count];
-
-        //         let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?;
-        //         self.synthesize_frames(cs, &s, input_expr, input_env, input_cont, &frames, &g)
-        //     }
-        // };
-
-        // Ok(vec![
-        //     new_expr.tag().clone(),
-        //     new_expr.hash().clone(),
-        //     new_env.tag().clone(),
-        //     new_env.hash().clone(),
-        //     new_cont.tag().clone(),
-        //     new_cont.hash().clone(),
-        // ])
-        todo!()
+        let mut output = Vec::with_capacity(self.arity());
+        for ptr in output_ptrs {
+            output.push(ptr.tag().clone());
+            output.push(ptr.hash().clone());
+        }
+        Ok(output)
     }
 
     fn output(&self, z: &[F]) -> Vec<F> {

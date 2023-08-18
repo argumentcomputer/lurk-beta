@@ -84,11 +84,11 @@ pub type AString = Arc<str>;
 /// function body, which is a `Block`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Func {
-    name: String,
-    input_params: Vec<Var>,
-    output_size: usize,
-    body: Block,
-    slot: SlotsCounter,
+    pub name: String,
+    pub input_params: Vec<Var>,
+    pub output_size: usize,
+    pub body: Block,
+    pub slot: SlotsCounter,
 }
 
 /// LEM variables
