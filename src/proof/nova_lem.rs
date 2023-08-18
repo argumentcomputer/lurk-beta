@@ -265,34 +265,28 @@ where
 
 impl<'a, F: LurkField> MultiFrame<'a, F> {
     fn compute_witness(&self, s: &Store<F>) -> WitnessCS<F> {
-        // let mut wcs = WitnessCS::new();
+        let mut wcs = WitnessCS::new();
 
-        // let input = self.input.unwrap();
+        let input = self.input.as_ref().unwrap();
 
-        // use crate::tag::Tag;
-        // let expr = s.hash_expr(&input.expr).unwrap();
-        // let env = s.hash_expr(&input.env).unwrap();
-        // let cont = s.hash_cont(&input.cont).unwrap();
+        let mut z_scalar = Vec::with_capacity(2 * input.len());
 
-        // let z_scalar = vec![
-        //     expr.tag().to_field(),
-        //     *expr.value(),
-        //     env.tag().to_field(),
-        //     *env.value(),
-        //     cont.tag().to_field(),
-        //     *cont.value(),
-        // ];
+        for ptr in input {
+            let z_ptr = s.hash_ptr(&ptr).unwrap();
+            z_scalar.push(z_ptr.tag.to_field());
+            z_scalar.push(z_ptr.hash);
+        }
 
-        // let mut bogus_cs = WitnessCS::<F>::new();
-        // let z: Vec<AllocatedNum<F>> = z_scalar
-        //     .iter()
-        //     .map(|x| AllocatedNum::alloc(&mut bogus_cs, || Ok(*x)).unwrap())
-        //     .collect::<Vec<_>>();
+        let mut bogus_cs = WitnessCS::<F>::new();
+        let z: Vec<AllocatedNum<F>> = z_scalar
+            .iter()
+            .map(|x| AllocatedNum::alloc(&mut bogus_cs, || Ok(*x)).unwrap())
+            .collect::<Vec<_>>();
 
-        // let _ = self.clone().synthesize(&mut wcs, z.as_slice());
+        let _ = self.clone().synthesize(&mut wcs, z.as_slice());
 
-        // wcs
-        todo!()
+        wcs
+        // todo!()
     }
 }
 
@@ -484,22 +478,21 @@ where
 
     /// Compresses the proof using a (Spartan) Snark (finishing step)
     pub fn compress(self, pp: &'a PublicParams<'_, F>) -> Result<Self, ProofError> {
-        // match &self {
-        //     Self::Recursive(recursive_snark) => Ok(Self::Compressed(Box::new(CompressedSNARK::<
-        //         _,
-        //         _,
-        //         _,
-        //         _,
-        //         SS1<F>,
-        //         SS2<F>,
-        //     >::prove(
-        //         &pp.pp,
-        //         &pp.pk,
-        //         recursive_snark,
-        //     )?))),
-        //     Self::Compressed(_) => Ok(self),
-        // }
-        todo!()
+        match &self {
+            Self::Recursive(recursive_snark) => Ok(Self::Compressed(Box::new(CompressedSNARK::<
+                _,
+                _,
+                _,
+                _,
+                SS1<F>,
+                SS2<F>,
+            >::prove(
+                &pp.pp,
+                &pp.pk,
+                recursive_snark,
+            )?))),
+            Self::Compressed(_) => Ok(self),
+        }
     }
 
     /// Verifies the proof given the public parameters, the number of steps, and the input and output values.
@@ -510,17 +503,16 @@ where
         z0: &[F],
         zi: &[F],
     ) -> Result<bool, NovaError> {
-        // let (z0_primary, zi_primary) = (z0, zi);
-        // let z0_secondary = Self::z0_secondary();
-        // let zi_secondary = z0_secondary.clone();
+        let (z0_primary, zi_primary) = (z0, zi);
+        let z0_secondary = Self::z0_secondary();
+        let zi_secondary = z0_secondary.clone();
 
-        // let (zi_primary_verified, zi_secondary_verified) = match self {
-        //     Self::Recursive(p) => p.verify(&pp.pp, num_steps, z0_primary, &z0_secondary),
-        //     Self::Compressed(p) => p.verify(&pp.vk, num_steps, z0_primary.to_vec(), z0_secondary),
-        // }?;
+        let (zi_primary_verified, zi_secondary_verified) = match self {
+            Self::Recursive(p) => p.verify(&pp.pp, num_steps, z0_primary, &z0_secondary),
+            Self::Compressed(p) => p.verify(&pp.vk, num_steps, z0_primary.to_vec(), z0_secondary),
+        }?;
 
-        // Ok(zi_primary == zi_primary_verified && zi_secondary == zi_secondary_verified)
-        todo!()
+        Ok(zi_primary == zi_primary_verified && zi_secondary == zi_secondary_verified)
     }
 
     fn z0_secondary() -> Vec<<F::G2 as Group>::Scalar> {
