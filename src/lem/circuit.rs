@@ -23,8 +23,6 @@
 //! on a concrete or a virtual path and use such booleans as the premises to build
 //! the constraints we care about with implication gadgets.
 
-use std::collections::{HashMap, HashSet, VecDeque};
-
 use anyhow::{Context, Result};
 use bellpepper_core::{
     ConstraintSystem,
@@ -33,18 +31,20 @@ use bellpepper_core::{
         num::AllocatedNum,
     },
 };
+use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::circuit::gadgets::{
-    constraints::{
-        add, alloc_equal, alloc_equal_const, and, enforce_selector_with_premise, implies_equal,
-        mul, sub,
+use crate::{
+    circuit::gadgets::{
+        constraints::{
+            add, alloc_equal, alloc_equal_const, and, enforce_selector_with_premise, implies_equal,
+            mul, sub,
+        },
+        data::{allocate_constant, hash_poseidon},
+        pointer::AllocatedPtr,
     },
-    data::{allocate_constant, hash_poseidon},
-    pointer::AllocatedPtr,
+    field::{FWrap, LurkField},
+    tag::ExprTag::*,
 };
-
-use crate::field::{FWrap, LurkField};
-use crate::tag::ExprTag::*;
 
 use super::{
     interpreter::Frame,

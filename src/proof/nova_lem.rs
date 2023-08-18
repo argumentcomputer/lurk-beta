@@ -31,17 +31,12 @@ use crate::config::CONFIG;
 
 use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
-use crate::eval::{lang::Lang, lang::DummyCoprocessor, Evaluator, Witness, IO};
+use crate::eval::{lang::DummyCoprocessor, lang::Lang, Evaluator, Witness, IO};
 use crate::field::LurkField;
 use crate::proof::{Prover, PublicParameters};
 use crate::ptr::Ptr;
 
-use crate::lem::{
-    circuit::MultiFrame,
-    interpreter::Frame,
-    store::Store,
-    Func,
-};
+use crate::lem::{circuit::MultiFrame, interpreter::Frame, store::Store, Func};
 
 /// This trait defines most of the requirements for programming generically over the supported Nova curve cycles
 /// (currently Pallas/Vesta and BN254/Grumpkin). It being pegged on the `LurkField` trait encodes that we do
@@ -248,24 +243,6 @@ where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    /// Evaluates and generates the frames of the computation given the expression, environment, and store
-    pub fn get_evaluation_frames(
-        &self,
-        expr: Ptr<F>,
-        env: Ptr<F>,
-        store: &mut Store<F>,
-        limit: usize,
-    ) -> Result<Vec<Frame<F>>, ProofError> {
-        // let padding_predicate = |count| self.needs_frame_padding(count);
-
-        // let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate, lang)?;
-
-        // store.hydrate_scalar_cache();
-
-        // Ok(frames)
-        todo!()
-    }
-
     /// Proves the computation given the public parameters, frames, and store.
     pub fn prove<'a>(
         &'a self,
@@ -282,20 +259,6 @@ where
         //     Proof::prove_recursively(pp, store, &circuits, self.reduction_count, z0.clone(), lang)?;
 
         // Ok((proof, z0, zi, num_steps))
-        todo!()
-    }
-
-    /// Evaluates and proves the computation given the public parameters, expression, environment, and store.
-    pub fn evaluate_and_prove<'a>(
-        &'a self,
-        pp: &'a PublicParams<'_, F>,
-        expr: Ptr<F>,
-        env: Ptr<F>,
-        store: &'a mut Store<F>,
-        limit: usize,
-    ) -> Result<(Proof<'_, F>, Vec<F>, Vec<F>, usize), ProofError> {
-        // let frames = self.get_evaluation_frames(expr, env, store, limit, &lang)?;
-        // self.prove(pp, &frames, store, lang)
         todo!()
     }
 }
@@ -363,7 +326,7 @@ impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F> {
             }
             None => {
                 assert!(self.store.is_none());
-                let s = Store::default();
+                let s = self.func.init_store();
                 let blank_frame = Frame::default();
                 let frames = vec![blank_frame; count];
                 self.synthesize_frames(cs, &s, &input, &frames)
