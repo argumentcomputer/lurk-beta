@@ -162,6 +162,13 @@ pub enum Lit {
 }
 
 impl Lit {
+    pub fn to_ptr_cache<F: LurkField>(&self, store: &Store<F>) -> Ptr<F> {
+        match self {
+            Self::Symbol(s) => store.symbol_ptr_cache.get(s).expect("Symbols should have been cached").clone(),
+            Self::String(s) => store.string_ptr_cache.get(s).expect("String should have been cached").clone(),
+            Self::Num(num) => Ptr::num((*num).into()),
+        }
+    }
     pub fn to_ptr<F: LurkField>(&self, store: &mut Store<F>) -> Ptr<F> {
         match self {
             Self::Symbol(s) => store.intern_symbol(s),

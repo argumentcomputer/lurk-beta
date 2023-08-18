@@ -280,7 +280,7 @@ impl Func {
     pub fn synthesize<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-        store: &mut Store<F>,
+        store: &Store<F>,
         frame: &Frame<F>,
     ) -> Result<()> {
         let mut global_allocator = GlobalAllocator::default();
@@ -319,7 +319,7 @@ impl Func {
         )?;
 
         struct Globals<'a, F: LurkField> {
-            store: &'a mut Store<F>,
+            store: &'a Store<F>,
             global_allocator: &'a mut GlobalAllocator<F>,
             preallocated_hash2_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash3_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
@@ -499,7 +499,7 @@ impl Func {
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
                     Op::Lit(tgt, lit) => {
-                        let lit_ptr = lit.to_ptr(g.store);
+                        let lit_ptr = lit.to_ptr_cache(g.store);
                         let lit_tag = lit_ptr.tag().to_field();
                         let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
                         let allocated_tag = g.global_allocator.get_or_alloc_const(cs, lit_tag)?;
@@ -710,7 +710,7 @@ impl Func {
                     let mut selector = Vec::with_capacity(cases.len() + 1);
                     let mut branch_slots = Vec::with_capacity(cases.len());
                     for (lit, block) in cases {
-                        let lit_ptr = lit.to_ptr(g.store);
+                        let lit_ptr = lit.to_ptr_cache(g.store);
                         let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
                         let allocated_has_match = alloc_equal_const(
                             &mut cs.namespace(|| format!("{:?}.alloc_equal_const", lit)),
@@ -817,7 +817,7 @@ impl Func {
             block: &Block,
             nested: bool,
             globals: &mut HashSet<FWrap<F>>,
-            store: &mut Store<F>,
+            store: &Store<F>,
         ) -> usize {
             let mut num_constraints = 0;
             for op in &block.ops {
@@ -831,7 +831,7 @@ impl Func {
                         globals.insert(FWrap(F::ZERO));
                     }
                     Op::Lit(_, lit) => {
-                        let lit_ptr = lit.to_ptr(store);
+                        let lit_ptr = lit.to_ptr_cache(store);
                         let lit_hash = store.hash_ptr(&lit_ptr).unwrap().hash;
                         globals.insert(FWrap(Tag::Expr(Sym).to_field()));
                         globals.insert(FWrap(lit_hash));

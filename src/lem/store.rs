@@ -44,10 +44,10 @@ pub struct Store<F: LurkField> {
     ptrs3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
     ptrs4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
 
-    string_ptr_cache: HashMap<String, Ptr<F>>,
+    pub string_ptr_cache: HashMap<String, Ptr<F>>,
     ptr_string_cache: HashMap<Ptr<F>, String>,
 
-    symbol_ptr_cache: HashMap<Symbol, Ptr<F>>,
+    pub symbol_ptr_cache: HashMap<Symbol, Ptr<F>>,
     ptr_symbol_cache: HashMap<Ptr<F>, Symbol>,
 
     pub poseidon_cache: PoseidonCache<F>,

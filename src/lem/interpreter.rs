@@ -44,7 +44,7 @@ impl<F: LurkField> Preimages<F> {
 /// running one iteration as a HashMap of variables to pointers.
 ///
 /// This information is used to generate the witness.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Frame<F: LurkField> {
     pub input: Vec<Ptr<F>>,
     pub output: Vec<Ptr<F>>,
