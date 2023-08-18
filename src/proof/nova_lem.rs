@@ -1,3 +1,4 @@
+/*
 #![allow(non_snake_case)]
 
 use bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
@@ -419,6 +420,7 @@ impl<'a: 'b, 'b, F: CurveCycleEquipped> Proof<'a, F> {
     }
 }
 
+*/
 /*
 #[cfg(test)]
 pub mod tests {

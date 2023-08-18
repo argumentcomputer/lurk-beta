@@ -21,23 +21,14 @@ use nova::{
 use pasta_curves::{pallas, vesta};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::{marker::PhantomData, sync::Arc};
+use std::sync::Arc;
 
-use crate::{
-    circuit::{
-        gadgets::{
-            data::GlobalAllocations,
-            pointer::{AllocatedContPtr, AllocatedPtr},
-        },
-        CircuitFrame, MultiFrame,
+use crate::circuit::{
+    gadgets::{
+        data::GlobalAllocations,
+        pointer::{AllocatedContPtr, AllocatedPtr},
     },
-    coprocessor::Coprocessor,
-    error::ProofError,
-    eval::{lang::Lang, Evaluator, Frame, Witness, IO},
-    field::LurkField,
-    proof::{Prover, PublicParameters},
-    ptr::Ptr,
-    store::Store,
+    CircuitFrame, MultiFrame,
 };
 use crate::config::CONFIG;
 
