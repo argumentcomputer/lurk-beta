@@ -300,23 +300,26 @@ impl Func {
 
     /// Performs the static checks described in LEM's docstring.
     pub fn check(&self) -> Result<()> {
-        // Check if variable has already been defined. Panics
-        // if it is repeated (means `deconflict` is broken)
         use std::collections::{HashMap, HashSet};
-        #[inline(always)]
+
+        /// Check if variable has already been defined. Panics
+        /// if it is repeated (means `deconflict` is broken)
+        #[inline]
         fn is_unique(var: &Var, map: &mut HashMap<Var, bool>) {
             if map.insert(var.clone(), false).is_some() {
                 panic!("Variable {var} already defined. `deconflict` implementation broken.");
             }
         }
-        // Check if variable is bound and sets it as "used"
-        #[inline(always)]
+
+        /// Check if variable is bound and sets it as "used"
+        #[inline]
         fn is_bound(var: &Var, map: &mut HashMap<Var, bool>) -> Result<()> {
             if map.insert(var.clone(), true).is_none() {
                 bail!("Variable {var} is unbound.");
             }
             Ok(())
         }
+
         fn recurse(block: &Block, return_size: usize, map: &mut HashMap<Var, bool>) -> Result<()> {
             for op in &block.ops {
                 match op {
