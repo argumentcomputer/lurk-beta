@@ -812,7 +812,7 @@ impl Func {
     /// Computes the number of constraints that `synthesize` should create. It's
     /// also an explicit way to document and attest how the number of constraints
     /// grow.
-    pub fn num_constraints<F: LurkField>(&self, store: &mut Store<F>) -> usize {
+    pub fn num_constraints<F: LurkField>(&self, store: &Store<F>) -> usize {
         fn recurse<F: LurkField>(
             block: &Block,
             nested: bool,

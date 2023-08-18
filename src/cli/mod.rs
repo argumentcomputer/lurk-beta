@@ -352,20 +352,12 @@ macro_rules! new_repl {
     }};
 }
 
-macro_rules! new_repl_lem {
-    ( $cli: expr, $rc: expr, $limit: expr, $field: path, $backend: expr ) => {{
-        let mut store = crate::lem::store::Store::default();
-        let env = store.intern_symbol(&crate::state::lurk_sym("nil"));
-        ReplLEM::<$field>::new(store, env, $rc, $limit, $backend)
-    }};
-}
-
 impl ReplCli {
     fn run(&self) -> Result<()> {
         macro_rules! repl {
             ( $rc:expr, $limit:expr, $field:path, $backend:expr ) => {{
                 if self.lem {
-                    let mut repl = new_repl_lem!(self, $rc, $limit, $field, $backend);
+                    let mut repl = ReplLEM::<$field>::new(None, $rc, $limit, $backend);
                     if let Some(lurk_file) = &self.load {
                         repl.load_file(lurk_file)?;
                     }
@@ -420,7 +412,7 @@ impl LoadCli {
         macro_rules! load {
             ( $rc:expr, $limit:expr, $field:path, $backend:expr ) => {{
                 if self.lem {
-                    let mut repl = new_repl_lem!(self, $rc, $limit, $field, $backend);
+                    let mut repl = ReplLEM::<$field>::new(None, $rc, $limit, $backend);
                     repl.load_file(&self.lurk_file)?;
                     if self.prove {
                         repl.prove_last_frames()?;

@@ -1,7 +1,5 @@
 #![allow(non_snake_case)]
 
-use std::marker::PhantomData;
-
 use bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
 use ff::Field;
 use nova::{
@@ -17,15 +15,8 @@ use nova::{
 };
 use pasta_curves::{pallas, vesta};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 
-use crate::coprocessor::Coprocessor;
-use crate::error::ProofError;
-use crate::eval::{lang::Lang, Evaluator, Frame, Witness, IO};
-use crate::field::LurkField;
-use crate::proof::{Prover, PublicParameters};
-use crate::ptr::Ptr;
-use crate::store::Store;
 use crate::{
     circuit::{
         gadgets::{
@@ -34,7 +25,13 @@ use crate::{
         },
         CircuitFrame, MultiFrame,
     },
-    lem::Func,
+    coprocessor::Coprocessor,
+    error::ProofError,
+    eval::{lang::Lang, Evaluator, Frame, Witness, IO},
+    field::LurkField,
+    proof::{Prover, PublicParameters},
+    ptr::Ptr,
+    store::Store,
 };
 
 /// This trait defines most of the requirements for programming generically over the supported Nova curve cycles
@@ -225,20 +222,6 @@ impl<F: CurveCycleEquipped, C: Coprocessor<F>> NovaProver<F, C> {
             Proof::prove_recursively(pp, store, &circuits, self.reduction_count, z0.clone(), lang)?;
 
         Ok((proof, z0, zi, num_steps))
-    }
-
-    /// Proves the computation given the public parameters, frames, and store.
-    pub fn prove_lem<'a>(
-        &'a self,
-        pp: &'a PublicParams<'_, F, C>,
-        frames: &[crate::lem::interpreter::Frame<F>],
-        store: &'a mut crate::lem::store::Store<F>,
-        lang: Arc<Lang<F, C>>,
-        func: &Func,
-    ) -> Result<(Proof<'_, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
-        let z0 = store.to_vector(&frames[0].input).unwrap();
-        let zi = store.to_vector(&frames.last().unwrap().output).unwrap();
-        todo!()
     }
 
     /// Evaluates and proves the computation given the public parameters, expression, environment, and store.

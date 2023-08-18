@@ -164,11 +164,20 @@ pub enum Lit {
 impl Lit {
     pub fn to_ptr_cache<F: LurkField>(&self, store: &Store<F>) -> Ptr<F> {
         match self {
-            Self::Symbol(s) => store.symbol_ptr_cache.get(s).expect("Symbols should have been cached").clone(),
-            Self::String(s) => store.string_ptr_cache.get(s).expect("String should have been cached").clone(),
+            Self::Symbol(s) => store
+                .symbol_ptr_cache
+                .get(s)
+                .expect("Symbols should have been cached")
+                .clone(),
+            Self::String(s) => store
+                .string_ptr_cache
+                .get(s)
+                .expect("String should have been cached")
+                .clone(),
             Self::Num(num) => Ptr::num((*num).into()),
         }
     }
+
     pub fn to_ptr<F: LurkField>(&self, store: &mut Store<F>) -> Ptr<F> {
         match self {
             Self::Symbol(s) => store.intern_symbol(s),
@@ -176,6 +185,7 @@ impl Lit {
             Self::Num(num) => Ptr::num((*num).into()),
         }
     }
+
     pub fn from_ptr<F: LurkField>(ptr: &Ptr<F>, store: &Store<F>) -> Option<Self> {
         use ExprTag::*;
         use Tag::*;
@@ -526,6 +536,10 @@ impl Func {
             body,
         )
     }
+
+    pub fn init_store<F: LurkField>(&self) -> Store<F> {
+        todo!()
+    }
 }
 
 impl Block {
@@ -680,8 +694,7 @@ impl Var {
 #[cfg(test)]
 mod tests {
     use super::slot::SlotsCounter;
-    use super::{store::Store, *};
-    use crate::state::lurk_sym;
+    use super::*;
     use crate::{func, lem::pointers::Ptr};
     use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable, Delta};
     use blstrs::Scalar as Fr;
@@ -694,11 +707,11 @@ mod tests {
     ///   - `expected_slots` gives the number of expected slots for each type of hash.
     fn synthesize_test_helper(func: &Func, inputs: Vec<Ptr<Fr>>, expected_num_slots: SlotsCounter) {
         use crate::tag::ContTag::*;
-        let store = &mut Store::default();
+        let store = &mut func.init_store();
         let outermost = Ptr::null(Tag::Cont(Outermost));
         let terminal = Ptr::null(Tag::Cont(Terminal));
         let error = Ptr::null(Tag::Cont(Error));
-        let nil = store.intern_symbol(&lurk_sym("nil"));
+        let nil = store.intern_nil();
         let stop_cond = |output: &[Ptr<Fr>]| output[2] == terminal || output[2] == error;
 
         assert_eq!(func.slot, expected_num_slots);

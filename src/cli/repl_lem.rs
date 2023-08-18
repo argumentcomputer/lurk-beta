@@ -8,10 +8,9 @@ use rustyline::{
     Config, Editor,
 };
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
-use std::{cell::RefCell, fs::read_to_string, process, rc::Rc, sync::Arc};
+use std::{cell::RefCell, fs::read_to_string, process, rc::Rc};
 
 use crate::{
-    eval::lang::{Coproc, Lang},
     field::LurkField,
     lem::{eval::eval_step, interpreter::Frame, pointers::Ptr, store::Store, Func, Tag},
     package::{Package, SymbolRef},
@@ -33,7 +32,6 @@ pub(crate) struct ReplLEM<F: LurkField> {
     store: Store<F>,
     state: Rc<RefCell<State>>,
     env: Ptr<F>,
-    lang: Arc<Lang<F, Coproc<F>>>,
     rc: usize,
     limit: usize,
     backend: Backend,
@@ -63,27 +61,23 @@ fn pad(a: usize, m: usize) -> usize {
 }
 
 impl ReplLEM<F> {
-    pub(crate) fn new(
-        store: Store<F>,
-        env: Ptr<F>,
-        rc: usize,
-        limit: usize,
-        backend: Backend,
-    ) -> Self {
+    pub(crate) fn new(store: Option<Store<F>>, rc: usize, limit: usize, backend: Backend) -> Self {
         let limit = pad(limit, rc);
         info!(
             "Launching REPL with backend {backend}, field {}, rc {rc} and limit {limit}",
             F::FIELD
         );
+        let func = eval_step();
+        let mut store = store.unwrap_or_else(|| func.init_store());
+        let env = store.intern_nil();
         Self {
             store,
             state: State::init_lurk_state().rccell(),
             env,
-            lang: Arc::new(Lang::new()),
             rc,
             limit,
             backend,
-            func: eval_step(),
+            func,
             evaluation: None,
         }
     }

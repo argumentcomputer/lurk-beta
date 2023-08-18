@@ -816,9 +816,11 @@ mod tests {
         hash4: 2,
     };
 
-    fn test_eval_and_constrain_aux(store: &mut Store<Fr>, pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>) {
-        let eval_step = eval_step();
-
+    fn test_eval_and_constrain_aux(
+        eval_step: &Func,
+        store: &mut Store<Fr>,
+        pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>,
+    ) {
         assert_eq!(eval_step.slot, NUM_SLOTS);
 
         let computed_num_constraints = eval_step.num_constraints::<Fr>(store);
@@ -903,9 +905,10 @@ mod tests {
 
     #[test]
     fn test_pairs() {
-        let mut store = Store::default();
-        let pairs = expr_in_expr_out_pairs(&mut store);
+        let step_fn = eval_step();
+        let store = &mut step_fn.init_store();
+        let pairs = expr_in_expr_out_pairs(store);
         store.hydrate_z_cache();
-        test_eval_and_constrain_aux(&mut store, pairs);
+        test_eval_and_constrain_aux(&step_fn, store, pairs);
     }
 }
