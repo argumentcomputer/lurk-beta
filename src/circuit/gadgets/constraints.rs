@@ -1347,4 +1347,20 @@ mod tests {
         implies_u64(&mut cs.namespace(|| "enforce u64"), &t, &alloc_num).unwrap();
         assert!(!cs.is_satisfied());
     }
+
+    proptest!{
+        #[test]
+        fn test_implies_u64(f in any::<FWrap<Fr>>()) {
+            let mut cs = TestConstraintSystem::<Fr>::new();
+
+            let num = AllocatedNum::alloc(cs.namespace(|| "num"), || Ok(f.0)).unwrap();
+
+            let t = Boolean::Constant(true);
+            implies_u64(&mut cs.namespace(|| "enforce u64"), &t, &num).unwrap();
+
+            let f_u64_roundtrip: Fr = f.0.to_u64_unchecked().into();
+            let was_u64 = f_u64_roundtrip == f.0;
+            prop_assert_eq!(was_u64, cs.is_satisfied());
+        }
+    }
 }
