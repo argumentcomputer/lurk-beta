@@ -29,7 +29,7 @@ use bellperson::{
         boolean::{AllocatedBit, Boolean},
         num::AllocatedNum,
     },
-    ConstraintSystem,
+    ConstraintSystem, SynthesisError,
 };
 
 use crate::circuit::gadgets::{
@@ -692,29 +692,17 @@ impl Func {
                         bound_allocations.insert(tgt.clone(), c);
                     }
                     Op::Trunc(tgt, a, n) => {
-                        let b = u64::wrapping_sub(u64::wrapping_pow(2, *n), 1);
                         let a = bound_allocations.get(a)?;
-                        let a_bits = a
+                        let mut trunc_bits = a
                             .hash()
-                            .to_bits_le_strict(&mut cs.namespace(|| "bitwise_and"))?;
-                        let mut trunc_bits = Vec::with_capacity(64);
-                        let mut b_rest = b;
-                        for a_bit in a_bits {
-                            let b_bit = b_rest & 1;
-                            if b_bit == 1 {
-                                trunc_bits.push(a_bit.clone());
-                            } else {
-                                trunc_bits.push(Boolean::Constant(false))
-                            }
-                            b_rest >>= 1;
-                        }
+                            .to_bits_le_strict(&mut cs.namespace(|| "to_bits_le"))?;
+                        trunc_bits.truncate(usize::min(64, *n as usize));
                         let trunc = AllocatedNum::alloc(cs.namespace(|| "trunc"), || {
-                            let val = a
-                                .hash()
+                            let b = u64::wrapping_sub(u64::wrapping_pow(2, *n), 1);
+                            a.hash()
                                 .get_value()
                                 .map(|a| F::from_u64(a.to_u64_unchecked() & b))
-                                .unwrap();
-                            Ok(val)
+                                .ok_or(SynthesisError::AssignmentMissing)
                         })?;
                         enforce_pack(&mut cs.namespace(|| "enforce_trunc"), &trunc_bits, &trunc)?;
                         let tag = g
