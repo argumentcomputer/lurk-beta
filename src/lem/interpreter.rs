@@ -138,84 +138,85 @@ impl Block {
                 Op::Add(tgt, a, b) => {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
-                    let c = match (a, b) {
-                        (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) => Ptr::Leaf(Tag::Expr(Num), *f + *g),
-                        _ => bail!("Addition only works on numbers"),
+                    let c = if let (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) = (a, b) {
+                        Ptr::Leaf(Tag::Expr(Num), *f + *g)
+                    } else {
+                        bail!("`Add` only works on leaves")
                     };
                     bindings.insert(tgt.clone(), c);
                 }
                 Op::Sub(tgt, a, b) => {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
-                    let c = match (a, b) {
-                        (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) => Ptr::Leaf(Tag::Expr(Num), *f - *g),
-                        _ => bail!("Addition only works on numbers"),
+                    let c = if let (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) = (a, b) {
+                        Ptr::Leaf(Tag::Expr(Num), *f - *g)
+                    } else {
+                        bail!("`Sub` only works on leaves")
                     };
                     bindings.insert(tgt.clone(), c);
                 }
                 Op::Mul(tgt, a, b) => {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
-                    let c = match (a, b) {
-                        (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) => Ptr::Leaf(Tag::Expr(Num), *f * *g),
-                        _ => bail!("Addition only works on numbers"),
+                    let c = if let (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) = (a, b) {
+                        Ptr::Leaf(Tag::Expr(Num), *f * *g)
+                    } else {
+                        bail!("`Mul` only works on leaves")
                     };
                     bindings.insert(tgt.clone(), c);
                 }
                 Op::Div(tgt, a, b) => {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
-                    let c = match (a, b) {
-                        (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) => {
-                            if g == &F::ZERO {
-                                bail!("Can't divide by zero")
-                            }
-                            Ptr::Leaf(Tag::Expr(Num), *f * g.invert().unwrap())
+                    let c = if let (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) = (a, b) {
+                        if g == &F::ZERO {
+                            bail!("Can't divide by zero")
                         }
-                        _ => bail!("Division only works on numbers"),
+                        Ptr::Leaf(Tag::Expr(Num), *f * g.invert().expect("not zero"))
+                    } else {
+                        bail!("`Div` only works on numbers")
                     };
                     bindings.insert(tgt.clone(), c);
                 }
                 Op::Lt(tgt, a, b) => {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
-                    let c = match (a, b) {
-                        (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) => {
-                            preimages.less_than.push(Some(PreimageData::FPair(*f, *g)));
-                            let f = Num::Scalar(*f);
-                            let g = Num::Scalar(*g);
-                            let b = if f < g { F::ONE } else { F::ZERO };
-                            Ptr::Leaf(Tag::Expr(Num), b)
-                        }
-                        _ => bail!("`<` only works on numbers"),
+                    let c = if let (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) = (a, b) {
+                        preimages.less_than.push(Some(PreimageData::FPair(*f, *g)));
+                        let f = Num::Scalar(*f);
+                        let g = Num::Scalar(*g);
+                        let b = if f < g { F::ONE } else { F::ZERO };
+                        Ptr::Leaf(Tag::Expr(Num), b)
+                    } else {
+                        bail!("`Lt` only works on leaves")
                     };
                     bindings.insert(tgt.clone(), c);
                 }
                 Op::Trunc(tgt, a, n) => {
                     assert!(*n <= 64);
                     let a = bindings.get(a)?;
-                    let c = match a {
-                        Ptr::Leaf(_, f) => {
-                            let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
-                            Ptr::Leaf(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() & b))
-                        }
-                        _ => bail!("`&` only works on numbers"),
+                    let c = if let Ptr::Leaf(_, f) = a {
+                        let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
+                        Ptr::Leaf(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() & b))
+                    } else {
+                        bail!("`Trunc` only works a leaf")
                     };
                     bindings.insert(tgt.clone(), c);
                 }
                 Op::DivRem64(tgt, a, b) => {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
-
-                    let (c1, c2) = match (a, b) {
-                        (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) => {
-                            let f = f.to_u64_unchecked();
-                            let g = g.to_u64_unchecked();
-                            let c1 = Ptr::Leaf(Tag::Expr(Num), F::from_u64(f / g));
-                            let c2 = Ptr::Leaf(Tag::Expr(Num), F::from_u64(f % g));
-                            (c1, c2)
+                    let (c1, c2) = if let (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) = (a, b) {
+                        if g == &F::ZERO {
+                            bail!("Can't divide by zero")
                         }
-                        _ => bail!("`<` only works on numbers"),
+                        let f = f.to_u64_unchecked();
+                        let g = g.to_u64_unchecked();
+                        let c1 = Ptr::Leaf(Tag::Expr(Num), F::from_u64(f / g));
+                        let c2 = Ptr::Leaf(Tag::Expr(Num), F::from_u64(f % g));
+                        (c1, c2)
+                    } else {
+                        bail!("`DivRem64` only works on leaves")
                     };
                     bindings.insert(tgt[0].clone(), c1);
                     bindings.insert(tgt[1].clone(), c2);
