@@ -149,6 +149,8 @@ pub(crate) fn add_to_lc<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok(v_lc)
 }
 
+/// If premise is true, enforce `a` fits into 64 bits. It shows a non-deterministic
+/// partial bit decomposition in order to constraint correct behavior.
 pub(crate) fn implies_u64<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     premise: &Boolean,
