@@ -246,20 +246,31 @@ where
     /// Proves the computation given the public parameters, frames, and store.
     pub fn prove<'a>(
         &'a self,
+        func: &'a Func,
         pp: &'a PublicParams<'_, F>,
         frames: &[Frame<F>],
         store: &'a mut Store<F>,
-    ) -> Result<(Proof<'_, F>, Vec<F>, Vec<F>, usize), ProofError> {
-        // let z0 = frames[0].input.to_vector(store)?;
-        // let zi = frames.last().unwrap().output.to_vector(store)?;
-        // let circuits = MultiFrame::from_frames(self.reduction_count(), frames, store, lang.clone());
+    ) -> Result<(Proof<'a, F>, Vec<F>, Vec<F>, usize), ProofError> {
+        let arity = func.input_params.len() * 2;
+        let mut z0 = Vec::with_capacity(arity);
+        let mut zi = Vec::with_capacity(arity);
+        for i in &frames.first().unwrap().input {
+            let i = store.hash_ptr(i).unwrap();
+            z0.push(i.tag.to_field());
+            z0.push(i.hash);
+        }
+        for o in &frames.last().unwrap().output {
+            let o = store.hash_ptr(o).unwrap();
+            zi.push(o.tag.to_field());
+            zi.push(o.hash);
+        }
+        let circuits = MultiFrame::from_frames(func, self.reduction_count(), frames, store);
 
-        // let num_steps = circuits.len();
-        // let proof =
-        //     Proof::prove_recursively(pp, store, &circuits, self.reduction_count, z0.clone(), lang)?;
+        let num_steps = circuits.len();
+        let proof =
+            Proof::prove_recursively(pp, store, &circuits, self.reduction_count, z0.clone())?;
 
-        // Ok((proof, z0, zi, num_steps))
-        todo!()
+        Ok((proof, z0, zi, num_steps))
     }
 }
 
