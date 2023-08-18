@@ -1321,7 +1321,7 @@ mod tests {
     }
 
     #[test]
-    fn test_enforce_u64() {
+    fn test_implies_u64_positive() {
         let mut cs = TestConstraintSystem::<Fr>::new();
 
         let alloc_num = AllocatedNum::alloc(&mut cs.namespace(|| "num"), || {
@@ -1335,10 +1335,11 @@ mod tests {
     }
 
     #[test]
-    fn test_enforce_u64_negative() {
+    fn test_implies_u64_negative() {
         let mut cs = TestConstraintSystem::<Fr>::new();
 
         let alloc_num = AllocatedNum::alloc(&mut cs.namespace(|| "num"), || {
+            // Edge case: 2ˆ64 = 18446744073709551616
             Ok(Fr::from_str_vartime("18446744073709551616").unwrap())
         })
         .unwrap();
