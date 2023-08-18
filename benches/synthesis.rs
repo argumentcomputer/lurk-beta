@@ -1,6 +1,7 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
-use bellperson::{util_cs::test_cs::TestConstraintSystem, Circuit};
+use bellpepper::util_cs::witness_cs::WitnessCS;
+use bellpepper_core::{Circuit, ConstraintSystem};
 use criterion::{
     black_box, criterion_group, criterion_main, measurement, BatchSize, BenchmarkGroup,
     BenchmarkId, Criterion, SamplingMode,
@@ -41,7 +42,7 @@ fn fib<F: LurkField>(store: &mut Store<F>, state: Rc<RefCell<State>>, a: u64) ->
 fn synthesize<M: measurement::Measurement>(
     name: &str,
     reduction_count: usize,
-    c: &mut BenchmarkGroup<M>,
+    c: &mut BenchmarkGroup<'_, M>,
 ) {
     let limit = 1_000_000;
     let lang_pallas = Lang::<pasta_curves::Fq, Coproc<pasta_curves::Fq>>::new();
@@ -63,12 +64,13 @@ fn synthesize<M: measurement::Measurement>(
                 .unwrap();
 
             let multiframe =
-                MultiFrame::from_frames(*reduction_count, &frames, &store, &lang_rc)[0].clone();
+                MultiFrame::from_frames(*reduction_count, &frames, &store, lang_rc.clone())[0]
+                    .clone();
 
             b.iter_batched(
                 || (multiframe.clone()), // avoid cloning the frames in the benchmark
                 |multiframe| {
-                    let mut cs = TestConstraintSystem::new();
+                    let mut cs = WitnessCS::new();
                     let result = multiframe.synthesize(&mut cs);
                     let _ = black_box(result);
                 },
@@ -80,7 +82,7 @@ fn synthesize<M: measurement::Measurement>(
 
 fn fibonacci_synthesize(c: &mut Criterion) {
     let batch_sizes = vec![5, 10, 100, 200];
-    let mut group: BenchmarkGroup<_> = c.benchmark_group("synthesis");
+    let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("synthesis");
     group.sampling_mode(SamplingMode::Flat); // This can take a *while*
     group.sample_size(10);
 

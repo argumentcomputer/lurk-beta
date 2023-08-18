@@ -1,6 +1,8 @@
+use abomonation::Abomonation;
 use log::info;
 use lurk::lurk_sym_ptr;
-use lurk::proof::nova::CurveCycleEquipped;
+use lurk::proof::nova::{CurveCycleEquipped, G1, G2};
+use nova::traits::Group;
 use std::convert::TryFrom;
 use std::env;
 use std::fs::read_to_string;
@@ -230,10 +232,11 @@ impl Open {
         let rc = ReductionCount::try_from(self.reduction_count).expect("reduction count");
         let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
         let lang_rc = Arc::new(lang.clone());
-        let pp = public_params(rc.count(), lang_rc, &public_param_dir()).expect("public params");
+        let pp =
+            public_params(rc.count(), true, lang_rc, &public_param_dir()).expect("public params");
         let function_map = committed_expression_store();
 
-        let handle_proof = |out_path, proof: Proof<S1>| {
+        let handle_proof = |out_path, proof: Proof<'_, S1>| {
             proof.write_to_json_path(out_path);
             proof
                 .verify(&pp, lang)
@@ -334,7 +337,7 @@ impl Prove {
         let rc = ReductionCount::try_from(self.reduction_count).unwrap();
         let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
         let lang_rc = Arc::new(lang.clone());
-        let pp = public_params(rc.count(), lang_rc.clone(), &public_param_dir()).unwrap();
+        let pp = public_params(rc.count(), true, lang_rc.clone(), &public_param_dir()).unwrap();
 
         let proof = match &self.claim {
             Some(claim) => {
@@ -380,8 +383,13 @@ impl Verify {
     fn verify(&self, cli_error: bool, lang: &Lang<S1, Coproc<S1>>) {
         let proof = proof(Some(&self.proof)).unwrap();
         let lang_rc = Arc::new(lang.clone());
-        let pp =
-            public_params(proof.reduction_count.count(), lang_rc, &public_param_dir()).unwrap();
+        let pp = public_params(
+            proof.reduction_count.count(),
+            true,
+            lang_rc,
+            &public_param_dir(),
+        )
+        .unwrap();
         let result = proof.verify(&pp, lang).unwrap();
 
         serde_json::to_writer(io::stdout(), &result).unwrap();
@@ -500,6 +508,8 @@ fn proof<'a, P: AsRef<Path>, F: CurveCycleEquipped>(
 ) -> Result<Proof<'a, F>, error::Error>
 where
     F: Serialize + for<'de> Deserialize<'de>,
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     match proof_path {
         Some(path) => Proof::read_from_json_path(path),

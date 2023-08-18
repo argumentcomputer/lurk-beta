@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use bellperson::{ConstraintSystem, SynthesisError};
+use bellpepper_core::{ConstraintSystem, SynthesisError};
 
 use crate::circuit::gadgets::data::GlobalAllocations;
 use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};

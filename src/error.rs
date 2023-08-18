@@ -3,7 +3,7 @@ use crate::field::LurkField;
 use crate::hash_witness::ConsName;
 use crate::store;
 
-use bellperson::SynthesisError;
+use bellpepper_core::SynthesisError;
 use nova::errors::NovaError;
 use thiserror::Error;
 

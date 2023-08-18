@@ -32,7 +32,7 @@ pub fn parse_unicode<'a, F: LurkField>() -> impl Fn(Span<'a>) -> ParseResult<'a,
                 char('}'),
             ),
         )(from)?;
-        let hex: String = hex.fragment().to_string();
+        let hex: String = (*hex.fragment()).to_string();
         let (i, x) = ParseError::res(u32::from_str_radix(&hex, 16), i, |x| {
             ParseErrorKind::InvalidBase16EscapeSequence(hex.clone(), Some(x))
         })?;

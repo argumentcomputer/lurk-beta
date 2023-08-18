@@ -24,12 +24,12 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use anyhow::{Context, Result};
-use bellperson::{
-    gadgets::{
+use bellpepper_core::{
+    ConstraintSystem, SynthesisError,
+    {
         boolean::{AllocatedBit, Boolean},
         num::AllocatedNum,
     },
-    ConstraintSystem, SynthesisError,
 };
 
 use crate::circuit::gadgets::{

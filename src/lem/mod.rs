@@ -730,7 +730,9 @@ mod tests {
     use super::{store::Store, *};
     use crate::state::lurk_sym;
     use crate::{func, lem::pointers::Ptr};
-    use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable, Delta};
+    use bellpepper::util_cs::Comparable;
+    use bellpepper_core::test_cs::TestConstraintSystem;
+    use bellpepper_core::Delta;
     use blstrs::Scalar as Fr;
 
     /// Helper function for testing circuit synthesis.
