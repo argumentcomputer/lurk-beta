@@ -257,7 +257,7 @@ pub(crate) fn sub<F: PrimeField, CS: ConstraintSystem<F>>(
 /// a * b + c = num is enforced.
 ///
 /// a * b = num - c
-pub(crate) fn linear<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
+pub(crate) fn enforce_product_and_sum<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     annotation: A,
     a: &AllocatedNum<F>,
