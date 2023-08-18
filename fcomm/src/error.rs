@@ -1,5 +1,5 @@
 use anyhow;
-use bellperson::SynthesisError;
+use bellpepper_core::SynthesisError;
 use lurk::error::ReductionError;
 use lurk::public_parameters::error;
 use lurk::store;

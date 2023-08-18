@@ -72,6 +72,7 @@ fn end2end_benchmark(c: &mut Criterion) {
     // use cached public params
     let pp = public_parameters::public_params(
         reduction_count,
+        true,
         lang_pallas_rc.clone(),
         Utf8Path::new(PUBLIC_PARAMS_PATH),
     )
@@ -291,6 +292,7 @@ fn prove_benchmark(c: &mut Criterion) {
         let prover = NovaProver::new(reduction_count, lang_pallas.clone());
         let pp = public_parameters::public_params(
             reduction_count,
+            true,
             lang_pallas_rc.clone(),
             Utf8Path::new(PUBLIC_PARAMS_PATH),
         )
@@ -337,6 +339,7 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
         let prover = NovaProver::new(reduction_count, lang_pallas.clone());
         let pp = public_parameters::public_params(
             reduction_count,
+            true,
             lang_pallas_rc.clone(),
             Utf8Path::new(PUBLIC_PARAMS_PATH),
         )
@@ -382,6 +385,7 @@ fn verify_benchmark(c: &mut Criterion) {
             let prover = NovaProver::new(reduction_count, lang_pallas.clone());
             let pp = public_parameters::public_params(
                 reduction_count,
+                true,
                 lang_pallas_rc.clone(),
                 Utf8Path::new(PUBLIC_PARAMS_PATH),
             )
@@ -433,6 +437,7 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
             let prover = NovaProver::new(reduction_count, lang_pallas.clone());
             let pp = public_parameters::public_params(
                 reduction_count,
+                true,
                 lang_pallas_rc.clone(),
                 Utf8Path::new(PUBLIC_PARAMS_PATH),
             )

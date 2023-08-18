@@ -1,12 +1,9 @@
 // Initially taken from: rust-fil-proofs/storage-proofs-core/src/gadgets/
-
 use crate::field::LurkField;
-use bellperson::LinearCombination;
-use bellperson::{
-    gadgets::{
-        boolean::{AllocatedBit, Boolean},
-        num::{AllocatedNum, Num},
-    },
+use bellpepper_core::LinearCombination;
+use bellpepper_core::{
+    boolean::{AllocatedBit, Boolean},
+    num::{AllocatedNum, Num},
     ConstraintSystem, SynthesisError, Variable,
 };
 use ff::PrimeField;
@@ -809,7 +806,7 @@ pub(crate) fn allocate_is_negative<F: LurkField, CS: ConstraintSystem<F>>(
 mod tests {
     use super::*;
 
-    use bellperson::util_cs::test_cs::TestConstraintSystem;
+    use bellpepper_core::test_cs::TestConstraintSystem;
     use blstrs::Scalar as Fr;
     use ff::Field;
     use proptest::prelude::*;

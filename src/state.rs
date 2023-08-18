@@ -151,13 +151,13 @@ impl State {
         // bootstrap the lurk package
         let mut lurk_package = Package::new(root_package.intern(LURK_PACKAGE_SYMBOL_NAME.into()));
         LURK_PACKAGE_SYMBOLS_NAMES.iter().for_each(|symbol_name| {
-            lurk_package.intern(symbol_name.to_string());
+            lurk_package.intern((*symbol_name).to_string());
         });
 
         // bootstrap the meta package
         let mut meta_package = Package::new(lurk_package.intern(META_PACKAGE_SYMBOL_NAME.into()));
         META_PACKAGE_SYMBOLS_NAMES.iter().for_each(|symbol_name| {
-            meta_package.intern(symbol_name.to_string());
+            meta_package.intern((*symbol_name).to_string());
         });
 
         // bootstrap the user package

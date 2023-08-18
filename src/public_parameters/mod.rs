@@ -1,8 +1,10 @@
+use ::nova::traits::Group;
+use abomonation::{decode, Abomonation};
 use camino::{Utf8Path, Utf8PathBuf};
 use std::sync::Arc;
 
 use crate::coprocessor::Coprocessor;
-use crate::proof::nova::CurveCycleEquipped;
+use crate::proof::nova::{CurveCycleEquipped, G1, G2};
 use crate::{
     eval::lang::Lang,
     proof::nova::{self, PublicParams},
@@ -28,20 +30,78 @@ pub fn public_params_default_dir() -> Utf8PathBuf {
 
 pub fn public_params<F: CurveCycleEquipped, C: Coprocessor<F> + 'static>(
     rc: usize,
+    abomonated: bool,
     lang: Arc<Lang<F, C>>,
     disk_cache_path: &Utf8Path,
 ) -> Result<Arc<PublicParams<'static, F, C>>, Error>
 where
     F::CK1: Sync + Send,
     F::CK2: Sync + Send,
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let f = |lang: Arc<Lang<F, C>>| Arc::new(nova::public_params(rc, lang));
     mem_cache::PUBLIC_PARAM_MEM_CACHE.get_from_mem_cache_or_update_with(
         rc,
+        abomonated,
         f,
         lang,
         disk_cache_path,
     )
+}
+
+/// Attempts to extract abomonated public parameters.
+/// To avoid all copying overhead, we zerocopy all of the data within the file;
+/// this leads to extremely high performance, but restricts the lifetime of the data
+/// to the lifetime of the file. Thus, we cannot pass a reference out and must
+/// rely on a closure to capture the data and continue the computation in `bind`.
+pub fn with_public_params<C, F: CurveCycleEquipped, Fn, T>(
+    rc: usize,
+    lang: Arc<Lang<F, C>>,
+    bind: Fn,
+) -> Result<T, Error>
+where
+    C: Coprocessor<F> + 'static,
+    Fn: FnOnce(&PublicParams<'static, F, C>) -> T,
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
+    let disk_cache =
+        disk_cache::PublicParamDiskCache::<F, C>::new(&public_params_default_dir()).unwrap();
+    // use the cached language key
+    let lang_key = lang.key();
+    // Sanity-check: we're about to use a lang-dependent disk cache, which should be specialized
+    // for this lang/coprocessor.
+    let key = format!("public-params-rc-{rc}-coproc-{lang_key}-abomonated");
+
+    match disk_cache.get_raw_bytes(&key) {
+        Ok(mut bytes) => {
+            if let Some((pp, remaining)) = unsafe { decode(&mut bytes) } {
+                assert!(remaining.is_empty());
+                eprintln!("Using disk-cached public params for lang {}", lang_key);
+                Ok(bind(pp))
+            } else {
+                eprintln!("failed to decode bytes");
+                let pp = nova::public_params(rc, lang);
+                let mut bytes = Vec::new();
+                unsafe { abomonation::encode(&pp, &mut bytes)? };
+                // maybe just directly write
+                disk_cache
+                    .set_abomonated(&key, &pp)
+                    .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+                Ok(bind(&pp))
+            }
+        }
+        Err(e) => {
+            eprintln!("{e}");
+            let pp = nova::public_params(rc, lang);
+            // maybe just directly write
+            disk_cache
+                .set_abomonated(&key, &pp)
+                .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+            Ok(bind(&pp))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -61,8 +121,8 @@ mod tests {
 
         let lang: Arc<Lang<S1, Coproc<S1>>> = Arc::new(Lang::new());
         // Without disk cache, writes to tmpfile
-        let _public_params = public_params(10, lang.clone(), &public_params_dir).unwrap();
+        let _public_params = public_params(10, true, lang.clone(), &public_params_dir).unwrap();
         // With disk cache, reads from tmpfile
-        let _public_params = public_params(10, lang, &public_params_dir).unwrap();
+        let _public_params = public_params(10, true, lang, &public_params_dir).unwrap();
     }
 }

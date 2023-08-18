@@ -3,9 +3,9 @@ use super::data::GlobalAllocations;
 
 use crate::field::LurkField;
 
-use bellperson::{
-    gadgets::boolean::{AllocatedBit, Boolean},
-    gadgets::num::AllocatedNum,
+use bellpepper_core::{
+    boolean::{AllocatedBit, Boolean},
+    num::AllocatedNum,
     ConstraintSystem, SynthesisError,
 };
 use itertools::Itertools;
@@ -362,9 +362,9 @@ mod tests {
     use super::*;
     use crate::store::Store;
 
-    use bellperson::util_cs::{
-        metric_cs::MetricCS, test_cs::TestConstraintSystem, Comparable, Delta,
-    };
+    use bellpepper::util_cs::{metric_cs::MetricCS, Comparable};
+    use bellpepper_core::test_cs::TestConstraintSystem;
+    use bellpepper_core::Delta;
 
     #[test]
     fn simple_case() {

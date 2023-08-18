@@ -2,14 +2,19 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+use anyhow::{anyhow, Result};
+use once_cell::sync::OnceCell;
+
 use crate::cont::Continuation;
 use crate::error::ReductionError;
-use crate::field::LurkField;
+use crate::field::{FWrap, LurkField};
+use crate::hash::HashConst;
 use crate::lurk_sym_ptr;
 use crate::ptr::{ContPtr, Ptr};
 use crate::state::State;
 use crate::store::{self, Store};
 use crate::tag::ExprTag;
+use crate::z_ptr::{ZContPtr, ZExprPtr};
 
 pub const MAX_CONSES_PER_REDUCTION: usize = 11;
 pub const MAX_CONTS_PER_REDUCTION: usize = 2;
@@ -27,11 +32,132 @@ impl<T> Stub<T> {
     }
 }
 
+pub trait ContentAddressed<F: LurkField>
+where
+    Self::ScalarPtrRepr: CAddr<F>,
+{
+    type ScalarPtrRepr;
+
+    fn preimage(&self, s: &Store<F>) -> Result<Preimage<F>> {
+        self.to_scalar_ptr_repr(s)
+            .map(|x| x.preimage())
+            .ok_or_else(|| anyhow!("failed to get preimage"))
+    }
+    fn to_scalar_ptr_repr(&self, s: &Store<F>) -> Option<Self::ScalarPtrRepr>;
+    fn to_dummy_scalar_ptr_repr() -> Option<Self::ScalarPtrRepr> {
+        unimplemented!()
+    }
+}
+
+pub trait CAddr<F: LurkField> {
+    fn preimage(&self) -> Preimage<F>;
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Cons<F: LurkField> {
     pub car: Ptr<F>,
     pub cdr: Ptr<F>,
     pub cons: Ptr<F>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ScalarCons<F: LurkField> {
+    pub car: ZExprPtr<F>,
+    pub cdr: ZExprPtr<F>,
+    pub cons: Option<ZExprPtr<F>>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ScalarCont<F: LurkField> {
+    pub components: [F; 8],
+    pub cont: Option<ZContPtr<F>>,
+}
+
+impl<F: LurkField, C: ContentAddressed<F, ScalarPtrRepr = T>, T: CAddr<F>> ContentAddressed<F>
+    for Stub<C>
+{
+    type ScalarPtrRepr = T;
+
+    fn to_scalar_ptr_repr(&self, s: &Store<F>) -> Option<Self::ScalarPtrRepr> {
+        match self {
+            Stub::Dummy => C::to_dummy_scalar_ptr_repr(),
+            Stub::Blank => None,
+            Stub::Value(v) => v.to_scalar_ptr_repr(s),
+        }
+    }
+}
+
+impl<F: LurkField> ContentAddressed<F> for Cons<F> {
+    type ScalarPtrRepr = ScalarCons<F>;
+
+    fn preimage(&self, s: &Store<F>) -> Result<Preimage<F>> {
+        let spr = self.to_scalar_ptr_repr(s).ok_or(anyhow!("missing"))?;
+        Ok(spr.preimage())
+    }
+
+    fn to_scalar_ptr_repr(&self, s: &Store<F>) -> Option<Self::ScalarPtrRepr> {
+        let car = s.hash_expr(&self.car)?;
+        let cdr = s.hash_expr(&self.cdr)?;
+        let cons = Some(s.hash_expr(&self.cons)?);
+        Some(ScalarCons { car, cdr, cons })
+    }
+
+    fn to_dummy_scalar_ptr_repr() -> Option<Self::ScalarPtrRepr> {
+        let car = ZExprPtr::from_parts(ExprTag::Nil, F::ZERO);
+        let cdr = ZExprPtr::from_parts(ExprTag::Nil, F::ZERO);
+        let cons = None;
+        Some(ScalarCons { car, cdr, cons })
+    }
+}
+
+impl<F: LurkField> ContentAddressed<F> for Cont<F> {
+    type ScalarPtrRepr = ScalarCont<F>;
+
+    fn preimage(&self, s: &Store<F>) -> Result<Preimage<F>> {
+        let spr = self.to_scalar_ptr_repr(s).ok_or(anyhow!("missing"))?;
+        Ok(spr.preimage())
+    }
+
+    fn to_scalar_ptr_repr(&self, s: &Store<F>) -> Option<Self::ScalarPtrRepr> {
+        let cont = s.hash_cont(&self.cont_ptr)?;
+        let components = s.get_hash_components_cont(&self.cont_ptr).unwrap();
+        Some(ScalarCont {
+            cont: Some(cont),
+            components,
+        })
+    }
+
+    fn to_dummy_scalar_ptr_repr() -> Option<Self::ScalarPtrRepr> {
+        let cont = None;
+        let components = [
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+        ];
+        Some(ScalarCont { cont, components })
+    }
+}
+
+impl<F: LurkField> CAddr<F> for ScalarCons<F> {
+    fn preimage(&self) -> Preimage<F> {
+        vec![
+            self.car.tag_field(),
+            *self.car.value(),
+            self.cdr.tag_field(),
+            *self.cdr.value(),
+        ]
+    }
+}
+
+impl<F: LurkField> CAddr<F> for ScalarCont<F> {
+    fn preimage(&self) -> Preimage<F> {
+        self.components.to_vec()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -78,7 +204,7 @@ pub enum ConsName {
     Expanded,
 }
 
-pub trait HashName {
+pub trait HashName: Copy {
     fn index(&self) -> usize;
 }
 
@@ -222,10 +348,74 @@ impl<F: LurkField> ConsStub<F> {
 
 impl<F: LurkField> ContStub<F> {}
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+pub type Preimage<F> = Vec<F>;
+pub type PreimageKey<F> = Vec<FWrap<F>>;
+pub type WitnessBlock<F> = Vec<F>;
+pub type Digest<F> = F;
+pub type HashCircuitWitnessCache<F> = HashMap<PreimageKey<F>, (WitnessBlock<F>, Digest<F>)>;
+pub type HashCircuitWitnessBlocks<F> = Vec<(WitnessBlock<F>, Digest<F>)>;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct HashWitness<Name: HashName, T, const L: usize, F: LurkField> {
     pub slots: [(Name, Stub<T>); L],
     _f: PhantomData<F>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CircuitHashWitness<Name: HashName, T: ContentAddressed<F>, const L: usize, F: LurkField>
+{
+    pub hash_witness: HashWitness<Name, T, L, F>,
+    pub names_and_ptrs: OnceCell<Vec<(Name, Option<T::ScalarPtrRepr>)>>,
+    pub circuit_witness_blocks: OnceCell<HashCircuitWitnessBlocks<F>>,
+}
+
+impl<Name: HashName, T: ContentAddressed<F>, const L: usize, F: LurkField>
+    From<HashWitness<Name, T, L, F>> for CircuitHashWitness<Name, T, L, F>
+{
+    fn from(hash_witness: HashWitness<Name, T, L, F>) -> Self {
+        Self {
+            hash_witness,
+            names_and_ptrs: OnceCell::new(),
+            circuit_witness_blocks: OnceCell::new(),
+        }
+    }
+}
+
+impl<Name: HashName, T: ContentAddressed<F>, const L: usize, F: LurkField>
+    CircuitHashWitness<Name, T, L, F>
+where
+    T::ScalarPtrRepr: Debug,
+{
+    pub fn names_and_ptrs(&self, s: &Store<F>) -> &Vec<(Name, Option<T::ScalarPtrRepr>)> {
+        self.names_and_ptrs.get_or_init(|| {
+            self.hash_witness
+                .slots
+                .iter()
+                .map(|(name, x)| (*name, (*x).to_scalar_ptr_repr(s)))
+                .collect::<Vec<_>>()
+        })
+    }
+
+    /// Precompute the witness blocks for all the named hashes.
+    pub fn circuit_witness_blocks(
+        &self,
+        s: &Store<F>,
+        hash_constants: HashConst<'_, F>,
+    ) -> &HashCircuitWitnessBlocks<F> {
+        self.circuit_witness_blocks.get_or_init(|| {
+            // TODO: In order to be interesting or useful, this should call a Neptune
+            // API function (which doesn't exist yet) to perform batched witness-generation.
+            // That code could be optimized and parallelized, eventually even performed on GPU.
+            self.names_and_ptrs(s)
+                .iter()
+                .map(|(_, scalar_ptr_repr)| {
+                    let scalar_ptr_repr = scalar_ptr_repr.as_ref().unwrap();
+                    let preimage = scalar_ptr_repr.preimage();
+                    hash_constants.cache_hash_witness_aux(preimage)
+                })
+                .collect::<Vec<_>>()
+        })
+    }
 }
 
 impl<Name: HashName, T, const L: usize, F: LurkField> HashWitness<Name, T, L, F> {
@@ -236,6 +426,9 @@ impl<Name: HashName, T, const L: usize, F: LurkField> HashWitness<Name, T, L, F>
 
 pub type ConsWitness<F> = HashWitness<ConsName, Cons<F>, MAX_CONSES_PER_REDUCTION, F>;
 pub type ContWitness<F> = HashWitness<ContName, Cont<F>, MAX_CONTS_PER_REDUCTION, F>;
+
+pub type ConsCircuitWitness<F> = CircuitHashWitness<ConsName, Cons<F>, MAX_CONSES_PER_REDUCTION, F>;
+pub type ContCircuitWitness<F> = CircuitHashWitness<ContName, Cont<F>, MAX_CONTS_PER_REDUCTION, F>;
 
 impl<F: LurkField> HashWitness<ConsName, Cons<F>, MAX_CONSES_PER_REDUCTION, F> {
     #[allow(dead_code)]
@@ -251,19 +444,16 @@ impl<F: LurkField> HashWitness<ConsName, Cons<F>, MAX_CONSES_PER_REDUCTION, F> {
         let mut digests = HashMap::new();
 
         for (name, p) in self.slots.iter() {
-            match p {
-                Stub::Value(hash) => {
-                    if let Some(existing_name) = digests.insert(hash.cons, name) {
-                        let nil = lurk_sym_ptr!(store, nil);
-                        if !store.ptr_eq(&hash.cons, &nil).unwrap() {
-                            use crate::writer::Write;
-                            let cons = hash.cons.fmt_to_string(store, state);
-                            dbg!(hash.cons, cons, name, existing_name);
-                            panic!("duplicate");
-                        }
-                    };
+            if let Stub::Value(hash) = p {
+                if let Some(existing_name) = digests.insert(hash.cons, name) {
+                    let nil = lurk_sym_ptr!(store, nil);
+                    if !store.ptr_eq(&hash.cons, &nil).unwrap() {
+                        use crate::writer::Write;
+                        let cons = hash.cons.fmt_to_string(store, state);
+                        dbg!(hash.cons, cons, name, existing_name);
+                        panic!("duplicate");
+                    }
                 }
-                _ => (),
             };
         }
     }

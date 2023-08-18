@@ -395,7 +395,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Iterator for FrameIt<'a, Witness<F>, F
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Witness<F: LurkField> {
     pub(crate) prethunk_output_expr: Ptr<F>,
     pub(crate) prethunk_output_env: Ptr<F>,

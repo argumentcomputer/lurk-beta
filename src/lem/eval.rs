@@ -804,7 +804,7 @@ mod tests {
     use crate::lem::{pointers::Ptr, slot::SlotsCounter, store::Store, Tag};
     use crate::state::State;
     use crate::tag::ContTag::*;
-    use bellperson::util_cs::{test_cs::TestConstraintSystem, Comparable};
+    use bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;

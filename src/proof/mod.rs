@@ -12,12 +12,11 @@ pub mod nova;
 /// An adapter to a Nova proving system implementation in LEM.
 pub mod nova_lem;
 
-use bellperson::{util_cs::test_cs::TestConstraintSystem, Circuit, SynthesisError};
-
 use crate::circuit::MultiFrame;
 use crate::coprocessor::Coprocessor;
 use crate::eval::{lang::Lang, Witness, IO};
 use crate::field::LurkField;
+use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, SynthesisError};
 
 /// Represents a sequential Constraint System for a given proof.
 pub(crate) type SequentialCS<'a, F, IO, Witness, C> =
@@ -93,7 +92,7 @@ pub trait Prover<'a, 'b, F: LurkField, C: Coprocessor<F>> {
         let full_multiframe_count = raw_iterations / cfc;
         let unfull_multiframe_frame_count = raw_iterations % cfc;
         let raw_multiframe_count =
-            full_multiframe_count + (unfull_multiframe_frame_count != 0) as usize;
+            full_multiframe_count + usize::from(unfull_multiframe_frame_count != 0);
         raw_multiframe_count + self.multiframe_padding_count(raw_multiframe_count)
     }
 
