@@ -14,6 +14,7 @@ use nova::{
     traits::{
         circuit::{StepCircuit, TrivialTestCircuit},
         commitment::CommitmentEngineTrait,
+        snark::RelaxedR1CSSNARKTrait,
         Group,
     },
     CompressedSNARK, ProverKey, RecursiveSNARK, VerifierKey,
@@ -108,8 +109,12 @@ pub type EE1<F> = nova::provider::ipa_pc::EvaluationEngine<G1<F>>;
 pub type EE2<F> = nova::provider::ipa_pc::EvaluationEngine<G2<F>>;
 
 /// Type alias for the Relaxed R1CS Spartan SNARK using G1 group elements, EE1.
+// NOTE: this is not a SNARK that uses computational commitments,
+// that SNARK would be found at nova::spartan::ppsnark::RelaxedR1CSSNARK,
 pub type SS1<F> = nova::spartan::snark::RelaxedR1CSSNARK<G1<F>, EE1<F>>;
 /// Type alias for the Relaxed R1CS Spartan SNARK using G2 group elements, EE2.
+// NOTE: this is not a SNARK that uses computational commitments,
+// that SNARK would be found at nova::spartan::ppsnark::RelaxedR1CSSNARK,
 pub type SS2<F> = nova::spartan::snark::RelaxedR1CSSNARK<G2<F>, EE2<F>>;
 
 /// Type alias for a MultiFrame with S1 field elements.
@@ -188,7 +193,15 @@ where
 {
     let (circuit_primary, circuit_secondary) = C1::circuits(num_iters_per_step, lang);
 
-    let pp = nova::PublicParams::setup(&circuit_primary, &circuit_secondary);
+    let commitment_size_hint1 = <SS1<F> as RelaxedR1CSSNARKTrait<G1<F>>>::commitment_key_floor();
+    let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<G2<F>>>::commitment_key_floor();
+
+    let pp = nova::PublicParams::setup(
+        &circuit_primary,
+        &circuit_secondary,
+        Some(commitment_size_hint1),
+        Some(commitment_size_hint2),
+    );
     let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
     PublicParams { pp, pk, vk }
 }
