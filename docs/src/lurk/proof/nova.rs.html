@@ -3988,6 +3988,19 @@
 <a href="#3988" id="3988">3988</a>
 <a href="#3989" id="3989">3989</a>
 <a href="#3990" id="3990">3990</a>
+<a href="#3991" id="3991">3991</a>
+<a href="#3992" id="3992">3992</a>
+<a href="#3993" id="3993">3993</a>
+<a href="#3994" id="3994">3994</a>
+<a href="#3995" id="3995">3995</a>
+<a href="#3996" id="3996">3996</a>
+<a href="#3997" id="3997">3997</a>
+<a href="#3998" id="3998">3998</a>
+<a href="#3999" id="3999">3999</a>
+<a href="#4000" id="4000">4000</a>
+<a href="#4001" id="4001">4001</a>
+<a href="#4002" id="4002">4002</a>
+<a href="#4003" id="4003">4003</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>std::marker::PhantomData;
@@ -4004,6 +4017,7 @@
     traits::{
         circuit::{StepCircuit, TrivialTestCircuit},
         commitment::CommitmentEngineTrait,
+        snark::RelaxedR1CSSNARKTrait,
         Group,
     },
     CompressedSNARK, ProverKey, RecursiveSNARK, VerifierKey,
@@ -4098,8 +4112,12 @@
 </span><span class="kw">pub type </span>EE2&lt;F&gt; = nova::provider::ipa_pc::EvaluationEngine&lt;G2&lt;F&gt;&gt;;
 
 <span class="doccomment">/// Type alias for the Relaxed R1CS Spartan SNARK using G1 group elements, EE1.
+</span><span class="comment">// NOTE: this is not a SNARK that uses computational commitments,
+// that SNARK would be found at nova::spartan::ppsnark::RelaxedR1CSSNARK,
 </span><span class="kw">pub type </span>SS1&lt;F&gt; = nova::spartan::snark::RelaxedR1CSSNARK&lt;G1&lt;F&gt;, EE1&lt;F&gt;&gt;;
 <span class="doccomment">/// Type alias for the Relaxed R1CS Spartan SNARK using G2 group elements, EE2.
+</span><span class="comment">// NOTE: this is not a SNARK that uses computational commitments,
+// that SNARK would be found at nova::spartan::ppsnark::RelaxedR1CSSNARK,
 </span><span class="kw">pub type </span>SS2&lt;F&gt; = nova::spartan::snark::RelaxedR1CSSNARK&lt;G2&lt;F&gt;, EE2&lt;F&gt;&gt;;
 
 <span class="doccomment">/// Type alias for a MultiFrame with S1 field elements.
@@ -4178,7 +4196,15 @@
 {
     <span class="kw">let </span>(circuit_primary, circuit_secondary) = C1::circuits(num_iters_per_step, lang);
 
-    <span class="kw">let </span>pp = nova::PublicParams::setup(<span class="kw-2">&amp;</span>circuit_primary, <span class="kw-2">&amp;</span>circuit_secondary);
+    <span class="kw">let </span>commitment_size_hint1 = &lt;SS1&lt;F&gt; <span class="kw">as </span>RelaxedR1CSSNARKTrait&lt;G1&lt;F&gt;&gt;&gt;::commitment_key_floor();
+    <span class="kw">let </span>commitment_size_hint2 = &lt;SS2&lt;F&gt; <span class="kw">as </span>RelaxedR1CSSNARKTrait&lt;G2&lt;F&gt;&gt;&gt;::commitment_key_floor();
+
+    <span class="kw">let </span>pp = nova::PublicParams::setup(
+        <span class="kw-2">&amp;</span>circuit_primary,
+        <span class="kw-2">&amp;</span>circuit_secondary,
+        <span class="prelude-val">Some</span>(commitment_size_hint1),
+        <span class="prelude-val">Some</span>(commitment_size_hint2),
+    );
     <span class="kw">let </span>(pk, vk) = CompressedSNARK::setup(<span class="kw-2">&amp;</span>pp).unwrap();
     PublicParams { pp, pk, vk }
 }
