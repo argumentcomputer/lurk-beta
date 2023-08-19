@@ -11,10 +11,15 @@ use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 use std::{cell::RefCell, fs::read_to_string, process, rc::Rc};
 
 use crate::{
+    eval::lang::Lang,
     field::LurkField,
     lem::{eval::eval_step, interpreter::Frame, pointers::Ptr, store::Store, Func, Tag},
     package::{Package, SymbolRef},
     parser,
+    proof::{
+        nova_lem::{public_params, NovaProver},
+        Prover,
+    },
     state::State,
     tag::ContTag::*,
     tag::ExprTag::*,
@@ -23,6 +28,7 @@ use crate::{
 
 use super::{backend::Backend, lurk_proof::LurkProof};
 
+#[allow(dead_code)]
 struct Evaluation<F: LurkField> {
     frames: Vec<Frame<F>>,
     iterations: usize,
@@ -83,7 +89,11 @@ impl ReplLEM<F> {
     }
 
     pub(crate) fn prove_last_frames(&mut self) -> Result<()> {
-        if let Some(Evaluation { frames, iterations }) = self.evaluation.as_mut() {
+        if let Some(Evaluation {
+            frames,
+            iterations: _,
+        }) = self.evaluation.as_mut()
+        {
             match self.backend {
                 Backend::Nova => {
                     info!("Hydrating the store");
@@ -91,10 +101,28 @@ impl ReplLEM<F> {
 
                     let mut n_frames = frames.len();
 
-                    // saving to avoid clones
-                    let input = &frames[0].input;
-                    let output = &frames[n_frames - 1].output;
-                    todo!()
+                    info!("Proof not cached");
+                    // padding the frames, if needed
+                    let n_pad = pad(n_frames, self.rc) - n_frames;
+                    if n_pad != 0 {
+                        frames.extend(vec![frames[n_frames - 1].clone(); n_pad]);
+                        n_frames = frames.len();
+                    }
+
+                    info!("Loading public parameters");
+                    let pp = public_params(&self.func, self.rc);
+
+                    let prover = NovaProver::new(self.rc, Lang::new());
+
+                    info!("Proving");
+                    let (proof, public_inputs, public_outputs, num_steps) =
+                        prover.prove(&self.func, &pp, frames, &mut self.store)?;
+                    info!("Compressing proof");
+                    let proof = proof.compress(&pp)?;
+                    assert_eq!(self.rc * num_steps, n_frames);
+                    assert!(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?);
+
+                    Ok(())
                 }
                 Backend::SnarkPackPlus => todo!(),
             }
@@ -120,9 +148,8 @@ impl ReplLEM<F> {
         let stop_cond = |output: &[Ptr<F>]| output[2] == terminal || output[2] == error;
 
         let input = vec![expr_ptr, nil, outermost];
-        Ok(self
-            .func
-            .call_until_simple(input, &mut self.store, stop_cond, self.limit)?)
+        self.func
+            .call_until_simple(input, &mut self.store, stop_cond, self.limit)
     }
 
     fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr<F>) -> Result<(Vec<Ptr<F>>, usize)> {
@@ -200,7 +227,7 @@ impl ReplLEM<F> {
                 let expanded = self.store.list(vec![l, bindings, current_env_call]);
                 let (expanded_io, ..) = self.eval_expr(expanded)?;
 
-                self.env = expanded_io[1].clone();
+                self.env = expanded_io[1];
 
                 let (new_binding, _) = &self.store.car_cdr(&expanded_io[0])?;
                 let (new_name, _) = self.store.car_cdr(new_binding)?;
@@ -227,7 +254,7 @@ impl ReplLEM<F> {
                 let expanded = self.store.list(vec![l, bindings, current_env_call]);
                 let (expanded_io, ..) = self.eval_expr(expanded)?;
 
-                self.env = expanded_io[1].clone();
+                self.env = expanded_io[1];
 
                 let (new_binding_outer, _) = &self.store.car_cdr(&expanded_io[0])?;
                 let (new_binding_inner, _) = &self.store.car_cdr(new_binding_outer)?;
@@ -343,7 +370,7 @@ impl ReplLEM<F> {
                 // The state's env is set to the result of evaluating the first argument.
                 let first = self.peek1(cmd, args)?;
                 let (first_io, ..) = self.eval_expr(first)?;
-                self.env = first_io[0].clone();
+                self.env = first_io[0];
             }
             "prove" => {
                 if !args.is_nil() {
@@ -355,7 +382,7 @@ impl ReplLEM<F> {
             "verify" => {
                 let first = self.peek1(cmd, args)?;
                 let proof_id = self.get_string(&first);
-                LurkProof::verify_proof(&proof_id)?;
+                LurkProof::verify_proof(proof_id)?;
             }
             "defpackage" => {
                 // TODO: handle args
