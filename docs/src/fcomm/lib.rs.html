@@ -1342,8 +1342,6 @@
 <a href="#1342" id="1342">1342</a>
 <a href="#1343" id="1343">1343</a>
 <a href="#1344" id="1344">1344</a>
-<a href="#1345" id="1345">1345</a>
-<a href="#1346" id="1346">1346</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>::nova::traits::Group;
 <span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>log::info;
@@ -2198,10 +2196,8 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(proof);
         }
 
-        <span class="kw">if </span>only_use_cached_proofs {
-            <span class="comment">// FIXME: Error handling.
-            </span><span class="macro">panic!</span>(<span class="string">&quot;no cached proof&quot;</span>);
-        }
+        <span class="comment">// FIXME: Error handling.
+        </span><span class="macro">assert!</span>(!only_use_cached_proofs, <span class="string">&quot;no cached proof&quot;</span>);
 
         <span class="macro">info!</span>(<span class="string">&quot;Starting Proving&quot;</span>);
 

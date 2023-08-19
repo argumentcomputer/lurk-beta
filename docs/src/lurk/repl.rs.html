@@ -655,8 +655,6 @@
 <a href="#655" id="655">655</a>
 <a href="#656" id="656">656</a>
 <a href="#657" id="657">657</a>
-<a href="#658" id="658">658</a>
-<a href="#659" id="659">659</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
 <span class="kw">use </span><span class="kw">crate</span>::error::LurkError;
 <span class="kw">use </span><span class="kw">crate</span>::eval::{empty_sym_env, lang::Lang, Evaluator, IO};
@@ -1115,14 +1113,12 @@
                             <span class="kw">let </span>(<span class="kw-2">mut </span>first_emitted, <span class="kw-2">mut </span>rest_emitted) =
                                 store.car_cdr(<span class="kw-2">&amp;</span>first_evaled)<span class="question-mark">?</span>;
                             <span class="kw">for </span>(i, elem) <span class="kw">in </span>emitted.iter().enumerate() {
-                                <span class="kw">if </span>elem != <span class="kw-2">&amp;</span>first_emitted {
-                                    <span class="macro">panic!</span>(
+                                <span class="macro">assert_eq!</span>(elem , <span class="kw-2">&amp;</span>first_emitted,
                                             <span class="string">&quot;:ASSERT-EMITTED failed at position {}. Expected {}, but found {}.&quot;</span>,
                                             i,
                                             first_emitted.fmt_to_string(store, <span class="kw-2">&amp;</span>state.borrow()),
                                             elem.fmt_to_string(store, <span class="kw-2">&amp;</span>state.borrow()),
                                         );
-                                }
                                 (first_emitted, rest_emitted) = store.car_cdr(<span class="kw-2">&amp;</span>rest_emitted)<span class="question-mark">?</span>;
                             }
                             <span class="prelude-val">None

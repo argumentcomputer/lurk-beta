@@ -998,6 +998,7 @@
 <a href="#998" id="998">998</a>
 <a href="#999" id="999">999</a>
 <a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Lurk Evaluation Model (LEM)
 //!
 //! LEM is a simple, first order, referentially transparent language, designed to
@@ -1306,9 +1307,10 @@
         /// if it is repeated (means `deconflict` is broken)
         </span><span class="attr">#[inline]
         </span><span class="kw">fn </span>is_unique(var: <span class="kw-2">&amp;</span>Var, map: <span class="kw-2">&amp;mut </span>HashMap&lt;Var, bool&gt;) {
-            <span class="kw">if </span>map.insert(var.clone(), <span class="bool-val">false</span>).is_some() {
-                <span class="macro">panic!</span>(<span class="string">&quot;Variable {var} already defined. `deconflict` implementation broken.&quot;</span>);
-            }
+            <span class="macro">assert!</span>(
+                map.insert(var.clone(), <span class="bool-val">false</span>).is_none(),
+                <span class="string">&quot;Variable {var} already defined. `deconflict` implementation broken.&quot;
+            </span>);
         }
 
         <span class="doccomment">/// Check if variable is bound and sets it as &quot;used&quot;
