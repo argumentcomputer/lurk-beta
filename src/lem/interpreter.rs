@@ -395,6 +395,12 @@ impl Func {
             frames.push(frame);
             paths.push(path);
         }
+        if iterations < limit {
+            let preimages = Preimages::new_from_func(self);
+            let (frame, path) = self.call(&input, store, preimages, &mut vec![])?;
+            frames.push(frame);
+            paths.push(path);
+        }
         Ok((frames, iterations, paths))
     }
 

@@ -162,20 +162,15 @@ impl ReplLEM<F> {
 
         let input = [expr_ptr, nil, outermost];
 
-        let (mut frames, iterations, _) =
+        let (frames, iterations, _) =
             self.func
                 .call_until(&input, &mut self.store, stop_cond, self.limit)?;
 
-        let last_frame = frames[frames.len() - 1].clone();
-
-        if iterations < self.limit {
-            // add a frame that can be padded
-            frames.push(last_frame.clone());
-        }
+        let output = frames[frames.len() - 1].output.clone();
 
         self.evaluation = Some(Evaluation { frames, iterations });
 
-        Ok((last_frame.output, iterations))
+        Ok((output, iterations))
     }
 
     fn peek1(&mut self, cmd: &str, args: &Ptr<F>) -> Result<Ptr<F>> {
