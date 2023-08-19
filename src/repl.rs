@@ -456,14 +456,12 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
                             let (mut first_emitted, mut rest_emitted) =
                                 store.car_cdr(&first_evaled)?;
                             for (i, elem) in emitted.iter().enumerate() {
-                                if elem != &first_emitted {
-                                    panic!(
+                                assert_eq!(elem , &first_emitted,
                                             ":ASSERT-EMITTED failed at position {}. Expected {}, but found {}.",
                                             i,
                                             first_emitted.fmt_to_string(store, &state.borrow()),
                                             elem.fmt_to_string(store, &state.borrow()),
                                         );
-                                }
                                 (first_emitted, rest_emitted) = store.car_cdr(&rest_emitted)?;
                             }
                             None

@@ -289,9 +289,7 @@ pub fn serde_test(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
 
                 Some(id) if *id == "zdata" => {
-                    if nested.len() != 1 {
-                        panic!("zdata attribute takes 1 argument");
-                    }
+                    assert!(nested.len() == 1, "zdata attribute takes 1 argument");
                     match &nested[0] {
                         NestedMeta::Lit(Lit::Bool(b)) => {
                             test_zdata = b.value;
