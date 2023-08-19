@@ -49,6 +49,24 @@ impl<F: LurkField> Preimages<F> {
             call_outputs,
         }
     }
+
+    pub fn blank(func: &Func) -> Preimages<F> {
+        let slot = func.slot;
+        let hash2 = vec![None; slot.hash2];
+        let hash3 = vec![None; slot.hash3];
+        let hash4 = vec![None; slot.hash4];
+        let commitment = vec![None; slot.commitment];
+        let less_than = vec![None; slot.less_than];
+        let call_outputs = VecDeque::new();
+        Preimages {
+            hash2,
+            hash3,
+            hash4,
+            commitment,
+            less_than,
+            call_outputs,
+        }
+    }
 }
 
 /// A `Frame` carries the data that results from interpreting a LEM. That is,
@@ -61,6 +79,19 @@ pub struct Frame<F: LurkField> {
     pub input: Vec<Ptr<F>>,
     pub output: Vec<Ptr<F>>,
     pub preimages: Preimages<F>,
+}
+
+impl<F: LurkField> Frame<F> {
+    pub fn blank(func: &Func) -> Frame<F> {
+        let input = vec![Ptr::null(Tag::Expr(Nil)); func.input_params.len()];
+        let output = vec![Ptr::null(Tag::Expr(Nil)); func.output_size];
+        let preimages = Preimages::blank(func);
+        Frame {
+            input,
+            output,
+            preimages,
+        }
+    }
 }
 
 impl Block {

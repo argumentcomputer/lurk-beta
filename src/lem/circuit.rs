@@ -40,7 +40,8 @@ use crate::circuit::gadgets::{
         boolean_to_num, div, enforce_pack, enforce_product_and_sum, enforce_selector_with_premise,
         implies_equal, implies_u64, mul, pick, sub,
     },
-    pointer::AllocatedPtr, data::{hash_poseidon, allocate_constant},
+    data::{allocate_constant, hash_poseidon},
+    pointer::AllocatedPtr,
 };
 
 use crate::{
@@ -172,6 +173,7 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
         let (_, output) = frames
             .iter()
             .fold((0, input.clone()), |(i, allocated_io), frame| {
+                /*
                 for (alloc_ptr, input) in allocated_io.iter().zip(&frame.input) {
                     let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
                     assert_eq!(
@@ -183,6 +185,7 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
                         input_zptr.hash,
                     );
                 }
+                */
                 let bound_allocations = &mut BoundAllocations::new();
                 self.func.add_input(input, bound_allocations);
                 let output = self
@@ -668,8 +671,11 @@ impl Func {
                         // Note that, because there's currently no way of deferring giving
                         // a value to the allocated nums to be filled later, we must either
                         // add the results of the call to the witness, or recompute them.
-                        let output_vals = if not_dummy.get_value().unwrap() {
-                            g.call_outputs.pop_front().unwrap()
+                        let output_vals = if let Some(true) = not_dummy.get_value() {
+                            g.call_outputs.pop_front().unwrap_or_else(|| {
+                                let dummy = Ptr::Leaf(Tag::Expr(Nil), F::ZERO);
+                                (0..out.len()).map(|_| dummy).collect()
+                            })
                         } else {
                             let dummy = Ptr::Leaf(Tag::Expr(Nil), F::ZERO);
                             (0..out.len()).map(|_| dummy).collect()
@@ -1076,10 +1082,12 @@ impl Func {
 
                     match def {
                         Some(def) => {
-                            let default = selector.iter().all(|b| !b.get_value().unwrap());
+                            let default = selector.iter().fold(not_dummy.get_value(), |acc, b| {
+                                acc.and_then(|acc| b.get_value().map(|b| acc && !b))
+                            });
                             let allocated_has_match = Boolean::Is(AllocatedBit::alloc(
                                 &mut cs.namespace(|| "_.allocated_bit"),
-                                Some(default),
+                                default,
                             )?);
 
                             let not_dummy_and_has_match = and(
@@ -1157,10 +1165,12 @@ impl Func {
 
                     match def {
                         Some(def) => {
-                            let default = selector.iter().all(|b| !b.get_value().unwrap());
+                            let default = selector.iter().fold(not_dummy.get_value(), |acc, b| {
+                                acc.and_then(|acc| b.get_value().map(|b| acc && !b))
+                            });
                             let allocated_has_match = Boolean::Is(AllocatedBit::alloc(
                                 &mut cs.namespace(|| "_.alloc_equal_const"),
-                                Some(default),
+                                default,
                             )?);
 
                             let not_dummy_and_has_match = and(

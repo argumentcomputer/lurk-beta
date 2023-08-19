@@ -306,7 +306,7 @@ impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F> {
             None => {
                 assert!(self.store.is_none());
                 let s = self.func.init_store();
-                let blank_frame = Frame::default();
+                let blank_frame = Frame::blank(&self.func);
                 let frames = vec![blank_frame; count];
                 self.synthesize_frames(cs, &s, &input, &frames)
             }
