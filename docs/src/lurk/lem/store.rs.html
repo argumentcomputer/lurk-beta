@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/store.rs`."><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (076887268 2023-08-17)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/store.rs`."><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (d06ca0ffa 2023-08-18)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -446,8 +446,8 @@
 /// vesatile data structure for many parts of Lurk&#39;s data pipeline.
 ///
 /// It holds Lurk data structured as trees of `Ptr`s (or `ZPtr`s). When a `Ptr`
-/// has children`, we store them in the `IndexSet`s available: `ptrs2`, `ptrs3`
-/// or `ptrs4`. These data structures speed up LEM interpretation because lookups
+/// has children`, we store them in the `IndexSet`s available: `tuple2`, `tuple3`
+/// or `tuple4`. These data structures speed up LEM interpretation because lookups
 /// by indices are fast.
 ///
 /// The `Store` also provides an infra to speed up interning strings and symbols.
@@ -463,9 +463,9 @@
 /// the resulting commitment hash.
 </span><span class="attr">#[derive(Default)]
 </span><span class="kw">pub struct </span>Store&lt;F: LurkField&gt; {
-    ptrs2: IndexSet&lt;(Ptr&lt;F&gt;, Ptr&lt;F&gt;)&gt;,
-    ptrs3: IndexSet&lt;(Ptr&lt;F&gt;, Ptr&lt;F&gt;, Ptr&lt;F&gt;)&gt;,
-    ptrs4: IndexSet&lt;(Ptr&lt;F&gt;, Ptr&lt;F&gt;, Ptr&lt;F&gt;, Ptr&lt;F&gt;)&gt;,
+    tuple2: IndexSet&lt;(Ptr&lt;F&gt;, Ptr&lt;F&gt;)&gt;,
+    tuple3: IndexSet&lt;(Ptr&lt;F&gt;, Ptr&lt;F&gt;, Ptr&lt;F&gt;)&gt;,
+    tuple4: IndexSet&lt;(Ptr&lt;F&gt;, Ptr&lt;F&gt;, Ptr&lt;F&gt;, Ptr&lt;F&gt;)&gt;,
 
     str_cache: HashMap&lt;String, Ptr&lt;F&gt;&gt;,
     ptr_str_cache: HashMap&lt;Ptr&lt;F&gt;, String&gt;,
@@ -483,8 +483,8 @@
 <span class="kw">impl</span>&lt;F: LurkField&gt; Store&lt;F&gt; {
     <span class="doccomment">/// Creates a `Ptr` that&#39;s a parent of two children
     </span><span class="kw">pub fn </span>intern_2_ptrs(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tag: Tag, a: Ptr&lt;F&gt;, b: Ptr&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
-        <span class="kw">let </span>(idx, inserted) = <span class="self">self</span>.ptrs2.insert_full((a, b));
-        <span class="kw">let </span>ptr = Ptr::Tree2(tag, idx);
+        <span class="kw">let </span>(idx, inserted) = <span class="self">self</span>.tuple2.insert_full((a, b));
+        <span class="kw">let </span>ptr = Ptr::Tuple2(tag, idx);
         <span class="kw">if </span>inserted {
             <span class="comment">// this is for `hydrate_z_cache`
             </span><span class="self">self</span>.dehydrated.push(ptr);
@@ -497,13 +497,13 @@
     /// `Store` (TODO).
     </span><span class="attr">#[inline]
     </span><span class="kw">pub fn </span>intern_2_ptrs_not_dehydrated(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tag: Tag, a: Ptr&lt;F&gt;, b: Ptr&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
-        Ptr::Tree2(tag, <span class="self">self</span>.ptrs2.insert_full((a, b)).<span class="number">0</span>)
+        Ptr::Tuple2(tag, <span class="self">self</span>.tuple2.insert_full((a, b)).<span class="number">0</span>)
     }
 
     <span class="doccomment">/// Creates a `Ptr` that&#39;s a parent of three children
     </span><span class="kw">pub fn </span>intern_3_ptrs(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tag: Tag, a: Ptr&lt;F&gt;, b: Ptr&lt;F&gt;, c: Ptr&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
-        <span class="kw">let </span>(idx, inserted) = <span class="self">self</span>.ptrs3.insert_full((a, b, c));
-        <span class="kw">let </span>ptr = Ptr::Tree3(tag, idx);
+        <span class="kw">let </span>(idx, inserted) = <span class="self">self</span>.tuple3.insert_full((a, b, c));
+        <span class="kw">let </span>ptr = Ptr::Tuple3(tag, idx);
         <span class="kw">if </span>inserted {
             <span class="comment">// this is for `hydrate_z_cache`
             </span><span class="self">self</span>.dehydrated.push(ptr);
@@ -522,7 +522,7 @@
         b: Ptr&lt;F&gt;,
         c: Ptr&lt;F&gt;,
     ) -&gt; Ptr&lt;F&gt; {
-        Ptr::Tree3(tag, <span class="self">self</span>.ptrs3.insert_full((a, b, c)).<span class="number">0</span>)
+        Ptr::Tuple3(tag, <span class="self">self</span>.tuple3.insert_full((a, b, c)).<span class="number">0</span>)
     }
 
     <span class="doccomment">/// Creates a `Ptr` that&#39;s a parent of four children
@@ -534,8 +534,8 @@
         c: Ptr&lt;F&gt;,
         d: Ptr&lt;F&gt;,
     ) -&gt; Ptr&lt;F&gt; {
-        <span class="kw">let </span>(idx, inserted) = <span class="self">self</span>.ptrs4.insert_full((a, b, c, d));
-        <span class="kw">let </span>ptr = Ptr::Tree4(tag, idx);
+        <span class="kw">let </span>(idx, inserted) = <span class="self">self</span>.tuple4.insert_full((a, b, c, d));
+        <span class="kw">let </span>ptr = Ptr::Tuple4(tag, idx);
         <span class="kw">if </span>inserted {
             <span class="comment">// this is for `hydrate_z_cache`
             </span><span class="self">self</span>.dehydrated.push(ptr);
@@ -555,22 +555,22 @@
         c: Ptr&lt;F&gt;,
         d: Ptr&lt;F&gt;,
     ) -&gt; Ptr&lt;F&gt; {
-        Ptr::Tree4(tag, <span class="self">self</span>.ptrs4.insert_full((a, b, c, d)).<span class="number">0</span>)
+        Ptr::Tuple4(tag, <span class="self">self</span>.tuple4.insert_full((a, b, c, d)).<span class="number">0</span>)
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>fetch_2_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(Ptr&lt;F&gt;, Ptr&lt;F&gt;)&gt; {
-        <span class="self">self</span>.ptrs2.get_index(idx)
+        <span class="self">self</span>.tuple2.get_index(idx)
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>fetch_3_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(Ptr&lt;F&gt;, Ptr&lt;F&gt;, Ptr&lt;F&gt;)&gt; {
-        <span class="self">self</span>.ptrs3.get_index(idx)
+        <span class="self">self</span>.tuple3.get_index(idx)
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>fetch_4_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(Ptr&lt;F&gt;, Ptr&lt;F&gt;, Ptr&lt;F&gt;, Ptr&lt;F&gt;)&gt; {
-        <span class="self">self</span>.ptrs4.get_index(idx)
+        <span class="self">self</span>.tuple4.get_index(idx)
     }
 
     <span class="doccomment">/// Interns a string recursively
@@ -711,11 +711,11 @@
                 tag: <span class="kw-2">*</span>tag,
                 hash: <span class="kw-2">*</span>x,
             }),
-            Ptr::Tree2(tag, idx) =&gt; <span class="kw">match </span><span class="self">self</span>.z_cache.get(ptr) {
+            Ptr::Tuple2(tag, idx) =&gt; <span class="kw">match </span><span class="self">self</span>.z_cache.get(ptr) {
                 <span class="prelude-val">Some</span>(z_ptr) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>z_ptr),
                 <span class="prelude-val">None </span>=&gt; {
-                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b)) = <span class="self">self</span>.ptrs2.get_index(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
-                        <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on ptrs2&quot;</span>)
+                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b)) = <span class="self">self</span>.tuple2.get_index(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
+                        <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on tuple2&quot;</span>)
                     };
                     <span class="kw">let </span>a = <span class="self">self</span>.hash_ptr(a)<span class="question-mark">?</span>;
                     <span class="kw">let </span>b = <span class="self">self</span>.hash_ptr(b)<span class="question-mark">?</span>;
@@ -728,16 +728,16 @@
                             b.hash,
                         ]),
                     };
-                    <span class="self">self</span>.z_dag.insert(z_ptr, ZChildren::Tree2(a, b));
+                    <span class="self">self</span>.z_dag.insert(z_ptr, ZChildren::Tuple2(a, b));
                     <span class="self">self</span>.z_cache.insert(<span class="kw-2">*</span>ptr, z_ptr);
                     <span class="prelude-val">Ok</span>(z_ptr)
                 }
             },
-            Ptr::Tree3(tag, idx) =&gt; <span class="kw">match </span><span class="self">self</span>.z_cache.get(ptr) {
+            Ptr::Tuple3(tag, idx) =&gt; <span class="kw">match </span><span class="self">self</span>.z_cache.get(ptr) {
                 <span class="prelude-val">Some</span>(z_ptr) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>z_ptr),
                 <span class="prelude-val">None </span>=&gt; {
-                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b, c)) = <span class="self">self</span>.ptrs3.get_index(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
-                        <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on ptrs3&quot;</span>)
+                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b, c)) = <span class="self">self</span>.tuple3.get_index(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
+                        <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on tuple3&quot;</span>)
                     };
                     <span class="kw">let </span>a = <span class="self">self</span>.hash_ptr(a)<span class="question-mark">?</span>;
                     <span class="kw">let </span>b = <span class="self">self</span>.hash_ptr(b)<span class="question-mark">?</span>;
@@ -753,16 +753,16 @@
                             c.hash,
                         ]),
                     };
-                    <span class="self">self</span>.z_dag.insert(z_ptr, ZChildren::Tree3(a, b, c));
+                    <span class="self">self</span>.z_dag.insert(z_ptr, ZChildren::Tuple3(a, b, c));
                     <span class="self">self</span>.z_cache.insert(<span class="kw-2">*</span>ptr, z_ptr);
                     <span class="prelude-val">Ok</span>(z_ptr)
                 }
             },
-            Ptr::Tree4(tag, idx) =&gt; <span class="kw">match </span><span class="self">self</span>.z_cache.get(ptr) {
+            Ptr::Tuple4(tag, idx) =&gt; <span class="kw">match </span><span class="self">self</span>.z_cache.get(ptr) {
                 <span class="prelude-val">Some</span>(z_ptr) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>z_ptr),
                 <span class="prelude-val">None </span>=&gt; {
-                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b, c, d)) = <span class="self">self</span>.ptrs4.get_index(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
-                        <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on ptrs4&quot;</span>)
+                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b, c, d)) = <span class="self">self</span>.tuple4.get_index(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
+                        <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on tuple4&quot;</span>)
                     };
                     <span class="kw">let </span>a = <span class="self">self</span>.hash_ptr(a)<span class="question-mark">?</span>;
                     <span class="kw">let </span>b = <span class="self">self</span>.hash_ptr(b)<span class="question-mark">?</span>;
@@ -781,7 +781,7 @@
                             d.hash,
                         ]),
                     };
-                    <span class="self">self</span>.z_dag.insert(z_ptr, ZChildren::Tree4(a, b, c, d));
+                    <span class="self">self</span>.z_dag.insert(z_ptr, ZChildren::Tuple4(a, b, c, d));
                     <span class="self">self</span>.z_cache.insert(<span class="kw-2">*</span>ptr, z_ptr);
                     <span class="prelude-val">Ok</span>(z_ptr)
                 }
@@ -800,7 +800,7 @@
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; Ptr&lt;F&gt; {
-    <span class="kw">pub fn </span>to_string(<span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; String {
+    <span class="kw">pub fn </span>dbg_display(<span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; String {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = store.fetch_string(<span class="kw-2">&amp;</span><span class="self">self</span>) {
             <span class="kw">return </span><span class="macro">format!</span>(<span class="string">&quot;\&quot;{}\&quot;&quot;</span>, s);
         }
@@ -815,34 +815,34 @@
                     <span class="macro">format!</span>(<span class="string">&quot;{}{:?}&quot;</span>, tag, f)
                 }
             }
-            Ptr::Tree2(tag, x) =&gt; {
+            Ptr::Tuple2(tag, x) =&gt; {
                 <span class="kw">let </span>(p1, p2) = store.fetch_2_ptrs(x).unwrap();
                 <span class="macro">format!</span>(
                     <span class="string">&quot;({} {} {})&quot;</span>,
                     tag,
-                    (<span class="kw-2">*</span>p1).to_string(store),
-                    (<span class="kw-2">*</span>p2).to_string(store)
+                    (<span class="kw-2">*</span>p1).dbg_display(store),
+                    (<span class="kw-2">*</span>p2).dbg_display(store)
                 )
             }
-            Ptr::Tree3(tag, x) =&gt; {
+            Ptr::Tuple3(tag, x) =&gt; {
                 <span class="kw">let </span>(p1, p2, p3) = store.fetch_3_ptrs(x).unwrap();
                 <span class="macro">format!</span>(
                     <span class="string">&quot;({} {} {} {})&quot;</span>,
                     tag,
-                    (<span class="kw-2">*</span>p1).to_string(store),
-                    (<span class="kw-2">*</span>p2).to_string(store),
-                    (<span class="kw-2">*</span>p3).to_string(store)
+                    (<span class="kw-2">*</span>p1).dbg_display(store),
+                    (<span class="kw-2">*</span>p2).dbg_display(store),
+                    (<span class="kw-2">*</span>p3).dbg_display(store)
                 )
             }
-            Ptr::Tree4(tag, x) =&gt; {
+            Ptr::Tuple4(tag, x) =&gt; {
                 <span class="kw">let </span>(p1, p2, p3, p4) = store.fetch_4_ptrs(x).unwrap();
                 <span class="macro">format!</span>(
                     <span class="string">&quot;({} {} {} {} {})&quot;</span>,
                     tag,
-                    (<span class="kw-2">*</span>p1).to_string(store),
-                    (<span class="kw-2">*</span>p2).to_string(store),
-                    (<span class="kw-2">*</span>p3).to_string(store),
-                    (<span class="kw-2">*</span>p4).to_string(store)
+                    (<span class="kw-2">*</span>p1).dbg_display(store),
+                    (<span class="kw-2">*</span>p2).dbg_display(store),
+                    (<span class="kw-2">*</span>p3).dbg_display(store),
+                    (<span class="kw-2">*</span>p4).dbg_display(store)
                 )
             }
         }

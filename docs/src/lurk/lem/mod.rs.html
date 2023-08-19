@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (076887268 2023-08-17)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (d06ca0ffa 2023-08-18)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -941,6 +941,63 @@
 <a href="#941" id="941">941</a>
 <a href="#942" id="942">942</a>
 <a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Lurk Evaluation Model (LEM)
 //!
 //! LEM is a simple, first order, referentially transparent language, designed to
@@ -1098,8 +1155,8 @@
 <span class="doccomment">/// LEM literals
 </span><span class="attr">#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 </span><span class="kw">pub enum </span>Lit {
-    <span class="comment">// TODO maybe it should be a LurkField instead of u64
-    </span>Num(u64),
+    <span class="comment">// TODO maybe it should be a LurkField instead of u128
+    </span>Num(u128),
     String(String),
     Symbol(Symbol),
 }
@@ -1109,7 +1166,7 @@
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Symbol(s) =&gt; store.intern_symbol(s),
             <span class="self">Self</span>::String(s) =&gt; store.intern_string(s),
-            <span class="self">Self</span>::Num(num) =&gt; Ptr::num((<span class="kw-2">*</span>num).into()),
+            <span class="self">Self</span>::Num(num) =&gt; Ptr::num(F::from_u128(<span class="kw-2">*</span>num)),
         }
     }
     <span class="kw">pub fn </span>from_ptr&lt;F: LurkField&gt;(ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
@@ -1118,7 +1175,7 @@
         <span class="kw">match </span>ptr.tag() {
             Expr(Num) =&gt; <span class="kw">match </span>ptr {
                 Ptr::Leaf(<span class="kw">_</span>, f) =&gt; {
-                    <span class="kw">let </span>num = LurkField::to_u64_unchecked(f);
+                    <span class="kw">let </span>num = LurkField::to_u128_unchecked(f);
                     <span class="prelude-val">Some</span>(<span class="self">Self</span>::Num(num))
                 }
                 <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
@@ -1181,6 +1238,10 @@
     <span class="doccomment">/// `Cast(y, t, x)` binds `y` to a pointer with tag `t` and the hash of `x`
     </span>Cast(Var, Tag, Var),
     <span class="doccomment">/// `Add(y, a, b)` binds `y` to the sum of `a` and `b`
+    </span>EqTag(Var, Var, Var),
+    <span class="doccomment">/// `EqVal(y, a, b)` binds `y` to `1` if `a.val != b.val`, or to `0` otherwise
+    </span>EqVal(Var, Var, Var),
+    <span class="doccomment">/// `Lt(y, a, b)` binds `y` to `1` if `a &lt; b`, or to `0` otherwise
     </span>Add(Var, Var, Var),
     <span class="doccomment">/// `Sub(y, a, b)` binds `y` to the sum of `a` and `b`
     </span>Sub(Var, Var, Var),
@@ -1188,6 +1249,12 @@
     </span>Mul(Var, Var, Var),
     <span class="doccomment">/// `Div(y, a, b)` binds `y` to the sum of `a` and `b`
     </span>Div(Var, Var, Var),
+    <span class="doccomment">/// `Lt(y, a, b)` binds `y` to `1` if `a &lt; b`, or to `0` otherwise
+    </span>Lt(Var, Var, Var),
+    <span class="doccomment">/// `Trunc(y, a, n)` binds `y` to `a` truncated to `n` bits, up to 64 bits
+    </span>Trunc(Var, Var, u32),
+    <span class="doccomment">/// `DivRem64(ys, a, b)` binds `ys` to `(a / b, a % b)` as if they were u64
+    </span>DivRem64([Var; <span class="number">2</span>], Var, Var),
     <span class="doccomment">/// `Emit(v)` simply prints out the value of `v` when interpreting the code
     </span>Emit(Var),
     <span class="doccomment">/// `Hash2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
@@ -1233,23 +1300,26 @@
 
     <span class="doccomment">/// Performs the static checks described in LEM&#39;s docstring.
     </span><span class="kw">pub fn </span>check(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="comment">// Check if variable has already been defined. Panics
-        // if it is repeated (means `deconflict` is broken)
-        </span><span class="kw">use </span>std::collections::{HashMap, HashSet};
-        <span class="attr">#[inline(always)]
+        <span class="kw">use </span>std::collections::{HashMap, HashSet};
+
+        <span class="doccomment">/// Check if variable has already been defined. Panics
+        /// if it is repeated (means `deconflict` is broken)
+        </span><span class="attr">#[inline]
         </span><span class="kw">fn </span>is_unique(var: <span class="kw-2">&amp;</span>Var, map: <span class="kw-2">&amp;mut </span>HashMap&lt;Var, bool&gt;) {
             <span class="kw">if </span>map.insert(var.clone(), <span class="bool-val">false</span>).is_some() {
                 <span class="macro">panic!</span>(<span class="string">&quot;Variable {var} already defined. `deconflict` implementation broken.&quot;</span>);
             }
         }
-        <span class="comment">// Check if variable is bound and sets it as &quot;used&quot;
-        </span><span class="attr">#[inline(always)]
+
+        <span class="doccomment">/// Check if variable is bound and sets it as &quot;used&quot;
+        </span><span class="attr">#[inline]
         </span><span class="kw">fn </span>is_bound(var: <span class="kw-2">&amp;</span>Var, map: <span class="kw-2">&amp;mut </span>HashMap&lt;Var, bool&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
             <span class="kw">if </span>map.insert(var.clone(), <span class="bool-val">true</span>).is_none() {
                 <span class="macro">bail!</span>(<span class="string">&quot;Variable {var} is unbound.&quot;</span>);
             }
             <span class="prelude-val">Ok</span>(())
         }
+
         <span class="kw">fn </span>recurse(block: <span class="kw-2">&amp;</span>Block, return_size: usize, map: <span class="kw-2">&amp;mut </span>HashMap&lt;Var, bool&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
             <span class="kw">for </span>op <span class="kw">in </span><span class="kw-2">&amp;</span>block.ops {
                 <span class="kw">match </span>op {
@@ -1283,13 +1353,28 @@
                         is_bound(src, map)<span class="question-mark">?</span>;
                         is_unique(tgt, map);
                     }
-                    Op::Add(tgt, a, b)
+                    Op::EqTag(tgt, a, b)
+                    | Op::EqVal(tgt, a, b)
+                    | Op::Add(tgt, a, b)
                     | Op::Sub(tgt, a, b)
                     | Op::Mul(tgt, a, b)
-                    | Op::Div(tgt, a, b) =&gt; {
+                    | Op::Div(tgt, a, b)
+                    | Op::Lt(tgt, a, b) =&gt; {
                         is_bound(a, map)<span class="question-mark">?</span>;
                         is_bound(b, map)<span class="question-mark">?</span>;
                         is_unique(tgt, map);
+                    }
+                    Op::Trunc(tgt, a, n) =&gt; {
+                        <span class="kw">if </span><span class="kw-2">*</span>n &gt; <span class="number">64 </span>{
+                            <span class="macro">bail!</span>(<span class="string">&quot;Cannot yet truncate over 64 bits&quot;</span>)
+                        }
+                        is_bound(a, map)<span class="question-mark">?</span>;
+                        is_unique(tgt, map);
+                    }
+                    Op::DivRem64(tgt, a, b) =&gt; {
+                        is_bound(a, map)<span class="question-mark">?</span>;
+                        is_bound(b, map)<span class="question-mark">?</span>;
+                        tgt.iter().for_each(|var| is_unique(var, map))
                     }
                     Op::Emit(a) =&gt; {
                         is_bound(a, map)<span class="question-mark">?</span>;
@@ -1494,6 +1579,18 @@
                     <span class="kw">let </span>tgt = insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt);
                     ops.push(Op::Cast(tgt, tag, src))
                 }
+                Op::EqTag(tgt, a, b) =&gt; {
+                    <span class="kw">let </span>a = map.get_cloned(<span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>b = map.get_cloned(<span class="kw-2">&amp;</span>b)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>tgt = insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt);
+                    ops.push(Op::EqTag(tgt, a, b))
+                }
+                Op::EqVal(tgt, a, b) =&gt; {
+                    <span class="kw">let </span>a = map.get_cloned(<span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>b = map.get_cloned(<span class="kw-2">&amp;</span>b)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>tgt = insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt);
+                    ops.push(Op::EqVal(tgt, a, b))
+                }
                 Op::Add(tgt, a, b) =&gt; {
                     <span class="kw">let </span>a = map.get_cloned(<span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>;
                     <span class="kw">let </span>b = map.get_cloned(<span class="kw-2">&amp;</span>b)<span class="question-mark">?</span>;
@@ -1517,6 +1614,23 @@
                     <span class="kw">let </span>b = map.get_cloned(<span class="kw-2">&amp;</span>b)<span class="question-mark">?</span>;
                     <span class="kw">let </span>tgt = insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt);
                     ops.push(Op::Div(tgt, a, b))
+                }
+                Op::Lt(tgt, a, b) =&gt; {
+                    <span class="kw">let </span>a = map.get_cloned(<span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>b = map.get_cloned(<span class="kw-2">&amp;</span>b)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>tgt = insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt);
+                    ops.push(Op::Lt(tgt, a, b))
+                }
+                Op::Trunc(tgt, a, b) =&gt; {
+                    <span class="kw">let </span>a = map.get_cloned(<span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>tgt = insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt);
+                    ops.push(Op::Trunc(tgt, a, b))
+                }
+                Op::DivRem64(tgt, a, b) =&gt; {
+                    <span class="kw">let </span>a = map.get_cloned(<span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>b = map.get_cloned(<span class="kw-2">&amp;</span>b)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>tgt = insert_many(map, uniq, <span class="kw-2">&amp;</span>tgt);
+                    ops.push(Op::DivRem64(tgt.try_into().unwrap(), a, b))
                 }
                 Op::Emit(a) =&gt; {
                     <span class="kw">let </span>a = map.get_cloned(<span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>;
@@ -1739,7 +1853,7 @@
         });
 
         <span class="kw">let </span>inputs = <span class="macro">vec!</span>[Ptr::num(Fr::from_u64(<span class="number">42</span>))];
-        synthesize_test_helper(<span class="kw-2">&amp;</span>func, inputs, SlotsCounter::new((<span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>)));
+        synthesize_test_helper(<span class="kw-2">&amp;</span>func, inputs, SlotsCounter::new((<span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>)));
     }
 
     <span class="attr">#[test]
@@ -1800,7 +1914,7 @@
         });
 
         <span class="kw">let </span>inputs = <span class="macro">vec!</span>[Ptr::num(Fr::from_u64(<span class="number">42</span>)), Ptr::char(<span class="string">&#39;c&#39;</span>)];
-        synthesize_test_helper(<span class="kw-2">&amp;</span>lem, inputs, SlotsCounter::new((<span class="number">2</span>, <span class="number">2</span>, <span class="number">2</span>)));
+        synthesize_test_helper(<span class="kw-2">&amp;</span>lem, inputs, SlotsCounter::new((<span class="number">2</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>)));
     }
 
     <span class="attr">#[test]
@@ -1834,7 +1948,7 @@
         });
 
         <span class="kw">let </span>inputs = <span class="macro">vec!</span>[Ptr::num(Fr::from_u64(<span class="number">42</span>)), Ptr::char(<span class="string">&#39;c&#39;</span>)];
-        synthesize_test_helper(<span class="kw-2">&amp;</span>lem, inputs, SlotsCounter::new((<span class="number">3</span>, <span class="number">3</span>, <span class="number">3</span>)));
+        synthesize_test_helper(<span class="kw-2">&amp;</span>lem, inputs, SlotsCounter::new((<span class="number">3</span>, <span class="number">3</span>, <span class="number">3</span>, <span class="number">0</span>, <span class="number">0</span>)));
     }
 
     <span class="attr">#[test]
@@ -1881,7 +1995,7 @@
         });
 
         <span class="kw">let </span>inputs = <span class="macro">vec!</span>[Ptr::num(Fr::from_u64(<span class="number">42</span>)), Ptr::char(<span class="string">&#39;c&#39;</span>)];
-        synthesize_test_helper(<span class="kw-2">&amp;</span>lem, inputs, SlotsCounter::new((<span class="number">4</span>, <span class="number">4</span>, <span class="number">4</span>)));
+        synthesize_test_helper(<span class="kw-2">&amp;</span>lem, inputs, SlotsCounter::new((<span class="number">4</span>, <span class="number">4</span>, <span class="number">4</span>, <span class="number">0</span>, <span class="number">0</span>)));
     }
 }
 </code></pre></div></section></main></body></html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/eval.rs`."><title>eval.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (076887268 2023-08-17)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/eval.rs`."><title>eval.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0-nightly (d06ca0ffa 2023-08-18)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -906,6 +906,207 @@
 <a href="#906" id="906">906</a>
 <a href="#907" id="907">907</a>
 <a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::func;
 
 <span class="kw">use </span><span class="kw">super</span>::Func;
@@ -927,7 +1128,8 @@
 
 <span class="kw">fn </span>safe_uncons() -&gt; Func {
     <span class="macro">func!</span>(safe_uncons(xs): <span class="number">2 </span>=&gt; {
-        <span class="kw">let </span>nil: Expr::Nil;
+        <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+        <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">let </span>nilstr = Symbol(<span class="string">&quot;&quot;</span>);
         <span class="kw">match </span>xs.tag {
             Expr::Nil =&gt; {
@@ -964,7 +1166,8 @@
         <span class="kw">match </span>args.tag {
             Expr::Nil =&gt; {
                 <span class="kw">let </span>dummy = Symbol(<span class="string">&quot;dummy&quot;</span>);
-                <span class="kw">let </span>nil: Expr::Nil;
+                <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+                <span class="kw">let </span>nil = cast(nil, Expr::Nil);
                 <span class="kw">return </span>(dummy, nil)
             }
             Expr::Cons =&gt; {
@@ -996,7 +1199,8 @@
         }
     });
     <span class="kw">let </span>is_unop = <span class="macro">func!</span>(is_unop(head): <span class="number">1 </span>=&gt; {
-        <span class="kw">let </span>nil: Expr::Nil;
+        <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+        <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>);
         <span class="kw">match </span>head.val {
             Symbol(<span class="string">&quot;car&quot;</span>)
@@ -1017,7 +1221,8 @@
     });
 
     <span class="kw">let </span>is_binop = <span class="macro">func!</span>(is_binop(head): <span class="number">1 </span>=&gt; {
-        <span class="kw">let </span>nil: Expr::Nil;
+        <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+        <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>);
         <span class="kw">match </span>head.val {
             Symbol(<span class="string">&quot;cons&quot;</span>)
@@ -1026,8 +1231,7 @@
             | Symbol(<span class="string">&quot;+&quot;</span>)
             | Symbol(<span class="string">&quot;-&quot;</span>)
             | Symbol(<span class="string">&quot;*&quot;</span>)
-              <span class="comment">// TODO: bellperson complains if we use &quot;/&quot;
-            </span>| Symbol(<span class="string">&quot;div&quot;</span>)
+            | Symbol(<span class="string">&quot;/&quot;</span>)
             | Symbol(<span class="string">&quot;%&quot;</span>)
             | Symbol(<span class="string">&quot;=&quot;</span>)
             | Symbol(<span class="string">&quot;eq&quot;</span>)
@@ -1042,7 +1246,8 @@
     });
     <span class="kw">let </span>is_potentially_fun = <span class="macro">func!</span>(is_potentially_fun(head): <span class="number">1 </span>=&gt; {
         <span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>);
-        <span class="kw">let </span>nil: Expr::Nil;
+        <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+        <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">match </span>head.tag {
             Expr::Fun | Expr::Cons | Expr::Sym | Expr::Thunk =&gt; {
                 <span class="kw">return </span>(t)
@@ -1057,7 +1262,8 @@
         <span class="kw">let </span>apply: Ctrl::ApplyContinuation;
         <span class="kw">let </span>errctrl: Ctrl::Error;
         <span class="kw">let </span>err: Cont::Error;
-        <span class="kw">let </span>nil: Expr::Nil;
+        <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+        <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>);
 
         <span class="kw">match </span>cont.tag {
@@ -1340,7 +1546,8 @@
         <span class="kw">match </span>var_or_binding.tag {
             <span class="comment">// It&#39;s a var, so we are extending a simple env with a recursive env.
             </span>Expr::Sym | Expr::Nil =&gt; {
-                <span class="kw">let </span>nil: Expr::Nil;
+                <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+                <span class="kw">let </span>nil = cast(nil, Expr::Nil);
                 <span class="kw">let </span>list: Expr::Cons = hash2(cons, nil);
                 <span class="kw">let </span>res: Expr::Cons = hash2(list, env);
                 <span class="kw">return </span>(res)
@@ -1354,14 +1561,51 @@
             }
         }
     });
+    <span class="comment">// Returns 2 if both arguments are U64, 1 if the arguments are some kind of number (either U64 or Num),
+    // and 0 otherwise
+    </span><span class="kw">let </span>args_num_type = <span class="macro">func!</span>(args_num_type(arg1, arg2): <span class="number">1 </span>=&gt; {
+        <span class="kw">let </span>other = Num(<span class="number">0</span>);
+        <span class="kw">match </span>arg1.tag {
+            Expr::Num =&gt; {
+                <span class="kw">match </span>arg2.tag {
+                    Expr::Num =&gt; {
+                        <span class="kw">let </span>ret = Num(<span class="number">1</span>);
+                        <span class="kw">return </span>(ret)
+                    }
+                    Expr::U64 =&gt; {
+                        <span class="kw">let </span>ret = Num(<span class="number">1</span>);
+                        <span class="kw">return </span>(ret)
+                    }
+                };
+                <span class="kw">return </span>(other)
+            }
+            Expr::U64 =&gt; {
+                <span class="kw">match </span>arg2.tag {
+                    Expr::Num =&gt; {
+                        <span class="kw">let </span>ret = Num(<span class="number">1</span>);
+                        <span class="kw">return </span>(ret)
+                    }
+                    Expr::U64 =&gt; {
+                        <span class="kw">let </span>ret = Num(<span class="number">2</span>);
+                        <span class="kw">return </span>(ret)
+                    }
+                };
+                <span class="kw">return </span>(other)
+            }
+        };
+        <span class="kw">return </span>(other)
+    });
     <span class="macro">func!</span>(apply_cont(result, env, cont, ctrl): <span class="number">4 </span>=&gt; {
         <span class="comment">// Useful constants
         </span><span class="kw">let </span>ret: Ctrl::Return;
         <span class="kw">let </span>makethunk: Ctrl::MakeThunk;
         <span class="kw">let </span>errctrl: Ctrl::Error;
         <span class="kw">let </span>err: Cont::Error;
-        <span class="kw">let </span>nil: Expr::Nil;
+        <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+        <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>);
+        <span class="kw">let </span>zero = Num(<span class="number">0</span>);
+        <span class="kw">let </span>size_u64 = Num(<span class="number">18446744073709551616</span>);
 
         <span class="kw">match </span>ctrl.tag {
             Ctrl::ApplyContinuation =&gt; {
@@ -1491,7 +1735,6 @@
                                 <span class="kw">return</span>(secret, env, continuation, makethunk)
                             }
                             Symbol(<span class="string">&quot;commit&quot;</span>) =&gt; {
-                                <span class="kw">let </span>zero = Num(<span class="number">0</span>);
                                 <span class="kw">let </span>comm = hide(zero, result);
                                 <span class="kw">return</span>(comm, env, continuation, makethunk)
                             }
@@ -1507,11 +1750,9 @@
                             Symbol(<span class="string">&quot;u64&quot;</span>) =&gt; {
                                 <span class="kw">match </span>result.tag {
                                     Expr::Num =&gt; {
-                                        <span class="comment">// TODO we also need to use `Mod` to truncate
-                                        // But 2^64 is out-of-range of u64, so we will
-                                        // maybe use u128
-                                        // let limit = Num(18446744073709551616);
-                                        </span><span class="kw">let </span>cast = cast(result, Expr::U64);
+                                        <span class="comment">// The limit is 2**64 - 1
+                                        </span><span class="kw">let </span>trunc = truncate(result, <span class="number">64</span>);
+                                        <span class="kw">let </span>cast = cast(trunc, Expr::U64);
                                         <span class="kw">return</span>(cast, env, continuation, makethunk)
                                     }
                                     Expr::U64 =&gt; {
@@ -1523,7 +1764,7 @@
                             Symbol(<span class="string">&quot;comm&quot;</span>) =&gt; {
                                 <span class="kw">match </span>result.tag {
                                     Expr::Num | Expr::Comm =&gt; {
-                                        <span class="kw">let </span>cast = cast(result, Expr::Num);
+                                        <span class="kw">let </span>cast = cast(result, Expr::Comm);
                                         <span class="kw">return</span>(cast, env, continuation, makethunk)
                                     }
                                 };
@@ -1531,11 +1772,14 @@
                             }
                             Symbol(<span class="string">&quot;char&quot;</span>) =&gt; {
                                 <span class="kw">match </span>result.tag {
-                                    Expr::Num | Expr::Char =&gt; {
-                                        <span class="comment">// TODO we also need to use `Mod` to truncate
-                                        // let limit = Num(4294967296);
-                                        </span><span class="kw">let </span>cast = cast(result, Expr::Num);
+                                    Expr::Num =&gt; {
+                                        <span class="comment">// The limit is 2**32 - 1
+                                        </span><span class="kw">let </span>trunc = truncate(result, <span class="number">32</span>);
+                                        <span class="kw">let </span>cast = cast(trunc, Expr::Char);
                                         <span class="kw">return</span>(cast, env, continuation, makethunk)
+                                    }
+                                    Expr::Char =&gt; {
+                                        <span class="kw">return</span>(result, env, continuation, makethunk)
                                     }
                                 };
                                 <span class="kw">return</span>(result, env, err, errctrl)
@@ -1571,6 +1815,7 @@
                     }
                     Cont::Binop2 =&gt; {
                         <span class="kw">let </span>(operator, evaled_arg, continuation) = unhash3(cont);
+                        <span class="kw">let </span>(args_num_type) = args_num_type(evaled_arg, result);
                         <span class="kw">match </span>operator.val {
                             Symbol(<span class="string">&quot;eval&quot;</span>) =&gt; {
                                 <span class="kw">return </span>(evaled_arg, result, continuation, ret)
@@ -1599,53 +1844,171 @@
                                 <span class="kw">return</span>(hidden, env, continuation, makethunk)
                             }
                             Symbol(<span class="string">&quot;eq&quot;</span>) =&gt; {
-                                <span class="comment">// TODO should we check whether the tags are also equal?
-                                </span><span class="kw">if </span>evaled_arg == result {
+                                <span class="kw">let </span>eq_tag = eq_tag(evaled_arg, result);
+                                <span class="kw">let </span>eq_val = eq_val(evaled_arg, result);
+                                <span class="kw">let </span>eq = mul(eq_tag, eq_val);
+                                <span class="kw">match </span>eq.val {
+                                    Num(<span class="number">0</span>) =&gt; {
+                                        <span class="kw">return </span>(nil, env, continuation, makethunk)
+                                    }
+                                    Num(<span class="number">1</span>) =&gt; {
+                                        <span class="kw">return </span>(t, env, continuation, makethunk)
+                                    }
+                                }
+                            }
+                            Symbol(<span class="string">&quot;+&quot;</span>) =&gt; {
+                                <span class="kw">match </span>args_num_type.val {
+                                    Num(<span class="number">0</span>) =&gt; {
+                                        <span class="kw">return </span>(result, env, err, errctrl)
+                                    }
+                                    Num(<span class="number">1</span>) =&gt; {
+                                        <span class="kw">let </span>val = add(evaled_arg, result);
+                                        <span class="kw">return </span>(val, env, continuation, makethunk)
+                                    }
+                                    Num(<span class="number">2</span>) =&gt; {
+                                        <span class="kw">let </span>val = add(evaled_arg, result);
+                                        <span class="kw">let </span>not_overflow = lt(val, size_u64);
+                                        <span class="kw">match </span>not_overflow.val {
+                                            Num(<span class="number">0</span>) =&gt; {
+                                                <span class="kw">let </span>val = sub(val, size_u64);
+                                                <span class="kw">let </span>val = cast(val, Expr::U64);
+                                                <span class="kw">return </span>(val, env, continuation, makethunk)
+                                            }
+                                            Num(<span class="number">1</span>) =&gt; {
+                                                <span class="kw">let </span>val = cast(val, Expr::U64);
+                                                <span class="kw">return </span>(val, env, continuation, makethunk)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Symbol(<span class="string">&quot;-&quot;</span>) =&gt; {
+                                <span class="kw">match </span>args_num_type.val {
+                                    Num(<span class="number">0</span>) =&gt; {
+                                        <span class="kw">return </span>(result, env, err, errctrl)
+                                    }
+                                    Num(<span class="number">1</span>) =&gt; {
+                                        <span class="kw">let </span>val = sub(evaled_arg, result);
+                                        <span class="kw">return </span>(val, env, continuation, makethunk)
+                                    }
+                                    Num(<span class="number">2</span>) =&gt; {
+                                        <span class="comment">// Subtraction in U64 is almost the same as subtraction
+                                        // in the field. If the difference is negative, we need
+                                        // to add 2^64 to get back to U64 domain.
+                                        </span><span class="kw">let </span>val = sub(evaled_arg, result);
+                                        <span class="kw">let </span>is_neg = lt(val, zero);
+                                        <span class="kw">match </span>is_neg.val {
+                                            Num(<span class="number">0</span>) =&gt; {
+                                                <span class="kw">let </span>val = add(val, size_u64);
+                                                <span class="kw">let </span>val = cast(val, Expr::U64);
+                                                <span class="kw">return </span>(val, env, continuation, makethunk)
+                                            }
+                                            Num(<span class="number">1</span>) =&gt; {
+                                                <span class="kw">let </span>val = cast(val, Expr::U64);
+                                                <span class="kw">return </span>(val, env, continuation, makethunk)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Symbol(<span class="string">&quot;*&quot;</span>) =&gt; {
+                                <span class="kw">match </span>args_num_type.val {
+                                    Num(<span class="number">0</span>) =&gt; {
+                                        <span class="kw">return </span>(result, env, err, errctrl)
+                                    }
+                                    Num(<span class="number">1</span>) =&gt; {
+                                        <span class="kw">let </span>val = mul(evaled_arg, result);
+                                        <span class="kw">return </span>(val, env, continuation, makethunk)
+                                    }
+                                    Num(<span class="number">2</span>) =&gt; {
+                                        <span class="kw">let </span>val = mul(evaled_arg, result);
+                                        <span class="comment">// The limit is 2**64 - 1
+                                        </span><span class="kw">let </span>trunc = truncate(val, <span class="number">64</span>);
+                                        <span class="kw">let </span>cast = cast(trunc, Expr::U64);
+                                        <span class="kw">return </span>(cast, env, continuation, makethunk)
+                                    }
+                                }
+                            }
+                            Symbol(<span class="string">&quot;/&quot;</span>) =&gt; {
+                                <span class="kw">match </span>args_num_type.val {
+                                    Num(<span class="number">0</span>) =&gt; {
+                                        <span class="kw">return </span>(result, env, err, errctrl)
+                                    }
+                                    Num(<span class="number">1</span>) =&gt; {
+                                        <span class="kw">let </span>val = div(evaled_arg, result);
+                                        <span class="kw">return </span>(val, env, continuation, makethunk)
+                                    }
+                                    Num(<span class="number">2</span>) =&gt; {
+                                        <span class="kw">let </span>(div, _rem) = div_rem64(evaled_arg, result);
+                                        <span class="kw">let </span>div = cast(div, Expr::U64);
+                                        <span class="kw">return </span>(div, env, continuation, makethunk)
+                                    }
+                                }
+                            }
+                            Symbol(<span class="string">&quot;%&quot;</span>) =&gt; {
+                                <span class="kw">match </span>args_num_type.val {
+                                    Num(<span class="number">2</span>) =&gt; {
+                                        <span class="kw">let </span>(_div, rem) = div_rem64(evaled_arg, result);
+                                        <span class="kw">let </span>rem = cast(rem, Expr::U64);
+                                        <span class="kw">return </span>(rem, env, continuation, makethunk)
+                                    }
+                                };
+                                <span class="kw">return </span>(result, env, err, errctrl)
+                            }
+                            Symbol(<span class="string">&quot;=&quot;</span>) =&gt; {
+                                <span class="kw">match </span>args_num_type.val {
+                                    Num(<span class="number">0</span>) =&gt; {
+                                        <span class="kw">return </span>(result, env, err, errctrl)
+                                    }
+                                };
+                                <span class="kw">if </span>evaled_arg == result {
                                     <span class="kw">return </span>(t, env, continuation, makethunk)
                                 }
                                 <span class="kw">return </span>(nil, env, continuation, makethunk)
                             }
-                            Symbol(<span class="string">&quot;+&quot;</span>) =&gt; {
-                                <span class="comment">// TODO deal with U64
-                                </span><span class="kw">let </span>val = add(evaled_arg, result);
-                                <span class="kw">return </span>(val, env, continuation, makethunk)
-                            }
-                            Symbol(<span class="string">&quot;-&quot;</span>) =&gt; {
-                                <span class="comment">// TODO deal with U64
-                                </span><span class="kw">let </span>val = sub(evaled_arg, result);
-                                <span class="kw">return </span>(val, env, continuation, makethunk)
-                            }
-                            Symbol(<span class="string">&quot;*&quot;</span>) =&gt; {
-                                <span class="comment">// TODO deal with U64
-                                </span><span class="kw">let </span>val = mul(evaled_arg, result);
-                                <span class="kw">return </span>(val, env, continuation, makethunk)
-                            }
-                            Symbol(<span class="string">&quot;div&quot;</span>) =&gt; {
-                                <span class="kw">return </span>(result, env, err, errctrl)
-                            }
-                            Symbol(<span class="string">&quot;%&quot;</span>) =&gt; {
-                                <span class="comment">// TODO
-                                </span><span class="kw">return </span>(result, env, err, errctrl)
-                            }
-                            Symbol(<span class="string">&quot;=&quot;</span>) =&gt; {
-                                <span class="comment">// TODO
-                                </span><span class="kw">return </span>(result, env, err, errctrl)
-                            }
                             Symbol(<span class="string">&quot;&lt;&quot;</span>) =&gt; {
-                                <span class="comment">// TODO
-                                </span><span class="kw">return </span>(result, env, err, errctrl)
+                                <span class="kw">let </span>val = lt(evaled_arg, result);
+                                <span class="kw">match </span>val.val {
+                                    Num(<span class="number">0</span>) =&gt; {
+                                        <span class="kw">return </span>(nil, env, continuation, makethunk)
+                                    }
+                                    Num(<span class="number">1</span>) =&gt; {
+                                        <span class="kw">return </span>(t, env, continuation, makethunk)
+                                    }
+                                }
                             }
                             Symbol(<span class="string">&quot;&gt;&quot;</span>) =&gt; {
-                                <span class="comment">// TODO
-                                </span><span class="kw">return </span>(result, env, err, errctrl)
+                                <span class="kw">let </span>val = lt(result, evaled_arg);
+                                <span class="kw">match </span>val.val {
+                                    Num(<span class="number">0</span>) =&gt; {
+                                        <span class="kw">return </span>(nil, env, continuation, makethunk)
+                                    }
+                                    Num(<span class="number">1</span>) =&gt; {
+                                        <span class="kw">return </span>(t, env, continuation, makethunk)
+                                    }
+                                }
                             }
                             Symbol(<span class="string">&quot;&lt;=&quot;</span>) =&gt; {
-                                <span class="comment">// TODO
-                                </span><span class="kw">return </span>(result, env, err, errctrl)
+                                <span class="kw">let </span>val = lt(result, evaled_arg);
+                                <span class="kw">match </span>val.val {
+                                    Num(<span class="number">0</span>) =&gt; {
+                                        <span class="kw">return </span>(t, env, continuation, makethunk)
+                                    }
+                                    Num(<span class="number">1</span>) =&gt; {
+                                        <span class="kw">return </span>(nil, env, continuation, makethunk)
+                                    }
+                                }
                             }
                             Symbol(<span class="string">&quot;&gt;=&quot;</span>) =&gt; {
-                                <span class="comment">// TODO
-                                </span><span class="kw">return </span>(result, env, err, errctrl)
+                                <span class="kw">let </span>val = lt(evaled_arg, result);
+                                <span class="kw">match </span>val.val {
+                                    Num(<span class="number">0</span>) =&gt; {
+                                        <span class="kw">return </span>(t, env, continuation, makethunk)
+                                    }
+                                    Num(<span class="number">1</span>) =&gt; {
+                                        <span class="kw">return </span>(nil, env, continuation, makethunk)
+                                    }
+                                }
                             }
                         };
                         <span class="kw">return </span>(result, env, err, errctrl)
@@ -1717,12 +2080,14 @@
     <span class="kw">use </span>blstrs::Scalar <span class="kw">as </span>Fr;
 
     <span class="kw">const </span>NUM_INPUTS: usize = <span class="number">1</span>;
-    <span class="kw">const </span>NUM_AUX: usize = <span class="number">8092</span>;
-    <span class="kw">const </span>NUM_CONSTRAINTS: usize = <span class="number">10125</span>;
+    <span class="kw">const </span>NUM_AUX: usize = <span class="number">10442</span>;
+    <span class="kw">const </span>NUM_CONSTRAINTS: usize = <span class="number">12703</span>;
     <span class="kw">const </span>NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: <span class="number">16</span>,
         hash3: <span class="number">4</span>,
         hash4: <span class="number">2</span>,
+        commitment: <span class="number">1</span>,
+        less_than: <span class="number">1</span>,
     };
 
     <span class="kw">fn </span>test_eval_and_constrain_aux(store: <span class="kw-2">&amp;mut </span>Store&lt;Fr&gt;, pairs: Vec&lt;(Ptr&lt;Fr&gt;, Ptr&lt;Fr&gt;)&gt;) {
@@ -1771,13 +2136,36 @@
     <span class="kw">fn </span>expr_in_expr_out_pairs(s: <span class="kw-2">&amp;mut </span>Store&lt;Fr&gt;) -&gt; Vec&lt;(Ptr&lt;Fr&gt;, Ptr&lt;Fr&gt;)&gt; {
         <span class="kw">let </span>state = State::init_lurk_state().rccell();
         <span class="kw">let </span><span class="kw-2">mut </span>read = |code: <span class="kw-2">&amp;</span>str| s.read(state.clone(), code).unwrap();
+        <span class="kw">let </span>div = read(<span class="string">&quot;(/ 70u64 8u64)&quot;</span>);
+        <span class="kw">let </span>div_res = read(<span class="string">&quot;8u64&quot;</span>);
+        <span class="kw">let </span>rem = read(<span class="string">&quot;(% 70u64 8u64)&quot;</span>);
+        <span class="kw">let </span>rem_res = read(<span class="string">&quot;6u64&quot;</span>);
+        <span class="kw">let </span>u64_1 = read(<span class="string">&quot;(u64 100000000)&quot;</span>);
+        <span class="kw">let </span>u64_1_res = read(<span class="string">&quot;100000000u64&quot;</span>);
+        <span class="kw">let </span>u64_2 = read(<span class="string">&quot;(u64 1000000000000000000000000)&quot;</span>);
+        <span class="kw">let </span>u64_2_res = read(<span class="string">&quot;2003764205206896640u64&quot;</span>);
+        <span class="kw">let </span>mul_overflow = read(<span class="string">&quot;(* 1000000000000u64 100000000000000u64)&quot;</span>);
+        <span class="kw">let </span>mul_overflow_res = read(<span class="string">&quot;15908979783594147840u64&quot;</span>);
+        <span class="kw">let </span>char_conv = read(<span class="string">&quot;(char 97)&quot;</span>);
+        <span class="kw">let </span>char_conv_res = read(<span class="string">&quot;&#39;a&#39;&quot;</span>);
+        <span class="kw">let </span>char_overflow = read(<span class="string">&quot;(char 4294967393)&quot;</span>);
+        <span class="kw">let </span>char_overflow_res = read(<span class="string">&quot;&#39;a&#39;&quot;</span>);
+        <span class="kw">let </span>t = read(<span class="string">&quot;t&quot;</span>);
+        <span class="kw">let </span>nil = read(<span class="string">&quot;nil&quot;</span>);
+        <span class="kw">let </span>le1 = read(<span class="string">&quot;(&lt;= 4 8)&quot;</span>);
+        <span class="kw">let </span>le2 = read(<span class="string">&quot;(&lt;= 8 8)&quot;</span>);
+        <span class="kw">let </span>le3 = read(<span class="string">&quot;(&lt;= 10 8)&quot;</span>);
+        <span class="kw">let </span>gt1 = read(<span class="string">&quot;(&gt; 4 8)&quot;</span>);
+        <span class="kw">let </span>gt2 = read(<span class="string">&quot;(&gt; 8 8)&quot;</span>);
+        <span class="kw">let </span>gt3 = read(<span class="string">&quot;(&gt; 10 8)&quot;</span>);
+        <span class="kw">let </span>ltz = read(<span class="string">&quot;(&lt; (- 0 10) 0)&quot;</span>);
         <span class="kw">let </span>sum = read(<span class="string">&quot;(+ 21 21)&quot;</span>);
         <span class="kw">let </span>sum_res = read(<span class="string">&quot;42&quot;</span>);
         <span class="kw">let </span>car = read(<span class="string">&quot;(car (cons 1 2))&quot;</span>);
         <span class="kw">let </span>car_res = read(<span class="string">&quot;1&quot;</span>);
         <span class="kw">let </span>let_ = read(
             <span class="string">&quot;(let ((x (cons 1 2)))
-               (cons (car x) (cdr x)))&quot;</span>,
+                (cons (car x) (cdr x)))&quot;</span>,
         );
         <span class="kw">let </span>let_res = read(<span class="string">&quot;(1 . 2)&quot;</span>);
         <span class="kw">let </span>lam0 = read(<span class="string">&quot;((lambda () 1))&quot;</span>);
@@ -1797,6 +2185,20 @@
         );
         <span class="kw">let </span>fold_res = read(<span class="string">&quot;55&quot;</span>);
         <span class="macro">vec!</span>[
+            (div, div_res),
+            (rem, rem_res),
+            (u64_1, u64_1_res),
+            (u64_2, u64_2_res),
+            (mul_overflow, mul_overflow_res),
+            (char_conv, char_conv_res),
+            (char_overflow, char_overflow_res),
+            (le1, t),
+            (le2, t),
+            (le3, nil),
+            (gt1, nil),
+            (gt2, nil),
+            (gt3, t),
+            (ltz, t),
             (sum, sum_res),
             (car, car_res),
             (let_, let_res),
