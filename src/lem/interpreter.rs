@@ -1,7 +1,3 @@
-use crate::{
-    field::{FWrap, LurkField},
-    state::initial_lurk_state,
-};
 use anyhow::{bail, Result};
 use std::collections::VecDeque;
 
@@ -9,7 +5,17 @@ use super::{
     path::Path, pointers::Ptr, store::Store, var_map::VarMap, Block, Ctrl, Func, Lit, Op, Tag,
 };
 
+use crate::field::{FWrap, LurkField};
+use crate::num::Num;
+use crate::state::initial_lurk_state;
 use crate::tag::ExprTag::*;
+
+#[derive(Clone)]
+pub enum PreimageData<F: LurkField> {
+    PtrVec(Vec<Ptr<F>>),
+    FPtr(F, Ptr<F>),
+    FPair(F, F),
+}
 
 #[derive(Clone, Default)]
 /// `Preimages` hold the non-deterministic advices for hashes and `Func` calls.
@@ -17,23 +23,29 @@ use crate::tag::ExprTag::*;
 /// `Func`, and the `None` values are used to fill the unused slots, which are
 /// later filled by dummy values.
 pub struct Preimages<F: LurkField> {
-    pub hash2_ptrs: Vec<Option<Vec<Ptr<F>>>>,
-    pub hash3_ptrs: Vec<Option<Vec<Ptr<F>>>>,
-    pub hash4_ptrs: Vec<Option<Vec<Ptr<F>>>>,
+    pub hash2: Vec<Option<PreimageData<F>>>,
+    pub hash3: Vec<Option<PreimageData<F>>>,
+    pub hash4: Vec<Option<PreimageData<F>>>,
+    pub commitment: Vec<Option<PreimageData<F>>>,
+    pub less_than: Vec<Option<PreimageData<F>>>,
     pub call_outputs: VecDeque<Vec<Ptr<F>>>,
 }
 
 impl<F: LurkField> Preimages<F> {
     pub fn new_from_func(func: &Func) -> Preimages<F> {
         let slot = func.slot;
-        let hash2_ptrs = Vec::with_capacity(slot.hash2);
-        let hash3_ptrs = Vec::with_capacity(slot.hash3);
-        let hash4_ptrs = Vec::with_capacity(slot.hash4);
+        let hash2 = Vec::with_capacity(slot.hash2);
+        let hash3 = Vec::with_capacity(slot.hash3);
+        let hash4 = Vec::with_capacity(slot.hash4);
+        let commitment = Vec::with_capacity(slot.commitment);
+        let less_than = Vec::with_capacity(slot.less_than);
         let call_outputs = VecDeque::new();
         Preimages {
-            hash2_ptrs,
-            hash3_ptrs,
-            hash4_ptrs,
+            hash2,
+            hash3,
+            hash4,
+            commitment,
+            less_than,
             call_outputs,
         }
     }
@@ -101,49 +113,115 @@ impl Block {
                     let tgt_ptr = src_ptr.cast(*tag);
                     bindings.insert(tgt.clone(), tgt_ptr);
                 }
+                Op::EqTag(tgt, a, b) => {
+                    let a = bindings.get(a)?;
+                    let b = bindings.get(b)?;
+                    let c = if a.tag() == b.tag() {
+                        Ptr::Leaf(Tag::Expr(Num), F::ONE)
+                    } else {
+                        Ptr::Leaf(Tag::Expr(Num), F::ZERO)
+                    };
+                    bindings.insert(tgt.clone(), c);
+                }
+                Op::EqVal(tgt, a, b) => {
+                    let a = bindings.get(a)?;
+                    let b = bindings.get(b)?;
+                    // In order to compare Ptrs, we *must* resolve the hashes. Otherwise, we risk failing to recognize equality of
+                    // compound data with opaque data in either element's transitive closure.
+                    let a_hash = store.hash_ptr(a)?.hash;
+                    let b_hash = store.hash_ptr(b)?.hash;
+                    let c = if a_hash == b_hash {
+                        Ptr::Leaf(Tag::Expr(Num), F::ONE)
+                    } else {
+                        Ptr::Leaf(Tag::Expr(Num), F::ZERO)
+                    };
+                    bindings.insert(tgt.clone(), c);
+                }
                 Op::Add(tgt, a, b) => {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
-                    let c = match (a, b) {
-                        (Ptr::Leaf(Tag::Expr(Num), f), Ptr::Leaf(Tag::Expr(Num), g)) => {
-                            Ptr::Leaf(Tag::Expr(Num), *f + *g)
-                        }
-                        _ => bail!("Addition only works on numbers"),
+                    let c = if let (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) = (a, b) {
+                        Ptr::Leaf(Tag::Expr(Num), *f + *g)
+                    } else {
+                        bail!("`Add` only works on leaves")
                     };
                     bindings.insert(tgt.clone(), c);
                 }
                 Op::Sub(tgt, a, b) => {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
-                    let c = match (a, b) {
-                        (Ptr::Leaf(Tag::Expr(Num), f), Ptr::Leaf(Tag::Expr(Num), g)) => {
-                            Ptr::Leaf(Tag::Expr(Num), *f - *g)
-                        }
-                        _ => bail!("Addition only works on numbers"),
+                    let c = if let (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) = (a, b) {
+                        Ptr::Leaf(Tag::Expr(Num), *f - *g)
+                    } else {
+                        bail!("`Sub` only works on leaves")
                     };
                     bindings.insert(tgt.clone(), c);
                 }
                 Op::Mul(tgt, a, b) => {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
-                    let c = match (a, b) {
-                        (Ptr::Leaf(Tag::Expr(Num), f), Ptr::Leaf(Tag::Expr(Num), g)) => {
-                            Ptr::Leaf(Tag::Expr(Num), *f * *g)
-                        }
-                        _ => bail!("Addition only works on numbers"),
+                    let c = if let (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) = (a, b) {
+                        Ptr::Leaf(Tag::Expr(Num), *f * *g)
+                    } else {
+                        bail!("`Mul` only works on leaves")
                     };
                     bindings.insert(tgt.clone(), c);
                 }
                 Op::Div(tgt, a, b) => {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
-                    let c = match (a, b) {
-                        (Ptr::Leaf(Tag::Expr(Num), f), Ptr::Leaf(Tag::Expr(Num), g)) => {
-                            Ptr::Leaf(Tag::Expr(Num), *f * g.invert().unwrap())
+                    let c = if let (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) = (a, b) {
+                        if g == &F::ZERO {
+                            bail!("Can't divide by zero")
                         }
-                        _ => bail!("Division only works on numbers"),
+                        Ptr::Leaf(Tag::Expr(Num), *f * g.invert().expect("not zero"))
+                    } else {
+                        bail!("`Div` only works on numbers")
                     };
                     bindings.insert(tgt.clone(), c);
+                }
+                Op::Lt(tgt, a, b) => {
+                    let a = bindings.get(a)?;
+                    let b = bindings.get(b)?;
+                    let c = if let (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) = (a, b) {
+                        preimages.less_than.push(Some(PreimageData::FPair(*f, *g)));
+                        let f = Num::Scalar(*f);
+                        let g = Num::Scalar(*g);
+                        let b = if f < g { F::ONE } else { F::ZERO };
+                        Ptr::Leaf(Tag::Expr(Num), b)
+                    } else {
+                        bail!("`Lt` only works on leaves")
+                    };
+                    bindings.insert(tgt.clone(), c);
+                }
+                Op::Trunc(tgt, a, n) => {
+                    assert!(*n <= 64);
+                    let a = bindings.get(a)?;
+                    let c = if let Ptr::Leaf(_, f) = a {
+                        let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
+                        Ptr::Leaf(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() & b))
+                    } else {
+                        bail!("`Trunc` only works a leaf")
+                    };
+                    bindings.insert(tgt.clone(), c);
+                }
+                Op::DivRem64(tgt, a, b) => {
+                    let a = bindings.get(a)?;
+                    let b = bindings.get(b)?;
+                    let (c1, c2) = if let (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) = (a, b) {
+                        if g == &F::ZERO {
+                            bail!("Can't divide by zero")
+                        }
+                        let f = f.to_u64_unchecked();
+                        let g = g.to_u64_unchecked();
+                        let c1 = Ptr::Leaf(Tag::Expr(Num), F::from_u64(f / g));
+                        let c2 = Ptr::Leaf(Tag::Expr(Num), F::from_u64(f % g));
+                        (c1, c2)
+                    } else {
+                        bail!("`DivRem64` only works on leaves")
+                    };
+                    bindings.insert(tgt[0].clone(), c1);
+                    bindings.insert(tgt[1].clone(), c2);
                 }
                 Op::Emit(a) => {
                     let a = bindings.get(a)?;
@@ -154,14 +232,18 @@ impl Block {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
                     let tgt_ptr = store.intern_2_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1]);
                     bindings.insert(img.clone(), tgt_ptr);
-                    preimages.hash2_ptrs.push(Some(preimg_ptrs));
+                    preimages
+                        .hash2
+                        .push(Some(PreimageData::PtrVec(preimg_ptrs)));
                 }
                 Op::Hash3(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
                     let tgt_ptr =
                         store.intern_3_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]);
                     bindings.insert(img.clone(), tgt_ptr);
-                    preimages.hash3_ptrs.push(Some(preimg_ptrs));
+                    preimages
+                        .hash3
+                        .push(Some(PreimageData::PtrVec(preimg_ptrs)));
                 }
                 Op::Hash4(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
@@ -173,7 +255,9 @@ impl Block {
                         preimg_ptrs[3],
                     );
                     bindings.insert(img.clone(), tgt_ptr);
-                    preimages.hash4_ptrs.push(Some(preimg_ptrs));
+                    preimages
+                        .hash4
+                        .push(Some(PreimageData::PtrVec(preimg_ptrs)));
                 }
                 Op::Unhash2(preimg, img) => {
                     let img_ptr = bindings.get(img)?;
@@ -187,7 +271,9 @@ impl Block {
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert(var.clone(), *ptr);
                     }
-                    preimages.hash2_ptrs.push(Some(preimg_ptrs.to_vec()));
+                    preimages
+                        .hash2
+                        .push(Some(PreimageData::PtrVec(preimg_ptrs.to_vec())));
                 }
                 Op::Unhash3(preimg, img) => {
                     let img_ptr = bindings.get(img)?;
@@ -201,7 +287,9 @@ impl Block {
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert(var.clone(), *ptr);
                     }
-                    preimages.hash3_ptrs.push(Some(preimg_ptrs.to_vec()));
+                    preimages
+                        .hash3
+                        .push(Some(PreimageData::PtrVec(preimg_ptrs.to_vec())));
                 }
                 Op::Unhash4(preimg, img) => {
                     let img_ptr = bindings.get(img)?;
@@ -215,7 +303,9 @@ impl Block {
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert(var.clone(), *ptr);
                     }
-                    preimages.hash4_ptrs.push(Some(preimg_ptrs.to_vec()));
+                    preimages
+                        .hash4
+                        .push(Some(PreimageData::PtrVec(preimg_ptrs.to_vec())));
                 }
                 Op::Hide(tgt, sec, src) => {
                     let src_ptr = bindings.get(src)?;
@@ -229,20 +319,24 @@ impl Block {
                             .hash3(&[*secret, z_ptr.tag.to_field(), z_ptr.hash]);
                     let tgt_ptr = Ptr::comm(hash);
                     store.comms.insert(FWrap::<F>(hash), (*secret, *src_ptr));
+                    preimages
+                        .commitment
+                        .push(Some(PreimageData::FPtr(*secret, *src_ptr)));
                     bindings.insert(tgt.clone(), tgt_ptr);
                 }
-                Op::Open(tgt_secret, tgt_ptr, comm_or_num) => match bindings.get(comm_or_num)? {
-                    Ptr::Leaf(Tag::Expr(Num), hash) | Ptr::Leaf(Tag::Expr(Comm), hash) => {
-                        let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
-                            bail!("No committed data for hash {}", &hash.hex_digits())
-                        };
-                        bindings.insert(tgt_ptr.clone(), *ptr);
-                        bindings.insert(tgt_secret.clone(), Ptr::Leaf(Tag::Expr(Num), *secret));
-                    }
-                    _ => {
-                        bail!("{comm_or_num} is not a num/comm pointer")
-                    }
-                },
+                Op::Open(tgt_secret, tgt_ptr, comm) => {
+                    let Ptr::Leaf(Tag::Expr(Comm), hash) = bindings.get(comm)? else {
+                        bail!("{comm} is not a comm pointer")
+                    };
+                    let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
+                        bail!("No committed data for hash {}", &hash.hex_digits())
+                    };
+                    bindings.insert(tgt_ptr.clone(), *ptr);
+                    bindings.insert(tgt_secret.clone(), Ptr::Leaf(Tag::Expr(Num), *secret));
+                    preimages
+                        .commitment
+                        .push(Some(PreimageData::FPtr(*secret, *ptr)))
+                }
             }
         }
         match &self.ctrl {
@@ -333,26 +427,37 @@ impl Func {
 
         // We must fill any unused slots with `None` values so we save
         // the initial size of preimages, which might not be zero
-        let hash2_init = preimages.hash2_ptrs.len();
-        let hash3_init = preimages.hash3_ptrs.len();
-        let hash4_init = preimages.hash4_ptrs.len();
+        let hash2_init = preimages.hash2.len();
+        let hash3_init = preimages.hash3.len();
+        let hash4_init = preimages.hash4.len();
+        let commitment_init = preimages.commitment.len();
+        let less_than_init = preimages.less_than.len();
 
         let mut res = self
             .body
             .run(args, store, bindings, preimages, Path::default(), emitted)?;
         let preimages = &mut res.0.preimages;
 
-        let hash2_used = preimages.hash2_ptrs.len() - hash2_init;
-        let hash3_used = preimages.hash3_ptrs.len() - hash3_init;
-        let hash4_used = preimages.hash4_ptrs.len() - hash4_init;
+        let hash2_used = preimages.hash2.len() - hash2_init;
+        let hash3_used = preimages.hash3.len() - hash3_init;
+        let hash4_used = preimages.hash4.len() - hash4_init;
+        let commitment_used = preimages.commitment.len() - commitment_init;
+        let less_than_used = preimages.less_than.len() - less_than_init;
+
         for _ in hash2_used..self.slot.hash2 {
-            preimages.hash2_ptrs.push(None);
+            preimages.hash2.push(None);
         }
         for _ in hash3_used..self.slot.hash3 {
-            preimages.hash3_ptrs.push(None);
+            preimages.hash3.push(None);
         }
         for _ in hash4_used..self.slot.hash4 {
-            preimages.hash4_ptrs.push(None);
+            preimages.hash4.push(None);
+        }
+        for _ in commitment_used..self.slot.commitment {
+            preimages.commitment.push(None);
+        }
+        for _ in less_than_used..self.slot.less_than {
+            preimages.less_than.push(None);
         }
 
         Ok(res)

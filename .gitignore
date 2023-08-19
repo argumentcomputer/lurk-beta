@@ -3,6 +3,7 @@ result*
 /scratch
 /.direnv
 *.commit
+Cargo.lock
 
 # Configurations for VSCode
 .vscode/

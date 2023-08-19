@@ -16,18 +16,18 @@ use super::Tag;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Ptr<F: LurkField> {
     Leaf(Tag, F),
-    Tree2(Tag, usize),
-    Tree3(Tag, usize),
-    Tree4(Tag, usize),
+    Tuple2(Tag, usize),
+    Tuple3(Tag, usize),
+    Tuple4(Tag, usize),
 }
 
 impl<F: LurkField> std::hash::Hash for Ptr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
             Ptr::Leaf(tag, f) => (0, tag, f.to_repr().as_ref()).hash(state),
-            Ptr::Tree2(tag, x) => (1, tag, x).hash(state),
-            Ptr::Tree3(tag, x) => (2, tag, x).hash(state),
-            Ptr::Tree4(tag, x) => (3, tag, x).hash(state),
+            Ptr::Tuple2(tag, x) => (1, tag, x).hash(state),
+            Ptr::Tuple3(tag, x) => (2, tag, x).hash(state),
+            Ptr::Tuple4(tag, x) => (3, tag, x).hash(state),
         }
     }
 }
@@ -35,7 +35,9 @@ impl<F: LurkField> std::hash::Hash for Ptr<F> {
 impl<F: LurkField> Ptr<F> {
     pub fn tag(&self) -> &Tag {
         match self {
-            Ptr::Leaf(tag, _) | Ptr::Tree2(tag, _) | Ptr::Tree3(tag, _) | Ptr::Tree4(tag, _) => tag,
+            Ptr::Leaf(tag, _) | Ptr::Tuple2(tag, _) | Ptr::Tuple3(tag, _) | Ptr::Tuple4(tag, _) => {
+                tag
+            }
         }
     }
 
@@ -74,9 +76,9 @@ impl<F: LurkField> Ptr<F> {
     pub fn cast(&self, tag: Tag) -> Self {
         match self {
             Ptr::Leaf(_, f) => Ptr::Leaf(tag, *f),
-            Ptr::Tree2(_, x) => Ptr::Tree2(tag, *x),
-            Ptr::Tree3(_, x) => Ptr::Tree3(tag, *x),
-            Ptr::Tree4(_, x) => Ptr::Tree4(tag, *x),
+            Ptr::Tuple2(_, x) => Ptr::Tuple2(tag, *x),
+            Ptr::Tuple3(_, x) => Ptr::Tuple3(tag, *x),
+            Ptr::Tuple4(_, x) => Ptr::Tuple4(tag, *x),
         }
     }
 
@@ -91,7 +93,7 @@ impl<F: LurkField> Ptr<F> {
     #[inline]
     pub fn get_index2(&self) -> Option<usize> {
         match self {
-            Ptr::Tree2(_, x) => Some(*x),
+            Ptr::Tuple2(_, x) => Some(*x),
             _ => None,
         }
     }
@@ -99,7 +101,7 @@ impl<F: LurkField> Ptr<F> {
     #[inline]
     pub fn get_index3(&self) -> Option<usize> {
         match self {
-            Ptr::Tree3(_, x) => Some(*x),
+            Ptr::Tuple3(_, x) => Some(*x),
             _ => None,
         }
     }
@@ -107,7 +109,7 @@ impl<F: LurkField> Ptr<F> {
     #[inline]
     pub fn get_index4(&self) -> Option<usize> {
         match self {
-            Ptr::Tree4(_, x) => Some(*x),
+            Ptr::Tuple4(_, x) => Some(*x),
             _ => None,
         }
     }
@@ -133,9 +135,9 @@ pub struct ZPtr<F: LurkField> {
 /// This information is saved during hydration and is needed to content-address
 /// a store.
 pub(crate) enum ZChildren<F: LurkField> {
-    Tree2(ZPtr<F>, ZPtr<F>),
-    Tree3(ZPtr<F>, ZPtr<F>, ZPtr<F>),
-    Tree4(ZPtr<F>, ZPtr<F>, ZPtr<F>, ZPtr<F>),
+    Tuple2(ZPtr<F>, ZPtr<F>),
+    Tuple3(ZPtr<F>, ZPtr<F>, ZPtr<F>),
+    Tuple4(ZPtr<F>, ZPtr<F>, ZPtr<F>, ZPtr<F>),
 }
 
 impl<F: LurkField> ZPtr<F> {

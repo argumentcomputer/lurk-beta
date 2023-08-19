@@ -29,7 +29,7 @@ use super::gadgets::constraints::{
     pick, pick_const, sub,
 };
 use crate::circuit::circuit_frame::constraints::{
-    add, allocate_is_negative, boolean_to_num, enforce_pack, linear, mul,
+    add, allocate_is_negative, boolean_to_num, enforce_pack, enforce_product_and_sum, mul,
 };
 use crate::circuit::gadgets::hashes::{AllocatedConsWitness, AllocatedContWitness};
 use crate::circuit::ToInputs;
@@ -4908,7 +4908,7 @@ fn to_unsigned_integer_helper<F: LurkField, CS: ConstraintSystem<F>>(
     };
 
     // field element = pow(2, size).q + r
-    linear(
+    enforce_product_and_sum(
         &mut cs,
         || "product(q,pow(2,size)) + r",
         &q_num,
