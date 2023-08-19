@@ -74,6 +74,7 @@ pub(crate) fn enforce_sum<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     );
 }
 
+/// Compute sum and enforce it.
 pub(crate) fn add<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     a: &AllocatedNum<F>,
@@ -149,28 +150,67 @@ pub(crate) fn add_to_lc<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok(v_lc)
 }
 
-// Enforce v is the bit decomposition of num, therefore we have that 0 <= num < 2ˆ(sizeof(v)).
-pub(crate) fn enforce_pack<F: LurkField, CS: ConstraintSystem<F>>(
+/// If premise is true, enforce `a` fits into 64 bits. It shows a non-deterministic
+/// partial bit decomposition in order to constraint correct behavior.
+pub(crate) fn implies_u64<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
+    premise: &Boolean,
+    a: &AllocatedNum<F>,
+) -> Result<(), SynthesisError> {
+    let mut a_u64 = a.get_value().and_then(|a| a.to_u64()).unwrap_or(0);
+
+    let mut bits: Vec<Boolean> = Vec::with_capacity(64);
+    for i in 0..64 {
+        let b = a_u64 & 1;
+        let b_bool = Boolean::Is(AllocatedBit::alloc(
+            &mut cs.namespace(|| format!("b.{i}")),
+            Some(b == 1),
+        )?);
+        bits.push(b_bool);
+
+        a_u64 /= 2;
+    }
+
+    // premise -> a = sum(bits)
+    implies_pack(
+        &mut cs.namespace(|| "u64 bit decomposition check"),
+        premise,
+        &bits,
+        a,
+    )?;
+
+    Ok(())
+}
+
+/// If premise is true, enforce v is the bit decomposition of num, therefore we have that 0 <= num < 2ˆ(sizeof(v)).
+pub(crate) fn implies_pack<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    premise: &Boolean,
     v: &[Boolean],
     num: &AllocatedNum<F>,
 ) -> Result<(), SynthesisError> {
     let mut coeff = F::ONE;
-
-    let mut v_lc = LinearCombination::<F>::zero();
+    let mut pack = LinearCombination::<F>::zero();
     for b in v {
-        v_lc = add_to_lc::<F, CS>(b, v_lc, coeff)?;
+        pack = add_to_lc::<F, CS>(b, pack, coeff)?;
         coeff = coeff.double();
     }
+    let diff = |_| pack - num.get_variable();
+    let premise_lc = |_| premise.lc(CS::one(), F::ONE);
+    let zero = |lc| lc;
 
-    cs.enforce(
-        || "pack",
-        |_| v_lc,
-        |lc| lc + CS::one(),
-        |lc| lc + num.get_variable(),
-    );
+    cs.enforce(|| "pack", diff, premise_lc, zero);
 
     Ok(())
+}
+
+/// Enforce v is the bit decomposition of num, therefore we have that 0 <= num < 2ˆ(sizeof(v)).
+pub(crate) fn enforce_pack<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: CS,
+    v: &[Boolean],
+    num: &AllocatedNum<F>,
+) -> Result<(), SynthesisError> {
+    implies_pack(cs, &Boolean::Constant(true), v, num)
 }
 
 /// Adds a constraint to CS, enforcing a difference relationship between the allocated numbers a, b, and difference.
@@ -197,6 +237,7 @@ pub(crate) fn enforce_difference<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     );
 }
 
+/// Compute difference and enforce it.
 pub(crate) fn sub<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     a: &AllocatedNum<F>,
@@ -220,7 +261,7 @@ pub(crate) fn sub<F: PrimeField, CS: ConstraintSystem<F>>(
 /// a * b + c = num is enforced.
 ///
 /// a * b = num - c
-pub(crate) fn linear<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
+pub(crate) fn enforce_product_and_sum<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     annotation: A,
     a: &AllocatedNum<F>,
@@ -262,6 +303,7 @@ pub(crate) fn product<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     );
 }
 
+/// Compute product and enforce it.
 pub(crate) fn mul<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     a: &AllocatedNum<F>,
@@ -402,7 +444,7 @@ where
     Ok(c)
 }
 
-/// Convert from Boolean to AllocatedNum
+/// Convert from Boolean to AllocatedNum.
 pub(crate) fn boolean_to_num<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     bit: &Boolean,
@@ -429,7 +471,7 @@ where
     Ok(num)
 }
 
-// This could now use alloc_is_zero to avoid duplication.
+/// This could now use alloc_is_zero to avoid duplication.
 pub fn alloc_equal<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     a: &AllocatedNum<F>,
@@ -484,7 +526,7 @@ pub fn alloc_equal<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(Boolean::Is(result))
 }
 
-// Like `alloc_equal`, but with second argument a constant.
+/// Like `alloc_equal`, but with second argument a constant.
 pub(crate) fn alloc_equal_const<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     a: &AllocatedNum<F>,
@@ -539,6 +581,7 @@ pub(crate) fn alloc_equal_const<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(Boolean::Is(result))
 }
 
+/// Allocate a Boolean which is true if and only if `x` is zero.
 pub(crate) fn alloc_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: CS,
     x: &AllocatedNum<F>,
@@ -546,6 +589,7 @@ pub(crate) fn alloc_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     alloc_num_is_zero(cs, &Num::from(x.clone()))
 }
 
+/// Allocate a Boolean which is true if and only if `num` is zero.
 pub(crate) fn alloc_num_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     num: &Num<F>,
@@ -594,6 +638,7 @@ pub(crate) fn alloc_num_is_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(Boolean::Is(result))
 }
 
+/// Variadic or.
 pub(crate) fn or_v<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: CS,
     v: &[&Boolean],
@@ -606,6 +651,7 @@ pub(crate) fn or_v<CS: ConstraintSystem<F>, F: PrimeField>(
     or_v_unchecked_for_optimization(cs, v)
 }
 
+/// Unchecked variadic or.
 pub(crate) fn or_v_unchecked_for_optimization<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     v: &[&Boolean],
@@ -622,6 +668,7 @@ pub(crate) fn or_v_unchecked_for_optimization<CS: ConstraintSystem<F>, F: PrimeF
     Ok(nor.not())
 }
 
+/// Variadic and.
 pub(crate) fn and_v<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     v: &[&Boolean],
@@ -759,6 +806,7 @@ pub(crate) fn implies_equal_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     enforce_implication_lc_zero(cs, premise, |lc| lc + a.get_variable())
 }
 
+/// Use DeMorgan to constrain or.
 pub(crate) fn or<CS: ConstraintSystem<F>, F: PrimeField>(
     mut cs: CS,
     a: &Boolean,
@@ -780,13 +828,13 @@ pub(crate) fn must_be_simple_bit(x: &Boolean) -> AllocatedBit {
     }
 }
 
-// Allocate Boolean for predicate "num is negative".
-// We have that a number is defined to be negative if the parity bit (the
-// least significant bit) is odd after doubling, meaning that the field element
-// (after doubling) is larger than the underlying prime p that defines the
-// field, then a modular reduction must have been carried out, changing the parity that
-// should be even (since we multiplied by 2) to odd. In other words, we define
-// negative numbers to be those field elements that are larger than p/2.
+/// Allocate Boolean for predicate "num is negative".
+/// We have that a number is defined to be negative if the parity bit (the
+/// least significant bit) is odd after doubling, meaning that the field element
+/// (after doubling) is larger than the underlying prime p that defines the
+/// field, then a modular reduction must have been carried out, changing the parity that
+/// should be even (since we multiplied by 2) to odd. In other words, we define
+/// negative numbers to be those field elements that are larger than p/2.
 pub(crate) fn allocate_is_negative<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     num: &AllocatedNum<F>,
@@ -1278,5 +1326,36 @@ mod tests {
         .expect("enforce_implication_lc failed");
 
         assert!(cs.is_satisfied());
+    }
+
+    #[test]
+    fn test_implies_u64_negative_edge_case() {
+        let mut cs = TestConstraintSystem::<Fr>::new();
+
+        let alloc_num = AllocatedNum::alloc(&mut cs.namespace(|| "num"), || {
+            // Edge case: 2ˆ64 = 18446744073709551616
+            Ok(Fr::from_str_vartime("18446744073709551616").unwrap())
+        })
+        .unwrap();
+
+        let t = Boolean::Constant(true);
+        implies_u64(&mut cs.namespace(|| "enforce u64"), &t, &alloc_num).unwrap();
+        assert!(!cs.is_satisfied());
+    }
+
+    proptest! {
+        #[test]
+        fn test_implies_u64(f in any::<FWrap<Fr>>()) {
+            let mut cs = TestConstraintSystem::<Fr>::new();
+
+            let num = AllocatedNum::alloc(cs.namespace(|| "num"), || Ok(f.0)).unwrap();
+
+            let t = Boolean::Constant(true);
+            implies_u64(&mut cs.namespace(|| "enforce u64"), &t, &num).unwrap();
+
+            let f_u64_roundtrip: Fr = f.0.to_u64_unchecked().into();
+            let was_u64 = f_u64_roundtrip == f.0;
+            prop_assert_eq!(was_u64, cs.is_satisfied());
+        }
     }
 }

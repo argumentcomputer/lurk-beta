@@ -21,8 +21,8 @@ use super::pointers::{Ptr, ZChildren, ZPtr};
 /// vesatile data structure for many parts of Lurk's data pipeline.
 ///
 /// It holds Lurk data structured as trees of `Ptr`s (or `ZPtr`s). When a `Ptr`
-/// has children`, we store them in the `IndexSet`s available: `ptrs2`, `ptrs3`
-/// or `ptrs4`. These data structures speed up LEM interpretation because lookups
+/// has children`, we store them in the `IndexSet`s available: `tuple2`, `tuple3`
+/// or `tuple4`. These data structures speed up LEM interpretation because lookups
 /// by indices are fast.
 ///
 /// The `Store` also provides an infra to speed up interning strings and symbols.
@@ -38,9 +38,9 @@ use super::pointers::{Ptr, ZChildren, ZPtr};
 /// the resulting commitment hash.
 #[derive(Default)]
 pub struct Store<F: LurkField> {
-    ptrs2: IndexSet<(Ptr<F>, Ptr<F>)>,
-    ptrs3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
-    ptrs4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
+    tuple2: IndexSet<(Ptr<F>, Ptr<F>)>,
+    tuple3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
+    tuple4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
 
     str_cache: HashMap<String, Ptr<F>>,
     ptr_str_cache: HashMap<Ptr<F>, String>,
@@ -58,8 +58,8 @@ pub struct Store<F: LurkField> {
 impl<F: LurkField> Store<F> {
     /// Creates a `Ptr` that's a parent of two children
     pub fn intern_2_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>) -> Ptr<F> {
-        let (idx, inserted) = self.ptrs2.insert_full((a, b));
-        let ptr = Ptr::Tree2(tag, idx);
+        let (idx, inserted) = self.tuple2.insert_full((a, b));
+        let ptr = Ptr::Tuple2(tag, idx);
         if inserted {
             // this is for `hydrate_z_cache`
             self.dehydrated.push(ptr);
@@ -72,13 +72,13 @@ impl<F: LurkField> Store<F> {
     /// `Store` (TODO).
     #[inline]
     pub fn intern_2_ptrs_not_dehydrated(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>) -> Ptr<F> {
-        Ptr::Tree2(tag, self.ptrs2.insert_full((a, b)).0)
+        Ptr::Tuple2(tag, self.tuple2.insert_full((a, b)).0)
     }
 
     /// Creates a `Ptr` that's a parent of three children
     pub fn intern_3_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>) -> Ptr<F> {
-        let (idx, inserted) = self.ptrs3.insert_full((a, b, c));
-        let ptr = Ptr::Tree3(tag, idx);
+        let (idx, inserted) = self.tuple3.insert_full((a, b, c));
+        let ptr = Ptr::Tuple3(tag, idx);
         if inserted {
             // this is for `hydrate_z_cache`
             self.dehydrated.push(ptr);
@@ -97,7 +97,7 @@ impl<F: LurkField> Store<F> {
         b: Ptr<F>,
         c: Ptr<F>,
     ) -> Ptr<F> {
-        Ptr::Tree3(tag, self.ptrs3.insert_full((a, b, c)).0)
+        Ptr::Tuple3(tag, self.tuple3.insert_full((a, b, c)).0)
     }
 
     /// Creates a `Ptr` that's a parent of four children
@@ -109,8 +109,8 @@ impl<F: LurkField> Store<F> {
         c: Ptr<F>,
         d: Ptr<F>,
     ) -> Ptr<F> {
-        let (idx, inserted) = self.ptrs4.insert_full((a, b, c, d));
-        let ptr = Ptr::Tree4(tag, idx);
+        let (idx, inserted) = self.tuple4.insert_full((a, b, c, d));
+        let ptr = Ptr::Tuple4(tag, idx);
         if inserted {
             // this is for `hydrate_z_cache`
             self.dehydrated.push(ptr);
@@ -130,22 +130,22 @@ impl<F: LurkField> Store<F> {
         c: Ptr<F>,
         d: Ptr<F>,
     ) -> Ptr<F> {
-        Ptr::Tree4(tag, self.ptrs4.insert_full((a, b, c, d)).0)
+        Ptr::Tuple4(tag, self.tuple4.insert_full((a, b, c, d)).0)
     }
 
     #[inline]
     pub fn fetch_2_ptrs(&self, idx: usize) -> Option<&(Ptr<F>, Ptr<F>)> {
-        self.ptrs2.get_index(idx)
+        self.tuple2.get_index(idx)
     }
 
     #[inline]
     pub fn fetch_3_ptrs(&self, idx: usize) -> Option<&(Ptr<F>, Ptr<F>, Ptr<F>)> {
-        self.ptrs3.get_index(idx)
+        self.tuple3.get_index(idx)
     }
 
     #[inline]
     pub fn fetch_4_ptrs(&self, idx: usize) -> Option<&(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)> {
-        self.ptrs4.get_index(idx)
+        self.tuple4.get_index(idx)
     }
 
     /// Interns a string recursively
@@ -286,11 +286,11 @@ impl<F: LurkField> Store<F> {
                 tag: *tag,
                 hash: *x,
             }),
-            Ptr::Tree2(tag, idx) => match self.z_cache.get(ptr) {
+            Ptr::Tuple2(tag, idx) => match self.z_cache.get(ptr) {
                 Some(z_ptr) => Ok(*z_ptr),
                 None => {
-                    let Some((a, b)) = self.ptrs2.get_index(*idx) else {
-                        bail!("Index {idx} not found on ptrs2")
+                    let Some((a, b)) = self.tuple2.get_index(*idx) else {
+                        bail!("Index {idx} not found on tuple2")
                     };
                     let a = self.hash_ptr(a)?;
                     let b = self.hash_ptr(b)?;
@@ -303,16 +303,16 @@ impl<F: LurkField> Store<F> {
                             b.hash,
                         ]),
                     };
-                    self.z_dag.insert(z_ptr, ZChildren::Tree2(a, b));
+                    self.z_dag.insert(z_ptr, ZChildren::Tuple2(a, b));
                     self.z_cache.insert(*ptr, z_ptr);
                     Ok(z_ptr)
                 }
             },
-            Ptr::Tree3(tag, idx) => match self.z_cache.get(ptr) {
+            Ptr::Tuple3(tag, idx) => match self.z_cache.get(ptr) {
                 Some(z_ptr) => Ok(*z_ptr),
                 None => {
-                    let Some((a, b, c)) = self.ptrs3.get_index(*idx) else {
-                        bail!("Index {idx} not found on ptrs3")
+                    let Some((a, b, c)) = self.tuple3.get_index(*idx) else {
+                        bail!("Index {idx} not found on tuple3")
                     };
                     let a = self.hash_ptr(a)?;
                     let b = self.hash_ptr(b)?;
@@ -328,16 +328,16 @@ impl<F: LurkField> Store<F> {
                             c.hash,
                         ]),
                     };
-                    self.z_dag.insert(z_ptr, ZChildren::Tree3(a, b, c));
+                    self.z_dag.insert(z_ptr, ZChildren::Tuple3(a, b, c));
                     self.z_cache.insert(*ptr, z_ptr);
                     Ok(z_ptr)
                 }
             },
-            Ptr::Tree4(tag, idx) => match self.z_cache.get(ptr) {
+            Ptr::Tuple4(tag, idx) => match self.z_cache.get(ptr) {
                 Some(z_ptr) => Ok(*z_ptr),
                 None => {
-                    let Some((a, b, c, d)) = self.ptrs4.get_index(*idx) else {
-                        bail!("Index {idx} not found on ptrs4")
+                    let Some((a, b, c, d)) = self.tuple4.get_index(*idx) else {
+                        bail!("Index {idx} not found on tuple4")
                     };
                     let a = self.hash_ptr(a)?;
                     let b = self.hash_ptr(b)?;
@@ -356,7 +356,7 @@ impl<F: LurkField> Store<F> {
                             d.hash,
                         ]),
                     };
-                    self.z_dag.insert(z_ptr, ZChildren::Tree4(a, b, c, d));
+                    self.z_dag.insert(z_ptr, ZChildren::Tuple4(a, b, c, d));
                     self.z_cache.insert(*ptr, z_ptr);
                     Ok(z_ptr)
                 }
@@ -375,7 +375,7 @@ impl<F: LurkField> Store<F> {
 }
 
 impl<F: LurkField> Ptr<F> {
-    pub fn to_string(self, store: &Store<F>) -> String {
+    pub fn dbg_display(self, store: &Store<F>) -> String {
         if let Some(s) = store.fetch_string(&self) {
             return format!("\"{}\"", s);
         }
@@ -390,34 +390,34 @@ impl<F: LurkField> Ptr<F> {
                     format!("{}{:?}", tag, f)
                 }
             }
-            Ptr::Tree2(tag, x) => {
+            Ptr::Tuple2(tag, x) => {
                 let (p1, p2) = store.fetch_2_ptrs(x).unwrap();
                 format!(
                     "({} {} {})",
                     tag,
-                    (*p1).to_string(store),
-                    (*p2).to_string(store)
+                    (*p1).dbg_display(store),
+                    (*p2).dbg_display(store)
                 )
             }
-            Ptr::Tree3(tag, x) => {
+            Ptr::Tuple3(tag, x) => {
                 let (p1, p2, p3) = store.fetch_3_ptrs(x).unwrap();
                 format!(
                     "({} {} {} {})",
                     tag,
-                    (*p1).to_string(store),
-                    (*p2).to_string(store),
-                    (*p3).to_string(store)
+                    (*p1).dbg_display(store),
+                    (*p2).dbg_display(store),
+                    (*p3).dbg_display(store)
                 )
             }
-            Ptr::Tree4(tag, x) => {
+            Ptr::Tuple4(tag, x) => {
                 let (p1, p2, p3, p4) = store.fetch_4_ptrs(x).unwrap();
                 format!(
                     "({} {} {} {} {})",
                     tag,
-                    (*p1).to_string(store),
-                    (*p2).to_string(store),
-                    (*p3).to_string(store),
-                    (*p4).to_string(store)
+                    (*p1).dbg_display(store),
+                    (*p2).dbg_display(store),
+                    (*p3).dbg_display(store),
+                    (*p4).dbg_display(store)
                 )
             }
         }

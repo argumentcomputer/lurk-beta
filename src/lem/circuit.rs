@@ -25,7 +25,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 use anyhow::{Context, Result};
 use bellpepper_core::{
-    ConstraintSystem,
+    ConstraintSystem, SynthesisError,
     {
         boolean::{AllocatedBit, Boolean},
         num::AllocatedNum,
@@ -34,18 +34,21 @@ use bellpepper_core::{
 
 use crate::circuit::gadgets::{
     constraints::{
-        add, alloc_equal, alloc_equal_const, and, enforce_selector_with_premise, implies_equal,
-        mul, sub,
+        add, alloc_equal, alloc_equal_const, alloc_is_zero, allocate_is_negative, and,
+        boolean_to_num, div, enforce_pack, enforce_product_and_sum, enforce_selector_with_premise,
+        implies_equal, implies_u64, mul, pick, sub,
     },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
 };
 
-use crate::field::{FWrap, LurkField};
-use crate::tag::ExprTag::*;
+use crate::{
+    field::{FWrap, LurkField},
+    tag::ExprTag::*,
+};
 
 use super::{
-    interpreter::Frame,
+    interpreter::{Frame, PreimageData},
     pointers::{Ptr, ZPtr},
     slot::*,
     store::Store,
@@ -174,7 +177,7 @@ impl Func {
         preallocated_preimg: Vec<AllocatedNum<F>>,
         store: &mut Store<F>,
     ) -> Result<AllocatedNum<F>> {
-        let cs = &mut cs.namespace(|| format!("poseidon for slot {slot}"));
+        let cs = &mut cs.namespace(|| format!("image for slot {slot}"));
         let preallocated_img = {
             match slot.typ {
                 SlotType::Hash2 => {
@@ -186,6 +189,26 @@ impl Func {
                 SlotType::Hash4 => {
                     hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c8())?
                 }
+                SlotType::Commitment => {
+                    hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c3())?
+                }
+                SlotType::LessThan => {
+                    let a_num = &preallocated_preimg[0];
+                    let b_num = &preallocated_preimg[1];
+                    let diff = sub(
+                        &mut cs.namespace(|| format!("sub for slot {slot}")),
+                        a_num,
+                        b_num,
+                    )?;
+                    let diff_is_negative = allocate_is_negative(
+                        &mut cs.namespace(|| format!("is_negative for slot {slot}")),
+                        &diff,
+                    )?;
+                    boolean_to_num(
+                        &mut cs.namespace(|| format!("boolean_to_num for slot {slot}")),
+                        &diff_is_negative,
+                    )?
+                }
             }
         };
         Ok(preallocated_img)
@@ -194,13 +217,13 @@ impl Func {
     /// Allocates unconstrained slots
     fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        preimgs: &[Option<Vec<Ptr<F>>>],
+        preimg_data: &[Option<PreimageData<F>>],
         slot_type: SlotType,
         num_slots: usize,
         store: &mut Store<F>,
     ) -> Result<Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>> {
         assert!(
-            preimgs.len() == num_slots,
+            preimg_data.len() == num_slots,
             "collected preimages not equal to the number of available slots"
         );
 
@@ -208,38 +231,69 @@ impl Func {
 
         // We must perform the allocations for the slots containing data collected
         // by the interpreter. The `None` cases must be filled with dummy values
-        for (slot_idx, maybe_preimg) in preimgs.iter().enumerate() {
-            if let Some(preimg) = maybe_preimg {
+        for (slot_idx, maybe_preimg_data) in preimg_data.iter().enumerate() {
+            if let Some(preimg_data) = maybe_preimg_data {
                 let slot = Slot {
                     idx: slot_idx,
                     typ: slot_type,
                 };
+
                 // Allocate the preimage because the image depends on it
-                let mut preallocated_preimg = Vec::with_capacity(2 * preimg.len());
+                let mut preallocated_preimg = Vec::with_capacity(slot_type.preimg_size());
 
-                let mut component_idx = 0;
-                for ptr in preimg {
-                    let z_ptr = store.hash_ptr(ptr)?;
+                match preimg_data {
+                    PreimageData::PtrVec(ptr_vec) => {
+                        let mut component_idx = 0;
+                        for ptr in ptr_vec {
+                            let z_ptr = store.hash_ptr(ptr)?;
 
-                    // allocate pointer tag
-                    preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
-                        cs,
-                        &slot,
-                        component_idx,
-                        z_ptr.tag.to_field(),
-                    )?);
+                            // allocate pointer tag
+                            preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
+                                cs,
+                                &slot,
+                                component_idx,
+                                z_ptr.tag.to_field(),
+                            )?);
 
-                    component_idx += 1;
+                            component_idx += 1;
 
-                    // allocate pointer hash
-                    preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
-                        cs,
-                        &slot,
-                        component_idx,
-                        z_ptr.hash,
-                    )?);
+                            // allocate pointer hash
+                            preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
+                                cs,
+                                &slot,
+                                component_idx,
+                                z_ptr.hash,
+                            )?);
 
-                    component_idx += 1;
+                            component_idx += 1;
+                        }
+                    }
+                    PreimageData::FPtr(f, ptr) => {
+                        let z_ptr = store.hash_ptr(ptr)?;
+                        // allocate first component
+                        preallocated_preimg
+                            .push(Self::allocate_preimg_component_for_slot(cs, &slot, 0, *f)?);
+                        // allocate second component
+                        preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
+                            cs,
+                            &slot,
+                            1,
+                            z_ptr.tag.to_field(),
+                        )?);
+                        // allocate third component
+                        preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
+                            cs, &slot, 2, z_ptr.hash,
+                        )?);
+                    }
+                    PreimageData::FPair(a, b) => {
+                        // allocate first component
+                        preallocated_preimg
+                            .push(Self::allocate_preimg_component_for_slot(cs, &slot, 0, *a)?);
+
+                        // allocate second component
+                        preallocated_preimg
+                            .push(Self::allocate_preimg_component_for_slot(cs, &slot, 1, *b)?);
+                    }
                 }
 
                 // Allocate the image by calling the arithmetic function according
@@ -296,7 +350,7 @@ impl Func {
         // that's why they are filled with dummies
         let preallocated_hash2_slots = Func::allocate_slots(
             cs,
-            &frame.preimages.hash2_ptrs,
+            &frame.preimages.hash2,
             SlotType::Hash2,
             self.slot.hash2,
             store,
@@ -304,7 +358,7 @@ impl Func {
 
         let preallocated_hash3_slots = Func::allocate_slots(
             cs,
-            &frame.preimages.hash3_ptrs,
+            &frame.preimages.hash3,
             SlotType::Hash3,
             self.slot.hash3,
             store,
@@ -312,9 +366,25 @@ impl Func {
 
         let preallocated_hash4_slots = Func::allocate_slots(
             cs,
-            &frame.preimages.hash4_ptrs,
+            &frame.preimages.hash4,
             SlotType::Hash4,
             self.slot.hash4,
+            store,
+        )?;
+
+        let preallocated_commitment_slots = Func::allocate_slots(
+            cs,
+            &frame.preimages.commitment,
+            SlotType::Commitment,
+            self.slot.commitment,
+            store,
+        )?;
+
+        let preallocated_less_than_slots = Func::allocate_slots(
+            cs,
+            &frame.preimages.less_than,
+            SlotType::LessThan,
+            self.slot.less_than,
             store,
         )?;
 
@@ -324,6 +394,8 @@ impl Func {
             preallocated_hash2_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash3_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash4_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
+            preallocated_commitment_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
+            preallocated_less_than_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             call_outputs: VecDeque<Vec<Ptr<F>>>,
             call_count: usize,
         }
@@ -354,6 +426,7 @@ impl Func {
                             SlotType::Hash4 => {
                                 &g.preallocated_hash4_slots[next_slot.consume_hash4()]
                             }
+                            _ => panic!("Invalid slot type for hash_helper macro"),
                         };
 
                         // For each component of the preimage, add implication constraints
@@ -363,10 +436,7 @@ impl Func {
                             let ptr_idx = 2 * i;
                             implies_equal(
                                 &mut cs.namespace(|| {
-                                    format!(
-                                        "implies equal for {var}'s tag (LEMOP {:?}, pos {i})",
-                                        &op
-                                    )
+                                    format!("implies equal for {var}'s tag (OP {:?}, pos {i})", &op)
                                 }),
                                 not_dummy,
                                 allocated_ptr.tag(),
@@ -375,7 +445,7 @@ impl Func {
                             implies_equal(
                                 &mut cs.namespace(|| {
                                     format!(
-                                        "implies equal for {var}'s hash (LEMOP {:?}, pos {i})",
+                                        "implies equal for {var}'s hash (OP {:?}, pos {i})",
                                         &op
                                     )
                                 }),
@@ -410,12 +480,13 @@ impl Func {
                             SlotType::Hash4 => {
                                 &g.preallocated_hash4_slots[next_slot.consume_hash4()]
                             }
+                            _ => panic!("Invalid slot type for unhash_helper macro"),
                         };
 
                         // Add the implication constraint for the image
                         implies_equal(
                             &mut cs.namespace(|| {
-                                format!("implies equal for {}'s hash (LEMOP {:?})", $img, &op)
+                                format!("implies equal for {}'s hash (OP {:?})", $img, &op)
                             }),
                             not_dummy,
                             allocated_img.hash(),
@@ -513,10 +584,35 @@ impl Func {
                         let allocated_ptr = AllocatedPtr::from_parts(tag, src.hash().clone());
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
+                    Op::EqTag(tgt, a, b) => {
+                        let a = bound_allocations.get(a)?;
+                        let b = bound_allocations.get(b)?;
+                        let a_num = a.tag();
+                        let b_num = b.tag();
+                        let eq = alloc_equal(&mut cs.namespace(|| "equal_tag"), a_num, b_num)?;
+                        let c_num = boolean_to_num(&mut cs.namespace(|| "equal_tag.to_num"), &eq)?;
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let c = AllocatedPtr::from_parts(tag, c_num);
+                        bound_allocations.insert(tgt.clone(), c);
+                    }
+                    Op::EqVal(tgt, a, b) => {
+                        let a = bound_allocations.get(a)?;
+                        let b = bound_allocations.get(b)?;
+                        let a_num = a.hash();
+                        let b_num = b.hash();
+                        let eq = alloc_equal(&mut cs.namespace(|| "equal_val"), a_num, b_num)?;
+                        let c_num = boolean_to_num(&mut cs.namespace(|| "equal_val.to_num"), &eq)?;
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let c = AllocatedPtr::from_parts(tag, c_num);
+                        bound_allocations.insert(tgt.clone(), c);
+                    }
                     Op::Add(tgt, a, b) => {
                         let a = bound_allocations.get(a)?;
                         let b = bound_allocations.get(b)?;
-                        // TODO check that the tags are correct
                         let a_num = a.hash();
                         let b_num = b.hash();
                         let c_num = add(&mut cs.namespace(|| "add"), a_num, b_num)?;
@@ -529,7 +625,6 @@ impl Func {
                     Op::Sub(tgt, a, b) => {
                         let a = bound_allocations.get(a)?;
                         let b = bound_allocations.get(b)?;
-                        // TODO check that the tags are correct
                         let a_num = a.hash();
                         let b_num = b.hash();
                         let c_num = sub(&mut cs.namespace(|| "sub"), a_num, b_num)?;
@@ -542,7 +637,6 @@ impl Func {
                     Op::Mul(tgt, a, b) => {
                         let a = bound_allocations.get(a)?;
                         let b = bound_allocations.get(b)?;
-                        // TODO check that the tags are correct
                         let a_num = a.hash();
                         let b_num = b.hash();
                         let c_num = mul(&mut cs.namespace(|| "mul"), a_num, b_num)?;
@@ -552,26 +646,193 @@ impl Func {
                         let c = AllocatedPtr::from_parts(tag, c_num);
                         bound_allocations.insert(tgt.clone(), c);
                     }
-                    Op::Div(_tgt, _a, _b) => {
-                        // TODO
+                    Op::Div(tgt, a, b) => {
+                        let a = bound_allocations.get(a)?;
+                        let b = bound_allocations.get(b)?;
+                        let a_num = a.hash();
+                        let b_num = b.hash();
+
+                        let b_is_zero = &alloc_is_zero(&mut cs.namespace(|| "b_is_zero"), b_num)?;
+                        let one = g.global_allocator.get_or_alloc_const(cs, F::ONE)?;
+
+                        let divisor = pick(
+                            &mut cs.namespace(|| "maybe-dummy divisor"),
+                            b_is_zero,
+                            &one,
+                            b_num,
+                        )?;
+
+                        let quotient = div(&mut cs.namespace(|| "quotient"), a_num, &divisor)?;
+
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let c = AllocatedPtr::from_parts(tag, quotient);
+                        bound_allocations.insert(tgt.clone(), c);
+                    }
+                    Op::Lt(tgt, a, b) => {
+                        let a = bound_allocations.get(a)?;
+                        let b = bound_allocations.get(b)?;
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let (preallocated_preimg, lt) =
+                            &g.preallocated_less_than_slots[next_slot.consume_less_than()];
+                        for (i, n) in [a.hash(), b.hash()].into_iter().enumerate() {
+                            implies_equal(
+                                &mut cs.namespace(|| {
+                                    format!("implies equal for component {i} (OP {:?})", &op)
+                                }),
+                                not_dummy,
+                                n,
+                                &preallocated_preimg[i],
+                            )?;
+                        }
+                        let c = AllocatedPtr::from_parts(tag, lt.clone());
+                        bound_allocations.insert(tgt.clone(), c);
+                    }
+                    Op::Trunc(tgt, a, n) => {
+                        assert!(*n <= 64);
+                        let a = bound_allocations.get(a)?;
+                        let mut trunc_bits = a
+                            .hash()
+                            .to_bits_le_strict(&mut cs.namespace(|| "to_bits_le"))?;
+                        trunc_bits.truncate(*n as usize);
+                        let trunc = AllocatedNum::alloc(cs.namespace(|| "trunc"), || {
+                            let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
+                            a.hash()
+                                .get_value()
+                                .map(|a| F::from_u64(a.to_u64_unchecked() & b))
+                                .ok_or(SynthesisError::AssignmentMissing)
+                        })?;
+                        enforce_pack(&mut cs.namespace(|| "enforce_trunc"), &trunc_bits, &trunc)?;
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let c = AllocatedPtr::from_parts(tag, trunc);
+                        bound_allocations.insert(tgt.clone(), c);
+                    }
+                    Op::DivRem64(tgt, a, b) => {
+                        let a = bound_allocations.get(a)?.hash();
+                        let b = bound_allocations.get(b)?.hash();
+                        let div_rem = a.get_value().and_then(|a| {
+                            b.get_value().map(|b| {
+                                if not_dummy.get_value().unwrap() {
+                                    let a = a.to_u64_unchecked();
+                                    let b = b.to_u64_unchecked();
+                                    (F::from_u64(a / b), F::from_u64(a % b))
+                                } else {
+                                    (F::ZERO, a)
+                                }
+                            })
+                        });
+                        let div =
+                            AllocatedNum::alloc(cs.namespace(|| "div"), || Ok(div_rem.unwrap().0))?;
+                        let rem =
+                            AllocatedNum::alloc(cs.namespace(|| "rem"), || Ok(div_rem.unwrap().1))?;
+
+                        let diff = sub(cs.namespace(|| "diff for slot {slot}"), b, &rem)?;
+                        implies_u64(cs.namespace(|| "div_u64"), not_dummy, &div)?;
+                        implies_u64(cs.namespace(|| "rem_u64"), not_dummy, &rem)?;
+                        implies_u64(cs.namespace(|| "diff_u64"), not_dummy, &diff)?;
+
+                        enforce_product_and_sum(
+                            cs,
+                            || "enforce a = b * div + rem",
+                            b,
+                            &div,
+                            &rem,
+                            a,
+                        );
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let div_ptr = AllocatedPtr::from_parts(tag.clone(), div);
+                        let rem_ptr = AllocatedPtr::from_parts(tag, rem);
+                        bound_allocations.insert(tgt[0].clone(), div_ptr);
+                        bound_allocations.insert(tgt[1].clone(), rem_ptr);
                     }
                     Op::Emit(_) => (),
-                    Op::Hide(tgt, _sec, _pay) => {
-                        // TODO
-                        let allocated_ptr = AllocatedPtr::from_parts(
-                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
-                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
-                        );
+                    Op::Hide(tgt, sec, pay) => {
+                        let sec = bound_allocations.get(sec)?;
+                        let pay = bound_allocations.get(pay)?;
+                        let sec_tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let (preallocated_preimg, hash) =
+                            &g.preallocated_commitment_slots[next_slot.consume_commitment()];
+                        implies_equal(
+                            &mut cs.namespace(|| {
+                                format!("implies equal for the secret's tag (OP {:?})", &op)
+                            }),
+                            not_dummy,
+                            sec.tag(),
+                            &sec_tag,
+                        )?;
+                        implies_equal(
+                            &mut cs.namespace(|| {
+                                format!("implies equal for the secret's hash (OP {:?})", &op)
+                            }),
+                            not_dummy,
+                            sec.hash(),
+                            &preallocated_preimg[0],
+                        )?;
+                        implies_equal(
+                            &mut cs.namespace(|| {
+                                format!("implies equal for the payload's tag (OP {:?})", &op)
+                            }),
+                            not_dummy,
+                            pay.tag(),
+                            &preallocated_preimg[1],
+                        )?;
+                        implies_equal(
+                            &mut cs.namespace(|| {
+                                format!("implies equal for the payload's hash (OP {:?})", &op)
+                            }),
+                            not_dummy,
+                            pay.hash(),
+                            &preallocated_preimg[2],
+                        )?;
+                        let tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Comm).to_field())?;
+                        let allocated_ptr = AllocatedPtr::from_parts(tag, hash.clone());
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
-                    Op::Open(pay, sec, _comm_or_num) => {
-                        // TODO
-                        let allocated_ptr = AllocatedPtr::from_parts(
-                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
-                            g.global_allocator.get_or_alloc_const(cs, F::ZERO)?,
+                    Op::Open(sec, pay, comm) => {
+                        let comm = bound_allocations.get(comm)?;
+                        let (preallocated_preimg, com_hash) =
+                            &g.preallocated_commitment_slots[next_slot.consume_commitment()];
+                        let comm_tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Comm).to_field())?;
+                        implies_equal(
+                            &mut cs.namespace(|| {
+                                format!("implies equal for comm's tag (OP {:?})", &op)
+                            }),
+                            not_dummy,
+                            comm.tag(),
+                            &comm_tag,
+                        )?;
+                        implies_equal(
+                            &mut cs.namespace(|| {
+                                format!("implies equal for comm's hash (OP {:?})", &op)
+                            }),
+                            not_dummy,
+                            comm.hash(),
+                            com_hash,
+                        )?;
+                        let sec_tag = g
+                            .global_allocator
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                        let allocated_sec_ptr =
+                            AllocatedPtr::from_parts(sec_tag, preallocated_preimg[0].clone());
+                        let allocated_pay_ptr = AllocatedPtr::from_parts(
+                            preallocated_preimg[1].clone(),
+                            preallocated_preimg[2].clone(),
                         );
-                        bound_allocations.insert(pay.clone(), allocated_ptr.clone());
-                        bound_allocations.insert(sec.clone(), allocated_ptr);
+                        bound_allocations.insert(sec.clone(), allocated_sec_ptr);
+                        bound_allocations.insert(pay.clone(), allocated_pay_ptr);
                     }
                 }
             }
@@ -596,10 +857,8 @@ impl Func {
                 Ctrl::IfEq(x, y, eq_block, else_block) => {
                     let x = bound_allocations.get(x)?.hash();
                     let y = bound_allocations.get(y)?.hash();
-                    // TODO should we check whether the tags are equal too?
                     let eq = alloc_equal(&mut cs.namespace(|| "if_eq.alloc_equal"), x, y)?;
                     let not_eq = eq.not();
-                    // TODO is this the most efficient way of doing if statements?
                     let not_dummy_and_eq = and(&mut cs.namespace(|| "if_eq.and"), not_dummy, &eq)?;
                     let not_dummy_and_not_eq =
                         and(&mut cs.namespace(|| "if_eq.and.2"), not_dummy, &not_eq)?;
@@ -709,18 +968,18 @@ impl Func {
                     let allocated_lit = bound_allocations.get(match_var)?.hash().clone();
                     let mut selector = Vec::with_capacity(cases.len() + 1);
                     let mut branch_slots = Vec::with_capacity(cases.len());
-                    for (lit, block) in cases {
+                    for (i, (lit, block)) in cases.iter().enumerate() {
                         let lit_ptr = lit.to_ptr(g.store);
                         let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
                         let allocated_has_match = alloc_equal_const(
-                            &mut cs.namespace(|| format!("{:?}.alloc_equal_const", lit)),
+                            &mut cs.namespace(|| format!("{i}.alloc_equal_const")),
                             &allocated_lit,
                             lit_hash,
                         )
                         .with_context(|| "couldn't allocate equal const")?;
 
                         let not_dummy_and_has_match = and(
-                            &mut cs.namespace(|| format!("{:?}.and", lit)),
+                            &mut cs.namespace(|| format!("{i}.and")),
                             not_dummy,
                             &allocated_has_match,
                         )
@@ -730,7 +989,7 @@ impl Func {
 
                         let mut branch_slot = *next_slot;
                         recurse(
-                            &mut cs.namespace(|| format!("{:?}", lit)),
+                            &mut cs.namespace(|| format!("{i}.case")),
                             block,
                             &not_dummy_and_has_match,
                             &mut branch_slot,
@@ -803,6 +1062,8 @@ impl Func {
                 preallocated_hash2_slots,
                 preallocated_hash3_slots,
                 preallocated_hash4_slots,
+                preallocated_commitment_slots,
+                preallocated_less_than_slots,
                 call_outputs,
                 call_count: 0,
             },
@@ -839,12 +1100,31 @@ impl Func {
                     Op::Cast(_tgt, tag, _src) => {
                         globals.insert(FWrap(tag.to_field()));
                     }
+                    Op::EqTag(_, _, _) | Op::EqVal(_, _, _) => {
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        num_constraints += 5;
+                    }
                     Op::Add(_, _, _) | Op::Sub(_, _, _) | Op::Mul(_, _, _) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
                         num_constraints += 1;
                     }
                     Op::Div(_, _, _) => {
-                        // TODO
+                        globals.insert(FWrap(F::ONE));
+                        num_constraints += 5;
+                    }
+                    Op::Lt(_, _, _) => {
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        num_constraints += 2;
+                    }
+                    Op::Trunc(_, _, _) => {
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        // bit decomposition + enforce_pack
+                        num_constraints += 389;
+                    }
+                    Op::DivRem64(_, _, _) => {
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        // three implies_u64, one sub and one linear
+                        num_constraints += 197;
                     }
                     Op::Emit(_) => (),
                     Op::Hash2(_, tag, _) => {
@@ -869,9 +1149,15 @@ impl Func {
                         // one constraint for the image's hash
                         num_constraints += 1;
                     }
-                    Op::Hide(..) | Op::Open(..) => {
-                        // TODO
-                        globals.insert(FWrap(F::ZERO));
+                    Op::Hide(..) => {
+                        num_constraints += 4;
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        globals.insert(FWrap(Tag::Expr(Comm).to_field()));
+                    }
+                    Op::Open(..) => {
+                        num_constraints += 2;
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        globals.insert(FWrap(Tag::Expr(Comm).to_field()));
                     }
                 }
             }
@@ -925,8 +1211,11 @@ impl Func {
         }
         let globals = &mut HashSet::default();
         // fixed cost for each slot
-        let slot_constraints =
-            289 * self.slot.hash2 + 337 * self.slot.hash3 + 388 * self.slot.hash4;
+        let slot_constraints = 289 * self.slot.hash2
+            + 337 * self.slot.hash3
+            + 388 * self.slot.hash4
+            + 265 * self.slot.commitment
+            + 391 * self.slot.less_than;
         let num_constraints = recurse::<F>(&self.body, false, globals, store);
         slot_constraints + num_constraints + globals.len()
     }

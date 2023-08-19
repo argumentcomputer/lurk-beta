@@ -58,6 +58,20 @@ macro_rules! op {
             $crate::var!($src),
         )
     };
+    ( let $tgt:ident = eq_tag($a:ident, $b:ident) ) => {
+        $crate::lem::Op::EqTag(
+            $crate::var!($tgt),
+            $crate::var!($a),
+            $crate::var!($b),
+        )
+    };
+    ( let $tgt:ident = eq_val($a:ident, $b:ident) ) => {
+        $crate::lem::Op::EqVal(
+            $crate::var!($tgt),
+            $crate::var!($a),
+            $crate::var!($b),
+        )
+    };
     ( let $tgt:ident = add($a:ident, $b:ident) ) => {
         $crate::lem::Op::Add(
             $crate::var!($tgt),
@@ -82,6 +96,27 @@ macro_rules! op {
     ( let $tgt:ident = div($a:ident, $b:ident) ) => {
         $crate::lem::Op::Div(
             $crate::var!($tgt),
+            $crate::var!($a),
+            $crate::var!($b),
+        )
+    };
+    ( let $tgt:ident = lt($a:ident, $b:ident) ) => {
+        $crate::lem::Op::Lt(
+            $crate::var!($tgt),
+            $crate::var!($a),
+            $crate::var!($b),
+        )
+    };
+    ( let $tgt:ident = truncate($a:ident, $b:literal) ) => {
+        $crate::lem::Op::Trunc(
+            $crate::var!($tgt),
+            $crate::var!($a),
+            $b,
+        )
+    };
+    ( let ($tgt1:ident, $tgt2:ident) = div_rem64($a:ident, $b:ident) ) => {
+        $crate::lem::Op::DivRem64(
+            $crate::vars!($tgt1, $tgt2),
             $crate::var!($a),
             $crate::var!($b),
         )
@@ -243,6 +278,26 @@ macro_rules! block {
             $($tail)*
         )
     };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = eq_tag($a:ident, $b:ident) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = eq_tag($a, $b))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = eq_val($a:ident, $b:ident) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = eq_val($a, $b))
+            },
+            $($tail)*
+        )
+    };
     (@seq {$($limbs:expr)*}, let $tgt:ident = add($a:ident, $b:ident) ; $($tail:tt)*) => {
         $crate::block! (
             @seq
@@ -279,6 +334,36 @@ macro_rules! block {
             {
                 $($limbs)*
                 $crate::op!(let $tgt = div($a, $b))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = lt($a:ident, $b:ident) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = lt($a, $b))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = truncate($a:ident, $b:literal) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = truncate($a, $b))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*},  let ($tgt1:ident, $tgt2:ident) = div_rem64($a:ident, $b:ident) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let ($tgt1, $tgt2) = div_rem64($a, $b))
             },
             $($tail)*
         )

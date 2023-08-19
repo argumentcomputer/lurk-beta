@@ -155,8 +155,8 @@ impl std::fmt::Display for Tag {
 /// LEM literals
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub enum Lit {
-    // TODO maybe it should be a LurkField instead of u64
-    Num(u64),
+    // TODO maybe it should be a LurkField instead of u128
+    Num(u128),
     String(String),
     Symbol(Symbol),
 }
@@ -166,7 +166,7 @@ impl Lit {
         match self {
             Self::Symbol(s) => store.intern_symbol(s),
             Self::String(s) => store.intern_string(s),
-            Self::Num(num) => Ptr::num((*num).into()),
+            Self::Num(num) => Ptr::num(F::from_u128(*num)),
         }
     }
     pub fn from_ptr<F: LurkField>(ptr: &Ptr<F>, store: &Store<F>) -> Option<Self> {
@@ -175,7 +175,7 @@ impl Lit {
         match ptr.tag() {
             Expr(Num) => match ptr {
                 Ptr::Leaf(_, f) => {
-                    let num = LurkField::to_u64_unchecked(f);
+                    let num = LurkField::to_u128_unchecked(f);
                     Some(Self::Num(num))
                 }
                 _ => unreachable!(),
@@ -238,6 +238,10 @@ pub enum Op {
     /// `Cast(y, t, x)` binds `y` to a pointer with tag `t` and the hash of `x`
     Cast(Var, Tag, Var),
     /// `Add(y, a, b)` binds `y` to the sum of `a` and `b`
+    EqTag(Var, Var, Var),
+    /// `EqVal(y, a, b)` binds `y` to `1` if `a.val != b.val`, or to `0` otherwise
+    EqVal(Var, Var, Var),
+    /// `Lt(y, a, b)` binds `y` to `1` if `a < b`, or to `0` otherwise
     Add(Var, Var, Var),
     /// `Sub(y, a, b)` binds `y` to the sum of `a` and `b`
     Sub(Var, Var, Var),
@@ -245,6 +249,12 @@ pub enum Op {
     Mul(Var, Var, Var),
     /// `Div(y, a, b)` binds `y` to the sum of `a` and `b`
     Div(Var, Var, Var),
+    /// `Lt(y, a, b)` binds `y` to `1` if `a < b`, or to `0` otherwise
+    Lt(Var, Var, Var),
+    /// `Trunc(y, a, n)` binds `y` to `a` truncated to `n` bits, up to 64 bits
+    Trunc(Var, Var, u32),
+    /// `DivRem64(ys, a, b)` binds `ys` to `(a / b, a % b)` as if they were u64
+    DivRem64([Var; 2], Var, Var),
     /// `Emit(v)` simply prints out the value of `v` when interpreting the code
     Emit(Var),
     /// `Hash2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
@@ -290,23 +300,26 @@ impl Func {
 
     /// Performs the static checks described in LEM's docstring.
     pub fn check(&self) -> Result<()> {
-        // Check if variable has already been defined. Panics
-        // if it is repeated (means `deconflict` is broken)
         use std::collections::{HashMap, HashSet};
-        #[inline(always)]
+
+        /// Check if variable has already been defined. Panics
+        /// if it is repeated (means `deconflict` is broken)
+        #[inline]
         fn is_unique(var: &Var, map: &mut HashMap<Var, bool>) {
             if map.insert(var.clone(), false).is_some() {
                 panic!("Variable {var} already defined. `deconflict` implementation broken.");
             }
         }
-        // Check if variable is bound and sets it as "used"
-        #[inline(always)]
+
+        /// Check if variable is bound and sets it as "used"
+        #[inline]
         fn is_bound(var: &Var, map: &mut HashMap<Var, bool>) -> Result<()> {
             if map.insert(var.clone(), true).is_none() {
                 bail!("Variable {var} is unbound.");
             }
             Ok(())
         }
+
         fn recurse(block: &Block, return_size: usize, map: &mut HashMap<Var, bool>) -> Result<()> {
             for op in &block.ops {
                 match op {
@@ -340,13 +353,28 @@ impl Func {
                         is_bound(src, map)?;
                         is_unique(tgt, map);
                     }
-                    Op::Add(tgt, a, b)
+                    Op::EqTag(tgt, a, b)
+                    | Op::EqVal(tgt, a, b)
+                    | Op::Add(tgt, a, b)
                     | Op::Sub(tgt, a, b)
                     | Op::Mul(tgt, a, b)
-                    | Op::Div(tgt, a, b) => {
+                    | Op::Div(tgt, a, b)
+                    | Op::Lt(tgt, a, b) => {
                         is_bound(a, map)?;
                         is_bound(b, map)?;
                         is_unique(tgt, map);
+                    }
+                    Op::Trunc(tgt, a, n) => {
+                        if *n > 64 {
+                            bail!("Cannot yet truncate over 64 bits")
+                        }
+                        is_bound(a, map)?;
+                        is_unique(tgt, map);
+                    }
+                    Op::DivRem64(tgt, a, b) => {
+                        is_bound(a, map)?;
+                        is_bound(b, map)?;
+                        tgt.iter().for_each(|var| is_unique(var, map))
                     }
                     Op::Emit(a) => {
                         is_bound(a, map)?;
@@ -551,6 +579,18 @@ impl Block {
                     let tgt = insert_one(map, uniq, &tgt);
                     ops.push(Op::Cast(tgt, tag, src))
                 }
+                Op::EqTag(tgt, a, b) => {
+                    let a = map.get_cloned(&a)?;
+                    let b = map.get_cloned(&b)?;
+                    let tgt = insert_one(map, uniq, &tgt);
+                    ops.push(Op::EqTag(tgt, a, b))
+                }
+                Op::EqVal(tgt, a, b) => {
+                    let a = map.get_cloned(&a)?;
+                    let b = map.get_cloned(&b)?;
+                    let tgt = insert_one(map, uniq, &tgt);
+                    ops.push(Op::EqVal(tgt, a, b))
+                }
                 Op::Add(tgt, a, b) => {
                     let a = map.get_cloned(&a)?;
                     let b = map.get_cloned(&b)?;
@@ -574,6 +614,23 @@ impl Block {
                     let b = map.get_cloned(&b)?;
                     let tgt = insert_one(map, uniq, &tgt);
                     ops.push(Op::Div(tgt, a, b))
+                }
+                Op::Lt(tgt, a, b) => {
+                    let a = map.get_cloned(&a)?;
+                    let b = map.get_cloned(&b)?;
+                    let tgt = insert_one(map, uniq, &tgt);
+                    ops.push(Op::Lt(tgt, a, b))
+                }
+                Op::Trunc(tgt, a, b) => {
+                    let a = map.get_cloned(&a)?;
+                    let tgt = insert_one(map, uniq, &tgt);
+                    ops.push(Op::Trunc(tgt, a, b))
+                }
+                Op::DivRem64(tgt, a, b) => {
+                    let a = map.get_cloned(&a)?;
+                    let b = map.get_cloned(&b)?;
+                    let tgt = insert_many(map, uniq, &tgt);
+                    ops.push(Op::DivRem64(tgt.try_into().unwrap(), a, b))
                 }
                 Op::Emit(a) => {
                     let a = map.get_cloned(&a)?;
@@ -796,7 +853,7 @@ mod tests {
         });
 
         let inputs = vec![Ptr::num(Fr::from_u64(42))];
-        synthesize_test_helper(&func, inputs, SlotsCounter::new((2, 0, 0)));
+        synthesize_test_helper(&func, inputs, SlotsCounter::new((2, 0, 0, 0, 0)));
     }
 
     #[test]
@@ -857,7 +914,7 @@ mod tests {
         });
 
         let inputs = vec![Ptr::num(Fr::from_u64(42)), Ptr::char('c')];
-        synthesize_test_helper(&lem, inputs, SlotsCounter::new((2, 2, 2)));
+        synthesize_test_helper(&lem, inputs, SlotsCounter::new((2, 2, 2, 0, 0)));
     }
 
     #[test]
@@ -891,7 +948,7 @@ mod tests {
         });
 
         let inputs = vec![Ptr::num(Fr::from_u64(42)), Ptr::char('c')];
-        synthesize_test_helper(&lem, inputs, SlotsCounter::new((3, 3, 3)));
+        synthesize_test_helper(&lem, inputs, SlotsCounter::new((3, 3, 3, 0, 0)));
     }
 
     #[test]
@@ -938,6 +995,6 @@ mod tests {
         });
 
         let inputs = vec![Ptr::num(Fr::from_u64(42)), Ptr::char('c')];
-        synthesize_test_helper(&lem, inputs, SlotsCounter::new((4, 4, 4)));
+        synthesize_test_helper(&lem, inputs, SlotsCounter::new((4, 4, 4, 0, 0)));
     }
 }
