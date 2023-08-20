@@ -172,20 +172,18 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
         let global_allocator = &mut GlobalAllocator::default();
         let (_, output) = frames
             .iter()
-            .fold((0, input.clone()), |(i, allocated_io), frame| {
-                /*
-                for (alloc_ptr, input) in allocated_io.iter().zip(&frame.input) {
-                    let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
-                    assert_eq!(
-                        alloc_ptr.tag().get_value().expect("Assignment missing"),
-                        input_zptr.tag.to_field(),
-                    );
-                    assert_eq!(
-                        alloc_ptr.hash().get_value().expect("Assignment missing"),
-                        input_zptr.hash,
-                    );
-                }
-                */
+            .fold((0, input.clone()), |(i, _allocated_io), frame| {
+                // for (alloc_ptr, input) in allocated_io.iter().zip(&frame.input) {
+                //     let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
+                //     assert_eq!(
+                //         alloc_ptr.tag().get_value().expect("Assignment missing"),
+                //         input_zptr.tag.to_field(),
+                //     );
+                //     assert_eq!(
+                //         alloc_ptr.hash().get_value().expect("Assignment missing"),
+                //         input_zptr.hash,
+                //     );
+                // }
                 let bound_allocations = &mut BoundAllocations::new();
                 self.func.add_input(input, bound_allocations);
                 let output = self

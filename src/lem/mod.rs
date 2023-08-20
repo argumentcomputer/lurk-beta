@@ -68,6 +68,7 @@ pub mod pointers;
 mod slot;
 pub mod store;
 mod var_map;
+pub mod zstore;
 
 use crate::field::LurkField;
 use crate::symbol::Symbol;

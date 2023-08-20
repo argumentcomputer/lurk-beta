@@ -306,7 +306,7 @@ impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F> {
             None => {
                 assert!(self.store.is_none());
                 let s = self.func.init_store();
-                let blank_frame = Frame::blank(&self.func);
+                let blank_frame = Frame::blank(self.func);
                 let frames = vec![blank_frame; count];
                 self.synthesize_frames(cs, &s, &input, &frames)
             }
@@ -349,8 +349,6 @@ where
             MultiFrame<'_, F>,
             TrivialTestCircuit<<G2<F> as Group>::Scalar>,
         ) = C1::<'a, F>::circuits(func, num_iters_per_step);
-
-        dbg!(circuits.len());
 
         // produce a recursive SNARK
         let mut recursive_snark: Option<RecursiveSNARK<G1<F>, G2<F>, C1<'a, F>, C2<F>>> = None;

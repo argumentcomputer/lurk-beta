@@ -131,10 +131,31 @@ pub struct ZPtr<F: LurkField> {
     pub hash: F,
 }
 
+impl<F: LurkField> PartialOrd for ZPtr<F> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        (
+            self.tag.to_field::<F>().to_repr().as_ref(),
+            self.hash.to_repr().as_ref(),
+        )
+            .partial_cmp(&(
+                other.tag.to_field::<F>().to_repr().as_ref(),
+                other.hash.to_repr().as_ref(),
+            ))
+    }
+}
+
+impl<F: LurkField> Ord for ZPtr<F> {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.partial_cmp(other)
+            .expect("ZPtr::cmp: partial_cmp domain invariant violation")
+    }
+}
+
 /// `ZChildren` keeps track of the children of `ZPtr`s, in case they have any.
 /// This information is saved during hydration and is needed to content-address
 /// a store.
-pub(crate) enum ZChildren<F: LurkField> {
+pub enum ZChildren<F: LurkField> {
+    Leaf,
     Tuple2(ZPtr<F>, ZPtr<F>),
     Tuple3(ZPtr<F>, ZPtr<F>, ZPtr<F>),
     Tuple4(ZPtr<F>, ZPtr<F>, ZPtr<F>, ZPtr<F>),

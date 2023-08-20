@@ -1,11 +1,11 @@
 use anyhow::{bail, Result};
-use dashmap::DashMap;
 use indexmap::IndexSet;
 use nom::{sequence::preceded, Parser};
 use rayon::prelude::*;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
+    cache_map::CacheMap,
     field::{FWrap, LurkField},
     hash::PoseidonCache,
     lem::Tag,
@@ -17,7 +17,7 @@ use crate::{
     uint::UInt,
 };
 
-use super::pointers::{Ptr, ZChildren, ZPtr};
+use super::pointers::{Ptr, ZPtr};
 
 /// The `Store` is a crucial part of Lurk's implementation and tries to be a
 /// vesatile data structure for many parts of Lurk's data pipeline.
@@ -52,8 +52,7 @@ pub struct Store<F: LurkField> {
 
     pub poseidon_cache: PoseidonCache<F>,
     dehydrated: Vec<Ptr<F>>,
-    z_cache: DashMap<Ptr<F>, ZPtr<F>, ahash::RandomState>,
-    z_dag: DashMap<ZPtr<F>, ZChildren<F>, ahash::RandomState>,
+    z_cache: CacheMap<Ptr<F>, Box<ZPtr<F>>>,
 
     pub comms: HashMap<FWrap<F>, (F, Ptr<F>)>, // hash -> (secret, src)
 }
@@ -347,8 +346,7 @@ impl<F: LurkField> Store<F> {
                             b.hash,
                         ]),
                     };
-                    self.z_dag.insert(z_ptr, ZChildren::Tuple2(a, b));
-                    self.z_cache.insert(*ptr, z_ptr);
+                    self.z_cache.insert(*ptr, Box::new(z_ptr));
                     Ok(z_ptr)
                 }
             },
@@ -372,8 +370,7 @@ impl<F: LurkField> Store<F> {
                             c.hash,
                         ]),
                     };
-                    self.z_dag.insert(z_ptr, ZChildren::Tuple3(a, b, c));
-                    self.z_cache.insert(*ptr, z_ptr);
+                    self.z_cache.insert(*ptr, Box::new(z_ptr));
                     Ok(z_ptr)
                 }
             },
@@ -400,8 +397,7 @@ impl<F: LurkField> Store<F> {
                             d.hash,
                         ]),
                     };
-                    self.z_dag.insert(z_ptr, ZChildren::Tuple4(a, b, c, d));
-                    self.z_cache.insert(*ptr, z_ptr);
+                    self.z_cache.insert(*ptr, Box::new(z_ptr));
                     Ok(z_ptr)
                 }
             },
@@ -418,13 +414,13 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn to_vector(&self, ptrs: &[Ptr<F>]) -> Result<Vec<F>> {
-        let mut ret = Vec::with_capacity(2 * ptrs.len());
-        for ptr in ptrs {
-            let z_ptr = self.hash_ptr(ptr)?;
-            ret.push(z_ptr.tag.to_field());
-            ret.push(z_ptr.hash);
-        }
-        Ok(ret)
+        ptrs.iter()
+            .try_fold(Vec::with_capacity(2 * ptrs.len()), |mut acc, ptr| {
+                let z_ptr = self.hash_ptr(ptr)?;
+                acc.push(z_ptr.tag.to_field());
+                acc.push(z_ptr.hash);
+                Ok(acc)
+            })
     }
 }
 
