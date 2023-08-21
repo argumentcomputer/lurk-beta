@@ -14,7 +14,13 @@ use crate::{
     cli::{commitment_lem::Commitment, paths::proof_path},
     eval::lang::Lang,
     field::LurkField,
-    lem::{eval::eval_step, interpreter::Frame, pointers::{Ptr, ZPtr}, store::Store, Func, Tag},
+    lem::{
+        eval::eval_step,
+        interpreter::Frame,
+        pointers::{Ptr, ZPtr},
+        store::Store,
+        Func, Tag,
+    },
     package::{Package, SymbolRef},
     parser,
     proof::{
@@ -27,7 +33,7 @@ use crate::{
     Symbol,
 };
 
-use super::{backend::Backend, lurk_proof::LurkProof, paths::commitment_path, field_data::load};
+use super::{backend::Backend, field_data::load, lurk_proof::LurkProof, paths::commitment_path};
 
 #[allow(dead_code)]
 struct Evaluation<F: LurkField> {
@@ -283,7 +289,7 @@ impl ReplLEM<F> {
             .fetch_symbol(ptr)
             .expect("symbol must have been interned")
     }
-    
+
     fn hide(&mut self, secret: F, payload: Ptr<F>) -> Result<()> {
         let commitment = Commitment::new(Some(secret), payload, &mut self.store)?;
         let hash_str = &commitment.hash.hex_digits();
@@ -301,7 +307,10 @@ impl ReplLEM<F> {
         if &comm_hash != hash {
             bail!("Hash mismatch. Corrupted commitment file.")
         } else {
-            let comm_zptr = ZPtr { tag: Tag::Expr(Comm), hash: comm_hash };
+            let comm_zptr = ZPtr {
+                tag: Tag::Expr(Comm),
+                hash: comm_hash,
+            };
         }
         Ok(())
     }
