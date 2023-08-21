@@ -72,7 +72,7 @@ impl<F: LurkField> Store<F> {
 
     /// Similar to `intern_2_ptrs` but doesn't add the resulting pointer to
     /// `dehydrated`. This function is used when converting a `ZStore` to a
-    /// `Store` (TODO).
+    /// `Store`.
     #[inline]
     pub fn intern_2_ptrs_not_dehydrated(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>) -> Ptr<F> {
         Ptr::Tuple2(tag, self.tuple2.insert_full((a, b)).0)
@@ -91,7 +91,7 @@ impl<F: LurkField> Store<F> {
 
     /// Similar to `intern_3_ptrs` but doesn't add the resulting pointer to
     /// `dehydrated`. This function is used when converting a `ZStore` to a
-    /// `Store` (TODO).
+    /// `Store`.
     #[inline]
     pub fn intern_3_ptrs_not_dehydrated(
         &mut self,
@@ -123,7 +123,7 @@ impl<F: LurkField> Store<F> {
 
     /// Similar to `intern_4_ptrs` but doesn't add the resulting pointer to
     /// `dehydrated`. This function is used when converting a `ZStore` to a
-    /// `Store` (TODO).
+    /// `Store`.
     #[inline]
     pub fn intern_4_ptrs_not_dehydrated(
         &mut self,
@@ -369,7 +369,7 @@ impl<F: LurkField> Store<F> {
             Ptr::Tuple2(tag, idx) => match self.z_cache.get(ptr) {
                 Some(z_ptr) => Ok(*z_ptr),
                 None => {
-                    let Some((a, b)) = self.tuple2.get_index(*idx) else {
+                    let Some((a, b)) = self.fetch_2_ptrs(*idx) else {
                         bail!("Index {idx} not found on tuple2")
                     };
                     let a = self.hash_ptr(a)?;
@@ -390,7 +390,7 @@ impl<F: LurkField> Store<F> {
             Ptr::Tuple3(tag, idx) => match self.z_cache.get(ptr) {
                 Some(z_ptr) => Ok(*z_ptr),
                 None => {
-                    let Some((a, b, c)) = self.tuple3.get_index(*idx) else {
+                    let Some((a, b, c)) = self.fetch_3_ptrs(*idx) else {
                         bail!("Index {idx} not found on tuple3")
                     };
                     let a = self.hash_ptr(a)?;
@@ -414,7 +414,7 @@ impl<F: LurkField> Store<F> {
             Ptr::Tuple4(tag, idx) => match self.z_cache.get(ptr) {
                 Some(z_ptr) => Ok(*z_ptr),
                 None => {
-                    let Some((a, b, c, d)) = self.tuple4.get_index(*idx) else {
+                    let Some((a, b, c, d)) = self.fetch_4_ptrs(*idx) else {
                         bail!("Index {idx} not found on tuple4")
                     };
                     let a = self.hash_ptr(a)?;
@@ -448,6 +448,11 @@ impl<F: LurkField> Store<F> {
             self.hash_ptr(ptr).expect("failed to hydrate pointer");
         });
         self.dehydrated = Vec::new();
+    }
+
+    #[inline]
+    pub fn add_to_z_cache(&mut self, ptr: Ptr<F>, z_ptr: ZPtr<F>) {
+        self.z_cache.insert(ptr, Box::new(z_ptr));
     }
 
     pub fn to_vector(&self, ptrs: &[Ptr<F>]) -> Result<Vec<F>> {
