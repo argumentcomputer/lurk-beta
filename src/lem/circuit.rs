@@ -166,36 +166,38 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
         &self,
         cs: &mut CS,
         store: &Store<F>,
-        input: &Vec<AllocatedPtr<F>>,
+        input: &[AllocatedPtr<F>],
         frames: &[Frame<F>],
     ) -> Vec<AllocatedPtr<F>> {
         let global_allocator = &mut GlobalAllocator::default();
-        let (_, output) = frames.iter().fold((0, input.clone()), |(i, input), frame| {
-            // for (alloc_ptr, input) in input.iter().zip(&frame.input) {
-            //     let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
-            //     assert_eq!(
-            //         alloc_ptr.tag().get_value().expect("Assignment missing"),
-            //         input_zptr.tag.to_field(),
-            //     );
-            //     assert_eq!(
-            //         alloc_ptr.hash().get_value().expect("Assignment missing"),
-            //         input_zptr.hash,
-            //     );
-            // }
-            let bound_allocations = &mut BoundAllocations::new();
-            self.func.add_input(&input, bound_allocations);
-            let output = self
-                .func
-                .synthesize_aux(
-                    &mut cs.namespace(|| format!("step {i}")),
-                    store,
-                    frame,
-                    global_allocator,
-                    bound_allocations,
-                )
-                .unwrap();
-            (i + 1, output)
-        });
+        let (_, output) = frames
+            .iter()
+            .fold((0, input.to_vec()), |(i, input), frame| {
+                // for (alloc_ptr, input) in input.iter().zip(&frame.input) {
+                //     let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
+                //     assert_eq!(
+                //         alloc_ptr.tag().get_value().expect("Assignment missing"),
+                //         input_zptr.tag.to_field(),
+                //     );
+                //     assert_eq!(
+                //         alloc_ptr.hash().get_value().expect("Assignment missing"),
+                //         input_zptr.hash,
+                //     );
+                // }
+                let bound_allocations = &mut BoundAllocations::new();
+                self.func.add_input(&input, bound_allocations);
+                let output = self
+                    .func
+                    .synthesize_aux(
+                        &mut cs.namespace(|| format!("step {i}")),
+                        store,
+                        frame,
+                        global_allocator,
+                        bound_allocations,
+                    )
+                    .unwrap();
+                (i + 1, output)
+            });
 
         output
     }
@@ -253,7 +255,7 @@ impl Func {
     /// Add input to bound_allocations
     fn add_input<F: LurkField>(
         &self,
-        input: &Vec<AllocatedPtr<F>>,
+        input: &[AllocatedPtr<F>],
         bound_allocations: &mut BoundAllocations<F>,
     ) {
         assert_eq!(input.len(), self.input_params.len());
