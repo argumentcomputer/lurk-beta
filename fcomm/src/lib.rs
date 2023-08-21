@@ -852,10 +852,8 @@ impl<'a> Proof<'a, S1> {
             return Ok(proof);
         }
 
-        if only_use_cached_proofs {
-            // FIXME: Error handling.
-            panic!("no cached proof");
-        }
+        // FIXME: Error handling.
+        assert!(!only_use_cached_proofs, "no cached proof");
 
         info!("Starting Proving");
 

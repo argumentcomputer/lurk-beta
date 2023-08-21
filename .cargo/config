@@ -14,6 +14,7 @@ xclippy = [
     "-Wclippy::flat_map_option",
     "-Wclippy::inefficient_to_string",
     "-Wclippy::large_types_passed_by_value",
+    "-Wclippy::manual_assert",
     "-Wclippy::manual_ok_or",
     "-Wclippy::map_flatten",
     "-Wclippy::map_unwrap_or",

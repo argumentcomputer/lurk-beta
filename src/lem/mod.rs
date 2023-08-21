@@ -323,9 +323,10 @@ impl Func {
         /// if it is repeated (means `deconflict` is broken)
         #[inline]
         fn is_unique(var: &Var, map: &mut HashMap<Var, bool>) {
-            if map.insert(var.clone(), false).is_some() {
-                panic!("Variable {var} already defined. `deconflict` implementation broken.");
-            }
+            assert!(
+                map.insert(var.clone(), false).is_none(),
+                "Variable {var} already defined. `deconflict` implementation broken."
+            );
         }
 
         /// Check if variable is bound and sets it as "used"
