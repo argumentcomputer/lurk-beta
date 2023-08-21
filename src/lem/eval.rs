@@ -967,7 +967,7 @@ mod tests {
     use crate::lem::{pointers::Ptr, slot::SlotsCounter, store::Store, Tag};
     use crate::state::State;
     use crate::tag::ContTag::*;
-    use bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
+    use bellpepper_core::{test_cs::TestConstraintSystem, Comparable, Delta};
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
@@ -1003,6 +1003,7 @@ mod tests {
 
         let limit = 10000;
 
+        let mut cs_prev = None;
         for (expr_in, expr_out) in pairs {
             let input = [expr_in, nil, outermost];
             let (frames, _, paths) = eval_step
@@ -1021,7 +1022,12 @@ mod tests {
                 let num_constraints = cs.num_constraints();
                 assert_eq!(computed_num_constraints, num_constraints);
                 assert_eq!(num_constraints, NUM_CONSTRAINTS);
-                // TODO: assert uniformity with `Delta` from bellperson
+
+                if let Some(cs_prev) = cs_prev {
+                    // Check for all input expresssions that all frames are uniform.
+                    assert_eq!(cs.delta(&cs_prev, true), Delta::Equal);
+                }
+                cs_prev = Some(cs);
             }
             all_paths.extend(paths);
         }

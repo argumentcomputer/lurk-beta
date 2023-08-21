@@ -15,11 +15,7 @@ use crate::{
     eval::lang::Lang,
     field::LurkField,
     lem::{
-        eval::eval_step,
-        interpreter::Frame,
-        pointers::{Ptr, ZPtr},
-        store::Store,
-        zstore::{populate_store, populate_z_store, ZStore},
+        eval::eval_step, interpreter::Frame, pointers::Ptr, store::Store, zstore::populate_store,
         Func, Tag,
     },
     package::{Package, SymbolRef},
@@ -146,13 +142,13 @@ impl ReplLEM<F> {
                     // saving to avoid clones
                     let input = &frames[0].input;
                     let output = &frames[n_frames - 1].output;
-                    let mut z_store = ZStore::<F>::default();
-                    let expr = populate_z_store(&mut z_store, &input[0], &self.store)?;
-                    let env = populate_z_store(&mut z_store, &input[1], &self.store)?;
-                    let cont = populate_z_store(&mut z_store, &input[2], &self.store)?;
-                    let expr_out = populate_z_store(&mut z_store, &output[0], &self.store)?;
-                    let env_out = populate_z_store(&mut z_store, &output[1], &self.store)?;
-                    let cont_out = populate_z_store(&mut z_store, &output[2], &self.store)?;
+                    // let mut z_store = ZStore::<F>::default();
+                    // let expr = populate_z_store(&mut z_store, &input[0], &self.store)?;
+                    // let env = populate_z_store(&mut z_store, &input[1], &self.store)?;
+                    // let cont = populate_z_store(&mut z_store, &input[2], &self.store)?;
+                    // let expr_out = populate_z_store(&mut z_store, &output[0], &self.store)?;
+                    // let env_out = populate_z_store(&mut z_store, &output[1], &self.store)?;
+                    // let cont_out = populate_z_store(&mut z_store, &output[2], &self.store)?;
 
                     let claim = Self::proof_claim(
                         &mut self.store,
@@ -191,12 +187,13 @@ impl ReplLEM<F> {
                         info!("Compressing proof");
                         let proof = proof.compress(&pp)?;
                         assert!(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?);
+                        println!("Proof created and verified!");
 
                         // TODO: persist proof
-                        claim_comm.persist()?;
+                        // claim_comm.persist()?;
                     }
-                    println!("Claim hash: 0x{claim_hash}");
-                    println!("Proof key: \"{proof_key}\"");
+                    // println!("Claim hash: 0x{claim_hash}");
+                    // println!("Proof key: \"{proof_key}\"");
                     Ok(())
                 }
                 Backend::SnarkPackPlus => todo!(),
