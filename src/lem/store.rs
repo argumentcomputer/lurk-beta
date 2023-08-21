@@ -230,13 +230,13 @@ impl<F: LurkField> Store<F> {
         &mut self,
         secret: F,
         payload: Ptr<F>,
-    ) -> Result<(Ptr<F>, ZPtr<F>)> {
+    ) -> Result<(F, ZPtr<F>)> {
         let z_ptr = self.hash_ptr(&payload)?;
         let hash = self
             .poseidon_cache
             .hash3(&[secret, z_ptr.tag.to_field(), z_ptr.hash]);
         self.comms.insert(FWrap::<F>(hash), (secret, payload));
-        Ok((Ptr::comm(hash), z_ptr))
+        Ok((hash, z_ptr))
     }
 
     #[inline]
@@ -590,7 +590,7 @@ impl<F: LurkField> Ptr<F> {
                         if let Some(u) = f.to_u64() {
                             u.to_string()
                         } else {
-                            f.hex_digits()
+                            format!("0x{}", f.hex_digits())
                         }
                     }
                 },
@@ -649,9 +649,9 @@ impl<F: LurkField> Ptr<F> {
                 Comm => match self.get_leaf() {
                     Some(f) => {
                         if store.comms.contains_key(&FWrap(*f)) {
-                            format!("(comm {})", f.hex_digits())
+                            format!("(comm 0x{})", f.hex_digits())
                         } else {
-                            format!("<Opaque Comm {}>", f.hex_digits())
+                            format!("<Opaque Comm 0x{}>", f.hex_digits())
                         }
                     }
                     None => "<Malformed Comm>".into(),

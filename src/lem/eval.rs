@@ -617,6 +617,7 @@ fn apply_cont() -> Func {
                                 return (result, env, emit, makethunk)
                             }
                             Symbol("open") => {
+                                let result = cast(result, Expr::Comm);
                                 let (_secret, payload) = open(result);
                                 return(payload, env, continuation, makethunk)
                             }

@@ -34,9 +34,9 @@ impl<F: LurkField> HasFieldModulus for Commitment<F> {
 impl<F: LurkField> Commitment<F> {
     pub(crate) fn new(secret: Option<F>, payload: Ptr<F>, store: &mut Store<F>) -> Result<Self> {
         let secret = secret.unwrap_or(F::NON_HIDING_COMMITMENT_SECRET);
-        let (comm_ptr, z_payload) = store.hide_and_return_z_payload(secret, payload)?;
+        let (hash, z_payload) = store.hide_and_return_z_payload(secret, payload)?;
         let mut z_store = ZStore::<F>::default();
-        let hash = populate_z_store(&mut z_store, &comm_ptr, store)?.hash;
+        populate_z_store(&mut z_store, &payload, store)?;
         z_store.add_comm(hash, secret, z_payload);
         Ok(Self { hash, z_store })
     }
