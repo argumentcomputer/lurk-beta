@@ -82,10 +82,13 @@ pub(crate) fn create_circom_gadget(circom_folder: Utf8PathBuf, name: String) -> 
     // TODO: support for other fields
     let default_field = "vesta";
     let field = if let Ok(lurk_field) = std::env::var("LURK_FIELD") {
+        // FG: The prime is actually the reverse of the field in $LURK_FIELD, 
+        // because circom and lurk have different semantics about which field should be specified 
+        // (circom wants the base field and lurk the scalar field).
         match lurk_field.as_str() {
-            "BLS12-381" => "bls12381",
-            "PALLAS" => "pallas",
-            "VESTA" => "vesta",
+            "BLS12-381" => "bn128",
+            "PALLAS" => "vesta",
+            "VESTA" => "pallas",
             _ => bail!("unsupported field"),
         }
     } else {

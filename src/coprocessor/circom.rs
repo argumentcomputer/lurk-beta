@@ -6,7 +6,7 @@
 #[cfg(not(target_arch = "wasm32"))]
 pub mod non_wasm {
     use core::fmt::Debug;
-    use std::fs::read_dir;
+    use std::{fs::read_dir, collections::HashMap};
 
     use ansi_term::Colour::Red;
     use anyhow::{bail, Result};
@@ -19,16 +19,13 @@ pub mod non_wasm {
             data::GlobalAllocations,
             pointer::{AllocatedContPtr, AllocatedPtr},
         },
-        cli::paths::circom_dir,
+        cli::paths::{circom_dir, set_lurk_dirs},
         coprocessor::{CoCircuit, Coprocessor},
         field::LurkField,
         ptr::Ptr,
         store::Store,
     };
 
-    /// To setup a new circom gadget `<NAME>`, place your circom files in a designated folder and
-    /// create a file called `<NAME>.circom`. `<CIRCOM_FOLDER>/<NAME>.circom` is the input file
-    /// for the `circom` binary; in this file you must declare your circom main component.
     fn print_error(name: &str, available: Vec<String>) -> Result<()> {
         let available = available.join("\n    ");
         bail!(
@@ -50,6 +47,9 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instansiate a new gadge
     }
 
     fn validate_gadget<F: LurkField, C: CircomGadget<F>>(gadget: &C) -> Result<()> {
+        // TODO: This is a temporary hack, https://github.com/lurk-lab/lurk-rs/pull/555#discussion_r1298524025
+        set_lurk_dirs(&HashMap::new(), &None,& None, &None, &None);
+
         if !circom_dir().exists() {
             std::fs::create_dir_all(circom_dir())?;
             return print_error(gadget.name(), vec![]);
@@ -151,7 +151,7 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instansiate a new gadge
     }
 
     impl<F: LurkField, C: CircomGadget<F>> CircomCoprocessor<F, C> {
-        /// Creates a CircomConfig by loading in the data in `<CIRCOM_DIR>/<gadget.name>/*`
+        /// Creates a [CircomConfig] by loading in the data in `<CIRCOM_DIR>/<gadget.name>/*`
         pub fn create(gadget: C) -> Result<Self> {
             validate_gadget(&gadget)?;
 
@@ -167,7 +167,7 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instansiate a new gadge
             Ok(coprocessor)
         }
 
-        /// Calls [CircomCoprocessor::create()] and panics if it fails
+        /// Creates a [CircomCoprocessor] and panics if it fails
         pub fn new(gadget: C) -> Self {
             CircomCoprocessor::create(gadget).unwrap()
         }
