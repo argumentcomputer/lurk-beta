@@ -153,7 +153,8 @@ enum Sha256Coproc<F: LurkField> {
 /// Run the example in this file with
 /// `cargo run --release --example sha256 1 f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b false`
 fn main() {
-    pretty_env_logger::init();
+    tracing_texray::init();
+
     let args: Vec<String> = env::args().collect();
 
     let num_of_64_bytes = args[1].parse::<usize>().unwrap();
@@ -198,9 +199,19 @@ fn main() {
 
         println!("Beginning proof step...");
         let proof_start = Instant::now();
-        let (proof, z0, zi, num_steps) = nova_prover
-            .evaluate_and_prove(pp, cproc_call, empty_sym_env(store), store, 10000, lang_rc)
-            .unwrap();
+        let (proof, z0, zi, num_steps) = tracing_texray::examine(tracing::info_span!("prog_start"))
+            .in_scope(|| {
+                nova_prover
+                    .evaluate_and_prove(
+                        &pp,
+                        cproc_call,
+                        empty_sym_env(store),
+                        store,
+                        10000,
+                        lang_rc,
+                    )
+                    .unwrap()
+            });
         let proof_end = proof_start.elapsed();
 
         println!("Proofs took {:?}", proof_end);

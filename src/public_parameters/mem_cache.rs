@@ -5,7 +5,7 @@ use std::{
 
 use abomonation::{decode, Abomonation};
 use camino::Utf8Path;
-use log::info;
+use tracing::info;
 use nova::traits::Group;
 use once_cell::sync::Lazy;
 use tap::TapFallible;

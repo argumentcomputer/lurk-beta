@@ -1,5 +1,5 @@
 use anyhow::{bail, Result};
-use log::info;
+use tracing::info;
 use std::collections::{hash_map::Entry, HashMap};
 
 use super::Var;

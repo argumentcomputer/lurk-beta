@@ -2274,7 +2274,7 @@ pub mod test {
         let sym1 = store.car(&expr).unwrap();
         let sss = store.fetch_sym(&sym);
         let hash = store.hash_expr(&sym);
-        dbg!(&sym1, &sss, &hash);
+        tracing::debug!("{:?} {:?} {:?}", &sym1, &sss, &hash);
 
         assert_eq!(sym, sym1);
     }

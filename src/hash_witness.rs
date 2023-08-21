@@ -450,7 +450,7 @@ impl<F: LurkField> HashWitness<ConsName, Cons<F>, MAX_CONSES_PER_REDUCTION, F> {
                     if !store.ptr_eq(&hash.cons, &nil).unwrap() {
                         use crate::writer::Write;
                         let cons = hash.cons.fmt_to_string(store, state);
-                        dbg!(hash.cons, cons, name, existing_name);
+                        tracing::debug!("{:?} {:?} {:?} {:?}", hash.cons, cons, name, existing_name);
                         panic!("duplicate");
                     }
                 }
@@ -640,7 +640,7 @@ impl<F: LurkField> ContStub<F> {
         match self {
             Self::Dummy => {
                 let continuation = store.fetch_cont(cont)?;
-                // dbg!("overwriting dummy", continuation, store.hash_cont(&cont));
+                // tracing::debug!("overwriting dummy {:?} {:?}", continuation, store.hash_cont(&cont));
                 *self = Self::Value(Cont {
                     cont_ptr: *cont,
                     continuation,

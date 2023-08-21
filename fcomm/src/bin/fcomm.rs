@@ -1,5 +1,5 @@
 use abomonation::Abomonation;
-use log::info;
+use tracing::info;
 use lurk::lurk_sym_ptr;
 use lurk::proof::nova::{CurveCycleEquipped, G1, G2};
 use nova::traits::Group;

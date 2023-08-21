@@ -189,6 +189,7 @@ fn main() {
     let pp_start = Instant::now();
     let pp = public_params::<_, Sha256Coproc<Fr>>(
         REDUCTION_COUNT,
+        true,
         lang_rc.clone(),
         &public_params_default_dir(),
     )

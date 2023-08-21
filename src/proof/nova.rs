@@ -443,7 +443,7 @@ where
             TrivialTestCircuit<<G2<F> as Group>::Scalar>,
         ) = C1::<'a>::circuits(num_iters_per_step, lang);
 
-        dbg!(circuits.len());
+        tracing::debug!("circuits.len: {}", circuits.len());
 
         // produce a recursive SNARK
         let mut recursive_snark: Option<RecursiveSNARK<G1<F>, G2<F>, C1<'a, F, C>, C2<F>>> = None;
@@ -731,7 +731,7 @@ pub mod tests {
 
             let res = proof.verify(&pp, num_steps, &z0, &zi);
             if res.is_err() {
-                dbg!(&res);
+                tracing::debug!("{:?}", &res);
             }
             assert!(res.unwrap());
 
@@ -763,24 +763,24 @@ pub mod tests {
             let mut cs = TestConstraintSystem::new();
             let mut wcs = WitnessCS::new();
 
-            dbg!("synthesizing test cs");
+            tracing::debug!("synthesizing test cs");
             multiframe.clone().synthesize(&mut cs).unwrap();
-            dbg!("synthesizing witness cs");
+            tracing::debug!("synthesizing witness cs");
             multiframe.clone().synthesize(&mut wcs).unwrap();
 
             if let Some(prev) = previous_frame {
                 assert!(prev.precedes(multiframe));
             };
-            // dbg!(i);
+            // tracing::debug!("frame {}" i);
             let unsat = cs.which_is_unsatisfied();
             if unsat.is_some() {
                 // For some reason, this isn't getting printed from within the implementation as expected.
                 // Since we always want to know this information, if the condition occurs, just print it here.
-                dbg!(unsat);
+                tracing::debug!("{:?}", unsat);
             }
             assert!(cs.is_satisfied());
             assert!(cs.verify(&multiframe.public_inputs()));
-            dbg!("cs is satisfied!");
+            tracing::debug!("cs is satisfied!");
             let cs_inputs = cs.scalar_inputs();
             let cs_aux = cs.scalar_aux();
 
@@ -1376,23 +1376,23 @@ pub mod tests {
 
             if !op.supports_arity(0) {
                 let expr = format!("({name})");
-                dbg!(&expr);
+                tracing::debug!("{:?}", &expr);
                 test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
             }
             if !op.supports_arity(1) {
                 let expr = format!("({name} 123)");
-                dbg!(&expr);
+                tracing::debug!("{:?}", &expr);
                 test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
             }
             if !op.supports_arity(2) {
                 let expr = format!("({name} 123 456)");
-                dbg!(&expr);
+                tracing::debug!("{:?}", &expr);
                 test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, 1, None);
             }
 
             if !op.supports_arity(3) {
                 let expr = format!("({name} 123 456 789)");
-                dbg!(&expr);
+                tracing::debug!("{:?}", &expr);
                 let iterations = if op.supports_arity(2) { 2 } else { 1 };
                 test_aux::<Coproc<Fr>>(s, &expr, None, None, Some(error), None, iterations, None);
             }

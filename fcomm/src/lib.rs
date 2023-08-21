@@ -1,6 +1,6 @@
 use ::nova::traits::Group;
 use abomonation::Abomonation;
-use log::info;
+use tracing::info;
 use std::convert::TryFrom;
 use std::sync::Arc;
 

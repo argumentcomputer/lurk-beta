@@ -11,7 +11,7 @@ use crate::writer::Write;
 use crate::{lurk_sym_ptr, store};
 use lang::Lang;
 
-use log::info;
+use tracing::info;
 #[cfg(not(target_arch = "wasm32"))]
 use lurk_macros::serde_test;
 #[cfg(not(target_arch = "wasm32"))]
