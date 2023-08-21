@@ -51,10 +51,11 @@ pub struct Store<F: LurkField> {
     ptr_symbol_cache: HashMap<Ptr<F>, Symbol>,
 
     pub poseidon_cache: PoseidonCache<F>,
+
     dehydrated: Vec<Ptr<F>>,
     z_cache: CacheMap<Ptr<F>, Box<ZPtr<F>>>,
 
-    pub comms: HashMap<FWrap<F>, (F, Ptr<F>)>, // hash -> (secret, src)
+    comms: HashMap<FWrap<F>, (F, Ptr<F>)>, // hash -> (secret, src)
 }
 
 impl<F: LurkField> Store<F> {
@@ -216,6 +217,37 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    pub fn hide(&mut self, secret: F, payload: Ptr<F>) -> Result<Ptr<F>> {
+        let z_ptr = self.hash_ptr(&payload)?;
+        let hash = self
+            .poseidon_cache
+            .hash3(&[secret, z_ptr.tag.to_field(), z_ptr.hash]);
+        self.comms.insert(FWrap::<F>(hash), (secret, payload));
+        Ok(Ptr::comm(hash))
+    }
+
+    pub fn hide_and_return_z_payload(
+        &mut self,
+        secret: F,
+        payload: Ptr<F>,
+    ) -> Result<(Ptr<F>, ZPtr<F>)> {
+        let z_ptr = self.hash_ptr(&payload)?;
+        let hash = self
+            .poseidon_cache
+            .hash3(&[secret, z_ptr.tag.to_field(), z_ptr.hash]);
+        self.comms.insert(FWrap::<F>(hash), (secret, payload));
+        Ok((Ptr::comm(hash), z_ptr))
+    }
+
+    #[inline]
+    pub fn commit(&mut self, payload: Ptr<F>) -> Result<Ptr<F>> {
+        self.hide(F::NON_HIDING_COMMITMENT_SECRET, payload)
+    }
+
+    pub fn open(&self, hash: F) -> Option<&(F, Ptr<F>)> {
+        self.comms.get(&FWrap(hash))
+    }
+
     #[inline]
     pub fn intern_lurk_sym(&mut self, name: &str) -> Ptr<F> {
         self.intern_symbol(&lurk_sym(name))
@@ -224,6 +256,11 @@ impl<F: LurkField> Store<F> {
     #[inline]
     pub fn intern_nil(&mut self) -> Ptr<F> {
         self.intern_lurk_sym("nil")
+    }
+
+    #[inline]
+    pub fn key(&mut self, name: &str) -> Ptr<F> {
+        self.intern_symbol(&Symbol::key(&[name.to_string()]))
     }
 
     pub fn car_cdr(&mut self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>)> {

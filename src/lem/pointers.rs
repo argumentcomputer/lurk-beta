@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{field::*, tag::ContTag::Dummy, tag::ExprTag::*};
 
 use super::Tag;
@@ -13,7 +15,7 @@ use super::Tag;
 /// children a pointer has. However, LEMs require extra flexibility because LEM
 /// hashing operations can plug any tag to the resulting pointer. Thus, the
 /// number of children have to be made explicit as the `Ptr` enum.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Ptr<F: LurkField> {
     Leaf(Tag, F),
     Tuple2(Tag, usize),
@@ -125,7 +127,7 @@ impl<F: LurkField> Ptr<F> {
 /// An important note is that computing the respective `ZPtr` of a `Ptr` can be
 /// expensive because of the Poseidon hashes. That's why we operate on `Ptr`s
 /// when interpreting LEMs and delay the need for `ZPtr`s as much as possible.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct ZPtr<F: LurkField> {
     pub tag: Tag,
     pub hash: F,
@@ -154,6 +156,7 @@ impl<F: LurkField> Ord for ZPtr<F> {
 /// `ZChildren` keeps track of the children of `ZPtr`s, in case they have any.
 /// This information is saved during hydration and is needed to content-address
 /// a store.
+#[derive(Serialize, Deserialize)]
 pub enum ZChildren<F: LurkField> {
     Leaf,
     Tuple2(ZPtr<F>, ZPtr<F>),

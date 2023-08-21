@@ -5,10 +5,7 @@ use super::{
     path::Path, pointers::Ptr, store::Store, var_map::VarMap, Block, Ctrl, Func, Lit, Op, Tag,
 };
 
-use crate::field::{FWrap, LurkField};
-use crate::num::Num;
-use crate::state::initial_lurk_state;
-use crate::tag::ExprTag::*;
+use crate::{field::LurkField, num::Num, state::initial_lurk_state, tag::ExprTag::*};
 
 #[derive(Clone)]
 pub enum PreimageData<F: LurkField> {
@@ -343,13 +340,7 @@ impl Block {
                     let Ptr::Leaf(Tag::Expr(Num), secret) = bindings.get(sec)? else {
                         bail!("{sec} is not a numeric pointer")
                     };
-                    let z_ptr = store.hash_ptr(src_ptr)?;
-                    let hash =
-                        store
-                            .poseidon_cache
-                            .hash3(&[*secret, z_ptr.tag.to_field(), z_ptr.hash]);
-                    let tgt_ptr = Ptr::comm(hash);
-                    store.comms.insert(FWrap::<F>(hash), (*secret, *src_ptr));
+                    let tgt_ptr = store.hide(*secret, *src_ptr)?;
                     preimages
                         .commitment
                         .push(Some(PreimageData::FPtr(*secret, *src_ptr)));
@@ -359,7 +350,7 @@ impl Block {
                     let Ptr::Leaf(Tag::Expr(Comm), hash) = bindings.get(comm)? else {
                         bail!("{comm} is not a comm pointer")
                     };
-                    let Some((secret, ptr)) = store.comms.get(&FWrap::<F>(*hash)) else {
+                    let Some((secret, ptr)) = store.open(*hash) else {
                         bail!("No committed data for hash {}", &hash.hex_digits())
                     };
                     bindings.insert(tgt_ptr.clone(), *ptr);

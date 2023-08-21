@@ -75,6 +75,7 @@ use crate::symbol::Symbol;
 use crate::tag::{ContTag, ExprTag, Tag as TagTrait};
 use anyhow::{bail, Result};
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use self::{pointers::Ptr, slot::SlotsCounter, store::Store, var_map::VarMap};
@@ -97,14 +98,14 @@ pub struct Func {
 pub struct Var(AString);
 
 /// LEM tags
-#[derive(Copy, Debug, PartialEq, Clone, Eq, Hash)]
+#[derive(Copy, Debug, PartialEq, Clone, Eq, Hash, Serialize, Deserialize)]
 pub enum Tag {
     Expr(ExprTag),
     Cont(ContTag),
     Ctrl(CtrlTag),
 }
 
-#[derive(Copy, Debug, PartialEq, Clone, Eq, Hash)]
+#[derive(Copy, Debug, PartialEq, Clone, Eq, Hash, Serialize, Deserialize)]
 pub enum CtrlTag {
     Return,
     MakeThunk,

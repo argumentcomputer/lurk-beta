@@ -1,5 +1,6 @@
 mod backend;
 mod commitment;
+mod commitment_lem;
 mod field_data;
 mod lurk_proof;
 mod paths;

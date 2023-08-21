@@ -11,9 +11,10 @@ use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 use std::{cell::RefCell, fs::read_to_string, process, rc::Rc};
 
 use crate::{
+    cli::{commitment_lem::Commitment, paths::proof_path},
     eval::lang::Lang,
     field::LurkField,
-    lem::{eval::eval_step, interpreter::Frame, pointers::Ptr, store::Store, Func, Tag},
+    lem::{eval::eval_step, interpreter::Frame, pointers::{Ptr, ZPtr}, store::Store, Func, Tag},
     package::{Package, SymbolRef},
     parser,
     proof::{
@@ -26,7 +27,7 @@ use crate::{
     Symbol,
 };
 
-use super::{backend::Backend, lurk_proof::LurkProof};
+use super::{backend::Backend, lurk_proof::LurkProof, paths::commitment_path, field_data::load};
 
 #[allow(dead_code)]
 struct Evaluation<F: LurkField> {
@@ -88,6 +89,40 @@ impl ReplLEM<F> {
         }
     }
 
+    fn proof_claim(
+        store: &mut Store<F>,
+        exprs: (Ptr<F>, Ptr<F>),
+        envs: (Ptr<F>, Ptr<F>),
+        conts: (Ptr<F>, Ptr<F>),
+    ) -> Ptr<F> {
+        let expr_key = store.key("expr");
+        let env_key = store.key("env");
+        let cont_key = store.key("cont");
+        let expr_out_key = store.key("expr-out");
+        let env_out_key = store.key("env-out");
+        let cont_out_key = store.key("cont-out");
+        store.list(vec![
+            expr_key,
+            exprs.0,
+            env_key,
+            envs.0,
+            cont_key,
+            conts.0,
+            expr_out_key,
+            exprs.1,
+            env_out_key,
+            envs.1,
+            cont_out_key,
+            conts.1,
+        ])
+    }
+
+    #[allow(dead_code)]
+    fn proof_key(backend: &Backend, rc: &usize, claim_hash: &str) -> String {
+        let field = F::FIELD;
+        format!("{backend}_{field}_{rc}_{claim_hash}")
+    }
+
     pub(crate) fn prove_last_frames(&mut self) -> Result<()> {
         if let Some(Evaluation {
             frames,
@@ -101,27 +136,60 @@ impl ReplLEM<F> {
 
                     let mut n_frames = frames.len();
 
-                    info!("Proof not cached");
-                    // padding the frames, if needed
-                    let n_pad = pad(n_frames, self.rc) - n_frames;
-                    if n_pad != 0 {
-                        frames.extend(vec![frames[n_frames - 1].clone(); n_pad]);
-                        n_frames = frames.len();
+                    // saving to avoid clones
+                    let input = &frames[0].input;
+                    let output = &frames[n_frames - 1].output;
+                    // let mut zstore = ZStore::<F>::default();
+                    // let expr = zstore.populate(&input[0], &self.store)?;
+                    // let env = zstore.populate(&input[1], &self.store)?;
+                    // let cont = zstore.populate(&input[2], &self.store)?;
+                    // let expr_out = zstore.populate(&output[0], &self.store)?;
+                    // let env_out = zstore.populate(&output[1], &self.store)?;
+                    // let cont_out = zstore.populate(&output[2], &self.store)?;
+
+                    let claim = Self::proof_claim(
+                        &mut self.store,
+                        (input[0], output[0]),
+                        (input[1], output[1]),
+                        (input[2], output[2]),
+                    );
+
+                    let claim_comm = Commitment::new(None, claim, &mut self.store)?;
+                    let claim_hash = &claim_comm.hash.hex_digits();
+                    let proof_key = &Self::proof_key(&self.backend, &self.rc, claim_hash);
+                    let proof_path = proof_path(proof_key);
+
+                    if proof_path.exists() {
+                        info!("Proof already cached");
+                        // TODO: make sure that the proof file is not corrupted
+                    } else {
+                        info!("Proof not cached");
+                        // padding the frames, if needed
+                        let n_pad = pad(n_frames, self.rc) - n_frames;
+                        if n_pad != 0 {
+                            frames.extend(vec![frames[n_frames - 1].clone(); n_pad]);
+                            n_frames = frames.len();
+                        }
+
+                        info!("Loading public parameters");
+                        let pp = public_params(&self.func, self.rc);
+
+                        let prover = NovaProver::new(self.rc, Lang::new());
+
+                        info!("Proving");
+                        let (proof, public_inputs, public_outputs, num_steps) =
+                            prover.prove(&self.func, &pp, frames, &mut self.store)?;
+                        assert_eq!(self.rc * num_steps, n_frames);
+
+                        info!("Compressing proof");
+                        let proof = proof.compress(&pp)?;
+                        assert!(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?);
+
+                        // TODO: persist proof
+                        claim_comm.persist()?;
                     }
-
-                    info!("Loading public parameters");
-                    let pp = public_params(&self.func, self.rc);
-
-                    let prover = NovaProver::new(self.rc, Lang::new());
-
-                    info!("Proving");
-                    let (proof, public_inputs, public_outputs, num_steps) =
-                        prover.prove(&self.func, &pp, frames, &mut self.store)?;
-                    info!("Compressing proof");
-                    let proof = proof.compress(&pp)?;
-                    assert_eq!(self.rc * num_steps, n_frames);
-                    assert!(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?);
-
+                    println!("Claim hash: 0x{claim_hash}");
+                    println!("Proof key: \"{proof_key}\"");
                     Ok(())
                 }
                 Backend::SnarkPackPlus => todo!(),
@@ -190,6 +258,20 @@ impl ReplLEM<F> {
         Ok((first, second))
     }
 
+    #[allow(dead_code)]
+    fn get_comm_hash(&mut self, cmd: &str, args: &Ptr<F>) -> Result<F> {
+        let first = self.peek1(cmd, args)?;
+        let num = self.store.intern_lurk_sym("num");
+        let expr = self.store.list(vec![num, first]);
+        let (expr_io, ..) = self
+            .eval_expr(expr)
+            .with_context(|| "evaluating first arg")?;
+        let Ptr::Leaf(Tag::Expr(Num), hash) = expr_io[0] else {
+            bail!("hash must be a number")
+        };
+        Ok(hash)
+    }
+
     fn get_string(&self, ptr: &Ptr<F>) -> &String {
         self.store
             .fetch_string(ptr)
@@ -200,6 +282,28 @@ impl ReplLEM<F> {
         self.store
             .fetch_symbol(ptr)
             .expect("symbol must have been interned")
+    }
+    
+    fn hide(&mut self, secret: F, payload: Ptr<F>) -> Result<()> {
+        let commitment = Commitment::new(Some(secret), payload, &mut self.store)?;
+        let hash_str = &commitment.hash.hex_digits();
+        commitment.persist()?;
+        println!(
+            "Data: {}\nHash: 0x{hash_str}",
+            payload.fmt_to_string(&self.store, &self.state.borrow())
+        );
+        Ok(())
+    }
+
+    fn fetch(&mut self, hash: &F, print_data: bool) -> Result<()> {
+        let commitment: Commitment<F> = load(commitment_path(&hash.hex_digits()))?;
+        let comm_hash = commitment.hash;
+        if &comm_hash != hash {
+            bail!("Hash mismatch. Corrupted commitment file.")
+        } else {
+            let comm_zptr = ZPtr { tag: Tag::Expr(Comm), hash: comm_hash };
+        }
+        Ok(())
     }
 
     fn handle_meta_cases(&mut self, cmd: &str, args: &Ptr<F>, pwd_path: &Utf8Path) -> Result<()> {
@@ -331,35 +435,35 @@ impl ReplLEM<F> {
                     process::exit(1);
                 }
             }
-            // "commit" => {
-            //     let first = self.peek1(cmd, args)?;
-            //     let (first_io, ..) = self.eval_expr(first)?;
-            //     self.hide(&ff::Field::ZERO, first_io[0])?;
-            // }
-            // "hide" => {
-            //     let (first, second) = self.peek2(cmd, args)?;
-            //     let (first_io, ..) = self
-            //         .eval_expr(first)
-            //         .with_context(|| "evaluating first arg")?;
-            //     let (second_io, ..) = self
-            //         .eval_expr(second)
-            //         .with_context(|| "evaluating second arg")?;
-            //     let Some(secret) = first_io[0].get_num() else {
-            //         bail!(
-            //             "Secret must be a number. Got {}",
-            //             first_io[0].fmt_to_string(&self.store, &self.state.borrow())
-            //         )
-            //     };
-            //     self.hide(secret, second_io[0])?;
-            // }
-            // "fetch" => {
-            //     let hash = self.get_comm_hash(cmd, args)?;
-            //     self.fetch(&hash, false)?;
-            // }
-            // "open" => {
-            //     let hash = self.get_comm_hash(cmd, args)?;
-            //     self.fetch(&hash, true)?;
-            // }
+            "commit" => {
+                let first = self.peek1(cmd, args)?;
+                let (first_io, ..) = self.eval_expr(first)?;
+                self.hide(ff::Field::ZERO, first_io[0])?;
+            }
+            "hide" => {
+                let (first, second) = self.peek2(cmd, args)?;
+                let (first_io, ..) = self
+                    .eval_expr(first)
+                    .with_context(|| "evaluating first arg")?;
+                let (second_io, ..) = self
+                    .eval_expr(second)
+                    .with_context(|| "evaluating second arg")?;
+                let Ptr::Leaf(Tag::Expr(Num), secret) = first_io[0] else {
+                    bail!(
+                        "Secret must be a number. Got {}",
+                        first_io[0].fmt_to_string(&self.store, &self.state.borrow())
+                    )
+                };
+                self.hide(secret, second_io[0])?;
+            }
+            "fetch" => {
+                let hash = self.get_comm_hash(cmd, args)?;
+                self.fetch(&hash, false)?;
+            }
+            "open" => {
+                let hash = self.get_comm_hash(cmd, args)?;
+                self.fetch(&hash, true)?;
+            }
             "clear" => self.env = self.store.intern_nil(),
             "set-env" => {
                 // The state's env is set to the result of evaluating the first argument.
