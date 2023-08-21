@@ -6,7 +6,7 @@
 #[cfg(not(target_arch = "wasm32"))]
 pub mod non_wasm {
     use core::fmt::Debug;
-    use std::{fs::read_dir, collections::HashMap};
+    use std::{collections::HashMap, fs::read_dir};
 
     use ansi_term::Colour::Red;
     use anyhow::{bail, Result};
@@ -48,7 +48,7 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instansiate a new gadge
 
     fn validate_gadget<F: LurkField, C: CircomGadget<F>>(gadget: &C) -> Result<()> {
         // TODO: This is a temporary hack, https://github.com/lurk-lab/lurk-rs/pull/555#discussion_r1298524025
-        set_lurk_dirs(&HashMap::new(), &None,& None, &None, &None);
+        set_lurk_dirs(&HashMap::new(), &None, &None, &None, &None);
 
         if !circom_dir().exists() {
             std::fs::create_dir_all(circom_dir())?;
@@ -85,7 +85,7 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instansiate a new gadge
     }
 
     /// A concrete instansiation of a [CircomGadget] with a corresponding [CircomConfig] as a coprocessor.
-    /// 
+    ///
     /// To create a concrete Coproc from this, simply declare something like this:
     /// ```ignore
     /// #[derive(Clone, Debug, Coproc)]
