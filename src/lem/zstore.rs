@@ -12,7 +12,7 @@ use super::{
 #[derive(Default, Serialize, Deserialize)]
 pub struct ZStore<F: LurkField> {
     dag: BTreeMap<ZPtr<F>, ZChildren<F>>,
-    comms: HashMap<FWrap<F>, (F, ZPtr<F>)>,
+    comms: BTreeMap<FWrap<F>, (F, ZPtr<F>)>,
 }
 
 impl<F: LurkField> ZStore<F> {
