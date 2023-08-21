@@ -497,39 +497,32 @@ impl Func {
         assert_eq!(self.input_params.len(), self.output_size);
         assert_eq!(self.input_params.len(), args.len());
 
-        // Initial path vector and frames
+        // Initial input, path vector and frames
+        let mut input = args.to_vec();
         let mut frames = vec![];
         let mut paths = vec![];
 
-        let mut iterations = 0;
-
-        let mut input = args.to_vec();
-
-        for _ in 0..limit {
+        for iterations in 0..limit {
             let preimages = Preimages::new_from_func(self);
             let (frame, path) = self.call(&input, store, preimages, &mut vec![])?;
-            iterations += 1;
+            let stop = stop_cond(&frame.output);
             // Should frames take borrowed vectors instead, as to avoid cloning?
             // Using AVec is a possibility, but to create a dynamic AVec, currently,
             // requires 2 allocations since it must be created from a Vec and
             // Vec<T> -> Arc<[T]> uses `copy_from_slice`.
             input = frame.output.clone();
-            if stop_cond(&frame.output) {
+            frames.push(frame);
+            paths.push(path);
+            if stop {
+                // pushing a frame that can be padded to match the rc
+                let preimages = Preimages::new_from_func(self);
+                let (frame, path) = self.call(&input, store, preimages, &mut vec![])?;
                 frames.push(frame);
                 paths.push(path);
-                break;
+                return Ok((frames, iterations + 1, paths));
             }
-            frames.push(frame);
-            paths.push(path);
         }
-        if iterations < limit {
-            // pushing a frame that can be padded to match the rc
-            let preimages = Preimages::new_from_func(self);
-            let (frame, path) = self.call(&input, store, preimages, &mut vec![])?;
-            frames.push(frame);
-            paths.push(path);
-        }
-        Ok((frames, iterations, paths))
+        bail!("Computation exceeded the limit of steps {limit}")
     }
 
     pub fn call_until_simple<F: LurkField, Stop: Fn(&[Ptr<F>]) -> bool>(
@@ -542,18 +535,16 @@ impl Func {
         assert_eq!(self.input_params.len(), self.output_size);
         assert_eq!(self.input_params.len(), args.len());
 
-        let mut iterations = 0;
         let mut input = args;
         let mut emitted = vec![];
 
-        for _ in 0..limit {
+        for iterations in 0..limit {
             let (frame, _) = self.call(&input, store, Preimages::default(), &mut emitted)?;
-            iterations += 1;
             if stop_cond(&frame.output) {
-                break;
+                return Ok((input, iterations + 1, emitted));
             }
             input = frame.output.clone();
         }
-        Ok((input, iterations, emitted))
+        bail!("Computation exceeded the limit of steps {limit}")
     }
 }
