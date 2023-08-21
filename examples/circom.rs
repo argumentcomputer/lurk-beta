@@ -6,29 +6,17 @@
 //! ```
 //! git clone git@github.com:iden3/circomlib.git && cd circomlib
 //! ```
-//! In the `circuits` folder, create a new file called `sha256_2.circom`.
-//! ```
-//! cd circuits && touch sha256.circom
-//! ```
-//! In this new file, create the main component that simply calls the `Sha256_2` circuit.
-//! ```
-//! pragma circom 2.1.6;
-//!
-//! include "./sha256/sha256_2.circom";
-//!
-//! component main = Sha256_2();
-//! ```
 //!
 //! Now return to the `lurk-rs` directory and run the following commands
 //! ```
-//! cargo run --release -- circom --name sha256_2 <PATH_TO_CIRCOMLIB>/circuits
+//! cargo run --release -- circom --name sha256_2_test <PATH_TO_CIRCOMLIB>/tests/circuits/
 //! cargo run --release --example circom
 //! ```
 //!
 //! This compiles the circom project and processes it for lurk to interface with.
-//! The new `sha256_2` gadget is stored in `.lurk/circom/sha256_2/*`. To use the gadget,
-//! create a `CircomSha256` struct and implement the [CircomGadget] trait. Refer to the
-//! example code below. Finally, declare the sha256 coprocessor:
+//! The new `sha256_2_test` gadget is stored in `.lurk/circom/sha256_2_test/*`.
+//! To use the gadget, create a [CircomSha256] struct and implement the [CircomGadget] trait.
+//! Refer to the example code below. Finally, declare the sha256 coprocessor:
 //!
 //! ```rust
 //! #[derive(Clone, Debug, Coproc)]
@@ -79,13 +67,14 @@ impl<F: LurkField> CircomSha256<F> {
 
 impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
     fn name(&self) -> &str {
-        "sha256_2"
+        "sha256_2_test"
     }
 
     fn into_circom_input(self, _input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)> {
         // TODO: actually use the lurk inputs
-        let arg_in = ("arg_in".into(), vec![F::ZERO, F::ZERO]);
-        vec![arg_in]
+        let a = ("a".into(), vec![F::ZERO]);
+        let b = ("b".into(), vec![F::ZERO]);
+        vec![a, b]
     }
 
     fn simple_evaluate(&self, s: &mut Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
