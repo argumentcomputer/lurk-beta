@@ -39,7 +39,7 @@ If you want to setup a new circom gadget `{name}`, place your circom files in a 
 create a file called `{name}.circom`. The circom binary expects `{}_FOLDER>/{name}.circom` 
 as the input file; in this file you must declare your circom main component.
 
-Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instansiate a new gadget `{name}`.",
+Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadget `{name}`.",
             Red.bold().paint("error"),
             name.to_ascii_uppercase(),
             name.to_ascii_uppercase(),
@@ -47,7 +47,7 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instansiate a new gadge
     }
 
     fn validate_gadget<F: LurkField, C: CircomGadget<F>>(gadget: &C) -> Result<()> {
-        // TODO: This is a temporary hack, https://github.com/lurk-lab/lurk-rs/pull/555#discussion_r1298524025
+        // TODO: This is a temporary hack, see: https://github.com/lurk-lab/lurk-rs/issues/621
         set_lurk_dirs(&HashMap::new(), &None, &None, &None, &None);
 
         if !circom_dir().exists() {
@@ -84,7 +84,7 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instansiate a new gadge
         print_error(gadget.name(), subdirs)
     }
 
-    /// A concrete instansiation of a [CircomGadget] with a corresponding [CircomConfig] as a coprocessor.
+    /// A concrete instantiation of a [CircomGadget] with a corresponding [CircomConfig] as a coprocessor.
     ///
     /// To create a concrete Coproc from this, simply declare something like this:
     /// ```ignore

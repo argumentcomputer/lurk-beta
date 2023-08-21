@@ -46,7 +46,7 @@ enum Command {
     Repl(ReplArgs),
     /// Verifies a Lurk proof
     Verify(VerifyArgs),
-    /// Instansiates a new circom gadget to interface with bellperson.
+    /// Instantiates a new circom gadget to interface with bellperson.
     ///
     /// See `lurk circom --help` for more details
     #[command(verbatim_doc_comment)]
@@ -478,9 +478,8 @@ struct VerifyArgs {
 /// create a file called `<NAME>.circom`. `<CIRCOM_FOLDER>/<NAME>.circom` is the input file
 /// for the `circom` binary; in this file you must declare your circom main component.
 ///
-/// Then run `lurk circom --name <NAME> <CIRCOM_FOLDER>` to instansiate a new gadget `<NAME>`.
-/// The new components are stored in `.lurk/circom/<NAME>/*`.
-// (TODO: replace `.lurk` with env var)
+/// Then run `lurk circom --name <NAME> <CIRCOM_FOLDER>` to instantiate a new gadget `<NAME>`.
+/// The new components are stored in `<CIRCOM_DIR>/<NAME>/*`.
 #[derive(Args, Debug)]
 struct CircomArgs {
     /// Path to the circom folder to be integrated.
