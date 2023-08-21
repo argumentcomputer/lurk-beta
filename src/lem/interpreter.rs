@@ -509,20 +509,21 @@ impl Func {
             let preimages = Preimages::new_from_func(self);
             let (frame, path) = self.call(&input, store, preimages, &mut vec![])?;
             iterations += 1;
-            if stop_cond(&frame.output) {
-                frames.push(frame);
-                paths.push(path);
-                break;
-            }
             // Should frames take borrowed vectors instead, as to avoid cloning?
             // Using AVec is a possibility, but to create a dynamic AVec, currently,
             // requires 2 allocations since it must be created from a Vec and
             // Vec<T> -> Arc<[T]> uses `copy_from_slice`.
             input = frame.output.clone();
+            if stop_cond(&frame.output) {
+                frames.push(frame);
+                paths.push(path);
+                break;
+            }
             frames.push(frame);
             paths.push(path);
         }
         if iterations < limit {
+            // pushing a frame that can be padded to match the rc
             let preimages = Preimages::new_from_func(self);
             let (frame, path) = self.call(&input, store, preimages, &mut vec![])?;
             frames.push(frame);
