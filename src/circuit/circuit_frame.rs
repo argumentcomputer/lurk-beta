@@ -514,6 +514,7 @@ impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, C> {
 }
 
 impl<F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'_, F, C> {
+    #[tracing::instrument(skip_all, name = "<MultiFrame as Circuit>::synthesize")]
     fn synthesize<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
         ////////////////////////////////////////////////////////////////////////////////
         // Bind public inputs.

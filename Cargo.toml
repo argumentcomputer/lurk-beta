@@ -67,6 +67,8 @@ circom-scotia = { git = "https://github.com/lurk-lab/circom-scotia", branch = "d
 sha2 = { version = "0.10.2" }
 reqwest = { version = "0.11.18", features = ["stream", "blocking"] }
 ansi_term = "0.12.1"
+tracing = "0.1.37"
+tracing-texray = "0.2.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 memmap = { version = "0.5.10", package = "memmap2" }
@@ -83,22 +85,10 @@ rustyline = { version = "11.0", features = ["derive"], default-features = false 
 
 [features]
 default = []
-opencl = [
-	"neptune/opencl",
-	"bellperson/opencl",
-	"nova/opencl"
-]
-cuda = [
-	"neptune/cuda",
-	"bellperson/cuda",
-	"nova/cuda"
-]
+opencl = ["neptune/opencl", "bellperson/opencl", "nova/opencl"]
+cuda = ["neptune/cuda", "bellperson/cuda", "nova/cuda"]
 # compile without ISA extensions
-portable = [
-	"blstrs/portable",
-	"pasta-msm/portable",
-	"nova/portable"
-]
+portable = ["blstrs/portable", "pasta-msm/portable", "nova/portable"]
 flamegraph = ["pprof/flamegraph", "pprof/criterion"]
 
 [dev-dependencies]

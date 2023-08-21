@@ -343,6 +343,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
         6
     }
 
+    #[tracing::instrument(skip_all, name = "<MultiFrame as StepCircuit>::synthesize")]
     fn synthesize<CS>(
         &self,
         cs: &mut CS,
@@ -418,6 +419,7 @@ where
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     /// Proves the computation recursively, generating a recursive SNARK proof.
+    #[tracing::instrument(skip_all, name = "Proof::prove_recursively")]
     pub fn prove_recursively(
         pp: &'a PublicParams<'_, F, C>,
         store: &'a Store<F>,

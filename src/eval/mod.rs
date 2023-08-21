@@ -486,6 +486,7 @@ where
         Ok(frames)
     }
 
+    #[tracing::instrument(skip_all, name = "Evaluator::generate_frames")]
     pub fn generate_frames<Fp: Fn(usize) -> bool>(
         expr: Ptr<F>,
         env: Ptr<F>,
