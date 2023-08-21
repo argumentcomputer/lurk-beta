@@ -99,7 +99,7 @@ struct LoadArgs {
     #[clap(long, value_parser)]
     commits_dir: Option<Utf8PathBuf>,
 
-    /// Path to commitments directory
+    /// Path to circom directory
     #[clap(long, value_parser)]
     circom_dir: Option<Utf8PathBuf>,
 }

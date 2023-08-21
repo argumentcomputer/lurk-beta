@@ -2,6 +2,7 @@
 //
 // See `examples/circom.rs` for a quick example of how to declare a circom coprocessor.
 
+/// Some circom features require non WASM platform features, so we seal the API here.
 #[cfg(not(target_arch = "wasm32"))]
 pub mod non_wasm {
     use core::fmt::Debug;
@@ -83,7 +84,15 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instansiate a new gadge
         print_error(gadget.name(), subdirs)
     }
 
-    /// hi
+    /// A concrete instansiation of a [CircomGadget] with a corresponding [CircomConfig] as a coprocessor.
+    /// 
+    /// To create a concrete Coproc from this, simply declare something like this:
+    /// ```ignore
+    /// #[derive(Clone, Debug, Coproc)]
+    /// enum ConcreteCoproc<F: LurkField> {
+    ///     SC(CircomCoprocessor<F, ConcreteGadget<F>>),
+    /// }
+    /// ```
     #[derive(Debug)]
     pub struct CircomCoprocessor<F: LurkField, C: CircomGadget<F>> {
         gadget: C,
@@ -142,7 +151,7 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instansiate a new gadge
     }
 
     impl<F: LurkField, C: CircomGadget<F>> CircomCoprocessor<F, C> {
-        /// Creates a CircomConfig by loading in the data in `.lurk/circom-gadgets/<name>/*`
+        /// Creates a CircomConfig by loading in the data in `<CIRCOM_DIR>/<gadget.name>/*`
         pub fn create(gadget: C) -> Result<Self> {
             validate_gadget(&gadget)?;
 

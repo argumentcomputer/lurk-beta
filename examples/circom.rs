@@ -14,7 +14,7 @@
 //! ```
 //! pragma circom 2.1.6;
 //!
-//! include "circomlib/sha256/sha256_2.circom";
+//! include "./sha256/sha256_2.circom";
 //!
 //! component main = Sha256_2();
 //! ```
@@ -79,7 +79,7 @@ impl<F: LurkField> CircomSha256<F> {
 
 impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
     fn name(&self) -> &str {
-        "circom_sha25"
+        "sha256_2"
     }
 
     fn into_circom_input(self, _input: &[AllocatedPtr<F>]) -> Vec<(String, Vec<F>)> {

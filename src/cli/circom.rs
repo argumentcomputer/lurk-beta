@@ -27,7 +27,7 @@ fn download_circom_binary(path: impl AsRef<Path>) -> Result<Command> {
             format!("https://github.com/iden3/circom/releases/download/v{CIRCOM_VERSION}/circom-windows-amd64.exe")
         }
         os => {
-            bail!("Unsupported OS: {os}. Unable to automatically download the necessary circom binary, please manually download Circom v2.1.6 to `.lurk/circom/circom`");
+            bail!("Unsupported OS: {os}. Unable to automatically download the necessary circom binary, please manually download Circom v{CIRCOM_VERSION} to `.lurk/circom/circom`");
         }
     };
 
