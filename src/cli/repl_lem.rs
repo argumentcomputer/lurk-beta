@@ -19,6 +19,7 @@ use crate::{
         interpreter::Frame,
         pointers::{Ptr, ZPtr},
         store::Store,
+        zstore::{populate_store, populate_z_store, ZStore},
         Func, Tag,
     },
     package::{Package, SymbolRef},
@@ -145,13 +146,13 @@ impl ReplLEM<F> {
                     // saving to avoid clones
                     let input = &frames[0].input;
                     let output = &frames[n_frames - 1].output;
-                    // let mut zstore = ZStore::<F>::default();
-                    // let expr = zstore.populate(&input[0], &self.store)?;
-                    // let env = zstore.populate(&input[1], &self.store)?;
-                    // let cont = zstore.populate(&input[2], &self.store)?;
-                    // let expr_out = zstore.populate(&output[0], &self.store)?;
-                    // let env_out = zstore.populate(&output[1], &self.store)?;
-                    // let cont_out = zstore.populate(&output[2], &self.store)?;
+                    let mut z_store = ZStore::<F>::default();
+                    let expr = populate_z_store(&mut z_store, &input[0], &self.store)?;
+                    let env = populate_z_store(&mut z_store, &input[1], &self.store)?;
+                    let cont = populate_z_store(&mut z_store, &input[2], &self.store)?;
+                    let expr_out = populate_z_store(&mut z_store, &output[0], &self.store)?;
+                    let env_out = populate_z_store(&mut z_store, &output[1], &self.store)?;
+                    let cont_out = populate_z_store(&mut z_store, &output[2], &self.store)?;
 
                     let claim = Self::proof_claim(
                         &mut self.store,
@@ -307,10 +308,17 @@ impl ReplLEM<F> {
         if &comm_hash != hash {
             bail!("Hash mismatch. Corrupted commitment file.")
         } else {
-            let comm_zptr = ZPtr {
-                tag: Tag::Expr(Comm),
-                hash: comm_hash,
-            };
+            let (secret, z_payload) = commitment.open()?;
+            let payload = populate_store(&mut self.store, z_payload, &commitment.z_store)?;
+            self.store.hide(*secret, payload)?;
+            if print_data {
+                println!(
+                    "{}",
+                    payload.fmt_to_string(&self.store, &self.state.borrow())
+                );
+            } else {
+                println!("Data is now available");
+            }
         }
         Ok(())
     }

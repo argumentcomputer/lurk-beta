@@ -170,34 +170,32 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
         frames: &[Frame<F>],
     ) -> Vec<AllocatedPtr<F>> {
         let global_allocator = &mut GlobalAllocator::default();
-        let (_, output) = frames
-            .iter()
-            .fold((0, input.clone()), |(i, input), frame| {
-                // for (alloc_ptr, input) in input.iter().zip(&frame.input) {
-                //     let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
-                //     assert_eq!(
-                //         alloc_ptr.tag().get_value().expect("Assignment missing"),
-                //         input_zptr.tag.to_field(),
-                //     );
-                //     assert_eq!(
-                //         alloc_ptr.hash().get_value().expect("Assignment missing"),
-                //         input_zptr.hash,
-                //     );
-                // }
-                let bound_allocations = &mut BoundAllocations::new();
-                self.func.add_input(&input, bound_allocations);
-                let output = self
-                    .func
-                    .synthesize_aux(
-                        &mut cs.namespace(|| format!("step {i}")),
-                        store,
-                        frame,
-                        global_allocator,
-                        bound_allocations,
-                    )
-                    .unwrap();
-                (i + 1, output)
-            });
+        let (_, output) = frames.iter().fold((0, input.clone()), |(i, input), frame| {
+            // for (alloc_ptr, input) in input.iter().zip(&frame.input) {
+            //     let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
+            //     assert_eq!(
+            //         alloc_ptr.tag().get_value().expect("Assignment missing"),
+            //         input_zptr.tag.to_field(),
+            //     );
+            //     assert_eq!(
+            //         alloc_ptr.hash().get_value().expect("Assignment missing"),
+            //         input_zptr.hash,
+            //     );
+            // }
+            let bound_allocations = &mut BoundAllocations::new();
+            self.func.add_input(&input, bound_allocations);
+            let output = self
+                .func
+                .synthesize_aux(
+                    &mut cs.namespace(|| format!("step {i}")),
+                    store,
+                    frame,
+                    global_allocator,
+                    bound_allocations,
+                )
+                .unwrap();
+            (i + 1, output)
+        });
 
         output
     }
