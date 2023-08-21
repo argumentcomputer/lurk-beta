@@ -75,12 +75,12 @@ impl<F: LurkField> Ptr<F> {
     }
 
     #[inline]
-    pub fn cast(&self, tag: Tag) -> Self {
+    pub fn cast(self, tag: Tag) -> Self {
         match self {
-            Ptr::Leaf(_, f) => Ptr::Leaf(tag, *f),
-            Ptr::Tuple2(_, x) => Ptr::Tuple2(tag, *x),
-            Ptr::Tuple3(_, x) => Ptr::Tuple3(tag, *x),
-            Ptr::Tuple4(_, x) => Ptr::Tuple4(tag, *x),
+            Ptr::Leaf(_, f) => Ptr::Leaf(tag, f),
+            Ptr::Tuple2(_, x) => Ptr::Tuple2(tag, x),
+            Ptr::Tuple3(_, x) => Ptr::Tuple3(tag, x),
+            Ptr::Tuple4(_, x) => Ptr::Tuple4(tag, x),
         }
     }
 
