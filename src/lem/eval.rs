@@ -884,10 +884,15 @@ fn apply_cont() -> Func {
                                         return (result, env, err, errctrl)
                                     }
                                 };
-                                if evaled_arg == result {
-                                    return (t, env, continuation, makethunk)
+                                let eq = eq_val(evaled_arg, result);
+                                match eq.val {
+                                    Num(0) => {
+                                        return (nil, env, continuation, makethunk)
+                                    }
+                                    Num(1) => {
+                                        return (t, env, continuation, makethunk)
+                                    }
                                 }
-                                return (nil, env, continuation, makethunk)
                             }
                             Symbol("<") => {
                                 let val = lt(evaled_arg, result);
@@ -1002,8 +1007,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 10733;
-    const NUM_CONSTRAINTS: usize = 13091;
+    const NUM_AUX: usize = 10744;
+    const NUM_CONSTRAINTS: usize = 13107;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,
