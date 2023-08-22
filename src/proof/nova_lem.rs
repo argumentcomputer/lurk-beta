@@ -632,14 +632,20 @@ pub mod tests {
         }
 
         let last_frame = frames.last().expect("eval should add at least one frame");
-        if let Some(expr) = expected_result {
-            assert_eq!(last_frame.output[0], expr);
+        if let Some(expected) = expected_result {
+            let expr = s.hash_ptr(&last_frame.output[0]).unwrap();
+            let expected = s.hash_ptr(&expected).unwrap();
+            assert_eq!(expr, expected);
         };
-        if let Some(env) = expected_env {
-            assert_eq!(last_frame.output[1], env);
+        if let Some(expected) = expected_env {
+            let env = s.hash_ptr(&last_frame.output[1]).unwrap();
+            let expected = s.hash_ptr(&expected).unwrap();
+            assert_eq!(env, expected);
         };
-        if let Some(cont) = expected_cont {
-            assert_eq!(last_frame.output[2], cont);
+        if let Some(expected) = expected_cont {
+            let cont = s.hash_ptr(&last_frame.output[2]).unwrap();
+            let expected = s.hash_ptr(&expected).unwrap();
+            assert_eq!(cont, expected);
         };
         assert_eq!(expected_iterations, iterations);
         let mut cs_prev = None;
