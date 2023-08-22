@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["constraints","data","pointer"]};
+window.SIDEBAR_ITEMS = {"mod":["circom","constraints","data","pointer"]};

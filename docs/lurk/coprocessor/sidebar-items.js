@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["trie"],"trait":["CoCircuit","Coprocessor"]};
+window.SIDEBAR_ITEMS = {"mod":["circom","trie"],"trait":["CoCircuit","Coprocessor"]};
