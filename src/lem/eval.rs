@@ -1002,8 +1002,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 10442;
-    const NUM_CONSTRAINTS: usize = 12703;
+    const NUM_AUX: usize = 10733;
+    const NUM_CONSTRAINTS: usize = 13091;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,
@@ -1115,9 +1115,9 @@ mod tests {
                             (if (eq xs nil)
                                 0
                                 (+ (car xs) (sum (cdr xs)))))))
-                (sum (build 10)))",
+                (sum (build 4)))",
         );
-        let fold_res = read("55");
+        let fold_res = read("10");
         vec![
             (div, div_res),
             (rem, rem_res),

@@ -1129,26 +1129,33 @@ impl Func {
                     .with_context(|| " couldn't constrain `enforce_selector_with_premise`")
                 }
                 Ctrl::MatchVal(match_var, cases, def) => {
-                    let allocated_lit = bound_allocations.get(match_var)?.hash().clone();
+                    let allocated_lit = bound_allocations.get(match_var)?.clone();
                     let mut selector = Vec::with_capacity(cases.len() + 1);
                     let mut branch_slots = Vec::with_capacity(cases.len());
                     for (i, (lit, block)) in cases.iter().enumerate() {
                         let lit_ptr = lit.to_ptr_cached(g.store);
+                        let lit_tag = g.store.hash_ptr(&lit_ptr)?.tag.to_field::<F>();
                         let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
-                        let allocated_has_match = alloc_equal_const(
-                            &mut cs.namespace(|| format!("{i}.alloc_equal_const")),
-                            &allocated_lit,
+                        let lit_tag_match = alloc_equal_const(
+                            &mut cs.namespace(|| format!("{i}.lit_tag_match")),
+                            &allocated_lit.tag(),
+                            lit_tag,
+                        )?;
+                        let lit_hash_match = alloc_equal_const(
+                            &mut cs.namespace(|| format!("{i}.lit_hash_match")),
+                            &allocated_lit.hash(),
                             lit_hash,
-                        )
-                        .with_context(|| "couldn't allocate equal const")?;
-
+                        )?;
+                        let allocated_has_match = and(
+                            &mut cs.namespace(|| format!("{i}.first_and")),
+                            &lit_tag_match,
+                            &lit_hash_match,
+                        )?;
                         let not_dummy_and_has_match = and(
-                            &mut cs.namespace(|| format!("{i}.and")),
+                            &mut cs.namespace(|| format!("{i}.second_and")),
                             not_dummy,
                             &allocated_has_match,
-                        )
-                        .with_context(|| "failed to constrain `and`")?;
-
+                        )?;
                         selector.push(allocated_has_match);
 
                         let mut branch_slot = *next_slot;
@@ -1365,7 +1372,7 @@ impl Func {
                     match def {
                         Some(def) => {
                             // constraints for the boolean and the default case
-                            num_constraints += multiplier - 2;
+                            num_constraints += if nested { 2 } else { 1 };
                             num_constraints += recurse(def, true, globals, store);
                         }
                         None => (),
@@ -1373,14 +1380,17 @@ impl Func {
                     num_constraints
                 }
                 Ctrl::MatchVal(_, cases, def) => {
-                    let multiplier = if nested { 4 } else { 3 };
+                    // two `alloc_equal_const` adding 6 constraints for each case
+                    // one `and` for hash and tag, and the `not_dummy` `and` which
+                    // is free for non-nested `MatchTag`s
+                    let multiplier = if nested { 8 } else { 7 };
                     num_constraints += multiplier * cases.len() + 1;
                     for block in cases.values() {
                         num_constraints += recurse(block, true, globals, store);
                     }
                     match def {
                         Some(def) => {
-                            num_constraints += multiplier - 2;
+                            num_constraints += if nested { 2 } else { 1 };
                             num_constraints += recurse(def, true, globals, store);
                         }
                         None => (),
