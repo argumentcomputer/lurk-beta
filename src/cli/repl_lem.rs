@@ -565,7 +565,7 @@ impl ReplLEM<F> {
         input: parser::Span<'a>,
         pwd_path: &Utf8Path,
     ) -> Result<parser::Span<'a>> {
-        let (ptr, is_meta) = self.store.read_maybe_meta(self.state.clone(), &input)?;
+        let (input, ptr, is_meta) = self.store.read_maybe_meta(self.state.clone(), &input)?;
         if is_meta {
             self.handle_meta(ptr, pwd_path)?;
         } else {
@@ -627,7 +627,7 @@ impl ReplLEM<F> {
                 Ok(line) => {
                     editor.save_history(history_path)?;
                     match self.store.read_maybe_meta(self.state.clone(), &line) {
-                        Ok((expr_ptr, is_meta)) => {
+                        Ok((_, expr_ptr, is_meta)) => {
                             if is_meta {
                                 if let Err(e) = self.handle_meta(expr_ptr, &pwd_path) {
                                     println!("!Error: {e}");

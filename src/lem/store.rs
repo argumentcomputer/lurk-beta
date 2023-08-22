@@ -346,15 +346,15 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn read_maybe_meta(
+    pub fn read_maybe_meta<'a>(
         &mut self,
         state: Rc<RefCell<State>>,
-        input: &str,
-    ) -> Result<(Ptr<F>, bool), crate::parser::Error> {
+        input: &'a str,
+    ) -> Result<(Span<'a>, Ptr<F>, bool), crate::parser::Error> {
         match preceded(syntax::parse_space, syntax::parse_maybe_meta(state, false))
             .parse(input.into())
         {
-            Ok((_, Some((is_meta, x)))) => Ok((self.intern_syntax(x), is_meta)),
+            Ok((i, Some((is_meta, x)))) => Ok((i, self.intern_syntax(x), is_meta)),
             Ok((_, None)) => Err(Error::NoInput),
             Err(e) => Err(Error::Syntax(format!("{}", e))),
         }
