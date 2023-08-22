@@ -540,10 +540,10 @@ impl Func {
 
         for iterations in 0..limit {
             let (frame, _) = self.call(&input, store, Preimages::default(), &mut emitted)?;
+            input = frame.output.clone();
             if stop_cond(&frame.output) {
                 return Ok((input, iterations + 1, emitted));
             }
-            input = frame.output.clone();
         }
         bail!("Computation exceeded the limit of steps {limit}")
     }

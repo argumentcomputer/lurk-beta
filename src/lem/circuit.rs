@@ -1138,12 +1138,12 @@ impl Func {
                         let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
                         let lit_tag_match = alloc_equal_const(
                             &mut cs.namespace(|| format!("{i}.lit_tag_match")),
-                            &allocated_lit.tag(),
+                            allocated_lit.tag(),
                             lit_tag,
                         )?;
                         let lit_hash_match = alloc_equal_const(
                             &mut cs.namespace(|| format!("{i}.lit_hash_match")),
-                            &allocated_lit.hash(),
+                            allocated_lit.hash(),
                             lit_hash,
                         )?;
                         let allocated_has_match = and(
