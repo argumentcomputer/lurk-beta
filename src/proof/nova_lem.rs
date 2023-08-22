@@ -664,7 +664,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_binop() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(3);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(s, "(+ 1 2)", Some(expected), None, Some(terminal), None, 3);
@@ -675,7 +675,7 @@ pub mod tests {
     // This tests the testing mechanism. Since the supplied expected value is wrong,
     // the test should panic on an assertion failure.
     fn test_prove_binop_fail() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(2);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(s, "(+ 1 2)", Some(expected), None, Some(terminal), None, 3);
@@ -684,7 +684,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_arithmetic_let() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(3);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -704,7 +704,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_eq() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = s.intern_lurk_sym("t");
         let terminal = Ptr::null(Tag::Cont(Terminal));
         nova_test_full_aux(
@@ -724,7 +724,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_num_equal() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = s.intern_lurk_sym("t");
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(s, "(= 5 5)", Some(expected), None, Some(terminal), None, 3);
@@ -736,7 +736,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_invalid_num_equal() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = s.intern_nil();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "(= 5 nil)", Some(expected), None, Some(error), None, 3);
@@ -747,7 +747,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_equal() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let nil = s.intern_nil();
         let t = s.intern_lurk_sym("t");
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -760,14 +760,14 @@ pub mod tests {
 
     #[test]
     fn test_prove_quote_end_is_nil_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "(quote (1) (2))", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn test_prove_if() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(5);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -795,7 +795,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_if_end_is_nil_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(5);
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(
@@ -812,7 +812,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_if_fully_evaluates() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(10);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -829,7 +829,7 @@ pub mod tests {
     #[test]
     #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
     fn test_prove_recursion1() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(25);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -851,7 +851,7 @@ pub mod tests {
     #[test]
     #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
     fn test_prove_recursion2() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(25);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -872,7 +872,7 @@ pub mod tests {
     }
 
     fn test_prove_unop_regression_aux(chunk_count: usize) {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = s.intern_lurk_sym("t");
         let terminal = Ptr::null(Tag::Cont(Terminal));
         nova_test_full_aux(
@@ -944,7 +944,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_emit_output() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(123);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -961,7 +961,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_evaluate() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(99);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -978,7 +978,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_evaluate2() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(99);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -997,7 +997,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_evaluate3() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(999);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1019,7 +1019,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_evaluate4() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(888);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1042,7 +1042,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_evaluate5() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(999);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1062,7 +1062,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_evaluate_sum() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(9);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1078,7 +1078,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_binop_rest_is_nil() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(9);
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "(- 9 8 7)", Some(expected), None, Some(error), None, 2);
@@ -1086,7 +1086,7 @@ pub mod tests {
     }
 
     fn op_syntax_error<T: Op + Copy>() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         let mut test = |op: T| {
             let name = op.symbol_name();
@@ -1134,7 +1134,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_diff() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(4);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(s, "(- 9 5)", Some(expected), None, Some(terminal), None, 3);
@@ -1143,7 +1143,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_product() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(45);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(s, "(* 9 5)", Some(expected), None, Some(terminal), None, 3);
@@ -1152,7 +1152,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_quotient() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(7);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(s, "(/ 21 3)", Some(expected), None, Some(terminal), None, 3);
@@ -1160,7 +1160,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_error_div_by_zero() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(0);
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "(/ 21 0)", Some(expected), None, Some(error), None, 3);
@@ -1168,7 +1168,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_error_invalid_type_and_not_cons() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = s.intern_nil();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "(/ 21 nil)", Some(expected), None, Some(error), None, 3);
@@ -1177,7 +1177,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_adder() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(5);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1197,7 +1197,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_current_env_simple() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = s.intern_nil();
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1213,7 +1213,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_current_env_rest_is_nil_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = s.read_with_default_state("(current-env a)").unwrap();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(
@@ -1230,7 +1230,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_let_simple() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(1);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1247,56 +1247,56 @@ pub mod tests {
 
     #[test]
     fn test_prove_let_end_is_nil_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "(let ((a 1 2)) a)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn test_prove_letrec_end_is_nil_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "(letrec ((a 1 2)) a)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn test_prove_lambda_empty_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "((lambda (x)) 0)", None, None, Some(error), None, 3);
     }
 
     #[test]
     fn test_prove_let_empty_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "(let)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn test_prove_let_empty_body_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "(let ((a 1)))", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn test_prove_letrec_empty_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "(letrec)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn test_prove_letrec_empty_body_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "(letrec ((a 1)))", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn test_prove_let_body_nil() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = s.intern_lurk_sym("t");
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1312,14 +1312,14 @@ pub mod tests {
 
     #[test]
     fn test_prove_let_rest_body_is_nil_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "(let ((a 1)) a 1)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn test_prove_letrec_rest_body_is_nil_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "(letrec ((a 1)) a 1)", None, None, Some(error), None, 1);
     }
@@ -1327,7 +1327,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_let_null_bindings() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(3);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1343,7 +1343,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_letrec_null_bindings() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(3);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1360,7 +1360,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_let() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(6);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1380,7 +1380,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_arithmetic() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(20);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1404,7 +1404,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_comparison() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = s.intern_lurk_sym("t");
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1425,7 +1425,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_conditional() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(5);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1453,7 +1453,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_conditional2() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(6);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1481,7 +1481,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_fundamental_conditional_bug() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(5);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1506,7 +1506,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_fully_evaluates() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(10);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1523,7 +1523,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_recursion() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(25);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1545,7 +1545,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_recursion_multiarg() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(25);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1566,7 +1566,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_recursion_optimized() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(25);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1590,7 +1590,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_tail_recursion() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(25);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1613,7 +1613,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_tail_recursion_somewhat_optimized() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(25);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1638,7 +1638,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_no_mutual_recursion() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = s.intern_lurk_sym("t");
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1663,7 +1663,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_no_mutual_recursion_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(
             s,
@@ -1687,7 +1687,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_cons1() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(1);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1703,35 +1703,35 @@ pub mod tests {
 
     #[test]
     fn test_prove_car_end_is_nil_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "(car (1 2) 3)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn test_prove_cdr_end_is_nil_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "(cdr (1 2) 3)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn test_prove_atom_end_is_nil_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "(atom 123 4)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn test_prove_emit_end_is_nil_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "(emit 123 4)", None, None, Some(error), None, 1);
     }
 
     #[test]
     fn test_prove_cons2() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(2);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1747,7 +1747,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_zero_arg_lambda1() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(123);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1763,7 +1763,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_zero_arg_lambda2() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(10);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1779,7 +1779,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_zero_arg_lambda3() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = {
             let arg = s.intern_symbol(&user_sym("x"));
             let num = Ptr::num_u64(123);
@@ -1804,14 +1804,14 @@ pub mod tests {
 
     #[test]
     fn test_prove_zero_arg_lambda4() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "((lambda () 123) 1)", None, None, Some(error), None, 3);
     }
 
     #[test]
     fn test_prove_zero_arg_lambda5() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = s.read_with_default_state("(123)").unwrap();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, "(123)", Some(expected), None, Some(error), None, 1);
@@ -1819,7 +1819,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_zero_arg_lambda6() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(123);
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(
@@ -1835,7 +1835,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_nested_let_closure_regression() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let terminal = Ptr::null(Tag::Cont(Terminal));
         let expected = Ptr::num_u64(6);
         let expr = "(let ((data-function (lambda () 123))
@@ -1848,7 +1848,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_minimal_tail_call() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(123);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1870,7 +1870,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_cons_in_function1() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(2);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1891,7 +1891,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_cons_in_function2() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(3);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1912,7 +1912,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_multiarg_eval_bug() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(2);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1929,7 +1929,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_multiple_letrec_bindings() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(123);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1952,7 +1952,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_tail_call2() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(123);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1975,7 +1975,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_multiple_letrecstar_bindings() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(13);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -1994,7 +1994,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_multiple_letrecstar_bindings_referencing() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(11);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -2013,7 +2013,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_multiple_letrecstar_bindings_recursive() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(33);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -2043,7 +2043,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_dont_discard_rest_env() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(18);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -2064,7 +2064,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_fibonacci() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(1);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         nova_test_full_aux(
@@ -2092,7 +2092,7 @@ pub mod tests {
     // #[test]
     // #[ignore]
     // fn test_prove_fibonacci_100() {
-    //     let s = &mut Store::<Fr>::default();
+    //     let s = &mut eval_step().init_store();
     //     let expected = s.read_with_default_state("354224848179261915075").unwrap();
     //     let terminal = Ptr::null(Tag::Cont(Terminal));
     //     nova_test_full_aux::(
@@ -2118,7 +2118,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_terminal_continuation_regression() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
             s,
@@ -2135,7 +2135,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_chained_functional_commitment() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
             s,
@@ -2154,7 +2154,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_begin_empty() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = s.intern_nil();
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(s, "(begin)", Some(expected), None, Some(terminal), None, 2);
@@ -2162,7 +2162,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_begin_emit() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(begin (emit 1) (emit 2) (emit 3))";
         let expected_expr = Ptr::num_u64(3);
         let expected_emitted = vec![Ptr::num_u64(1), Ptr::num_u64(2), Ptr::num_u64(3)];
@@ -2179,7 +2179,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_str_car() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected_a = s.read_with_default_state(r"#\a").unwrap();
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -2195,7 +2195,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_str_cdr() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected_pple = s.read_with_default_state(r#" "pple" "#).unwrap();
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -2211,7 +2211,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_str_car_empty() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected_nil = s.intern_nil();
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -2227,7 +2227,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_str_cdr_empty() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected_empty_str = s.intern_string("");
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -2243,7 +2243,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_strcons() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected_apple = s.read_with_default_state(r#" "apple" "#).unwrap();
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -2259,21 +2259,21 @@ pub mod tests {
 
     #[test]
     fn test_prove_str_cons_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, r"(strcons #\a 123)", None, None, Some(error), None, 3);
     }
 
     #[test]
     fn test_prove_one_arg_cons_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, r#"(cons "")"#, None, None, Some(error), None, 1);
     }
 
     #[test]
     fn test_prove_car_nil() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = s.intern_nil();
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -2289,7 +2289,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_cdr_nil() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = s.intern_nil();
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -2305,7 +2305,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_car_cdr_invalid_tag_error_sym() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, r#"(car car)"#, None, None, Some(error), None, 2);
         test_aux(s, r#"(cdr car)"#, None, None, Some(error), None, 2);
@@ -2313,7 +2313,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_car_cdr_invalid_tag_error_char() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, r"(car #\a)", None, None, Some(error), None, 2);
         test_aux(s, r"(cdr #\a)", None, None, Some(error), None, 2);
@@ -2321,7 +2321,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_car_cdr_invalid_tag_error_num() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, r#"(car 42)"#, None, None, Some(error), None, 2);
         test_aux(s, r#"(cdr 42)"#, None, None, Some(error), None, 2);
@@ -2329,7 +2329,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_car_cdr_of_cons() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let res1 = Ptr::num_u64(1);
         let res2 = Ptr::num_u64(2);
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -2355,7 +2355,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_car_cdr_invalid_tag_error_lambda() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(
             s,
@@ -2379,7 +2379,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_hide_open() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(open (hide 123 456))";
         let expected = Ptr::num_u64(456);
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -2388,7 +2388,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_hide_wrong_secret_type() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(hide 'x 456)";
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, expr, None, None, Some(error), None, 3);
@@ -2396,7 +2396,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_hide_secret() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(secret (hide 123 456))";
         let expected = Ptr::num_u64(123);
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -2405,7 +2405,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_hide_open_sym() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(open (hide 123 'x))";
         let x = s.intern_symbol(&user_sym("x"));
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -2414,7 +2414,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_commit_open_sym() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(open (commit 'x))";
         let x = s.intern_symbol(&user_sym("x"));
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -2423,7 +2423,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_commit_open() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(open (commit 123))";
         let expected = Ptr::num_u64(123);
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -2432,7 +2432,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_commit_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(commit 123 456)";
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, expr, None, None, Some(error), None, 1);
@@ -2440,7 +2440,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_open_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(open 123 456)";
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, expr, None, None, Some(error), None, 1);
@@ -2448,7 +2448,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_open_wrong_type() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(open 'asdf)";
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, expr, None, None, Some(error), None, 2);
@@ -2456,7 +2456,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_secret_wrong_type() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(secret 'asdf)";
         let error = Ptr::null(Tag::Cont(Error));
         test_aux(s, expr, None, None, Some(error), None, 2);
@@ -2464,7 +2464,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_commit_secret() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(secret (commit 123))";
         let expected = Ptr::num_u64(0);
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -2473,7 +2473,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_num() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(num 123)";
         let expected = Ptr::num_u64(123);
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -2482,7 +2482,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_num_char() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = r"(num #\a)";
         let expected = Ptr::num_u64(97);
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -2491,7 +2491,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_char_num() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = r#"(char 97)"#;
         let expected_a = s.read_with_default_state(r"#\a").unwrap();
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -2500,7 +2500,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_char_coercion() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = r#"(char (- 0 4294967200))"#;
         let expr2 = r#"(char (- 0 4294967199))"#;
         let expected_a = s.read_with_default_state(r"#\a").unwrap();
@@ -2512,7 +2512,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_commit_num() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(num (commit 123))";
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(s, expr, None, None, Some(terminal), None, 4);
@@ -2520,7 +2520,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_hide_open_comm_num() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(open (comm (num (hide 123 456))))";
         let expected = Ptr::num_u64(456);
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -2529,7 +2529,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_hide_secret_comm_num() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(secret (comm (num (hide 123 456))))";
         let expected = Ptr::num_u64(123);
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -2538,7 +2538,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_commit_open_comm_num() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(open (comm (num (commit 123))))";
         let expected = Ptr::num_u64(123);
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -2547,7 +2547,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_commit_secret_comm_num() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(secret (comm (num (commit 123))))";
         let expected = Ptr::num_u64(0);
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -2556,7 +2556,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_commit_num_open() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(open (num (commit 123)))";
         let expected = Ptr::num_u64(123);
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -2565,7 +2565,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_num_invalid_tag() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(num (quote x))";
         let expr1 = "(num \"asdf\")";
         let expr2 = "(num '(1))";
@@ -2577,7 +2577,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_comm_invalid_tag() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(comm (quote x))";
         let expr1 = "(comm \"asdf\")";
         let expr2 = "(comm '(1))";
@@ -2589,7 +2589,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_char_invalid_tag() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(char (quote x))";
         let expr1 = "(char \"asdf\")";
         let expr2 = "(char '(1))";
@@ -2601,7 +2601,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_terminal_sym() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(quote x)";
         let x = s.intern_symbol(&user_sym("x"));
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -2611,7 +2611,7 @@ pub mod tests {
     #[test]
     #[should_panic = "hidden value could not be opened"]
     fn test_prove_open_opaque_commit() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(open 123)";
         test_aux(s, expr, None, None, None, None, 2);
     }
@@ -2619,7 +2619,7 @@ pub mod tests {
     #[test]
     #[should_panic]
     fn test_prove_secret_invalid_tag() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(secret 123)";
         test_aux(s, expr, None, None, None, None, 2);
     }
@@ -2627,14 +2627,14 @@ pub mod tests {
     #[test]
     #[should_panic = "secret could not be extracted"]
     fn test_prove_secret_opaque_commit() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(secret (comm 123))";
         test_aux(s, expr, None, None, None, None, 2);
     }
 
     #[test]
     fn test_str_car_cdr_cons() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let a = s.read_with_default_state(r"#\a").unwrap();
         let apple = s.read_with_default_state(r#" "apple" "#).unwrap();
         let a_pple = s.read_with_default_state(r#" (#\a . "pple") "#).unwrap();
@@ -2706,7 +2706,7 @@ pub mod tests {
     #[ignore]
     #[test]
     fn test_prove_test_relational() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let lt = "<";
         let gt = ">";
         let lte = "<=";
@@ -2817,7 +2817,7 @@ pub mod tests {
 
     #[test]
     fn test_relational_edge_case_identity() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         // Normally, a value cannot be less than the result of incrementing it.
         // However, the most positive field element (when viewed as signed)
         // is the exception. Incrementing it yields the most negative element,
@@ -2833,7 +2833,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_eval() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(* 3 (eval  (cons '+ (cons 1 (cons 2 nil)))))";
         let expr2 = "(* 5 (eval '(+ 1 a) '((a . 3))))"; // two-arg eval, optional second arg is env.
         let res = Ptr::num_u64(9);
@@ -2846,7 +2846,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_keyword() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         let expr = ":asdf";
         let expr2 = "(eq :asdf :asdf)";
@@ -2867,7 +2867,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_functional_commitment() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         let expr = "(let ((f (commit (let ((num 9)) (lambda (f) (f num)))))
                           (inc (lambda (x) (+ x 1))))
@@ -2881,7 +2881,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_complicated_functional_commitment() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         let expr = "(let ((f (commit (let ((nums '(1 2 3))) (lambda (f) (f nums)))))
                           (in (letrec ((sum-aux (lambda (acc nums)
@@ -2901,7 +2901,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_fold_cons_regression() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(letrec ((fold (lambda (op acc l)
                                      (if l
                                          (fold op (op acc (car l)) (cdr l))
@@ -2915,7 +2915,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_lambda_args_regression() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         let expr = "(cons (lambda (x y) nil) nil)";
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -2925,7 +2925,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_reduce_sym_contradiction_regression() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         let expr = "(eval 'a '(nil))";
         let error = Ptr::null(Tag::Cont(Error));
@@ -2935,7 +2935,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_self_eval_env_not_nil() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         // NOTE: cond1 shouldn't depend on env-is-not-nil
         // therefore this unit test is not very useful
@@ -2950,7 +2950,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_self_eval_nil() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         // nil doesn't have SYM tag
         let expr = "nil";
@@ -2961,7 +2961,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_env_not_nil_and_binding_nil() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         let expr = "(let ((a 1) (b 2)) c)";
 
@@ -2971,7 +2971,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_eval_bad_form() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(* 5 (eval '(+ 1 a) '((0 . 3))))"; // two-arg eval, optional second arg is env. This tests for error on malformed env.
         let error = Ptr::null(Tag::Cont(Error));
 
@@ -2980,7 +2980,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_u64_self_evaluating() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         let expr = "123u64";
         let res = Ptr::u64(123);
@@ -2991,7 +2991,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_u64_mul() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         let expr = "(* (u64 18446744073709551615) (u64 2))";
         let expr2 = "(* 18446744073709551615u64 2u64)";
@@ -3009,7 +3009,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_u64_add() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         let expr = "(+ 18446744073709551615u64 2u64)";
         let expr2 = "(+ (- 0u64 1u64) 2u64)";
@@ -3022,7 +3022,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_u64_sub() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         let expr = "(- 2u64 1u64)";
         let expr2 = "(- 0u64 1u64)";
@@ -3039,7 +3039,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_u64_div() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         let expr = "(/ 100u64 2u64)";
         let res = Ptr::u64(50);
@@ -3059,7 +3059,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_u64_mod() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         let expr = "(% 100u64 2u64)";
         let res = Ptr::u64(0);
@@ -3079,7 +3079,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_num_mod() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         let expr = "(% 100 3)";
         let expr2 = "(% 100 3u64)";
@@ -3094,7 +3094,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_u64_comp() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         let expr = "(< 0u64 1u64)";
         let expr2 = "(< 1u64 0u64)";
@@ -3129,7 +3129,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_u64_conversion() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         let expr = "(+ 0 1u64)";
         let expr2 = "(num 1u64)";
@@ -3148,7 +3148,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_u64_num_comparison() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         let expr = "(= 1 1u64)";
         let expr2 = "(= 1 2u64)";
@@ -3162,7 +3162,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_u64_num_cons() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         let expr = "(cons 1 1u64)";
         let expr2 = "(cons 1u64 1)";
@@ -3176,7 +3176,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_hide_u64_secret() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         let expr = "(hide 0u64 123)";
         let error = Ptr::null(Tag::Cont(Error));
@@ -3186,7 +3186,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_test_mod_by_zero_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
 
         let expr = "(% 0 0)";
         let error = Ptr::null(Tag::Cont(Error));
@@ -3196,7 +3196,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_dotted_syntax_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expr = "(let ((a (lambda (x) (+ x 1)))) (a . 1))";
         let error = Ptr::null(Tag::Cont(Error));
 
@@ -3205,7 +3205,7 @@ pub mod tests {
 
     // #[test]
     // fn test_prove_call_literal_fun() {
-    //     let s = &mut Store::<Fr>::default();
+    //     let s = &mut eval_step().init_store();
     //     let empty_env = s.intern_nil();
     //     let arg = s.user_sym("x");
     //     let body = s.read_with_default_state("((+ x 1))").unwrap();
@@ -3233,7 +3233,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_lambda_body_syntax() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
 
         test_aux(s, "((lambda ()))", None, None, Some(error), None, 2);
@@ -3245,7 +3245,7 @@ pub mod tests {
     #[test]
     #[ignore]
     fn test_prove_non_symbol_binding_error() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
 
         let mut test = |x| {
@@ -3267,7 +3267,7 @@ pub mod tests {
 
     #[test]
     fn test_prove_head_with_sym_mimicking_value() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let error = Ptr::null(Tag::Cont(Error));
 
         let hash_num = |s: &mut Store<Fr>, state: Rc<RefCell<State>>, name| {
@@ -3361,7 +3361,7 @@ pub mod tests {
     // This is related to issue #426
     #[test]
     fn test_prove_lambda_body_nil() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = s.intern_nil();
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -3378,7 +3378,7 @@ pub mod tests {
     // The following 3 tests are related to issue #424
     #[test]
     fn test_letrec_let_nesting() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(2);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -3393,7 +3393,7 @@ pub mod tests {
     }
     #[test]
     fn test_let_sequencing() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(1);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
@@ -3408,7 +3408,7 @@ pub mod tests {
     }
     #[test]
     fn test_letrec_sequencing() {
-        let s = &mut Store::<Fr>::default();
+        let s = &mut eval_step().init_store();
         let expected = Ptr::num_u64(3);
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux(
