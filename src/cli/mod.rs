@@ -1,4 +1,4 @@
-mod backend;
+pub mod backend;
 mod circom;
 mod commitment;
 mod commitment_lem;
@@ -6,7 +6,7 @@ mod field_data;
 mod lurk_proof;
 pub mod paths;
 mod repl;
-mod repl_lem;
+pub mod repl_lem;
 
 use anyhow::{bail, Context, Result};
 use camino::Utf8PathBuf;

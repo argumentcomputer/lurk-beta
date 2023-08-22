@@ -2,7 +2,7 @@ use anyhow::{bail, Result};
 
 use crate::field::LanguageField;
 
-pub(crate) enum Backend {
+pub enum Backend {
     Nova,
     SnarkPackPlus,
 }

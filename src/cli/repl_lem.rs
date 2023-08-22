@@ -42,7 +42,7 @@ struct Evaluation<F: LurkField> {
     iterations: usize,
 }
 
-pub(crate) struct ReplLEM<F: LurkField> {
+pub struct ReplLEM<F: LurkField> {
     store: Store<F>,
     state: Rc<RefCell<State>>,
     env: Ptr<F>,
@@ -74,7 +74,7 @@ fn pad(a: usize, m: usize) -> usize {
 }
 
 impl ReplLEM<F> {
-    pub(crate) fn new(store: Option<Store<F>>, rc: usize, limit: usize, backend: Backend) -> Self {
+    pub fn new(store: Option<Store<F>>, rc: usize, limit: usize, backend: Backend) -> Self {
         let limit = pad(limit, rc);
         info!(
             "Launching REPL with backend {backend}, field {}, rc {rc} and limit {limit}",
@@ -574,7 +574,7 @@ impl ReplLEM<F> {
         Ok(input)
     }
 
-    pub(crate) fn load_file(&mut self, file_path: &Utf8Path) -> Result<()> {
+    pub fn load_file(&mut self, file_path: &Utf8Path) -> Result<()> {
         let input = read_to_string(file_path)?;
         println!("Loading {}", file_path);
 
