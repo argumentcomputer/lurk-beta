@@ -369,7 +369,7 @@ fn reduce() -> Func {
                         let (condition, more) = safe_uncons(rest);
                         match more.tag {
                             Expr::Nil => {
-                                return (condition, env, err, errctrl)
+                                return (expr, env, err, errctrl)
                             }
                         };
                         let cont: Cont::If = hash2(more, cont);
@@ -821,12 +821,12 @@ fn apply_cont() -> Func {
                                         let val = sub(evaled_arg, result);
                                         let is_neg = lt(val, zero);
                                         match is_neg.val {
-                                            Num(0) => {
+                                            Num(1) => {
                                                 let val = add(val, size_u64);
                                                 let val = cast(val, Expr::U64);
                                                 return (val, env, continuation, makethunk)
                                             }
-                                            Num(1) => {
+                                            Num(0) => {
                                                 let val = cast(val, Expr::U64);
                                                 return (val, env, continuation, makethunk)
                                             }
