@@ -853,6 +853,12 @@ fn apply_cont() -> Func {
                                 }
                             }
                             Symbol("/") => {
+                                let is_z = eq_val(result, zero);
+                                match is_z.val {
+                                    Num(1) => {
+                                        return (result, env, err, errctrl)
+                                    }
+                                };
                                 match args_num_type.val {
                                     Num(0) => {
                                         return (result, env, err, errctrl)
@@ -869,6 +875,12 @@ fn apply_cont() -> Func {
                                 }
                             }
                             Symbol("%") => {
+                                let is_z = eq_val(result, zero);
+                                match is_z.val {
+                                    Num(1) => {
+                                        return (result, env, err, errctrl)
+                                    }
+                                };
                                 match args_num_type.val {
                                     Num(2) => {
                                         let (_div, rem) = div_rem64(evaled_arg, result);
