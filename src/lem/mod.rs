@@ -164,24 +164,22 @@ pub enum Lit {
 }
 
 impl Lit {
-    pub fn to_ptr_cache<F: LurkField>(&self, store: &Store<F>) -> Ptr<F> {
-        match self {
-            Self::Symbol(s) => *store
-                .symbol_ptr_cache
-                .get(s)
-                .expect("Symbols should have been cached"),
-            Self::String(s) => *store
-                .string_ptr_cache
-                .get(s)
-                .expect("String should have been cached"),
-            Self::Num(num) => Ptr::num(F::from_u128(*num)),
-        }
-    }
-
     pub fn to_ptr<F: LurkField>(&self, store: &mut Store<F>) -> Ptr<F> {
         match self {
             Self::Symbol(s) => store.intern_symbol(s),
             Self::String(s) => store.intern_string(s),
+            Self::Num(num) => Ptr::num(F::from_u128(*num)),
+        }
+    }
+
+    pub fn to_ptr_cached<F: LurkField>(&self, store: &Store<F>) -> Ptr<F> {
+        match self {
+            Self::Symbol(s) => *store
+                .interned_symbol(s)
+                .expect("Symbol should have been cached"),
+            Self::String(s) => *store
+                .interned_string(s)
+                .expect("String should have been cached"),
             Self::Num(num) => Ptr::num(F::from_u128(*num)),
         }
     }

@@ -302,26 +302,27 @@ impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F> {
         CS: ConstraintSystem<F>,
     {
         assert_eq!(self.arity(), z.len());
-        let mut input = Vec::with_capacity(self.arity() / 2);
-        let mut z_iter = z.iter();
-        while let Some(tag) = z_iter.next() {
-            let hash = z_iter.next().unwrap();
-            input.push(AllocatedPtr::from_parts(tag.clone(), hash.clone()))
-        }
 
-        let count = self.count;
+        let n_ptrs = self.arity() / 2;
+        let mut input = Vec::with_capacity(n_ptrs);
+        for i in 0..n_ptrs {
+            input.push(
+                AllocatedPtr::from_parts(z[2 * i].clone(),
+                z[2 * i + 1].clone())
+            );
+        }
 
         let output_ptrs = match self.frames.as_ref() {
             Some(frames) => {
                 let s = self.store.expect("store missing");
-                self.synthesize_frames(cs, s, &input, frames)
+                self.synthesize_frames(cs, s, &input, frames, false)
             }
             None => {
                 assert!(self.store.is_none());
                 let s = self.func.init_store();
                 let blank_frame = Frame::blank(self.func);
-                let frames = vec![blank_frame; count];
-                self.synthesize_frames(cs, &s, &input, &frames)
+                let frames = vec![blank_frame; self.count];
+                self.synthesize_frames(cs, &s, &input, &frames, true)
             }
         };
 
@@ -330,6 +331,7 @@ impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F> {
             output.push(ptr.tag().clone());
             output.push(ptr.hash().clone());
         }
+
         Ok(output)
     }
 }

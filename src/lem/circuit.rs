@@ -168,22 +168,25 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
         store: &Store<F>,
         input: &[AllocatedPtr<F>],
         frames: &[Frame<F>],
+        blank: bool,
     ) -> Vec<AllocatedPtr<F>> {
         let global_allocator = &mut GlobalAllocator::default();
         let (_, output) = frames
             .iter()
             .fold((0, input.to_vec()), |(i, input), frame| {
-                // for (alloc_ptr, input) in input.iter().zip(&frame.input) {
-                //     let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
-                //     assert_eq!(
-                //         alloc_ptr.tag().get_value().expect("Assignment missing"),
-                //         input_zptr.tag.to_field(),
-                //     );
-                //     assert_eq!(
-                //         alloc_ptr.hash().get_value().expect("Assignment missing"),
-                //         input_zptr.hash,
-                //     );
-                // }
+                if !blank {
+                    for (alloc_ptr, input) in input.iter().zip(&frame.input) {
+                        let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
+                        assert_eq!(
+                            alloc_ptr.tag().get_value().expect("Assignment missing"),
+                            input_zptr.tag.to_field(),
+                        );
+                        assert_eq!(
+                            alloc_ptr.hash().get_value().expect("Assignment missing"),
+                            input_zptr.hash,
+                        );
+                    }
+                }
                 let bound_allocations = &mut BoundAllocations::new();
                 self.func.add_input(&input, bound_allocations);
                 let output = self
@@ -729,7 +732,7 @@ impl Func {
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
                     Op::Lit(tgt, lit) => {
-                        let lit_ptr = lit.to_ptr_cache(g.store);
+                        let lit_ptr = lit.to_ptr_cached(g.store);
                         let lit_tag = lit_ptr.tag().to_field();
                         let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
                         let allocated_tag = g.global_allocator.get_or_alloc_const(cs, lit_tag)?;
@@ -1130,7 +1133,7 @@ impl Func {
                     let mut selector = Vec::with_capacity(cases.len() + 1);
                     let mut branch_slots = Vec::with_capacity(cases.len());
                     for (i, (lit, block)) in cases.iter().enumerate() {
-                        let lit_ptr = lit.to_ptr_cache(g.store);
+                        let lit_ptr = lit.to_ptr_cached(g.store);
                         let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
                         let allocated_has_match = alloc_equal_const(
                             &mut cs.namespace(|| format!("{i}.alloc_equal_const")),
@@ -1269,7 +1272,7 @@ impl Func {
                         globals.insert(FWrap(F::ZERO));
                     }
                     Op::Lit(_, lit) => {
-                        let lit_ptr = lit.to_ptr_cache(store);
+                        let lit_ptr = lit.to_ptr_cached(store);
                         let lit_hash = store.hash_ptr(&lit_ptr).unwrap().hash;
                         globals.insert(FWrap(Tag::Expr(Sym).to_field()));
                         globals.insert(FWrap(lit_hash));

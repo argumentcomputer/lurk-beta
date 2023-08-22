@@ -22,14 +22,13 @@ use super::pointers::{Ptr, ZPtr};
 /// The `Store` is a crucial part of Lurk's implementation and tries to be a
 /// vesatile data structure for many parts of Lurk's data pipeline.
 ///
-/// It holds Lurk data structured as trees of `Ptr`s (or `ZPtr`s). When a `Ptr`
-/// has children, we store them in the `IndexSet`s available: `tuple2`, `tuple3`
-/// or `tuple4`. These data structures speed up LEM interpretation because lookups
-/// by indices are fast.
+/// It holds Lurk data structured as trees of `Ptr`s. When a `Ptr` has children,
+/// we store them in the `IndexSet`s available: `tuple2`, `tuple3` or `tuple4`.
+/// These data structures speed up LEM interpretation because lookups by indices
+/// are fast.
 ///
-/// The `Store` also provides an infra to speed up interning strings and symbols.
-/// This data is saved in `str_tails_cache` and `sym_tails_cache`, which are better
-/// explained in `intern_string` and `intern_symbol_path` respectively.
+/// The `Store` provides an infra to speed up interning strings and symbols. This
+/// data is saved in `string_ptr_cache` and `symbol_ptr_cache`.
 ///
 /// There's also a process that we call "hydration", in which we use Poseidon
 /// hashes to compute the (stable) hash of the children of a pointer. These hashes
@@ -44,10 +43,10 @@ pub struct Store<F: LurkField> {
     tuple3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
     tuple4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
 
-    pub string_ptr_cache: HashMap<String, Ptr<F>>,
+    string_ptr_cache: HashMap<String, Ptr<F>>,
     ptr_string_cache: HashMap<Ptr<F>, String>,
 
-    pub symbol_ptr_cache: HashMap<Symbol, Ptr<F>>,
+    symbol_ptr_cache: HashMap<Symbol, Ptr<F>>,
     ptr_symbol_cache: HashMap<Ptr<F>, Symbol>,
 
     pub poseidon_cache: PoseidonCache<F>,
@@ -165,6 +164,11 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
+    pub fn interned_string(&self, s: &str) -> Option<&Ptr<F>> {
+        self.string_ptr_cache.get(s)
+    }
+
+    #[inline]
     pub fn fetch_string(&self, ptr: &Ptr<F>) -> Option<&String> {
         self.ptr_string_cache.get(ptr)
     }
@@ -192,6 +196,11 @@ impl<F: LurkField> Store<F> {
             self.ptr_symbol_cache.insert(sym_ptr, sym.clone());
             sym_ptr
         }
+    }
+
+    #[inline]
+    pub fn interned_symbol(&self, s: &Symbol) -> Option<&Ptr<F>> {
+        self.symbol_ptr_cache.get(s)
     }
 
     #[inline]
