@@ -334,16 +334,17 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
 
     let state = State::init_lurk_state().rccell();
 
+    let pp = public_parameters::public_params(
+        reduction_count,
+        true,
+        lang_pallas_rc.clone(),
+        Utf8Path::new(PUBLIC_PARAMS_PATH),
+    )
+    .unwrap();
+
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<pallas::Scalar>(&mut store, state.clone(), s.0, s.1);
         let prover = NovaProver::new(reduction_count, lang_pallas.clone());
-        let pp = public_parameters::public_params(
-            reduction_count,
-            true,
-            lang_pallas_rc.clone(),
-            Utf8Path::new(PUBLIC_PARAMS_PATH),
-        )
-        .unwrap();
         let frames = prover
             .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
             .unwrap();

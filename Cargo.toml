@@ -172,6 +172,10 @@ name = "end2end"
 harness = false
 
 [[bench]]
+name = "end2end_lem"
+harness = false
+
+[[bench]]
 name = "fibonacci"
 harness = false
 
