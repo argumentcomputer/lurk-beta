@@ -540,7 +540,6 @@ fn apply_cont() -> Func {
                         return (result, env, cont, ret)
                     }
                     Cont::Emit => {
-                        emit(result);
                         // TODO Does this make sense?
                         let (cont, _rest) = unhash2(cont);
                         return (result, env, cont, makethunk)
@@ -645,7 +644,8 @@ fn apply_cont() -> Func {
                             }
                             Symbol("emit") => {
                                 // TODO Does this make sense?
-                                let emit: Cont::Emit = hash2(cont, nil);
+                                emit(result);
+                                let emit: Cont::Emit = hash2(continuation, nil);
                                 return (result, env, emit, makethunk)
                             }
                             Symbol("open") => {
