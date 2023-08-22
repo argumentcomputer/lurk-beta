@@ -1,7 +1,8 @@
+mod circom;
 mod commitment;
 mod field_data;
 mod lurk_proof;
-mod paths;
+pub mod paths;
 mod repl;
 
 use anyhow::{bail, Context, Result};
@@ -45,6 +46,11 @@ enum Command {
     Repl(ReplArgs),
     /// Verifies a Lurk proof
     Verify(VerifyArgs),
+    /// Instantiates a new circom gadget to interface with bellperson.
+    ///
+    /// See `lurk circom --help` for more details
+    #[command(verbatim_doc_comment)]
+    Circom(CircomArgs),
 }
 
 #[derive(Args, Debug)]
@@ -92,6 +98,10 @@ struct LoadArgs {
     /// Path to commitments directory
     #[clap(long, value_parser)]
     commits_dir: Option<Utf8PathBuf>,
+
+    /// Path to circom directory
+    #[clap(long, value_parser)]
+    circom_dir: Option<Utf8PathBuf>,
 }
 
 #[derive(Parser, Debug)]
@@ -128,6 +138,9 @@ struct LoadCli {
 
     #[clap(long, value_parser)]
     commits_dir: Option<Utf8PathBuf>,
+
+    #[clap(long, value_parser)]
+    circom_dir: Option<Utf8PathBuf>,
 }
 
 impl LoadArgs {
@@ -144,6 +157,7 @@ impl LoadArgs {
             public_params_dir: self.public_params_dir,
             proofs_dir: self.proofs_dir,
             commits_dir: self.commits_dir,
+            circom_dir: self.circom_dir,
         }
     }
 }
@@ -189,6 +203,10 @@ struct ReplArgs {
     /// Path to commitments directory
     #[clap(long, value_parser)]
     commits_dir: Option<Utf8PathBuf>,
+
+    /// Path to circom directory
+    #[clap(long, value_parser)]
+    circom_dir: Option<Utf8PathBuf>,
 }
 
 #[derive(Parser, Debug)]
@@ -222,6 +240,9 @@ struct ReplCli {
 
     #[clap(long, value_parser)]
     commits_dir: Option<Utf8PathBuf>,
+
+    #[clap(long, value_parser)]
+    circom_dir: Option<Utf8PathBuf>,
 }
 
 impl ReplArgs {
@@ -237,6 +258,7 @@ impl ReplArgs {
             public_params_dir: self.public_params_dir,
             proofs_dir: self.proofs_dir,
             commits_dir: self.commits_dir,
+            circom_dir: self.circom_dir,
         }
     }
 }
@@ -350,6 +372,7 @@ impl ReplCli {
             &self.public_params_dir,
             &self.proofs_dir,
             &self.commits_dir,
+            &self.circom_dir,
         );
         let rc = get_parsed_usize("rc", &self.rc, &config, DEFAULT_RC)?;
         let limit = get_parsed_usize("limit", &self.limit, &config, DEFAULT_LIMIT)?;
@@ -400,6 +423,7 @@ impl LoadCli {
             &self.public_params_dir,
             &self.proofs_dir,
             &self.commits_dir,
+            &self.circom_dir,
         );
         let rc = get_parsed_usize("rc", &self.rc, &config, DEFAULT_RC)?;
         let limit = get_parsed_usize("limit", &self.limit, &config, DEFAULT_LIMIT)?;
@@ -450,6 +474,34 @@ struct VerifyArgs {
     proofs_dir: Option<Utf8PathBuf>,
 }
 
+/// To setup a new circom gadget `<NAME>`, place your circom files in a designated folder and
+/// create a file called `<NAME>.circom`. `<CIRCOM_FOLDER>/<NAME>.circom` is the input file
+/// for the `circom` binary; in this file you must declare your circom main component.
+///
+/// Then run `lurk circom --name <NAME> <CIRCOM_FOLDER>` to instantiate a new gadget `<NAME>`.
+/// The new components are stored in `<CIRCOM_DIR>/<NAME>/*`.
+#[derive(Args, Debug)]
+struct CircomArgs {
+    /// Path to the circom folder to be integrated.
+    /// Lurk will look for `<CIRCOM_FOLDER>/<NAME>.circom`
+    /// as the input file for the `circom` binary.
+    #[clap(value_parser)]
+    #[arg(verbatim_doc_comment)]
+    circom_folder: Utf8PathBuf,
+
+    /// The name of the circom gadget (the name cannot be `main`, see circom documentation)
+    #[clap(long, value_parser)]
+    name: String,
+
+    /// Config file, containing the lowest precedence parameters
+    #[clap(long, value_parser)]
+    config: Option<Utf8PathBuf>,
+
+    /// Path to proofs directory
+    #[clap(long, value_parser)]
+    circom_dir: Option<Utf8PathBuf>,
+}
+
 impl Cli {
     fn run(self) -> Result<()> {
         match self.command {
@@ -465,8 +517,22 @@ impl Cli {
                     &verify_args.public_params_dir,
                     &verify_args.proofs_dir,
                     &None,
+                    &None,
                 );
                 LurkProof::verify_proof(&verify_args.proof_id)?;
+                Ok(())
+            }
+            Command::Circom(circom_args) => {
+                use crate::cli::circom::create_circom_gadget;
+                if circom_args.name == "main" {
+                    bail!("Circom gadget name cannot be `main`, see circom documentation")
+                }
+
+                let config = get_config(&circom_args.config)?;
+                log::info!("Configured variables: {:?}", config);
+                set_lurk_dirs(&config, &None, &None, &None, &circom_args.circom_dir);
+
+                create_circom_gadget(circom_args.circom_folder, circom_args.name)?;
                 Ok(())
             }
         }

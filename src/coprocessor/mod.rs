@@ -9,6 +9,7 @@ use crate::field::LurkField;
 use crate::ptr::{ContPtr, Ptr};
 use crate::store::Store;
 
+pub mod circom;
 pub mod trie;
 
 /// `Coprocessor` is a trait that represents a generalized interface for coprocessors.
