@@ -15,7 +15,7 @@ use crate::{
     eval::lang::Lang,
     field::LurkField,
     lem::{
-        eval::{evaluate, evaluate_simple, eval_step},
+        eval::{eval_step, evaluate, evaluate_simple},
         interpreter::Frame,
         pointers::Ptr,
         store::Store,

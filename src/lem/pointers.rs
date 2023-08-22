@@ -49,6 +49,16 @@ impl<F: LurkField> Ptr<F> {
     }
 
     #[inline]
+    pub fn num_u64(u: u64) -> Self {
+        Ptr::Leaf(Tag::Expr(Num), F::from_u64(u))
+    }
+
+    #[inline]
+    pub fn u64(u: u64) -> Self {
+        Ptr::Leaf(Tag::Expr(U64), F::from_u64(u))
+    }
+
+    #[inline]
     pub fn char(c: char) -> Self {
         Ptr::Leaf(Tag::Expr(Char), F::from_char(c))
     }
