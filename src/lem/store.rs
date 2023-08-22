@@ -152,16 +152,15 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn intern_string(&mut self, s: &str) -> Ptr<F> {
-        match self.string_ptr_cache.get(s) {
-            Some(ptr) => *ptr,
-            None => {
-                let ptr = s.chars().rev().fold(Ptr::null(Tag::Expr(Str)), |acc, c| {
-                    self.intern_2_ptrs(Tag::Expr(Str), Ptr::char(c), acc)
-                });
-                self.string_ptr_cache.insert(s.to_string(), ptr);
-                self.ptr_string_cache.insert(ptr, s.to_string());
-                ptr
-            }
+        if let Some(ptr) = self.string_ptr_cache.get(s) {
+            *ptr
+        } else {
+            let ptr = s.chars().rev().fold(Ptr::null(Tag::Expr(Str)), |acc, c| {
+                self.intern_2_ptrs(Tag::Expr(Str), Ptr::char(c), acc)
+            });
+            self.string_ptr_cache.insert(s.to_string(), ptr);
+            self.ptr_string_cache.insert(ptr, s.to_string());
+            ptr
         }
     }
 
@@ -171,28 +170,27 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn intern_symbol_path(&mut self, path: &[String]) -> Ptr<F> {
-        path.iter().fold(Ptr::null(Tag::Expr(Sym)), |acc, s| {
+        path.iter().rfold(Ptr::null(Tag::Expr(Sym)), |acc, s| {
             let s_ptr = self.intern_string(s);
             self.intern_2_ptrs(Tag::Expr(Sym), s_ptr, acc)
         })
     }
 
     pub fn intern_symbol(&mut self, sym: &Symbol) -> Ptr<F> {
-        match self.symbol_ptr_cache.get(sym) {
-            Some(ptr) => *ptr,
-            None => {
-                let path_ptr = self.intern_symbol_path(sym.path());
-                let sym_ptr = if sym == &lurk_sym("nil") {
-                    path_ptr.cast(Tag::Expr(Nil))
-                } else if sym.is_keyword() {
-                    path_ptr.cast(Tag::Expr(Key))
-                } else {
-                    path_ptr
-                };
-                self.symbol_ptr_cache.insert(sym.clone(), sym_ptr);
-                self.ptr_symbol_cache.insert(sym_ptr, sym.clone());
-                sym_ptr
-            }
+        if let Some(ptr) = self.symbol_ptr_cache.get(sym) {
+            *ptr
+        } else {
+            let path_ptr = self.intern_symbol_path(sym.path());
+            let sym_ptr = if sym == &lurk_sym("nil") {
+                path_ptr.cast(Tag::Expr(Nil))
+            } else if sym.is_keyword() {
+                path_ptr.cast(Tag::Expr(Key))
+            } else {
+                path_ptr
+            };
+            self.symbol_ptr_cache.insert(sym.clone(), sym_ptr);
+            self.ptr_symbol_cache.insert(sym_ptr, sym.clone());
+            sym_ptr
         }
     }
 
