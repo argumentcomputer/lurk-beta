@@ -168,7 +168,7 @@ impl<F: LurkField> ZStore<F> {
     ) -> (ZExprPtr<F>, ZExpr<F>) {
         let mut expr = ZExpr::RootSym;
         let mut ptr = expr.z_ptr(poseidon_cache);
-        for s in sym.path().iter().rev() {
+        for s in sym.path().iter() {
             let (str_ptr, _) = self.put_string(s, poseidon_cache);
             expr = ZExpr::Sym(str_ptr, ptr);
             ptr = expr.z_ptr(poseidon_cache);

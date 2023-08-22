@@ -170,7 +170,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn intern_symbol_path(&mut self, path: &[String]) -> Ptr<F> {
-        path.iter().rfold(Ptr::null(Tag::Expr(Sym)), |acc, s| {
+        path.iter().fold(Ptr::null(Tag::Expr(Sym)), |acc, s| {
             let s_ptr = self.intern_string(s);
             self.intern_2_ptrs(Tag::Expr(Sym), s_ptr, acc)
         })

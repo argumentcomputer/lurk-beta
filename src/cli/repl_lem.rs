@@ -137,7 +137,7 @@ impl ReplLEM<F> {
                     info!("Hydrating the store");
                     self.store.hydrate_z_cache();
 
-                    let mut n_frames = frames.len();
+                    let n_frames = frames.len();
 
                     // saving to avoid clones
                     let input = &frames[0].input;
@@ -167,12 +167,6 @@ impl ReplLEM<F> {
                         // TODO: make sure that the proof file is not corrupted
                     } else {
                         info!("Proof not cached");
-                        // padding the frames, if needed
-                        let n_pad = pad(n_frames, self.rc) - n_frames;
-                        if n_pad != 0 {
-                            frames.extend(vec![frames[n_frames - 1].clone(); n_pad]);
-                            n_frames = frames.len();
-                        }
 
                         info!("Loading public parameters");
                         let pp = public_params(&self.func, self.rc);
@@ -182,7 +176,7 @@ impl ReplLEM<F> {
                         info!("Proving");
                         let (proof, public_inputs, public_outputs, num_steps) =
                             prover.prove(&self.func, &pp, frames, &mut self.store)?;
-                        assert_eq!(self.rc * num_steps, n_frames);
+                        assert_eq!(self.rc * num_steps, pad(n_frames, self.rc));
 
                         info!("Compressing proof");
                         let proof = proof.compress(&pp)?;

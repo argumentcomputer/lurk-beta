@@ -441,7 +441,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn intern_symbol_path(&mut self, path: &[String]) -> Ptr<F> {
-        path.iter().rfold(self.symnil(), |acc, s| {
+        path.iter().fold(self.symnil(), |acc, s| {
             let s_ptr = self.intern_string(s);
             self.intern_symcons(s_ptr, acc)
         })

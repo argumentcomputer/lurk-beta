@@ -165,7 +165,7 @@ impl Repl<F> {
                     info!("Hydrating the store");
                     self.store.hydrate_scalar_cache();
 
-                    let mut n_frames = frames.len();
+                    let n_frames = frames.len();
 
                     // saving to avoid clones
                     let input = &frames[0].input;
@@ -195,12 +195,6 @@ impl Repl<F> {
                         // TODO: make sure that the proof file is not corrupted
                     } else {
                         info!("Proof not cached");
-                        // padding the frames, if needed
-                        let n_pad = pad(n_frames, self.rc) - n_frames;
-                        if n_pad != 0 {
-                            frames.extend(vec![frames[n_frames - 1].clone(); n_pad]);
-                            n_frames = frames.len();
-                        }
 
                         info!("Loading public parameters");
                         let pp =
@@ -213,7 +207,7 @@ impl Repl<F> {
                             prover.prove(&pp, frames, &mut self.store, self.lang.clone())?;
                         info!("Compressing proof");
                         let proof = proof.compress(&pp)?;
-                        assert_eq!(self.rc * num_steps, n_frames);
+                        assert_eq!(self.rc * num_steps, pad(n_frames, self.rc));
                         assert!(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?);
 
                         let lurk_proof = LurkProof::Nova {
