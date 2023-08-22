@@ -538,6 +538,7 @@ pub mod tests {
 
     use crate::coprocessor::Coprocessor;
     use std::sync::Arc;
+    use once_cell::sync::OnceCell;
 
     use bellpepper::util_cs::witness_cs::WitnessCS;
     use bellpepper::util_cs::{metric_cs::MetricCS, Comparable};
@@ -547,22 +548,7 @@ pub mod tests {
 
     const DEFAULT_REDUCTION_COUNT: usize = 5;
     const REDUCTION_COUNTS_TO_TEST: [usize; 3] = [1, 2, 5];
-
-    /// Evaluates and proves the computation given the public parameters, expression, environment, and store.
-    pub fn evaluate_and_prove<'a>(
-        prover: &'a NovaProver<Fr>,
-        pp: &'a PublicParams<Fr>,
-        expr: Ptr<Fr>,
-        store: &'a mut Store<Fr>,
-        limit: usize,
-    ) -> Result<(Proof<'a, Fr>, Vec<Fr>, Vec<Fr>, usize), ProofError> {
-        let (frames, _) = evaluate(expr, store, limit).unwrap();
-        store.hydrate_z_cache();
-        let (proof, public_inputs, public_outputs, num_steps) =
-            prover.prove(eval_step(), pp, &frames, store)?;
-        let proof = proof.compress(pp)?;
-        Ok((proof, public_inputs, public_outputs, num_steps))
-    }
+    static EVAL_PP: OnceCell<PublicParams<Fr>> = OnceCell::new();
 
     // Returns index of first mismatch, along with the mismatched elements if they exist.
     fn mismatch<T: PartialEq + Copy>(a: &[T], b: &[T]) -> Option<(usize, (Option<T>, Option<T>))> {
@@ -644,15 +630,17 @@ pub mod tests {
         check_nova: bool,
         limit: Option<usize>,
     ) {
+        s.hydrate_z_cache();
+        let func = eval_step();
         let limit = limit.unwrap_or(10000);
-
         let e = s.intern_nil();
-
         let nova_prover = NovaProver::<Fr>::new(reduction_count, Lang::new());
+
+        let (frames, _) = evaluate(expr, s, limit).unwrap();
         if check_nova {
-            let pp = public_params(eval_step(), reduction_count);
+            let pp = EVAL_PP.get_or_init(|| public_params(func, reduction_count));
             let (proof, z0, zi, num_steps) =
-                evaluate_and_prove(&nova_prover, &pp, expr, s, limit).unwrap();
+                nova_prover.prove(func, pp, &frames, s).unwrap();
 
             let res = proof.verify(&pp, num_steps, &z0, &zi);
             if res.is_err() {
@@ -666,21 +654,17 @@ pub mod tests {
             assert!(res2.unwrap());
         }
 
-        /*
-        let frames = nova_prover
-            .get_evaluation_frames(expr, e, s, limit, &lang)
-            .unwrap();
 
         let multiframes =
-            MultiFrame::from_frames(nova_prover.reduction_count(), &frames, s, lang.clone());
+            MultiFrame::from_frames(func, nova_prover.reduction_count(), &frames, s);
         let len = multiframes.len();
 
         let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);
-        let mut previous_frame: Option<MultiFrame<'_, Fr, IO<Fr>, Witness<Fr>, C>> = None;
-
+        let mut previous_frame: Option<MultiFrame<'_, Fr>> = None;
         let mut cs_blank = MetricCS::<Fr>::new();
+        let blank = MultiFrame::<Fr>::blank(func, reduction_count);
 
-        let blank = MultiFrame::<Fr, IO<Fr>, Witness<Fr>, C>::blank(reduction_count, lang);
+        /*
         blank
             .synthesize(&mut cs_blank)
             .expect("failed to synthesize blank");
