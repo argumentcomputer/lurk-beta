@@ -337,6 +337,19 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    pub fn read_with_default_state(&mut self, input: &str) -> Result<Ptr<F>> {
+        let state = State::init_lurk_state().rccell();
+        match preceded(
+            syntax::parse_space,
+            syntax::parse_syntax(state, false, false),
+        )
+        .parse(Span::new(input))
+        {
+            Ok((_, x)) => Ok(self.intern_syntax(x)),
+            Err(e) => bail!("{}", e),
+        }
+    }
+
     pub fn read_maybe_meta(
         &mut self,
         state: Rc<RefCell<State>>,

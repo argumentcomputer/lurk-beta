@@ -257,7 +257,7 @@ where
         pp: &'a PublicParams<'_, F>,
         frames: &[Frame<F>],
         store: &'a mut Store<F>,
-    ) -> Result<(Proof<'a, F>, Vec<F>, Vec<F>, usize), ProofError> {
+    ) -> Result<(Proof<'_, F>, Vec<F>, Vec<F>, usize), ProofError> {
         let z0 = store.to_vector(&frames.first().unwrap().input).unwrap();
         let zi = store.to_vector(&frames.last().unwrap().output).unwrap();
         let circuits = MultiFrame::from_frames(func, self.reduction_count(), frames, store);
@@ -515,7 +515,6 @@ where
     }
 }
 
-/*
 #[cfg(test)]
 pub mod tests {
     use std::cell::RefCell;
@@ -526,11 +525,16 @@ pub mod tests {
     use crate::state::{user_sym, State};
 
     use super::*;
+    use crate::lem::pointers::Ptr;
+
     use crate::eval::empty_sym_env;
-    use crate::eval::lang::Coproc;
+    use crate::lem::Tag;
     use crate::proof::Provable;
-    use crate::ptr::ContPtr;
+    use crate::tag::ContTag::*;
     use crate::tag::{Op, Op1, Op2};
+
+    use crate::coprocessor::Coprocessor;
+    use std::sync::Arc;
 
     use bellpepper::util_cs::witness_cs::WitnessCS;
     use bellpepper::util_cs::{metric_cs::MetricCS, Comparable};
@@ -540,6 +544,29 @@ pub mod tests {
 
     const DEFAULT_REDUCTION_COUNT: usize = 5;
     const REDUCTION_COUNTS_TO_TEST: [usize; 3] = [1, 2, 5];
+
+    /// Evaluates and proves the computation given the public parameters, expression, environment, and store.
+    pub fn evaluate_and_prove<'a>(
+        func: &'a Func,
+        prover: &'a NovaProver<Fr>,
+        pp: &'a PublicParams<Fr>,
+        expr: Ptr<Fr>,
+        store: &'a mut Store<Fr>,
+        limit: usize,
+    ) -> Result<(Proof<'a, Fr>, Vec<Fr>, Vec<Fr>, usize), ProofError> {
+        let outermost = Ptr::null(Tag::Cont(Outermost));
+        let terminal = Ptr::null(Tag::Cont(Terminal));
+        let error = Ptr::null(Tag::Cont(Error));
+        let nil = store.intern_nil();
+        let stop_cond = |output: &[Ptr<Fr>]| output[2] == terminal || output[2] == error;
+        let input = [expr, nil, outermost];
+        let (frames, _, _) = func.call_until(&input, store, stop_cond, limit).unwrap();
+        store.hydrate_z_cache();
+        let (proof, public_inputs, public_outputs, num_steps) =
+            prover.prove(&func, &pp, &frames, store)?;
+        let proof = proof.compress(&pp)?;
+        Ok((proof, public_inputs, public_outputs, num_steps))
+    }
 
     // Returns index of first mismatch, along with the mismatched elements if they exist.
     fn mismatch<T: PartialEq + Copy>(a: &[T], b: &[T]) -> Option<(usize, (Option<T>, Option<T>))> {
@@ -561,10 +588,9 @@ pub mod tests {
         expr: &str,
         expected_result: Option<Ptr<Fr>>,
         expected_env: Option<Ptr<Fr>>,
-        expected_cont: Option<ContPtr<Fr>>,
+        expected_cont: Option<Ptr<Fr>>,
         expected_emitted: Option<Vec<Ptr<Fr>>>,
         expected_iterations: usize,
-        lang: Option<Arc<Lang<Fr, C>>>,
     ) {
         for chunk_size in REDUCTION_COUNTS_TO_TEST {
             nova_test_full_aux(
@@ -578,74 +604,60 @@ pub mod tests {
                 chunk_size,
                 false,
                 None,
-                lang.clone(),
             )
         }
     }
 
-    fn nova_test_full_aux<C: Coprocessor<Fr>>(
+    fn nova_test_full_aux(
         s: &mut Store<Fr>,
         expr: &str,
         expected_result: Option<Ptr<Fr>>,
         expected_env: Option<Ptr<Fr>>,
-        expected_cont: Option<ContPtr<Fr>>,
+        expected_cont: Option<Ptr<Fr>>,
         expected_emitted: Option<&Vec<Ptr<Fr>>>,
         expected_iterations: usize,
         reduction_count: usize,
         check_nova: bool,
         limit: Option<usize>,
-        lang: Option<Arc<Lang<Fr, C>>>,
     ) {
-        let expr = s.read(expr).unwrap();
+        let expr = s.read_with_default_state(expr).unwrap();
 
-        let mut f = |l| {
-            nova_test_full_aux2(
-                s,
-                expr,
-                expected_result,
-                expected_env,
-                expected_cont,
-                expected_emitted,
-                expected_iterations,
-                reduction_count,
-                check_nova,
-                limit,
-                l,
-            )
-        };
-
-        if let Some(l) = lang {
-            f(l)
-        } else {
-            let lang = Lang::new();
-            f(Arc::new(lang))
-        };
+        nova_test_full_aux2(
+            s,
+            expr,
+            expected_result,
+            expected_env,
+            expected_cont,
+            expected_emitted,
+            expected_iterations,
+            reduction_count,
+            check_nova,
+            limit,
+        )
     }
 
-    fn nova_test_full_aux2<C: Coprocessor<Fr>>(
+    fn nova_test_full_aux2(
         s: &mut Store<Fr>,
         expr: Ptr<Fr>,
         expected_result: Option<Ptr<Fr>>,
         expected_env: Option<Ptr<Fr>>,
-        expected_cont: Option<ContPtr<Fr>>,
+        expected_cont: Option<Ptr<Fr>>,
         expected_emitted: Option<&Vec<Ptr<Fr>>>,
         expected_iterations: usize,
         reduction_count: usize,
         check_nova: bool,
         limit: Option<usize>,
-        lang: Arc<Lang<Fr, C>>,
     ) {
+        let func = crate::lem::eval::eval_step();
         let limit = limit.unwrap_or(10000);
 
-        let e = empty_sym_env(s);
+        let e = s.intern_nil();
 
-        let nova_prover = NovaProver::<Fr, C>::new(reduction_count, (*lang).clone());
-
+        let nova_prover = NovaProver::<Fr>::new(reduction_count, Lang::new());
         if check_nova {
-            let pp = public_params(reduction_count, lang.clone());
-            let (proof, z0, zi, num_steps) = nova_prover
-                .evaluate_and_prove(&pp, expr, empty_sym_env(s), s, limit, lang.clone())
-                .unwrap();
+            let pp = public_params(&func, reduction_count);
+            let (proof, z0, zi, num_steps) =
+                evaluate_and_prove(&func, &nova_prover, &pp, expr, s, limit).unwrap();
 
             let res = proof.verify(&pp, num_steps, &z0, &zi);
             if res.is_err() {
@@ -659,6 +671,7 @@ pub mod tests {
             assert!(res2.unwrap());
         }
 
+        /*
         let frames = nova_prover
             .get_evaluation_frames(expr, e, s, limit, &lang)
             .unwrap();
@@ -738,8 +751,10 @@ pub mod tests {
 
         assert_eq!(expected_iterations, Frame::significant_frame_count(&frames));
         assert_eq!(adjusted_iterations, len);
+        */
     }
 
+        /*
     // IMPORTANT: Run next tests at least once. Some are ignored because they
     // are expensive. The criteria is that if the number of iteractions is
     // more than 30 we ignore it.
@@ -1462,7 +1477,7 @@ pub mod tests {
     #[test]
     fn test_prove_current_env_rest_is_nil_error() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.read("(current-env a)").unwrap();
+        let expected = s.read_with_default_state("(current-env a)").unwrap();
         let error = s.get_cont_error();
         test_aux::<Coproc<Fr>>(
             s,
@@ -2145,7 +2160,7 @@ pub mod tests {
     #[test]
     fn test_prove_zero_arg_lambda5() {
         let s = &mut Store::<Fr>::default();
-        let expected = s.read("(123)").unwrap();
+        let expected = s.read_with_default_state("(123)").unwrap();
         let error = s.get_cont_error();
         test_aux::<Coproc<Fr>>(s, "(123)", Some(expected), None, Some(error), None, 1, None);
     }
@@ -2447,7 +2462,7 @@ pub mod tests {
     // #[ignore]
     // fn test_prove_fibonacci_100() {
     //     let s = &mut Store::<Fr>::default();
-    //     let expected = s.read("354224848179261915075").unwrap();
+    //     let expected = s.read_with_default_state("354224848179261915075").unwrap();
     //     let terminal = s.get_cont_terminal();
     //     nova_test_full_aux::<Coproc<Fr>>::(
     //         s,
@@ -2546,7 +2561,7 @@ pub mod tests {
     #[test]
     fn test_prove_str_car() {
         let s = &mut Store::<Fr>::default();
-        let expected_a = s.read(r"#\a").unwrap();
+        let expected_a = s.read_with_default_state(r"#\a").unwrap();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -2563,7 +2578,7 @@ pub mod tests {
     #[test]
     fn test_prove_str_cdr() {
         let s = &mut Store::<Fr>::default();
-        let expected_pple = s.read(r#" "pple" "#).unwrap();
+        let expected_pple = s.read_with_default_state(r#" "pple" "#).unwrap();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -2614,7 +2629,7 @@ pub mod tests {
     #[test]
     fn test_prove_strcons() {
         let s = &mut Store::<Fr>::default();
-        let expected_apple = s.read(r#" "apple" "#).unwrap();
+        let expected_apple = s.read_with_default_state(r#" "apple" "#).unwrap();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -2879,7 +2894,7 @@ pub mod tests {
     fn test_prove_char_num() {
         let s = &mut Store::<Fr>::default();
         let expr = r#"(char 97)"#;
-        let expected_a = s.read(r"#\a").unwrap();
+        let expected_a = s.read_with_default_state(r"#\a").unwrap();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -2898,8 +2913,8 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expr = r#"(char (- 0 4294967200))"#;
         let expr2 = r#"(char (- 0 4294967199))"#;
-        let expected_a = s.read(r"#\a").unwrap();
-        let expected_b = s.read(r"#\b").unwrap();
+        let expected_a = s.read_with_default_state(r"#\a").unwrap();
+        let expected_b = s.read_with_default_state(r"#\b").unwrap();
         let terminal = s.get_cont_terminal();
         test_aux::<Coproc<Fr>>(
             s,
@@ -3048,10 +3063,10 @@ pub mod tests {
     #[test]
     fn test_str_car_cdr_cons() {
         let s = &mut Store::<Fr>::default();
-        let a = s.read(r"#\a").unwrap();
-        let apple = s.read(r#" "apple" "#).unwrap();
-        let a_pple = s.read(r#" (#\a . "pple") "#).unwrap();
-        let pple = s.read(r#" "pple" "#).unwrap();
+        let a = s.read_with_default_state(r"#\a").unwrap();
+        let apple = s.read_with_default_state(r#" "apple" "#).unwrap();
+        let a_pple = s.read_with_default_state(r#" (#\a . "pple") "#).unwrap();
+        let pple = s.read_with_default_state(r#" "pple" "#).unwrap();
         let empty = s.intern_string("");
         let nil = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
@@ -3628,8 +3643,8 @@ pub mod tests {
 
         let expr = "(cons 1 1u64)";
         let expr2 = "(cons 1u64 1)";
-        let res = s.read("(1 . 1u64)").unwrap();
-        let res2 = s.read("(1u64 . 1)").unwrap();
+        let res = s.read_with_default_state("(1 . 1u64)").unwrap();
+        let res2 = s.read_with_default_state("(1u64 . 1)").unwrap();
         let terminal = s.get_cont_terminal();
 
         test_aux::<Coproc<Fr>>(s, expr, Some(res), None, Some(terminal), None, 3, None);
@@ -3670,7 +3685,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let empty_env = lurk_sym_ptr!(s, nil);
         let arg = s.user_sym("x");
-        let body = s.read("((+ x 1))").unwrap();
+        let body = s.read_with_default_state("((+ x 1))").unwrap();
         let fun = s.intern_fun(arg, body, empty_env);
         let input = s.num(9);
         let expr = s.list(&[fun, input]);
@@ -3914,5 +3929,5 @@ pub mod tests {
             None,
         );
     }
-}
 */
+}
