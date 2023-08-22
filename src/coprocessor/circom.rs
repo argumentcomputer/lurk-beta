@@ -10,7 +10,7 @@ pub mod non_wasm {
 
     use ansi_term::Colour::Red;
     use anyhow::{bail, Result};
-    use bellperson::{ConstraintSystem, SynthesisError};
+    use bellpepper_core::{ConstraintSystem, SynthesisError};
     use circom_scotia::r1cs::CircomConfig;
 
     use crate::{
