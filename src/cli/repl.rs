@@ -158,7 +158,7 @@ impl Repl<F> {
     }
 
     pub(crate) fn prove_last_frames(&mut self) -> Result<()> {
-        match self.evaluation.as_mut() {
+        match &self.evaluation {
             None => bail!("No evaluation to prove"),
             Some(Evaluation { frames, iterations }) => match self.backend {
                 Backend::Nova => {

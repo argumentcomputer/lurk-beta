@@ -130,7 +130,7 @@ impl ReplLEM<F> {
         if let Some(Evaluation {
             frames,
             iterations: _,
-        }) = self.evaluation.as_mut()
+        }) = &self.evaluation
         {
             match self.backend {
                 Backend::Nova => {
