@@ -38,6 +38,8 @@ jobs:
     env:
       RUSTFLAGS: -D warnings
     steps:
+      - name: Install dependencies
+        run: sudo apt-get install -y pkg-config libssl-dev
       - uses: actions/checkout@v3
         with:
           submodules: recursive
@@ -76,7 +78,7 @@ jobs:
       - name: Doctests
         run: |
           cargo test --doc --workspace --profile dev-ci
-  
+
   clippy:
     runs-on: ubuntu-latest
     steps:
