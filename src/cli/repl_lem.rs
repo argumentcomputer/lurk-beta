@@ -15,8 +15,12 @@ use crate::{
     eval::lang::Lang,
     field::LurkField,
     lem::{
-        eval::eval_step, interpreter::Frame, pointers::Ptr, store::Store, zstore::populate_store,
-        Func, Tag,
+        eval::{evaluate, evaluate_simple, eval_step},
+        interpreter::Frame,
+        pointers::Ptr,
+        store::Store,
+        zstore::populate_store,
+        Tag,
     },
     package::{Package, SymbolRef},
     parser,
@@ -45,7 +49,6 @@ pub(crate) struct ReplLEM<F: LurkField> {
     rc: usize,
     limit: usize,
     backend: Backend,
-    func: Func,
     evaluation: Option<Evaluation<F>>,
 }
 
@@ -77,8 +80,7 @@ impl ReplLEM<F> {
             "Launching REPL with backend {backend}, field {}, rc {rc} and limit {limit}",
             F::FIELD
         );
-        let func = eval_step();
-        let mut store = store.unwrap_or_else(|| func.init_store());
+        let mut store = store.unwrap_or_else(|| eval_step().init_store());
         let env = store.intern_nil();
         Self {
             store,
@@ -87,7 +89,6 @@ impl ReplLEM<F> {
             rc,
             limit,
             backend,
-            func,
             evaluation: None,
         }
     }
@@ -167,15 +168,16 @@ impl ReplLEM<F> {
                         // TODO: make sure that the proof file is not corrupted
                     } else {
                         info!("Proof not cached");
+                        let eval_step = eval_step();
 
                         info!("Loading public parameters");
-                        let pp = public_params(&self.func, self.rc);
+                        let pp = public_params(eval_step, self.rc);
 
                         let prover = NovaProver::new(self.rc, Lang::new());
 
                         info!("Proving");
                         let (proof, public_inputs, public_outputs, num_steps) =
-                            prover.prove(&self.func, &pp, frames, &mut self.store)?;
+                            prover.prove(eval_step, &pp, frames, &mut self.store)?;
                         assert_eq!(self.rc * num_steps, pad(n_frames, self.rc));
 
                         info!("Compressing proof");
@@ -205,37 +207,15 @@ impl ReplLEM<F> {
         }
     }
 
+    #[inline]
     fn eval_expr(&mut self, expr_ptr: Ptr<F>) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
-        let outermost = Ptr::null(Tag::Cont(Outermost));
-        let terminal = Ptr::null(Tag::Cont(Terminal));
-        let error = Ptr::null(Tag::Cont(Error));
-        let nil = self.store.intern_nil();
-
-        let stop_cond = |output: &[Ptr<F>]| output[2] == terminal || output[2] == error;
-
-        let input = vec![expr_ptr, nil, outermost];
-        self.func
-            .call_until_simple(input, &mut self.store, stop_cond, self.limit)
+        evaluate_simple(expr_ptr, &mut self.store, self.limit)
     }
 
     fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr<F>) -> Result<(Vec<Ptr<F>>, usize)> {
-        let outermost = Ptr::null(Tag::Cont(Outermost));
-        let terminal = Ptr::null(Tag::Cont(Terminal));
-        let error = Ptr::null(Tag::Cont(Error));
-        let nil = self.store.intern_nil();
-
-        let stop_cond = |output: &[Ptr<F>]| output[2] == terminal || output[2] == error;
-
-        let input = [expr_ptr, nil, outermost];
-
-        let (frames, iterations, _) =
-            self.func
-                .call_until(&input, &mut self.store, stop_cond, self.limit)?;
-
+        let (frames, iterations) = evaluate(expr_ptr, &mut self.store, self.limit)?;
         let output = frames[frames.len() - 1].output.clone();
-
         self.evaluation = Some(Evaluation { frames, iterations });
-
         Ok((output, iterations))
     }
 

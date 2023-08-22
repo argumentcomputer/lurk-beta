@@ -522,6 +522,7 @@ pub mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
 
+    use crate::lem::eval::{eval_step, evaluate};
     use crate::lurk_sym_ptr;
     use crate::num::Num;
     use crate::state::{user_sym, State};
@@ -549,24 +550,17 @@ pub mod tests {
 
     /// Evaluates and proves the computation given the public parameters, expression, environment, and store.
     pub fn evaluate_and_prove<'a>(
-        func: &'a Func,
         prover: &'a NovaProver<Fr>,
         pp: &'a PublicParams<Fr>,
         expr: Ptr<Fr>,
         store: &'a mut Store<Fr>,
         limit: usize,
     ) -> Result<(Proof<'a, Fr>, Vec<Fr>, Vec<Fr>, usize), ProofError> {
-        let outermost = Ptr::null(Tag::Cont(Outermost));
-        let terminal = Ptr::null(Tag::Cont(Terminal));
-        let error = Ptr::null(Tag::Cont(Error));
-        let nil = store.intern_nil();
-        let stop_cond = |output: &[Ptr<Fr>]| output[2] == terminal || output[2] == error;
-        let input = [expr, nil, outermost];
-        let (frames, _, _) = func.call_until(&input, store, stop_cond, limit).unwrap();
+        let (frames, _) = evaluate(expr, store, limit).unwrap();
         store.hydrate_z_cache();
         let (proof, public_inputs, public_outputs, num_steps) =
-            prover.prove(&func, &pp, &frames, store)?;
-        let proof = proof.compress(&pp)?;
+            prover.prove(eval_step(), pp, &frames, store)?;
+        let proof = proof.compress(pp)?;
         Ok((proof, public_inputs, public_outputs, num_steps))
     }
 
@@ -650,16 +644,15 @@ pub mod tests {
         check_nova: bool,
         limit: Option<usize>,
     ) {
-        let func = crate::lem::eval::eval_step();
         let limit = limit.unwrap_or(10000);
 
         let e = s.intern_nil();
 
         let nova_prover = NovaProver::<Fr>::new(reduction_count, Lang::new());
         if check_nova {
-            let pp = public_params(&func, reduction_count);
+            let pp = public_params(eval_step(), reduction_count);
             let (proof, z0, zi, num_steps) =
-                evaluate_and_prove(&func, &nova_prover, &pp, expr, s, limit).unwrap();
+                evaluate_and_prove(&nova_prover, &pp, expr, s, limit).unwrap();
 
             let res = proof.verify(&pp, num_steps, &z0, &zi);
             if res.is_err() {

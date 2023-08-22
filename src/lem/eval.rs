@@ -1,19 +1,51 @@
-use crate::func;
+use anyhow::Result;
+use once_cell::sync::OnceCell;
 
-use super::Func;
+use crate::{field::LurkField, func, tag::ContTag::*};
+
+use super::{interpreter::Frame, pointers::Ptr, store::Store, Func, Tag};
+
+static EVAL_STEP: OnceCell<Func> = OnceCell::new();
 
 /// Lurk's step function
-pub fn eval_step() -> Func {
-    let reduce = reduce();
-    let apply_cont = apply_cont();
-    let make_thunk = make_thunk();
+pub fn eval_step() -> &'static Func {
+    EVAL_STEP.get_or_init(|| {
+        let reduce = reduce();
+        let apply_cont = apply_cont();
+        let make_thunk = make_thunk();
 
-    func!(step(expr, env, cont): 3 => {
-        let (expr, env, cont, ctrl) = reduce(expr, env, cont);
-        let (expr, env, cont, ctrl) = apply_cont(expr, env, cont, ctrl);
-        let (expr, env, cont, _ctrl) = make_thunk(expr, env, cont, ctrl);
-        return (expr, env, cont)
+        func!(step(expr, env, cont): 3 => {
+            let (expr, env, cont, ctrl) = reduce(expr, env, cont);
+            let (expr, env, cont, ctrl) = apply_cont(expr, env, cont, ctrl);
+            let (expr, env, cont, _ctrl) = make_thunk(expr, env, cont, ctrl);
+            return (expr, env, cont)
+        })
     })
+}
+
+pub fn evaluate<F: LurkField>(
+    expr: Ptr<F>,
+    store: &mut Store<F>,
+    limit: usize,
+) -> Result<(Vec<Frame<F>>, usize)> {
+    let stop_cond = |output: &[Ptr<F>]| {
+        output[2] == Ptr::null(Tag::Cont(Terminal)) || output[2] == Ptr::null(Tag::Cont(Error))
+    };
+    let input = &[expr, store.intern_nil(), Ptr::null(Tag::Cont(Outermost))];
+    let (frames, iterations, _) = eval_step().call_until(input, store, stop_cond, limit)?;
+    Ok((frames, iterations))
+}
+
+pub fn evaluate_simple<F: LurkField>(
+    expr: Ptr<F>,
+    store: &mut Store<F>,
+    limit: usize,
+) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
+    let stop_cond = |output: &[Ptr<F>]| {
+        output[2] == Ptr::null(Tag::Cont(Terminal)) || output[2] == Ptr::null(Tag::Cont(Error))
+    };
+    let input = vec![expr, store.intern_nil(), Ptr::null(Tag::Cont(Outermost))];
+    eval_step().call_until_simple(input, store, stop_cond, limit)
 }
 
 fn safe_uncons() -> Func {
@@ -966,7 +998,6 @@ mod tests {
     use super::*;
     use crate::lem::{pointers::Ptr, slot::SlotsCounter, store::Store, Tag};
     use crate::state::State;
-    use crate::tag::ContTag::*;
     use bellpepper_core::{test_cs::TestConstraintSystem, Comparable, Delta};
     use blstrs::Scalar as Fr;
 
@@ -1117,6 +1148,6 @@ mod tests {
         let store = &mut step_fn.init_store();
         let pairs = expr_in_expr_out_pairs(store);
         store.hydrate_z_cache();
-        test_eval_and_constrain_aux(&step_fn, store, pairs);
+        test_eval_and_constrain_aux(step_fn, store, pairs);
     }
 }
