@@ -53,6 +53,12 @@ impl<F: LurkField> Debug for AllocatedPtr<F> {
 }
 
 impl<F: LurkField> AllocatedPtr<F> {
+    pub fn get_value(&self) -> Option<(F, F)> {
+        self.tag
+            .get_value()
+            .and_then(|tag| self.hash.get_value().map(|hash| (tag, hash)))
+    }
+
     pub fn alloc<Fo, CS: ConstraintSystem<F>>(
         cs: &mut CS,
         value: Fo,

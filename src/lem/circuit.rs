@@ -36,9 +36,9 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::circuit::gadgets::{
     constraints::{
-        add, alloc_equal, alloc_equal_const, alloc_is_zero, allocate_is_negative, and,
-        boolean_to_num, div, enforce_pack, enforce_product_and_sum, enforce_selector_with_premise,
-        implies_equal, implies_u64, mul, pick, sub,
+        add, alloc_equal, alloc_is_zero, allocate_is_negative, boolean_to_num, div, enforce_pack,
+        enforce_product_and_sum, enforce_selector_with_premise, implies_equal, implies_equal_const,
+        implies_u64, implies_unequal, implies_unequal_const, mul, pick, sub,
     },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
@@ -1017,19 +1017,54 @@ impl Func {
                     Ok(())
                 }
                 Ctrl::IfEq(x, y, eq_block, else_block) => {
-                    let x = bound_allocations.get(x)?.hash();
-                    let y = bound_allocations.get(y)?.hash();
-                    let eq = alloc_equal(&mut cs.namespace(|| "if_eq.alloc_equal"), x, y)?;
-                    let not_eq = eq.not();
-                    let not_dummy_and_eq = and(&mut cs.namespace(|| "if_eq.and"), not_dummy, &eq)?;
-                    let not_dummy_and_not_eq =
-                        and(&mut cs.namespace(|| "if_eq.and.2"), not_dummy, &not_eq)?;
+                    let x_ptr = bound_allocations.get(x)?.hash();
+                    let y_ptr = bound_allocations.get(y)?.hash();
+                    let mut selector = Vec::with_capacity(3);
+
+                    let eq_val = not_dummy.get_value().and_then(|not_dummy| {
+                        x_ptr
+                            .get_value()
+                            .and_then(|x| y_ptr.get_value().map(|y| not_dummy && x == y))
+                    });
+                    let neq_val = not_dummy.get_value().and_then(|not_dummy| {
+                        x_ptr
+                            .get_value()
+                            .and_then(|x| y_ptr.get_value().map(|y| not_dummy && x != y))
+                    });
+                    let is_eq =
+                        Boolean::Is(AllocatedBit::alloc(&mut cs.namespace(|| "if_eq"), eq_val)?);
+                    let is_neq = Boolean::Is(AllocatedBit::alloc(
+                        &mut cs.namespace(|| "if_neq"),
+                        neq_val,
+                    )?);
+                    implies_equal(
+                        &mut cs.namespace(|| format!("{x} = {y}")),
+                        &is_eq,
+                        x_ptr,
+                        y_ptr,
+                    )?;
+                    implies_unequal(
+                        &mut cs.namespace(|| format!("{x} != {y}")),
+                        &is_neq,
+                        x_ptr,
+                        y_ptr,
+                    )?;
+
+                    selector.push(not_dummy.not());
+                    selector.push(is_eq.clone());
+                    selector.push(is_neq.clone());
+                    enforce_selector_with_premise(
+                        &mut cs.namespace(|| "if_enforce_selector_with_premise"),
+                        not_dummy,
+                        &selector,
+                    )
+                    .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
 
                     let mut branch_slot = *next_slot;
                     recurse(
                         &mut cs.namespace(|| "if_eq.true"),
                         eq_block,
-                        &not_dummy_and_eq,
+                        &is_eq,
                         &mut branch_slot,
                         bound_allocations,
                         preallocated_outputs,
@@ -1038,7 +1073,7 @@ impl Func {
                     recurse(
                         &mut cs.namespace(|| "if_eq.false"),
                         else_block,
-                        &not_dummy_and_not_eq,
+                        &is_neq,
                         next_slot,
                         bound_allocations,
                         preallocated_outputs,
@@ -1048,31 +1083,35 @@ impl Func {
                     Ok(())
                 }
                 Ctrl::MatchTag(match_var, cases, def) => {
-                    let allocated_match_tag = bound_allocations.get(match_var)?.tag().clone();
-                    let mut selector = Vec::with_capacity(cases.len() + 1);
+                    let match_tag = bound_allocations.get(match_var)?.tag().clone();
+                    let mut selector = Vec::with_capacity(cases.len() + 2);
                     let mut branch_slots = Vec::with_capacity(cases.len());
                     for (tag, block) in cases {
-                        let allocated_has_match = alloc_equal_const(
-                            &mut cs.namespace(|| format!("{tag}.alloc_equal_const")),
-                            &allocated_match_tag,
-                            tag.to_field::<F>(),
-                        )
-                        .with_context(|| "couldn't allocate equal const")?;
+                        let has_match_bool = match (not_dummy.get_value(), match_tag.get_value()) {
+                            (Some(not_dummy), Some(val)) => {
+                                Some(not_dummy && val == tag.to_field::<F>())
+                            }
+                            _ => None,
+                        };
 
-                        let not_dummy_and_has_match = and(
-                            &mut cs.namespace(|| format!("{tag}.and")),
-                            not_dummy,
-                            &allocated_has_match,
-                        )
-                        .with_context(|| "failed to constrain `and`")?;
+                        let has_match = Boolean::Is(AllocatedBit::alloc(
+                            &mut cs.namespace(|| format!("{tag}.allocated_bit")),
+                            has_match_bool,
+                        )?);
+                        implies_equal_const(
+                            &mut cs.namespace(|| format!("implies equal for {match_var}'s {tag}")),
+                            &has_match,
+                            &match_tag,
+                            tag.to_field(),
+                        )?;
 
-                        selector.push(allocated_has_match);
+                        selector.push(has_match.clone());
 
                         let mut branch_slot = *next_slot;
                         recurse(
                             &mut cs.namespace(|| format!("{}", tag)),
                             block,
-                            &not_dummy_and_has_match,
+                            &has_match,
                             &mut branch_slot,
                             bound_allocations,
                             preallocated_outputs,
@@ -1086,24 +1125,25 @@ impl Func {
                             let default = selector.iter().fold(not_dummy.get_value(), |acc, b| {
                                 acc.and_then(|acc| b.get_value().map(|b| acc && !b))
                             });
-                            let allocated_has_match = Boolean::Is(AllocatedBit::alloc(
+                            let has_match = Boolean::Is(AllocatedBit::alloc(
                                 &mut cs.namespace(|| "_.allocated_bit"),
                                 default,
                             )?);
+                            for (tag, _) in cases {
+                                implies_unequal_const(
+                                    &mut cs.namespace(|| format!("{tag} implies_unequal")),
+                                    &has_match,
+                                    &match_tag,
+                                    tag.to_field(),
+                                )?;
+                            }
 
-                            let not_dummy_and_has_match = and(
-                                &mut cs.namespace(|| "_.and"),
-                                not_dummy,
-                                &allocated_has_match,
-                            )
-                            .with_context(|| "failed to constrain `and`")?;
-
-                            selector.push(allocated_has_match);
+                            selector.push(has_match.clone());
 
                             recurse(
                                 &mut cs.namespace(|| "_"),
                                 def,
-                                &not_dummy_and_has_match,
+                                &has_match,
                                 next_slot,
                                 bound_allocations,
                                 preallocated_outputs,
@@ -1121,6 +1161,8 @@ impl Func {
                     // Now we need to enforce that at exactly one path was taken. We do that by enforcing
                     // that the sum of the previously collected `Boolean`s is one. But, of course, this
                     // irrelevant if we're on a virtual path and thus we use an implication gadget.
+                    let dummy = not_dummy.not();
+                    selector.push(dummy);
                     enforce_selector_with_premise(
                         &mut cs.namespace(|| "enforce_selector_with_premise"),
                         not_dummy,
@@ -1129,40 +1171,45 @@ impl Func {
                     .with_context(|| " couldn't constrain `enforce_selector_with_premise`")
                 }
                 Ctrl::MatchVal(match_var, cases, def) => {
-                    let allocated_lit = bound_allocations.get(match_var)?.clone();
-                    let mut selector = Vec::with_capacity(cases.len() + 1);
+                    let match_lit = bound_allocations.get(match_var)?.clone();
+                    let mut selector = Vec::with_capacity(cases.len() + 2);
                     let mut branch_slots = Vec::with_capacity(cases.len());
                     for (i, (lit, block)) in cases.iter().enumerate() {
                         let lit_ptr = lit.to_ptr_cached(g.store);
                         let lit_tag = g.store.hash_ptr(&lit_ptr)?.tag.to_field::<F>();
                         let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
-                        let lit_tag_match = alloc_equal_const(
-                            &mut cs.namespace(|| format!("{i}.lit_tag_match")),
-                            allocated_lit.tag(),
+
+                        let has_match_bool = not_dummy.get_value().and_then(|not_dummy| {
+                            match_lit
+                                .get_value()
+                                .map(|(tag, hash)| not_dummy && tag == lit_tag && hash == lit_hash)
+                        });
+                        let has_match = Boolean::Is(AllocatedBit::alloc(
+                            &mut cs.namespace(|| format!("{i}.allocated_bit")),
+                            has_match_bool,
+                        )?);
+                        implies_equal_const(
+                            &mut cs
+                                .namespace(|| format!("implies equal for {match_var} tag ({i})")),
+                            &has_match,
+                            match_lit.tag(),
                             lit_tag,
                         )?;
-                        let lit_hash_match = alloc_equal_const(
-                            &mut cs.namespace(|| format!("{i}.lit_hash_match")),
-                            allocated_lit.hash(),
+                        implies_equal_const(
+                            &mut cs
+                                .namespace(|| format!("implies equal for {match_var} hash ({i})")),
+                            &has_match,
+                            match_lit.hash(),
                             lit_hash,
                         )?;
-                        let allocated_has_match = and(
-                            &mut cs.namespace(|| format!("{i}.first_and")),
-                            &lit_tag_match,
-                            &lit_hash_match,
-                        )?;
-                        let not_dummy_and_has_match = and(
-                            &mut cs.namespace(|| format!("{i}.second_and")),
-                            not_dummy,
-                            &allocated_has_match,
-                        )?;
-                        selector.push(allocated_has_match);
+
+                        selector.push(has_match.clone());
 
                         let mut branch_slot = *next_slot;
                         recurse(
                             &mut cs.namespace(|| format!("{i}.case")),
                             block,
-                            &not_dummy_and_has_match,
+                            &has_match,
                             &mut branch_slot,
                             bound_allocations,
                             preallocated_outputs,
@@ -1176,24 +1223,35 @@ impl Func {
                             let default = selector.iter().fold(not_dummy.get_value(), |acc, b| {
                                 acc.and_then(|acc| b.get_value().map(|b| acc && !b))
                             });
-                            let allocated_has_match = Boolean::Is(AllocatedBit::alloc(
-                                &mut cs.namespace(|| "_.alloc_equal_const"),
+                            let has_match = Boolean::Is(AllocatedBit::alloc(
+                                &mut cs.namespace(|| "_.allocated_bit"),
                                 default,
                             )?);
+                            for (i, (lit, _)) in cases.iter().enumerate() {
+                                let lit_ptr = lit.to_ptr_cached(g.store);
+                                let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
+                                let lit_tag = g.store.hash_ptr(&lit_ptr)?.tag.to_field::<F>();
+                                // TODO either tag is not equal or hash is not equal
+                                // implies_unequal_const(
+                                //     &mut cs.namespace(|| format!("{i} implies_unequal tag")),
+                                //     &has_match,
+                                //     match_lit.tag(),
+                                //     lit_tag,
+                                // )?;
+                                implies_unequal_const(
+                                    &mut cs.namespace(|| format!("{i} implies_unequal hash")),
+                                    &has_match,
+                                    match_lit.hash(),
+                                    lit_hash,
+                                )?;
+                            }
 
-                            let not_dummy_and_has_match = and(
-                                &mut cs.namespace(|| "_.and"),
-                                not_dummy,
-                                &allocated_has_match,
-                            )
-                            .with_context(|| "failed to constrain `and`")?;
-
-                            selector.push(allocated_has_match);
+                            selector.push(has_match.clone());
 
                             recurse(
                                 &mut cs.namespace(|| "_"),
                                 def,
-                                &not_dummy_and_has_match,
+                                &has_match,
                                 next_slot,
                                 bound_allocations,
                                 preallocated_outputs,
@@ -1211,6 +1269,8 @@ impl Func {
                     // Now we need to enforce that at exactly one path was taken. We do that by enforcing
                     // that the sum of the previously collected `Boolean`s is one. But, of course, this
                     // irrelevant if we're on a virtual path and thus we use an implication gadget.
+                    let dummy = not_dummy.not();
+                    selector.push(dummy);
                     enforce_selector_with_premise(
                         &mut cs.namespace(|| "enforce_selector_with_premise"),
                         not_dummy,
@@ -1263,7 +1323,6 @@ impl Func {
     pub fn num_constraints<F: LurkField>(&self, store: &Store<F>) -> usize {
         fn recurse<F: LurkField>(
             block: &Block,
-            nested: bool,
             globals: &mut HashSet<FWrap<F>>,
             store: &Store<F>,
         ) -> usize {
@@ -1271,7 +1330,7 @@ impl Func {
             for op in &block.ops {
                 match op {
                     Op::Call(_, func, _) => {
-                        num_constraints += recurse(&func.body, nested, globals, store);
+                        num_constraints += recurse(&func.body, globals, store);
                     }
                     Op::Null(_, tag) => {
                         // constrain tag and hash
@@ -1352,46 +1411,42 @@ impl Func {
                 Ctrl::Return(vars) => num_constraints + 2 * vars.len(),
                 Ctrl::IfEq(_, _, eq_block, else_block) => {
                     num_constraints
-                        + if nested { 6 } else { 4 }
-                        + recurse(eq_block, true, globals, store)
-                        + recurse(else_block, true, globals, store)
+                        + 5
+                        + recurse(eq_block, globals, store)
+                        + recurse(else_block, globals, store)
                 }
                 Ctrl::MatchTag(_, cases, def) => {
-                    // `alloc_equal_const` adds 3 constraints for each case and
-                    // the `and` is free for non-nested `MatchTag`s, since we
-                    // start `not_dummy` with a constant `true`
-                    let multiplier = if nested { 4 } else { 3 };
+                    // We allocate one boolean per case and constrain it once
+                    // per case. Then we add 1 constraint to enforce only one
+                    // case was selected
+                    num_constraints += 2 * cases.len() + 1;
 
-                    // then we add 1 constraint from `enforce_selector_with_premise`
-                    num_constraints += multiplier * cases.len() + 1;
-
-                    // stacked ops are now nested
                     for block in cases.values() {
-                        num_constraints += recurse(block, true, globals, store);
+                        num_constraints += recurse(block, globals, store);
                     }
                     match def {
                         Some(def) => {
-                            // constraints for the boolean and the default case
-                            num_constraints += if nested { 2 } else { 1 };
-                            num_constraints += recurse(def, true, globals, store);
+                            // constraints for the boolean, the unequalities and the default case
+                            num_constraints += 1 + cases.len();
+                            num_constraints += recurse(def, globals, store);
                         }
                         None => (),
                     };
                     num_constraints
                 }
                 Ctrl::MatchVal(_, cases, def) => {
-                    // two `alloc_equal_const` adding 6 constraints for each case
-                    // one `and` for hash and tag, and the `not_dummy` `and` which
-                    // is free for non-nested `MatchTag`s
-                    let multiplier = if nested { 8 } else { 7 };
-                    num_constraints += multiplier * cases.len() + 1;
+                    // We allocate one boolean per case and constrain it twice
+                    // per case. Then we add 1 constraint to enforce only one
+                    // case was selected
+                    num_constraints += 3 * cases.len() + 1;
                     for block in cases.values() {
-                        num_constraints += recurse(block, true, globals, store);
+                        num_constraints += recurse(block, globals, store);
                     }
                     match def {
                         Some(def) => {
-                            num_constraints += if nested { 2 } else { 1 };
-                            num_constraints += recurse(def, true, globals, store);
+                            // constraints for the boolean, the unequalities and the default case
+                            num_constraints += 1 + cases.len();
+                            num_constraints += recurse(def, globals, store);
                         }
                         None => (),
                     };
@@ -1406,7 +1461,7 @@ impl Func {
             + 388 * self.slot.hash4
             + 265 * self.slot.commitment
             + 391 * self.slot.less_than;
-        let num_constraints = recurse::<F>(&self.body, false, globals, store);
+        let num_constraints = recurse::<F>(&self.body, globals, store);
         slot_constraints + num_constraints + globals.len()
     }
 }
