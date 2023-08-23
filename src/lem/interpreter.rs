@@ -145,9 +145,9 @@ impl Block {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
                     let c = if a.tag() == b.tag() {
-                        Ptr::Leaf(Tag::Expr(Num), F::ONE)
+                        Ptr::Atom(Tag::Expr(Num), F::ONE)
                     } else {
-                        Ptr::Leaf(Tag::Expr(Num), F::ZERO)
+                        Ptr::Atom(Tag::Expr(Num), F::ZERO)
                     };
                     bindings.insert(tgt.clone(), c);
                 }
@@ -159,17 +159,17 @@ impl Block {
                     let a_hash = store.hash_ptr(a)?.hash;
                     let b_hash = store.hash_ptr(b)?.hash;
                     let c = if a_hash == b_hash {
-                        Ptr::Leaf(Tag::Expr(Num), F::ONE)
+                        Ptr::Atom(Tag::Expr(Num), F::ONE)
                     } else {
-                        Ptr::Leaf(Tag::Expr(Num), F::ZERO)
+                        Ptr::Atom(Tag::Expr(Num), F::ZERO)
                     };
                     bindings.insert(tgt.clone(), c);
                 }
                 Op::Add(tgt, a, b) => {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
-                    let c = if let (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) = (a, b) {
-                        Ptr::Leaf(Tag::Expr(Num), *f + *g)
+                    let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
+                        Ptr::Atom(Tag::Expr(Num), *f + *g)
                     } else {
                         bail!("`Add` only works on leaves")
                     };
@@ -178,8 +178,8 @@ impl Block {
                 Op::Sub(tgt, a, b) => {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
-                    let c = if let (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) = (a, b) {
-                        Ptr::Leaf(Tag::Expr(Num), *f - *g)
+                    let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
+                        Ptr::Atom(Tag::Expr(Num), *f - *g)
                     } else {
                         bail!("`Sub` only works on leaves")
                     };
@@ -188,8 +188,8 @@ impl Block {
                 Op::Mul(tgt, a, b) => {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
-                    let c = if let (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) = (a, b) {
-                        Ptr::Leaf(Tag::Expr(Num), *f * *g)
+                    let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
+                        Ptr::Atom(Tag::Expr(Num), *f * *g)
                     } else {
                         bail!("`Mul` only works on leaves")
                     };
@@ -198,11 +198,11 @@ impl Block {
                 Op::Div(tgt, a, b) => {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
-                    let c = if let (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) = (a, b) {
+                    let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
                         if g == &F::ZERO {
                             bail!("Can't divide by zero")
                         }
-                        Ptr::Leaf(Tag::Expr(Num), *f * g.invert().expect("not zero"))
+                        Ptr::Atom(Tag::Expr(Num), *f * g.invert().expect("not zero"))
                     } else {
                         bail!("`Div` only works on numbers")
                     };
@@ -211,12 +211,12 @@ impl Block {
                 Op::Lt(tgt, a, b) => {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
-                    let c = if let (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) = (a, b) {
+                    let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
                         preimages.less_than.push(Some(PreimageData::FPair(*f, *g)));
                         let f = Num::Scalar(*f);
                         let g = Num::Scalar(*g);
                         let b = if f < g { F::ONE } else { F::ZERO };
-                        Ptr::Leaf(Tag::Expr(Num), b)
+                        Ptr::Atom(Tag::Expr(Num), b)
                     } else {
                         bail!("`Lt` only works on leaves")
                     };
@@ -225,9 +225,9 @@ impl Block {
                 Op::Trunc(tgt, a, n) => {
                     assert!(*n <= 64);
                     let a = bindings.get(a)?;
-                    let c = if let Ptr::Leaf(_, f) = a {
+                    let c = if let Ptr::Atom(_, f) = a {
                         let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
-                        Ptr::Leaf(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() & b))
+                        Ptr::Atom(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() & b))
                     } else {
                         bail!("`Trunc` only works a leaf")
                     };
@@ -236,14 +236,14 @@ impl Block {
                 Op::DivRem64(tgt, a, b) => {
                     let a = bindings.get(a)?;
                     let b = bindings.get(b)?;
-                    let (c1, c2) = if let (Ptr::Leaf(_, f), Ptr::Leaf(_, g)) = (a, b) {
+                    let (c1, c2) = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
                         if g == &F::ZERO {
                             bail!("Can't divide by zero")
                         }
                         let f = f.to_u64_unchecked();
                         let g = g.to_u64_unchecked();
-                        let c1 = Ptr::Leaf(Tag::Expr(Num), F::from_u64(f / g));
-                        let c2 = Ptr::Leaf(Tag::Expr(Num), F::from_u64(f % g));
+                        let c1 = Ptr::Atom(Tag::Expr(Num), F::from_u64(f / g));
+                        let c2 = Ptr::Atom(Tag::Expr(Num), F::from_u64(f % g));
                         (c1, c2)
                     } else {
                         bail!("`DivRem64` only works on leaves")
@@ -337,7 +337,7 @@ impl Block {
                 }
                 Op::Hide(tgt, sec, src) => {
                     let src_ptr = bindings.get(src)?;
-                    let Ptr::Leaf(Tag::Expr(Num), secret) = bindings.get(sec)? else {
+                    let Ptr::Atom(Tag::Expr(Num), secret) = bindings.get(sec)? else {
                         bail!("{sec} is not a numeric pointer")
                     };
                     let tgt_ptr = store.hide(*secret, *src_ptr)?;
@@ -347,14 +347,14 @@ impl Block {
                     bindings.insert(tgt.clone(), tgt_ptr);
                 }
                 Op::Open(tgt_secret, tgt_ptr, comm) => {
-                    let Ptr::Leaf(Tag::Expr(Comm), hash) = bindings.get(comm)? else {
+                    let Ptr::Atom(Tag::Expr(Comm), hash) = bindings.get(comm)? else {
                         bail!("{comm} is not a comm pointer")
                     };
                     let Some((secret, ptr)) = store.open(*hash) else {
                         bail!("No committed data for hash {}", &hash.hex_digits())
                     };
                     bindings.insert(tgt_ptr.clone(), *ptr);
-                    bindings.insert(tgt_secret.clone(), Ptr::Leaf(Tag::Expr(Num), *secret));
+                    bindings.insert(tgt_secret.clone(), Ptr::Atom(Tag::Expr(Num), *secret));
                     preimages
                         .commitment
                         .push(Some(PreimageData::FPtr(*secret, *ptr)))

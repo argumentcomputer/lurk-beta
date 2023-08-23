@@ -175,7 +175,7 @@ impl<F: LurkField> Store<F> {
             let mut ptr = *ptr;
             loop {
                 match ptr {
-                    Ptr::Leaf(Tag::Expr(Str), f) => {
+                    Ptr::Atom(Tag::Expr(Str), f) => {
                         if f == F::ZERO {
                             self.ptr_string_cache.insert(ptr, string.clone());
                             return Some(string);
@@ -186,7 +186,7 @@ impl<F: LurkField> Store<F> {
                     Ptr::Tuple2(Tag::Expr(Str), idx) => {
                         let (car, cdr) = self.fetch_2_ptrs(idx)?;
                         match car {
-                            Ptr::Leaf(Tag::Expr(Char), c) => {
+                            Ptr::Atom(Tag::Expr(Char), c) => {
                                 string.push(c.to_char().expect("char pointers are well formed"));
                                 ptr = *cdr
                             }
@@ -235,7 +235,7 @@ impl<F: LurkField> Store<F> {
             let string = self.fetch_string(car)?;
             path.push(string);
             match cdr {
-                Ptr::Leaf(Tag::Expr(Sym), f) => {
+                Ptr::Atom(Tag::Expr(Sym), f) => {
                     if f == &F::ZERO {
                         path.reverse();
                         return Some(path);
@@ -254,7 +254,7 @@ impl<F: LurkField> Store<F> {
             Some(sym.clone())
         } else {
             match ptr {
-                Ptr::Leaf(Tag::Expr(Sym), f) => {
+                Ptr::Atom(Tag::Expr(Sym), f) => {
                     if f == &F::ZERO {
                         let sym = Symbol::root_sym();
                         self.ptr_symbol_cache.insert(*ptr, Box::new(sym.clone()));
@@ -263,7 +263,7 @@ impl<F: LurkField> Store<F> {
                         None
                     }
                 }
-                Ptr::Leaf(Tag::Expr(Key), f) => {
+                Ptr::Atom(Tag::Expr(Key), f) => {
                     if f == &F::ZERO {
                         let key = Symbol::root_key();
                         self.ptr_symbol_cache.insert(*ptr, Box::new(key.clone()));
@@ -391,9 +391,9 @@ impl<F: LurkField> Store<F> {
 
     pub fn intern_syntax(&mut self, syn: Syntax<F>) -> Ptr<F> {
         match syn {
-            Syntax::Num(_, x) => Ptr::Leaf(Tag::Expr(Num), x.into_scalar()),
-            Syntax::UInt(_, UInt::U64(x)) => Ptr::Leaf(Tag::Expr(U64), x.into()),
-            Syntax::Char(_, x) => Ptr::Leaf(Tag::Expr(Char), (x as u64).into()),
+            Syntax::Num(_, x) => Ptr::Atom(Tag::Expr(Num), x.into_scalar()),
+            Syntax::UInt(_, UInt::U64(x)) => Ptr::Atom(Tag::Expr(U64), x.into()),
+            Syntax::Char(_, x) => Ptr::Atom(Tag::Expr(Char), (x as u64).into()),
             Syntax::Symbol(_, symbol) => self.intern_symbol(&symbol),
             Syntax::String(_, x) => self.intern_string(&x),
             Syntax::Quote(pos, x) => {
@@ -455,7 +455,7 @@ impl<F: LurkField> Store<F> {
     /// depth limit. This limitation is circumvented by calling `hydrate_z_cache`.
     pub fn hash_ptr(&self, ptr: &Ptr<F>) -> Result<ZPtr<F>> {
         match ptr {
-            Ptr::Leaf(tag, x) => Ok(ZPtr {
+            Ptr::Atom(tag, x) => Ok(ZPtr {
                 tag: *tag,
                 hash: *x,
             }),
@@ -568,7 +568,7 @@ impl<F: LurkField> Ptr<F> {
             return format!("{}", s);
         }
         match self {
-            Ptr::Leaf(tag, f) => {
+            Ptr::Atom(tag, f) => {
                 if let Some(x) = f.to_u64() {
                     format!("{}{}", tag, x)
                 } else {
@@ -659,7 +659,7 @@ impl<F: LurkField> Ptr<F> {
                         "<Opaque Str>".into()
                     }
                 }
-                Char => match self.get_leaf().map(F::to_char) {
+                Char => match self.get_atom().map(F::to_char) {
                     Some(Some(c)) => format!("\'{c}\'"),
                     _ => "<Malformed Char>".into(),
                 },
@@ -682,7 +682,7 @@ impl<F: LurkField> Ptr<F> {
                         "<Opaque Cons>".into()
                     }
                 }
-                Num => match self.get_leaf() {
+                Num => match self.get_atom() {
                     None => "<Malformed Num>".into(),
                     Some(f) => {
                         if let Some(u) = f.to_u64() {
@@ -692,7 +692,7 @@ impl<F: LurkField> Ptr<F> {
                         }
                     }
                 },
-                U64 => match self.get_leaf().map(F::to_u64) {
+                U64 => match self.get_atom().map(F::to_u64) {
                     Some(Some(u)) => format!("{u}u64"),
                     _ => "<Malformed U64>".into(),
                 },
@@ -744,7 +744,7 @@ impl<F: LurkField> Ptr<F> {
                         }
                     }
                 },
-                Comm => match self.get_leaf() {
+                Comm => match self.get_atom() {
                     Some(f) => {
                         if store.comms.contains_key(&FWrap(*f)) {
                             format!("(comm 0x{})", f.hex_digits())

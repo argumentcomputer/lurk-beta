@@ -189,7 +189,7 @@ impl Lit {
         use Tag::*;
         match ptr.tag() {
             Expr(Num) => match ptr {
-                Ptr::Leaf(_, f) => {
+                Ptr::Atom(_, f) => {
                     let num = LurkField::to_u128_unchecked(f);
                     Some(Self::Num(num))
                 }

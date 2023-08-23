@@ -674,11 +674,11 @@ impl Func {
                         // add the results of the call to the witness, or recompute them.
                         let output_vals = if let Some(true) = not_dummy.get_value() {
                             g.call_outputs.pop_front().unwrap_or_else(|| {
-                                let dummy = Ptr::Leaf(Tag::Expr(Nil), F::ZERO);
+                                let dummy = Ptr::Atom(Tag::Expr(Nil), F::ZERO);
                                 (0..out.len()).map(|_| dummy).collect()
                             })
                         } else {
-                            let dummy = Ptr::Leaf(Tag::Expr(Nil), F::ZERO);
+                            let dummy = Ptr::Atom(Tag::Expr(Nil), F::ZERO);
                             (0..out.len()).map(|_| dummy).collect()
                         };
                         assert_eq!(output_vals.len(), out.len());

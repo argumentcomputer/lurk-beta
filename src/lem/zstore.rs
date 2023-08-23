@@ -43,12 +43,12 @@ pub fn populate_z_store<F: LurkField>(
             Ok(*z_ptr)
         } else {
             let z_ptr = match ptr {
-                Ptr::Leaf(tag, f) => {
+                Ptr::Atom(tag, f) => {
                     let z_ptr = ZPtr {
                         tag: *tag,
                         hash: *f,
                     };
-                    z_store.dag.insert(z_ptr, ZChildren::Leaf);
+                    z_store.dag.insert(z_ptr, ZChildren::Atom);
                     z_ptr
                 }
                 Ptr::Tuple2(tag, idx) => {
@@ -134,7 +134,7 @@ pub fn populate_store<F: LurkField>(
         } else {
             let ptr = match z_store.get_children(z_ptr) {
                 None => bail!("Couldn't find ZPtr"),
-                Some(ZChildren::Leaf) => Ptr::Leaf(z_ptr.tag, z_ptr.hash),
+                Some(ZChildren::Atom) => Ptr::Atom(z_ptr.tag, z_ptr.hash),
                 Some(ZChildren::Tuple2(z1, z2)) => {
                     let ptr1 = populate_store(store, z1, z_store)?;
                     let ptr2 = populate_store(store, z2, z_store)?;

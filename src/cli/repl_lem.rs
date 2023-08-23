@@ -269,7 +269,7 @@ impl ReplLEM<F> {
         let (expr_io, ..) = self
             .eval_expr(expr)
             .with_context(|| "evaluating first arg")?;
-        let Ptr::Leaf(Tag::Expr(Num), hash) = expr_io[0] else {
+        let Ptr::Atom(Tag::Expr(Num), hash) = expr_io[0] else {
             bail!("hash must be a number")
         };
         Ok(hash)
@@ -462,7 +462,7 @@ impl ReplLEM<F> {
                 let (second_io, ..) = self
                     .eval_expr(second)
                     .with_context(|| "evaluating second arg")?;
-                let Ptr::Leaf(Tag::Expr(Num), secret) = first_io[0] else {
+                let Ptr::Atom(Tag::Expr(Num), secret) = first_io[0] else {
                     bail!(
                         "Secret must be a number. Got {}",
                         first_io[0].fmt_to_string(&self.store, &self.state.borrow())

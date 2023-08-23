@@ -6,7 +6,7 @@ use super::Tag;
 
 /// `Ptr` is the main piece of data LEMs operate on. We can think of a pointer
 /// as a building block for trees that represent Lurk data. A pointer can be a
-/// leaf that contains data encoded as an element of a `LurkField` or it can have
+/// atom that contains data encoded as an element of a `LurkField` or it can have
 /// children. For performance, the children of a pointer are stored on an
 /// `IndexSet` and the resulding index is carried by the pointer itself.
 ///
@@ -17,7 +17,7 @@ use super::Tag;
 /// number of children have to be made explicit as the `Ptr` enum.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Ptr<F: LurkField> {
-    Leaf(Tag, F),
+    Atom(Tag, F),
     Tuple2(Tag, usize),
     Tuple3(Tag, usize),
     Tuple4(Tag, usize),
@@ -26,7 +26,7 @@ pub enum Ptr<F: LurkField> {
 impl<F: LurkField> std::hash::Hash for Ptr<F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
-            Ptr::Leaf(tag, f) => (0, tag, f.to_repr().as_ref()).hash(state),
+            Ptr::Atom(tag, f) => (0, tag, f.to_repr().as_ref()).hash(state),
             Ptr::Tuple2(tag, x) => (1, tag, x).hash(state),
             Ptr::Tuple3(tag, x) => (2, tag, x).hash(state),
             Ptr::Tuple4(tag, x) => (3, tag, x).hash(state),
@@ -37,7 +37,7 @@ impl<F: LurkField> std::hash::Hash for Ptr<F> {
 impl<F: LurkField> Ptr<F> {
     pub fn tag(&self) -> &Tag {
         match self {
-            Ptr::Leaf(tag, _) | Ptr::Tuple2(tag, _) | Ptr::Tuple3(tag, _) | Ptr::Tuple4(tag, _) => {
+            Ptr::Atom(tag, _) | Ptr::Tuple2(tag, _) | Ptr::Tuple3(tag, _) | Ptr::Tuple4(tag, _) => {
                 tag
             }
         }
@@ -45,37 +45,37 @@ impl<F: LurkField> Ptr<F> {
 
     #[inline]
     pub fn num(f: F) -> Self {
-        Ptr::Leaf(Tag::Expr(Num), f)
+        Ptr::Atom(Tag::Expr(Num), f)
     }
 
     #[inline]
     pub fn num_u64(u: u64) -> Self {
-        Ptr::Leaf(Tag::Expr(Num), F::from_u64(u))
+        Ptr::Atom(Tag::Expr(Num), F::from_u64(u))
     }
 
     #[inline]
     pub fn u64(u: u64) -> Self {
-        Ptr::Leaf(Tag::Expr(U64), F::from_u64(u))
+        Ptr::Atom(Tag::Expr(U64), F::from_u64(u))
     }
 
     #[inline]
     pub fn char(c: char) -> Self {
-        Ptr::Leaf(Tag::Expr(Char), F::from_char(c))
+        Ptr::Atom(Tag::Expr(Char), F::from_char(c))
     }
 
     #[inline]
     pub fn comm(hash: F) -> Self {
-        Ptr::Leaf(Tag::Expr(Comm), hash)
+        Ptr::Atom(Tag::Expr(Comm), hash)
     }
 
     #[inline]
     pub fn null(tag: Tag) -> Self {
-        Ptr::Leaf(tag, F::ZERO)
+        Ptr::Atom(tag, F::ZERO)
     }
 
     pub fn is_null(&self) -> bool {
         match self {
-            Ptr::Leaf(_, f) => f == &F::ZERO,
+            Ptr::Atom(_, f) => f == &F::ZERO,
             _ => false,
         }
     }
@@ -87,7 +87,7 @@ impl<F: LurkField> Ptr<F> {
     #[inline]
     pub fn cast(self, tag: Tag) -> Self {
         match self {
-            Ptr::Leaf(_, f) => Ptr::Leaf(tag, f),
+            Ptr::Atom(_, f) => Ptr::Atom(tag, f),
             Ptr::Tuple2(_, x) => Ptr::Tuple2(tag, x),
             Ptr::Tuple3(_, x) => Ptr::Tuple3(tag, x),
             Ptr::Tuple4(_, x) => Ptr::Tuple4(tag, x),
@@ -95,9 +95,9 @@ impl<F: LurkField> Ptr<F> {
     }
 
     #[inline]
-    pub fn get_leaf(&self) -> Option<&F> {
+    pub fn get_atom(&self) -> Option<&F> {
         match self {
-            Ptr::Leaf(_, f) => Some(f),
+            Ptr::Atom(_, f) => Some(f),
             _ => None,
         }
     }
@@ -168,7 +168,7 @@ impl<F: LurkField> Ord for ZPtr<F> {
 /// a store.
 #[derive(Serialize, Deserialize)]
 pub enum ZChildren<F: LurkField> {
-    Leaf,
+    Atom,
     Tuple2(ZPtr<F>, ZPtr<F>),
     Tuple3(ZPtr<F>, ZPtr<F>, ZPtr<F>),
     Tuple4(ZPtr<F>, ZPtr<F>, ZPtr<F>, ZPtr<F>),
