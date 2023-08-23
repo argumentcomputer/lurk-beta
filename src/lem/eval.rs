@@ -52,7 +52,7 @@ fn safe_uncons() -> Func {
     func!(safe_uncons(xs): 2 => {
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
-        let nilstr = Symbol("");
+        let empty_str = String("");
         match xs.tag {
             Expr::Nil => {
                 return (nil, nil)
@@ -62,8 +62,8 @@ fn safe_uncons() -> Func {
                 return (car, cdr)
             }
             Expr::Str => {
-                if xs == nilstr {
-                    return (nil, nilstr)
+                if xs == empty_str {
+                    return (nil, empty_str)
                 }
                 let (car, cdr) = unhash2(xs);
                 return (car, cdr)
@@ -1013,14 +1013,16 @@ fn make_thunk() -> Func {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lem::{pointers::Ptr, slot::SlotsCounter, store::Store, Tag};
-    use crate::state::State;
+    use crate::{
+        lem::{pointers::Ptr, slot::SlotsCounter, store::Store, Tag},
+        state::State,
+    };
     use bellpepper_core::{test_cs::TestConstraintSystem, Comparable, Delta};
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 10744;
-    const NUM_CONSTRAINTS: usize = 13107;
+    const NUM_AUX: usize = 10768;
+    const NUM_CONSTRAINTS: usize = 13155;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,
