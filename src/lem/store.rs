@@ -46,6 +46,9 @@ pub struct Store<F: LurkField> {
     string_ptr_cache: HashMap<String, Ptr<F>>,
     symbol_ptr_cache: HashMap<Symbol, Ptr<F>>,
 
+    ptr_string_cache: CacheMap<Ptr<F>, String>,
+    ptr_symbol_cache: CacheMap<Ptr<F>, Box<Symbol>>,
+
     pub poseidon_cache: PoseidonCache<F>,
 
     dehydrated: Vec<Ptr<F>>,
@@ -165,28 +168,33 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn fetch_string(&self, ptr: &Ptr<F>) -> Option<String> {
-        let mut string = String::new();
-        let mut ptr = *ptr;
-        loop {
-            match ptr {
-                Ptr::Leaf(Tag::Expr(Str), f) => {
-                    if f == F::ZERO {
-                        return Some(string);
-                    } else {
-                        return None;
-                    }
-                }
-                Ptr::Tuple2(Tag::Expr(Str), idx) => {
-                    let (car, cdr) = self.fetch_2_ptrs(idx)?;
-                    match car {
-                        Ptr::Leaf(Tag::Expr(Char), c) => {
-                            string.push(c.to_char().expect("char pointers are well formed"));
-                            ptr = *cdr
+        if let Some(str) = self.ptr_string_cache.get(ptr) {
+            Some(str.to_string())
+        } else {
+            let mut string = String::new();
+            let mut ptr = *ptr;
+            loop {
+                match ptr {
+                    Ptr::Leaf(Tag::Expr(Str), f) => {
+                        if f == F::ZERO {
+                            self.ptr_string_cache.insert(ptr, string.clone());
+                            return Some(string);
+                        } else {
+                            return None;
                         }
-                        _ => return None,
                     }
+                    Ptr::Tuple2(Tag::Expr(Str), idx) => {
+                        let (car, cdr) = self.fetch_2_ptrs(idx)?;
+                        match car {
+                            Ptr::Leaf(Tag::Expr(Char), c) => {
+                                string.push(c.to_char().expect("char pointers are well formed"));
+                                ptr = *cdr
+                            }
+                            _ => return None,
+                        }
+                    }
+                    _ => return None,
                 }
-                _ => return None,
             }
         }
     }
@@ -242,30 +250,42 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<Symbol> {
-        match ptr {
-            Ptr::Leaf(Tag::Expr(Sym), f) => {
-                if f == &F::ZERO {
-                    Some(Symbol::root_sym())
-                } else {
-                    None
+        if let Some(sym) = self.ptr_symbol_cache.get(ptr) {
+            Some(sym.clone())
+        } else {
+            match ptr {
+                Ptr::Leaf(Tag::Expr(Sym), f) => {
+                    if f == &F::ZERO {
+                        let sym = Symbol::root_sym();
+                        self.ptr_symbol_cache.insert(*ptr, Box::new(sym.clone()));
+                        Some(sym)
+                    } else {
+                        None
+                    }
                 }
-            }
-            Ptr::Leaf(Tag::Expr(Key), f) => {
-                if f == &F::ZERO {
-                    Some(Symbol::root_key())
-                } else {
-                    None
+                Ptr::Leaf(Tag::Expr(Key), f) => {
+                    if f == &F::ZERO {
+                        let key = Symbol::root_key();
+                        self.ptr_symbol_cache.insert(*ptr, Box::new(key.clone()));
+                        Some(key)
+                    } else {
+                        None
+                    }
                 }
+                Ptr::Tuple2(Tag::Expr(Sym), idx) | Ptr::Tuple2(Tag::Expr(Nil), idx) => {
+                    let path = self.fetch_symbol_path(*idx)?;
+                    let sym = Symbol::sym_from_vec(path);
+                    self.ptr_symbol_cache.insert(*ptr, Box::new(sym.clone()));
+                    Some(sym)
+                }
+                Ptr::Tuple2(Tag::Expr(Key), idx) => {
+                    let path = self.fetch_symbol_path(*idx)?;
+                    let key = Symbol::key_from_vec(path);
+                    self.ptr_symbol_cache.insert(*ptr, Box::new(key.clone()));
+                    Some(key)
+                }
+                _ => None,
             }
-            Ptr::Tuple2(Tag::Expr(Sym), idx) | Ptr::Tuple2(Tag::Expr(Nil), idx) => {
-                let path = self.fetch_symbol_path(*idx)?;
-                Some(Symbol::sym_from_vec(path))
-            }
-            Ptr::Tuple2(Tag::Expr(Key), idx) => {
-                let path = self.fetch_symbol_path(*idx)?;
-                Some(Symbol::key_from_vec(path))
-            }
-            _ => None,
         }
     }
 
