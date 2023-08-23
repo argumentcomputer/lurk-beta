@@ -994,50 +994,93 @@ mod tests {
         #[test]
         fn test_implies_equal_zero(
             p in any::<bool>(),
-            rand_a in (0u64..u64::MAX),
-            rand_positive in (1u64..u64::MAX),
+            rand in prop_oneof![
+                (0u64..u64::MAX),
+                Just(0u64)
+            ]
         ) {
 
-            let test_premise_num = |premise: bool, n, result: bool| {
+            let test_premise_num = |premise: bool, n| -> bool  {
                 let mut cs = TestConstraintSystem::<Fr>::new();
                 let num = AllocatedNum::alloc(cs.namespace(|| "num"), || Ok(Fr::from(n))).unwrap();
                 let pb = Boolean::constant(premise);
                 let _ = implies_equal_zero(&mut cs.namespace(|| "implies equal zero"), &pb, &num);
-                assert_eq!(cs.is_satisfied(), result);
-
+                cs.is_satisfied()
             };
 
-            // any premise
-            test_premise_num(p, 0, true);
-
-            // false premise, any value
-            test_premise_num(false, rand_a, true);
-
-            // true premise, bad values
-            test_premise_num(true, rand_positive, false);
+            prop_assert!(test_premise_num(p, rand) == (!p || (rand == 0)));
         }
 
         #[test]
-        fn test_implies_equal(p in any::<bool>(), (a, b) in any::<(FWrap<Fr>, FWrap<Fr>)>()) {
-            prop_assume!(a != b);
-
-            let test_a_b = |premise: bool, a, b, result: bool| {
+        fn test_implies_equal(p in any::<bool>(), (a, b) in prop_oneof![
+            any::<(FWrap<Fr>, FWrap<Fr>)>(),
+            any::<FWrap<Fr>>().prop_map(|a| (a, a)),
+        ]) {
+            let test_a_b = |premise: bool, a, b| -> bool {
                 let mut cs = TestConstraintSystem::<Fr>::new();
                 let a_num = AllocatedNum::alloc(cs.namespace(|| "a_num"), || Ok(a)).unwrap();
                 let b_num = AllocatedNum::alloc(cs.namespace(|| "b_num"), || Ok(b)).unwrap();
                 let pb = Boolean::constant(premise);
                 let _ = implies_equal(&mut cs.namespace(|| "implies equal"), &pb, &a_num, &b_num);
-                assert_eq!(cs.is_satisfied(), result);
+                cs.is_satisfied()
             };
 
-            // any premise
-            test_a_b(p, a.0, a.0, true);
+            prop_assert_eq!(test_a_b(p, a.0, b.0), !p || (a.0 == b.0));
+        }
 
-            // positive case
-            test_a_b(false, a.0, b.0, true);
+        #[test]
+        fn test_implies_unequal(p in any::<bool>(), (a, b) in prop_oneof![
+            any::<(FWrap<Fr>, FWrap<Fr>)>(),
+            any::<FWrap<Fr>>().prop_map(|a| (a, a)),
+        ]) {
+            let test_a_b = |premise: bool, a, b| -> bool{
+                let mut cs = TestConstraintSystem::<Fr>::new();
+                let a_num = AllocatedNum::alloc(cs.namespace(|| "a_num"), || Ok(a)).unwrap();
+                let b_num = AllocatedNum::alloc(cs.namespace(|| "b_num"), || Ok(b)).unwrap();
+                let pb = Boolean::constant(premise);
+                let _ = implies_unequal(&mut cs.namespace(|| "implies equal"), &pb, &a_num, &b_num);
+                cs.is_satisfied()
+            };
 
-            // negative case
-            test_a_b(true, a.0, b.0, false);
+            prop_assert_eq!(test_a_b(p, a.0, b.0), !p || (a.0 != b.0));
+        }
+
+        #[test]
+        fn test_implies_unequal_const(
+            p in any::<bool>(),
+            candidate in any::<FWrap<Fr>>(),
+            target in any::<FWrap<Fr>>()
+        ) {
+
+            let test_premise_unequal = |premise: bool, n, t| -> bool  {
+                let mut cs = TestConstraintSystem::<Fr>::new();
+                let num = AllocatedNum::alloc(cs.namespace(|| "num"), || Ok(n)).unwrap();
+                let pb = Boolean::constant(premise);
+                let _ = implies_unequal_const(&mut cs.namespace(|| "implies equal zero"), &pb, &num, t);
+                cs.is_satisfied()
+            };
+
+            prop_assert_eq!(test_premise_unequal(p, candidate.0, target.0), !p || (candidate != target));
+            prop_assert_eq!(test_premise_unequal(p, target.0, target.0), !p);
+        }
+
+        #[test]
+        fn test_implies_equal_const(
+            p in any::<bool>(),
+            candidate in any::<FWrap<Fr>>(),
+            target in any::<FWrap<Fr>>()
+        ) {
+
+            let test_premise_equal = |premise: bool, n, t| -> bool  {
+                let mut cs = TestConstraintSystem::<Fr>::new();
+                let num = AllocatedNum::alloc(cs.namespace(|| "num"), || Ok(n)).unwrap();
+                let pb = Boolean::constant(premise);
+                let _ = implies_equal_const(&mut cs.namespace(|| "implies equal zero"), &pb, &num, t);
+                cs.is_satisfied()
+            };
+
+            prop_assert_eq!(test_premise_equal(p, candidate.0, target.0), !p || (candidate == target));
+            prop_assert!(test_premise_equal(p, target.0, target.0));
         }
 
         #[test]
