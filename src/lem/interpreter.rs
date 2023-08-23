@@ -487,12 +487,18 @@ impl Func {
 
     /// Calls a `Func` on an input until the stop contidion is satisfied, using the output of one
     /// iteration as the input of the next one.
-    pub fn call_until<F: LurkField, Stop: Fn(&[Ptr<F>]) -> bool>(
+    pub fn call_until<
+        F: LurkField,
+        StopCond: Fn(&[Ptr<F>]) -> bool,
+        LogFmt: Fn(usize, &[Ptr<F>], &Store<F>) -> String,
+    >(
         &self,
         args: &[Ptr<F>],
         store: &mut Store<F>,
-        stop_cond: Stop,
+        stop_cond: StopCond,
         limit: usize,
+        // TODO: make this argument optional
+        log_fmt: LogFmt,
     ) -> Result<(Vec<Frame<F>>, usize, Vec<Path>)> {
         assert_eq!(self.input_params.len(), self.output_size);
         assert_eq!(self.input_params.len(), args.len());
@@ -502,34 +508,39 @@ impl Func {
         let mut frames = vec![];
         let mut paths = vec![];
 
-        for iterations in 0..limit {
+        let mut iterations = 0;
+
+        log::info!("{}", &log_fmt(iterations, &input, store));
+
+        for _ in 0..limit {
             let preimages = Preimages::new_from_func(self);
             let (frame, path) = self.call(&input, store, preimages, &mut vec![])?;
-            let stop = stop_cond(&frame.output);
-            // Should frames take borrowed vectors instead, as to avoid cloning?
-            // Using AVec is a possibility, but to create a dynamic AVec, currently,
-            // requires 2 allocations since it must be created from a Vec and
-            // Vec<T> -> Arc<[T]> uses `copy_from_slice`.
             input = frame.output.clone();
-            frames.push(frame);
-            paths.push(path);
-            if stop {
-                // pushing a frame that can be padded to match the rc
-                let preimages = Preimages::new_from_func(self);
-                let (frame, path) = self.call(&input, store, preimages, &mut vec![])?;
+            iterations += 1;
+            log::info!("{}", &log_fmt(iterations, &input, store));
+            if stop_cond(&frame.output) {
                 frames.push(frame);
                 paths.push(path);
-                return Ok((frames, iterations + 1, paths));
+                break;
             }
+            frames.push(frame);
+            paths.push(path);
         }
-        bail!("Computation exceeded the limit of steps {limit}")
+        if iterations < limit {
+            // pushing a frame that can be padded
+            let preimages = Preimages::new_from_func(self);
+            let (frame, path) = self.call(&input, store, preimages, &mut vec![])?;
+            frames.push(frame);
+            paths.push(path);
+        }
+        Ok((frames, iterations, paths))
     }
 
-    pub fn call_until_simple<F: LurkField, Stop: Fn(&[Ptr<F>]) -> bool>(
+    pub fn call_until_simple<F: LurkField, StopCond: Fn(&[Ptr<F>]) -> bool>(
         &self,
         args: Vec<Ptr<F>>,
         store: &mut Store<F>,
-        stop_cond: Stop,
+        stop_cond: StopCond,
         limit: usize,
     ) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
         assert_eq!(self.input_params.len(), self.output_size);
@@ -538,13 +549,16 @@ impl Func {
         let mut input = args;
         let mut emitted = vec![];
 
-        for iterations in 0..limit {
+        let mut iterations = 0;
+
+        for _ in 0..limit {
             let (frame, _) = self.call(&input, store, Preimages::default(), &mut emitted)?;
             input = frame.output.clone();
+            iterations += 1;
             if stop_cond(&frame.output) {
-                return Ok((input, iterations + 1, emitted));
+                break;
             }
         }
-        bail!("Computation exceeded the limit of steps {limit}")
+        Ok((input, iterations, emitted))
     }
 }

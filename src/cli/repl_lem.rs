@@ -207,9 +207,34 @@ impl ReplLEM<F> {
         }
     }
 
-    #[inline]
     fn eval_expr(&mut self, expr_ptr: Ptr<F>) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
-        evaluate_simple(expr_ptr, &mut self.store, self.limit)
+        let (ptrs, iterations, emitted) = evaluate_simple(expr_ptr, &mut self.store, self.limit)?;
+        match ptrs[2].tag() {
+            Tag::Cont(Terminal) => Ok((ptrs, iterations, emitted)),
+            t => {
+                let iterations_display = Self::pretty_iterations_display(iterations);
+                if t == &Tag::Cont(Error) {
+                    bail!("Evaluation encountered an error after {iterations_display}")
+                } else {
+                    bail!("Limit reached after {iterations_display}")
+                }
+            }
+        }
+    }
+
+    fn eval_expr_allowing_error_continuation(
+        &mut self,
+        expr_ptr: Ptr<F>,
+    ) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
+        let (ptrs, iterations, emitted) = evaluate_simple(expr_ptr, &mut self.store, self.limit)?;
+        if matches!(ptrs[2].tag(), Tag::Cont(Terminal) | Tag::Cont(Error)) {
+            Ok((ptrs, iterations, emitted))
+        } else {
+            bail!(
+                "Limit reached after {}",
+                Self::pretty_iterations_display(iterations)
+            )
+        }
     }
 
     fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr<F>) -> Result<(Vec<Ptr<F>>, usize)> {
@@ -415,7 +440,7 @@ impl ReplLEM<F> {
             }
             "assert-error" => {
                 let first = self.peek1(cmd, args)?;
-                let (first_io, ..) = self.eval_expr(first)?;
+                let (first_io, ..) = self.eval_expr_allowing_error_continuation(first)?;
                 if first_io[2].tag() != &Tag::Cont(Error) {
                     eprintln!(
                         "`assert-error` failed. {} doesn't result on evaluation error.",

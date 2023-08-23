@@ -677,7 +677,7 @@ impl<F: LurkField> Ptr<F> {
                     _ => "<Malformed U64>".into(),
                 },
                 Fun => match self.get_index3() {
-                    None => "<Malformed Fun>".into(),
+                    None => "<Opaque Fun>".into(),
                     Some(idx) => {
                         if let Some((arg, bod, _)) = store.fetch_3_ptrs(idx) {
                             match bod.tag() {
@@ -735,7 +735,7 @@ impl<F: LurkField> Ptr<F> {
                     None => "<Malformed Comm>".into(),
                 },
             },
-            Tag::Cont(_) => todo!(),
+            Tag::Cont(_) => "<CONTINUATION (TODO)>".into(),
             Tag::Ctrl(_) => unreachable!(),
         }
     }

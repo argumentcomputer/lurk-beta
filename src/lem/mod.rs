@@ -812,10 +812,14 @@ mod tests {
 
         let computed_num_constraints = func.num_constraints::<Fr>(store);
 
+        let log_fmt = |_: usize, _: &[Ptr<Fr>], _: &Store<Fr>| String::default();
+
         let mut cs_prev = None;
         for input in inputs.into_iter() {
             let input = [input, nil, outermost];
-            let (frames, ..) = func.call_until(&input, store, stop_cond, 10).unwrap();
+            let (frames, ..) = func
+                .call_until(&input, store, stop_cond, 10, log_fmt)
+                .unwrap();
 
             let mut cs;
 

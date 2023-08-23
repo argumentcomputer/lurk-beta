@@ -1,7 +1,7 @@
 use anyhow::Result;
 use once_cell::sync::OnceCell;
 
-use crate::{field::LurkField, func, tag::ContTag::*};
+use crate::{field::LurkField, func, state::initial_lurk_state, tag::ContTag::*};
 
 use super::{interpreter::Frame, pointers::Ptr, store::Store, Func, Tag};
 
@@ -31,8 +31,20 @@ pub fn evaluate<F: LurkField>(
     let stop_cond = |output: &[Ptr<F>]| {
         output[2] == Ptr::null(Tag::Cont(Terminal)) || output[2] == Ptr::null(Tag::Cont(Error))
     };
+    let state = initial_lurk_state();
+    let log_fmt = |i: usize, ptrs: &[Ptr<F>], store: &Store<F>| {
+        format!(
+            "Frame: {}\n\tExpr: {}\n\tEnv: {}\n\tCont: {}",
+            i,
+            ptrs[0].fmt_to_string(store, state),
+            ptrs[1].fmt_to_string(store, state),
+            ptrs[2].fmt_to_string(store, state)
+        )
+    };
+
     let input = &[expr, store.intern_nil(), Ptr::null(Tag::Cont(Outermost))];
-    let (frames, iterations, _) = eval_step().call_until(input, store, stop_cond, limit)?;
+    let (frames, iterations, _) =
+        eval_step().call_until(input, store, stop_cond, limit, log_fmt)?;
     Ok((frames, iterations))
 }
 
@@ -1107,13 +1119,15 @@ mod tests {
         // Stop condition: the continuation is either terminal or error
         let stop_cond = |output: &[Ptr<Fr>]| output[2] == terminal || output[2] == error;
 
+        let log_fmt = |_: usize, _: &[Ptr<Fr>], _: &Store<Fr>| String::default();
+
         let limit = 10000;
 
         let mut cs_prev = None;
         for (expr_in, expr_out) in pairs {
             let input = [expr_in, nil, outermost];
             let (frames, _, paths) = eval_step
-                .call_until(&input, store, stop_cond, limit)
+                .call_until(&input, store, stop_cond, limit, log_fmt)
                 .unwrap();
             let last_frame = frames.last().expect("eval should add at least one frame");
             assert_eq!(last_frame.output[0], expr_out);
