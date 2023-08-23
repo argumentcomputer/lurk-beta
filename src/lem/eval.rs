@@ -528,6 +528,7 @@ fn apply_cont() -> Func {
         let t = Symbol("t");
         let zero = Num(0);
         let size_u64 = Num(18446744073709551616);
+        let empty_str = String("");
 
         match ctrl.tag {
             Ctrl::ApplyContinuation => {
@@ -627,12 +628,44 @@ fn apply_cont() -> Func {
                         let (operator, continuation) = unhash2(cont);
                         match operator.val {
                             Symbol("car") => {
-                                let (car, _cdr) = safe_uncons(result);
-                                return (car, env, continuation, makethunk)
+                                // Almost like safe_uncons, except it returns
+                                // an error in case it can't unhash it
+                                match result.tag {
+                                    Expr::Nil => {
+                                        return (nil, env, continuation, makethunk)
+                                    }
+                                    Expr::Cons => {
+                                        let (car, _cdr) = unhash2(result);
+                                        return (car, env, continuation, makethunk)
+                                    }
+                                    Expr::Str => {
+                                        if result == empty_str {
+                                            return (nil, env, continuation, makethunk)
+                                        }
+                                        let (car, _cdr) = unhash2(result);
+                                        return (car, env, continuation, makethunk)
+                                    }
+                                };
+                                return(result, env, err, errctrl)
                             }
                             Symbol("cdr") => {
-                                let (_car, cdr) = safe_uncons(result);
-                                return (cdr, env, continuation, makethunk)
+                                match result.tag {
+                                    Expr::Nil => {
+                                        return (nil, env, continuation, makethunk)
+                                    }
+                                    Expr::Cons => {
+                                        let (_car, cdr) = unhash2(result);
+                                        return (cdr, env, continuation, makethunk)
+                                    }
+                                    Expr::Str => {
+                                        if result == empty_str {
+                                            return (empty_str, env, continuation, makethunk)
+                                        }
+                                        let (_car, cdr) = unhash2(result);
+                                        return (cdr, env, continuation, makethunk)
+                                    }
+                                };
+                                return(result, env, err, errctrl)
                             }
                             Symbol("atom") => {
                                 match result.tag {
@@ -1034,8 +1067,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 10768;
-    const NUM_CONSTRAINTS: usize = 13155;
+    const NUM_AUX: usize = 10777;
+    const NUM_CONSTRAINTS: usize = 13235;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,
