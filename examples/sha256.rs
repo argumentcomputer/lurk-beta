@@ -203,7 +203,7 @@ fn main() {
             .in_scope(|| {
                 nova_prover
                     .evaluate_and_prove(
-                        &pp,
+                        pp,
                         cproc_call,
                         empty_sym_env(store),
                         store,
