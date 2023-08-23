@@ -283,6 +283,13 @@ fn reduce() -> Func {
             Expr::Cons => {
                 // No need for `safe_uncons` since the expression is already a `Cons`
                 let (head, rest) = unhash2(expr);
+                match rest.tag {
+                    // rest's tag can only be Nil or Cons
+                    Expr::Sym | Expr::Fun | Expr::Num | Expr::Thunk | Expr::Str
+                    | Expr::Char | Expr::Comm | Expr::U64 | Expr::Key => {
+                        return (expr, env, err, errctrl);
+                    }
+                };
                 match head.val {
                     Symbol("lambda") => {
                         let (args, body) = safe_uncons(rest);
@@ -1090,8 +1097,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 10787;
-    const NUM_CONSTRAINTS: usize = 13274;
+    const NUM_AUX: usize = 10816;
+    const NUM_CONSTRAINTS: usize = 13385;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,
