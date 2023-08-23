@@ -195,8 +195,8 @@ impl Lit {
                 }
                 _ => unreachable!(),
             },
-            Expr(Str) => store.fetch_string(ptr).cloned().map(Lit::String),
-            Expr(Sym) => store.fetch_symbol(ptr).cloned().map(Lit::Symbol),
+            Expr(Str) => store.fetch_string(ptr).map(Lit::String),
+            Expr(Sym) => store.fetch_symbol(ptr).map(Lit::Symbol),
             _ => None,
         }
     }

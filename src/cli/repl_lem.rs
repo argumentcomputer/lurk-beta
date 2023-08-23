@@ -250,13 +250,13 @@ impl ReplLEM<F> {
         Ok(hash)
     }
 
-    fn get_string(&self, ptr: &Ptr<F>) -> &String {
+    fn get_string(&self, ptr: &Ptr<F>) -> String {
         self.store
             .fetch_string(ptr)
             .expect("string must have been interned")
     }
 
-    fn get_symbol(&self, ptr: &Ptr<F>) -> &Symbol {
+    fn get_symbol(&self, ptr: &Ptr<F>) -> Symbol {
         self.store
             .fetch_symbol(ptr)
             .expect("symbol must have been interned")
@@ -470,14 +470,14 @@ impl ReplLEM<F> {
             "verify" => {
                 let first = self.peek1(cmd, args)?;
                 let proof_id = self.get_string(&first);
-                LurkProof::verify_proof(proof_id)?;
+                LurkProof::verify_proof(&proof_id)?;
             }
             "defpackage" => {
                 // TODO: handle args
                 let (name, _args) = self.store.car_cdr(args)?;
                 let name = match name.tag() {
                     Tag::Expr(Str) => self.state.borrow_mut().intern(self.get_string(&name)),
-                    Tag::Expr(Sym) => self.get_symbol(&name).clone().into(),
+                    Tag::Expr(Sym) => self.get_symbol(&name).into(),
                     _ => bail!("Package name must be a string or a symbol"),
                 };
                 println!("{}", self.state.borrow().fmt_to_string(&name));
@@ -488,14 +488,14 @@ impl ReplLEM<F> {
                 // TODO: handle pkg
                 let (mut symbols, _pkg) = self.store.car_cdr(args)?;
                 if symbols.tag() == &Tag::Expr(Sym) {
-                    let sym = SymbolRef::new(self.get_symbol(&symbols).clone());
+                    let sym = SymbolRef::new(self.get_symbol(&symbols));
                     self.state.borrow_mut().import(&[sym])?;
                 } else {
                     let mut symbols_vec = vec![];
                     loop {
                         {
                             let (head, tail) = self.store.car_cdr(&symbols)?;
-                            symbols_vec.push(SymbolRef::new(self.get_symbol(&head).clone()));
+                            symbols_vec.push(SymbolRef::new(self.get_symbol(&head)));
                             if tail.is_nil() {
                                 break;
                             }
@@ -514,7 +514,7 @@ impl ReplLEM<F> {
                         self.state.borrow_mut().set_current_package(package_name)?;
                     }
                     Tag::Expr(Sym) => {
-                        let package_name = self.get_symbol(&first).clone();
+                        let package_name = self.get_symbol(&first);
                         self.state
                             .borrow_mut()
                             .set_current_package(package_name.into())?;
@@ -551,7 +551,7 @@ impl ReplLEM<F> {
 
     fn handle_meta(&mut self, expr_ptr: Ptr<F>, pwd_path: &Utf8Path) -> Result<()> {
         let (car, cdr) = self.store.car_cdr(&expr_ptr)?;
-        match self.store.fetch_sym(&car).cloned() {
+        match self.store.fetch_sym(&car) {
             Some(symbol) => self.handle_meta_cases(symbol.name()?, &cdr, pwd_path)?,
             None => bail!(
                 "Meta command must be a symbol. Found {}",

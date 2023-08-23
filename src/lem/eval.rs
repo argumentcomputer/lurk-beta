@@ -750,9 +750,9 @@ fn apply_cont() -> Func {
                             Symbol("strcons") => {
                                 match evaled_arg.tag {
                                     Expr::Char => {
-                                        match evaled_arg.tag {
+                                        match result.tag {
                                             Expr::Str => {
-                                                let val: Expr::Cons = hash2(evaled_arg, result);
+                                                let val: Expr::Str = hash2(evaled_arg, result);
                                                 return (val, env, continuation, makethunk)
                                             }
                                         };

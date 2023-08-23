@@ -44,10 +44,7 @@ pub struct Store<F: LurkField> {
     tuple4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
 
     string_ptr_cache: HashMap<String, Ptr<F>>,
-    ptr_string_cache: HashMap<Ptr<F>, String>,
-
     symbol_ptr_cache: HashMap<Symbol, Ptr<F>>,
-    ptr_symbol_cache: HashMap<Ptr<F>, Symbol>,
 
     pub poseidon_cache: PoseidonCache<F>,
 
@@ -158,7 +155,6 @@ impl<F: LurkField> Store<F> {
                 self.intern_2_ptrs(Tag::Expr(Str), Ptr::char(c), acc)
             });
             self.string_ptr_cache.insert(s.to_string(), ptr);
-            self.ptr_string_cache.insert(ptr, s.to_string());
             ptr
         }
     }
@@ -168,9 +164,31 @@ impl<F: LurkField> Store<F> {
         self.string_ptr_cache.get(s)
     }
 
-    #[inline]
-    pub fn fetch_string(&self, ptr: &Ptr<F>) -> Option<&String> {
-        self.ptr_string_cache.get(ptr)
+    pub fn fetch_string(&self, ptr: &Ptr<F>) -> Option<String> {
+        let mut string = String::new();
+        let mut ptr = *ptr;
+        loop {
+            match ptr {
+                Ptr::Leaf(Tag::Expr(Str), f) => {
+                    if f == F::ZERO {
+                        return Some(string);
+                    } else {
+                        return None;
+                    }
+                }
+                Ptr::Tuple2(Tag::Expr(Str), idx) => {
+                    let (car, cdr) = self.fetch_2_ptrs(idx)?;
+                    match car {
+                        Ptr::Leaf(Tag::Expr(Char), c) => {
+                            string.push(c.to_char().expect("char pointers are well formed"));
+                            ptr = *cdr
+                        }
+                        _ => return None,
+                    }
+                }
+                _ => return None,
+            }
+        }
     }
 
     pub fn intern_symbol_path(&mut self, path: &[String]) -> Ptr<F> {
@@ -193,7 +211,6 @@ impl<F: LurkField> Store<F> {
                 path_ptr
             };
             self.symbol_ptr_cache.insert(sym.clone(), sym_ptr);
-            self.ptr_symbol_cache.insert(sym_ptr, sym.clone());
             sym_ptr
         }
     }
@@ -203,12 +220,56 @@ impl<F: LurkField> Store<F> {
         self.symbol_ptr_cache.get(s)
     }
 
-    #[inline]
-    pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<&Symbol> {
-        self.ptr_symbol_cache.get(ptr)
+    pub fn fetch_symbol_path(&self, mut idx: usize) -> Option<Vec<String>> {
+        let mut path = vec![];
+        loop {
+            let (car, cdr) = self.fetch_2_ptrs(idx)?;
+            let string = self.fetch_string(car)?;
+            path.push(string);
+            match cdr {
+                Ptr::Leaf(Tag::Expr(Sym), f) => {
+                    if f == &F::ZERO {
+                        path.reverse();
+                        return Some(path);
+                    } else {
+                        return None;
+                    }
+                }
+                Ptr::Tuple2(Tag::Expr(Sym), idx_cdr) => idx = *idx_cdr,
+                _ => return None,
+            }
+        }
     }
 
-    pub fn fetch_sym(&self, ptr: &Ptr<F>) -> Option<&Symbol> {
+    pub fn fetch_symbol(&self, ptr: &Ptr<F>) -> Option<Symbol> {
+        match ptr {
+            Ptr::Leaf(Tag::Expr(Sym), f) => {
+                if f == &F::ZERO {
+                    Some(Symbol::root_sym())
+                } else {
+                    None
+                }
+            }
+            Ptr::Leaf(Tag::Expr(Key), f) => {
+                if f == &F::ZERO {
+                    Some(Symbol::root_key())
+                } else {
+                    None
+                }
+            }
+            Ptr::Tuple2(Tag::Expr(Sym), idx) | Ptr::Tuple2(Tag::Expr(Nil), idx) => {
+                let path = self.fetch_symbol_path(*idx)?;
+                Some(Symbol::sym_from_vec(path))
+            }
+            Ptr::Tuple2(Tag::Expr(Key), idx) => {
+                let path = self.fetch_symbol_path(*idx)?;
+                Some(Symbol::key_from_vec(path))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn fetch_sym(&self, ptr: &Ptr<F>) -> Option<Symbol> {
         if ptr.tag() == &Tag::Expr(Sym) {
             self.fetch_symbol(ptr)
         } else {
@@ -216,7 +277,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn fetch_key(&self, ptr: &Ptr<F>) -> Option<&Symbol> {
+    pub fn fetch_key(&self, ptr: &Ptr<F>) -> Option<Symbol> {
         if ptr.tag() == &Tag::Expr(Key) {
             self.fetch_symbol(ptr)
         } else {
@@ -552,21 +613,21 @@ impl<F: LurkField> Ptr<F> {
             Tag::Expr(t) => match t {
                 Nil => {
                     if let Some(sym) = store.fetch_symbol(self) {
-                        state.fmt_to_string(&sym.clone().into())
+                        state.fmt_to_string(&sym.into())
                     } else {
                         "<Opaque Nil>".into()
                     }
                 }
                 Sym => {
                     if let Some(sym) = store.fetch_sym(self) {
-                        state.fmt_to_string(&sym.clone().into())
+                        state.fmt_to_string(&sym.into())
                     } else {
                         "<Opaque Sym>".into()
                     }
                 }
                 Key => {
                     if let Some(key) = store.fetch_key(self) {
-                        state.fmt_to_string(&key.clone().into())
+                        state.fmt_to_string(&key.into())
                     } else {
                         "<Opaque Key>".into()
                     }
