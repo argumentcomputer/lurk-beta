@@ -277,7 +277,8 @@ fn reduce() -> Func {
                         let cont: Cont::Lookup = hash2(env, cont);
                         return (expr, env_to_use, cont, ret)
                     }
-                }
+                };
+                return (expr, env, err, errctrl)
             }
             Expr::Cons => {
                 // No need for `safe_uncons` since the expression is already a `Cons`
@@ -1089,8 +1090,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 10785;
-    const NUM_CONSTRAINTS: usize = 13264;
+    const NUM_AUX: usize = 10787;
+    const NUM_CONSTRAINTS: usize = 13274;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,
