@@ -1036,7 +1036,7 @@ fn apply_cont() -> Func {
                                 return (arg1, env, continuation, ret)
                             }
                         };
-                        return (result, env, err, errctrl)
+                        return (arg1, env, err, errctrl)
                     }
                     Cont::Lookup => {
                         let (saved_env, continuation) = unhash2(cont);
