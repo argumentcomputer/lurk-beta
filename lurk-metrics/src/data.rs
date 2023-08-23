@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 
-use log::info;
 use metrics::Key;
 
 pub const METRICS_TARGET_NAME: &str = "lurk::metrics";

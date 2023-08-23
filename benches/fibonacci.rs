@@ -110,7 +110,7 @@ fn fibo_prove<M: measurement::Measurement>(
 }
 
 fn fibonacci_prove(c: &mut Criterion) {
-    let _ = tracing::debug!("{:?}", &*lurk::config::CONFIG);
+    tracing::debug!("{:?}", &*lurk::config::CONFIG);
     let reduction_counts = vec![100, 600, 700, 800, 900];
     let batch_sizes = vec![100, 200];
     let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("Prove");
