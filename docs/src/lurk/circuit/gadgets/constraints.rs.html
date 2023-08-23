@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/gadgets/constraints.rs`."><title>constraints.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-47e7ab555ef2818a.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (ef85656a1 2023-08-21)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-b2d31d2efc7e9b67.css" data-theme-dark-css="dark-3388a2fb2ef8066b.css" data-theme-ayu-css="ayu-8c3c66a6cf12cb2f.css" ><script src="../../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../../static.files/light-b2d31d2efc7e9b67.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../../static.files/dark-3388a2fb2ef8066b.css"><link rel="stylesheet" href="../../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../lurk/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/gadgets/constraints.rs`."><title>constraints.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-47e7ab555ef2818a.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (c469197b1 2023-08-22)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-b2d31d2efc7e9b67.css" data-theme-dark-css="dark-3388a2fb2ef8066b.css" data-theme-ayu-css="ayu-8c3c66a6cf12cb2f.css" ><script src="../../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../../static.files/light-b2d31d2efc7e9b67.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../../static.files/dark-3388a2fb2ef8066b.css"><link rel="stylesheet" href="../../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../lurk/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1359,6 +1359,139 @@
 <a href="#1359" id="1359">1359</a>
 <a href="#1360" id="1360">1360</a>
 <a href="#1361" id="1361">1361</a>
+<a href="#1362" id="1362">1362</a>
+<a href="#1363" id="1363">1363</a>
+<a href="#1364" id="1364">1364</a>
+<a href="#1365" id="1365">1365</a>
+<a href="#1366" id="1366">1366</a>
+<a href="#1367" id="1367">1367</a>
+<a href="#1368" id="1368">1368</a>
+<a href="#1369" id="1369">1369</a>
+<a href="#1370" id="1370">1370</a>
+<a href="#1371" id="1371">1371</a>
+<a href="#1372" id="1372">1372</a>
+<a href="#1373" id="1373">1373</a>
+<a href="#1374" id="1374">1374</a>
+<a href="#1375" id="1375">1375</a>
+<a href="#1376" id="1376">1376</a>
+<a href="#1377" id="1377">1377</a>
+<a href="#1378" id="1378">1378</a>
+<a href="#1379" id="1379">1379</a>
+<a href="#1380" id="1380">1380</a>
+<a href="#1381" id="1381">1381</a>
+<a href="#1382" id="1382">1382</a>
+<a href="#1383" id="1383">1383</a>
+<a href="#1384" id="1384">1384</a>
+<a href="#1385" id="1385">1385</a>
+<a href="#1386" id="1386">1386</a>
+<a href="#1387" id="1387">1387</a>
+<a href="#1388" id="1388">1388</a>
+<a href="#1389" id="1389">1389</a>
+<a href="#1390" id="1390">1390</a>
+<a href="#1391" id="1391">1391</a>
+<a href="#1392" id="1392">1392</a>
+<a href="#1393" id="1393">1393</a>
+<a href="#1394" id="1394">1394</a>
+<a href="#1395" id="1395">1395</a>
+<a href="#1396" id="1396">1396</a>
+<a href="#1397" id="1397">1397</a>
+<a href="#1398" id="1398">1398</a>
+<a href="#1399" id="1399">1399</a>
+<a href="#1400" id="1400">1400</a>
+<a href="#1401" id="1401">1401</a>
+<a href="#1402" id="1402">1402</a>
+<a href="#1403" id="1403">1403</a>
+<a href="#1404" id="1404">1404</a>
+<a href="#1405" id="1405">1405</a>
+<a href="#1406" id="1406">1406</a>
+<a href="#1407" id="1407">1407</a>
+<a href="#1408" id="1408">1408</a>
+<a href="#1409" id="1409">1409</a>
+<a href="#1410" id="1410">1410</a>
+<a href="#1411" id="1411">1411</a>
+<a href="#1412" id="1412">1412</a>
+<a href="#1413" id="1413">1413</a>
+<a href="#1414" id="1414">1414</a>
+<a href="#1415" id="1415">1415</a>
+<a href="#1416" id="1416">1416</a>
+<a href="#1417" id="1417">1417</a>
+<a href="#1418" id="1418">1418</a>
+<a href="#1419" id="1419">1419</a>
+<a href="#1420" id="1420">1420</a>
+<a href="#1421" id="1421">1421</a>
+<a href="#1422" id="1422">1422</a>
+<a href="#1423" id="1423">1423</a>
+<a href="#1424" id="1424">1424</a>
+<a href="#1425" id="1425">1425</a>
+<a href="#1426" id="1426">1426</a>
+<a href="#1427" id="1427">1427</a>
+<a href="#1428" id="1428">1428</a>
+<a href="#1429" id="1429">1429</a>
+<a href="#1430" id="1430">1430</a>
+<a href="#1431" id="1431">1431</a>
+<a href="#1432" id="1432">1432</a>
+<a href="#1433" id="1433">1433</a>
+<a href="#1434" id="1434">1434</a>
+<a href="#1435" id="1435">1435</a>
+<a href="#1436" id="1436">1436</a>
+<a href="#1437" id="1437">1437</a>
+<a href="#1438" id="1438">1438</a>
+<a href="#1439" id="1439">1439</a>
+<a href="#1440" id="1440">1440</a>
+<a href="#1441" id="1441">1441</a>
+<a href="#1442" id="1442">1442</a>
+<a href="#1443" id="1443">1443</a>
+<a href="#1444" id="1444">1444</a>
+<a href="#1445" id="1445">1445</a>
+<a href="#1446" id="1446">1446</a>
+<a href="#1447" id="1447">1447</a>
+<a href="#1448" id="1448">1448</a>
+<a href="#1449" id="1449">1449</a>
+<a href="#1450" id="1450">1450</a>
+<a href="#1451" id="1451">1451</a>
+<a href="#1452" id="1452">1452</a>
+<a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
+<a href="#1455" id="1455">1455</a>
+<a href="#1456" id="1456">1456</a>
+<a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
+<a href="#1459" id="1459">1459</a>
+<a href="#1460" id="1460">1460</a>
+<a href="#1461" id="1461">1461</a>
+<a href="#1462" id="1462">1462</a>
+<a href="#1463" id="1463">1463</a>
+<a href="#1464" id="1464">1464</a>
+<a href="#1465" id="1465">1465</a>
+<a href="#1466" id="1466">1466</a>
+<a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
+<a href="#1469" id="1469">1469</a>
+<a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
+<a href="#1475" id="1475">1475</a>
+<a href="#1476" id="1476">1476</a>
+<a href="#1477" id="1477">1477</a>
+<a href="#1478" id="1478">1478</a>
+<a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
+<a href="#1486" id="1486">1486</a>
+<a href="#1487" id="1487">1487</a>
+<a href="#1488" id="1488">1488</a>
+<a href="#1489" id="1489">1489</a>
+<a href="#1490" id="1490">1490</a>
+<a href="#1491" id="1491">1491</a>
+<a href="#1492" id="1492">1492</a>
+<a href="#1493" id="1493">1493</a>
+<a href="#1494" id="1494">1494</a>
 </pre></div><pre class="rust"><code><span class="comment">// Initially taken from: rust-fil-proofs/storage-proofs-core/src/gadgets/
 </span><span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 <span class="kw">use </span>bellpepper_core::LinearCombination;
@@ -2053,6 +2186,7 @@
 
 <span class="doccomment">/// This is a replication of Bellperson&#39;s original `and`, but receives a mutable
 /// reference for the constraint system instead of a copy
+</span><span class="attr">#[allow(dead_code)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>and&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     a: <span class="kw-2">&amp;</span>Boolean,
@@ -2155,6 +2289,95 @@
         <span class="comment">// Zero iff `a` == `b`.
         </span>lc + a.get_variable() - b.get_variable()
     })
+}
+
+<span class="doccomment">/// Enforce equality of an allocated number and a constant given an implication premise
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>implies_equal_const&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
+    cs: <span class="kw-2">&amp;mut </span>CS,
+    premise: <span class="kw-2">&amp;</span>Boolean,
+    a: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
+    b: F,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
+    enforce_implication_lc_zero(cs, premise, |lc| lc + a.get_variable() - (b, CS::one()))
+}
+
+<span class="doccomment">/// Enforce inequality of two allocated numbers given an implication premise
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>implies_unequal&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
+    cs: <span class="kw-2">&amp;mut </span>CS,
+    premise: <span class="kw-2">&amp;</span>Boolean,
+    a: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
+    b: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
+    <span class="comment">// We know that `a != b` iff `a-b` has an inverse, i.e. that there exists
+    // `c` such that `c * (a-b) = 1`. Thus, we can add the constraint that there
+    // must exist `c` such that `c * (a-b) = premise`, enforcing the difference
+    // only when `premise = 1`; otherwise the constraint is trivially satisfied
+    // for `c = 0`
+    </span><span class="kw">let </span>q = cs.alloc(
+        || <span class="string">&quot;q&quot;</span>,
+        || {
+            <span class="kw">let </span>premise = premise
+                .get_value()
+                .ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?</span>;
+            <span class="kw">if </span>premise {
+                <span class="kw">let </span>a = a.get_value().ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?</span>;
+                <span class="kw">let </span>b = b.get_value().ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?</span>;
+                <span class="kw">let </span>inv = (a - b).invert();
+                <span class="kw">if </span>inv.is_some().into() {
+                    <span class="prelude-val">Ok</span>(inv.unwrap())
+                } <span class="kw">else </span>{
+                    <span class="prelude-val">Ok</span>(F::ZERO)
+                }
+            } <span class="kw">else </span>{
+                <span class="prelude-val">Ok</span>(F::ZERO)
+            }
+        },
+    )<span class="question-mark">?</span>;
+    <span class="kw">let </span>maybe_inverse = |lc| lc + q;
+    <span class="kw">let </span>implication_lc = |lc| lc + a.get_variable() - b.get_variable();
+    <span class="kw">let </span>premise = |<span class="kw">_</span>| premise.lc(CS::one(), F::ONE);
+
+    cs.enforce(|| <span class="string">&quot;implication&quot;</span>, maybe_inverse, implication_lc, premise);
+    <span class="prelude-val">Ok</span>(())
+}
+
+<span class="doccomment">/// Enforce inequality of two allocated numbers given an implication premise
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>implies_unequal_const&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
+    cs: <span class="kw-2">&amp;mut </span>CS,
+    premise: <span class="kw-2">&amp;</span>Boolean,
+    a: <span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;,
+    b: F,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
+    <span class="comment">// We know that `a != b` iff `a-b` has an inverse, i.e. that there exists
+    // `c` such that `c * (a-b) = 1`. Thus, we can add the constraint that there
+    // must exist `c` such that `c * (a-b) = premise`, enforcing the difference
+    // only when `premise = 1`; otherwise the constraint is trivially satisfied
+    // for `c = 0`
+    </span><span class="kw">let </span>q = cs.alloc(
+        || <span class="string">&quot;q&quot;</span>,
+        || {
+            <span class="kw">let </span>premise = premise
+                .get_value()
+                .ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?</span>;
+            <span class="kw">if </span>premise {
+                <span class="kw">let </span>a = a.get_value().ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?</span>;
+                <span class="kw">let </span>inv = (a - b).invert();
+                <span class="kw">if </span>inv.is_some().into() {
+                    <span class="prelude-val">Ok</span>(inv.unwrap())
+                } <span class="kw">else </span>{
+                    <span class="prelude-val">Ok</span>(F::ZERO)
+                }
+            } <span class="kw">else </span>{
+                <span class="prelude-val">Ok</span>(F::ZERO)
+            }
+        },
+    )<span class="question-mark">?</span>;
+    <span class="kw">let </span>maybe_inverse = |lc| lc + q;
+    <span class="kw">let </span>implication_lc = |lc| lc + a.get_variable() - (b, CS::one());
+    <span class="kw">let </span>premise = |<span class="kw">_</span>| premise.lc(CS::one(), F::ONE);
+
+    cs.enforce(|| <span class="string">&quot;implication&quot;</span>, maybe_inverse, implication_lc, premise);
+    <span class="prelude-val">Ok</span>(())
 }
 
 <span class="doccomment">/// Enforce equality of two allocated numbers given an implication premise
@@ -2265,50 +2488,93 @@
         <span class="attr">#[test]
         </span><span class="kw">fn </span>test_implies_equal_zero(
             p <span class="kw">in </span>any::&lt;bool&gt;(),
-            rand_a <span class="kw">in </span>(<span class="number">0u64</span>..u64::MAX),
-            rand_positive <span class="kw">in </span>(<span class="number">1u64</span>..u64::MAX),
+            rand <span class="kw">in </span><span class="macro">prop_oneof!</span>[
+                (<span class="number">0u64</span>..u64::MAX),
+                Just(<span class="number">0u64</span>)
+            ]
         ) {
 
-            <span class="kw">let </span>test_premise_num = |premise: bool, n, result: bool| {
+            <span class="kw">let </span>test_premise_num = |premise: bool, n| -&gt; bool  {
                 <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
                 <span class="kw">let </span>num = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;num&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from(n))).unwrap();
                 <span class="kw">let </span>pb = Boolean::constant(premise);
                 <span class="kw">let _ </span>= implies_equal_zero(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal zero&quot;</span>), <span class="kw-2">&amp;</span>pb, <span class="kw-2">&amp;</span>num);
-                <span class="macro">assert_eq!</span>(cs.is_satisfied(), result);
-
+                cs.is_satisfied()
             };
 
-            <span class="comment">// any premise
-            </span>test_premise_num(p, <span class="number">0</span>, <span class="bool-val">true</span>);
-
-            <span class="comment">// false premise, any value
-            </span>test_premise_num(<span class="bool-val">false</span>, rand_a, <span class="bool-val">true</span>);
-
-            <span class="comment">// true premise, bad values
-            </span>test_premise_num(<span class="bool-val">true</span>, rand_positive, <span class="bool-val">false</span>);
+            <span class="macro">prop_assert!</span>(test_premise_num(p, rand) == (!p || (rand == <span class="number">0</span>)));
         }
 
         <span class="attr">#[test]
-        </span><span class="kw">fn </span>test_implies_equal(p <span class="kw">in </span>any::&lt;bool&gt;(), (a, b) <span class="kw">in </span>any::&lt;(FWrap&lt;Fr&gt;, FWrap&lt;Fr&gt;)&gt;()) {
-            <span class="macro">prop_assume!</span>(a != b);
-
-            <span class="kw">let </span>test_a_b = |premise: bool, a, b, result: bool| {
+        </span><span class="kw">fn </span>test_implies_equal(p <span class="kw">in </span>any::&lt;bool&gt;(), (a, b) <span class="kw">in </span><span class="macro">prop_oneof!</span>[
+            any::&lt;(FWrap&lt;Fr&gt;, FWrap&lt;Fr&gt;)&gt;(),
+            any::&lt;FWrap&lt;Fr&gt;&gt;().prop_map(|a| (a, a)),
+        ]) {
+            <span class="kw">let </span>test_a_b = |premise: bool, a, b| -&gt; bool {
                 <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
                 <span class="kw">let </span>a_num = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;a_num&quot;</span>), || <span class="prelude-val">Ok</span>(a)).unwrap();
                 <span class="kw">let </span>b_num = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;b_num&quot;</span>), || <span class="prelude-val">Ok</span>(b)).unwrap();
                 <span class="kw">let </span>pb = Boolean::constant(premise);
                 <span class="kw">let _ </span>= implies_equal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal&quot;</span>), <span class="kw-2">&amp;</span>pb, <span class="kw-2">&amp;</span>a_num, <span class="kw-2">&amp;</span>b_num);
-                <span class="macro">assert_eq!</span>(cs.is_satisfied(), result);
+                cs.is_satisfied()
             };
 
-            <span class="comment">// any premise
-            </span>test_a_b(p, a.<span class="number">0</span>, a.<span class="number">0</span>, <span class="bool-val">true</span>);
+            <span class="macro">prop_assert_eq!</span>(test_a_b(p, a.<span class="number">0</span>, b.<span class="number">0</span>), !p || (a.<span class="number">0 </span>== b.<span class="number">0</span>));
+        }
 
-            <span class="comment">// positive case
-            </span>test_a_b(<span class="bool-val">false</span>, a.<span class="number">0</span>, b.<span class="number">0</span>, <span class="bool-val">true</span>);
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>test_implies_unequal(p <span class="kw">in </span>any::&lt;bool&gt;(), (a, b) <span class="kw">in </span><span class="macro">prop_oneof!</span>[
+            any::&lt;(FWrap&lt;Fr&gt;, FWrap&lt;Fr&gt;)&gt;(),
+            any::&lt;FWrap&lt;Fr&gt;&gt;().prop_map(|a| (a, a)),
+        ]) {
+            <span class="kw">let </span>test_a_b = |premise: bool, a, b| -&gt; bool{
+                <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
+                <span class="kw">let </span>a_num = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;a_num&quot;</span>), || <span class="prelude-val">Ok</span>(a)).unwrap();
+                <span class="kw">let </span>b_num = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;b_num&quot;</span>), || <span class="prelude-val">Ok</span>(b)).unwrap();
+                <span class="kw">let </span>pb = Boolean::constant(premise);
+                <span class="kw">let _ </span>= implies_unequal(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal&quot;</span>), <span class="kw-2">&amp;</span>pb, <span class="kw-2">&amp;</span>a_num, <span class="kw-2">&amp;</span>b_num);
+                cs.is_satisfied()
+            };
 
-            <span class="comment">// negative case
-            </span>test_a_b(<span class="bool-val">true</span>, a.<span class="number">0</span>, b.<span class="number">0</span>, <span class="bool-val">false</span>);
+            <span class="macro">prop_assert_eq!</span>(test_a_b(p, a.<span class="number">0</span>, b.<span class="number">0</span>), !p || (a.<span class="number">0 </span>!= b.<span class="number">0</span>));
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>test_implies_unequal_const(
+            p <span class="kw">in </span>any::&lt;bool&gt;(),
+            candidate <span class="kw">in </span>any::&lt;FWrap&lt;Fr&gt;&gt;(),
+            target <span class="kw">in </span>any::&lt;FWrap&lt;Fr&gt;&gt;()
+        ) {
+
+            <span class="kw">let </span>test_premise_unequal = |premise: bool, n, t| -&gt; bool  {
+                <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
+                <span class="kw">let </span>num = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;num&quot;</span>), || <span class="prelude-val">Ok</span>(n)).unwrap();
+                <span class="kw">let </span>pb = Boolean::constant(premise);
+                <span class="kw">let _ </span>= implies_unequal_const(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal zero&quot;</span>), <span class="kw-2">&amp;</span>pb, <span class="kw-2">&amp;</span>num, t);
+                cs.is_satisfied()
+            };
+
+            <span class="macro">prop_assert_eq!</span>(test_premise_unequal(p, candidate.<span class="number">0</span>, target.<span class="number">0</span>), !p || (candidate != target));
+            <span class="macro">prop_assert_eq!</span>(test_premise_unequal(p, target.<span class="number">0</span>, target.<span class="number">0</span>), !p);
+        }
+
+        <span class="attr">#[test]
+        </span><span class="kw">fn </span>test_implies_equal_const(
+            p <span class="kw">in </span>any::&lt;bool&gt;(),
+            candidate <span class="kw">in </span>any::&lt;FWrap&lt;Fr&gt;&gt;(),
+            target <span class="kw">in </span>any::&lt;FWrap&lt;Fr&gt;&gt;()
+        ) {
+
+            <span class="kw">let </span>test_premise_equal = |premise: bool, n, t| -&gt; bool  {
+                <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
+                <span class="kw">let </span>num = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;num&quot;</span>), || <span class="prelude-val">Ok</span>(n)).unwrap();
+                <span class="kw">let </span>pb = Boolean::constant(premise);
+                <span class="kw">let _ </span>= implies_equal_const(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal zero&quot;</span>), <span class="kw-2">&amp;</span>pb, <span class="kw-2">&amp;</span>num, t);
+                cs.is_satisfied()
+            };
+
+            <span class="macro">prop_assert_eq!</span>(test_premise_equal(p, candidate.<span class="number">0</span>, target.<span class="number">0</span>), !p || (candidate == target));
+            <span class="macro">prop_assert!</span>(test_premise_equal(p, target.<span class="number">0</span>, target.<span class="number">0</span>));
         }
 
         <span class="attr">#[test]
