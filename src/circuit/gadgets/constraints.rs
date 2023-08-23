@@ -692,6 +692,7 @@ pub(crate) fn and_v<CS: ConstraintSystem<F>, F: PrimeField>(
 
 /// This is a replication of Bellperson's original `and`, but receives a mutable
 /// reference for the constraint system instead of a copy
+#[allow(dead_code)]
 pub(crate) fn and<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: &mut CS,
     a: &Boolean,
@@ -794,6 +795,95 @@ pub(crate) fn implies_equal<CS: ConstraintSystem<F>, F: PrimeField>(
         // Zero iff `a` == `b`.
         lc + a.get_variable() - b.get_variable()
     })
+}
+
+/// Enforce equality of an allocated number and a constant given an implication premise
+pub(crate) fn implies_equal_const<CS: ConstraintSystem<F>, F: PrimeField>(
+    cs: &mut CS,
+    premise: &Boolean,
+    a: &AllocatedNum<F>,
+    b: F,
+) -> Result<(), SynthesisError> {
+    enforce_implication_lc_zero(cs, premise, |lc| lc + a.get_variable() - (b, CS::one()))
+}
+
+/// Enforce inequality of two allocated numbers given an implication premise
+pub(crate) fn implies_unequal<CS: ConstraintSystem<F>, F: PrimeField>(
+    cs: &mut CS,
+    premise: &Boolean,
+    a: &AllocatedNum<F>,
+    b: &AllocatedNum<F>,
+) -> Result<(), SynthesisError> {
+    // We know that `a != b` iff `a-b` has an inverse, i.e. that there exists
+    // `c` such that `c * (a-b) = 1`. Thus, we can add the constraint that there
+    // must exist `c` such that `c * (a-b) = premise`, enforcing the difference
+    // only when `premise = 1`; otherwise the constraint is trivially satisfied
+    // for `c = 0`
+    let q = cs.alloc(
+        || "q",
+        || {
+            let premise = premise
+                .get_value()
+                .ok_or(SynthesisError::AssignmentMissing)?;
+            if premise {
+                let a = a.get_value().ok_or(SynthesisError::AssignmentMissing)?;
+                let b = b.get_value().ok_or(SynthesisError::AssignmentMissing)?;
+                let inv = (a - b).invert();
+                if inv.is_some().into() {
+                    Ok(inv.unwrap())
+                } else {
+                    Ok(F::ZERO)
+                }
+            } else {
+                Ok(F::ZERO)
+            }
+        },
+    )?;
+    let maybe_inverse = |lc| lc + q;
+    let implication_lc = |lc| lc + a.get_variable() - b.get_variable();
+    let premise = |_| premise.lc(CS::one(), F::ONE);
+
+    cs.enforce(|| "implication", maybe_inverse, implication_lc, premise);
+    Ok(())
+}
+
+/// Enforce inequality of two allocated numbers given an implication premise
+pub(crate) fn implies_unequal_const<CS: ConstraintSystem<F>, F: PrimeField>(
+    cs: &mut CS,
+    premise: &Boolean,
+    a: &AllocatedNum<F>,
+    b: F,
+) -> Result<(), SynthesisError> {
+    // We know that `a != b` iff `a-b` has an inverse, i.e. that there exists
+    // `c` such that `c * (a-b) = 1`. Thus, we can add the constraint that there
+    // must exist `c` such that `c * (a-b) = premise`, enforcing the difference
+    // only when `premise = 1`; otherwise the constraint is trivially satisfied
+    // for `c = 0`
+    let q = cs.alloc(
+        || "q",
+        || {
+            let premise = premise
+                .get_value()
+                .ok_or(SynthesisError::AssignmentMissing)?;
+            if premise {
+                let a = a.get_value().ok_or(SynthesisError::AssignmentMissing)?;
+                let inv = (a - b).invert();
+                if inv.is_some().into() {
+                    Ok(inv.unwrap())
+                } else {
+                    Ok(F::ZERO)
+                }
+            } else {
+                Ok(F::ZERO)
+            }
+        },
+    )?;
+    let maybe_inverse = |lc| lc + q;
+    let implication_lc = |lc| lc + a.get_variable() - (b, CS::one());
+    let premise = |_| premise.lc(CS::one(), F::ONE);
+
+    cs.enforce(|| "implication", maybe_inverse, implication_lc, premise);
+    Ok(())
 }
 
 /// Enforce equality of two allocated numbers given an implication premise
@@ -904,50 +994,93 @@ mod tests {
         #[test]
         fn test_implies_equal_zero(
             p in any::<bool>(),
-            rand_a in (0u64..u64::MAX),
-            rand_positive in (1u64..u64::MAX),
+            rand in prop_oneof![
+                (0u64..u64::MAX),
+                Just(0u64)
+            ]
         ) {
 
-            let test_premise_num = |premise: bool, n, result: bool| {
+            let test_premise_num = |premise: bool, n| -> bool  {
                 let mut cs = TestConstraintSystem::<Fr>::new();
                 let num = AllocatedNum::alloc(cs.namespace(|| "num"), || Ok(Fr::from(n))).unwrap();
                 let pb = Boolean::constant(premise);
                 let _ = implies_equal_zero(&mut cs.namespace(|| "implies equal zero"), &pb, &num);
-                assert_eq!(cs.is_satisfied(), result);
-
+                cs.is_satisfied()
             };
 
-            // any premise
-            test_premise_num(p, 0, true);
-
-            // false premise, any value
-            test_premise_num(false, rand_a, true);
-
-            // true premise, bad values
-            test_premise_num(true, rand_positive, false);
+            prop_assert!(test_premise_num(p, rand) == (!p || (rand == 0)));
         }
 
         #[test]
-        fn test_implies_equal(p in any::<bool>(), (a, b) in any::<(FWrap<Fr>, FWrap<Fr>)>()) {
-            prop_assume!(a != b);
-
-            let test_a_b = |premise: bool, a, b, result: bool| {
+        fn test_implies_equal(p in any::<bool>(), (a, b) in prop_oneof![
+            any::<(FWrap<Fr>, FWrap<Fr>)>(),
+            any::<FWrap<Fr>>().prop_map(|a| (a, a)),
+        ]) {
+            let test_a_b = |premise: bool, a, b| -> bool {
                 let mut cs = TestConstraintSystem::<Fr>::new();
                 let a_num = AllocatedNum::alloc(cs.namespace(|| "a_num"), || Ok(a)).unwrap();
                 let b_num = AllocatedNum::alloc(cs.namespace(|| "b_num"), || Ok(b)).unwrap();
                 let pb = Boolean::constant(premise);
                 let _ = implies_equal(&mut cs.namespace(|| "implies equal"), &pb, &a_num, &b_num);
-                assert_eq!(cs.is_satisfied(), result);
+                cs.is_satisfied()
             };
 
-            // any premise
-            test_a_b(p, a.0, a.0, true);
+            prop_assert_eq!(test_a_b(p, a.0, b.0), !p || (a.0 == b.0));
+        }
 
-            // positive case
-            test_a_b(false, a.0, b.0, true);
+        #[test]
+        fn test_implies_unequal(p in any::<bool>(), (a, b) in prop_oneof![
+            any::<(FWrap<Fr>, FWrap<Fr>)>(),
+            any::<FWrap<Fr>>().prop_map(|a| (a, a)),
+        ]) {
+            let test_a_b = |premise: bool, a, b| -> bool{
+                let mut cs = TestConstraintSystem::<Fr>::new();
+                let a_num = AllocatedNum::alloc(cs.namespace(|| "a_num"), || Ok(a)).unwrap();
+                let b_num = AllocatedNum::alloc(cs.namespace(|| "b_num"), || Ok(b)).unwrap();
+                let pb = Boolean::constant(premise);
+                let _ = implies_unequal(&mut cs.namespace(|| "implies equal"), &pb, &a_num, &b_num);
+                cs.is_satisfied()
+            };
 
-            // negative case
-            test_a_b(true, a.0, b.0, false);
+            prop_assert_eq!(test_a_b(p, a.0, b.0), !p || (a.0 != b.0));
+        }
+
+        #[test]
+        fn test_implies_unequal_const(
+            p in any::<bool>(),
+            candidate in any::<FWrap<Fr>>(),
+            target in any::<FWrap<Fr>>()
+        ) {
+
+            let test_premise_unequal = |premise: bool, n, t| -> bool  {
+                let mut cs = TestConstraintSystem::<Fr>::new();
+                let num = AllocatedNum::alloc(cs.namespace(|| "num"), || Ok(n)).unwrap();
+                let pb = Boolean::constant(premise);
+                let _ = implies_unequal_const(&mut cs.namespace(|| "implies equal zero"), &pb, &num, t);
+                cs.is_satisfied()
+            };
+
+            prop_assert_eq!(test_premise_unequal(p, candidate.0, target.0), !p || (candidate != target));
+            prop_assert_eq!(test_premise_unequal(p, target.0, target.0), !p);
+        }
+
+        #[test]
+        fn test_implies_equal_const(
+            p in any::<bool>(),
+            candidate in any::<FWrap<Fr>>(),
+            target in any::<FWrap<Fr>>()
+        ) {
+
+            let test_premise_equal = |premise: bool, n, t| -> bool  {
+                let mut cs = TestConstraintSystem::<Fr>::new();
+                let num = AllocatedNum::alloc(cs.namespace(|| "num"), || Ok(n)).unwrap();
+                let pb = Boolean::constant(premise);
+                let _ = implies_equal_const(&mut cs.namespace(|| "implies equal zero"), &pb, &num, t);
+                cs.is_satisfied()
+            };
+
+            prop_assert_eq!(test_premise_equal(p, candidate.0, target.0), !p || (candidate == target));
+            prop_assert!(test_premise_equal(p, target.0, target.0));
         }
 
         #[test]
