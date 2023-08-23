@@ -762,9 +762,13 @@ fn apply_cont() -> Func {
                                 return (result, env, err, errctrl)
                             }
                             Symbol("hide") => {
-                                let num = cast(evaled_arg, Expr::Num);
-                                let hidden = hide(num, result);
-                                return(hidden, env, continuation, makethunk)
+                                match evaled_arg.tag {
+                                    Expr::Num => {
+                                        let hidden = hide(evaled_arg, result);
+                                        return(hidden, env, continuation, makethunk)
+                                    }
+                                };
+                                return (result, env, err, errctrl)
                             }
                             Symbol("eq") => {
                                 let eq_tag = eq_tag(evaled_arg, result);
