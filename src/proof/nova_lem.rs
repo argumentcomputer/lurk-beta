@@ -3209,33 +3209,33 @@ pub mod tests {
         test_aux(s, expr, None, None, Some(error), None, 3);
     }
 
-    // #[test]
-    // fn test_prove_call_literal_fun() {
-    //     let s = &mut eval_step().init_store();
-    //     let empty_env = s.intern_nil();
-    //     let arg = s.user_sym("x");
-    //     let body = s.read_with_default_state("((+ x 1))").unwrap();
-    //     let fun = s.intern_fun(arg, body, empty_env);
-    //     let input = Ptr::num_u64(9);
-    //     let expr = s.list(&[fun, input]);
-    //     let res = Ptr::num_u64(10);
-    //     let terminal = Ptr::null(Tag::Cont(Terminal));
-    //     let lang: Arc<Lang<Fr, Coproc<Fr>>> = Arc::new(Lang::new());
+    #[test]
+    fn test_prove_call_literal_fun() {
+        let s = &mut eval_step().init_store();
+        let empty_env = s.intern_nil();
+        let arg = s.intern_symbol(&user_sym("x"));
+        let body = s.read_with_default_state("((+ x 1))").unwrap();
+        let fun = s.intern_3_ptrs(Tag::Expr(ExprTag::Fun), arg, body, empty_env);
+        let input = Ptr::num_u64(9);
+        let expr = s.list(vec![fun, input]);
+        let res = Ptr::num_u64(10);
+        let terminal = Ptr::null(Tag::Cont(Terminal));
+        // let lang: Arc<Lang<Fr, Coproc<Fr>>> = Arc::new(Lang::new());
 
-    //     nova_test_full_aux2(
-    //         s,
-    //         expr,
-    //         Some(res),
-    //         None,
-    //         Some(terminal),
-    //         None,
-    //         7,
-    //         DEFAULT_REDUCTION_COUNT,
-    //         false,
-    //         None,
-    //         lang,
-    //     );
-    // }
+        nova_test_full_aux2(
+            s,
+            expr,
+            Some(res),
+            None,
+            Some(terminal),
+            None,
+            7,
+            DEFAULT_REDUCTION_COUNT,
+            false,
+            None,
+            // lang,
+        );
+    }
 
     #[test]
     fn test_prove_lambda_body_syntax() {
