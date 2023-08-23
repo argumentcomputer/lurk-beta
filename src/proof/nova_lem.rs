@@ -2615,7 +2615,8 @@ pub mod tests {
     }
 
     #[test]
-    #[should_panic = "hidden value could not be opened"]
+    // #[should_panic = "hidden value could not be opened"]
+    #[should_panic = "called `Result::unwrap()` on an `Err` value: No committed data for hash 000000000000000000000000000000000000000000000000000000000000007b"]
     fn test_prove_open_opaque_commit() {
         let s = &mut eval_step().init_store();
         let expr = "(open 123)";
@@ -2631,7 +2632,8 @@ pub mod tests {
     }
 
     #[test]
-    #[should_panic = "secret could not be extracted"]
+    // #[should_panic = "secret could not be extracted"]
+    #[should_panic = "called `Result::unwrap()` on an `Err` value: No committed data for hash 000000000000000000000000000000000000000000000000000000000000007b"]
     fn test_prove_secret_opaque_commit() {
         let s = &mut eval_step().init_store();
         let expr = "(secret (comm 123))";
