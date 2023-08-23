@@ -415,7 +415,8 @@ impl ReplLEM<F> {
             }
             "assert-error" => {
                 let first = self.peek1(cmd, args)?;
-                if self.eval_expr(first).is_ok() {
+                let (first_io, ..) = self.eval_expr(first)?;
+                if first_io[2].tag() != &Tag::Cont(Error) {
                     eprintln!(
                         "`assert-error` failed. {} doesn't result on evaluation error.",
                         first.fmt_to_string(&self.store, &self.state.borrow())
