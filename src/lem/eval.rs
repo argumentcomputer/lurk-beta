@@ -696,8 +696,18 @@ fn apply_cont() -> Func {
                                 return(result, env, err, errctrl)
                             }
                             Symbol("secret") => {
-                                let (secret, _payload) = open(result);
-                                return(secret, env, continuation, makethunk)
+                                match result.tag {
+                                    Expr::Num => {
+                                        let result = cast(result, Expr::Comm);
+                                        let (secret, _payload) = open(result);
+                                        return(secret, env, continuation, makethunk)
+                                    }
+                                    Expr::Comm => {
+                                        let (secret, _payload) = open(result);
+                                        return(secret, env, continuation, makethunk)
+                                    }
+                                };
+                                return(result, env, err, errctrl)
                             }
                             Symbol("commit") => {
                                 let comm = hide(zero, result);
@@ -1067,8 +1077,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 10777;
-    const NUM_CONSTRAINTS: usize = 13235;
+    const NUM_AUX: usize = 10785;
+    const NUM_CONSTRAINTS: usize = 13264;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,
