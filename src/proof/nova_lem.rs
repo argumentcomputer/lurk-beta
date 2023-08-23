@@ -1099,23 +1099,19 @@ pub mod tests {
 
             if !op.supports_arity(0) {
                 let expr = format!("({name})");
-                dbg!(&expr);
                 test_aux(s, &expr, None, None, Some(error), None, 1);
             }
             if !op.supports_arity(1) {
                 let expr = format!("({name} 123)");
-                dbg!(&expr);
                 test_aux(s, &expr, None, None, Some(error), None, 1);
             }
             if !op.supports_arity(2) {
                 let expr = format!("({name} 123 456)");
-                dbg!(&expr);
                 test_aux(s, &expr, None, None, Some(error), None, 1);
             }
 
             if !op.supports_arity(3) {
                 let expr = format!("({name} 123 456 789)");
-                dbg!(&expr);
                 let iterations = if op.supports_arity(2) { 2 } else { 1 };
                 test_aux(s, &expr, None, None, Some(error), None, iterations);
             }
