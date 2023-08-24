@@ -39,9 +39,8 @@ use std::{
 
 use crate::circuit::gadgets::{
     constraints::{
-        add, alloc_equal, alloc_is_zero, allocate_is_negative, boolean_to_num, div, enforce_pack,
-        enforce_product_and_sum, enforce_selector_with_premise, implies_equal, implies_equal_const,
-        implies_u64, implies_unequal, implies_unequal_const, mul, pick, sub,
+        add, alloc_equal, alloc_is_zero, allocate_is_negative, boolean_to_num, div,
+        enforce_pack, enforce_product_and_sum, implies_equal, mul, pick, sub,
     },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
@@ -53,6 +52,10 @@ use crate::{
 };
 
 use super::{
+    gadgets::{
+        enforce_selector_with_premise, implies_equal_const,
+        implies_u64, implies_unequal, implies_unequal_const
+    },
     interpreter::{Frame, PreimageData},
     pointers::{Ptr, ZPtr},
     slot::*,

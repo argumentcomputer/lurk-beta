@@ -69,6 +69,7 @@ mod slot;
 pub mod store;
 mod var_map;
 pub mod zstore;
+pub mod gadgets;
 
 use crate::field::LurkField;
 use crate::symbol::Symbol;
