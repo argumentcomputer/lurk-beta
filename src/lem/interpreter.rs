@@ -490,7 +490,8 @@ impl Func {
     pub fn call_until<
         F: LurkField,
         StopCond: Fn(&[Ptr<F>]) -> bool,
-        LogFmt: Fn(usize, &[Ptr<F>], &Store<F>) -> String,
+        // iteration -> input -> emitted -> store -> string
+        LogFmt: Fn(usize, &[Ptr<F>], &[Ptr<F>], &Store<F>) -> String,
     >(
         &self,
         args: &[Ptr<F>],
@@ -510,14 +511,15 @@ impl Func {
 
         let mut iterations = 0;
 
-        log::info!("{}", &log_fmt(iterations, &input, store));
+        log::info!("{}", &log_fmt(iterations, &input, &[], store));
 
         for _ in 0..limit {
             let preimages = Preimages::new_from_func(self);
-            let (frame, path) = self.call(&input, store, preimages, &mut vec![])?;
+            let mut emitted = vec![];
+            let (frame, path) = self.call(&input, store, preimages, &mut emitted)?;
             input = frame.output.clone();
             iterations += 1;
-            log::info!("{}", &log_fmt(iterations, &input, store));
+            log::info!("{}", &log_fmt(iterations, &input, &emitted, store));
             if stop_cond(&frame.output) {
                 frames.push(frame);
                 paths.push(path);

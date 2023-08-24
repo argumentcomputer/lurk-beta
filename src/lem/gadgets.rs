@@ -1,8 +1,5 @@
 // Initially taken from: rust-fil-proofs/storage-proofs-core/src/gadgets/
-use crate::{
-    field::LurkField,
-    circuit::gadgets::constraints::*,
-};
+use crate::{circuit::gadgets::constraints::*, field::LurkField};
 use bellpepper_core::{
     boolean::{AllocatedBit, Boolean},
     num::AllocatedNum,

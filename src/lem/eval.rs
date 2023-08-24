@@ -32,14 +32,17 @@ pub fn evaluate<F: LurkField>(
         output[2] == Ptr::null(Tag::Cont(Terminal)) || output[2] == Ptr::null(Tag::Cont(Error))
     };
     let state = initial_lurk_state();
-    let log_fmt = |i: usize, ptrs: &[Ptr<F>], store: &Store<F>| {
-        format!(
-            "Frame: {}\n\tExpr: {}\n\tEnv: {}\n\tCont: {}",
-            i,
-            ptrs[0].fmt_to_string(store, state),
-            ptrs[1].fmt_to_string(store, state),
-            ptrs[2].fmt_to_string(store, state)
-        )
+    let log_fmt = |i: usize, inp: &[Ptr<F>], emit: &[Ptr<F>], store: &Store<F>| {
+        let mut out = format!(
+            "Frame: {i}\n\tExpr: {}\n\tEnv:  {}\n\tCont: {}",
+            inp[0].fmt_to_string(store, state),
+            inp[1].fmt_to_string(store, state),
+            inp[2].fmt_to_string(store, state)
+        );
+        if let Some(ptr) = emit.first() {
+            out.push_str(&format!("\n\tEmtd: {}", ptr.fmt_to_string(store, state)));
+        }
+        out
     };
 
     let input = &[expr, store.intern_nil(), Ptr::null(Tag::Cont(Outermost))];
@@ -1127,7 +1130,7 @@ mod tests {
         // Stop condition: the continuation is either terminal or error
         let stop_cond = |output: &[Ptr<Fr>]| output[2] == terminal || output[2] == error;
 
-        let log_fmt = |_: usize, _: &[Ptr<Fr>], _: &Store<Fr>| String::default();
+        let log_fmt = |_: usize, _: &[Ptr<Fr>], _: &[Ptr<Fr>], _: &Store<Fr>| String::default();
 
         let limit = 10000;
 

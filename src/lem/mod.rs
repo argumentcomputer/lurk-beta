@@ -61,6 +61,7 @@
 
 pub mod circuit;
 pub mod eval;
+pub mod gadgets;
 pub mod interpreter;
 mod macros;
 mod path;
@@ -69,7 +70,6 @@ mod slot;
 pub mod store;
 mod var_map;
 pub mod zstore;
-pub mod gadgets;
 
 use crate::field::LurkField;
 use crate::symbol::Symbol;
@@ -813,7 +813,7 @@ mod tests {
 
         let computed_num_constraints = func.num_constraints::<Fr>(store);
 
-        let log_fmt = |_: usize, _: &[Ptr<Fr>], _: &Store<Fr>| String::default();
+        let log_fmt = |_: usize, _: &[Ptr<Fr>], _: &[Ptr<Fr>], _: &Store<Fr>| String::default();
 
         let mut cs_prev = None;
         for input in inputs.into_iter() {
