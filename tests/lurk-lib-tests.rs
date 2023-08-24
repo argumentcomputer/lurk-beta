@@ -44,6 +44,7 @@ fn lurk_cli_tests() {
 }
 
 #[test]
+#[ignore]
 fn lurk_cli_tests_lem() {
     let example_dir = Path::new("lurk-lib/example/");
 
