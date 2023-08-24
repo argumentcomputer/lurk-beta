@@ -39,8 +39,8 @@ use std::{
 
 use crate::circuit::gadgets::{
     constraints::{
-        add, alloc_equal, alloc_is_zero, allocate_is_negative, boolean_to_num, div, enforce_pack,
-        enforce_product_and_sum, implies_equal, mul, pick, sub,
+        add, alloc_equal, alloc_is_zero, allocate_is_negative, and, boolean_to_num, div,
+        enforce_pack, enforce_product_and_sum, implies_equal, mul, pick, sub,
     },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
@@ -1196,16 +1196,30 @@ impl Func {
                             let lit_ptr = lit.to_ptr_cached(g.store);
                             let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
                             let lit_tag = g.store.hash_ptr(&lit_ptr)?.tag.to_field::<F>();
-                            // TODO either tag is not equal or hash is not equal
-                            // implies_unequal_const(
-                            //     &mut cs.namespace(|| format!("{i} implies_unequal tag")),
-                            //     &has_match,
-                            //     match_lit.tag(),
-                            //     lit_tag,
-                            // )?;
+                            // TODO optimize and make it more understandable
+                            let choose_unequal = Boolean::Is(AllocatedBit::alloc(
+                                &mut cs.namespace(|| format!("{i}.select_unequal")),
+                                match_lit.tag().get_value().map(|tag| tag != lit_tag),
+                            )?);
+                            let choose_unequal_def = and(
+                                &mut cs.namespace(|| format!("{i} implies_unequal and")),
+                                &choose_unequal,
+                                &has_match,
+                            )?;
+                            let choose_unequal_def_not = and(
+                                &mut cs.namespace(|| format!("{i} implies_unequal and not")),
+                                &choose_unequal.not(),
+                                &has_match,
+                            )?;
+                            implies_unequal_const(
+                                &mut cs.namespace(|| format!("{i} implies_unequal tag")),
+                                &choose_unequal_def,
+                                match_lit.tag(),
+                                lit_tag,
+                            )?;
                             implies_unequal_const(
                                 &mut cs.namespace(|| format!("{i} implies_unequal hash")),
-                                &has_match,
+                                &choose_unequal_def_not,
                                 match_lit.hash(),
                                 lit_hash,
                             )?;
@@ -1409,7 +1423,7 @@ impl Func {
                     match def {
                         Some(def) => {
                             // constraints for the boolean, the unequalities and the default case
-                            num_constraints += 1 + cases.len();
+                            num_constraints += 1 + 5 * cases.len();
                             num_constraints += recurse(def, globals, store);
                         }
                         None => (),

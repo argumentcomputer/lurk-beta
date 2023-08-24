@@ -71,10 +71,10 @@ pub(crate) fn implies_unequal<CS: ConstraintSystem<F>, F: PrimeField>(
     b: &AllocatedNum<F>,
 ) -> Result<(), SynthesisError> {
     // We know that `a != b` iff `a-b` has an inverse, i.e. that there exists
-    // `c` such that `c * (a-b) = 1`. Thus, we can add the constraint that there
-    // must exist `c` such that `c * (a-b) = premise`, enforcing the difference
+    // `q` such that `q * (a-b) = 1`. Thus, we can add the constraint that there
+    // must exist `q` such that `q * (a-b) = premise`, enforcing the difference
     // only when `premise = 1`; otherwise the constraint is trivially satisfied
-    // for `c = 0`
+    // for `q = 0`
     let q = cs.alloc(
         || "q",
         || {
@@ -88,7 +88,7 @@ pub(crate) fn implies_unequal<CS: ConstraintSystem<F>, F: PrimeField>(
                 if inv.is_some().into() {
                     Ok(inv.unwrap())
                 } else {
-                    Ok(F::ZERO)
+                    Err(SynthesisError::DivisionByZero)
                 }
             } else {
                 Ok(F::ZERO)
@@ -111,10 +111,10 @@ pub(crate) fn implies_unequal_const<CS: ConstraintSystem<F>, F: PrimeField>(
     b: F,
 ) -> Result<(), SynthesisError> {
     // We know that `a != b` iff `a-b` has an inverse, i.e. that there exists
-    // `c` such that `c * (a-b) = 1`. Thus, we can add the constraint that there
-    // must exist `c` such that `c * (a-b) = premise`, enforcing the difference
+    // `q` such that `q * (a-b) = 1`. Thus, we can add the constraint that there
+    // must exist `q` such that `q * (a-b) = premise`, enforcing the difference
     // only when `premise = 1`; otherwise the constraint is trivially satisfied
-    // for `c = 0`
+    // for `q = 0`
     let q = cs.alloc(
         || "q",
         || {
@@ -127,7 +127,7 @@ pub(crate) fn implies_unequal_const<CS: ConstraintSystem<F>, F: PrimeField>(
                 if inv.is_some().into() {
                     Ok(inv.unwrap())
                 } else {
-                    Ok(F::ZERO)
+                    Err(SynthesisError::DivisionByZero)
                 }
             } else {
                 Ok(F::ZERO)
