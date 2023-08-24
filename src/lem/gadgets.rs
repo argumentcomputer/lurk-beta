@@ -88,7 +88,9 @@ pub(crate) fn implies_unequal<CS: ConstraintSystem<F>, F: PrimeField>(
                 if inv.is_some().into() {
                     Ok(inv.unwrap())
                 } else {
-                    Err(SynthesisError::DivisionByZero)
+                    // Should we instead fail here? Returning `F::ZERO` here
+                    // will make the circuit unsatisfied
+                    Ok(F::ZERO)
                 }
             } else {
                 Ok(F::ZERO)
@@ -127,7 +129,9 @@ pub(crate) fn implies_unequal_const<CS: ConstraintSystem<F>, F: PrimeField>(
                 if inv.is_some().into() {
                     Ok(inv.unwrap())
                 } else {
-                    Err(SynthesisError::DivisionByZero)
+                    // Should we instead fail here? Returning `F::ZERO` here
+                    // will make the circuit unsatisfied
+                    Ok(F::ZERO)
                 }
             } else {
                 Ok(F::ZERO)
