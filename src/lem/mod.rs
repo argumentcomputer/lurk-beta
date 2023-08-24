@@ -231,10 +231,10 @@ pub enum Ctrl {
     /// `MatchTag(x, cases)` performs a match on the tag of `x`, choosing the
     /// appropriate `Block` among the ones provided in `cases`
     MatchTag(Var, IndexMap<Tag, Block>, Option<Box<Block>>),
-    /// `MatchSymbol(x, cases, def)` checks whether `x` matches some symbol among
+    /// `Match(x, cases, def)` checks whether `x` matches some `Lit` among
     /// the ones provided in `cases`. If so, run the corresponding `Block`. Run
     /// `def` otherwise
-    MatchVal(Var, IndexMap<Lit, Block>, Option<Box<Block>>),
+    Match(Var, IndexMap<Lit, Block>, Option<Box<Block>>),
     /// `IfEq(x, y, eq_block, else_block)` runs `eq_block` if `x == y`, and
     /// otherwise runs `else_block`
     IfEq(Var, Var, Box<Block>, Box<Block>),
@@ -470,7 +470,7 @@ impl Func {
                         None => (),
                     }
                 }
-                Ctrl::MatchVal(var, cases, def) => {
+                Ctrl::Match(var, cases, def) => {
                     is_bound(var, map)?;
                     let mut lits = HashSet::new();
                     let mut kind = None;
@@ -717,7 +717,7 @@ impl Block {
                 };
                 Ctrl::MatchTag(var, IndexMap::from_iter(new_cases), new_def)
             }
-            Ctrl::MatchVal(var, cases, def) => {
+            Ctrl::Match(var, cases, def) => {
                 let var = map.get_cloned(&var)?;
                 let mut new_cases = Vec::with_capacity(cases.len());
                 for (lit, case) in cases {
@@ -728,7 +728,7 @@ impl Block {
                     Some(def) => Some(Box::new(def.deconflict(map, uniq)?)),
                     None => None,
                 };
-                Ctrl::MatchVal(var, IndexMap::from_iter(new_cases), new_def)
+                Ctrl::Match(var, IndexMap::from_iter(new_cases), new_def)
             }
             Ctrl::IfEq(x, y, eq_block, else_block) => {
                 let x = map.get_cloned(&x)?;
@@ -763,7 +763,7 @@ impl Block {
                     def.intern_lits(store);
                 }
             }
-            Ctrl::MatchVal(_, cases, def) => {
+            Ctrl::Match(_, cases, def) => {
                 for (lit, b) in cases {
                     lit.to_ptr(store);
                     b.intern_lits(store);

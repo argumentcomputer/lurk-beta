@@ -379,7 +379,7 @@ impl Block {
                     }
                 }
             }
-            Ctrl::MatchVal(match_var, cases, def) => {
+            Ctrl::Match(match_var, cases, def) => {
                 let ptr = bindings.get(match_var)?;
                 let Some(lit) = Lit::from_ptr(ptr, store) else {
                     // If we can't find it in the store, it most certaily is not equal to any

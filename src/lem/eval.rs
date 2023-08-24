@@ -124,7 +124,7 @@ fn reduce() -> Func {
         return (expanded)
     });
     let choose_let_cont = func!(choose_let_cont(head, var, env, expanded, cont): 1 => {
-        match head.val {
+        match head {
             Symbol("let") => {
                 let cont: Cont::Let = hash4(var, env, expanded, cont);
                 return (cont)
@@ -139,7 +139,7 @@ fn reduce() -> Func {
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
         let t = Symbol("t");
-        match head.val {
+        match head {
             Symbol("car")
             | Symbol("cdr")
             | Symbol("commit")
@@ -161,7 +161,7 @@ fn reduce() -> Func {
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
         let t = Symbol("t");
-        match head.val {
+        match head {
             Symbol("cons")
             | Symbol("strcons")
             | Symbol("hide")
@@ -219,7 +219,7 @@ fn reduce() -> Func {
                 return (thunk_expr, env, thunk_continuation, apply)
             }
             Expr::Sym => {
-                match expr.val {
+                match expr {
                     Symbol("nil") | Symbol("t") => {
                         return (expr, env, cont, apply)
                     }
@@ -293,7 +293,7 @@ fn reduce() -> Func {
                         return (expr, env, err, errctrl);
                     }
                 };
-                match head.val {
+                match head {
                     Symbol("lambda") => {
                         let (args, body) = safe_uncons(rest);
                         let (arg, cdr_args) = extract_arg(args);
@@ -573,7 +573,7 @@ fn apply_cont() -> Func {
                         match result.tag {
                             Expr::Fun => {
                                 let (arg, body, closed_env) = unhash3(result);
-                                match arg.val {
+                                match arg {
                                     Symbol("dummy") => {
                                         match body.tag {
                                             Expr::Nil => {
@@ -610,7 +610,7 @@ fn apply_cont() -> Func {
                         match function.tag {
                             Expr::Fun => {
                                 let (arg, body, closed_env) = unhash3(function);
-                                match arg.val {
+                                match arg {
                                     Symbol("dummy") => {
                                         return (result, env, err, errctrl)
                                     }
@@ -649,7 +649,7 @@ fn apply_cont() -> Func {
                     }
                     Cont::Unop => {
                         let (operator, continuation) = unhash2(cont);
-                        match operator.val {
+                        match operator {
                             Symbol("car") => {
                                 // Almost like safe_uncons, except it returns
                                 // an error in case it can't unhash it
@@ -791,7 +791,7 @@ fn apply_cont() -> Func {
                     Cont::Binop => {
                         let (operator, saved_env, unevaled_args, continuation) = unhash4(cont);
                         let (arg2, rest) = safe_uncons(unevaled_args);
-                        match operator.val {
+                        match operator {
                             Symbol("begin") => {
                                 match rest.tag {
                                     Expr::Nil => {
@@ -814,7 +814,7 @@ fn apply_cont() -> Func {
                     Cont::Binop2 => {
                         let (operator, evaled_arg, continuation) = unhash3(cont);
                         let (args_num_type) = args_num_type(evaled_arg, result);
-                        match operator.val {
+                        match operator {
                             Symbol("eval") => {
                                 return (evaled_arg, result, continuation, ret)
                             }
@@ -849,7 +849,7 @@ fn apply_cont() -> Func {
                                 let eq_tag = eq_tag(evaled_arg, result);
                                 let eq_val = eq_val(evaled_arg, result);
                                 let eq = mul(eq_tag, eq_val);
-                                match eq.val {
+                                match eq {
                                     Num(0) => {
                                         return (nil, env, continuation, makethunk)
                                     }
@@ -859,7 +859,7 @@ fn apply_cont() -> Func {
                                 }
                             }
                             Symbol("+") => {
-                                match args_num_type.val {
+                                match args_num_type {
                                     Num(0) => {
                                         return (result, env, err, errctrl)
                                     }
@@ -870,7 +870,7 @@ fn apply_cont() -> Func {
                                     Num(2) => {
                                         let val = add(evaled_arg, result);
                                         let not_overflow = lt(val, size_u64);
-                                        match not_overflow.val {
+                                        match not_overflow {
                                             Num(0) => {
                                                 let val = sub(val, size_u64);
                                                 let val = cast(val, Expr::U64);
@@ -885,7 +885,7 @@ fn apply_cont() -> Func {
                                 }
                             }
                             Symbol("-") => {
-                                match args_num_type.val {
+                                match args_num_type {
                                     Num(0) => {
                                         return (result, env, err, errctrl)
                                     }
@@ -899,7 +899,7 @@ fn apply_cont() -> Func {
                                         // to add 2^64 to get back to U64 domain.
                                         let val = sub(evaled_arg, result);
                                         let is_neg = lt(val, zero);
-                                        match is_neg.val {
+                                        match is_neg {
                                             Num(1) => {
                                                 let val = add(val, size_u64);
                                                 let val = cast(val, Expr::U64);
@@ -914,7 +914,7 @@ fn apply_cont() -> Func {
                                 }
                             }
                             Symbol("*") => {
-                                match args_num_type.val {
+                                match args_num_type {
                                     Num(0) => {
                                         return (result, env, err, errctrl)
                                     }
@@ -933,12 +933,12 @@ fn apply_cont() -> Func {
                             }
                             Symbol("/") => {
                                 let is_z = eq_val(result, zero);
-                                match is_z.val {
+                                match is_z {
                                     Num(1) => {
                                         return (result, env, err, errctrl)
                                     }
                                 };
-                                match args_num_type.val {
+                                match args_num_type {
                                     Num(0) => {
                                         return (result, env, err, errctrl)
                                     }
@@ -955,12 +955,12 @@ fn apply_cont() -> Func {
                             }
                             Symbol("%") => {
                                 let is_z = eq_val(result, zero);
-                                match is_z.val {
+                                match is_z {
                                     Num(1) => {
                                         return (result, env, err, errctrl)
                                     }
                                 };
-                                match args_num_type.val {
+                                match args_num_type {
                                     Num(2) => {
                                         let (_div, rem) = div_rem64(evaled_arg, result);
                                         let rem = cast(rem, Expr::U64);
@@ -970,13 +970,13 @@ fn apply_cont() -> Func {
                                 return (result, env, err, errctrl)
                             }
                             Symbol("=") => {
-                                match args_num_type.val {
+                                match args_num_type {
                                     Num(0) => {
                                         return (result, env, err, errctrl)
                                     }
                                 };
                                 let eq = eq_val(evaled_arg, result);
-                                match eq.val {
+                                match eq {
                                     Num(0) => {
                                         return (nil, env, continuation, makethunk)
                                     }
@@ -987,7 +987,7 @@ fn apply_cont() -> Func {
                             }
                             Symbol("<") => {
                                 let val = lt(evaled_arg, result);
-                                match val.val {
+                                match val {
                                     Num(0) => {
                                         return (nil, env, continuation, makethunk)
                                     }
@@ -998,7 +998,7 @@ fn apply_cont() -> Func {
                             }
                             Symbol(">") => {
                                 let val = lt(result, evaled_arg);
-                                match val.val {
+                                match val {
                                     Num(0) => {
                                         return (nil, env, continuation, makethunk)
                                     }
@@ -1009,7 +1009,7 @@ fn apply_cont() -> Func {
                             }
                             Symbol("<=") => {
                                 let val = lt(result, evaled_arg);
-                                match val.val {
+                                match val {
                                     Num(0) => {
                                         return (t, env, continuation, makethunk)
                                     }
@@ -1020,7 +1020,7 @@ fn apply_cont() -> Func {
                             }
                             Symbol(">=") => {
                                 let val = lt(evaled_arg, result);
-                                match val.val {
+                                match val {
                                     Num(0) => {
                                         return (t, env, continuation, makethunk)
                                     }

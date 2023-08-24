@@ -204,7 +204,7 @@ impl Block {
                     .values()
                     .fold(init, |acc, block| acc.max(block.count_slots()))
             }
-            Ctrl::MatchVal(_, cases, def) => {
+            Ctrl::Match(_, cases, def) => {
                 let init = def
                     .as_ref()
                     .map_or(SlotsCounter::default(), |def| def.count_slots());

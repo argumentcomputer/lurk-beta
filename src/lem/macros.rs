@@ -201,7 +201,7 @@ macro_rules! ctrl {
             $crate::lem::Ctrl::MatchTag($crate::var!($sii), cases, default)
         }
     };
-    ( match $sii:ident.val { $( $cnstr:ident($val:literal) $(| $other_cnstr:ident($other_val:literal))* => $case_ops:tt )* } $(; $($def:tt)*)? ) => {
+    ( match $sii:ident { $( $cnstr:ident($val:literal) $(| $other_cnstr:ident($other_val:literal))* => $case_ops:tt )* } $(; $($def:tt)*)? ) => {
         {
             let mut cases = indexmap::IndexMap::new();
             $(
@@ -221,7 +221,7 @@ macro_rules! ctrl {
                 )*
             )*
             let default = None $( .or (Some(Box::new($crate::block!( @seq {}, $($def)* )))) )?;
-            $crate::lem::Ctrl::MatchVal($crate::var!($sii), cases, default)
+            $crate::lem::Ctrl::Match($crate::var!($sii), cases, default)
         }
     };
     ( if $x:ident == $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
@@ -508,13 +508,13 @@ macro_rules! block {
             $crate::ctrl!( match $sii.tag { $( $kind::$tag $(| $other_kind::$other_tag)* => $case_ops )* } $(; $($def)*)? )
         )
     };
-    (@seq {$($limbs:expr)*}, match $sii:ident.val { $( $cnstr:ident($val:literal) $(| $other_cnstr:ident($other_val:literal))* => $case_ops:tt )* } $(; $($def:tt)*)?) => {
+    (@seq {$($limbs:expr)*}, match $sii:ident { $( $cnstr:ident($val:literal) $(| $other_cnstr:ident($other_val:literal))* => $case_ops:tt )* } $(; $($def:tt)*)?) => {
         $crate::block! (
             @end
             {
                 $($limbs)*
             },
-            $crate::ctrl!( match $sii.val { $( $cnstr($val) $(| $other_cnstr($other_val))* => $case_ops )* } $(; $($def)*)? )
+            $crate::ctrl!( match $sii { $( $cnstr($val) $(| $other_cnstr($other_val))* => $case_ops )* } $(; $($def)*)? )
         )
     };
     (@seq {$($limbs:expr)*}, if $x:ident == $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
@@ -587,8 +587,8 @@ mod tests {
     }
 
     #[inline]
-    fn match_val(i: Var, cases: Vec<(Lit, Block)>, def: Block) -> Ctrl {
-        Ctrl::MatchVal(i, indexmap::IndexMap::from_iter(cases), Some(Box::new(def)))
+    fn match_(i: Var, cases: Vec<(Lit, Block)>, def: Block) -> Ctrl {
+        Ctrl::Match(i, indexmap::IndexMap::from_iter(cases), Some(Box::new(def)))
     }
 
     #[test]
@@ -698,7 +698,7 @@ mod tests {
         );
 
         let moo = ctrl!(
-            match www.val {
+            match www {
                 Symbol("nil") => {
                     return (foo, foo, foo); // a single Ctrl will not turn into a Seq
                 }
@@ -713,7 +713,7 @@ mod tests {
         );
 
         assert!(
-            moo == match_val(
+            moo == match_(
                 mptr("www"),
                 vec![
                     (

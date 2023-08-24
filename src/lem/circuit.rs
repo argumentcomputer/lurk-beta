@@ -1163,7 +1163,7 @@ impl Func {
                     )
                     .with_context(|| " couldn't constrain `enforce_selector_with_premise`")
                 }
-                Ctrl::MatchVal(match_var, cases, def) => {
+                Ctrl::Match(match_var, cases, def) => {
                     let match_lit = bound_allocations.get(match_var)?.clone();
                     let mut selector = Vec::with_capacity(cases.len() + 2);
                     let mut branch_slots = Vec::with_capacity(cases.len());
@@ -1439,7 +1439,7 @@ impl Func {
                     };
                     num_constraints
                 }
-                Ctrl::MatchVal(_, cases, def) => {
+                Ctrl::Match(_, cases, def) => {
                     // We allocate one boolean per case and constrain it twice
                     // per case. Then we add 1 constraint to enforce only one
                     // case was selected

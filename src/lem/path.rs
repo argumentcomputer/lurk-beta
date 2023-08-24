@@ -119,7 +119,7 @@ impl Block {
                     .values()
                     .fold(init, |acc, block| acc + block.num_paths())
             }
-            Ctrl::MatchVal(_, cases, def) => {
+            Ctrl::Match(_, cases, def) => {
                 let init = def.as_ref().map_or(0, |def| def.num_paths());
                 cases
                     .values()
