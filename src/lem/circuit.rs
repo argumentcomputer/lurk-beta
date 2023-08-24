@@ -1465,7 +1465,7 @@ impl Func {
             + 337 * self.slot.hash3
             + 388 * self.slot.hash4
             + 265 * self.slot.commitment
-            + 391 * self.slot.less_than;
+            + 1172 * self.slot.less_than;
         let num_constraints = recurse::<F>(&self.body, globals, store);
         slot_constraints + num_constraints + globals.len()
     }
