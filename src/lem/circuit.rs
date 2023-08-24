@@ -32,7 +32,10 @@ use bellpepper_core::{
         num::AllocatedNum,
     },
 };
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    iter::repeat,
+};
 
 use crate::circuit::gadgets::{
     constraints::{
@@ -98,22 +101,15 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
         let mut multi_frames = Vec::with_capacity(n);
 
         for chunk in frames.chunks(count) {
-            let mut inner_frames = Vec::with_capacity(count);
-
-            for frame in chunk {
-                inner_frames.push(frame.clone());
-            }
-
             let last_frame = chunk.last().expect("chunk must not be empty");
-            let last_circuit_frame = inner_frames
-                .last()
-                .expect("chunk must not be empty")
-                .clone();
-
-            // Fill out the MultiFrame, if needed, and capture output of the final actual frame.
-            for _ in chunk.len()..count {
-                inner_frames.push(last_circuit_frame.clone());
-            }
+            let inner_frames = if chunk.len() < count {
+                let mut inner_frames = Vec::with_capacity(count);
+                inner_frames.extend(chunk.to_vec());
+                inner_frames.extend(repeat(last_frame.clone()).take(count - chunk.len()));
+                inner_frames
+            } else {
+                chunk.to_vec()
+            };
 
             let output = last_frame.output.clone();
             let input = chunk[0].input.clone();
@@ -133,33 +129,6 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
         }
 
         multi_frames
-    }
-
-    /// Make a dummy `MultiFrame`, duplicating `self`'s final `CircuitFrame`.
-    pub(crate) fn make_dummy(
-        func: &'a Func,
-        count: usize,
-        circuit_frame: Option<Frame<F>>,
-        store: &'a Store<F>,
-    ) -> Self {
-        let (frames, input, output) = if let Some(circuit_frame) = circuit_frame {
-            (
-                Some(vec![circuit_frame.clone(); count]),
-                Some(circuit_frame.input),
-                Some(circuit_frame.output),
-            )
-        } else {
-            (None, None, None)
-        };
-        Self {
-            func,
-            store: Some(store),
-            input,
-            output,
-            frames,
-            cached_witness: None,
-            count,
-        }
     }
 
     pub fn synthesize_frames<CS: ConstraintSystem<F>>(
