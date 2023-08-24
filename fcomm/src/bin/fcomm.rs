@@ -1,7 +1,7 @@
 use abomonation::Abomonation;
 use log::info;
 use lurk::lurk_sym_ptr;
-use lurk::proof::nova::{CurveCycleEquipped, G1, G2};
+use lurk::proof::curve_cycle::{CurveCycleEquipped, G1, G2};
 use nova::traits::Group;
 use std::convert::TryFrom;
 use std::env;
