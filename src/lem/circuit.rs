@@ -325,20 +325,47 @@ impl Func {
                     hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c3())?
                 }
                 SlotType::LessThan => {
+                    // When a and b have the same sign, a < b iff a - b < 0
+                    // When a and b have different signs, a < b iff a is negative
                     let a_num = &preallocated_preimg[0];
                     let b_num = &preallocated_preimg[1];
+                    let slot_str = &slot.to_string();
+                    let a_is_negative = allocate_is_negative(
+                        &mut cs.namespace(|| format!("a_is_negative for slot {slot_str}")),
+                        a_num,
+                    )?;
+                    let a_is_negative_num = boolean_to_num(
+                        &mut cs.namespace(|| format!("a_is_negative_num for slot {slot_str}")),
+                        &a_is_negative,
+                    )?;
+                    let b_is_negative = allocate_is_negative(
+                        &mut cs.namespace(|| format!("b_is_negative for slot {slot_str}")),
+                        b_num,
+                    )?;
+                    let same_sign = Boolean::xor(
+                        &mut cs.namespace(|| format!("same_sign for slot {slot_str}")),
+                        &a_is_negative,
+                        &b_is_negative,
+                    )?
+                    .not();
                     let diff = sub(
-                        &mut cs.namespace(|| format!("sub for slot {slot}")),
+                        &mut cs.namespace(|| format!("diff for slot {slot_str}")),
                         a_num,
                         b_num,
                     )?;
                     let diff_is_negative = allocate_is_negative(
-                        &mut cs.namespace(|| format!("is_negative for slot {slot}")),
+                        &mut cs.namespace(|| format!("diff_is_negative for slot {slot_str}")),
                         &diff,
                     )?;
-                    boolean_to_num(
-                        &mut cs.namespace(|| format!("boolean_to_num for slot {slot}")),
+                    let diff_is_negative_num = boolean_to_num(
+                        &mut cs.namespace(|| format!("diff_is_negative_num for slot {slot_str}")),
                         &diff_is_negative,
+                    )?;
+                    pick(
+                        &mut cs.namespace(|| format!("pick for slot {slot}")),
+                        &same_sign,
+                        &diff_is_negative_num,
+                        &a_is_negative_num,
                     )?
                 }
             }
