@@ -13,9 +13,12 @@ use tap::TapFallible;
 use crate::{
     coprocessor::Coprocessor,
     eval::lang::Lang,
-    proof::nova::{PublicParams, G1, G2},
+    proof::{
+        curve_cycle::{CurveCycleEquipped, G1, G2},
+        nova::PublicParams,
+    },
+    public_parameters::error::Error,
 };
-use crate::{proof::nova::CurveCycleEquipped, public_parameters::error::Error};
 
 use super::disk_cache::PublicParamDiskCache;
 

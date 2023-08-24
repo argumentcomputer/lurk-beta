@@ -7,7 +7,8 @@ use camino::{Utf8Path, Utf8PathBuf};
 use nova::traits::Group;
 
 use crate::coprocessor::Coprocessor;
-use crate::proof::nova::{CurveCycleEquipped, PublicParams, G1, G2};
+use crate::proof::curve_cycle::{CurveCycleEquipped, G1, G2};
+use crate::proof::nova::PublicParams;
 use crate::public_parameters::error::Error;
 
 pub(crate) struct PublicParamDiskCache<F, C>
