@@ -1089,37 +1089,34 @@ impl Func {
                         branch_slots.push(branch_slot);
                     }
 
-                    match def {
-                        Some(def) => {
-                            let default = selector.iter().fold(not_dummy.get_value(), |acc, b| {
-                                acc.and_then(|acc| b.get_value().map(|b| acc && !b))
-                            });
-                            let has_match = Boolean::Is(AllocatedBit::alloc(
-                                &mut cs.namespace(|| "_.allocated_bit"),
-                                default,
-                            )?);
-                            for (tag, _) in cases {
-                                implies_unequal_const(
-                                    &mut cs.namespace(|| format!("{tag} implies_unequal")),
-                                    &has_match,
-                                    &match_tag,
-                                    tag.to_field(),
-                                )?;
-                            }
-
-                            selector.push(has_match.clone());
-
-                            recurse(
-                                &mut cs.namespace(|| "_"),
-                                def,
+                    if let Some(def) = def {
+                        let default = selector.iter().fold(not_dummy.get_value(), |acc, b| {
+                            acc.and_then(|acc| b.get_value().map(|b| acc && !b))
+                        });
+                        let has_match = Boolean::Is(AllocatedBit::alloc(
+                            &mut cs.namespace(|| "_.allocated_bit"),
+                            default,
+                        )?);
+                        for (tag, _) in cases {
+                            implies_unequal_const(
+                                &mut cs.namespace(|| format!("{tag} implies_unequal")),
                                 &has_match,
-                                next_slot,
-                                bound_allocations,
-                                preallocated_outputs,
-                                g,
+                                &match_tag,
+                                tag.to_field(),
                             )?;
                         }
-                        None => (),
+
+                        selector.push(has_match.clone());
+
+                        recurse(
+                            &mut cs.namespace(|| "_"),
+                            def,
+                            &has_match,
+                            next_slot,
+                            bound_allocations,
+                            preallocated_outputs,
+                            g,
+                        )?;
                     }
 
                     // The number of slots the match used is the max number of slots of each branch
@@ -1187,47 +1184,44 @@ impl Func {
                         branch_slots.push(branch_slot);
                     }
 
-                    match def {
-                        Some(def) => {
-                            let default = selector.iter().fold(not_dummy.get_value(), |acc, b| {
-                                acc.and_then(|acc| b.get_value().map(|b| acc && !b))
-                            });
-                            let has_match = Boolean::Is(AllocatedBit::alloc(
-                                &mut cs.namespace(|| "_.allocated_bit"),
-                                default,
-                            )?);
-                            for (i, (lit, _)) in cases.iter().enumerate() {
-                                let lit_ptr = lit.to_ptr_cached(g.store);
-                                let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
-                                let lit_tag = g.store.hash_ptr(&lit_ptr)?.tag.to_field::<F>();
-                                // TODO either tag is not equal or hash is not equal
-                                // implies_unequal_const(
-                                //     &mut cs.namespace(|| format!("{i} implies_unequal tag")),
-                                //     &has_match,
-                                //     match_lit.tag(),
-                                //     lit_tag,
-                                // )?;
-                                implies_unequal_const(
-                                    &mut cs.namespace(|| format!("{i} implies_unequal hash")),
-                                    &has_match,
-                                    match_lit.hash(),
-                                    lit_hash,
-                                )?;
-                            }
-
-                            selector.push(has_match.clone());
-
-                            recurse(
-                                &mut cs.namespace(|| "_"),
-                                def,
+                    if let Some(def) = def {
+                        let default = selector.iter().fold(not_dummy.get_value(), |acc, b| {
+                            acc.and_then(|acc| b.get_value().map(|b| acc && !b))
+                        });
+                        let has_match = Boolean::Is(AllocatedBit::alloc(
+                            &mut cs.namespace(|| "_.allocated_bit"),
+                            default,
+                        )?);
+                        for (i, (lit, _)) in cases.iter().enumerate() {
+                            let lit_ptr = lit.to_ptr_cached(g.store);
+                            let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
+                            let lit_tag = g.store.hash_ptr(&lit_ptr)?.tag.to_field::<F>();
+                            // TODO either tag is not equal or hash is not equal
+                            // implies_unequal_const(
+                            //     &mut cs.namespace(|| format!("{i} implies_unequal tag")),
+                            //     &has_match,
+                            //     match_lit.tag(),
+                            //     lit_tag,
+                            // )?;
+                            implies_unequal_const(
+                                &mut cs.namespace(|| format!("{i} implies_unequal hash")),
                                 &has_match,
-                                next_slot,
-                                bound_allocations,
-                                preallocated_outputs,
-                                g,
+                                match_lit.hash(),
+                                lit_hash,
                             )?;
                         }
-                        None => (),
+
+                        selector.push(has_match.clone());
+
+                        recurse(
+                            &mut cs.namespace(|| "_"),
+                            def,
+                            &has_match,
+                            next_slot,
+                            bound_allocations,
+                            preallocated_outputs,
+                            g,
+                        )?;
                     }
 
                     // The number of slots the match used is the max number of slots of each branch

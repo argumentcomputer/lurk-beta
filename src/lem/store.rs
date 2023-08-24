@@ -158,6 +158,7 @@ impl<F: LurkField> Store<F> {
                 self.intern_2_ptrs(Tag::Expr(Str), Ptr::char(c), acc)
             });
             self.string_ptr_cache.insert(s.to_string(), ptr);
+            self.ptr_string_cache.insert(ptr, s.to_string());
             ptr
         }
     }
@@ -219,6 +220,7 @@ impl<F: LurkField> Store<F> {
                 path_ptr
             };
             self.symbol_ptr_cache.insert(sym.clone(), sym_ptr);
+            self.ptr_symbol_cache.insert(sym_ptr, Box::new(sym.clone()));
             sym_ptr
         }
     }
