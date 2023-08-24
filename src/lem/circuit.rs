@@ -1169,8 +1169,9 @@ impl Func {
                     let mut branch_slots = Vec::with_capacity(cases.len());
                     for (i, (lit, block)) in cases.iter().enumerate() {
                         let lit_ptr = lit.to_ptr_cached(g.store);
-                        let lit_tag = g.store.hash_ptr(&lit_ptr)?.tag.to_field::<F>();
-                        let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
+                        let lit_z_ptr = g.store.hash_ptr(&lit_ptr)?;
+                        let lit_tag = lit_z_ptr.tag.to_field();
+                        let lit_hash = lit_z_ptr.hash;
 
                         let has_match_bool = not_dummy.get_value().and_then(|not_dummy| {
                             match_lit
@@ -1344,9 +1345,9 @@ impl Func {
                     }
                     Op::Lit(_, lit) => {
                         let lit_ptr = lit.to_ptr_cached(store);
-                        let lit_hash = store.hash_ptr(&lit_ptr).unwrap().hash;
-                        globals.insert(FWrap(Tag::Expr(Sym).to_field()));
-                        globals.insert(FWrap(lit_hash));
+                        let lit_z_ptr = store.hash_ptr(&lit_ptr).unwrap();
+                        globals.insert(FWrap(lit_z_ptr.tag.to_field()));
+                        globals.insert(FWrap(lit_z_ptr.hash));
                     }
                     Op::Cast(_tgt, tag, _src) => {
                         globals.insert(FWrap(tag.to_field()));
