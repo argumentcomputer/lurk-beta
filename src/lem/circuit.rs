@@ -138,29 +138,28 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
         input: &[AllocatedPtr<F>],
         frames: &[Frame<F>],
         blank: bool,
-    ) -> Vec<AllocatedPtr<F>> {
+    ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
         let global_allocator = &mut GlobalAllocator::default();
         let (_, output) = frames
             .iter()
-            .fold((0, input.to_vec()), |(i, input), frame| {
+            .try_fold((0, input.to_vec()), |(i, input), frame| {
                 if !blank {
                     for (alloc_ptr, input) in input.iter().zip(&frame.input) {
                         let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
-                        assert_eq!(
-                            alloc_ptr.tag().get_value().expect("Assignment missing"),
-                            input_zptr.tag.to_field(),
-                        );
-                        assert_eq!(
-                            alloc_ptr.hash().get_value().expect("Assignment missing"),
-                            input_zptr.hash,
-                        );
+                        match (alloc_ptr.tag().get_value(), alloc_ptr.hash().get_value()) {
+                            (Some(alloc_ptr_tag), Some(alloc_ptr_hash)) => {
+                                assert_eq!(alloc_ptr_tag, input_zptr.tag.to_field());
+                                assert_eq!(alloc_ptr_hash, input_zptr.hash);
+                            }
+                            _ => return Err(SynthesisError::AssignmentMissing),
+                        }
                     }
                 }
                 let bound_allocations = &mut BoundAllocations::new();
                 self.func.add_input(&input, bound_allocations);
                 let output = self
                     .func
-                    .synthesize_aux(
+                    .synthesize_frame(
                         &mut cs.namespace(|| format!("step {i}")),
                         store,
                         frame,
@@ -168,10 +167,9 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
                         bound_allocations,
                     )
                     .unwrap();
-                (i + 1, output)
-            });
-
-        output
+                Ok((i + 1, output))
+            })?;
+        Ok(output)
     }
 }
 
@@ -186,7 +184,7 @@ fn allocate_num<F: LurkField, CS: ConstraintSystem<F>>(
     value: F,
 ) -> Result<AllocatedNum<F>> {
     AllocatedNum::alloc(cs.namespace(|| namespace), || Ok(value))
-        .with_context(|| format!("allocation for '{namespace}' failed"))
+        .with_context(|| format!("allocation for '{namespace}'"))
 }
 
 #[inline]
@@ -196,7 +194,7 @@ fn allocate_const<F: LurkField, CS: ConstraintSystem<F>>(
     value: F,
 ) -> Result<AllocatedNum<F>> {
     allocate_constant(&mut cs.namespace(|| namespace), value)
-        .with_context(|| format!("allocation for '{namespace}' failed"))
+        .with_context(|| format!("allocation for '{namespace}'"))
 }
 
 impl<F: LurkField> GlobalAllocator<F> {
@@ -462,7 +460,7 @@ impl Func {
     /// each slot and then, as we traverse the function, we add constraints to make
     /// sure that the witness satisfies the arithmetic equations for the
     /// corresponding slots.
-    pub fn synthesize_aux<F: LurkField, CS: ConstraintSystem<F>>(
+    pub fn synthesize_frame<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         store: &Store<F>,
@@ -1056,12 +1054,11 @@ impl Func {
                     let mut selector = Vec::with_capacity(cases.len() + 2);
                     let mut branch_slots = Vec::with_capacity(cases.len());
                     for (tag, block) in cases {
-                        let has_match_bool = match (not_dummy.get_value(), match_tag.get_value()) {
-                            (Some(not_dummy), Some(val)) => {
-                                Some(not_dummy && val == tag.to_field::<F>())
-                            }
-                            _ => None,
-                        };
+                        let has_match_bool = not_dummy.get_value().and_then(|not_dummy| {
+                            match_tag
+                                .get_value()
+                                .map(|val| not_dummy && val == tag.to_field::<F>())
+                        });
 
                         let has_match = Boolean::Is(AllocatedBit::alloc(
                             &mut cs.namespace(|| format!("{tag}.allocated_bit")),
@@ -1267,7 +1264,8 @@ impl Func {
         Ok(preallocated_outputs)
     }
 
-    pub fn synthesize<F: LurkField, CS: ConstraintSystem<F>>(
+    /// Helper API for tests
+    pub fn synthesize_frame_aux<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         store: &Store<F>,
@@ -1276,7 +1274,7 @@ impl Func {
         let bound_allocations = &mut BoundAllocations::new();
         let global_allocator = &mut GlobalAllocator::default();
         self.allocate_input(cs, store, frame, bound_allocations)?;
-        self.synthesize_aux(cs, store, frame, global_allocator, bound_allocations)?;
+        self.synthesize_frame(cs, store, frame, global_allocator, bound_allocations)?;
         Ok(())
     }
 

@@ -825,7 +825,7 @@ mod tests {
 
             for frame in frames.clone() {
                 cs = TestConstraintSystem::<Fr>::new();
-                func.synthesize(&mut cs, store, &frame).unwrap();
+                func.synthesize_frame_aux(&mut cs, store, &frame).unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(computed_num_constraints, cs.num_constraints());
                 if let Some(cs_prev) = cs_prev {

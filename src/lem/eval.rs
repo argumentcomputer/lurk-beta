@@ -1142,7 +1142,9 @@ mod tests {
             store.hydrate_z_cache();
             for frame in frames.iter() {
                 let mut cs = TestConstraintSystem::<Fr>::new();
-                eval_step.synthesize(&mut cs, store, frame).unwrap();
+                eval_step
+                    .synthesize_frame_aux(&mut cs, store, frame)
+                    .unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(cs.num_inputs(), NUM_INPUTS);
                 assert_eq!(cs.aux().len(), NUM_AUX);

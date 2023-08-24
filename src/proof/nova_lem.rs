@@ -235,14 +235,14 @@ impl<'a, F: LurkField> StepCircuit<F> for MultiFrame<'a, F> {
         let output_ptrs = match self.frames.as_ref() {
             Some(frames) => {
                 let s = self.store.expect("store missing");
-                self.synthesize_frames(cs, s, &input, frames, false)
+                self.synthesize_frames(cs, s, &input, frames, false)?
             }
             None => {
                 assert!(self.store.is_none());
                 let s = self.func.init_store();
                 let blank_frame = Frame::blank(self.func);
                 let frames = vec![blank_frame; self.count];
-                self.synthesize_frames(cs, &s, &input, &frames, true)
+                self.synthesize_frames(cs, &s, &input, &frames, true)?
             }
         };
 
@@ -572,7 +572,7 @@ pub mod tests {
 
         for frame in frames.iter() {
             let mut cs = TestConstraintSystem::<Fr>::new();
-            func.synthesize(&mut cs, s, frame).unwrap();
+            func.synthesize_frame_aux(&mut cs, s, frame).unwrap();
             assert!(cs.is_satisfied());
 
             if let Some(cs_prev) = cs_prev {
