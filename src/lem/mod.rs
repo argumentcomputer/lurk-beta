@@ -228,8 +228,9 @@ pub struct Block {
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ctrl {
-    /// `MatchTag(x, cases)` performs a match on the tag of `x`, choosing the
-    /// appropriate `Block` among the ones provided in `cases`
+    /// `MatchTag(x, cases, def)` checks whether the tag of `x` matches some tag
+    /// among the ones provided in `cases`. If so, run the corresponding `Block`.
+    /// Run `def` otherwise
     MatchTag(Var, IndexMap<Tag, Block>, Option<Box<Block>>),
     /// `Match(x, cases, def)` checks whether `x` matches some `Lit` among
     /// the ones provided in `cases`. If so, run the corresponding `Block`. Run
