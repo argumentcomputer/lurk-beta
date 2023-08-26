@@ -3,13 +3,11 @@ use abomonation::{decode, Abomonation};
 use camino::{Utf8Path, Utf8PathBuf};
 use std::sync::Arc;
 
+use crate::coprocessor::Coprocessor;
+use crate::proof::nova::{CurveCycleEquipped, G1, G2};
 use crate::{
-    coprocessor::Coprocessor,
     eval::lang::Lang,
-    proof::{
-        curve_cycle::{CurveCycleEquipped, G1, G2},
-        nova::{self, PublicParams},
-    },
+    proof::nova::{self, PublicParams},
 };
 
 mod disk_cache;

@@ -5,9 +5,6 @@
 //! has two instantiations:
 //! - the Groth16/SnarkPack proving system, implemented in the `groth16` module
 //! - the Nova proving system, implemented in the `nova` module.
-
-/// Defines helper traits and types for elliptic curve cycles
-pub mod curve_cycle;
 /// An adapter to a Groth16 proving system implementation.
 pub mod groth16;
 /// An adapter to a Nova proving system implementation.

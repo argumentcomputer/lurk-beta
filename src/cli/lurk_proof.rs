@@ -8,7 +8,7 @@ use crate::{
     coprocessor::Coprocessor,
     eval::lang::{Coproc, Lang},
     field::LurkField,
-    proof::{curve_cycle::*, nova},
+    proof::nova::{self, CurveCycleEquipped, G1, G2},
     public_parameters::public_params,
     z_ptr::{ZContPtr, ZExprPtr},
     z_store::ZStore,
