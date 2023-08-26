@@ -447,6 +447,8 @@ where
             TrivialTestCircuit<<G2<F> as Group>::Scalar>,
         ) = C1::<'a>::circuits(num_iters_per_step, lang);
 
+        dbg!(circuits.len());
+
         // produce a recursive SNARK
         let mut recursive_snark: Option<RecursiveSNARK<G1<F>, G2<F>, C1<'a, F, C>, C2<F>>> = None;
 
