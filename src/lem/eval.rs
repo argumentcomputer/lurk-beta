@@ -506,39 +506,40 @@ fn apply_cont() -> Func {
             }
         }
     });
-    // Returns 2 if both arguments are U64, 1 if the arguments are some kind of number (either U64 or Num),
-    // and 0 otherwise
+    // Returns 0u64 if both arguments are U64, 0 (num) if the arguments are some kind of number (either U64 or Num),
+    // and nil otherwise
     let args_num_type = func!(args_num_type(arg1, arg2): 1 => {
-        let other = Num(0);
+        let nil = Symbol("nil");
+        let nil = cast(nil, Expr::Nil);
         match arg1.tag {
             Expr::Num => {
                 match arg2.tag {
                     Expr::Num => {
-                        let ret = Num(1);
+                        let ret: Expr::Num;
                         return (ret)
                     }
                     Expr::U64 => {
-                        let ret = Num(1);
+                        let ret: Expr::Num;
                         return (ret)
                     }
                 };
-                return (other)
+                return (nil)
             }
             Expr::U64 => {
                 match arg2.tag {
                     Expr::Num => {
-                        let ret = Num(1);
+                        let ret: Expr::Num;
                         return (ret)
                     }
                     Expr::U64 => {
-                        let ret = Num(2);
+                        let ret: Expr::U64;
                         return (ret)
                     }
                 };
-                return (other)
+                return (nil)
             }
         };
-        return (other)
+        return (nil)
     });
     func!(apply_cont(result, env, cont, ctrl): 4 => {
         // Useful constants
@@ -849,80 +850,68 @@ fn apply_cont() -> Func {
                                 let eq_tag = eq_tag(evaled_arg, result);
                                 let eq_val = eq_val(evaled_arg, result);
                                 let eq = mul(eq_tag, eq_val);
-                                match eq {
-                                    Num(0) => {
-                                        return (nil, env, continuation, makethunk)
-                                    }
-                                    Num(1) => {
-                                        return (t, env, continuation, makethunk)
-                                    }
+                                if eq == zero {
+                                    return (nil, env, continuation, makethunk)
                                 }
+                                return (t, env, continuation, makethunk)
                             }
                             Symbol("+") => {
-                                match args_num_type {
-                                    Num(0) => {
+                                match args_num_type.tag {
+                                    Expr::Nil => {
                                         return (result, env, err, errctrl)
                                     }
-                                    Num(1) => {
+                                    Expr::Num => {
                                         let val = add(evaled_arg, result);
                                         return (val, env, continuation, makethunk)
                                     }
-                                    Num(2) => {
+                                    Expr::U64 => {
                                         let val = add(evaled_arg, result);
                                         let not_overflow = lt(val, size_u64);
-                                        match not_overflow {
-                                            Num(0) => {
-                                                let val = sub(val, size_u64);
-                                                let val = cast(val, Expr::U64);
-                                                return (val, env, continuation, makethunk)
-                                            }
-                                            Num(1) => {
-                                                let val = cast(val, Expr::U64);
-                                                return (val, env, continuation, makethunk)
-                                            }
+                                        if not_overflow == zero {
+                                            let val = sub(val, size_u64);
+                                            let val = cast(val, Expr::U64);
+                                            return (val, env, continuation, makethunk)
                                         }
+                                        let val = cast(val, Expr::U64);
+                                        return (val, env, continuation, makethunk)
                                     }
                                 }
                             }
                             Symbol("-") => {
-                                match args_num_type {
-                                    Num(0) => {
+                                match args_num_type.tag {
+                                    Expr::Nil => {
                                         return (result, env, err, errctrl)
                                     }
-                                    Num(1) => {
+                                    Expr::Num => {
                                         let val = sub(evaled_arg, result);
                                         return (val, env, continuation, makethunk)
                                     }
-                                    Num(2) => {
+                                    Expr::U64 => {
                                         // Subtraction in U64 is almost the same as subtraction
                                         // in the field. If the difference is negative, we need
                                         // to add 2^64 to get back to U64 domain.
                                         let val = sub(evaled_arg, result);
                                         let is_neg = lt(val, zero);
-                                        match is_neg {
-                                            Num(1) => {
-                                                let val = add(val, size_u64);
-                                                let val = cast(val, Expr::U64);
-                                                return (val, env, continuation, makethunk)
-                                            }
-                                            Num(0) => {
-                                                let val = cast(val, Expr::U64);
-                                                return (val, env, continuation, makethunk)
-                                            }
+                                        if is_neg == zero {
+                                            let val = cast(val, Expr::U64);
+                                            return (val, env, continuation, makethunk)
                                         }
+                                        let val = add(val, size_u64);
+                                        let val = cast(val, Expr::U64);
+                                        return (val, env, continuation, makethunk)
                                     }
                                 }
                             }
                             Symbol("*") => {
-                                match args_num_type {
-                                    Num(0) => {
+                                match args_num_type.tag {
+                                    Expr::Nil => {
                                         return (result, env, err, errctrl)
                                     }
-                                    Num(1) => {
+                                    Expr::Num => {
                                         let val = mul(evaled_arg, result);
                                         return (val, env, continuation, makethunk)
                                     }
-                                    Num(2) => {
+                                    Expr::U64 => {
                                         let val = mul(evaled_arg, result);
                                         // The limit is 2**64 - 1
                                         let trunc = truncate(val, 64);
@@ -938,15 +927,15 @@ fn apply_cont() -> Func {
                                         return (result, env, err, errctrl)
                                     }
                                 };
-                                match args_num_type {
-                                    Num(0) => {
+                                match args_num_type.tag {
+                                    Expr::Nil => {
                                         return (result, env, err, errctrl)
                                     }
-                                    Num(1) => {
+                                    Expr::Num => {
                                         let val = div(evaled_arg, result);
                                         return (val, env, continuation, makethunk)
                                     }
-                                    Num(2) => {
+                                    Expr::U64 => {
                                         let (div, _rem) = div_rem64(evaled_arg, result);
                                         let div = cast(div, Expr::U64);
                                         return (div, env, continuation, makethunk)
@@ -960,8 +949,8 @@ fn apply_cont() -> Func {
                                         return (result, env, err, errctrl)
                                     }
                                 };
-                                match args_num_type {
-                                    Num(2) => {
+                                match args_num_type.tag {
+                                    Expr::U64 => {
                                         let (_div, rem) = div_rem64(evaled_arg, result);
                                         let rem = cast(rem, Expr::U64);
                                         return (rem, env, continuation, makethunk)
@@ -970,64 +959,44 @@ fn apply_cont() -> Func {
                                 return (result, env, err, errctrl)
                             }
                             Symbol("=") => {
-                                match args_num_type {
-                                    Num(0) => {
+                                match args_num_type.tag {
+                                    Expr::Nil => {
                                         return (result, env, err, errctrl)
                                     }
                                 };
                                 let eq = eq_val(evaled_arg, result);
-                                match eq {
-                                    Num(0) => {
-                                        return (nil, env, continuation, makethunk)
-                                    }
-                                    Num(1) => {
-                                        return (t, env, continuation, makethunk)
-                                    }
+                                if eq == zero {
+                                    return (nil, env, continuation, makethunk)
                                 }
+                                return (t, env, continuation, makethunk)
                             }
                             Symbol("<") => {
                                 let val = lt(evaled_arg, result);
-                                match val {
-                                    Num(0) => {
-                                        return (nil, env, continuation, makethunk)
-                                    }
-                                    Num(1) => {
-                                        return (t, env, continuation, makethunk)
-                                    }
+                                if val == zero {
+                                    return (nil, env, continuation, makethunk)
                                 }
+                                return (t, env, continuation, makethunk)
                             }
                             Symbol(">") => {
                                 let val = lt(result, evaled_arg);
-                                match val {
-                                    Num(0) => {
-                                        return (nil, env, continuation, makethunk)
-                                    }
-                                    Num(1) => {
-                                        return (t, env, continuation, makethunk)
-                                    }
+                                if val == zero {
+                                    return (nil, env, continuation, makethunk)
                                 }
+                                return (t, env, continuation, makethunk)
                             }
                             Symbol("<=") => {
                                 let val = lt(result, evaled_arg);
-                                match val {
-                                    Num(0) => {
-                                        return (t, env, continuation, makethunk)
-                                    }
-                                    Num(1) => {
-                                        return (nil, env, continuation, makethunk)
-                                    }
+                                if val == zero {
+                                    return (t, env, continuation, makethunk)
                                 }
+                                return (nil, env, continuation, makethunk)
                             }
                             Symbol(">=") => {
                                 let val = lt(evaled_arg, result);
-                                match val {
-                                    Num(0) => {
-                                        return (t, env, continuation, makethunk)
-                                    }
-                                    Num(1) => {
-                                        return (nil, env, continuation, makethunk)
-                                    }
+                                if val == zero {
+                                    return (t, env, continuation, makethunk)
                                 }
+                                return (nil, env, continuation, makethunk)
                             }
                         };
                         return (result, env, err, errctrl)
@@ -1101,7 +1070,7 @@ mod tests {
 
     const NUM_INPUTS: usize = 1;
     const NUM_AUX: usize = 10992;
-    const NUM_CONSTRAINTS: usize = 13594;
+    const NUM_CONSTRAINTS: usize = 13556;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash2: 16,
         hash3: 4,
