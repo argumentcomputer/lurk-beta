@@ -88,10 +88,6 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
         }
     }
 
-    pub fn get_store(&self) -> &Store<F> {
-        self.store.expect("store missing")
-    }
-
     pub fn from_frames(
         func: &'a Func,
         count: usize,
@@ -1002,7 +998,11 @@ impl Func {
                                         bound_allocations: &mut VarMap<AllocatedPtr<F>>,
                                         g: &mut Globals<'_, F>|
              -> Result<Vec<SlotsCounter>> {
-                let mut selector = Vec::with_capacity(cases.len() + 2);
+                // * One `Boolean` for each case
+                // * Maybe one `Boolean` for the default case
+                // * One `Boolean` for the negation of `not_dummy`
+                let selector_size = cases.len() + def.is_some() as usize + 1;
+                let mut selector = Vec::with_capacity(selector_size);
                 let mut branch_slots = Vec::with_capacity(cases.len());
                 for (i, (f, block)) in cases.iter().enumerate() {
                     // For each case, we compute `not_dummy_and_has_match: Boolean`
@@ -1044,7 +1044,8 @@ impl Func {
                 if let Some(def) = def {
                     // Compute `default: Boolean`, which tells whether the default case was chosen or not
                     let default_bool = selector.iter().fold(not_dummy.get_value(), |acc, b| {
-                        // all the booleans in `selector` have be false up to this point
+                        // all the booleans in `selector` have to be false up to this point
+                        // in order for the default case to be selected
                         acc.and_then(|acc| b.get_value().map(|b| acc && !b))
                     });
                     let default = Boolean::Is(AllocatedBit::alloc(
@@ -1077,13 +1078,13 @@ impl Func {
                     )?;
                 }
 
-                // Now we need to enforce that at exactly one path was taken. We do that by enforcing
+                // Now we need to enforce that exactly one path was taken. We do that by enforcing
                 // that the sum of the previously collected `Boolean`s is one. But, of course, this
                 // irrelevant if we're on a virtual path and thus we use an implication gadget.
 
                 // If `not_dummy` is false, then all booleans in `selector` are false up to this point.
                 // Thus we need to add a negation of `not_dummy` to make it satisfiable. If it's true,
-                // it will count as a 0 and will not ifluence the sum.
+                // it will count as a 0 and will not influence the sum.
                 selector.push(not_dummy.not());
 
                 enforce_selector_with_premise(
