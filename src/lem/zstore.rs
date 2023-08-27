@@ -138,26 +138,20 @@ pub fn populate_store<F: LurkField>(
                 Some(ZChildren::Tuple2(z1, z2)) => {
                     let ptr1 = populate_store(store, z1, z_store)?;
                     let ptr2 = populate_store(store, z2, z_store)?;
-                    let ptr = store.intern_2_ptrs_not_dehydrated(z_ptr.tag, ptr1, ptr2);
-                    store.add_to_z_cache(ptr, *z_ptr);
-                    ptr
+                    store.intern_2_ptrs_hydrated(z_ptr.tag, ptr1, ptr2, *z_ptr)
                 }
                 Some(ZChildren::Tuple3(z1, z2, z3)) => {
                     let ptr1 = populate_store(store, z1, z_store)?;
                     let ptr2 = populate_store(store, z2, z_store)?;
                     let ptr3 = populate_store(store, z3, z_store)?;
-                    let ptr = store.intern_3_ptrs_not_dehydrated(z_ptr.tag, ptr1, ptr2, ptr3);
-                    store.add_to_z_cache(ptr, *z_ptr);
-                    ptr
+                    store.intern_3_ptrs_hydrated(z_ptr.tag, ptr1, ptr2, ptr3, *z_ptr)
                 }
                 Some(ZChildren::Tuple4(z1, z2, z3, z4)) => {
                     let ptr1 = populate_store(store, z1, z_store)?;
                     let ptr2 = populate_store(store, z2, z_store)?;
                     let ptr3 = populate_store(store, z3, z_store)?;
                     let ptr4 = populate_store(store, z4, z_store)?;
-                    let ptr = store.intern_4_ptrs_not_dehydrated(z_ptr.tag, ptr1, ptr2, ptr3, ptr4);
-                    store.add_to_z_cache(ptr, *z_ptr);
-                    ptr
+                    store.intern_4_ptrs_hydrated(z_ptr.tag, ptr1, ptr2, ptr3, ptr4, *z_ptr)
                 }
             };
             cache.insert(*z_ptr, ptr);

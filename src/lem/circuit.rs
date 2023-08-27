@@ -1001,7 +1001,7 @@ impl Func {
                 // * One `Boolean` for each case
                 // * Maybe one `Boolean` for the default case
                 // * One `Boolean` for the negation of `not_dummy`
-                let selector_size = cases.len() + def.is_some() as usize + 1;
+                let selector_size = cases.len() + usize::from(def.is_some()) + 1;
                 let mut selector = Vec::with_capacity(selector_size);
                 let mut branch_slots = Vec::with_capacity(cases.len());
                 for (i, (f, block)) in cases.iter().enumerate() {

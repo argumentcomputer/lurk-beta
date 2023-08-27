@@ -72,9 +72,10 @@ impl<F: LurkField> Store<F> {
     /// Similar to `intern_2_ptrs` but doesn't add the resulting pointer to
     /// `dehydrated`. This function is used when converting a `ZStore` to a
     /// `Store`.
-    #[inline]
-    pub fn intern_2_ptrs_not_dehydrated(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>) -> Ptr<F> {
-        Ptr::Tuple2(tag, self.tuple2.insert_full((a, b)).0)
+    pub fn intern_2_ptrs_hydrated(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, z: ZPtr<F>) -> Ptr<F> {
+        let ptr = Ptr::Tuple2(tag, self.tuple2.insert_full((a, b)).0);
+        self.z_cache.insert(ptr, Box::new(z));
+        ptr
     }
 
     /// Creates a `Ptr` that's a parent of three children
@@ -91,15 +92,17 @@ impl<F: LurkField> Store<F> {
     /// Similar to `intern_3_ptrs` but doesn't add the resulting pointer to
     /// `dehydrated`. This function is used when converting a `ZStore` to a
     /// `Store`.
-    #[inline]
-    pub fn intern_3_ptrs_not_dehydrated(
+    pub fn intern_3_ptrs_hydrated(
         &mut self,
         tag: Tag,
         a: Ptr<F>,
         b: Ptr<F>,
         c: Ptr<F>,
+        z: ZPtr<F>,
     ) -> Ptr<F> {
-        Ptr::Tuple3(tag, self.tuple3.insert_full((a, b, c)).0)
+        let ptr = Ptr::Tuple3(tag, self.tuple3.insert_full((a, b, c)).0);
+        self.z_cache.insert(ptr, Box::new(z));
+        ptr
     }
 
     /// Creates a `Ptr` that's a parent of four children
@@ -123,16 +126,18 @@ impl<F: LurkField> Store<F> {
     /// Similar to `intern_4_ptrs` but doesn't add the resulting pointer to
     /// `dehydrated`. This function is used when converting a `ZStore` to a
     /// `Store`.
-    #[inline]
-    pub fn intern_4_ptrs_not_dehydrated(
+    pub fn intern_4_ptrs_hydrated(
         &mut self,
         tag: Tag,
         a: Ptr<F>,
         b: Ptr<F>,
         c: Ptr<F>,
         d: Ptr<F>,
+        z: ZPtr<F>,
     ) -> Ptr<F> {
-        Ptr::Tuple4(tag, self.tuple4.insert_full((a, b, c, d)).0)
+        let ptr = Ptr::Tuple4(tag, self.tuple4.insert_full((a, b, c, d)).0);
+        self.z_cache.insert(ptr, Box::new(z));
+        ptr
     }
 
     #[inline]
@@ -543,11 +548,6 @@ impl<F: LurkField> Store<F> {
             self.hash_ptr(ptr).expect("failed to hydrate pointer");
         });
         self.dehydrated = Vec::new();
-    }
-
-    #[inline]
-    pub fn add_to_z_cache(&mut self, ptr: Ptr<F>, z_ptr: ZPtr<F>) {
-        self.z_cache.insert(ptr, Box::new(z_ptr));
     }
 
     pub fn to_vector(&self, ptrs: &[Ptr<F>]) -> Result<Vec<F>> {
