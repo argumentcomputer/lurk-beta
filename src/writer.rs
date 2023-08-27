@@ -75,7 +75,8 @@ impl<F: LurkField> Write<F> for Expression<F> {
             }
             Key(car, cdr) => {
                 let head = store.fetch_string(car).expect("missing keyword head");
-                let tail = store.fetch_key(cdr).expect("missing keyword tail");
+                let mut tail = store.fetch_sym(cdr).expect("missing keyword tail");
+                tail.set_as_keyword();
                 write_symbol(w, tail.extend(&[head]), state)
             }
             EmptyStr => write!(w, "\"\""),
@@ -377,5 +378,13 @@ pub mod test {
         let num = store.num(5);
         let res = num.fmt_to_string(&store, initial_lurk_state());
         assert_eq!(&res, &"5");
+    }
+
+    #[test]
+    fn test_print_keyword() {
+        let mut store = Store::<Fr>::default();
+        let foo_key_ptr = store.intern_symbol(&Symbol::key_from_vec(vec!["foo".into()]));
+        let foo_key_str = foo_key_ptr.fmt_to_string(&store, initial_lurk_state());
+        assert_eq!(":foo", foo_key_str);
     }
 }
