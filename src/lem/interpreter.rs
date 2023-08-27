@@ -1,9 +1,7 @@
 use anyhow::{bail, Result};
 use std::collections::VecDeque;
 
-use super::{
-    path::Path, pointers::Ptr, store::Store, var_map::VarMap, Block, Ctrl, Func, Lit, Op, Tag,
-};
+use super::{path::Path, pointers::Ptr, store::Store, var_map::VarMap, Block, Ctrl, Func, Op, Tag};
 
 use crate::{field::LurkField, num::Num, state::initial_lurk_state, tag::ExprTag::*};
 
@@ -367,7 +365,7 @@ impl Block {
                 let tag = ptr.tag();
                 match cases.get(tag) {
                     Some(block) => {
-                        path.push_tag_inplace(tag);
+                        path.push_tag_inplace(*tag);
                         block.run(input, store, bindings, preimages, path, emitted)
                     }
                     None => {
@@ -379,27 +377,24 @@ impl Block {
                     }
                 }
             }
-            Ctrl::Match(match_var, cases, def) => {
+            Ctrl::MatchSymbol(match_var, cases, def) => {
                 let ptr = bindings.get(match_var)?;
-                let Some(lit) = Lit::from_ptr(ptr, store) else {
-                    // If we can't find it in the store, it most certaily is not equal to any
-                    // of the cases, which are all interned
-                    path.push_default_inplace();
-                    match def {
-                        Some(def) => return def.run(input, store, bindings, preimages, path, emitted),
-                        None => bail!("No match for literal"),
-                    }
+                if ptr.tag() != &Tag::Expr(Sym) {
+                    bail!("{match_var} is not a symbol");
+                }
+                let Some(sym) = store.fetch_symbol(ptr) else {
+                    bail!("Symbol bound to {match_var} wasn't interned");
                 };
-                match cases.get(&lit) {
+                match cases.get(&sym) {
                     Some(block) => {
-                        path.push_lit_inplace(&lit);
+                        path.push_symbol_inplace(sym);
                         block.run(input, store, bindings, preimages, path, emitted)
                     }
                     None => {
                         path.push_default_inplace();
                         match def {
                             Some(def) => def.run(input, store, bindings, preimages, path, emitted),
-                            None => bail!("No match for literal {:?}", lit),
+                            None => bail!("No match for symbol {sym}"),
                         }
                     }
                 }

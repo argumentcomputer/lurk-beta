@@ -39,8 +39,8 @@ use std::{
 
 use crate::circuit::gadgets::{
     constraints::{
-        add, alloc_equal, alloc_is_zero, allocate_is_negative, and, boolean_to_num, div,
-        enforce_pack, enforce_product_and_sum, implies_equal, mul, pick, sub,
+        add, alloc_equal, alloc_is_zero, allocate_is_negative, boolean_to_num, div, enforce_pack,
+        enforce_product_and_sum, implies_equal, mul, pick, sub,
     },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
@@ -996,20 +996,117 @@ impl Func {
                 }
             }
 
+            let mut synthesize_match = |matched: &AllocatedNum<F>,
+                                        cases: &[(F, &Block)],
+                                        def: &Option<Box<Block>>,
+                                        bound_allocations: &mut VarMap<AllocatedPtr<F>>,
+                                        g: &mut Globals<'_, F>|
+             -> Result<Vec<SlotsCounter>> {
+                let mut selector = Vec::with_capacity(cases.len() + 2);
+                let mut branch_slots = Vec::with_capacity(cases.len());
+                for (i, (f, block)) in cases.iter().enumerate() {
+                    // For each case, we compute `not_dummy_and_has_match: Boolean`
+                    // and accumulate them on a `selector` vector
+                    let not_dummy_and_has_match_bool =
+                        not_dummy.get_value().and_then(|not_dummy| {
+                            matched
+                                .get_value()
+                                .map(|matched_f| not_dummy && &matched_f == f)
+                        });
+                    let not_dummy_and_has_match = Boolean::Is(AllocatedBit::alloc(
+                        &mut cs.namespace(|| format!("{i}.allocated_bit")),
+                        not_dummy_and_has_match_bool,
+                    )?);
+
+                    // If `not_dummy_and_has_match` is true, then we enforce a match
+                    implies_equal_const(
+                        &mut cs.namespace(|| format!("{i}.implies_equal_const")),
+                        &not_dummy_and_has_match,
+                        matched,
+                        *f,
+                    )?;
+
+                    selector.push(not_dummy_and_has_match.clone());
+
+                    let mut branch_slot = *next_slot;
+                    recurse(
+                        &mut cs.namespace(|| format!("{i}")),
+                        block,
+                        &not_dummy_and_has_match,
+                        &mut branch_slot,
+                        bound_allocations,
+                        preallocated_outputs,
+                        g,
+                    )?;
+                    branch_slots.push(branch_slot);
+                }
+
+                if let Some(def) = def {
+                    // Compute `default: Boolean`, which tells whether the default case was chosen or not
+                    let default_bool = selector.iter().fold(not_dummy.get_value(), |acc, b| {
+                        // all the booleans in `selector` have be false up to this point
+                        acc.and_then(|acc| b.get_value().map(|b| acc && !b))
+                    });
+                    let default = Boolean::Is(AllocatedBit::alloc(
+                        &mut cs.namespace(|| "_.allocated_bit"),
+                        default_bool,
+                    )?);
+
+                    for (i, (f, _)) in cases.iter().enumerate() {
+                        // if the default path was taken, then there can be no tag in `cases`
+                        // that equals the tag of the pointer being matched on
+                        implies_unequal_const(
+                            &mut cs.namespace(|| format!("{i}.implies_unequal_const")),
+                            &default,
+                            matched,
+                            *f,
+                        )?;
+                    }
+
+                    // Pushing `default` to `selector` to enforce summation = 1
+                    selector.push(default.clone());
+
+                    recurse(
+                        &mut cs.namespace(|| "_"),
+                        def,
+                        &default,
+                        next_slot,
+                        bound_allocations,
+                        preallocated_outputs,
+                        g,
+                    )?;
+                }
+
+                // Now we need to enforce that at exactly one path was taken. We do that by enforcing
+                // that the sum of the previously collected `Boolean`s is one. But, of course, this
+                // irrelevant if we're on a virtual path and thus we use an implication gadget.
+
+                // If `not_dummy` is false, then all booleans in `selector` are false up to this point.
+                // Thus we need to add a negation of `not_dummy` to make it satisfiable. If it's true,
+                // it will count as a 0 and will not ifluence the sum.
+                selector.push(not_dummy.not());
+
+                enforce_selector_with_premise(
+                    &mut cs.namespace(|| "enforce_selector_with_premise"),
+                    not_dummy,
+                    &selector,
+                )?;
+
+                Ok(branch_slots)
+            };
+
             match &block.ctrl {
                 Ctrl::Return(return_vars) => {
                     for (i, return_var) in return_vars.iter().enumerate() {
                         let allocated_ptr = bound_allocations.get(return_var)?;
 
-                        allocated_ptr
-                            .implies_ptr_equal(
-                                &mut cs.namespace(|| {
-                                    format!("implies_ptr_equal {return_var} (return_var {i})")
-                                }),
-                                not_dummy,
-                                &preallocated_outputs[i],
-                            )
-                            .with_context(|| "couldn't constrain `implies_ptr_equal`")?;
+                        allocated_ptr.implies_ptr_equal(
+                            &mut cs.namespace(|| {
+                                format!("implies_ptr_equal {return_var} (return_var {i})")
+                            }),
+                            not_dummy,
+                            &preallocated_outputs[i],
+                        )?;
                     }
                     Ok(())
                 }
@@ -1054,8 +1151,7 @@ impl Func {
                         &mut cs.namespace(|| "if_enforce_selector_with_premise"),
                         not_dummy,
                         &selector,
-                    )
-                    .with_context(|| " couldn't constrain `enforce_selector_with_premise`")?;
+                    )?;
 
                     let mut branch_slot = *next_slot;
                     recurse(
@@ -1080,208 +1176,55 @@ impl Func {
                     Ok(())
                 }
                 Ctrl::MatchTag(match_var, cases, def) => {
-                    let match_tag = bound_allocations.get(match_var)?.tag().clone();
-                    let mut selector = Vec::with_capacity(cases.len() + 2);
-                    let mut branch_slots = Vec::with_capacity(cases.len());
-                    for (tag, block) in cases {
-                        let has_match_bool = not_dummy.get_value().and_then(|not_dummy| {
-                            match_tag
-                                .get_value()
-                                .map(|val| not_dummy && val == tag.to_field::<F>())
-                        });
-
-                        let has_match = Boolean::Is(AllocatedBit::alloc(
-                            &mut cs.namespace(|| format!("{tag}.allocated_bit")),
-                            has_match_bool,
-                        )?);
-                        implies_equal_const(
-                            &mut cs.namespace(|| format!("implies equal for {match_var}'s {tag}")),
-                            &has_match,
-                            &match_tag,
-                            tag.to_field(),
-                        )?;
-
-                        selector.push(has_match.clone());
-
-                        let mut branch_slot = *next_slot;
-                        recurse(
-                            &mut cs.namespace(|| format!("{}", tag)),
-                            block,
-                            &has_match,
-                            &mut branch_slot,
-                            bound_allocations,
-                            preallocated_outputs,
-                            g,
-                        )?;
-                        branch_slots.push(branch_slot);
-                    }
-
-                    if let Some(def) = def {
-                        let default = selector.iter().fold(not_dummy.get_value(), |acc, b| {
-                            acc.and_then(|acc| b.get_value().map(|b| acc && !b))
-                        });
-                        let has_match = Boolean::Is(AllocatedBit::alloc(
-                            &mut cs.namespace(|| "_.allocated_bit"),
-                            default,
-                        )?);
-                        for (tag, _) in cases {
-                            implies_unequal_const(
-                                &mut cs.namespace(|| format!("{tag} implies_unequal")),
-                                &has_match,
-                                &match_tag,
-                                tag.to_field(),
-                            )?;
-                        }
-
-                        selector.push(has_match.clone());
-
-                        recurse(
-                            &mut cs.namespace(|| "_"),
-                            def,
-                            &has_match,
-                            next_slot,
-                            bound_allocations,
-                            preallocated_outputs,
-                            g,
-                        )?;
-                    }
+                    let matched = bound_allocations.get(match_var)?.tag().clone();
+                    let cases = cases
+                        .iter()
+                        .map(|(tag, block)| (tag.to_field::<F>(), block))
+                        .collect::<Vec<_>>();
+                    let branch_slots =
+                        synthesize_match(&matched, &cases, def, bound_allocations, g)?;
 
                     // The number of slots the match used is the max number of slots of each branch
-                    *next_slot = branch_slots
-                        .into_iter()
-                        .fold(*next_slot, |acc, branch_slot| acc.max(branch_slot));
-
-                    // Now we need to enforce that at exactly one path was taken. We do that by enforcing
-                    // that the sum of the previously collected `Boolean`s is one. But, of course, this
-                    // irrelevant if we're on a virtual path and thus we use an implication gadget.
-                    let dummy = not_dummy.not();
-                    selector.push(dummy);
-                    enforce_selector_with_premise(
-                        &mut cs.namespace(|| "enforce_selector_with_premise"),
-                        not_dummy,
-                        &selector,
-                    )
-                    .with_context(|| " couldn't constrain `enforce_selector_with_premise`")
+                    *next_slot = next_slot.fold_max(branch_slots);
+                    Ok(())
                 }
-                Ctrl::Match(match_var, cases, def) => {
-                    let match_lit = bound_allocations.get(match_var)?.clone();
-                    let mut selector = Vec::with_capacity(cases.len() + 2);
-                    let mut branch_slots = Vec::with_capacity(cases.len());
-                    for (i, (lit, block)) in cases.iter().enumerate() {
-                        let lit_ptr = lit.to_ptr_cached(g.store);
-                        let lit_z_ptr = g.store.hash_ptr(&lit_ptr)?;
-                        let lit_tag = lit_z_ptr.tag.to_field();
-                        let lit_hash = lit_z_ptr.hash;
+                Ctrl::MatchSymbol(match_var, cases, def) => {
+                    let match_var_ptr = bound_allocations.get(match_var)?.clone();
 
-                        let has_match_bool = not_dummy.get_value().and_then(|not_dummy| {
-                            match_lit
-                                .get_value()
-                                .map(|(tag, hash)| not_dummy && tag == lit_tag && hash == lit_hash)
-                        });
-                        let has_match = Boolean::Is(AllocatedBit::alloc(
-                            &mut cs.namespace(|| format!("{i}.allocated_bit")),
-                            has_match_bool,
-                        )?);
-                        implies_equal_const(
-                            &mut cs
-                                .namespace(|| format!("implies equal for {match_var} tag ({i})")),
-                            &has_match,
-                            match_lit.tag(),
-                            lit_tag,
-                        )?;
-                        implies_equal_const(
-                            &mut cs
-                                .namespace(|| format!("implies equal for {match_var} hash ({i})")),
-                            &has_match,
-                            match_lit.hash(),
-                            lit_hash,
-                        )?;
-
-                        selector.push(has_match.clone());
-
-                        let mut branch_slot = *next_slot;
-                        recurse(
-                            &mut cs.namespace(|| format!("{i}.case")),
-                            block,
-                            &has_match,
-                            &mut branch_slot,
-                            bound_allocations,
-                            preallocated_outputs,
-                            g,
-                        )?;
-                        branch_slots.push(branch_slot);
+                    let mut cases_vec = Vec::with_capacity(cases.len());
+                    for (sym, block) in cases {
+                        let sym_ptr = g
+                            .store
+                            .interned_symbol(sym)
+                            .expect("symbol must have been interned");
+                        let sym_hash = g.store.hash_ptr(sym_ptr)?.hash;
+                        cases_vec.push((sym_hash, block));
                     }
 
-                    if let Some(def) = def {
-                        let default = selector.iter().fold(not_dummy.get_value(), |acc, b| {
-                            acc.and_then(|acc| b.get_value().map(|b| acc && !b))
-                        });
-                        let has_match = Boolean::Is(AllocatedBit::alloc(
-                            &mut cs.namespace(|| "_.allocated_bit"),
-                            default,
-                        )?);
-                        for (i, (lit, _)) in cases.iter().enumerate() {
-                            let lit_ptr = lit.to_ptr_cached(g.store);
-                            let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
-                            let lit_tag = g.store.hash_ptr(&lit_ptr)?.tag.to_field::<F>();
-                            // TODO optimize and make it more understandable
-                            let choose_unequal = Boolean::Is(AllocatedBit::alloc(
-                                &mut cs.namespace(|| format!("{i}.select_unequal")),
-                                match_lit.tag().get_value().map(|tag| tag != lit_tag),
-                            )?);
-                            let choose_unequal_def = and(
-                                &mut cs.namespace(|| format!("{i} implies_unequal and")),
-                                &choose_unequal,
-                                &has_match,
-                            )?;
-                            let choose_unequal_def_not = and(
-                                &mut cs.namespace(|| format!("{i} implies_unequal and not")),
-                                &choose_unequal.not(),
-                                &has_match,
-                            )?;
-                            implies_unequal_const(
-                                &mut cs.namespace(|| format!("{i} implies_unequal tag")),
-                                &choose_unequal_def,
-                                match_lit.tag(),
-                                lit_tag,
-                            )?;
-                            implies_unequal_const(
-                                &mut cs.namespace(|| format!("{i} implies_unequal hash")),
-                                &choose_unequal_def_not,
-                                match_lit.hash(),
-                                lit_hash,
-                            )?;
-                        }
+                    let branch_slots = synthesize_match(
+                        match_var_ptr.hash(),
+                        &cases_vec,
+                        def,
+                        bound_allocations,
+                        g,
+                    )?;
 
-                        selector.push(has_match.clone());
+                    // Now we enforce `match_var`'s tag
 
-                        recurse(
-                            &mut cs.namespace(|| "_"),
-                            def,
-                            &has_match,
-                            next_slot,
-                            bound_allocations,
-                            preallocated_outputs,
-                            g,
-                        )?;
-                    }
+                    let sym_tag = g
+                        .global_allocator
+                        .get_or_alloc_const(cs, Tag::Expr(Sym).to_field())?;
+
+                    implies_equal(
+                        &mut cs.namespace(|| format!("implies equal for {match_var}'s tag (Sym)")),
+                        not_dummy,
+                        match_var_ptr.tag(),
+                        &sym_tag,
+                    )?;
 
                     // The number of slots the match used is the max number of slots of each branch
-                    *next_slot = branch_slots
-                        .into_iter()
-                        .fold(*next_slot, |acc, branch_slot| acc.max(branch_slot));
-
-                    // Now we need to enforce that at exactly one path was taken. We do that by enforcing
-                    // that the sum of the previously collected `Boolean`s is one. But, of course, this
-                    // irrelevant if we're on a virtual path and thus we use an implication gadget.
-                    let dummy = not_dummy.not();
-                    selector.push(dummy);
-                    enforce_selector_with_premise(
-                        &mut cs.namespace(|| "enforce_selector_with_premise"),
-                        not_dummy,
-                        &selector,
-                    )
-                    .with_context(|| " couldn't constrain `enforce_selector_with_premise`")
+                    *next_slot = next_slot.fold_max(branch_slots);
+                    Ok(())
                 }
             }
         }
@@ -1430,32 +1373,31 @@ impl Func {
                     for block in cases.values() {
                         num_constraints += recurse(block, globals, store);
                     }
-                    match def {
-                        Some(def) => {
-                            // constraints for the boolean, the unequalities and the default case
-                            num_constraints += 1 + cases.len();
-                            num_constraints += recurse(def, globals, store);
-                        }
-                        None => (),
-                    };
+                    if let Some(def) = def {
+                        // constraints for the boolean, the unequalities and the default case
+                        num_constraints += 1 + cases.len();
+                        num_constraints += recurse(def, globals, store);
+                    }
                     num_constraints
                 }
-                Ctrl::Match(_, cases, def) => {
-                    // We allocate one boolean per case and constrain it twice
+                Ctrl::MatchSymbol(_, cases, def) => {
+                    // First we enforce that the tag of the pointer being matched on
+                    // is Sym
+                    num_constraints += 1;
+                    globals.insert(FWrap(Tag::Expr(Sym).to_field()));
+                    // We allocate one boolean per case and constrain it once
                     // per case. Then we add 1 constraint to enforce only one
                     // case was selected
-                    num_constraints += 3 * cases.len() + 1;
+                    num_constraints += 2 * cases.len() + 1;
+
                     for block in cases.values() {
                         num_constraints += recurse(block, globals, store);
                     }
-                    match def {
-                        Some(def) => {
-                            // constraints for the boolean, the unequalities and the default case
-                            num_constraints += 1 + 5 * cases.len();
-                            num_constraints += recurse(def, globals, store);
-                        }
-                        None => (),
-                    };
+                    if let Some(def) = def {
+                        // constraints for the boolean, the unequalities and the default case
+                        num_constraints += 1 + cases.len();
+                        num_constraints += recurse(def, globals, store);
+                    }
                     num_constraints
                 }
             }
