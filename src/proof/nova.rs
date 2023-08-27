@@ -1,6 +1,4 @@
 #![allow(non_snake_case)]
-
-use std::marker::PhantomData;
 use std::sync::Mutex;
 
 use abomonation::Abomonation;
@@ -221,7 +219,6 @@ pub struct NovaProver<F: CurveCycleEquipped, C: Coprocessor<F>> {
     // `reduction_count` specifies the number of small-step reductions are performed in each recursive step.
     reduction_count: usize,
     lang: Lang<F, C>,
-    _p: PhantomData<(F, C)>,
 }
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> PublicParameters for PublicParams<'a, F, C>
@@ -241,7 +238,6 @@ where
         NovaProver::<F, C> {
             reduction_count,
             lang,
-            _p: Default::default(),
         }
     }
     fn reduction_count(&self) -> usize {
