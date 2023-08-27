@@ -48,26 +48,26 @@ use num_traits::FromPrimitive;
 use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug)]
-pub struct CircuitFrame<'a, F: LurkField, T, W, C: Coprocessor<F>> {
+pub struct CircuitFrame<'a, F: LurkField, C: Coprocessor<F>> {
     pub store: Option<&'a Store<F>>,
-    pub input: Option<T>,
-    pub output: Option<T>,
-    pub witness: Option<W>,
+    pub input: Option<IO<F>>,
+    pub output: Option<IO<F>>,
+    pub witness: Option<Witness<F>>,
     _p: PhantomData<C>,
 }
 
 #[derive(Clone)]
-pub struct MultiFrame<'a, F: LurkField, T: Copy + Sync, W: Sync, C: Coprocessor<F>> {
+pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     pub store: Option<&'a Store<F>>,
     pub lang: Option<Arc<Lang<F, C>>>,
-    pub input: Option<T>,
-    pub output: Option<T>,
-    pub frames: Option<Vec<CircuitFrame<'a, F, T, W, C>>>,
+    pub input: Option<IO<F>>,
+    pub output: Option<IO<F>>,
+    pub frames: Option<Vec<CircuitFrame<'a, F, C>>>,
     pub cached_witness: Option<WitnessCS<F>>,
     pub count: usize,
 }
 
-impl<'a, F: LurkField, T: Clone + Copy, W: Copy, C: Coprocessor<F>> CircuitFrame<'a, F, T, W, C> {
+impl<'a, F: LurkField, C: Coprocessor<F>> CircuitFrame<'a, F, C> {
     pub fn blank() -> Self {
         Self {
             store: None,
@@ -78,7 +78,7 @@ impl<'a, F: LurkField, T: Clone + Copy, W: Copy, C: Coprocessor<F>> CircuitFrame
         }
     }
 
-    pub fn from_frame(frame: &Frame<T, W, C>, store: &'a Store<F>) -> Self {
+    pub fn from_frame(frame: &Frame<IO<F>, Witness<F>, C>, store: &'a Store<F>) -> Self {
         CircuitFrame {
             store: Some(store),
             input: Some(frame.input),
@@ -89,7 +89,7 @@ impl<'a, F: LurkField, T: Clone + Copy, W: Copy, C: Coprocessor<F>> CircuitFrame
     }
 }
 
-impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, IO<F>, Witness<F>, C> {
+impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     pub fn blank(count: usize, lang: Arc<Lang<F, C>>) -> Self {
         Self {
             store: None,
@@ -158,7 +158,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, IO<F>, Witness<F>, C
     /// Make a dummy `MultiFrame`, duplicating `self`'s final `CircuitFrame`.
     pub(crate) fn make_dummy(
         count: usize,
-        circuit_frame: Option<CircuitFrame<'a, F, IO<F>, Witness<F>, C>>,
+        circuit_frame: Option<CircuitFrame<'a, F, C>>,
         store: &'a Store<F>,
         lang: Arc<Lang<F, C>>,
     ) -> Self {
@@ -189,7 +189,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, IO<F>, Witness<F>, C
         input_expr: AllocatedPtr<F>,
         input_env: AllocatedPtr<F>,
         input_cont: AllocatedContPtr<F>,
-        frames: &[CircuitFrame<'_, F, IO<F>, Witness<F>, C>],
+        frames: &[CircuitFrame<'_, F, C>],
         g: &GlobalAllocations<F>,
     ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
         if cs.is_witness_generator() && CONFIG.parallelism.synthesis.is_parallel() {
@@ -208,7 +208,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, IO<F>, Witness<F>, C
         input_expr: AllocatedPtr<F>,
         input_env: AllocatedPtr<F>,
         input_cont: AllocatedContPtr<F>,
-        frames: &[CircuitFrame<'_, F, IO<F>, Witness<F>, C>],
+        frames: &[CircuitFrame<'_, F, C>],
         cons_and_cont_witnesses: Option<Vec<(ConsCircuitWitness<F>, ContCircuitWitness<F>)>>,
         g: &GlobalAllocations<F>,
     ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
@@ -287,7 +287,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, IO<F>, Witness<F>, C
         input_expr: AllocatedPtr<F>,
         input_env: AllocatedPtr<F>,
         input_cont: AllocatedContPtr<F>,
-        frames: &[CircuitFrame<'_, F, IO<F>, Witness<F>, C>],
+        frames: &[CircuitFrame<'_, F, C>],
         g: &GlobalAllocations<F>,
     ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
         assert!(cs.is_witness_generator());
@@ -394,15 +394,13 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, IO<F>, Witness<F>, C
     }
 }
 
-impl<F: LurkField, T: PartialEq + Debug, W, C: Coprocessor<F>> CircuitFrame<'_, F, T, W, C> {
+impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, C> {
     pub fn precedes(&self, maybe_next: &Self) -> bool {
         self.output == maybe_next.input
     }
 }
 
-impl<F: LurkField, T: PartialEq + Debug + Copy + Sync, W: Sync, C: Coprocessor<F>>
-    MultiFrame<'_, F, T, W, C>
-{
+impl<F: LurkField, C: Coprocessor<F>> MultiFrame<'_, F, C> {
     pub fn precedes(&self, maybe_next: &Self) -> bool {
         self.output == maybe_next.input
     }
@@ -411,7 +409,7 @@ impl<F: LurkField, T: PartialEq + Debug + Copy + Sync, W: Sync, C: Coprocessor<F
 impl<
         F: LurkField, // W: Copy + Sync,
         C: Coprocessor<F>,
-    > Provable<F> for MultiFrame<'_, F, IO<F>, Witness<F>, C>
+    > Provable<F> for MultiFrame<'_, F, C>
 {
     fn public_inputs(&self) -> Vec<F> {
         let mut inputs: Vec<_> = Vec::with_capacity(Self::public_input_size());
@@ -442,7 +440,7 @@ impl<
 
 type AllocatedIO<F> = (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>);
 
-impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, IO<F>, Witness<F>, C> {
+impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, C> {
     pub(crate) fn synthesize<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -512,14 +510,14 @@ impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, IO<F>, Witness<F>, C> 
     }
 }
 
-impl<F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'_, F, IO<F>, Witness<F>, C> {
+impl<F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'_, F, C> {
     fn synthesize<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
         ////////////////////////////////////////////////////////////////////////////////
         // Bind public inputs.
         //
         // Initial input:
         let mut synth = |store,
-                         frames: &[CircuitFrame<'_, F, IO<F>, Witness<F>, C>],
+                         frames: &[CircuitFrame<'_, F, C>],
                          input: Option<IO<F>>,
                          output: Option<IO<F>>| {
             let input_expr = AllocatedPtr::bind_input(
@@ -5448,7 +5446,7 @@ mod tests {
             let mut cs = TestConstraintSystem::new();
 
             let mut cs_blank = MetricCS::<Fr>::new();
-            let blank_multiframe = MultiFrame::<<Bls12 as Engine>::Fr, _, _, Coproc<Fr>>::blank(
+            let blank_multiframe = MultiFrame::<<Bls12 as Engine>::Fr, Coproc<Fr>>::blank(
                 DEFAULT_REDUCTION_COUNT,
                 lang.clone(),
             );
@@ -5580,7 +5578,7 @@ mod tests {
                 _p: Default::default(),
             };
 
-            MultiFrame::<<Bls12 as Engine>::Fr, _, _, Coproc<Fr>>::from_frames(
+            MultiFrame::<<Bls12 as Engine>::Fr, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
@@ -5660,7 +5658,7 @@ mod tests {
                 _p: Default::default(),
             };
 
-            MultiFrame::<<Bls12 as Engine>::Fr, _, _, Coproc<Fr>>::from_frames(
+            MultiFrame::<<Bls12 as Engine>::Fr, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
@@ -5742,7 +5740,7 @@ mod tests {
                 _p: Default::default(),
             };
 
-            MultiFrame::<<Bls12 as Engine>::Fr, _, _, Coproc<Fr>>::from_frames(
+            MultiFrame::<<Bls12 as Engine>::Fr, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
@@ -5824,7 +5822,7 @@ mod tests {
                 _p: Default::default(),
             };
 
-            MultiFrame::<<Bls12 as Engine>::Fr, _, _, Coproc<Fr>>::from_frames(
+            MultiFrame::<<Bls12 as Engine>::Fr, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
