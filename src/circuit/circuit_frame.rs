@@ -89,15 +89,7 @@ impl<'a, F: LurkField, T: Clone + Copy, W: Copy, C: Coprocessor<F>> CircuitFrame
     }
 }
 
-impl<
-        'a,
-        F: LurkField,
-        // T: Clone + Copy + std::cmp::PartialEq + Sync,
-        //W: Copy + Sync,
-        C: Coprocessor<F>,
-        //    > MultiFrame<'a, F, T, W, C>
-    > MultiFrame<'a, F, IO<F>, Witness<F>, C>
-{
+impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, IO<F>, Witness<F>, C> {
     pub fn blank(count: usize, lang: Arc<Lang<F, C>>) -> Self {
         Self {
             store: None,
