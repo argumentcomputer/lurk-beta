@@ -1043,14 +1043,14 @@ impl Func {
 
                 if let Some(def) = def {
                     // Compute `default: Boolean`, which tells whether the default case was chosen or not
-                    let default_bool = selector.iter().fold(not_dummy.get_value(), |acc, b| {
+                    let is_default_bool = selector.iter().fold(not_dummy.get_value(), |acc, b| {
                         // all the booleans in `selector` have to be false up to this point
                         // in order for the default case to be selected
                         acc.and_then(|acc| b.get_value().map(|b| acc && !b))
                     });
-                    let default = Boolean::Is(AllocatedBit::alloc(
+                    let is_default = Boolean::Is(AllocatedBit::alloc(
                         &mut cs.namespace(|| "_.allocated_bit"),
-                        default_bool,
+                        is_default_bool,
                     )?);
 
                     for (i, (f, _)) in cases.iter().enumerate() {
@@ -1058,29 +1058,29 @@ impl Func {
                         // that equals the tag of the pointer being matched on
                         implies_unequal_const(
                             &mut cs.namespace(|| format!("{i}.implies_unequal_const")),
-                            &default,
+                            &is_default,
                             matched,
                             *f,
                         )?;
                     }
 
-                    // Pushing `default` to `selector` to enforce summation = 1
-                    selector.push(default.clone());
-
                     recurse(
                         &mut cs.namespace(|| "_"),
                         def,
-                        &default,
+                        &is_default,
                         next_slot,
                         bound_allocations,
                         preallocated_outputs,
                         g,
                     )?;
+
+                    // Pushing `is_default` to `selector` to enforce summation = 1
+                    selector.push(is_default);
                 }
 
                 // Now we need to enforce that exactly one path was taken. We do that by enforcing
                 // that the sum of the previously collected `Boolean`s is one. But, of course, this
-                // irrelevant if we're on a virtual path and thus we use an implication gadget.
+                // is irrelevant if we're on a virtual path and thus we use an implication gadget.
 
                 // If `not_dummy` is false, then all booleans in `selector` are false up to this point.
                 // Thus we need to add a negation of `not_dummy` to make it satisfiable. If it's true,
