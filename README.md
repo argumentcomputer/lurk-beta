@@ -1,10 +1,10 @@
 # Lurk
 
 [![CircleCI](https://circleci.com/gh/lurk-lab/lurk-rs.svg?style=shield)](https://circleci.com/gh/lurk-lab/lurk-rs)
-![minimum rustc 1.60][msrv-image]
+![minimum rustc 1.70][msrv-image]
 ![crates.io][crates-image]
 
-[msrv-image]: https://img.shields.io/badge/rustc-1.60+-blue.svg
+[msrv-image]: https://img.shields.io/badge/rustc-1.70+-blue.svg
 [crates-image]: https://img.shields.io/crates/v/lurk.svg
 
 # Status (Alpha)
