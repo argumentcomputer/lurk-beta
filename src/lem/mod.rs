@@ -60,6 +60,7 @@
 //!    be prefixed by "_"
 
 pub mod circuit;
+pub mod compiler;
 pub mod eval;
 pub mod gadgets;
 pub mod interpreter;
@@ -764,6 +765,13 @@ impl Var {
     fn make_unique(&self, uniq: &mut usize) -> Var {
         *uniq += 1;
         Var(format!("{}#{}", self.name(), uniq).into())
+    }
+
+    pub(crate) fn get_original(&self) -> String {
+        match self.0.split_once('#') {
+            None => self.0.to_string(),
+            Some((a, _)) => a.to_string(),
+        }
     }
 }
 
