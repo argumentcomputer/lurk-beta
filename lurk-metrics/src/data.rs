@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 
 use metrics::Key;
+use tracing::info;
 
 pub const METRICS_TARGET_NAME: &str = "lurk::metrics";
 
