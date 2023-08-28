@@ -9,7 +9,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tracing::info;
-use tracing_subscriber::{prelude::*, Registry, fmt, EnvFilter};
+use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
 use tracing_texray::TeXRayLayer;
 
 use hex::FromHex;

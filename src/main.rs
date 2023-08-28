@@ -1,5 +1,5 @@
 use anyhow::Result;
-use tracing_subscriber::{prelude::*, Registry, fmt, EnvFilter};
+use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
 use tracing_texray::TeXRayLayer;
 
 fn main() -> Result<()> {

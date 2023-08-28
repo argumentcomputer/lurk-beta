@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::process::Command;
 use tempfile::Builder;
-use tracing_subscriber::{prelude::*, Registry, EnvFilter, fmt};
+use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
 use tracing_texray::TeXRayLayer;
 
 fn lurk_cmd() -> Command {
