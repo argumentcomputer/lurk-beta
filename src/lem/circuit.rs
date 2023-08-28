@@ -32,10 +32,7 @@ use bellpepper_core::{
         num::AllocatedNum,
     },
 };
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    iter::repeat,
-};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::circuit::gadgets::{
     constraints::{
@@ -69,11 +66,11 @@ pub struct MultiFrame<'a, F: LurkField> {
     pub output: Option<Vec<Ptr<F>>>,
     pub frames: Option<Vec<Frame<F>>>,
     pub cached_witness: Option<WitnessCS<F>>,
-    pub count: usize,
+    pub reduction_count: usize,
 }
 
 impl<'a, F: LurkField> MultiFrame<'a, F> {
-    pub fn blank(func: &'a Func, count: usize) -> Self {
+    pub fn blank(func: &'a Func, reduction_count: usize) -> Self {
         Self {
             func,
             store: None,
@@ -81,27 +78,26 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
             output: None,
             frames: None,
             cached_witness: None,
-            count,
+            reduction_count,
         }
     }
 
     pub fn from_frames(
         func: &'a Func,
-        count: usize,
+        reduction_count: usize,
         frames: &[Frame<F>],
         store: &'a Store<F>,
     ) -> Vec<Self> {
-        // `count` is the number of `Frames` to include per `MultiFrame`.
         let total_frames = frames.len();
-        let n = total_frames / count + usize::from(total_frames % count != 0);
+        let n = (total_frames + reduction_count - 1) / reduction_count;
         let mut multi_frames = Vec::with_capacity(n);
 
-        for chunk in frames.chunks(count) {
+        for chunk in frames.chunks(reduction_count) {
             let last_frame = chunk.last().expect("chunk must not be empty");
-            let inner_frames = if chunk.len() < count {
-                let mut inner_frames = Vec::with_capacity(count);
+            let inner_frames = if chunk.len() < reduction_count {
+                let mut inner_frames = Vec::with_capacity(reduction_count);
                 inner_frames.extend(chunk.to_vec());
-                inner_frames.extend(repeat(last_frame.clone()).take(count - chunk.len()));
+                inner_frames.resize(reduction_count, last_frame.clone());
                 inner_frames
             } else {
                 chunk.to_vec()
@@ -118,7 +114,7 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
                 output: Some(output),
                 frames: Some(inner_frames),
                 cached_witness: None,
-                count,
+                reduction_count,
             };
 
             multi_frames.push(mf);
