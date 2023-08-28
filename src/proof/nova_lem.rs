@@ -19,17 +19,17 @@ use nova::{
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    circuit::gadgets::pointer::AllocatedPtr,
-    config::CONFIG,
-    error::ProofError,
-    eval::lang::DummyCoprocessor,
-    field::LurkField,
-    lem::{circuit::MultiFrame, interpreter::Frame, store::Store, Func},
-    proof::{Lang, Prover, PublicParameters},
-};
+use crate::circuit::gadgets::pointer::AllocatedPtr;
+use crate::config::CONFIG;
 
-use super::curve_cycle::*;
+use crate::error::ProofError;
+use crate::eval::{lang::DummyCoprocessor, lang::Lang};
+use crate::field::LurkField;
+use crate::proof::{Prover, PublicParameters};
+
+use crate::lem::{circuit::MultiFrame, interpreter::Frame, store::Store, Func};
+
+use super::nova::{CurveCycleEquipped, G1, G2, SS1, SS2, C2};
 
 /// Type alias for a MultiFrame with S1 field elements.
 /// This uses the <<F as CurveCycleEquipped>::G1 as Group>::Scalar type for the G1 scalar field elements
@@ -439,25 +439,25 @@ where
 
 #[cfg(test)]
 pub mod tests {
-    use std::{cell::RefCell, rc::Rc};
+    use std::cell::RefCell;
+    use std::rc::Rc;
 
-    use crate::{
-        lem::{
-            eval::{eval_step, evaluate},
-            pointers::Ptr,
-            Tag,
-        },
-        num::Num,
-        state::{user_sym, State},
-        tag::{ContTag::*, ExprTag, Op, Op1, Op2},
-    };
+    use crate::lem::eval::{eval_step, evaluate};
+    use crate::num::Num;
+    use crate::state::{user_sym, State};
 
     use super::*;
+    use crate::lem::pointers::Ptr;
+
+    use crate::lem::Tag;
+    use crate::tag::{ContTag::*, ExprTag};
+    use crate::tag::{Op, Op1, Op2};
 
     use once_cell::sync::OnceCell;
 
     use bellpepper::util_cs::Comparable;
-    use bellpepper_core::{test_cs::TestConstraintSystem, Delta};
+    use bellpepper_core::test_cs::TestConstraintSystem;
+    use bellpepper_core::Delta;
     use pasta_curves::pallas::Scalar as Fr;
 
     const DEFAULT_REDUCTION_COUNT: usize = 5;

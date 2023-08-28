@@ -15,7 +15,6 @@ use hex::FromHex;
 use lurk::field::FWrap;
 use lurk::{
     circuit::ToInputs,
-    error::ReductionError,
     eval::{
         empty_sym_env,
         lang::{Coproc, Lang},
@@ -24,11 +23,8 @@ use lurk::{
     field::LurkField,
     hash::PoseidonCache,
     lurk_sym_ptr,
+    proof::nova::{self, NovaProver, PublicParams, G1, G2},
     proof::Prover,
-    proof::{
-        curve_cycle::{CurveCycleEquipped, G1, G2},
-        nova::{self, NovaProver, PublicParams},
-    },
     ptr::{ContPtr, Ptr},
     state::initial_lurk_state,
     store::Store,
@@ -46,6 +42,7 @@ use lurk_macros::serde_test;
 use lurk::z_data;
 
 use camino::Utf8PathBuf;
+use lurk::{error::ReductionError, proof::nova::CurveCycleEquipped};
 use once_cell::sync::OnceCell;
 use pasta_curves::pallas;
 use rand::rngs::OsRng;

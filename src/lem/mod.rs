@@ -61,7 +61,6 @@
 
 pub mod circuit;
 pub mod eval;
-pub mod gadgets;
 pub mod interpreter;
 mod macros;
 mod path;
