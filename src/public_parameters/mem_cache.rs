@@ -5,10 +5,10 @@ use std::{
 
 use abomonation::{decode, Abomonation};
 use camino::Utf8Path;
-use tracing::info;
 use nova::traits::Group;
 use once_cell::sync::Lazy;
 use tap::TapFallible;
+use tracing::info;
 
 use crate::{
     coprocessor::Coprocessor,

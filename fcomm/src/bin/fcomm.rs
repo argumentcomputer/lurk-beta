@@ -1,5 +1,4 @@
 use abomonation::Abomonation;
-use tracing::info;
 use lurk::lurk_sym_ptr;
 use lurk::proof::nova::{CurveCycleEquipped, G1, G2};
 use nova::traits::Group;
@@ -9,6 +8,7 @@ use std::fs::read_to_string;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use tracing::info;
 
 use hex::FromHex;
 use serde::de::DeserializeOwned;

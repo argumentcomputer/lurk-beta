@@ -202,14 +202,7 @@ fn main() {
         let (proof, z0, zi, num_steps) = tracing_texray::examine(tracing::info_span!("prog_start"))
             .in_scope(|| {
                 nova_prover
-                    .evaluate_and_prove(
-                        pp,
-                        cproc_call,
-                        empty_sym_env(store),
-                        store,
-                        10000,
-                        lang_rc,
-                    )
+                    .evaluate_and_prove(pp, cproc_call, empty_sym_env(store), store, 10000, lang_rc)
                     .unwrap()
             });
         let proof_end = proof_start.elapsed();
