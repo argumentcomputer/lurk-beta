@@ -14,6 +14,5 @@ hdrhistogram = { version = "7.5.2", default-features = false }
 tracing = { workspace = true }
 
 [dev-dependencies]
-expect-test = "1"
-log = "0.4.19"
-testing_logger = "0.1.1"
+regex = { version = "1.9.4", features = ["unicode-case"] }
+tracing-test = { version = "0.2", features = ["no-env-filter"] }

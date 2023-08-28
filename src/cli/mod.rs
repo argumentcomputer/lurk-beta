@@ -529,7 +529,7 @@ impl Cli {
                 }
 
                 let config = get_config(&circom_args.config)?;
-                log::info!("Configured variables: {:?}", config);
+                tracing::info!("Configured variables: {:?}", config);
                 set_lurk_dirs(&config, &None, &None, &None, &circom_args.circom_dir);
 
                 create_circom_gadget(circom_args.circom_folder, circom_args.name)?;
