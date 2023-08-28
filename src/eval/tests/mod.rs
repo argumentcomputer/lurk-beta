@@ -1597,7 +1597,7 @@ fn commitment_value() {
 fn commit_nil() {
     let s = &mut Store::<Fr>::default();
     let x = s
-        .read("0x1f7f3e554ed27c104d79bb69346996d61a735d5bbedc2da7da2935036d9c4fad")
+        .read("0x239b15d97a9a69b3db1c9130601ec2a1f8ac2ed6033633e4fb5232d85c622250")
         .unwrap();
 
     let expr = "(num (commit nil))";

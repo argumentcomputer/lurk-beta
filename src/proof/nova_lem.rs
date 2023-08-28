@@ -1,6 +1,5 @@
 #![allow(non_snake_case)]
 
-use std::marker::PhantomData;
 use std::sync::Mutex;
 
 use abomonation::Abomonation;
@@ -29,7 +28,7 @@ use crate::proof::{Prover, PublicParameters};
 
 use crate::lem::{circuit::MultiFrame, interpreter::Frame, store::Store, Func};
 
-use super::nova::{CurveCycleEquipped, G1, G2, SS1, SS2, C2};
+use super::nova::{CurveCycleEquipped, C2, G1, G2, SS1, SS2};
 
 /// Type alias for a MultiFrame with S1 field elements.
 /// This uses the <<F as CurveCycleEquipped>::G1 as Group>::Scalar type for the G1 scalar field elements
@@ -133,7 +132,6 @@ pub struct NovaProver<F: CurveCycleEquipped> {
     // `reduction_count` specifies the number of small-step reductions are performed in each recursive step.
     reduction_count: usize,
     lang: Lang<F, DummyCoprocessor<F>>,
-    _p: PhantomData<F>,
 }
 
 impl<'a, F: CurveCycleEquipped> PublicParameters for PublicParams<'a, F>
@@ -153,7 +151,6 @@ where
         NovaProver::<F> {
             reduction_count,
             lang,
-            _p: Default::default(),
         }
     }
     fn reduction_count(&self) -> usize {
