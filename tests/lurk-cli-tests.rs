@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::process::Command;
 use tempfile::Builder;
-use tracing_subscriber::{prelude::*, Registry};
+use tracing_subscriber::{prelude::*, Registry, EnvFilter, fmt};
 use tracing_texray::TeXRayLayer;
 
 fn lurk_cmd() -> Command {
@@ -48,7 +48,8 @@ fn test_bad_command() {
 #[test]
 fn test_config_file() {
     let subscriber = Registry::default()
-        .with(tracing_subscriber::fmt::layer().pretty().with_test_writer())
+        .with(fmt::layer().pretty().with_test_writer())
+        .with(EnvFilter::from_default_env())
         // note: we don't `tracing_texray::examine` anything below, so no spans are printed
         // but we add the layer to allow the option in the future, maybe with a feature?
         .with(TeXRayLayer::new());

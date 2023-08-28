@@ -9,7 +9,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tracing::info;
-use tracing_subscriber::{prelude::*, Registry};
+use tracing_subscriber::{prelude::*, Registry, fmt, EnvFilter};
 use tracing_texray::TeXRayLayer;
 
 use hex::FromHex;
@@ -524,7 +524,8 @@ fn main() {
 
     let subscriber = Registry::default()
         // TODO: correctly filter log level with `clap_verbosity_flag`
-        .with(tracing_subscriber::fmt::layer().pretty())
+        .with(fmt::layer().pretty())
+        .with(EnvFilter::from_default_env())
         // note: we don't `tracing_texray::examine` anything below, so no spans are printed
         // but we add the layer to allow the option in the future, maybe with a feature?
         .with(TeXRayLayer::new());

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use tracing_subscriber::{prelude::*, Registry};
+use tracing_subscriber::{prelude::*, Registry, fmt, EnvFilter};
 use tracing_texray::TeXRayLayer;
 
 fn main() -> Result<()> {
@@ -8,7 +8,8 @@ fn main() -> Result<()> {
     let _metrics_handle = lurk_metrics::MetricsSink::init();
 
     let subscriber = Registry::default()
-        .with(tracing_subscriber::fmt::layer().pretty())
+        .with(fmt::layer().pretty())
+        .with(EnvFilter::from_default_env())
         .with(TeXRayLayer::new()); // note: we don't `tracing_texray::examine` anything
     tracing::subscriber::set_global_default(subscriber).unwrap();
 
