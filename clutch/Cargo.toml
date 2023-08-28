@@ -17,8 +17,10 @@ fcomm = { path = "../fcomm" }
 ff = "0.13"
 lurk = { path = "../" }
 pasta_curves = { workspace = true, features = ["repr-c", "serde"] }
-pretty_env_logger = "0.4"
 serde = { workspace = true, features = ["derive"] }
+tracing = { workspace = true }
+tracing-texray = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 
 [dev-dependencies]

@@ -9,6 +9,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tracing::info;
+use tracing_subscriber::{prelude::*, Registry};
+use tracing_texray::TeXRayLayer;
 
 use hex::FromHex;
 use serde::de::DeserializeOwned;
@@ -520,9 +522,13 @@ where
 fn main() {
     let cli = Cli::parse();
 
-    pretty_env_logger::formatted_builder()
-        .filter_level(cli.verbose.log_level_filter())
-        .init();
+    let subscriber = Registry::default()
+        // TODO: correctly filter log level with `clap_verbosity_flag`
+        .with(tracing_subscriber::fmt::layer().pretty())
+        // note: we don't `tracing_texray::examine` anything below, so no spans are printed
+        // but we add the layer to allow the option in the future, maybe with a feature?
+        .with(TeXRayLayer::new());
+    tracing::subscriber::set_global_default(subscriber).unwrap();
 
     // TODO: make this properly configurable, e.g. allowing coprocessors
     let lang = Lang::new();

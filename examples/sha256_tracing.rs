@@ -25,6 +25,8 @@ use bellperson::{ConstraintSystem, SynthesisError};
 use pasta_curves::pallas::Scalar as Fr;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use tracing_subscriber::{prelude::*, Registry};
+use tracing_texray::TeXRayLayer;
 
 const REDUCTION_COUNT: usize = 10;
 
@@ -153,7 +155,10 @@ enum Sha256Coproc<F: LurkField> {
 /// Run the example in this file with
 /// `cargo run --release --example sha256_tracing 1 f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b false`
 fn main() {
-    tracing_texray::init();
+    let subscriber = Registry::default()
+        .with(tracing_subscriber::fmt::layer().pretty())
+        .with(TeXRayLayer::new());
+    tracing::subscriber::set_global_default(subscriber).unwrap();
 
     let args: Vec<String> = env::args().collect();
 

@@ -6,9 +6,17 @@ use lurk::eval::lang::{Coproc, Lang};
 use lurk::field::LanguageField;
 use lurk::repl::repl_cli;
 use pasta_curves::pallas;
+use tracing_subscriber::{prelude::*, Registry};
+use tracing_texray::TeXRayLayer;
 
 fn main() -> Result<()> {
-    pretty_env_logger::init();
+    let subscriber = Registry::default()
+        // TODO: correctly filter log level with `clap_verbosity_flag`
+        .with(tracing_subscriber::fmt::layer().pretty())
+        // note: we don't `tracing_texray::examine` anything below, so no spans are printed
+        // but we add the layer to allow the option in the future, maybe with a feature?
+        .with(TeXRayLayer::new());
+    tracing::subscriber::set_global_default(subscriber).unwrap();
 
     let default_field = LanguageField::Pallas;
     let field = if let Ok(lurk_field) = std::env::var("LURK_FIELD") {

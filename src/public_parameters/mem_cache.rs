@@ -66,7 +66,7 @@ impl PublicParamMemCache {
         if abomonated {
             match disk_cache.get_raw_bytes(&key) {
                 Ok(mut bytes) => {
-                    info!("Using abomonated public params for lang {lang_key}");
+                    info!("loading abomonated {lang_key}");
                     let (pp, rest) =
                         unsafe { decode::<PublicParams<'_, F, C>>(&mut bytes).unwrap() };
                     assert!(rest.is_empty());
@@ -78,7 +78,7 @@ impl PublicParamMemCache {
                     // maybe just directly write
                     disk_cache
                         .set_abomonated(&key, &*pp)
-                        .tap_ok(|_| info!("Writing public params to disk-cache: {}", lang_key))
+                        .tap_ok(|_| info!("writing public params to disk-cache: {}", lang_key))
                         .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
                     Ok(pp)
                 }
@@ -86,13 +86,13 @@ impl PublicParamMemCache {
         } else {
             // read the file if it exists, otherwise initialize
             if let Ok(pp) = disk_cache.get(&key) {
-                info!("Using disk-cached public params for lang {lang_key}");
+                info!("loading abomonated {lang_key}");
                 Ok(Arc::new(pp))
             } else {
                 let pp = default(lang);
                 disk_cache
                     .set(&key, &*pp)
-                    .tap_ok(|_| info!("Writing public params to disk-cache: {}", lang_key))
+                    .tap_ok(|_| info!("writing public params to disk-cache: {}", lang_key))
                     .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
                 Ok(pp)
             }

@@ -539,6 +539,7 @@ impl Cli {
     }
 }
 
+// TODO: deal with `clap_verbosity_flag` and set logger here instead?
 /// Parses CLI arguments and continues the program flow accordingly
 pub fn parse_and_run() -> Result<()> {
     if let Ok(cli) = Cli::try_parse() {
