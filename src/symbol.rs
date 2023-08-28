@@ -103,6 +103,11 @@ impl Symbol {
         Self::new_from_vec(path, true)
     }
 
+    #[inline]
+    pub fn set_as_keyword(&mut self) {
+        self.keyword = true;
+    }
+
     /// Creates a new Symbol with the path extended by the given vector of path segments.
     pub fn extend<A: AsRef<str>>(&self, child: &[A]) -> Self {
         let mut path = Vec::with_capacity(self.path.len() + child.len());
