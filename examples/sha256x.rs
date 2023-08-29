@@ -15,6 +15,7 @@ use lurk::public_parameters::with_public_params;
 use lurk::state::user_sym;
 use lurk::store::Store;
 use lurk::tag::{ExprTag, Tag};
+use lurk::Num;
 use lurk_macros::Coproc;
 
 use bellpepper::gadgets::multipack::pack_bits;
@@ -27,7 +28,7 @@ use pasta_curves::pallas::Scalar as Fr;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-const REDUCTION_COUNT: usize = 100;
+const REDUCTION_COUNT: usize = 10;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Sha256Coprocessor<F: LurkField> {
@@ -50,18 +51,6 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        // let false_bool = Boolean::from(AllocatedBit::alloc(
-        //     cs.namespace(|| "false bit"),
-        //     Some(false),
-        // )?);
-
-        // cs.enforce(
-        //     || "enforce zero preimage",
-        //     |lc| lc,
-        //     |lc| lc,
-        //     |_| false_bool.lc(CS::one(), F::ONE),
-        // );
-
         let preimage_ptr = &input_exprs[0];
         let mut preimage_bits = preimage_ptr
             .tag()
@@ -98,16 +87,14 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
         let preimage_zptr = s.hash_expr(&preimage_ptr).unwrap();
         let preimage_tag: F = preimage_zptr.tag().to_field();
         let preimage_hash = preimage_zptr.value();
+
         let mut input = [0u8; 64];
         input[..32].copy_from_slice(&preimage_tag.to_bytes());
         input[32..].copy_from_slice(&preimage_hash.to_bytes());
-
         hasher.update(input);
-        let result = lurk::Num::from_bytes(hasher.finalize());
 
-        // let truncated = result & 0x7fffff;
-
-        s.intern_num(lurk::Num::from_scalar(result))
+        let result = Num::from_scalar(F::from_bytes(&hasher.finalize()).unwrap());
+        s.intern_num(result)
     }
 
     fn has_circuit(&self) -> bool {
@@ -136,7 +123,7 @@ fn main() {
     pretty_env_logger::init();
     let args: Vec<String> = env::args().collect();
 
-    let num_of_64_bytes = args[1].parse::<usize>().unwrap();
+    let num_of_64_bytes = args[0].parse::<usize>().unwrap();
     let expect = hex::decode(args[2].parse::<String>().unwrap()).unwrap();
     let setup_only = args[3].parse::<bool>().unwrap();
 
