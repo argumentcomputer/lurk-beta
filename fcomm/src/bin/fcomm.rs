@@ -10,7 +10,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tracing::info;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
-use tracing_texray::TeXRayLayer;
 
 use hex::FromHex;
 use serde::de::DeserializeOwned;
