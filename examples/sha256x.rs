@@ -30,10 +30,8 @@ use sha2::{Digest, Sha256};
 
 const REDUCTION_COUNT: usize = 10;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct Sha256Coprocessor<F: LurkField> {
-    n: usize,
-    expected: [u128; 2],
     pub(crate) _p: PhantomData<F>,
 }
 
@@ -52,20 +50,41 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         input_cont: &AllocatedContPtr<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         let preimage_ptr = &input_exprs[0];
+
+        let zero = Boolean::Constant(false); //AllocatedBit::alloc(&mut cs.namespace(|| "zero"), || Ok(F::ZERO))?;
+
         let mut preimage_bits = preimage_ptr
             .tag()
             .to_bits_le_strict(&mut cs.namespace(|| "preimage_tag_bits"))?;
+        preimage_bits.push(zero.clone()); // need 256 bits (or some multiple of 8).
+
         let preimage_hash_bits = preimage_ptr
             .hash()
             .to_bits_le_strict(&mut cs.namespace(|| "preimage_hash_bits"))?;
+        preimage_bits.push(zero); // need 256 bits (or some multiple of 8).
 
         preimage_bits.extend(preimage_hash_bits);
         let mut digest_bits = sha256(cs.namespace(|| "digest_bits"), &preimage_bits)?;
 
         digest_bits.reverse();
 
+        print!("bits: ");
+        for bits in digest_bits.chunks(8) {
+            for bit in bits.iter() {
+                if let Some(b) = bit.get_value() {
+                    if b {
+                        print!("1");
+                    } else {
+                        print!("0")
+                    }
+                }
+            }
+            print!(" ");
+        }
+        println!("");
+
         // Fine to lose the last <1 bit of precision.
-        let digest_scalar = pack_bits(cs.namespace(|| "digest_scalar"), &digest_bits)?;
+        let digest_scalar = pack_bits(cs.namespace(|| "digest_scalar"), &digest_bits[0..254])?;
         let output_expr = AllocatedPtr::alloc_tag(
             &mut cs.namespace(|| "output_expr"),
             ExprTag::Num.to_field(),
@@ -93,22 +112,20 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
         input[32..].copy_from_slice(&preimage_hash.to_bytes());
         hasher.update(input);
 
-        let result = Num::from_scalar(F::from_bytes(&hasher.finalize()).unwrap());
+        let mut bytes = hasher.finalize();
+        let l = bytes.len();
+        // Discard the two most significant bits.
+        bytes[l - 1] = bytes[l - 1] & 0b00111111;
+
+        dbg!(&bytes);
+
+        let scalar = F::from_bytes(&bytes).unwrap();
+        let result = Num::from_scalar(scalar);
         s.intern_num(result)
     }
 
     fn has_circuit(&self) -> bool {
         true
-    }
-}
-
-impl<F: LurkField> Sha256Coprocessor<F> {
-    pub(crate) fn new(n: usize, expected: [u128; 2]) -> Self {
-        Self {
-            n,
-            expected,
-            _p: Default::default(),
-        }
     }
 }
 
@@ -123,30 +140,18 @@ fn main() {
     pretty_env_logger::init();
     let args: Vec<String> = env::args().collect();
 
-    let num_of_64_bytes = args[0].parse::<usize>().unwrap();
-    let expect = hex::decode(args[2].parse::<String>().unwrap()).unwrap();
-    let setup_only = args[3].parse::<bool>().unwrap();
-
-    let input_size = 64 * num_of_64_bytes;
-
-    let mut u: [u128; 2] = [0u128; 2];
-    for i in 0..2 {
-        u[i] = u128::from_be_bytes(expect[(i * 16)..(i + 1) * 16].try_into().unwrap())
-    }
-
-    u.reverse();
-
     let store = &mut Store::<Fr>::new();
-    let cproc_sym = user_sym(&format!("sha256-{input_size}-zero-bytes"));
+    let cproc_sym = user_sym(&format!("sha256"));
     let cproc_sym_ptr = store.intern_symbol(&cproc_sym);
 
     let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
         store,
-        vec![(cproc_sym, Sha256Coprocessor::new(input_size, u).into())],
+        vec![(cproc_sym, Sha256Coprocessor::default().into())],
     );
     let lang_rc = Arc::new(lang.clone());
 
-    let cproc_call = store.list(&[cproc_sym_ptr]);
+    let preimage = store.read("12345").unwrap();
+    let cproc_call = store.list(&[cproc_sym_ptr, preimage]);
 
     let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang);
 
@@ -158,10 +163,6 @@ fn main() {
     with_public_params(REDUCTION_COUNT, lang_rc.clone(), |pp| {
         let pp_end = pp_start.elapsed();
         println!("Public parameters took {:?}", pp_end);
-
-        if setup_only {
-            return;
-        }
 
         println!("Beginning proof step...");
         let proof_start = Instant::now();
