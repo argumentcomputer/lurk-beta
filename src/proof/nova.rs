@@ -1,6 +1,4 @@
 #![allow(non_snake_case)]
-
-use std::marker::PhantomData;
 use std::sync::Mutex;
 
 use abomonation::Abomonation;
@@ -120,7 +118,7 @@ pub type SS2<F> = nova::spartan::snark::RelaxedR1CSSNARK<G2<F>, EE2<F>>;
 /// Type alias for a MultiFrame with S1 field elements.
 /// This uses the <<F as CurveCycleEquipped>::G1 as Group>::Scalar type for the G1 scalar field elements
 /// to reflect it this should not be used outside the Nova context
-pub type C1<'a, F, C> = MultiFrame<'a, <G1<F> as Group>::Scalar, IO<F>, Witness<F>, C>;
+pub type C1<'a, F, C> = MultiFrame<'a, F, C>;
 /// Type alias for a Trivial Test Circuit with G2 scalar field elements.
 pub type C2<F> = TrivialTestCircuit<<G2<F> as Group>::Scalar>;
 
@@ -221,7 +219,6 @@ pub struct NovaProver<F: CurveCycleEquipped, C: Coprocessor<F>> {
     // `reduction_count` specifies the number of small-step reductions are performed in each recursive step.
     reduction_count: usize,
     lang: Lang<F, C>,
-    _p: PhantomData<(F, C)>,
 }
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> PublicParameters for PublicParams<'a, F, C>
@@ -241,7 +238,6 @@ where
         NovaProver::<F, C> {
             reduction_count,
             lang,
-            _p: Default::default(),
         }
     }
     fn reduction_count(&self) -> usize {
@@ -310,7 +306,7 @@ where
     }
 }
 
-impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, IO<F>, Witness<F>, C> {
+impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     fn compute_witness(&self, s: &Store<F>) -> WitnessCS<F> {
         let mut wcs = WitnessCS::new();
 
@@ -342,9 +338,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, IO<F>, Witness<F>, C
     }
 }
 
-impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F>
-    for MultiFrame<'a, F, IO<F>, Witness<F>, C>
-{
+impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C> {
     fn arity(&self) -> usize {
         6
     }
@@ -443,7 +437,7 @@ where
             num_iters_per_step
         );
         let (_circuit_primary, circuit_secondary): (
-            MultiFrame<'_, F, IO<F>, Witness<F>, C>,
+            MultiFrame<'_, F, C>,
             TrivialTestCircuit<<G2<F> as Group>::Scalar>,
         ) = C1::<'a>::circuits(num_iters_per_step, lang);
 
@@ -754,11 +748,11 @@ pub mod tests {
         let len = multiframes.len();
 
         let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);
-        let mut previous_frame: Option<MultiFrame<'_, Fr, IO<Fr>, Witness<Fr>, C>> = None;
+        let mut previous_frame: Option<MultiFrame<'_, Fr, C>> = None;
 
         let mut cs_blank = MetricCS::<Fr>::new();
 
-        let blank = MultiFrame::<Fr, IO<Fr>, Witness<Fr>, C>::blank(reduction_count, lang);
+        let blank = MultiFrame::<Fr, C>::blank(reduction_count, lang);
         blank
             .synthesize(&mut cs_blank)
             .expect("failed to synthesize blank");

@@ -12,13 +12,12 @@ pub mod nova;
 
 use crate::circuit::MultiFrame;
 use crate::coprocessor::Coprocessor;
-use crate::eval::{lang::Lang, Witness, IO};
+use crate::eval::lang::Lang;
 use crate::field::LurkField;
 use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, SynthesisError};
 
 /// Represents a sequential Constraint System for a given proof.
-pub(crate) type SequentialCS<'a, F, IO, Witness, C> =
-    Vec<(MultiFrame<'a, F, IO, Witness, C>, TestConstraintSystem<F>)>;
+pub(crate) type SequentialCS<'a, F, C> = Vec<(MultiFrame<'a, F, C>, TestConstraintSystem<F>)>;
 
 /// A trait for provable structures over a field `F`.
 pub trait Provable<F: LurkField> {
@@ -32,9 +31,9 @@ pub trait Provable<F: LurkField> {
 
 /// Verifies a sequence of constraint systems (CSs) for sequentiality & validity.
 pub fn verify_sequential_css<F: LurkField + Copy, C: Coprocessor<F>>(
-    css: &SequentialCS<'_, F, IO<F>, Witness<F>, C>,
+    css: &SequentialCS<'_, F, C>,
 ) -> Result<bool, SynthesisError> {
-    let mut previous_frame: Option<&MultiFrame<'_, F, IO<F>, Witness<F>, C>> = None;
+    let mut previous_frame: Option<&MultiFrame<'_, F, C>> = None;
 
     for (i, (multiframe, cs)) in css.iter().enumerate() {
         if let Some(prev) = previous_frame {
@@ -107,8 +106,8 @@ pub trait Prover<'a, 'b, F: LurkField, C: Coprocessor<F>> {
     /// Synthesizes the outer circuit for the prover given a slice of multiframes.
     fn outer_synthesize(
         &self,
-        multiframes: &'a [MultiFrame<'_, F, IO<F>, Witness<F>, C>],
-    ) -> Result<SequentialCS<'a, F, IO<F>, Witness<F>, C>, SynthesisError> {
+        multiframes: &'a [MultiFrame<'_, F, C>],
+    ) -> Result<SequentialCS<'a, F, C>, SynthesisError> {
         // Note: This loop terminates and returns an error on the first occurrence of `SynthesisError`.
         multiframes
             .iter()
