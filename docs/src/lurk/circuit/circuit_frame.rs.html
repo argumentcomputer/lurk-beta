@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/circuit_frame.rs`."><title>circuit_frame.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-47e7ab555ef2818a.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (8550f15e1 2023-08-27)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-f194925aa375ae96.css" data-theme-dark-css="dark-1dd4d1ce031e15de.css" data-theme-ayu-css="ayu-49e58d069f567085.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-ef3a2de404864b0b.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-f194925aa375ae96.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1dd4d1ce031e15de.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/circuit_frame.rs`."><title>circuit_frame.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-47e7ab555ef2818a.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (4e78abb43 2023-08-28)" data-channel="nightly" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-f194925aa375ae96.css" data-theme-dark-css="dark-1dd4d1ce031e15de.css" data-theme-ayu-css="ayu-49e58d069f567085.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-ef3a2de404864b0b.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-f194925aa375ae96.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1dd4d1ce031e15de.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -6121,13 +6121,6 @@
 <a href="#6121" id="6121">6121</a>
 <a href="#6122" id="6122">6122</a>
 <a href="#6123" id="6123">6123</a>
-<a href="#6124" id="6124">6124</a>
-<a href="#6125" id="6125">6125</a>
-<a href="#6126" id="6126">6126</a>
-<a href="#6127" id="6127">6127</a>
-<a href="#6128" id="6128">6128</a>
-<a href="#6129" id="6129">6129</a>
-<a href="#6130" id="6130">6130</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
@@ -6178,26 +6171,26 @@
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="attr">#[derive(Clone, Copy, Debug)]
-</span><span class="kw">pub struct </span>CircuitFrame&lt;<span class="lifetime">&#39;a</span>, F: LurkField, T, W, C: Coprocessor&lt;F&gt;&gt; {
+</span><span class="kw">pub struct </span>CircuitFrame&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
     <span class="kw">pub </span>store: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;&gt;,
-    <span class="kw">pub </span>input: <span class="prelude-ty">Option</span>&lt;T&gt;,
-    <span class="kw">pub </span>output: <span class="prelude-ty">Option</span>&lt;T&gt;,
-    <span class="kw">pub </span>witness: <span class="prelude-ty">Option</span>&lt;W&gt;,
+    <span class="kw">pub </span>input: <span class="prelude-ty">Option</span>&lt;IO&lt;F&gt;&gt;,
+    <span class="kw">pub </span>output: <span class="prelude-ty">Option</span>&lt;IO&lt;F&gt;&gt;,
+    <span class="kw">pub </span>witness: <span class="prelude-ty">Option</span>&lt;Witness&lt;F&gt;&gt;,
     _p: PhantomData&lt;C&gt;,
 }
 
 <span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>MultiFrame&lt;<span class="lifetime">&#39;a</span>, F: LurkField, T: Copy + Sync, W: Sync, C: Coprocessor&lt;F&gt;&gt; {
+</span><span class="kw">pub struct </span>MultiFrame&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
     <span class="kw">pub </span>store: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;&gt;,
     <span class="kw">pub </span>lang: <span class="prelude-ty">Option</span>&lt;Arc&lt;Lang&lt;F, C&gt;&gt;&gt;,
-    <span class="kw">pub </span>input: <span class="prelude-ty">Option</span>&lt;T&gt;,
-    <span class="kw">pub </span>output: <span class="prelude-ty">Option</span>&lt;T&gt;,
-    <span class="kw">pub </span>frames: <span class="prelude-ty">Option</span>&lt;Vec&lt;CircuitFrame&lt;<span class="lifetime">&#39;a</span>, F, T, W, C&gt;&gt;&gt;,
+    <span class="kw">pub </span>input: <span class="prelude-ty">Option</span>&lt;IO&lt;F&gt;&gt;,
+    <span class="kw">pub </span>output: <span class="prelude-ty">Option</span>&lt;IO&lt;F&gt;&gt;,
+    <span class="kw">pub </span>frames: <span class="prelude-ty">Option</span>&lt;Vec&lt;CircuitFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;&gt;,
     <span class="kw">pub </span>cached_witness: <span class="prelude-ty">Option</span>&lt;WitnessCS&lt;F&gt;&gt;,
     <span class="kw">pub </span>count: usize,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: LurkField, T: Clone + Copy, W: Copy, C: Coprocessor&lt;F&gt;&gt; CircuitFrame&lt;<span class="lifetime">&#39;a</span>, F, T, W, C&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; CircuitFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt; {
     <span class="kw">pub fn </span>blank() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             store: <span class="prelude-val">None</span>,
@@ -6208,7 +6201,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>from_frame(frame: <span class="kw-2">&amp;</span>Frame&lt;T, W, C&gt;, store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>from_frame(frame: <span class="kw-2">&amp;</span>Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;, store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;) -&gt; <span class="self">Self </span>{
         CircuitFrame {
             store: <span class="prelude-val">Some</span>(store),
             input: <span class="prelude-val">Some</span>(frame.input),
@@ -6219,15 +6212,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;
-        <span class="lifetime">&#39;a</span>,
-        F: LurkField,
-        <span class="comment">// T: Clone + Copy + std::cmp::PartialEq + Sync,
-        //W: Copy + Sync,
-        </span>C: Coprocessor&lt;F&gt;,
-        <span class="comment">//    &gt; MultiFrame&lt;&#39;a, F, T, W, C&gt;
-    </span>&gt; MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;
-{
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt; {
     <span class="kw">pub fn </span>blank(count: usize, lang: Arc&lt;Lang&lt;F, C&gt;&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             store: <span class="prelude-val">None</span>,
@@ -6252,7 +6237,7 @@
     ) -&gt; Vec&lt;<span class="self">Self</span>&gt; {
         <span class="comment">// `count` is the number of `Frames` to include per `MultiFrame`.
         </span><span class="kw">let </span>total_frames = frames.len();
-        <span class="kw">let </span>n = total_frames / count + usize::from(total_frames % count != <span class="number">0</span>);
+        <span class="kw">let </span>n = (total_frames + count - <span class="number">1</span>) / count;
         <span class="kw">let </span><span class="kw-2">mut </span>multi_frames = Vec::with_capacity(n);
 
         <span class="kw">for </span>chunk <span class="kw">in </span>frames.chunks(count) {
@@ -6270,9 +6255,7 @@
                 .clone();
 
             <span class="comment">// Fill out the MultiFrame, if needed, and capture output of the final actual frame.
-            </span><span class="kw">for _ in </span>chunk.len()..count {
-                inner_frames.push(last_circuit_frame.clone());
-            }
+            </span>inner_frames.resize(count, last_circuit_frame.clone());
 
             <span class="kw">let </span>output = last_frame.output;
             <span class="macro">debug_assert!</span>(!inner_frames.is_empty());
@@ -6296,7 +6279,7 @@
     <span class="doccomment">/// Make a dummy `MultiFrame`, duplicating `self`&#39;s final `CircuitFrame`.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>make_dummy(
         count: usize,
-        circuit_frame: <span class="prelude-ty">Option</span>&lt;CircuitFrame&lt;<span class="lifetime">&#39;a</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;&gt;,
+        circuit_frame: <span class="prelude-ty">Option</span>&lt;CircuitFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;,
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
         lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     ) -&gt; <span class="self">Self </span>{
@@ -6327,7 +6310,7 @@
         input_expr: AllocatedPtr&lt;F&gt;,
         input_env: AllocatedPtr&lt;F&gt;,
         input_cont: AllocatedContPtr&lt;F&gt;,
-        frames: <span class="kw-2">&amp;</span>[CircuitFrame&lt;<span class="lifetime">&#39;_</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;],
+        frames: <span class="kw-2">&amp;</span>[CircuitFrame&lt;<span class="lifetime">&#39;_</span>, F, C&gt;],
         g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
     ) -&gt; (AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedContPtr&lt;F&gt;) {
         <span class="kw">if </span>cs.is_witness_generator() &amp;&amp; CONFIG.parallelism.synthesis.is_parallel() {
@@ -6346,7 +6329,7 @@
         input_expr: AllocatedPtr&lt;F&gt;,
         input_env: AllocatedPtr&lt;F&gt;,
         input_cont: AllocatedContPtr&lt;F&gt;,
-        frames: <span class="kw-2">&amp;</span>[CircuitFrame&lt;<span class="lifetime">&#39;_</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;],
+        frames: <span class="kw-2">&amp;</span>[CircuitFrame&lt;<span class="lifetime">&#39;_</span>, F, C&gt;],
         cons_and_cont_witnesses: <span class="prelude-ty">Option</span>&lt;Vec&lt;(ConsCircuitWitness&lt;F&gt;, ContCircuitWitness&lt;F&gt;)&gt;&gt;,
         g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
     ) -&gt; (AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedContPtr&lt;F&gt;) {
@@ -6358,34 +6341,39 @@
             frames.iter().fold((<span class="number">0</span>, acc), |(i, allocated_io), frame| {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(next_input) = frame.input {
                     <span class="comment">// Ensure all intermediate allocated I/O values match the provided executation trace.
-                    </span><span class="macro">assert_eq!</span>(
+
+                    </span><span class="kw">let </span>next_expr_hash = store.hash_expr(<span class="kw-2">&amp;</span>next_input.expr);
+                    <span class="kw">let </span>next_env_hash = store.hash_expr(<span class="kw-2">&amp;</span>next_input.env);
+                    <span class="kw">let </span>next_cont_hash = store.hash_cont(<span class="kw-2">&amp;</span>next_input.cont);
+
+                    <span class="macro">assert_eq!</span>(
                         allocated_io.<span class="number">0</span>.tag().get_value(),
-                        store.hash_expr(<span class="kw-2">&amp;</span>next_input.expr).map(|x| x.tag_field()),
+                        next_expr_hash.map(|x| x.tag_field()),
                         <span class="string">&quot;expr tag mismatch&quot;
                     </span>);
                     <span class="macro">assert_eq!</span>(
                         allocated_io.<span class="number">0</span>.hash().get_value(),
-                        store.hash_expr(<span class="kw-2">&amp;</span>next_input.expr).map(|x| <span class="kw-2">*</span>x.value()),
+                        next_expr_hash.map(|x| <span class="kw-2">*</span>x.value()),
                         <span class="string">&quot;expr mismatch&quot;
                     </span>);
                     <span class="macro">assert_eq!</span>(
                         allocated_io.<span class="number">1</span>.tag().get_value(),
-                        store.hash_expr(<span class="kw-2">&amp;</span>next_input.env).map(|x| x.tag_field()),
+                        next_env_hash.map(|x| x.tag_field()),
                         <span class="string">&quot;env tag mismatch&quot;
                     </span>);
                     <span class="macro">assert_eq!</span>(
                         allocated_io.<span class="number">1</span>.hash().get_value(),
-                        store.hash_expr(<span class="kw-2">&amp;</span>next_input.env).map(|x| <span class="kw-2">*</span>x.value()),
+                        next_env_hash.map(|x| <span class="kw-2">*</span>x.value()),
                         <span class="string">&quot;env mismatch&quot;
                     </span>);
                     <span class="macro">assert_eq!</span>(
                         allocated_io.<span class="number">2</span>.tag().get_value(),
-                        store.hash_cont(<span class="kw-2">&amp;</span>next_input.cont).map(|x| x.tag_field()),
+                        next_cont_hash.map(|x| x.tag_field()),
                         <span class="string">&quot;cont tag mismatch&quot;
                     </span>);
                     <span class="macro">assert_eq!</span>(
                         allocated_io.<span class="number">2</span>.hash().get_value(),
-                        store.hash_cont(<span class="kw-2">&amp;</span>next_input.cont).map(|x| <span class="kw-2">*</span>x.value()),
+                        next_cont_hash.map(|x| <span class="kw-2">*</span>x.value()),
                         <span class="string">&quot;cont mismatch&quot;
                     </span>);
                 };
@@ -6425,7 +6413,7 @@
         input_expr: AllocatedPtr&lt;F&gt;,
         input_env: AllocatedPtr&lt;F&gt;,
         input_cont: AllocatedContPtr&lt;F&gt;,
-        frames: <span class="kw-2">&amp;</span>[CircuitFrame&lt;<span class="lifetime">&#39;_</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;],
+        frames: <span class="kw-2">&amp;</span>[CircuitFrame&lt;<span class="lifetime">&#39;_</span>, F, C&gt;],
         g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
     ) -&gt; (AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedContPtr&lt;F&gt;) {
         <span class="macro">assert!</span>(cs.is_witness_generator());
@@ -6532,15 +6520,13 @@
     }
 }
 
-<span class="kw">impl</span>&lt;F: LurkField, T: PartialEq + Debug, W, C: Coprocessor&lt;F&gt;&gt; CircuitFrame&lt;<span class="lifetime">&#39;_</span>, F, T, W, C&gt; {
+<span class="kw">impl</span>&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; CircuitFrame&lt;<span class="lifetime">&#39;_</span>, F, C&gt; {
     <span class="kw">pub fn </span>precedes(<span class="kw-2">&amp;</span><span class="self">self</span>, maybe_next: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
         <span class="self">self</span>.output == maybe_next.input
     }
 }
 
-<span class="kw">impl</span>&lt;F: LurkField, T: PartialEq + Debug + Copy + Sync, W: Sync, C: Coprocessor&lt;F&gt;&gt;
-    MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, T, W, C&gt;
-{
+<span class="kw">impl</span>&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, C&gt; {
     <span class="kw">pub fn </span>precedes(<span class="kw-2">&amp;</span><span class="self">self</span>, maybe_next: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
         <span class="self">self</span>.output == maybe_next.input
     }
@@ -6549,7 +6535,7 @@
 <span class="kw">impl</span>&lt;
         F: LurkField, <span class="comment">// W: Copy + Sync,
         </span>C: Coprocessor&lt;F&gt;,
-    &gt; Provable&lt;F&gt; <span class="kw">for </span>MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;
+    &gt; Provable&lt;F&gt; <span class="kw">for </span>MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, C&gt;
 {
     <span class="kw">fn </span>public_inputs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;F&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>inputs: Vec&lt;<span class="kw">_</span>&gt; = Vec::with_capacity(<span class="self">Self</span>::public_input_size());
@@ -6580,7 +6566,7 @@
 
 <span class="kw">type </span>AllocatedIO&lt;F&gt; = (AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedContPtr&lt;F&gt;);
 
-<span class="kw">impl</span>&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; CircuitFrame&lt;<span class="lifetime">&#39;_</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;, C&gt; {
+<span class="kw">impl</span>&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; CircuitFrame&lt;<span class="lifetime">&#39;_</span>, F, C&gt; {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
@@ -6650,14 +6636,14 @@
     }
 }
 
-<span class="kw">impl</span>&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; Circuit&lt;F&gt; <span class="kw">for </span>MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;, C&gt; {
+<span class="kw">impl</span>&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; Circuit&lt;F&gt; <span class="kw">for </span>MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, C&gt; {
     <span class="kw">fn </span>synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(<span class="self">self</span>, cs: <span class="kw-2">&amp;mut </span>CS) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
         <span class="comment">////////////////////////////////////////////////////////////////////////////////
         // Bind public inputs.
         //
         // Initial input:
         </span><span class="kw">let </span><span class="kw-2">mut </span>synth = |store,
-                         frames: <span class="kw-2">&amp;</span>[CircuitFrame&lt;<span class="lifetime">&#39;_</span>, F, IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;],
+                         frames: <span class="kw-2">&amp;</span>[CircuitFrame&lt;<span class="lifetime">&#39;_</span>, F, C&gt;],
                          input: <span class="prelude-ty">Option</span>&lt;IO&lt;F&gt;&gt;,
                          output: <span class="prelude-ty">Option</span>&lt;IO&lt;F&gt;&gt;| {
             <span class="kw">let </span>input_expr = AllocatedPtr::bind_input(
@@ -11586,7 +11572,7 @@
             <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::new();
 
             <span class="kw">let </span><span class="kw-2">mut </span>cs_blank = MetricCS::&lt;Fr&gt;::new();
-            <span class="kw">let </span>blank_multiframe = MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, <span class="kw">_</span>, <span class="kw">_</span>, Coproc&lt;Fr&gt;&gt;::blank(
+            <span class="kw">let </span>blank_multiframe = MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, Coproc&lt;Fr&gt;&gt;::blank(
                 DEFAULT_REDUCTION_COUNT,
                 lang.clone(),
             );
@@ -11718,7 +11704,7 @@
                 _p: Default::default(),
             };
 
-            MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, <span class="kw">_</span>, <span class="kw">_</span>, Coproc&lt;Fr&gt;&gt;::from_frames(
+            MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, Coproc&lt;Fr&gt;&gt;::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
@@ -11798,7 +11784,7 @@
                 _p: Default::default(),
             };
 
-            MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, <span class="kw">_</span>, <span class="kw">_</span>, Coproc&lt;Fr&gt;&gt;::from_frames(
+            MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, Coproc&lt;Fr&gt;&gt;::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
@@ -11880,7 +11866,7 @@
                 _p: Default::default(),
             };
 
-            MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, <span class="kw">_</span>, <span class="kw">_</span>, Coproc&lt;Fr&gt;&gt;::from_frames(
+            MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, Coproc&lt;Fr&gt;&gt;::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
@@ -11962,7 +11948,7 @@
                 _p: Default::default(),
             };
 
-            MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, <span class="kw">_</span>, <span class="kw">_</span>, Coproc&lt;Fr&gt;&gt;::from_frames(
+            MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, Coproc&lt;Fr&gt;&gt;::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
