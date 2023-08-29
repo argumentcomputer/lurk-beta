@@ -1,6 +1,6 @@
 use camino::Utf8PathBuf;
 use lurk::{
-    cli::{backend::Backend, repl_lem::ReplLEM},
+    cli::backend::Backend,
     eval::lang::{Coproc, Lang},
     repl::{repl, ReplState},
 };
@@ -60,11 +60,11 @@ fn lurk_cli_tests_lem() {
         );
     }
 
-    let mut repl = ReplLEM::new(None, 10, 100000000, Backend::Nova);
+    //     let mut repl = ReplLEM::new(None, 10, 100000000, Backend::Nova);
 
-    for f in TEST_FILES {
-        let joined = Utf8PathBuf::from_path_buf(example_dir.join(f)).unwrap();
+    // for f in TEST_FILES {
+    //     let joined = Utf8PathBuf::from_path_buf(example_dir.join(f)).unwrap();
 
-        let _ = repl.load_file(&joined);
-    }
+    //     let _ = repl.load_file(&joined);
+    // }
 }

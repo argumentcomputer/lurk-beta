@@ -24,7 +24,7 @@ use crate::config::CONFIG;
 use crate::error::ProofError;
 use crate::eval::{lang::DummyCoprocessor, lang::Lang};
 use crate::field::LurkField;
-use crate::proof::{Prover, PublicParameters};
+use crate::proof::{MultiFrameTrait, Prover, PublicParameters};
 
 use crate::lem::{circuit::MultiFrame, interpreter::Frame, store::Store, Func};
 
@@ -141,7 +141,8 @@ where
 {
 }
 
-impl<'a, F: CurveCycleEquipped> Prover<'a, '_, F, DummyCoprocessor<F>> for NovaProver<F>
+impl<'a, F: CurveCycleEquipped, M: MultiFrameTrait<F, DummyCoprocessor<F>>>
+    Prover<'a, '_, F, DummyCoprocessor<F>, M> for NovaProver<F>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,

@@ -38,9 +38,10 @@ use lurk::circuit::gadgets::pointer::AllocatedPtr;
 #[cfg(not(target_arch = "wasm32"))]
 use lurk::coprocessor::circom::non_wasm::CircomCoprocessor;
 
+use lurk::circuit::circuit_frame::MultiFrame;
 use lurk::eval::{empty_sym_env, lang::Lang};
 use lurk::field::LurkField;
-use lurk::proof::{nova::NovaProver, Prover};
+use lurk::proof::{nova::NovaProver, MultiFrameTrait, Prover};
 use lurk::ptr::Ptr;
 use lurk::public_parameters::{public_params, public_params_default_dir};
 use lurk::store::Store;
@@ -115,7 +116,10 @@ fn main() {
     let expr = format!("({coproc_expr})");
     let ptr = store.read(&expr).unwrap();
 
-    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang.clone());
+    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, Fr, Sha256Coproc<Fr>>>::new(
+        REDUCTION_COUNT,
+        lang.clone(),
+    );
     let lang_rc = Arc::new(lang);
 
     println!("Setting up public parameters...");

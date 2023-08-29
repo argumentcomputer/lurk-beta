@@ -38,7 +38,7 @@ use crate::eval::{lang::Lang, Frame, Witness, IO};
 use crate::expr::Thunk;
 use crate::hash_witness::HashWitness;
 use crate::lurk_sym_ptr;
-use crate::proof::Provable;
+use crate::proof::{MultiFrameTrait, Provable};
 use crate::ptr::Ptr;
 use crate::store::Store;
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
@@ -67,6 +67,49 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     pub count: usize,
 }
 
+impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'a, F, C> {
+    type Store = Store<F>;
+    type Ptr = Ptr<F>;
+    type Frame = Frame<IO<F>, Witness<F>, C>;
+    type CircuitFrame = CircuitFrame<'a, F, C>;
+    type GlobalAllocation = GlobalAllocations<F>;
+
+    fn precedes(&self, maybe_next: &Self) -> bool {
+        self.output == maybe_next.input
+    }
+
+    fn synthesize_frames<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        store: &Store<F>,
+        input_expr: AllocatedPtr<F>,
+        input_env: AllocatedPtr<F>,
+        input_cont: AllocatedContPtr<F>,
+        frames: &[Self::CircuitFrame],
+        g: &GlobalAllocations<F>,
+    ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
+        if cs.is_witness_generator() && CONFIG.parallelism.synthesis.is_parallel() {
+            self.synthesize_frames_parallel(cs, store, input_expr, input_env, input_cont, frames, g)
+        } else {
+            self.synthesize_frames_sequential(
+                cs, store, input_expr, input_env, input_cont, frames, None, g,
+            )
+        }
+    }
+
+    fn blank(count: usize, lang: Arc<Lang<F, C>>) -> Self {
+        Self {
+            store: None,
+            lang: Some(lang),
+            input: None,
+            output: None,
+            frames: None,
+            cached_witness: None,
+            count,
+        }
+    }
+}
+
 impl<'a, F: LurkField, C: Coprocessor<F>> CircuitFrame<'a, F, C> {
     pub fn blank() -> Self {
         Self {
@@ -90,18 +133,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> CircuitFrame<'a, F, C> {
 }
 
 impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
-    pub fn blank(count: usize, lang: Arc<Lang<F, C>>) -> Self {
-        Self {
-            store: None,
-            lang: Some(lang),
-            input: None,
-            output: None,
-            frames: None,
-            cached_witness: None,
-            count,
-        }
-    }
-
     pub fn get_store(&self) -> &Store<F> {
         self.store.expect("store missing")
     }
@@ -177,25 +208,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
             frames,
             cached_witness: None,
             count,
-        }
-    }
-
-    pub fn synthesize_frames<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        store: &Store<F>,
-        input_expr: AllocatedPtr<F>,
-        input_env: AllocatedPtr<F>,
-        input_cont: AllocatedContPtr<F>,
-        frames: &[CircuitFrame<'_, F, C>],
-        g: &GlobalAllocations<F>,
-    ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
-        if cs.is_witness_generator() && CONFIG.parallelism.synthesis.is_parallel() {
-            self.synthesize_frames_parallel(cs, store, input_expr, input_env, input_cont, frames, g)
-        } else {
-            self.synthesize_frames_sequential(
-                cs, store, input_expr, input_env, input_cont, frames, None, g,
-            )
         }
     }
 
@@ -398,12 +410,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
 }
 
 impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, C> {
-    pub fn precedes(&self, maybe_next: &Self) -> bool {
-        self.output == maybe_next.input
-    }
-}
-
-impl<F: LurkField, C: Coprocessor<F>> MultiFrame<'_, F, C> {
     pub fn precedes(&self, maybe_next: &Self) -> bool {
         self.output == maybe_next.input
     }
@@ -5432,13 +5438,16 @@ mod tests {
         let lang = Arc::new(raw_lang.clone());
         let (_, witness) = input.reduce(&mut store, &lang).unwrap();
 
-        let public_params = Groth16Prover::<Bls12, Coproc<Fr>, Fr>::create_groth_params(
+        let public_params = Groth16Prover::<Bls12, Coproc<Fr>, Fr, MultiFrame<'_, Fr, Coproc<Fr>>>::create_groth_params(
             DEFAULT_REDUCTION_COUNT,
             lang.clone(),
         )
         .unwrap();
         let groth_prover =
-            Groth16Prover::<Bls12, Coproc<Fr>, Fr>::new(DEFAULT_REDUCTION_COUNT, raw_lang);
+            Groth16Prover::<Bls12, Coproc<Fr>, Fr, MultiFrame<'_, Fr, Coproc<Fr>>>::new(
+                DEFAULT_REDUCTION_COUNT,
+                raw_lang,
+            );
         let groth_params = &public_params.0;
 
         let vk = &groth_params.vk;

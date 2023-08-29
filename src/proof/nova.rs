@@ -1,5 +1,5 @@
 #![allow(non_snake_case)]
-use std::sync::Mutex;
+use std::{marker::PhantomData, sync::Mutex};
 
 use abomonation::Abomonation;
 use bellpepper::util_cs::witness_cs::WitnessCS;
@@ -35,7 +35,7 @@ use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
 use crate::eval::{lang::Lang, Evaluator, Frame, Witness, IO};
 use crate::field::LurkField;
-use crate::proof::{Prover, PublicParameters};
+use crate::proof::{MultiFrameTrait, Prover, PublicParameters};
 use crate::ptr::Ptr;
 use crate::store::Store;
 
@@ -215,10 +215,11 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> C1<'a, F, C> {
 
 /// A struct for the Nova prover that operates on field elements of type `F`.
 #[derive(Debug)]
-pub struct NovaProver<F: CurveCycleEquipped, C: Coprocessor<F>> {
+pub struct NovaProver<F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<F, C>> {
     // `reduction_count` specifies the number of small-step reductions are performed in each recursive step.
     reduction_count: usize,
     lang: Lang<F, C>,
+    _p: PhantomData<M>,
 }
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> PublicParameters for PublicParams<'a, F, C>
@@ -228,16 +229,18 @@ where
 {
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, '_, F, C> for NovaProver<F, C>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<F, C>>
+    Prover<'a, '_, F, C, M> for NovaProver<F, C, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     type PublicParams = PublicParams<'a, F, C>;
     fn new(reduction_count: usize, lang: Lang<F, C>) -> Self {
-        NovaProver::<F, C> {
+        NovaProver::<F, C, M> {
             reduction_count,
             lang,
+            _p: Default::default(),
         }
     }
     fn reduction_count(&self) -> usize {
@@ -249,7 +252,7 @@ where
     }
 }
 
-impl<F: CurveCycleEquipped, C: Coprocessor<F>> NovaProver<F, C>
+impl<F: CurveCycleEquipped, C: Coprocessor<F>> NovaProver<F, C, MultiFrame<'_, F, C>>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -719,7 +722,8 @@ pub mod tests {
 
         let e = empty_sym_env(s);
 
-        let nova_prover = NovaProver::<Fr, C>::new(reduction_count, (*lang).clone());
+        let nova_prover =
+            NovaProver::<Fr, C, MultiFrame<'_, Fr, C>>::new(reduction_count, (*lang).clone());
 
         if check_nova {
             let pp = public_params(reduction_count, lang.clone());

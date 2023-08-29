@@ -25,7 +25,7 @@ use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
 use crate::eval::{lang::Lang, Evaluator, IO};
 use crate::field::LurkField;
-use crate::proof::{Provable, Prover, PublicParameters};
+use crate::proof::{MultiFrameTrait, Provable, Prover, PublicParameters};
 use crate::ptr::Ptr;
 use crate::store::Store;
 
@@ -97,7 +97,7 @@ where
     pub reduction_count: usize,
 }
 
-impl<C: Coprocessor<Scalar>> Groth16Prover<Bls12, C, Scalar> {
+impl<C: Coprocessor<Scalar>, M: MultiFrameTrait<Scalar, C>> Groth16Prover<Bls12, C, Scalar, M> {
     /// Creates Groth16 parameters using the given reduction count.
     pub fn create_groth_params(
         reduction_count: usize,
@@ -243,10 +243,15 @@ impl<C: Coprocessor<Scalar>> Groth16Prover<Bls12, C, Scalar> {
 
 /// A prover struct for the Groth16 proving system.
 /// Implements the crate::Prover trait.
-pub struct Groth16Prover<E: Engine + MultiMillerLoop, C: Coprocessor<F>, F: LurkField> {
+pub struct Groth16Prover<
+    E: Engine + MultiMillerLoop,
+    C: Coprocessor<F>,
+    F: LurkField,
+    M: MultiFrameTrait<F, C>,
+> {
     reduction_count: usize,
     lang: Lang<F, C>,
-    _p: PhantomData<(E, C, F)>,
+    _p: PhantomData<(E, C, F, M)>,
 }
 
 /// Public parameters for the Groth16 proving system.
@@ -255,7 +260,9 @@ pub struct PublicParams<E: Engine + MultiMillerLoop>(pub groth16::Parameters<E>)
 
 impl PublicParameters for PublicParams<Bls12> {}
 
-impl<'a, 'b, C: Coprocessor<Scalar>> Prover<'a, 'b, Scalar, C> for Groth16Prover<Bls12, C, Scalar> {
+impl<'a, 'b, C: Coprocessor<Scalar>, M: MultiFrameTrait<Scalar, C>> Prover<'a, 'b, Scalar, C, M>
+    for Groth16Prover<Bls12, C, Scalar, M>
+{
     type PublicParams = PublicParams<Bls12>;
 
     fn new(reduction_count: usize, lang: Lang<Scalar, C>) -> Self {
@@ -324,6 +331,7 @@ mod tests {
 
     use blstrs::Scalar as Fr;
     use rand::rngs::OsRng;
+    use std::sync::Arc;
 
     const DEFAULT_CHECK_GROTH16: bool = false;
     const DEFAULT_REDUCTION_COUNT: usize = 5;
@@ -356,7 +364,7 @@ mod tests {
         )
     }
 
-    fn outer_prove_aux0<C: Coprocessor<Fr>>(
+    fn outer_prove_aux0<'a, C: Coprocessor<Fr>>(
         s: &mut Store<Fr>,
         expr: Ptr<Fr>,
         expected_result: Ptr<Fr>,
@@ -370,7 +378,7 @@ mod tests {
         let rng = OsRng;
 
         let lang_rc = Arc::new(lang.clone());
-        let public_params = Groth16Prover::<_, C, Fr>::create_groth_params(
+        let public_params = Groth16Prover::<_, C, Fr, MultiFrame<Fr, C>>::create_groth_params(
             DEFAULT_REDUCTION_COUNT,
             lang_rc.clone(),
         )
@@ -407,10 +415,11 @@ mod tests {
                     .unwrap());
             }
 
-            let constraint_systems_verified = verify_sequential_css::<Scalar, C>(&cs).unwrap();
+            let constraint_systems_verified =
+                verify_sequential_css::<Scalar, C, MultiFrame<'_, Fr, C>>(&cs).unwrap();
             assert!(constraint_systems_verified);
 
-            check_cs_deltas(&cs, limit, lang_rc.clone());
+            check_cs_deltas::<C>(&cs, limit, lang_rc.clone());
         }
 
         let proof_results = (check_groth16).then(|| {
@@ -447,12 +456,12 @@ mod tests {
     }
 
     fn check_cs_deltas<C: Coprocessor<Fr>>(
-        constraint_systems: &SequentialCS<'_, Fr, C>,
+        constraint_systems: &SequentialCS<'_, Fr, MultiFrame<'_, Fr, C>>,
         limit: usize,
         lang: Arc<Lang<Fr, C>>,
     ) {
         let mut cs_blank = MetricCS::<Fr>::new();
-        let blank_frame = MultiFrame::<Scalar, C>::blank(DEFAULT_REDUCTION_COUNT, lang);
+        let blank_frame = MultiFrame::<'_, Fr, C>::blank(DEFAULT_REDUCTION_COUNT, lang);
         blank_frame
             .synthesize(&mut cs_blank)
             .expect("failed to synthesize");
