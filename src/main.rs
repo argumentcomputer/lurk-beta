@@ -10,7 +10,8 @@ fn main() -> Result<()> {
     let subscriber = Registry::default()
         .with(fmt::layer().pretty())
         .with(EnvFilter::from_default_env())
-        .with(TeXRayLayer::new()); // note: we don't `tracing_texray::examine` anything
+        // note: we don't `tracing_texray::examine` anywhere in lurkrs, so no spans are printed *yet*
+        .with(TeXRayLayer::new());
     tracing::subscriber::set_global_default(subscriber).unwrap();
 
     println!(
@@ -18,6 +19,6 @@ fn main() -> Result<()> {
         env!("VERGEN_GIT_COMMIT_DATE"),
         env!("VERGEN_GIT_SHA")
     );
-    // note: we don't `tracing_texray::examine` here, so no spans are printed
+
     lurk::cli::parse_and_run()
 }

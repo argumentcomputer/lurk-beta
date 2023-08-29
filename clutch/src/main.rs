@@ -7,16 +7,12 @@ use lurk::field::LanguageField;
 use lurk::repl::repl_cli;
 use pasta_curves::pallas;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
-use tracing_texray::TeXRayLayer;
 
 fn main() -> Result<()> {
     let subscriber = Registry::default()
         // TODO: correctly filter log level with `clap_verbosity_flag`
         .with(fmt::layer().pretty())
-        .with(EnvFilter::from_default_env())
-        // note: we don't `tracing_texray::examine` anything below, so no spans are printed
-        // but we add the layer to allow the option in the future, maybe with a feature?
-        .with(TeXRayLayer::new());
+        .with(EnvFilter::from_default_env());
     tracing::subscriber::set_global_default(subscriber).unwrap();
 
     let default_field = LanguageField::Pallas;
