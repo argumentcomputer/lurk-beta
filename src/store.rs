@@ -2245,6 +2245,31 @@ pub mod test {
     }
 
     #[test]
+    fn symbol_hashing() {
+        let s = &mut Store::<Fr>::default();
+        let foo_ptr = s.intern_string("foo");
+        let bar_ptr = s.intern_string("bar");
+        let foo_bar_ptr = s.intern_symbol(&Symbol::sym_from_vec(vec!["foo".into(), "bar".into()]));
+
+        let foo_z_ptr = s.hash_expr(&foo_ptr).unwrap();
+        let bar_z_ptr = s.hash_expr(&bar_ptr).unwrap();
+        let foo_bar_hash = s.hash_expr(&foo_bar_ptr).unwrap().1;
+
+        let foo_bar_hash_manual = s.poseidon_cache.hash4(&[
+            bar_z_ptr.0.to_field(),
+            bar_z_ptr.1,
+            ExprTag::Sym.to_field(),
+            s.poseidon_cache.hash4(&[
+                foo_z_ptr.0.to_field(),
+                foo_z_ptr.1,
+                ExprTag::Sym.to_field(),
+                Fr::ZERO,
+            ]),
+        ]);
+        assert_eq!(foo_bar_hash, foo_bar_hash_manual);
+    }
+
+    #[test]
     fn sym_and_key_hashes() {
         let s = &mut Store::<Fr>::default();
 
