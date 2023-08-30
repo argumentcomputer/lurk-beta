@@ -15,7 +15,7 @@ use lurk::{
     },
     field::LurkField,
     proof::nova::NovaProver,
-    proof::Prover,
+    proof::{MultiFrameTrait, Prover},
     ptr::Ptr,
     state::State,
     store::Store,

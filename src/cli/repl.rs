@@ -209,7 +209,7 @@ impl Repl<F> {
 
                         info!("Proving");
                         let (proof, public_inputs, public_outputs, num_steps) =
-                            prover.prove(&pp, frames, &mut self.store, self.lang.clone())?;
+                            prover.prove(&pp, frames, &mut self.store, &self.lang)?;
                         info!("Compressing proof");
                         let proof = proof.compress(&pp)?;
                         assert_eq!(self.rc * num_steps, pad(n_frames, self.rc));

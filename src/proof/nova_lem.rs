@@ -123,11 +123,11 @@ where
         pp: &'a PublicParams<F, MultiFrame<'a, F, C>>,
         frames: &[Frame<F>],
         store: &'a Store<F>,
-        lang: Arc<Lang<F, C>>,
+        lang: &Arc<Lang<F, C>>,
     ) -> Result<(Proof<'_, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
         let z0 = store.to_vector(&frames.first().unwrap().input).unwrap();
         let zi = store.to_vector(&frames.last().unwrap().output).unwrap();
-        let func = Arc::new(Func::from(&*lang));
+        let func = Arc::new(Func::from(&**lang));
         let circuits = MultiFrame::from_frames(func, self.reduction_count(), frames, store);
 
         let num_steps = circuits.len();
@@ -137,7 +137,7 @@ where
             &circuits,
             self.reduction_count(),
             z0.clone(),
-            lang,
+            lang.clone(),
         )?;
 
         Ok((proof, z0, zi, num_steps))
@@ -453,7 +453,7 @@ pub mod tests {
         s.hydrate_z_cache();
         if check_nova {
             let pp = EVAL_PP.get_or_init(|| public_params(reduction_count, lang.clone()));
-            let (proof, z0, zi, num_steps) = nova_prover.prove(pp, &frames, s, lang).unwrap();
+            let (proof, z0, zi, num_steps) = nova_prover.prove(pp, &frames, s, &lang).unwrap();
 
             let res = proof.verify(pp, num_steps, &z0, &zi);
             if res.is_err() {

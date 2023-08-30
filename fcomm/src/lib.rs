@@ -882,7 +882,7 @@ impl<'a> Proof<'a, S1> {
         };
 
         let (proof, _public_input, _public_output, num_steps) = nova_prover
-            .evaluate_and_prove(pp, expr, env, s, limit, lang.clone())
+            .evaluate_and_prove(pp, expr, env, s, limit, &lang)
             .expect("Nova proof failed");
 
         let proof = Self {

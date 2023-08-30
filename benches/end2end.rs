@@ -87,7 +87,7 @@ fn end2end_benchmark(c: &mut Criterion) {
         b.iter(|| {
             let ptr = go_base::<pallas::Scalar>(&mut store, state.clone(), s.0, s.1);
             let _result = prover
-                .evaluate_and_prove(&pp, ptr, env, &mut store, limit, lang_pallas_rc.clone())
+                .evaluate_and_prove(&pp, ptr, env, &mut store, limit, &lang_pallas_rc)
                 .unwrap();
         })
     });
@@ -303,7 +303,7 @@ fn prove_benchmark(c: &mut Criterion) {
 
         b.iter(|| {
             let result = prover
-                .prove(&pp, &frames, &mut store, lang_pallas_rc.clone())
+                .prove(&pp, &frames, &mut store, &lang_pallas_rc)
                 .unwrap();
             black_box(result);
         })
@@ -351,7 +351,7 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
 
         b.iter(|| {
             let (proof, _, _, _) = prover
-                .prove(&pp, &frames, &mut store, lang_pallas_rc.clone())
+                .prove(&pp, &frames, &mut store, &lang_pallas_rc)
                 .unwrap();
 
             let compressed_result = proof.compress(&pp).unwrap();
@@ -395,7 +395,7 @@ fn verify_benchmark(c: &mut Criterion) {
                 .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
                 .unwrap();
             let (proof, z0, zi, num_steps) = prover
-                .prove(&pp, &frames, &mut store, lang_pallas_rc.clone())
+                .prove(&pp, &frames, &mut store, &lang_pallas_rc)
                 .unwrap();
 
             b.iter_batched(
@@ -447,7 +447,7 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
                 .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
                 .unwrap();
             let (proof, z0, zi, num_steps) = prover
-                .prove(&pp, &frames, &mut store, lang_pallas_rc.clone())
+                .prove(&pp, &frames, &mut store, &lang_pallas_rc)
                 .unwrap();
 
             let compressed_proof = proof.compress(&pp).unwrap();

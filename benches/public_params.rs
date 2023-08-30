@@ -1,10 +1,12 @@
-use blstrs::Scalar as Fr;
+use blstrs::{Bls12, Scalar as Fr};
 use criterion::{black_box, criterion_group, criterion_main, Criterion, SamplingMode};
 use lurk::{
+    circuit::MultiFrame,
     eval::lang::{Coproc, Lang},
-    proof::groth16::Groth16Prover,
+    proof::groth16::{self, Groth16Prover},
     proof::nova,
 };
+use pasta_curves::pallas;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -26,15 +28,26 @@ fn public_params_benchmark(c: &mut Criterion) {
 
     group.bench_function("public_params_nova", |b| {
         b.iter(|| {
-            let result = nova::public_params(reduction_count, lang_pallas_rc.clone());
+            let result: nova::PublicParams<
+                pallas::Scalar,
+                MultiFrame<pallas::Scalar, Coproc<pallas::Scalar>>,
+            > = nova::public_params(reduction_count, lang_pallas_rc.clone());
             black_box(result)
         })
     });
 
     group.bench_function("public_params_groth", |b| {
         b.iter(|| {
-            let result =
-                Groth16Prover::create_groth_params(DEFAULT_REDUCTION_COUNT, lang_bls_rc.clone());
+            let result: groth16::PublicParams<Bls12> = Groth16Prover::<
+                Bls12,
+                Coproc<Fr>,
+                Fr,
+                MultiFrame<Fr, Coproc<Fr>>,
+            >::create_groth_params(
+                DEFAULT_REDUCTION_COUNT,
+                lang_bls_rc.clone(),
+            )
+            .unwrap();
             black_box(result)
         })
     });
