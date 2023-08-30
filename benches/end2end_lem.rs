@@ -80,7 +80,7 @@ fn end2end_benchmark_lem(c: &mut Criterion) {
         b.iter(|| {
             let ptr = go_base::<Fq>(&mut store, state.clone(), s.0, s.1);
             let (frames, _) = evaluate(ptr, &mut store, limit).unwrap();
-            let _result = prover.prove(&pp, &frames, &mut store, &lang).unwrap();
+            let _result = prover.prove(&pp, &frames, &store, &lang).unwrap();
         })
     });
 
@@ -271,7 +271,7 @@ fn prove_benchmark_lem(c: &mut Criterion) {
         let (frames, _) = evaluate(ptr, &mut store, limit).unwrap();
 
         b.iter(|| {
-            let result = prover.prove(&pp, &frames, &mut store, &lang).unwrap();
+            let result = prover.prove(&pp, &frames, &store, &lang).unwrap();
             black_box(result);
         })
     });

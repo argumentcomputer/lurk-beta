@@ -182,7 +182,7 @@ impl ReplLEM<F> {
 
                         info!("Proving");
                         let (proof, public_inputs, public_outputs, num_steps) =
-                            prover.prove(&pp, frames, &mut self.store, &self.lang)?;
+                            prover.prove(&pp, frames, &self.store, &self.lang)?;
                         assert_eq!(self.rc * num_steps, pad(n_frames, self.rc));
 
                         info!("Compressing proof");

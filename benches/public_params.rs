@@ -30,7 +30,7 @@ fn public_params_benchmark(c: &mut Criterion) {
         b.iter(|| {
             let result: nova::PublicParams<
                 pallas::Scalar,
-                MultiFrame<pallas::Scalar, Coproc<pallas::Scalar>>,
+                MultiFrame<'static, pallas::Scalar, Coproc<pallas::Scalar>>,
             > = nova::public_params(reduction_count, lang_pallas_rc.clone());
             black_box(result)
         })

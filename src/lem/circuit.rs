@@ -32,9 +32,10 @@ use bellpepper_core::{
         num::AllocatedNum,
     },
 };
-use std::collections::{HashMap, HashSet, VecDeque};
-use std::marker::PhantomData;
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    sync::Arc,
+};
 
 use crate::circuit::gadgets::{
     constraints::{
@@ -73,7 +74,6 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     pub frames: Option<Vec<Frame<F>>>,
     pub cached_witness: Option<WitnessCS<F>>,
     pub reduction_count: usize,
-    _p: PhantomData<C>,
 }
 
 impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
@@ -146,7 +146,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
             frames: None,
             cached_witness: None,
             reduction_count: count,
-            _p: Default::default(),
         }
     }
 
@@ -183,7 +182,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
                 frames: Some(inner_frames),
                 cached_witness: None,
                 reduction_count: count,
-                _p: Default::default(),
             };
 
             multi_frames.push(mf);
@@ -194,12 +192,30 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
 
     /// Make a dummy instance, duplicating `self`'s final `CircuitFrame`.
     fn make_dummy(
-        _count: usize,
-        _circuit_frame: Option<Self::CircuitFrame>,
-        _store: &'a Self::Store,
-        _lang: Arc<Lang<F, C>>,
+        count: usize,
+        circuit_frame: Option<Self::CircuitFrame>,
+        store: &'a Self::Store,
+        lang: Arc<Lang<F, C>>,
     ) -> Self {
-        todo!()
+        let (frames, input, output) = if let Some(circuit_frame) = circuit_frame {
+            (
+                Some(vec![circuit_frame.clone(); count]),
+                Some(circuit_frame.input),
+                Some(circuit_frame.output),
+            )
+        } else {
+            (None, None, None)
+        };
+        Self {
+            store: Some(store),
+            lang: lang.clone(),
+            func: Func::from(&*lang),
+            input,
+            output,
+            frames,
+            cached_witness: None,
+            reduction_count: count,
+        }
     }
 }
 
