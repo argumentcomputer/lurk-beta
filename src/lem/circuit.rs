@@ -65,8 +65,9 @@ use super::{
 
 #[derive(Clone)]
 pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
-    pub func: Arc<Func>,
     pub store: Option<&'a Store<F>>,
+    pub lang: Arc<Lang<F, C>>,
+    pub func: Func,
     pub input: Option<Vec<Ptr<F>>>,
     pub output: Option<Vec<Ptr<F>>>,
     pub frames: Option<Vec<Frame<F>>>,
@@ -76,7 +77,7 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
 }
 
 impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
-    fn allocate_lits<CS: ConstraintSystem<F>>(
+    pub(crate) fn allocate_consts<CS: ConstraintSystem<F>>(
         &self,
         _cs: &mut CS,
         _g: &mut GlobalAllocator<F>,
@@ -138,8 +139,9 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
 
     fn blank(count: usize, lang: Arc<Lang<F, C>>) -> Self {
         Self {
-            func: Func::from(&*lang).into(),
             store: None,
+            lang: lang.clone(),
+            func: Func::from(&*lang),
             input: None,
             output: None,
             frames: None,
@@ -174,8 +176,9 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
             let input = chunk[0].input.clone();
 
             let mf = MultiFrame {
-                func: Func::from(&*lang).into(),
                 store: Some(store),
+                lang: lang.clone(),
+                func: Func::from(&*lang),
                 input: Some(input),
                 output: Some(output),
                 frames: Some(inner_frames),
@@ -212,14 +215,16 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
 
 impl<'a, F: LurkField, C: Coprocessor<F>> Provable<F> for MultiFrame<'a, F, C> {
     fn public_inputs(&self) -> Vec<F> {
-        // TODO: improve this
         let input = self.input.as_ref().expect("input missing");
         let output = self.output.as_ref().expect("input missing");
-        let mut joined = Vec::with_capacity(input.len() + output.len());
-        joined.extend(input);
-        joined.extend(output);
         let store = self.store.expect("store missing");
-        store.to_vector(&joined).expect("pointer hashing failed")
+        let mut res = Vec::with_capacity(2 * (input.len() + output.len()));
+        for ptr in input {
+            let z_ptr = store.hash_ptr(ptr).expect("pointer hashing failed");
+            res.push(z_ptr.tag.to_field());
+            res.push(z_ptr.hash);
+        }
+        res
     }
 
     fn public_input_size(&self) -> usize {
@@ -230,105 +235,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Provable<F> for MultiFrame<'a, F, C> {
 
     fn reduction_count(&self) -> usize {
         self.reduction_count
-    }
-}
-
-impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
-    pub fn blank(func: Arc<Func>, reduction_count: usize) -> Self {
-        Self {
-            func,
-            store: None,
-            input: None,
-            output: None,
-            frames: None,
-            cached_witness: None,
-            reduction_count,
-            _p: Default::default(),
-        }
-    }
-
-    pub fn from_frames(
-        func: Arc<Func>,
-        reduction_count: usize,
-        frames: &[Frame<F>],
-        store: &'a Store<F>,
-    ) -> Vec<Self> {
-        let total_frames = frames.len();
-        let n = (total_frames + reduction_count - 1) / reduction_count;
-        let mut multi_frames = Vec::with_capacity(n);
-
-        for chunk in frames.chunks(reduction_count) {
-            let last_frame = chunk.last().expect("chunk must not be empty");
-            let inner_frames = if chunk.len() < reduction_count {
-                let mut inner_frames = Vec::with_capacity(reduction_count);
-                inner_frames.extend(chunk.to_vec());
-                inner_frames.resize(reduction_count, last_frame.clone());
-                inner_frames
-            } else {
-                chunk.to_vec()
-            };
-
-            let output = last_frame.output.clone();
-            let input = chunk[0].input.clone();
-            debug_assert!(!inner_frames.is_empty());
-
-            let mf = MultiFrame {
-                func: func.clone(),
-                store: Some(store),
-                input: Some(input),
-                output: Some(output),
-                frames: Some(inner_frames),
-                cached_witness: None,
-                reduction_count,
-                _p: Default::default(),
-            };
-
-            multi_frames.push(mf);
-        }
-
-        multi_frames
-    }
-
-    pub fn synthesize_frames<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        store: &Store<F>,
-        input: &[AllocatedPtr<F>],
-        frames: &[Frame<F>],
-        blank: bool,
-    ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
-        let global_allocator = &mut GlobalAllocator::default();
-        self.allocate_lits(cs, global_allocator)?;
-        let (_, output) = frames
-            .iter()
-            .try_fold((0, input.to_vec()), |(i, input), frame| {
-                if !blank {
-                    for (alloc_ptr, input) in input.iter().zip(&frame.input) {
-                        let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
-                        match (alloc_ptr.tag().get_value(), alloc_ptr.hash().get_value()) {
-                            (Some(alloc_ptr_tag), Some(alloc_ptr_hash)) => {
-                                assert_eq!(alloc_ptr_tag, input_zptr.tag.to_field());
-                                assert_eq!(alloc_ptr_hash, input_zptr.hash);
-                            }
-                            _ => return Err(SynthesisError::AssignmentMissing),
-                        }
-                    }
-                }
-                let bound_allocations = &mut BoundAllocations::new();
-                self.func.add_input(&input, bound_allocations);
-                let output = self
-                    .func
-                    .synthesize_frame(
-                        &mut cs.namespace(|| format!("step {i}")),
-                        store,
-                        frame,
-                        global_allocator,
-                        bound_allocations,
-                    )
-                    .unwrap();
-                Ok((i + 1, output))
-            })?;
-        Ok(output)
     }
 }
 

@@ -17,20 +17,23 @@ use nova::{
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::circuit::gadgets::pointer::AllocatedPtr;
 use crate::config::CONFIG;
+use crate::{circuit::gadgets::pointer::AllocatedPtr, lem::circuit::GlobalAllocator};
 
 use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
 use crate::eval::lang::Lang;
 use crate::field::LurkField;
-use crate::lem::{circuit::MultiFrame, interpreter::Frame, store::Store, Func};
+use crate::lem::{circuit::MultiFrame, interpreter::Frame, store::Store};
 use crate::proof::{
     nova::{NovaProver, PublicParams},
     Prover,
 };
 
-use super::nova::{CurveCycleEquipped, C2, G1, G2, SS1, SS2};
+use super::{
+    nova::{CurveCycleEquipped, C2, G1, G2, SS1, SS2},
+    MultiFrameTrait,
+};
 
 /// Type alias for a MultiFrame with S1 field elements.
 /// This uses the <<F as CurveCycleEquipped>::G1 as Group>::Scalar type for the G1 scalar field elements
@@ -38,9 +41,9 @@ use super::nova::{CurveCycleEquipped, C2, G1, G2, SS1, SS2};
 pub type C1<'a, F, C> = MultiFrame<'a, <G1<F> as Group>::Scalar, C>;
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> MultiFrame<'a, F, C> {
-    fn circuits(func: Arc<Func>, count: usize) -> (C1<'a, F, C>, C2<F>) {
+    fn circuits(lang: Arc<Lang<F, C>>, count: usize) -> (C1<'a, F, C>, C2<F>) {
         (
-            MultiFrame::blank(func, count),
+            MultiFrame::blank(count, lang),
             TrivialTestCircuit::default(),
         )
     }
@@ -91,14 +94,19 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
         let output_ptrs = match self.frames.as_ref() {
             Some(frames) => {
                 let s = self.store.expect("store missing");
-                self.synthesize_frames(cs, s, &input, frames, false)?
+                let g = &mut GlobalAllocator::default();
+                self.allocate_consts(cs, g)?;
+                self.synthesize_frames(cs, s, input, frames, g)
             }
             None => {
                 assert!(self.store.is_none());
-                let s = self.func.init_store();
-                let blank_frame = Frame::blank(&self.func);
+                let func = &self.func;
+                let store = func.init_store();
+                let blank_frame = Frame::blank(func);
                 let frames = vec![blank_frame; self.reduction_count];
-                self.synthesize_frames(cs, &s, &input, &frames, true)?
+                let g = &mut GlobalAllocator::default();
+                self.allocate_consts(cs, g)?;
+                self.synthesize_frames(cs, &store, input, &frames, g)
             }
         };
 
@@ -127,8 +135,7 @@ where
     ) -> Result<(Proof<'_, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
         let z0 = store.to_vector(&frames.first().unwrap().input).unwrap();
         let zi = store.to_vector(&frames.last().unwrap().output).unwrap();
-        let func = Arc::new(Func::from(&*lang));
-        let circuits = MultiFrame::from_frames(func, self.reduction_count(), frames, store);
+        let circuits = MultiFrame::from_frames(self.reduction_count(), frames, store, lang.clone());
 
         let num_steps = circuits.len();
         let proof = Proof::prove_recursively(
@@ -169,11 +176,10 @@ where
         circuits: &[C1<'a, F, C>],
         num_iters_per_step: usize,
         z0: Vec<F>,
-        _lang: Arc<Lang<F, C>>,
+        lang: Arc<Lang<F, C>>,
     ) -> Result<Self, ProofError> {
         assert!(!circuits.is_empty());
         assert_eq!(circuits[0].arity(), z0.len());
-        let func = circuits[0].func.clone();
         let debug = false;
         let z0_primary = z0;
         let z0_secondary = Self::z0_secondary();
@@ -185,7 +191,7 @@ where
         let (_circuit_primary, circuit_secondary): (
             MultiFrame<'_, F, C>,
             TrivialTestCircuit<<G2<F> as Group>::Scalar>,
-        ) = C1::<'a, F, C>::circuits(func, num_iters_per_step);
+        ) = C1::<'a, F, C>::circuits(lang, num_iters_per_step);
 
         // produce a recursive SNARK
         let mut recursive_snark: Option<RecursiveSNARK<G1<F>, G2<F>, C1<'a, F, C>, C2<F>>> = None;
