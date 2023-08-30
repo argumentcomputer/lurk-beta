@@ -27,8 +27,8 @@ use sha2::{Digest, Sha256};
 
 const REDUCTION_COUNT: usize = 10;
 
-fn sha256_expr<F: LurkField>(store: &mut Store<F>) -> Ptr<F> {
-    let program = r#"
+fn sha256_expr<F: LurkField>(store: &mut Store<F>, x: Vec<F>) -> Ptr<F> {
+    let program = format!(r#"
 (letrec ((encode-1 (lambda (term) 
             (let ((type (car term))
                   (value (cdr term)))
@@ -43,10 +43,10 @@ fn sha256_expr<F: LurkField>(store: &mut Store<F>) -> Ptr<F> {
                     (cons 
                         (encode-1 (car input))
                         (encode (cdr input)))))))
-  (encode '((sha256 . 20) (lurk . 5) (id . 15))))
-"#;
+  (encode '((sha256 {x:?}) (lurk . 5) (id . 15))))
+"#);
 
-    store.read(program).unwrap()
+    store.read(&program).unwrap()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -151,7 +151,7 @@ enum Sha256Coproc<F: LurkField> {
 }
 
 /// Run the example in this file with
-/// `cargo run --release --example sha256x`
+/// `cargo run --release --example sha256_ivc`
 fn main() {
     pretty_env_logger::init();
 
