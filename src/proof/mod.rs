@@ -27,17 +27,18 @@ use std::sync::Arc;
 pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F>>:
     Provable<F> + Circuit<F> + Clone
 {
-    /// The `Store` associated with this implementation.
+    /// The associated `Store` type
     type Store;
-    /// The `Ptr` type associated with this implementation.
+    /// The associated `Ptr` type
     type Ptr;
-    /// The `Frame` type associated with this implementation.
+    /// The associated `Frame` type
     type Frame;
-    /// The `CircuitFrame` type associated with this implementation.
+    /// The associated `CircuitFrame` type
     type CircuitFrame;
-    /// The type which manages global allocations for this implementation.
+    /// The associated type which manages global allocations
     type GlobalAllocation;
-
+    /// The associated type of allocated input and output to the circuit
+    type AllocatedIO;
     /// Returns true if the supplied instance directly precedes this one in a sequential computation trace.
     fn precedes(&self, maybe_next: &Self) -> bool;
 
@@ -46,12 +47,10 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F>>:
         &self,
         cs: &mut CS,
         store: &Self::Store,
-        input_expr: AllocatedPtr<F>,
-        input_env: AllocatedPtr<F>,
-        input_cont: AllocatedContPtr<F>,
+        input: Self::AllocatedIO,
         frames: &[Self::CircuitFrame],
         g: &Self::GlobalAllocation,
-    ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>);
+    ) -> Self::AllocatedIO;
 
     /// Synthesize a blank circuit.
     fn blank(count: usize, lang: Arc<Lang<F, C>>) -> Self;

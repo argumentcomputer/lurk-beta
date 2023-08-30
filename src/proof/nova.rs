@@ -390,7 +390,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
                 let s = self.store.expect("store missing");
                 let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?;
 
-                self.synthesize_frames(cs, s, input_expr, input_env, input_cont, frames, &g)
+                self.synthesize_frames(cs, s, (input_expr, input_env, input_cont), frames, &g)
             }
             None => {
                 assert!(self.store.is_none());
@@ -400,7 +400,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
 
                 let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?;
 
-                self.synthesize_frames(cs, &s, input_expr, input_env, input_cont, &frames, &g)
+                self.synthesize_frames(cs, &s, (input_expr, input_env, input_cont), &frames, &g)
             }
         };
 

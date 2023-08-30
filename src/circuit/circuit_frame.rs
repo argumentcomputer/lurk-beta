@@ -73,6 +73,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
     type Frame = Frame<IO<F>, Witness<F>, C>;
     type CircuitFrame = CircuitFrame<'a, F, C>;
     type GlobalAllocation = GlobalAllocations<F>;
+    type AllocatedIO = AllocatedIO<F>;
 
     fn precedes(&self, maybe_next: &Self) -> bool {
         self.output == maybe_next.input
@@ -82,18 +83,14 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
         &self,
         cs: &mut CS,
         store: &Store<F>,
-        input_expr: AllocatedPtr<F>,
-        input_env: AllocatedPtr<F>,
-        input_cont: AllocatedContPtr<F>,
+        input: Self::AllocatedIO,
         frames: &[Self::CircuitFrame],
         g: &GlobalAllocations<F>,
-    ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
+    ) -> Self::AllocatedIO {
         if cs.is_witness_generator() && CONFIG.parallelism.synthesis.is_parallel() {
-            self.synthesize_frames_parallel(cs, store, input_expr, input_env, input_cont, frames, g)
+            self.synthesize_frames_parallel(cs, store, input, frames, g)
         } else {
-            self.synthesize_frames_sequential(
-                cs, store, input_expr, input_env, input_cont, frames, None, g,
-            )
+            self.synthesize_frames_sequential(cs, store, input, frames, None, g)
         }
     }
 
@@ -215,13 +212,12 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         &self,
         cs: &mut CS,
         store: &Store<F>,
-        input_expr: AllocatedPtr<F>,
-        input_env: AllocatedPtr<F>,
-        input_cont: AllocatedContPtr<F>,
+        input: AllocatedIO<F>,
         frames: &[CircuitFrame<'_, F, C>],
         cons_and_cont_witnesses: Option<Vec<(ConsCircuitWitness<F>, ContCircuitWitness<F>)>>,
         g: &GlobalAllocations<F>,
     ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
+        let (input_expr, input_env, input_cont) = input;
         let mut hash_circuit_witness_cache = HashMap::new();
 
         let acc = (input_expr, input_env, input_cont);
@@ -299,14 +295,13 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         &self,
         cs: &mut CS,
         store: &Store<F>,
-        input_expr: AllocatedPtr<F>,
-        input_env: AllocatedPtr<F>,
-        input_cont: AllocatedContPtr<F>,
+        input: AllocatedIO<F>,
         frames: &[CircuitFrame<'_, F, C>],
         g: &GlobalAllocations<F>,
     ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
         assert!(cs.is_witness_generator());
         assert!(CONFIG.parallelism.synthesis.is_parallel());
+        let (input_expr, input_env, input_cont) = input;
 
         // TODO: this probably belongs in config, perhaps per-Flow.
         const MIN_CHUNK_SIZE: usize = 10;
@@ -384,9 +379,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                 let output = self.synthesize_frames_sequential(
                     &mut cs,
                     store,
-                    input_expr,
-                    input_env,
-                    input_cont,
+                    (input_expr, input_env, input_cont),
                     chunk,
                     Some(cons_and_cont_witnesses),
                     g,
@@ -572,7 +565,7 @@ impl<F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'_, F, C> {
             let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), store)?;
 
             let (new_expr, new_env, new_cont) =
-                self.synthesize_frames(cs, store, input_expr, input_env, input_cont, frames, &g);
+                self.synthesize_frames(cs, store, (input_expr, input_env, input_cont), frames, &g);
 
             output_expr.enforce_equal(
                 &mut cs.namespace(|| "outer output expr is correct"),
