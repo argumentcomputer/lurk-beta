@@ -45,7 +45,7 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F>>:
     fn synthesize_frames<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-        store: &Store<F>,
+        store: &Self::Store,
         input_expr: AllocatedPtr<F>,
         input_env: AllocatedPtr<F>,
         input_cont: AllocatedContPtr<F>,
@@ -60,7 +60,7 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F>>:
     fn from_frames(
         count: usize,
         frames: &[Self::Frame],
-        store: &'a Store<F>,
+        store: &'a Self::Store,
         lang: Arc<Lang<F, C>>,
     ) -> Vec<Self>;
 
@@ -68,7 +68,7 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F>>:
     fn make_dummy(
         count: usize,
         circuit_frame: Option<Self::CircuitFrame>,
-        store: &'a Store<F>,
+        store: &'a Self::Store,
         lang: Arc<Lang<F, C>>,
     ) -> Self;
 }
