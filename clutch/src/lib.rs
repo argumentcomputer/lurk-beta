@@ -14,6 +14,7 @@ use lurk::public_parameters::public_params;
 use lurk::state::State;
 use pasta_curves::pallas;
 
+use lurk::circuit::MultiFrame;
 use lurk::coprocessor::Coprocessor;
 use lurk::eval::{
     lang::{Coproc, Lang},
@@ -531,7 +532,10 @@ impl ClutchState<F, Coproc<F>> {
     fn prove(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let (proof_in_expr, _rest1) = store.car_cdr(&rest)?;
 
-        let prover = NovaProver::<F, Coproc<F>>::new(self.reduction_count, (*self.lang()).clone());
+        let prover = NovaProver::<F, Coproc<F>, MultiFrame<F, Coproc<F>>>::new(
+            self.reduction_count,
+            (*self.lang()).clone(),
+        );
         let pp = public_params(self.reduction_count, true, self.lang(), &public_param_dir())?;
 
         let proof = if rest.is_nil() {
