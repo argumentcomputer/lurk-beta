@@ -1,6 +1,5 @@
-use camino::Utf8PathBuf;
+
 use lurk::{
-    cli::backend::Backend,
     eval::lang::{Coproc, Lang},
     repl::{repl, ReplState},
 };

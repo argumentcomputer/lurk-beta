@@ -288,15 +288,21 @@ where
         pp: &'a PublicParams<F, MultiFrame<'a, F, C>>,
         frames: &[Frame<IO<F>, Witness<F>, C>],
         store: &'a mut Store<F>,
-        lang: Arc<Lang<F, C>>,
+        lang: &Arc<Lang<F, C>>,
     ) -> Result<(Proof<'_, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
         let z0 = frames[0].input.to_vector(store)?;
         let zi = frames.last().unwrap().output.to_vector(store)?;
         let circuits = MultiFrame::from_frames(self.reduction_count(), frames, store, lang.clone());
 
         let num_steps = circuits.len();
-        let proof =
-            Proof::prove_recursively(pp, store, &circuits, self.reduction_count, z0.clone(), lang)?;
+        let proof = Proof::prove_recursively(
+            pp,
+            store,
+            &circuits,
+            self.reduction_count,
+            z0.clone(),
+            lang.clone(),
+        )?;
 
         Ok((proof, z0, zi, num_steps))
     }
@@ -309,9 +315,9 @@ where
         env: Ptr<F>,
         store: &'a mut Store<F>,
         limit: usize,
-        lang: Arc<Lang<F, C>>,
+        lang: &Arc<Lang<F, C>>,
     ) -> Result<(Proof<'_, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
-        let frames = self.get_evaluation_frames(expr, env, store, limit, &lang)?;
+        let frames = self.get_evaluation_frames(expr, env, store, limit, lang)?;
         self.prove(pp, &frames, store, lang)
     }
 }
@@ -738,7 +744,7 @@ pub mod tests {
         if check_nova {
             let pp = public_params(reduction_count, lang.clone());
             let (proof, z0, zi, num_steps) = nova_prover
-                .evaluate_and_prove(&pp, expr, empty_sym_env(s), s, limit, lang.clone())
+                .evaluate_and_prove(&pp, expr, empty_sym_env(s), s, limit, &lang)
                 .unwrap();
 
             let res = proof.verify(&pp, num_steps, &z0, &zi);

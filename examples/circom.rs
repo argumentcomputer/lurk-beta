@@ -41,7 +41,7 @@ use lurk::coprocessor::circom::non_wasm::CircomCoprocessor;
 use lurk::circuit::circuit_frame::MultiFrame;
 use lurk::eval::{empty_sym_env, lang::Lang};
 use lurk::field::LurkField;
-use lurk::proof::{nova::NovaProver, MultiFrameTrait, Prover};
+use lurk::proof::{nova::NovaProver, Prover};
 use lurk::ptr::Ptr;
 use lurk::public_parameters::{public_params, public_params_default_dir};
 use lurk::store::Store;
@@ -140,7 +140,7 @@ fn main() {
 
     let proof_start = Instant::now();
     let (proof, z0, zi, num_steps) = nova_prover
-        .evaluate_and_prove(&pp, ptr, empty_sym_env(store), store, 10000, lang_rc)
+        .evaluate_and_prove(&pp, ptr, empty_sym_env(store), store, 10000, &lang_rc)
         .unwrap();
     let proof_end = proof_start.elapsed();
 
