@@ -6,7 +6,7 @@ mod field_data;
 mod lurk_proof;
 pub mod paths;
 mod repl;
-// pub mod repl_lem;
+pub mod repl_lem;
 
 use anyhow::{bail, Context, Result};
 use camino::Utf8PathBuf;
@@ -27,7 +27,7 @@ use crate::{
 use crate::cli::{
     paths::set_lurk_dirs,
     repl::{validate_non_zero, Repl},
-    //    repl_lem::ReplLEM,
+    repl_lem::ReplLEM,
 };
 
 use self::backend::Backend;
@@ -380,12 +380,11 @@ impl ReplCli {
         macro_rules! repl {
             ( $rc:expr, $limit:expr, $field:path, $backend:expr ) => {{
                 if self.lem {
-                    unimplemented!("LEM");
-                    // let mut repl = ReplLEM::<$field>::new(None, $rc, $limit, $backend);
-                    // if let Some(lurk_file) = &self.load {
-                    //     repl.load_file(lurk_file)?;
-                    // }
-                    // repl.start()
+                    let mut repl = ReplLEM::<$field>::new(None, $rc, $limit, $backend);
+                    if let Some(lurk_file) = &self.load {
+                        repl.load_file(lurk_file)?;
+                    }
+                    repl.start()
                 } else {
                     let mut repl = new_repl!(self, $rc, $limit, $field, $backend);
                     if let Some(lurk_file) = &self.load {
@@ -437,13 +436,12 @@ impl LoadCli {
         macro_rules! load {
             ( $rc:expr, $limit:expr, $field:path, $backend:expr ) => {{
                 if self.lem {
-                    unimplemented!("LEM");
-                    // let mut repl = ReplLEM::<$field>::new(None, $rc, $limit, $backend);
-                    // repl.load_file(&self.lurk_file)?;
-                    // if self.prove {
-                    //     repl.prove_last_frames()?;
-                    // }
-                    // Ok(())
+                    let mut repl = ReplLEM::<$field>::new(None, $rc, $limit, $backend);
+                    repl.load_file(&self.lurk_file)?;
+                    if self.prove {
+                        repl.prove_last_frames()?;
+                    }
+                    Ok(())
                 } else {
                     let mut repl = new_repl!(self, $rc, $limit, $field, $backend);
                     repl.load_file(&self.lurk_file)?;

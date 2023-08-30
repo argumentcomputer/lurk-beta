@@ -90,7 +90,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
     type Store = Store<F>;
     type Ptr = Ptr<F>;
     type Frame = Frame<F>;
-    /// what??
     type CircuitFrame = Frame<F>;
     type GlobalAllocation = GlobalAllocator<F>;
     type AllocatedIO = Vec<AllocatedPtr<F>>;
