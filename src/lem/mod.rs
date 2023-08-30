@@ -96,7 +96,7 @@ pub struct Func {
 }
 
 impl<F: LurkField, C: Coprocessor<F>> From<&Lang<F, C>> for Func {
-    fn from(lang: &Lang<F, C>) -> Self {
+    fn from(_lang: &Lang<F, C>) -> Self {
         eval::eval_step().clone()
     }
 }

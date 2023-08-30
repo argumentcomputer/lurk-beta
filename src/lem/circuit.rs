@@ -83,40 +83,40 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
     type GlobalAllocation = GlobalAllocator<F>;
     type AllocatedIO = Vec<AllocatedPtr<F>>;
 
-    fn precedes(&self, maybe_next: &Self) -> bool {
+    fn precedes(&self, _maybe_next: &Self) -> bool {
         todo!()
     }
 
     fn synthesize_frames<CS: ConstraintSystem<F>>(
         &self,
-        cs: &mut CS,
-        store: &Self::Store,
-        input: Self::AllocatedIO,
-        frames: &[Self::CircuitFrame],
-        g: &Self::GlobalAllocation,
+        _cs: &mut CS,
+        _store: &Self::Store,
+        _input: Self::AllocatedIO,
+        _frames: &[Self::CircuitFrame],
+        _g: &Self::GlobalAllocation,
     ) -> Self::AllocatedIO {
         todo!()
     }
 
-    fn blank(count: usize, lang: Arc<Lang<F, C>>) -> Self {
+    fn blank(_count: usize, _lang: Arc<Lang<F, C>>) -> Self {
         todo!()
     }
 
     fn from_frames(
-        count: usize,
-        frames: &[Self::Frame],
-        store: &'a Self::Store,
-        lang: Arc<Lang<F, C>>,
+        _count: usize,
+        _frames: &[Self::Frame],
+        _store: &'a Self::Store,
+        _lang: Arc<Lang<F, C>>,
     ) -> Vec<Self> {
         todo!()
     }
 
     /// Make a dummy instance, duplicating `self`'s final `CircuitFrame`.
     fn make_dummy(
-        count: usize,
-        circuit_frame: Option<Self::CircuitFrame>,
-        store: &'a Self::Store,
-        lang: Arc<Lang<F, C>>,
+        _count: usize,
+        _circuit_frame: Option<Self::CircuitFrame>,
+        _store: &'a Self::Store,
+        _lang: Arc<Lang<F, C>>,
     ) -> Self {
         todo!()
     }

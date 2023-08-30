@@ -96,7 +96,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
             None => {
                 assert!(self.store.is_none());
                 let s = self.func.init_store();
-                let blank_frame = Frame::blank(&*self.func);
+                let blank_frame = Frame::blank(&self.func);
                 let frames = vec![blank_frame; self.reduction_count];
                 self.synthesize_frames(cs, &s, &input, &frames, true)?
             }
