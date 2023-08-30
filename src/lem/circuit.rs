@@ -65,7 +65,7 @@ use super::{
 
 #[derive(Clone)]
 pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
-    pub func: &'a Func,
+    pub func: Arc<Func>,
     pub store: Option<&'a Store<F>>,
     pub input: Option<Vec<Ptr<F>>>,
     pub output: Option<Vec<Ptr<F>>>,
@@ -146,7 +146,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Provable<F> for MultiFrame<'a, F, C> {
 }
 
 impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
-    pub fn blank(func: &'a Func, reduction_count: usize) -> Self {
+    pub fn blank(func: Arc<Func>, reduction_count: usize) -> Self {
         Self {
             func,
             store: None,
@@ -160,7 +160,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     }
 
     pub fn from_frames(
-        func: &'a Func,
+        func: Arc<Func>,
         reduction_count: usize,
         frames: &[Frame<F>],
         store: &'a Store<F>,
@@ -185,7 +185,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
             debug_assert!(!inner_frames.is_empty());
 
             let mf = MultiFrame {
-                func,
+                func: func.clone(),
                 store: Some(store),
                 input: Some(input),
                 output: Some(output),

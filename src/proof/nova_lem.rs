@@ -35,10 +35,10 @@ use super::nova::{CurveCycleEquipped, C2, G1, G2, SS1, SS2};
 /// Type alias for a MultiFrame with S1 field elements.
 /// This uses the <<F as CurveCycleEquipped>::G1 as Group>::Scalar type for the G1 scalar field elements
 /// to reflect it this should not be used outside the Nova context
-pub type C1<'a, F, C: Coprocessor<F>> = MultiFrame<'a, <G1<F> as Group>::Scalar, C>;
+pub type C1<'a, F, C> = MultiFrame<'a, <G1<F> as Group>::Scalar, C>;
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> MultiFrame<'a, F, C> {
-    fn circuits(func: &'a Func, count: usize) -> (C1<'a, F, C>, C2<F>) {
+    fn circuits(func: Arc<Func>, count: usize) -> (C1<'a, F, C>, C2<F>) {
         (
             MultiFrame::blank(func, count),
             TrivialTestCircuit::default(),
@@ -96,7 +96,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
             None => {
                 assert!(self.store.is_none());
                 let s = self.func.init_store();
-                let blank_frame = Frame::blank(self.func);
+                let blank_frame = Frame::blank(&*self.func);
                 let frames = vec![blank_frame; self.reduction_count];
                 self.synthesize_frames(cs, &s, &input, &frames, true)?
             }
@@ -117,6 +117,7 @@ where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
+    /// Proves the computation given the public parameters, frames, and store.
     pub fn prove(
         &'a self,
         pp: &'a PublicParams<F, MultiFrame<'a, F, C>>,
@@ -124,10 +125,10 @@ where
         store: &'a Store<F>,
         lang: Arc<Lang<F, C>>,
     ) -> Result<(Proof<'_, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
-        let func = Func::from(&*lang);
         let z0 = store.to_vector(&frames.first().unwrap().input).unwrap();
         let zi = store.to_vector(&frames.last().unwrap().output).unwrap();
-        let circuits = MultiFrame::from_frames(&func, self.reduction_count(), frames, store);
+        let func = Arc::new(Func::from(&*lang));
+        let circuits = MultiFrame::from_frames(func, self.reduction_count(), frames, store);
 
         let num_steps = circuits.len();
         let proof = Proof::prove_recursively(
@@ -172,7 +173,7 @@ where
     ) -> Result<Self, ProofError> {
         assert!(!circuits.is_empty());
         assert_eq!(circuits[0].arity(), z0.len());
-        let func = circuits[0].func;
+        let func = circuits[0].func.clone();
         let debug = false;
         let z0_primary = z0;
         let z0_secondary = Self::z0_secondary();
