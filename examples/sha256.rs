@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Instant;
 
+use lurk::circuit::circuit_frame::MultiFrame;
 use lurk::circuit::gadgets::constraints::alloc_equal;
 use lurk::circuit::gadgets::data::{allocate_constant, GlobalAllocations};
 use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
@@ -181,7 +182,10 @@ fn main() {
 
     let cproc_call = store.list(&[cproc_sym_ptr]);
 
-    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang);
+    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, Fr, Sha256Coproc<Fr>>>::new(
+        REDUCTION_COUNT,
+        lang,
+    );
 
     println!("Setting up public parameters (rc = {REDUCTION_COUNT})...");
 

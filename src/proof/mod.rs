@@ -12,14 +12,70 @@ pub mod nova;
 /// An adapter to a Nova proving system implementation in LEM.
 pub mod nova_lem;
 
-use crate::circuit::MultiFrame;
+
 use crate::coprocessor::Coprocessor;
 use crate::eval::lang::Lang;
 use crate::field::LurkField;
-use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, SynthesisError};
+
+
+
+use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, ConstraintSystem, SynthesisError};
+
+use std::sync::Arc;
+
+
+/// Trait to support multiple `MultiFrame` implementations.
+pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F>>:
+    Provable<F> + Circuit<F> + Clone
+{
+    /// The associated `Store` type
+    type Store;
+    /// The associated `Ptr` type
+    type Ptr;
+    /// The associated `Frame` type
+    type Frame;
+    /// The associated `CircuitFrame` type
+    type CircuitFrame;
+    /// The associated type which manages global allocations
+    type GlobalAllocation;
+    /// The associated type of allocated input and output to the circuit
+    type AllocatedIO;
+    /// Returns true if the supplied instance directly precedes this one in a sequential computation trace.
+    fn precedes(&self, maybe_next: &Self) -> bool;
+
+    /// Synthesize some frames.
+    fn synthesize_frames<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        store: &Self::Store,
+        input: Self::AllocatedIO,
+        frames: &[Self::CircuitFrame],
+        g: &Self::GlobalAllocation,
+    ) -> Self::AllocatedIO;
+
+    /// Synthesize a blank circuit.
+    fn blank(count: usize, lang: Arc<Lang<F, C>>) -> Self;
+
+    /// Create an instance from some `Self::Frame`s.
+    fn from_frames(
+        count: usize,
+        frames: &[Self::Frame],
+        store: &'a Self::Store,
+        lang: Arc<Lang<F, C>>,
+    ) -> Vec<Self>;
+
+    /// Make a dummy instance, duplicating `self`'s final `CircuitFrame`.
+    fn make_dummy(
+        count: usize,
+        circuit_frame: Option<Self::CircuitFrame>,
+        store: &'a Self::Store,
+        lang: Arc<Lang<F, C>>,
+    ) -> Self;
+
+}
 
 /// Represents a sequential Constraint System for a given proof.
-pub(crate) type SequentialCS<'a, F, C> = Vec<(MultiFrame<'a, F, C>, TestConstraintSystem<F>)>;
+pub(crate) type SequentialCS<'a, F, M> = Vec<(M, TestConstraintSystem<F>)>;
 
 /// A trait for provable structures over a field `F`.
 pub trait Provable<F: LurkField> {
@@ -32,10 +88,15 @@ pub trait Provable<F: LurkField> {
 }
 
 /// Verifies a sequence of constraint systems (CSs) for sequentiality & validity.
-pub fn verify_sequential_css<F: LurkField + Copy, C: Coprocessor<F>>(
-    css: &SequentialCS<'_, F, C>,
+pub fn verify_sequential_css<
+    'a,
+    F: LurkField + Copy,
+    C: Coprocessor<F>,
+    M: MultiFrameTrait<'a, F, C>,
+>(
+    css: &SequentialCS<'_, F, M>,
 ) -> Result<bool, SynthesisError> {
-    let mut previous_frame: Option<&MultiFrame<'_, F, C>> = None;
+    let mut previous_frame: Option<&M> = None;
 
     for (i, (multiframe, cs)) in css.iter().enumerate() {
         if let Some(prev) = previous_frame {
@@ -62,7 +123,7 @@ pub fn verify_sequential_css<F: LurkField + Copy, C: Coprocessor<F>>(
 pub trait PublicParameters {}
 
 /// A trait for a prover that works with a field `F`.
-pub trait Prover<'a, 'b, F: LurkField, C: Coprocessor<F>> {
+pub trait Prover<'a, 'b, F: LurkField, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>> {
     /// The associated public parameters type for the prover.
     type PublicParams: PublicParameters;
 
@@ -108,8 +169,8 @@ pub trait Prover<'a, 'b, F: LurkField, C: Coprocessor<F>> {
     /// Synthesizes the outer circuit for the prover given a slice of multiframes.
     fn outer_synthesize(
         &self,
-        multiframes: &'a [MultiFrame<'_, F, C>],
-    ) -> Result<SequentialCS<'a, F, C>, SynthesisError> {
+        multiframes: &'a [M],
+    ) -> Result<SequentialCS<'a, F, M>, SynthesisError> {
         // Note: This loop terminates and returns an error on the first occurrence of `SynthesisError`.
         multiframes
             .iter()

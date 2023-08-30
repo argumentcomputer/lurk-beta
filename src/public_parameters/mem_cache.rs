@@ -13,14 +13,14 @@ use tap::TapFallible;
 use crate::{
     coprocessor::Coprocessor,
     eval::lang::Lang,
-    proof::nova::{PublicParams, G1, G2},
+    proof::nova::{PublicParams, C1, G1, G2},
 };
 use crate::{proof::nova::CurveCycleEquipped, public_parameters::error::Error};
 
 use super::disk_cache::PublicParamDiskCache;
 
 type AnyMap = anymap::Map<dyn core::any::Any + Send + Sync>;
-type PublicParamMap<F, C> = HashMap<(usize, bool), Arc<PublicParams<'static, F, C>>>;
+type PublicParamMap<F, C> = HashMap<(usize, bool), Arc<PublicParams<F, C1<'static, F, C>>>>;
 
 /// This is a global registry for Coproc-specific parameters.
 /// It is used to cache parameters for each Coproc, so that they are not
@@ -41,7 +41,7 @@ impl PublicParamMemCache {
     fn get_from_disk_cache_or_update_with<
         F: CurveCycleEquipped,
         C: Coprocessor<F> + 'static,
-        Fn: FnOnce(Arc<Lang<F, C>>) -> Arc<PublicParams<'static, F, C>>,
+        Fn: FnOnce(Arc<Lang<F, C>>) -> Arc<PublicParams<F, C1<'static, F, C>>>,
     >(
         &'static self,
         rc: usize,
@@ -49,7 +49,7 @@ impl PublicParamMemCache {
         default: Fn,
         lang: Arc<Lang<F, C>>,
         disk_cache_path: &Utf8Path,
-    ) -> Result<Arc<PublicParams<'static, F, C>>, Error>
+    ) -> Result<Arc<PublicParams<F, C1<'static, F, C>>>, Error>
     where
         <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
         <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -68,7 +68,7 @@ impl PublicParamMemCache {
                 Ok(mut bytes) => {
                     info!("Using abomonated public params for lang {lang_key}");
                     let (pp, rest) =
-                        unsafe { decode::<PublicParams<'_, F, C>>(&mut bytes).unwrap() };
+                        unsafe { decode::<PublicParams<F, C1<'_, F, C>>>(&mut bytes).unwrap() };
                     assert!(rest.is_empty());
                     Ok(Arc::new(pp.clone())) // this clone is VERY expensive
                 }
@@ -104,7 +104,7 @@ impl PublicParamMemCache {
     pub(crate) fn get_from_mem_cache_or_update_with<
         F: CurveCycleEquipped,
         C: Coprocessor<F> + 'static,
-        Fn: FnOnce(Arc<Lang<F, C>>) -> Arc<PublicParams<'static, F, C>>,
+        Fn: FnOnce(Arc<Lang<F, C>>) -> Arc<PublicParams<F, C1<'static, F, C>>>,
     >(
         &'static self,
         rc: usize,
@@ -112,7 +112,7 @@ impl PublicParamMemCache {
         default: Fn,
         lang: Arc<Lang<F, C>>,
         disk_cache_path: &Utf8Path,
-    ) -> Result<Arc<PublicParams<'static, F, C>>, Error>
+    ) -> Result<Arc<PublicParams<F, C1<'static, F, C>>>, Error>
     where
         F::CK1: Sync + Send,
         F::CK2: Sync + Send,

@@ -25,7 +25,7 @@ use crate::{
     package::{Package, SymbolRef},
     parser,
     proof::{
-        nova_lem::{public_params, NovaProver},
+        nova::{public_params, NovaProver},
         Prover,
     },
     state::State,

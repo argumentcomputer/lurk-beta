@@ -70,6 +70,8 @@ pub mod store;
 mod var_map;
 pub mod zstore;
 
+use crate::coprocessor::Coprocessor;
+use crate::eval::lang::Lang;
 use crate::field::LurkField;
 use crate::symbol::Symbol;
 use crate::tag::{ContTag, ExprTag, Tag as TagTrait};
@@ -91,6 +93,12 @@ pub struct Func {
     pub output_size: usize,
     pub body: Block,
     pub slot: SlotsCounter,
+}
+
+impl<F: LurkField, C: Coprocessor<F>> From<&Lang<F, C>> for Func {
+    fn from(_lang: &Lang<F, C>) -> Self {
+        eval::eval_step().clone()
+    }
 }
 
 /// LEM variables
