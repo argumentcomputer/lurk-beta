@@ -11,8 +11,8 @@ use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 use std::{cell::RefCell, fs::read_to_string, process, rc::Rc};
 
 use crate::{
-    cli::{commitment_lem::Commitment, paths::proof_path},
-    eval::lang::Lang,
+    cli::{commitment_lem::Commitment, paths::{proof_path, public_params_dir}},
+    eval::lang::{Lang, Coproc},
     field::LurkField,
     lem::{
         eval::{eval_step, evaluate, evaluate_simple},
@@ -20,18 +20,18 @@ use crate::{
         pointers::Ptr,
         store::Store,
         zstore::populate_store,
-        Tag,
+        Tag, circuit::MultiFrame,
     },
     package::{Package, SymbolRef},
     parser,
     proof::{
-        nova::{public_params, NovaProver},
+        nova::NovaProver,
         Prover,
     },
     state::State,
     tag::ContTag::*,
     tag::ExprTag::*,
-    Symbol,
+    Symbol, public_parameters::public_params,
 };
 
 use super::{backend::Backend, field_data::load, lurk_proof::LurkProof, paths::commitment_path};
@@ -171,13 +171,17 @@ impl ReplLEM<F> {
                         let eval_step = eval_step();
 
                         info!("Loading public parameters");
-                        let pp = public_params(eval_step, self.rc);
+                        let pp =
+                            public_params(self.rc, true, Lang::new().into(), &public_params_dir())?;
 
-                        let prover = NovaProver::new(self.rc, Lang::new());
+                        let prover = NovaProver::<F, Coproc<F>, MultiFrame<'_, F, Coproc<F>>>::new(
+                            self.rc,
+                            Lang::new(),
+                        );
 
                         info!("Proving");
                         let (proof, public_inputs, public_outputs, num_steps) =
-                            prover.prove(eval_step, &pp, frames, &mut self.store)?;
+                            prover.prove(&pp, frames, &mut self.store, Lang::new().into())?;
                         assert_eq!(self.rc * num_steps, pad(n_frames, self.rc));
 
                         info!("Compressing proof");
