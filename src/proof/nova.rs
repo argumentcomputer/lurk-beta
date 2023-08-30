@@ -181,7 +181,12 @@ where
 }
 
 /// Generates the public parameters for the Nova proving system.
-pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: StepCircuit<F> + MultiFrameTrait<'a, F, C>>(
+pub fn public_params<
+    'a,
+    F: CurveCycleEquipped,
+    C: Coprocessor<F>,
+    M: StepCircuit<F> + MultiFrameTrait<'a, F, C>,
+>(
     num_iters_per_step: usize,
     lang: Arc<Lang<F, C>>,
 ) -> PublicParams<F, M>
@@ -189,7 +194,6 @@ where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-
     let (circuit_primary, circuit_secondary) = circuits(num_iters_per_step, lang);
 
     let commitment_size_hint1 = <SS1<F> as RelaxedR1CSSNARKTrait<G1<F>>>::commitment_key_floor();
@@ -205,11 +209,11 @@ where
     PublicParams { pp, pk, vk }
 }
 
-fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>(count: usize, lang: Arc<Lang<F, C>>) -> (M, C2<F>) {
-     (
-        M::blank(count, lang),
-        TrivialTestCircuit::default(),
-    )
+fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>(
+    count: usize,
+    lang: Arc<Lang<F, C>>,
+) -> (M, C2<F>) {
+    (M::blank(count, lang), TrivialTestCircuit::default())
 }
 
 /// A struct for the Nova prover that operates on field elements of type `F`.
@@ -221,7 +225,7 @@ pub struct NovaProver<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFram
     _p: PhantomData<&'a M>,
 }
 
-impl<'a, F: CurveCycleEquipped, C1: StepCircuit<F>> PublicParameters for PublicParams<F, C1>
+impl<F: CurveCycleEquipped, C1: StepCircuit<F>> PublicParameters for PublicParams<F, C1>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,

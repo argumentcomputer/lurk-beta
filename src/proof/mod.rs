@@ -12,17 +12,13 @@ pub mod nova;
 /// An adapter to a Nova proving system implementation in LEM.
 pub mod nova_lem;
 
-
 use crate::coprocessor::Coprocessor;
 use crate::eval::lang::Lang;
 use crate::field::LurkField;
 
-
-
 use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, ConstraintSystem, SynthesisError};
 
 use std::sync::Arc;
-
 
 /// Trait to support multiple `MultiFrame` implementations.
 pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F>>:
@@ -71,7 +67,6 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F>>:
         store: &'a Self::Store,
         lang: Arc<Lang<F, C>>,
     ) -> Self;
-
 }
 
 /// Represents a sequential Constraint System for a given proof.
@@ -82,7 +77,7 @@ pub trait Provable<F: LurkField> {
     /// Returns the public inputs of the provable structure.
     fn public_inputs(&self) -> Vec<F>;
     /// Returns the size of the public inputs.
-    fn public_input_size() -> usize;
+    fn public_input_size(&self) -> usize;
     /// Returns the number of reductions in the provable structure.
     fn reduction_count(&self) -> usize;
 }

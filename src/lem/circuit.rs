@@ -23,7 +23,7 @@
 //! on a concrete or a virtual path and use such booleans as the premises to build
 //! the constraints we care about with implication gadgets.
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use bellpepper::util_cs::witness_cs::WitnessCS;
 use bellpepper_core::{
     Circuit, ConstraintSystem, SynthesisError,
@@ -75,40 +75,119 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     _p: PhantomData<C>,
 }
 
+impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
+    fn allocate_lits<CS: ConstraintSystem<F>>(
+        &self,
+        _cs: &mut CS,
+        _g: &mut GlobalAllocator<F>,
+    ) -> Result<(), SynthesisError> {
+        todo!()
+    }
+}
+
 impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFrame<'a, F, C> {
     type Store = Store<F>;
     type Ptr = Ptr<F>;
     type Frame = Frame<F>;
-    type CircuitFrame = ();
+    /// what??
+    type CircuitFrame = Frame<F>;
     type GlobalAllocation = GlobalAllocator<F>;
     type AllocatedIO = Vec<AllocatedPtr<F>>;
 
-    fn precedes(&self, _maybe_next: &Self) -> bool {
-        todo!()
+    fn precedes(&self, maybe_next: &Self) -> bool {
+        self.output == maybe_next.input
     }
 
     fn synthesize_frames<CS: ConstraintSystem<F>>(
         &self,
-        _cs: &mut CS,
-        _store: &Self::Store,
-        _input: Self::AllocatedIO,
-        _frames: &[Self::CircuitFrame],
-        _g: &Self::GlobalAllocation,
+        cs: &mut CS,
+        store: &Self::Store,
+        input: Self::AllocatedIO,
+        frames: &[Self::CircuitFrame],
+        g: &Self::GlobalAllocation,
     ) -> Self::AllocatedIO {
-        todo!()
+        let (_, output) = frames
+            .iter()
+            .fold((0, input.to_vec()), |(i, input), frame| {
+                for (alloc_ptr, input) in input.iter().zip(&frame.input) {
+                    let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
+                    match (alloc_ptr.tag().get_value(), alloc_ptr.hash().get_value()) {
+                        (Some(alloc_ptr_tag), Some(alloc_ptr_hash)) => {
+                            assert_eq!(alloc_ptr_tag, input_zptr.tag.to_field());
+                            assert_eq!(alloc_ptr_hash, input_zptr.hash);
+                        }
+                        _ => panic!("Assignment missing"),
+                    }
+                }
+                let bound_allocations = &mut BoundAllocations::new();
+                self.func.add_input(&input, bound_allocations);
+                let output = self
+                    .func
+                    .synthesize_frame(
+                        &mut cs.namespace(|| format!("step {i}")),
+                        store,
+                        frame,
+                        g,
+                        bound_allocations,
+                    )
+                    .unwrap();
+                (i + 1, output)
+            });
+        output
     }
 
-    fn blank(_count: usize, _lang: Arc<Lang<F, C>>) -> Self {
-        todo!()
+    fn blank(count: usize, lang: Arc<Lang<F, C>>) -> Self {
+        Self {
+            func: Func::from(&*lang).into(),
+            store: None,
+            input: None,
+            output: None,
+            frames: None,
+            cached_witness: None,
+            reduction_count: count,
+            _p: Default::default(),
+        }
     }
 
     fn from_frames(
-        _count: usize,
-        _frames: &[Self::Frame],
-        _store: &'a Self::Store,
-        _lang: Arc<Lang<F, C>>,
+        count: usize,
+        frames: &[Self::Frame],
+        store: &'a Self::Store,
+        lang: Arc<Lang<F, C>>,
     ) -> Vec<Self> {
-        todo!()
+        let total_frames = frames.len();
+        let n = (total_frames + count - 1) / count;
+        let mut multi_frames = Vec::with_capacity(n);
+
+        for chunk in frames.chunks(count) {
+            let last_frame = chunk.last().expect("chunk must not be empty");
+            let inner_frames = if chunk.len() < count {
+                let mut inner_frames = Vec::with_capacity(count);
+                inner_frames.extend(chunk.to_vec());
+                inner_frames.resize(count, last_frame.clone());
+                inner_frames
+            } else {
+                chunk.to_vec()
+            };
+
+            let output = last_frame.output.clone();
+            let input = chunk[0].input.clone();
+
+            let mf = MultiFrame {
+                func: Func::from(&*lang).into(),
+                store: Some(store),
+                input: Some(input),
+                output: Some(output),
+                frames: Some(inner_frames),
+                cached_witness: None,
+                reduction_count: count,
+                _p: Default::default(),
+            };
+
+            multi_frames.push(mf);
+        }
+
+        multi_frames
     }
 
     /// Make a dummy instance, duplicating `self`'s final `CircuitFrame`.
@@ -133,11 +212,20 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
 
 impl<'a, F: LurkField, C: Coprocessor<F>> Provable<F> for MultiFrame<'a, F, C> {
     fn public_inputs(&self) -> Vec<F> {
-        todo!()
+        // TODO: improve this
+        let input = self.input.as_ref().expect("input missing");
+        let output = self.output.as_ref().expect("input missing");
+        let mut joined = Vec::with_capacity(input.len() + output.len());
+        joined.extend(input);
+        joined.extend(output);
+        let store = self.store.expect("store missing");
+        store.to_vector(&joined).expect("pointer hashing failed")
     }
 
-    fn public_input_size() -> usize {
-        todo!()
+    fn public_input_size(&self) -> usize {
+        let input = self.input.as_ref().expect("input missing");
+        let output = self.output.as_ref().expect("input missing");
+        2 * (input.len() + output.len())
     }
 
     fn reduction_count(&self) -> usize {
@@ -210,6 +298,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         blank: bool,
     ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
         let global_allocator = &mut GlobalAllocator::default();
+        self.allocate_lits(cs, global_allocator)?;
         let (_, output) = frames
             .iter()
             .try_fold((0, input.to_vec()), |(i, input), frame| {
@@ -269,22 +358,21 @@ fn allocate_const<F: LurkField, CS: ConstraintSystem<F>>(
 
 impl<F: LurkField> GlobalAllocator<F> {
     /// Checks if the allocation for a numeric variable has already been cached.
-    /// If so, return the cached allocation variable. Allocate as a constant,
-    /// cache and return otherwise.
-    pub(crate) fn get_or_alloc_const<CS: ConstraintSystem<F>>(
-        &mut self,
-        cs: &mut CS,
-        f: F,
-    ) -> Result<AllocatedNum<F>> {
+    /// If so, don't do anything. Otherwise, allocate and cache it.
+    pub(crate) fn alloc_const<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, f: F) -> Result<()> {
         let wrap = FWrap(f);
-        match self.0.get(&wrap) {
-            Some(allocated_num) => Ok(allocated_num.to_owned()),
-            None => {
-                let allocated_num =
-                    allocate_const(cs, &format!("allocate constant {}", f.hex_digits()), f)?;
-                self.0.insert(wrap, allocated_num.clone());
-                Ok(allocated_num)
-            }
+        if let std::collections::hash_map::Entry::Vacant(e) = self.0.entry(wrap) {
+            let allocated_num =
+                allocate_const(cs, &format!("allocate constant {}", f.hex_digits()), f)?;
+            e.insert(allocated_num);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn get_allocated_const(&self, f: F) -> Result<AllocatedNum<F>> {
+        match self.0.get(&FWrap(f)) {
+            Some(allocated_num) => Ok(allocated_num.clone()),
+            None => bail!("Global allocation not found for {}", f.hex_digits()),
         }
     }
 }
@@ -562,7 +650,7 @@ impl Func {
         cs: &mut CS,
         store: &Store<F>,
         frame: &Frame<F>,
-        global_allocator: &mut GlobalAllocator<F>,
+        global_allocator: &GlobalAllocator<F>,
         bound_allocations: &mut BoundAllocations<F>,
     ) -> Result<Vec<AllocatedPtr<F>>> {
         // Outputs are constrained by the return statement. All functions return
@@ -613,7 +701,7 @@ impl Func {
 
         struct Globals<'a, F: LurkField> {
             store: &'a Store<F>,
-            global_allocator: &'a mut GlobalAllocator<F>,
+            global_allocator: &'a GlobalAllocator<F>,
             preallocated_hash2_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash3_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash4_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
@@ -680,7 +768,7 @@ impl Func {
 
                         // Allocate the image tag if it hasn't been allocated before,
                         // create the full image pointer and add it to bound allocations
-                        let img_tag = g.global_allocator.get_or_alloc_const(cs, $tag.to_field())?;
+                        let img_tag = g.global_allocator.get_allocated_const($tag.to_field())?;
                         let img_hash = preallocated_img_hash.clone();
                         let img_ptr = AllocatedPtr::from_parts(img_tag, img_hash);
                         bound_allocations.insert($img, img_ptr);
@@ -790,8 +878,8 @@ impl Func {
                         unhash_helper!(preimg, img, SlotType::Hash4);
                     }
                     Op::Null(tgt, tag) => {
-                        let tag = g.global_allocator.get_or_alloc_const(cs, tag.to_field())?;
-                        let zero = g.global_allocator.get_or_alloc_const(cs, F::ZERO)?;
+                        let tag = g.global_allocator.get_allocated_const(tag.to_field())?;
+                        let zero = g.global_allocator.get_allocated_const(F::ZERO)?;
                         let allocated_ptr = AllocatedPtr::from_parts(tag, zero);
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
@@ -799,14 +887,14 @@ impl Func {
                         let lit_ptr = lit.to_ptr_cached(g.store);
                         let lit_tag = lit_ptr.tag().to_field();
                         let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
-                        let allocated_tag = g.global_allocator.get_or_alloc_const(cs, lit_tag)?;
-                        let allocated_hash = g.global_allocator.get_or_alloc_const(cs, lit_hash)?;
+                        let allocated_tag = g.global_allocator.get_allocated_const(lit_tag)?;
+                        let allocated_hash = g.global_allocator.get_allocated_const(lit_hash)?;
                         let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
                     Op::Cast(tgt, tag, src) => {
                         let src = bound_allocations.get(src)?;
-                        let tag = g.global_allocator.get_or_alloc_const(cs, tag.to_field())?;
+                        let tag = g.global_allocator.get_allocated_const(tag.to_field())?;
                         let allocated_ptr = AllocatedPtr::from_parts(tag, src.hash().clone());
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
@@ -819,7 +907,7 @@ impl Func {
                         let c_num = boolean_to_num(&mut cs.namespace(|| "equal_tag.to_num"), &eq)?;
                         let tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                            .get_allocated_const(Tag::Expr(Num).to_field())?;
                         let c = AllocatedPtr::from_parts(tag, c_num);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -832,7 +920,7 @@ impl Func {
                         let c_num = boolean_to_num(&mut cs.namespace(|| "equal_val.to_num"), &eq)?;
                         let tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                            .get_allocated_const(Tag::Expr(Num).to_field())?;
                         let c = AllocatedPtr::from_parts(tag, c_num);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -844,7 +932,7 @@ impl Func {
                         let c_num = add(&mut cs.namespace(|| "add"), a_num, b_num)?;
                         let tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                            .get_allocated_const(Tag::Expr(Num).to_field())?;
                         let c = AllocatedPtr::from_parts(tag, c_num);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -856,7 +944,7 @@ impl Func {
                         let c_num = sub(&mut cs.namespace(|| "sub"), a_num, b_num)?;
                         let tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                            .get_allocated_const(Tag::Expr(Num).to_field())?;
                         let c = AllocatedPtr::from_parts(tag, c_num);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -868,7 +956,7 @@ impl Func {
                         let c_num = mul(&mut cs.namespace(|| "mul"), a_num, b_num)?;
                         let tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                            .get_allocated_const(Tag::Expr(Num).to_field())?;
                         let c = AllocatedPtr::from_parts(tag, c_num);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -879,7 +967,7 @@ impl Func {
                         let b_num = b.hash();
 
                         let b_is_zero = &alloc_is_zero(&mut cs.namespace(|| "b_is_zero"), b_num)?;
-                        let one = g.global_allocator.get_or_alloc_const(cs, F::ONE)?;
+                        let one = g.global_allocator.get_allocated_const(F::ONE)?;
 
                         let divisor = pick(
                             &mut cs.namespace(|| "maybe-dummy divisor"),
@@ -892,7 +980,7 @@ impl Func {
 
                         let tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                            .get_allocated_const(Tag::Expr(Num).to_field())?;
                         let c = AllocatedPtr::from_parts(tag, quotient);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -901,7 +989,7 @@ impl Func {
                         let b = bound_allocations.get(b)?;
                         let tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                            .get_allocated_const(Tag::Expr(Num).to_field())?;
                         let (preallocated_preimg, lt) =
                             &g.preallocated_less_than_slots[next_slot.consume_less_than()];
                         for (i, n) in [a.hash(), b.hash()].into_iter().enumerate() {
@@ -934,7 +1022,7 @@ impl Func {
                         enforce_pack(&mut cs.namespace(|| "enforce_trunc"), &trunc_bits, &trunc)?;
                         let tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                            .get_allocated_const(Tag::Expr(Num).to_field())?;
                         let c = AllocatedPtr::from_parts(tag, trunc);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -972,7 +1060,7 @@ impl Func {
                         );
                         let tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                            .get_allocated_const(Tag::Expr(Num).to_field())?;
                         let div_ptr = AllocatedPtr::from_parts(tag.clone(), div);
                         let rem_ptr = AllocatedPtr::from_parts(tag, rem);
                         bound_allocations.insert(tgt[0].clone(), div_ptr);
@@ -984,7 +1072,7 @@ impl Func {
                         let pay = bound_allocations.get(pay)?;
                         let sec_tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                            .get_allocated_const(Tag::Expr(Num).to_field())?;
                         let (preallocated_preimg, hash) =
                             &g.preallocated_commitment_slots[next_slot.consume_commitment()];
                         implies_equal(
@@ -1021,7 +1109,7 @@ impl Func {
                         )?;
                         let tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Comm).to_field())?;
+                            .get_allocated_const(Tag::Expr(Comm).to_field())?;
                         let allocated_ptr = AllocatedPtr::from_parts(tag, hash.clone());
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
@@ -1031,7 +1119,7 @@ impl Func {
                             &g.preallocated_commitment_slots[next_slot.consume_commitment()];
                         let comm_tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Comm).to_field())?;
+                            .get_allocated_const(Tag::Expr(Comm).to_field())?;
                         implies_equal(
                             &mut cs.namespace(|| {
                                 format!("implies equal for comm's tag (OP {:?})", &op)
@@ -1050,7 +1138,7 @@ impl Func {
                         )?;
                         let sec_tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())?;
+                            .get_allocated_const(Tag::Expr(Num).to_field())?;
                         let allocated_sec_ptr =
                             AllocatedPtr::from_parts(sec_tag, preallocated_preimg[0].clone());
                         let allocated_pay_ptr = AllocatedPtr::from_parts(
@@ -1285,7 +1373,7 @@ impl Func {
 
                     let sym_tag = g
                         .global_allocator
-                        .get_or_alloc_const(cs, Tag::Expr(Sym).to_field())?;
+                        .get_allocated_const(Tag::Expr(Sym).to_field())?;
 
                     implies_equal(
                         &mut cs.namespace(|| format!("implies equal for {match_var}'s tag (Sym)")),

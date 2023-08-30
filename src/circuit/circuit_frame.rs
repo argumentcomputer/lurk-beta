@@ -414,7 +414,7 @@ impl<
     > Provable<F> for MultiFrame<'_, F, C>
 {
     fn public_inputs(&self) -> Vec<F> {
-        let mut inputs: Vec<_> = Vec::with_capacity(Self::public_input_size());
+        let mut inputs: Vec<_> = Vec::with_capacity(Self::public_input_size(self));
 
         if let Some(input) = &self.input {
             inputs.extend(input.to_inputs(self.get_store()));
@@ -430,7 +430,7 @@ impl<
         inputs
     }
 
-    fn public_input_size() -> usize {
+    fn public_input_size(&self) -> usize {
         let input_output_size = IO::<F>::input_size();
         input_output_size * 2
     }

@@ -646,7 +646,7 @@ impl<'a> Opening<S1> {
         chain: bool,
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1, Coproc<S1>>,
-        pp: &'a PublicParams<'_, S1, Coproc<S1>>,
+        pp: &'a PublicParams<S1, Coproc<S1>>,
         lang: Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Proof<'a, S1>, Error> {
         let claim = Self::apply(s, input, function, limit, chain, &lang)?;
@@ -667,7 +667,7 @@ impl<'a> Opening<S1> {
         limit: usize,
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1, Coproc<S1>>,
-        pp: &'a PublicParams<'_, S1, Coproc<S1>>,
+        pp: &'a PublicParams<S1, Coproc<S1>>,
         lang: Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Proof<'a, S1>, Error> {
         let input = request.input.expr.ptr(s, limit, &lang);
@@ -800,7 +800,7 @@ impl<'a> Proof<'a, S1> {
         limit: usize,
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1, Coproc<S1>>,
-        pp: &'a PublicParams<'_, S1, Coproc<S1>>,
+        pp: &'a PublicParams<S1, Coproc<S1>>,
         lang: Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Self, Error> {
         let env = supplied_env.unwrap_or_else(|| empty_sym_env(s));
@@ -838,7 +838,7 @@ impl<'a> Proof<'a, S1> {
         limit: usize,
         only_use_cached_proofs: bool,
         nova_prover: &'a NovaProver<S1, Coproc<S1>>,
-        pp: &'a PublicParams<'_, S1, Coproc<S1>>,
+        pp: &'a PublicParams<S1, Coproc<S1>>,
         lang: &Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Self, Error> {
         let reduction_count = nova_prover.reduction_count();
@@ -922,7 +922,7 @@ impl<'a> Proof<'a, S1> {
 
     pub fn verify(
         &self,
-        pp: &PublicParams<'_, S1, Coproc<S1>>,
+        pp: &PublicParams<S1, Coproc<S1>>,
         lang: &Lang<S1, Coproc<S1>>,
     ) -> Result<VerificationResult, Error> {
         let (public_inputs, public_outputs) = self.io_vecs(lang)?;
