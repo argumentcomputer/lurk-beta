@@ -26,13 +26,15 @@
 use anyhow::{Context, Result};
 use bellpepper::util_cs::witness_cs::WitnessCS;
 use bellpepper_core::{
-    ConstraintSystem, SynthesisError,
+    Circuit, ConstraintSystem, SynthesisError,
     {
         boolean::{AllocatedBit, Boolean},
         num::AllocatedNum,
     },
 };
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::marker::PhantomData;
+use std::sync::Arc;
 
 use crate::circuit::gadgets::{
     constraints::{
@@ -45,7 +47,10 @@ use crate::circuit::gadgets::{
 };
 
 use crate::{
+    coprocessor::Coprocessor,
+    eval::lang::Lang,
     field::{FWrap, LurkField},
+    proof::{MultiFrameTrait, Provable},
     tag::ExprTag::*,
 };
 
@@ -59,18 +64,89 @@ use super::{
 };
 
 #[derive(Clone)]
-pub struct MultiFrame<'a, F: LurkField> {
-    pub func: &'a Func,
+pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
+    pub func: Arc<Func>,
     pub store: Option<&'a Store<F>>,
     pub input: Option<Vec<Ptr<F>>>,
     pub output: Option<Vec<Ptr<F>>>,
     pub frames: Option<Vec<Frame<F>>>,
     pub cached_witness: Option<WitnessCS<F>>,
     pub reduction_count: usize,
+    _p: PhantomData<C>,
 }
 
-impl<'a, F: LurkField> MultiFrame<'a, F> {
-    pub fn blank(func: &'a Func, reduction_count: usize) -> Self {
+impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFrame<'a, F, C> {
+    type Store = Store<F>;
+    type Ptr = Ptr<F>;
+    type Frame = Frame<F>;
+    type CircuitFrame = ();
+    type GlobalAllocation = GlobalAllocator<F>;
+    type AllocatedIO = Vec<AllocatedPtr<F>>;
+
+    fn precedes(&self, maybe_next: &Self) -> bool {
+        todo!()
+    }
+
+    fn synthesize_frames<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        store: &Self::Store,
+        input: Self::AllocatedIO,
+        frames: &[Self::CircuitFrame],
+        g: &Self::GlobalAllocation,
+    ) -> Self::AllocatedIO {
+        todo!()
+    }
+
+    fn blank(count: usize, lang: Arc<Lang<F, C>>) -> Self {
+        todo!()
+    }
+
+    fn from_frames(
+        count: usize,
+        frames: &[Self::Frame],
+        store: &'a Self::Store,
+        lang: Arc<Lang<F, C>>,
+    ) -> Vec<Self> {
+        todo!()
+    }
+
+    /// Make a dummy instance, duplicating `self`'s final `CircuitFrame`.
+    fn make_dummy(
+        count: usize,
+        circuit_frame: Option<Self::CircuitFrame>,
+        store: &'a Self::Store,
+        lang: Arc<Lang<F, C>>,
+    ) -> Self {
+        todo!()
+    }
+}
+
+impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
+    fn synthesize<CS>(self, _: &mut CS) -> Result<(), SynthesisError>
+    where
+        CS: ConstraintSystem<F>,
+    {
+        todo!()
+    }
+}
+
+impl<'a, F: LurkField, C: Coprocessor<F>> Provable<F> for MultiFrame<'a, F, C> {
+    fn public_inputs(&self) -> Vec<F> {
+        todo!()
+    }
+
+    fn public_input_size() -> usize {
+        todo!()
+    }
+
+    fn reduction_count(&self) -> usize {
+        self.reduction_count
+    }
+}
+
+impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
+    pub fn blank(func: Arc<Func>, reduction_count: usize) -> Self {
         Self {
             func,
             store: None,
@@ -79,11 +155,12 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
             frames: None,
             cached_witness: None,
             reduction_count,
+            _p: Default::default(),
         }
     }
 
     pub fn from_frames(
-        func: &'a Func,
+        func: Arc<Func>,
         reduction_count: usize,
         frames: &[Frame<F>],
         store: &'a Store<F>,
@@ -108,13 +185,14 @@ impl<'a, F: LurkField> MultiFrame<'a, F> {
             debug_assert!(!inner_frames.is_empty());
 
             let mf = MultiFrame {
-                func,
+                func: func.clone(),
                 store: Some(store),
                 input: Some(input),
                 output: Some(output),
                 frames: Some(inner_frames),
                 cached_witness: None,
                 reduction_count,
+                _p: Default::default(),
             };
 
             multi_frames.push(mf);

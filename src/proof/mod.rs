@@ -10,7 +10,7 @@ pub mod groth16;
 /// An adapter to a Nova proving system implementation.
 pub mod nova;
 /// An adapter to a Nova proving system implementation in LEM.
-//pub mod nova_lem;
+pub mod nova_lem;
 use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 
 use crate::coprocessor::Coprocessor;
@@ -22,6 +22,7 @@ use crate::store::Store;
 use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, ConstraintSystem, SynthesisError};
 
 use std::sync::Arc;
+
 
 /// Trait to support multiple `MultiFrame` implementations.
 pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F>>:
@@ -70,6 +71,7 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F>>:
         store: &'a Self::Store,
         lang: Arc<Lang<F, C>>,
     ) -> Self;
+
 }
 
 /// Represents a sequential Constraint System for a given proof.
