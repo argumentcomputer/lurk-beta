@@ -215,11 +215,11 @@ impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> C1<'a, F, C> {
 
 /// A struct for the Nova prover that operates on field elements of type `F`.
 #[derive(Debug)]
-pub struct NovaProver<F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<F, C>> {
+pub struct NovaProver<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>> {
     // `reduction_count` specifies the number of small-step reductions are performed in each recursive step.
     reduction_count: usize,
     lang: Lang<F, C>,
-    _p: PhantomData<M>,
+    _p: PhantomData<&'a M>,
 }
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> PublicParameters for PublicParams<'a, F, C>
@@ -229,8 +229,8 @@ where
 {
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<F, C>>
-    Prover<'a, '_, F, C, M> for NovaProver<F, C, M>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>>
+    Prover<'a, '_, F, C, M> for NovaProver<'a, F, C, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -252,7 +252,7 @@ where
     }
 }
 
-impl<F: CurveCycleEquipped, C: Coprocessor<F>> NovaProver<F, C, MultiFrame<'_, F, C>>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> NovaProver<'a, F, C, MultiFrame<'a, F, C>>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -276,7 +276,7 @@ where
     }
 
     /// Proves the computation given the public parameters, frames, and store.
-    pub fn prove<'a>(
+    pub fn prove(
         &'a self,
         pp: &'a PublicParams<'_, F, C>,
         frames: &[Frame<IO<F>, Witness<F>, C>],
@@ -295,7 +295,7 @@ where
     }
 
     /// Evaluates and proves the computation given the public parameters, expression, environment, and store.
-    pub fn evaluate_and_prove<'a>(
+    pub fn evaluate_and_prove(
         &'a self,
         pp: &'a PublicParams<'_, F, C>,
         expr: Ptr<F>,

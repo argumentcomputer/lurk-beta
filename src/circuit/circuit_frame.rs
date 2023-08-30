@@ -67,7 +67,7 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     pub count: usize,
 }
 
-impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'a, F, C> {
+impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFrame<'a, F, C> {
     type Store = Store<F>;
     type Ptr = Ptr<F>;
     type Frame = Frame<IO<F>, Witness<F>, C>;
@@ -108,38 +108,10 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
             count,
         }
     }
-}
 
-impl<'a, F: LurkField, C: Coprocessor<F>> CircuitFrame<'a, F, C> {
-    pub fn blank() -> Self {
-        Self {
-            store: None,
-            input: None,
-            output: None,
-            witness: None,
-            _p: Default::default(),
-        }
-    }
-
-    pub fn from_frame(frame: &Frame<IO<F>, Witness<F>, C>, store: &'a Store<F>) -> Self {
-        CircuitFrame {
-            store: Some(store),
-            input: Some(frame.input),
-            output: Some(frame.output),
-            witness: Some(frame.witness),
-            _p: Default::default(),
-        }
-    }
-}
-
-impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
-    pub fn get_store(&self) -> &Store<F> {
-        self.store.expect("store missing")
-    }
-
-    pub fn from_frames(
+    fn from_frames(
         count: usize,
-        frames: &[Frame<IO<F>, Witness<F>, C>],
+        frames: &[Self::Frame],
         store: &'a Store<F>,
         lang: Arc<Lang<F, C>>,
     ) -> Vec<Self> {
@@ -185,7 +157,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     }
 
     /// Make a dummy `MultiFrame`, duplicating `self`'s final `CircuitFrame`.
-    pub(crate) fn make_dummy(
+    fn make_dummy(
         count: usize,
         circuit_frame: Option<CircuitFrame<'a, F, C>>,
         store: &'a Store<F>,
@@ -209,6 +181,34 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
             cached_witness: None,
             count,
         }
+    }
+}
+
+impl<'a, F: LurkField, C: Coprocessor<F>> CircuitFrame<'a, F, C> {
+    pub fn blank() -> Self {
+        Self {
+            store: None,
+            input: None,
+            output: None,
+            witness: None,
+            _p: Default::default(),
+        }
+    }
+
+    pub fn from_frame(frame: &Frame<IO<F>, Witness<F>, C>, store: &'a Store<F>) -> Self {
+        CircuitFrame {
+            store: Some(store),
+            input: Some(frame.input),
+            output: Some(frame.output),
+            witness: Some(frame.witness),
+            _p: Default::default(),
+        }
+    }
+}
+
+impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
+    pub fn get_store(&self) -> &Store<F> {
+        self.store.expect("store missing")
     }
 
     pub fn synthesize_frames_sequential<CS: ConstraintSystem<F>>(

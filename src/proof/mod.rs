@@ -24,7 +24,7 @@ use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, ConstraintSystem, 
 use std::sync::Arc;
 
 /// Trait to support multiple `MultiFrame` implementations.
-pub trait MultiFrameTrait<F: LurkField, C: Coprocessor<F>>:
+pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F>>:
     Provable<F> + Circuit<F> + Clone
 {
     /// The `Store` associated with this implementation.
@@ -55,6 +55,22 @@ pub trait MultiFrameTrait<F: LurkField, C: Coprocessor<F>>:
 
     /// Synthesize a blank circuit.
     fn blank(count: usize, lang: Arc<Lang<F, C>>) -> Self;
+
+    /// Create an instance from some `Self::Frame`s.
+    fn from_frames(
+        count: usize,
+        frames: &[Self::Frame],
+        store: &'a Store<F>,
+        lang: Arc<Lang<F, C>>,
+    ) -> Vec<Self>;
+
+    /// Make a dummy instance, duplicating `self`'s final `CircuitFrame`.
+    fn make_dummy(
+        count: usize,
+        circuit_frame: Option<Self::CircuitFrame>,
+        store: &'a Store<F>,
+        lang: Arc<Lang<F, C>>,
+    ) -> Self;
 }
 
 /// Represents a sequential Constraint System for a given proof.
@@ -71,7 +87,12 @@ pub trait Provable<F: LurkField> {
 }
 
 /// Verifies a sequence of constraint systems (CSs) for sequentiality & validity.
-pub fn verify_sequential_css<F: LurkField + Copy, C: Coprocessor<F>, M: MultiFrameTrait<F, C>>(
+pub fn verify_sequential_css<
+    'a,
+    F: LurkField + Copy,
+    C: Coprocessor<F>,
+    M: MultiFrameTrait<'a, F, C>,
+>(
     css: &SequentialCS<'_, F, M>,
 ) -> Result<bool, SynthesisError> {
     let mut previous_frame: Option<&M> = None;
@@ -101,7 +122,7 @@ pub fn verify_sequential_css<F: LurkField + Copy, C: Coprocessor<F>, M: MultiFra
 pub trait PublicParameters {}
 
 /// A trait for a prover that works with a field `F`.
-pub trait Prover<'a, 'b, F: LurkField, C: Coprocessor<F>, M: MultiFrameTrait<F, C>> {
+pub trait Prover<'a, 'b, F: LurkField, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>> {
     /// The associated public parameters type for the prover.
     type PublicParams: PublicParameters;
 

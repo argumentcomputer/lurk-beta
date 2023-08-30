@@ -97,7 +97,9 @@ where
     pub reduction_count: usize,
 }
 
-impl<C: Coprocessor<Scalar>, M: MultiFrameTrait<Scalar, C>> Groth16Prover<Bls12, C, Scalar, M> {
+impl<'a, C: Coprocessor<Scalar>, M: MultiFrameTrait<'a, Scalar, C>>
+    Groth16Prover<'a, Bls12, C, Scalar, M>
+{
     /// Creates Groth16 parameters using the given reduction count.
     pub fn create_groth_params(
         reduction_count: usize,
@@ -244,14 +246,15 @@ impl<C: Coprocessor<Scalar>, M: MultiFrameTrait<Scalar, C>> Groth16Prover<Bls12,
 /// A prover struct for the Groth16 proving system.
 /// Implements the crate::Prover trait.
 pub struct Groth16Prover<
+    'a,
     E: Engine + MultiMillerLoop,
     C: Coprocessor<F>,
     F: LurkField,
-    M: MultiFrameTrait<F, C>,
+    M: MultiFrameTrait<'a, F, C>,
 > {
     reduction_count: usize,
     lang: Lang<F, C>,
-    _p: PhantomData<(E, C, F, M)>,
+    _p: PhantomData<(E, &'a M)>,
 }
 
 /// Public parameters for the Groth16 proving system.
@@ -260,8 +263,8 @@ pub struct PublicParams<E: Engine + MultiMillerLoop>(pub groth16::Parameters<E>)
 
 impl PublicParameters for PublicParams<Bls12> {}
 
-impl<'a, 'b, C: Coprocessor<Scalar>, M: MultiFrameTrait<Scalar, C>> Prover<'a, 'b, Scalar, C, M>
-    for Groth16Prover<Bls12, C, Scalar, M>
+impl<'a, 'b, C: Coprocessor<Scalar>, M: MultiFrameTrait<'a, Scalar, C>> Prover<'a, 'b, Scalar, C, M>
+    for Groth16Prover<'a, Bls12, C, Scalar, M>
 {
     type PublicParams = PublicParams<Bls12>;
 
