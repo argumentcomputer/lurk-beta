@@ -10,7 +10,7 @@ pub mod groth16;
 /// An adapter to a Nova proving system implementation.
 pub mod nova;
 /// An adapter to a Nova proving system implementation in LEM.
-//pub mod nova_lem;
+pub mod nova_lem;
 use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 
 use crate::coprocessor::Coprocessor;

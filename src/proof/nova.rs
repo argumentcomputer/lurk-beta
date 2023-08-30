@@ -135,9 +135,9 @@ where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    pp: NovaPublicParams<'a, F, C>,
-    pk: ProverKey<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>,
-    vk: VerifierKey<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>,
+    pub(crate) pp: NovaPublicParams<'a, F, C>,
+    pub(crate) pk: ProverKey<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>,
+    pub(crate) vk: VerifierKey<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>,
 }
 
 impl<'c, F: CurveCycleEquipped, C: Coprocessor<F>> Abomonation for PublicParams<'c, F, C>
