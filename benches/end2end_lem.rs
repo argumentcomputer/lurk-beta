@@ -65,10 +65,10 @@ fn end2end_benchmark_lem(c: &mut Criterion) {
     let lang = Arc::new(Lang::new());
     let func = Func::from(&*lang);
     let mut store = func.init_store();
-    let prover: NovaProver<'_, Fq, Coproc<Fq>, MultiFrame<Fq, Coproc<Fq>>> =
+    let prover: NovaProver<'_, Fq, Coproc<Fq>, MultiFrame<'_, Fq, Coproc<Fq>>> =
         NovaProver::new(reduction_count, (*lang).clone());
 
-    let pp: PublicParams<Fq, MultiFrame<Fq, Coproc<Fq>>> =
+    let pp: PublicParams<Fq, MultiFrame<'_, Fq, Coproc<Fq>>> =
         public_params(reduction_count, lang.clone());
 
     let size = (10, 0);
@@ -261,12 +261,12 @@ fn prove_benchmark_lem(c: &mut Criterion) {
     let state = State::init_lurk_state().rccell();
 
     let lang = Arc::new(Lang::new());
-    let pp: PublicParams<Fq, MultiFrame<Fq, Coproc<Fq>>> =
+    let pp: PublicParams<Fq, MultiFrame<'_, Fq, Coproc<Fq>>> =
         public_params(reduction_count, lang.clone());
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<Fq>(&mut store, state.clone(), s.0, s.1);
-        let prover: NovaProver<'_, Fq, Coproc<Fq>, MultiFrame<Fq, Coproc<Fq>>> =
+        let prover: NovaProver<'_, Fq, Coproc<Fq>, MultiFrame<'_, Fq, Coproc<Fq>>> =
             NovaProver::new(reduction_count, Lang::new());
         let (frames, _) = evaluate(ptr, &mut store, limit).unwrap();
 

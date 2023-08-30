@@ -30,7 +30,7 @@ fn public_params_benchmark(c: &mut Criterion) {
         b.iter(|| {
             let result: nova::PublicParams<
                 pallas::Scalar,
-                MultiFrame<'static, pallas::Scalar, Coproc<pallas::Scalar>>,
+                MultiFrame<'_, pallas::Scalar, Coproc<pallas::Scalar>>,
             > = nova::public_params(reduction_count, lang_pallas_rc.clone());
             black_box(result)
         })
@@ -42,7 +42,7 @@ fn public_params_benchmark(c: &mut Criterion) {
                 Bls12,
                 Coproc<Fr>,
                 Fr,
-                MultiFrame<Fr, Coproc<Fr>>,
+                MultiFrame<'_, Fr, Coproc<Fr>>,
             >::create_groth_params(
                 DEFAULT_REDUCTION_COUNT,
                 lang_bls_rc.clone(),

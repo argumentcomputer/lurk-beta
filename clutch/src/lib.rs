@@ -532,7 +532,7 @@ impl ClutchState<F, Coproc<F>> {
     fn prove(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let (proof_in_expr, _rest1) = store.car_cdr(&rest)?;
 
-        let prover = NovaProver::<F, Coproc<F>, MultiFrame<F, Coproc<F>>>::new(
+        let prover = NovaProver::<'_, F, Coproc<F>, MultiFrame<'_, F, Coproc<F>>>::new(
             self.reduction_count,
             (*self.lang()).clone(),
         );
