@@ -123,24 +123,24 @@ pub type C1<'a, F, C> = MultiFrame<'a, F, C>;
 pub type C2<F> = TrivialTestCircuit<<G2<F> as Group>::Scalar>;
 
 /// Type alias for Nova Public Parameters with the curve cycle types defined above.
-pub type NovaPublicParams<'a, F, C> = nova::PublicParams<G1<F>, G2<F>, C1<'a, F, C>, C2<F>>;
+pub type NovaPublicParams<F, C1> = nova::PublicParams<G1<F>, G2<F>, C1, C2<F>>;
 
 /// A struct that contains public parameters for the Nova proving system.
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(bound = "")]
-pub struct PublicParams<'a, F, C: Coprocessor<F>>
+pub struct PublicParams<F, C1: StepCircuit<F>>
 where
     F: CurveCycleEquipped,
     // technical bounds that would disappear once associated_type_bounds stabilizes
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    pub(crate) pp: NovaPublicParams<'a, F, C>,
-    pub(crate) pk: ProverKey<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>,
-    pub(crate) vk: VerifierKey<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>,
+    pub(crate) pp: NovaPublicParams<F, C1>,
+    pub(crate) pk: ProverKey<G1<F>, G2<F>, C1, C2<F>, SS1<F>, SS2<F>>,
+    pub(crate) vk: VerifierKey<G1<F>, G2<F>, C1, C2<F>, SS1<F>, SS2<F>>,
 }
 
-impl<'c, F: CurveCycleEquipped, C: Coprocessor<F>> Abomonation for PublicParams<'c, F, C>
+impl<F: CurveCycleEquipped, C1: StepCircuit<F>> Abomonation for PublicParams<F, C1>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -181,15 +181,16 @@ where
 }
 
 /// Generates the public parameters for the Nova proving system.
-pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F>>(
+pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: StepCircuit<F> + MultiFrameTrait<'a, F, C>>(
     num_iters_per_step: usize,
     lang: Arc<Lang<F, C>>,
-) -> PublicParams<'a, F, C>
+) -> PublicParams<F, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    let (circuit_primary, circuit_secondary) = C1::circuits(num_iters_per_step, lang);
+
+    let (circuit_primary, circuit_secondary) = circuits(num_iters_per_step, lang);
 
     let commitment_size_hint1 = <SS1<F> as RelaxedR1CSSNARKTrait<G1<F>>>::commitment_key_floor();
     let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<G2<F>>>::commitment_key_floor();
@@ -204,13 +205,11 @@ where
     PublicParams { pp, pk, vk }
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> C1<'a, F, C> {
-    fn circuits(count: usize, lang: Arc<Lang<F, C>>) -> (C1<'a, F, C>, C2<F>) {
-        (
-            MultiFrame::blank(count, lang),
-            TrivialTestCircuit::default(),
-        )
-    }
+fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>(count: usize, lang: Arc<Lang<F, C>>) -> (M, C2<F>) {
+     (
+        M::blank(count, lang),
+        TrivialTestCircuit::default(),
+    )
 }
 
 /// A struct for the Nova prover that operates on field elements of type `F`.
@@ -222,20 +221,24 @@ pub struct NovaProver<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFram
     _p: PhantomData<&'a M>,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> PublicParameters for PublicParams<'a, F, C>
+impl<'a, F: CurveCycleEquipped, C1: StepCircuit<F>> PublicParameters for PublicParams<F, C1>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>>
-    Prover<'a, '_, F, C, M> for NovaProver<'a, F, C, M>
+impl<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        M: StepCircuit<F> + MultiFrameTrait<'a, F, C>,
+    > Prover<'a, '_, F, C, M> for NovaProver<'a, F, C, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    type PublicParams = PublicParams<'a, F, C>;
+    type PublicParams = PublicParams<F, M>;
     fn new(reduction_count: usize, lang: Lang<F, C>) -> Self {
         NovaProver::<F, C, M> {
             reduction_count,
@@ -278,7 +281,7 @@ where
     /// Proves the computation given the public parameters, frames, and store.
     pub fn prove(
         &'a self,
-        pp: &'a PublicParams<'_, F, C>,
+        pp: &'a PublicParams<F, MultiFrame<'a, F, C>>,
         frames: &[Frame<IO<F>, Witness<F>, C>],
         store: &'a mut Store<F>,
         lang: Arc<Lang<F, C>>,
@@ -297,7 +300,7 @@ where
     /// Evaluates and proves the computation given the public parameters, expression, environment, and store.
     pub fn evaluate_and_prove(
         &'a self,
-        pp: &'a PublicParams<'_, F, C>,
+        pp: &'a PublicParams<F, MultiFrame<'a, F, C>>,
         expr: Ptr<F>,
         env: Ptr<F>,
         store: &'a mut Store<F>,
@@ -422,7 +425,7 @@ where
 {
     /// Proves the computation recursively, generating a recursive SNARK proof.
     pub fn prove_recursively(
-        pp: &'a PublicParams<'_, F, C>,
+        pp: &'a PublicParams<F, MultiFrame<'a, F, C>>,
         store: &'a Store<F>,
         circuits: &[C1<'a, F, C>],
         num_iters_per_step: usize,
@@ -442,7 +445,7 @@ where
         let (_circuit_primary, circuit_secondary): (
             MultiFrame<'_, F, C>,
             TrivialTestCircuit<<G2<F> as Group>::Scalar>,
-        ) = C1::<'a>::circuits(num_iters_per_step, lang);
+        ) = crate::proof::nova::circuits(num_iters_per_step, lang);
 
         dbg!(circuits.len());
 
@@ -556,7 +559,10 @@ where
     }
 
     /// Compresses the proof using a (Spartan) Snark (finishing step)
-    pub fn compress(self, pp: &'a PublicParams<'_, F, C>) -> Result<Self, ProofError> {
+    pub fn compress(
+        self,
+        pp: &'a PublicParams<F, MultiFrame<'a, F, C>>,
+    ) -> Result<Self, ProofError> {
         match &self {
             Self::Recursive(recursive_snark) => Ok(Self::Compressed(Box::new(CompressedSNARK::<
                 _,
@@ -577,7 +583,7 @@ where
     /// Verifies the proof given the public parameters, the number of steps, and the input and output values.
     pub fn verify(
         &self,
-        pp: &PublicParams<'_, F, C>,
+        pp: &PublicParams<F, MultiFrame<'a, F, C>>,
         num_steps: usize,
         z0: &[F],
         zi: &[F],

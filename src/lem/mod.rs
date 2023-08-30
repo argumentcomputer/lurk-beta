@@ -95,8 +95,8 @@ pub struct Func {
     pub slot: SlotsCounter,
 }
 
-impl<F: LurkField, C: Coprocessor<F>> From<Lang<F, C>> for Func {
-    fn from(lang: Lang<F, C>) -> Self {
+impl<F: LurkField, C: Coprocessor<F>> From<&Lang<F, C>> for Func {
+    fn from(lang: &Lang<F, C>) -> Self {
         eval::eval_step().clone()
     }
 }

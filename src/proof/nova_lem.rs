@@ -10,10 +10,9 @@ use nova::{
     errors::NovaError,
     traits::{
         circuit::{StepCircuit, TrivialTestCircuit},
-        snark::RelaxedR1CSSNARKTrait,
         Group,
     },
-    CompressedSNARK, ProverKey, RecursiveSNARK, VerifierKey,
+    CompressedSNARK, RecursiveSNARK,
 };
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -23,15 +22,12 @@ use crate::config::CONFIG;
 
 use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
-use crate::eval::{
-    lang::DummyCoprocessor,
-    lang::{Coproc, Lang},
-};
+use crate::eval::lang::Lang;
 use crate::field::LurkField;
 use crate::lem::{circuit::MultiFrame, interpreter::Frame, store::Store, Func};
 use crate::proof::{
-    nova::{public_params, NovaProver, PublicParams},
-    MultiFrameTrait, Prover, PublicParameters,
+    nova::{NovaProver, PublicParams},
+    Prover,
 };
 
 use super::nova::{CurveCycleEquipped, C2, G1, G2, SS1, SS2};
@@ -123,12 +119,12 @@ where
 {
     pub fn prove(
         &'a self,
-        pp: &'a PublicParams<'_, F, C>,
+        pp: &'a PublicParams<F, MultiFrame<'a, F, C>>,
         frames: &[Frame<F>],
         store: &'a Store<F>,
         lang: Arc<Lang<F, C>>,
     ) -> Result<(Proof<'_, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
-        let func = Func::from(*lang);
+        let func = Func::from(&*lang);
         let z0 = store.to_vector(&frames.first().unwrap().input).unwrap();
         let zi = store.to_vector(&frames.last().unwrap().output).unwrap();
         let circuits = MultiFrame::from_frames(&func, self.reduction_count(), frames, store);
@@ -167,7 +163,7 @@ where
 {
     /// Proves the computation recursively, generating a recursive SNARK proof.
     pub fn prove_recursively(
-        pp: &'a PublicParams<'_, F, C>,
+        pp: &'a PublicParams<F, MultiFrame<'a, F, C>>,
         store: &'a Store<F>,
         circuits: &[C1<'a, F, C>],
         num_iters_per_step: usize,
@@ -301,7 +297,10 @@ where
     // FIXME: the methods below here should be common.
 
     /// Compresses the proof using a (Spartan) Snark (finishing step)
-    pub fn compress(self, pp: &'a PublicParams<'_, F, C>) -> Result<Self, ProofError> {
+    pub fn compress(
+        self,
+        pp: &'a PublicParams<F, MultiFrame<'a, F, C>>,
+    ) -> Result<Self, ProofError> {
         match &self {
             Self::Recursive(recursive_snark) => Ok(Self::Compressed(Box::new(CompressedSNARK::<
                 _,
@@ -322,7 +321,7 @@ where
     /// Verifies the proof given the public parameters, the number of steps, and the input and output values.
     pub fn verify(
         &self,
-        pp: &PublicParams<'_, F, C>,
+        pp: &PublicParams<F, MultiFrame<'a, F, C>>,
         num_steps: usize,
         z0: &[F],
         zi: &[F],
@@ -349,8 +348,10 @@ pub mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
 
+    use crate::eval::lang::Coproc;
     use crate::lem::eval::{eval_step, evaluate};
     use crate::num::Num;
+    use crate::proof::nova::public_params;
     use crate::state::{user_sym, State};
 
     use super::*;
@@ -369,7 +370,8 @@ pub mod tests {
 
     const DEFAULT_REDUCTION_COUNT: usize = 5;
     const REDUCTION_COUNTS_TO_TEST: [usize; 3] = [1, 2, 5];
-    static EVAL_PP: OnceCell<PublicParams<'static, Fr, Coproc<Fr>>> = OnceCell::new();
+    static EVAL_PP: OnceCell<PublicParams<Fr, MultiFrame<'static, Fr, Coproc<Fr>>>> =
+        OnceCell::new();
 
     // TODO: Make these test helpers generic, and reused the actual test definitions
     // rather than duplicate everything.
