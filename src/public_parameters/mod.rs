@@ -14,6 +14,7 @@ mod disk_cache;
 pub mod error;
 mod mem_cache;
 
+use crate::proof::nova::C1;
 use crate::public_parameters::error::Error;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -33,7 +34,7 @@ pub fn public_params<F: CurveCycleEquipped, C: Coprocessor<F> + 'static>(
     abomonated: bool,
     lang: Arc<Lang<F, C>>,
     disk_cache_path: &Utf8Path,
-) -> Result<Arc<PublicParams<'static, F, C>>, Error>
+) -> Result<Arc<PublicParams<F, C1<'static, F, C>>>, Error>
 where
     F::CK1: Sync + Send,
     F::CK2: Sync + Send,
@@ -62,7 +63,7 @@ pub fn with_public_params<C, F: CurveCycleEquipped, Fn, T>(
 ) -> Result<T, Error>
 where
     C: Coprocessor<F> + 'static,
-    Fn: FnOnce(&PublicParams<'static, F, C>) -> T,
+    Fn: FnOnce(&PublicParams<F, C1<'static, F, C>>) -> T,
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {

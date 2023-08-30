@@ -48,7 +48,7 @@ use crate::circuit::gadgets::{
 
 use crate::{
     coprocessor::Coprocessor,
-    eval::lang::{Coproc, Lang},
+    eval::lang::Lang,
     field::{FWrap, LurkField},
     proof::{MultiFrameTrait, Provable},
     tag::ExprTag::*,

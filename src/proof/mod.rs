@@ -23,6 +23,7 @@ use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, ConstraintSystem, 
 
 use std::sync::Arc;
 
+
 /// Trait to support multiple `MultiFrame` implementations.
 pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F>>:
     Provable<F> + Circuit<F> + Clone
@@ -70,6 +71,7 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F>>:
         store: &'a Self::Store,
         lang: Arc<Lang<F, C>>,
     ) -> Self;
+
 }
 
 /// Represents a sequential Constraint System for a given proof.
