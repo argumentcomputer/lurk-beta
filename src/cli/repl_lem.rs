@@ -8,30 +8,31 @@ use rustyline::{
     Config, Editor,
 };
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
-use std::{cell::RefCell, fs::read_to_string, process, rc::Rc};
+use std::{cell::RefCell, fs::read_to_string, process, rc::Rc, sync::Arc};
 
 use crate::{
-    cli::{commitment_lem::Commitment, paths::{proof_path, public_params_dir}},
-    eval::lang::{Lang, Coproc},
+    cli::{commitment_lem::Commitment, paths::proof_path},
+    eval::lang::{Coproc, Lang},
     field::LurkField,
     lem::{
+        circuit::MultiFrame,
         eval::{eval_step, evaluate, evaluate_simple},
         interpreter::Frame,
         pointers::Ptr,
         store::Store,
         zstore::populate_store,
-        Tag, circuit::MultiFrame,
+        Tag,
     },
     package::{Package, SymbolRef},
     parser,
     proof::{
-        nova::NovaProver,
+        nova::{public_params, NovaProver},
         Prover,
     },
     state::State,
     tag::ContTag::*,
     tag::ExprTag::*,
-    Symbol, public_parameters::public_params,
+    Symbol,
 };
 
 use super::{backend::Backend, field_data::load, lurk_proof::LurkProof, paths::commitment_path};
@@ -46,6 +47,7 @@ pub struct ReplLEM<F: LurkField> {
     store: Store<F>,
     state: Rc<RefCell<State>>,
     env: Ptr<F>,
+    lang: Arc<Lang<F, Coproc<F>>>,
     rc: usize,
     limit: usize,
     backend: Backend,
@@ -86,6 +88,7 @@ impl ReplLEM<F> {
             store,
             state: State::init_lurk_state().rccell(),
             env,
+            lang: Arc::new(Lang::new()),
             rc,
             limit,
             backend,
@@ -168,20 +171,18 @@ impl ReplLEM<F> {
                         // TODO: make sure that the proof file is not corrupted
                     } else {
                         info!("Proof not cached");
-                        let eval_step = eval_step();
 
                         info!("Loading public parameters");
-                        let pp =
-                            public_params(self.rc, true, Lang::new().into(), &public_params_dir())?;
+                        let pp = public_params(self.rc, self.lang.clone());
 
                         let prover = NovaProver::<F, Coproc<F>, MultiFrame<'_, F, Coproc<F>>>::new(
                             self.rc,
-                            Lang::new(),
+                            (*self.lang).clone(),
                         );
 
                         info!("Proving");
                         let (proof, public_inputs, public_outputs, num_steps) =
-                            prover.prove(&pp, frames, &mut self.store, Lang::new().into())?;
+                            prover.prove(&pp, frames, &mut self.store, &self.lang)?;
                         assert_eq!(self.rc * num_steps, pad(n_frames, self.rc));
 
                         info!("Compressing proof");

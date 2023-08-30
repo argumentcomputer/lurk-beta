@@ -223,6 +223,11 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Provable<F> for MultiFrame<'a, F, C> {
             res.push(z_ptr.tag.to_field());
             res.push(z_ptr.hash);
         }
+        for ptr in output {
+            let z_ptr = store.hash_ptr(ptr).expect("pointer hashing failed");
+            res.push(z_ptr.tag.to_field());
+            res.push(z_ptr.hash);
+        }
         res
     }
 
