@@ -1,5 +1,4 @@
 use abomonation::Abomonation;
-use log::info;
 use lurk::lurk_sym_ptr;
 use lurk::proof::nova::{CurveCycleEquipped, G1, G2};
 use nova::traits::Group;
@@ -9,6 +8,8 @@ use std::fs::read_to_string;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use tracing::info;
+use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
 
 use hex::FromHex;
 use serde::de::DeserializeOwned;
@@ -520,9 +521,11 @@ where
 fn main() {
     let cli = Cli::parse();
 
-    pretty_env_logger::formatted_builder()
-        .filter_level(cli.verbose.log_level_filter())
-        .init();
+    let subscriber = Registry::default()
+        // TODO: correctly filter log level with `clap_verbosity_flag`
+        .with(fmt::layer().pretty())
+        .with(EnvFilter::from_default_env());
+    tracing::subscriber::set_global_default(subscriber).unwrap();
 
     // TODO: make this properly configurable, e.g. allowing coprocessors
     let lang = Lang::new();

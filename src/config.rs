@@ -8,7 +8,7 @@ fn canned_config_from_env() -> Option<CannedConfig> {
     if let Ok(x) = std::env::var("LURK_CANNED_CONFIG") {
         let canned = CannedConfig::try_from(x.as_str()).ok();
 
-        dbg!(&canned);
+        tracing::debug!("{:?}", &canned);
 
         canned
     } else {

@@ -18,25 +18,26 @@ base64 = { workspace = true }
 bellpepper-core = { workspace = true }
 bincode = { workspace = true }
 blstrs = { workspace = true }
+camino = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 clap-verbosity-flag = "2.0"
 ff = { workspace = true }
 hex = { version = "0.4.3", features = ["serde"] }
-log = { workspace = true }
 lurk = { path = "../", package = "lurk" }
 lurk-macros = { path = "../lurk-macros" }
 nova = { workspace = true }
 once_cell = { workspace = true }
 pairing = { workspace = true }
 pasta_curves = { workspace = true, features = ["repr-c", "serde"] }
-pretty_env_logger = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-camino = { workspace = true }
+tracing = { workspace = true }
+tracing-texray = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [dev-dependencies]
 assert_cmd = "2.0.12"

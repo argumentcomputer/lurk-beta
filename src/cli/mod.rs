@@ -366,7 +366,7 @@ impl ReplCli {
             }};
         }
         let config = get_config(&self.config)?;
-        log::info!("Configured variables: {:?}", config);
+        tracing::info!("Configured variables: {:?}", config);
         set_lurk_dirs(
             &config,
             &self.public_params_dir,
@@ -417,7 +417,7 @@ impl LoadCli {
             }};
         }
         let config = get_config(&self.config)?;
-        log::info!("Configured variables: {:?}", config);
+        tracing::info!("Configured variables: {:?}", config);
         set_lurk_dirs(
             &config,
             &self.public_params_dir,
@@ -511,7 +511,7 @@ impl Cli {
             Command::Verify(verify_args) => {
                 use crate::cli::lurk_proof::LurkProof;
                 let config = get_config(&verify_args.config)?;
-                log::info!("Configured variables: {:?}", config);
+                tracing::info!("Configured variables: {:?}", config);
                 set_lurk_dirs(
                     &config,
                     &verify_args.public_params_dir,
@@ -529,7 +529,7 @@ impl Cli {
                 }
 
                 let config = get_config(&circom_args.config)?;
-                log::info!("Configured variables: {:?}", config);
+                tracing::info!("Configured variables: {:?}", config);
                 set_lurk_dirs(&config, &None, &None, &None, &circom_args.circom_dir);
 
                 create_circom_gadget(circom_args.circom_folder, circom_args.name)?;
@@ -539,6 +539,7 @@ impl Cli {
     }
 }
 
+// TODO: deal with `clap_verbosity_flag` and set logger here instead?
 /// Parses CLI arguments and continues the program flow accordingly
 pub fn parse_and_run() -> Result<()> {
     if let Ok(cli) = Cli::try_parse() {

@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
-use log::info;
 use std::collections::{hash_map::Entry, HashMap};
+use tracing::info;
 
 use super::Var;
 

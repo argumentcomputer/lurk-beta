@@ -514,6 +514,7 @@ impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, C> {
 }
 
 impl<F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'_, F, C> {
+    #[tracing::instrument(skip_all, name = "<MultiFrame as Circuit>::synthesize")]
     fn synthesize<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
         ////////////////////////////////////////////////////////////////////////////////
         // Bind public inputs.
@@ -851,11 +852,11 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     lang: &Lang<F, C>,
     g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-    // dbg!("reduce_expression");
-    // dbg!(&expr.fetch_and_write_str(store));
-    // dbg!(&expr);
-    // dbg!(&env.fetch_and_write_str(store));
-    // dbg!(&cont.fetch_and_write_cont_str(store), &cont);
+    // tracing::debug!("reduce_expression");
+    // tracing::debug!("{}", &expr.fetch_and_write_str(store));
+    // tracing::debug!("{:?}", &expr);
+    // tracing::debug!("{}", &env.fetch_and_write_str(store));
+    // tracing::debug!("{} {:?}", &cont.fetch_and_write_cont_str(store), &cont);
     let mut results = Results::default();
     {
         // Self-evaluating expressions
@@ -1116,10 +1117,10 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     allocated_cons_witness.assert_final_invariants();
     allocated_cont_witness.assert_final_invariants();
 
-    // dbg!(&result_expr.fetch_and_write_str(store));
-    // dbg!(&result_env.fetch_and_write_str(store));
-    // dbg!(&result_cont.fetch_and_write_cont_str(store));
-    // dbg!(expr, env, cont);
+    // tracing::debug!("{}", &result_expr.fetch_and_write_str(store));
+    // tracing::debug!("{}", &result_env.fetch_and_write_str(store));
+    // tracing::debug!("{}", &result_cont.fetch_and_write_cont_str(store));
+    // tracing::debug!("{:?} {:?} {:?}", expr, env, cont);
 
     Ok((result_expr, result_env, result_cont))
 }
@@ -5115,7 +5116,11 @@ fn car_cdr_named<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
 
     if cons_not_dummy.get_value().unwrap_or(false) && !real_cons.get_value().unwrap_or(true) {
-        dbg!(maybe_cons.hash().get_value(), &allocated_digest.get_value());
+        tracing::debug!(
+            "{:?} {:?}",
+            maybe_cons.hash().get_value(),
+            &allocated_digest.get_value()
+        );
         panic!(
             "tried to take car_cdr of a non-dummy cons ({:?}) but supplied wrong value",
             name
@@ -5479,10 +5484,10 @@ mod tests {
                 .expect("failed to synthesize");
 
             let delta = cs.delta(&cs_blank, false);
-            dbg!(&delta);
+            tracing::debug!("{:?}", &delta);
             assert!(delta == Delta::Equal);
 
-            //println!("{}", print_cs(&cs));
+            // println!("{}", print_cs(&cs));
             assert_eq!(12032, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
             assert_eq!(11688, cs.aux().len());

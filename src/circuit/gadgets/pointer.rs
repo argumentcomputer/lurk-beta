@@ -343,7 +343,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         implies!(cs, not_dummy, &cons_is_real);
 
         if not_dummy.get_value().unwrap_or(false) && !cons_is_real.get_value().unwrap_or(true) {
-            dbg!(name);
+            tracing::debug!("{:?}", name);
             panic!("uh oh!");
         }
 

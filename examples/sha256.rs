@@ -11,22 +11,24 @@ use lurk::eval::{empty_sym_env, lang::Lang};
 use lurk::field::LurkField;
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::ptr::Ptr;
-use lurk::public_parameters::with_public_params;
+use lurk::public_parameters::{public_params, public_params_default_dir};
 use lurk::state::user_sym;
 use lurk::store::Store;
 use lurk_macros::Coproc;
 
-use bellpepper::gadgets::multipack::pack_bits;
-use bellpepper::gadgets::sha256::sha256;
-use bellpepper_core::boolean::{AllocatedBit, Boolean};
-use bellpepper_core::num::AllocatedNum;
-use bellpepper_core::{ConstraintSystem, SynthesisError};
+use bellperson::gadgets::boolean::{AllocatedBit, Boolean};
+use bellperson::gadgets::multipack::pack_bits;
+use bellperson::gadgets::num::AllocatedNum;
+use bellperson::gadgets::sha256::sha256;
+use bellperson::{ConstraintSystem, SynthesisError};
 
 use pasta_curves::pallas::Scalar as Fr;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
+use tracing_texray::TeXRayLayer;
 
-const REDUCTION_COUNT: usize = 100;
+const REDUCTION_COUNT: usize = 10;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Sha256Coprocessor<F: LurkField> {
@@ -152,8 +154,17 @@ enum Sha256Coproc<F: LurkField> {
 
 /// Run the example in this file with
 /// `cargo run --release --example sha256 1 f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b false`
+///
+/// To see the `texray` outputs, run with
+/// `
+/// `RUST_LOG=info cargo run --release --example sha256 1 f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b false`
 fn main() {
-    pretty_env_logger::init();
+    let subscriber = Registry::default()
+        .with(fmt::layer().pretty())
+        .with(EnvFilter::from_default_env())
+        .with(TeXRayLayer::new());
+    tracing::subscriber::set_global_default(subscriber).unwrap();
+
     let args: Vec<String> = env::args().collect();
 
     let num_of_64_bytes = args[1].parse::<usize>().unwrap();
@@ -177,48 +188,55 @@ fn main() {
         store,
         vec![(cproc_sym, Sha256Coprocessor::new(input_size, u).into())],
     );
-    let lang_rc = Arc::new(lang.clone());
 
     let cproc_call = store.list(&[cproc_sym_ptr]);
 
-    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang);
+    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang.clone());
+    let lang_rc = Arc::new(lang);
 
-    println!("Setting up public parameters (rc = {REDUCTION_COUNT})...");
+    println!("Setting up public parameters...");
 
     let pp_start = Instant::now();
-
-    // see the documentation on `with_public_params`
-    with_public_params(REDUCTION_COUNT, lang_rc.clone(), |pp| {
-        let pp_end = pp_start.elapsed();
-        println!("Public parameters took {:?}", pp_end);
-
-        if setup_only {
-            return;
-        }
-
-        println!("Beginning proof step...");
-        let proof_start = Instant::now();
-        let (proof, z0, zi, num_steps) = nova_prover
-            .evaluate_and_prove(pp, cproc_call, empty_sym_env(store), store, 10000, lang_rc)
-            .unwrap();
-        let proof_end = proof_start.elapsed();
-
-        println!("Proofs took {:?}", proof_end);
-
-        println!("Verifying proof...");
-
-        let verify_start = Instant::now();
-        let res = proof.verify(pp, num_steps, &z0, &zi).unwrap();
-        let verify_end = verify_start.elapsed();
-
-        println!("Verify took {:?}", verify_end);
-
-        if res {
-            println!(
-                "Congratulations! You proved and verified a SHA256 hash calculation in {:?} time!",
-                pp_end + proof_end + verify_end
-            );
-        }
-    })
+    let pp = public_params::<_, Sha256Coproc<Fr>>(
+        REDUCTION_COUNT,
+        true,
+        lang_rc.clone(),
+        &public_params_default_dir(),
+    )
     .unwrap();
+    let pp_end = pp_start.elapsed();
+
+    println!("Public parameters took {:?}", pp_end);
+
+    if setup_only {
+        return;
+    }
+
+    println!("Beginning proof step...");
+
+    let proof_start = Instant::now();
+    let (proof, z0, zi, num_steps) = tracing_texray::examine(tracing::info_span!("prog_start"))
+        .in_scope(|| {
+            nova_prover
+                .evaluate_and_prove(&pp, cproc_call, empty_sym_env(store), store, 10000, lang_rc)
+                .unwrap()
+        });
+    let proof_end = proof_start.elapsed();
+
+    println!("Proofs took {:?}", proof_end);
+
+    println!("Verifying proof...");
+
+    let verify_start = Instant::now();
+    let res = proof.verify(&pp, num_steps, &z0, &zi).unwrap();
+    let verify_end = verify_start.elapsed();
+
+    println!("Verify took {:?}", verify_end);
+
+    if res {
+        println!(
+            "Congratulations! You proved and verified a SHA256 hash calculation in {:?} time!",
+            pp_end + proof_end + verify_end
+        );
+    }
 }

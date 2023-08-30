@@ -11,7 +11,6 @@ use crate::writer::Write;
 use crate::{lurk_sym_ptr, store};
 use lang::Lang;
 
-use log::info;
 #[cfg(not(target_arch = "wasm32"))]
 use lurk_macros::serde_test;
 #[cfg(not(target_arch = "wasm32"))]
@@ -20,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::iter::{Iterator, Take};
 use std::marker::PhantomData;
+use tracing::info;
 
 pub mod lang;
 
@@ -486,6 +486,7 @@ where
         Ok(frames)
     }
 
+    #[tracing::instrument(skip_all, name = "Evaluator::generate_frames")]
     pub fn generate_frames<Fp: Fn(usize) -> bool>(
         expr: Ptr<F>,
         env: Ptr<F>,

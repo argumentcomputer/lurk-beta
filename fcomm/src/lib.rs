@@ -1,8 +1,8 @@
 use ::nova::traits::Group;
 use abomonation::Abomonation;
-use log::info;
 use std::convert::TryFrom;
 use std::sync::Arc;
+use tracing::info;
 
 #[cfg(not(target_arch = "wasm32"))]
 use proptest::prelude::*;
