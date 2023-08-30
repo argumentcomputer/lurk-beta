@@ -7,6 +7,7 @@ use crate::store::Store;
 pub mod gadgets;
 
 pub mod circuit_frame;
+pub use circuit_frame::MultiFrame;
 pub(crate) use circuit_frame::*;
 
 pub trait ToInputs<F: LurkField> {

@@ -1,5 +1,6 @@
 use abomonation::Abomonation;
 use log::info;
+use lurk::circuit::MultiFrame;
 use lurk::lurk_sym_ptr;
 use lurk::proof::nova::{CurveCycleEquipped, G1, G2};
 use nova::traits::Group;
@@ -230,7 +231,8 @@ impl Open {
 
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count).expect("reduction count");
-        let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
+        let prover =
+            NovaProver::<S1, Coproc<S1>, MultiFrame<S1, Coproc<S1>>>::new(rc.count(), lang.clone());
         let lang_rc = Arc::new(lang.clone());
         let pp =
             public_params(rc.count(), true, lang_rc, &public_param_dir()).expect("public params");
@@ -335,7 +337,8 @@ impl Prove {
     fn prove(&self, limit: usize, lang: &Lang<S1, Coproc<S1>>) {
         let s = &mut Store::<S1>::default();
         let rc = ReductionCount::try_from(self.reduction_count).unwrap();
-        let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
+        let prover =
+            NovaProver::<S1, Coproc<S1>, MultiFrame<S1, Coproc<S1>>>::new(rc.count(), lang.clone());
         let lang_rc = Arc::new(lang.clone());
         let pp = public_params(rc.count(), true, lang_rc.clone(), &public_param_dir()).unwrap();
 

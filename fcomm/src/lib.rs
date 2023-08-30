@@ -14,6 +14,7 @@ use hex::FromHex;
 #[cfg(not(target_arch = "wasm32"))]
 use lurk::field::FWrap;
 use lurk::{
+    circuit::MultiFrame,
     circuit::ToInputs,
     eval::{
         empty_sym_env,
@@ -645,8 +646,8 @@ impl<'a> Opening<S1> {
         limit: usize,
         chain: bool,
         only_use_cached_proofs: bool,
-        nova_prover: &'a NovaProver<S1, Coproc<S1>>,
-        pp: &'a PublicParams<S1, Coproc<S1>>,
+        nova_prover: &'a NovaProver<S1, Coproc<S1>, MultiFrame<'a, S1, Coproc<S1>>>,
+        pp: &'a PublicParams<S1, MultiFrame<'a, S1, Coproc<S1>>>,
         lang: Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Proof<'a, S1>, Error> {
         let claim = Self::apply(s, input, function, limit, chain, &lang)?;
@@ -666,8 +667,8 @@ impl<'a> Opening<S1> {
         request: &OpeningRequest<S1>,
         limit: usize,
         only_use_cached_proofs: bool,
-        nova_prover: &'a NovaProver<S1, Coproc<S1>>,
-        pp: &'a PublicParams<S1, Coproc<S1>>,
+        nova_prover: &'a NovaProver<S1, Coproc<S1>, MultiFrame<'a, S1, Coproc<S1>>>,
+        pp: &'a PublicParams<S1, MultiFrame<'a, S1, Coproc<S1>>>,
         lang: Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Proof<'a, S1>, Error> {
         let input = request.input.expr.ptr(s, limit, &lang);
@@ -799,8 +800,8 @@ impl<'a> Proof<'a, S1> {
         supplied_env: Option<Ptr<S1>>,
         limit: usize,
         only_use_cached_proofs: bool,
-        nova_prover: &'a NovaProver<S1, Coproc<S1>>,
-        pp: &'a PublicParams<S1, Coproc<S1>>,
+        nova_prover: &'a NovaProver<S1, Coproc<S1>, MultiFrame<'a, S1, Coproc<S1>>>,
+        pp: &'a PublicParams<S1, MultiFrame<'a, S1, Coproc<S1>>>,
         lang: Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Self, Error> {
         let env = supplied_env.unwrap_or_else(|| empty_sym_env(s));
@@ -837,8 +838,8 @@ impl<'a> Proof<'a, S1> {
         claim: &Claim<S1>,
         limit: usize,
         only_use_cached_proofs: bool,
-        nova_prover: &'a NovaProver<S1, Coproc<S1>>,
-        pp: &'a PublicParams<S1, Coproc<S1>>,
+        nova_prover: &'a NovaProver<S1, Coproc<S1>, MultiFrame<'a, S1, Coproc<S1>>>,
+        pp: &'a PublicParams<S1, MultiFrame<'a, S1, Coproc<S1>>>,
         lang: &Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Self, Error> {
         let reduction_count = nova_prover.reduction_count();
@@ -881,7 +882,7 @@ impl<'a> Proof<'a, S1> {
         };
 
         let (proof, _public_input, _public_output, num_steps) = nova_prover
-            .evaluate_and_prove(pp, expr, env, s, limit, lang.clone())
+            .evaluate_and_prove(pp, expr, env, s, limit, lang)
             .expect("Nova proof failed");
 
         let proof = Self {
@@ -922,7 +923,7 @@ impl<'a> Proof<'a, S1> {
 
     pub fn verify(
         &self,
-        pp: &PublicParams<S1, Coproc<S1>>,
+        pp: &PublicParams<S1, MultiFrame<'_, S1, Coproc<S1>>>,
         lang: &Lang<S1, Coproc<S1>>,
     ) -> Result<VerificationResult, Error> {
         let (public_inputs, public_outputs) = self.io_vecs(lang)?;
@@ -1236,7 +1237,10 @@ mod test {
             .expect("function_map set");
 
         for (function_input, _expected_output) in io {
-            let prover = NovaProver::<S1, Coproc<S1>>::new(rc.count(), lang.clone());
+            let prover = NovaProver::<S1, Coproc<S1>, MultiFrame<S1, Coproc<S1>>>::new(
+                rc.count(),
+                lang.clone(),
+            );
 
             let input = s.read(function_input).expect("Read error");
 

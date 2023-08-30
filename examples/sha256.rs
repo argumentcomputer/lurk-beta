@@ -203,7 +203,7 @@ fn main() {
         println!("Beginning proof step...");
         let proof_start = Instant::now();
         let (proof, z0, zi, num_steps) = nova_prover
-            .evaluate_and_prove(pp, cproc_call, empty_sym_env(store), store, 10000, lang_rc)
+            .evaluate_and_prove(pp, cproc_call, empty_sym_env(store), store, 10000, &lang_rc)
             .unwrap();
         let proof_end = proof_start.elapsed();
 
