@@ -317,7 +317,7 @@ where
         limit: usize,
         lang: &Arc<Lang<F, C>>,
     ) -> Result<(Proof<'_, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
-        let frames = self.get_evaluation_frames(expr, env, store, limit, &lang)?;
+        let frames = self.get_evaluation_frames(expr, env, store, limit, lang)?;
         self.prove(pp, &frames, store, lang)
     }
 }
