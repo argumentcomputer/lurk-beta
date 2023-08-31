@@ -62,7 +62,7 @@ use super::{
 pub struct GlobalAllocator<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);
 
 #[inline]
-pub(crate) fn allocate_num<F: LurkField, CS: ConstraintSystem<F>>(
+fn allocate_num<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     namespace: &str,
     value: F,
@@ -428,7 +428,6 @@ impl Func {
         Ok(())
     }
 
-    #[inline]
     pub fn alloc_globals<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -1221,9 +1220,9 @@ impl Func {
         frame: &Frame<F>,
     ) -> Result<()> {
         let bound_allocations = &mut BoundAllocations::new();
-        let global_allocator = &mut self.alloc_globals(cs, store)?;
+        let global_allocator = self.alloc_globals(cs, store)?;
         self.allocate_input(cs, store, frame, bound_allocations)?;
-        self.synthesize_frame(cs, store, frame, global_allocator, bound_allocations)?;
+        self.synthesize_frame(cs, store, frame, &global_allocator, bound_allocations)?;
         Ok(())
     }
 
@@ -1371,7 +1370,7 @@ impl Func {
             + 388 * self.slot.hash4
             + 265 * self.slot.commitment
             + 1172 * self.slot.less_than;
-        let num_constraints = recurse::<F>(&self.body, globals, store);
+        let num_constraints = recurse(&self.body, globals, store);
         slot_constraints + num_constraints + globals.len()
     }
 }

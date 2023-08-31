@@ -171,7 +171,7 @@ impl Block {
                     let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
                         Ptr::Atom(Tag::Expr(Num), *f + *g)
                     } else {
-                        bail!("`Add` only works on leaves")
+                        bail!("`Add` only works on atoms")
                     };
                     bindings.insert(tgt.clone(), c);
                 }
@@ -181,7 +181,7 @@ impl Block {
                     let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
                         Ptr::Atom(Tag::Expr(Num), *f - *g)
                     } else {
-                        bail!("`Sub` only works on leaves")
+                        bail!("`Sub` only works on atoms")
                     };
                     bindings.insert(tgt.clone(), c);
                 }
@@ -191,7 +191,7 @@ impl Block {
                     let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
                         Ptr::Atom(Tag::Expr(Num), *f * *g)
                     } else {
-                        bail!("`Mul` only works on leaves")
+                        bail!("`Mul` only works on atoms")
                     };
                     bindings.insert(tgt.clone(), c);
                 }
@@ -218,7 +218,7 @@ impl Block {
                         let b = if f < g { F::ONE } else { F::ZERO };
                         Ptr::Atom(Tag::Expr(Num), b)
                     } else {
-                        bail!("`Lt` only works on leaves")
+                        bail!("`Lt` only works on atoms")
                     };
                     bindings.insert(tgt.clone(), c);
                 }
@@ -246,7 +246,7 @@ impl Block {
                         let c2 = Ptr::Atom(Tag::Expr(Num), F::from_u64(f % g));
                         (c1, c2)
                     } else {
-                        bail!("`DivRem64` only works on leaves")
+                        bail!("`DivRem64` only works on atoms")
                     };
                     bindings.insert(tgt[0].clone(), c1);
                     bindings.insert(tgt[1].clone(), c2);
