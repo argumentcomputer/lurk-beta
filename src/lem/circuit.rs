@@ -24,18 +24,14 @@
 //! the constraints we care about with implication gadgets.
 
 use anyhow::{bail, Context, Result};
-use bellpepper::util_cs::witness_cs::WitnessCS;
 use bellpepper_core::{
-    Circuit, ConstraintSystem, SynthesisError,
+    ConstraintSystem, SynthesisError,
     {
         boolean::{AllocatedBit, Boolean},
         num::AllocatedNum,
     },
 };
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    sync::Arc,
-};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::circuit::gadgets::{
     constraints::{
@@ -48,10 +44,7 @@ use crate::circuit::gadgets::{
 };
 
 use crate::{
-    coprocessor::Coprocessor,
-    eval::lang::Lang,
     field::{FWrap, LurkField},
-    proof::{MultiFrameTrait, Provable},
     tag::ExprTag::*,
 };
 
@@ -63,286 +56,6 @@ use super::{
     var_map::VarMap,
     Block, Ctrl, Func, Op, Tag, Var,
 };
-
-#[derive(Clone)]
-pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
-    pub store: Option<&'a Store<F>>,
-    pub lang: Arc<Lang<F, C>>,
-    pub func: Arc<Func>,
-    pub input: Option<Vec<Ptr<F>>>,
-    pub output: Option<Vec<Ptr<F>>>,
-    pub frames: Option<Vec<Frame<F>>>,
-    pub cached_witness: Option<WitnessCS<F>>,
-    pub reduction_count: usize,
-}
-
-impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
-    pub(crate) fn allocate_consts<CS: ConstraintSystem<F>>(
-        &self,
-        _cs: &mut CS,
-        _g: &mut GlobalAllocator<F>,
-    ) -> Result<(), SynthesisError> {
-        todo!()
-    }
-}
-
-impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFrame<'a, F, C> {
-    type Store = Store<F>;
-    type Ptr = Ptr<F>;
-    type Frame = Frame<F>;
-    type CircuitFrame = Frame<F>;
-    type GlobalAllocation = GlobalAllocator<F>;
-    type AllocatedIO = Vec<AllocatedPtr<F>>;
-
-    fn precedes(&self, maybe_next: &Self) -> bool {
-        self.output == maybe_next.input
-    }
-
-    fn synthesize_frames<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        store: &Self::Store,
-        input: Self::AllocatedIO,
-        frames: &[Self::CircuitFrame],
-        g: &Self::GlobalAllocation,
-    ) -> Self::AllocatedIO {
-        let (_, output) = frames
-            .iter()
-            .fold((0, input.to_vec()), |(i, input), frame| {
-                for (alloc_ptr, input) in input.iter().zip(&frame.input) {
-                    let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
-                    match (alloc_ptr.tag().get_value(), alloc_ptr.hash().get_value()) {
-                        (Some(alloc_ptr_tag), Some(alloc_ptr_hash)) => {
-                            assert_eq!(alloc_ptr_tag, input_zptr.tag.to_field());
-                            assert_eq!(alloc_ptr_hash, input_zptr.hash);
-                        }
-                        _ => panic!("Assignment missing"),
-                    }
-                }
-                let bound_allocations = &mut BoundAllocations::new();
-                self.func.add_input(&input, bound_allocations);
-                let output = self
-                    .func
-                    .synthesize_frame(
-                        &mut cs.namespace(|| format!("step {i}")),
-                        store,
-                        frame,
-                        g,
-                        bound_allocations,
-                    )
-                    .unwrap();
-                (i + 1, output)
-            });
-        output
-    }
-
-    fn blank(count: usize, lang: Arc<Lang<F, C>>) -> Self {
-        Self {
-            store: None,
-            lang: lang.clone(),
-            func: Func::from(&*lang).into(),
-            input: None,
-            output: None,
-            frames: None,
-            cached_witness: None,
-            reduction_count: count,
-        }
-    }
-
-    fn from_frames(
-        count: usize,
-        frames: &[Self::Frame],
-        store: &'a Self::Store,
-        lang: Arc<Lang<F, C>>,
-    ) -> Vec<Self> {
-        let total_frames = frames.len();
-        let n = (total_frames + count - 1) / count;
-        let mut multi_frames = Vec::with_capacity(n);
-        let func = Arc::new(Func::from(&*lang));
-
-        for chunk in frames.chunks(count) {
-            let last_frame = chunk.last().expect("chunk must not be empty");
-            let inner_frames = if chunk.len() < count {
-                let mut inner_frames = Vec::with_capacity(count);
-                inner_frames.extend(chunk.to_vec());
-                inner_frames.resize(count, last_frame.clone());
-                inner_frames
-            } else {
-                chunk.to_vec()
-            };
-
-            let output = last_frame.output.clone();
-            let input = chunk[0].input.clone();
-
-            let mf = MultiFrame {
-                store: Some(store),
-                lang: lang.clone(),
-                func: func.clone(),
-                input: Some(input),
-                output: Some(output),
-                frames: Some(inner_frames),
-                cached_witness: None,
-                reduction_count: count,
-            };
-
-            multi_frames.push(mf);
-        }
-
-        multi_frames
-    }
-
-    /// Make a dummy instance, duplicating `self`'s final `CircuitFrame`.
-    fn make_dummy(
-        count: usize,
-        circuit_frame: Option<Self::CircuitFrame>,
-        store: &'a Self::Store,
-        lang: Arc<Lang<F, C>>,
-    ) -> Self {
-        let (frames, input, output) = if let Some(circuit_frame) = circuit_frame {
-            (
-                Some(vec![circuit_frame.clone(); count]),
-                Some(circuit_frame.input),
-                Some(circuit_frame.output),
-            )
-        } else {
-            (None, None, None)
-        };
-        Self {
-            store: Some(store),
-            lang: lang.clone(),
-            func: Func::from(&*lang).into(),
-            input,
-            output,
-            frames,
-            cached_witness: None,
-            reduction_count: count,
-        }
-    }
-}
-
-impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
-    fn synthesize<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
-        let mut synth =
-            |store: &Store<F>, frames: &[Frame<F>], input: &[Ptr<F>], output: &[Ptr<F>]| {
-                let mut allocated_input = Vec::with_capacity(input.len());
-                for (i, ptr) in input.iter().enumerate() {
-                    let z_ptr = store.hash_ptr(ptr).expect("pointer hashing failed");
-
-                    let allocated_tag = AllocatedNum::alloc(
-                        &mut cs.namespace(|| format!("allocated tag for input {i}")),
-                        || Ok(z_ptr.tag.to_field()),
-                    )?;
-                    allocated_tag
-                        .inputize(&mut cs.namespace(|| format!("inputized tag for input {i}")))?;
-
-                    let allocated_hash = AllocatedNum::alloc(
-                        &mut cs.namespace(|| format!("allocated hash for input {i}")),
-                        || Ok(z_ptr.hash),
-                    )?;
-                    allocated_hash
-                        .inputize(&mut cs.namespace(|| format!("inputized hash for input {i}")))?;
-
-                    allocated_input.push(AllocatedPtr::from_parts(allocated_tag, allocated_hash));
-                }
-
-                let mut allocated_output = Vec::with_capacity(output.len());
-                for (i, ptr) in output.iter().enumerate() {
-                    let z_ptr = store.hash_ptr(ptr).expect("pointer hashing failed");
-
-                    let allocated_tag = AllocatedNum::alloc(
-                        &mut cs.namespace(|| format!("allocated tag for output {i}")),
-                        || Ok(z_ptr.tag.to_field()),
-                    )?;
-                    allocated_tag
-                        .inputize(&mut cs.namespace(|| format!("inputized tag for output {i}")))?;
-
-                    let allocated_hash = AllocatedNum::alloc(
-                        &mut cs.namespace(|| format!("allocated hash for output {i}")),
-                        || Ok(z_ptr.hash),
-                    )?;
-                    allocated_hash
-                        .inputize(&mut cs.namespace(|| format!("inputized hash for output {i}")))?;
-
-                    allocated_output.push(AllocatedPtr::from_parts(allocated_tag, allocated_hash));
-                }
-
-                let g = &mut GlobalAllocator::default();
-                self.allocate_consts(cs, g)?;
-
-                let allocated_output_result =
-                    self.synthesize_frames(cs, store, allocated_input, frames, g);
-
-                assert_eq!(allocated_output.len(), allocated_output_result.len());
-
-                for (i, (o_res, o)) in allocated_output_result
-                    .iter()
-                    .zip(allocated_output)
-                    .enumerate()
-                {
-                    o_res.enforce_equal(
-                        &mut cs.namespace(|| format!("outer output {i} is correct")),
-                        &o,
-                    );
-                }
-
-                Ok(())
-            };
-
-        let input = self
-            .input
-            .as_ref()
-            .ok_or_else(|| SynthesisError::AssignmentMissing)?;
-        let output = self
-            .output
-            .as_ref()
-            .ok_or_else(|| SynthesisError::AssignmentMissing)?;
-
-        match self.store {
-            Some(store) => {
-                let frames = self.frames.as_ref().unwrap();
-                synth(store, frames, input, output)
-            }
-            None => {
-                assert!(self.frames.is_none());
-                let func = &self.func;
-                let store = func.init_store();
-                let blank_frame = Frame::blank(func);
-                let frames = vec![blank_frame; self.reduction_count];
-                synth(&store, &frames, input, output)
-            }
-        }
-    }
-}
-
-impl<'a, F: LurkField, C: Coprocessor<F>> Provable<F> for MultiFrame<'a, F, C> {
-    fn public_inputs(&self) -> Vec<F> {
-        let input = self.input.as_ref().expect("input missing");
-        let output = self.output.as_ref().expect("input missing");
-        let store = self.store.expect("store missing");
-        let mut res = Vec::with_capacity(2 * (input.len() + output.len()));
-        for ptr in input {
-            let z_ptr = store.hash_ptr(ptr).expect("pointer hashing failed");
-            res.push(z_ptr.tag.to_field());
-            res.push(z_ptr.hash);
-        }
-        for ptr in output {
-            let z_ptr = store.hash_ptr(ptr).expect("pointer hashing failed");
-            res.push(z_ptr.tag.to_field());
-            res.push(z_ptr.hash);
-        }
-        res
-    }
-
-    fn public_input_size(&self) -> usize {
-        let input = self.input.as_ref().expect("input missing");
-        let output = self.output.as_ref().expect("input missing");
-        2 * (input.len() + output.len())
-    }
-
-    fn reduction_count(&self) -> usize {
-        self.reduction_count
-    }
-}
 
 /// Manages global allocations for constants in a constraint system
 #[derive(Default)]
@@ -389,11 +102,237 @@ impl<F: LurkField> GlobalAllocator<F> {
     }
 }
 
-type BoundAllocations<F> = VarMap<AllocatedPtr<F>>;
+pub(crate) type BoundAllocations<F> = VarMap<AllocatedPtr<F>>;
+
+/// Allocates an unconstrained pointer
+fn allocate_ptr<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    z_ptr: &ZPtr<F>,
+    var: &Var,
+    bound_allocations: &mut BoundAllocations<F>,
+) -> Result<AllocatedPtr<F>> {
+    let allocated_tag = allocate_num(cs, &format!("allocate {var}'s tag"), z_ptr.tag.to_field())?;
+    let allocated_hash = allocate_num(cs, &format!("allocate {var}'s hash"), z_ptr.hash)?;
+    let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
+    bound_allocations.insert(var.clone(), allocated_ptr.clone());
+    Ok(allocated_ptr)
+}
+
+/// Allocates an unconstrained pointer for each output of the frame
+fn allocate_output<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    store: &Store<F>,
+    frame: &Frame<F>,
+    bound_allocations: &mut BoundAllocations<F>,
+) -> Result<Vec<AllocatedPtr<F>>> {
+    frame
+        .output
+        .iter()
+        .enumerate()
+        .map(|(i, ptr)| {
+            allocate_ptr(
+                cs,
+                &store.hash_ptr(ptr)?,
+                &Var(format!("output[{}]", i).into()),
+                bound_allocations,
+            )
+        })
+        .collect::<Result<_>>()
+}
+
+#[inline]
+fn allocate_preimg_component_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    slot: &Slot,
+    component_idx: usize,
+    value: F,
+) -> Result<AllocatedNum<F>> {
+    allocate_num(
+        cs,
+        &format!("component {component_idx} for slot {slot}"),
+        value,
+    )
+}
+
+fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    slot: &Slot,
+    preallocated_preimg: Vec<AllocatedNum<F>>,
+    store: &Store<F>,
+) -> Result<AllocatedNum<F>> {
+    let cs = &mut cs.namespace(|| format!("image for slot {slot}"));
+    let preallocated_img = {
+        match slot.typ {
+            SlotType::Hash2 => {
+                hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c4())?
+            }
+            SlotType::Hash3 => {
+                hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c6())?
+            }
+            SlotType::Hash4 => {
+                hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c8())?
+            }
+            SlotType::Commitment => {
+                hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c3())?
+            }
+            SlotType::LessThan => {
+                // When a and b have the same sign, a < b iff a - b < 0
+                // When a and b have different signs, a < b iff a is negative
+                let a_num = &preallocated_preimg[0];
+                let b_num = &preallocated_preimg[1];
+                let slot_str = &slot.to_string();
+                let a_is_negative = allocate_is_negative(
+                    &mut cs.namespace(|| format!("a_is_negative for slot {slot_str}")),
+                    a_num,
+                )?;
+                let a_is_negative_num = boolean_to_num(
+                    &mut cs.namespace(|| format!("a_is_negative_num for slot {slot_str}")),
+                    &a_is_negative,
+                )?;
+                let b_is_negative = allocate_is_negative(
+                    &mut cs.namespace(|| format!("b_is_negative for slot {slot_str}")),
+                    b_num,
+                )?;
+                let same_sign = Boolean::xor(
+                    &mut cs.namespace(|| format!("same_sign for slot {slot_str}")),
+                    &a_is_negative,
+                    &b_is_negative,
+                )?
+                .not();
+                let diff = sub(
+                    &mut cs.namespace(|| format!("diff for slot {slot_str}")),
+                    a_num,
+                    b_num,
+                )?;
+                let diff_is_negative = allocate_is_negative(
+                    &mut cs.namespace(|| format!("diff_is_negative for slot {slot_str}")),
+                    &diff,
+                )?;
+                let diff_is_negative_num = boolean_to_num(
+                    &mut cs.namespace(|| format!("diff_is_negative_num for slot {slot_str}")),
+                    &diff_is_negative,
+                )?;
+                pick(
+                    &mut cs.namespace(|| format!("pick for slot {slot}")),
+                    &same_sign,
+                    &diff_is_negative_num,
+                    &a_is_negative_num,
+                )?
+            }
+        }
+    };
+    Ok(preallocated_img)
+}
+
+/// Allocates unconstrained slots
+fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    preimg_data: &[Option<PreimageData<F>>],
+    slot_type: SlotType,
+    num_slots: usize,
+    store: &Store<F>,
+) -> Result<Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>> {
+    assert!(
+        preimg_data.len() == num_slots,
+        "collected preimages not equal to the number of available slots"
+    );
+
+    let mut preallocations = Vec::with_capacity(num_slots);
+
+    // We must perform the allocations for the slots containing data collected
+    // by the interpreter. The `None` cases must be filled with dummy values
+    for (slot_idx, maybe_preimg_data) in preimg_data.iter().enumerate() {
+        if let Some(preimg_data) = maybe_preimg_data {
+            let slot = Slot {
+                idx: slot_idx,
+                typ: slot_type,
+            };
+
+            // Allocate the preimage because the image depends on it
+            let mut preallocated_preimg = Vec::with_capacity(slot_type.preimg_size());
+
+            match preimg_data {
+                PreimageData::PtrVec(ptr_vec) => {
+                    let mut component_idx = 0;
+                    for ptr in ptr_vec {
+                        let z_ptr = store.hash_ptr(ptr)?;
+
+                        // allocate pointer tag
+                        preallocated_preimg.push(allocate_preimg_component_for_slot(
+                            cs,
+                            &slot,
+                            component_idx,
+                            z_ptr.tag.to_field(),
+                        )?);
+
+                        component_idx += 1;
+
+                        // allocate pointer hash
+                        preallocated_preimg.push(allocate_preimg_component_for_slot(
+                            cs,
+                            &slot,
+                            component_idx,
+                            z_ptr.hash,
+                        )?);
+
+                        component_idx += 1;
+                    }
+                }
+                PreimageData::FPtr(f, ptr) => {
+                    let z_ptr = store.hash_ptr(ptr)?;
+                    // allocate first component
+                    preallocated_preimg.push(allocate_preimg_component_for_slot(cs, &slot, 0, *f)?);
+                    // allocate second component
+                    preallocated_preimg.push(allocate_preimg_component_for_slot(
+                        cs,
+                        &slot,
+                        1,
+                        z_ptr.tag.to_field(),
+                    )?);
+                    // allocate third component
+                    preallocated_preimg.push(allocate_preimg_component_for_slot(
+                        cs, &slot, 2, z_ptr.hash,
+                    )?);
+                }
+                PreimageData::FPair(a, b) => {
+                    // allocate first component
+                    preallocated_preimg.push(allocate_preimg_component_for_slot(cs, &slot, 0, *a)?);
+
+                    // allocate second component
+                    preallocated_preimg.push(allocate_preimg_component_for_slot(cs, &slot, 1, *b)?);
+                }
+            }
+
+            // Allocate the image by calling the arithmetic function according
+            // to the slot type
+            let preallocated_img =
+                allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
+
+            preallocations.push((preallocated_preimg, preallocated_img));
+        } else {
+            let slot = Slot {
+                idx: slot_idx,
+                typ: slot_type,
+            };
+            let preallocated_preimg: Vec<_> = (0..slot_type.preimg_size())
+                .map(|component_idx| {
+                    allocate_preimg_component_for_slot(cs, &slot, component_idx, F::ZERO)
+                })
+                .collect::<Result<_, _>>()?;
+
+            let preallocated_img =
+                allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
+
+            preallocations.push((preallocated_preimg, preallocated_img));
+        }
+    }
+
+    Ok(preallocations)
+}
 
 impl Func {
     /// Add input to bound_allocations
-    fn add_input<F: LurkField>(
+    pub(crate) fn add_input<F: LurkField>(
         &self,
         input: &[AllocatedPtr<F>],
         bound_allocations: &mut BoundAllocations<F>,
@@ -402,21 +341,6 @@ impl Func {
         for (var, ptr) in self.input_params.iter().zip(input) {
             bound_allocations.insert(var.clone(), ptr.clone());
         }
-    }
-
-    /// Allocates an unconstrained pointer
-    fn allocate_ptr<F: LurkField, CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        z_ptr: &ZPtr<F>,
-        var: &Var,
-        bound_allocations: &mut BoundAllocations<F>,
-    ) -> Result<AllocatedPtr<F>> {
-        let allocated_tag =
-            allocate_num(cs, &format!("allocate {var}'s tag"), z_ptr.tag.to_field())?;
-        let allocated_hash = allocate_num(cs, &format!("allocate {var}'s hash"), z_ptr.hash)?;
-        let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
-        bound_allocations.insert(var.clone(), allocated_ptr.clone());
-        Ok(allocated_ptr)
     }
 
     /// Allocates an unconstrained pointer for each input of the frame
@@ -429,224 +353,17 @@ impl Func {
     ) -> Result<()> {
         for (i, ptr) in frame.input.iter().enumerate() {
             let param = &self.input_params[i];
-            Self::allocate_ptr(cs, &store.hash_ptr(ptr)?, param, bound_allocations)?;
+            allocate_ptr(cs, &store.hash_ptr(ptr)?, param, bound_allocations)?;
         }
         Ok(())
     }
 
-    /// Allocates an unconstrained pointer for each output of the frame
-    fn allocate_output<F: LurkField, CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        store: &Store<F>,
-        frame: &Frame<F>,
-        bound_allocations: &mut BoundAllocations<F>,
-    ) -> Result<Vec<AllocatedPtr<F>>> {
-        frame
-            .output
-            .iter()
-            .enumerate()
-            .map(|(i, ptr)| {
-                Self::allocate_ptr(
-                    cs,
-                    &store.hash_ptr(ptr)?,
-                    &Var(format!("output[{}]", i).into()),
-                    bound_allocations,
-                )
-            })
-            .collect::<Result<_>>()
-    }
-
-    #[inline]
-    fn allocate_preimg_component_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        slot: &Slot,
-        component_idx: usize,
-        value: F,
-    ) -> Result<AllocatedNum<F>> {
-        allocate_num(
-            cs,
-            &format!("component {component_idx} for slot {slot}"),
-            value,
-        )
-    }
-
-    fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        slot: &Slot,
-        preallocated_preimg: Vec<AllocatedNum<F>>,
-        store: &Store<F>,
-    ) -> Result<AllocatedNum<F>> {
-        let cs = &mut cs.namespace(|| format!("image for slot {slot}"));
-        let preallocated_img = {
-            match slot.typ {
-                SlotType::Hash2 => {
-                    hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c4())?
-                }
-                SlotType::Hash3 => {
-                    hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c6())?
-                }
-                SlotType::Hash4 => {
-                    hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c8())?
-                }
-                SlotType::Commitment => {
-                    hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c3())?
-                }
-                SlotType::LessThan => {
-                    // When a and b have the same sign, a < b iff a - b < 0
-                    // When a and b have different signs, a < b iff a is negative
-                    let a_num = &preallocated_preimg[0];
-                    let b_num = &preallocated_preimg[1];
-                    let slot_str = &slot.to_string();
-                    let a_is_negative = allocate_is_negative(
-                        &mut cs.namespace(|| format!("a_is_negative for slot {slot_str}")),
-                        a_num,
-                    )?;
-                    let a_is_negative_num = boolean_to_num(
-                        &mut cs.namespace(|| format!("a_is_negative_num for slot {slot_str}")),
-                        &a_is_negative,
-                    )?;
-                    let b_is_negative = allocate_is_negative(
-                        &mut cs.namespace(|| format!("b_is_negative for slot {slot_str}")),
-                        b_num,
-                    )?;
-                    let same_sign = Boolean::xor(
-                        &mut cs.namespace(|| format!("same_sign for slot {slot_str}")),
-                        &a_is_negative,
-                        &b_is_negative,
-                    )?
-                    .not();
-                    let diff = sub(
-                        &mut cs.namespace(|| format!("diff for slot {slot_str}")),
-                        a_num,
-                        b_num,
-                    )?;
-                    let diff_is_negative = allocate_is_negative(
-                        &mut cs.namespace(|| format!("diff_is_negative for slot {slot_str}")),
-                        &diff,
-                    )?;
-                    let diff_is_negative_num = boolean_to_num(
-                        &mut cs.namespace(|| format!("diff_is_negative_num for slot {slot_str}")),
-                        &diff_is_negative,
-                    )?;
-                    pick(
-                        &mut cs.namespace(|| format!("pick for slot {slot}")),
-                        &same_sign,
-                        &diff_is_negative_num,
-                        &a_is_negative_num,
-                    )?
-                }
-            }
-        };
-        Ok(preallocated_img)
-    }
-
-    /// Allocates unconstrained slots
-    fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
-        cs: &mut CS,
-        preimg_data: &[Option<PreimageData<F>>],
-        slot_type: SlotType,
-        num_slots: usize,
-        store: &Store<F>,
-    ) -> Result<Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>> {
-        assert!(
-            preimg_data.len() == num_slots,
-            "collected preimages not equal to the number of available slots"
-        );
-
-        let mut preallocations = Vec::with_capacity(num_slots);
-
-        // We must perform the allocations for the slots containing data collected
-        // by the interpreter. The `None` cases must be filled with dummy values
-        for (slot_idx, maybe_preimg_data) in preimg_data.iter().enumerate() {
-            if let Some(preimg_data) = maybe_preimg_data {
-                let slot = Slot {
-                    idx: slot_idx,
-                    typ: slot_type,
-                };
-
-                // Allocate the preimage because the image depends on it
-                let mut preallocated_preimg = Vec::with_capacity(slot_type.preimg_size());
-
-                match preimg_data {
-                    PreimageData::PtrVec(ptr_vec) => {
-                        let mut component_idx = 0;
-                        for ptr in ptr_vec {
-                            let z_ptr = store.hash_ptr(ptr)?;
-
-                            // allocate pointer tag
-                            preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
-                                cs,
-                                &slot,
-                                component_idx,
-                                z_ptr.tag.to_field(),
-                            )?);
-
-                            component_idx += 1;
-
-                            // allocate pointer hash
-                            preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
-                                cs,
-                                &slot,
-                                component_idx,
-                                z_ptr.hash,
-                            )?);
-
-                            component_idx += 1;
-                        }
-                    }
-                    PreimageData::FPtr(f, ptr) => {
-                        let z_ptr = store.hash_ptr(ptr)?;
-                        // allocate first component
-                        preallocated_preimg
-                            .push(Self::allocate_preimg_component_for_slot(cs, &slot, 0, *f)?);
-                        // allocate second component
-                        preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
-                            cs,
-                            &slot,
-                            1,
-                            z_ptr.tag.to_field(),
-                        )?);
-                        // allocate third component
-                        preallocated_preimg.push(Self::allocate_preimg_component_for_slot(
-                            cs, &slot, 2, z_ptr.hash,
-                        )?);
-                    }
-                    PreimageData::FPair(a, b) => {
-                        // allocate first component
-                        preallocated_preimg
-                            .push(Self::allocate_preimg_component_for_slot(cs, &slot, 0, *a)?);
-
-                        // allocate second component
-                        preallocated_preimg
-                            .push(Self::allocate_preimg_component_for_slot(cs, &slot, 1, *b)?);
-                    }
-                }
-
-                // Allocate the image by calling the arithmetic function according
-                // to the slot type
-                let preallocated_img =
-                    Self::allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
-
-                preallocations.push((preallocated_preimg, preallocated_img));
-            } else {
-                let slot = Slot {
-                    idx: slot_idx,
-                    typ: slot_type,
-                };
-                let preallocated_preimg: Vec<_> = (0..slot_type.preimg_size())
-                    .map(|component_idx| {
-                        Self::allocate_preimg_component_for_slot(cs, &slot, component_idx, F::ZERO)
-                    })
-                    .collect::<Result<_, _>>()?;
-
-                let preallocated_img =
-                    Self::allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
-
-                preallocations.push((preallocated_preimg, preallocated_img));
-            }
-        }
-
-        Ok(preallocations)
+    pub fn allocate_consts<F: LurkField, CS: ConstraintSystem<F>>(
+        &self,
+        _cs: &mut CS,
+        _g: &mut GlobalAllocator<F>,
+    ) -> Result<(), SynthesisError> {
+        todo!()
     }
 
     /// Create R1CS constraints for a LEM function given an evaluation frame. This
@@ -666,12 +383,12 @@ impl Func {
         bound_allocations: &mut BoundAllocations<F>,
     ) -> Result<Vec<AllocatedPtr<F>>> {
         // Outputs are constrained by the return statement. All functions return
-        let preallocated_outputs = Func::allocate_output(cs, store, frame, bound_allocations)?;
+        let preallocated_outputs = allocate_output(cs, store, frame, bound_allocations)?;
 
         // Slots are constrained by their usage inside the function body. The ones
         // not used in throughout the concrete path are effectively unconstrained,
         // that's why they are filled with dummies
-        let preallocated_hash2_slots = Func::allocate_slots(
+        let preallocated_hash2_slots = allocate_slots(
             cs,
             &frame.preimages.hash2,
             SlotType::Hash2,
@@ -679,7 +396,7 @@ impl Func {
             store,
         )?;
 
-        let preallocated_hash3_slots = Func::allocate_slots(
+        let preallocated_hash3_slots = allocate_slots(
             cs,
             &frame.preimages.hash3,
             SlotType::Hash3,
@@ -687,7 +404,7 @@ impl Func {
             store,
         )?;
 
-        let preallocated_hash4_slots = Func::allocate_slots(
+        let preallocated_hash4_slots = allocate_slots(
             cs,
             &frame.preimages.hash4,
             SlotType::Hash4,
@@ -695,7 +412,7 @@ impl Func {
             store,
         )?;
 
-        let preallocated_commitment_slots = Func::allocate_slots(
+        let preallocated_commitment_slots = allocate_slots(
             cs,
             &frame.preimages.commitment,
             SlotType::Commitment,
@@ -703,7 +420,7 @@ impl Func {
             store,
         )?;
 
-        let preallocated_less_than_slots = Func::allocate_slots(
+        let preallocated_less_than_slots = allocate_slots(
             cs,
             &frame.preimages.less_than,
             SlotType::LessThan,
@@ -848,7 +565,7 @@ impl Func {
                         let mut output_ptrs = Vec::with_capacity(out.len());
                         for (ptr, var) in output_vals.iter().zip(out.iter()) {
                             let zptr = &g.store.hash_ptr(ptr)?;
-                            output_ptrs.push(Func::allocate_ptr(cs, zptr, var, bound_allocations)?);
+                            output_ptrs.push(allocate_ptr(cs, zptr, var, bound_allocations)?);
                         }
                         // Get the pointers for the input, i.e. the arguments
                         let args = bound_allocations.get_many_cloned(inp)?;

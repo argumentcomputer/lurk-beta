@@ -13,9 +13,9 @@ use crate::{
     eval::lang::{Coproc, Lang},
     field::LurkField,
     lem::{
-        circuit::MultiFrame,
         eval::{eval_step, evaluate, evaluate_simple},
         interpreter::Frame,
+        multiframe::MultiFrame,
         pointers::Ptr,
         store::Store,
         zstore::populate_store,

@@ -24,7 +24,7 @@ use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
 use crate::eval::lang::Lang;
 use crate::field::LurkField;
-use crate::lem::{circuit::MultiFrame, interpreter::Frame, store::Store};
+use crate::lem::{interpreter::Frame, multiframe::MultiFrame, store::Store};
 use crate::proof::{
     nova::{NovaProver, PublicParams},
     Prover,
@@ -95,7 +95,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
             Some(frames) => {
                 let s = self.store.expect("store missing");
                 let g = &mut GlobalAllocator::default();
-                self.allocate_consts(cs, g)?;
+                self.func.allocate_consts(cs, g)?;
                 self.synthesize_frames(cs, s, input, frames, g)
             }
             None => {
@@ -105,7 +105,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
                 let blank_frame = Frame::blank(func);
                 let frames = vec![blank_frame; self.reduction_count];
                 let g = &mut GlobalAllocator::default();
-                self.allocate_consts(cs, g)?;
+                self.func.allocate_consts(cs, g)?;
                 self.synthesize_frames(cs, &store, input, &frames, g)
             }
         };

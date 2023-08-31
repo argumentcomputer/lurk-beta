@@ -5,8 +5,8 @@ use lurk::{
     eval::lang::{Coproc, Lang},
     field::LurkField,
     lem::{
-        circuit::MultiFrame,
         eval::{eval_step, evaluate, evaluate_simple},
+        multiframe::MultiFrame,
         pointers::Ptr,
         store::Store,
         Func,
