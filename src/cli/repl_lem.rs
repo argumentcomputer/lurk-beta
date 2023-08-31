@@ -1,17 +1,15 @@
 use anyhow::{bail, Context, Result};
-use camino::{Utf8Path, Utf8PathBuf};
-use rustyline::{
-    error::ReadlineError,
-    history::DefaultHistory,
-    validate::{MatchingBracketValidator, ValidationContext, ValidationResult, Validator},
-    Config, Editor,
-};
-use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
+use camino::Utf8Path;
+use rustyline::error::ReadlineError;
 use std::{cell::RefCell, fs::read_to_string, process, rc::Rc, sync::Arc};
 use tracing::info;
 
 use crate::{
-    cli::{commitment_lem::Commitment, paths::proof_path},
+    cli::{
+        commitment_lem::Commitment,
+        paths::proof_path,
+        repl_aux::{get_repl_setup, pad, proof_key},
+    },
     eval::lang::{Coproc, Lang},
     field::LurkField,
     lem::{
@@ -35,7 +33,10 @@ use crate::{
     Symbol,
 };
 
-use super::{backend::Backend, field_data::load, lurk_proof::LurkProof, paths::commitment_path};
+use super::{
+    backend::Backend, field_data::load, lurk_proof::LurkProof, paths::commitment_path,
+    repl_aux::pretty_iterations_display,
+};
 
 #[allow(dead_code)]
 struct Evaluation<F: LurkField> {
@@ -55,25 +56,6 @@ pub struct ReplLEM<F: LurkField> {
 }
 
 type F = pasta_curves::pallas::Scalar; // TODO: generalize this
-
-#[derive(Completer, Helper, Highlighter, Hinter)]
-struct InputValidator {
-    brackets: MatchingBracketValidator,
-}
-
-impl Validator for InputValidator {
-    fn validate(&self, ctx: &mut ValidationContext<'_>) -> rustyline::Result<ValidationResult> {
-        self.brackets.validate(ctx)
-    }
-}
-
-/// `pad(a, m)` returns the first multiple of `m` that's equal or greater than `a`
-///
-/// Panics if `m` is zero
-#[inline]
-fn pad(a: usize, m: usize) -> usize {
-    (a + m - 1) / m * m
-}
 
 impl ReplLEM<F> {
     pub fn new(store: Option<Store<F>>, rc: usize, limit: usize, backend: Backend) -> Self {
@@ -124,12 +106,6 @@ impl ReplLEM<F> {
         ])
     }
 
-    #[allow(dead_code)]
-    fn proof_key(backend: &Backend, rc: &usize, claim_hash: &str) -> String {
-        let field = F::FIELD;
-        format!("{backend}_{field}_{rc}_{claim_hash}")
-    }
-
     pub(crate) fn prove_last_frames(&mut self) -> Result<()> {
         if let Some(Evaluation {
             frames,
@@ -163,7 +139,7 @@ impl ReplLEM<F> {
 
                     let claim_comm = Commitment::new(None, claim, &mut self.store)?;
                     let claim_hash = &claim_comm.hash.hex_digits();
-                    let proof_key = &Self::proof_key(&self.backend, &self.rc, claim_hash);
+                    let proof_key = &proof_key::<F>(&self.backend, &self.rc, claim_hash);
                     let proof_path = proof_path(proof_key);
 
                     if proof_path.exists() {
@@ -204,20 +180,12 @@ impl ReplLEM<F> {
         }
     }
 
-    fn pretty_iterations_display(iterations: usize) -> String {
-        if iterations != 1 {
-            format!("{iterations} iterations")
-        } else {
-            "1 iteration".into()
-        }
-    }
-
     fn eval_expr(&mut self, expr_ptr: Ptr<F>) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
         let (ptrs, iterations, emitted) = evaluate_simple(expr_ptr, &mut self.store, self.limit)?;
         match ptrs[2].tag() {
             Tag::Cont(Terminal) => Ok((ptrs, iterations, emitted)),
             t => {
-                let iterations_display = Self::pretty_iterations_display(iterations);
+                let iterations_display = pretty_iterations_display(iterations);
                 if t == &Tag::Cont(Error) {
                     bail!("Evaluation encountered an error after {iterations_display}")
                 } else {
@@ -237,7 +205,7 @@ impl ReplLEM<F> {
         } else {
             bail!(
                 "Limit reached after {}",
-                Self::pretty_iterations_display(iterations)
+                pretty_iterations_display(iterations)
             )
         }
     }
@@ -563,7 +531,7 @@ impl ReplLEM<F> {
     fn handle_non_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
         self.eval_expr_and_memoize(expr_ptr)
             .map(|(output, iterations)| {
-                let iterations_display = Self::pretty_iterations_display(iterations);
+                let iterations_display = pretty_iterations_display(iterations);
                 match output[2].tag() {
                     Tag::Cont(Terminal) => {
                         println!(
@@ -628,25 +596,7 @@ impl ReplLEM<F> {
     pub(crate) fn start(&mut self) -> Result<()> {
         println!("Lurk REPL welcomes you.");
 
-        let pwd_path = Utf8PathBuf::from_path_buf(std::env::current_dir()?)
-            .expect("path contains invalid Unicode");
-
-        let mut editor: Editor<InputValidator, DefaultHistory> = Editor::with_config(
-            Config::builder()
-                .color_mode(rustyline::ColorMode::Enabled)
-                .auto_add_history(true)
-                .build(),
-        )?;
-
-        editor.set_helper(Some(InputValidator {
-            brackets: MatchingBracketValidator::new(),
-        }));
-
-        let history_path = &crate::cli::paths::repl_history();
-
-        if history_path.exists() {
-            editor.load_history(history_path)?;
-        }
+        let (pwd_path, history_path, mut editor) = get_repl_setup()?;
 
         loop {
             match editor.readline(&format!(
@@ -656,7 +606,7 @@ impl ReplLEM<F> {
                     .fmt_to_string(self.state.borrow().get_current_package_name())
             )) {
                 Ok(line) => {
-                    editor.save_history(history_path)?;
+                    editor.save_history(&history_path)?;
                     match self.store.read_maybe_meta(self.state.clone(), &line) {
                         Ok((_, expr_ptr, is_meta)) => {
                             if is_meta {

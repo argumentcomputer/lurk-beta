@@ -6,6 +6,7 @@ mod field_data;
 mod lurk_proof;
 pub mod paths;
 mod repl;
+mod repl_aux;
 pub mod repl_lem;
 
 use anyhow::{bail, Context, Result};
@@ -17,20 +18,16 @@ use pasta_curves::pallas;
 use std::{collections::HashMap, fs};
 
 use crate::{
+    cli::{
+        backend::Backend, paths::set_lurk_dirs, repl::Repl, repl_aux::validate_non_zero,
+        repl_lem::ReplLEM,
+    },
     field::{LanguageField, LurkField},
     lurk_sym_ptr,
     store::Store,
     z_data::{from_z_data, ZData},
     z_store::ZStore,
 };
-
-use crate::cli::{
-    paths::set_lurk_dirs,
-    repl::{validate_non_zero, Repl},
-    repl_lem::ReplLEM,
-};
-
-use self::backend::Backend;
 
 const DEFAULT_LIMIT: usize = 100_000_000;
 const DEFAULT_RC: usize = 10;
