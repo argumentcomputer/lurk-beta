@@ -188,6 +188,21 @@ where
     ),
 }
 
+/// Computes a digest of the primary circuit. The point is that if a circuit
+/// changes in any way but has the same `rc`/`Lang`, then we still want the
+/// public params to stay in sync with the changes. This is checked with the
+/// digest in `get_from_disk_cache_or_update_with`.
+///
+/// Note: For now, we use ad-hoc circuit digests.
+/// See: https://zulip.lurk-lab.com/#narrow/stream/47-systems/topic/Public.20Parameters
+pub fn circuit_digest<F: CurveCycleEquipped, C: Coprocessor<F>>(
+    rc: usize,
+    lang: Arc<Lang<F, C>>,
+) -> F {
+    let circuit = MultiFrame::blank(2, lang);
+    F::from(rc as u64) // * nova::circuit_digest::<F::G1, F::G2, _>(&circuit, true)
+}
+
 /// Generates the public parameters for the Nova proving system.
 pub fn public_params<
     'a,

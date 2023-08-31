@@ -10,6 +10,7 @@ use lurk::eval::{empty_sym_env, lang::Lang};
 use lurk::field::LurkField;
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::ptr::Ptr;
+use lurk::public_parameters::instance::Instance;
 use lurk::public_parameters::with_public_params;
 use lurk::state::user_sym;
 use lurk::store::Store;
@@ -201,8 +202,9 @@ fn main() {
 
     let pp_start = Instant::now();
 
+    let instance = Instance::new(REDUCTION_COUNT, lang_rc.clone(), true);
     // see the documentation on `with_public_params`
-    with_public_params(REDUCTION_COUNT, lang_rc.clone(), |pp| {
+    with_public_params(&instance, |pp| {
         let pp_end = pp_start.elapsed();
         println!("Public parameters took {:?}", pp_end);
 

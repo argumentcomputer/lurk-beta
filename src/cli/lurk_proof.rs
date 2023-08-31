@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use ::nova::traits::Group;
 use abomonation::Abomonation;
 use anyhow::Result;
@@ -7,11 +9,8 @@ use crate::{
     coprocessor::Coprocessor,
     eval::lang::{Coproc, Lang},
     field::LurkField,
-    proof::{
-        nova::{self, CurveCycleEquipped, G1, G2},
-        MultiFrameTrait,
-    },
-    public_parameters::public_params,
+    proof::nova::{self, CurveCycleEquipped, G1, G2},
+    public_parameters::{instance::Instance, public_params},
     z_ptr::{ZContPtr, ZExprPtr},
     z_store::ZStore,
 };
@@ -133,8 +132,9 @@ where
                 lang,
             } => {
                 tracing::info!("Loading public parameters");
-                let pp = public_params(rc, true, std::sync::Arc::new(lang), &public_params_dir())?;
-                Ok(proof.verify(&*pp, num_steps, &public_inputs, &public_outputs)?)
+                let instance = Instance::new(rc, Arc::new(lang), true);
+                let pp = public_params(&instance, &public_params_dir())?;
+                Ok(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?)
             }
         }
     }

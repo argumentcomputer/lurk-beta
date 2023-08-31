@@ -12,12 +12,13 @@ use lurk::eval::{empty_sym_env, lang::Lang};
 use lurk::field::LurkField;
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::ptr::Ptr;
+use lurk::public_parameters::instance::Instance;
 use lurk::public_parameters::{public_params, public_params_default_dir};
 use lurk::state::user_sym;
 use lurk::store::Store;
 use lurk_macros::Coproc;
 
-use bellperson::gadgets::boolean::{AllocatedBit, Boolean};
+use bellperson::gadgets::boolean::Boolean;
 use bellperson::gadgets::multipack::pack_bits;
 use bellperson::gadgets::num::AllocatedNum;
 use bellperson::gadgets::sha256::sha256;
@@ -29,7 +30,7 @@ use sha2::{Digest, Sha256};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
 use tracing_texray::TeXRayLayer;
 
-const REDUCTION_COUNT: usize = 2;
+const REDUCTION_COUNT: usize = 1;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Sha256Coprocessor<F: LurkField> {
@@ -52,19 +53,7 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        let false_bool = Boolean::from(AllocatedBit::alloc(
-            cs.namespace(|| "false bit"),
-            Some(false),
-        )?);
-
-        cs.enforce(
-            || "enforce zero preimage",
-            |lc| lc,
-            |lc| lc,
-            |_| false_bool.lc(CS::one(), F::ONE),
-        );
-
-        let preimage = vec![false_bool; self.n * 8];
+        let preimage = vec![Boolean::constant(false); self.n * 8];
 
         let mut bits = sha256(cs.namespace(|| "SHAhash"), &preimage)?;
 
@@ -200,13 +189,11 @@ fn main() {
     println!("Setting up public parameters...");
 
     let pp_start = Instant::now();
-    let pp = public_params::<_, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>(
-        REDUCTION_COUNT,
-        true,
-        lang_rc.clone(),
-        &public_params_default_dir(),
-    )
-    .unwrap();
+
+    let pp = tracing_texray::examine(tracing::info_span!("pp start!")).in_scope(|| {
+        let instance = Instance::new(REDUCTION_COUNT, lang_rc.clone(), true);
+        public_params::<_, Sha256Coproc<Fr>>(&instance, &public_params_default_dir()).unwrap()
+    });
     let pp_end = pp_start.elapsed();
 
     println!("Public parameters took {pp_end:?}");

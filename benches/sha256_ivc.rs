@@ -8,6 +8,7 @@
 
 use lurk::circuit::circuit_frame::MultiFrame;
 use lurk::circuit::gadgets::data::GlobalAllocations;
+use lurk::public_parameters::instance::Instance;
 use lurk::state::user_sym;
 use lurk::{circuit::gadgets::pointer::AllocatedContPtr, tag::Tag};
 use std::{cell::RefCell, marker::PhantomData, rc::Rc, sync::Arc, time::Duration};
@@ -227,13 +228,9 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
     let lang_rc = Arc::new(lang.clone());
 
     // use cached public params
-    let pp = public_params::<_, _, MultiFrame<'_, _, _>>(
-        reduction_count,
-        true,
-        lang_rc.clone(),
-        Utf8Path::new(PUBLIC_PARAMS_PATH),
-    )
-    .unwrap();
+
+    let instance = Instance::new(reduction_count, lang_rc.clone(), true);
+    let pp = public_params(&instance, Utf8Path::new(PUBLIC_PARAMS_PATH)).unwrap();
 
     c.bench_with_input(
         BenchmarkId::new(prove_params.name(), arity),
@@ -310,13 +307,8 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
     let lang_rc = Arc::new(lang.clone());
 
     // use cached public params
-    let pp = public_params::<_, _, MultiFrame<'_, _, _>>(
-        reduction_count,
-        true,
-        lang_rc.clone(),
-        Utf8Path::new(PUBLIC_PARAMS_PATH),
-    )
-    .unwrap();
+    let instance = Instance::new(reduction_count, lang_rc.clone(), true);
+    let pp = public_params(&instance, Utf8Path::new(PUBLIC_PARAMS_PATH)).unwrap();
 
     c.bench_with_input(
         BenchmarkId::new(prove_params.name(), arity),
