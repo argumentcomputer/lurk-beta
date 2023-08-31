@@ -343,6 +343,12 @@ impl Block {
         for op in &self.ops {
             match op {
                 Op::Call(_, func, _) => func.body.alloc_globals(cs, store, g)?,
+                Op::Hash2(_, tag, _)
+                | Op::Hash3(_, tag, _)
+                | Op::Hash4(_, tag, _)
+                | Op::Cast(_, tag, _) => {
+                    g.alloc_const(cs, tag.to_field())?;
+                }
                 Op::Lit(_, lit) => {
                     let lit_ptr = lit.to_ptr_cached(store);
                     let lit_z_ptr = store.hash_ptr(&lit_ptr).unwrap();
@@ -353,7 +359,25 @@ impl Block {
                     g.alloc_const(cs, tag.to_field())?;
                     g.alloc_const(cs, F::ZERO)?;
                 }
-                _ => todo!(),
+                Op::EqTag(..)
+                | Op::EqVal(..)
+                | Op::Add(..)
+                | Op::Sub(..)
+                | Op::Mul(..)
+                | Op::Lt(..)
+                | Op::Trunc(..)
+                | Op::DivRem64(..) => {
+                    g.alloc_const(cs, Tag::Expr(Num).to_field())?;
+                }
+                Op::Div(..) => {
+                    g.alloc_const(cs, Tag::Expr(Num).to_field())?;
+                    g.alloc_const(cs, F::ONE)?;
+                }
+                Op::Hide(..) | Op::Open(..) => {
+                    g.alloc_const(cs, Tag::Expr(Num).to_field())?;
+                    g.alloc_const(cs, Tag::Expr(Comm).to_field())?;
+                }
+                _ => (),
             }
         }
         match &self.ctrl {
@@ -687,6 +711,7 @@ impl Func {
                         let src = bound_allocations.get(src)?;
                         let tag = g.global_allocator.get_allocated_const(tag.to_field())?;
                         let allocated_ptr = AllocatedPtr::from_parts(tag, src.hash().clone());
+                        // is the tag missing a constraint?
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
                     Op::EqTag(tgt, a, b) => {
@@ -1249,32 +1274,32 @@ impl Func {
                         globals.insert(FWrap(lit_z_ptr.tag.to_field()));
                         globals.insert(FWrap(lit_z_ptr.hash));
                     }
-                    Op::Cast(_tgt, tag, _src) => {
+                    Op::Cast(_, tag, _) => {
                         globals.insert(FWrap(tag.to_field()));
                     }
-                    Op::EqTag(_, _, _) | Op::EqVal(_, _, _) => {
+                    Op::EqTag(..) | Op::EqVal(..) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
                         num_constraints += 5;
                     }
-                    Op::Add(_, _, _) | Op::Sub(_, _, _) | Op::Mul(_, _, _) => {
+                    Op::Add(..) | Op::Sub(..) | Op::Mul(..) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
                         num_constraints += 1;
                     }
-                    Op::Div(_, _, _) => {
+                    Op::Div(..) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
                         globals.insert(FWrap(F::ONE));
                         num_constraints += 5;
                     }
-                    Op::Lt(_, _, _) => {
+                    Op::Lt(..) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
                         num_constraints += 2;
                     }
-                    Op::Trunc(_, _, _) => {
+                    Op::Trunc(..) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
                         // bit decomposition + enforce_pack
                         num_constraints += 389;
                     }
-                    Op::DivRem64(_, _, _) => {
+                    Op::DivRem64(..) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
                         // three implies_u64, one sub and one linear
                         num_constraints += 197;
