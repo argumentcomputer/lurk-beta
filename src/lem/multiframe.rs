@@ -212,11 +212,10 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
                     allocated_output.push(AllocatedPtr::from_parts(allocated_tag, allocated_hash));
                 }
 
-                let g = &mut GlobalAllocator::default();
-                self.func.allocate_consts(cs, g)?;
+                let mut g = self.func.alloc_globals(cs, store)?;
 
                 let allocated_output_result =
-                    self.synthesize_frames(cs, store, allocated_input, frames, g);
+                    self.synthesize_frames(cs, store, allocated_input, frames, &mut g);
 
                 assert_eq!(allocated_output.len(), allocated_output_result.len());
 

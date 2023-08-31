@@ -17,8 +17,8 @@ use nova::{
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::circuit::gadgets::pointer::AllocatedPtr;
 use crate::config::CONFIG;
-use crate::{circuit::gadgets::pointer::AllocatedPtr, lem::circuit::GlobalAllocator};
 
 use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
@@ -93,10 +93,9 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
 
         let output_ptrs = match self.frames.as_ref() {
             Some(frames) => {
-                let s = self.store.expect("store missing");
-                let g = &mut GlobalAllocator::default();
-                self.func.allocate_consts(cs, g)?;
-                self.synthesize_frames(cs, s, input, frames, g)
+                let store = self.store.expect("store missing");
+                let mut g = self.func.alloc_globals(cs, store)?;
+                self.synthesize_frames(cs, store, input, frames, &mut g)
             }
             None => {
                 assert!(self.store.is_none());
@@ -104,9 +103,8 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
                 let store = func.init_store();
                 let blank_frame = Frame::blank(func);
                 let frames = vec![blank_frame; self.reduction_count];
-                let g = &mut GlobalAllocator::default();
-                self.func.allocate_consts(cs, g)?;
-                self.synthesize_frames(cs, &store, input, &frames, g)
+                let mut g = self.func.alloc_globals(cs, &store)?;
+                self.synthesize_frames(cs, &store, input, &frames, &mut g)
             }
         };
 

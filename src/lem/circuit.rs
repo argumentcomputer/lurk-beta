@@ -330,6 +330,51 @@ fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
     Ok(preallocations)
 }
 
+impl Block {
+    fn alloc_globals<F: LurkField, CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        store: &Store<F>,
+        g: &mut GlobalAllocator<F>,
+    ) -> Result<(), SynthesisError> {
+        for op in &self.ops {
+            match op {
+                Op::Call(_, func, _) => func.body.alloc_globals(cs, store, g)?,
+                Op::Lit(_, lit) => {
+                    todo!()
+                }
+                _ => todo!(),
+            }
+        }
+        match &self.ctrl {
+            Ctrl::IfEq(.., a, b) => {
+                a.alloc_globals(cs, store, g)?;
+                b.alloc_globals(cs, store, g)?;
+            }
+            Ctrl::MatchTag(_, cases, def) => {
+                for block in cases.values() {
+                    todo!("allocate tags");
+                    block.alloc_globals(cs, store, g)?;
+                }
+                if let Some(def) = def {
+                    def.alloc_globals(cs, store, g)?;
+                }
+            }
+            Ctrl::MatchSymbol(_, cases, def) => {
+                for (sym, b) in cases {
+                    todo!("allocate symbol tag and symbols hashes");
+                    b.alloc_globals(cs, store, g)?;
+                }
+                if let Some(def) = def {
+                    def.alloc_globals(cs, store, g)?;
+                }
+            }
+            Ctrl::Return(..) => (),
+        }
+        Ok(())
+    }
+}
+
 impl Func {
     /// Add input to bound_allocations
     pub(crate) fn add_input<F: LurkField>(
@@ -358,12 +403,15 @@ impl Func {
         Ok(())
     }
 
-    pub fn allocate_consts<F: LurkField, CS: ConstraintSystem<F>>(
+    #[inline]
+    pub fn alloc_globals<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
-        _cs: &mut CS,
-        _g: &mut GlobalAllocator<F>,
-    ) -> Result<(), SynthesisError> {
-        todo!()
+        cs: &mut CS,
+        store: &Store<F>,
+    ) -> Result<GlobalAllocator<F>, SynthesisError> {
+        let mut g = GlobalAllocator::default();
+        self.body.alloc_globals(cs, store, &mut g)?;
+        Ok(g)
     }
 
     /// Create R1CS constraints for a LEM function given an evaluation frame. This
