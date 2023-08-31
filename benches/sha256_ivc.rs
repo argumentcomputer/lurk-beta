@@ -17,10 +17,7 @@ use pasta_curves::pallas::Scalar as Fr;
 use lurk::{
     circuit::gadgets::pointer::AllocatedPtr,
     coprocessor::{CoCircuit, Coprocessor},
-    eval::{
-        empty_sym_env,
-        lang::Lang,
-    },
+    eval::{empty_sym_env, lang::Lang},
     field::LurkField,
     proof::nova::NovaProver,
     proof::Prover,
