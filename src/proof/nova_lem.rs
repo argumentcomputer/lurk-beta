@@ -462,9 +462,6 @@ pub mod tests {
             let (proof, z0, zi, num_steps) = nova_prover.prove(pp, &frames, s, &lang).unwrap();
 
             let res = proof.verify(pp, num_steps, &z0, &zi);
-            if res.is_err() {
-                dbg!(&res);
-            }
             assert!(res.unwrap());
 
             let compressed = proof.compress(pp).unwrap();

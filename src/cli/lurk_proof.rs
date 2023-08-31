@@ -104,7 +104,7 @@ impl<'a> LurkProof<'a, Scalar> {
                 rc,
                 lang,
             } => {
-                log::info!("Loading public parameters");
+                tracing::info!("Loading public parameters");
                 let pp = public_params(rc, true, std::sync::Arc::new(lang), &public_params_dir())?;
                 Ok(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?)
             }

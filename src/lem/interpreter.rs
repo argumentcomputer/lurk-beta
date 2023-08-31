@@ -506,7 +506,7 @@ impl Func {
 
         let mut iterations = 0;
 
-        log::info!("{}", &log_fmt(iterations, &input, &[], store));
+        tracing::info!("{}", &log_fmt(iterations, &input, &[], store));
 
         for _ in 0..limit {
             let preimages = Preimages::new_from_func(self);
@@ -514,7 +514,7 @@ impl Func {
             let (frame, path) = self.call(&input, store, preimages, &mut emitted)?;
             input = frame.output.clone();
             iterations += 1;
-            log::info!("{}", &log_fmt(iterations, &input, &emitted, store));
+            tracing::info!("{}", &log_fmt(iterations, &input, &emitted, store));
             if stop_cond(&frame.output) {
                 frames.push(frame);
                 paths.push(path);

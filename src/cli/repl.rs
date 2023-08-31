@@ -6,7 +6,6 @@ use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
-use log::info;
 use rustyline::{
     error::ReadlineError,
     history::DefaultHistory,
@@ -14,6 +13,7 @@ use rustyline::{
     Config, Editor,
 };
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
+use tracing::info;
 
 use super::{
     backend::Backend,

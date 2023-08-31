@@ -23,6 +23,7 @@ use lurk::{
 };
 
 const PUBLIC_PARAMS_PATH: &str = "/var/tmp/lurk_benches/public_params";
+
 fn fib<F: LurkField>(store: &mut Store<F>, state: Rc<RefCell<State>>, _a: u64) -> Ptr<F> {
     let program = r#"
 (letrec ((next (lambda (a b) (next b (+ a b))))
@@ -109,7 +110,7 @@ fn fibo_prove<M: measurement::Measurement>(
 }
 
 fn fibonacci_prove(c: &mut Criterion) {
-    let _ = dbg!(&*lurk::config::CONFIG);
+    tracing::debug!("{:?}", &*lurk::config::CONFIG);
     let reduction_counts = vec![100, 600, 700, 800, 900];
     let batch_sizes = vec![100, 200];
     let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("Prove");

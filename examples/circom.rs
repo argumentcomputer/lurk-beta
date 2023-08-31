@@ -111,7 +111,6 @@ fn main() {
     );
 
     let coproc_expr = format!("{}", sym_str);
-    dbg!(coproc_expr.clone());
 
     let expr = format!("({coproc_expr})");
     let ptr = store.read(&expr).unwrap();

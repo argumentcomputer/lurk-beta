@@ -289,12 +289,12 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
                     Ok((_, expr, is_meta)) => {
                         if is_meta {
                             if let Err(e) = repl.state.handle_meta(s, state.clone(), expr, p) {
-                                eprintln!("!Error: {e:?}");
+                                eprintln!("!Error: {e}");
                             };
                             continue;
                         } else {
                             if let Err(e) = repl.state.handle_non_meta(s, &state.borrow(), expr) {
-                                eprintln!("REPL Error: {e:?}");
+                                eprintln!("REPL Error: {e}");
                             }
 
                             continue;
@@ -304,7 +304,7 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
                         continue;
                     }
                     Err(e) => {
-                        eprintln!("Read error: {e:?}")
+                        eprintln!("Read error: {e}")
                     }
                 }
             }
@@ -313,7 +313,7 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
                 break;
             }
             Err(err) => {
-                eprintln!("Error: {err:?}");
+                eprintln!("Error: {err}");
                 break;
             }
         }
@@ -626,7 +626,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
             }
 
             Err(e) => {
-                eprintln!("Evaluation error: {e:?}");
+                eprintln!("Evaluation error: {e}");
                 Err(e.into())
             }
         }

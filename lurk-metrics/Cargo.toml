@@ -10,10 +10,9 @@ repository = "https://github.com/lurk-lab/lurk-rs"
 [dependencies]
 metrics = { workspace = true }
 once_cell = { workspace = true }
-log = { workspace = true }
 hdrhistogram = { version = "7.5.2", default-features = false }
-
+tracing = { workspace = true }
 
 [dev-dependencies]
-expect-test = "1"
-testing_logger = "0.1.1"
+regex = { version = "1.9.4", features = ["unicode-case"] }
+tracing-test = { version = "0.2", features = ["no-env-filter"] }

@@ -1,6 +1,5 @@
 use anyhow::{bail, Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
-use log::info;
 use rustyline::{
     error::ReadlineError,
     history::DefaultHistory,
@@ -9,6 +8,7 @@ use rustyline::{
 };
 use rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 use std::{cell::RefCell, fs::read_to_string, process, rc::Rc, sync::Arc};
+use tracing::info;
 
 use crate::{
     cli::{commitment_lem::Commitment, paths::proof_path},

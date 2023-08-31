@@ -8,6 +8,7 @@ xclippy = [
     "-Wclippy::all",
     "-Wclippy::match_same_arms",
     "-Wclippy::cast_lossless",
+    "-Wclippy::dbg_macro",
     "-Wclippy::disallowed_methods",
     "-Wclippy::derive_partial_eq_without_eq",
     "-Wclippy::filter_map_next",

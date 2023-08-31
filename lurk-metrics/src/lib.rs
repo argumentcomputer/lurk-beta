@@ -170,12 +170,11 @@ impl ThreadMetricsSinkHandle {
 
 #[cfg(test)]
 mod tests {
-    use log::Level;
-    use metrics::Label;
-
     use super::*;
+    use metrics::Label;
+    use tracing_test::traced_test;
 
-    // TODO: this uses, but does not clean up the global sink, clobbering the state for any further test
+    #[traced_test]
     #[test]
     fn test_basic_metrics() {
         let sink = MetricsSink::new();
@@ -229,25 +228,11 @@ mod tests {
             }
         }
 
-        testing_logger::setup();
         MetricsSink::publish(metrics);
-
-        testing_logger::validate(|captured_logs| {
-            assert_eq!(captured_logs.len(), 4);
-            let snapshot = expect_test::expect![[r#"
-                test_counter[type=bar]: 7 (n=3)
-                test_counter[type=foo]: 6 (n=3)
-                test_gauge[type=bar]: 3 (n=1)
-                test_gauge[type=foo]: 2 (n=1)"#]];
-
-            snapshot.assert_eq(
-                &captured_logs
-                    .iter()
-                    .map(|line| line.body.clone())
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-            );
-            assert_eq!(captured_logs[0].level, Level::Info);
-        });
+        assert!(logs_contain("test_counter"));
+        assert!(logs_contain("test_counter[type=bar]: 7 (n=3)"));
+        assert!(logs_contain("test_counter[type=foo]: 6 (n=3)"));
+        assert!(logs_contain("test_gauge[type=bar]: 3 (n=1)"));
+        assert!(logs_contain("test_gauge[type=foo]: 2 (n=1)"));
     }
 }

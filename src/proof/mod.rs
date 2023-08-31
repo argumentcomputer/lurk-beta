@@ -96,18 +96,18 @@ pub fn verify_sequential_css<
     for (i, (multiframe, cs)) in css.iter().enumerate() {
         if let Some(prev) = previous_frame {
             if !prev.precedes(multiframe) {
-                dbg!(i, "not preceeding frame");
+                tracing::debug!("frame {}: not preceeding frame", i);
                 return Ok(false);
             }
         }
         if !cs.is_satisfied() {
-            dbg!(i, "cs not satisfied");
+            tracing::debug!("frame {}: cs not satisfied", i);
             return Ok(false);
         }
 
         let public_inputs = multiframe.public_inputs();
         if !cs.verify(&public_inputs) {
-            dbg!(i, "cs not verified");
+            tracing::debug!("frame {}: cs not verified", i);
             return Ok(false);
         }
         previous_frame = Some(multiframe);
