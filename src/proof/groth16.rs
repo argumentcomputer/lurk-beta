@@ -367,7 +367,7 @@ mod tests {
         )
     }
 
-    fn outer_prove_aux0<'a, C: Coprocessor<Fr>>(
+    fn outer_prove_aux0<C: Coprocessor<Fr>>(
         s: &mut Store<Fr>,
         expr: Ptr<Fr>,
         expected_result: Ptr<Fr>,
@@ -381,7 +381,7 @@ mod tests {
         let rng = OsRng;
 
         let lang_rc = Arc::new(lang.clone());
-        let public_params = Groth16Prover::<_, C, Fr, MultiFrame<Fr, C>>::create_groth_params(
+        let public_params = Groth16Prover::<_, C, Fr, MultiFrame<'_, Fr, C>>::create_groth_params(
             DEFAULT_REDUCTION_COUNT,
             lang_rc.clone(),
         )

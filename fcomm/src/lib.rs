@@ -646,7 +646,7 @@ impl<'a> Opening<S1> {
         limit: usize,
         chain: bool,
         only_use_cached_proofs: bool,
-        nova_prover: &'a NovaProver<S1, Coproc<S1>, MultiFrame<'a, S1, Coproc<S1>>>,
+        nova_prover: &'a NovaProver<'_, S1, Coproc<S1>, MultiFrame<'a, S1, Coproc<S1>>>,
         pp: &'a PublicParams<S1, MultiFrame<'a, S1, Coproc<S1>>>,
         lang: Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Proof<'a, S1>, Error> {
@@ -667,7 +667,7 @@ impl<'a> Opening<S1> {
         request: &OpeningRequest<S1>,
         limit: usize,
         only_use_cached_proofs: bool,
-        nova_prover: &'a NovaProver<S1, Coproc<S1>, MultiFrame<'a, S1, Coproc<S1>>>,
+        nova_prover: &'a NovaProver<'_, S1, Coproc<S1>, MultiFrame<'a, S1, Coproc<S1>>>,
         pp: &'a PublicParams<S1, MultiFrame<'a, S1, Coproc<S1>>>,
         lang: Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Proof<'a, S1>, Error> {
@@ -800,7 +800,7 @@ impl<'a> Proof<'a, S1> {
         supplied_env: Option<Ptr<S1>>,
         limit: usize,
         only_use_cached_proofs: bool,
-        nova_prover: &'a NovaProver<S1, Coproc<S1>, MultiFrame<'a, S1, Coproc<S1>>>,
+        nova_prover: &'a NovaProver<'_, S1, Coproc<S1>, MultiFrame<'a, S1, Coproc<S1>>>,
         pp: &'a PublicParams<S1, MultiFrame<'a, S1, Coproc<S1>>>,
         lang: Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Self, Error> {
@@ -838,7 +838,7 @@ impl<'a> Proof<'a, S1> {
         claim: &Claim<S1>,
         limit: usize,
         only_use_cached_proofs: bool,
-        nova_prover: &'a NovaProver<S1, Coproc<S1>, MultiFrame<'a, S1, Coproc<S1>>>,
+        nova_prover: &'a NovaProver<'_, S1, Coproc<S1>, MultiFrame<'a, S1, Coproc<S1>>>,
         pp: &'a PublicParams<S1, MultiFrame<'a, S1, Coproc<S1>>>,
         lang: &Arc<Lang<S1, Coproc<S1>>>,
     ) -> Result<Self, Error> {
@@ -1237,7 +1237,7 @@ mod test {
             .expect("function_map set");
 
         for (function_input, _expected_output) in io {
-            let prover = NovaProver::<S1, Coproc<S1>, MultiFrame<S1, Coproc<S1>>>::new(
+            let prover = NovaProver::<'_, S1, Coproc<S1>, MultiFrame<'_, S1, Coproc<S1>>>::new(
                 rc.count(),
                 lang.clone(),
             );
