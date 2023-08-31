@@ -69,7 +69,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
 
 impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C> {
     fn arity(&self) -> usize {
-        self.func.input_params.len() * 2
+        2 * self.func.input_params.len()
     }
 
     fn synthesize<CS>(
@@ -95,7 +95,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
             Some(frames) => {
                 let store = self.store.expect("store missing");
                 let g = self.func.alloc_globals(cs, store)?;
-                self.synthesize_frames(cs, store, input, frames, &g)
+                self.synthesize_frames(cs, store, input, frames, &g)?
             }
             None => {
                 assert!(self.store.is_none());
@@ -104,7 +104,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
                 let blank_frame = Frame::blank(func);
                 let frames = vec![blank_frame; self.reduction_count];
                 let g = self.func.alloc_globals(cs, &store)?;
-                self.synthesize_frames(cs, &store, input, &frames, &g)
+                self.synthesize_frames(cs, &store, input, &frames, &g)?
             }
         };
 

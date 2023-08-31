@@ -23,7 +23,7 @@
 //! on a concrete or a virtual path and use such booleans as the premises to build
 //! the constraints we care about with implication gadgets.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use bellpepper_core::{
     ConstraintSystem, SynthesisError,
     {
@@ -62,22 +62,12 @@ use super::{
 pub struct GlobalAllocator<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);
 
 #[inline]
-fn allocate_num<F: LurkField, CS: ConstraintSystem<F>>(
-    cs: &mut CS,
-    namespace: &str,
-    value: F,
-) -> Result<AllocatedNum<F>> {
-    AllocatedNum::alloc(cs.namespace(|| namespace), || Ok(value))
-        .with_context(|| format!("allocation for '{namespace}'"))
-}
-
-#[inline]
-fn allocate_const<F: LurkField, CS: ConstraintSystem<F>>(
+pub(crate) fn allocate_num<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     namespace: &str,
     value: F,
 ) -> Result<AllocatedNum<F>, SynthesisError> {
-    allocate_constant(&mut cs.namespace(|| namespace), value)
+    AllocatedNum::alloc(cs.namespace(|| namespace), || Ok(value))
 }
 
 impl<F: LurkField> GlobalAllocator<F> {
@@ -90,8 +80,10 @@ impl<F: LurkField> GlobalAllocator<F> {
     ) -> Result<(), SynthesisError> {
         let wrap = FWrap(f);
         if let std::collections::hash_map::Entry::Vacant(e) = self.0.entry(wrap) {
-            let allocated_num =
-                allocate_const(cs, &format!("allocate constant {}", f.hex_digits()), f)?;
+            let allocated_num = allocate_constant(
+                &mut cs.namespace(|| format!("allocate constant {}", f.hex_digits())),
+                f,
+            )?;
             e.insert(allocated_num);
         }
         Ok(())
@@ -149,7 +141,7 @@ fn allocate_preimg_component_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
     slot: &Slot,
     component_idx: usize,
     value: F,
-) -> Result<AllocatedNum<F>> {
+) -> Result<AllocatedNum<F>, SynthesisError> {
     allocate_num(
         cs,
         &format!("component {component_idx} for slot {slot}"),

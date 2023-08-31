@@ -86,11 +86,11 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
         input: Self::AllocatedIO,
         frames: &[Self::CircuitFrame],
         g: &GlobalAllocations<F>,
-    ) -> Self::AllocatedIO {
+    ) -> Result<Self::AllocatedIO, SynthesisError> {
         if cs.is_witness_generator() && CONFIG.parallelism.synthesis.is_parallel() {
-            self.synthesize_frames_parallel(cs, store, input, frames, g)
+            Ok(self.synthesize_frames_parallel(cs, store, input, frames, g))
         } else {
-            self.synthesize_frames_sequential(cs, store, input, frames, None, g)
+            Ok(self.synthesize_frames_sequential(cs, store, input, frames, None, g))
         }
     }
 
@@ -566,7 +566,7 @@ impl<F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'_, F, C> {
             let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), store)?;
 
             let (new_expr, new_env, new_cont) =
-                self.synthesize_frames(cs, store, (input_expr, input_env, input_cont), frames, &g);
+                self.synthesize_frames(cs, store, (input_expr, input_env, input_cont), frames, &g)?;
 
             output_expr.enforce_equal(
                 &mut cs.namespace(|| "outer output expr is correct"),

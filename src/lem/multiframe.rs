@@ -3,9 +3,8 @@ use bellpepper::util_cs::witness_cs::WitnessCS;
 use bellpepper_core::{num::AllocatedNum, Circuit, ConstraintSystem, SynthesisError};
 use std::sync::Arc;
 
-use crate::circuit::gadgets::pointer::AllocatedPtr;
-
 use crate::{
+    circuit::gadgets::pointer::AllocatedPtr,
     coprocessor::Coprocessor,
     eval::lang::Lang,
     field::LurkField,
@@ -51,10 +50,10 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
         input: Self::AllocatedIO,
         frames: &[Self::CircuitFrame],
         g: &Self::GlobalAllocation,
-    ) -> Self::AllocatedIO {
+    ) -> Result<Self::AllocatedIO, SynthesisError> {
         let (_, output) = frames
             .iter()
-            .fold((0, input.to_vec()), |(i, input), frame| {
+            .try_fold((0, input.to_vec()), |(i, input), frame| {
                 if !frame.blank {
                     for (alloc_ptr, input) in input.iter().zip(&frame.input) {
                         let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
@@ -63,7 +62,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
                                 assert_eq!(alloc_ptr_tag, input_zptr.tag.to_field());
                                 assert_eq!(alloc_ptr_hash, input_zptr.hash);
                             }
-                            _ => panic!("Assignment missing for frame {i}"),
+                            _ => return Err(SynthesisError::AssignmentMissing),
                         }
                     }
                 }
@@ -72,16 +71,17 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
                 let output = self
                     .func
                     .synthesize_frame(
-                        &mut cs.namespace(|| format!("step {i}")),
+                        &mut cs.namespace(|| format!("frame {i}")),
                         store,
                         frame,
                         g,
                         bound_allocations,
                     )
-                    .unwrap();
-                (i + 1, output)
-            });
-        output
+                    .expect("failed to synthesize frame");
+                assert_eq!(input.len(), output.len());
+                Ok((i + 1, output))
+            })?;
+        Ok(output)
     }
 
     fn blank(count: usize, lang: Arc<Lang<F, C>>) -> Self {
@@ -217,7 +217,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
                 let g = self.func.alloc_globals(cs, store)?;
 
                 let allocated_output_result =
-                    self.synthesize_frames(cs, store, allocated_input, frames, &g);
+                    self.synthesize_frames(cs, store, allocated_input, frames, &g)?;
 
                 assert_eq!(allocated_output.len(), allocated_output_result.len());
 
@@ -266,7 +266,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Provable<F> for MultiFrame<'a, F, C> {
         let input = self.input.as_ref().expect("input missing");
         let output = self.output.as_ref().expect("input missing");
         let store = self.store.expect("store missing");
-        let mut res = Vec::with_capacity(2 * (input.len() + output.len()));
+        let mut res = Vec::with_capacity(self.public_input_size());
         for ptr in input {
             let z_ptr = store.hash_ptr(ptr).expect("pointer hashing failed");
             res.push(z_ptr.tag.to_field());
@@ -280,12 +280,13 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Provable<F> for MultiFrame<'a, F, C> {
         res
     }
 
+    #[inline]
     fn public_input_size(&self) -> usize {
-        let input = self.input.as_ref().expect("input missing");
-        let output = self.output.as_ref().expect("input missing");
-        2 * (input.len() + output.len())
+        // tag and hash for input and output (output has the same size as the input)
+        4 * self.func.input_params.len()
     }
 
+    #[inline]
     fn reduction_count(&self) -> usize {
         self.reduction_count
     }

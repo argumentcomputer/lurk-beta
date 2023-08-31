@@ -47,7 +47,7 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F>>:
         input: Self::AllocatedIO,
         frames: &[Self::CircuitFrame],
         g: &Self::GlobalAllocation,
-    ) -> Self::AllocatedIO;
+    ) -> Result<Self::AllocatedIO, SynthesisError>;
 
     /// Synthesize a blank circuit.
     fn blank(count: usize, lang: Arc<Lang<F, C>>) -> Self;
