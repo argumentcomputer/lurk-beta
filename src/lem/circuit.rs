@@ -220,11 +220,96 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
 }
 
 impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
-    fn synthesize<CS>(self, _: &mut CS) -> Result<(), SynthesisError>
-    where
-        CS: ConstraintSystem<F>,
-    {
-        todo!()
+    fn synthesize<CS: ConstraintSystem<F>>(self, cs: &mut CS) -> Result<(), SynthesisError> {
+        let mut synth =
+            |store: &Store<F>, frames: &[Frame<F>], input: &[Ptr<F>], output: &[Ptr<F>]| {
+                let mut allocated_input = Vec::with_capacity(input.len());
+                for (i, ptr) in input.iter().enumerate() {
+                    let z_ptr = store.hash_ptr(ptr).expect("pointer hashing failed");
+
+                    let allocated_tag = AllocatedNum::alloc(
+                        &mut cs.namespace(|| format!("allocated tag for input {i}")),
+                        || Ok(z_ptr.tag.to_field()),
+                    )?;
+                    allocated_tag
+                        .inputize(&mut cs.namespace(|| format!("inputized tag for input {i}")))?;
+
+                    let allocated_hash = AllocatedNum::alloc(
+                        &mut cs.namespace(|| format!("allocated hash for input {i}")),
+                        || Ok(z_ptr.hash),
+                    )?;
+                    allocated_hash
+                        .inputize(&mut cs.namespace(|| format!("inputized hash for input {i}")))?;
+
+                    allocated_input.push(AllocatedPtr::from_parts(allocated_tag, allocated_hash));
+                }
+
+                let mut allocated_output = Vec::with_capacity(output.len());
+                for (i, ptr) in output.iter().enumerate() {
+                    let z_ptr = store.hash_ptr(ptr).expect("pointer hashing failed");
+
+                    let allocated_tag = AllocatedNum::alloc(
+                        &mut cs.namespace(|| format!("allocated tag for output {i}")),
+                        || Ok(z_ptr.tag.to_field()),
+                    )?;
+                    allocated_tag
+                        .inputize(&mut cs.namespace(|| format!("inputized tag for output {i}")))?;
+
+                    let allocated_hash = AllocatedNum::alloc(
+                        &mut cs.namespace(|| format!("allocated hash for output {i}")),
+                        || Ok(z_ptr.hash),
+                    )?;
+                    allocated_hash
+                        .inputize(&mut cs.namespace(|| format!("inputized hash for output {i}")))?;
+
+                    allocated_output.push(AllocatedPtr::from_parts(allocated_tag, allocated_hash));
+                }
+
+                let g = &mut GlobalAllocator::default();
+                self.allocate_consts(cs, g)?;
+
+                let allocated_output_result =
+                    self.synthesize_frames(cs, store, allocated_input, frames, &g);
+
+                assert_eq!(allocated_output.len(), allocated_output_result.len());
+
+                for (i, (o_res, o)) in allocated_output_result
+                    .iter()
+                    .zip(allocated_output)
+                    .enumerate()
+                {
+                    o_res.enforce_equal(
+                        &mut cs.namespace(|| format!("outer output {i} is correct")),
+                        &o,
+                    );
+                }
+
+                Ok(())
+            };
+
+        let input = self
+            .input
+            .as_ref()
+            .ok_or_else(|| SynthesisError::AssignmentMissing)?;
+        let output = self
+            .output
+            .as_ref()
+            .ok_or_else(|| SynthesisError::AssignmentMissing)?;
+
+        match self.store {
+            Some(store) => {
+                let frames = self.frames.as_ref().unwrap();
+                synth(store, frames, input, output)
+            }
+            None => {
+                assert!(self.frames.is_none());
+                let func = &self.func;
+                let store = func.init_store();
+                let blank_frame = Frame::blank(func);
+                let frames = vec![blank_frame; self.reduction_count];
+                synth(&store, &frames, input, output)
+            }
+        }
     }
 }
 
