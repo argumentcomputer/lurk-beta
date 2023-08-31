@@ -36,8 +36,8 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use crate::circuit::gadgets::{
     constraints::{
         add, alloc_equal, alloc_is_zero, allocate_is_negative, boolean_to_num, div, enforce_pack,
-        enforce_product_and_sum, enforce_selector_with_premise, implies_equal, implies_equal_const,
-        implies_u64, implies_unequal, implies_unequal_const, mul, pick, sub,
+        enforce_product_and_sum, enforce_selector_with_premise, implies_equal, implies_u64,
+        implies_unequal, mul, pick, sub,
     },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
@@ -76,15 +76,18 @@ fn allocate_const<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     namespace: &str,
     value: F,
-) -> Result<AllocatedNum<F>> {
+) -> Result<AllocatedNum<F>, SynthesisError> {
     allocate_constant(&mut cs.namespace(|| namespace), value)
-        .with_context(|| format!("allocation for '{namespace}'"))
 }
 
 impl<F: LurkField> GlobalAllocator<F> {
     /// Checks if the allocation for a numeric variable has already been cached.
     /// If so, don't do anything. Otherwise, allocate and cache it.
-    pub(crate) fn alloc_const<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, f: F) -> Result<()> {
+    pub(crate) fn alloc_const<CS: ConstraintSystem<F>>(
+        &mut self,
+        cs: &mut CS,
+        f: F,
+    ) -> Result<(), SynthesisError> {
         let wrap = FWrap(f);
         if let std::collections::hash_map::Entry::Vacant(e) = self.0.entry(wrap) {
             let allocated_num =
@@ -341,7 +344,14 @@ impl Block {
             match op {
                 Op::Call(_, func, _) => func.body.alloc_globals(cs, store, g)?,
                 Op::Lit(_, lit) => {
-                    todo!()
+                    let lit_ptr = lit.to_ptr_cached(store);
+                    let lit_z_ptr = store.hash_ptr(&lit_ptr).unwrap();
+                    g.alloc_const(cs, lit_z_ptr.tag.to_field())?;
+                    g.alloc_const(cs, lit_z_ptr.hash)?;
+                }
+                Op::Null(_, tag) => {
+                    g.alloc_const(cs, tag.to_field())?;
+                    g.alloc_const(cs, F::ZERO)?;
                 }
                 _ => todo!(),
             }
@@ -352,8 +362,8 @@ impl Block {
                 b.alloc_globals(cs, store, g)?;
             }
             Ctrl::MatchTag(_, cases, def) => {
-                for block in cases.values() {
-                    todo!("allocate tags");
+                for (tag, block) in cases {
+                    g.alloc_const(cs, tag.to_field())?;
                     block.alloc_globals(cs, store, g)?;
                 }
                 if let Some(def) = def {
@@ -361,8 +371,13 @@ impl Block {
                 }
             }
             Ctrl::MatchSymbol(_, cases, def) => {
+                g.alloc_const(cs, Tag::Expr(Sym).to_field())?;
                 for (sym, b) in cases {
-                    todo!("allocate symbol tag and symbols hashes");
+                    let ptr = store
+                        .interned_symbol(sym)
+                        .expect("symbol must have been interned");
+                    let sym_hash = store.hash_ptr(&ptr).expect("pointer hashing failed").hash;
+                    g.alloc_const(cs, sym_hash)?;
                     b.alloc_globals(cs, store, g)?;
                 }
                 if let Some(def) = def {
@@ -928,7 +943,7 @@ impl Func {
             }
 
             let mut synthesize_match = |matched: &AllocatedNum<F>,
-                                        cases: &[(F, &Block)],
+                                        cases: &[(AllocatedNum<F>, &Block)],
                                         def: &Option<Box<Block>>,
                                         bound_allocations: &mut VarMap<AllocatedPtr<F>>,
                                         g: &mut Globals<'_, F>|
@@ -939,14 +954,16 @@ impl Func {
                 let selector_size = cases.len() + usize::from(def.is_some()) + 1;
                 let mut selector = Vec::with_capacity(selector_size);
                 let mut branch_slots = Vec::with_capacity(cases.len());
-                for (i, (f, block)) in cases.iter().enumerate() {
+                for (i, (num, block)) in cases.iter().enumerate() {
                     // For each case, we compute `not_dummy_and_has_match: Boolean`
                     // and accumulate them on a `selector` vector
                     let not_dummy_and_has_match_bool =
                         not_dummy.get_value().and_then(|not_dummy| {
-                            matched
-                                .get_value()
-                                .map(|matched_f| not_dummy && &matched_f == f)
+                            num.get_value().and_then(|num_f| {
+                                matched
+                                    .get_value()
+                                    .map(|matched_f| not_dummy && num_f == matched_f)
+                            })
                         });
                     let not_dummy_and_has_match = Boolean::Is(AllocatedBit::alloc(
                         &mut cs.namespace(|| format!("{i}.allocated_bit")),
@@ -954,11 +971,11 @@ impl Func {
                     )?);
 
                     // If `not_dummy_and_has_match` is true, then we enforce a match
-                    implies_equal_const(
-                        &mut cs.namespace(|| format!("{i}.implies_equal_const")),
+                    implies_equal(
+                        &mut cs.namespace(|| format!("{i}.implies_equal")),
                         &not_dummy_and_has_match,
                         matched,
-                        *f,
+                        num,
                     )?;
 
                     selector.push(not_dummy_and_has_match.clone());
@@ -988,14 +1005,14 @@ impl Func {
                         is_default_bool,
                     )?);
 
-                    for (i, (f, _)) in cases.iter().enumerate() {
+                    for (i, (num, _)) in cases.iter().enumerate() {
                         // if the default path was taken, then there can be no tag in `cases`
                         // that equals the tag of the pointer being matched on
-                        implies_unequal_const(
-                            &mut cs.namespace(|| format!("{i}.implies_unequal_const")),
+                        implies_unequal(
+                            &mut cs.namespace(|| format!("{i}.implies_unequal")),
                             &is_default,
                             matched,
-                            *f,
+                            num,
                         )?;
                     }
 
@@ -1113,12 +1130,14 @@ impl Func {
                 }
                 Ctrl::MatchTag(match_var, cases, def) => {
                     let matched = bound_allocations.get(match_var)?.tag().clone();
-                    let cases = cases
-                        .iter()
-                        .map(|(tag, block)| (tag.to_field::<F>(), block))
-                        .collect::<Vec<_>>();
+                    let mut cases_vec = Vec::with_capacity(cases.len());
+                    for (tag, block) in cases {
+                        let allocated_tag =
+                            g.global_allocator.get_allocated_const(tag.to_field())?;
+                        cases_vec.push((allocated_tag, block));
+                    }
                     let branch_slots =
-                        synthesize_match(&matched, &cases, def, bound_allocations, g)?;
+                        synthesize_match(&matched, &cases_vec, def, bound_allocations, g)?;
 
                     // The number of slots the match used is the max number of slots of each branch
                     *next_slot = next_slot.fold_max(branch_slots);
@@ -1134,7 +1153,9 @@ impl Func {
                             .interned_symbol(sym)
                             .expect("symbol must have been interned");
                         let sym_hash = g.store.hash_ptr(sym_ptr)?.hash;
-                        cases_vec.push((sym_hash, block));
+                        let allocated_sym_hash =
+                            g.global_allocator.get_allocated_const(sym_hash)?;
+                        cases_vec.push((allocated_sym_hash, block));
                     }
 
                     let branch_slots = synthesize_match(
@@ -1240,6 +1261,7 @@ impl Func {
                         num_constraints += 1;
                     }
                     Op::Div(_, _, _) => {
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
                         globals.insert(FWrap(F::ONE));
                         num_constraints += 5;
                     }
@@ -1306,7 +1328,8 @@ impl Func {
                     // case was selected
                     num_constraints += 2 * cases.len() + 1;
 
-                    for block in cases.values() {
+                    for (tag, block) in cases {
+                        globals.insert(FWrap(tag.to_field()));
                         num_constraints += recurse(block, globals, store);
                     }
                     if let Some(def) = def {
@@ -1326,7 +1349,10 @@ impl Func {
                     // case was selected
                     num_constraints += 2 * cases.len() + 1;
 
-                    for block in cases.values() {
+                    for (sym, block) in cases {
+                        let ptr = store.interned_symbol(sym).unwrap();
+                        let sym_hash = store.hash_ptr(&ptr).unwrap().hash;
+                        globals.insert(FWrap(sym_hash));
                         num_constraints += recurse(block, globals, store);
                     }
                     if let Some(def) = def {
