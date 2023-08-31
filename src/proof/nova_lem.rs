@@ -94,8 +94,8 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
         let output_ptrs = match self.frames.as_ref() {
             Some(frames) => {
                 let store = self.store.expect("store missing");
-                let mut g = self.func.alloc_globals(cs, store)?;
-                self.synthesize_frames(cs, store, input, frames, &mut g)
+                let g = self.func.alloc_globals(cs, store)?;
+                self.synthesize_frames(cs, store, input, frames, &g)
             }
             None => {
                 assert!(self.store.is_none());
@@ -103,8 +103,8 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
                 let store = func.init_store();
                 let blank_frame = Frame::blank(func);
                 let frames = vec![blank_frame; self.reduction_count];
-                let mut g = self.func.alloc_globals(cs, &store)?;
-                self.synthesize_frames(cs, &store, input, &frames, &mut g)
+                let g = self.func.alloc_globals(cs, &store)?;
+                self.synthesize_frames(cs, &store, input, &frames, &g)
             }
         };
 

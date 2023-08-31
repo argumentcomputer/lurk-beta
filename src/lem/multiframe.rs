@@ -62,7 +62,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
                             assert_eq!(alloc_ptr_tag, input_zptr.tag.to_field());
                             assert_eq!(alloc_ptr_hash, input_zptr.hash);
                         }
-                        _ => panic!("Assignment missing"),
+                        _ => panic!("Assignment missing for frame {i}"),
                     }
                 }
                 let bound_allocations = &mut BoundAllocations::new();
@@ -212,10 +212,10 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
                     allocated_output.push(AllocatedPtr::from_parts(allocated_tag, allocated_hash));
                 }
 
-                let mut g = self.func.alloc_globals(cs, store)?;
+                let g = self.func.alloc_globals(cs, store)?;
 
                 let allocated_output_result =
-                    self.synthesize_frames(cs, store, allocated_input, frames, &mut g);
+                    self.synthesize_frames(cs, store, allocated_input, frames, &g);
 
                 assert_eq!(allocated_output.len(), allocated_output_result.len());
 
