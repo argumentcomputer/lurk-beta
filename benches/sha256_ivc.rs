@@ -188,7 +188,10 @@ impl ProveParams {
     fn name(&self) -> String {
         let date = env!("VERGEN_GIT_COMMIT_DATE");
         let sha = env!("VERGEN_GIT_SHA");
-        format!("{date}:{sha}:rc={}:sha256_ivc_{}", self.reduction_count, self.n)
+        format!(
+            "{date}:{sha}:rc={}:sha256_ivc_{}",
+            self.reduction_count, self.n
+        )
     }
 }
 

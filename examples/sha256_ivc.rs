@@ -30,9 +30,14 @@ const REDUCTION_COUNT: usize = 10;
 
 fn sha256_ivc<F: LurkField>(store: &mut Store<F>, n: usize, input: Vec<usize>) -> Ptr<F> {
     assert_eq!(n, input.len());
-    let input = input.iter().map(|i| i.to_string()).collect::<Vec<String>>().join(" ");
+    let input = input
+        .iter()
+        .map(|i| i.to_string())
+        .collect::<Vec<String>>()
+        .join(" ");
     let input = format!("'({})", input);
-    let program = format!(r#"
+    let program = format!(
+        r#"
 (letrec ((encode-1 (lambda (term) 
             (let ((type (car term))
                   (value (cdr term)))
@@ -48,7 +53,8 @@ fn sha256_ivc<F: LurkField>(store: &mut Store<F>, n: usize, input: Vec<usize>) -
                         (encode-1 (car input))
                         (encode (cdr input)))))))
   (encode '((sha256 . {input}) (lurk . 5) (id . 15))))
-"#);
+"#
+    );
 
     store.read(&program).unwrap()
 }
