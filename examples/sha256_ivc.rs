@@ -169,7 +169,8 @@ enum Sha256Coproc<F: LurkField> {
 }
 
 /// Run the example in this file with
-/// `cargo run --release --example sha256_ivc`
+/// `cargo run --release --example sha256_ivc <n>`
+/// where `n` is the needed arity
 fn main() {
     pretty_env_logger::init();
     let args = std::env::args().collect::<Vec<_>>();
