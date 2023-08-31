@@ -19,7 +19,7 @@ use lurk::{
     coprocessor::{CoCircuit, Coprocessor},
     eval::{
         empty_sym_env,
-        lang::{Coproc, Lang},
+        lang::Lang,
     },
     field::LurkField,
     proof::nova::NovaProver,
@@ -139,7 +139,7 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
         let mut input = vec![0u8; 64 * self.n];
 
         for (i, input_ptr) in args.iter().enumerate() {
-            let input_zptr = s.hash_expr(&input_ptr).unwrap();
+            let input_zptr = s.hash_expr(input_ptr).unwrap();
             let tag_zptr: F = input_zptr.tag().to_field();
             let hash_zptr = input_zptr.value();
             input[(64 * i)..(64 * i + 32)].copy_from_slice(&tag_zptr.to_bytes());
@@ -254,7 +254,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
 }
 
 fn prove_benchmarks(c: &mut Criterion) {
-    let _ = dbg!(&*lurk::config::CONFIG);
+    tracing::debug!("{:?}", &*lurk::config::CONFIG);
     let reduction_counts = vec![100, 600, 700, 800, 900];
     let batch_sizes = vec![1, 2, 5];
     let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("prove");
@@ -333,7 +333,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
 }
 
 fn prove_compressed_benchmarks(c: &mut Criterion) {
-    let _ = dbg!(&*lurk::config::CONFIG);
+    tracing::debug!("{:?}", &*lurk::config::CONFIG);
     let reduction_counts = vec![100, 600, 700, 800, 900];
     let batch_sizes = vec![1, 2, 5];
     let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("prove_compressed");

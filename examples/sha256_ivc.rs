@@ -25,6 +25,8 @@ use bellpepper_core::{ConstraintSystem, SynthesisError};
 use pasta_curves::pallas::Scalar as Fr;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
+use tracing_texray::TeXRayLayer;
 
 const REDUCTION_COUNT: usize = 10;
 
@@ -127,7 +129,7 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
         let mut input = vec![0u8; 64 * self.n];
 
         for (i, input_ptr) in args.iter().enumerate() {
-            let input_zptr = s.hash_expr(&input_ptr).unwrap();
+            let input_zptr = s.hash_expr(input_ptr).unwrap();
             let tag_zptr: F = input_zptr.tag().to_field();
             let hash_zptr = input_zptr.value();
             input[(64 * i)..(64 * i + 32)].copy_from_slice(&tag_zptr.to_bytes());
@@ -172,7 +174,12 @@ enum Sha256Coproc<F: LurkField> {
 /// `cargo run --release --example sha256_ivc <n>`
 /// where `n` is the needed arity
 fn main() {
-    pretty_env_logger::init();
+    let subscriber = Registry::default()
+        .with(fmt::layer().pretty())
+        .with(EnvFilter::from_default_env())
+        .with(TeXRayLayer::new());
+    tracing::subscriber::set_global_default(subscriber).unwrap();
+
     let args = std::env::args().collect::<Vec<_>>();
     let n = args[1].parse().unwrap();
 
