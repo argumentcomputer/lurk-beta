@@ -269,7 +269,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
                 self.allocate_consts(cs, g)?;
 
                 let allocated_output_result =
-                    self.synthesize_frames(cs, store, allocated_input, frames, &g);
+                    self.synthesize_frames(cs, store, allocated_input, frames, g);
 
                 assert_eq!(allocated_output.len(), allocated_output_result.len());
 
