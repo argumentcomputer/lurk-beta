@@ -68,7 +68,7 @@ use super::{
 pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     pub store: Option<&'a Store<F>>,
     pub lang: Arc<Lang<F, C>>,
-    pub func: Func,
+    pub func: Arc<Func>,
     pub input: Option<Vec<Ptr<F>>>,
     pub output: Option<Vec<Ptr<F>>>,
     pub frames: Option<Vec<Frame<F>>>,
@@ -140,7 +140,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
         Self {
             store: None,
             lang: lang.clone(),
-            func: Func::from(&*lang),
+            func: Func::from(&*lang).into(),
             input: None,
             output: None,
             frames: None,
@@ -158,6 +158,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
         let total_frames = frames.len();
         let n = (total_frames + count - 1) / count;
         let mut multi_frames = Vec::with_capacity(n);
+        let func = Arc::new(Func::from(&*lang));
 
         for chunk in frames.chunks(count) {
             let last_frame = chunk.last().expect("chunk must not be empty");
@@ -176,7 +177,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
             let mf = MultiFrame {
                 store: Some(store),
                 lang: lang.clone(),
-                func: Func::from(&*lang),
+                func: func.clone(),
                 input: Some(input),
                 output: Some(output),
                 frames: Some(inner_frames),
@@ -209,7 +210,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
         Self {
             store: Some(store),
             lang: lang.clone(),
-            func: Func::from(&*lang),
+            func: Func::from(&*lang).into(),
             input,
             output,
             frames,
@@ -835,13 +836,12 @@ impl Func {
                         // Note that, because there's currently no way of deferring giving
                         // a value to the allocated nums to be filled later, we must either
                         // add the results of the call to the witness, or recompute them.
+                        let dummy = Ptr::null(Tag::Expr(Nil));
                         let output_vals = if let Some(true) = not_dummy.get_value() {
-                            g.call_outputs.pop_front().unwrap_or_else(|| {
-                                let dummy = Ptr::Atom(Tag::Expr(Nil), F::ZERO);
-                                (0..out.len()).map(|_| dummy).collect()
-                            })
+                            g.call_outputs
+                                .pop_front()
+                                .unwrap_or_else(|| (0..out.len()).map(|_| dummy).collect())
                         } else {
-                            let dummy = Ptr::Atom(Tag::Expr(Nil), F::ZERO);
                             (0..out.len()).map(|_| dummy).collect()
                         };
                         assert_eq!(output_vals.len(), out.len());

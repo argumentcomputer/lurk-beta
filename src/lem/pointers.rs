@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{field::*, tag::ContTag::Dummy, tag::ExprTag::*};
+use crate::{field::*, tag::ExprTag::*};
 
 use super::Tag;
 
@@ -172,16 +172,6 @@ pub enum ZChildren<F: LurkField> {
     Tuple2(ZPtr<F>, ZPtr<F>),
     Tuple3(ZPtr<F>, ZPtr<F>, ZPtr<F>),
     Tuple4(ZPtr<F>, ZPtr<F>, ZPtr<F>, ZPtr<F>),
-}
-
-impl<F: LurkField> ZPtr<F> {
-    #[inline]
-    pub fn dummy() -> Self {
-        Self {
-            tag: Tag::Cont(Dummy),
-            hash: F::ZERO,
-        }
-    }
 }
 
 impl<F: LurkField> std::hash::Hash for ZPtr<F> {
