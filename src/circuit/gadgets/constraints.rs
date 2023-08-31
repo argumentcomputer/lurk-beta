@@ -798,6 +798,7 @@ pub(crate) fn implies_equal<CS: ConstraintSystem<F>, F: PrimeField>(
 }
 
 /// Enforce equality of an allocated number and a constant given an implication premise
+#[allow(dead_code)]
 pub(crate) fn implies_equal_const<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: &mut CS,
     premise: &Boolean,
@@ -848,6 +849,7 @@ pub(crate) fn implies_unequal<CS: ConstraintSystem<F>, F: PrimeField>(
 }
 
 /// Enforce inequality of two allocated numbers given an implication premise
+#[allow(dead_code)]
 pub(crate) fn implies_unequal_const<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: &mut CS,
     premise: &Boolean,

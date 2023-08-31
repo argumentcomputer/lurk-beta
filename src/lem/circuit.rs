@@ -711,7 +711,6 @@ impl Func {
                         let src = bound_allocations.get(src)?;
                         let tag = g.global_allocator.get_allocated_const(tag.to_field())?;
                         let allocated_ptr = AllocatedPtr::from_parts(tag, src.hash().clone());
-                        // is the tag missing a constraint?
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
                     Op::EqTag(tgt, a, b) => {
@@ -1242,7 +1241,7 @@ impl Func {
         frame: &Frame<F>,
     ) -> Result<()> {
         let bound_allocations = &mut BoundAllocations::new();
-        let global_allocator = &mut GlobalAllocator::default();
+        let global_allocator = &mut self.alloc_globals(cs, store)?;
         self.allocate_input(cs, store, frame, bound_allocations)?;
         self.synthesize_frame(cs, store, frame, global_allocator, bound_allocations)?;
         Ok(())
