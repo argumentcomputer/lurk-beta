@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Instant;
 
+use itertools::Itertools;
 use lurk::circuit::gadgets::data::GlobalAllocations;
 use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use lurk::coprocessor::{CoCircuit, Coprocessor};
@@ -27,13 +28,16 @@ use sha2::{Digest, Sha256};
 
 const REDUCTION_COUNT: usize = 10;
 
-fn sha256_expr<F: LurkField>(store: &mut Store<F>) -> Ptr<F> {
-    let program = r#"
+fn sha256_ivc<F: LurkField>(store: &mut Store<F>, n: usize, input: Vec<usize>) -> Ptr<F> {
+    assert_eq!(n, input.len());
+    let input = input.iter().map(|i| i.to_string()).collect::<Vec<String>>().join(" ");
+    let input = format!("'({})", input);
+    let program = format!(r#"
 (letrec ((encode-1 (lambda (term) 
             (let ((type (car term))
                   (value (cdr term)))
                 (if (eq 'sha256 type)
-                    (.lurk.user.sha256x-64-zero-bytes value)
+                    (eval (cons 'sha256_ivc_{n} value))
                     (if (eq 'lurk type)
                         (commit value)
                         (if (eq 'id type)
@@ -43,10 +47,10 @@ fn sha256_expr<F: LurkField>(store: &mut Store<F>) -> Ptr<F> {
                     (cons 
                         (encode-1 (car input))
                         (encode (cdr input)))))))
-  (encode '((sha256 . 20) (lurk . 5) (id . 15))))
-"#;
+  (encode '((sha256 . {input}) (lurk . 5) (id . 15))))
+"#);
 
-    store.read(program).unwrap()
+    store.read(&program).unwrap()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -57,7 +61,7 @@ pub(crate) struct Sha256Coprocessor<F: LurkField> {
 
 impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
     fn arity(&self) -> usize {
-        1
+        self.n
     }
 
     fn synthesize<CS: ConstraintSystem<F>>(
@@ -69,23 +73,29 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-        let preimage_ptr = &input_exprs[0];
-
         let zero = Boolean::constant(false);
 
-        let mut preimage_bits = preimage_ptr
-            .tag()
-            .to_bits_le_strict(&mut cs.namespace(|| "preimage_tag_bits"))?;
-        let preimage_hash_bits = preimage_ptr
-            .hash()
-            .to_bits_le_strict(&mut cs.namespace(|| "preimage_hash_bits"))?;
+        let mut bits = vec![];
 
-        preimage_bits.push(zero.clone()); // need 256 bits (or some multiple of 8).
-        preimage_bits.extend(preimage_hash_bits);
-        preimage_bits.push(zero); // need 256 bits (or some multiple of 8).
-        preimage_bits.reverse();
+        // println!("{:?}", input_exprs);
 
-        let mut digest_bits = sha256(cs.namespace(|| "digest_bits"), &preimage_bits)?;
+        for input_ptr in input_exprs {
+            let tag_bits = input_ptr
+                .tag()
+                .to_bits_le_strict(&mut cs.namespace(|| "preimage_tag_bits"))?;
+            let hash_bits = input_ptr
+                .hash()
+                .to_bits_le_strict(&mut cs.namespace(|| "preimage_hash_bits"))?;
+
+            bits.extend(tag_bits);
+            bits.push(zero.clone()); // need 256 bits (or some multiple of 8).
+            bits.extend(hash_bits);
+            bits.push(zero.clone()); // need 256 bits (or some multiple of 8).
+        }
+
+        bits.reverse();
+
+        let mut digest_bits = sha256(cs.namespace(|| "digest_bits"), &bits)?;
 
         digest_bits.reverse();
 
@@ -102,24 +112,26 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
 
 impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
     fn eval_arity(&self) -> usize {
-        1
+        self.n
     }
 
     fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
         let mut hasher = Sha256::new();
 
-        let preimage_ptr = args[0];
-        let preimage_zptr = s.hash_expr(&preimage_ptr).unwrap();
-        let preimage_tag: F = preimage_zptr.tag().to_field();
-        let preimage_hash = preimage_zptr.value();
-        let mut input = [0u8; 64];
-        input[..32].copy_from_slice(&preimage_tag.to_bytes());
-        input[32..].copy_from_slice(&preimage_hash.to_bytes());
+        let mut input = vec![0u8; 64 * self.n];
+
+        for (i, input_ptr) in args.iter().enumerate() {
+            let input_zptr = s.hash_expr(&input_ptr).unwrap();
+            let tag_zptr: F = input_zptr.tag().to_field();
+            let hash_zptr = input_zptr.value();
+            input[(64 * i)..(64 * i + 32)].copy_from_slice(&tag_zptr.to_bytes());
+            input[(64 * i + 32)..(64 * (i + 1))].copy_from_slice(&hash_zptr.to_bytes());
+        }
+
         input.reverse();
 
         hasher.update(input);
         let mut bytes = hasher.finalize();
-
         bytes.reverse();
         let l = bytes.len();
         // Discard the two most significant bits.
@@ -154,17 +166,17 @@ enum Sha256Coproc<F: LurkField> {
 /// `cargo run --release --example sha256_ivc`
 fn main() {
     pretty_env_logger::init();
-
-    let input_size = 64;
+    let args = std::env::args().collect::<Vec<_>>();
+    let n = args[1].parse().unwrap();
 
     let store = &mut Store::<Fr>::new();
-    let cproc_sym = user_sym(&format!("sha256x-{input_size}-zero-bytes"));
+    let cproc_sym = user_sym(&format!("sha256_ivc_{n}"));
 
-    let call = sha256_expr(store);
+    let call = sha256_ivc(store, n, (0..n).collect_vec());
 
     let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
         store,
-        vec![(cproc_sym, Sha256Coprocessor::new(input_size).into())],
+        vec![(cproc_sym, Sha256Coprocessor::new(n).into())],
     );
     let lang_rc = Arc::new(lang.clone());
 

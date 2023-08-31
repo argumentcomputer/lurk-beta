@@ -86,12 +86,16 @@ fn fibo_prove<M: measurement::Measurement>(
     c.bench_with_input(
         BenchmarkId::new(prove_params.name(), fib_n),
         &prove_params,
-        |b, _prove_params| {
+        |b, prove_params| {
             let mut store = Store::default();
 
             let env = empty_sym_env(&store);
-            let ptr = fib::<pasta_curves::Fq>(&mut store, state.clone(), black_box(fib_n as u64));
-            let prover = NovaProver::new(reduction_count, lang_pallas.clone());
+            let ptr = fib::<pasta_curves::Fq>(
+                &mut store,
+                state.clone(),
+                black_box(prove_params.fib_n as u64),
+            );
+            let prover = NovaProver::new(prove_params.reduction_count, lang_pallas.clone());
 
             let frames = &prover
                 .get_evaluation_frames(ptr, env, &mut store, limit, &lang_pallas)
