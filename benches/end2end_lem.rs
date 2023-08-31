@@ -52,7 +52,7 @@ fn go_base<F: LurkField>(
 /// For flamegraphs, run:
 /// ```cargo criterion end2end_benchmark_lem --features flamegraph -- --profile-time <secs>```
 fn end2end_benchmark_lem(c: &mut Criterion) {
-    let mut group = c.benchmark_group("end2end_benchmark_lem");
+    let mut group = c.benchmark_group("end2end_benchmark");
     group
         .sampling_mode(SamplingMode::Flat)
         .measurement_time(Duration::from_secs(120))
@@ -91,7 +91,7 @@ fn end2end_benchmark_lem(c: &mut Criterion) {
 /// For flamegraphs, run:
 /// ```cargo criterion store_benchmark_lem --features flamegraph -- --profile-time <secs>```
 fn store_benchmark_lem(c: &mut Criterion) {
-    let mut group = c.benchmark_group("store_benchmark_lem");
+    let mut group = c.benchmark_group("store_benchmark");
     group
         .measurement_time(Duration::from_secs(5))
         .sample_size(60);
@@ -130,7 +130,7 @@ fn store_benchmark_lem(c: &mut Criterion) {
 /// For flamegraphs, run:
 /// ```cargo criterion hydration_benchmark_lem --features flamegraph -- --profile-time <secs>```
 fn hydration_benchmark_lem(c: &mut Criterion) {
-    let mut group = c.benchmark_group("hydration_benchmark_lem");
+    let mut group = c.benchmark_group("hydration_benchmark");
     group
         .measurement_time(Duration::from_secs(5))
         .sample_size(60);
@@ -169,7 +169,7 @@ fn hydration_benchmark_lem(c: &mut Criterion) {
 /// For flamegraphs, run:
 /// ```cargo criterion eval_benchmark_lem --features flamegraph -- --profile-time <secs>```
 fn eval_benchmark_lem(c: &mut Criterion) {
-    let mut group = c.benchmark_group("eval_benchmark_lem");
+    let mut group = c.benchmark_group("eval_benchmark");
     group
         .measurement_time(Duration::from_secs(5))
         .sample_size(60);
@@ -243,7 +243,7 @@ fn eval_benchmark_lem(c: &mut Criterion) {
 /// For flamegraphs, run:
 /// ```cargo criterion prove_benchmark_lem --features flamegraph -- --profile-time <secs>```
 fn prove_benchmark_lem(c: &mut Criterion) {
-    let mut group = c.benchmark_group("prove_benchmark_lem");
+    let mut group = c.benchmark_group("prove_benchmark");
     group
         .sampling_mode(SamplingMode::Flat)
         .measurement_time(Duration::from_secs(120))
