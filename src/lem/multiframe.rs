@@ -55,14 +55,16 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
         let (_, output) = frames
             .iter()
             .fold((0, input.to_vec()), |(i, input), frame| {
-                for (alloc_ptr, input) in input.iter().zip(&frame.input) {
-                    let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
-                    match (alloc_ptr.tag().get_value(), alloc_ptr.hash().get_value()) {
-                        (Some(alloc_ptr_tag), Some(alloc_ptr_hash)) => {
-                            assert_eq!(alloc_ptr_tag, input_zptr.tag.to_field());
-                            assert_eq!(alloc_ptr_hash, input_zptr.hash);
+                if !frame.blank {
+                    for (alloc_ptr, input) in input.iter().zip(&frame.input) {
+                        let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
+                        match (alloc_ptr.tag().get_value(), alloc_ptr.hash().get_value()) {
+                            (Some(alloc_ptr_tag), Some(alloc_ptr_hash)) => {
+                                assert_eq!(alloc_ptr_tag, input_zptr.tag.to_field());
+                                assert_eq!(alloc_ptr_hash, input_zptr.hash);
+                            }
+                            _ => panic!("Assignment missing for frame {i}"),
                         }
-                        _ => panic!("Assignment missing for frame {i}"),
                     }
                 }
                 let bound_allocations = &mut BoundAllocations::new();

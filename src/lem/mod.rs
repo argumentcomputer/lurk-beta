@@ -815,7 +815,7 @@ mod tests {
 
             let mut cs;
 
-            for frame in frames.clone() {
+            for frame in frames {
                 cs = TestConstraintSystem::<Fr>::new();
                 func.synthesize_frame_aux(&mut cs, store, &frame).unwrap();
                 assert!(cs.is_satisfied());

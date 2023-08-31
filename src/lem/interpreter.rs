@@ -74,6 +74,7 @@ pub struct Frame<F: LurkField> {
     pub input: Vec<Ptr<F>>,
     pub output: Vec<Ptr<F>>,
     pub preimages: Preimages<F>,
+    pub blank: bool,
 }
 
 impl<F: LurkField> Frame<F> {
@@ -85,6 +86,7 @@ impl<F: LurkField> Frame<F> {
             input,
             output,
             preimages,
+            blank: true,
         }
     }
 }
@@ -421,6 +423,7 @@ impl Block {
                         input,
                         output,
                         preimages,
+                        blank: false,
                     },
                     path,
                 ))
