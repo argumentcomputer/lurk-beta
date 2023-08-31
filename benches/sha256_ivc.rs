@@ -1,4 +1,5 @@
 use lurk::circuit::gadgets::data::GlobalAllocations;
+use lurk::state::user_sym;
 use lurk::{circuit::gadgets::pointer::AllocatedContPtr, tag::Tag};
 use std::{cell::RefCell, marker::PhantomData, rc::Rc, sync::Arc, time::Duration};
 
@@ -11,7 +12,7 @@ use criterion::{
 };
 
 use lurk_macros::Coproc;
-use pasta_curves::pallas;
+use pasta_curves::pallas::Scalar as Fr;
 
 use lurk::{
     circuit::gadgets::pointer::AllocatedPtr,
@@ -31,7 +32,7 @@ use lurk::{
     Num,
 };
 use serde::{Deserialize, Serialize};
-use sha2::Sha256;
+use sha2::{Digest, Sha256};
 
 const PUBLIC_PARAMS_PATH: &str = "/var/tmp/lurk_benches/public_params";
 
@@ -133,7 +134,7 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
     }
 
     fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
-        let mut hasher = Sha256::new();
+        let mut hasher = <Sha256 as sha2::Digest>::new();
 
         let mut input = vec![0u8; 64 * self.n];
 
@@ -203,8 +204,15 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
     let ProveParams { n, reduction_count } = prove_params;
 
     let limit = 10000;
-    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
-    let lang_rc = Arc::new(lang_pallas.clone());
+
+    let store = &mut Store::<Fr>::new();
+    let cproc_sym = user_sym(&format!("sha256_ivc_{n}"));
+
+    let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
+        store,
+        vec![(cproc_sym, Sha256Coprocessor::new(n).into())],
+    );
+    let lang_rc = Arc::new(lang.clone());
 
     // use cached public params
     let pp = public_params(
@@ -219,25 +227,24 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
         BenchmarkId::new(prove_params.name(), n),
         &prove_params,
         |b, prove_params| {
-            let mut store = Store::default();
-
-            let env = empty_sym_env(&store);
-            let ptr = sha256_ivc::<pasta_curves::Fq>(
-                &mut store,
+            let env = empty_sym_env(store);
+            let ptr = sha256_ivc(
+                store,
                 state.clone(),
                 black_box(prove_params.n),
                 (0..n).collect(),
             );
-            let prover = NovaProver::new(prove_params.reduction_count, lang_pallas.clone());
+
+            let prover = NovaProver::new(prove_params.reduction_count, lang.clone());
 
             let frames = &prover
-                .get_evaluation_frames(ptr, env, &mut store, limit, &lang_pallas)
+                .get_evaluation_frames(ptr, env, store, limit, &lang)
                 .unwrap();
 
             b.iter_batched(
                 || (frames, lang_rc.clone()),
                 |(frames, lang_rc)| {
-                    let result = prover.prove(&pp, frames, &mut store, lang_rc);
+                    let result = prover.prove(&pp, frames, store, lang_rc);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,
@@ -274,8 +281,15 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
     let ProveParams { n, reduction_count } = prove_params;
 
     let limit = 10000;
-    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
-    let lang_rc = Arc::new(lang_pallas.clone());
+
+    let store = &mut Store::<Fr>::new();
+    let cproc_sym = user_sym(&format!("sha256_ivc_{n}"));
+
+    let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
+        store,
+        vec![(cproc_sym, Sha256Coprocessor::new(n).into())],
+    );
+    let lang_rc = Arc::new(lang.clone());
 
     // use cached public params
     let pp = public_params(
@@ -290,25 +304,24 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
         BenchmarkId::new(prove_params.name(), n),
         &prove_params,
         |b, prove_params| {
-            let mut store = Store::default();
-
-            let env = empty_sym_env(&store);
-            let ptr = sha256_ivc::<pasta_curves::Fq>(
-                &mut store,
+            let env = empty_sym_env(store);
+            let ptr = sha256_ivc(
+                store,
                 state.clone(),
                 black_box(prove_params.n),
                 (0..n).collect(),
             );
-            let prover = NovaProver::new(prove_params.reduction_count, lang_pallas.clone());
+
+            let prover = NovaProver::new(prove_params.reduction_count, lang.clone());
 
             let frames = &prover
-                .get_evaluation_frames(ptr, env, &mut store, limit, &lang_pallas)
+                .get_evaluation_frames(ptr, env, store, limit, &lang)
                 .unwrap();
 
             b.iter_batched(
                 || (frames, lang_rc.clone()),
                 |(frames, lang_rc)| {
-                    let (proof, _, _, _) = prover.prove(&pp, frames, &mut store, lang_rc).unwrap();
+                    let (proof, _, _, _) = prover.prove(&pp, frames, store, lang_rc).unwrap();
                     let compressed_result = proof.compress(&pp).unwrap();
 
                     let _ = black_box(compressed_result);
