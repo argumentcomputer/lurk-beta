@@ -1,10 +1,10 @@
 //! This benchmark measures the IVC performance of coprocessors, by adding a `sha256`
 //! circuit alongside the lurk primary circuit. When supernova is integrated as a backend,
 //! then NIVC performance can also be tested. This benchmark serves as a baseline for that
-//! performance. 
-//! 
+//! performance.
+//!
 //! Note: The example [example/sha256_ivc.rs] is this same benchmark but as an example
-//! that's easier to play with and run. 
+//! that's easier to play with and run.
 
 use lurk::circuit::gadgets::data::GlobalAllocations;
 use lurk::state::user_sym;
@@ -208,7 +208,11 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
     c: &mut BenchmarkGroup<'_, M>,
     state: Rc<RefCell<State>>,
 ) {
-    let ProveParams { arity, n: _, reduction_count } = prove_params;
+    let ProveParams {
+        arity,
+        n: _,
+        reduction_count,
+    } = prove_params;
 
     let limit = 10000;
 
@@ -287,7 +291,11 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
     c: &mut BenchmarkGroup<'_, M>,
     state: Rc<RefCell<State>>,
 ) {
-    let ProveParams { arity, n: _, reduction_count } = prove_params;
+    let ProveParams {
+        arity,
+        n: _,
+        reduction_count,
+    } = prove_params;
 
     let limit = 10000;
 
