@@ -1,3 +1,11 @@
+//! This benchmark measures the IVC performance of coprocessors, by adding a `sha256`
+//! circuit alongside the lurk primary circuit. When supernova is integrated as a backend,
+//! then NIVC performance can also be tested. This benchmark serves as a baseline for that
+//! performance. 
+//! 
+//! Note: The example [example/sha256_ivc.rs] is this same benchmark but as an example
+//! that's easier to play with and run. 
+
 use lurk::circuit::gadgets::data::GlobalAllocations;
 use lurk::state::user_sym;
 use lurk::{circuit::gadgets::pointer::AllocatedContPtr, tag::Tag};
@@ -36,13 +44,14 @@ const PUBLIC_PARAMS_PATH: &str = "/var/tmp/lurk_benches/public_params";
 fn sha256_ivc<F: LurkField>(
     store: &mut Store<F>,
     state: Rc<RefCell<State>>,
+    arity: usize,
     n: usize,
     input: Vec<usize>,
 ) -> Ptr<F> {
     assert_eq!(n, input.len());
     let input = input
         .iter()
-        .map(|i| i.to_string())
+        .map(|i| format!("(sha256 . {i})"))
         .collect::<Vec<String>>()
         .join(" ");
     let input = format!("'({})", input);
@@ -52,17 +61,17 @@ fn sha256_ivc<F: LurkField>(
             (let ((type (car term))
                   (value (cdr term)))
                 (if (eq 'sha256 type)
-                    (eval (cons 'sha256_ivc_{n} value))
+                    (eval (cons 'sha256_ivc_{arity} value))
                     (if (eq 'lurk type)
                         (commit value)
                         (if (eq 'id type)
                             value))))))
-      (encode (lambda (input)
+        (encode (lambda (input)
                 (if input
                     (cons 
                         (encode-1 (car input))
                         (encode (cdr input)))))))
-  (encode '((sha256 . {input}) (lurk . 5) (id . 15))))
+  (encode '((lurk . 5) (id . 15) {input})))
 "#
     );
 
@@ -70,13 +79,13 @@ fn sha256_ivc<F: LurkField>(
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Sha256Coprocessor<F: LurkField> {
-    n: usize,
+    arity: usize,
     pub(crate) _p: PhantomData<F>,
 }
 
 impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
     fn arity(&self) -> usize {
-        self.n
+        self.arity
     }
 
     fn synthesize<CS: ConstraintSystem<F>>(
@@ -127,13 +136,13 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
 
 impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
     fn eval_arity(&self) -> usize {
-        self.n
+        self.arity
     }
 
     fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
         let mut hasher = <Sha256 as sha2::Digest>::new();
 
-        let mut input = vec![0u8; 64 * self.n];
+        let mut input = vec![0u8; 64 * self.arity];
 
         for (i, input_ptr) in args.iter().enumerate() {
             let input_zptr = s.hash_expr(input_ptr).unwrap();
@@ -164,9 +173,9 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
 }
 
 impl<F: LurkField> Sha256Coprocessor<F> {
-    pub(crate) fn new(n: usize) -> Self {
+    pub(crate) fn new(arity: usize) -> Self {
         Self {
-            n,
+            arity,
             _p: Default::default(),
         }
     }
@@ -178,6 +187,7 @@ enum Sha256Coproc<F: LurkField> {
 }
 
 struct ProveParams {
+    arity: usize,
     n: usize,
     reduction_count: usize,
 }
@@ -188,7 +198,7 @@ impl ProveParams {
         let sha = env!("VERGEN_GIT_SHA");
         format!(
             "{date}:{sha}:rc={}:sha256_ivc_{}",
-            self.reduction_count, self.n
+            self.reduction_count, self.arity
         )
     }
 }
@@ -198,16 +208,16 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
     c: &mut BenchmarkGroup<'_, M>,
     state: Rc<RefCell<State>>,
 ) {
-    let ProveParams { n, reduction_count } = prove_params;
+    let ProveParams { arity, n: _, reduction_count } = prove_params;
 
     let limit = 10000;
 
     let store = &mut Store::<Fr>::new();
-    let cproc_sym = user_sym(&format!("sha256_ivc_{n}"));
+    let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
 
     let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
         store,
-        vec![(cproc_sym, Sha256Coprocessor::new(n).into())],
+        vec![(cproc_sym, Sha256Coprocessor::new(arity).into())],
     );
     let lang_rc = Arc::new(lang.clone());
 
@@ -221,15 +231,16 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
     .unwrap();
 
     c.bench_with_input(
-        BenchmarkId::new(prove_params.name(), n),
+        BenchmarkId::new(prove_params.name(), arity),
         &prove_params,
         |b, prove_params| {
             let env = empty_sym_env(store);
             let ptr = sha256_ivc(
                 store,
                 state.clone(),
+                black_box(prove_params.arity),
                 black_box(prove_params.n),
-                (0..n).collect(),
+                (0..prove_params.n).collect(),
             );
 
             let prover = NovaProver::new(prove_params.reduction_count, lang.clone());
@@ -259,11 +270,12 @@ fn prove_benchmarks(c: &mut Criterion) {
     group.sample_size(10);
     let state = State::init_lurk_state().rccell();
 
-    for n in batch_sizes.iter() {
-        for reduction_count in reduction_counts.iter() {
+    for &n in batch_sizes.iter() {
+        for &reduction_count in reduction_counts.iter() {
             let prove_params = ProveParams {
-                n: *n,
-                reduction_count: *reduction_count,
+                arity: 1,
+                n,
+                reduction_count,
             };
             sha256_ivc_prove(prove_params, &mut group, state.clone());
         }
@@ -275,16 +287,16 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
     c: &mut BenchmarkGroup<'_, M>,
     state: Rc<RefCell<State>>,
 ) {
-    let ProveParams { n, reduction_count } = prove_params;
+    let ProveParams { arity, n: _, reduction_count } = prove_params;
 
     let limit = 10000;
 
     let store = &mut Store::<Fr>::new();
-    let cproc_sym = user_sym(&format!("sha256_ivc_{n}"));
+    let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
 
     let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
         store,
-        vec![(cproc_sym, Sha256Coprocessor::new(n).into())],
+        vec![(cproc_sym, Sha256Coprocessor::new(arity).into())],
     );
     let lang_rc = Arc::new(lang.clone());
 
@@ -298,15 +310,16 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
     .unwrap();
 
     c.bench_with_input(
-        BenchmarkId::new(prove_params.name(), n),
+        BenchmarkId::new(prove_params.name(), arity),
         &prove_params,
         |b, prove_params| {
             let env = empty_sym_env(store);
             let ptr = sha256_ivc(
                 store,
                 state.clone(),
+                black_box(prove_params.arity),
                 black_box(prove_params.n),
-                (0..n).collect(),
+                (0..prove_params.n).collect(),
             );
 
             let prover = NovaProver::new(prove_params.reduction_count, lang.clone());
@@ -338,11 +351,12 @@ fn prove_compressed_benchmarks(c: &mut Criterion) {
     group.sample_size(10);
     let state = State::init_lurk_state().rccell();
 
-    for n in batch_sizes.iter() {
-        for reduction_count in reduction_counts.iter() {
+    for &n in batch_sizes.iter() {
+        for &reduction_count in reduction_counts.iter() {
             let prove_params = ProveParams {
-                n: *n,
-                reduction_count: *reduction_count,
+                arity: 1,
+                n,
+                reduction_count,
             };
             sha256_ivc_prove_compressed(prove_params, &mut group, state.clone());
         }

@@ -2,7 +2,6 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Instant;
 
-use itertools::Itertools;
 use lurk::circuit::gadgets::data::GlobalAllocations;
 use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use lurk::coprocessor::{CoCircuit, Coprocessor};
@@ -186,7 +185,7 @@ fn main() {
     let store = &mut Store::<Fr>::new();
     let cproc_sym = user_sym(&format!("sha256_ivc_{n}"));
 
-    let call = sha256_ivc(store, n, (0..n).collect_vec());
+    let call = sha256_ivc(store, n, (0..n).collect());
 
     let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
         store,
