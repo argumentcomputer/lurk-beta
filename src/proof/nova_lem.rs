@@ -40,15 +40,6 @@ use super::{
 /// to reflect it this should not be used outside the Nova context
 pub type C1<'a, F, C> = MultiFrame<'a, <G1<F> as Group>::Scalar, C>;
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> MultiFrame<'a, F, C> {
-    fn circuits(lang: Arc<Lang<F, C>>, count: usize) -> (C1<'a, F, C>, C2<F>) {
-        (
-            MultiFrame::blank(count, lang),
-            TrivialTestCircuit::default(),
-        )
-    }
-}
-
 impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     fn compute_witness(&self, s: &Store<F>) -> WitnessCS<F> {
         let mut wcs = WitnessCS::new();
@@ -189,7 +180,7 @@ where
         let (_circuit_primary, circuit_secondary): (
             MultiFrame<'_, F, C>,
             TrivialTestCircuit<<G2<F> as Group>::Scalar>,
-        ) = C1::<'a, F, C>::circuits(lang, num_iters_per_step);
+        ) = crate::proof::nova::circuits(num_iters_per_step, lang);
 
         // produce a recursive SNARK
         let mut recursive_snark: Option<RecursiveSNARK<G1<F>, G2<F>, C1<'a, F, C>, C2<F>>> = None;

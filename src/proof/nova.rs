@@ -210,7 +210,8 @@ where
     PublicParams { pp, pk, vk }
 }
 
-fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>(
+/// Generates the circuits for the Nova proving system.
+pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>(
     count: usize,
     lang: Arc<Lang<F, C>>,
 ) -> (M, C2<F>) {
