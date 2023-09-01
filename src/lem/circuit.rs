@@ -1,5 +1,3 @@
-#![allow(unreachable_pub)]
-#![allow(dead_code)]
 //! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellperson constraints for LEM, such
@@ -23,7 +21,7 @@
 //! on a concrete or a virtual path and use such booleans as the premises to build
 //! the constraints we care about with implication gadgets.
 
-use anyhow::{bail, Result};
+use anyhow::{anyhow, Result};
 use bellpepper_core::{
     ConstraintSystem, SynthesisError,
     {
@@ -73,7 +71,7 @@ fn allocate_num<F: LurkField, CS: ConstraintSystem<F>>(
 impl<F: LurkField> GlobalAllocator<F> {
     /// Checks if the allocation for a numeric variable has already been cached.
     /// If so, don't do anything. Otherwise, allocate and cache it.
-    pub(crate) fn alloc_const<CS: ConstraintSystem<F>>(
+    fn alloc_const<CS: ConstraintSystem<F>>(
         &mut self,
         cs: &mut CS,
         f: F,
@@ -89,11 +87,16 @@ impl<F: LurkField> GlobalAllocator<F> {
         Ok(())
     }
 
-    pub(crate) fn get_allocated_const(&self, f: F) -> Result<AllocatedNum<F>> {
-        match self.0.get(&FWrap(f)) {
-            Some(allocated_num) => Ok(allocated_num.clone()),
-            None => bail!("Global allocation not found for {}", f.hex_digits()),
-        }
+    #[inline]
+    fn get_allocated_const(&self, f: F) -> Result<&AllocatedNum<F>> {
+        self.0
+            .get(&FWrap(f))
+            .ok_or_else(|| anyhow!("Global allocation not found for {}", f.hex_digits()))
+    }
+
+    #[inline]
+    fn get_allocated_const_cloned(&self, f: F) -> Result<AllocatedNum<F>> {
+        self.get_allocated_const(f).cloned()
     }
 }
 
@@ -569,7 +572,9 @@ impl Func {
 
                         // Allocate the image tag if it hasn't been allocated before,
                         // create the full image pointer and add it to bound allocations
-                        let img_tag = g.global_allocator.get_allocated_const($tag.to_field())?;
+                        let img_tag = g
+                            .global_allocator
+                            .get_allocated_const_cloned($tag.to_field())?;
                         let img_hash = preallocated_img_hash.clone();
                         let img_ptr = AllocatedPtr::from_parts(img_tag, img_hash);
                         bound_allocations.insert($img, img_ptr);
@@ -678,8 +683,10 @@ impl Func {
                         unhash_helper!(preimg, img, SlotType::Hash4);
                     }
                     Op::Null(tgt, tag) => {
-                        let tag = g.global_allocator.get_allocated_const(tag.to_field())?;
-                        let zero = g.global_allocator.get_allocated_const(F::ZERO)?;
+                        let tag = g
+                            .global_allocator
+                            .get_allocated_const_cloned(tag.to_field())?;
+                        let zero = g.global_allocator.get_allocated_const_cloned(F::ZERO)?;
                         let allocated_ptr = AllocatedPtr::from_parts(tag, zero);
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
@@ -687,14 +694,18 @@ impl Func {
                         let lit_ptr = lit.to_ptr_cached(g.store);
                         let lit_tag = lit_ptr.tag().to_field();
                         let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
-                        let allocated_tag = g.global_allocator.get_allocated_const(lit_tag)?;
-                        let allocated_hash = g.global_allocator.get_allocated_const(lit_hash)?;
+                        let allocated_tag =
+                            g.global_allocator.get_allocated_const_cloned(lit_tag)?;
+                        let allocated_hash =
+                            g.global_allocator.get_allocated_const_cloned(lit_hash)?;
                         let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
                     Op::Cast(tgt, tag, src) => {
                         let src = bound_allocations.get(src)?;
-                        let tag = g.global_allocator.get_allocated_const(tag.to_field())?;
+                        let tag = g
+                            .global_allocator
+                            .get_allocated_const_cloned(tag.to_field())?;
                         let allocated_ptr = AllocatedPtr::from_parts(tag, src.hash().clone());
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
@@ -707,7 +718,7 @@ impl Func {
                         let c_num = boolean_to_num(&mut cs.namespace(|| "equal_tag.to_num"), &eq)?;
                         let tag = g
                             .global_allocator
-                            .get_allocated_const(Tag::Expr(Num).to_field())?;
+                            .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
                         let c = AllocatedPtr::from_parts(tag, c_num);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -720,7 +731,7 @@ impl Func {
                         let c_num = boolean_to_num(&mut cs.namespace(|| "equal_val.to_num"), &eq)?;
                         let tag = g
                             .global_allocator
-                            .get_allocated_const(Tag::Expr(Num).to_field())?;
+                            .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
                         let c = AllocatedPtr::from_parts(tag, c_num);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -732,7 +743,7 @@ impl Func {
                         let c_num = add(&mut cs.namespace(|| "add"), a_num, b_num)?;
                         let tag = g
                             .global_allocator
-                            .get_allocated_const(Tag::Expr(Num).to_field())?;
+                            .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
                         let c = AllocatedPtr::from_parts(tag, c_num);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -744,7 +755,7 @@ impl Func {
                         let c_num = sub(&mut cs.namespace(|| "sub"), a_num, b_num)?;
                         let tag = g
                             .global_allocator
-                            .get_allocated_const(Tag::Expr(Num).to_field())?;
+                            .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
                         let c = AllocatedPtr::from_parts(tag, c_num);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -756,7 +767,7 @@ impl Func {
                         let c_num = mul(&mut cs.namespace(|| "mul"), a_num, b_num)?;
                         let tag = g
                             .global_allocator
-                            .get_allocated_const(Tag::Expr(Num).to_field())?;
+                            .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
                         let c = AllocatedPtr::from_parts(tag, c_num);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -772,7 +783,7 @@ impl Func {
                         let divisor = pick(
                             &mut cs.namespace(|| "maybe-dummy divisor"),
                             b_is_zero,
-                            &one,
+                            one,
                             b_num,
                         )?;
 
@@ -780,7 +791,7 @@ impl Func {
 
                         let tag = g
                             .global_allocator
-                            .get_allocated_const(Tag::Expr(Num).to_field())?;
+                            .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
                         let c = AllocatedPtr::from_parts(tag, quotient);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -789,7 +800,7 @@ impl Func {
                         let b = bound_allocations.get(b)?;
                         let tag = g
                             .global_allocator
-                            .get_allocated_const(Tag::Expr(Num).to_field())?;
+                            .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
                         let (preallocated_preimg, lt) =
                             &g.preallocated_less_than_slots[next_slot.consume_less_than()];
                         for (i, n) in [a.hash(), b.hash()].into_iter().enumerate() {
@@ -822,7 +833,7 @@ impl Func {
                         enforce_pack(&mut cs.namespace(|| "enforce_trunc"), &trunc_bits, &trunc)?;
                         let tag = g
                             .global_allocator
-                            .get_allocated_const(Tag::Expr(Num).to_field())?;
+                            .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
                         let c = AllocatedPtr::from_parts(tag, trunc);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -860,7 +871,7 @@ impl Func {
                         );
                         let tag = g
                             .global_allocator
-                            .get_allocated_const(Tag::Expr(Num).to_field())?;
+                            .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
                         let div_ptr = AllocatedPtr::from_parts(tag.clone(), div);
                         let rem_ptr = AllocatedPtr::from_parts(tag, rem);
                         bound_allocations.insert(tgt[0].clone(), div_ptr);
@@ -881,7 +892,7 @@ impl Func {
                             }),
                             not_dummy,
                             sec.tag(),
-                            &sec_tag,
+                            sec_tag,
                         )?;
                         implies_equal(
                             &mut cs.namespace(|| {
@@ -909,7 +920,7 @@ impl Func {
                         )?;
                         let tag = g
                             .global_allocator
-                            .get_allocated_const(Tag::Expr(Comm).to_field())?;
+                            .get_allocated_const_cloned(Tag::Expr(Comm).to_field())?;
                         let allocated_ptr = AllocatedPtr::from_parts(tag, hash.clone());
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
@@ -926,7 +937,7 @@ impl Func {
                             }),
                             not_dummy,
                             comm.tag(),
-                            &comm_tag,
+                            comm_tag,
                         )?;
                         implies_equal(
                             &mut cs.namespace(|| {
@@ -938,7 +949,7 @@ impl Func {
                         )?;
                         let sec_tag = g
                             .global_allocator
-                            .get_allocated_const(Tag::Expr(Num).to_field())?;
+                            .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
                         let allocated_sec_ptr =
                             AllocatedPtr::from_parts(sec_tag, preallocated_preimg[0].clone());
                         let allocated_pay_ptr = AllocatedPtr::from_parts(
@@ -1179,7 +1190,7 @@ impl Func {
                         &mut cs.namespace(|| format!("implies equal for {match_var}'s tag (Sym)")),
                         not_dummy,
                         match_var_ptr.tag(),
-                        &sym_tag,
+                        sym_tag,
                     )?;
 
                     // The number of slots the match used is the max number of slots of each branch
