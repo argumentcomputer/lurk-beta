@@ -20,7 +20,8 @@ use crate::{
     hash_witness::{
         ConsCircuitWitness, ConsName, ContCircuitWitness, ContName, HashCircuitWitnessCache,
     },
-    store::NamedConstants,
+    proof::Prover,
+    store::{self, NamedConstants},
     tag::Tag,
 };
 
@@ -38,7 +39,7 @@ use crate::eval::{lang::Lang, Frame, Witness, IO};
 use crate::expr::Thunk;
 use crate::hash_witness::HashWitness;
 use crate::lurk_sym_ptr;
-use crate::proof::{MultiFrameTrait, Provable};
+use crate::proof::{FrameLike, MultiFrameTrait, Provable};
 use crate::ptr::Ptr;
 use crate::store::Store;
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
@@ -67,13 +68,105 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     pub count: usize,
 }
 
-impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFrame<'a, F, C> {
-    type Store = Store<F>;
+impl<F: LurkField, C: Coprocessor<F>> FrameLike for Frame<IO<F>, Witness<F>, C> {
+    type Ptr = IO<F>;
+    fn input(&self) -> &Self::Ptr {
+        &self.input
+    }
+    fn output(&self) -> &Self::Ptr {
+        &self.output
+    }
+}
+
+impl<'a, F: LurkField, C: Coprocessor<F>> FrameLike for CircuitFrame<'a, F, C> {
+    // TODO: fix the error pattern here
+    type Ptr = IO<F>;
+    fn input(&self) -> &Self::Ptr {
+        &self.input.unwrap()
+    }
+    fn output(&self) -> &Self::Ptr {
+        &self.output.unwrap()
+    }
+}
+
+impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'a, F, C> {
     type Ptr = Ptr<F>;
-    type Frame = Frame<IO<F>, Witness<F>, C>;
+    type Store = Store<F>;
+    type StoreError = store::Error;
+    type EvalFrame = Frame<IO<F>, Witness<F>, C>;
     type CircuitFrame = CircuitFrame<'a, F, C>;
     type GlobalAllocation = GlobalAllocations<F>;
     type AllocatedIO = AllocatedIO<F>;
+    type FrameIter = <Self::FrameIntoIter as IntoIterator>::IntoIter;
+    type FrameIntoIter = Vec<Self::CircuitFrame>;
+
+    fn get_evaluation_frames(
+        prover: &impl Prover<F, C, Self>,
+        expr: Ptr<F>,
+        env: Ptr<F>,
+        store: &mut Self::Store,
+        limit: usize,
+        lang: &Lang<F, C>,
+    ) -> Result<Vec<Frame<IO<F>, Witness<F>, C>>, crate::error::ProofError> {
+        let padding_predicate = |count| prover.needs_frame_padding(count);
+
+        let frames = crate::eval::Evaluator::generate_frames(
+            expr,
+            env,
+            store,
+            limit,
+            padding_predicate,
+            lang,
+        )?;
+
+        store.hydrate_scalar_cache();
+
+        Ok(frames)
+    }
+
+    fn to_io_vector(
+        store: &Self::Store,
+        frame: &<Self::EvalFrame as FrameLike>::Ptr,
+    ) -> Result<Vec<F>, Self::StoreError> {
+        frame.to_vector(store)
+    }
+
+    fn compute_witness(&self, s: &Store<F>) -> WitnessCS<F> {
+        let mut wcs = WitnessCS::new();
+
+        let input = self.input.unwrap();
+
+        let expr = s.hash_expr(&input.expr).unwrap();
+        let env = s.hash_expr(&input.env).unwrap();
+        let cont = s.hash_cont(&input.cont).unwrap();
+
+        let z_scalar = vec![
+            expr.tag().to_field(),
+            *expr.value(),
+            env.tag().to_field(),
+            *env.value(),
+            cont.tag().to_field(),
+            *cont.value(),
+        ];
+
+        let mut bogus_cs = WitnessCS::<F>::new();
+        let z: Vec<AllocatedNum<F>> = z_scalar
+            .iter()
+            .map(|x| AllocatedNum::alloc(&mut bogus_cs, || Ok(*x)).unwrap())
+            .collect::<Vec<_>>();
+
+        let _ = nova::traits::circuit::StepCircuit::synthesize(self, &mut wcs, z.as_slice());
+
+        wcs
+    }
+
+    fn cached_witness(&mut self) -> &mut Option<WitnessCS<F>> {
+        &mut self.cached_witness
+    }
+
+    fn frames(&self) -> Option<Vec<Self::CircuitFrame>> {
+        self.frames
+    }
 
     fn precedes(&self, maybe_next: &Self) -> bool {
         self.output == maybe_next.input
@@ -108,8 +201,8 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
 
     fn from_frames(
         count: usize,
-        frames: &[Self::Frame],
-        store: &'a Store<F>,
+        frames: &[Self::EvalFrame],
+        store: &Store<F>,
         lang: Arc<Lang<F, C>>,
     ) -> Vec<Self> {
         // `count` is the number of `Frames` to include per `MultiFrame`.
@@ -157,7 +250,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
     fn make_dummy(
         count: usize,
         circuit_frame: Option<CircuitFrame<'a, F, C>>,
-        store: &'a Store<F>,
+        store: &Store<F>,
         lang: Arc<Lang<F, C>>,
     ) -> Self {
         let (frames, input, output) = if let Some(circuit_frame) = circuit_frame {

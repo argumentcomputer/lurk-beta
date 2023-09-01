@@ -12,32 +12,75 @@ pub mod nova;
 /// An adapter to a Nova proving system implementation in LEM.
 pub mod nova_lem;
 
-use crate::coprocessor::Coprocessor;
 use crate::eval::lang::Lang;
 use crate::field::LurkField;
+use crate::{coprocessor::Coprocessor, error::ProofError};
 
+use ::nova::traits::circuit::StepCircuit;
+use bellpepper::util_cs::witness_cs::WitnessCS;
 use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, ConstraintSystem, SynthesisError};
 
 use std::sync::Arc;
 
+pub trait FrameLike {
+    type Ptr;
+    fn input(&self) -> &Self::Ptr;
+    fn output(&self) -> &Self::Ptr;
+}
+
 /// Trait to support multiple `MultiFrame` implementations.
-pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F>>:
-    Provable<F> + Circuit<F> + Clone
+pub trait MultiFrameTrait<F: LurkField, C: Coprocessor<F>>:
+    Provable<F> + Circuit<F> + StepCircuit<F>
 {
-    /// The associated `Store` type
-    type Store;
     /// The associated `Ptr` type
     type Ptr;
+    /// The associated `Store` type
+    type Store: Send + Sync;
+    /// The error type for the Store type
+    type StoreError: Into<ProofError>;
+
     /// The associated `Frame` type
-    type Frame;
+    type EvalFrame: FrameLike;
     /// The associated `CircuitFrame` type
-    type CircuitFrame;
+    type CircuitFrame: FrameLike<Ptr = <Self::EvalFrame as FrameLike>::Ptr>;
     /// The associated type which manages global allocations
     type GlobalAllocation;
     /// The associated type of allocated input and output to the circuit
     type AllocatedIO;
+
+    /// the Iterator Type for circuit Frames - this pedantic way of setting a constraint on this
+    /// iterator will disappear when associated type constraints become available.
+    type FrameIter: ExactSizeIterator<Item = Self::CircuitFrame>;
+    /// the chosen type of iterator for circuit frames (see `frames` below)
+    type FrameIntoIter: IntoIterator<Item = Self::CircuitFrame, IntoIter = Self::FrameIter>;
+
+    /// Evaluates and generates the frames of the computation given the expression, environment, and store
+    fn get_evaluation_frames(
+        prover: &impl Prover<F, C, Self>,
+        expr: Self::Ptr,
+        env: Self::Ptr,
+        store: &mut Self::Store,
+        limit: usize,
+        lang: &Lang<F, C>,
+    ) -> Result<Vec<Self::EvalFrame>, ProofError>;
+
+    /// Returns a public IO vector when equipped with the local store, and the Self::Frame's IO
+    fn to_io_vector(
+        store: &Self::Store,
+        frames: &<Self::EvalFrame as FrameLike>::Ptr,
+    ) -> Result<Vec<F>, Self::StoreError>;
+
     /// Returns true if the supplied instance directly precedes this one in a sequential computation trace.
     fn precedes(&self, maybe_next: &Self) -> bool;
+
+    /// Populates a WitnessCS with the witness values for the given store.
+    fn compute_witness(&self, s: &Self::Store) -> WitnessCS<F>;
+
+    /// Returns a reference to the cached witness values
+    fn cached_witness(&mut self) -> &mut Option<WitnessCS<F>>;
+
+    /// Iterates through the Self::CircuitFrame instances
+    fn frames(&self) -> Option<Self::FrameIntoIter>;
 
     /// Synthesize some frames.
     fn synthesize_frames<CS: ConstraintSystem<F>>(
@@ -55,8 +98,8 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F>>:
     /// Create an instance from some `Self::Frame`s.
     fn from_frames(
         count: usize,
-        frames: &[Self::Frame],
-        store: &'a Self::Store,
+        frames: &[Self::EvalFrame],
+        store: &Self::Store,
         lang: Arc<Lang<F, C>>,
     ) -> Vec<Self>;
 
@@ -64,7 +107,7 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F>>:
     fn make_dummy(
         count: usize,
         circuit_frame: Option<Self::CircuitFrame>,
-        store: &'a Self::Store,
+        store: &Self::Store,
         lang: Arc<Lang<F, C>>,
     ) -> Self;
 }
@@ -87,7 +130,7 @@ pub fn verify_sequential_css<
     'a,
     F: LurkField + Copy,
     C: Coprocessor<F>,
-    M: MultiFrameTrait<'a, F, C>,
+    M: MultiFrameTrait<F, C>,
 >(
     css: &SequentialCS<'_, F, M>,
 ) -> Result<bool, SynthesisError> {
@@ -118,7 +161,7 @@ pub fn verify_sequential_css<
 pub trait PublicParameters {}
 
 /// A trait for a prover that works with a field `F`.
-pub trait Prover<'a, 'b, F: LurkField, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>> {
+pub trait Prover<F: LurkField, C: Coprocessor<F>, M: MultiFrameTrait<F, C>> {
     /// The associated public parameters type for the prover.
     type PublicParams: PublicParameters;
 
@@ -162,7 +205,7 @@ pub trait Prover<'a, 'b, F: LurkField, C: Coprocessor<F>, M: MultiFrameTrait<'a,
     }
 
     /// Synthesizes the outer circuit for the prover given a slice of multiframes.
-    fn outer_synthesize(
+    fn outer_synthesize<'a>(
         &self,
         multiframes: &'a [M],
     ) -> Result<SequentialCS<'a, F, M>, SynthesisError> {
