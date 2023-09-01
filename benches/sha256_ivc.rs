@@ -101,8 +101,6 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
 
         let mut bits = vec![];
 
-        // println!("{:?}", input_exprs);
-
         for input_ptr in input_exprs {
             let tag_bits = input_ptr
                 .tag()
@@ -111,9 +109,9 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
                 .hash()
                 .to_bits_le_strict(&mut cs.namespace(|| "preimage_hash_bits"))?;
 
-            bits.extend(tag_bits);
+            bits.extend(tag_bits.into_iter());
             bits.push(zero.clone()); // need 256 bits (or some multiple of 8).
-            bits.extend(hash_bits);
+            bits.extend(hash_bits.into_iter());
             bits.push(zero.clone()); // need 256 bits (or some multiple of 8).
         }
 
@@ -256,7 +254,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
             b.iter_batched(
                 || (frames, lang_rc.clone()),
                 |(frames, lang_rc)| {
-                    let result = prover.prove(&pp, frames, store, lang_rc);
+                    let result = prover.prove(&pp, frames, store, &lang_rc);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,
@@ -339,7 +337,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
             b.iter_batched(
                 || (frames, lang_rc.clone()),
                 |(frames, lang_rc)| {
-                    let (proof, _, _, _) = prover.prove(&pp, frames, store, lang_rc).unwrap();
+                    let (proof, _, _, _) = prover.prove(&pp, frames, store, &lang_rc).unwrap();
                     let compressed_result = proof.compress(&pp).unwrap();
 
                     let _ = black_box(compressed_result);

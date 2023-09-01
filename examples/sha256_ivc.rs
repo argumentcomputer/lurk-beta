@@ -4,6 +4,7 @@ use std::time::Instant;
 
 use lurk::circuit::gadgets::data::GlobalAllocations;
 use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
+use lurk::circuit::MultiFrame;
 use lurk::coprocessor::{CoCircuit, Coprocessor};
 use lurk::eval::{empty_sym_env, lang::Lang};
 use lurk::field::LurkField;
@@ -84,8 +85,6 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
 
         let mut bits = vec![];
 
-        // println!("{:?}", input_exprs);
-
         for input_ptr in input_exprs {
             let tag_bits = input_ptr
                 .tag()
@@ -94,9 +93,9 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
                 .hash()
                 .to_bits_le_strict(&mut cs.namespace(|| "preimage_hash_bits"))?;
 
-            bits.extend(tag_bits);
+            bits.extend(tag_bits.into_iter());
             bits.push(zero.clone()); // need 256 bits (or some multiple of 8).
-            bits.extend(hash_bits);
+            bits.extend(hash_bits.into_iter());
             bits.push(zero.clone()); // need 256 bits (or some multiple of 8).
         }
 
@@ -193,7 +192,10 @@ fn main() {
     );
     let lang_rc = Arc::new(lang.clone());
 
-    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang);
+    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, Fr, Sha256Coproc<Fr>>>::new(
+        REDUCTION_COUNT,
+        lang,
+    );
 
     println!("Setting up public parameters (rc = {REDUCTION_COUNT})...");
 
@@ -207,7 +209,7 @@ fn main() {
         println!("Beginning proof step...");
         let proof_start = Instant::now();
         let (proof, z0, zi, num_steps) = nova_prover
-            .evaluate_and_prove(pp, call, empty_sym_env(store), store, 10000, lang_rc)
+            .evaluate_and_prove(pp, call, empty_sym_env(store), store, 10000, &lang_rc)
             .unwrap();
         let proof_end = proof_start.elapsed();
 
