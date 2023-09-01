@@ -178,6 +178,10 @@ name = "synthesis"
 harness = false
 
 [[bench]]
+name = "sha256_ivc"
+harness = false
+
+[[bench]]
 name = "public_params"
 harness = false
 
