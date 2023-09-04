@@ -40,7 +40,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: sudo apt-get install -y pkg-config libssl-dev
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: actions-rs/toolchain@v1
@@ -63,7 +63,7 @@ jobs:
     env:
       RUSTFLAGS: -D warnings
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
       - uses: taiki-e/install-action@nextest
       - uses: Swatinem/rust-cache@v2
@@ -82,7 +82,7 @@ jobs:
   clippy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
           components: rustfmt, clippy
@@ -99,7 +99,7 @@ jobs:
   msrv:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Install rustup
       uses: actions-rs/toolchain@v1
       with:
