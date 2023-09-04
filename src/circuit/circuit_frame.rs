@@ -39,8 +39,8 @@ use crate::eval::{lang::Lang, Frame, Witness, IO};
 use crate::expr::Thunk;
 use crate::hash_witness::HashWitness;
 use crate::lurk_sym_ptr;
-use crate::proof::{FrameLike, MultiFrameTrait, Provable};
-use crate::ptr::Ptr;
+use crate::proof::{EvaluationStore, FrameLike, MultiFrameTrait, Provable};
+use crate::ptr::{ContPtr, Ptr};
 use crate::store::Store;
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 use num_bigint::BigUint;
@@ -69,23 +69,44 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
 }
 
 impl<F: LurkField, C: Coprocessor<F>> FrameLike for Frame<IO<F>, Witness<F>, C> {
-    type Ptr = IO<F>;
-    fn input(&self) -> &Self::Ptr {
+    type FramePtr = IO<F>;
+    fn input(&self) -> &Self::FramePtr {
         &self.input
     }
-    fn output(&self) -> &Self::Ptr {
+    fn output(&self) -> &Self::FramePtr {
         &self.output
     }
 }
 
 impl<'a, F: LurkField, C: Coprocessor<F>> FrameLike for CircuitFrame<'a, F, C> {
-    // TODO: fix the error pattern here
-    type Ptr = IO<F>;
-    fn input(&self) -> &Self::Ptr {
+    // TODO: fix the inability to return an error here
+    type FramePtr = IO<F>;
+    fn input(&self) -> &Self::FramePtr {
         &self.input.unwrap()
     }
-    fn output(&self) -> &Self::Ptr {
+    fn output(&self) -> &Self::FramePtr {
         &self.output.unwrap()
+    }
+}
+
+impl<F: LurkField> EvaluationStore for Store<F> {
+    type Ptr = Ptr<F>;
+    type ContPtr = ContPtr<F>;
+    type Error = store::Error;
+
+    fn read(&self, expr: &str) -> Result<Self::Ptr, Self::Error> {
+        self.read(expr)
+    }
+    fn initial_empty_env(&self) -> Self::Ptr {
+        self.initial_empty_env()
+    }
+    fn get_cont_terminal(&self) -> Self::ContPtr {
+        // qualified syntax for the
+        Store::get_cont_terminal(self)
+    }
+
+    fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> Result<bool, Self::Error> {
+        self.ptr_eq(left, right)
     }
 }
 
@@ -106,7 +127,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
         env: Ptr<F>,
         store: &mut Self::Store,
         limit: usize,
-        lang: &Lang<F, C>,
     ) -> Result<Vec<Frame<IO<F>, Witness<F>, C>>, crate::error::ProofError> {
         let padding_predicate = |count| prover.needs_frame_padding(count);
 
@@ -116,7 +136,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
             store,
             limit,
             padding_predicate,
-            lang,
+            prover.lang(),
         )?;
 
         store.hydrate_scalar_cache();
@@ -126,7 +146,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
 
     fn to_io_vector(
         store: &Self::Store,
-        frame: &<Self::EvalFrame as FrameLike>::Ptr,
+        frame: &<Self::EvalFrame as FrameLike>::FramePtr,
     ) -> Result<Vec<F>, Self::StoreError> {
         frame.to_vector(store)
     }
@@ -271,6 +291,10 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
             cached_witness: None,
             count,
         }
+    }
+
+    fn significant_frame_count(frames: &[Self::EvalFrame]) -> usize {
+        frames.iter().rev().skip_while(|f| f.is_complete()).count()
     }
 }
 

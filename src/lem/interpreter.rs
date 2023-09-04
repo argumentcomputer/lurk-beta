@@ -12,11 +12,11 @@ pub enum PreimageData<F: LurkField> {
     FPair(F, F),
 }
 
-#[derive(Clone, Debug, Default)]
 /// `Preimages` hold the non-deterministic advices for hashes and `Func` calls.
 /// The hash preimages must have the same shape as the allocated slots for the
 /// `Func`, and the `None` values are used to fill the unused slots, which are
 /// later filled by dummy values.
+#[derive(Clone, Debug, Default)]
 pub struct Preimages<F: LurkField> {
     pub hash2: Vec<Option<PreimageData<F>>>,
     pub hash3: Vec<Option<PreimageData<F>>>,

@@ -167,11 +167,10 @@ impl Repl<F> {
                         let pp =
                             public_params(self.rc, true, self.lang.clone(), &public_params_dir())?;
 
-                        let prover =
-                            NovaProver::<'_, F, Coproc<F>, MultiFrame<'_, F, Coproc<F>>>::new(
-                                self.rc,
-                                (*self.lang).clone(),
-                            );
+                        let prover = NovaProver::<F, Coproc<F>, MultiFrame<'_, F, Coproc<F>>>::new(
+                            self.rc,
+                            (*self.lang).clone(),
+                        );
 
                         info!("Proving");
                         let (proof, public_inputs, public_outputs, num_steps) =

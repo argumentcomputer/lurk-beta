@@ -22,10 +22,29 @@ use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, ConstraintSystem, 
 
 use std::sync::Arc;
 
-pub trait FrameLike {
+pub trait FrameLike: Sized {
+    // it's important to not define this as `Ptr` to avoid ambiguity
+    type FramePtr;
+    fn input(&self) -> &Self::FramePtr;
+    fn output(&self) -> &Self::FramePtr;
+}
+pub trait EvaluationStore {
+    /// the type for the Store's pointers
     type Ptr;
-    fn input(&self) -> &Self::Ptr;
-    fn output(&self) -> &Self::Ptr;
+    /// the type for the Store's continuation poitners
+    type ContPtr;
+    /// the type for the Store's errors
+    type Error: std::fmt::Debug;
+
+    /// interpreting a string representation of an expression
+    fn read(&self, expr: &str) -> Result<Self::Ptr, Self::Error>;
+    /// getting a pointer to the initial, empty environment
+    fn initial_empty_env(&self) -> Self::Ptr;
+    /// getting the terminal continuation pointer
+    fn get_cont_terminal(&self) -> Self::ContPtr;
+
+    /// hash-equality of the expressions represented by Ptrs
+    fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> Result<bool, Self::Error>;
 }
 
 /// Trait to support multiple `MultiFrame` implementations.
@@ -33,16 +52,16 @@ pub trait MultiFrameTrait<F: LurkField, C: Coprocessor<F>>:
     Provable<F> + Circuit<F> + StepCircuit<F>
 {
     /// The associated `Ptr` type
-    type Ptr;
+    type Ptr: std::fmt::Debug + PartialEq + Eq;
     /// The associated `Store` type
-    type Store: Send + Sync;
+    type Store: Send + Sync + EvaluationStore<Ptr = Self::Ptr>;
     /// The error type for the Store type
     type StoreError: Into<ProofError>;
 
     /// The associated `Frame` type
     type EvalFrame: FrameLike;
     /// The associated `CircuitFrame` type
-    type CircuitFrame: FrameLike<Ptr = <Self::EvalFrame as FrameLike>::Ptr>;
+    type CircuitFrame: FrameLike<FramePtr = <Self::EvalFrame as FrameLike>::FramePtr>;
     /// The associated type which manages global allocations
     type GlobalAllocation;
     /// The associated type of allocated input and output to the circuit
@@ -54,6 +73,9 @@ pub trait MultiFrameTrait<F: LurkField, C: Coprocessor<F>>:
     /// the chosen type of iterator for circuit frames (see `frames` below)
     type FrameIntoIter: IntoIterator<Item = Self::CircuitFrame, IntoIter = Self::FrameIter>;
 
+    /// Counting the number of non-trivial frames in the evaluation
+    fn significant_frame_count(frames: &[Self::EvalFrame]) -> usize;
+
     /// Evaluates and generates the frames of the computation given the expression, environment, and store
     fn get_evaluation_frames(
         prover: &impl Prover<F, C, Self>,
@@ -61,13 +83,12 @@ pub trait MultiFrameTrait<F: LurkField, C: Coprocessor<F>>:
         env: Self::Ptr,
         store: &mut Self::Store,
         limit: usize,
-        lang: &Lang<F, C>,
     ) -> Result<Vec<Self::EvalFrame>, ProofError>;
 
     /// Returns a public IO vector when equipped with the local store, and the Self::Frame's IO
     fn to_io_vector(
         store: &Self::Store,
-        frames: &<Self::EvalFrame as FrameLike>::Ptr,
+        frames: &<Self::EvalFrame as FrameLike>::FramePtr,
     ) -> Result<Vec<F>, Self::StoreError>;
 
     /// Returns true if the supplied instance directly precedes this one in a sequential computation trace.

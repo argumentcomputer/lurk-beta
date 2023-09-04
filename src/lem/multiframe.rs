@@ -8,8 +8,9 @@ use crate::{
     coprocessor::Coprocessor,
     eval::lang::Lang,
     field::LurkField,
-    proof::{FrameLike, MultiFrameTrait, Provable, Prover},
+    proof::{EvaluationStore, FrameLike, MultiFrameTrait, Provable, Prover},
     store,
+    tag::{ContTag, ExprTag}, ptr::ContPtr, state::initial_lurk_state,
 };
 
 use super::{
@@ -17,10 +18,10 @@ use super::{
     interpreter::Frame,
     pointers::Ptr,
     store::Store,
-    Func,
+    Func, Tag, eval::eval_step,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     pub store: Option<&'a Store<F>>,
     pub lang: Arc<Lang<F, C>>,
@@ -33,13 +34,49 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
 }
 
 impl<F: LurkField> FrameLike for Frame<F> {
-    type Ptr = Vec<Ptr<F>>;
+    type FramePtr = Vec<Ptr<F>>;
 
-    fn input(&self) -> &Self::Ptr {
+    fn input(&self) -> &Self::FramePtr {
         &self.input
     }
-    fn output(&self) -> &Self::Ptr {
+    fn output(&self) -> &Self::FramePtr {
         &self.output
+    }
+}
+
+impl<'a, F: LurkField, C: Coprocessor<F>> FrameLike for MultiFrame<'a, F, C> {
+    // See the annotation on the sister implementaiton in circuits/circuit_frame
+    // We *could* add an Error type here, but actually, this is a case where a builder pattern
+    // would resolve the initialization of these structures
+    type FramePtr = Vec<Ptr<F>>;
+
+    fn input(&self) -> &Self::FramePtr {
+        &self.input.unwrap()
+    }
+    fn output(&self) -> &Self::FramePtr {
+        &self.output.unwrap()
+    }
+}
+
+impl<F: LurkField> EvaluationStore for Store<F> {
+    type Ptr = Ptr<F>;
+    type ContPtr = Ptr<F>;
+    type Error = anyhow::Error;
+
+    fn read(&self, expr: &str) -> Result<Self::Ptr, Self::Error> {
+        self.read_with_default_state(expr)
+    }
+
+    fn initial_empty_env(&self) -> Self::Ptr {
+        self.intern_nil()
+    }
+
+    fn get_cont_terminal(&self) -> Self::ContPtr {
+        Ptr::null(Tag::Cont(ContTag::Terminal))
+    }
+
+    fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> Result<bool, Self::Error> {
+        Ok(self.hash_ptr(left)? == self.hash_ptr(right)?)
     }
 }
 
@@ -56,7 +93,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
 
     fn to_io_vector(
         store: &Self::Store,
-        frames: &<Self::EvalFrame as FrameLike>::Ptr,
+        frames: &<Self::EvalFrame as FrameLike>::FramePtr,
     ) -> Result<Vec<F>, Self::StoreError> {
         store
             .to_vector(frames)
@@ -221,9 +258,34 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
         env: Self::Ptr,
         store: &mut Self::Store,
         limit: usize,
-        lang: &Lang<F, C>,
     ) -> std::result::Result<Vec<Self::EvalFrame>, crate::error::ProofError> {
-        todo!()
+        // TODO: integrate https://github.com/lurk-lab/lurk-rs/commit/963a6361701efcaa78735d8fc9c927f518d8e31c
+        let input = vec![expr, env, Ptr::null(Tag::Cont(ContTag::Outermost))];
+        let state = initial_lurk_state();
+        let log_fmt = |i: usize, inp: &[Ptr<F>], emit: &[Ptr<F>], store: &Store<F>| {
+            let mut out = format!(
+                "Frame: {i}\n\tExpr: {}\n\tEnv:  {}\n\tCont: {}",
+                inp[0].fmt_to_string(store, state),
+                inp[1].fmt_to_string(store, state),
+                inp[2].fmt_to_string(store, state)
+            );
+            if let Some(ptr) = emit.first() {
+                out.push_str(&format!("\n\tEmtd: {}", ptr.fmt_to_string(store, state)));
+            }
+            out
+        };
+        let stop_cond = |output: &[Ptr<F>]| {
+            output[2] == Ptr::null(Tag::Cont(ContTag::Terminal)) || output[2] == Ptr::null(Tag::Cont(ContTag::Error))
+        };
+        let (frames, _, _) = eval_step().call_until(&input, store, stop_cond, limit, log_fmt)?;
+        Ok(frames)
+    }
+
+    fn significant_frame_count(frames: &[Self::EvalFrame]) -> usize {
+        let stop_cond = |output: &[Ptr<F>]| {
+            output[2] == Ptr::null(Tag::Cont(ContTag::Terminal)) || output[2] == Ptr::null(Tag::Cont(ContTag::Error))
+        };
+        frames.iter().rev().skip_while(|f| f.input == f.output && stop_cond(&f.output)).count()
     }
 }
 
