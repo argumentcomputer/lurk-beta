@@ -119,7 +119,7 @@ macro_rules! implies_equal {
             }),
             $condition,
             &equal,
-        )?;
+        );
     }};
 }
 
@@ -154,7 +154,7 @@ macro_rules! implies {
             }),
             $condition,
             $implication,
-        )?;
+        );
     }};
 }
 

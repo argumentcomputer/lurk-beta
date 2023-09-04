@@ -3288,11 +3288,13 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
 
         let open_expr = AllocatedPtr::alloc(&mut cs.namespace(|| "open_expr"), || {
             Ok(store.hash_expr(&open_expr_ptr).unwrap())
-        })?;
+        })
+        .expect("alloc was passed an unfallible closure, yet failed!");
 
         let open_secret = AllocatedNum::alloc(&mut cs.namespace(|| "open_secret"), || {
             Ok(open_secret_scalar)
-        })?;
+        })
+        .expect("alloc was passed an unfallible closure, yet failed!");
 
         let arg1 = AllocatedPtr::by_index(1, &continuation_components);
 
@@ -4890,12 +4892,12 @@ fn to_unsigned_integer_helper<F: LurkField, CS: ConstraintSystem<F>>(
     field_bn: &BigUint,
     field_elem_bits: &[Boolean],
     size: UnsignedInt,
-) -> Result<AllocatedNum<F>, SynthesisError> {
+) -> AllocatedNum<F> {
     let power_of_two_bn = BigUint::pow(&BigUint::from_u32(2).unwrap(), size.num_bits());
 
     let (q_bn, r_bn) = field_bn.div_rem(&power_of_two_bn);
-    let q_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "q"), &q_bn)?;
-    let r_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "r"), &r_bn)?;
+    let q_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "q"), &q_bn);
+    let r_num = allocate_unconstrained_bignum(&mut cs.namespace(|| "r"), &r_bn);
     let pow2_size = match size {
         UnsignedInt::U32 => &g.power2_32_num,
         UnsignedInt::U64 => &g.power2_64_num,
@@ -4916,9 +4918,9 @@ fn to_unsigned_integer_helper<F: LurkField, CS: ConstraintSystem<F>>(
         &mut cs.namespace(|| "enforce unsigned pack"),
         r_bits,
         &r_num,
-    )?;
+    );
 
-    Ok(r_num)
+    r_num
 }
 
 // Convert from num to unsigned integers by taking the least significant bits.
@@ -4945,7 +4947,7 @@ fn to_unsigned_integers<F: LurkField, CS: ConstraintSystem<F>>(
         &field_bn,
         &field_elem_bits,
         UnsignedInt::U32,
-    )?;
+    );
     let r64_num = to_unsigned_integer_helper(
         &mut cs.namespace(|| "enforce u64"),
         g,
@@ -4953,7 +4955,7 @@ fn to_unsigned_integers<F: LurkField, CS: ConstraintSystem<F>>(
         &field_bn,
         &field_elem_bits,
         UnsignedInt::U64,
-    )?;
+    );
 
     Ok((r32_num, r64_num))
 }
@@ -4975,7 +4977,7 @@ fn to_u64<F: LurkField, CS: ConstraintSystem<F>>(
         &field_bn,
         &field_elem_bits,
         UnsignedInt::U64,
-    )?;
+    );
 
     Ok(r64_num)
 }
@@ -5003,14 +5005,18 @@ fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
         (0, 0) // Dummy
     };
 
-    let alloc_r_num = AllocatedNum::alloc(&mut cs.namespace(|| "r num"), || Ok(F::from_u64(r)))?;
-    let alloc_q_num = AllocatedNum::alloc(&mut cs.namespace(|| "q num"), || Ok(F::from_u64(q)))?;
+    let alloc_r_num = AllocatedNum::alloc(&mut cs.namespace(|| "r num"), || Ok(F::from_u64(r)))
+        .expect("alloc was passed an unfallible closure, yet failed!");
+    let alloc_q_num = AllocatedNum::alloc(&mut cs.namespace(|| "q num"), || Ok(F::from_u64(q)))
+        .expect("alloc was passed an unfallible closure, yet failed!");
     let alloc_arg1_num = AllocatedNum::alloc(&mut cs.namespace(|| "arg1 num"), || {
         Ok(F::from_u64(arg1_u64))
-    })?;
+    })
+    .expect("alloc was passed an unfallible closure, yet failed!");
     let alloc_arg2_num = AllocatedNum::alloc(&mut cs.namespace(|| "arg2 num"), || {
         Ok(F::from_u64(arg2_u64))
-    })?;
+    })
+    .expect("alloc was passed an unfallible closure, yet failed!");
 
     // a = b * q + r
     let product_u64mod = mul(
@@ -5038,7 +5044,7 @@ fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
         &mut cs.namespace(|| "enforce u64 mod decomposition"),
         &b_is_not_zero_and_cond,
         &u64mod_decomp,
-    )?;
+    );
 
     enforce_less_than_bound(
         &mut cs.namespace(|| "remainder in range b"),
@@ -5071,7 +5077,8 @@ fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
         &mut cs.namespace(|| "enforce u64 range"),
         cond,
         &diff_bound_num_is_negative.not(),
-    )
+    );
+    Ok(())
 }
 
 // ATTENTION:
@@ -5082,13 +5089,13 @@ fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
 fn allocate_unconstrained_bignum<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     bn: &BigUint,
-) -> Result<AllocatedNum<F>, SynthesisError> {
+) -> AllocatedNum<F> {
     let bytes_le = bn.to_bytes_le();
     let mut bytes_padded = [0u8; 32];
     bytes_padded[0..bytes_le.len()].copy_from_slice(&bytes_le);
     let ff = F::from_bytes(&bytes_padded).unwrap();
-    let num = AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(ff)).unwrap();
-    Ok(num)
+    AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(ff))
+        .expect("alloc was passed an unfallible closure, yet failed!")
 }
 
 fn car_cdr_named<F: LurkField, CS: ConstraintSystem<F>>(
@@ -5370,7 +5377,7 @@ fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
         &mut cs.namespace(|| "is cons implies real cons"),
         not_dummy,
         &real_cons,
-    )?;
+    );
 
     Ok((allocated_car, allocated_cdr))
 }
@@ -5925,9 +5932,9 @@ mod tests {
             AllocatedNum::alloc(&mut cs.namespace(|| "most positive"), || {
                 Ok(Fr::most_positive())
             })
-            .unwrap();
-        let alloc_num =
-            AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(Fr::from_u64(42))).unwrap();
+            .expect("alloc was passed an unfallible closure, yet failed!");
+        let alloc_num = AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(Fr::from_u64(42)))
+            .expect("alloc was passed an unfallible closure, yet failed!");
         let cond = Boolean::Constant(true);
 
         let res = enforce_less_than_bound(
@@ -6047,8 +6054,7 @@ mod tests {
                 &mut cs.namespace(|| format!("popcount {x}")),
                 &bits,
                 popcount_result.get_variable(),
-            )
-            .unwrap();
+            );
         }
 
         assert!(cs.is_satisfied());
@@ -6078,8 +6084,7 @@ mod tests {
             &field_bn,
             &bits,
             UnsignedInt::U32,
-        )
-        .unwrap();
+        );
 
         assert_eq!(a, res.get_value().unwrap());
         assert!(cs.is_satisfied());
@@ -6109,8 +6114,7 @@ mod tests {
             &field_bn,
             &bits,
             UnsignedInt::U64,
-        )
-        .unwrap();
+        );
 
         assert_eq!(a, res.get_value().unwrap());
         assert!(cs.is_satisfied());
@@ -6122,7 +6126,7 @@ mod tests {
         let a_num =
             AllocatedNum::alloc(&mut cs.namespace(|| "a num"), || Ok(Fr::from_u64(42))).unwrap();
         let bits = a_num.to_bits_le(&mut cs.namespace(|| "bits")).unwrap();
-        enforce_pack(&mut cs, &bits, &a_num).unwrap();
+        enforce_pack(&mut cs, &bits, &a_num);
         assert!(cs.is_satisfied());
     }
 }
