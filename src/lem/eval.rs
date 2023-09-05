@@ -23,8 +23,10 @@ pub fn eval_step() -> &'static Func {
     })
 }
 
-pub fn evaluate<F: LurkField>(
+pub fn evaluate_with_env_and_cont<F: LurkField>(
     expr: Ptr<F>,
+    env: Ptr<F>,
+    cont: Ptr<F>,
     store: &mut Store<F>,
     limit: usize,
 ) -> Result<(Vec<Frame<F>>, usize)> {
@@ -45,10 +47,24 @@ pub fn evaluate<F: LurkField>(
         out
     };
 
-    let input = &[expr, store.intern_nil(), Ptr::null(Tag::Cont(Outermost))];
+    let input = &[expr, env, cont];
     let (frames, iterations, _) =
         eval_step().call_until(input, store, stop_cond, limit, log_fmt)?;
     Ok((frames, iterations))
+}
+
+pub fn evaluate<F: LurkField>(
+    expr: Ptr<F>,
+    store: &mut Store<F>,
+    limit: usize,
+) -> Result<(Vec<Frame<F>>, usize)> {
+    evaluate_with_env_and_cont(
+        expr,
+        store.intern_nil(),
+        Ptr::null(Tag::Cont(Outermost)),
+        store,
+        limit,
+    )
 }
 
 pub fn evaluate_simple<F: LurkField>(
