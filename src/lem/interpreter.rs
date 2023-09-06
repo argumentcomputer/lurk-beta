@@ -9,14 +9,14 @@ use super::{
 
 use crate::tag::ExprTag::*;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum PreimageData<F: LurkField> {
     PtrVec(Vec<Ptr<F>>),
     FPtr(F, Ptr<F>),
     FPair(F, F),
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 /// `Preimages` hold the non-deterministic advices for hashes and `Func` calls.
 /// The hash preimages must have the same shape as the allocated slots for the
 /// `Func`, and the `None` values are used to fill the unused slots, which are
@@ -55,7 +55,7 @@ impl<F: LurkField> Preimages<F> {
 /// running one iteration as a HashMap of variables to pointers.
 ///
 /// This information is used to generate the witness.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Frame<F: LurkField> {
     pub input: Vec<Ptr<F>>,
     pub output: Vec<Ptr<F>>,

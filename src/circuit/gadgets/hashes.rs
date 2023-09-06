@@ -17,7 +17,7 @@ use crate::hash_witness::{
 use crate::ptr::ContPtr;
 use crate::store::Store;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AllocatedHash<F: LurkField, PreimageType> {
     preimage: Vec<PreimageType>,
     digest: AllocatedNum<F>,
@@ -64,6 +64,7 @@ impl<Name: Debug, F: LurkField, PreimageType> Slot<Name, AllocatedHash<F, Preima
     }
 }
 
+#[derive(Debug)]
 pub struct AllocatedWitness<Name: Debug, AllocatedType> {
     #[allow(dead_code)]
     // pub(crate) witness: &'a VanillaWitness, // Sometimes used for debugging.
