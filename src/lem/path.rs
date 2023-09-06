@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use super::{Block, Ctrl, Func, Lit, Op, Tag};
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum PathNode {
     Tag(Tag),
     Lit(Lit),
@@ -21,7 +21,7 @@ impl std::fmt::Display for PathNode {
     }
 }
 
-#[derive(Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct Path(Vec<PathNode>);
 
 impl std::fmt::Display for Path {

@@ -36,7 +36,7 @@ use super::pointers::{Ptr, ZChildren, ZPtr};
 ///
 /// Lastly, we have a `HashMap` to hold committed data, which can be retrieved by
 /// the resulting commitment hash.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Store<F: LurkField> {
     tuple2: IndexSet<(Ptr<F>, Ptr<F>)>,
     tuple3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,

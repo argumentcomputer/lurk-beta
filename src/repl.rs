@@ -42,7 +42,7 @@ impl Validator for InputValidator {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ReplState<F: LurkField, C: Coprocessor<F>> {
     pub env: Ptr<F>,
     pub limit: usize,
@@ -50,6 +50,7 @@ pub struct ReplState<F: LurkField, C: Coprocessor<F>> {
     pub lang: Arc<Lang<F, C>>,
 }
 
+#[derive(Debug)]
 pub struct Repl<F: LurkField, T: ReplTrait<F, C>, C: Coprocessor<F>> {
     state: T,
     rl: Editor<InputValidator, DefaultHistory>,
