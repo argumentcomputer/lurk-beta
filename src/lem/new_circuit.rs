@@ -11,6 +11,7 @@ use bellpepper_core::{
     },
 };
 
+use crate::circuit::gadgets::data::hash_poseidon;
 use crate::lem::gadgets::elt_1::*;
 
 use crate::{
@@ -114,6 +115,8 @@ pub(crate) fn synthesize_func<F: LurkField, CS: ConstraintSystem<F>>(
     )?;
     let outputs = alloc_frame_output(cs.namespace(|| "synth output"), store, frame)?;
     assert_eq!(outputs.len(), func.output_size * 2);
+    let advices = &mut build_func_advices(cs.namespace(|| "advices"), func, store, frame)?;
+    let slot_pos = &mut SlotsCounter::default();
     synthesize_func_aux(
         cs,
         &func.body,
@@ -121,6 +124,8 @@ pub(crate) fn synthesize_func<F: LurkField, CS: ConstraintSystem<F>>(
         store,
         bound_allocations,
         &outputs,
+        slot_pos,
+        advices,
     )?;
     Ok(outputs)
 }
@@ -132,6 +137,8 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
     store: &mut Store<F>,
     bound_allocations: &mut BoundAllocations<F>,
     outputs: &Vec<AllocatedNum<F>>,
+    slot_pos: &mut SlotsCounter,
+    advices: &mut Advices<F>,
 ) -> Result<()> {
     for (i, op) in block.ops.iter().enumerate() {
         let mut cs = cs.namespace(|| format!("op {i}"));
@@ -286,6 +293,7 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
                 &is_not_eq,
                 not_dummy,
             )?;
+            let mut branch_slot = *slot_pos;
             synthesize_func_aux(
                 cs.namespace(|| "equal block"),
                 eq_block,
@@ -293,6 +301,8 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
                 store,
                 bound_allocations,
                 outputs,
+                &mut branch_slot,
+                advices,
             )?;
             synthesize_func_aux(
                 cs.namespace(|| "else block"),
@@ -301,12 +311,16 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
                 store,
                 bound_allocations,
                 outputs,
+                slot_pos,
+                advices,
             )?;
+            *slot_pos = slot_pos.max(branch_slot);
             Ok(())
         }
         Ctrl::MatchTag(match_var, cases, def) => {
             let match_tag = bound_allocations.get_ptr(match_var)?.0.clone();
             let mut selector = Vec::with_capacity(cases.len() + usize::from(def.is_some()));
+            let mut branch_slots = Vec::with_capacity(cases.len());
             for (tag, block) in cases {
                 let matched = Boolean::Is(AllocatedBit::alloc(
                     cs.namespace(|| format!("{tag} allocated bit")),
@@ -323,6 +337,7 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
                     &Elt::Constant(tag.to_field()),
                 );
                 selector.push(matched.clone());
+                let mut branch_slot = *slot_pos;
                 synthesize_func_aux(
                     cs.namespace(|| format!("{tag} block")),
                     block,
@@ -330,7 +345,10 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
                     store,
                     bound_allocations,
                     outputs,
+                    &mut branch_slot,
+                    advices,
                 )?;
+                branch_slots.push(branch_slot);
             }
             if let Some(def) = def {
                 let matched = Boolean::Is(AllocatedBit::alloc(
@@ -355,8 +373,14 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
                     store,
                     bound_allocations,
                     outputs,
+                    slot_pos,
+                    advices,
                 )?;
             }
+            // The number of slots the match used is the max number of slots of each branch
+            *slot_pos = branch_slots
+                .into_iter()
+                .fold(*slot_pos, |acc, branch_slot| acc.max(branch_slot));
             implies_popcount(
                 cs.namespace(|| "popcount"),
                 not_dummy,
@@ -368,6 +392,7 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
         Ctrl::MatchVal(match_var, cases, def) => {
             let match_lit = bound_allocations.get_ptr(match_var)?.1.clone();
             let mut selector = Vec::with_capacity(cases.len() + usize::from(def.is_some()));
+            let mut branch_slots = Vec::with_capacity(cases.len());
             for (i, (lit, block)) in cases.iter().enumerate() {
                 let lit_ptr = lit.to_ptr(store);
                 let lit_hash = store.hash_ptr(&lit_ptr)?.hash;
@@ -386,6 +411,7 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
                     &Elt::Constant(lit_hash),
                 );
                 selector.push(matched.clone());
+                let mut branch_slot = *slot_pos;
                 synthesize_func_aux(
                     cs.namespace(|| format!("{i} block")),
                     block,
@@ -393,7 +419,10 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
                     store,
                     bound_allocations,
                     outputs,
+                    &mut branch_slot,
+                    advices,
                 )?;
+                branch_slots.push(branch_slot);
             }
             if let Some(def) = def {
                 let matched = Boolean::Is(AllocatedBit::alloc(
@@ -420,8 +449,15 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
                     store,
                     bound_allocations,
                     outputs,
+                    slot_pos,
+                    advices,
                 )?;
             }
+            // The number of slots the match used is the max number of slots of each branch
+            *slot_pos = branch_slots
+                .into_iter()
+                .fold(*slot_pos, |acc, branch_slot| acc.max(branch_slot));
+
             implies_popcount(
                 cs.namespace(|| "popcount"),
                 not_dummy,
@@ -431,4 +467,223 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
             Ok(())
         }
     }
+}
+
+#[derive(Default)]
+pub(crate) struct Advices<F: LurkField> {
+    hash2: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
+    hash3: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
+    hash4: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
+    commitment: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
+    less_than: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
+    call_output: VecDeque<Vec<Ptr<F>>>,
+}
+
+fn build_func_advices<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    func: &Func,
+    store: &mut Store<F>,
+    frame: &Frame<F>,
+) -> Result<Advices<F>> {
+    // Slots are constrained by their usage inside the function body. The ones
+    // not used in throughout the concrete path are effectively unconstrained,
+    // that's why they are filled with dummies
+    let hash2 = alloc_slots(
+        cs.namespace(|| "hash2 slots"),
+        &frame.preimages.hash2,
+        SlotType::Hash2,
+        func.slot.hash2,
+        store,
+    )?;
+
+    let hash3 = alloc_slots(
+        cs.namespace(|| "hash3 slots"),
+        &frame.preimages.hash3,
+        SlotType::Hash3,
+        func.slot.hash3,
+        store,
+    )?;
+
+    let hash4 = alloc_slots(
+        cs.namespace(|| "hash4 slots"),
+        &frame.preimages.hash4,
+        SlotType::Hash4,
+        func.slot.hash4,
+        store,
+    )?;
+
+    let commitment = alloc_slots(
+        cs.namespace(|| "commitment slots"),
+        &frame.preimages.commitment,
+        SlotType::Commitment,
+        func.slot.commitment,
+        store,
+    )?;
+
+    let less_than = alloc_slots(
+        cs.namespace(|| "lt slots"),
+        &frame.preimages.less_than,
+        SlotType::LessThan,
+        func.slot.less_than,
+        store,
+    )?;
+
+    let call_output = frame.preimages.call_outputs.clone();
+
+    Ok(Advices {
+        hash2,
+        hash3,
+        hash4,
+        commitment,
+        less_than,
+        call_output,
+    })
+}
+
+/// Allocates unconstrained slots
+fn alloc_slots<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    preimg_data: &[Option<PreimageData<F>>],
+    slot_type: SlotType,
+    num_slots: usize,
+    store: &mut Store<F>,
+) -> Result<Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>> {
+    assert!(
+        preimg_data.len() == num_slots,
+        "collected preimages not equal to the number of available slots"
+    );
+
+    let mut preallocations = Vec::with_capacity(num_slots);
+
+    // We must perform the allocations for the slots containing data collected
+    // by the interpreter. The `None` cases must be filled with dummy values
+    for (slot_idx, maybe_preimg_data) in preimg_data.iter().enumerate() {
+        if let Some(preimg_data) = maybe_preimg_data {
+            let slot = Slot {
+                idx: slot_idx,
+                typ: slot_type,
+            };
+
+            // Allocate the preimage because the image depends on it
+            let mut preallocated_preimg = Vec::with_capacity(slot_type.preimg_size());
+
+            match preimg_data {
+                PreimageData::PtrVec(ptr_vec) => {
+                    let mut component_idx = 0;
+                    for ptr in ptr_vec {
+                        let z_ptr = store.hash_ptr(ptr)?;
+
+                        // allocate pointer tag
+                        preallocated_preimg.push(AllocatedNum::alloc(
+                            cs.namespace(|| format!("component {component_idx} for slot {slot}")),
+                            || Ok(z_ptr.tag.to_field()),
+                        )?);
+
+                        component_idx += 1;
+
+                        // allocate pointer hash
+                        preallocated_preimg.push(AllocatedNum::alloc(
+                            cs.namespace(|| format!("component {component_idx} for slot {slot}")),
+                            || Ok(z_ptr.hash),
+                        )?);
+
+                        component_idx += 1;
+                    }
+                }
+                PreimageData::FPtr(f, ptr) => {
+                    let z_ptr = store.hash_ptr(ptr)?;
+                    // allocate first component
+                    preallocated_preimg.push(AllocatedNum::alloc(
+                        cs.namespace(|| format!("component 0 for slot {slot}")),
+                        || Ok(*f),
+                    )?);
+                    // allocate second component
+                    preallocated_preimg.push(AllocatedNum::alloc(
+                        cs.namespace(|| format!("component 1 for slot {slot}")),
+                        || Ok(z_ptr.tag.to_field()),
+                    )?);
+                    // allocate third component
+                    preallocated_preimg.push(AllocatedNum::alloc(
+                        cs.namespace(|| format!("component 2 for slot {slot}")),
+                        || Ok(z_ptr.hash),
+                    )?);
+                }
+                PreimageData::FPair(a, b) => {
+                    // allocate first component
+                    preallocated_preimg.push(AllocatedNum::alloc(
+                        cs.namespace(|| format!("component 0 for slot {slot}")),
+                        || Ok(*a),
+                    )?);
+
+                    // allocate second component
+                    preallocated_preimg.push(AllocatedNum::alloc(
+                        cs.namespace(|| format!("component 1 for slot {slot}")),
+                        || Ok(*b),
+                    )?);
+                }
+            }
+
+            // Allocate the image by calling the arithmetic function according
+            // to the slot type
+            let preallocated_img = alloc_img(
+                cs.namespace(|| format!("image for slot {slot}")),
+                &slot,
+                preallocated_preimg.clone(),
+                store,
+            )?;
+
+            preallocations.push((preallocated_preimg, preallocated_img));
+        } else {
+            let slot = Slot {
+                idx: slot_idx,
+                typ: slot_type,
+            };
+            let preallocated_preimg: Vec<_> = (0..slot_type.preimg_size())
+                .map(|component_idx| {
+                    AllocatedNum::alloc(
+                        cs.namespace(|| format!("component {component_idx} for slot {slot}")),
+                        || Ok(F::ZERO),
+                    )
+                })
+                .collect::<Result<_, _>>()?;
+
+            let preallocated_img = alloc_img(
+                cs.namespace(|| format!("image for slot {slot}")),
+                &slot,
+                preallocated_preimg.clone(),
+                store,
+            )?;
+
+            preallocations.push((preallocated_preimg, preallocated_img));
+        }
+    }
+
+    Ok(preallocations)
+}
+
+fn alloc_img<F: LurkField, CS: ConstraintSystem<F>>(
+    mut cs: CS,
+    slot: &Slot,
+    preimg: Vec<AllocatedNum<F>>,
+    store: &mut Store<F>,
+) -> Result<AllocatedNum<F>> {
+    let img = {
+        match slot.typ {
+            SlotType::Hash2 => hash_poseidon(cs, preimg, store.poseidon_cache.constants.c4())?,
+            SlotType::Hash3 => hash_poseidon(cs, preimg, store.poseidon_cache.constants.c6())?,
+            SlotType::Hash4 => hash_poseidon(cs, preimg, store.poseidon_cache.constants.c8())?,
+            SlotType::Commitment => hash_poseidon(cs, preimg, store.poseidon_cache.constants.c3())?,
+            SlotType::LessThan => {
+                // TODO return `Elt` instead of `AllocatedNum`
+                // Maybe `preimg` should also be `Elt`
+                use crate::circuit::gadgets::constraints::boolean_to_num;
+                let a_num = Elt::from(preimg[0].clone());
+                let b_num = Elt::from(preimg[1].clone());
+                let diff = a_num.sub::<CS>(&b_num);
+                let diff_is_negative = alloc_is_negative(cs.namespace(|| "is negative"), &diff)?;
+                boolean_to_num(cs.namespace(|| "boolean to num"), &diff_is_negative)?
+            }
+        }
+    };
+    Ok(img)
 }
