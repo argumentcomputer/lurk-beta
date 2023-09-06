@@ -3291,10 +3291,10 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
         })
         .expect("alloc was passed an unfallible closure, yet failed!");
 
-        let open_secret = AllocatedNum::alloc(&mut cs.namespace(|| "open_secret"), || {
-            Ok(open_secret_scalar)
-        })
-        .expect("alloc was passed an unfallible closure, yet failed!");
+        let open_secret =
+            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "open_secret"), || {
+                open_secret_scalar
+            });
 
         let arg1 = AllocatedPtr::by_index(1, &continuation_components);
 
@@ -5005,18 +5005,14 @@ fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
         (0, 0) // Dummy
     };
 
-    let alloc_r_num = AllocatedNum::alloc(&mut cs.namespace(|| "r num"), || Ok(F::from_u64(r)))
-        .expect("alloc was passed an unfallible closure, yet failed!");
-    let alloc_q_num = AllocatedNum::alloc(&mut cs.namespace(|| "q num"), || Ok(F::from_u64(q)))
-        .expect("alloc was passed an unfallible closure, yet failed!");
-    let alloc_arg1_num = AllocatedNum::alloc(&mut cs.namespace(|| "arg1 num"), || {
-        Ok(F::from_u64(arg1_u64))
-    })
-    .expect("alloc was passed an unfallible closure, yet failed!");
-    let alloc_arg2_num = AllocatedNum::alloc(&mut cs.namespace(|| "arg2 num"), || {
-        Ok(F::from_u64(arg2_u64))
-    })
-    .expect("alloc was passed an unfallible closure, yet failed!");
+    let alloc_r_num =
+        AllocatedNum::alloc_infallible(&mut cs.namespace(|| "r num"), || F::from_u64(r));
+    let alloc_q_num =
+        AllocatedNum::alloc_infallible(&mut cs.namespace(|| "q num"), || F::from_u64(q));
+    let alloc_arg1_num =
+        AllocatedNum::alloc_infallible(&mut cs.namespace(|| "arg1 num"), || F::from_u64(arg1_u64));
+    let alloc_arg2_num =
+        AllocatedNum::alloc_infallible(&mut cs.namespace(|| "arg2 num"), || F::from_u64(arg2_u64));
 
     // a = b * q + r
     let product_u64mod = mul(
@@ -5094,8 +5090,7 @@ fn allocate_unconstrained_bignum<F: LurkField, CS: ConstraintSystem<F>>(
     let mut bytes_padded = [0u8; 32];
     bytes_padded[0..bytes_le.len()].copy_from_slice(&bytes_le);
     let ff = F::from_bytes(&bytes_padded).unwrap();
-    AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(ff))
-        .expect("alloc was passed an unfallible closure, yet failed!")
+    AllocatedNum::alloc_infallible(&mut cs.namespace(|| "num"), || ff)
 }
 
 fn car_cdr_named<F: LurkField, CS: ConstraintSystem<F>>(
@@ -5929,12 +5924,11 @@ mod tests {
         let mut cs = TestConstraintSystem::<Fr>::new();
 
         let alloc_most_positive =
-            AllocatedNum::alloc(&mut cs.namespace(|| "most positive"), || {
-                Ok(Fr::most_positive())
-            })
-            .expect("alloc was passed an unfallible closure, yet failed!");
-        let alloc_num = AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(Fr::from_u64(42)))
-            .expect("alloc was passed an unfallible closure, yet failed!");
+            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "most positive"), || {
+                Fr::most_positive()
+            });
+        let alloc_num =
+            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "num"), || Fr::from_u64(42));
         let cond = Boolean::Constant(true);
 
         let res = enforce_less_than_bound(

@@ -1160,10 +1160,8 @@ mod tests {
         fn prop_add_constraint((x, y) in any::<(FWrap<Fr>, FWrap<Fr>)>()) {
             let mut cs = TestConstraintSystem::<Fr>::new();
 
-            let a = AllocatedNum::alloc(cs.namespace(|| "a"), || Ok(x.0))
-                .expect("alloc failed");
-            let b = AllocatedNum::alloc(cs.namespace(|| "b"), || Ok(y.0))
-                .expect("alloc failed");
+            let a = AllocatedNum::alloc_infallible(cs.namespace(|| "a"), || x.0);
+            let b = AllocatedNum::alloc_infallible(cs.namespace(|| "b"), || y.0);
 
             let res = add(cs.namespace(|| "a+b"), &a, &b).expect("add failed");
 
@@ -1180,10 +1178,8 @@ mod tests {
 
                let mut cs = TestConstraintSystem::<Fr>::new();
 
-            let a = AllocatedNum::alloc(cs.namespace(|| "a"), || Ok(x.0))
-                .expect("alloc failed");
-            let b = AllocatedNum::alloc(cs.namespace(|| "b"), || Ok(y.0))
-                .expect("alloc failed");
+            let a = AllocatedNum::alloc_infallible(cs.namespace(|| "a"), || x.0);
+            let b = AllocatedNum::alloc_infallible(cs.namespace(|| "b"), || y.0);
 
             let res = sub(cs.namespace(|| "a-b"), &a, &b).expect("subtraction failed");
 

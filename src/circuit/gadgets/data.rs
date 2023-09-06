@@ -171,10 +171,9 @@ impl<F: LurkField> GlobalAllocations<F> {
             Op2::Quotient.allocate_constant(&mut cs.namespace(|| "op2_quotient_tag"));
         let op2_modulo_tag = Op2::Modulo.allocate_constant(&mut cs.namespace(|| "op2_modulo_tag"));
         let op2_numequal_tag =
-            AllocatedNum::alloc(&mut cs.namespace(|| "op2_numequal_tag"), || {
-                Ok(Op2::NumEqual.to_field())
-            })
-            .expect("alloc was passed an unfallible closure, yet failed!");
+            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "op2_numequal_tag"), || {
+                Op2::NumEqual.to_field()
+            });
         let op2_less_tag = Op2::Less.allocate_constant(&mut cs.namespace(|| "op2_less_tag"));
         let op2_less_equal_tag =
             Op2::LessEqual.allocate_constant(&mut cs.namespace(|| "op2_less_equal_tag"));
@@ -182,10 +181,10 @@ impl<F: LurkField> GlobalAllocations<F> {
             Op2::Greater.allocate_constant(&mut cs.namespace(|| "op2_greater_tag"));
         let op2_greater_equal_tag =
             Op2::GreaterEqual.allocate_constant(&mut cs.namespace(|| "op2_greater_equal_tag"));
-        let op2_equal_tag = AllocatedNum::alloc(&mut cs.namespace(|| "op2_equal_tag"), || {
-            Ok(Op2::Equal.to_field())
-        })
-        .expect("alloc was passed an unfallible closure, yet failed!");
+        let op2_equal_tag =
+            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "op2_equal_tag"), || {
+                Op2::Equal.to_field()
+            });
 
         let c = store.expect_constants();
 
@@ -385,8 +384,7 @@ pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     val: F,
 ) -> AllocatedNum<F> {
-    let allocated = AllocatedNum::<F>::alloc(cs.namespace(|| "allocate"), || Ok(val))
-        .expect("alloc was passed an unfallible closure, yet failed!");
+    let allocated = AllocatedNum::<F>::alloc_infallible(cs.namespace(|| "allocate"), || val);
 
     // allocated * 1 = val
     cs.enforce(
