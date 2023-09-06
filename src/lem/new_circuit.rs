@@ -2,7 +2,7 @@
 #![allow(unused_imports)]
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use bellpepper_core::{
     ConstraintSystem, SynthesisError,
     {
@@ -34,7 +34,24 @@ pub(crate) enum CircuitPtr<F: PrimeField> {
     Ptr(Elt<F>, Elt<F>),
     Bool(Boolean),
 }
+
 type BoundAllocations<F> = VarMap<CircuitPtr<F>>;
+
+impl<F: PrimeField> BoundAllocations<F> {
+    fn get_ptr(&self, var: &Var) -> Result<(&Elt<F>, &Elt<F>)> {
+        if let CircuitPtr::Ptr(tag, hash) = self.get(var)? {
+            return Ok((tag, hash));
+        }
+        bail!("Expected {var} to be a pointer")
+    }
+
+    fn get_bool(&self, var: &Var) -> Result<&Boolean> {
+        if let CircuitPtr::Bool(b) = self.get(var)? {
+            return Ok(b);
+        }
+        bail!("Expected {var} to be a boolean")
+    }
+}
 
 fn alloc_zptr<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
@@ -96,12 +113,14 @@ pub(crate) fn synthesize_func<F: LurkField, CS: ConstraintSystem<F>>(
         bound_allocations,
     )?;
     let outputs = alloc_frame_output(cs.namespace(|| "synth output"), store, frame)?;
+    assert_eq!(outputs.len(), func.output_size * 2);
     synthesize_func_aux(
         cs,
         &func.body,
         &Boolean::Constant(true),
         store,
         bound_allocations,
+        &outputs,
     )?;
     Ok(outputs)
 }
@@ -112,6 +131,7 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
     not_dummy: &Boolean,
     store: &mut Store<F>,
     bound_allocations: &mut BoundAllocations<F>,
+    outputs: &Vec<AllocatedNum<F>>,
 ) -> Result<()> {
     for op in &block.ops {
         match op {
@@ -184,7 +204,24 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
 
     match &block.ctrl {
         Ctrl::Return(return_vars) => {
-            todo!()
+            for (i, return_var) in return_vars.iter().enumerate() {
+                let (tag, hash) = bound_allocations.get_ptr(return_var)?;
+                let out_tag = Elt::from(outputs[2 * i].clone());
+                let out_hash = Elt::from(outputs[2 * i + 1].clone());
+                implies_equal(
+                    cs.namespace(|| format!("return {i} tag")),
+                    not_dummy,
+                    tag,
+                    &out_tag,
+                );
+                implies_equal(
+                    cs.namespace(|| format!("return {i} hash")),
+                    not_dummy,
+                    hash,
+                    &out_hash,
+                );
+            }
+            Ok(())
         }
         Ctrl::IfEq(x, y, eq_block, else_block) => {
             todo!()
