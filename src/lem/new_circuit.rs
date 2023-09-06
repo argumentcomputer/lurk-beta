@@ -224,7 +224,29 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
             Ok(())
         }
         Ctrl::IfEq(x, y, eq_block, else_block) => {
-            todo!()
+            let (_, x_hash) = bound_allocations.get_ptr(x)?;
+            let (_, y_hash) = bound_allocations.get_ptr(y)?;
+            let is_eq = alloc_is_equal(cs.namespace(|| "is_eq"), x_hash, y_hash)?;
+            let is_not_eq = is_eq.not();
+            let not_dummy_eq = Boolean::and(cs.namespace(|| "not_dummy_eq"), &is_eq, not_dummy)?;
+            let not_dummy_not_eq = Boolean::and(cs.namespace(|| "not_dummy_not_eq"), &is_not_eq, not_dummy)?;
+            synthesize_func_aux(
+                cs.namespace(|| "eq_block"),
+                eq_block,
+                &not_dummy_eq,
+                store,
+                bound_allocations,
+                outputs,
+            )?;
+            synthesize_func_aux(
+                cs.namespace(|| "else_block"),
+                else_block,
+                &not_dummy_not_eq,
+                store,
+                bound_allocations,
+                outputs,
+            )?;
+            Ok(())
         }
         Ctrl::MatchTag(match_var, cases, def) => {
             todo!()
