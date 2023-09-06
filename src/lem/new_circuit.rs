@@ -226,12 +226,17 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
         Ctrl::IfEq(x, y, eq_block, else_block) => {
             let (_, x_hash) = bound_allocations.get_ptr(x)?;
             let (_, y_hash) = bound_allocations.get_ptr(y)?;
-            let is_eq = alloc_is_equal(cs.namespace(|| "is_eq"), x_hash, y_hash)?;
+            let is_eq = alloc_is_equal(cs.namespace(|| "is equal"), x_hash, y_hash)?;
             let is_not_eq = is_eq.not();
-            let not_dummy_eq = Boolean::and(cs.namespace(|| "not_dummy_eq"), &is_eq, not_dummy)?;
-            let not_dummy_not_eq = Boolean::and(cs.namespace(|| "not_dummy_not_eq"), &is_not_eq, not_dummy)?;
+            let not_dummy_eq =
+                Boolean::and(cs.namespace(|| "not dummy equal"), &is_eq, not_dummy)?;
+            let not_dummy_not_eq = Boolean::and(
+                cs.namespace(|| "not dummy not equal"),
+                &is_not_eq,
+                not_dummy,
+            )?;
             synthesize_func_aux(
-                cs.namespace(|| "eq_block"),
+                cs.namespace(|| "equal block"),
                 eq_block,
                 &not_dummy_eq,
                 store,
@@ -239,7 +244,7 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
                 outputs,
             )?;
             synthesize_func_aux(
-                cs.namespace(|| "else_block"),
+                cs.namespace(|| "else block"),
                 else_block,
                 &not_dummy_not_eq,
                 store,
@@ -249,10 +254,130 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
             Ok(())
         }
         Ctrl::MatchTag(match_var, cases, def) => {
-            todo!()
+            let match_tag = bound_allocations.get_ptr(match_var)?.0.clone();
+            let mut selector = Vec::with_capacity(cases.len() + usize::from(def.is_some()));
+            for (tag, block) in cases {
+                let matched = Boolean::Is(AllocatedBit::alloc(
+                    cs.namespace(|| format!("{tag} allocated bit")),
+                    not_dummy.get_value().and_then(|not_dummy| {
+                        match_tag
+                            .get_value()
+                            .map(|val| not_dummy && *val == tag.to_field::<F>())
+                    }),
+                )?);
+                implies_equal(
+                    cs.namespace(|| format!("{tag} implies equal")),
+                    &matched,
+                    &match_tag,
+                    &Elt::Constant(tag.to_field()),
+                );
+                selector.push(matched.clone());
+                synthesize_func_aux(
+                    cs.namespace(|| format!("{tag} block")),
+                    block,
+                    &matched,
+                    store,
+                    bound_allocations,
+                    outputs,
+                )?;
+            }
+            if let Some(def) = def {
+                let matched = Boolean::Is(AllocatedBit::alloc(
+                    cs.namespace(|| "_ allocated bit"),
+                    selector.iter().fold(not_dummy.get_value(), |acc, b| {
+                        acc.and_then(|acc| b.get_value().map(|b| acc && !b))
+                    }),
+                )?);
+                for (tag, _) in cases {
+                    implies_unequal(
+                        cs.namespace(|| format!("{tag} implies unequal")),
+                        &matched,
+                        &match_tag,
+                        &Elt::Constant(tag.to_field()),
+                    )?;
+                }
+                selector.push(matched.clone());
+                synthesize_func_aux(
+                    cs.namespace(|| "_ block"),
+                    def,
+                    &matched,
+                    store,
+                    bound_allocations,
+                    outputs,
+                )?;
+            }
+            implies_popcount(
+                cs.namespace(|| "popcount"),
+                not_dummy,
+                &Elt::Constant(F::ONE),
+                &selector,
+            );
+            Ok(())
         }
         Ctrl::MatchVal(match_var, cases, def) => {
-            todo!()
+            let match_lit = bound_allocations.get_ptr(match_var)?.1.clone();
+            let mut selector = Vec::with_capacity(cases.len() + usize::from(def.is_some()));
+            for (i, (lit, block)) in cases.iter().enumerate() {
+                let lit_ptr = lit.to_ptr(store);
+                let lit_hash = store.hash_ptr(&lit_ptr)?.hash;
+                let matched = Boolean::Is(AllocatedBit::alloc(
+                    cs.namespace(|| format!("{i} allocated bit")),
+                    not_dummy.get_value().and_then(|not_dummy| {
+                        match_lit
+                            .get_value()
+                            .map(|val| not_dummy && *val == lit_hash)
+                    }),
+                )?);
+                implies_equal(
+                    cs.namespace(|| format!("{i} implies equal")),
+                    &matched,
+                    &match_lit,
+                    &Elt::Constant(lit_hash),
+                );
+                selector.push(matched.clone());
+                synthesize_func_aux(
+                    cs.namespace(|| format!("{i} block")),
+                    block,
+                    &matched,
+                    store,
+                    bound_allocations,
+                    outputs,
+                )?;
+            }
+            if let Some(def) = def {
+                let matched = Boolean::Is(AllocatedBit::alloc(
+                    cs.namespace(|| "_ allocated bit"),
+                    selector.iter().fold(not_dummy.get_value(), |acc, b| {
+                        acc.and_then(|acc| b.get_value().map(|b| acc && !b))
+                    }),
+                )?);
+                for (i, (lit, _)) in cases.iter().enumerate() {
+                    let lit_ptr = lit.to_ptr(store);
+                    let lit_hash = store.hash_ptr(&lit_ptr)?.hash;
+                    implies_unequal(
+                        cs.namespace(|| format!("{i} implies unequal")),
+                        &matched,
+                        &match_lit,
+                        &Elt::Constant(lit_hash),
+                    )?;
+                }
+                selector.push(matched.clone());
+                synthesize_func_aux(
+                    cs.namespace(|| "_ block"),
+                    def,
+                    &matched,
+                    store,
+                    bound_allocations,
+                    outputs,
+                )?;
+            }
+            implies_popcount(
+                cs.namespace(|| "popcount"),
+                not_dummy,
+                &Elt::Constant(F::ONE),
+                &selector,
+            );
+            Ok(())
         }
     }
 }
