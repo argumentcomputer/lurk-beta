@@ -10,22 +10,27 @@ where
     value.serialize(&Serializer)
 }
 
+#[derive(Debug)]
 pub struct Serializer;
 
+#[derive(Debug)]
 pub struct SerializeCell {
     cell: Vec<ZData>,
 }
 
+#[derive(Debug)]
 pub struct SerializeMap {
     cell: Vec<ZData>,
     next_key: Option<ZData>,
 }
 
+#[derive(Debug)]
 pub struct SerializeTupleVariant {
     variant_index: u32,
     cell: Vec<ZData>,
 }
 
+#[derive(Debug)]
 pub struct StructSerializer<'a> {
     ser: &'a Serializer,
     cell: Vec<ZData>,

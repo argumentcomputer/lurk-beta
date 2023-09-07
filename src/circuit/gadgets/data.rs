@@ -16,7 +16,7 @@ use crate::z_ptr::{ZContPtr, ZExprPtr};
 
 use super::pointer::{AllocatedContPtr, AllocatedPtr};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GlobalAllocations<F: LurkField> {
     pub terminal_ptr: AllocatedContPtr<F>,
     pub error_ptr_cont: AllocatedContPtr<F>,

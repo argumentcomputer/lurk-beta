@@ -92,7 +92,7 @@ pub fn public_param_dir() -> Utf8PathBuf {
 }
 
 // Number of circuit reductions per step, equivalent to `chunk_frame_count`
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ReductionCount {
     One,
     Five,

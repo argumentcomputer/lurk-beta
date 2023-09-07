@@ -75,7 +75,7 @@ fn load_srs() -> Result<GenericSRS<Bls12>, io::Error> {
 }
 
 /// A struct representing a proof using the Groth16 proving system with the specified engine.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Proof<E: Engine + MultiMillerLoop>
 where
     <E as Engine>::Gt: blstrs::Compress + Serialize,
@@ -245,6 +245,7 @@ impl<'a, C: Coprocessor<Scalar>, M: MultiFrameTrait<'a, Scalar, C>>
 
 /// A prover struct for the Groth16 proving system.
 /// Implements the crate::Prover trait.
+#[derive(Debug)]
 pub struct Groth16Prover<
     'a,
     E: Engine + MultiMillerLoop,

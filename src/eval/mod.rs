@@ -538,6 +538,7 @@ pub fn eval_to_ptr<F: LurkField, C: Coprocessor<F>>(
         .expr)
 }
 
+#[derive(Debug)]
 pub struct Evaluator<'a, F: LurkField, C: Coprocessor<F>> {
     expr: Ptr<F>,
     env: Ptr<F>,

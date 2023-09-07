@@ -29,6 +29,7 @@ impl From<usize> for HashArity {
     }
 }
 
+#[derive(Debug)]
 pub enum HashConst<'a, F: LurkField> {
     A3(&'a PoseidonConstants<F, U3>),
     A4(&'a PoseidonConstants<F, U4>),

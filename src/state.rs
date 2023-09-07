@@ -12,6 +12,7 @@ use crate::Symbol;
 use super::package::{Package, SymbolRef};
 
 /// Keeps track of the current package for symbol resolution when reading and printing
+#[derive(Debug)]
 pub struct State {
     current_package: SymbolRef,
     symbol_packages: HashMap<SymbolRef, Package>,

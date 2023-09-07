@@ -4,7 +4,7 @@ use crate::Symbol;
 
 use super::{Block, Ctrl, Func, Op, Tag};
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum PathNode {
     Tag(Tag),
     Symbol(Symbol),
@@ -23,7 +23,7 @@ impl std::fmt::Display for PathNode {
     }
 }
 
-#[derive(Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct Path(Vec<PathNode>);
 
 impl std::fmt::Display for Path {

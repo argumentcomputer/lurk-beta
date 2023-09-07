@@ -8,6 +8,7 @@ use crate::Symbol;
 
 pub type SymbolRef = Arc<Symbol>;
 
+#[derive(Debug)]
 pub struct Package {
     name: SymbolRef,
     symbols: HashMap<String, SymbolRef>,

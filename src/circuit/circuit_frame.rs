@@ -56,7 +56,7 @@ pub struct CircuitFrame<'a, F: LurkField, C: Coprocessor<F>> {
     _p: PhantomData<C>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     pub store: Option<&'a Store<F>>,
     pub lang: Option<Arc<Lang<F, C>>>,

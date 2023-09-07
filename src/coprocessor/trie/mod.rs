@@ -155,6 +155,7 @@ pub fn install<F: LurkField>(
 pub type ChildMap<F, const ARITY: usize> = InversePoseidonCache<F>;
 
 /// A sparse Trie.
+#[derive(Debug)]
 pub struct Trie<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> {
     root: F,
     empty_roots: [F; HEIGHT],
@@ -162,6 +163,7 @@ pub struct Trie<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> {
     children: &'a mut ChildMap<F, ARITY>,
 }
 
+#[derive(Debug)]
 pub struct LookupProof<F: LurkField, const ARITY: usize, const HEIGHT: usize> {
     preimage_path: PreimagePath<F, ARITY>,
 }
@@ -188,6 +190,7 @@ impl<F: LurkField, const ARITY: usize, const HEIGHT: usize> LookupProof<F, ARITY
     }
 }
 
+#[derive(Debug)]
 pub struct InsertProof<F: LurkField, const ARITY: usize, const HEIGHT: usize> {
     old_proof: LookupProof<F, ARITY, HEIGHT>,
     new_proof: LookupProof<F, ARITY, HEIGHT>,

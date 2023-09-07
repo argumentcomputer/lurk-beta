@@ -62,6 +62,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct FileMap<K: ToString, V: FileStore> {
     dir: Utf8PathBuf,
     _t: PhantomData<(K, V)>,

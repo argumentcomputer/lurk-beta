@@ -166,7 +166,7 @@ impl<F: LurkField> Ord for ZPtr<F> {
 /// `ZChildren` keeps track of the children of `ZPtr`s, in case they have any.
 /// This information is saved during hydration and is needed to content-address
 /// a store.
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ZChildren<F: LurkField> {
     Atom,
     Tuple2(ZPtr<F>, ZPtr<F>),
