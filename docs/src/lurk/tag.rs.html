@@ -517,7 +517,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 <span class="kw">use </span><span class="kw">crate</span>::ptr::TypePredicates;
 
-<span class="kw">pub trait </span>Tag: Into&lt;u16&gt; + TryFrom&lt;u16&gt; + Copy + Sized + Eq + fmt::Debug {
+<span class="kw">pub trait </span>Tag: Into&lt;u16&gt; + TryFrom&lt;u16&gt; + Copy + Sized + std::hash::Hash + Eq + fmt::Debug {
     <span class="kw">fn </span>from_field&lt;F: LurkField&gt;(f: <span class="kw-2">&amp;</span>F) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;;
     <span class="kw">fn </span>to_field&lt;F: LurkField&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; F;
 

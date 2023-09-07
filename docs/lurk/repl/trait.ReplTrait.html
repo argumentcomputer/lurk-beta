@@ -14,14 +14,14 @@
         &amp;mut self,
         store: &amp;mut <a class="struct" href="../store/struct.Store.html" title="struct lurk::store::Store">Store</a>&lt;F&gt;,
         state: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/rc/struct.Rc.html" title="struct alloc::rc::Rc">Rc</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/core/cell/struct.RefCell.html" title="struct core::cell::RefCell">RefCell</a>&lt;<a class="struct" href="../state/struct.State.html" title="struct lurk::state::State">State</a>&gt;&gt;,
-        expr_ptr: <a class="struct" href="../ptr/struct.Ptr.html" title="struct lurk::ptr::Ptr">Ptr</a>&lt;F&gt;,
+        expr_ptr: <a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;,
         p: P
     ) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.75/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.handle_non_meta" class="fn">handle_non_meta</a>(
         &amp;mut self,
         store: &amp;mut <a class="struct" href="../store/struct.Store.html" title="struct lurk::store::Store">Store</a>&lt;F&gt;,
         state: &amp;<a class="struct" href="../state/struct.State.html" title="struct lurk::state::State">State</a>,
-        expr_ptr: <a class="struct" href="../ptr/struct.Ptr.html" title="struct lurk::ptr::Ptr">Ptr</a>&lt;F&gt;
+        expr_ptr: <a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;
     ) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.75/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;(<a class="struct" href="../eval/struct.IO.html" title="struct lurk::eval::IO">IO</a>&lt;F&gt;, <a class="struct" href="../eval/struct.IO.html" title="struct lurk::eval::IO">IO</a>&lt;F&gt;, <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>)&gt;;
 
     // Provided methods
@@ -53,13 +53,13 @@
     &amp;mut self,
     store: &amp;mut <a class="struct" href="../store/struct.Store.html" title="struct lurk::store::Store">Store</a>&lt;F&gt;,
     state: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/rc/struct.Rc.html" title="struct alloc::rc::Rc">Rc</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/core/cell/struct.RefCell.html" title="struct core::cell::RefCell">RefCell</a>&lt;<a class="struct" href="../state/struct.State.html" title="struct lurk::state::State">State</a>&gt;&gt;,
-    expr_ptr: <a class="struct" href="../ptr/struct.Ptr.html" title="struct lurk::ptr::Ptr">Ptr</a>&lt;F&gt;,
+    expr_ptr: <a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;,
     p: P
 ) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.75/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>&gt;</h4></section><section id="tymethod.handle_non_meta" class="method"><a class="src rightside" href="../../src/lurk/repl.rs.html#148-153">source</a><h4 class="code-header">fn <a href="#tymethod.handle_non_meta" class="fn">handle_non_meta</a>(
     &amp;mut self,
     store: &amp;mut <a class="struct" href="../store/struct.Store.html" title="struct lurk::store::Store">Store</a>&lt;F&gt;,
     state: &amp;<a class="struct" href="../state/struct.State.html" title="struct lurk::state::State">State</a>,
-    expr_ptr: <a class="struct" href="../ptr/struct.Ptr.html" title="struct lurk::ptr::Ptr">Ptr</a>&lt;F&gt;
+    expr_ptr: <a class="type" href="../ptr/type.Ptr.html" title="type lurk::ptr::Ptr">Ptr</a>&lt;F&gt;
 ) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.75/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;(<a class="struct" href="../eval/struct.IO.html" title="struct lurk::eval::IO">IO</a>&lt;F&gt;, <a class="struct" href="../eval/struct.IO.html" title="struct lurk::eval::IO">IO</a>&lt;F&gt;, <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>)&gt;</h4></section></div><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><section id="method.handle_form" class="method"><a class="src rightside" href="../../src/lurk/repl.rs.html#73-91">source</a><h4 class="code-header">fn <a href="#method.handle_form" class="fn">handle_form</a>&lt;'a, P: <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.AsRef.html" title="trait core::convert::AsRef">AsRef</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/std/path/struct.Path.html" title="struct std::path::Path">Path</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a>&gt;(
     &amp;mut self,
     store: &amp;mut <a class="struct" href="../store/struct.Store.html" title="struct lurk::store::Store">Store</a>&lt;F&gt;,
