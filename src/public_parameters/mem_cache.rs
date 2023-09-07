@@ -8,7 +8,7 @@ use camino::Utf8Path;
 use nova::traits::Group;
 use once_cell::sync::Lazy;
 use tap::TapFallible;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::{
     coprocessor::Coprocessor,
@@ -72,8 +72,9 @@ impl PublicParamMemCache {
                     assert!(rest.is_empty());
                     Ok(Arc::new(pp.clone())) // this clone is VERY expensive
                 }
-                Err(e) => {
-                    eprintln!("{e}");
+                Err(Error::IOError(e)) => {
+                    warn!("{e}");
+                    info!("Generating fresh public parameters");
                     let pp = default(lang);
                     // maybe just directly write
                     disk_cache
@@ -82,6 +83,7 @@ impl PublicParamMemCache {
                         .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
                     Ok(pp)
                 }
+                _ => unreachable!(),
             }
         } else {
             // read the file if it exists, otherwise initialize
