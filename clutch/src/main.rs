@@ -16,15 +16,11 @@ fn main() -> Result<()> {
     tracing::subscriber::set_global_default(subscriber).unwrap();
 
     let default_field = LanguageField::Pallas;
-    let field = if let Ok(lurk_field) = std::env::var("LURK_FIELD") {
-        match lurk_field.as_str() {
-            "BLS12-381" => LanguageField::BLS12_381,
-            "PALLAS" => LanguageField::Pallas,
-            "VESTA" => LanguageField::Vesta,
-            _ => default_field,
-        }
-    } else {
-        default_field
+    let field = match std::env::var("LURK_FIELD").as_deref() {
+        Ok("BLS12-381") => LanguageField::BLS12_381,
+        Ok("PALLAS") => LanguageField::Pallas,
+        Ok("VESTA") => LanguageField::Vesta,
+        _ => default_field,
     };
 
     match field {
