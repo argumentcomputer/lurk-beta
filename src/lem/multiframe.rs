@@ -6,19 +6,22 @@ use std::sync::Arc;
 use crate::{
     circuit::gadgets::pointer::AllocatedPtr,
     coprocessor::Coprocessor,
+    error::{ProofError, ReductionError},
     eval::lang::Lang,
     field::LurkField,
     proof::{EvaluationStore, FrameLike, MultiFrameTrait, Provable, Prover},
+    state::initial_lurk_state,
     store,
-    tag::{ContTag, ExprTag}, ptr::ContPtr, state::initial_lurk_state,
+    tag::ContTag,
 };
 
 use super::{
     circuit::{BoundAllocations, GlobalAllocator},
+    eval::eval_step,
     interpreter::Frame,
     pointers::Ptr,
     store::Store,
-    Func, Tag, eval::eval_step,
+    Func, Tag,
 };
 
 #[derive(Clone, Debug)]
@@ -34,27 +37,13 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
 }
 
 impl<F: LurkField> FrameLike for Frame<F> {
-    type FramePtr = Vec<Ptr<F>>;
+    type FrameIO = Vec<Ptr<F>>;
 
-    fn input(&self) -> &Self::FramePtr {
+    fn input(&self) -> &Self::FrameIO {
         &self.input
     }
-    fn output(&self) -> &Self::FramePtr {
+    fn output(&self) -> &Self::FrameIO {
         &self.output
-    }
-}
-
-impl<'a, F: LurkField, C: Coprocessor<F>> FrameLike for MultiFrame<'a, F, C> {
-    // See the annotation on the sister implementaiton in circuits/circuit_frame
-    // We *could* add an Error type here, but actually, this is a case where a builder pattern
-    // would resolve the initialization of these structures
-    type FramePtr = Vec<Ptr<F>>;
-
-    fn input(&self) -> &Self::FramePtr {
-        &self.input.unwrap()
-    }
-    fn output(&self) -> &Self::FramePtr {
-        &self.output.unwrap()
     }
 }
 
@@ -91,13 +80,11 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
     type FrameIter = <Self::FrameIntoIter as IntoIterator>::IntoIter;
     type FrameIntoIter = Vec<Self::CircuitFrame>;
 
-    fn to_io_vector(
+    fn io_to_scalar_vector(
         store: &Self::Store,
-        frames: &<Self::EvalFrame as FrameLike>::FramePtr,
+        io: &<Self::EvalFrame as FrameLike>::FrameIO,
     ) -> Result<Vec<F>, Self::StoreError> {
-        store
-            .to_vector(frames)
-            .map_err(|e| store::Error(e.to_string()))
+        store.to_vector(io).map_err(|e| store::Error(e.to_string()))
     }
 
     fn compute_witness(&self, s: &Store<F>) -> WitnessCS<F> {
@@ -118,6 +105,10 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
 
     fn cached_witness(&mut self) -> &mut Option<WitnessCS<F>> {
         &mut self.cached_witness
+    }
+
+    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike>::FrameIO> {
+        &self.output
     }
 
     fn frames(&self) -> Option<Self::FrameIntoIter> {
@@ -258,7 +249,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
         env: Self::Ptr,
         store: &mut Self::Store,
         limit: usize,
-    ) -> std::result::Result<Vec<Self::EvalFrame>, crate::error::ProofError> {
+    ) -> std::result::Result<Vec<Self::EvalFrame>, ProofError> {
         // TODO: integrate https://github.com/lurk-lab/lurk-rs/commit/963a6361701efcaa78735d8fc9c927f518d8e31c
         let input = vec![expr, env, Ptr::null(Tag::Cont(ContTag::Outermost))];
         let state = initial_lurk_state();
@@ -275,17 +266,25 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
             out
         };
         let stop_cond = |output: &[Ptr<F>]| {
-            output[2] == Ptr::null(Tag::Cont(ContTag::Terminal)) || output[2] == Ptr::null(Tag::Cont(ContTag::Error))
+            output[2] == Ptr::null(Tag::Cont(ContTag::Terminal))
+                || output[2] == Ptr::null(Tag::Cont(ContTag::Error))
         };
-        let (frames, _, _) = eval_step().call_until(&input, store, stop_cond, limit, log_fmt)?;
-        Ok(frames)
+        match eval_step().call_until(&input, store, stop_cond, limit, log_fmt) {
+            Ok((frames, ..)) => Ok(frames),
+            Err(e) => Err(ProofError::Reduction(ReductionError::Misc(e.to_string()))),
+        }
     }
 
     fn significant_frame_count(frames: &[Self::EvalFrame]) -> usize {
         let stop_cond = |output: &[Ptr<F>]| {
-            output[2] == Ptr::null(Tag::Cont(ContTag::Terminal)) || output[2] == Ptr::null(Tag::Cont(ContTag::Error))
+            output[2] == Ptr::null(Tag::Cont(ContTag::Terminal))
+                || output[2] == Ptr::null(Tag::Cont(ContTag::Error))
         };
-        frames.iter().rev().skip_while(|f| f.input == f.output && stop_cond(&f.output)).count()
+        frames
+            .iter()
+            .rev()
+            .skip_while(|f| f.input == f.output && stop_cond(&f.output))
+            .count()
     }
 }
 

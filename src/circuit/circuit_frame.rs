@@ -69,22 +69,24 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
 }
 
 impl<F: LurkField, C: Coprocessor<F>> FrameLike for Frame<IO<F>, Witness<F>, C> {
-    type FramePtr = IO<F>;
-    fn input(&self) -> &Self::FramePtr {
+    type FrameIO = IO<F>;
+    fn input(&self) -> &Self::FrameIO {
         &self.input
     }
-    fn output(&self) -> &Self::FramePtr {
+    fn output(&self) -> &Self::FrameIO {
         &self.output
     }
 }
 
 impl<'a, F: LurkField, C: Coprocessor<F>> FrameLike for CircuitFrame<'a, F, C> {
     // TODO: fix the inability to return an error here
-    type FramePtr = IO<F>;
-    fn input(&self) -> &Self::FramePtr {
+    // We *could* add an Error type here, but actually, this is a case where a builder pattern
+    // would resolve the initialization of these structures
+    type FrameIO = IO<F>;
+    fn input(&self) -> &Self::FrameIO {
         &self.input.unwrap()
     }
-    fn output(&self) -> &Self::FramePtr {
+    fn output(&self) -> &Self::FrameIO {
         &self.output.unwrap()
     }
 }
@@ -144,11 +146,11 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
         Ok(frames)
     }
 
-    fn to_io_vector(
+    fn io_to_scalar_vector(
         store: &Self::Store,
-        frame: &<Self::EvalFrame as FrameLike>::FramePtr,
+        io: &<Self::EvalFrame as FrameLike>::FrameIO,
     ) -> Result<Vec<F>, Self::StoreError> {
-        frame.to_vector(store)
+        io.to_vector(store)
     }
 
     fn compute_witness(&self, s: &Store<F>) -> WitnessCS<F> {
@@ -182,6 +184,10 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
 
     fn cached_witness(&mut self) -> &mut Option<WitnessCS<F>> {
         &mut self.cached_witness
+    }
+
+    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike>::FrameIO> {
+        &self.output
     }
 
     fn frames(&self) -> Option<Vec<Self::CircuitFrame>> {

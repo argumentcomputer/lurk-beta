@@ -275,8 +275,9 @@ where
         store: &M::Store,
         lang: &Arc<Lang<F, C>>,
     ) -> Result<(Proof<F, C, M>, Vec<F>, Vec<F>, usize), ProofError> {
-        let z0 = M::to_io_vector(store, frames[0].input()).map_err(|e| e.into())?;
-        let zi = M::to_io_vector(store, frames.last().unwrap().output()).map_err(|e| e.into())?;
+        let z0 = M::io_to_scalar_vector(store, frames[0].input()).map_err(|e| e.into())?;
+        let zi =
+            M::io_to_scalar_vector(store, frames.last().unwrap().output()).map_err(|e| e.into())?;
         let circuits = M::from_frames(self.reduction_count(), frames, store, lang.clone());
 
         let num_steps = circuits.len();
@@ -487,7 +488,8 @@ where
                         .into_iter()
                         .next()
                         .unwrap();
-                    let zi = M::to_io_vector(store, first_frame.input()).map_err(|e| e.into())?;
+                    let zi =
+                        M::io_to_scalar_vector(store, first_frame.input()).map_err(|e| e.into())?;
                     let zi_allocated: Vec<_> = zi
                         .iter()
                         .enumerate()
@@ -783,7 +785,7 @@ pub mod tests {
 
             assert!(delta == Delta::Equal);
         }
-        let output = previous_frame.unwrap().output();
+        let output = previous_frame.unwrap().output().unwrap();
 
         if let Some(expected_emitted) = expected_emitted {
             let emitted_vec: Vec<_> = frames
