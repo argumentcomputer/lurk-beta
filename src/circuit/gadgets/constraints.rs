@@ -96,11 +96,10 @@ pub(crate) fn add<F: PrimeField, CS: ConstraintSystem<F>>(
 /// Creates a linear combination representing the popcount (sum of one bits) of `v`.
 pub(crate) fn popcount_lc<F: PrimeField, CS: ConstraintSystem<F>>(
     v: &[Boolean],
-) -> Result<LinearCombination<F>, SynthesisError> {
-    v.iter()
-        .try_fold(LinearCombination::<F>::zero(), |acc, bit| {
-            add_to_lc::<F, CS>(bit, acc, F::ONE)
-        })
+) -> LinearCombination<F> {
+    v.iter().fold(LinearCombination::<F>::zero(), |acc, bit| {
+        add_to_lc::<F, CS>(bit, acc, F::ONE)
+    })
 }
 
 /// Adds a constraint to CS, enforcing that the addition of the allocated numbers in vector `v`
@@ -109,8 +108,8 @@ pub(crate) fn popcount_equal<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     v: &[Boolean],
     sum: Variable,
-) -> Result<(), SynthesisError> {
-    let popcount = popcount_lc::<F, CS>(v)?;
+) {
+    let popcount = popcount_lc::<F, CS>(v);
 
     // popcount * 1 = sum
     cs.enforce(
@@ -119,8 +118,6 @@ pub(crate) fn popcount_equal<F: PrimeField, CS: ConstraintSystem<F>>(
         |lc| lc + CS::one(),
         |lc| lc + sum,
     );
-
-    Ok(())
 }
 
 /// Adds a constraint to CS, enforcing that the addition of the allocated numbers in vector `v`
@@ -132,7 +129,7 @@ pub(crate) fn popcount_equal<F: PrimeField, CS: ConstraintSystem<F>>(
 pub(crate) fn enforce_popcount_one<F: PrimeField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     v: &[Boolean],
-) -> Result<(), SynthesisError> {
+) {
     popcount_equal(cs, v, CS::one())
 }
 
@@ -140,14 +137,12 @@ pub(crate) fn add_to_lc<F: PrimeField, CS: ConstraintSystem<F>>(
     b: &Boolean,
     lc: LinearCombination<F>,
     scalar: F,
-) -> Result<LinearCombination<F>, SynthesisError> {
-    let v_lc = match b {
+) -> LinearCombination<F> {
+    match b {
         Boolean::Constant(c) => lc + (if *c { scalar } else { F::ZERO }, CS::one()),
         Boolean::Is(ref v) => lc + (scalar, v.get_variable()),
         Boolean::Not(ref v) => lc + (scalar, CS::one()) - (scalar, v.get_variable()),
-    };
-
-    Ok(v_lc)
+    }
 }
 
 /// If premise is true, enforce `a` fits into 64 bits. It shows a non-deterministic
@@ -177,7 +172,7 @@ pub(crate) fn implies_u64<F: LurkField, CS: ConstraintSystem<F>>(
         premise,
         &bits,
         a,
-    )?;
+    );
 
     Ok(())
 }
@@ -188,11 +183,11 @@ pub(crate) fn implies_pack<F: LurkField, CS: ConstraintSystem<F>>(
     premise: &Boolean,
     v: &[Boolean],
     num: &AllocatedNum<F>,
-) -> Result<(), SynthesisError> {
+) {
     let mut coeff = F::ONE;
     let mut pack = LinearCombination::<F>::zero();
     for b in v {
-        pack = add_to_lc::<F, CS>(b, pack, coeff)?;
+        pack = add_to_lc::<F, CS>(b, pack, coeff);
         coeff = coeff.double();
     }
     let diff = |_| pack - num.get_variable();
@@ -200,8 +195,6 @@ pub(crate) fn implies_pack<F: LurkField, CS: ConstraintSystem<F>>(
     let zero = |lc| lc;
 
     cs.enforce(|| "pack", diff, premise_lc, zero);
-
-    Ok(())
 }
 
 /// Enforce v is the bit decomposition of num, therefore we have that 0 <= num < 2ˆ(sizeof(v)).
@@ -209,7 +202,7 @@ pub(crate) fn enforce_pack<F: LurkField, CS: ConstraintSystem<F>>(
     cs: CS,
     v: &[Boolean],
     num: &AllocatedNum<F>,
-) -> Result<(), SynthesisError> {
+) {
     implies_pack(cs, &Boolean::Constant(true), v, num)
 }
 
@@ -726,7 +719,7 @@ pub(crate) fn enforce_implication_lc<
     mut cs: CS,
     premise: &Boolean,
     implication_lc: L,
-) -> Result<(), SynthesisError> {
+) {
     let premise_b = premise.lc(CS::one(), F::ONE);
     let premise_c = premise_b.clone();
 
@@ -737,8 +730,6 @@ pub(crate) fn enforce_implication_lc<
         |_| premise_b,
         |_| premise_c,
     );
-
-    Ok(())
 }
 
 /// Takes a boolean premise and a function that produces a `LinearCombination` (with same specification as `enforce`).
@@ -751,12 +742,10 @@ pub(crate) fn enforce_implication_lc_zero<
     mut cs: CS,
     premise: &Boolean,
     implication_lc: L,
-) -> Result<(), SynthesisError> {
+) {
     let premise_a = premise.lc(CS::one(), F::ONE);
     // premise * implication = zero
     cs.enforce(|| "implication", |_| premise_a, implication_lc, |lc| lc);
-
-    Ok(())
 }
 
 /// Adds a constraint to CS, enforcing that the number of true bits in `Boolean` vector `v`
@@ -767,10 +756,10 @@ pub(crate) fn enforce_selector_with_premise<F: PrimeField, CS: ConstraintSystem<
     cs: &mut CS,
     premise: &Boolean,
     v: &[Boolean],
-) -> Result<(), SynthesisError> {
-    let popcount = popcount_lc::<F, CS>(v)?;
+) {
+    let popcount = popcount_lc::<F, CS>(v);
 
-    enforce_implication_lc(cs, premise, |_| popcount)
+    enforce_implication_lc(cs, premise, |_| popcount);
 }
 
 /// Enforce `premise` implies `implication`.
@@ -778,10 +767,10 @@ pub(crate) fn enforce_implication<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: CS,
     premise: &Boolean,
     implication: &Boolean,
-) -> Result<(), SynthesisError> {
+) {
     enforce_implication_lc(cs, premise, |_|
                            // One if implication is true, zero otherwise.
-                           implication.lc(CS::one(), F::ONE))
+                           implication.lc(CS::one(), F::ONE));
 }
 
 /// Enforce equality of two allocated numbers given an implication premise
@@ -790,7 +779,7 @@ pub(crate) fn implies_equal<CS: ConstraintSystem<F>, F: PrimeField>(
     premise: &Boolean,
     a: &AllocatedNum<F>,
     b: &AllocatedNum<F>,
-) -> Result<(), SynthesisError> {
+) {
     enforce_implication_lc_zero(cs, premise, |lc| {
         // Zero iff `a` == `b`.
         lc + a.get_variable() - b.get_variable()
@@ -803,7 +792,7 @@ pub(crate) fn implies_equal_const<CS: ConstraintSystem<F>, F: PrimeField>(
     premise: &Boolean,
     a: &AllocatedNum<F>,
     b: F,
-) -> Result<(), SynthesisError> {
+) {
     enforce_implication_lc_zero(cs, premise, |lc| lc + a.get_variable() - (b, CS::one()))
 }
 
@@ -892,7 +881,7 @@ pub(crate) fn implies_equal_zero<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: &mut CS,
     premise: &Boolean,
     a: &AllocatedNum<F>,
-) -> Result<(), SynthesisError> {
+) {
     enforce_implication_lc_zero(cs, premise, |lc| lc + a.get_variable())
 }
 
@@ -1004,7 +993,7 @@ mod tests {
                 let mut cs = TestConstraintSystem::<Fr>::new();
                 let num = AllocatedNum::alloc(cs.namespace(|| "num"), || Ok(Fr::from(n))).unwrap();
                 let pb = Boolean::constant(premise);
-                let _ = implies_equal_zero(&mut cs.namespace(|| "implies equal zero"), &pb, &num);
+                implies_equal_zero(&mut cs.namespace(|| "implies equal zero"), &pb, &num);
                 cs.is_satisfied()
             };
 
@@ -1021,7 +1010,7 @@ mod tests {
                 let a_num = AllocatedNum::alloc(cs.namespace(|| "a_num"), || Ok(a)).unwrap();
                 let b_num = AllocatedNum::alloc(cs.namespace(|| "b_num"), || Ok(b)).unwrap();
                 let pb = Boolean::constant(premise);
-                let _ = implies_equal(&mut cs.namespace(|| "implies equal"), &pb, &a_num, &b_num);
+                implies_equal(&mut cs.namespace(|| "implies equal"), &pb, &a_num, &b_num);
                 cs.is_satisfied()
             };
 
@@ -1075,7 +1064,7 @@ mod tests {
                 let mut cs = TestConstraintSystem::<Fr>::new();
                 let num = AllocatedNum::alloc(cs.namespace(|| "num"), || Ok(n)).unwrap();
                 let pb = Boolean::constant(premise);
-                let _ = implies_equal_const(&mut cs.namespace(|| "implies equal zero"), &pb, &num, t);
+                implies_equal_const(&mut cs.namespace(|| "implies equal zero"), &pb, &num, t);
                 cs.is_satisfied()
             };
 
@@ -1100,7 +1089,7 @@ mod tests {
                     v[e] = Boolean::constant(true);
                 };
                 let alloc_sum = AllocatedNum::alloc(cs.namespace(|| "sum"), || Ok(Fr::from(sum)));
-                let _ = popcount_equal(&mut cs.namespace(|| "popcount equal"), &v, alloc_sum.unwrap().get_variable());
+                popcount_equal(&mut cs.namespace(|| "popcount equal"), &v, alloc_sum.unwrap().get_variable());
                 assert_eq!(cs.is_satisfied(), result);
             };
 
@@ -1151,7 +1140,7 @@ mod tests {
                     }
                     let mut cs = TestConstraintSystem::<Fr>::new();
                     let p = Boolean::Constant(premise);
-                    let _ = enforce_selector_with_premise(&mut cs.namespace(|| "enforce selector with premise"), &p, &v);
+                    enforce_selector_with_premise(&mut cs.namespace(|| "enforce selector with premise"), &p, &v);
                     assert_eq!(cs.is_satisfied(), result);
                 };
 
@@ -1171,10 +1160,8 @@ mod tests {
         fn prop_add_constraint((x, y) in any::<(FWrap<Fr>, FWrap<Fr>)>()) {
             let mut cs = TestConstraintSystem::<Fr>::new();
 
-            let a = AllocatedNum::alloc(cs.namespace(|| "a"), || Ok(x.0))
-                .expect("alloc failed");
-            let b = AllocatedNum::alloc(cs.namespace(|| "b"), || Ok(y.0))
-                .expect("alloc failed");
+            let a = AllocatedNum::alloc_infallible(cs.namespace(|| "a"), || x.0);
+            let b = AllocatedNum::alloc_infallible(cs.namespace(|| "b"), || y.0);
 
             let res = add(cs.namespace(|| "a+b"), &a, &b).expect("add failed");
 
@@ -1191,10 +1178,8 @@ mod tests {
 
                let mut cs = TestConstraintSystem::<Fr>::new();
 
-            let a = AllocatedNum::alloc(cs.namespace(|| "a"), || Ok(x.0))
-                .expect("alloc failed");
-            let b = AllocatedNum::alloc(cs.namespace(|| "b"), || Ok(y.0))
-                .expect("alloc failed");
+            let a = AllocatedNum::alloc_infallible(cs.namespace(|| "a"), || x.0);
+            let b = AllocatedNum::alloc_infallible(cs.namespace(|| "b"), || y.0);
 
             let res = sub(cs.namespace(|| "a-b"), &a, &b).expect("subtraction failed");
 
@@ -1278,7 +1263,7 @@ mod tests {
                 cs.namespace(|| "enforce_implication_lc"),
                 &premise,
                 |_| lc,
-            ).expect("enforce_implication_lc failed");
+            );
 
 
             prop_assert!((!premise_val || lc_val) == cs.is_satisfied())
@@ -1308,8 +1293,7 @@ mod tests {
             cs.namespace(|| "enforce_implication_lc_big"),
             &premise_true,
             |_| test_lc_big.clone(),
-        )
-        .expect("enforce_implication_lc failed");
+        );
 
         assert!(!cs.is_satisfied());
 
@@ -1328,8 +1312,7 @@ mod tests {
             cs.namespace(|| "enforce_implication_lc_big_with_false"),
             &premise_false,
             |_| test_lc_big,
-        )
-        .expect("enforce_implication_lc failed");
+        );
 
         assert!(cs.is_satisfied());
 
@@ -1355,8 +1338,7 @@ mod tests {
             cs.namespace(|| "enforce_implication_lc_arb_num"),
             &premise_true,
             |_| test_lc_arb_num,
-        )
-        .expect("enforce_implication_lc failed");
+        );
 
         assert!(cs.is_satisfied());
     }
@@ -1385,8 +1367,7 @@ mod tests {
             cs.namespace(|| "enforce_implication_lc_big"),
             &premise_true,
             |_| test_lc_big.clone(),
-        )
-        .expect("enforce_implication_lc failed");
+        );
 
         assert!(!cs.is_satisfied());
 
@@ -1409,8 +1390,7 @@ mod tests {
             cs.namespace(|| "enforce_implication_lc_one"),
             &premise_true,
             |_| test_lc_one.clone(),
-        )
-        .expect("enforce_implication_lc failed");
+        );
 
         assert!(!cs.is_satisfied());
 
@@ -1430,8 +1410,7 @@ mod tests {
             cs.namespace(|| "enforce_implication_lc_big_with_false"),
             &premise_false,
             |_| test_lc_big,
-        )
-        .expect("enforce_implication_lc failed");
+        );
 
         assert!(cs.is_satisfied());
 
@@ -1455,8 +1434,7 @@ mod tests {
             cs.namespace(|| "enforce_implication_lc_arb_num"),
             &premise_true,
             |_| test_lc_arb_num,
-        )
-        .expect("enforce_implication_lc failed");
+        );
 
         assert!(cs.is_satisfied());
     }

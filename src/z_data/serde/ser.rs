@@ -47,8 +47,8 @@ impl<'a> StructSerializer<'a> {
         Ok(())
     }
 
-    fn end_inner(self) -> Result<Vec<ZData>, SerdeError> {
-        Ok(self.cell)
+    fn end_inner(self) -> Vec<ZData> {
+        self.cell
     }
 }
 
@@ -399,7 +399,7 @@ impl<'a> ser::SerializeStruct for StructSerializer<'a> {
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(ZData::Cell(self.end_inner()?))
+        Ok(ZData::Cell(self.end_inner()))
     }
 }
 
@@ -418,7 +418,7 @@ impl<'a> ser::SerializeStructVariant for StructSerializer<'a> {
         let mut cell = vec![u8::try_from(self.variant_index)
             .unwrap()
             .serialize(self.ser)?];
-        cell.extend(self.end_inner()?);
+        cell.extend(self.end_inner());
         Ok(ZData::Cell(cell))
     }
 }
