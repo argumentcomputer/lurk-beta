@@ -6124,8 +6124,6 @@
 <a href="#6124" id="6124">6124</a>
 <a href="#6125" id="6125">6125</a>
 <a href="#6126" id="6126">6126</a>
-<a href="#6127" id="6127">6127</a>
-<a href="#6128" id="6128">6128</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
@@ -9416,11 +9414,13 @@
 
         <span class="kw">let </span>open_expr = AllocatedPtr::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;open_expr&quot;</span>), || {
             <span class="prelude-val">Ok</span>(store.hash_expr(<span class="kw-2">&amp;</span>open_expr_ptr).unwrap())
-        })<span class="question-mark">?</span>;
+        })
+        .expect(<span class="string">&quot;alloc was passed an unfallible closure, yet failed!&quot;</span>);
 
-        <span class="kw">let </span>open_secret = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;open_secret&quot;</span>), || {
-            <span class="prelude-val">Ok</span>(open_secret_scalar)
-        })<span class="question-mark">?</span>;
+        <span class="kw">let </span>open_secret =
+            AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;open_secret&quot;</span>), || {
+                open_secret_scalar
+            });
 
         <span class="kw">let </span>arg1 = AllocatedPtr::by_index(<span class="number">1</span>, <span class="kw-2">&amp;</span>continuation_components);
 
@@ -11018,12 +11018,12 @@
     field_bn: <span class="kw-2">&amp;</span>BigUint,
     field_elem_bits: <span class="kw-2">&amp;</span>[Boolean],
     size: UnsignedInt,
-) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
+) -&gt; AllocatedNum&lt;F&gt; {
     <span class="kw">let </span>power_of_two_bn = BigUint::pow(<span class="kw-2">&amp;</span>BigUint::from_u32(<span class="number">2</span>).unwrap(), size.num_bits());
 
     <span class="kw">let </span>(q_bn, r_bn) = field_bn.div_rem(<span class="kw-2">&amp;</span>power_of_two_bn);
-    <span class="kw">let </span>q_num = allocate_unconstrained_bignum(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;q&quot;</span>), <span class="kw-2">&amp;</span>q_bn)<span class="question-mark">?</span>;
-    <span class="kw">let </span>r_num = allocate_unconstrained_bignum(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;r&quot;</span>), <span class="kw-2">&amp;</span>r_bn)<span class="question-mark">?</span>;
+    <span class="kw">let </span>q_num = allocate_unconstrained_bignum(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;q&quot;</span>), <span class="kw-2">&amp;</span>q_bn);
+    <span class="kw">let </span>r_num = allocate_unconstrained_bignum(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;r&quot;</span>), <span class="kw-2">&amp;</span>r_bn);
     <span class="kw">let </span>pow2_size = <span class="kw">match </span>size {
         UnsignedInt::U32 =&gt; <span class="kw-2">&amp;</span>g.power2_32_num,
         UnsignedInt::U64 =&gt; <span class="kw-2">&amp;</span>g.power2_64_num,
@@ -11044,9 +11044,9 @@
         <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;enforce unsigned pack&quot;</span>),
         r_bits,
         <span class="kw-2">&amp;</span>r_num,
-    )<span class="question-mark">?</span>;
+    );
 
-    <span class="prelude-val">Ok</span>(r_num)
+    r_num
 }
 
 <span class="comment">// Convert from num to unsigned integers by taking the least significant bits.
@@ -11073,7 +11073,7 @@
         <span class="kw-2">&amp;</span>field_bn,
         <span class="kw-2">&amp;</span>field_elem_bits,
         UnsignedInt::U32,
-    )<span class="question-mark">?</span>;
+    );
     <span class="kw">let </span>r64_num = to_unsigned_integer_helper(
         <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;enforce u64&quot;</span>),
         g,
@@ -11081,7 +11081,7 @@
         <span class="kw-2">&amp;</span>field_bn,
         <span class="kw-2">&amp;</span>field_elem_bits,
         UnsignedInt::U64,
-    )<span class="question-mark">?</span>;
+    );
 
     <span class="prelude-val">Ok</span>((r32_num, r64_num))
 }
@@ -11103,7 +11103,7 @@
         <span class="kw-2">&amp;</span>field_bn,
         <span class="kw-2">&amp;</span>field_elem_bits,
         UnsignedInt::U64,
-    )<span class="question-mark">?</span>;
+    );
 
     <span class="prelude-val">Ok</span>(r64_num)
 }
@@ -11131,14 +11131,14 @@
         (<span class="number">0</span>, <span class="number">0</span>) <span class="comment">// Dummy
     </span>};
 
-    <span class="kw">let </span>alloc_r_num = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;r num&quot;</span>), || <span class="prelude-val">Ok</span>(F::from_u64(r)))<span class="question-mark">?</span>;
-    <span class="kw">let </span>alloc_q_num = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;q num&quot;</span>), || <span class="prelude-val">Ok</span>(F::from_u64(q)))<span class="question-mark">?</span>;
-    <span class="kw">let </span>alloc_arg1_num = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;arg1 num&quot;</span>), || {
-        <span class="prelude-val">Ok</span>(F::from_u64(arg1_u64))
-    })<span class="question-mark">?</span>;
-    <span class="kw">let </span>alloc_arg2_num = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;arg2 num&quot;</span>), || {
-        <span class="prelude-val">Ok</span>(F::from_u64(arg2_u64))
-    })<span class="question-mark">?</span>;
+    <span class="kw">let </span>alloc_r_num =
+        AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;r num&quot;</span>), || F::from_u64(r));
+    <span class="kw">let </span>alloc_q_num =
+        AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;q num&quot;</span>), || F::from_u64(q));
+    <span class="kw">let </span>alloc_arg1_num =
+        AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;arg1 num&quot;</span>), || F::from_u64(arg1_u64));
+    <span class="kw">let </span>alloc_arg2_num =
+        AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;arg2 num&quot;</span>), || F::from_u64(arg2_u64));
 
     <span class="comment">// a = b * q + r
     </span><span class="kw">let </span>product_u64mod = mul(
@@ -11166,7 +11166,7 @@
         <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;enforce u64 mod decomposition&quot;</span>),
         <span class="kw-2">&amp;</span>b_is_not_zero_and_cond,
         <span class="kw-2">&amp;</span>u64mod_decomp,
-    )<span class="question-mark">?</span>;
+    );
 
     enforce_less_than_bound(
         <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;remainder in range b&quot;</span>),
@@ -11199,7 +11199,8 @@
         <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;enforce u64 range&quot;</span>),
         cond,
         <span class="kw-2">&amp;</span>diff_bound_num_is_negative.not(),
-    )
+    );
+    <span class="prelude-val">Ok</span>(())
 }
 
 <span class="comment">// ATTENTION:
@@ -11210,13 +11211,12 @@
 </span><span class="kw">fn </span>allocate_unconstrained_bignum&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     <span class="kw-2">mut </span>cs: CS,
     bn: <span class="kw-2">&amp;</span>BigUint,
-) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
+) -&gt; AllocatedNum&lt;F&gt; {
     <span class="kw">let </span>bytes_le = bn.to_bytes_le();
     <span class="kw">let </span><span class="kw-2">mut </span>bytes_padded = [<span class="number">0u8</span>; <span class="number">32</span>];
     bytes_padded[<span class="number">0</span>..bytes_le.len()].copy_from_slice(<span class="kw-2">&amp;</span>bytes_le);
     <span class="kw">let </span>ff = F::from_bytes(<span class="kw-2">&amp;</span>bytes_padded).unwrap();
-    <span class="kw">let </span>num = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;num&quot;</span>), || <span class="prelude-val">Ok</span>(ff)).unwrap();
-    <span class="prelude-val">Ok</span>(num)
+    AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;num&quot;</span>), || ff)
 }
 
 <span class="kw">fn </span>car_cdr_named&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
@@ -11498,7 +11498,7 @@
         <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;is cons implies real cons&quot;</span>),
         not_dummy,
         <span class="kw-2">&amp;</span>real_cons,
-    )<span class="question-mark">?</span>;
+    );
 
     <span class="prelude-val">Ok</span>((allocated_car, allocated_cdr))
 }
@@ -12050,12 +12050,11 @@
         <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
 
         <span class="kw">let </span>alloc_most_positive =
-            AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;most positive&quot;</span>), || {
-                <span class="prelude-val">Ok</span>(Fr::most_positive())
-            })
-            .unwrap();
+            AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;most positive&quot;</span>), || {
+                Fr::most_positive()
+            });
         <span class="kw">let </span>alloc_num =
-            AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;num&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from_u64(<span class="number">42</span>))).unwrap();
+            AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;num&quot;</span>), || Fr::from_u64(<span class="number">42</span>));
         <span class="kw">let </span>cond = Boolean::Constant(<span class="bool-val">true</span>);
 
         <span class="kw">let </span>res = enforce_less_than_bound(
@@ -12175,8 +12174,7 @@
                 <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;popcount {x}&quot;</span>)),
                 <span class="kw-2">&amp;</span>bits,
                 popcount_result.get_variable(),
-            )
-            .unwrap();
+            );
         }
 
         <span class="macro">assert!</span>(cs.is_satisfied());
@@ -12206,8 +12204,7 @@
             <span class="kw-2">&amp;</span>field_bn,
             <span class="kw-2">&amp;</span>bits,
             UnsignedInt::U32,
-        )
-        .unwrap();
+        );
 
         <span class="macro">assert_eq!</span>(a, res.get_value().unwrap());
         <span class="macro">assert!</span>(cs.is_satisfied());
@@ -12237,8 +12234,7 @@
             <span class="kw-2">&amp;</span>field_bn,
             <span class="kw-2">&amp;</span>bits,
             UnsignedInt::U64,
-        )
-        .unwrap();
+        );
 
         <span class="macro">assert_eq!</span>(a, res.get_value().unwrap());
         <span class="macro">assert!</span>(cs.is_satisfied());
@@ -12250,7 +12246,7 @@
         <span class="kw">let </span>a_num =
             AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;a num&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from_u64(<span class="number">42</span>))).unwrap();
         <span class="kw">let </span>bits = a_num.to_bits_le(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;bits&quot;</span>)).unwrap();
-        enforce_pack(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>bits, <span class="kw-2">&amp;</span>a_num).unwrap();
+        enforce_pack(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>bits, <span class="kw-2">&amp;</span>a_num);
         <span class="macro">assert!</span>(cs.is_satisfied());
     }
 }

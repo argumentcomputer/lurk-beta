@@ -866,7 +866,6 @@
 <a href="#866" id="866">866</a>
 <a href="#867" id="867">867</a>
 <a href="#868" id="868">868</a>
-<a href="#869" id="869">869</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::Debug;
 
 <span class="kw">use </span>bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
@@ -951,7 +950,7 @@
         tag: F,
         alloc_hash: AllocatedNum&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SynthesisError&gt; {
-        <span class="kw">let </span>alloc_tag = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tag&quot;</span>), tag)<span class="question-mark">?</span>;
+        <span class="kw">let </span>alloc_tag = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tag&quot;</span>), tag);
 
         <span class="prelude-val">Ok</span>(AllocatedPtr {
             tag: alloc_tag,
@@ -963,8 +962,8 @@
         cs: <span class="kw-2">&amp;mut </span>CS,
         value: ZExprPtr&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SynthesisError&gt; {
-        <span class="kw">let </span>alloc_tag = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tag&quot;</span>), value.tag_field())<span class="question-mark">?</span>;
-        <span class="kw">let </span>alloc_hash = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;hash&quot;</span>), <span class="kw-2">*</span>value.value())<span class="question-mark">?</span>;
+        <span class="kw">let </span>alloc_tag = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tag&quot;</span>), value.tag_field());
+        <span class="kw">let </span>alloc_hash = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;hash&quot;</span>), <span class="kw-2">*</span>value.value());
 
         <span class="prelude-val">Ok</span>(AllocatedPtr {
             tag: alloc_tag,
@@ -1060,20 +1059,19 @@
         cs: <span class="kw-2">&amp;mut </span>CS,
         premise: <span class="kw-2">&amp;</span>Boolean,
         other: <span class="kw-2">&amp;</span>AllocatedPtr&lt;F&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SynthesisError&gt; {
+    ) {
         implies_equal(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies tag equal&quot;</span>),
             premise,
             <span class="self">self</span>.tag(),
             other.tag(),
-        )<span class="question-mark">?</span>;
+        );
         implies_equal(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies hash equal&quot;</span>),
             premise,
             <span class="self">self</span>.hash(),
             other.hash(),
-        )<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(())
+        );
     }
 
     <span class="kw">pub fn </span>is_nil&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
@@ -1466,8 +1464,8 @@
         cs: <span class="kw-2">&amp;mut </span>CS,
         value: ZContPtr&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SynthesisError&gt; {
-        <span class="kw">let </span>alloc_tag = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tag&quot;</span>), value.tag_field())<span class="question-mark">?</span>;
-        <span class="kw">let </span>alloc_hash = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;hash&quot;</span>), <span class="kw-2">*</span>value.value())<span class="question-mark">?</span>;
+        <span class="kw">let </span>alloc_tag = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tag&quot;</span>), value.tag_field());
+        <span class="kw">let </span>alloc_hash = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;hash&quot;</span>), <span class="kw-2">*</span>value.value());
 
         <span class="prelude-val">Ok</span>(AllocatedContPtr {
             tag: alloc_tag,
@@ -1654,7 +1652,7 @@
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;not_dummy implies real cont {:?}&quot;</span>, <span class="kw-2">&amp;</span>name)),
             not_dummy,
             <span class="kw-2">&amp;</span>acc.expect(<span class="string">&quot;acc was never initialized&quot;</span>),
-        )<span class="question-mark">?</span>;
+        );
 
         <span class="kw">let </span>cont = AllocatedContPtr {
             tag: cont_tag.clone(),

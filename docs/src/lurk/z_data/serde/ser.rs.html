@@ -471,8 +471,8 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn </span>end_inner(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;ZData&gt;, SerdeError&gt; {
-        <span class="prelude-val">Ok</span>(<span class="self">self</span>.cell)
+    <span class="kw">fn </span>end_inner(<span class="self">self</span>) -&gt; Vec&lt;ZData&gt; {
+        <span class="self">self</span>.cell
     }
 }
 
@@ -823,7 +823,7 @@
     }
 
     <span class="kw">fn </span>end(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Ok, <span class="self">Self</span>::Error&gt; {
-        <span class="prelude-val">Ok</span>(ZData::Cell(<span class="self">self</span>.end_inner()<span class="question-mark">?</span>))
+        <span class="prelude-val">Ok</span>(ZData::Cell(<span class="self">self</span>.end_inner()))
     }
 }
 
@@ -842,7 +842,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>cell = <span class="macro">vec!</span>[u8::try_from(<span class="self">self</span>.variant_index)
             .unwrap()
             .serialize(<span class="self">self</span>.ser)<span class="question-mark">?</span>];
-        cell.extend(<span class="self">self</span>.end_inner()<span class="question-mark">?</span>);
+        cell.extend(<span class="self">self</span>.end_inner());
         <span class="prelude-val">Ok</span>(ZData::Cell(cell))
     }
 }

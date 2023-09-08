@@ -670,14 +670,14 @@
 }
 
 <span class="kw">impl </span>Lurk {
-    <span class="kw">fn </span>parse_raw(input: proc_macro2::TokenStream) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, syn::Error&gt; {
+    <span class="kw">fn </span>parse_raw(input: proc_macro2::TokenStream) -&gt; <span class="self">Self </span>{
         <span class="comment">// We just immediately turn the `TokenStream` into a string then delegate
         // to the Lurk parser. Although this is a little silly, it is simple.
         </span><span class="kw">let </span>string = input.to_string();
         <span class="kw">let </span><span class="kw-2">mut </span>input_it = input.into_iter().peekable();
         <span class="kw">while </span>input_it.next().is_some() {}
 
-        <span class="prelude-val">Ok</span>(Lurk::Src(string))
+        Lurk::Src(string)
     }
 
     <span class="kw">fn </span>emit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TokenStream {
@@ -702,7 +702,7 @@
 
 <span class="attr">#[proc_macro]
 </span><span class="kw">pub fn </span>lurk(tokens: TokenStream) -&gt; TokenStream {
-    Lurk::parse_raw(tokens.into()).unwrap().emit()
+    Lurk::parse_raw(tokens.into()).emit()
 }
 
 <span class="doccomment">/// This macro is used to generate round-trip serialization tests.

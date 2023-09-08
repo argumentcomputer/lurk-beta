@@ -535,12 +535,6 @@
 <a href="#535" id="535">535</a>
 <a href="#536" id="536">536</a>
 <a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
 <span class="kw">use </span>neptune::{
     circuit2::poseidon_hash_allocated <span class="kw">as </span>poseidon_hash,
@@ -659,81 +653,75 @@
             <span class="kw-2">&amp;</span>store.strnil(),
         )<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>thunk_tag = ExprTag::Thunk.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;thunk_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>cons_tag = ExprTag::Cons.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;cons_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>char_tag = ExprTag::Char.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;char_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>str_tag = ExprTag::Str.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;str_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>num_tag = ExprTag::Num.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;num_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>u64_tag = ExprTag::U64.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;u64_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>comm_tag = ExprTag::Comm.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;comm_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>fun_tag = ExprTag::Fun.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;fun_tag&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>thunk_tag = ExprTag::Thunk.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;thunk_tag&quot;</span>));
+        <span class="kw">let </span>cons_tag = ExprTag::Cons.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;cons_tag&quot;</span>));
+        <span class="kw">let </span>char_tag = ExprTag::Char.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;char_tag&quot;</span>));
+        <span class="kw">let </span>str_tag = ExprTag::Str.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;str_tag&quot;</span>));
+        <span class="kw">let </span>num_tag = ExprTag::Num.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;num_tag&quot;</span>));
+        <span class="kw">let </span>u64_tag = ExprTag::U64.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;u64_tag&quot;</span>));
+        <span class="kw">let </span>comm_tag = ExprTag::Comm.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;comm_tag&quot;</span>));
+        <span class="kw">let </span>fun_tag = ExprTag::Fun.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;fun_tag&quot;</span>));
 
         <span class="kw">let </span>outermost_cont_tag =
-            ContTag::Outermost.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;outermost_cont_tag&quot;</span>))<span class="question-mark">?</span>;
+            ContTag::Outermost.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;outermost_cont_tag&quot;</span>));
         <span class="kw">let </span>lookup_cont_tag =
-            ContTag::Lookup.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;lookup_cont_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>let_cont_tag = ContTag::Let.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;let_cont_tag&quot;</span>))<span class="question-mark">?</span>;
+            ContTag::Lookup.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;lookup_cont_tag&quot;</span>));
+        <span class="kw">let </span>let_cont_tag = ContTag::Let.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;let_cont_tag&quot;</span>));
         <span class="kw">let </span>letrec_cont_tag =
-            ContTag::LetRec.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;letrec_cont_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>tail_cont_tag =
-            ContTag::Tail.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tail_cont_tag&quot;</span>))<span class="question-mark">?</span>;
+            ContTag::LetRec.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;letrec_cont_tag&quot;</span>));
+        <span class="kw">let </span>tail_cont_tag = ContTag::Tail.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tail_cont_tag&quot;</span>));
         <span class="kw">let </span>call0_cont_tag =
-            ContTag::Call0.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;call0_cont_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>call_cont_tag =
-            ContTag::Call.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;call_cont_tag&quot;</span>))<span class="question-mark">?</span>;
+            ContTag::Call0.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;call0_cont_tag&quot;</span>));
+        <span class="kw">let </span>call_cont_tag = ContTag::Call.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;call_cont_tag&quot;</span>));
         <span class="kw">let </span>call2_cont_tag =
-            ContTag::Call2.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;call2_cont_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>unop_cont_tag =
-            ContTag::Unop.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;unop_cont_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>emit_cont_tag =
-            ContTag::Emit.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;emit_cont_tag&quot;</span>))<span class="question-mark">?</span>;
+            ContTag::Call2.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;call2_cont_tag&quot;</span>));
+        <span class="kw">let </span>unop_cont_tag = ContTag::Unop.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;unop_cont_tag&quot;</span>));
+        <span class="kw">let </span>emit_cont_tag = ContTag::Emit.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;emit_cont_tag&quot;</span>));
         <span class="kw">let </span>binop_cont_tag =
-            ContTag::Binop.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;binop_cont_tag&quot;</span>))<span class="question-mark">?</span>;
+            ContTag::Binop.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;binop_cont_tag&quot;</span>));
         <span class="kw">let </span>binop2_cont_tag =
-            ContTag::Binop2.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;binop2_cont_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>if_cont_tag = ContTag::If.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;if_cont_tag&quot;</span>))<span class="question-mark">?</span>;
+            ContTag::Binop2.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;binop2_cont_tag&quot;</span>));
+        <span class="kw">let </span>if_cont_tag = ContTag::If.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;if_cont_tag&quot;</span>));
 
-        <span class="kw">let </span>op1_car_tag = Op1::Car.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_car_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>op1_cdr_tag = Op1::Cdr.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_cdr_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>op1_commit_tag =
-            Op1::Commit.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_commit_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>op1_num_tag = Op1::Num.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_num_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>op1_char_tag = Op1::Char.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_char_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>op1_u64_tag = Op1::U64.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_u64_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>op1_comm_tag = Op1::Comm.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_comm_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>op1_open_tag = Op1::Open.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_open_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>op1_secret_tag =
-            Op1::Secret.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_secret_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>op1_atom_tag = Op1::Atom.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_atom_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>op1_emit_tag = Op1::Emit.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_emit_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>op2_cons_tag = Op2::Cons.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_cons_tag&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>op1_car_tag = Op1::Car.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_car_tag&quot;</span>));
+        <span class="kw">let </span>op1_cdr_tag = Op1::Cdr.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_cdr_tag&quot;</span>));
+        <span class="kw">let </span>op1_commit_tag = Op1::Commit.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_commit_tag&quot;</span>));
+        <span class="kw">let </span>op1_num_tag = Op1::Num.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_num_tag&quot;</span>));
+        <span class="kw">let </span>op1_char_tag = Op1::Char.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_char_tag&quot;</span>));
+        <span class="kw">let </span>op1_u64_tag = Op1::U64.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_u64_tag&quot;</span>));
+        <span class="kw">let </span>op1_comm_tag = Op1::Comm.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_comm_tag&quot;</span>));
+        <span class="kw">let </span>op1_open_tag = Op1::Open.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_open_tag&quot;</span>));
+        <span class="kw">let </span>op1_secret_tag = Op1::Secret.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_secret_tag&quot;</span>));
+        <span class="kw">let </span>op1_atom_tag = Op1::Atom.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_atom_tag&quot;</span>));
+        <span class="kw">let </span>op1_emit_tag = Op1::Emit.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op1_emit_tag&quot;</span>));
+        <span class="kw">let </span>op2_cons_tag = Op2::Cons.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_cons_tag&quot;</span>));
         <span class="kw">let </span>op2_strcons_tag =
-            Op2::StrCons.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_strcons_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>op2_hide_tag = Op2::Hide.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_hide_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>op2_begin_tag = Op2::Begin.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_begin_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>op2_sum_tag = Op2::Sum.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_sum_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>op2_diff_tag = Op2::Diff.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_diff_tag&quot;</span>))<span class="question-mark">?</span>;
+            Op2::StrCons.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_strcons_tag&quot;</span>));
+        <span class="kw">let </span>op2_hide_tag = Op2::Hide.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_hide_tag&quot;</span>));
+        <span class="kw">let </span>op2_begin_tag = Op2::Begin.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_begin_tag&quot;</span>));
+        <span class="kw">let </span>op2_sum_tag = Op2::Sum.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_sum_tag&quot;</span>));
+        <span class="kw">let </span>op2_diff_tag = Op2::Diff.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_diff_tag&quot;</span>));
 
         <span class="kw">let </span>op2_product_tag =
-            Op2::Product.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_product_tag&quot;</span>))<span class="question-mark">?</span>;
+            Op2::Product.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_product_tag&quot;</span>));
         <span class="kw">let </span>op2_quotient_tag =
-            Op2::Quotient.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_quotient_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>op2_modulo_tag =
-            Op2::Modulo.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_modulo_tag&quot;</span>))<span class="question-mark">?</span>;
+            Op2::Quotient.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_quotient_tag&quot;</span>));
+        <span class="kw">let </span>op2_modulo_tag = Op2::Modulo.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_modulo_tag&quot;</span>));
         <span class="kw">let </span>op2_numequal_tag =
-            AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_numequal_tag&quot;</span>), || {
-                <span class="prelude-val">Ok</span>(Op2::NumEqual.to_field())
-            })<span class="question-mark">?</span>;
-        <span class="kw">let </span>op2_less_tag = Op2::Less.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_less_tag&quot;</span>))<span class="question-mark">?</span>;
+            AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_numequal_tag&quot;</span>), || {
+                Op2::NumEqual.to_field()
+            });
+        <span class="kw">let </span>op2_less_tag = Op2::Less.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_less_tag&quot;</span>));
         <span class="kw">let </span>op2_less_equal_tag =
-            Op2::LessEqual.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_less_equal_tag&quot;</span>))<span class="question-mark">?</span>;
+            Op2::LessEqual.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_less_equal_tag&quot;</span>));
         <span class="kw">let </span>op2_greater_tag =
-            Op2::Greater.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_greater_tag&quot;</span>))<span class="question-mark">?</span>;
+            Op2::Greater.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_greater_tag&quot;</span>));
         <span class="kw">let </span>op2_greater_equal_tag =
-            Op2::GreaterEqual.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_greater_equal_tag&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>op2_equal_tag = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_equal_tag&quot;</span>), || {
-            <span class="prelude-val">Ok</span>(Op2::Equal.to_field())
-        })<span class="question-mark">?</span>;
+            Op2::GreaterEqual.allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_greater_equal_tag&quot;</span>));
+        <span class="kw">let </span>op2_equal_tag =
+            AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;op2_equal_tag&quot;</span>), || {
+                Op2::Equal.to_field()
+            });
 
         <span class="kw">let </span>c = store.expect_constants();
 
@@ -749,15 +737,15 @@
         <span class="macro">defsym!</span>(dummy_arg_ptr, <span class="string">&quot;_&quot;</span>, dummy);
         <span class="macro">defsym!</span>(lambda_sym, <span class="string">&quot;lambda&quot;</span>, lambda);
 
-        <span class="kw">let </span>true_num = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;true&quot;</span>), F::ONE)<span class="question-mark">?</span>;
-        <span class="kw">let </span>false_num = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;false&quot;</span>), F::ZERO)<span class="question-mark">?</span>;
-        <span class="kw">let </span>default_num = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;default&quot;</span>), F::ZERO)<span class="question-mark">?</span>;
+        <span class="kw">let </span>true_num = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;true&quot;</span>), F::ONE);
+        <span class="kw">let </span>false_num = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;false&quot;</span>), F::ZERO);
+        <span class="kw">let </span>default_num = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;default&quot;</span>), F::ZERO);
 
         <span class="kw">let </span>power2_32_ff = F::pow_vartime(<span class="kw-2">&amp;</span>F::from_u64(<span class="number">2</span>), [<span class="number">32</span>]);
-        <span class="kw">let </span>power2_32_num = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;pow(2,32)&quot;</span>), power2_32_ff)<span class="question-mark">?</span>;
+        <span class="kw">let </span>power2_32_num = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;pow(2,32)&quot;</span>), power2_32_ff);
 
         <span class="kw">let </span>power2_64_ff = F::pow_vartime(<span class="kw-2">&amp;</span>F::from_u64(<span class="number">2</span>), [<span class="number">64</span>]);
-        <span class="kw">let </span>power2_64_num = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;pow(2,64)&quot;</span>), power2_64_ff)<span class="question-mark">?</span>;
+        <span class="kw">let </span>power2_64_num = allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;pow(2,64)&quot;</span>), power2_64_ff);
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             terminal_ptr,
@@ -932,8 +920,8 @@
 <span class="kw">pub fn </span>allocate_constant&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     val: F,
-) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
-    <span class="kw">let </span>allocated = AllocatedNum::&lt;F&gt;::alloc(cs.namespace(|| <span class="string">&quot;allocate&quot;</span>), || <span class="prelude-val">Ok</span>(val))<span class="question-mark">?</span>;
+) -&gt; AllocatedNum&lt;F&gt; {
+    <span class="kw">let </span>allocated = AllocatedNum::&lt;F&gt;::alloc_infallible(cs.namespace(|| <span class="string">&quot;allocate&quot;</span>), || val);
 
     <span class="comment">// allocated * 1 = val
     </span>cs.enforce(
@@ -943,14 +931,14 @@
         |<span class="kw">_</span>| Boolean::Constant(<span class="bool-val">true</span>).lc(CS::one(), val),
     );
 
-    <span class="prelude-val">Ok</span>(allocated)
+    allocated
 }
 
 <span class="kw">impl </span>ExprTag {
     <span class="kw">pub fn </span>allocate_constant&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
+    ) -&gt; AllocatedNum&lt;F&gt; {
         allocate_constant(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;{self:?} tag&quot;</span>)),
             <span class="self">self</span>.to_field(),
@@ -962,7 +950,7 @@
     <span class="kw">pub fn </span>allocate_constant&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
+    ) -&gt; AllocatedNum&lt;F&gt; {
         allocate_constant(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;{self:?} base continuation tag&quot;</span>)),
             <span class="self">self</span>.to_field(),
@@ -974,7 +962,7 @@
     <span class="kw">pub fn </span>allocate_constant&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
+    ) -&gt; AllocatedNum&lt;F&gt; {
         allocate_constant(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;{self:?} tag&quot;</span>)),
             <span class="self">self</span>.to_field(),
@@ -986,7 +974,7 @@
     <span class="kw">pub fn </span>allocate_constant&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;, SynthesisError&gt; {
+    ) -&gt; AllocatedNum&lt;F&gt; {
         allocate_constant(
             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;{self:?} tag&quot;</span>)),
             <span class="self">self</span>.to_field(),

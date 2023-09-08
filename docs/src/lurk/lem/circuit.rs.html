@@ -1261,10 +1261,6 @@
 <a href="#1261" id="1261">1261</a>
 <a href="#1262" id="1262">1262</a>
 <a href="#1263" id="1263">1263</a>
-<a href="#1264" id="1264">1264</a>
-<a href="#1265" id="1265">1265</a>
-<a href="#1266" id="1266">1266</a>
-<a href="#1267" id="1267">1267</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellperson constraints for LEM, such
@@ -1342,9 +1338,8 @@
     cs: <span class="kw-2">&amp;mut </span>CS,
     namespace: <span class="kw-2">&amp;</span>str,
     value: F,
-) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;&gt; {
+) -&gt; AllocatedNum&lt;F&gt; {
     allocate_constant(<span class="kw-2">&amp;mut </span>cs.namespace(|| namespace), value)
-        .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;allocation for &#39;{namespace}&#39; failed&quot;</span>))
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; GlobalAllocator&lt;F&gt; {
@@ -1355,15 +1350,15 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         f: F,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedNum&lt;F&gt;&gt; {
+    ) -&gt; AllocatedNum&lt;F&gt; {
         <span class="kw">let </span>wrap = FWrap(f);
         <span class="kw">match </span><span class="self">self</span>.<span class="number">0</span>.get(<span class="kw-2">&amp;</span>wrap) {
-            <span class="prelude-val">Some</span>(allocated_num) =&gt; <span class="prelude-val">Ok</span>(allocated_num.to_owned()),
+            <span class="prelude-val">Some</span>(allocated_num) =&gt; allocated_num.to_owned(),
             <span class="prelude-val">None </span>=&gt; {
                 <span class="kw">let </span>allocated_num =
-                    allocate_const(cs, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;allocate constant {}&quot;</span>, f.hex_digits()), f)<span class="question-mark">?</span>;
+                    allocate_const(cs, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;allocate constant {}&quot;</span>, f.hex_digits()), f);
                 <span class="self">self</span>.<span class="number">0</span>.insert(wrap, allocated_num.clone());
-                <span class="prelude-val">Ok</span>(allocated_num)
+                allocated_num
             }
         }
     }
@@ -1708,7 +1703,7 @@
                                 not_dummy,
                                 allocated_ptr.tag(),
                                 <span class="kw-2">&amp;</span>preallocated_preimg[ptr_idx], <span class="comment">// tag index
-                            </span>)<span class="question-mark">?</span>;
+                            </span>);
                             implies_equal(
                                 <span class="kw-2">&amp;mut </span>cs.namespace(|| {
                                     <span class="macro">format!</span>(
@@ -1719,12 +1714,12 @@
                                 not_dummy,
                                 allocated_ptr.hash(),
                                 <span class="kw-2">&amp;</span>preallocated_preimg[ptr_idx + <span class="number">1</span>], <span class="comment">// hash index
-                            </span>)<span class="question-mark">?</span>;
+                            </span>);
                         }
 
                         <span class="comment">// Allocate the image tag if it hasn&#39;t been allocated before,
                         // create the full image pointer and add it to bound allocations
-                        </span><span class="kw">let </span>img_tag = g.global_allocator.get_or_alloc_const(cs, <span class="macro-nonterminal">$tag</span>.to_field())<span class="question-mark">?</span>;
+                        </span><span class="kw">let </span>img_tag = g.global_allocator.get_or_alloc_const(cs, <span class="macro-nonterminal">$tag</span>.to_field());
                         <span class="kw">let </span>img_hash = preallocated_img_hash.clone();
                         <span class="kw">let </span>img_ptr = AllocatedPtr::from_parts(img_tag, img_hash);
                         bound_allocations.insert(<span class="macro-nonterminal">$img</span>, img_ptr);
@@ -1758,7 +1753,7 @@
                             not_dummy,
                             allocated_img.hash(),
                             <span class="kw-2">&amp;</span>preallocated_img,
-                        )<span class="question-mark">?</span>;
+                        );
 
                         <span class="comment">// Retrieve preimage hashes and tags create the full preimage pointers
                         // and add them to bound allocations
@@ -1831,8 +1826,8 @@
                         <span class="macro">unhash_helper!</span>(preimg, img, SlotType::Hash4);
                     }
                     Op::Null(tgt, tag) =&gt; {
-                        <span class="kw">let </span>tag = g.global_allocator.get_or_alloc_const(cs, tag.to_field())<span class="question-mark">?</span>;
-                        <span class="kw">let </span>zero = g.global_allocator.get_or_alloc_const(cs, F::ZERO)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>tag = g.global_allocator.get_or_alloc_const(cs, tag.to_field());
+                        <span class="kw">let </span>zero = g.global_allocator.get_or_alloc_const(cs, F::ZERO);
                         <span class="kw">let </span>allocated_ptr = AllocatedPtr::from_parts(tag, zero);
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
@@ -1840,14 +1835,14 @@
                         <span class="kw">let </span>lit_ptr = lit.to_ptr(g.store);
                         <span class="kw">let </span>lit_tag = lit_ptr.tag().to_field();
                         <span class="kw">let </span>lit_hash = g.store.hash_ptr(<span class="kw-2">&amp;</span>lit_ptr)<span class="question-mark">?</span>.hash;
-                        <span class="kw">let </span>allocated_tag = g.global_allocator.get_or_alloc_const(cs, lit_tag)<span class="question-mark">?</span>;
-                        <span class="kw">let </span>allocated_hash = g.global_allocator.get_or_alloc_const(cs, lit_hash)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>allocated_tag = g.global_allocator.get_or_alloc_const(cs, lit_tag);
+                        <span class="kw">let </span>allocated_hash = g.global_allocator.get_or_alloc_const(cs, lit_hash);
                         <span class="kw">let </span>allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
                     Op::Cast(tgt, tag, src) =&gt; {
                         <span class="kw">let </span>src = bound_allocations.get(src)<span class="question-mark">?</span>;
-                        <span class="kw">let </span>tag = g.global_allocator.get_or_alloc_const(cs, tag.to_field())<span class="question-mark">?</span>;
+                        <span class="kw">let </span>tag = g.global_allocator.get_or_alloc_const(cs, tag.to_field());
                         <span class="kw">let </span>allocated_ptr = AllocatedPtr::from_parts(tag, src.hash().clone());
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
@@ -1860,7 +1855,7 @@
                         <span class="kw">let </span>c_num = boolean_to_num(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;equal_tag.to_num&quot;</span>), <span class="kw-2">&amp;</span>eq)<span class="question-mark">?</span>;
                         <span class="kw">let </span>tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field());
                         <span class="kw">let </span>c = AllocatedPtr::from_parts(tag, c_num);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -1873,7 +1868,7 @@
                         <span class="kw">let </span>c_num = boolean_to_num(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;equal_val.to_num&quot;</span>), <span class="kw-2">&amp;</span>eq)<span class="question-mark">?</span>;
                         <span class="kw">let </span>tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field());
                         <span class="kw">let </span>c = AllocatedPtr::from_parts(tag, c_num);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -1885,7 +1880,7 @@
                         <span class="kw">let </span>c_num = add(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;add&quot;</span>), a_num, b_num)<span class="question-mark">?</span>;
                         <span class="kw">let </span>tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field());
                         <span class="kw">let </span>c = AllocatedPtr::from_parts(tag, c_num);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -1897,7 +1892,7 @@
                         <span class="kw">let </span>c_num = sub(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;sub&quot;</span>), a_num, b_num)<span class="question-mark">?</span>;
                         <span class="kw">let </span>tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field());
                         <span class="kw">let </span>c = AllocatedPtr::from_parts(tag, c_num);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -1909,7 +1904,7 @@
                         <span class="kw">let </span>c_num = mul(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;mul&quot;</span>), a_num, b_num)<span class="question-mark">?</span>;
                         <span class="kw">let </span>tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field());
                         <span class="kw">let </span>c = AllocatedPtr::from_parts(tag, c_num);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -1920,7 +1915,7 @@
                         <span class="kw">let </span>b_num = b.hash();
 
                         <span class="kw">let </span>b_is_zero = <span class="kw-2">&amp;</span>alloc_is_zero(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;b_is_zero&quot;</span>), b_num)<span class="question-mark">?</span>;
-                        <span class="kw">let </span>one = g.global_allocator.get_or_alloc_const(cs, F::ONE)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>one = g.global_allocator.get_or_alloc_const(cs, F::ONE);
 
                         <span class="kw">let </span>divisor = pick(
                             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;maybe-dummy divisor&quot;</span>),
@@ -1933,7 +1928,7 @@
 
                         <span class="kw">let </span>tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field());
                         <span class="kw">let </span>c = AllocatedPtr::from_parts(tag, quotient);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -1942,7 +1937,7 @@
                         <span class="kw">let </span>b = bound_allocations.get(b)<span class="question-mark">?</span>;
                         <span class="kw">let </span>tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field());
                         <span class="kw">let </span>(preallocated_preimg, lt) =
                             <span class="kw-2">&amp;</span>g.preallocated_less_than_slots[next_slot.consume_less_than()];
                         <span class="kw">for </span>(i, n) <span class="kw">in </span>[a.hash(), b.hash()].into_iter().enumerate() {
@@ -1953,7 +1948,7 @@
                                 not_dummy,
                                 n,
                                 <span class="kw-2">&amp;</span>preallocated_preimg[i],
-                            )<span class="question-mark">?</span>;
+                            );
                         }
                         <span class="kw">let </span>c = AllocatedPtr::from_parts(tag, lt.clone());
                         bound_allocations.insert(tgt.clone(), c);
@@ -1972,10 +1967,10 @@
                                 .map(|a| F::from_u64(a.to_u64_unchecked() &amp; b))
                                 .ok_or(SynthesisError::AssignmentMissing)
                         })<span class="question-mark">?</span>;
-                        enforce_pack(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;enforce_trunc&quot;</span>), <span class="kw-2">&amp;</span>trunc_bits, <span class="kw-2">&amp;</span>trunc)<span class="question-mark">?</span>;
+                        enforce_pack(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;enforce_trunc&quot;</span>), <span class="kw-2">&amp;</span>trunc_bits, <span class="kw-2">&amp;</span>trunc);
                         <span class="kw">let </span>tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field());
                         <span class="kw">let </span>c = AllocatedPtr::from_parts(tag, trunc);
                         bound_allocations.insert(tgt.clone(), c);
                     }
@@ -2013,7 +2008,7 @@
                         );
                         <span class="kw">let </span>tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field());
                         <span class="kw">let </span>div_ptr = AllocatedPtr::from_parts(tag.clone(), div);
                         <span class="kw">let </span>rem_ptr = AllocatedPtr::from_parts(tag, rem);
                         bound_allocations.insert(tgt[<span class="number">0</span>].clone(), div_ptr);
@@ -2025,7 +2020,7 @@
                         <span class="kw">let </span>pay = bound_allocations.get(pay)<span class="question-mark">?</span>;
                         <span class="kw">let </span>sec_tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field());
                         <span class="kw">let </span>(preallocated_preimg, hash) =
                             <span class="kw-2">&amp;</span>g.preallocated_commitment_slots[next_slot.consume_commitment()];
                         implies_equal(
@@ -2035,7 +2030,7 @@
                             not_dummy,
                             sec.tag(),
                             <span class="kw-2">&amp;</span>sec_tag,
-                        )<span class="question-mark">?</span>;
+                        );
                         implies_equal(
                             <span class="kw-2">&amp;mut </span>cs.namespace(|| {
                                 <span class="macro">format!</span>(<span class="string">&quot;implies equal for the secret&#39;s hash (OP {:?})&quot;</span>, <span class="kw-2">&amp;</span>op)
@@ -2043,7 +2038,7 @@
                             not_dummy,
                             sec.hash(),
                             <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">0</span>],
-                        )<span class="question-mark">?</span>;
+                        );
                         implies_equal(
                             <span class="kw-2">&amp;mut </span>cs.namespace(|| {
                                 <span class="macro">format!</span>(<span class="string">&quot;implies equal for the payload&#39;s tag (OP {:?})&quot;</span>, <span class="kw-2">&amp;</span>op)
@@ -2051,7 +2046,7 @@
                             not_dummy,
                             pay.tag(),
                             <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">1</span>],
-                        )<span class="question-mark">?</span>;
+                        );
                         implies_equal(
                             <span class="kw-2">&amp;mut </span>cs.namespace(|| {
                                 <span class="macro">format!</span>(<span class="string">&quot;implies equal for the payload&#39;s hash (OP {:?})&quot;</span>, <span class="kw-2">&amp;</span>op)
@@ -2059,10 +2054,10 @@
                             not_dummy,
                             pay.hash(),
                             <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">2</span>],
-                        )<span class="question-mark">?</span>;
+                        );
                         <span class="kw">let </span>tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Comm).to_field())<span class="question-mark">?</span>;
+                            .get_or_alloc_const(cs, Tag::Expr(Comm).to_field());
                         <span class="kw">let </span>allocated_ptr = AllocatedPtr::from_parts(tag, hash.clone());
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
@@ -2072,7 +2067,7 @@
                             <span class="kw-2">&amp;</span>g.preallocated_commitment_slots[next_slot.consume_commitment()];
                         <span class="kw">let </span>comm_tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Comm).to_field())<span class="question-mark">?</span>;
+                            .get_or_alloc_const(cs, Tag::Expr(Comm).to_field());
                         implies_equal(
                             <span class="kw-2">&amp;mut </span>cs.namespace(|| {
                                 <span class="macro">format!</span>(<span class="string">&quot;implies equal for comm&#39;s tag (OP {:?})&quot;</span>, <span class="kw-2">&amp;</span>op)
@@ -2080,7 +2075,7 @@
                             not_dummy,
                             comm.tag(),
                             <span class="kw-2">&amp;</span>comm_tag,
-                        )<span class="question-mark">?</span>;
+                        );
                         implies_equal(
                             <span class="kw-2">&amp;mut </span>cs.namespace(|| {
                                 <span class="macro">format!</span>(<span class="string">&quot;implies equal for comm&#39;s hash (OP {:?})&quot;</span>, <span class="kw-2">&amp;</span>op)
@@ -2088,10 +2083,10 @@
                             not_dummy,
                             comm.hash(),
                             com_hash,
-                        )<span class="question-mark">?</span>;
+                        );
                         <span class="kw">let </span>sec_tag = g
                             .global_allocator
-                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
+                            .get_or_alloc_const(cs, Tag::Expr(Num).to_field());
                         <span class="kw">let </span>allocated_sec_ptr =
                             AllocatedPtr::from_parts(sec_tag, preallocated_preimg[<span class="number">0</span>].clone());
                         <span class="kw">let </span>allocated_pay_ptr = AllocatedPtr::from_parts(
@@ -2109,15 +2104,13 @@
                     <span class="kw">for </span>(i, return_var) <span class="kw">in </span>return_vars.iter().enumerate() {
                         <span class="kw">let </span>allocated_ptr = bound_allocations.get(return_var)<span class="question-mark">?</span>;
 
-                        allocated_ptr
-                            .implies_ptr_equal(
-                                <span class="kw-2">&amp;mut </span>cs.namespace(|| {
-                                    <span class="macro">format!</span>(<span class="string">&quot;implies_ptr_equal {return_var} (return_var {i})&quot;</span>)
-                                }),
-                                not_dummy,
-                                <span class="kw-2">&amp;</span>preallocated_outputs[i],
-                            )
-                            .with_context(|| <span class="string">&quot;couldn&#39;t constrain `implies_ptr_equal`&quot;</span>)<span class="question-mark">?</span>;
+                        allocated_ptr.implies_ptr_equal(
+                            <span class="kw-2">&amp;mut </span>cs.namespace(|| {
+                                <span class="macro">format!</span>(<span class="string">&quot;implies_ptr_equal {return_var} (return_var {i})&quot;</span>)
+                            }),
+                            not_dummy,
+                            <span class="kw-2">&amp;</span>preallocated_outputs[i],
+                        );
                     }
                     <span class="prelude-val">Ok</span>(())
                 }
@@ -2147,7 +2140,7 @@
                         <span class="kw-2">&amp;</span>is_eq,
                         x_ptr,
                         y_ptr,
-                    )<span class="question-mark">?</span>;
+                    );
                     implies_unequal(
                         <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;{x} != {y}&quot;</span>)),
                         <span class="kw-2">&amp;</span>is_neq,
@@ -2162,8 +2155,7 @@
                         <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;if_enforce_selector_with_premise&quot;</span>),
                         not_dummy,
                         <span class="kw-2">&amp;</span>selector,
-                    )
-                    .with_context(|| <span class="string">&quot; couldn&#39;t constrain `enforce_selector_with_premise`&quot;</span>)<span class="question-mark">?</span>;
+                    );
 
                     <span class="kw">let </span><span class="kw-2">mut </span>branch_slot = <span class="kw-2">*</span>next_slot;
                     recurse(
@@ -2207,7 +2199,7 @@
                             <span class="kw-2">&amp;</span>has_match,
                             <span class="kw-2">&amp;</span>match_tag,
                             tag.to_field(),
-                        )<span class="question-mark">?</span>;
+                        );
 
                         selector.push(has_match.clone());
 
@@ -2270,8 +2262,8 @@
                         <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;enforce_selector_with_premise&quot;</span>),
                         not_dummy,
                         <span class="kw-2">&amp;</span>selector,
-                    )
-                    .with_context(|| <span class="string">&quot; couldn&#39;t constrain `enforce_selector_with_premise`&quot;</span>)
+                    );
+                    <span class="prelude-val">Ok</span>(())
                 }
                 Ctrl::MatchVal(match_var, cases, def) =&gt; {
                     <span class="kw">let </span>match_lit = bound_allocations.get(match_var)<span class="question-mark">?</span>.hash().clone();
@@ -2295,7 +2287,7 @@
                             <span class="kw-2">&amp;</span>has_match,
                             <span class="kw-2">&amp;</span>match_lit,
                             lit_hash,
-                        )<span class="question-mark">?</span>;
+                        );
 
                         selector.push(has_match.clone());
 
@@ -2360,8 +2352,8 @@
                         <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;enforce_selector_with_premise&quot;</span>),
                         not_dummy,
                         <span class="kw-2">&amp;</span>selector,
-                    )
-                    .with_context(|| <span class="string">&quot; couldn&#39;t constrain `enforce_selector_with_premise`&quot;</span>)
+                    );
+                    <span class="prelude-val">Ok</span>(())
                 }
             }
         }
