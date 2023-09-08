@@ -1,4 +1,4 @@
 (function() {var implementors = {
-"clutch":[["impl <a class=\"trait\" href=\"lurk/repl/trait.ReplTrait.html\" title=\"trait lurk::repl::ReplTrait\">ReplTrait</a>&lt;Fq, <a class=\"enum\" href=\"lurk/eval/lang/enum.Coproc.html\" title=\"enum lurk::eval::lang::Coproc\">Coproc</a>&lt;Fq&gt;&gt; for <a class=\"struct\" href=\"clutch/struct.ClutchState.html\" title=\"struct clutch::ClutchState\">ClutchState</a>&lt;Scalar, <a class=\"enum\" href=\"lurk/eval/lang/enum.Coproc.html\" title=\"enum lurk::eval::lang::Coproc\">Coproc</a>&lt;Scalar&gt;&gt;"]],
+"clutch":[["impl ReplTrait&lt;Fq, Coproc&lt;Fq&gt;&gt; for <a class=\"struct\" href=\"clutch/struct.ClutchState.html\" title=\"struct clutch::ClutchState\">ClutchState</a>&lt;Scalar, Coproc&lt;Scalar&gt;&gt;"]],
 "lurk":[]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
