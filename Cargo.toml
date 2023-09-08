@@ -186,6 +186,5 @@ name = "public_params"
 harness = false
 
 [patch.crates-io]
-sppark = { git = "https://github.com/supranational/sppark", rev="5fea26f43cc5d12a77776c70815e7c722fd1f8a7" }
 # This is needed to ensure halo2curves, which imports pasta-curves, uses the *same* traits in bn256_grumpkin
 pasta_curves = { git="https://github.com/lurk-lab/pasta_curves", branch="dev" }

@@ -116,81 +116,75 @@ impl<F: LurkField> GlobalAllocations<F> {
             &store.strnil(),
         )?;
 
-        let thunk_tag = ExprTag::Thunk.allocate_constant(&mut cs.namespace(|| "thunk_tag"))?;
-        let cons_tag = ExprTag::Cons.allocate_constant(&mut cs.namespace(|| "cons_tag"))?;
-        let char_tag = ExprTag::Char.allocate_constant(&mut cs.namespace(|| "char_tag"))?;
-        let str_tag = ExprTag::Str.allocate_constant(&mut cs.namespace(|| "str_tag"))?;
-        let num_tag = ExprTag::Num.allocate_constant(&mut cs.namespace(|| "num_tag"))?;
-        let u64_tag = ExprTag::U64.allocate_constant(&mut cs.namespace(|| "u64_tag"))?;
-        let comm_tag = ExprTag::Comm.allocate_constant(&mut cs.namespace(|| "comm_tag"))?;
-        let fun_tag = ExprTag::Fun.allocate_constant(&mut cs.namespace(|| "fun_tag"))?;
+        let thunk_tag = ExprTag::Thunk.allocate_constant(&mut cs.namespace(|| "thunk_tag"));
+        let cons_tag = ExprTag::Cons.allocate_constant(&mut cs.namespace(|| "cons_tag"));
+        let char_tag = ExprTag::Char.allocate_constant(&mut cs.namespace(|| "char_tag"));
+        let str_tag = ExprTag::Str.allocate_constant(&mut cs.namespace(|| "str_tag"));
+        let num_tag = ExprTag::Num.allocate_constant(&mut cs.namespace(|| "num_tag"));
+        let u64_tag = ExprTag::U64.allocate_constant(&mut cs.namespace(|| "u64_tag"));
+        let comm_tag = ExprTag::Comm.allocate_constant(&mut cs.namespace(|| "comm_tag"));
+        let fun_tag = ExprTag::Fun.allocate_constant(&mut cs.namespace(|| "fun_tag"));
 
         let outermost_cont_tag =
-            ContTag::Outermost.allocate_constant(&mut cs.namespace(|| "outermost_cont_tag"))?;
+            ContTag::Outermost.allocate_constant(&mut cs.namespace(|| "outermost_cont_tag"));
         let lookup_cont_tag =
-            ContTag::Lookup.allocate_constant(&mut cs.namespace(|| "lookup_cont_tag"))?;
-        let let_cont_tag = ContTag::Let.allocate_constant(&mut cs.namespace(|| "let_cont_tag"))?;
+            ContTag::Lookup.allocate_constant(&mut cs.namespace(|| "lookup_cont_tag"));
+        let let_cont_tag = ContTag::Let.allocate_constant(&mut cs.namespace(|| "let_cont_tag"));
         let letrec_cont_tag =
-            ContTag::LetRec.allocate_constant(&mut cs.namespace(|| "letrec_cont_tag"))?;
-        let tail_cont_tag =
-            ContTag::Tail.allocate_constant(&mut cs.namespace(|| "tail_cont_tag"))?;
+            ContTag::LetRec.allocate_constant(&mut cs.namespace(|| "letrec_cont_tag"));
+        let tail_cont_tag = ContTag::Tail.allocate_constant(&mut cs.namespace(|| "tail_cont_tag"));
         let call0_cont_tag =
-            ContTag::Call0.allocate_constant(&mut cs.namespace(|| "call0_cont_tag"))?;
-        let call_cont_tag =
-            ContTag::Call.allocate_constant(&mut cs.namespace(|| "call_cont_tag"))?;
+            ContTag::Call0.allocate_constant(&mut cs.namespace(|| "call0_cont_tag"));
+        let call_cont_tag = ContTag::Call.allocate_constant(&mut cs.namespace(|| "call_cont_tag"));
         let call2_cont_tag =
-            ContTag::Call2.allocate_constant(&mut cs.namespace(|| "call2_cont_tag"))?;
-        let unop_cont_tag =
-            ContTag::Unop.allocate_constant(&mut cs.namespace(|| "unop_cont_tag"))?;
-        let emit_cont_tag =
-            ContTag::Emit.allocate_constant(&mut cs.namespace(|| "emit_cont_tag"))?;
+            ContTag::Call2.allocate_constant(&mut cs.namespace(|| "call2_cont_tag"));
+        let unop_cont_tag = ContTag::Unop.allocate_constant(&mut cs.namespace(|| "unop_cont_tag"));
+        let emit_cont_tag = ContTag::Emit.allocate_constant(&mut cs.namespace(|| "emit_cont_tag"));
         let binop_cont_tag =
-            ContTag::Binop.allocate_constant(&mut cs.namespace(|| "binop_cont_tag"))?;
+            ContTag::Binop.allocate_constant(&mut cs.namespace(|| "binop_cont_tag"));
         let binop2_cont_tag =
-            ContTag::Binop2.allocate_constant(&mut cs.namespace(|| "binop2_cont_tag"))?;
-        let if_cont_tag = ContTag::If.allocate_constant(&mut cs.namespace(|| "if_cont_tag"))?;
+            ContTag::Binop2.allocate_constant(&mut cs.namespace(|| "binop2_cont_tag"));
+        let if_cont_tag = ContTag::If.allocate_constant(&mut cs.namespace(|| "if_cont_tag"));
 
-        let op1_car_tag = Op1::Car.allocate_constant(&mut cs.namespace(|| "op1_car_tag"))?;
-        let op1_cdr_tag = Op1::Cdr.allocate_constant(&mut cs.namespace(|| "op1_cdr_tag"))?;
-        let op1_commit_tag =
-            Op1::Commit.allocate_constant(&mut cs.namespace(|| "op1_commit_tag"))?;
-        let op1_num_tag = Op1::Num.allocate_constant(&mut cs.namespace(|| "op1_num_tag"))?;
-        let op1_char_tag = Op1::Char.allocate_constant(&mut cs.namespace(|| "op1_char_tag"))?;
-        let op1_u64_tag = Op1::U64.allocate_constant(&mut cs.namespace(|| "op1_u64_tag"))?;
-        let op1_comm_tag = Op1::Comm.allocate_constant(&mut cs.namespace(|| "op1_comm_tag"))?;
-        let op1_open_tag = Op1::Open.allocate_constant(&mut cs.namespace(|| "op1_open_tag"))?;
-        let op1_secret_tag =
-            Op1::Secret.allocate_constant(&mut cs.namespace(|| "op1_secret_tag"))?;
-        let op1_atom_tag = Op1::Atom.allocate_constant(&mut cs.namespace(|| "op1_atom_tag"))?;
-        let op1_emit_tag = Op1::Emit.allocate_constant(&mut cs.namespace(|| "op1_emit_tag"))?;
-        let op2_cons_tag = Op2::Cons.allocate_constant(&mut cs.namespace(|| "op2_cons_tag"))?;
+        let op1_car_tag = Op1::Car.allocate_constant(&mut cs.namespace(|| "op1_car_tag"));
+        let op1_cdr_tag = Op1::Cdr.allocate_constant(&mut cs.namespace(|| "op1_cdr_tag"));
+        let op1_commit_tag = Op1::Commit.allocate_constant(&mut cs.namespace(|| "op1_commit_tag"));
+        let op1_num_tag = Op1::Num.allocate_constant(&mut cs.namespace(|| "op1_num_tag"));
+        let op1_char_tag = Op1::Char.allocate_constant(&mut cs.namespace(|| "op1_char_tag"));
+        let op1_u64_tag = Op1::U64.allocate_constant(&mut cs.namespace(|| "op1_u64_tag"));
+        let op1_comm_tag = Op1::Comm.allocate_constant(&mut cs.namespace(|| "op1_comm_tag"));
+        let op1_open_tag = Op1::Open.allocate_constant(&mut cs.namespace(|| "op1_open_tag"));
+        let op1_secret_tag = Op1::Secret.allocate_constant(&mut cs.namespace(|| "op1_secret_tag"));
+        let op1_atom_tag = Op1::Atom.allocate_constant(&mut cs.namespace(|| "op1_atom_tag"));
+        let op1_emit_tag = Op1::Emit.allocate_constant(&mut cs.namespace(|| "op1_emit_tag"));
+        let op2_cons_tag = Op2::Cons.allocate_constant(&mut cs.namespace(|| "op2_cons_tag"));
         let op2_strcons_tag =
-            Op2::StrCons.allocate_constant(&mut cs.namespace(|| "op2_strcons_tag"))?;
-        let op2_hide_tag = Op2::Hide.allocate_constant(&mut cs.namespace(|| "op2_hide_tag"))?;
-        let op2_begin_tag = Op2::Begin.allocate_constant(&mut cs.namespace(|| "op2_begin_tag"))?;
-        let op2_sum_tag = Op2::Sum.allocate_constant(&mut cs.namespace(|| "op2_sum_tag"))?;
-        let op2_diff_tag = Op2::Diff.allocate_constant(&mut cs.namespace(|| "op2_diff_tag"))?;
+            Op2::StrCons.allocate_constant(&mut cs.namespace(|| "op2_strcons_tag"));
+        let op2_hide_tag = Op2::Hide.allocate_constant(&mut cs.namespace(|| "op2_hide_tag"));
+        let op2_begin_tag = Op2::Begin.allocate_constant(&mut cs.namespace(|| "op2_begin_tag"));
+        let op2_sum_tag = Op2::Sum.allocate_constant(&mut cs.namespace(|| "op2_sum_tag"));
+        let op2_diff_tag = Op2::Diff.allocate_constant(&mut cs.namespace(|| "op2_diff_tag"));
 
         let op2_product_tag =
-            Op2::Product.allocate_constant(&mut cs.namespace(|| "op2_product_tag"))?;
+            Op2::Product.allocate_constant(&mut cs.namespace(|| "op2_product_tag"));
         let op2_quotient_tag =
-            Op2::Quotient.allocate_constant(&mut cs.namespace(|| "op2_quotient_tag"))?;
-        let op2_modulo_tag =
-            Op2::Modulo.allocate_constant(&mut cs.namespace(|| "op2_modulo_tag"))?;
+            Op2::Quotient.allocate_constant(&mut cs.namespace(|| "op2_quotient_tag"));
+        let op2_modulo_tag = Op2::Modulo.allocate_constant(&mut cs.namespace(|| "op2_modulo_tag"));
         let op2_numequal_tag =
-            AllocatedNum::alloc(&mut cs.namespace(|| "op2_numequal_tag"), || {
-                Ok(Op2::NumEqual.to_field())
-            })?;
-        let op2_less_tag = Op2::Less.allocate_constant(&mut cs.namespace(|| "op2_less_tag"))?;
+            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "op2_numequal_tag"), || {
+                Op2::NumEqual.to_field()
+            });
+        let op2_less_tag = Op2::Less.allocate_constant(&mut cs.namespace(|| "op2_less_tag"));
         let op2_less_equal_tag =
-            Op2::LessEqual.allocate_constant(&mut cs.namespace(|| "op2_less_equal_tag"))?;
+            Op2::LessEqual.allocate_constant(&mut cs.namespace(|| "op2_less_equal_tag"));
         let op2_greater_tag =
-            Op2::Greater.allocate_constant(&mut cs.namespace(|| "op2_greater_tag"))?;
+            Op2::Greater.allocate_constant(&mut cs.namespace(|| "op2_greater_tag"));
         let op2_greater_equal_tag =
-            Op2::GreaterEqual.allocate_constant(&mut cs.namespace(|| "op2_greater_equal_tag"))?;
-        let op2_equal_tag = AllocatedNum::alloc(&mut cs.namespace(|| "op2_equal_tag"), || {
-            Ok(Op2::Equal.to_field())
-        })?;
+            Op2::GreaterEqual.allocate_constant(&mut cs.namespace(|| "op2_greater_equal_tag"));
+        let op2_equal_tag =
+            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "op2_equal_tag"), || {
+                Op2::Equal.to_field()
+            });
 
         let c = store.expect_constants();
 
@@ -206,15 +200,15 @@ impl<F: LurkField> GlobalAllocations<F> {
         defsym!(dummy_arg_ptr, "_", dummy);
         defsym!(lambda_sym, "lambda", lambda);
 
-        let true_num = allocate_constant(&mut cs.namespace(|| "true"), F::ONE)?;
-        let false_num = allocate_constant(&mut cs.namespace(|| "false"), F::ZERO)?;
-        let default_num = allocate_constant(&mut cs.namespace(|| "default"), F::ZERO)?;
+        let true_num = allocate_constant(&mut cs.namespace(|| "true"), F::ONE);
+        let false_num = allocate_constant(&mut cs.namespace(|| "false"), F::ZERO);
+        let default_num = allocate_constant(&mut cs.namespace(|| "default"), F::ZERO);
 
         let power2_32_ff = F::pow_vartime(&F::from_u64(2), [32]);
-        let power2_32_num = allocate_constant(&mut cs.namespace(|| "pow(2,32)"), power2_32_ff)?;
+        let power2_32_num = allocate_constant(&mut cs.namespace(|| "pow(2,32)"), power2_32_ff);
 
         let power2_64_ff = F::pow_vartime(&F::from_u64(2), [64]);
-        let power2_64_num = allocate_constant(&mut cs.namespace(|| "pow(2,64)"), power2_64_ff)?;
+        let power2_64_num = allocate_constant(&mut cs.namespace(|| "pow(2,64)"), power2_64_ff);
 
         Ok(Self {
             terminal_ptr,
@@ -389,8 +383,8 @@ impl<F: LurkField> Ptr<F> {
 pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     val: F,
-) -> Result<AllocatedNum<F>, SynthesisError> {
-    let allocated = AllocatedNum::<F>::alloc(cs.namespace(|| "allocate"), || Ok(val))?;
+) -> AllocatedNum<F> {
+    let allocated = AllocatedNum::<F>::alloc_infallible(cs.namespace(|| "allocate"), || val);
 
     // allocated * 1 = val
     cs.enforce(
@@ -400,14 +394,14 @@ pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
         |_| Boolean::Constant(true).lc(CS::one(), val),
     );
 
-    Ok(allocated)
+    allocated
 }
 
 impl ExprTag {
     pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-    ) -> Result<AllocatedNum<F>, SynthesisError> {
+    ) -> AllocatedNum<F> {
         allocate_constant(
             &mut cs.namespace(|| format!("{self:?} tag")),
             self.to_field(),
@@ -419,7 +413,7 @@ impl ContTag {
     pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-    ) -> Result<AllocatedNum<F>, SynthesisError> {
+    ) -> AllocatedNum<F> {
         allocate_constant(
             &mut cs.namespace(|| format!("{self:?} base continuation tag")),
             self.to_field(),
@@ -431,7 +425,7 @@ impl Op1 {
     pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-    ) -> Result<AllocatedNum<F>, SynthesisError> {
+    ) -> AllocatedNum<F> {
         allocate_constant(
             &mut cs.namespace(|| format!("{self:?} tag")),
             self.to_field(),
@@ -443,7 +437,7 @@ impl Op2 {
     pub fn allocate_constant<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
-    ) -> Result<AllocatedNum<F>, SynthesisError> {
+    ) -> AllocatedNum<F> {
         allocate_constant(
             &mut cs.namespace(|| format!("{self:?} tag")),
             self.to_field(),

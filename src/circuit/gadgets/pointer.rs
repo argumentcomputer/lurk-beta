@@ -82,7 +82,7 @@ impl<F: LurkField> AllocatedPtr<F> {
         tag: F,
         alloc_hash: AllocatedNum<F>,
     ) -> Result<Self, SynthesisError> {
-        let alloc_tag = allocate_constant(&mut cs.namespace(|| "tag"), tag)?;
+        let alloc_tag = allocate_constant(&mut cs.namespace(|| "tag"), tag);
 
         Ok(AllocatedPtr {
             tag: alloc_tag,
@@ -94,8 +94,8 @@ impl<F: LurkField> AllocatedPtr<F> {
         cs: &mut CS,
         value: ZExprPtr<F>,
     ) -> Result<Self, SynthesisError> {
-        let alloc_tag = allocate_constant(&mut cs.namespace(|| "tag"), value.tag_field())?;
-        let alloc_hash = allocate_constant(&mut cs.namespace(|| "hash"), *value.value())?;
+        let alloc_tag = allocate_constant(&mut cs.namespace(|| "tag"), value.tag_field());
+        let alloc_hash = allocate_constant(&mut cs.namespace(|| "hash"), *value.value());
 
         Ok(AllocatedPtr {
             tag: alloc_tag,
@@ -191,20 +191,19 @@ impl<F: LurkField> AllocatedPtr<F> {
         cs: &mut CS,
         premise: &Boolean,
         other: &AllocatedPtr<F>,
-    ) -> Result<(), SynthesisError> {
+    ) {
         implies_equal(
             &mut cs.namespace(|| "implies tag equal"),
             premise,
             self.tag(),
             other.tag(),
-        )?;
+        );
         implies_equal(
             &mut cs.namespace(|| "implies hash equal"),
             premise,
             self.hash(),
             other.hash(),
-        )?;
-        Ok(())
+        );
     }
 
     pub fn is_nil<CS: ConstraintSystem<F>>(
@@ -597,8 +596,8 @@ impl<F: LurkField> AllocatedContPtr<F> {
         cs: &mut CS,
         value: ZContPtr<F>,
     ) -> Result<Self, SynthesisError> {
-        let alloc_tag = allocate_constant(&mut cs.namespace(|| "tag"), value.tag_field())?;
-        let alloc_hash = allocate_constant(&mut cs.namespace(|| "hash"), *value.value())?;
+        let alloc_tag = allocate_constant(&mut cs.namespace(|| "tag"), value.tag_field());
+        let alloc_hash = allocate_constant(&mut cs.namespace(|| "hash"), *value.value());
 
         Ok(AllocatedContPtr {
             tag: alloc_tag,
@@ -785,7 +784,7 @@ impl<F: LurkField> AllocatedContPtr<F> {
             &mut cs.namespace(|| format!("not_dummy implies real cont {:?}", &name)),
             not_dummy,
             &acc.expect("acc was never initialized"),
-        )?;
+        );
 
         let cont = AllocatedContPtr {
             tag: cont_tag.clone(),

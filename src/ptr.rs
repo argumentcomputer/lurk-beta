@@ -2,7 +2,7 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 
 use crate::field::LurkField;
-use crate::tag::{ContTag, ExprTag};
+use crate::tag::{ContTag, ExprTag, Tag};
 
 /// The internal untagged raw Store pointer
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -53,9 +53,9 @@ impl RawPtr {
 
 /// A `Store` pointer
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct Ptr<F: LurkField> {
+pub struct GPtr<F: LurkField, T: Tag> {
     /// An expression tag
-    pub tag: ExprTag,
+    pub tag: T,
     /// The underlying pointer, which can be null, opaque, or an index
     pub raw: RawPtr,
     /// PhantomData is needed to consume the `F: LurkField` parameter, since
@@ -65,15 +65,87 @@ pub struct Ptr<F: LurkField> {
 }
 
 #[allow(clippy::derived_hash_with_manual_eq)]
-impl<F: LurkField> Hash for Ptr<F> {
+impl<F: LurkField, T: Tag> Hash for GPtr<F, T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.tag.hash(state);
         self.raw.hash(state);
     }
 }
 
-impl<F: LurkField> Ptr<F> {
-    // TODO: Make these methods and the similar ones defined on expression consistent, probably including a shared trait.
+pub type Ptr<F> = GPtr<F, ExprTag>;
+pub type ContPtr<F> = GPtr<F, ContTag>;
+
+impl<F: LurkField, T: Tag> GPtr<F, T> {
+    /// check if a Ptr is an opaque pointer
+    pub const fn is_opaque(&self) -> bool {
+        self.raw.is_opaque()
+    }
+
+    /// Construct a Ptr from an index
+    pub fn index(tag: T, idx: usize) -> Self {
+        GPtr {
+            tag,
+            raw: RawPtr::Index(idx),
+            _f: Default::default(),
+        }
+    }
+
+    /// Construct a Ptr from an opaque index
+    pub fn opaque(tag: T, idx: usize) -> Self {
+        GPtr {
+            tag,
+            raw: RawPtr::Opaque(idx),
+            _f: Default::default(),
+        }
+    }
+
+    /// Construct a null Ptr
+    pub fn null(tag: T) -> Self {
+        GPtr {
+            tag,
+            raw: RawPtr::Null,
+            _f: Default::default(),
+        }
+    }
+}
+
+impl<F: LurkField> From<char> for Ptr<F> {
+    fn from(c: char) -> Self {
+        Self {
+            tag: ExprTag::Char,
+            raw: RawPtr::Index(u32::from(c) as usize),
+            _f: Default::default(),
+        }
+    }
+}
+
+impl<F: LurkField> GPtr<F, ExprTag> {
+    #[inline]
+    pub fn cast(self, tag: ExprTag) -> Self {
+        GPtr {
+            tag,
+            raw: self.raw,
+            _f: self._f,
+        }
+    }
+
+    // TODO: Is this still needed?
+    pub const fn as_cons(self) -> Option<Self> {
+        if self.is_cons() {
+            Some(self)
+        } else {
+            None
+        }
+    }
+
+    // TODO: Is this still needed?
+    pub const fn as_list(self) -> Option<Self> {
+        if self.is_list() {
+            Some(self)
+        } else {
+            None
+        }
+    }
 
     // NOTE: Although this could be a type predicate now, when NIL becomes a symbol, it won't be possible.
     /// check if a Ptr is `Nil` pointer
@@ -97,92 +169,6 @@ impl<F: LurkField> Ptr<F> {
     pub const fn is_list(&self) -> bool {
         matches!(self.tag, ExprTag::Nil | ExprTag::Cons)
     }
-
-    /// check if a Ptr is an opaque pointer
-    pub const fn is_opaque(&self) -> bool {
-        self.raw.is_opaque()
-    }
-
-    // TODO: Is this still needed?
-    pub const fn as_cons(self) -> Option<Self> {
-        if self.is_cons() {
-            Some(self)
-        } else {
-            None
-        }
-    }
-
-    // TODO: Is this still needed?
-    pub const fn as_list(self) -> Option<Self> {
-        if self.is_list() {
-            Some(self)
-        } else {
-            None
-        }
-    }
-
-    /// Construct a Ptr from an index
-    pub fn index(tag: ExprTag, idx: usize) -> Self {
-        Ptr {
-            tag,
-            raw: RawPtr::Index(idx),
-            _f: Default::default(),
-        }
-    }
-
-    /// Construct a Ptr from an opaque index
-    pub fn opaque(tag: ExprTag, idx: usize) -> Self {
-        Ptr {
-            tag,
-            raw: RawPtr::Opaque(idx),
-            _f: Default::default(),
-        }
-    }
-
-    /// Construct a null Ptr
-    pub fn null(tag: ExprTag) -> Self {
-        Ptr {
-            tag,
-            raw: RawPtr::Null,
-            _f: Default::default(),
-        }
-    }
-
-    #[inline]
-    pub fn cast(self, tag: ExprTag) -> Self {
-        Ptr {
-            tag,
-            raw: self.raw,
-            _f: self._f,
-        }
-    }
-}
-
-impl<F: LurkField> From<char> for Ptr<F> {
-    fn from(c: char) -> Self {
-        Self {
-            tag: ExprTag::Char,
-            raw: RawPtr::Index(u32::from(c) as usize),
-            _f: Default::default(),
-        }
-    }
-}
-
-/// A pointer to a continuation. Logically this is the same a Ptr and should
-/// probably be combined with it in a future refactor
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct ContPtr<F: LurkField> {
-    pub tag: ContTag,
-    pub raw: RawPtr,
-    pub _f: PhantomData<F>,
-}
-
-#[allow(clippy::derived_hash_with_manual_eq)]
-impl<F: LurkField> Hash for ContPtr<F> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.tag.hash(state);
-        self.raw.hash(state);
-    }
 }
 
 impl<F: LurkField> ContPtr<F> {
@@ -195,30 +181,6 @@ impl<F: LurkField> ContPtr<F> {
     }
     pub const fn is_error(&self) -> bool {
         matches!(self.tag, ContTag::Error)
-    }
-
-    pub fn index(tag: ContTag, idx: usize) -> Self {
-        ContPtr {
-            tag,
-            raw: RawPtr::Index(idx),
-            _f: Default::default(),
-        }
-    }
-
-    pub fn opaque(tag: ContTag, idx: usize) -> Self {
-        ContPtr {
-            tag,
-            raw: RawPtr::Index(idx),
-            _f: Default::default(),
-        }
-    }
-
-    pub fn null(tag: ContTag) -> Self {
-        ContPtr {
-            tag,
-            raw: RawPtr::Null,
-            _f: Default::default(),
-        }
     }
 }
 

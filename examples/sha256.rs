@@ -85,8 +85,7 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
                 let num = allocate_constant(
                     &mut cs.namespace(|| format!("allocate result {i}")),
                     F::from_u128(self.expected[i]),
-                )
-                .unwrap();
+                );
 
                 let eq = alloc_equal(
                     cs.namespace(|| format!("equate numbers {i}")),

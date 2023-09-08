@@ -198,14 +198,14 @@ enum Lurk {
 }
 
 impl Lurk {
-    fn parse_raw(input: proc_macro2::TokenStream) -> Result<Self, syn::Error> {
+    fn parse_raw(input: proc_macro2::TokenStream) -> Self {
         // We just immediately turn the `TokenStream` into a string then delegate
         // to the Lurk parser. Although this is a little silly, it is simple.
         let string = input.to_string();
         let mut input_it = input.into_iter().peekable();
         while input_it.next().is_some() {}
 
-        Ok(Lurk::Src(string))
+        Lurk::Src(string)
     }
 
     fn emit(&self) -> TokenStream {
@@ -230,7 +230,7 @@ pub fn let_store(_tokens: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn lurk(tokens: TokenStream) -> TokenStream {
-    Lurk::parse_raw(tokens.into()).unwrap().emit()
+    Lurk::parse_raw(tokens.into()).emit()
 }
 
 /// This macro is used to generate round-trip serialization tests.
