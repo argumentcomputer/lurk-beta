@@ -22,10 +22,18 @@ use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, ConstraintSystem, 
 
 use std::sync::Arc;
 
-pub trait FrameLike: Sized {
-    type FrameIO;
+pub trait CEKState<ExprPtr, ContPtr> {
+    fn expr(&self) -> &ExprPtr;
+    fn env(&self) -> &ExprPtr;
+    fn cont(&self) -> &ContPtr;
+}
+
+pub trait FrameLike<ExprPtr, ContPtr>: Sized {
+    type FrameIO: CEKState<ExprPtr, ContPtr>;
+    type Store;
     fn input(&self) -> &Self::FrameIO;
     fn output(&self) -> &Self::FrameIO;
+    fn emitted(&self, store: &Self::Store) -> Vec<ExprPtr>;
 }
 pub trait EvaluationStore {
     /// the type for the Store's pointers
@@ -51,16 +59,22 @@ pub trait MultiFrameTrait<F: LurkField, C: Coprocessor<F>>:
     Provable<F> + Circuit<F> + StepCircuit<F>
 {
     /// The associated `Ptr` type
-    type Ptr: std::fmt::Debug + PartialEq + Eq;
+    type Ptr: std::fmt::Debug + PartialEq + Eq + Clone;
+    /// The associated `ContPtr` type
+    type ContPtr: std::fmt::Debug + PartialEq + Eq;
     /// The associated `Store` type
-    type Store: Send + Sync + EvaluationStore<Ptr = Self::Ptr>;
+    type Store: Send + Sync + EvaluationStore<Ptr = Self::Ptr, ContPtr = Self::ContPtr>;
     /// The error type for the Store type
     type StoreError: Into<ProofError>;
 
     /// The associated `Frame` type
-    type EvalFrame: FrameLike;
+    type EvalFrame: FrameLike<Self::Ptr, Self::ContPtr, Store = Self::Store>;
     /// The associated `CircuitFrame` type
-    type CircuitFrame: FrameLike<FrameIO = <Self::EvalFrame as FrameLike>::FrameIO>;
+    type CircuitFrame: FrameLike<
+        Self::Ptr,
+        Self::ContPtr,
+        FrameIO = <Self::EvalFrame as FrameLike<Self::Ptr, Self::ContPtr>>::FrameIO,
+    >;
     /// The associated type which manages global allocations
     type GlobalAllocation;
     /// The associated type of allocated input and output to the circuit
@@ -87,7 +101,7 @@ pub trait MultiFrameTrait<F: LurkField, C: Coprocessor<F>>:
     /// Returns a public IO vector when equipped with the local store, and the Self::Frame's IO
     fn io_to_scalar_vector(
         store: &Self::Store,
-        io: &<Self::EvalFrame as FrameLike>::FrameIO,
+        io: &<Self::EvalFrame as FrameLike<Self::Ptr, Self::ContPtr>>::FrameIO,
     ) -> Result<Vec<F>, Self::StoreError>;
 
     /// Returns true if the supplied instance directly precedes this one in a sequential computation trace.
@@ -100,7 +114,7 @@ pub trait MultiFrameTrait<F: LurkField, C: Coprocessor<F>>:
     fn cached_witness(&mut self) -> &mut Option<WitnessCS<F>>;
 
     /// The output of the last frame
-    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike>::FrameIO>;
+    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike<Self::Ptr, Self::ContPtr>>::FrameIO>;
 
     /// Iterates through the Self::CircuitFrame instances
     fn frames(&self) -> Option<Self::FrameIntoIter>;

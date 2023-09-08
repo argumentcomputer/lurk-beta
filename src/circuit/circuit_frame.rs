@@ -20,7 +20,7 @@ use crate::{
     hash_witness::{
         ConsCircuitWitness, ConsName, ContCircuitWitness, ContName, HashCircuitWitnessCache,
     },
-    proof::Prover,
+    proof::{CEKState, Prover},
     store::{self, NamedConstants},
     tag::Tag,
 };
@@ -68,26 +68,51 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     pub count: usize,
 }
 
-impl<F: LurkField, C: Coprocessor<F>> FrameLike for Frame<IO<F>, Witness<F>, C> {
+impl<F: LurkField> CEKState<Ptr<F>, ContPtr<F>> for IO<F> {
+    fn expr(&self) -> &Ptr<F> {
+        &self.expr
+    }
+    fn env(&self) -> &Ptr<F> {
+        &self.env
+    }
+    fn cont(&self) -> &ContPtr<F> {
+        &self.cont
+    }
+}
+
+impl<F: LurkField, C: Coprocessor<F>> FrameLike<Ptr<F>, ContPtr<F>>
+    for Frame<IO<F>, Witness<F>, C>
+{
     type FrameIO = IO<F>;
+    type Store = Store<F>;
     fn input(&self) -> &Self::FrameIO {
         &self.input
     }
     fn output(&self) -> &Self::FrameIO {
         &self.output
     }
+    fn emitted(&self, store: &Store<F>) -> Vec<Ptr<F>> {
+        match self.output.maybe_emitted_expression(store) {
+            Some(ptr) => vec![ptr],
+            None => Vec::default(),
+        }
+    }
 }
 
-impl<'a, F: LurkField, C: Coprocessor<F>> FrameLike for CircuitFrame<'a, F, C> {
+impl<'a, F: LurkField, C: Coprocessor<F>> FrameLike<Ptr<F>, ContPtr<F>> for CircuitFrame<'a, F, C> {
     // TODO: fix the inability to return an error here
     // We *could* add an Error type here, but actually, this is a case where a builder pattern
     // would resolve the initialization of these structures
     type FrameIO = IO<F>;
+    type Store = Store<F>;
     fn input(&self) -> &Self::FrameIO {
         &self.input.unwrap()
     }
     fn output(&self) -> &Self::FrameIO {
         &self.output.unwrap()
+    }
+    fn emitted(&self, _: &Store<F>) -> Vec<Ptr<F>> {
+        unreachable!()
     }
 }
 
@@ -114,6 +139,7 @@ impl<F: LurkField> EvaluationStore for Store<F> {
 
 impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'a, F, C> {
     type Ptr = Ptr<F>;
+    type ContPtr = ContPtr<F>;
     type Store = Store<F>;
     type StoreError = store::Error;
     type EvalFrame = Frame<IO<F>, Witness<F>, C>;
@@ -148,7 +174,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
 
     fn io_to_scalar_vector(
         store: &Self::Store,
-        io: &<Self::EvalFrame as FrameLike>::FrameIO,
+        io: &<Self::EvalFrame as FrameLike<Ptr<F>, ContPtr<F>>>::FrameIO,
     ) -> Result<Vec<F>, Self::StoreError> {
         io.to_vector(store)
     }
@@ -186,7 +212,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
         &mut self.cached_witness
     }
 
-    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike>::FrameIO> {
+    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike<Ptr<F>, ContPtr<F>>>::FrameIO> {
         &self.output
     }
 

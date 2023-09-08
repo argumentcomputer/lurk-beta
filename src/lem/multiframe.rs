@@ -9,7 +9,7 @@ use crate::{
     error::{ProofError, ReductionError},
     eval::lang::Lang,
     field::LurkField,
-    proof::{EvaluationStore, FrameLike, MultiFrameTrait, Provable, Prover},
+    proof::{CEKState, EvaluationStore, FrameLike, MultiFrameTrait, Provable, Prover},
     state::initial_lurk_state,
     store,
     tag::ContTag,
@@ -36,14 +36,29 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     pub reduction_count: usize,
 }
 
-impl<F: LurkField> FrameLike for Frame<F> {
-    type FrameIO = Vec<Ptr<F>>;
+impl<F: LurkField> CEKState<Ptr<F>, Ptr<F>> for Vec<Ptr<F>> {
+    fn expr(&self) -> &Ptr<F> {
+        &self[0]
+    }
+    fn env(&self) -> &Ptr<F> {
+        &self[1]
+    }
+    fn cont(&self) -> &Ptr<F> {
+        &self[2]
+    }
+}
 
+impl<F: LurkField> FrameLike<Ptr<F>, Ptr<F>> for Frame<F> {
+    type FrameIO = Vec<Ptr<F>>;
+    type Store = Store<F>;
     fn input(&self) -> &Self::FrameIO {
         &self.input
     }
     fn output(&self) -> &Self::FrameIO {
         &self.output
+    }
+    fn emitted(&self, _: &Store<F>) -> Vec<Ptr<F>> {
+        self.emitted.to_vec()
     }
 }
 
@@ -71,6 +86,7 @@ impl<F: LurkField> EvaluationStore for Store<F> {
 
 impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'a, F, C> {
     type Ptr = Ptr<F>;
+    type ContPtr = Ptr<F>;
     type Store = Store<F>;
     type StoreError = store::Error;
     type EvalFrame = Frame<F>;
@@ -82,7 +98,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
 
     fn io_to_scalar_vector(
         store: &Self::Store,
-        io: &<Self::EvalFrame as FrameLike>::FrameIO,
+        io: &<Self::EvalFrame as FrameLike<Ptr<F>, Ptr<F>>>::FrameIO,
     ) -> Result<Vec<F>, Self::StoreError> {
         store.to_vector(io).map_err(|e| store::Error(e.to_string()))
     }
@@ -107,7 +123,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
         &mut self.cached_witness
     }
 
-    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike>::FrameIO> {
+    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike<Ptr<F>, Ptr<F>>>::FrameIO> {
         &self.output
     }
 

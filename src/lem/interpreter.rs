@@ -73,6 +73,7 @@ impl<F: LurkField> Preimages<F> {
 pub struct Frame<F: LurkField> {
     pub input: Vec<Ptr<F>>,
     pub output: Vec<Ptr<F>>,
+    pub emitted: Vec<Ptr<F>>,
     pub preimages: Preimages<F>,
     pub blank: bool,
 }
@@ -85,6 +86,7 @@ impl<F: LurkField> Frame<F> {
         Frame {
             input,
             output,
+            emitted: Vec::default(),
             preimages,
             blank: true,
         }
@@ -102,7 +104,7 @@ impl Block {
         mut bindings: VarMap<Ptr<F>>,
         mut preimages: Preimages<F>,
         mut path: Path,
-        emitted: &mut Vec<Ptr<F>>,
+        mut emitted: Vec<Ptr<F>>,
     ) -> Result<(Frame<F>, Path)> {
         for op in &self.ops {
             match op {
@@ -422,6 +424,7 @@ impl Block {
                     Frame {
                         input,
                         output,
+                        emitted,
                         preimages,
                         blank: false,
                     },
@@ -438,7 +441,7 @@ impl Func {
         args: &[Ptr<F>],
         store: &mut Store<F>,
         preimages: Preimages<F>,
-        emitted: &mut Vec<Ptr<F>>,
+        mut emitted: Vec<Ptr<F>>,
     ) -> Result<(Frame<F>, Path)> {
         let mut bindings = VarMap::new();
         for (i, param) in self.input_params.iter().enumerate() {
@@ -514,7 +517,7 @@ impl Func {
         for _ in 0..limit {
             let preimages = Preimages::new_from_func(self);
             let mut emitted = vec![];
-            let (frame, path) = self.call(&input, store, preimages, &mut emitted)?;
+            let (frame, path) = self.call(&input, store, preimages, emitted)?;
             input = frame.output.clone();
             iterations += 1;
             tracing::info!("{}", &log_fmt(iterations, &input, &emitted, store));
@@ -529,7 +532,7 @@ impl Func {
         if iterations < limit {
             // pushing a frame that can be padded
             let preimages = Preimages::new_from_func(self);
-            let (frame, path) = self.call(&input, store, preimages, &mut vec![])?;
+            let (frame, path) = self.call(&input, store, preimages, vec![])?;
             frames.push(frame);
             paths.push(path);
         }
@@ -552,7 +555,7 @@ impl Func {
         let mut iterations = 0;
 
         for _ in 0..limit {
-            let (frame, _) = self.call(&input, store, Preimages::default(), &mut emitted)?;
+            let (frame, _) = self.call(&input, store, Preimages::default(), emitted)?;
             input = frame.output.clone();
             iterations += 1;
             if stop_cond(&frame.output) {
