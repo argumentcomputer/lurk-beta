@@ -32,7 +32,7 @@ use crate::{
     lurk_sym_ptr,
     package::{Package, SymbolRef},
     parser,
-    proof::{nova::NovaProver, Prover},
+    proof::{nova::{NovaProver, C1}, Prover},
     ptr::Ptr,
     public_parameters::public_params,
     state::State,
@@ -514,7 +514,7 @@ impl Repl<F> {
             "verify" => {
                 let first = self.peek1(cmd, args)?;
                 let proof_id = self.get_string(&first)?;
-                LurkProof::verify_proof(&proof_id)?;
+                LurkProof::<_, _, C1<'_, _, Coproc<F>>>::verify_proof(&proof_id)?;
             }
             "defpackage" => {
                 // TODO: handle args

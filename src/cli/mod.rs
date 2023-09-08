@@ -26,7 +26,7 @@ use crate::{
     lurk_sym_ptr,
     store::Store,
     z_data::{from_z_data, ZData},
-    z_store::ZStore,
+    z_store::ZStore, proof::nova::C1, eval::lang::Coproc,
 };
 
 const DEFAULT_LIMIT: usize = 100_000_000;
@@ -550,7 +550,7 @@ impl Cli {
                     &None,
                     &None,
                 );
-                LurkProof::verify_proof(&verify_args.proof_id)?;
+                LurkProof::<_, _, C1<'_, _, Coproc<pallas::Scalar>>>::verify_proof(&verify_args.proof_id)?;
                 Ok(())
             }
             Command::Circom(circom_args) => {

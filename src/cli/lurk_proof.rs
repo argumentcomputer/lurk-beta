@@ -1,7 +1,7 @@
 use ::nova::traits::Group;
 use abomonation::Abomonation;
 use anyhow::Result;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
     coprocessor::Coprocessor,
@@ -48,8 +48,9 @@ impl<F: LurkField> HasFieldModulus for LurkProofMeta<F> {
 }
 
 /// Minimal data structure containing just enough for proof verification
-#[derive(Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Serialize, Deserialize)]
+#[serde(bound(serialize = "F: Serialize", deserialize = "F: DeserializeOwned"))]
 pub(crate) enum LurkProof<F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<F, C>>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -84,8 +85,8 @@ impl<F: LurkField + Serialize> LurkProofMeta<F> {
 }
 
 impl<
-        F: CurveCycleEquipped + Serialize + DeserializeOwned,
-        M: MultiFrameTrait<F, Coproc<F>> + Serialize + DeserializeOwned,
+        F: CurveCycleEquipped + Serialize,
+        M: MultiFrameTrait<F, Coproc<F>>,
     > LurkProof<F, Coproc<F>, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -98,6 +99,40 @@ where
         dump(self, proof_path(proof_key))
     }
 
+}
+
+impl<
+        F: CurveCycleEquipped + DeserializeOwned,
+        M: MultiFrameTrait<F, Coproc<F>>,
+    > LurkProof<F, Coproc<F>, M>
+where
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <F as CurveCycleEquipped>::CK1: Sync + Send,
+    <F as CurveCycleEquipped>::CK2: Sync + Send,
+{
+
+    pub(crate) fn verify_proof(proof_key: &str) -> Result<()> {
+        let lurk_proof: LurkProof<F, Coproc<F>, M> = load(proof_path(proof_key))?;
+        if lurk_proof.verify()? {
+            println!("✓ Proof \"{proof_key}\" verified");
+        } else {
+            println!("✗ Proof \"{proof_key}\" failed on verification");
+        }
+        Ok(())
+    }
+}
+
+impl<
+        F: CurveCycleEquipped,
+        M: MultiFrameTrait<F, Coproc<F>>,
+    > LurkProof<F, Coproc<F>, M>
+where
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <F as CurveCycleEquipped>::CK1: Sync + Send,
+    <F as CurveCycleEquipped>::CK2: Sync + Send,
+{
     fn verify(self) -> Result<bool> {
         match self {
             Self::Nova {
@@ -115,13 +150,4 @@ where
         }
     }
 
-    pub(crate) fn verify_proof(proof_key: &str) -> Result<()> {
-        let lurk_proof: LurkProof<F, Coproc<F>, M> = load(proof_path(proof_key))?;
-        if lurk_proof.verify()? {
-            println!("✓ Proof \"{proof_key}\" verified");
-        } else {
-            println!("✗ Proof \"{proof_key}\" failed on verification");
-        }
-        Ok(())
-    }
 }

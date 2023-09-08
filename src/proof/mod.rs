@@ -30,10 +30,8 @@ pub trait CEKState<ExprPtr, ContPtr> {
 
 pub trait FrameLike<ExprPtr, ContPtr>: Sized {
     type FrameIO: CEKState<ExprPtr, ContPtr>;
-    type Store;
     fn input(&self) -> &Self::FrameIO;
     fn output(&self) -> &Self::FrameIO;
-    fn emitted(&self, store: &Self::Store) -> Vec<ExprPtr>;
 }
 pub trait EvaluationStore {
     /// the type for the Store's pointers
@@ -44,9 +42,9 @@ pub trait EvaluationStore {
     type Error: std::fmt::Debug;
 
     /// interpreting a string representation of an expression
-    fn read(&self, expr: &str) -> Result<Self::Ptr, Self::Error>;
+    fn read(&mut self, expr: &str) -> Result<Self::Ptr, Self::Error>;
     /// getting a pointer to the initial, empty environment
-    fn initial_empty_env(&self) -> Self::Ptr;
+    fn initial_empty_env(&mut self) -> Self::Ptr;
     /// getting the terminal continuation pointer
     fn get_cont_terminal(&self) -> Self::ContPtr;
 
@@ -68,7 +66,7 @@ pub trait MultiFrameTrait<F: LurkField, C: Coprocessor<F>>:
     type StoreError: Into<ProofError>;
 
     /// The associated `Frame` type
-    type EvalFrame: FrameLike<Self::Ptr, Self::ContPtr, Store = Self::Store>;
+    type EvalFrame: FrameLike<Self::Ptr, Self::ContPtr>;
     /// The associated `CircuitFrame` type
     type CircuitFrame: FrameLike<
         Self::Ptr,
@@ -85,6 +83,9 @@ pub trait MultiFrameTrait<F: LurkField, C: Coprocessor<F>>:
     type FrameIter: ExactSizeIterator<Item = Self::CircuitFrame>;
     /// the chosen type of iterator for circuit frames (see `frames` below)
     type FrameIntoIter: IntoIterator<Item = Self::CircuitFrame, IntoIter = Self::FrameIter>;
+
+    /// the emitted frames
+    fn emitted(store: &Self::Store, eval_frame: &Self::EvalFrame) -> Vec<Self::Ptr>;
 
     /// Counting the number of non-trivial frames in the evaluation
     fn significant_frame_count(frames: &[Self::EvalFrame]) -> usize;
@@ -117,7 +118,7 @@ pub trait MultiFrameTrait<F: LurkField, C: Coprocessor<F>>:
     fn output(&self) -> &Option<<Self::EvalFrame as FrameLike<Self::Ptr, Self::ContPtr>>::FrameIO>;
 
     /// Iterates through the Self::CircuitFrame instances
-    fn frames(&self) -> Option<Self::FrameIntoIter>;
+    fn frames(&self) -> Option<&Self::FrameIntoIter>;
 
     /// Synthesize some frames.
     fn synthesize_frames<CS: ConstraintSystem<F>>(
@@ -133,10 +134,10 @@ pub trait MultiFrameTrait<F: LurkField, C: Coprocessor<F>>:
     fn blank(count: usize, lang: Arc<Lang<F, C>>) -> Self;
 
     /// Create an instance from some `Self::Frame`s.
-    fn from_frames(
+    fn from_frames<'a>(
         count: usize,
         frames: &[Self::EvalFrame],
-        store: &Self::Store,
+        store: &'a Self::Store,
         lang: Arc<Lang<F, C>>,
     ) -> Vec<Self>;
 

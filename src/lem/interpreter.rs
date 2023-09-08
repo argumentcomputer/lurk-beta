@@ -104,7 +104,7 @@ impl Block {
         mut bindings: VarMap<Ptr<F>>,
         mut preimages: Preimages<F>,
         mut path: Path,
-        mut emitted: Vec<Ptr<F>>,
+        emitted: &mut Vec<Ptr<F>>,
     ) -> Result<(Frame<F>, Path)> {
         for op in &self.ops {
             match op {
@@ -424,7 +424,7 @@ impl Block {
                     Frame {
                         input,
                         output,
-                        emitted,
+                        emitted: emitted.clone(),
                         preimages,
                         blank: false,
                     },
@@ -441,7 +441,7 @@ impl Func {
         args: &[Ptr<F>],
         store: &mut Store<F>,
         preimages: Preimages<F>,
-        mut emitted: Vec<Ptr<F>>,
+        emitted: &mut Vec<Ptr<F>>,
     ) -> Result<(Frame<F>, Path)> {
         let mut bindings = VarMap::new();
         for (i, param) in self.input_params.iter().enumerate() {
@@ -517,7 +517,7 @@ impl Func {
         for _ in 0..limit {
             let preimages = Preimages::new_from_func(self);
             let mut emitted = vec![];
-            let (frame, path) = self.call(&input, store, preimages, emitted)?;
+            let (frame, path) = self.call(&input, store, preimages, &mut emitted)?;
             input = frame.output.clone();
             iterations += 1;
             tracing::info!("{}", &log_fmt(iterations, &input, &emitted, store));
@@ -532,7 +532,7 @@ impl Func {
         if iterations < limit {
             // pushing a frame that can be padded
             let preimages = Preimages::new_from_func(self);
-            let (frame, path) = self.call(&input, store, preimages, vec![])?;
+            let (frame, path) = self.call(&input, store, preimages, &mut vec![])?;
             frames.push(frame);
             paths.push(path);
         }
@@ -555,7 +555,7 @@ impl Func {
         let mut iterations = 0;
 
         for _ in 0..limit {
-            let (frame, _) = self.call(&input, store, Preimages::default(), emitted)?;
+            let (frame, _) = self.call(&input, store, Preimages::default(), &mut emitted)?;
             input = frame.output.clone();
             iterations += 1;
             if stop_cond(&frame.output) {

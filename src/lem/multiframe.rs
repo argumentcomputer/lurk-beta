@@ -50,15 +50,11 @@ impl<F: LurkField> CEKState<Ptr<F>, Ptr<F>> for Vec<Ptr<F>> {
 
 impl<F: LurkField> FrameLike<Ptr<F>, Ptr<F>> for Frame<F> {
     type FrameIO = Vec<Ptr<F>>;
-    type Store = Store<F>;
     fn input(&self) -> &Self::FrameIO {
         &self.input
     }
     fn output(&self) -> &Self::FrameIO {
         &self.output
-    }
-    fn emitted(&self, _: &Store<F>) -> Vec<Ptr<F>> {
-        self.emitted.to_vec()
     }
 }
 
@@ -67,11 +63,11 @@ impl<F: LurkField> EvaluationStore for Store<F> {
     type ContPtr = Ptr<F>;
     type Error = anyhow::Error;
 
-    fn read(&self, expr: &str) -> Result<Self::Ptr, Self::Error> {
+    fn read(&mut self, expr: &str) -> Result<Self::Ptr, Self::Error> {
         self.read_with_default_state(expr)
     }
 
-    fn initial_empty_env(&self) -> Self::Ptr {
+    fn initial_empty_env(&mut self) -> Self::Ptr {
         self.intern_nil()
     }
 
@@ -95,6 +91,10 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
     type AllocatedIO = Vec<AllocatedPtr<F>>;
     type FrameIter = <Self::FrameIntoIter as IntoIterator>::IntoIter;
     type FrameIntoIter = Vec<Self::CircuitFrame>;
+
+    fn emitted(_store: &Store<F>, eval_frame: &Self::EvalFrame) -> Vec<Ptr<F>> {
+        eval_frame.emitted.to_vec()
+    }
 
     fn io_to_scalar_vector(
         store: &Self::Store,
@@ -127,8 +127,8 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
         &self.output
     }
 
-    fn frames(&self) -> Option<Self::FrameIntoIter> {
-        self.frames
+    fn frames(&self) -> Option<&Self::FrameIntoIter> {
+        self.frames.as_ref()
     }
 
     fn precedes(&self, maybe_next: &Self) -> bool {

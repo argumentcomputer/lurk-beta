@@ -25,7 +25,7 @@ use crate::{
     parser,
     proof::{
         nova::{public_params, NovaProver},
-        Prover,
+        Prover, nova_lem::C1,
     },
     state::State,
     tag::ContTag::*,
@@ -468,7 +468,7 @@ impl ReplLEM<F> {
             "verify" => {
                 let first = self.peek1(cmd, args)?;
                 let proof_id = self.get_string(&first);
-                LurkProof::verify_proof(&proof_id)?;
+                LurkProof::<_, _, C1<'_, F, Coproc<F>>>::verify_proof(&proof_id)?;
             }
             "defpackage" => {
                 // TODO: handle args
