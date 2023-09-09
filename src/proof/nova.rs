@@ -199,7 +199,8 @@ where
         &circuit_secondary,
         Some(commitment_size_hint1),
         Some(commitment_size_hint2),
-    );
+    )
+    .unwrap();
     let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
     PublicParams { pp, pk, vk }
 }
