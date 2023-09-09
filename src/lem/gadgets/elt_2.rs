@@ -5,15 +5,7 @@
 //! is less general than the first version, but is simpler and much faster to
 //! synthesize.
 
-use crate::field::LurkField;
-use bellperson::LinearCombination;
-use bellperson::{
-    gadgets::{
-        boolean::{AllocatedBit, Boolean},
-        num::AllocatedNum,
-    },
-    ConstraintSystem, SynthesisError, Variable,
-};
+use bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError, Variable};
 use ff::PrimeField;
 
 #[derive(Clone)]
