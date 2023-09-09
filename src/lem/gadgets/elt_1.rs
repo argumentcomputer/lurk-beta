@@ -1,6 +1,12 @@
 #![allow(unreachable_pub)]
 #![allow(dead_code)]
 
+//! First implementation of `Elt`, a generalization of `AllocatedNum`. It tries
+//! to be the most general version of what could be considered a field element,
+//! without needing to allocate. Because of the ubiquitous usage of linear
+//! combinations, it might be too slow to synthesize.
+
+use crate::field::LurkField;
 use bellperson::LinearCombination;
 use bellperson::{
     gadgets::{boolean::Boolean, num::AllocatedNum},
