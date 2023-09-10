@@ -133,6 +133,13 @@ fn pad(a: usize, m: usize) -> usize {
 
 type F = pasta_curves::pallas::Scalar; // TODO: generalize this
 
+struct CmdInfo {
+    name: &'static str,
+    description: &'static str,
+    format: &'static str,
+    example: Vec<&'static str>,
+}
+
 impl Repl<F> {
     pub(crate) fn new(
         store: Store<F>,
@@ -422,6 +429,193 @@ impl Repl<F> {
         }
     }
 
+    fn cmd_help(cmd: Option<&str>) {
+        let infos = std::collections::HashMap::from([
+            ("def", CmdInfo {
+                name: "def",
+                description: "Extends env with a non-recursive binding.",
+                format: "!(def <binding> <body>)",
+                example: vec!["!(def foo (lambda () 123))"],
+            }),
+            ("defrec", CmdInfo {
+                name: "defrec",
+                description: "Extends the env with a recursive binding.",
+                format: "!(defrec <binding> <body>)",
+                example: vec![
+                    "!(defrec sum (lambda (l) (if (eq l nil) 0 (+ (car l) (sum (cdr l))))))",
+                    "(sum '(1 2 3))",
+                ]
+            }),
+            ("load", CmdInfo {
+                name: "load",
+                description: "Load lurk expressions from a file path.",
+                format: "!(load <string>)",
+                example: vec!["!(load \"./tmp/example.lurk\")"],
+            }),
+            ("assert", CmdInfo {
+                name: "assert",
+                description: "Assert that an expression evaluates to true.",
+                format: "!(assert <expr>)",
+                example: vec![
+                    "!(assert t)",
+                    "!(assert (eq 3 (+ 1 2)))",
+                ],
+            }),
+            ("assert-eq", CmdInfo {
+                name: "assert-eq",
+                description: "Assert that two expressions evaluate to the same value.",
+                format: "!(assert-eq <expr> <expr>)",
+                example: vec!["!(assert-eq 3 (+ 1 2))"],
+            }),
+            ("assert-emitted", CmdInfo {
+                name: "assert-emitted",
+                description: "Assert that the list of values in the first <expr> are emitted by the validation of the second <expr>.",
+                format: "!(assert-emitted <expr> <expr>)",
+                example: vec!["!(assert-emitted '(1 2) (begin (emit 1) (emit 2)))"],
+            }),
+            ("assert-error", CmdInfo {
+                name: "assert-error",
+                description: "Assert that a evaluation of <expr> fails.",
+                format: "!(assert-error <expr>)",
+                example: vec!["!(assert-error (1 1))"],
+            }),
+            ("commit", CmdInfo {
+                name: "commit",
+                description: "Compute the commitment of <expr>.",
+                format: "!(commit <expr>)",
+                example: vec![
+                    "!(commit '(13 . 21))",
+                    "(let ((n (open 0x2c4e1dc8a344764c52d97c691ef0d8312e07b38e99f12cf2f200891c53fb36c0))) (* (car n) (cdr n)))",
+                ],
+            }),
+            ("hide", CmdInfo {
+                name: "hide",
+                description: "Return and persist the commitment of <exp> using secret <secret>.",
+                format: "!(hide <secret> <expr>)",
+                example: vec![
+                    "!(hide 12345 '(13 . 21))",
+                    "(secret (comm 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425))",
+                    "(open 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425)",
+                ],
+            }),
+            ("fetch", CmdInfo {
+                name: "fetch",
+                description: "Add data from a commitment to the repl store.",
+                format: "!(fetch <commitment>)",
+                example: vec![
+                    "!(commit '(13 . 21))",
+                    "(fetch 0x2c4e1dc8a344764c52d97c691ef0d8312e07b38e99f12cf2f200891c53fb36c0)",
+                ],
+            }),
+            ("open", CmdInfo {
+                name: "open",
+                description: "Open a commitment.",
+                format: "!(open <commitment>)",
+                example: vec![
+                    "!(commit '(13 . 21))",
+                    "!(open 0x2c4e1dc8a344764c52d97c691ef0d8312e07b38e99f12cf2f200891c53fb36c0)",
+                ],
+            }),
+            ("clear", CmdInfo {
+                name: "clear",
+                description: "Reset the current environment to be empty.",
+                format: "!(clear)",
+                example: vec![
+                    "!(def a 1)",
+                    "(current-env)",
+                    "!(clear)",
+                    "(current-env)",
+                ],
+            }),
+            ("set-env", CmdInfo {
+                name: "set-env",
+                description: "Set the env to the result of evaluating the first argument.",
+                format: "!(set-env <expr>)",
+                example: vec![
+                    "!(set-env '((a . 1) (b . 2)))",
+                    "a",
+                ],
+            }),
+            ("prove", CmdInfo {
+                name: "prove",
+                description: "Evaluate and prove <expr>. Persist the proof and prints the proof id.",
+                format: "!(prove <expr>)",
+                example: vec![
+                    "!(prove '(1 2 3))",
+                    "!(verify \"Nova_Pallas_10_166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca\")",
+                    "!(open 0x166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca)",
+                ],
+            }),
+            ("verify", CmdInfo {
+                name: "verify",
+                description: "Verify proof id <string> and print the result.",
+                format: "!(verify <string>)",
+                example: vec![
+                    "!(prove '(1 2 3))",
+                    "!(verify \"Nova_Pallas_10_166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca\")",
+                    "!(open 0x166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca)",
+                ],
+            }),
+            ("defpackage", CmdInfo {
+                name: "defpackage",
+                description: "Add a package to the state.",
+                format: "!(defpackage <string|symbol>)",
+                example: vec!["!(defpackage abc)"],
+            }),
+            ("import", CmdInfo {
+                name: "import",
+                description: "Import a single or several packages.",
+                format: "!(import <string|package> ...)",
+                example: Vec::new(),
+            }),
+            ("in-package", CmdInfo {
+                name: "in-package",
+                description: "set the current package.",
+                format: "!(in-package <string|symbol>)",
+                example: vec![
+                    "!(defpackage abc)",
+                    "!(in-package abc)",
+                    "!(def two (.lurk.+ 1 1))",
+                    "!(in-package .lurk.user)",
+                    "(.lurk.user.abc.two)",
+                ],
+            }),
+            ("help", CmdInfo {
+                name: "help",
+                description: "Print help message.",
+                format: "!(help [<string>|<symbol>])",
+                example: vec![
+                    "!(help)",
+                    "!(help verify)",
+                    "!(help \"load\")",
+                ],
+            }),
+        ]);
+
+        match cmd {
+            Some(c) => match infos.get(c) {
+                Some(i) => {
+                    println!("{} - {}", i.name, i.description);
+                    println!("  Usage: {}", i.format);
+                    if i.example.len() > 0 {
+                        println!("  Example:");
+                    }
+                    for &e in i.example.iter() {
+                        println!("    {}", e);
+                    }
+                }
+                None => println!("unknown command {}", c),
+            }
+            None => {
+                use itertools::Itertools;
+                println!("Available commands:");
+                for (_, i) in infos.iter().sorted_by_key(|x| x.0) {
+                    println!("  {} - {}", i.name, i.description);
+                }
+            }
+        }
+    }
+
     fn handle_meta_cases(&mut self, cmd: &str, args: &Ptr<F>, pwd_path: &Utf8Path) -> Result<()> {
         match cmd {
             "def" => {
@@ -654,6 +848,22 @@ impl Repl<F> {
                         "Expected string or symbol. Got {}",
                         first.fmt_to_string(&self.store, &self.state.borrow())
                     ),
+                }
+            }
+            "help" => {
+                let first = self.peek1(cmd, args)?;
+                match first.tag {
+                    ExprTag::Str =>  {
+                        let name = self.get_string(&first)?;
+                        Self::cmd_help(Some(&name));
+                    }
+                    ExprTag::Sym => {
+                        let sym = self.get_symbol(&first)?;
+                        let name = sym.path().last().map(|x| x.as_str());
+                        Self::cmd_help(name);
+                    }
+                    ExprTag::Nil => Self::cmd_help(None),
+                    _ => bail!("The optional argument of `help` must be a string or symbol"),
                 }
             }
             _ => bail!("Unsupported meta command: {cmd}"),
