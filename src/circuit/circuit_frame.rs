@@ -126,7 +126,7 @@ impl<F: LurkField> EvaluationStore for Store<F> {
     }
 }
 
-impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'a, F, C> {
+impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for MultiFrame<'a, F, C> {
     type Ptr = Ptr<F>;
     type ContPtr = ContPtr<F>;
     type Store = Store<F>;
@@ -135,8 +135,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
     type CircuitFrame = CircuitFrame<'a, F, C>;
     type GlobalAllocation = GlobalAllocations<F>;
     type AllocatedIO = AllocatedIO<F>;
-    type FrameIter = <Self::FrameIntoIter as IntoIterator>::IntoIter;
-    type FrameIntoIter = Vec<Self::CircuitFrame>;
 
     fn emitted(store: &Self::Store, eval_frame: &Self::EvalFrame) -> Vec<Ptr<F>> {
         match eval_frame.output.maybe_emitted_expression(store) {
@@ -146,7 +144,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
     }
 
     fn get_evaluation_frames(
-        prover: &impl Prover<F, C, Self>,
+        prover: &impl Prover<'a, F, C, Self>,
         expr: Ptr<F>,
         env: Ptr<F>,
         store: &mut Self::Store,
@@ -250,7 +248,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
     fn from_frames(
         count: usize,
         frames: &[Self::EvalFrame],
-        store: &Self::Store,
+        store: &'a Self::Store,
         lang: Arc<Lang<F, C>>,
     ) -> Vec<Self> {
         // `count` is the number of `Frames` to include per `MultiFrame`.
@@ -298,7 +296,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
     fn make_dummy(
         count: usize,
         circuit_frame: Option<CircuitFrame<'a, F, C>>,
-        store: &Self::Store,
+        store: &'a Self::Store,
         lang: Arc<Lang<F, C>>,
     ) -> Self {
         let (frames, input, output) = if let Some(circuit_frame) = circuit_frame {
@@ -711,7 +709,7 @@ impl<F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'_, F, C> {
             let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), store)?;
 
             let (new_expr, new_env, new_cont) =
-                self.synthesize_frames(cs, &store, (input_expr, input_env, input_cont), frames, &g)?;
+                self.synthesize_frames(cs, store, (input_expr, input_env, input_cont), frames, &g)?;
 
             output_expr.enforce_equal(
                 &mut cs.namespace(|| "outer output expr is correct"),

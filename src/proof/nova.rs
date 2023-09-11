@@ -172,17 +172,17 @@ where
 /// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
 #[serde(bound = "")]
-pub enum Proof<F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<F, C>>
+pub enum Proof<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     /// A proof for the intermediate steps of a recursive computation
-    Recursive(Box<RecursiveSNARK<G1<F>, G2<F>, M, C2<F>>>, PhantomData<C>),
+    Recursive(Box<RecursiveSNARK<G1<F>, G2<F>, M, C2<F>>>, PhantomData<&'a C>),
     /// A proof for the final step of a recursive computation
     Compressed(
         Box<CompressedSNARK<G1<F>, G2<F>, M, C2<F>, SS1<F>, SS2<F>>>,
-        PhantomData<C>,
+        PhantomData<&'a C>,
     ),
 }
 
@@ -190,8 +190,8 @@ where
 pub fn public_params<
     'a,
     F: CurveCycleEquipped,
-    C: Coprocessor<F>,
-    M: StepCircuit<F> + MultiFrameTrait<F, C>,
+    C: Coprocessor<F> + 'a,
+    M: StepCircuit<F> + MultiFrameTrait<'a, F, C>,
 >(
     num_iters_per_step: usize,
     lang: Arc<Lang<F, C>>,
@@ -217,7 +217,7 @@ where
 }
 
 /// Generates the circuits for the Nova proving system.
-pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<F, C>>(
+pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>>(
     count: usize,
     lang: Arc<Lang<F, C>>,
 ) -> (M, C2<F>) {
@@ -226,11 +226,11 @@ pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait
 
 /// A struct for the Nova prover that operates on field elements of type `F`.
 #[derive(Debug)]
-pub struct NovaProver<F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<F, C>> {
+pub struct NovaProver<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>> {
     // `reduction_count` specifies the number of small-step reductions are performed in each recursive step.
     reduction_count: usize,
     lang: Lang<F, C>,
-    _phantom: PhantomData<M>,
+    _phantom: PhantomData<&'a M>,
 }
 
 impl<F: CurveCycleEquipped, C1: StepCircuit<F>> PublicParameters for PublicParams<F, C1>
@@ -240,8 +240,8 @@ where
 {
 }
 
-impl<F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<F, C>> Prover<F, C, M>
-    for NovaProver<F, C, M>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>> Prover<'a, F, C, M>
+    for NovaProver<'a, F, C, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -263,19 +263,19 @@ where
     }
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<F, C>> NovaProver<F, C, M>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>> NovaProver<'a, F, C, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     /// Proves the computation given the public parameters, frames, and store.
     pub fn prove(
-        &'a self,
-        pp: &'a PublicParams<F, M>,
+        &self,
+        pp: &PublicParams<F, M>,
         frames: &[M::EvalFrame],
-        store: &M::Store,
+        store: &'a M::Store,
         lang: &Arc<Lang<F, C>>,
-    ) -> Result<(Proof<F, C, M>, Vec<F>, Vec<F>, usize), ProofError> {
+    ) -> Result<(Proof<'a, F, C, M>, Vec<F>, Vec<F>, usize), ProofError> {
         let z0 = M::io_to_scalar_vector(store, frames[0].input()).map_err(|e| e.into())?;
         let zi =
             M::io_to_scalar_vector(store, frames.last().unwrap().output()).map_err(|e| e.into())?;
@@ -296,14 +296,14 @@ where
 
     /// Evaluates and proves the computation given the public parameters, expression, environment, and store.
     pub fn evaluate_and_prove(
-        &'a self,
-        pp: &'a PublicParams<F, M>,
+        &self,
+        pp: &PublicParams<F, M>,
         expr: M::Ptr,
         env: M::Ptr,
-        store: &mut M::Store,
+        store: &'a mut M::Store,
         limit: usize,
         lang: &Arc<Lang<F, C>>,
-    ) -> Result<(Proof<F, C, M>, Vec<F>, Vec<F>, usize), ProofError> {
+    ) -> Result<(Proof<'a, F, C, M>, Vec<F>, Vec<F>, usize), ProofError> {
         let frames = M::get_evaluation_frames(self, expr, env, store, limit)?;
         self.prove(pp, &frames, store, lang)
     }
@@ -359,7 +359,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
                 let s = self.store.expect("store missing");
                 let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?;
 
-                self.synthesize_frames(cs, &s, (input_expr, input_env, input_cont), frames, &g)?
+                self.synthesize_frames(cs, s, (input_expr, input_env, input_cont), frames, &g)?
             }
             None => {
                 assert!(self.store.is_none());
@@ -384,7 +384,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
     }
 }
 
-impl<'a: 'b, 'b, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<F, C>> Proof<F, C, M>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>> Proof<'a, F, C, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -392,7 +392,7 @@ where
     /// Proves the computation recursively, generating a recursive SNARK proof.
     #[tracing::instrument(skip_all, name = "Proof::prove_recursively")]
     pub fn prove_recursively(
-        pp: &'a PublicParams<F, M>,
+        pp: &PublicParams<F, M>,
         store: &M::Store,
         circuits: &[M],
         num_iters_per_step: usize,
@@ -406,7 +406,7 @@ where
         let z0_secondary = Self::z0_secondary();
 
         assert_eq!(
-            circuits[0].frames().unwrap().into_iter().len(),
+            circuits[0].frames().unwrap().len(),
             num_iters_per_step
         );
         let (_circuit_primary, circuit_secondary): (
@@ -445,7 +445,7 @@ where
                     let circuit_primary = circuit_primary.lock().unwrap();
                     assert_eq!(
                         num_iters_per_step,
-                        circuit_primary.frames().unwrap().into_iter().len()
+                        circuit_primary.frames().unwrap().iter().len()
                     );
 
                     let mut r_snark = recursive_snark.unwrap_or_else(|| {
@@ -475,7 +475,7 @@ where
             for circuit_primary in circuits.iter() {
                 assert_eq!(
                     num_iters_per_step,
-                    circuit_primary.frames().unwrap().into_iter().len()
+                    circuit_primary.frames().unwrap().len()
                 );
                 if debug {
                     // For debugging purposes, synthesize the circuit and check that the constraint system is satisfied.
@@ -486,7 +486,7 @@ where
                     let first_frame = circuit_primary
                         .frames()
                         .unwrap()
-                        .into_iter()
+                        .iter()
                         .next()
                         .unwrap();
                     let zi =
@@ -534,7 +534,7 @@ where
     }
 
     /// Compresses the proof using a (Spartan) Snark (finishing step)
-    pub fn compress(self, pp: &'a PublicParams<F, M>) -> Result<Self, ProofError> {
+    pub fn compress(self, pp: &PublicParams<F, M>) -> Result<Self, ProofError> {
         match &self {
             Self::Recursive(recursive_snark, _) => Ok(Self::Compressed(
                 Box::new(CompressedSNARK::<_, _, _, _, SS1<F>, SS2<F>>::prove(
@@ -589,7 +589,6 @@ pub mod tests {
     use crate::proof::{CEKState, EvaluationStore};
     use crate::tag::{Op, Op1, Op2};
 
-    use super::FrameLike;
     use bellpepper::util_cs::witness_cs::WitnessCS;
     use bellpepper::util_cs::{metric_cs::MetricCS, Comparable};
     use bellpepper_core::test_cs::TestConstraintSystem;
@@ -614,8 +613,8 @@ pub mod tests {
         }
     }
 
-    pub fn test_aux<F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<F, C>>(
-        s: &mut M::Store,
+    pub fn test_aux<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>(
+        s: &'a mut M::Store,
         expr: &str,
         expected_result: Option<M::Ptr>,
         expected_env: Option<M::Ptr>,
@@ -641,13 +640,13 @@ pub mod tests {
                 chunk_size,
                 false,
                 None,
-                lang,
+                lang.clone(),
             )
         }
     }
 
-    fn nova_test_full_aux<F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<F, C>>(
-        s: &mut M::Store,
+    fn nova_test_full_aux<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>(
+        s: &'a mut M::Store,
         expr: &str,
         expected_result: Option<M::Ptr>,
         expected_env: Option<M::Ptr>,
@@ -690,8 +689,8 @@ pub mod tests {
         };
     }
 
-    fn nova_test_full_aux2<F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<F, C>>(
-        s: &mut M::Store,
+    fn nova_test_full_aux2<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C> + 'a>(
+        s: &'a mut M::Store,
         expr: M::Ptr,
         expected_result: Option<M::Ptr>,
         expected_env: Option<M::Ptr>,
@@ -712,7 +711,7 @@ pub mod tests {
 
         let e = s.initial_empty_env();
 
-        let nova_prover = NovaProver::<F, C, M>::new(reduction_count, (*lang).clone());
+        let nova_prover = NovaProver::<'a, F, C, M>::new(reduction_count, (*lang).clone());
 
         if check_nova {
             let pp = public_params::<_, _, M>(reduction_count, lang.clone());
@@ -784,12 +783,12 @@ pub mod tests {
 
             assert!(delta == Delta::Equal);
         }
-        let output = previous_frame.unwrap().output().unwrap();
+        let output = previous_frame.unwrap().output().as_ref().unwrap();
 
         if let Some(expected_emitted) = expected_emitted {
             let mut emitted_vec = Vec::default();
-            for frame in frames {
-                emitted_vec.extend(frame.emitted(s));
+            for frame in frames.iter() {
+                emitted_vec.extend(M::emitted(s, frame));
             }
             assert_eq!(expected_emitted, &emitted_vec);
         }

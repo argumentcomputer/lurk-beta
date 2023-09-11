@@ -97,7 +97,7 @@ where
     pub reduction_count: usize,
 }
 
-impl<'a, C: Coprocessor<Scalar>, M: MultiFrameTrait<Scalar, C>>
+impl<'a, C: Coprocessor<Scalar> + 'a, M: MultiFrameTrait<'a, Scalar, C>>
     Groth16Prover<'a, Bls12, C, Scalar, M>
 {
     /// Creates Groth16 parameters using the given reduction count.
@@ -249,9 +249,9 @@ impl<'a, C: Coprocessor<Scalar>, M: MultiFrameTrait<Scalar, C>>
 pub struct Groth16Prover<
     'a,
     E: Engine + MultiMillerLoop,
-    C: Coprocessor<F>,
+    C: Coprocessor<F> + 'a,
     F: LurkField,
-    M: MultiFrameTrait<F, C>,
+    M: MultiFrameTrait<'a, F, C>,
 > {
     reduction_count: usize,
     lang: Lang<F, C>,
@@ -264,7 +264,7 @@ pub struct PublicParams<E: Engine + MultiMillerLoop>(pub groth16::Parameters<E>)
 
 impl PublicParameters for PublicParams<Bls12> {}
 
-impl<'a, 'b, C: Coprocessor<Scalar>, M: MultiFrameTrait<Scalar, C>> Prover<Scalar, C, M>
+impl<'a, C: Coprocessor<Scalar>, M: MultiFrameTrait<'a, Scalar, C>> Prover<'a, Scalar, C, M>
     for Groth16Prover<'a, Bls12, C, Scalar, M>
 {
     type PublicParams = PublicParams<Bls12>;
@@ -460,7 +460,7 @@ mod tests {
     }
 
     fn check_cs_deltas<C: Coprocessor<Fr>>(
-        constraint_systems: &SequentialCS<'_, Fr, MultiFrame<'_, Fr, C>>,
+        constraint_systems: &SequentialCS<Fr, MultiFrame<'_, Fr, C>>,
         limit: usize,
         lang: Arc<Lang<Fr, C>>,
     ) {

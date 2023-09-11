@@ -29,7 +29,7 @@ pub fn public_params_default_dir() -> Utf8PathBuf {
     Utf8PathBuf::from(".lurk/public_params")
 }
 
-pub fn public_params<F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<F, C> + 'static>(
+pub fn public_params<F: CurveCycleEquipped, C: Coprocessor<F> + 'static, M: MultiFrameTrait<'static, F, C> + 'static>(
     rc: usize,
     abomonated: bool,
     lang: Arc<Lang<F, C>>,
@@ -56,14 +56,14 @@ where
 /// this leads to extremely high performance, but restricts the lifetime of the data
 /// to the lifetime of the file. Thus, we cannot pass a reference out and must
 /// rely on a closure to capture the data and continue the computation in `bind`.
-pub fn with_public_params<F: CurveCycleEquipped, C, M, Fn, T>(
+pub fn with_public_params<'a, F: CurveCycleEquipped, C, M, Fn, T>(
     rc: usize,
     lang: Arc<Lang<F, C>>,
     bind: Fn,
 ) -> Result<T, Error>
 where
-    C: Coprocessor<F>,
-    M: MultiFrameTrait<F, C>,
+    C: Coprocessor<F> + 'a,
+    M: MultiFrameTrait<'a, F, C>,
     Fn: FnOnce(&PublicParams<F, M>) -> T,
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,

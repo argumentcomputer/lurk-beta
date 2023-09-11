@@ -11,18 +11,18 @@ use crate::proof::nova::{CurveCycleEquipped, PublicParams, G1, G2};
 use crate::proof::MultiFrameTrait;
 use crate::public_parameters::error::Error;
 
-pub(crate) struct PublicParamDiskCache<F, C, M>
+pub(crate) struct PublicParamDiskCache<'a, F, C, M>
 where
     F: CurveCycleEquipped,
-    C: Coprocessor<F>,
-    M: MultiFrameTrait<F, C>,
+    C: Coprocessor<F> + 'a,
+    M: MultiFrameTrait<'a, F, C>,
 {
     dir: Utf8PathBuf,
-    _t: PhantomData<(F, C, M)>,
+    _t: PhantomData<(&'a (), F, C, M)>,
 }
 
-impl<F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<F, C>>
-    PublicParamDiskCache<F, C, M>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>>
+    PublicParamDiskCache<'a, F, C, M>
 where
     // technical bounds that would disappear once associated_type_bounds stabilizes
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,

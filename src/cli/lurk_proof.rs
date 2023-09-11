@@ -51,13 +51,13 @@ impl<F: LurkField> HasFieldModulus for LurkProofMeta<F> {
 #[non_exhaustive]
 #[derive(Serialize, Deserialize)]
 #[serde(bound(serialize = "F: Serialize", deserialize = "F: DeserializeOwned"))]
-pub(crate) enum LurkProof<F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<F, C>>
+pub(crate) enum LurkProof<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     Nova {
-        proof: nova::Proof<F, C, M>,
+        proof: nova::Proof<'a, F, C, M>,
         public_inputs: Vec<F>,
         public_outputs: Vec<F>,
         num_steps: usize,
@@ -66,8 +66,8 @@ where
     },
 }
 
-impl<F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<F, C>> HasFieldModulus
-    for LurkProof<F, C, M>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>> HasFieldModulus
+    for LurkProof<'a, F, C, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -84,10 +84,10 @@ impl<F: LurkField + Serialize> LurkProofMeta<F> {
     }
 }
 
-impl<
+impl<   'a, 
         F: CurveCycleEquipped + Serialize,
-        M: MultiFrameTrait<F, Coproc<F>>,
-    > LurkProof<F, Coproc<F>, M>
+        M: MultiFrameTrait<'a, F, Coproc<F>>,
+    > LurkProof<'a, F, Coproc<F>, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -101,10 +101,11 @@ where
 
 }
 
+
 impl<
         F: CurveCycleEquipped + DeserializeOwned,
-        M: MultiFrameTrait<F, Coproc<F>>,
-    > LurkProof<F, Coproc<F>, M>
+        M: MultiFrameTrait<'static, F, Coproc<F>> + 'static,
+    > LurkProof<'static, F, Coproc<F>, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -121,18 +122,7 @@ where
         }
         Ok(())
     }
-}
 
-impl<
-        F: CurveCycleEquipped,
-        M: MultiFrameTrait<F, Coproc<F>>,
-    > LurkProof<F, Coproc<F>, M>
-where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <F as CurveCycleEquipped>::CK1: Sync + Send,
-    <F as CurveCycleEquipped>::CK2: Sync + Send,
-{
     fn verify(self) -> Result<bool> {
         match self {
             Self::Nova {

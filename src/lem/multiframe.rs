@@ -80,7 +80,7 @@ impl<F: LurkField> EvaluationStore for Store<F> {
     }
 }
 
-impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'a, F, C> {
+impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for MultiFrame<'a, F, C> {
     type Ptr = Ptr<F>;
     type ContPtr = Ptr<F>;
     type Store = Store<F>;
@@ -89,8 +89,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
     type CircuitFrame = Frame<F>;
     type GlobalAllocation = GlobalAllocator<F>;
     type AllocatedIO = Vec<AllocatedPtr<F>>;
-    type FrameIter = <Self::FrameIntoIter as IntoIterator>::IntoIter;
-    type FrameIntoIter = Vec<Self::CircuitFrame>;
 
     fn emitted(_store: &Store<F>, eval_frame: &Self::EvalFrame) -> Vec<Ptr<F>> {
         eval_frame.emitted.to_vec()
@@ -127,7 +125,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
         &self.output
     }
 
-    fn frames(&self) -> Option<&Self::FrameIntoIter> {
+    fn frames(&self) -> Option<&Vec<Self::CircuitFrame>> {
         self.frames.as_ref()
     }
 
@@ -192,7 +190,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
     fn from_frames(
         count: usize,
         frames: &[Frame<F>],
-        store: &Self::Store,
+        store: &'a Self::Store,
         lang: Arc<Lang<F, C>>,
     ) -> Vec<Self> {
         let total_frames = frames.len();
@@ -235,7 +233,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
     fn make_dummy(
         count: usize,
         circuit_frame: Option<Self::CircuitFrame>,
-        store: &Self::Store,
+        store: &'a Self::Store,
         lang: Arc<Lang<F, C>>,
     ) -> Self {
         let (frames, input, output) = if let Some(circuit_frame) = circuit_frame {
@@ -260,7 +258,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<F, C> for MultiFrame<'
     }
 
     fn get_evaluation_frames(
-        prover: &impl Prover<F, C, Self>,
+        _prover: &impl Prover<'a, F, C, Self>,
         expr: Self::Ptr,
         env: Self::Ptr,
         store: &mut Self::Store,
