@@ -39,6 +39,10 @@ pub(crate) enum CircuitPtr<F: PrimeField> {
 type BoundAllocations<F> = VarMap<CircuitPtr<F>>;
 
 impl<F: PrimeField> BoundAllocations<F> {
+    fn get_many_ptr(&self, args: &[Var]) -> Result<Vec<(&Elt<F>, &Elt<F>)>> {
+        args.iter().map(|arg| self.get_ptr(arg)).collect()
+    }
+
     fn get_ptr(&self, var: &Var) -> Result<(&Elt<F>, &Elt<F>)> {
         if let CircuitPtr::Ptr(tag, hash) = self.get(var)? {
             return Ok((tag, hash));
@@ -142,24 +146,98 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
 ) -> Result<()> {
     for (i, op) in block.ops.iter().enumerate() {
         let mut cs = cs.namespace(|| format!("op {i}"));
+        macro_rules! hash_helper {
+            ( $tgt: expr, $tag: expr, $args: expr, $slot: expr ) => {
+                // Retrieve allocated preimage
+                let preimg = bound_allocations.get_many_ptr($args)?;
+
+                // Retrieve the preallocated preimage and image for this slot
+                let (slot_preimg, slot_img_hash) = match $slot {
+                    SlotType::Hash2 => &advices.hash2[slot_pos.consume_hash2()],
+                    SlotType::Hash3 => &advices.hash3[slot_pos.consume_hash3()],
+                    SlotType::Hash4 => &advices.hash4[slot_pos.consume_hash4()],
+                    _ => panic!("Invalid slot type for hash_helper macro"),
+                };
+
+                // For each component of the preimage, add implication constraints
+                // for its tag and hash
+                for (preimg_idx, (preimg_tag, preimg_hash)) in preimg.iter().enumerate() {
+                    let ptr_idx = 2 * preimg_idx;
+                    let slot_preimg_tag = Elt::from(slot_preimg[ptr_idx].clone());
+                    let slot_preimg_hash = Elt::from(slot_preimg[ptr_idx + 1].clone());
+                    implies_equal(
+                        cs.namespace(|| format!("implies equal tag {preimg_idx}")),
+                        &not_dummy,
+                        preimg_tag,
+                        &slot_preimg_tag,
+                    );
+                    implies_equal(
+                        cs.namespace(|| format!("implies equal hash {preimg_idx}")),
+                        &not_dummy,
+                        preimg_hash,
+                        &slot_preimg_hash,
+                    );
+                }
+
+                // Allocate the image tag if it hasn't been allocated before,
+                // create the full image pointer and add it to bound allocations
+                let img_tag = Elt::Constant($tag.to_field());
+                let img_hash = Elt::from(slot_img_hash.clone());
+                let img_ptr = CircuitPtr::Ptr(img_tag, img_hash);
+                bound_allocations.insert($tgt, img_ptr);
+            };
+        }
+        macro_rules! unhash_helper {
+            ( $tgt: expr, $arg: expr, $slot: expr ) => {
+                // Retrieve allocated image
+                let (_, img_hash) = bound_allocations.get_ptr($arg)?;
+
+                // Retrieve the preallocated preimage and image for this slot
+                let (slot_preimg, slot_img_hash) = match $slot {
+                    SlotType::Hash2 => &advices.hash2[slot_pos.consume_hash2()],
+                    SlotType::Hash3 => &advices.hash3[slot_pos.consume_hash3()],
+                    SlotType::Hash4 => &advices.hash4[slot_pos.consume_hash4()],
+                    _ => panic!("Invalid slot type for unhash_helper macro"),
+                };
+
+                // Add the implication constraint for the image
+                let slot_img_hash = Elt::from(slot_img_hash.clone());
+                implies_equal(
+                    cs.namespace(|| "implies equal img hash"),
+                    &not_dummy,
+                    img_hash,
+                    &slot_img_hash,
+                );
+
+                // Retrieve preimage hashes and tags create the full preimage pointers
+                // and add them to bound allocations
+                for preimg_idx in 0..slot_preimg.len() / 2 {
+                    let preimg_tag = Elt::from(slot_preimg[2 * preimg_idx].clone());
+                    let preimg_hash = Elt::from(slot_preimg[2 * preimg_idx + 1].clone());
+                    let preimg_ptr = CircuitPtr::Ptr(preimg_tag.clone(), preimg_hash.clone());
+                    bound_allocations.insert($tgt[preimg_idx].clone(), preimg_ptr);
+                }
+            };
+        }
+
         match op {
             Op::Hash2(img, tag, preimg) => {
-                todo!()
+                hash_helper!(img.clone(), tag, preimg, SlotType::Hash2);
             }
             Op::Hash3(img, tag, preimg) => {
-                todo!()
+                hash_helper!(img.clone(), tag, preimg, SlotType::Hash3);
             }
             Op::Hash4(img, tag, preimg) => {
-                todo!()
+                hash_helper!(img.clone(), tag, preimg, SlotType::Hash4);
             }
             Op::Unhash2(preimg, img) => {
-                todo!()
+                unhash_helper!(preimg, img, SlotType::Hash2);
             }
             Op::Unhash3(preimg, img) => {
-                todo!()
+                unhash_helper!(preimg, img, SlotType::Hash3);
             }
             Op::Unhash4(preimg, img) => {
-                todo!()
+                unhash_helper!(preimg, img, SlotType::Hash4);
             }
             Op::Call(out, func, inp) => {
                 todo!()
