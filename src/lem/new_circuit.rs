@@ -240,7 +240,47 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
                 unhash_helper!(preimg, img, SlotType::Hash4);
             }
             Op::Call(out, func, inp) => {
-                todo!()
+                // Allocate the output pointers that the `func` will return to.
+                // These should be unconstrained as of yet, and will be constrained
+                // by the return statements inside `func`.
+                // Note that, because there's currently no way of deferring giving
+                // a value to the allocated nums to be filled later, we must either
+                // add the results of the call to the witness, or recompute them.
+                let output_vals = if let Some(true) = not_dummy.get_value() {
+                    advices.call_output.pop_front().unwrap()
+                } else {
+                    let dummy = Ptr::Leaf(Tag::Expr(Nil), F::ZERO);
+                    (0..out.len()).map(|_| dummy).collect()
+                };
+                assert_eq!(output_vals.len(), out.len());
+                let mut output_ptrs = Vec::with_capacity(out.len());
+                for (ptr, var) in output_vals.iter().zip(out.iter()) {
+                    let z_ptr = &store.hash_ptr(ptr)?;
+                    let (tag, hash) = alloc_zptr(cs.namespace(|| format!("alloc {var}")), z_ptr)?;
+                    let ptr = CircuitPtr::Ptr(Elt::from(tag.clone()), Elt::from(hash.clone()));
+                    bound_allocations.insert(var.clone(), ptr);
+                    output_ptrs.push(tag);
+                    output_ptrs.push(hash);
+                }
+                // Get the pointers for the input, i.e. the arguments
+                let args = bound_allocations.get_many_cloned(inp)?;
+                // These are the input parameters (formal variables)
+                let param_list = func.input_params.iter();
+                // Now we bind the `Func`'s input parameters to the arguments in the call.
+                param_list.zip(args.into_iter()).for_each(|(param, arg)| {
+                    bound_allocations.insert(param.clone(), arg);
+                });
+                // Finally, we synthesize the circuit for the function body
+                synthesize_func_aux(
+                    cs.namespace(|| "call"),
+                    &func.body,
+                    not_dummy,
+                    store,
+                    bound_allocations,
+                    &output_ptrs,
+                    slot_pos,
+                    advices,
+                )?;
             }
             Op::Null(tgt, tag) => {
                 let ptr = CircuitPtr::Ptr(Elt::Constant(tag.to_field()), Elt::Constant(F::ZERO));
