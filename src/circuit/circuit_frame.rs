@@ -26,8 +26,8 @@ use crate::{
 };
 
 use super::gadgets::constraints::{
-    self, alloc_equal, alloc_equal_const, alloc_is_zero, and_v, div, enforce_implication, or, or_v,
-    pick, pick_const, sub,
+    self, alloc_equal, alloc_equal_const, alloc_is_zero, and_v, div, enforce_implication,
+    implies_u64, or, or_v, pick, pick_const, sub,
 };
 use crate::circuit::circuit_frame::constraints::{
     add, allocate_is_negative, boolean_to_num, enforce_pack, enforce_product_and_sum, mul,
@@ -5113,39 +5113,16 @@ fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
         &u64mod_decomp,
     );
 
-    enforce_less_than_bound(
-        &mut cs.namespace(|| "remainder in range b"),
-        cond,
+    let diff = sub(
+        cs.namespace(|| "diff for b and rem"),
+        arg2.hash(),
         &alloc_r_num,
-        &alloc_arg2_num,
     )?;
+    implies_u64(cs.namespace(|| "div_u64"), cond, &alloc_q_num)?;
+    implies_u64(cs.namespace(|| "rem_u64"), cond, &alloc_r_num)?;
+    implies_u64(cs.namespace(|| "diff_u64"), cond, &diff)?;
 
     Ok((alloc_q_num, alloc_r_num))
-}
-
-// Given that `cond` is satisfied, enforce the num < bound.
-// This is done by proving (bound - num) is positive.
-// `num` and `bound` must be a positive field element.
-// `cond` is a Boolean condition that enforces the validation iff it is True.
-fn enforce_less_than_bound<F: LurkField, CS: ConstraintSystem<F>>(
-    mut cs: CS,
-    cond: &Boolean,
-    num: &AllocatedNum<F>,
-    bound: &AllocatedNum<F>,
-) -> Result<(), SynthesisError> {
-    let diff_bound_num = sub(&mut cs.namespace(|| "bound minus num"), bound, num)?;
-
-    let diff_bound_num_is_negative = allocate_is_negative(
-        &mut cs.namespace(|| "diff bound num is negative"),
-        &diff_bound_num,
-    )?;
-
-    enforce_implication(
-        &mut cs.namespace(|| "enforce u64 range"),
-        cond,
-        &diff_bound_num_is_negative.not(),
-    );
-    Ok(())
 }
 
 // ATTENTION:
@@ -5566,9 +5543,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             // println!("{}", print_cs(&cs));
-            assert_eq!(12034, cs.num_constraints());
+            assert_eq!(11839, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(11690, cs.aux().len());
+            assert_eq!(11494, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
@@ -6013,66 +5990,6 @@ mod tests {
         let a_u64 = to_u64(&mut cs.namespace(|| "u64 op"), &g, alloc_pow2_64.hash()).unwrap();
         assert!(cs.is_satisfied());
         assert_eq!(a_u64.get_value(), Some(Fr::from_u64(0)));
-    }
-
-    #[test]
-    fn test_enforce_less_than_bound_corner_case() {
-        let mut cs = TestConstraintSystem::<Fr>::new();
-
-        let alloc_most_positive =
-            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "most positive"), || {
-                Fr::most_positive()
-            });
-        let alloc_num =
-            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "num"), || Fr::from_u64(42));
-        let cond = Boolean::Constant(true);
-
-        let res = enforce_less_than_bound(
-            &mut cs.namespace(|| "enforce less than bound"),
-            &cond,
-            &alloc_num,
-            &alloc_most_positive,
-        );
-        assert!(res.is_ok());
-        assert!(cs.is_satisfied());
-    }
-
-    #[test]
-    fn test_enforce_less_than_bound() {
-        let mut cs = TestConstraintSystem::<Fr>::new();
-        let alloc_num =
-            AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(Fr::from_u64(42))).unwrap();
-        let alloc_bound =
-            AllocatedNum::alloc(&mut cs.namespace(|| "bound"), || Ok(Fr::from_u64(43))).unwrap();
-        let cond = Boolean::Constant(true);
-
-        let res = enforce_less_than_bound(
-            &mut cs.namespace(|| "enforce less than bound"),
-            &cond,
-            &alloc_num,
-            &alloc_bound,
-        );
-        assert!(res.is_ok());
-        assert!(cs.is_satisfied());
-    }
-
-    #[test]
-    fn test_enforce_less_than_bound_negative() {
-        let mut cs = TestConstraintSystem::<Fr>::new();
-        let alloc_num =
-            AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(Fr::from_u64(43))).unwrap();
-        let alloc_bound =
-            AllocatedNum::alloc(&mut cs.namespace(|| "bound"), || Ok(Fr::from_u64(42))).unwrap();
-        let cond = Boolean::Constant(true);
-
-        let res = enforce_less_than_bound(
-            &mut cs.namespace(|| "enforce less than bound"),
-            &cond,
-            &alloc_num,
-            &alloc_bound,
-        );
-        assert!(res.is_ok());
-        assert!(!cs.is_satisfied());
     }
 
     #[test]
