@@ -397,10 +397,64 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
             }
             Op::Emit(_) => (),
             Op::Hide(tgt, sec, pay) => {
-                todo!()
+                let (sec_tag, sec_hash) = bound_allocations.get_ptr(sec)?;
+                let (pay_tag, pay_hash) = bound_allocations.get_ptr(pay)?;
+                let (slot_preimg, hash) = &advices.commitment[slot_pos.consume_commitment()];
+                implies_equal(
+                    &mut cs.namespace(|| "implies equal secret tag"),
+                    not_dummy,
+                    sec_tag,
+                    &Elt::Constant(Tag::Expr(Num).to_field()),
+                );
+                implies_equal(
+                    cs.namespace(|| "implies equal secret hash"),
+                    not_dummy,
+                    sec_hash,
+                    &Elt::from(slot_preimg[0].clone()),
+                );
+                implies_equal(
+                    cs.namespace(|| "implies equal payload tag"),
+                    not_dummy,
+                    pay_tag,
+                    &Elt::from(slot_preimg[1].clone()),
+                );
+                implies_equal(
+                    cs.namespace(|| "implies equal payload hash"),
+                    not_dummy,
+                    pay_hash,
+                    &Elt::from(slot_preimg[2].clone()),
+                );
+                let ptr = CircuitPtr::Ptr(
+                    Elt::Constant(Tag::Expr(Comm).to_field()),
+                    Elt::from(hash.clone()),
+                );
+                bound_allocations.insert(tgt.clone(), ptr);
             }
             Op::Open(sec, pay, comm) => {
-                todo!()
+                let (comm_tag, comm_hash) = bound_allocations.get_ptr(comm)?;
+                let (slot_preimg, hash) = &advices.commitment[slot_pos.consume_commitment()];
+                implies_equal(
+                    cs.namespace(|| "implies equal comm tag"),
+                    not_dummy,
+                    comm_tag,
+                    &Elt::Constant(Tag::Expr(Comm).to_field()),
+                );
+                implies_equal(
+                    cs.namespace(|| "implies equal comm hash"),
+                    not_dummy,
+                    comm_hash,
+                    &Elt::from(hash.clone()),
+                );
+                let sec_ptr = CircuitPtr::Ptr(
+                    Elt::Constant(Tag::Expr(Num).to_field()),
+                    Elt::from(slot_preimg[0].clone()),
+                );
+                let pay_ptr = CircuitPtr::Ptr(
+                    Elt::from(slot_preimg[1].clone()),
+                    Elt::from(slot_preimg[2].clone()),
+                );
+                bound_allocations.insert(sec.clone(), sec_ptr);
+                bound_allocations.insert(pay.clone(), pay_ptr);
             }
         }
     }
