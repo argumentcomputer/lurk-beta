@@ -133,11 +133,9 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
     bound_allocations: &mut BoundAllocations<F>,
     outputs: &Vec<AllocatedNum<F>>,
 ) -> Result<()> {
-    for op in &block.ops {
+    for (i, op) in block.ops.iter().enumerate() {
+        let mut cs = cs.namespace(|| format!("op {i}"));
         match op {
-            Op::Call(out, func, inp) => {
-                todo!()
-            }
             Op::Hash2(img, tag, preimg) => {
                 todo!()
             }
@@ -156,32 +154,85 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
             Op::Unhash4(preimg, img) => {
                 todo!()
             }
-            Op::Null(tgt, tag) => {
+            Op::Call(out, func, inp) => {
                 todo!()
+            }
+            Op::Null(tgt, tag) => {
+                let ptr = CircuitPtr::Ptr(Elt::Constant(tag.to_field()), Elt::Constant(F::ZERO));
+                bound_allocations.insert(tgt.clone(), ptr);
             }
             Op::Lit(tgt, lit) => {
-                todo!()
+                let lit_ptr = lit.to_ptr(store);
+                let ptr = CircuitPtr::Ptr(
+                    Elt::Constant(lit_ptr.tag().to_field()),
+                    Elt::Constant(store.hash_ptr(&lit_ptr)?.hash),
+                );
+                bound_allocations.insert(tgt.clone(), ptr);
             }
             Op::Cast(tgt, tag, src) => {
-                todo!()
+                let (_, src_hash) = bound_allocations.get_ptr(src)?;
+                let ptr = CircuitPtr::Ptr(Elt::Constant(tag.to_field()), src_hash.clone());
+                bound_allocations.insert(tgt.clone(), ptr);
             }
+            // TODO Operations on numbers/booleans should except numbers/booleans as variables
+            // and should also return the appropriate type
             Op::EqTag(tgt, a, b) => {
-                todo!()
+                let (a_num, _) = bound_allocations.get_ptr(a)?;
+                let (b_num, _) = bound_allocations.get_ptr(b)?;
+                let eq = alloc_is_equal(cs.namespace(|| "equal tag"), a_num, b_num)?;
+                let eq_num = boolean_to_elt::<F, CS>(&eq);
+                let ptr = CircuitPtr::Ptr(Elt::Constant(Tag::Expr(Num).to_field()), eq_num.clone());
+                bound_allocations.insert(tgt.clone(), ptr);
             }
             Op::EqVal(tgt, a, b) => {
-                todo!()
+                let (_, a_num) = bound_allocations.get_ptr(a)?;
+                let (_, b_num) = bound_allocations.get_ptr(b)?;
+                let eq = alloc_is_equal(cs.namespace(|| "equal val"), a_num, b_num)?;
+                let eq_num = boolean_to_elt::<F, CS>(&eq);
+                let ptr = CircuitPtr::Ptr(Elt::Constant(Tag::Expr(Num).to_field()), eq_num.clone());
+                bound_allocations.insert(tgt.clone(), ptr);
             }
             Op::Add(tgt, a, b) => {
-                todo!()
+                let (_, a_num) = bound_allocations.get_ptr(a)?;
+                let (_, b_num) = bound_allocations.get_ptr(b)?;
+                let ptr = CircuitPtr::Ptr(
+                    Elt::Constant(Tag::Expr(Num).to_field()),
+                    a_num.add::<CS>(b_num),
+                );
+                bound_allocations.insert(tgt.clone(), ptr);
             }
             Op::Sub(tgt, a, b) => {
-                todo!()
+                let (_, a_num) = bound_allocations.get_ptr(a)?;
+                let (_, b_num) = bound_allocations.get_ptr(b)?;
+                let ptr = CircuitPtr::Ptr(
+                    Elt::Constant(Tag::Expr(Num).to_field()),
+                    a_num.sub::<CS>(b_num),
+                );
+                bound_allocations.insert(tgt.clone(), ptr);
             }
             Op::Mul(tgt, a, b) => {
-                todo!()
+                let (_, a_num) = bound_allocations.get_ptr(a)?;
+                let (_, b_num) = bound_allocations.get_ptr(b)?;
+                let ptr = CircuitPtr::Ptr(
+                    Elt::Constant(Tag::Expr(Num).to_field()),
+                    mul(cs.namespace(|| "mul"), a_num, b_num)?,
+                );
+                bound_allocations.insert(tgt.clone(), ptr);
             }
             Op::Div(tgt, a, b) => {
-                todo!()
+                let (_, a_num) = bound_allocations.get_ptr(a)?;
+                let (_, b_num) = bound_allocations.get_ptr(b)?;
+                let divisor = alloc_pick(
+                    cs.namespace(|| "should divide"),
+                    not_dummy,
+                    b_num,
+                    &Elt::Constant(F::ONE),
+                )?;
+                let ptr = CircuitPtr::Ptr(
+                    Elt::Constant(Tag::Expr(Num).to_field()),
+                    div(cs.namespace(|| "div"), a_num, &divisor)?,
+                );
+                bound_allocations.insert(tgt.clone(), ptr);
             }
             Op::Lt(tgt, a, b) => {
                 todo!()
