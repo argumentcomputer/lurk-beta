@@ -64,6 +64,7 @@ mod eval;
 mod gadgets;
 mod interpreter;
 mod macros;
+mod new_circuit;
 mod path;
 mod pointers;
 mod slot;
