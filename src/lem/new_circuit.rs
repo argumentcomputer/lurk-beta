@@ -167,13 +167,13 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
                     let slot_preimg_hash = Elt::from(slot_preimg[ptr_idx + 1].clone());
                     implies_equal(
                         cs.namespace(|| format!("implies equal tag {preimg_idx}")),
-                        &not_dummy,
+                        not_dummy,
                         preimg_tag,
                         &slot_preimg_tag,
                     );
                     implies_equal(
                         cs.namespace(|| format!("implies equal hash {preimg_idx}")),
-                        &not_dummy,
+                        not_dummy,
                         preimg_hash,
                         &slot_preimg_hash,
                     );
@@ -204,7 +204,7 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
                 let slot_img_hash = Elt::from(slot_img_hash.clone());
                 implies_equal(
                     cs.namespace(|| "implies equal img hash"),
-                    &not_dummy,
+                    not_dummy,
                     img_hash,
                     &slot_img_hash,
                 );
@@ -320,13 +320,80 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
                 bound_allocations.insert(tgt.clone(), ptr);
             }
             Op::Lt(tgt, a, b) => {
-                todo!()
+                let (_, a_num) = bound_allocations.get_ptr(a)?;
+                let (_, b_num) = bound_allocations.get_ptr(b)?;
+                let (preimg, lt) = &advices.less_than[slot_pos.consume_less_than()];
+                implies_equal(
+                    cs.namespace(|| "lt a"),
+                    not_dummy,
+                    a_num,
+                    &Elt::from(preimg[0].clone()),
+                );
+                implies_equal(
+                    cs.namespace(|| "lt b"),
+                    not_dummy,
+                    b_num,
+                    &Elt::from(preimg[1].clone()),
+                );
+                // TODO Should return a Number instead of a Ptr
+                let ptr = CircuitPtr::Ptr(
+                    Elt::Constant(Tag::Expr(Num).to_field()),
+                    Elt::from(lt.clone()),
+                );
+                bound_allocations.insert(tgt.clone(), ptr);
             }
             Op::Trunc(tgt, a, n) => {
-                todo!()
+                assert!(*n <= 64);
+                let (_, a_num) = bound_allocations.get_ptr(a)?;
+                let mut trunc_bits = elt_to_bits_le_strict(cs.namespace(|| "to bits le"), a_num)?;
+                trunc_bits.truncate(*n as usize);
+                let trunc = Elt::from(AllocatedNum::alloc(cs.namespace(|| "trunc"), || {
+                    let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
+                    a_num
+                        .get_value()
+                        .map(|a| F::from_u64(a.to_u64_unchecked() & b))
+                        .ok_or(SynthesisError::AssignmentMissing)
+                })?);
+                enforce_pack(cs.namespace(|| "enforce trunc"), &trunc_bits, &trunc)?;
+                let ptr = CircuitPtr::Ptr(Elt::Constant(Tag::Expr(Num).to_field()), trunc);
+                bound_allocations.insert(tgt.clone(), ptr);
             }
             Op::DivRem64(tgt, a, b) => {
-                todo!()
+                let (_, a) = bound_allocations.get_ptr(a)?;
+                let (_, b) = bound_allocations.get_ptr(b)?;
+                let div_rem = a.get_value().and_then(|a| {
+                    b.get_value().map(|b| {
+                        if not_dummy.get_value().unwrap() {
+                            let a = a.to_u64_unchecked();
+                            let b = b.to_u64_unchecked();
+                            (F::from_u64(a / b), F::from_u64(a % b))
+                        } else {
+                            (F::ZERO, *a)
+                        }
+                    })
+                });
+                let div = Elt::from(AllocatedNum::alloc(cs.namespace(|| "div"), || {
+                    Ok(div_rem.unwrap().0)
+                })?);
+                let rem = Elt::from(AllocatedNum::alloc(cs.namespace(|| "rem"), || {
+                    Ok(div_rem.unwrap().1)
+                })?);
+                let diff = b.sub::<CS>(&rem);
+                implies_u64(cs.namespace(|| "div u64"), not_dummy, &div)?;
+                implies_u64(cs.namespace(|| "rem u64"), not_dummy, &rem)?;
+                implies_u64(cs.namespace(|| "diff u64"), not_dummy, &diff)?;
+                cs.enforce(
+                    || "euclid division",
+                    |_| b.lc::<CS>(),
+                    |_| div.lc::<CS>(),
+                    // a - rem = b * div
+                    |_| a.sub::<CS>(&rem).lc::<CS>(),
+                );
+                let num_tag = Elt::Constant(Tag::Expr(Num).to_field());
+                let div_ptr = CircuitPtr::Ptr(num_tag.clone(), div);
+                let rem_ptr = CircuitPtr::Ptr(num_tag, rem);
+                bound_allocations.insert(tgt[0].clone(), div_ptr);
+                bound_allocations.insert(tgt[1].clone(), rem_ptr);
             }
             Op::Emit(_) => (),
             Op::Hide(tgt, sec, pay) => {
@@ -364,8 +431,7 @@ pub(crate) fn synthesize_func_aux<F: LurkField, CS: ConstraintSystem<F>>(
             let (_, y_hash) = bound_allocations.get_ptr(y)?;
             let is_eq = alloc_is_equal(cs.namespace(|| "is equal"), x_hash, y_hash)?;
             let is_not_eq = is_eq.not();
-            let not_dummy_eq =
-                Boolean::and(cs.namespace(|| "not dummy equal"), &is_eq, not_dummy)?;
+            let not_dummy_eq = Boolean::and(cs.namespace(|| "not dummy equal"), &is_eq, not_dummy)?;
             let not_dummy_not_eq = Boolean::and(
                 cs.namespace(|| "not dummy not equal"),
                 &is_not_eq,

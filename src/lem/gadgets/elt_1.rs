@@ -302,6 +302,14 @@ pub fn implies_pack<F: PrimeField, CS: ConstraintSystem<F>>(
     Ok(())
 }
 
+pub(crate) fn enforce_pack<F: PrimeField, CS: ConstraintSystem<F>>(
+    cs: CS,
+    v: &[Boolean],
+    num: &Elt<F>,
+) -> Result<(), SynthesisError> {
+    implies_pack(cs, &Boolean::Constant(true), v, num)
+}
+
 /// If premise is true, enforce `a` fits into 64 bits. It shows a non-deterministic
 /// partial bit decomposition in order to constraint correct behavior.
 pub fn implies_u64<F: LurkField, CS: ConstraintSystem<F>>(
