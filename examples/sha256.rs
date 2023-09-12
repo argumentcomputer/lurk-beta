@@ -28,7 +28,7 @@ use sha2::{Digest, Sha256};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
 use tracing_texray::TeXRayLayer;
 
-const REDUCTION_COUNT: usize = 10;
+const REDUCTION_COUNT: usize = 2;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Sha256Coprocessor<F: LurkField> {
