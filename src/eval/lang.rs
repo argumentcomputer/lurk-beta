@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+use indexmap::IndexMap;
 use lurk_macros::Coproc;
 use serde::{Deserialize, Serialize};
 
@@ -10,6 +10,7 @@ use crate::field::LurkField;
 use crate::ptr::Ptr;
 use crate::store::Store;
 use crate::symbol::Symbol;
+use crate::tag::ExprTag;
 use crate::z_ptr::ZExprPtr;
 
 use crate::{self as lurk, lurk_sym_ptr};
@@ -76,10 +77,10 @@ pub enum Coproc<F: LurkField> {
 ///   exact set of coprocessors to be allowed in the `Lang` struct.
 ///
 // TODO: Define a trait for the Hash and parameterize on that also.
-#[derive(Debug, Default, Clone, Deserialize, Serialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Lang<F: LurkField, C: Coprocessor<F>> {
-    //  A HashMap that stores coprocessors with their associated `Sym` keys.
-    coprocessors: HashMap<Symbol, (C, ZExprPtr<F>)>,
+    /// An IndexMap that stores coprocessors with their associated `Sym` keys
+    coprocessors: IndexMap<Symbol, (C, ZExprPtr<F>)>,
 }
 
 impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
@@ -127,6 +128,13 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         self.coprocessors.insert(name, (cproc.into(), z_ptr));
     }
 
+    pub fn add_coprocessor_lem<T: Into<C>, S: Into<Symbol>>(&mut self, name: S, cproc: T) {
+        let name = name.into();
+        // TODO: eliminate this unecessary piece of data
+        let z_ptr = lurk::z_ptr::ZPtr(ExprTag::Nil, F::ZERO);
+        self.coprocessors.insert(name, (cproc.into(), z_ptr));
+    }
+
     pub fn add_binding<B: Into<Binding<F, C>>>(&mut self, binding: B, store: &mut Store<F>) {
         let Binding { name, coproc, _p } = binding.into();
         let ptr = store.intern_symbol(&name);
@@ -135,7 +143,15 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         self.coprocessors.insert(name, (coproc, z_ptr));
     }
 
-    pub fn coprocessors(&self) -> &HashMap<Symbol, (C, ZExprPtr<F>)> {
+    pub fn add_binding_lem<B: Into<Binding<F, C>>>(&mut self, binding: B) {
+        let Binding { name, coproc, _p } = binding.into();
+        // TODO: eliminate this unecessary piece of data
+        let z_ptr = lurk::z_ptr::ZPtr(ExprTag::Nil, F::ZERO);
+        self.coprocessors.insert(name, (coproc, z_ptr));
+    }
+
+    #[inline]
+    pub fn coprocessors(&self) -> &IndexMap<Symbol, (C, ZExprPtr<F>)> {
         &self.coprocessors
     }
 
@@ -153,10 +169,22 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         maybe_sym.and_then(|sym| self.coprocessors.get(&sym))
     }
 
+    #[inline]
+    pub fn lookup_by_sym(&self, sym: &Symbol) -> Option<&C> {
+        self.coprocessors.get(sym).map(|(c, _)| c)
+    }
+
+    #[inline]
+    pub fn get_coprocessor_index(&self, sym: &Symbol) -> Option<usize> {
+        self.coprocessors.get_index_of(sym)
+    }
+
+    #[inline]
     pub fn has_coprocessors(&self) -> bool {
         !self.coprocessors.is_empty()
     }
 
+    #[inline]
     pub fn is_default(&self) -> bool {
         !self.has_coprocessors()
     }

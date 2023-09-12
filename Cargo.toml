@@ -28,7 +28,7 @@ dashmap = "5.5.0"
 ff = { workspace = true }
 generic-array = "0.14.7"
 hex = { version = "0.4.3", features = ["serde"] }
-indexmap = { version = "1.9.3", features = ["rayon"] }
+indexmap = { version = "1.9.3", features = ["rayon", "serde"] }
 itertools = "0.9"
 lurk-macros = { path = "lurk-macros" }
 lurk-metrics = { path = "lurk-metrics" }
