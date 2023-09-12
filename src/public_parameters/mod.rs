@@ -29,7 +29,11 @@ pub fn public_params_default_dir() -> Utf8PathBuf {
     Utf8PathBuf::from(".lurk/public_params")
 }
 
-pub fn public_params<F: CurveCycleEquipped, C: Coprocessor<F> + 'static, M: MultiFrameTrait<'static, F, C> + 'static>(
+pub fn public_params<
+    F: CurveCycleEquipped,
+    C: Coprocessor<F> + 'static,
+    M: MultiFrameTrait<'static, F, C> + 'static,
+>(
     rc: usize,
     abomonated: bool,
     lang: Arc<Lang<F, C>>,

@@ -32,7 +32,10 @@ use crate::{
     lurk_sym_ptr,
     package::{Package, SymbolRef},
     parser,
-    proof::{nova::{NovaProver, C1}, Prover},
+    proof::{
+        nova::{NovaProver, C1},
+        Prover,
+    },
     ptr::Ptr,
     public_parameters::public_params,
     state::State,

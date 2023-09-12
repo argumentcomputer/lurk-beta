@@ -237,10 +237,7 @@ pub trait Prover<'a, F: LurkField, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a
     }
 
     /// Synthesizes the outer circuit for the prover given a slice of multiframes.
-    fn outer_synthesize(
-        &self,
-        multiframes: &[M],
-    ) -> Result<SequentialCS<F, M>, SynthesisError> {
+    fn outer_synthesize(&self, multiframes: &[M]) -> Result<SequentialCS<F, M>, SynthesisError> {
         // Note: This loop terminates and returns an error on the first occurrence of `SynthesisError`.
         multiframes
             .iter()

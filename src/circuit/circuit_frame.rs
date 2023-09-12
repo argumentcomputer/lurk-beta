@@ -15,6 +15,7 @@ use crate::{
         pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents},
     },
     config::CONFIG,
+    eval::empty_sym_env,
     field::LurkField,
     hash::HashConst,
     hash_witness::{
@@ -22,7 +23,7 @@ use crate::{
     },
     proof::{CEKState, Prover},
     store::{self, NamedConstants},
-    tag::Tag, eval::empty_sym_env,
+    tag::Tag,
 };
 
 use super::gadgets::constraints::{

@@ -25,7 +25,8 @@ use crate::{
     parser,
     proof::{
         nova::{public_params, NovaProver},
-        Prover, nova_lem::C1,
+        nova_lem::C1,
+        Prover,
     },
     state::State,
     tag::ContTag::*,

@@ -22,11 +22,13 @@ use crate::{
         backend::Backend, paths::set_lurk_dirs, repl::Repl, repl_aux::validate_non_zero,
         repl_lem::ReplLEM,
     },
+    eval::lang::Coproc,
     field::{LanguageField, LurkField},
     lurk_sym_ptr,
+    proof::nova::C1,
     store::Store,
     z_data::{from_z_data, ZData},
-    z_store::ZStore, proof::nova::C1, eval::lang::Coproc,
+    z_store::ZStore,
 };
 
 const DEFAULT_LIMIT: usize = 100_000_000;
@@ -550,7 +552,9 @@ impl Cli {
                     &None,
                     &None,
                 );
-                LurkProof::<_, _, C1<'_, _, Coproc<pallas::Scalar>>>::verify_proof(&verify_args.proof_id)?;
+                LurkProof::<_, _, C1<'_, _, Coproc<pallas::Scalar>>>::verify_proof(
+                    &verify_args.proof_id,
+                )?;
                 Ok(())
             }
             Command::Circom(circom_args) => {
