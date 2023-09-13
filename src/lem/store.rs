@@ -316,7 +316,7 @@ impl<F: LurkField> Store<F> {
         let z_ptr = self.hash_ptr(&payload)?;
         let hash = self
             .poseidon_cache
-            .hash3(&[secret, z_ptr.tag.to_field(), z_ptr.hash]);
+            .hash3(&[secret, z_ptr.tag_field(), *z_ptr.value()]);
         self.comms.insert(FWrap::<F>(hash), (secret, payload));
         Ok(Ptr::comm(hash))
     }
@@ -329,7 +329,7 @@ impl<F: LurkField> Store<F> {
         let z_ptr = self.hash_ptr(&payload)?;
         let hash = self
             .poseidon_cache
-            .hash3(&[secret, z_ptr.tag.to_field(), z_ptr.hash]);
+            .hash3(&[secret, z_ptr.tag_field(), *z_ptr.value()]);
         self.comms.insert(FWrap::<F>(hash), (secret, payload));
         Ok((hash, z_ptr))
     }
@@ -462,10 +462,7 @@ impl<F: LurkField> Store<F> {
     /// depth limit. This limitation is circumvented by calling `hydrate_z_cache`.
     pub fn hash_ptr(&self, ptr: &Ptr<F>) -> Result<ZPtr<F>> {
         match ptr {
-            Ptr::Atom(tag, x) => Ok(ZPtr {
-                tag: *tag,
-                hash: *x,
-            }),
+            Ptr::Atom(tag, x) => Ok(ZPtr::from_parts(*tag, *x)),
             Ptr::Tuple2(tag, idx) => match self.z_cache.get(ptr) {
                 Some(z_ptr) => Ok(*z_ptr),
                 None => {
@@ -474,15 +471,15 @@ impl<F: LurkField> Store<F> {
                     };
                     let a = self.hash_ptr(a)?;
                     let b = self.hash_ptr(b)?;
-                    let z_ptr = ZPtr {
-                        tag: *tag,
-                        hash: self.poseidon_cache.hash4(&[
-                            a.tag.to_field(),
-                            a.hash,
-                            b.tag.to_field(),
-                            b.hash,
+                    let z_ptr = ZPtr::from_parts(
+                        *tag,
+                        self.poseidon_cache.hash4(&[
+                            a.tag_field(),
+                            *a.value(),
+                            b.tag_field(),
+                            *b.value(),
                         ]),
-                    };
+                    );
                     self.z_cache.insert(*ptr, Box::new(z_ptr));
                     Ok(z_ptr)
                 }
@@ -496,17 +493,17 @@ impl<F: LurkField> Store<F> {
                     let a = self.hash_ptr(a)?;
                     let b = self.hash_ptr(b)?;
                     let c = self.hash_ptr(c)?;
-                    let z_ptr = ZPtr {
-                        tag: *tag,
-                        hash: self.poseidon_cache.hash6(&[
-                            a.tag.to_field(),
-                            a.hash,
-                            b.tag.to_field(),
-                            b.hash,
-                            c.tag.to_field(),
-                            c.hash,
+                    let z_ptr = ZPtr::from_parts(
+                        *tag,
+                        self.poseidon_cache.hash6(&[
+                            a.tag_field(),
+                            *a.value(),
+                            b.tag_field(),
+                            *b.value(),
+                            c.tag_field(),
+                            *c.value(),
                         ]),
-                    };
+                    );
                     self.z_cache.insert(*ptr, Box::new(z_ptr));
                     Ok(z_ptr)
                 }
@@ -521,19 +518,19 @@ impl<F: LurkField> Store<F> {
                     let b = self.hash_ptr(b)?;
                     let c = self.hash_ptr(c)?;
                     let d = self.hash_ptr(d)?;
-                    let z_ptr = ZPtr {
-                        tag: *tag,
-                        hash: self.poseidon_cache.hash8(&[
-                            a.tag.to_field(),
-                            a.hash,
-                            b.tag.to_field(),
-                            b.hash,
-                            c.tag.to_field(),
-                            c.hash,
-                            d.tag.to_field(),
-                            d.hash,
+                    let z_ptr = ZPtr::from_parts(
+                        *tag,
+                        self.poseidon_cache.hash8(&[
+                            a.tag_field(),
+                            *a.value(),
+                            b.tag_field(),
+                            *b.value(),
+                            c.tag_field(),
+                            *c.value(),
+                            d.tag_field(),
+                            *d.value(),
                         ]),
-                    };
+                    );
                     self.z_cache.insert(*ptr, Box::new(z_ptr));
                     Ok(z_ptr)
                 }
@@ -554,8 +551,8 @@ impl<F: LurkField> Store<F> {
         ptrs.iter()
             .try_fold(Vec::with_capacity(2 * ptrs.len()), |mut acc, ptr| {
                 let z_ptr = self.hash_ptr(ptr)?;
-                acc.push(z_ptr.tag.to_field());
-                acc.push(z_ptr.hash);
+                acc.push(z_ptr.tag_field());
+                acc.push(*z_ptr.value());
                 Ok(acc)
             })
     }
@@ -758,7 +755,6 @@ impl<F: LurkField> Ptr<F> {
                 },
             },
             Tag::Cont(_) => "<CONTINUATION (TODO)>".into(),
-            Tag::Ctrl(_) => unreachable!(),
         }
     }
 }

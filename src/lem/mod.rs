@@ -69,16 +69,18 @@ mod slot;
 pub mod store;
 mod var_map;
 pub mod zstore;
-
-use crate::coprocessor::Coprocessor;
-use crate::eval::lang::Lang;
-use crate::field::LurkField;
-use crate::symbol::Symbol;
-use crate::tag::{ContTag, ExprTag, Tag as TagTrait};
 use anyhow::{bail, Result};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+
+use crate::{
+    coprocessor::Coprocessor,
+    eval::lang::Lang,
+    field::LurkField,
+    symbol::Symbol,
+    tag::{ContTag, ExprTag, Tag as TagTrait},
+};
 
 use self::{pointers::Ptr, slot::SlotsCounter, store::Store, var_map::VarMap};
 
@@ -110,43 +112,45 @@ pub struct Var(AString);
 pub enum Tag {
     Expr(ExprTag),
     Cont(ContTag),
-    Ctrl(CtrlTag),
 }
 
-#[derive(Copy, Debug, PartialEq, Clone, Eq, Hash, Serialize, Deserialize)]
-pub enum CtrlTag {
-    Return,
-    MakeThunk,
-    ApplyContinuation,
-    Error,
-}
-
-impl Tag {
-    #[inline]
-    pub fn to_field<F: LurkField>(self) -> F {
-        use Tag::*;
-        match self {
-            Expr(tag) => tag.to_field(),
-            Cont(tag) => tag.to_field(),
-            Ctrl(tag) => tag.to_field(),
+impl From<u16> for Tag {
+    fn from(val: u16) -> Self {
+        if let Ok(tag) = ExprTag::try_from(val) {
+            Tag::Expr(tag)
+        } else if let Ok(tag) = ContTag::try_from(val) {
+            Tag::Cont(tag)
+        } else {
+            panic!("Invalid u16 for Tag: {val}")
         }
     }
 }
 
-impl CtrlTag {
-    #[inline]
-    fn to_field<F: LurkField>(self) -> F {
-        F::from(self as u64)
+impl From<Tag> for u16 {
+    fn from(val: Tag) -> Self {
+        match val {
+            Tag::Expr(tag) => tag.into(),
+            Tag::Cont(tag) => tag.into(),
+        }
     }
 }
 
-impl std::fmt::Display for CtrlTag {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl TagTrait for Tag {
+    fn from_field<F: LurkField>(f: &F) -> Option<Self> {
+        Self::try_from(f.to_u16()?).ok()
+    }
+
+    fn to_field<F: LurkField>(&self) -> F {
+        Tag::to_field(self)
+    }
+}
+
+impl Tag {
+    #[inline]
+    pub fn to_field<F: LurkField>(&self) -> F {
         match self {
-            Self::Return => write!(f, "return#"),
-            Self::ApplyContinuation => write!(f, "apply-cont#"),
-            Self::MakeThunk => write!(f, "make-thunk#"),
-            Self::Error => write!(f, "error#"),
+            Tag::Expr(tag) => tag.to_field(),
+            Tag::Cont(tag) => tag.to_field(),
         }
     }
 }
@@ -157,7 +161,6 @@ impl std::fmt::Display for Tag {
         match self {
             Expr(tag) => write!(f, "expr.{}", tag),
             Cont(tag) => write!(f, "cont.{}", tag),
-            Ctrl(tag) => write!(f, "ctrl.{}", tag),
         }
     }
 }
@@ -456,10 +459,10 @@ impl Func {
                     let mut tags = HashSet::new();
                     let mut kind = None;
                     for (tag, block) in cases {
+                        // make sure that this `MatchTag` doesn't have weird semantics
                         let tag_kind = match tag {
                             Tag::Expr(..) => 0,
                             Tag::Cont(..) => 1,
-                            Tag::Ctrl(..) => 4,
                         };
                         if let Some(kind) = kind {
                             if kind != tag_kind {

@@ -175,7 +175,7 @@ fn reduce() -> Func {
         return (nil)
     });
     let make_call = func!(make_call(head, rest, env, cont): 4 => {
-        let ret: Ctrl::Return;
+        let ret = Symbol("return");
         match rest.tag {
             Expr::Nil => {
                 let cont: Cont::Call0 = cons2(env, cont);
@@ -212,9 +212,9 @@ fn reduce() -> Func {
 
     func!(reduce(expr, env, cont): 4 => {
         // Useful constants
-        let ret: Ctrl::Return;
-        let apply: Ctrl::ApplyContinuation;
-        let errctrl: Ctrl::Error;
+        let ret = Symbol("return");
+        let apply = Symbol("apply-continuation");
+        let errctrl = Symbol("error");
         let err: Cont::Error;
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
@@ -549,9 +549,9 @@ fn apply_cont() -> Func {
     });
     func!(apply_cont(result, env, cont, ctrl): 4 => {
         // Useful constants
-        let ret: Ctrl::Return;
-        let makethunk: Ctrl::MakeThunk;
-        let errctrl: Ctrl::Error;
+        let ret = Symbol("return");
+        let makethunk = Symbol("make-thunk");
+        let errctrl = Symbol("error");
         let err: Cont::Error;
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
@@ -560,8 +560,8 @@ fn apply_cont() -> Func {
         let size_u64 = Num(18446744073709551616);
         let empty_str = String("");
 
-        match ctrl.tag {
-            Ctrl::ApplyContinuation => {
+        match symbol ctrl {
+            "apply-continuation" => {
                 match cont.tag {
                     Cont::Terminal | Cont::Error => {
                         return (result, env, cont, ret)
@@ -1035,9 +1035,9 @@ fn apply_cont() -> Func {
 
 fn make_thunk() -> Func {
     func!(make_thunk(expr, env, cont, ctrl): 4 => {
-        let ret: Ctrl::Return;
-        match ctrl.tag {
-            Ctrl::MakeThunk => {
+        let ret = Symbol("return");
+        match symbol ctrl {
+            "make-thunk" => {
                 match cont.tag {
                     Cont::Tail => {
                         let (saved_env, saved_cont) = decons2(cont);
@@ -1070,8 +1070,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 10744;
-    const NUM_CONSTRAINTS: usize = 13299;
+    const NUM_AUX: usize = 10748;
+    const NUM_CONSTRAINTS: usize = 13305;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash4: 16,
         hash6: 4,
