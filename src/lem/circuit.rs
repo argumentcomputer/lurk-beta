@@ -128,7 +128,7 @@ fn allocate_output<F: LurkField, CS: ConstraintSystem<F>>(
                 bound_allocations,
             )
         })
-        .collect::<Result<_>>()
+        .collect()
 }
 
 #[inline]
