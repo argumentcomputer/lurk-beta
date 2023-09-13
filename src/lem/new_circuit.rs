@@ -925,3 +925,148 @@ fn alloc_img<F: LurkField, CS: ConstraintSystem<F>>(
     };
     Ok(img)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lem::{eval::eval_step, pointers::Ptr, slot::SlotsCounter, store::Store, Tag};
+    use crate::state::{lurk_sym, State};
+    use crate::tag::ContTag::*;
+    use bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
+    use blstrs::Scalar as Fr;
+
+    const NUM_INPUTS: usize = 1;
+    const NUM_AUX: usize = 9870;
+    const NUM_CONSTRAINTS: usize = 12130;
+    const NUM_SLOTS: SlotsCounter = SlotsCounter {
+        hash2: 16,
+        hash3: 4,
+        hash4: 2,
+        commitment: 1,
+        less_than: 1,
+    };
+
+    fn test_eval_and_constrain_aux(store: &mut Store<Fr>, pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>) {
+        let eval_step = eval_step();
+
+        assert_eq!(eval_step.slot, NUM_SLOTS);
+
+        let mut all_paths = vec![];
+
+        // Auxiliary Lurk constants
+        let outermost = Ptr::null(Tag::Cont(Outermost));
+        let terminal = Ptr::null(Tag::Cont(Terminal));
+        let error = Ptr::null(Tag::Cont(Error));
+        let nil = store.intern_symbol(&lurk_sym("nil"));
+
+        // Stop condition: the continuation is either terminal or error
+        let stop_cond = |output: &[Ptr<Fr>]| output[2] == terminal || output[2] == error;
+
+        for (expr_in, expr_out) in pairs {
+            let input = vec![expr_in, nil, outermost];
+            let (frames, paths) = eval_step.call_until(input, store, stop_cond).unwrap();
+            let last_frame = frames.last().expect("eval should add at least one frame");
+            assert_eq!(last_frame.output[0], expr_out);
+            store.hydrate_z_cache();
+            for frame in frames.iter() {
+                let mut cs = TestConstraintSystem::<Fr>::new();
+                let bound_allocations = &mut BoundAllocations::new();
+                synthesize_func(&mut cs, &eval_step, store, frame, bound_allocations).unwrap();
+                assert!(cs.is_satisfied());
+                let num_constraints = cs.num_constraints();
+                assert_eq!(cs.num_inputs(), NUM_INPUTS);
+                assert_eq!(cs.aux().len(), NUM_AUX);
+                assert_eq!(num_constraints, NUM_CONSTRAINTS);
+                // TODO: assert uniformity with `Delta` from bellperson
+            }
+            all_paths.extend(paths);
+            println!("success");
+        }
+
+        // TODO do we really need this?
+        // eval_step.assert_all_paths_taken(&all_paths);
+    }
+
+    fn expr_in_expr_out_pairs(s: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
+        let state = State::init_lurk_state().rccell();
+        let mut read = |code: &str| s.read(state.clone(), code).unwrap();
+        let div = read("(/ 70u64 8u64)");
+        let div_res = read("8u64");
+        let rem = read("(% 70u64 8u64)");
+        let rem_res = read("6u64");
+        let u64_1 = read("(u64 100000000)");
+        let u64_1_res = read("100000000u64");
+        let u64_2 = read("(u64 1000000000000000000000000)");
+        let u64_2_res = read("2003764205206896640u64");
+        let mul_overflow = read("(* 1000000000000u64 100000000000000u64)");
+        let mul_overflow_res = read("15908979783594147840u64");
+        let char_conv = read("(char 97)");
+        let char_conv_res = read("'a'");
+        let char_overflow = read("(char 4294967393)");
+        let char_overflow_res = read("'a'");
+        let t = read("t");
+        let nil = read("nil");
+        let le1 = read("(<= 4 8)");
+        let le2 = read("(<= 8 8)");
+        let le3 = read("(<= 10 8)");
+        let gt1 = read("(> 4 8)");
+        let gt2 = read("(> 8 8)");
+        let gt3 = read("(> 10 8)");
+        let ltz = read("(< (- 0 10) 0)");
+        let sum = read("(+ 21 21)");
+        let sum_res = read("42");
+        let car = read("(car (cons 1 2))");
+        let car_res = read("1");
+        let let_ = read(
+            "(let ((x (cons 1 2)))
+                (cons (car x) (cdr x)))",
+        );
+        let let_res = read("(1 . 2)");
+        let lam0 = read("((lambda () 1))");
+        let lam0_res = read("1");
+        let lam = read("((lambda (x y) (+ x y)) 3 4)");
+        let lam_res = read("7");
+        let fold = read(
+            "(letrec ((build (lambda (x)
+                                (if (eq x 0)
+                                    nil
+                                (cons x (build (- x 1))))))
+                    (sum (lambda (xs)
+                            (if (eq xs nil)
+                                0
+                                (+ (car xs) (sum (cdr xs)))))))
+                (sum (build 3)))",
+        );
+        let fold_res = read("6");
+        vec![
+            (div, div_res),
+            (rem, rem_res),
+            (u64_1, u64_1_res),
+            (u64_2, u64_2_res),
+            (mul_overflow, mul_overflow_res),
+            (char_conv, char_conv_res),
+            (char_overflow, char_overflow_res),
+            (le1, t),
+            (le2, t),
+            (le3, nil),
+            (gt1, nil),
+            (gt2, nil),
+            (gt3, t),
+            (ltz, t),
+            (sum, sum_res),
+            (car, car_res),
+            (let_, let_res),
+            (lam0, lam0_res),
+            (lam, lam_res),
+            (fold, fold_res),
+        ]
+    }
+
+    #[test]
+    fn test_new_circuit() {
+        let mut store = Store::default();
+        let pairs = expr_in_expr_out_pairs(&mut store);
+        store.hydrate_z_cache();
+        test_eval_and_constrain_aux(&mut store, pairs);
+    }
+}
