@@ -179,6 +179,11 @@ impl SlotsCounter {
             less_than: self.less_than + other.less_than,
         }
     }
+
+    #[inline]
+    pub fn fold_max(self, vec: Vec<Self>) -> Self {
+        vec.into_iter().fold(self, |acc, i| acc.max(i))
+    }
 }
 
 impl Block {
@@ -204,7 +209,7 @@ impl Block {
                     .values()
                     .fold(init, |acc, block| acc.max(block.count_slots()))
             }
-            Ctrl::MatchVal(_, cases, def) => {
+            Ctrl::MatchSymbol(_, cases, def) => {
                 let init = def
                     .as_ref()
                     .map_or(SlotsCounter::default(), |def| def.count_slots());
