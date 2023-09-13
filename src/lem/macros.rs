@@ -124,38 +124,38 @@ macro_rules! op {
     ( emit($v:ident) ) => {
         $crate::lem::Op::Emit($crate::var!($v))
     };
-    ( let $tgt:ident : $kind:ident::$tag:ident = hash2($src1:ident, $src2:ident) ) => {
-        $crate::lem::Op::Hash2(
+    ( let $tgt:ident : $kind:ident::$tag:ident = cons2($src1:ident, $src2:ident) ) => {
+        $crate::lem::Op::Cons2(
             $crate::var!($tgt),
             $crate::tag!($kind::$tag),
             $crate::vars!($src1, $src2),
         )
     };
-    ( let $tgt:ident : $kind:ident::$tag:ident = hash3($src1:ident, $src2:ident, $src3:ident) ) => {
-        $crate::lem::Op::Hash3(
+    ( let $tgt:ident : $kind:ident::$tag:ident = cons3($src1:ident, $src2:ident, $src3:ident) ) => {
+        $crate::lem::Op::Cons3(
             $crate::var!($tgt),
             $crate::tag!($kind::$tag),
             $crate::vars!($src1, $src2, $src3),
         )
     };
-    ( let $tgt:ident : $kind:ident::$tag:ident = hash4($src1:ident, $src2:ident, $src3:ident, $src4:ident) ) => {
-        $crate::lem::Op::Hash4(
+    ( let $tgt:ident : $kind:ident::$tag:ident = cons4($src1:ident, $src2:ident, $src3:ident, $src4:ident) ) => {
+        $crate::lem::Op::Cons4(
             $crate::var!($tgt),
             $crate::tag!($kind::$tag),
             $crate::vars!($src1, $src2, $src3, $src4),
         )
     };
-    ( let ($tgt1:ident, $tgt2:ident) = unhash2($src:ident) ) => {
-        $crate::lem::Op::Unhash2(
+    ( let ($tgt1:ident, $tgt2:ident) = decons2($src:ident) ) => {
+        $crate::lem::Op::Decons2(
             $crate::vars!($tgt1, $tgt2),
             $crate::var!($src),
         )
     };
-    ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = unhash3($src:ident) ) => {
-        $crate::lem::Op::Unhash3($crate::vars!($tgt1, $tgt2, $tgt3), $crate::var!($src))
+    ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = decons3($src:ident) ) => {
+        $crate::lem::Op::Decons3($crate::vars!($tgt1, $tgt2, $tgt3), $crate::var!($src))
     };
-    ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident, $tgt4:ident) = unhash4($src:ident) ) => {
-        $crate::lem::Op::Unhash4(
+    ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident, $tgt4:ident) = decons4($src:ident) ) => {
+        $crate::lem::Op::Decons4(
             $crate::vars!($tgt1, $tgt2, $tgt3, $tgt4),
             $crate::var!($src),
         )
@@ -408,62 +408,62 @@ macro_rules! block {
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, let $tgt:ident : $kind:ident::$tag:ident = hash2($src1:ident, $src2:ident) ; $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, let $tgt:ident : $kind:ident::$tag:ident = cons2($src1:ident, $src2:ident) ; $($tail:tt)*) => {
         $crate::block! (
             @seq
             {
                 $($limbs)*
-                $crate::op!(let $tgt: $kind::$tag = hash2($src1, $src2) )
+                $crate::op!(let $tgt: $kind::$tag = cons2($src1, $src2) )
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, let $tgt:ident : $kind:ident::$tag:ident = hash3($src1:ident, $src2:ident, $src3:ident) ; $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, let $tgt:ident : $kind:ident::$tag:ident = cons3($src1:ident, $src2:ident, $src3:ident) ; $($tail:tt)*) => {
         $crate::block! (
             @seq
             {
                 $($limbs)*
-                $crate::op!(let $tgt: $kind::$tag = hash3($src1, $src2, $src3) )
+                $crate::op!(let $tgt: $kind::$tag = cons3($src1, $src2, $src3) )
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, let $tgt:ident : $kind:ident::$tag:ident = hash4($src1:ident, $src2:ident, $src3:ident, $src4:ident) ; $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, let $tgt:ident : $kind:ident::$tag:ident = cons4($src1:ident, $src2:ident, $src3:ident, $src4:ident) ; $($tail:tt)*) => {
         $crate::block! (
             @seq
             {
                 $($limbs)*
-                $crate::op!(let $tgt: $kind::$tag = hash4($src1, $src2, $src3, $src4))
+                $crate::op!(let $tgt: $kind::$tag = cons4($src1, $src2, $src3, $src4))
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident) = unhash2($src:ident) ; $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident) = decons2($src:ident) ; $($tail:tt)*) => {
         $crate::block! (
             @seq
             {
                 $($limbs)*
-                $crate::op!(let ($tgt1, $tgt2) = unhash2($src) )
+                $crate::op!(let ($tgt1, $tgt2) = decons2($src) )
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = unhash3($src:ident) ; $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = decons3($src:ident) ; $($tail:tt)*) => {
         $crate::block! (
             @seq
             {
                 $($limbs)*
-                $crate::op!(let ($tgt1, $tgt2, $tgt3) = unhash3($src) )
+                $crate::op!(let ($tgt1, $tgt2, $tgt3) = decons3($src) )
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident, $tgt4:ident) = unhash4($src:ident) ; $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident, $tgt4:ident) = decons4($src:ident) ; $($tail:tt)*) => {
         $crate::block! (
             @seq
             {
                 $($limbs)*
-                $crate::op!(let ($tgt1, $tgt2, $tgt3, $tgt4) = unhash4($src) )
+                $crate::op!(let ($tgt1, $tgt2, $tgt3, $tgt4) = decons4($src) )
             },
             $($tail)*
         )
@@ -598,20 +598,20 @@ mod tests {
     fn test_macros() {
         let lemops = [
             Op::Null(mptr("foo"), Tag::Expr(Num)),
-            Op::Hash2(mptr("foo"), Tag::Expr(Char), [mptr("bar"), mptr("baz")]),
-            Op::Hash3(
+            Op::Cons2(mptr("foo"), Tag::Expr(Char), [mptr("bar"), mptr("baz")]),
+            Op::Cons3(
                 mptr("foo"),
                 Tag::Expr(Char),
                 [mptr("bar"), mptr("baz"), mptr("bazz")],
             ),
-            Op::Hash4(
+            Op::Cons4(
                 mptr("foo"),
                 Tag::Expr(Char),
                 [mptr("bar"), mptr("baz"), mptr("bazz"), mptr("baxx")],
             ),
-            Op::Unhash2([mptr("foo"), mptr("goo")], mptr("aaa")),
-            Op::Unhash3([mptr("foo"), mptr("goo"), mptr("moo")], mptr("aaa")),
-            Op::Unhash4(
+            Op::Decons2([mptr("foo"), mptr("goo")], mptr("aaa")),
+            Op::Decons3([mptr("foo"), mptr("goo"), mptr("moo")], mptr("aaa")),
+            Op::Decons4(
                 [mptr("foo"), mptr("goo"), mptr("moo"), mptr("noo")],
                 mptr("aaa"),
             ),
@@ -620,12 +620,12 @@ mod tests {
         ];
         let lemops_macro = vec![
             op!(let foo: Expr::Num),
-            op!(let foo: Expr::Char = hash2(bar, baz)),
-            op!(let foo: Expr::Char = hash3(bar, baz, bazz)),
-            op!(let foo: Expr::Char = hash4(bar, baz, bazz, baxx)),
-            op!(let (foo, goo) = unhash2(aaa)),
-            op!(let (foo, goo, moo) = unhash3(aaa)),
-            op!(let (foo, goo, moo, noo) = unhash4(aaa)),
+            op!(let foo: Expr::Char = cons2(bar, baz)),
+            op!(let foo: Expr::Char = cons3(bar, baz, bazz)),
+            op!(let foo: Expr::Char = cons4(bar, baz, bazz, baxx)),
+            op!(let (foo, goo) = decons2(aaa)),
+            op!(let (foo, goo, moo) = decons3(aaa)),
+            op!(let (foo, goo, moo, noo) = decons4(aaa)),
             op!(let bar = hide(baz, bazz)),
             op!(let (bar, baz) = open(bazz)),
         ];
@@ -641,12 +641,12 @@ mod tests {
         };
         let lem_macro_seq = block!({
             let foo: Expr::Num;
-            let foo: Expr::Char = hash2(bar, baz);
-            let foo: Expr::Char = hash3(bar, baz, bazz);
-            let foo: Expr::Char = hash4(bar, baz, bazz, baxx);
-            let (foo, goo) = unhash2(aaa);
-            let (foo, goo, moo) = unhash3(aaa);
-            let (foo, goo, moo, noo) = unhash4(aaa);
+            let foo: Expr::Char = cons2(bar, baz);
+            let foo: Expr::Char = cons3(bar, baz, bazz);
+            let foo: Expr::Char = cons4(bar, baz, bazz, baxx);
+            let (foo, goo) = decons2(aaa);
+            let (foo, goo, moo) = decons3(aaa);
+            let (foo, goo, moo, noo) = decons4(aaa);
             let bar = hide(baz, bazz);
             let (bar, baz) = open(bazz);
             return (bar, baz, bazz);

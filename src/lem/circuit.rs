@@ -154,13 +154,13 @@ fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
     let cs = &mut cs.namespace(|| format!("image for slot {slot}"));
     let preallocated_img = {
         match slot.typ {
-            SlotType::Hash2 => {
+            SlotType::Hash4 => {
                 hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c4())?
             }
-            SlotType::Hash3 => {
+            SlotType::Hash6 => {
                 hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c6())?
             }
-            SlotType::Hash4 => {
+            SlotType::Hash8 => {
                 hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c8())?
             }
             SlotType::Commitment => {
@@ -331,9 +331,9 @@ impl Block {
         for op in &self.ops {
             match op {
                 Op::Call(_, func, _) => func.body.alloc_globals(cs, store, g)?,
-                Op::Hash2(_, tag, _)
-                | Op::Hash3(_, tag, _)
-                | Op::Hash4(_, tag, _)
+                Op::Cons2(_, tag, _)
+                | Op::Cons3(_, tag, _)
+                | Op::Cons4(_, tag, _)
                 | Op::Cast(_, tag, _) => {
                     g.alloc_const(cs, tag.to_field());
                 }
@@ -444,27 +444,27 @@ impl Func {
         // Slots are constrained by their usage inside the function body. The ones
         // not used in throughout the concrete path are effectively unconstrained,
         // that's why they are filled with dummies
-        let preallocated_hash2_slots = allocate_slots(
-            cs,
-            &frame.preimages.hash2,
-            SlotType::Hash2,
-            self.slot.hash2,
-            store,
-        )?;
-
-        let preallocated_hash3_slots = allocate_slots(
-            cs,
-            &frame.preimages.hash3,
-            SlotType::Hash3,
-            self.slot.hash3,
-            store,
-        )?;
-
         let preallocated_hash4_slots = allocate_slots(
             cs,
             &frame.preimages.hash4,
             SlotType::Hash4,
             self.slot.hash4,
+            store,
+        )?;
+
+        let preallocated_hash6_slots = allocate_slots(
+            cs,
+            &frame.preimages.hash6,
+            SlotType::Hash6,
+            self.slot.hash6,
+            store,
+        )?;
+
+        let preallocated_hash8_slots = allocate_slots(
+            cs,
+            &frame.preimages.hash8,
+            SlotType::Hash8,
+            self.slot.hash8,
             store,
         )?;
 
@@ -487,9 +487,9 @@ impl Func {
         struct Globals<'a, F: LurkField> {
             store: &'a Store<F>,
             global_allocator: &'a GlobalAllocator<F>,
-            preallocated_hash2_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
-            preallocated_hash3_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_hash4_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
+            preallocated_hash6_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
+            preallocated_hash8_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_commitment_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_less_than_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             call_outputs: VecDeque<Vec<Ptr<F>>>,
@@ -506,23 +506,23 @@ impl Func {
             g: &mut Globals<'_, F>,
         ) -> Result<()> {
             for op in &block.ops {
-                macro_rules! hash_helper {
+                macro_rules! cons_helper {
                     ( $img: expr, $tag: expr, $preimg: expr, $slot: expr ) => {
                         // Retrieve allocated preimage
                         let allocated_preimg = bound_allocations.get_many($preimg)?;
 
                         // Retrieve the preallocated preimage and image for this slot
                         let (preallocated_preimg, preallocated_img_hash) = match $slot {
-                            SlotType::Hash2 => {
-                                &g.preallocated_hash2_slots[next_slot.consume_hash2()]
-                            }
-                            SlotType::Hash3 => {
-                                &g.preallocated_hash3_slots[next_slot.consume_hash3()]
-                            }
                             SlotType::Hash4 => {
                                 &g.preallocated_hash4_slots[next_slot.consume_hash4()]
                             }
-                            _ => panic!("Invalid slot type for hash_helper macro"),
+                            SlotType::Hash6 => {
+                                &g.preallocated_hash6_slots[next_slot.consume_hash6()]
+                            }
+                            SlotType::Hash8 => {
+                                &g.preallocated_hash8_slots[next_slot.consume_hash8()]
+                            }
+                            _ => panic!("Invalid slot type for cons_helper macro"),
                         };
 
                         // For each component of the preimage, add implication constraints
@@ -562,23 +562,23 @@ impl Func {
                     };
                 }
 
-                macro_rules! unhash_helper {
+                macro_rules! decons_helper {
                     ( $preimg: expr, $img: expr, $slot: expr ) => {
                         // Retrieve allocated image
                         let allocated_img = bound_allocations.get($img)?;
 
                         // Retrieve the preallocated preimage and image for this slot
                         let (preallocated_preimg, preallocated_img) = match $slot {
-                            SlotType::Hash2 => {
-                                &g.preallocated_hash2_slots[next_slot.consume_hash2()]
-                            }
-                            SlotType::Hash3 => {
-                                &g.preallocated_hash3_slots[next_slot.consume_hash3()]
-                            }
                             SlotType::Hash4 => {
                                 &g.preallocated_hash4_slots[next_slot.consume_hash4()]
                             }
-                            _ => panic!("Invalid slot type for unhash_helper macro"),
+                            SlotType::Hash6 => {
+                                &g.preallocated_hash6_slots[next_slot.consume_hash6()]
+                            }
+                            SlotType::Hash8 => {
+                                &g.preallocated_hash8_slots[next_slot.consume_hash8()]
+                            }
+                            _ => panic!("Invalid slot type for decons_helper macro"),
                         };
 
                         // Add the implication constraint for the image
@@ -645,23 +645,23 @@ impl Func {
                             g,
                         )?;
                     }
-                    Op::Hash2(img, tag, preimg) => {
-                        hash_helper!(img.clone(), tag, preimg, SlotType::Hash2);
+                    Op::Cons2(img, tag, preimg) => {
+                        cons_helper!(img.clone(), tag, preimg, SlotType::Hash4);
                     }
-                    Op::Hash3(img, tag, preimg) => {
-                        hash_helper!(img.clone(), tag, preimg, SlotType::Hash3);
+                    Op::Cons3(img, tag, preimg) => {
+                        cons_helper!(img.clone(), tag, preimg, SlotType::Hash6);
                     }
-                    Op::Hash4(img, tag, preimg) => {
-                        hash_helper!(img.clone(), tag, preimg, SlotType::Hash4);
+                    Op::Cons4(img, tag, preimg) => {
+                        cons_helper!(img.clone(), tag, preimg, SlotType::Hash8);
                     }
-                    Op::Unhash2(preimg, img) => {
-                        unhash_helper!(preimg, img, SlotType::Hash2);
+                    Op::Decons2(preimg, img) => {
+                        decons_helper!(preimg, img, SlotType::Hash4);
                     }
-                    Op::Unhash3(preimg, img) => {
-                        unhash_helper!(preimg, img, SlotType::Hash3);
+                    Op::Decons3(preimg, img) => {
+                        decons_helper!(preimg, img, SlotType::Hash6);
                     }
-                    Op::Unhash4(preimg, img) => {
-                        unhash_helper!(preimg, img, SlotType::Hash4);
+                    Op::Decons4(preimg, img) => {
+                        decons_helper!(preimg, img, SlotType::Hash8);
                     }
                     Op::Null(tgt, tag) => {
                         let tag = g
@@ -1192,9 +1192,9 @@ impl Func {
             &mut Globals {
                 store,
                 global_allocator,
-                preallocated_hash2_slots,
-                preallocated_hash3_slots,
                 preallocated_hash4_slots,
+                preallocated_hash6_slots,
+                preallocated_hash8_slots,
                 preallocated_commitment_slots,
                 preallocated_less_than_slots,
                 call_outputs,
@@ -1275,25 +1275,25 @@ impl Func {
                         num_constraints += 197;
                     }
                     Op::Emit(_) => (),
-                    Op::Hash2(_, tag, _) => {
+                    Op::Cons2(_, tag, _) => {
                         // tag for the image
                         globals.insert(FWrap(tag.to_field()));
                         // tag and hash for 2 preimage pointers
                         num_constraints += 4;
                     }
-                    Op::Hash3(_, tag, _) => {
+                    Op::Cons3(_, tag, _) => {
                         // tag for the image
                         globals.insert(FWrap(tag.to_field()));
                         // tag and hash for 3 preimage pointers
                         num_constraints += 6;
                     }
-                    Op::Hash4(_, tag, _) => {
+                    Op::Cons4(_, tag, _) => {
                         // tag for the image
                         globals.insert(FWrap(tag.to_field()));
                         // tag and hash for 4 preimage pointers
                         num_constraints += 8;
                     }
-                    Op::Unhash2(..) | Op::Unhash3(..) | Op::Unhash4(..) => {
+                    Op::Decons2(..) | Op::Decons3(..) | Op::Decons4(..) => {
                         // one constraint for the image's hash
                         num_constraints += 1;
                     }
@@ -1357,9 +1357,9 @@ impl Func {
         }
         let globals = &mut HashSet::default();
         // fixed cost for each slot
-        let slot_constraints = 289 * self.slot.hash2
-            + 337 * self.slot.hash3
-            + 388 * self.slot.hash4
+        let slot_constraints = 289 * self.slot.hash4
+            + 337 * self.slot.hash6
+            + 388 * self.slot.hash8
             + 265 * self.slot.commitment
             + 1172 * self.slot.less_than;
         let num_constraints = recurse(&self.body, globals, store);

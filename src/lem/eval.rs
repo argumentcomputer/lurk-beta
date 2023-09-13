@@ -79,8 +79,8 @@ pub fn evaluate_simple<F: LurkField>(
     eval_step().call_until_simple(input, store, stop_cond, limit)
 }
 
-fn safe_uncons() -> Func {
-    func!(safe_uncons(xs): 2 => {
+fn car_cdr() -> Func {
+    func!(car_cdr(xs): 2 => {
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
         let empty_str = String("");
@@ -89,14 +89,14 @@ fn safe_uncons() -> Func {
                 return (nil, nil)
             }
             Expr::Cons => {
-                let (car, cdr) = unhash2(xs);
+                let (car, cdr) = decons2(xs);
                 return (car, cdr)
             }
             Expr::Str => {
                 if xs == empty_str {
                     return (nil, empty_str)
                 }
-                let (car, cdr) = unhash2(xs);
+                let (car, cdr) = decons2(xs);
                 return (car, cdr)
             }
         }
@@ -105,14 +105,14 @@ fn safe_uncons() -> Func {
 
 fn reduce() -> Func {
     // Auxiliary functions
-    let safe_uncons = safe_uncons();
+    let car_cdr = car_cdr();
     let env_to_use = func!(env_to_use(smaller_env, smaller_rec_env): 1 => {
         match smaller_rec_env.tag {
             Expr::Nil => {
                 return (smaller_env)
             }
         };
-        let env: Expr::Cons = hash2(smaller_rec_env, smaller_env);
+        let env: Expr::Cons = cons2(smaller_rec_env, smaller_env);
         return (env)
     });
     let extract_arg = func!(extract_arg(args): 2 => {
@@ -124,7 +124,7 @@ fn reduce() -> Func {
                 return (dummy, nil)
             }
             Expr::Cons => {
-                let (arg, rest) = unhash2(args);
+                let (arg, rest) = decons2(args);
                 return (arg, rest)
             }
         }
@@ -135,18 +135,18 @@ fn reduce() -> Func {
                 return (body1)
             }
         };
-        let expanded_0: Expr::Cons = hash2(rest_bindings, body);
-        let expanded: Expr::Cons = hash2(head, expanded_0);
+        let expanded_0: Expr::Cons = cons2(rest_bindings, body);
+        let expanded: Expr::Cons = cons2(head, expanded_0);
         return (expanded)
     });
     let choose_let_cont = func!(choose_let_cont(head, var, env, expanded, cont): 1 => {
         match symbol head {
             "let" => {
-                let cont: Cont::Let = hash4(var, env, expanded, cont);
+                let cont: Cont::Let = cons4(var, env, expanded, cont);
                 return (cont)
             }
             "letrec" => {
-                let cont: Cont::LetRec = hash4(var, env, expanded, cont);
+                let cont: Cont::LetRec = cons4(var, env, expanded, cont);
                 return (cont)
             }
         }
@@ -178,22 +178,22 @@ fn reduce() -> Func {
         let ret: Ctrl::Return;
         match rest.tag {
             Expr::Nil => {
-                let cont: Cont::Call0 = hash2(env, cont);
+                let cont: Cont::Call0 = cons2(env, cont);
                 return (head, env, cont, ret)
             }
             Expr::Cons => {
-                let (arg, more_args) = unhash2(rest);
+                let (arg, more_args) = decons2(rest);
                 match more_args.tag {
                     Expr::Nil => {
-                        let cont: Cont::Call = hash3(arg, env, cont);
+                        let cont: Cont::Call = cons3(arg, env, cont);
                         return (head, env, cont, ret)
                     }
                 };
                 let nil = Symbol("nil");
                 let nil = cast(nil, Expr::Nil);
-                let expanded_inner0: Expr::Cons = hash2(arg, nil);
-                let expanded_inner: Expr::Cons = hash2(head, expanded_inner0);
-                let expanded: Expr::Cons = hash2(expanded_inner, more_args);
+                let expanded_inner0: Expr::Cons = cons2(arg, nil);
+                let expanded_inner: Expr::Cons = cons2(head, expanded_inner0);
+                let expanded: Expr::Cons = cons2(expanded_inner, more_args);
                 return (expanded, env, cont, ret)
             }
         }
@@ -232,7 +232,7 @@ fn reduce() -> Func {
                 return (expr, env, cont, apply)
             }
             Expr::Thunk => {
-                let (thunk_expr, thunk_continuation) = unhash2(expr);
+                let (thunk_expr, thunk_continuation) = decons2(expr);
                 return (thunk_expr, env, thunk_continuation, apply)
             }
             Expr::Sym => {
@@ -248,7 +248,7 @@ fn reduce() -> Func {
                     }
                 };
 
-                let (binding, smaller_env) = safe_uncons(env);
+                let (binding, smaller_env) = car_cdr(env);
                 match binding.tag {
                     Expr::Nil => {
                         return (expr, env, err, errctrl)
@@ -256,7 +256,7 @@ fn reduce() -> Func {
                 };
 
                 let (var_or_rec_binding, val_or_more_rec_env) =
-                    safe_uncons(binding);
+                    car_cdr(binding);
                 match var_or_rec_binding.tag {
                     Expr::Sym => {
                         if var_or_rec_binding == expr {
@@ -267,20 +267,20 @@ fn reduce() -> Func {
                                 return (expr, smaller_env, cont, ret)
                             }
                         };
-                        let cont: Cont::Lookup = hash2(env, cont);
+                        let cont: Cont::Lookup = cons2(env, cont);
                         return (expr, smaller_env, cont, ret)
                     }
                     Expr::Cons => {
-                        let (v2, val2) = safe_uncons(var_or_rec_binding);
+                        let (v2, val2) = car_cdr(var_or_rec_binding);
 
                         if v2 == expr {
                             match val2.tag {
                                 Expr::Fun => {
                                     // if `val2` is a closure, then extend its environment
-                                    let (arg, body, closed_env) = unhash3(val2);
-                                    let extended: Expr::Cons = hash2(binding, closed_env);
+                                    let (arg, body, closed_env) = decons3(val2);
+                                    let extended: Expr::Cons = cons2(binding, closed_env);
                                     // and return the extended closure
-                                    let fun: Expr::Fun = hash3(arg, body, extended);
+                                    let fun: Expr::Fun = cons3(arg, body, extended);
                                     return (fun, env, cont, apply)
                                 }
                             };
@@ -294,15 +294,15 @@ fn reduce() -> Func {
                                 return (expr, env_to_use, cont, ret)
                             }
                         };
-                        let cont: Cont::Lookup = hash2(env, cont);
+                        let cont: Cont::Lookup = cons2(env, cont);
                         return (expr, env_to_use, cont, ret)
                     }
                 };
                 return (expr, env, err, errctrl)
             }
             Expr::Cons => {
-                // No need for `safe_uncons` since the expression is already a `Cons`
-                let (head, rest) = unhash2(expr);
+                // No need for `car_cdr` since the expression is already a `Cons`
+                let (head, rest) = decons2(expr);
                 match rest.tag {
                     // rest's tag can only be Nil or Cons
                     Expr::Sym | Expr::Fun | Expr::Num | Expr::Thunk | Expr::Str
@@ -314,28 +314,28 @@ fn reduce() -> Func {
                     Expr::Sym => {
                         match symbol head {
                             "lambda" => {
-                                let (args, body) = safe_uncons(rest);
+                                let (args, body) = car_cdr(rest);
                                 let (arg, cdr_args) = extract_arg(args);
 
                                 match arg.tag {
                                     Expr::Sym => {
                                         match cdr_args.tag {
                                             Expr::Nil => {
-                                                let function: Expr::Fun = hash3(arg, body, env);
+                                                let function: Expr::Fun = cons3(arg, body, env);
                                                 return (function, env, cont, apply)
                                             }
                                         };
-                                        let inner: Expr::Cons = hash2(cdr_args, body);
-                                        let l: Expr::Cons = hash2(head, inner);
-                                        let inner_body: Expr::Cons = hash2(l, nil);
-                                        let function: Expr::Fun = hash3(arg, inner_body, env);
+                                        let inner: Expr::Cons = cons2(cdr_args, body);
+                                        let l: Expr::Cons = cons2(head, inner);
+                                        let inner_body: Expr::Cons = cons2(l, nil);
+                                        let function: Expr::Fun = cons3(arg, inner_body, env);
                                         return (function, env, cont, apply)
                                     }
                                 };
                                 return (expr, env, err, errctrl)
                             }
                             "quote" => {
-                                let (quoted, end) = safe_uncons(rest);
+                                let (quoted, end) = car_cdr(rest);
 
                                 match end.tag {
                                     Expr::Nil => {
@@ -345,8 +345,8 @@ fn reduce() -> Func {
                                 return (expr, env, err, errctrl)
                             }
                             "let", "letrec" => {
-                                let (bindings, body) = safe_uncons(rest);
-                                let (body1, rest_body) = safe_uncons(body);
+                                let (bindings, body) = car_cdr(rest);
+                                let (body1, rest_body) = car_cdr(body);
                                 // Only a single body form allowed for now.
                                 match body.tag {
                                     Expr::Nil => {
@@ -360,11 +360,11 @@ fn reduce() -> Func {
                                                 return (body1, env, cont, ret)
                                             }
                                         };
-                                        let (binding1, rest_bindings) = safe_uncons(bindings);
-                                        let (var, vals) = safe_uncons(binding1);
+                                        let (binding1, rest_bindings) = car_cdr(bindings);
+                                        let (var, vals) = car_cdr(binding1);
                                         match var.tag {
                                             Expr::Sym => {
-                                                let (val, end) = safe_uncons(vals);
+                                                let (val, end) = car_cdr(vals);
                                                 match end.tag {
                                                     Expr::Nil => {
                                                         let (expanded) = expand_bindings(head, body, body1, rest_bindings);
@@ -381,13 +381,13 @@ fn reduce() -> Func {
                                 return (expr, env, err, errctrl)
                             }
                             "begin" => {
-                                let (arg1, more) = safe_uncons(rest);
+                                let (arg1, more) = car_cdr(rest);
                                 match more.tag {
                                     Expr::Nil => {
                                         return (arg1, env, cont, ret)
                                     }
                                 };
-                                let cont: Cont::Binop = hash4(head, env, more, cont);
+                                let cont: Cont::Binop = cons4(head, env, more, cont);
                                 return (arg1, env, cont, ret)
                             }
                             "eval" => {
@@ -396,24 +396,24 @@ fn reduce() -> Func {
                                         return (expr, env, err, errctrl)
                                     }
                                 };
-                                let (arg1, more) = safe_uncons(rest);
+                                let (arg1, more) = car_cdr(rest);
                                 match more.tag {
                                     Expr::Nil => {
-                                        let cont: Cont::Unop = hash2(head, cont);
+                                        let cont: Cont::Unop = cons2(head, cont);
                                         return (arg1, env, cont, ret)
                                     }
                                 };
-                                let cont: Cont::Binop = hash4(head, env, more, cont);
+                                let cont: Cont::Binop = cons4(head, env, more, cont);
                                 return (arg1, env, cont, ret)
                             }
                             "if" => {
-                                let (condition, more) = safe_uncons(rest);
+                                let (condition, more) = car_cdr(rest);
                                 match more.tag {
                                     Expr::Nil => {
                                         return (expr, env, err, errctrl)
                                     }
                                 };
-                                let cont: Cont::If = hash2(more, cont);
+                                let cont: Cont::If = cons2(more, cont);
                                 return (condition, env, cont, ret)
                             }
                             "current-env" => {
@@ -433,10 +433,10 @@ fn reduce() -> Func {
                                     return (expr, env, err, errctrl)
                                 }
                             };
-                            let (arg1, end) = unhash2(rest);
+                            let (arg1, end) = decons2(rest);
                             match end.tag {
                                 Expr::Nil => {
-                                    let cont: Cont::Unop = hash2(head, cont);
+                                    let cont: Cont::Unop = cons2(head, cont);
                                     return (arg1, env, cont, ret)
                                 }
                             };
@@ -450,13 +450,13 @@ fn reduce() -> Func {
                                     return (expr, env, err, errctrl)
                                 }
                             };
-                            let (arg1, more) = unhash2(rest);
+                            let (arg1, more) = decons2(rest);
                             match more.tag {
                                 Expr::Nil => {
                                     return (expr, env, err, errctrl)
                                 }
                             };
-                            let cont: Cont::Binop = hash4(head, env, more, cont);
+                            let cont: Cont::Binop = cons4(head, env, more, cont);
                             return (arg1, env, cont, ret)
                         }
                         // just call assuming that the symbol is bound to a function
@@ -479,34 +479,34 @@ fn reduce() -> Func {
 }
 
 fn apply_cont() -> Func {
-    let safe_uncons = safe_uncons();
+    let car_cdr = car_cdr();
     let make_tail_continuation = func!(make_tail_continuation(env, continuation): 1 => {
         match continuation.tag {
             Cont::Tail => {
                 return (continuation);
             }
         };
-        let tail_continuation: Cont::Tail = hash2(env, continuation);
+        let tail_continuation: Cont::Tail = cons2(env, continuation);
         return (tail_continuation);
     });
 
     let extend_rec = func!(extend_rec(env, var, result): 1 => {
-        let (binding_or_env, rest) = safe_uncons(env);
-        let (var_or_binding, _val_or_more_bindings) = safe_uncons(binding_or_env);
-        let cons: Expr::Cons = hash2(var, result);
+        let (binding_or_env, rest) = car_cdr(env);
+        let (var_or_binding, _val_or_more_bindings) = car_cdr(binding_or_env);
+        let cons: Expr::Cons = cons2(var, result);
         match var_or_binding.tag {
             // It's a var, so we are extending a simple env with a recursive env.
             Expr::Sym | Expr::Nil => {
                 let nil = Symbol("nil");
                 let nil = cast(nil, Expr::Nil);
-                let list: Expr::Cons = hash2(cons, nil);
-                let res: Expr::Cons = hash2(list, env);
+                let list: Expr::Cons = cons2(cons, nil);
+                let res: Expr::Cons = cons2(list, env);
                 return (res)
             }
             // It's a binding, so we are extending a recursive env.
             Expr::Cons => {
-                let cons2: Expr::Cons = hash2(cons, binding_or_env);
-                let res: Expr::Cons = hash2(cons2, rest);
+                let cons2: Expr::Cons = cons2(cons, binding_or_env);
+                let res: Expr::Cons = cons2(cons2, rest);
 
                 return (res)
             }
@@ -572,14 +572,14 @@ fn apply_cont() -> Func {
                     }
                     Cont::Emit => {
                         // TODO Does this make sense?
-                        let (cont, _rest) = unhash2(cont);
+                        let (cont, _rest) = decons2(cont);
                         return (result, env, cont, makethunk)
                     }
                     Cont::Call0 => {
-                        let (saved_env, continuation) = unhash2(cont);
+                        let (saved_env, continuation) = decons2(cont);
                         match result.tag {
                             Expr::Fun => {
-                                let (arg, body, closed_env) = unhash3(result);
+                                let (arg, body, closed_env) = decons3(result);
                                 match symbol arg {
                                     "dummy" => {
                                         match body.tag {
@@ -587,7 +587,7 @@ fn apply_cont() -> Func {
                                                 return (result, env, err, errctrl)
                                             }
                                         };
-                                        let (body_form, end) = safe_uncons(body);
+                                        let (body_form, end) = car_cdr(body);
                                         match end.tag {
                                             Expr::Nil => {
                                                 let (cont) = make_tail_continuation(saved_env, continuation);
@@ -605,18 +605,18 @@ fn apply_cont() -> Func {
                     Cont::Call => {
                         match result.tag {
                             Expr::Fun => {
-                                let (unevaled_arg, saved_env, continuation) = unhash3(cont);
-                                let newer_cont: Cont::Call2 = hash3(result, saved_env, continuation);
+                                let (unevaled_arg, saved_env, continuation) = decons3(cont);
+                                let newer_cont: Cont::Call2 = cons3(result, saved_env, continuation);
                                 return (unevaled_arg, env, newer_cont, ret)
                             }
                         };
                         return (result, env, err, errctrl)
                     }
                     Cont::Call2 => {
-                        let (function, saved_env, continuation) = unhash3(cont);
+                        let (function, saved_env, continuation) = decons3(cont);
                         match function.tag {
                             Expr::Fun => {
-                                let (arg, body, closed_env) = unhash3(function);
+                                let (arg, body, closed_env) = decons3(function);
                                 match symbol arg {
                                     "dummy" => {
                                         return (result, env, err, errctrl)
@@ -627,11 +627,11 @@ fn apply_cont() -> Func {
                                         return (result, env, err, errctrl)
                                     }
                                 };
-                                let (body_form, end) = unhash2(body);
+                                let (body_form, end) = decons2(body);
                                 match end.tag {
                                     Expr::Nil => {
-                                        let binding: Expr::Cons = hash2(arg, result);
-                                        let newer_env: Expr::Cons = hash2(binding, closed_env);
+                                        let binding: Expr::Cons = cons2(arg, result);
+                                        let newer_env: Expr::Cons = cons2(binding, closed_env);
                                         let (cont) = make_tail_continuation(saved_env, continuation);
                                         return (body_form, newer_env, cont, ret)
                                     }
@@ -642,37 +642,37 @@ fn apply_cont() -> Func {
                         return (result, env, err, errctrl)
                     }
                     Cont::Let => {
-                        let (var, saved_env, body, cont) = unhash4(cont);
-                        let binding: Expr::Cons = hash2(var, result);
-                        let extended_env: Expr::Cons = hash2(binding, env);
+                        let (var, saved_env, body, cont) = decons4(cont);
+                        let binding: Expr::Cons = cons2(var, result);
+                        let extended_env: Expr::Cons = cons2(binding, env);
                         let (cont) = make_tail_continuation(saved_env, cont);
                         return (body, extended_env, cont, ret)
                     }
                     Cont::LetRec => {
-                        let (var, saved_env, body, cont) = unhash4(cont);
+                        let (var, saved_env, body, cont) = decons4(cont);
                         let (extended_env) = extend_rec(env, var, result);
                         let (cont) = make_tail_continuation(saved_env, cont);
                         return (body, extended_env, cont, ret)
                     }
                     Cont::Unop => {
-                        let (operator, continuation) = unhash2(cont);
+                        let (operator, continuation) = decons2(cont);
                         match symbol operator {
                             "car" => {
-                                // Almost like safe_uncons, except it returns
+                                // Almost like car_cdr, except it returns
                                 // an error in case it can't unhash it
                                 match result.tag {
                                     Expr::Nil => {
                                         return (nil, env, continuation, makethunk)
                                     }
                                     Expr::Cons => {
-                                        let (car, _cdr) = unhash2(result);
+                                        let (car, _cdr) = decons2(result);
                                         return (car, env, continuation, makethunk)
                                     }
                                     Expr::Str => {
                                         if result == empty_str {
                                             return (nil, env, continuation, makethunk)
                                         }
-                                        let (car, _cdr) = unhash2(result);
+                                        let (car, _cdr) = decons2(result);
                                         return (car, env, continuation, makethunk)
                                     }
                                 };
@@ -684,14 +684,14 @@ fn apply_cont() -> Func {
                                         return (nil, env, continuation, makethunk)
                                     }
                                     Expr::Cons => {
-                                        let (_car, cdr) = unhash2(result);
+                                        let (_car, cdr) = decons2(result);
                                         return (cdr, env, continuation, makethunk)
                                     }
                                     Expr::Str => {
                                         if result == empty_str {
                                             return (empty_str, env, continuation, makethunk)
                                         }
-                                        let (_car, cdr) = unhash2(result);
+                                        let (_car, cdr) = decons2(result);
                                         return (cdr, env, continuation, makethunk)
                                     }
                                 };
@@ -708,7 +708,7 @@ fn apply_cont() -> Func {
                             "emit" => {
                                 // TODO Does this make sense?
                                 emit(result);
-                                let emit: Cont::Emit = hash2(continuation, nil);
+                                let emit: Cont::Emit = cons2(continuation, nil);
                                 return (result, env, emit, makethunk)
                             }
                             "open" => {
@@ -796,8 +796,8 @@ fn apply_cont() -> Func {
                         return (result, env, err, errctrl)
                     }
                     Cont::Binop => {
-                        let (operator, saved_env, unevaled_args, continuation) = unhash4(cont);
-                        let (arg2, rest) = safe_uncons(unevaled_args);
+                        let (operator, saved_env, unevaled_args, continuation) = decons4(cont);
+                        let (arg2, rest) = car_cdr(unevaled_args);
                         match symbol operator {
                             "begin" => {
                                 match rest.tag {
@@ -805,27 +805,27 @@ fn apply_cont() -> Func {
                                         return (arg2, saved_env, continuation, ret)
                                     }
                                 };
-                                let begin_again: Expr::Cons = hash2(operator, unevaled_args);
+                                let begin_again: Expr::Cons = cons2(operator, unevaled_args);
                                 return (begin_again, saved_env, continuation, ctrl)
                             }
                         };
                         match rest.tag {
                             Expr::Nil => {
-                                let cont: Cont::Binop2 = hash3(operator, result, continuation);
+                                let cont: Cont::Binop2 = cons3(operator, result, continuation);
                                 return (arg2, saved_env, cont, ret)
                             }
                         };
                         return (result, env, err, errctrl)
                     }
                     Cont::Binop2 => {
-                        let (operator, evaled_arg, continuation) = unhash3(cont);
+                        let (operator, evaled_arg, continuation) = decons3(cont);
                         let (args_num_type) = args_num_type(evaled_arg, result);
                         match symbol operator {
                             "eval" => {
                                 return (evaled_arg, result, continuation, ret)
                             }
                             "cons" => {
-                                let val: Expr::Cons = hash2(evaled_arg, result);
+                                let val: Expr::Cons = cons2(evaled_arg, result);
                                 return (val, env, continuation, makethunk)
                             }
                             "strcons" => {
@@ -833,7 +833,7 @@ fn apply_cont() -> Func {
                                     Expr::Char => {
                                         match result.tag {
                                             Expr::Str => {
-                                                let val: Expr::Str = hash2(evaled_arg, result);
+                                                let val: Expr::Str = cons2(evaled_arg, result);
                                                 return (val, env, continuation, makethunk)
                                             }
                                         };
@@ -1003,9 +1003,9 @@ fn apply_cont() -> Func {
                         return (result, env, err, errctrl)
                     }
                     Cont::If => {
-                        let (unevaled_args, continuation) = unhash2(cont);
-                        let (arg1, more) = safe_uncons(unevaled_args);
-                        let (arg2, end) = safe_uncons(more);
+                        let (unevaled_args, continuation) = decons2(cont);
+                        let (arg1, more) = car_cdr(unevaled_args);
+                        let (arg2, end) = car_cdr(more);
                         match end.tag {
                             Expr::Nil => {
                                 match result.tag {
@@ -1019,11 +1019,11 @@ fn apply_cont() -> Func {
                         return (arg1, env, err, errctrl)
                     }
                     Cont::Lookup => {
-                        let (saved_env, continuation) = unhash2(cont);
+                        let (saved_env, continuation) = decons2(cont);
                         return (result, saved_env, continuation, makethunk)
                     }
                     Cont::Tail => {
-                        let (saved_env, continuation) = unhash2(cont);
+                        let (saved_env, continuation) = decons2(cont);
                         return (result, saved_env, continuation, makethunk)
                     }
                 }
@@ -1040,8 +1040,8 @@ fn make_thunk() -> Func {
             Ctrl::MakeThunk => {
                 match cont.tag {
                     Cont::Tail => {
-                        let (saved_env, saved_cont) = unhash2(cont);
-                        let thunk: Expr::Thunk = hash2(expr, saved_cont);
+                        let (saved_env, saved_cont) = decons2(cont);
+                        let thunk: Expr::Thunk = cons2(expr, saved_cont);
                         let cont: Cont::Dummy;
                         return (thunk, saved_env, cont, ret)
                     }
@@ -1050,7 +1050,7 @@ fn make_thunk() -> Func {
                         return (expr, env, cont, ret)
                     }
                 };
-                let thunk: Expr::Thunk = hash2(expr, cont);
+                let thunk: Expr::Thunk = cons2(expr, cont);
                 let cont: Cont::Dummy;
                 return (thunk, env, cont, ret)
             }
@@ -1073,9 +1073,9 @@ mod tests {
     const NUM_AUX: usize = 10744;
     const NUM_CONSTRAINTS: usize = 13299;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
-        hash2: 16,
-        hash3: 4,
-        hash4: 2,
+        hash4: 16,
+        hash6: 4,
+        hash8: 2,
         commitment: 1,
         less_than: 1,
     };
