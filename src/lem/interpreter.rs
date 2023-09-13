@@ -18,9 +18,9 @@ pub enum PreimageData<F: LurkField> {
 /// `Func`, and the `None` values are used to fill the unused slots, which are
 /// later filled by dummy values.
 pub struct Preimages<F: LurkField> {
-    pub hash2: Vec<Option<PreimageData<F>>>,
-    pub hash3: Vec<Option<PreimageData<F>>>,
     pub hash4: Vec<Option<PreimageData<F>>>,
+    pub hash6: Vec<Option<PreimageData<F>>>,
+    pub hash8: Vec<Option<PreimageData<F>>>,
     pub commitment: Vec<Option<PreimageData<F>>>,
     pub less_than: Vec<Option<PreimageData<F>>>,
     pub call_outputs: VecDeque<Vec<Ptr<F>>>,
@@ -29,16 +29,16 @@ pub struct Preimages<F: LurkField> {
 impl<F: LurkField> Preimages<F> {
     pub fn new_from_func(func: &Func) -> Preimages<F> {
         let slot = func.slot;
-        let hash2 = Vec::with_capacity(slot.hash2);
-        let hash3 = Vec::with_capacity(slot.hash3);
         let hash4 = Vec::with_capacity(slot.hash4);
+        let hash6 = Vec::with_capacity(slot.hash6);
+        let hash8 = Vec::with_capacity(slot.hash8);
         let commitment = Vec::with_capacity(slot.commitment);
         let less_than = Vec::with_capacity(slot.less_than);
         let call_outputs = VecDeque::new();
         Preimages {
-            hash2,
-            hash3,
             hash4,
+            hash6,
+            hash8,
             commitment,
             less_than,
             call_outputs,
@@ -47,16 +47,16 @@ impl<F: LurkField> Preimages<F> {
 
     pub fn blank(func: &Func) -> Preimages<F> {
         let slot = func.slot;
-        let hash2 = vec![None; slot.hash2];
-        let hash3 = vec![None; slot.hash3];
         let hash4 = vec![None; slot.hash4];
+        let hash6 = vec![None; slot.hash6];
+        let hash8 = vec![None; slot.hash8];
         let commitment = vec![None; slot.commitment];
         let less_than = vec![None; slot.less_than];
         let call_outputs = VecDeque::new();
         Preimages {
-            hash2,
-            hash3,
             hash4,
+            hash6,
+            hash8,
             commitment,
             less_than,
             call_outputs,
@@ -256,24 +256,24 @@ impl Block {
                     println!("{}", a.fmt_to_string(store, initial_lurk_state()));
                     emitted.push(*a);
                 }
-                Op::Hash2(img, tag, preimg) => {
+                Op::Cons2(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
                     let tgt_ptr = store.intern_2_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1]);
                     bindings.insert(img.clone(), tgt_ptr);
                     preimages
-                        .hash2
+                        .hash4
                         .push(Some(PreimageData::PtrVec(preimg_ptrs)));
                 }
-                Op::Hash3(img, tag, preimg) => {
+                Op::Cons3(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
                     let tgt_ptr =
                         store.intern_3_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]);
                     bindings.insert(img.clone(), tgt_ptr);
                     preimages
-                        .hash3
+                        .hash6
                         .push(Some(PreimageData::PtrVec(preimg_ptrs)));
                 }
-                Op::Hash4(img, tag, preimg) => {
+                Op::Cons4(img, tag, preimg) => {
                     let preimg_ptrs = bindings.get_many_cloned(preimg)?;
                     let tgt_ptr = store.intern_4_ptrs(
                         *tag,
@@ -284,10 +284,10 @@ impl Block {
                     );
                     bindings.insert(img.clone(), tgt_ptr);
                     preimages
-                        .hash4
+                        .hash8
                         .push(Some(PreimageData::PtrVec(preimg_ptrs)));
                 }
-                Op::Unhash2(preimg, img) => {
+                Op::Decons2(preimg, img) => {
                     let img_ptr = bindings.get(img)?;
                     let Some(idx) = img_ptr.get_index2() else {
                         bail!("{img} isn't a Tree2 pointer");
@@ -300,10 +300,10 @@ impl Block {
                         bindings.insert(var.clone(), *ptr);
                     }
                     preimages
-                        .hash2
+                        .hash4
                         .push(Some(PreimageData::PtrVec(preimg_ptrs.to_vec())));
                 }
-                Op::Unhash3(preimg, img) => {
+                Op::Decons3(preimg, img) => {
                     let img_ptr = bindings.get(img)?;
                     let Some(idx) = img_ptr.get_index3() else {
                         bail!("{img} isn't a Tree3 pointer");
@@ -316,10 +316,10 @@ impl Block {
                         bindings.insert(var.clone(), *ptr);
                     }
                     preimages
-                        .hash3
+                        .hash6
                         .push(Some(PreimageData::PtrVec(preimg_ptrs.to_vec())));
                 }
-                Op::Unhash4(preimg, img) => {
+                Op::Decons4(preimg, img) => {
                     let img_ptr = bindings.get(img)?;
                     let Some(idx) = img_ptr.get_index4() else {
                         bail!("{img} isn't a Tree4 pointer");
@@ -332,7 +332,7 @@ impl Block {
                         bindings.insert(var.clone(), *ptr);
                     }
                     preimages
-                        .hash4
+                        .hash8
                         .push(Some(PreimageData::PtrVec(preimg_ptrs.to_vec())));
                 }
                 Op::Hide(tgt, sec, src) => {
@@ -447,9 +447,9 @@ impl Func {
 
         // We must fill any unused slots with `None` values so we save
         // the initial size of preimages, which might not be zero
-        let hash2_init = preimages.hash2.len();
-        let hash3_init = preimages.hash3.len();
         let hash4_init = preimages.hash4.len();
+        let hash6_init = preimages.hash6.len();
+        let hash8_init = preimages.hash8.len();
         let commitment_init = preimages.commitment.len();
         let less_than_init = preimages.less_than.len();
 
@@ -458,20 +458,20 @@ impl Func {
             .run(args, store, bindings, preimages, Path::default(), emitted)?;
         let preimages = &mut res.0.preimages;
 
-        let hash2_used = preimages.hash2.len() - hash2_init;
-        let hash3_used = preimages.hash3.len() - hash3_init;
         let hash4_used = preimages.hash4.len() - hash4_init;
+        let hash6_used = preimages.hash6.len() - hash6_init;
+        let hash8_used = preimages.hash8.len() - hash8_init;
         let commitment_used = preimages.commitment.len() - commitment_init;
         let less_than_used = preimages.less_than.len() - less_than_init;
 
-        for _ in hash2_used..self.slot.hash2 {
-            preimages.hash2.push(None);
-        }
-        for _ in hash3_used..self.slot.hash3 {
-            preimages.hash3.push(None);
-        }
         for _ in hash4_used..self.slot.hash4 {
             preimages.hash4.push(None);
+        }
+        for _ in hash6_used..self.slot.hash6 {
+            preimages.hash6.push(None);
+        }
+        for _ in hash8_used..self.slot.hash8 {
+            preimages.hash8.push(None);
         }
         for _ in commitment_used..self.slot.commitment {
             preimages.commitment.push(None);
