@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Ctrl","CtrlTag","Lit","Op","Tag"],"struct":["Block","Func","Var"],"type":["AString"]};
+window.SIDEBAR_ITEMS = {"enum":["Ctrl","CtrlTag","Lit","Op","Tag"],"mod":["circuit","eval","interpreter","pointers","store","zstore"],"struct":["Block","Func","Var"],"type":["AString"]};

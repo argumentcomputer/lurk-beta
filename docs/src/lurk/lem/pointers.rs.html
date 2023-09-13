@@ -138,13 +138,57 @@
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
-</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{field::<span class="kw-2">*</span>, tag::ContTag::Dummy, tag::ExprTag::<span class="kw-2">*</span>};
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
+
+<span class="kw">use crate</span>::{field::<span class="kw-2">*</span>, tag::ExprTag::<span class="kw-2">*</span>};
 
 <span class="kw">use </span><span class="kw">super</span>::Tag;
 
 <span class="doccomment">/// `Ptr` is the main piece of data LEMs operate on. We can think of a pointer
 /// as a building block for trees that represent Lurk data. A pointer can be a
-/// leaf that contains data encoded as an element of a `LurkField` or it can have
+/// atom that contains data encoded as an element of a `LurkField` or it can have
 /// children. For performance, the children of a pointer are stored on an
 /// `IndexSet` and the resulding index is carried by the pointer itself.
 ///
@@ -153,9 +197,9 @@
 /// children a pointer has. However, LEMs require extra flexibility because LEM
 /// hashing operations can plug any tag to the resulting pointer. Thus, the
 /// number of children have to be made explicit as the `Ptr` enum.
-</span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+</span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 </span><span class="kw">pub enum </span>Ptr&lt;F: LurkField&gt; {
-    Leaf(Tag, F),
+    Atom(Tag, F),
     Tuple2(Tag, usize),
     Tuple3(Tag, usize),
     Tuple4(Tag, usize),
@@ -164,7 +208,7 @@
 <span class="kw">impl</span>&lt;F: LurkField&gt; std::hash::Hash <span class="kw">for </span>Ptr&lt;F&gt; {
     <span class="kw">fn </span>hash&lt;H: std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
         <span class="kw">match </span><span class="self">self </span>{
-            Ptr::Leaf(tag, f) =&gt; (<span class="number">0</span>, tag, f.to_repr().as_ref()).hash(state),
+            Ptr::Atom(tag, f) =&gt; (<span class="number">0</span>, tag, f.to_repr().as_ref()).hash(state),
             Ptr::Tuple2(tag, x) =&gt; (<span class="number">1</span>, tag, x).hash(state),
             Ptr::Tuple3(tag, x) =&gt; (<span class="number">2</span>, tag, x).hash(state),
             Ptr::Tuple4(tag, x) =&gt; (<span class="number">3</span>, tag, x).hash(state),
@@ -175,7 +219,7 @@
 <span class="kw">impl</span>&lt;F: LurkField&gt; Ptr&lt;F&gt; {
     <span class="kw">pub fn </span>tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Tag {
         <span class="kw">match </span><span class="self">self </span>{
-            Ptr::Leaf(tag, <span class="kw">_</span>) | Ptr::Tuple2(tag, <span class="kw">_</span>) | Ptr::Tuple3(tag, <span class="kw">_</span>) | Ptr::Tuple4(tag, <span class="kw">_</span>) =&gt; {
+            Ptr::Atom(tag, <span class="kw">_</span>) | Ptr::Tuple2(tag, <span class="kw">_</span>) | Ptr::Tuple3(tag, <span class="kw">_</span>) | Ptr::Tuple4(tag, <span class="kw">_</span>) =&gt; {
                 tag
             }
         }
@@ -183,31 +227,60 @@
 
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>num(f: F) -&gt; <span class="self">Self </span>{
-        Ptr::Leaf(Tag::Expr(Num), f)
+        Ptr::Atom(Tag::Expr(Num), f)
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>num_u64(u: u64) -&gt; <span class="self">Self </span>{
+        Ptr::Atom(Tag::Expr(Num), F::from_u64(u))
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>u64(u: u64) -&gt; <span class="self">Self </span>{
+        Ptr::Atom(Tag::Expr(U64), F::from_u64(u))
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>char(c: char) -&gt; <span class="self">Self </span>{
-        Ptr::Leaf(Tag::Expr(Char), F::from_char(c))
+        Ptr::Atom(Tag::Expr(Char), F::from_char(c))
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>comm(hash: F) -&gt; <span class="self">Self </span>{
-        Ptr::Leaf(Tag::Expr(Comm), hash)
+        Ptr::Atom(Tag::Expr(Comm), hash)
     }
 
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>null(tag: Tag) -&gt; <span class="self">Self </span>{
-        Ptr::Leaf(tag, F::ZERO)
+        Ptr::Atom(tag, F::ZERO)
+    }
+
+    <span class="kw">pub fn </span>is_null(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="kw">match </span><span class="self">self </span>{
+            Ptr::Atom(<span class="kw">_</span>, f) =&gt; f == <span class="kw-2">&amp;</span>F::ZERO,
+            <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
+        }
+    }
+
+    <span class="kw">pub fn </span>is_nil(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.tag() == <span class="kw-2">&amp;</span>Tag::Expr(Nil)
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>cast(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: Tag) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>cast(<span class="self">self</span>, tag: Tag) -&gt; <span class="self">Self </span>{
         <span class="kw">match </span><span class="self">self </span>{
-            Ptr::Leaf(<span class="kw">_</span>, f) =&gt; Ptr::Leaf(tag, <span class="kw-2">*</span>f),
-            Ptr::Tuple2(<span class="kw">_</span>, x) =&gt; Ptr::Tuple2(tag, <span class="kw-2">*</span>x),
-            Ptr::Tuple3(<span class="kw">_</span>, x) =&gt; Ptr::Tuple3(tag, <span class="kw-2">*</span>x),
-            Ptr::Tuple4(<span class="kw">_</span>, x) =&gt; Ptr::Tuple4(tag, <span class="kw-2">*</span>x),
+            Ptr::Atom(<span class="kw">_</span>, f) =&gt; Ptr::Atom(tag, f),
+            Ptr::Tuple2(<span class="kw">_</span>, x) =&gt; Ptr::Tuple2(tag, x),
+            Ptr::Tuple3(<span class="kw">_</span>, x) =&gt; Ptr::Tuple3(tag, x),
+            Ptr::Tuple4(<span class="kw">_</span>, x) =&gt; Ptr::Tuple4(tag, x),
+        }
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>get_atom(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>F&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            Ptr::Atom(<span class="kw">_</span>, f) =&gt; <span class="prelude-val">Some</span>(f),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
 
@@ -246,30 +319,41 @@
 /// An important note is that computing the respective `ZPtr` of a `Ptr` can be
 /// expensive because of the Poseidon hashes. That&#39;s why we operate on `Ptr`s
 /// when interpreting LEMs and delay the need for `ZPtr`s as much as possible.
-</span><span class="attr">#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+</span><span class="attr">#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>ZPtr&lt;F: LurkField&gt; {
     <span class="kw">pub </span>tag: Tag,
     <span class="kw">pub </span>hash: F,
 }
 
+<span class="kw">impl</span>&lt;F: LurkField&gt; PartialOrd <span class="kw">for </span>ZPtr&lt;F&gt; {
+    <span class="kw">fn </span>partial_cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;core::cmp::Ordering&gt; {
+        (
+            <span class="self">self</span>.tag.to_field::&lt;F&gt;().to_repr().as_ref(),
+            <span class="self">self</span>.hash.to_repr().as_ref(),
+        )
+            .partial_cmp(<span class="kw-2">&amp;</span>(
+                other.tag.to_field::&lt;F&gt;().to_repr().as_ref(),
+                other.hash.to_repr().as_ref(),
+            ))
+    }
+}
+
+<span class="kw">impl</span>&lt;F: LurkField&gt; Ord <span class="kw">for </span>ZPtr&lt;F&gt; {
+    <span class="kw">fn </span>cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; core::cmp::Ordering {
+        <span class="self">self</span>.partial_cmp(other)
+            .expect(<span class="string">&quot;ZPtr::cmp: partial_cmp domain invariant violation&quot;</span>)
+    }
+}
+
 <span class="doccomment">/// `ZChildren` keeps track of the children of `ZPtr`s, in case they have any.
 /// This information is saved during hydration and is needed to content-address
 /// a store.
-</span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>ZChildren&lt;F: LurkField&gt; {
+</span><span class="attr">#[derive(Debug, Serialize, Deserialize)]
+</span><span class="kw">pub enum </span>ZChildren&lt;F: LurkField&gt; {
+    Atom,
     Tuple2(ZPtr&lt;F&gt;, ZPtr&lt;F&gt;),
     Tuple3(ZPtr&lt;F&gt;, ZPtr&lt;F&gt;, ZPtr&lt;F&gt;),
     Tuple4(ZPtr&lt;F&gt;, ZPtr&lt;F&gt;, ZPtr&lt;F&gt;, ZPtr&lt;F&gt;),
-}
-
-<span class="kw">impl</span>&lt;F: LurkField&gt; ZPtr&lt;F&gt; {
-    <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>dummy() -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            tag: Tag::Cont(Dummy),
-            hash: F::ZERO,
-        }
-    }
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; std::hash::Hash <span class="kw">for </span>ZPtr&lt;F&gt; {

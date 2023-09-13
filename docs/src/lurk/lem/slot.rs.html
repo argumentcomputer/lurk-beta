@@ -267,6 +267,11 @@
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
 <a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ### Slot optimizations
 //!
 //! Some LEM functions may require expensive gadgets, such as Poseidon hashing.
@@ -448,6 +453,11 @@
             less_than: <span class="self">self</span>.less_than + other.less_than,
         }
     }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>fold_max(<span class="self">self</span>, vec: Vec&lt;<span class="self">Self</span>&gt;) -&gt; <span class="self">Self </span>{
+        vec.into_iter().fold(<span class="self">self</span>, |acc, i| acc.max(i))
+    }
 }
 
 <span class="kw">impl </span>Block {
@@ -473,7 +483,7 @@
                     .values()
                     .fold(init, |acc, block| acc.max(block.count_slots()))
             }
-            Ctrl::MatchVal(<span class="kw">_</span>, cases, def) =&gt; {
+            Ctrl::MatchSymbol(<span class="kw">_</span>, cases, def) =&gt; {
                 <span class="kw">let </span>init = def
                     .as_ref()
                     .map_or(SlotsCounter::default(), |def| def.count_slots());

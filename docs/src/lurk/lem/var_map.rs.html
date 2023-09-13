@@ -67,7 +67,7 @@
 /// variables before using them, so we don&#39;t expect to need some piece of
 /// information from a variable that hasn&#39;t been defined.
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>VarMap&lt;V&gt;(HashMap&lt;Var, V&gt;);
+</span><span class="kw">pub struct </span>VarMap&lt;V&gt;(HashMap&lt;Var, V&gt;);
 
 <span class="kw">impl</span>&lt;V&gt; VarMap&lt;V&gt; {
     <span class="doccomment">/// Creates an empty `VarMap`

@@ -131,14 +131,18 @@
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashSet;
 
-<span class="kw">use super</span>::{Block, Ctrl, Func, Lit, Op, Tag};
+<span class="kw">use </span><span class="kw">crate</span>::Symbol;
+
+<span class="kw">use super</span>::{Block, Ctrl, Func, Op, Tag};
 
 <span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>PathNode {
     Tag(Tag),
-    Lit(Lit),
+    Symbol(Symbol),
     Bool(bool),
     Default,
 }
@@ -147,7 +151,7 @@
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Tag(tag) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Tag({})&quot;</span>, tag),
-            <span class="self">Self</span>::Lit(lit) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{:?}&quot;</span>, lit),
+            <span class="self">Self</span>::Symbol(sym) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Symbol({})&quot;</span>, sym),
             <span class="self">Self</span>::Bool(b) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Bool({})&quot;</span>, b),
             <span class="self">Self</span>::Default =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Default&quot;</span>),
         }
@@ -177,9 +181,9 @@
         Path(path)
     }
 
-    <span class="kw">pub fn </span>push_lit(<span class="kw-2">&amp;</span><span class="self">self</span>, lit: <span class="kw-2">&amp;</span>Lit) -&gt; Path {
+    <span class="kw">pub fn </span>push_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, sym: Symbol) -&gt; Path {
         <span class="kw">let </span><span class="kw-2">mut </span>path = <span class="self">self</span>.<span class="number">0</span>.clone();
-        path.push(PathNode::Lit(lit.clone()));
+        path.push(PathNode::Symbol(sym));
         Path(path)
     }
 
@@ -190,8 +194,8 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>push_tag_inplace(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span>Tag) {
-        <span class="self">self</span>.<span class="number">0</span>.push(PathNode::Tag(<span class="kw-2">*</span>tag));
+    </span><span class="kw">pub fn </span>push_tag_inplace(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tag: Tag) {
+        <span class="self">self</span>.<span class="number">0</span>.push(PathNode::Tag(tag));
     }
 
     <span class="attr">#[inline]
@@ -200,8 +204,8 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>push_lit_inplace(<span class="kw-2">&amp;mut </span><span class="self">self</span>, lit: <span class="kw-2">&amp;</span>Lit) {
-        <span class="self">self</span>.<span class="number">0</span>.push(PathNode::Lit(lit.clone()));
+    </span><span class="kw">pub fn </span>push_symbol_inplace(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sym: Symbol) {
+        <span class="self">self</span>.<span class="number">0</span>.push(PathNode::Symbol(sym));
     }
 
     <span class="attr">#[inline]
@@ -252,7 +256,7 @@
                     .values()
                     .fold(init, |acc, block| acc + block.num_paths())
             }
-            Ctrl::MatchVal(<span class="kw">_</span>, cases, def) =&gt; {
+            Ctrl::MatchSymbol(<span class="kw">_</span>, cases, def) =&gt; {
                 <span class="kw">let </span>init = def.as_ref().map_or(<span class="number">0</span>, |def| def.num_paths());
                 cases
                     .values()
