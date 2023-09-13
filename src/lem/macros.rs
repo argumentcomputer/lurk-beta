@@ -201,19 +201,19 @@ macro_rules! ctrl {
             $crate::lem::Ctrl::MatchTag($crate::var!($sii), cases, default)
         }
     };
-    ( match $sii:ident.val { $( $cnstr:ident($val:literal) $(| $other_cnstr:ident($other_val:literal))* => $case_ops:tt )* } $(; $($def:tt)*)? ) => {
+    ( match symbol $sii:ident { $( $sym:expr $(, $other_sym:expr)* => $case_ops:tt )* } $(; $($def:tt)*)? ) => {
         {
             let mut cases = indexmap::IndexMap::new();
             $(
                 if cases.insert(
-                    $crate::lit!($cnstr($val)),
+                    $crate::state::lurk_sym($sym),
                     $crate::block!( $case_ops ),
                 ).is_some() {
                     panic!("Repeated value on `match`");
                 };
                 $(
                     if cases.insert(
-                        $crate::lit!($other_cnstr($other_val)),
+                        $crate::state::lurk_sym($other_sym),
                         $crate::block!( $case_ops ),
                     ).is_some() {
                         panic!("Repeated value on `match`");
@@ -221,7 +221,7 @@ macro_rules! ctrl {
                 )*
             )*
             let default = None $( .or (Some(Box::new($crate::block!( @seq {}, $($def)* )))) )?;
-            $crate::lem::Ctrl::MatchVal($crate::var!($sii), cases, default)
+            $crate::lem::Ctrl::MatchSymbol($crate::var!($sii), cases, default)
         }
     };
     ( if $x:ident == $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
@@ -508,13 +508,13 @@ macro_rules! block {
             $crate::ctrl!( match $sii.tag { $( $kind::$tag $(| $other_kind::$other_tag)* => $case_ops )* } $(; $($def)*)? )
         )
     };
-    (@seq {$($limbs:expr)*}, match $sii:ident.val { $( $cnstr:ident($val:literal) $(| $other_cnstr:ident($other_val:literal))* => $case_ops:tt )* } $(; $($def:tt)*)?) => {
+    (@seq {$($limbs:expr)*}, match symbol $sii:ident { $( $sym:expr $(, $other_sym:expr)* => $case_ops:tt )* } $(; $($def:tt)*)?) => {
         $crate::block! (
             @end
             {
                 $($limbs)*
             },
-            $crate::ctrl!( match $sii.val { $( $cnstr($val) $(| $other_cnstr($other_val))* => $case_ops )* } $(; $($def)*)? )
+            $crate::ctrl!( match symbol $sii { $( $sym $(, $other_sym)* => $case_ops )* } $(; $($def)*)? )
         )
     };
     (@seq {$($limbs:expr)*}, if $x:ident == $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
@@ -572,9 +572,12 @@ macro_rules! func {
 
 #[cfg(test)]
 mod tests {
-    use crate::lem::{Block, Ctrl, Lit, Op, Tag, Var};
-    use crate::state::lurk_sym;
-    use crate::tag::ExprTag::*;
+    use crate::{
+        lem::{Block, Ctrl, Op, Tag, Var},
+        state::lurk_sym,
+        tag::ExprTag::*,
+        Symbol,
+    };
 
     #[inline]
     fn mptr(name: &str) -> Var {
@@ -587,8 +590,8 @@ mod tests {
     }
 
     #[inline]
-    fn match_val(i: Var, cases: Vec<(Lit, Block)>, def: Block) -> Ctrl {
-        Ctrl::MatchVal(i, indexmap::IndexMap::from_iter(cases), Some(Box::new(def)))
+    fn match_symbol(i: Var, cases: Vec<(Symbol, Block)>, def: Block) -> Ctrl {
+        Ctrl::MatchSymbol(i, indexmap::IndexMap::from_iter(cases), Some(Box::new(def)))
     }
 
     #[test]
@@ -698,11 +701,11 @@ mod tests {
         );
 
         let moo = ctrl!(
-            match www.val {
-                Symbol("nil") => {
+            match symbol www {
+                "nil" => {
                     return (foo, foo, foo); // a single Ctrl will not turn into a Seq
                 }
-                Symbol("cons") => {
+                "cons" => {
                     let foo: Expr::Num;
                     let goo: Expr::Char;
                     return (foo, goo, goo);
@@ -713,18 +716,18 @@ mod tests {
         );
 
         assert!(
-            moo == match_val(
+            moo == match_symbol(
                 mptr("www"),
                 vec![
                     (
-                        Lit::Symbol(lurk_sym("nil")),
+                        lurk_sym("nil"),
                         Block {
                             ops: vec![],
                             ctrl: Ctrl::Return(vec![mptr("foo"), mptr("foo"), mptr("foo")]),
                         }
                     ),
                     (
-                        Lit::Symbol(lurk_sym("cons")),
+                        lurk_sym("cons"),
                         Block {
                             ops: vec![
                                 Op::Null(mptr("foo"), Tag::Expr(Num)),
