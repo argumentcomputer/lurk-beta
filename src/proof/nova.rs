@@ -627,7 +627,7 @@ pub mod tests {
         <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     {
         for chunk_size in REDUCTION_COUNTS_TO_TEST {
-            nova_test_full_aux::<_, _, M>(
+            let _ = nova_test_full_aux::<_, _, M>(
                 s,
                 expr,
                 expected_result,
@@ -639,7 +639,7 @@ pub mod tests {
                 false,
                 None,
                 lang.clone(),
-            )
+            );
         }
     }
 

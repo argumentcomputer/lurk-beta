@@ -22,17 +22,27 @@ use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, ConstraintSystem, 
 
 use std::sync::Arc;
 
+/// The State of a CEK machine.
 pub trait CEKState<ExprPtr, ContPtr> {
+    /// the expression, or control word (C)
     fn expr(&self) -> &ExprPtr;
+    /// the environment (E)
     fn env(&self) -> &ExprPtr;
+    /// the continuation (K)
     fn cont(&self) -> &ContPtr;
 }
 
+/// A Frame of evaluation in a CEK machine.
 pub trait FrameLike<ExprPtr, ContPtr>: Sized {
+    /// the type for the Frame's IO
     type FrameIO: CEKState<ExprPtr, ContPtr>;
+    /// the input of the frame
     fn input(&self) -> &Self::FrameIO;
+    /// the output of the frame
     fn output(&self) -> &Self::FrameIO;
 }
+
+/// A trait for a store of expressions
 pub trait EvaluationStore {
     /// the type for the Store's pointers
     type Ptr;

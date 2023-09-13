@@ -287,7 +287,7 @@ where
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     pub claim: Claim<F>,
-    pub proof: nova::Proof<'a, F, Coproc<F>>,
+    pub proof: nova::Proof<'a, F, Coproc<F>, MultiFrame<'a, F, Coproc<F>>>,
     pub num_steps: usize,
     pub reduction_count: ReductionCount,
 }

@@ -148,7 +148,7 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
 
         let lang_rc = Arc::new(lang.clone());
         // Load params from disk cache, or generate them in the background.
-        thread::spawn(move || public_params(reduction_count, true, lang_rc, &public_param_dir()));
+        thread::spawn(move || public_params::<_, _, MultiFrame<_, Coproc<_>>>(reduction_count, true, lang_rc, &public_param_dir()));
 
         Self {
             repl_state: ReplState::new(s, limit, command, lang),

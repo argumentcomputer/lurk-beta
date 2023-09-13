@@ -11,12 +11,12 @@ use lurk::{
         Evaluator,
     },
     field::LurkField,
-    proof::nova::NovaProver,
+    proof::{nova::NovaProver, MultiFrameTrait},
     proof::Prover,
     ptr::Ptr,
     public_parameters,
     state::State,
-    store::Store,
+    store::Store, circuit::MultiFrame,
 };
 use pasta_curves::pallas;
 use std::time::Duration;
@@ -70,7 +70,7 @@ fn end2end_benchmark(c: &mut Criterion) {
     let prover = NovaProver::new(reduction_count, lang_pallas);
 
     // use cached public params
-    let pp = public_parameters::public_params(
+    let pp = public_parameters::public_params::<_, _, MultiFrame<_, Coproc<pallas::Scalar>>>(
         reduction_count,
         true,
         lang_pallas_rc.clone(),
@@ -297,8 +297,8 @@ fn prove_benchmark(c: &mut Criterion) {
             Utf8Path::new(PUBLIC_PARAMS_PATH),
         )
         .unwrap();
-        let frames = prover
-            .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
+        let frames = 
+            MultiFrame::get_evaluation_frames(&prover, ptr, empty_sym_env(&store), &mut store, limit)
             .unwrap();
 
         b.iter(|| {

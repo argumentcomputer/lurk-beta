@@ -14,12 +14,12 @@ use lurk::{
         lang::{Coproc, Lang},
     },
     field::LurkField,
-    proof::nova::NovaProver,
+    proof::{nova::NovaProver, MultiFrameTrait},
     proof::Prover,
     ptr::Ptr,
     public_parameters::public_params,
     state::State,
-    store::Store,
+    store::Store, circuit::MultiFrame,
 };
 
 const PUBLIC_PARAMS_PATH: &str = "/var/tmp/lurk_benches/public_params";
@@ -97,8 +97,8 @@ fn fibo_prove<M: measurement::Measurement>(
             );
             let prover = NovaProver::new(prove_params.reduction_count, lang_pallas.clone());
 
-            let frames = &prover
-                .get_evaluation_frames(ptr, env, &mut store, limit, &lang_pallas)
+            let frames = 
+                MultiFrame::get_evaluation_frames(&prover, ptr, env, &mut store, limit)
                 .unwrap();
 
             b.iter_batched(

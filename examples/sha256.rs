@@ -200,7 +200,7 @@ fn main() {
     println!("Setting up public parameters...");
 
     let pp_start = Instant::now();
-    let pp = public_params::<_, Sha256Coproc<Fr>>(
+    let pp = public_params::<_, Sha256Coproc<Fr>, MultiFrame<_, Sha256Coproc<Fr>>>(
         REDUCTION_COUNT,
         true,
         lang_rc.clone(),
