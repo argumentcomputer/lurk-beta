@@ -1,6 +1,9 @@
+use camino::Utf8PathBuf;
 use lurk::{
+    cli::{backend::Backend, repl::Repl},
     eval::lang::{Coproc, Lang},
     repl::{repl, ReplState},
+    store::Store,
 };
 use pasta_curves::pallas::Scalar as S1;
 use std::path::Path;
@@ -33,10 +36,13 @@ fn lurk_cli_tests() {
                 git submodule update"
         );
     }
+    let mut repl_new = Repl::new(Store::default(), 10, 100000000, Backend::Nova);
 
     for f in test_files {
         let joined = example_dir.join(f);
+        let joined_new = Utf8PathBuf::from_path_buf(joined.clone()).unwrap();
 
         repl::<S1, ReplState<S1, Coproc<S1>>, _, Coproc<S1>>(Some(joined), Lang::new()).unwrap();
+        let _ = repl_new.load_file(&joined_new);
     }
 }
