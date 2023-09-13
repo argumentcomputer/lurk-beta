@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl.rs`."><title>repl.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-47e7ab555ef2818a.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (b4e54c6e3 2023-09-11)" data-channel="nightly" data-search-js="search-5d3eaacf19ebf04f.js" data-settings-js="settings-74424d7eec62a23e.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-f194925aa375ae96.css" data-theme-dark-css="dark-1dd4d1ce031e15de.css" data-theme-ayu-css="ayu-49e58d069f567085.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-8d035c8cea6edbc4.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-f194925aa375ae96.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1dd4d1ce031e15de.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl.rs`."><title>repl.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-47e7ab555ef2818a.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (d9c8274fb 2023-09-12)" data-channel="nightly" data-search-js="search-5d3eaacf19ebf04f.js" data-settings-js="settings-74424d7eec62a23e.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-f194925aa375ae96.css" data-theme-dark-css="dark-1dd4d1ce031e15de.css" data-theme-ayu-css="ayu-49e58d069f567085.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-8d035c8cea6edbc4.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-f194925aa375ae96.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1dd4d1ce031e15de.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -765,46 +765,6 @@
 <a href="#765" id="765">765</a>
 <a href="#766" id="766">766</a>
 <a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
-<a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
-<a href="#775" id="775">775</a>
-<a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
-<a href="#778" id="778">778</a>
-<a href="#779" id="779">779</a>
-<a href="#780" id="780">780</a>
-<a href="#781" id="781">781</a>
-<a href="#782" id="782">782</a>
-<a href="#783" id="783">783</a>
-<a href="#784" id="784">784</a>
-<a href="#785" id="785">785</a>
-<a href="#786" id="786">786</a>
-<a href="#787" id="787">787</a>
-<a href="#788" id="788">788</a>
-<a href="#789" id="789">789</a>
-<a href="#790" id="790">790</a>
-<a href="#791" id="791">791</a>
-<a href="#792" id="792">792</a>
-<a href="#793" id="793">793</a>
-<a href="#794" id="794">794</a>
-<a href="#795" id="795">795</a>
-<a href="#796" id="796">796</a>
-<a href="#797" id="797">797</a>
-<a href="#798" id="798">798</a>
-<a href="#799" id="799">799</a>
-<a href="#800" id="800">800</a>
-<a href="#801" id="801">801</a>
-<a href="#802" id="802">802</a>
-<a href="#803" id="803">803</a>
-<a href="#804" id="804">804</a>
-<a href="#805" id="805">805</a>
-<a href="#806" id="806">806</a>
-<a href="#807" id="807">807</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::cell::RefCell;
 <span class="kw">use </span>std::fs::read_to_string;
 <span class="kw">use </span>std::process;
@@ -822,7 +782,7 @@
 <span class="kw">use </span>rustyline_derive::{Completer, Helper, Highlighter, Hinter};
 <span class="kw">use </span>tracing::info;
 
-<span class="kw">use super</span>::{commitment::Commitment, field_data::load, paths::commitment_path};
+<span class="kw">use super</span>::{backend::Backend, commitment::Commitment, field_data::load, paths::commitment_path};
 
 <span class="kw">use crate</span>::{
     cli::paths::{proof_path, public_params_dir},
@@ -830,7 +790,7 @@
         lang::{Coproc, Lang},
         Evaluator, Frame, Witness, IO,
     },
-    field::{LanguageField, LurkField},
+    field::LurkField,
     lurk_sym_ptr,
     package::{Package, SymbolRef},
     parser,
@@ -859,52 +819,6 @@
     }
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>Backend {
-    Nova,
-    SnarkPackPlus,
-}
-
-<span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>Backend {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-        <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Nova =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Nova&quot;</span>),
-            <span class="self">Self</span>::SnarkPackPlus =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;SnarkPack+&quot;</span>),
-        }
-    }
-}
-
-<span class="kw">impl </span>Backend {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>default_field(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; LanguageField {
-        <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Nova =&gt; LanguageField::Pallas,
-            <span class="self">Self</span>::SnarkPackPlus =&gt; LanguageField::BLS12_381,
-        }
-    }
-
-    <span class="kw">fn </span>compatible_fields(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;LanguageField&gt; {
-        <span class="kw">use </span>LanguageField::<span class="kw-2">*</span>;
-        <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Nova =&gt; <span class="macro">vec!</span>[Pallas, Vesta],
-            <span class="self">Self</span>::SnarkPackPlus =&gt; <span class="macro">vec!</span>[BLS12_381],
-        }
-    }
-
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>validate_field(<span class="kw-2">&amp;</span><span class="self">self</span>, field: <span class="kw-2">&amp;</span>LanguageField) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>compatible_fields = <span class="self">self</span>.compatible_fields();
-        <span class="kw">if </span>!compatible_fields.contains(field) {
-            <span class="macro">bail!</span>(
-                <span class="string">&quot;Backend {self} is incompatible with field {field}. Compatible fields are:\n  {}&quot;</span>,
-                compatible_fields
-                    .iter()
-                    .map(|f| f.to_string())
-                    .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-                    .join(<span class="string">&quot;, &quot;</span>)
-            )
-        }
-        <span class="prelude-val">Ok</span>(())
-    }
-}
-
 <span class="attr">#[allow(dead_code)]
 </span><span class="kw">struct </span>Evaluation&lt;F: LurkField&gt; {
     frames: Vec&lt;Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, Coproc&lt;F&gt;&gt;&gt;,
@@ -912,7 +826,7 @@
 }
 
 <span class="attr">#[allow(dead_code)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Repl&lt;F: LurkField&gt; {
+</span><span class="kw">pub struct </span>Repl&lt;F: LurkField&gt; {
     store: Store&lt;F&gt;,
     state: Rc&lt;RefCell&lt;State&gt;&gt;,
     env: Ptr&lt;F&gt;,
@@ -941,18 +855,13 @@
 <span class="kw">type </span>F = pasta_curves::pallas::Scalar; <span class="comment">// TODO: generalize this
 
 </span><span class="kw">impl </span>Repl&lt;F&gt; {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
-        store: Store&lt;F&gt;,
-        env: Ptr&lt;F&gt;,
-        rc: usize,
-        limit: usize,
-        backend: Backend,
-    ) -&gt; Repl&lt;F&gt; {
+    <span class="kw">pub fn </span>new(store: Store&lt;F&gt;, rc: usize, limit: usize, backend: Backend) -&gt; Repl&lt;F&gt; {
         <span class="kw">let </span>limit = pad(limit, rc);
         <span class="macro">info!</span>(
             <span class="string">&quot;Launching REPL with backend {backend}, field {}, rc {rc} and limit {limit}&quot;</span>,
             F::FIELD
         );
+        <span class="kw">let </span>env = <span class="macro">lurk_sym_ptr!</span>(store, nil);
         Repl {
             store,
             state: State::init_lurk_state().rccell(),
@@ -1007,14 +916,14 @@
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prove_last_frames(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">match </span><span class="self">self</span>.evaluation.as_mut() {
+        <span class="kw">match </span><span class="self">self</span>.evaluation.as_ref() {
             <span class="prelude-val">None </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;No evaluation to prove&quot;</span>),
             <span class="prelude-val">Some</span>(Evaluation { frames, iterations }) =&gt; <span class="kw">match </span><span class="self">self</span>.backend {
                 Backend::Nova =&gt; {
                     <span class="macro">info!</span>(<span class="string">&quot;Hydrating the store&quot;</span>);
                     <span class="self">self</span>.store.hydrate_scalar_cache();
 
-                    <span class="kw">let </span><span class="kw-2">mut </span>n_frames = frames.len();
+                    <span class="kw">let </span>n_frames = frames.len();
 
                     <span class="comment">// saving to avoid clones
                     </span><span class="kw">let </span>input = <span class="kw-2">&amp;</span>frames[<span class="number">0</span>].input;
@@ -1044,12 +953,6 @@
                         <span class="comment">// TODO: make sure that the proof file is not corrupted
                     </span>} <span class="kw">else </span>{
                         <span class="macro">info!</span>(<span class="string">&quot;Proof not cached&quot;</span>);
-                        <span class="comment">// padding the frames, if needed
-                        </span><span class="kw">let </span>n_pad = pad(n_frames, <span class="self">self</span>.rc) - n_frames;
-                        <span class="kw">if </span>n_pad != <span class="number">0 </span>{
-                            frames.extend(<span class="macro">vec!</span>[frames[n_frames - <span class="number">1</span>].clone(); n_pad]);
-                            n_frames = frames.len();
-                        }
 
                         <span class="macro">info!</span>(<span class="string">&quot;Loading public parameters&quot;</span>);
                         <span class="kw">let </span>pp =
@@ -1062,7 +965,7 @@
                             prover.prove(<span class="kw-2">&amp;</span>pp, frames, <span class="kw-2">&amp;mut </span><span class="self">self</span>.store, <span class="self">self</span>.lang.clone())<span class="question-mark">?</span>;
                         <span class="macro">info!</span>(<span class="string">&quot;Compressing proof&quot;</span>);
                         <span class="kw">let </span>proof = proof.compress(<span class="kw-2">&amp;</span>pp)<span class="question-mark">?</span>;
-                        <span class="macro">assert_eq!</span>(<span class="self">self</span>.rc * num_steps, n_frames);
+                        <span class="macro">assert_eq!</span>(<span class="self">self</span>.rc * num_steps, pad(n_frames, <span class="self">self</span>.rc));
                         <span class="macro">assert!</span>(proof.verify(<span class="kw-2">&amp;</span>pp, num_steps, <span class="kw-2">&amp;</span>public_inputs, <span class="kw-2">&amp;</span>public_outputs)<span class="question-mark">?</span>);
 
                         <span class="kw">let </span>lurk_proof = LurkProof::Nova {
@@ -1154,6 +1057,22 @@
                     <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Limit reached after {iterations_display}&quot;</span>),
                 }
             }
+        }
+    }
+
+    <span class="kw">fn </span>eval_expr_allowing_error_continuation(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        expr_ptr: Ptr&lt;F&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;F&gt;, usize, Vec&lt;Ptr&lt;F&gt;&gt;)&gt; {
+        <span class="kw">let </span>ret =
+            Evaluator::new(expr_ptr, <span class="self">self</span>.env, <span class="kw-2">&amp;mut </span><span class="self">self</span>.store, <span class="self">self</span>.limit, <span class="kw-2">&amp;</span><span class="self">self</span>.lang).eval()<span class="question-mark">?</span>;
+        <span class="kw">if </span><span class="macro">matches!</span>(ret.<span class="number">0</span>.cont.tag, ContTag::Terminal | ContTag::Error) {
+            <span class="prelude-val">Ok</span>(ret)
+        } <span class="kw">else </span>{
+            <span class="macro">bail!</span>(
+                <span class="string">&quot;Limit reached after {}&quot;</span>,
+                <span class="self">Self</span>::pretty_iterations_display(ret.<span class="number">1</span>)
+            )
         }
     }
 
@@ -1354,7 +1273,8 @@
             }
             <span class="string">&quot;assert-error&quot; </span>=&gt; {
                 <span class="kw">let </span>first = <span class="self">self</span>.peek1(cmd, args)<span class="question-mark">?</span>;
-                <span class="kw">if </span><span class="self">self</span>.eval_expr(first).is_ok() {
+                <span class="kw">let </span>(first_io, ..) = <span class="self">self</span>.eval_expr_allowing_error_continuation(first)<span class="question-mark">?</span>;
+                <span class="kw">if </span>first_io.cont.tag != ContTag::Error {
                     <span class="macro">eprintln!</span>(
                         <span class="string">&quot;`assert-error` failed. {} doesn&#39;t result on evaluation error.&quot;</span>,
                         first.fmt_to_string(<span class="kw-2">&amp;</span><span class="self">self</span>.store, <span class="kw-2">&amp;</span><span class="self">self</span>.state.borrow())
@@ -1516,7 +1436,7 @@
         <span class="prelude-val">Ok</span>(input)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>load_file(<span class="kw-2">&amp;mut </span><span class="self">self</span>, file_path: <span class="kw-2">&amp;</span>Utf8Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">pub fn </span>load_file(<span class="kw-2">&amp;mut </span><span class="self">self</span>, file_path: <span class="kw-2">&amp;</span>Utf8Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>input = read_to_string(file_path)<span class="question-mark">?</span>;
         <span class="macro">println!</span>(<span class="string">&quot;Loading {}&quot;</span>, file_path);
 

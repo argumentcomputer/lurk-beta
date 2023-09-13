@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["get_config","parse_and_run"],"mod":["paths"]};
+window.SIDEBAR_ITEMS = {"fn":["get_config","parse_and_run"],"mod":["backend","paths","repl"]};
