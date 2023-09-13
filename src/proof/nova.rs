@@ -313,7 +313,7 @@ where
         limit: usize,
         lang: &Arc<Lang<F, C>>,
     ) -> Result<(Proof<'a, F, C, M>, Vec<F>, Vec<F>, usize), ProofError> {
-        let frames = M::get_evaluation_frames(self, expr, env, store, limit)?;
+        let frames = M::get_evaluation_frames(|count| self.needs_frame_padding(count), expr, env, store, limit, lang)?;
         self.prove(pp, &frames, store, lang)
     }
 }
@@ -718,7 +718,7 @@ pub mod tests {
         let e = s.initial_empty_env();
 
         let nova_prover = NovaProver::<'a, F, C, M>::new(reduction_count, (*lang).clone());
-        let frames = M::get_evaluation_frames(&nova_prover, expr, e, s, limit).unwrap();
+        let frames = M::get_evaluation_frames(|frame_count| nova_prover.needs_frame_padding(frame_count), expr, e, s, limit, &lang).unwrap();
 
         if check_nova {
             let pp = public_params::<_, _, M>(reduction_count, lang.clone());

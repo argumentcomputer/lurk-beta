@@ -75,7 +75,7 @@ fn fibo_prove<M: measurement::Measurement>(
     let lang_rc = Arc::new(lang_pallas.clone());
 
     // use cached public params
-    let pp = public_params(
+    let pp = public_params::<_, _, MultiFrame<_, _>>(
         prove_params.reduction_count,
         true,
         lang_rc.clone(),
@@ -98,13 +98,13 @@ fn fibo_prove<M: measurement::Measurement>(
             let prover = NovaProver::new(prove_params.reduction_count, lang_pallas.clone());
 
             let frames = 
-                MultiFrame::get_evaluation_frames(&prover, ptr, env, &mut store, limit)
+                MultiFrame::get_evaluation_frames(|count| prover.needs_frame_padding(count), ptr, env, &mut store, limit, prover.lang())
                 .unwrap();
 
             b.iter_batched(
                 || (frames, lang_rc.clone()),
                 |(frames, lang_rc)| {
-                    let result = prover.prove(&pp, frames, &mut store, &lang_rc);
+                    let result = prover.prove(&pp, &frames, &mut store, &lang_rc);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,

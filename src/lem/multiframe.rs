@@ -9,7 +9,7 @@ use crate::{
     error::{ProofError, ReductionError},
     eval::lang::Lang,
     field::LurkField,
-    proof::{CEKState, EvaluationStore, FrameLike, MultiFrameTrait, Provable, Prover},
+    proof::{CEKState, EvaluationStore, FrameLike, MultiFrameTrait, Provable},
     state::initial_lurk_state,
     store,
     tag::ContTag,
@@ -258,11 +258,12 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
     }
 
     fn get_evaluation_frames(
-        _prover: &impl Prover<'a, F, C, Self>,
+        _padding_predicate: impl Fn(usize) -> bool,
         expr: Self::Ptr,
         env: Self::Ptr,
         store: &mut Self::Store,
         limit: usize,
+        _lang: &Lang<F, C>,
     ) -> std::result::Result<Vec<Self::EvalFrame>, ProofError> {
         // TODO: integrate https://github.com/lurk-lab/lurk-rs/commit/963a6361701efcaa78735d8fc9c927f518d8e31c
         let input = vec![expr, env, Ptr::null(Tag::Cont(ContTag::Outermost))];

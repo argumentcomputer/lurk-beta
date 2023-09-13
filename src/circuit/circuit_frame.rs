@@ -21,7 +21,7 @@ use crate::{
     hash_witness::{
         ConsCircuitWitness, ConsName, ContCircuitWitness, ContName, HashCircuitWitnessCache,
     },
-    proof::{CEKState, Prover},
+    proof::CEKState,
     store::{self, NamedConstants},
     tag::Tag,
 };
@@ -145,13 +145,13 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
     }
 
     fn get_evaluation_frames(
-        prover: &impl Prover<'a, F, C, Self>,
+        padding_predicate: impl Fn(usize) -> bool,
         expr: Ptr<F>,
         env: Ptr<F>,
         store: &mut Self::Store,
         limit: usize,
+        lang: &Lang<F, C>,
     ) -> Result<Vec<Frame<IO<F>, Witness<F>, C>>, crate::error::ProofError> {
-        let padding_predicate = |count| prover.needs_frame_padding(count);
 
         let frames = crate::eval::Evaluator::generate_frames(
             expr,
@@ -159,7 +159,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
             store,
             limit,
             padding_predicate,
-            prover.lang(),
+            lang,
         )?;
 
         store.hydrate_scalar_cache();

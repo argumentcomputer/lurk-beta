@@ -96,11 +96,12 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
 
     /// Evaluates and generates the frames of the computation given the expression, environment, and store
     fn get_evaluation_frames(
-        prover: &impl Prover<'a, F, C, Self>,
+        padding_predicate: impl Fn(usize) -> bool, // Determines if the prover needs padding for a given total number of frames
         expr: Self::Ptr,
         env: Self::Ptr,
         store: &mut Self::Store,
         limit: usize,
+        land: &Lang<F, C>,
     ) -> Result<Vec<Self::EvalFrame>, ProofError>;
 
     /// Returns a public IO vector when equipped with the local store, and the Self::Frame's IO
