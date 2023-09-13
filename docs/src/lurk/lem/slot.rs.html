@@ -381,9 +381,9 @@
 
 <span class="attr">#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>SlotsCounter {
-    <span class="kw">pub </span>hash2: usize,
-    <span class="kw">pub </span>hash3: usize,
     <span class="kw">pub </span>hash4: usize,
+    <span class="kw">pub </span>hash6: usize,
+    <span class="kw">pub </span>hash8: usize,
     <span class="kw">pub </span>commitment: usize,
     <span class="kw">pub </span>less_than: usize,
 }
@@ -393,30 +393,30 @@
     </span><span class="attr">#[inline]
     </span><span class="kw">pub fn </span>new(num_slots: (usize, usize, usize, usize, usize)) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            hash2: num_slots.<span class="number">0</span>,
-            hash3: num_slots.<span class="number">1</span>,
-            hash4: num_slots.<span class="number">2</span>,
+            hash4: num_slots.<span class="number">0</span>,
+            hash6: num_slots.<span class="number">1</span>,
+            hash8: num_slots.<span class="number">2</span>,
             commitment: num_slots.<span class="number">3</span>,
             less_than: num_slots.<span class="number">4</span>,
         }
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>consume_hash2(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.hash2 += <span class="number">1</span>;
-        <span class="self">self</span>.hash2 - <span class="number">1
-    </span>}
-
-    <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>consume_hash3(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.hash3 += <span class="number">1</span>;
-        <span class="self">self</span>.hash3 - <span class="number">1
-    </span>}
-
-    <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>consume_hash4(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; usize {
         <span class="self">self</span>.hash4 += <span class="number">1</span>;
         <span class="self">self</span>.hash4 - <span class="number">1
+    </span>}
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>consume_hash6(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.hash6 += <span class="number">1</span>;
+        <span class="self">self</span>.hash6 - <span class="number">1
+    </span>}
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>consume_hash8(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.hash8 += <span class="number">1</span>;
+        <span class="self">self</span>.hash8 - <span class="number">1
     </span>}
 
     <span class="attr">#[inline]
@@ -435,9 +435,9 @@
     </span><span class="kw">pub fn </span>max(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="self">Self</span>) -&gt; <span class="self">Self </span>{
         <span class="kw">use </span>std::cmp::max;
         <span class="self">Self </span>{
-            hash2: max(<span class="self">self</span>.hash2, other.hash2),
-            hash3: max(<span class="self">self</span>.hash3, other.hash3),
             hash4: max(<span class="self">self</span>.hash4, other.hash4),
+            hash6: max(<span class="self">self</span>.hash6, other.hash6),
+            hash8: max(<span class="self">self</span>.hash8, other.hash8),
             commitment: max(<span class="self">self</span>.commitment, other.commitment),
             less_than: max(<span class="self">self</span>.less_than, other.less_than),
         }
@@ -446,9 +446,9 @@
     <span class="attr">#[inline]
     </span><span class="kw">pub fn </span>add(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="self">Self</span>) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            hash2: <span class="self">self</span>.hash2 + other.hash2,
-            hash3: <span class="self">self</span>.hash3 + other.hash3,
             hash4: <span class="self">self</span>.hash4 + other.hash4,
+            hash6: <span class="self">self</span>.hash6 + other.hash6,
+            hash8: <span class="self">self</span>.hash8 + other.hash8,
             commitment: <span class="self">self</span>.commitment + other.commitment,
             less_than: <span class="self">self</span>.less_than + other.less_than,
         }
@@ -464,9 +464,9 @@
     <span class="kw">pub fn </span>count_slots(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SlotsCounter {
         <span class="kw">let </span>ops_slots = <span class="self">self</span>.ops.iter().fold(SlotsCounter::default(), |acc, op| {
             <span class="kw">let </span>val = <span class="kw">match </span>op {
-                Op::Hash2(..) | Op::Unhash2(..) =&gt; SlotsCounter::new((<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>)),
-                Op::Hash3(..) | Op::Unhash3(..) =&gt; SlotsCounter::new((<span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>)),
-                Op::Hash4(..) | Op::Unhash4(..) =&gt; SlotsCounter::new((<span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>)),
+                Op::Cons2(..) | Op::Decons2(..) =&gt; SlotsCounter::new((<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>)),
+                Op::Cons3(..) | Op::Decons3(..) =&gt; SlotsCounter::new((<span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>)),
+                Op::Cons4(..) | Op::Decons4(..) =&gt; SlotsCounter::new((<span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>)),
                 Op::Hide(..) | Op::Open(..) =&gt; SlotsCounter::new((<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>)),
                 Op::Lt(..) =&gt; SlotsCounter::new((<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>)),
                 Op::Call(<span class="kw">_</span>, func, <span class="kw">_</span>) =&gt; func.slot,
@@ -503,9 +503,9 @@
 
 <span class="attr">#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>SlotType {
-    Hash2,
-    Hash3,
     Hash4,
+    Hash6,
+    Hash8,
     Commitment,
     LessThan,
 }
@@ -513,9 +513,9 @@
 <span class="kw">impl </span>SlotType {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>preimg_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Hash2 =&gt; <span class="number">4</span>,
-            <span class="self">Self</span>::Hash3 =&gt; <span class="number">6</span>,
-            <span class="self">Self</span>::Hash4 =&gt; <span class="number">8</span>,
+            <span class="self">Self</span>::Hash4 =&gt; <span class="number">4</span>,
+            <span class="self">Self</span>::Hash6 =&gt; <span class="number">6</span>,
+            <span class="self">Self</span>::Hash8 =&gt; <span class="number">8</span>,
             <span class="self">Self</span>::Commitment =&gt; <span class="number">3</span>,
             <span class="self">Self</span>::LessThan =&gt; <span class="number">2</span>,
         }
@@ -525,9 +525,9 @@
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>SlotType {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Hash2 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Hash2&quot;</span>),
-            <span class="self">Self</span>::Hash3 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Hash3&quot;</span>),
             <span class="self">Self</span>::Hash4 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Hash4&quot;</span>),
+            <span class="self">Self</span>::Hash6 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Hash6&quot;</span>),
+            <span class="self">Self</span>::Hash8 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Hash8&quot;</span>),
             <span class="self">Self</span>::Commitment =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Commitment&quot;</span>),
             <span class="self">Self</span>::LessThan =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;LessThan&quot;</span>),
         }

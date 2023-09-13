@@ -1522,13 +1522,13 @@
     <span class="kw">let </span>cs = <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;image for slot {slot}&quot;</span>));
     <span class="kw">let </span>preallocated_img = {
         <span class="kw">match </span>slot.typ {
-            SlotType::Hash2 =&gt; {
+            SlotType::Hash4 =&gt; {
                 hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c4())<span class="question-mark">?
             </span>}
-            SlotType::Hash3 =&gt; {
+            SlotType::Hash6 =&gt; {
                 hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c6())<span class="question-mark">?
             </span>}
-            SlotType::Hash4 =&gt; {
+            SlotType::Hash8 =&gt; {
                 hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c8())<span class="question-mark">?
             </span>}
             SlotType::Commitment =&gt; {
@@ -1699,9 +1699,9 @@
         <span class="kw">for </span>op <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.ops {
             <span class="kw">match </span>op {
                 Op::Call(<span class="kw">_</span>, func, <span class="kw">_</span>) =&gt; func.body.alloc_globals(cs, store, g)<span class="question-mark">?</span>,
-                Op::Hash2(<span class="kw">_</span>, tag, <span class="kw">_</span>)
-                | Op::Hash3(<span class="kw">_</span>, tag, <span class="kw">_</span>)
-                | Op::Hash4(<span class="kw">_</span>, tag, <span class="kw">_</span>)
+                Op::Cons2(<span class="kw">_</span>, tag, <span class="kw">_</span>)
+                | Op::Cons3(<span class="kw">_</span>, tag, <span class="kw">_</span>)
+                | Op::Cons4(<span class="kw">_</span>, tag, <span class="kw">_</span>)
                 | Op::Cast(<span class="kw">_</span>, tag, <span class="kw">_</span>) =&gt; {
                     g.alloc_const(cs, tag.to_field());
                 }
@@ -1812,27 +1812,27 @@
         <span class="comment">// Slots are constrained by their usage inside the function body. The ones
         // not used in throughout the concrete path are effectively unconstrained,
         // that&#39;s why they are filled with dummies
-        </span><span class="kw">let </span>preallocated_hash2_slots = allocate_slots(
-            cs,
-            <span class="kw-2">&amp;</span>frame.preimages.hash2,
-            SlotType::Hash2,
-            <span class="self">self</span>.slot.hash2,
-            store,
-        )<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>preallocated_hash3_slots = allocate_slots(
-            cs,
-            <span class="kw-2">&amp;</span>frame.preimages.hash3,
-            SlotType::Hash3,
-            <span class="self">self</span>.slot.hash3,
-            store,
-        )<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>preallocated_hash4_slots = allocate_slots(
+        </span><span class="kw">let </span>preallocated_hash4_slots = allocate_slots(
             cs,
             <span class="kw-2">&amp;</span>frame.preimages.hash4,
             SlotType::Hash4,
             <span class="self">self</span>.slot.hash4,
+            store,
+        )<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>preallocated_hash6_slots = allocate_slots(
+            cs,
+            <span class="kw-2">&amp;</span>frame.preimages.hash6,
+            SlotType::Hash6,
+            <span class="self">self</span>.slot.hash6,
+            store,
+        )<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>preallocated_hash8_slots = allocate_slots(
+            cs,
+            <span class="kw-2">&amp;</span>frame.preimages.hash8,
+            SlotType::Hash8,
+            <span class="self">self</span>.slot.hash8,
             store,
         )<span class="question-mark">?</span>;
 
@@ -1855,9 +1855,9 @@
         <span class="kw">struct </span>Globals&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt; {
             store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
             global_allocator: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>GlobalAllocator&lt;F&gt;,
-            preallocated_hash2_slots: Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedNum&lt;F&gt;)&gt;,
-            preallocated_hash3_slots: Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedNum&lt;F&gt;)&gt;,
             preallocated_hash4_slots: Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedNum&lt;F&gt;)&gt;,
+            preallocated_hash6_slots: Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedNum&lt;F&gt;)&gt;,
+            preallocated_hash8_slots: Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedNum&lt;F&gt;)&gt;,
             preallocated_commitment_slots: Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedNum&lt;F&gt;)&gt;,
             preallocated_less_than_slots: Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedNum&lt;F&gt;)&gt;,
             call_outputs: VecDeque&lt;Vec&lt;Ptr&lt;F&gt;&gt;&gt;,
@@ -1874,23 +1874,23 @@
             g: <span class="kw-2">&amp;mut </span>Globals&lt;<span class="lifetime">&#39;_</span>, F&gt;,
         ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
             <span class="kw">for </span>op <span class="kw">in </span><span class="kw-2">&amp;</span>block.ops {
-                <span class="macro">macro_rules! </span>hash_helper {
+                <span class="macro">macro_rules! </span>cons_helper {
                     ( <span class="macro-nonterminal">$img</span>: expr, <span class="macro-nonterminal">$tag</span>: expr, <span class="macro-nonterminal">$preimg</span>: expr, <span class="macro-nonterminal">$slot</span>: expr ) =&gt; {
                         <span class="comment">// Retrieve allocated preimage
                         </span><span class="kw">let </span>allocated_preimg = bound_allocations.get_many(<span class="macro-nonterminal">$preimg</span>)<span class="question-mark">?</span>;
 
                         <span class="comment">// Retrieve the preallocated preimage and image for this slot
                         </span><span class="kw">let </span>(preallocated_preimg, preallocated_img_hash) = <span class="kw">match </span><span class="macro-nonterminal">$slot </span>{
-                            SlotType::Hash2 =&gt; {
-                                <span class="kw-2">&amp;</span>g.preallocated_hash2_slots[next_slot.consume_hash2()]
-                            }
-                            SlotType::Hash3 =&gt; {
-                                <span class="kw-2">&amp;</span>g.preallocated_hash3_slots[next_slot.consume_hash3()]
-                            }
                             SlotType::Hash4 =&gt; {
                                 <span class="kw-2">&amp;</span>g.preallocated_hash4_slots[next_slot.consume_hash4()]
                             }
-                            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Invalid slot type for hash_helper macro&quot;</span>),
+                            SlotType::Hash6 =&gt; {
+                                <span class="kw-2">&amp;</span>g.preallocated_hash6_slots[next_slot.consume_hash6()]
+                            }
+                            SlotType::Hash8 =&gt; {
+                                <span class="kw-2">&amp;</span>g.preallocated_hash8_slots[next_slot.consume_hash8()]
+                            }
+                            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Invalid slot type for cons_helper macro&quot;</span>),
                         };
 
                         <span class="comment">// For each component of the preimage, add implication constraints
@@ -1930,23 +1930,23 @@
                     };
                 }
 
-                <span class="macro">macro_rules! </span>unhash_helper {
+                <span class="macro">macro_rules! </span>decons_helper {
                     ( <span class="macro-nonterminal">$preimg</span>: expr, <span class="macro-nonterminal">$img</span>: expr, <span class="macro-nonterminal">$slot</span>: expr ) =&gt; {
                         <span class="comment">// Retrieve allocated image
                         </span><span class="kw">let </span>allocated_img = bound_allocations.get(<span class="macro-nonterminal">$img</span>)<span class="question-mark">?</span>;
 
                         <span class="comment">// Retrieve the preallocated preimage and image for this slot
                         </span><span class="kw">let </span>(preallocated_preimg, preallocated_img) = <span class="kw">match </span><span class="macro-nonterminal">$slot </span>{
-                            SlotType::Hash2 =&gt; {
-                                <span class="kw-2">&amp;</span>g.preallocated_hash2_slots[next_slot.consume_hash2()]
-                            }
-                            SlotType::Hash3 =&gt; {
-                                <span class="kw-2">&amp;</span>g.preallocated_hash3_slots[next_slot.consume_hash3()]
-                            }
                             SlotType::Hash4 =&gt; {
                                 <span class="kw-2">&amp;</span>g.preallocated_hash4_slots[next_slot.consume_hash4()]
                             }
-                            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Invalid slot type for unhash_helper macro&quot;</span>),
+                            SlotType::Hash6 =&gt; {
+                                <span class="kw-2">&amp;</span>g.preallocated_hash6_slots[next_slot.consume_hash6()]
+                            }
+                            SlotType::Hash8 =&gt; {
+                                <span class="kw-2">&amp;</span>g.preallocated_hash8_slots[next_slot.consume_hash8()]
+                            }
+                            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Invalid slot type for decons_helper macro&quot;</span>),
                         };
 
                         <span class="comment">// Add the implication constraint for the image
@@ -2013,23 +2013,23 @@
                             g,
                         )<span class="question-mark">?</span>;
                     }
-                    Op::Hash2(img, tag, preimg) =&gt; {
-                        <span class="macro">hash_helper!</span>(img.clone(), tag, preimg, SlotType::Hash2);
+                    Op::Cons2(img, tag, preimg) =&gt; {
+                        <span class="macro">cons_helper!</span>(img.clone(), tag, preimg, SlotType::Hash4);
                     }
-                    Op::Hash3(img, tag, preimg) =&gt; {
-                        <span class="macro">hash_helper!</span>(img.clone(), tag, preimg, SlotType::Hash3);
+                    Op::Cons3(img, tag, preimg) =&gt; {
+                        <span class="macro">cons_helper!</span>(img.clone(), tag, preimg, SlotType::Hash6);
                     }
-                    Op::Hash4(img, tag, preimg) =&gt; {
-                        <span class="macro">hash_helper!</span>(img.clone(), tag, preimg, SlotType::Hash4);
+                    Op::Cons4(img, tag, preimg) =&gt; {
+                        <span class="macro">cons_helper!</span>(img.clone(), tag, preimg, SlotType::Hash8);
                     }
-                    Op::Unhash2(preimg, img) =&gt; {
-                        <span class="macro">unhash_helper!</span>(preimg, img, SlotType::Hash2);
+                    Op::Decons2(preimg, img) =&gt; {
+                        <span class="macro">decons_helper!</span>(preimg, img, SlotType::Hash4);
                     }
-                    Op::Unhash3(preimg, img) =&gt; {
-                        <span class="macro">unhash_helper!</span>(preimg, img, SlotType::Hash3);
+                    Op::Decons3(preimg, img) =&gt; {
+                        <span class="macro">decons_helper!</span>(preimg, img, SlotType::Hash6);
                     }
-                    Op::Unhash4(preimg, img) =&gt; {
-                        <span class="macro">unhash_helper!</span>(preimg, img, SlotType::Hash4);
+                    Op::Decons4(preimg, img) =&gt; {
+                        <span class="macro">decons_helper!</span>(preimg, img, SlotType::Hash8);
                     }
                     Op::Null(tgt, tag) =&gt; {
                         <span class="kw">let </span>tag = g
@@ -2560,9 +2560,9 @@
             <span class="kw-2">&amp;mut </span>Globals {
                 store,
                 global_allocator,
-                preallocated_hash2_slots,
-                preallocated_hash3_slots,
                 preallocated_hash4_slots,
+                preallocated_hash6_slots,
+                preallocated_hash8_slots,
                 preallocated_commitment_slots,
                 preallocated_less_than_slots,
                 call_outputs,
@@ -2643,25 +2643,25 @@
                         </span>num_constraints += <span class="number">197</span>;
                     }
                     Op::Emit(<span class="kw">_</span>) =&gt; (),
-                    Op::Hash2(<span class="kw">_</span>, tag, <span class="kw">_</span>) =&gt; {
+                    Op::Cons2(<span class="kw">_</span>, tag, <span class="kw">_</span>) =&gt; {
                         <span class="comment">// tag for the image
                         </span>globals.insert(FWrap(tag.to_field()));
                         <span class="comment">// tag and hash for 2 preimage pointers
                         </span>num_constraints += <span class="number">4</span>;
                     }
-                    Op::Hash3(<span class="kw">_</span>, tag, <span class="kw">_</span>) =&gt; {
+                    Op::Cons3(<span class="kw">_</span>, tag, <span class="kw">_</span>) =&gt; {
                         <span class="comment">// tag for the image
                         </span>globals.insert(FWrap(tag.to_field()));
                         <span class="comment">// tag and hash for 3 preimage pointers
                         </span>num_constraints += <span class="number">6</span>;
                     }
-                    Op::Hash4(<span class="kw">_</span>, tag, <span class="kw">_</span>) =&gt; {
+                    Op::Cons4(<span class="kw">_</span>, tag, <span class="kw">_</span>) =&gt; {
                         <span class="comment">// tag for the image
                         </span>globals.insert(FWrap(tag.to_field()));
                         <span class="comment">// tag and hash for 4 preimage pointers
                         </span>num_constraints += <span class="number">8</span>;
                     }
-                    Op::Unhash2(..) | Op::Unhash3(..) | Op::Unhash4(..) =&gt; {
+                    Op::Decons2(..) | Op::Decons3(..) | Op::Decons4(..) =&gt; {
                         <span class="comment">// one constraint for the image&#39;s hash
                         </span>num_constraints += <span class="number">1</span>;
                     }
@@ -2725,9 +2725,9 @@
         }
         <span class="kw">let </span>globals = <span class="kw-2">&amp;mut </span>HashSet::default();
         <span class="comment">// fixed cost for each slot
-        </span><span class="kw">let </span>slot_constraints = <span class="number">289 </span>* <span class="self">self</span>.slot.hash2
-            + <span class="number">337 </span>* <span class="self">self</span>.slot.hash3
-            + <span class="number">388 </span>* <span class="self">self</span>.slot.hash4
+        </span><span class="kw">let </span>slot_constraints = <span class="number">289 </span>* <span class="self">self</span>.slot.hash4
+            + <span class="number">337 </span>* <span class="self">self</span>.slot.hash6
+            + <span class="number">388 </span>* <span class="self">self</span>.slot.hash8
             + <span class="number">265 </span>* <span class="self">self</span>.slot.commitment
             + <span class="number">1172 </span>* <span class="self">self</span>.slot.less_than;
         <span class="kw">let </span>num_constraints = recurse(<span class="kw-2">&amp;</span><span class="self">self</span>.body, globals, store);

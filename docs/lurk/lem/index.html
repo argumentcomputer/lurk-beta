@@ -15,7 +15,7 @@ much like a function: it contains input parameters, output size, and a
 function body. The body of a function is a <code>Block</code> which is a sequence of
 operations <code>Op</code> followed by a control <code>Ctrl</code> statement.</p>
 <p>Operations are much like <code>let</code> statements in functional languages. For
-example, a <code>Op::Hash2(x, t, ys)</code> is to be understood as <code>let x = hash2(ys)</code>.
+example, a <code>Op::Cons2(x, t, ys)</code> is to be understood as <code>let x = cons2(ys)</code>.
 If a second operation binds its result to the same variable as a previous
 operation, we shadow the previous value. There is no mutation, thus the
 language is referentially transparent.</p>

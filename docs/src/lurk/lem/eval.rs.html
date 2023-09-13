@@ -1304,8 +1304,8 @@
     eval_step().call_until_simple(input, store, stop_cond, limit)
 }
 
-<span class="kw">fn </span>safe_uncons() -&gt; Func {
-    <span class="macro">func!</span>(safe_uncons(xs): <span class="number">2 </span>=&gt; {
+<span class="kw">fn </span>car_cdr() -&gt; Func {
+    <span class="macro">func!</span>(car_cdr(xs): <span class="number">2 </span>=&gt; {
         <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
         <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">let </span>empty_str = String(<span class="string">&quot;&quot;</span>);
@@ -1314,14 +1314,14 @@
                 <span class="kw">return </span>(nil, nil)
             }
             Expr::Cons =&gt; {
-                <span class="kw">let </span>(car, cdr) = unhash2(xs);
+                <span class="kw">let </span>(car, cdr) = decons2(xs);
                 <span class="kw">return </span>(car, cdr)
             }
             Expr::Str =&gt; {
                 <span class="kw">if </span>xs == empty_str {
                     <span class="kw">return </span>(nil, empty_str)
                 }
-                <span class="kw">let </span>(car, cdr) = unhash2(xs);
+                <span class="kw">let </span>(car, cdr) = decons2(xs);
                 <span class="kw">return </span>(car, cdr)
             }
         }
@@ -1330,14 +1330,14 @@
 
 <span class="kw">fn </span>reduce() -&gt; Func {
     <span class="comment">// Auxiliary functions
-    </span><span class="kw">let </span>safe_uncons = safe_uncons();
+    </span><span class="kw">let </span>car_cdr = car_cdr();
     <span class="kw">let </span>env_to_use = <span class="macro">func!</span>(env_to_use(smaller_env, smaller_rec_env): <span class="number">1 </span>=&gt; {
         <span class="kw">match </span>smaller_rec_env.tag {
             Expr::Nil =&gt; {
                 <span class="kw">return </span>(smaller_env)
             }
         };
-        <span class="kw">let </span>env: Expr::Cons = hash2(smaller_rec_env, smaller_env);
+        <span class="kw">let </span>env: Expr::Cons = cons2(smaller_rec_env, smaller_env);
         <span class="kw">return </span>(env)
     });
     <span class="kw">let </span>extract_arg = <span class="macro">func!</span>(extract_arg(args): <span class="number">2 </span>=&gt; {
@@ -1349,7 +1349,7 @@
                 <span class="kw">return </span>(dummy, nil)
             }
             Expr::Cons =&gt; {
-                <span class="kw">let </span>(arg, rest) = unhash2(args);
+                <span class="kw">let </span>(arg, rest) = decons2(args);
                 <span class="kw">return </span>(arg, rest)
             }
         }
@@ -1360,18 +1360,18 @@
                 <span class="kw">return </span>(body1)
             }
         };
-        <span class="kw">let </span>expanded_0: Expr::Cons = hash2(rest_bindings, body);
-        <span class="kw">let </span>expanded: Expr::Cons = hash2(head, expanded_0);
+        <span class="kw">let </span>expanded_0: Expr::Cons = cons2(rest_bindings, body);
+        <span class="kw">let </span>expanded: Expr::Cons = cons2(head, expanded_0);
         <span class="kw">return </span>(expanded)
     });
     <span class="kw">let </span>choose_let_cont = <span class="macro">func!</span>(choose_let_cont(head, var, env, expanded, cont): <span class="number">1 </span>=&gt; {
         <span class="kw">match </span>symbol head {
             <span class="string">&quot;let&quot; </span>=&gt; {
-                <span class="kw">let </span>cont: Cont::Let = hash4(var, env, expanded, cont);
+                <span class="kw">let </span>cont: Cont::Let = cons4(var, env, expanded, cont);
                 <span class="kw">return </span>(cont)
             }
             <span class="string">&quot;letrec&quot; </span>=&gt; {
-                <span class="kw">let </span>cont: Cont::LetRec = hash4(var, env, expanded, cont);
+                <span class="kw">let </span>cont: Cont::LetRec = cons4(var, env, expanded, cont);
                 <span class="kw">return </span>(cont)
             }
         }
@@ -1403,22 +1403,22 @@
         <span class="kw">let </span>ret: Ctrl::Return;
         <span class="kw">match </span>rest.tag {
             Expr::Nil =&gt; {
-                <span class="kw">let </span>cont: Cont::Call0 = hash2(env, cont);
+                <span class="kw">let </span>cont: Cont::Call0 = cons2(env, cont);
                 <span class="kw">return </span>(head, env, cont, ret)
             }
             Expr::Cons =&gt; {
-                <span class="kw">let </span>(arg, more_args) = unhash2(rest);
+                <span class="kw">let </span>(arg, more_args) = decons2(rest);
                 <span class="kw">match </span>more_args.tag {
                     Expr::Nil =&gt; {
-                        <span class="kw">let </span>cont: Cont::Call = hash3(arg, env, cont);
+                        <span class="kw">let </span>cont: Cont::Call = cons3(arg, env, cont);
                         <span class="kw">return </span>(head, env, cont, ret)
                     }
                 };
                 <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
                 <span class="kw">let </span>nil = cast(nil, Expr::Nil);
-                <span class="kw">let </span>expanded_inner0: Expr::Cons = hash2(arg, nil);
-                <span class="kw">let </span>expanded_inner: Expr::Cons = hash2(head, expanded_inner0);
-                <span class="kw">let </span>expanded: Expr::Cons = hash2(expanded_inner, more_args);
+                <span class="kw">let </span>expanded_inner0: Expr::Cons = cons2(arg, nil);
+                <span class="kw">let </span>expanded_inner: Expr::Cons = cons2(head, expanded_inner0);
+                <span class="kw">let </span>expanded: Expr::Cons = cons2(expanded_inner, more_args);
                 <span class="kw">return </span>(expanded, env, cont, ret)
             }
         }
@@ -1457,7 +1457,7 @@
                 <span class="kw">return </span>(expr, env, cont, apply)
             }
             Expr::Thunk =&gt; {
-                <span class="kw">let </span>(thunk_expr, thunk_continuation) = unhash2(expr);
+                <span class="kw">let </span>(thunk_expr, thunk_continuation) = decons2(expr);
                 <span class="kw">return </span>(thunk_expr, env, thunk_continuation, apply)
             }
             Expr::Sym =&gt; {
@@ -1473,7 +1473,7 @@
                     }
                 };
 
-                <span class="kw">let </span>(binding, smaller_env) = safe_uncons(env);
+                <span class="kw">let </span>(binding, smaller_env) = car_cdr(env);
                 <span class="kw">match </span>binding.tag {
                     Expr::Nil =&gt; {
                         <span class="kw">return </span>(expr, env, err, errctrl)
@@ -1481,7 +1481,7 @@
                 };
 
                 <span class="kw">let </span>(var_or_rec_binding, val_or_more_rec_env) =
-                    safe_uncons(binding);
+                    car_cdr(binding);
                 <span class="kw">match </span>var_or_rec_binding.tag {
                     Expr::Sym =&gt; {
                         <span class="kw">if </span>var_or_rec_binding == expr {
@@ -1492,20 +1492,20 @@
                                 <span class="kw">return </span>(expr, smaller_env, cont, ret)
                             }
                         };
-                        <span class="kw">let </span>cont: Cont::Lookup = hash2(env, cont);
+                        <span class="kw">let </span>cont: Cont::Lookup = cons2(env, cont);
                         <span class="kw">return </span>(expr, smaller_env, cont, ret)
                     }
                     Expr::Cons =&gt; {
-                        <span class="kw">let </span>(v2, val2) = safe_uncons(var_or_rec_binding);
+                        <span class="kw">let </span>(v2, val2) = car_cdr(var_or_rec_binding);
 
                         <span class="kw">if </span>v2 == expr {
                             <span class="kw">match </span>val2.tag {
                                 Expr::Fun =&gt; {
                                     <span class="comment">// if `val2` is a closure, then extend its environment
-                                    </span><span class="kw">let </span>(arg, body, closed_env) = unhash3(val2);
-                                    <span class="kw">let </span>extended: Expr::Cons = hash2(binding, closed_env);
+                                    </span><span class="kw">let </span>(arg, body, closed_env) = decons3(val2);
+                                    <span class="kw">let </span>extended: Expr::Cons = cons2(binding, closed_env);
                                     <span class="comment">// and return the extended closure
-                                    </span><span class="kw">let </span>fun: Expr::Fun = hash3(arg, body, extended);
+                                    </span><span class="kw">let </span>fun: Expr::Fun = cons3(arg, body, extended);
                                     <span class="kw">return </span>(fun, env, cont, apply)
                                 }
                             };
@@ -1519,15 +1519,15 @@
                                 <span class="kw">return </span>(expr, env_to_use, cont, ret)
                             }
                         };
-                        <span class="kw">let </span>cont: Cont::Lookup = hash2(env, cont);
+                        <span class="kw">let </span>cont: Cont::Lookup = cons2(env, cont);
                         <span class="kw">return </span>(expr, env_to_use, cont, ret)
                     }
                 };
                 <span class="kw">return </span>(expr, env, err, errctrl)
             }
             Expr::Cons =&gt; {
-                <span class="comment">// No need for `safe_uncons` since the expression is already a `Cons`
-                </span><span class="kw">let </span>(head, rest) = unhash2(expr);
+                <span class="comment">// No need for `car_cdr` since the expression is already a `Cons`
+                </span><span class="kw">let </span>(head, rest) = decons2(expr);
                 <span class="kw">match </span>rest.tag {
                     <span class="comment">// rest&#39;s tag can only be Nil or Cons
                     </span>Expr::Sym | Expr::Fun | Expr::Num | Expr::Thunk | Expr::Str
@@ -1539,28 +1539,28 @@
                     Expr::Sym =&gt; {
                         <span class="kw">match </span>symbol head {
                             <span class="string">&quot;lambda&quot; </span>=&gt; {
-                                <span class="kw">let </span>(args, body) = safe_uncons(rest);
+                                <span class="kw">let </span>(args, body) = car_cdr(rest);
                                 <span class="kw">let </span>(arg, cdr_args) = extract_arg(args);
 
                                 <span class="kw">match </span>arg.tag {
                                     Expr::Sym =&gt; {
                                         <span class="kw">match </span>cdr_args.tag {
                                             Expr::Nil =&gt; {
-                                                <span class="kw">let </span>function: Expr::Fun = hash3(arg, body, env);
+                                                <span class="kw">let </span>function: Expr::Fun = cons3(arg, body, env);
                                                 <span class="kw">return </span>(function, env, cont, apply)
                                             }
                                         };
-                                        <span class="kw">let </span>inner: Expr::Cons = hash2(cdr_args, body);
-                                        <span class="kw">let </span>l: Expr::Cons = hash2(head, inner);
-                                        <span class="kw">let </span>inner_body: Expr::Cons = hash2(l, nil);
-                                        <span class="kw">let </span>function: Expr::Fun = hash3(arg, inner_body, env);
+                                        <span class="kw">let </span>inner: Expr::Cons = cons2(cdr_args, body);
+                                        <span class="kw">let </span>l: Expr::Cons = cons2(head, inner);
+                                        <span class="kw">let </span>inner_body: Expr::Cons = cons2(l, nil);
+                                        <span class="kw">let </span>function: Expr::Fun = cons3(arg, inner_body, env);
                                         <span class="kw">return </span>(function, env, cont, apply)
                                     }
                                 };
                                 <span class="kw">return </span>(expr, env, err, errctrl)
                             }
                             <span class="string">&quot;quote&quot; </span>=&gt; {
-                                <span class="kw">let </span>(quoted, end) = safe_uncons(rest);
+                                <span class="kw">let </span>(quoted, end) = car_cdr(rest);
 
                                 <span class="kw">match </span>end.tag {
                                     Expr::Nil =&gt; {
@@ -1570,8 +1570,8 @@
                                 <span class="kw">return </span>(expr, env, err, errctrl)
                             }
                             <span class="string">&quot;let&quot;</span>, <span class="string">&quot;letrec&quot; </span>=&gt; {
-                                <span class="kw">let </span>(bindings, body) = safe_uncons(rest);
-                                <span class="kw">let </span>(body1, rest_body) = safe_uncons(body);
+                                <span class="kw">let </span>(bindings, body) = car_cdr(rest);
+                                <span class="kw">let </span>(body1, rest_body) = car_cdr(body);
                                 <span class="comment">// Only a single body form allowed for now.
                                 </span><span class="kw">match </span>body.tag {
                                     Expr::Nil =&gt; {
@@ -1585,11 +1585,11 @@
                                                 <span class="kw">return </span>(body1, env, cont, ret)
                                             }
                                         };
-                                        <span class="kw">let </span>(binding1, rest_bindings) = safe_uncons(bindings);
-                                        <span class="kw">let </span>(var, vals) = safe_uncons(binding1);
+                                        <span class="kw">let </span>(binding1, rest_bindings) = car_cdr(bindings);
+                                        <span class="kw">let </span>(var, vals) = car_cdr(binding1);
                                         <span class="kw">match </span>var.tag {
                                             Expr::Sym =&gt; {
-                                                <span class="kw">let </span>(val, end) = safe_uncons(vals);
+                                                <span class="kw">let </span>(val, end) = car_cdr(vals);
                                                 <span class="kw">match </span>end.tag {
                                                     Expr::Nil =&gt; {
                                                         <span class="kw">let </span>(expanded) = expand_bindings(head, body, body1, rest_bindings);
@@ -1606,13 +1606,13 @@
                                 <span class="kw">return </span>(expr, env, err, errctrl)
                             }
                             <span class="string">&quot;begin&quot; </span>=&gt; {
-                                <span class="kw">let </span>(arg1, more) = safe_uncons(rest);
+                                <span class="kw">let </span>(arg1, more) = car_cdr(rest);
                                 <span class="kw">match </span>more.tag {
                                     Expr::Nil =&gt; {
                                         <span class="kw">return </span>(arg1, env, cont, ret)
                                     }
                                 };
-                                <span class="kw">let </span>cont: Cont::Binop = hash4(head, env, more, cont);
+                                <span class="kw">let </span>cont: Cont::Binop = cons4(head, env, more, cont);
                                 <span class="kw">return </span>(arg1, env, cont, ret)
                             }
                             <span class="string">&quot;eval&quot; </span>=&gt; {
@@ -1621,24 +1621,24 @@
                                         <span class="kw">return </span>(expr, env, err, errctrl)
                                     }
                                 };
-                                <span class="kw">let </span>(arg1, more) = safe_uncons(rest);
+                                <span class="kw">let </span>(arg1, more) = car_cdr(rest);
                                 <span class="kw">match </span>more.tag {
                                     Expr::Nil =&gt; {
-                                        <span class="kw">let </span>cont: Cont::Unop = hash2(head, cont);
+                                        <span class="kw">let </span>cont: Cont::Unop = cons2(head, cont);
                                         <span class="kw">return </span>(arg1, env, cont, ret)
                                     }
                                 };
-                                <span class="kw">let </span>cont: Cont::Binop = hash4(head, env, more, cont);
+                                <span class="kw">let </span>cont: Cont::Binop = cons4(head, env, more, cont);
                                 <span class="kw">return </span>(arg1, env, cont, ret)
                             }
                             <span class="string">&quot;if&quot; </span>=&gt; {
-                                <span class="kw">let </span>(condition, more) = safe_uncons(rest);
+                                <span class="kw">let </span>(condition, more) = car_cdr(rest);
                                 <span class="kw">match </span>more.tag {
                                     Expr::Nil =&gt; {
                                         <span class="kw">return </span>(expr, env, err, errctrl)
                                     }
                                 };
-                                <span class="kw">let </span>cont: Cont::If = hash2(more, cont);
+                                <span class="kw">let </span>cont: Cont::If = cons2(more, cont);
                                 <span class="kw">return </span>(condition, env, cont, ret)
                             }
                             <span class="string">&quot;current-env&quot; </span>=&gt; {
@@ -1658,10 +1658,10 @@
                                     <span class="kw">return </span>(expr, env, err, errctrl)
                                 }
                             };
-                            <span class="kw">let </span>(arg1, end) = unhash2(rest);
+                            <span class="kw">let </span>(arg1, end) = decons2(rest);
                             <span class="kw">match </span>end.tag {
                                 Expr::Nil =&gt; {
-                                    <span class="kw">let </span>cont: Cont::Unop = hash2(head, cont);
+                                    <span class="kw">let </span>cont: Cont::Unop = cons2(head, cont);
                                     <span class="kw">return </span>(arg1, env, cont, ret)
                                 }
                             };
@@ -1675,13 +1675,13 @@
                                     <span class="kw">return </span>(expr, env, err, errctrl)
                                 }
                             };
-                            <span class="kw">let </span>(arg1, more) = unhash2(rest);
+                            <span class="kw">let </span>(arg1, more) = decons2(rest);
                             <span class="kw">match </span>more.tag {
                                 Expr::Nil =&gt; {
                                     <span class="kw">return </span>(expr, env, err, errctrl)
                                 }
                             };
-                            <span class="kw">let </span>cont: Cont::Binop = hash4(head, env, more, cont);
+                            <span class="kw">let </span>cont: Cont::Binop = cons4(head, env, more, cont);
                             <span class="kw">return </span>(arg1, env, cont, ret)
                         }
                         <span class="comment">// just call assuming that the symbol is bound to a function
@@ -1704,34 +1704,34 @@
 }
 
 <span class="kw">fn </span>apply_cont() -&gt; Func {
-    <span class="kw">let </span>safe_uncons = safe_uncons();
+    <span class="kw">let </span>car_cdr = car_cdr();
     <span class="kw">let </span>make_tail_continuation = <span class="macro">func!</span>(make_tail_continuation(env, continuation): <span class="number">1 </span>=&gt; {
         <span class="kw">match </span>continuation.tag {
             Cont::Tail =&gt; {
                 <span class="kw">return </span>(continuation);
             }
         };
-        <span class="kw">let </span>tail_continuation: Cont::Tail = hash2(env, continuation);
+        <span class="kw">let </span>tail_continuation: Cont::Tail = cons2(env, continuation);
         <span class="kw">return </span>(tail_continuation);
     });
 
     <span class="kw">let </span>extend_rec = <span class="macro">func!</span>(extend_rec(env, var, result): <span class="number">1 </span>=&gt; {
-        <span class="kw">let </span>(binding_or_env, rest) = safe_uncons(env);
-        <span class="kw">let </span>(var_or_binding, _val_or_more_bindings) = safe_uncons(binding_or_env);
-        <span class="kw">let </span>cons: Expr::Cons = hash2(var, result);
+        <span class="kw">let </span>(binding_or_env, rest) = car_cdr(env);
+        <span class="kw">let </span>(var_or_binding, _val_or_more_bindings) = car_cdr(binding_or_env);
+        <span class="kw">let </span>cons: Expr::Cons = cons2(var, result);
         <span class="kw">match </span>var_or_binding.tag {
             <span class="comment">// It&#39;s a var, so we are extending a simple env with a recursive env.
             </span>Expr::Sym | Expr::Nil =&gt; {
                 <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
                 <span class="kw">let </span>nil = cast(nil, Expr::Nil);
-                <span class="kw">let </span>list: Expr::Cons = hash2(cons, nil);
-                <span class="kw">let </span>res: Expr::Cons = hash2(list, env);
+                <span class="kw">let </span>list: Expr::Cons = cons2(cons, nil);
+                <span class="kw">let </span>res: Expr::Cons = cons2(list, env);
                 <span class="kw">return </span>(res)
             }
             <span class="comment">// It&#39;s a binding, so we are extending a recursive env.
             </span>Expr::Cons =&gt; {
-                <span class="kw">let </span>cons2: Expr::Cons = hash2(cons, binding_or_env);
-                <span class="kw">let </span>res: Expr::Cons = hash2(cons2, rest);
+                <span class="kw">let </span>cons2: Expr::Cons = cons2(cons, binding_or_env);
+                <span class="kw">let </span>res: Expr::Cons = cons2(cons2, rest);
 
                 <span class="kw">return </span>(res)
             }
@@ -1797,14 +1797,14 @@
                     }
                     Cont::Emit =&gt; {
                         <span class="comment">// TODO Does this make sense?
-                        </span><span class="kw">let </span>(cont, _rest) = unhash2(cont);
+                        </span><span class="kw">let </span>(cont, _rest) = decons2(cont);
                         <span class="kw">return </span>(result, env, cont, makethunk)
                     }
                     Cont::Call0 =&gt; {
-                        <span class="kw">let </span>(saved_env, continuation) = unhash2(cont);
+                        <span class="kw">let </span>(saved_env, continuation) = decons2(cont);
                         <span class="kw">match </span>result.tag {
                             Expr::Fun =&gt; {
-                                <span class="kw">let </span>(arg, body, closed_env) = unhash3(result);
+                                <span class="kw">let </span>(arg, body, closed_env) = decons3(result);
                                 <span class="kw">match </span>symbol arg {
                                     <span class="string">&quot;dummy&quot; </span>=&gt; {
                                         <span class="kw">match </span>body.tag {
@@ -1812,7 +1812,7 @@
                                                 <span class="kw">return </span>(result, env, err, errctrl)
                                             }
                                         };
-                                        <span class="kw">let </span>(body_form, end) = safe_uncons(body);
+                                        <span class="kw">let </span>(body_form, end) = car_cdr(body);
                                         <span class="kw">match </span>end.tag {
                                             Expr::Nil =&gt; {
                                                 <span class="kw">let </span>(cont) = make_tail_continuation(saved_env, continuation);
@@ -1830,18 +1830,18 @@
                     Cont::Call =&gt; {
                         <span class="kw">match </span>result.tag {
                             Expr::Fun =&gt; {
-                                <span class="kw">let </span>(unevaled_arg, saved_env, continuation) = unhash3(cont);
-                                <span class="kw">let </span>newer_cont: Cont::Call2 = hash3(result, saved_env, continuation);
+                                <span class="kw">let </span>(unevaled_arg, saved_env, continuation) = decons3(cont);
+                                <span class="kw">let </span>newer_cont: Cont::Call2 = cons3(result, saved_env, continuation);
                                 <span class="kw">return </span>(unevaled_arg, env, newer_cont, ret)
                             }
                         };
                         <span class="kw">return </span>(result, env, err, errctrl)
                     }
                     Cont::Call2 =&gt; {
-                        <span class="kw">let </span>(function, saved_env, continuation) = unhash3(cont);
+                        <span class="kw">let </span>(function, saved_env, continuation) = decons3(cont);
                         <span class="kw">match </span>function.tag {
                             Expr::Fun =&gt; {
-                                <span class="kw">let </span>(arg, body, closed_env) = unhash3(function);
+                                <span class="kw">let </span>(arg, body, closed_env) = decons3(function);
                                 <span class="kw">match </span>symbol arg {
                                     <span class="string">&quot;dummy&quot; </span>=&gt; {
                                         <span class="kw">return </span>(result, env, err, errctrl)
@@ -1852,11 +1852,11 @@
                                         <span class="kw">return </span>(result, env, err, errctrl)
                                     }
                                 };
-                                <span class="kw">let </span>(body_form, end) = unhash2(body);
+                                <span class="kw">let </span>(body_form, end) = decons2(body);
                                 <span class="kw">match </span>end.tag {
                                     Expr::Nil =&gt; {
-                                        <span class="kw">let </span>binding: Expr::Cons = hash2(arg, result);
-                                        <span class="kw">let </span>newer_env: Expr::Cons = hash2(binding, closed_env);
+                                        <span class="kw">let </span>binding: Expr::Cons = cons2(arg, result);
+                                        <span class="kw">let </span>newer_env: Expr::Cons = cons2(binding, closed_env);
                                         <span class="kw">let </span>(cont) = make_tail_continuation(saved_env, continuation);
                                         <span class="kw">return </span>(body_form, newer_env, cont, ret)
                                     }
@@ -1867,37 +1867,37 @@
                         <span class="kw">return </span>(result, env, err, errctrl)
                     }
                     Cont::Let =&gt; {
-                        <span class="kw">let </span>(var, saved_env, body, cont) = unhash4(cont);
-                        <span class="kw">let </span>binding: Expr::Cons = hash2(var, result);
-                        <span class="kw">let </span>extended_env: Expr::Cons = hash2(binding, env);
+                        <span class="kw">let </span>(var, saved_env, body, cont) = decons4(cont);
+                        <span class="kw">let </span>binding: Expr::Cons = cons2(var, result);
+                        <span class="kw">let </span>extended_env: Expr::Cons = cons2(binding, env);
                         <span class="kw">let </span>(cont) = make_tail_continuation(saved_env, cont);
                         <span class="kw">return </span>(body, extended_env, cont, ret)
                     }
                     Cont::LetRec =&gt; {
-                        <span class="kw">let </span>(var, saved_env, body, cont) = unhash4(cont);
+                        <span class="kw">let </span>(var, saved_env, body, cont) = decons4(cont);
                         <span class="kw">let </span>(extended_env) = extend_rec(env, var, result);
                         <span class="kw">let </span>(cont) = make_tail_continuation(saved_env, cont);
                         <span class="kw">return </span>(body, extended_env, cont, ret)
                     }
                     Cont::Unop =&gt; {
-                        <span class="kw">let </span>(operator, continuation) = unhash2(cont);
+                        <span class="kw">let </span>(operator, continuation) = decons2(cont);
                         <span class="kw">match </span>symbol operator {
                             <span class="string">&quot;car&quot; </span>=&gt; {
-                                <span class="comment">// Almost like safe_uncons, except it returns
+                                <span class="comment">// Almost like car_cdr, except it returns
                                 // an error in case it can&#39;t unhash it
                                 </span><span class="kw">match </span>result.tag {
                                     Expr::Nil =&gt; {
                                         <span class="kw">return </span>(nil, env, continuation, makethunk)
                                     }
                                     Expr::Cons =&gt; {
-                                        <span class="kw">let </span>(car, _cdr) = unhash2(result);
+                                        <span class="kw">let </span>(car, _cdr) = decons2(result);
                                         <span class="kw">return </span>(car, env, continuation, makethunk)
                                     }
                                     Expr::Str =&gt; {
                                         <span class="kw">if </span>result == empty_str {
                                             <span class="kw">return </span>(nil, env, continuation, makethunk)
                                         }
-                                        <span class="kw">let </span>(car, _cdr) = unhash2(result);
+                                        <span class="kw">let </span>(car, _cdr) = decons2(result);
                                         <span class="kw">return </span>(car, env, continuation, makethunk)
                                     }
                                 };
@@ -1909,14 +1909,14 @@
                                         <span class="kw">return </span>(nil, env, continuation, makethunk)
                                     }
                                     Expr::Cons =&gt; {
-                                        <span class="kw">let </span>(_car, cdr) = unhash2(result);
+                                        <span class="kw">let </span>(_car, cdr) = decons2(result);
                                         <span class="kw">return </span>(cdr, env, continuation, makethunk)
                                     }
                                     Expr::Str =&gt; {
                                         <span class="kw">if </span>result == empty_str {
                                             <span class="kw">return </span>(empty_str, env, continuation, makethunk)
                                         }
-                                        <span class="kw">let </span>(_car, cdr) = unhash2(result);
+                                        <span class="kw">let </span>(_car, cdr) = decons2(result);
                                         <span class="kw">return </span>(cdr, env, continuation, makethunk)
                                     }
                                 };
@@ -1933,7 +1933,7 @@
                             <span class="string">&quot;emit&quot; </span>=&gt; {
                                 <span class="comment">// TODO Does this make sense?
                                 </span>emit(result);
-                                <span class="kw">let </span>emit: Cont::Emit = hash2(continuation, nil);
+                                <span class="kw">let </span>emit: Cont::Emit = cons2(continuation, nil);
                                 <span class="kw">return </span>(result, env, emit, makethunk)
                             }
                             <span class="string">&quot;open&quot; </span>=&gt; {
@@ -2021,8 +2021,8 @@
                         <span class="kw">return </span>(result, env, err, errctrl)
                     }
                     Cont::Binop =&gt; {
-                        <span class="kw">let </span>(operator, saved_env, unevaled_args, continuation) = unhash4(cont);
-                        <span class="kw">let </span>(arg2, rest) = safe_uncons(unevaled_args);
+                        <span class="kw">let </span>(operator, saved_env, unevaled_args, continuation) = decons4(cont);
+                        <span class="kw">let </span>(arg2, rest) = car_cdr(unevaled_args);
                         <span class="kw">match </span>symbol operator {
                             <span class="string">&quot;begin&quot; </span>=&gt; {
                                 <span class="kw">match </span>rest.tag {
@@ -2030,27 +2030,27 @@
                                         <span class="kw">return </span>(arg2, saved_env, continuation, ret)
                                     }
                                 };
-                                <span class="kw">let </span>begin_again: Expr::Cons = hash2(operator, unevaled_args);
+                                <span class="kw">let </span>begin_again: Expr::Cons = cons2(operator, unevaled_args);
                                 <span class="kw">return </span>(begin_again, saved_env, continuation, ctrl)
                             }
                         };
                         <span class="kw">match </span>rest.tag {
                             Expr::Nil =&gt; {
-                                <span class="kw">let </span>cont: Cont::Binop2 = hash3(operator, result, continuation);
+                                <span class="kw">let </span>cont: Cont::Binop2 = cons3(operator, result, continuation);
                                 <span class="kw">return </span>(arg2, saved_env, cont, ret)
                             }
                         };
                         <span class="kw">return </span>(result, env, err, errctrl)
                     }
                     Cont::Binop2 =&gt; {
-                        <span class="kw">let </span>(operator, evaled_arg, continuation) = unhash3(cont);
+                        <span class="kw">let </span>(operator, evaled_arg, continuation) = decons3(cont);
                         <span class="kw">let </span>(args_num_type) = args_num_type(evaled_arg, result);
                         <span class="kw">match </span>symbol operator {
                             <span class="string">&quot;eval&quot; </span>=&gt; {
                                 <span class="kw">return </span>(evaled_arg, result, continuation, ret)
                             }
                             <span class="string">&quot;cons&quot; </span>=&gt; {
-                                <span class="kw">let </span>val: Expr::Cons = hash2(evaled_arg, result);
+                                <span class="kw">let </span>val: Expr::Cons = cons2(evaled_arg, result);
                                 <span class="kw">return </span>(val, env, continuation, makethunk)
                             }
                             <span class="string">&quot;strcons&quot; </span>=&gt; {
@@ -2058,7 +2058,7 @@
                                     Expr::Char =&gt; {
                                         <span class="kw">match </span>result.tag {
                                             Expr::Str =&gt; {
-                                                <span class="kw">let </span>val: Expr::Str = hash2(evaled_arg, result);
+                                                <span class="kw">let </span>val: Expr::Str = cons2(evaled_arg, result);
                                                 <span class="kw">return </span>(val, env, continuation, makethunk)
                                             }
                                         };
@@ -2228,9 +2228,9 @@
                         <span class="kw">return </span>(result, env, err, errctrl)
                     }
                     Cont::If =&gt; {
-                        <span class="kw">let </span>(unevaled_args, continuation) = unhash2(cont);
-                        <span class="kw">let </span>(arg1, more) = safe_uncons(unevaled_args);
-                        <span class="kw">let </span>(arg2, end) = safe_uncons(more);
+                        <span class="kw">let </span>(unevaled_args, continuation) = decons2(cont);
+                        <span class="kw">let </span>(arg1, more) = car_cdr(unevaled_args);
+                        <span class="kw">let </span>(arg2, end) = car_cdr(more);
                         <span class="kw">match </span>end.tag {
                             Expr::Nil =&gt; {
                                 <span class="kw">match </span>result.tag {
@@ -2244,11 +2244,11 @@
                         <span class="kw">return </span>(arg1, env, err, errctrl)
                     }
                     Cont::Lookup =&gt; {
-                        <span class="kw">let </span>(saved_env, continuation) = unhash2(cont);
+                        <span class="kw">let </span>(saved_env, continuation) = decons2(cont);
                         <span class="kw">return </span>(result, saved_env, continuation, makethunk)
                     }
                     Cont::Tail =&gt; {
-                        <span class="kw">let </span>(saved_env, continuation) = unhash2(cont);
+                        <span class="kw">let </span>(saved_env, continuation) = decons2(cont);
                         <span class="kw">return </span>(result, saved_env, continuation, makethunk)
                     }
                 }
@@ -2265,8 +2265,8 @@
             Ctrl::MakeThunk =&gt; {
                 <span class="kw">match </span>cont.tag {
                     Cont::Tail =&gt; {
-                        <span class="kw">let </span>(saved_env, saved_cont) = unhash2(cont);
-                        <span class="kw">let </span>thunk: Expr::Thunk = hash2(expr, saved_cont);
+                        <span class="kw">let </span>(saved_env, saved_cont) = decons2(cont);
+                        <span class="kw">let </span>thunk: Expr::Thunk = cons2(expr, saved_cont);
                         <span class="kw">let </span>cont: Cont::Dummy;
                         <span class="kw">return </span>(thunk, saved_env, cont, ret)
                     }
@@ -2275,7 +2275,7 @@
                         <span class="kw">return </span>(expr, env, cont, ret)
                     }
                 };
-                <span class="kw">let </span>thunk: Expr::Thunk = hash2(expr, cont);
+                <span class="kw">let </span>thunk: Expr::Thunk = cons2(expr, cont);
                 <span class="kw">let </span>cont: Cont::Dummy;
                 <span class="kw">return </span>(thunk, env, cont, ret)
             }
@@ -2298,9 +2298,9 @@
     <span class="kw">const </span>NUM_AUX: usize = <span class="number">10744</span>;
     <span class="kw">const </span>NUM_CONSTRAINTS: usize = <span class="number">13299</span>;
     <span class="kw">const </span>NUM_SLOTS: SlotsCounter = SlotsCounter {
-        hash2: <span class="number">16</span>,
-        hash3: <span class="number">4</span>,
-        hash4: <span class="number">2</span>,
+        hash4: <span class="number">16</span>,
+        hash6: <span class="number">4</span>,
+        hash8: <span class="number">2</span>,
         commitment: <span class="number">1</span>,
         less_than: <span class="number">1</span>,
     };

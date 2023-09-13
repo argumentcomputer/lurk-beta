@@ -1071,7 +1071,7 @@
 //! operations `Op` followed by a control `Ctrl` statement.
 //!
 //! Operations are much like `let` statements in functional languages. For
-//! example, a `Op::Hash2(x, t, ys)` is to be understood as `let x = hash2(ys)`.
+//! example, a `Op::Cons2(x, t, ys)` is to be understood as `let x = cons2(ys)`.
 //! If a second operation binds its result to the same variable as a previous
 //! operation, we shadow the previous value. There is no mutation, thus the
 //! language is referentially transparent.
@@ -1331,18 +1331,18 @@
     </span>DivRem64([Var; <span class="number">2</span>], Var, Var),
     <span class="doccomment">/// `Emit(v)` simply prints out the value of `v` when interpreting the code
     </span>Emit(Var),
-    <span class="doccomment">/// `Hash2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
-    </span>Hash2(Var, Tag, [Var; <span class="number">2</span>]),
-    <span class="doccomment">/// `Hash3(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 3 children `ys`
-    </span>Hash3(Var, Tag, [Var; <span class="number">3</span>]),
-    <span class="doccomment">/// `Hash4(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 4 children `ys`
-    </span>Hash4(Var, Tag, [Var; <span class="number">4</span>]),
-    <span class="doccomment">/// `Unhash2([a, b], x)` binds `a` and `b` to the 2 children of `x`
-    </span>Unhash2([Var; <span class="number">2</span>], Var),
-    <span class="doccomment">/// `Unhash3([a, b, c], x)` binds `a`, `b` and `c` to the 3 children of `x`
-    </span>Unhash3([Var; <span class="number">3</span>], Var),
-    <span class="doccomment">/// `Unhash4([a, b, c, d], x)` binds `a`, `b`, `c` and `d` to the 4 children of `x`
-    </span>Unhash4([Var; <span class="number">4</span>], Var),
+    <span class="doccomment">/// `Cons2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
+    </span>Cons2(Var, Tag, [Var; <span class="number">2</span>]),
+    <span class="doccomment">/// `Cons3(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 3 children `ys`
+    </span>Cons3(Var, Tag, [Var; <span class="number">3</span>]),
+    <span class="doccomment">/// `Cons4(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 4 children `ys`
+    </span>Cons4(Var, Tag, [Var; <span class="number">4</span>]),
+    <span class="doccomment">/// `Decons2([a, b], x)` binds `a` and `b` to the 2 children of `x`
+    </span>Decons2([Var; <span class="number">2</span>], Var),
+    <span class="doccomment">/// `Decons3([a, b, c], x)` binds `a`, `b` and `c` to the 3 children of `x`
+    </span>Decons3([Var; <span class="number">3</span>], Var),
+    <span class="doccomment">/// `Decons4([a, b, c, d], x)` binds `a`, `b`, `c` and `d` to the 4 children of `x`
+    </span>Decons4([Var; <span class="number">4</span>], Var),
     <span class="doccomment">/// `Hide(x, s, p)` binds `x` to a (comm) `Ptr` resulting from hiding the
     /// payload `p` with (num) secret `s`
     </span>Hide(Var, Var, Var),
@@ -1454,27 +1454,27 @@
                     Op::Emit(a) =&gt; {
                         is_bound(a, map)<span class="question-mark">?</span>;
                     }
-                    Op::Hash2(img, _tag, preimg) =&gt; {
+                    Op::Cons2(img, _tag, preimg) =&gt; {
                         preimg.iter().try_for_each(|arg| is_bound(arg, map))<span class="question-mark">?</span>;
                         is_unique(img, map);
                     }
-                    Op::Hash3(img, _tag, preimg) =&gt; {
+                    Op::Cons3(img, _tag, preimg) =&gt; {
                         preimg.iter().try_for_each(|arg| is_bound(arg, map))<span class="question-mark">?</span>;
                         is_unique(img, map);
                     }
-                    Op::Hash4(img, _tag, preimg) =&gt; {
+                    Op::Cons4(img, _tag, preimg) =&gt; {
                         preimg.iter().try_for_each(|arg| is_bound(arg, map))<span class="question-mark">?</span>;
                         is_unique(img, map);
                     }
-                    Op::Unhash2(preimg, img) =&gt; {
+                    Op::Decons2(preimg, img) =&gt; {
                         is_bound(img, map)<span class="question-mark">?</span>;
                         preimg.iter().for_each(|var| is_unique(var, map))
                     }
-                    Op::Unhash3(preimg, img) =&gt; {
+                    Op::Decons3(preimg, img) =&gt; {
                         is_bound(img, map)<span class="question-mark">?</span>;
                         preimg.iter().for_each(|var| is_unique(var, map))
                     }
-                    Op::Unhash4(preimg, img) =&gt; {
+                    Op::Decons4(preimg, img) =&gt; {
                         is_bound(img, map)<span class="question-mark">?</span>;
                         preimg.iter().for_each(|var| is_unique(var, map))
                     }
@@ -1699,35 +1699,35 @@
                     <span class="kw">let </span>a = map.get_cloned(<span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>;
                     ops.push(Op::Emit(a))
                 }
-                Op::Hash2(img, tag, preimg) =&gt; {
+                Op::Cons2(img, tag, preimg) =&gt; {
                     <span class="kw">let </span>preimg = map.get_many_cloned(<span class="kw-2">&amp;</span>preimg)<span class="question-mark">?</span>.try_into().unwrap();
                     <span class="kw">let </span>img = insert_one(map, uniq, <span class="kw-2">&amp;</span>img);
-                    ops.push(Op::Hash2(img, tag, preimg))
+                    ops.push(Op::Cons2(img, tag, preimg))
                 }
-                Op::Hash3(img, tag, preimg) =&gt; {
+                Op::Cons3(img, tag, preimg) =&gt; {
                     <span class="kw">let </span>preimg = map.get_many_cloned(<span class="kw-2">&amp;</span>preimg)<span class="question-mark">?</span>.try_into().unwrap();
                     <span class="kw">let </span>img = insert_one(map, uniq, <span class="kw-2">&amp;</span>img);
-                    ops.push(Op::Hash3(img, tag, preimg))
+                    ops.push(Op::Cons3(img, tag, preimg))
                 }
-                Op::Hash4(img, tag, preimg) =&gt; {
+                Op::Cons4(img, tag, preimg) =&gt; {
                     <span class="kw">let </span>preimg = map.get_many_cloned(<span class="kw-2">&amp;</span>preimg)<span class="question-mark">?</span>.try_into().unwrap();
                     <span class="kw">let </span>img = insert_one(map, uniq, <span class="kw-2">&amp;</span>img);
-                    ops.push(Op::Hash4(img, tag, preimg))
+                    ops.push(Op::Cons4(img, tag, preimg))
                 }
-                Op::Unhash2(preimg, img) =&gt; {
+                Op::Decons2(preimg, img) =&gt; {
                     <span class="kw">let </span>img = map.get_cloned(<span class="kw-2">&amp;</span>img)<span class="question-mark">?</span>;
                     <span class="kw">let </span>preimg = insert_many(map, uniq, <span class="kw-2">&amp;</span>preimg);
-                    ops.push(Op::Unhash2(preimg.try_into().unwrap(), img))
+                    ops.push(Op::Decons2(preimg.try_into().unwrap(), img))
                 }
-                Op::Unhash3(preimg, img) =&gt; {
+                Op::Decons3(preimg, img) =&gt; {
                     <span class="kw">let </span>img = map.get_cloned(<span class="kw-2">&amp;</span>img)<span class="question-mark">?</span>;
                     <span class="kw">let </span>preimg = insert_many(map, uniq, <span class="kw-2">&amp;</span>preimg);
-                    ops.push(Op::Unhash3(preimg.try_into().unwrap(), img))
+                    ops.push(Op::Decons3(preimg.try_into().unwrap(), img))
                 }
-                Op::Unhash4(preimg, img) =&gt; {
+                Op::Decons4(preimg, img) =&gt; {
                     <span class="kw">let </span>img = map.get_cloned(<span class="kw-2">&amp;</span>img)<span class="question-mark">?</span>;
                     <span class="kw">let </span>preimg = insert_many(map, uniq, <span class="kw-2">&amp;</span>preimg);
-                    ops.push(Op::Unhash4(preimg.try_into().unwrap(), img))
+                    ops.push(Op::Decons4(preimg.try_into().unwrap(), img))
                 }
                 Op::Hide(tgt, sec, pay) =&gt; {
                     <span class="kw">let </span>sec = map.get_cloned(<span class="kw-2">&amp;</span>sec)<span class="question-mark">?</span>;
@@ -1944,10 +1944,10 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>handles_non_ssa() {
         <span class="kw">let </span>func = <span class="macro">func!</span>(foo(expr_in, _env_in, _cont_in): <span class="number">3 </span>=&gt; {
-            <span class="kw">let </span>x: Expr::Cons = hash2(expr_in, expr_in);
+            <span class="kw">let </span>x: Expr::Cons = cons2(expr_in, expr_in);
             <span class="comment">// The next line rewrites `x` and it should move on smoothly, matching
             // the expected number of constraints accordingly
-            </span><span class="kw">let </span>x: Expr::Cons = hash2(x, x);
+            </span><span class="kw">let </span>x: Expr::Cons = cons2(x, x);
             <span class="kw">let </span>cont_out_terminal: Cont::Terminal;
             <span class="kw">return </span>(x, x, cont_out_terminal);
         });
@@ -1989,16 +1989,16 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_hash_slots() {
         <span class="kw">let </span>lem = <span class="macro">func!</span>(foo(expr_in, env_in, cont_in): <span class="number">3 </span>=&gt; {
-            <span class="kw">let </span>_x: Expr::Cons = hash2(expr_in, env_in);
-            <span class="kw">let </span>_y: Expr::Cons = hash3(expr_in, env_in, cont_in);
-            <span class="kw">let </span>_z: Expr::Cons = hash4(expr_in, env_in, cont_in, cont_in);
+            <span class="kw">let </span>_x: Expr::Cons = cons2(expr_in, env_in);
+            <span class="kw">let </span>_y: Expr::Cons = cons3(expr_in, env_in, cont_in);
+            <span class="kw">let </span>_z: Expr::Cons = cons4(expr_in, env_in, cont_in, cont_in);
             <span class="kw">let </span>t: Cont::Terminal;
             <span class="kw">let </span>p: Expr::Nil;
             <span class="kw">match </span>expr_in.tag {
                 Expr::Num =&gt; {
-                    <span class="kw">let </span>m: Expr::Cons = hash2(env_in, expr_in);
-                    <span class="kw">let </span>n: Expr::Cons = hash3(cont_in, env_in, expr_in);
-                    <span class="kw">let </span>_k: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                    <span class="kw">let </span>m: Expr::Cons = cons2(env_in, expr_in);
+                    <span class="kw">let </span>n: Expr::Cons = cons3(cont_in, env_in, expr_in);
+                    <span class="kw">let </span>_k: Expr::Cons = cons4(expr_in, cont_in, env_in, expr_in);
                     <span class="kw">return </span>(m, n, t);
                 }
                 Expr::Char =&gt; {
@@ -2020,19 +2020,19 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_unhash_slots() {
         <span class="kw">let </span>lem = <span class="macro">func!</span>(foo(expr_in, env_in, cont_in): <span class="number">3 </span>=&gt; {
-            <span class="kw">let </span>_x: Expr::Cons = hash2(expr_in, env_in);
-            <span class="kw">let </span>_y: Expr::Cons = hash3(expr_in, env_in, cont_in);
-            <span class="kw">let </span>_z: Expr::Cons = hash4(expr_in, env_in, cont_in, cont_in);
+            <span class="kw">let </span>_x: Expr::Cons = cons2(expr_in, env_in);
+            <span class="kw">let </span>_y: Expr::Cons = cons3(expr_in, env_in, cont_in);
+            <span class="kw">let </span>_z: Expr::Cons = cons4(expr_in, env_in, cont_in, cont_in);
             <span class="kw">let </span>t: Cont::Terminal;
             <span class="kw">let </span>p: Expr::Nil;
             <span class="kw">match </span>expr_in.tag {
                 Expr::Num =&gt; {
-                    <span class="kw">let </span>m: Expr::Cons = hash2(env_in, expr_in);
-                    <span class="kw">let </span>n: Expr::Cons = hash3(cont_in, env_in, expr_in);
-                    <span class="kw">let </span>k: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
-                    <span class="kw">let </span>(_m1, _m2) = unhash2(m);
-                    <span class="kw">let </span>(_n1, _n2, _n3) = unhash3(n);
-                    <span class="kw">let </span>(_k1, _k2, _k3, _k4) = unhash4(k);
+                    <span class="kw">let </span>m: Expr::Cons = cons2(env_in, expr_in);
+                    <span class="kw">let </span>n: Expr::Cons = cons3(cont_in, env_in, expr_in);
+                    <span class="kw">let </span>k: Expr::Cons = cons4(expr_in, cont_in, env_in, expr_in);
+                    <span class="kw">let </span>(_m1, _m2) = decons2(m);
+                    <span class="kw">let </span>(_n1, _n2, _n3) = decons3(n);
+                    <span class="kw">let </span>(_k1, _k2, _k3, _k4) = decons4(k);
                     <span class="kw">return </span>(m, n, t);
                 }
                 Expr::Char =&gt; {
@@ -2054,30 +2054,30 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_unhash_nested_slots() {
         <span class="kw">let </span>lem = <span class="macro">func!</span>(foo(expr_in, env_in, cont_in): <span class="number">3 </span>=&gt; {
-            <span class="kw">let </span>_x: Expr::Cons = hash2(expr_in, env_in);
-            <span class="kw">let </span>_y: Expr::Cons = hash3(expr_in, env_in, cont_in);
-            <span class="kw">let </span>_z: Expr::Cons = hash4(expr_in, env_in, cont_in, cont_in);
+            <span class="kw">let </span>_x: Expr::Cons = cons2(expr_in, env_in);
+            <span class="kw">let </span>_y: Expr::Cons = cons3(expr_in, env_in, cont_in);
+            <span class="kw">let </span>_z: Expr::Cons = cons4(expr_in, env_in, cont_in, cont_in);
             <span class="kw">let </span>t: Cont::Terminal;
             <span class="kw">let </span>p: Expr::Nil;
             <span class="kw">match </span>expr_in.tag {
                 Expr::Num =&gt; {
-                    <span class="kw">let </span>m: Expr::Cons = hash2(env_in, expr_in);
-                    <span class="kw">let </span>n: Expr::Cons = hash3(cont_in, env_in, expr_in);
-                    <span class="kw">let </span>k: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
-                    <span class="kw">let </span>(_m1, _m2) = unhash2(m);
-                    <span class="kw">let </span>(_n1, _n2, _n3) = unhash3(n);
-                    <span class="kw">let </span>(_k1, _k2, _k3, _k4) = unhash4(k);
+                    <span class="kw">let </span>m: Expr::Cons = cons2(env_in, expr_in);
+                    <span class="kw">let </span>n: Expr::Cons = cons3(cont_in, env_in, expr_in);
+                    <span class="kw">let </span>k: Expr::Cons = cons4(expr_in, cont_in, env_in, expr_in);
+                    <span class="kw">let </span>(_m1, _m2) = decons2(m);
+                    <span class="kw">let </span>(_n1, _n2, _n3) = decons3(n);
+                    <span class="kw">let </span>(_k1, _k2, _k3, _k4) = decons4(k);
                     <span class="kw">match </span>cont_in.tag {
                         Cont::Outermost =&gt; {
-                            <span class="kw">let </span>_a: Expr::Cons = hash2(env_in, expr_in);
-                            <span class="kw">let </span>_b: Expr::Cons = hash3(cont_in, env_in, expr_in);
-                            <span class="kw">let </span>_c: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                            <span class="kw">let </span>_a: Expr::Cons = cons2(env_in, expr_in);
+                            <span class="kw">let </span>_b: Expr::Cons = cons3(cont_in, env_in, expr_in);
+                            <span class="kw">let </span>_c: Expr::Cons = cons4(expr_in, cont_in, env_in, expr_in);
                             <span class="kw">return </span>(m, n, t);
                         }
                         Cont::Terminal =&gt; {
-                            <span class="kw">let </span>_d: Expr::Cons = hash2(env_in, expr_in);
-                            <span class="kw">let </span>_e: Expr::Cons = hash3(cont_in, env_in, expr_in);
-                            <span class="kw">let </span>_f: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                            <span class="kw">let </span>_d: Expr::Cons = cons2(env_in, expr_in);
+                            <span class="kw">let </span>_e: Expr::Cons = cons3(cont_in, env_in, expr_in);
+                            <span class="kw">let </span>_f: Expr::Cons = cons4(expr_in, cont_in, env_in, expr_in);
                             <span class="kw">return </span>(m, n, t);
                         }
                     }

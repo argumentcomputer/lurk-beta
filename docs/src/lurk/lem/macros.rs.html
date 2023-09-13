@@ -871,38 +871,38 @@
     ( emit(<span class="macro-nonterminal">$v</span>:ident) ) =&gt; {
         <span class="macro-nonterminal">$crate::lem::Op::Emit</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$v</span>))
     };
-    ( <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$kind</span>:ident::<span class="macro-nonterminal">$tag</span>:ident = hash2(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident) ) =&gt; {
-        <span class="macro-nonterminal">$crate::lem::Op::Hash2</span>(
+    ( <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$kind</span>:ident::<span class="macro-nonterminal">$tag</span>:ident = cons2(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident) ) =&gt; {
+        <span class="macro-nonterminal">$crate::lem::Op::Cons2</span>(
             <span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$tgt</span>),
             <span class="macro-nonterminal">$</span><span class="macro">crate::tag!</span>(<span class="macro-nonterminal">$kind</span>::<span class="macro-nonterminal">$tag</span>),
             <span class="macro-nonterminal">$</span><span class="macro">crate::vars!</span>(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>),
         )
     };
-    ( <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$kind</span>:ident::<span class="macro-nonterminal">$tag</span>:ident = hash3(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$src3</span>:ident) ) =&gt; {
-        <span class="macro-nonterminal">$crate::lem::Op::Hash3</span>(
+    ( <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$kind</span>:ident::<span class="macro-nonterminal">$tag</span>:ident = cons3(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$src3</span>:ident) ) =&gt; {
+        <span class="macro-nonterminal">$crate::lem::Op::Cons3</span>(
             <span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$tgt</span>),
             <span class="macro-nonterminal">$</span><span class="macro">crate::tag!</span>(<span class="macro-nonterminal">$kind</span>::<span class="macro-nonterminal">$tag</span>),
             <span class="macro-nonterminal">$</span><span class="macro">crate::vars!</span>(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>, <span class="macro-nonterminal">$src3</span>),
         )
     };
-    ( <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$kind</span>:ident::<span class="macro-nonterminal">$tag</span>:ident = hash4(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$src3</span>:ident, <span class="macro-nonterminal">$src4</span>:ident) ) =&gt; {
-        <span class="macro-nonterminal">$crate::lem::Op::Hash4</span>(
+    ( <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$kind</span>:ident::<span class="macro-nonterminal">$tag</span>:ident = cons4(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$src3</span>:ident, <span class="macro-nonterminal">$src4</span>:ident) ) =&gt; {
+        <span class="macro-nonterminal">$crate::lem::Op::Cons4</span>(
             <span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$tgt</span>),
             <span class="macro-nonterminal">$</span><span class="macro">crate::tag!</span>(<span class="macro-nonterminal">$kind</span>::<span class="macro-nonterminal">$tag</span>),
             <span class="macro-nonterminal">$</span><span class="macro">crate::vars!</span>(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>, <span class="macro-nonterminal">$src3</span>, <span class="macro-nonterminal">$src4</span>),
         )
     };
-    ( <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident) = unhash2(<span class="macro-nonterminal">$src</span>:ident) ) =&gt; {
-        <span class="macro-nonterminal">$crate::lem::Op::Unhash2</span>(
+    ( <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident) = decons2(<span class="macro-nonterminal">$src</span>:ident) ) =&gt; {
+        <span class="macro-nonterminal">$crate::lem::Op::Decons2</span>(
             <span class="macro-nonterminal">$</span><span class="macro">crate::vars!</span>(<span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>),
             <span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$src</span>),
         )
     };
-    ( <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident, <span class="macro-nonterminal">$tgt3</span>:ident) = unhash3(<span class="macro-nonterminal">$src</span>:ident) ) =&gt; {
-        <span class="macro-nonterminal">$crate::lem::Op::Unhash3</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::vars!</span>(<span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>, <span class="macro-nonterminal">$tgt3</span>), <span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$src</span>))
+    ( <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident, <span class="macro-nonterminal">$tgt3</span>:ident) = decons3(<span class="macro-nonterminal">$src</span>:ident) ) =&gt; {
+        <span class="macro-nonterminal">$crate::lem::Op::Decons3</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::vars!</span>(<span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>, <span class="macro-nonterminal">$tgt3</span>), <span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$src</span>))
     };
-    ( <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident, <span class="macro-nonterminal">$tgt3</span>:ident, <span class="macro-nonterminal">$tgt4</span>:ident) = unhash4(<span class="macro-nonterminal">$src</span>:ident) ) =&gt; {
-        <span class="macro-nonterminal">$crate::lem::Op::Unhash4</span>(
+    ( <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident, <span class="macro-nonterminal">$tgt3</span>:ident, <span class="macro-nonterminal">$tgt4</span>:ident) = decons4(<span class="macro-nonterminal">$src</span>:ident) ) =&gt; {
+        <span class="macro-nonterminal">$crate::lem::Op::Decons4</span>(
             <span class="macro-nonterminal">$</span><span class="macro">crate::vars!</span>(<span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>, <span class="macro-nonterminal">$tgt3</span>, <span class="macro-nonterminal">$tgt4</span>),
             <span class="macro-nonterminal">$</span><span class="macro">crate::var!</span>(<span class="macro-nonterminal">$src</span>),
         )
@@ -1155,62 +1155,62 @@
             $(<span class="macro-nonterminal">$tail</span>)*
         )
     };
-    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$kind</span>:ident::<span class="macro-nonterminal">$tag</span>:ident = hash2(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$kind</span>:ident::<span class="macro-nonterminal">$tag</span>:ident = cons2(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
         <span class="macro-nonterminal">$</span><span class="macro">crate::block! </span>(
             @<span class="macro-nonterminal">seq
             </span>{
                 $(<span class="macro-nonterminal">$limbs</span>)*
-                <span class="macro-nonterminal">$</span><span class="macro">crate::op!</span>(<span class="kw">let </span><span class="macro-nonterminal">$tgt</span>: <span class="macro-nonterminal">$kind</span>::<span class="macro-nonterminal">$tag </span>= hash2(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>) )
+                <span class="macro-nonterminal">$</span><span class="macro">crate::op!</span>(<span class="kw">let </span><span class="macro-nonterminal">$tgt</span>: <span class="macro-nonterminal">$kind</span>::<span class="macro-nonterminal">$tag </span>= cons2(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>) )
             },
             $(<span class="macro-nonterminal">$tail</span>)*
         )
     };
-    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$kind</span>:ident::<span class="macro-nonterminal">$tag</span>:ident = hash3(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$src3</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$kind</span>:ident::<span class="macro-nonterminal">$tag</span>:ident = cons3(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$src3</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
         <span class="macro-nonterminal">$</span><span class="macro">crate::block! </span>(
             @<span class="macro-nonterminal">seq
             </span>{
                 $(<span class="macro-nonterminal">$limbs</span>)*
-                <span class="macro-nonterminal">$</span><span class="macro">crate::op!</span>(<span class="kw">let </span><span class="macro-nonterminal">$tgt</span>: <span class="macro-nonterminal">$kind</span>::<span class="macro-nonterminal">$tag </span>= hash3(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>, <span class="macro-nonterminal">$src3</span>) )
+                <span class="macro-nonterminal">$</span><span class="macro">crate::op!</span>(<span class="kw">let </span><span class="macro-nonterminal">$tgt</span>: <span class="macro-nonterminal">$kind</span>::<span class="macro-nonterminal">$tag </span>= cons3(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>, <span class="macro-nonterminal">$src3</span>) )
             },
             $(<span class="macro-nonterminal">$tail</span>)*
         )
     };
-    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$kind</span>:ident::<span class="macro-nonterminal">$tag</span>:ident = hash4(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$src3</span>:ident, <span class="macro-nonterminal">$src4</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span><span class="macro-nonterminal">$tgt</span>:ident : <span class="macro-nonterminal">$kind</span>:ident::<span class="macro-nonterminal">$tag</span>:ident = cons4(<span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$src3</span>:ident, <span class="macro-nonterminal">$src4</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
         <span class="macro-nonterminal">$</span><span class="macro">crate::block! </span>(
             @<span class="macro-nonterminal">seq
             </span>{
                 $(<span class="macro-nonterminal">$limbs</span>)*
-                <span class="macro-nonterminal">$</span><span class="macro">crate::op!</span>(<span class="kw">let </span><span class="macro-nonterminal">$tgt</span>: <span class="macro-nonterminal">$kind</span>::<span class="macro-nonterminal">$tag </span>= hash4(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>, <span class="macro-nonterminal">$src3</span>, <span class="macro-nonterminal">$src4</span>))
+                <span class="macro-nonterminal">$</span><span class="macro">crate::op!</span>(<span class="kw">let </span><span class="macro-nonterminal">$tgt</span>: <span class="macro-nonterminal">$kind</span>::<span class="macro-nonterminal">$tag </span>= cons4(<span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$src2</span>, <span class="macro-nonterminal">$src3</span>, <span class="macro-nonterminal">$src4</span>))
             },
             $(<span class="macro-nonterminal">$tail</span>)*
         )
     };
-    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident) = unhash2(<span class="macro-nonterminal">$src</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident) = decons2(<span class="macro-nonterminal">$src</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
         <span class="macro-nonterminal">$</span><span class="macro">crate::block! </span>(
             @<span class="macro-nonterminal">seq
             </span>{
                 $(<span class="macro-nonterminal">$limbs</span>)*
-                <span class="macro-nonterminal">$</span><span class="macro">crate::op!</span>(<span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>) = unhash2(<span class="macro-nonterminal">$src</span>) )
+                <span class="macro-nonterminal">$</span><span class="macro">crate::op!</span>(<span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>) = decons2(<span class="macro-nonterminal">$src</span>) )
             },
             $(<span class="macro-nonterminal">$tail</span>)*
         )
     };
-    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident, <span class="macro-nonterminal">$tgt3</span>:ident) = unhash3(<span class="macro-nonterminal">$src</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident, <span class="macro-nonterminal">$tgt3</span>:ident) = decons3(<span class="macro-nonterminal">$src</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
         <span class="macro-nonterminal">$</span><span class="macro">crate::block! </span>(
             @<span class="macro-nonterminal">seq
             </span>{
                 $(<span class="macro-nonterminal">$limbs</span>)*
-                <span class="macro-nonterminal">$</span><span class="macro">crate::op!</span>(<span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>, <span class="macro-nonterminal">$tgt3</span>) = unhash3(<span class="macro-nonterminal">$src</span>) )
+                <span class="macro-nonterminal">$</span><span class="macro">crate::op!</span>(<span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>, <span class="macro-nonterminal">$tgt3</span>) = decons3(<span class="macro-nonterminal">$src</span>) )
             },
             $(<span class="macro-nonterminal">$tail</span>)*
         )
     };
-    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident, <span class="macro-nonterminal">$tgt3</span>:ident, <span class="macro-nonterminal">$tgt4</span>:ident) = unhash4(<span class="macro-nonterminal">$src</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
+    (@seq {$(<span class="macro-nonterminal">$limbs</span>:expr)<span class="kw-2">*</span>}, <span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>:ident, <span class="macro-nonterminal">$tgt2</span>:ident, <span class="macro-nonterminal">$tgt3</span>:ident, <span class="macro-nonterminal">$tgt4</span>:ident) = decons4(<span class="macro-nonterminal">$src</span>:ident) ; $(<span class="macro-nonterminal">$tail</span>:tt)<span class="kw-2">*</span>) =&gt; {
         <span class="macro-nonterminal">$</span><span class="macro">crate::block! </span>(
             @<span class="macro-nonterminal">seq
             </span>{
                 $(<span class="macro-nonterminal">$limbs</span>)*
-                <span class="macro-nonterminal">$</span><span class="macro">crate::op!</span>(<span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>, <span class="macro-nonterminal">$tgt3</span>, <span class="macro-nonterminal">$tgt4</span>) = unhash4(<span class="macro-nonterminal">$src</span>) )
+                <span class="macro-nonterminal">$</span><span class="macro">crate::op!</span>(<span class="kw">let </span>(<span class="macro-nonterminal">$tgt1</span>, <span class="macro-nonterminal">$tgt2</span>, <span class="macro-nonterminal">$tgt3</span>, <span class="macro-nonterminal">$tgt4</span>) = decons4(<span class="macro-nonterminal">$src</span>) )
             },
             $(<span class="macro-nonterminal">$tail</span>)*
         )
@@ -1345,20 +1345,20 @@
     </span><span class="kw">fn </span>test_macros() {
         <span class="kw">let </span>lemops = [
             Op::Null(mptr(<span class="string">&quot;foo&quot;</span>), Tag::Expr(Num)),
-            Op::Hash2(mptr(<span class="string">&quot;foo&quot;</span>), Tag::Expr(Char), [mptr(<span class="string">&quot;bar&quot;</span>), mptr(<span class="string">&quot;baz&quot;</span>)]),
-            Op::Hash3(
+            Op::Cons2(mptr(<span class="string">&quot;foo&quot;</span>), Tag::Expr(Char), [mptr(<span class="string">&quot;bar&quot;</span>), mptr(<span class="string">&quot;baz&quot;</span>)]),
+            Op::Cons3(
                 mptr(<span class="string">&quot;foo&quot;</span>),
                 Tag::Expr(Char),
                 [mptr(<span class="string">&quot;bar&quot;</span>), mptr(<span class="string">&quot;baz&quot;</span>), mptr(<span class="string">&quot;bazz&quot;</span>)],
             ),
-            Op::Hash4(
+            Op::Cons4(
                 mptr(<span class="string">&quot;foo&quot;</span>),
                 Tag::Expr(Char),
                 [mptr(<span class="string">&quot;bar&quot;</span>), mptr(<span class="string">&quot;baz&quot;</span>), mptr(<span class="string">&quot;bazz&quot;</span>), mptr(<span class="string">&quot;baxx&quot;</span>)],
             ),
-            Op::Unhash2([mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;goo&quot;</span>)], mptr(<span class="string">&quot;aaa&quot;</span>)),
-            Op::Unhash3([mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;goo&quot;</span>), mptr(<span class="string">&quot;moo&quot;</span>)], mptr(<span class="string">&quot;aaa&quot;</span>)),
-            Op::Unhash4(
+            Op::Decons2([mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;goo&quot;</span>)], mptr(<span class="string">&quot;aaa&quot;</span>)),
+            Op::Decons3([mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;goo&quot;</span>), mptr(<span class="string">&quot;moo&quot;</span>)], mptr(<span class="string">&quot;aaa&quot;</span>)),
+            Op::Decons4(
                 [mptr(<span class="string">&quot;foo&quot;</span>), mptr(<span class="string">&quot;goo&quot;</span>), mptr(<span class="string">&quot;moo&quot;</span>), mptr(<span class="string">&quot;noo&quot;</span>)],
                 mptr(<span class="string">&quot;aaa&quot;</span>),
             ),
@@ -1367,12 +1367,12 @@
         ];
         <span class="kw">let </span>lemops_macro = <span class="macro">vec!</span>[
             <span class="macro">op!</span>(<span class="kw">let </span>foo: Expr::Num),
-            <span class="macro">op!</span>(<span class="kw">let </span>foo: Expr::Char = hash2(bar, baz)),
-            <span class="macro">op!</span>(<span class="kw">let </span>foo: Expr::Char = hash3(bar, baz, bazz)),
-            <span class="macro">op!</span>(<span class="kw">let </span>foo: Expr::Char = hash4(bar, baz, bazz, baxx)),
-            <span class="macro">op!</span>(<span class="kw">let </span>(foo, goo) = unhash2(aaa)),
-            <span class="macro">op!</span>(<span class="kw">let </span>(foo, goo, moo) = unhash3(aaa)),
-            <span class="macro">op!</span>(<span class="kw">let </span>(foo, goo, moo, noo) = unhash4(aaa)),
+            <span class="macro">op!</span>(<span class="kw">let </span>foo: Expr::Char = cons2(bar, baz)),
+            <span class="macro">op!</span>(<span class="kw">let </span>foo: Expr::Char = cons3(bar, baz, bazz)),
+            <span class="macro">op!</span>(<span class="kw">let </span>foo: Expr::Char = cons4(bar, baz, bazz, baxx)),
+            <span class="macro">op!</span>(<span class="kw">let </span>(foo, goo) = decons2(aaa)),
+            <span class="macro">op!</span>(<span class="kw">let </span>(foo, goo, moo) = decons3(aaa)),
+            <span class="macro">op!</span>(<span class="kw">let </span>(foo, goo, moo, noo) = decons4(aaa)),
             <span class="macro">op!</span>(<span class="kw">let </span>bar = hide(baz, bazz)),
             <span class="macro">op!</span>(<span class="kw">let </span>(bar, baz) = open(bazz)),
         ];
@@ -1388,12 +1388,12 @@
         };
         <span class="kw">let </span>lem_macro_seq = <span class="macro">block!</span>({
             <span class="kw">let </span>foo: Expr::Num;
-            <span class="kw">let </span>foo: Expr::Char = hash2(bar, baz);
-            <span class="kw">let </span>foo: Expr::Char = hash3(bar, baz, bazz);
-            <span class="kw">let </span>foo: Expr::Char = hash4(bar, baz, bazz, baxx);
-            <span class="kw">let </span>(foo, goo) = unhash2(aaa);
-            <span class="kw">let </span>(foo, goo, moo) = unhash3(aaa);
-            <span class="kw">let </span>(foo, goo, moo, noo) = unhash4(aaa);
+            <span class="kw">let </span>foo: Expr::Char = cons2(bar, baz);
+            <span class="kw">let </span>foo: Expr::Char = cons3(bar, baz, bazz);
+            <span class="kw">let </span>foo: Expr::Char = cons4(bar, baz, bazz, baxx);
+            <span class="kw">let </span>(foo, goo) = decons2(aaa);
+            <span class="kw">let </span>(foo, goo, moo) = decons3(aaa);
+            <span class="kw">let </span>(foo, goo, moo, noo) = decons4(aaa);
             <span class="kw">let </span>bar = hide(baz, bazz);
             <span class="kw">let </span>(bar, baz) = open(bazz);
             <span class="kw">return </span>(bar, baz, bazz);

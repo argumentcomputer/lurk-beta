@@ -582,9 +582,9 @@
 /// `Func`, and the `None` values are used to fill the unused slots, which are
 /// later filled by dummy values.
 </span><span class="kw">pub struct </span>Preimages&lt;F: LurkField&gt; {
-    <span class="kw">pub </span>hash2: Vec&lt;<span class="prelude-ty">Option</span>&lt;PreimageData&lt;F&gt;&gt;&gt;,
-    <span class="kw">pub </span>hash3: Vec&lt;<span class="prelude-ty">Option</span>&lt;PreimageData&lt;F&gt;&gt;&gt;,
     <span class="kw">pub </span>hash4: Vec&lt;<span class="prelude-ty">Option</span>&lt;PreimageData&lt;F&gt;&gt;&gt;,
+    <span class="kw">pub </span>hash6: Vec&lt;<span class="prelude-ty">Option</span>&lt;PreimageData&lt;F&gt;&gt;&gt;,
+    <span class="kw">pub </span>hash8: Vec&lt;<span class="prelude-ty">Option</span>&lt;PreimageData&lt;F&gt;&gt;&gt;,
     <span class="kw">pub </span>commitment: Vec&lt;<span class="prelude-ty">Option</span>&lt;PreimageData&lt;F&gt;&gt;&gt;,
     <span class="kw">pub </span>less_than: Vec&lt;<span class="prelude-ty">Option</span>&lt;PreimageData&lt;F&gt;&gt;&gt;,
     <span class="kw">pub </span>call_outputs: VecDeque&lt;Vec&lt;Ptr&lt;F&gt;&gt;&gt;,
@@ -593,16 +593,16 @@
 <span class="kw">impl</span>&lt;F: LurkField&gt; Preimages&lt;F&gt; {
     <span class="kw">pub fn </span>new_from_func(func: <span class="kw-2">&amp;</span>Func) -&gt; Preimages&lt;F&gt; {
         <span class="kw">let </span>slot = func.slot;
-        <span class="kw">let </span>hash2 = Vec::with_capacity(slot.hash2);
-        <span class="kw">let </span>hash3 = Vec::with_capacity(slot.hash3);
         <span class="kw">let </span>hash4 = Vec::with_capacity(slot.hash4);
+        <span class="kw">let </span>hash6 = Vec::with_capacity(slot.hash6);
+        <span class="kw">let </span>hash8 = Vec::with_capacity(slot.hash8);
         <span class="kw">let </span>commitment = Vec::with_capacity(slot.commitment);
         <span class="kw">let </span>less_than = Vec::with_capacity(slot.less_than);
         <span class="kw">let </span>call_outputs = VecDeque::new();
         Preimages {
-            hash2,
-            hash3,
             hash4,
+            hash6,
+            hash8,
             commitment,
             less_than,
             call_outputs,
@@ -611,16 +611,16 @@
 
     <span class="kw">pub fn </span>blank(func: <span class="kw-2">&amp;</span>Func) -&gt; Preimages&lt;F&gt; {
         <span class="kw">let </span>slot = func.slot;
-        <span class="kw">let </span>hash2 = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.hash2];
-        <span class="kw">let </span>hash3 = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.hash3];
         <span class="kw">let </span>hash4 = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.hash4];
+        <span class="kw">let </span>hash6 = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.hash6];
+        <span class="kw">let </span>hash8 = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.hash8];
         <span class="kw">let </span>commitment = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.commitment];
         <span class="kw">let </span>less_than = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.less_than];
         <span class="kw">let </span>call_outputs = VecDeque::new();
         Preimages {
-            hash2,
-            hash3,
             hash4,
+            hash6,
+            hash8,
             commitment,
             less_than,
             call_outputs,
@@ -820,24 +820,24 @@
                     <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, a.fmt_to_string(store, initial_lurk_state()));
                     emitted.push(<span class="kw-2">*</span>a);
                 }
-                Op::Hash2(img, tag, preimg) =&gt; {
+                Op::Cons2(img, tag, preimg) =&gt; {
                     <span class="kw">let </span>preimg_ptrs = bindings.get_many_cloned(preimg)<span class="question-mark">?</span>;
                     <span class="kw">let </span>tgt_ptr = store.intern_2_ptrs(<span class="kw-2">*</span>tag, preimg_ptrs[<span class="number">0</span>], preimg_ptrs[<span class="number">1</span>]);
                     bindings.insert(img.clone(), tgt_ptr);
                     preimages
-                        .hash2
+                        .hash4
                         .push(<span class="prelude-val">Some</span>(PreimageData::PtrVec(preimg_ptrs)));
                 }
-                Op::Hash3(img, tag, preimg) =&gt; {
+                Op::Cons3(img, tag, preimg) =&gt; {
                     <span class="kw">let </span>preimg_ptrs = bindings.get_many_cloned(preimg)<span class="question-mark">?</span>;
                     <span class="kw">let </span>tgt_ptr =
                         store.intern_3_ptrs(<span class="kw-2">*</span>tag, preimg_ptrs[<span class="number">0</span>], preimg_ptrs[<span class="number">1</span>], preimg_ptrs[<span class="number">2</span>]);
                     bindings.insert(img.clone(), tgt_ptr);
                     preimages
-                        .hash3
+                        .hash6
                         .push(<span class="prelude-val">Some</span>(PreimageData::PtrVec(preimg_ptrs)));
                 }
-                Op::Hash4(img, tag, preimg) =&gt; {
+                Op::Cons4(img, tag, preimg) =&gt; {
                     <span class="kw">let </span>preimg_ptrs = bindings.get_many_cloned(preimg)<span class="question-mark">?</span>;
                     <span class="kw">let </span>tgt_ptr = store.intern_4_ptrs(
                         <span class="kw-2">*</span>tag,
@@ -848,10 +848,10 @@
                     );
                     bindings.insert(img.clone(), tgt_ptr);
                     preimages
-                        .hash4
+                        .hash8
                         .push(<span class="prelude-val">Some</span>(PreimageData::PtrVec(preimg_ptrs)));
                 }
-                Op::Unhash2(preimg, img) =&gt; {
+                Op::Decons2(preimg, img) =&gt; {
                     <span class="kw">let </span>img_ptr = bindings.get(img)<span class="question-mark">?</span>;
                     <span class="kw">let </span><span class="prelude-val">Some</span>(idx) = img_ptr.get_index2() <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;{img} isn&#39;t a Tree2 pointer&quot;</span>);
@@ -864,10 +864,10 @@
                         bindings.insert(var.clone(), <span class="kw-2">*</span>ptr);
                     }
                     preimages
-                        .hash2
+                        .hash4
                         .push(<span class="prelude-val">Some</span>(PreimageData::PtrVec(preimg_ptrs.to_vec())));
                 }
-                Op::Unhash3(preimg, img) =&gt; {
+                Op::Decons3(preimg, img) =&gt; {
                     <span class="kw">let </span>img_ptr = bindings.get(img)<span class="question-mark">?</span>;
                     <span class="kw">let </span><span class="prelude-val">Some</span>(idx) = img_ptr.get_index3() <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;{img} isn&#39;t a Tree3 pointer&quot;</span>);
@@ -880,10 +880,10 @@
                         bindings.insert(var.clone(), <span class="kw-2">*</span>ptr);
                     }
                     preimages
-                        .hash3
+                        .hash6
                         .push(<span class="prelude-val">Some</span>(PreimageData::PtrVec(preimg_ptrs.to_vec())));
                 }
-                Op::Unhash4(preimg, img) =&gt; {
+                Op::Decons4(preimg, img) =&gt; {
                     <span class="kw">let </span>img_ptr = bindings.get(img)<span class="question-mark">?</span>;
                     <span class="kw">let </span><span class="prelude-val">Some</span>(idx) = img_ptr.get_index4() <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;{img} isn&#39;t a Tree4 pointer&quot;</span>);
@@ -896,7 +896,7 @@
                         bindings.insert(var.clone(), <span class="kw-2">*</span>ptr);
                     }
                     preimages
-                        .hash4
+                        .hash8
                         .push(<span class="prelude-val">Some</span>(PreimageData::PtrVec(preimg_ptrs.to_vec())));
                 }
                 Op::Hide(tgt, sec, src) =&gt; {
@@ -1011,9 +1011,9 @@
 
         <span class="comment">// We must fill any unused slots with `None` values so we save
         // the initial size of preimages, which might not be zero
-        </span><span class="kw">let </span>hash2_init = preimages.hash2.len();
-        <span class="kw">let </span>hash3_init = preimages.hash3.len();
-        <span class="kw">let </span>hash4_init = preimages.hash4.len();
+        </span><span class="kw">let </span>hash4_init = preimages.hash4.len();
+        <span class="kw">let </span>hash6_init = preimages.hash6.len();
+        <span class="kw">let </span>hash8_init = preimages.hash8.len();
         <span class="kw">let </span>commitment_init = preimages.commitment.len();
         <span class="kw">let </span>less_than_init = preimages.less_than.len();
 
@@ -1022,20 +1022,20 @@
             .run(args, store, bindings, preimages, Path::default(), emitted)<span class="question-mark">?</span>;
         <span class="kw">let </span>preimages = <span class="kw-2">&amp;mut </span>res.<span class="number">0</span>.preimages;
 
-        <span class="kw">let </span>hash2_used = preimages.hash2.len() - hash2_init;
-        <span class="kw">let </span>hash3_used = preimages.hash3.len() - hash3_init;
         <span class="kw">let </span>hash4_used = preimages.hash4.len() - hash4_init;
+        <span class="kw">let </span>hash6_used = preimages.hash6.len() - hash6_init;
+        <span class="kw">let </span>hash8_used = preimages.hash8.len() - hash8_init;
         <span class="kw">let </span>commitment_used = preimages.commitment.len() - commitment_init;
         <span class="kw">let </span>less_than_used = preimages.less_than.len() - less_than_init;
 
-        <span class="kw">for _ in </span>hash2_used..<span class="self">self</span>.slot.hash2 {
-            preimages.hash2.push(<span class="prelude-val">None</span>);
-        }
-        <span class="kw">for _ in </span>hash3_used..<span class="self">self</span>.slot.hash3 {
-            preimages.hash3.push(<span class="prelude-val">None</span>);
-        }
         <span class="kw">for _ in </span>hash4_used..<span class="self">self</span>.slot.hash4 {
             preimages.hash4.push(<span class="prelude-val">None</span>);
+        }
+        <span class="kw">for _ in </span>hash6_used..<span class="self">self</span>.slot.hash6 {
+            preimages.hash6.push(<span class="prelude-val">None</span>);
+        }
+        <span class="kw">for _ in </span>hash8_used..<span class="self">self</span>.slot.hash8 {
+            preimages.hash8.push(<span class="prelude-val">None</span>);
         }
         <span class="kw">for _ in </span>commitment_used..<span class="self">self</span>.slot.commitment {
             preimages.commitment.push(<span class="prelude-val">None</span>);
