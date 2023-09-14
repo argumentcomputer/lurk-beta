@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Ptr","ZChildren"],"struct":["ZPtr"]};
+window.SIDEBAR_ITEMS = {"enum":["Ptr","ZChildren"],"type":["ZPtr"]};
