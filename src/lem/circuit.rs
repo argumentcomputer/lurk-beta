@@ -21,7 +21,7 @@
 //! on a concrete or a virtual path and use such booleans as the premises to build
 //! the constraints we care about with implication gadgets.
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use bellpepper_core::{
     ConstraintSystem, SynthesisError,
     {
@@ -311,6 +311,7 @@ impl Block {
             }
         }
         match &self.ctrl {
+            Ctrl::Cproc(..) | Ctrl::Return(..) => (),
             Ctrl::IfEq(.., a, b) => {
                 a.alloc_globals(cs, store, g)?;
                 b.alloc_globals(cs, store, g)?;
@@ -332,7 +333,6 @@ impl Block {
                     def.alloc_globals(cs, store, g)?;
                 }
             }
-            Ctrl::Return(..) => (),
         }
         Ok(())
     }
@@ -562,25 +562,6 @@ impl Func {
                 }
 
                 match op {
-                    Op::Cproc(out, sym, inp) => {
-                        let inp_ptrs = bound_allocations.get_many_cloned(inp)?;
-                        let cproc = g
-                            .lang
-                            .lookup_by_sym(sym)
-                            .ok_or_else(|| anyhow!("Coprocessor for {sym} not found"))?;
-                        let out_ptrs = cproc.synthesize_lem_internal(
-                            &mut cs.namespace(|| format!("Coprocessor {sym}")),
-                            g.global_allocator,
-                            g.store,
-                            &inp_ptrs,
-                        )?;
-                        if out.len() != out_ptrs.len() {
-                            bail!("Incompatible output length for coprocessor {sym}")
-                        }
-                        for (var, ptr) in out.iter().zip(out_ptrs) {
-                            bound_allocations.insert(var.clone(), ptr);
-                        }
-                    }
                     Op::Call(out, func, inp) => {
                         // Allocate the output pointers that the `func` will return to.
                         // These should be unconstrained as of yet, and will be constrained
@@ -1023,6 +1004,27 @@ impl Func {
             };
 
             match &block.ctrl {
+                Ctrl::Cproc(sym, inp) => {
+                    let inp_ptrs = bound_allocations.get_many_cloned(inp)?;
+                    let cproc = g
+                        .lang
+                        .lookup_by_sym(sym)
+                        .ok_or_else(|| anyhow!("Coprocessor for {sym} not found"))?;
+                    let out_ptrs = cproc.synthesize_lem_internal(
+                        &mut cs.namespace(|| format!("Coprocessor {sym}")),
+                        g.global_allocator,
+                        g.store,
+                        &inp_ptrs,
+                    )?;
+                    for (i, out_ptr) in out_ptrs.iter().enumerate() {
+                        out_ptr.implies_ptr_equal(
+                            &mut cs.namespace(|| format!("implies_ptr_equal (return_var {i})")),
+                            not_dummy,
+                            &preallocated_outputs[i],
+                        );
+                    }
+                    Ok(())
+                }
                 Ctrl::Return(return_vars) => {
                     for (i, return_var) in return_vars.iter().enumerate() {
                         let allocated_ptr = bound_allocations.get(return_var)?;
@@ -1254,7 +1256,7 @@ impl Func {
                         // three implies_u64, one sub and one linear
                         num_constraints += 197;
                     }
-                    Op::Emit(_) | Op::Cproc(..) => (),
+                    Op::Emit(_) => (),
                     Op::Cons2(_, tag, _) => {
                         // tag for the image
                         globals.insert(FWrap(tag.to_field()));
@@ -1290,6 +1292,7 @@ impl Func {
                 }
             }
             match &block.ctrl {
+                Ctrl::Cproc(..) => num_constraints,
                 Ctrl::Return(vars) => num_constraints + 2 * vars.len(),
                 Ctrl::IfEq(_, _, eq_block, else_block) => {
                     num_constraints

@@ -201,6 +201,7 @@ impl Block {
             acc.add(val)
         });
         let ctrl_slots = match &self.ctrl {
+            Ctrl::Cproc(..) | Ctrl::Return(..) => SlotsCounter::default(),
             Ctrl::MatchTag(_, cases, def) => {
                 let init = def
                     .as_ref()
@@ -221,7 +222,6 @@ impl Block {
                 let eq_slots = eq_block.count_slots();
                 eq_slots.max(else_block.count_slots())
             }
-            Ctrl::Return(..) => SlotsCounter::default(),
         };
         ops_slots.add(ctrl_slots)
     }

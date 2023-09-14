@@ -113,6 +113,7 @@ impl Block {
             }
         }
         num_paths *= match &self.ctrl {
+            Ctrl::Cproc(..) | Ctrl::Return(..) => 1,
             Ctrl::MatchTag(_, cases, def) => {
                 let init = def.as_ref().map_or(0, |def| def.num_paths());
                 cases
@@ -126,7 +127,6 @@ impl Block {
                     .fold(init, |acc, block| acc + block.num_paths())
             }
             Ctrl::IfEq(_, _, eq_block, else_block) => eq_block.num_paths() + else_block.num_paths(),
-            Ctrl::Return(..) => 1,
         };
         num_paths
     }

@@ -197,8 +197,7 @@ fn is_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
 ///                     ...
 ///                     let (x0, evaluated_args) = car_cdr(evaluated_args);
 ///                     if evaluated_args == nil {
-///                         Op::Cproc([expr, env, cont], x, [x0, x1, ..., x{n-1}, env, cont]);
-///                         return (expr, env, cont);
+///                         Ctrl::Cproc(x, [x0, x1, ..., x{n-1}, env, cont]);
 ///                     }
 ///                     return (cproc_name, env, err);
 ///                 }
@@ -219,11 +218,9 @@ fn call_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
     } else {
         let cproc_name = Var::new("cproc_name");
         let evaluated_args = Var::new("evaluated_args");
-        let expr = Var::new("expr");
         let env = Var::new("env");
         let cont = Var::new("cont");
         let nil = Var::new("nil");
-        let cproc_out = vec![expr, env.clone(), cont.clone()];
         let err_block = Block {
             ops: vec![],
             ctrl: ctrl!(return (cproc_name, env, err)),
@@ -238,12 +235,8 @@ fn call_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
             cproc_inp.push(env.clone());
             cproc_inp.push(cont.clone());
             let mut block = Block {
-                ops: vec![Op::Cproc(
-                    cproc_out.clone(),
-                    cproc.clone(),
-                    cproc_inp.clone(),
-                )],
-                ctrl: Ctrl::Return(cproc_out.clone()),
+                ops: vec![],
+                ctrl: Ctrl::Cproc(cproc.clone(), cproc_inp.clone()),
             };
             for (i, cproc_arg) in cproc_inp[0..arity].iter().enumerate() {
                 let ops = vec![Op::Call(
@@ -1316,7 +1309,7 @@ fn apply_cont() -> Func {
                         let evaluated_args: Expr::Cons = cons2(result, evaluated_args);
                         match unevaled_args.tag {
                             Expr::Nil => {
-                                // nothing else to evaluate. prepare the call to `Op::Cproc`
+                                // nothing else to evaluate. prepare the call to `Ctrl::Cproc`
                                 let expr: Expr::Cproc = cons2(cproc_name, evaluated_args);
                                 return (expr, env, cont, ret);
                             }

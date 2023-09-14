@@ -253,13 +253,13 @@ pub enum Ctrl {
     IfEq(Var, Var, Box<Block>, Box<Block>),
     /// `Return(rets)` sets the output to `rets`
     Return(Vec<Var>),
+    /// `Cproc(c, xs)` sets the output to the results of coprocessor `c` applied to `xs`
+    Cproc(Symbol, Vec<Var>),
 }
 
 /// The atomic operations of LEMs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Op {
-    /// `Cproc(ys, c, xs)` binds `ys` to the results of coprocessor `c` applied to `xs`
-    Cproc(Vec<Var>, Symbol, Vec<Var>),
     /// `Call(ys, f, xs)` binds `ys` to the results of `f` applied to `xs`
     Call(Vec<Var>, Box<Func>, Vec<Var>),
     /// `Null(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
@@ -355,10 +355,6 @@ impl Func {
         fn recurse(block: &Block, return_size: usize, map: &mut HashMap<Var, bool>) -> Result<()> {
             for op in &block.ops {
                 match op {
-                    Op::Cproc(out, _, inp) => {
-                        inp.iter().try_for_each(|arg| is_bound(arg, map))?;
-                        out.iter().for_each(|var| is_unique(var, map));
-                    }
                     Op::Call(out, func, inp) => {
                         if out.len() != func.output_size {
                             bail!(
@@ -452,6 +448,13 @@ impl Func {
                 }
             }
             match &block.ctrl {
+                Ctrl::Cproc(_, inp) => {
+                    inp.iter().try_for_each(|arg| is_bound(arg, map))?;
+                    if return_size != 3 {
+                        // TODO generalize coprocessors to have arbitrary return sizes
+                        bail!("Return size {} not 3", return_size)
+                    }
+                }
                 Ctrl::Return(return_vars) => {
                     return_vars.iter().try_for_each(|arg| is_bound(arg, map))?;
                     if return_vars.len() != return_size {
@@ -597,11 +600,6 @@ impl Block {
         let mut ops = Vec::with_capacity(self.ops.len());
         for op in self.ops {
             match op {
-                Op::Cproc(out, sym, inp) => {
-                    let inp = map.get_many_cloned(&inp)?;
-                    let out = insert_many(map, uniq, &out);
-                    ops.push(Op::Cproc(out, sym, inp))
-                }
                 Op::Call(out, func, inp) => {
                     let inp = map.get_many_cloned(&inp)?;
                     let out = insert_many(map, uniq, &out);
@@ -717,6 +715,7 @@ impl Block {
             }
         }
         let ctrl = match self.ctrl {
+            Ctrl::Cproc(sym, inp) => Ctrl::Cproc(sym, map.get_many_cloned(&inp)?),
             Ctrl::MatchTag(var, cases, def) => {
                 let var = map.get_cloned(&var)?;
                 let mut new_cases = Vec::with_capacity(cases.len());
@@ -766,6 +765,10 @@ impl Block {
             }
         }
         match &self.ctrl {
+            Ctrl::Cproc(sym, _) => {
+                store.intern_symbol(sym);
+            }
+            Ctrl::Return(..) => (),
             Ctrl::IfEq(.., a, b) => {
                 a.intern_lits(store);
                 b.intern_lits(store);
@@ -785,7 +788,6 @@ impl Block {
                     def.intern_lits(store);
                 }
             }
-            Ctrl::Return(..) => (),
         }
     }
 }

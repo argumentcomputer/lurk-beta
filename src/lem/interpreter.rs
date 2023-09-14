@@ -114,19 +114,6 @@ impl Block {
     ) -> Result<(Frame<F>, Path)> {
         for op in &self.ops {
             match op {
-                Op::Cproc(out, sym, inp) => {
-                    let inp_ptrs = bindings.get_many_cloned(inp)?;
-                    let cproc = lang
-                        .lookup_by_sym(sym)
-                        .ok_or_else(|| anyhow!("Coprocessor for {sym} not found"))?;
-                    let out_ptrs = cproc.evaluate_lem_internal(store, &inp_ptrs);
-                    if out.len() != out_ptrs.len() {
-                        bail!("Incompatible output length for coprocessor {sym}")
-                    }
-                    for (var, ptr) in out.iter().zip(out_ptrs) {
-                        bindings.insert(var.clone(), ptr);
-                    }
-                }
                 Op::Call(out, func, inp) => {
                     // Get the argument values
                     let inp_ptrs = bindings.get_many_cloned(inp)?;
@@ -382,6 +369,39 @@ impl Block {
             }
         }
         match &self.ctrl {
+            Ctrl::Cproc(sym, inp) => {
+                let inp_ptrs = bindings.get_many_cloned(inp)?;
+                let cproc = lang
+                    .lookup_by_sym(sym)
+                    .ok_or_else(|| anyhow!("Coprocessor for {sym} not found"))?;
+                let output = cproc.evaluate_lem_internal(store, &inp_ptrs);
+                let input = input.to_vec();
+                Ok((
+                    Frame {
+                        input,
+                        output,
+                        preimages,
+                        blank: false,
+                    },
+                    path,
+                ))
+            }
+            Ctrl::Return(output_vars) => {
+                let mut output = Vec::with_capacity(output_vars.len());
+                for var in output_vars.iter() {
+                    output.push(*bindings.get(var)?)
+                }
+                let input = input.to_vec();
+                Ok((
+                    Frame {
+                        input,
+                        output,
+                        preimages,
+                        blank: false,
+                    },
+                    path,
+                ))
+            }
             Ctrl::MatchTag(match_var, cases, def) => {
                 let ptr = bindings.get(match_var)?;
                 let tag = ptr.tag();
@@ -425,22 +445,6 @@ impl Block {
                 } else {
                     else_block.run(input, store, bindings, preimages, path, emitted, lang)
                 }
-            }
-            Ctrl::Return(output_vars) => {
-                let mut output = Vec::with_capacity(output_vars.len());
-                for var in output_vars.iter() {
-                    output.push(*bindings.get(var)?)
-                }
-                let input = input.to_vec();
-                Ok((
-                    Frame {
-                        input,
-                        output,
-                        preimages,
-                        blank: false,
-                    },
-                    path,
-                ))
             }
         }
     }
