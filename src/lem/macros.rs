@@ -35,9 +35,6 @@ macro_rules! tag {
     ( Cont::$tag:ident ) => {
         $crate::lem::Tag::Cont($crate::tag::ContTag::$tag)
     };
-    ( Ctrl::$tag:ident ) => {
-        $crate::lem::Tag::Ctrl($crate::lem::CtrlTag::$tag)
-    };
 }
 
 #[macro_export]

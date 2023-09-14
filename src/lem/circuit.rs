@@ -102,8 +102,8 @@ fn allocate_ptr<F: LurkField, CS: ConstraintSystem<F>>(
     var: &Var,
     bound_allocations: &mut BoundAllocations<F>,
 ) -> Result<AllocatedPtr<F>> {
-    let allocated_tag = allocate_num(cs, &format!("allocate {var}'s tag"), z_ptr.tag.to_field())?;
-    let allocated_hash = allocate_num(cs, &format!("allocate {var}'s hash"), z_ptr.hash)?;
+    let allocated_tag = allocate_num(cs, &format!("allocate {var}'s tag"), z_ptr.tag_field())?;
+    let allocated_hash = allocate_num(cs, &format!("allocate {var}'s hash"), *z_ptr.value())?;
     let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
     bound_allocations.insert(var.clone(), allocated_ptr.clone());
     Ok(allocated_ptr)
@@ -253,7 +253,7 @@ fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
                             cs,
                             &slot,
                             component_idx,
-                            z_ptr.tag.to_field(),
+                            z_ptr.tag_field(),
                         )?);
 
                         component_idx += 1;
@@ -263,7 +263,7 @@ fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
                             cs,
                             &slot,
                             component_idx,
-                            z_ptr.hash,
+                            *z_ptr.value(),
                         )?);
 
                         component_idx += 1;
@@ -278,11 +278,14 @@ fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
                         cs,
                         &slot,
                         1,
-                        z_ptr.tag.to_field(),
+                        z_ptr.tag_field(),
                     )?);
                     // allocate third component
                     preallocated_preimg.push(allocate_preimg_component_for_slot(
-                        cs, &slot, 2, z_ptr.hash,
+                        cs,
+                        &slot,
+                        2,
+                        *z_ptr.value(),
                     )?);
                 }
                 PreimageData::FPair(a, b) => {
@@ -340,8 +343,8 @@ impl Block {
                 Op::Lit(_, lit) => {
                     let lit_ptr = lit.to_ptr_cached(store);
                     let lit_z_ptr = store.hash_ptr(&lit_ptr).unwrap();
-                    g.alloc_const(cs, lit_z_ptr.tag.to_field());
-                    g.alloc_const(cs, lit_z_ptr.hash);
+                    g.alloc_const(cs, lit_z_ptr.tag_field());
+                    g.alloc_const(cs, *lit_z_ptr.value());
                 }
                 Op::Null(_, tag) => {
                     g.alloc_const(cs, tag.to_field());
@@ -674,11 +677,11 @@ impl Func {
                     Op::Lit(tgt, lit) => {
                         let lit_ptr = lit.to_ptr_cached(g.store);
                         let lit_tag = lit_ptr.tag().to_field();
-                        let lit_hash = g.store.hash_ptr(&lit_ptr)?.hash;
                         let allocated_tag =
                             g.global_allocator.get_allocated_const_cloned(lit_tag)?;
-                        let allocated_hash =
-                            g.global_allocator.get_allocated_const_cloned(lit_hash)?;
+                        let allocated_hash = g
+                            .global_allocator
+                            .get_allocated_const_cloned(*g.store.hash_ptr(&lit_ptr)?.value())?;
                         let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
@@ -1149,7 +1152,7 @@ impl Func {
                             .store
                             .interned_symbol(sym)
                             .expect("symbol must have been interned");
-                        let sym_hash = g.store.hash_ptr(sym_ptr)?.hash;
+                        let sym_hash = *g.store.hash_ptr(sym_ptr)?.value();
                         cases_vec.push((sym_hash, block));
                     }
 
@@ -1241,8 +1244,8 @@ impl Func {
                     Op::Lit(_, lit) => {
                         let lit_ptr = lit.to_ptr_cached(store);
                         let lit_z_ptr = store.hash_ptr(&lit_ptr).unwrap();
-                        globals.insert(FWrap(lit_z_ptr.tag.to_field()));
-                        globals.insert(FWrap(lit_z_ptr.hash));
+                        globals.insert(FWrap(lit_z_ptr.tag_field()));
+                        globals.insert(FWrap(*lit_z_ptr.value()));
                     }
                     Op::Cast(_, tag, _) => {
                         globals.insert(FWrap(tag.to_field()));

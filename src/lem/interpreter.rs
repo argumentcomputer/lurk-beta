@@ -156,9 +156,7 @@ impl Block {
                     let b = bindings.get(b)?;
                     // In order to compare Ptrs, we *must* resolve the hashes. Otherwise, we risk failing to recognize equality of
                     // compound data with opaque data in either element's transitive closure.
-                    let a_hash = store.hash_ptr(a)?.hash;
-                    let b_hash = store.hash_ptr(b)?.hash;
-                    let c = if a_hash == b_hash {
+                    let c = if store.hash_ptr(a)?.value() == store.hash_ptr(b)?.value() {
                         Ptr::Atom(Tag::Expr(Num), F::ONE)
                     } else {
                         Ptr::Atom(Tag::Expr(Num), F::ZERO)
