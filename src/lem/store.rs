@@ -13,7 +13,7 @@ use crate::{
     state::{lurk_sym, State},
     symbol::Symbol,
     syntax::Syntax,
-    tag::ExprTag::{Char, Comm, Cons, Fun, Key, Nil, Num, Str, Sym, Thunk, U64},
+    tag::ExprTag::{Char, Comm, Cons, Cproc, Fun, Key, Nil, Num, Str, Sym, Thunk, U64},
     uint::UInt,
 };
 
@@ -766,6 +766,7 @@ impl<F: LurkField> Ptr<F> {
                     }
                     None => "<Malformed Comm>".into(),
                 },
+                Cproc => "<COPROCESSOR (TODO)>".into(),
             },
             Tag::Cont(_) => "<CONTINUATION (TODO)>".into(),
             _ => unreachable!(),

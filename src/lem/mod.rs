@@ -75,8 +75,6 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
-    coprocessor::Coprocessor,
-    eval::lang::Lang,
     field::LurkField,
     symbol::Symbol,
     tag::{ContTag, ExprTag, Op1, Op2, Tag as TagTrait},
@@ -95,12 +93,6 @@ pub struct Func {
     pub output_size: usize,
     pub body: Block,
     pub slot: SlotsCounter,
-}
-
-impl<F: LurkField, C: Coprocessor<F>> From<&Lang<F, C>> for Func {
-    fn from(_lang: &Lang<F, C>) -> Self {
-        eval::eval_step().clone()
-    }
 }
 
 /// LEM variables
@@ -266,6 +258,8 @@ pub enum Ctrl {
 /// The atomic operations of LEMs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Op {
+    /// `Cproc(ys, c, xs)` binds `ys` to the results of coprocessor `c` applied to `xs`
+    Cproc(Vec<Var>, Symbol, Vec<Var>),
     /// `Call(ys, f, xs)` binds `ys` to the results of `f` applied to `xs`
     Call(Vec<Var>, Box<Func>, Vec<Var>),
     /// `Null(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
@@ -361,6 +355,10 @@ impl Func {
         fn recurse(block: &Block, return_size: usize, map: &mut HashMap<Var, bool>) -> Result<()> {
             for op in &block.ops {
                 match op {
+                    Op::Cproc(out, _, inp) => {
+                        inp.iter().try_for_each(|arg| is_bound(arg, map))?;
+                        out.iter().for_each(|var| is_unique(var, map));
+                    }
                     Op::Call(out, func, inp) => {
                         if out.len() != func.output_size {
                             bail!(
@@ -570,9 +568,14 @@ impl Func {
         )
     }
 
+    #[inline]
+    pub fn intern_lits<F: LurkField>(&self, store: &mut Store<F>) {
+        self.body.intern_lits(store)
+    }
+
     pub fn init_store<F: LurkField>(&self) -> Store<F> {
         let mut store = Store::default();
-        self.body.intern_lits(&mut store);
+        self.intern_lits(&mut store);
         store
     }
 }
@@ -594,6 +597,11 @@ impl Block {
         let mut ops = Vec::with_capacity(self.ops.len());
         for op in self.ops {
             match op {
+                Op::Cproc(out, sym, inp) => {
+                    let inp = map.get_many_cloned(&inp)?;
+                    let out = insert_many(map, uniq, &out);
+                    ops.push(Op::Cproc(out, sym, inp))
+                }
                 Op::Call(out, func, inp) => {
                     let inp = map.get_many_cloned(&inp)?;
                     let out = insert_many(map, uniq, &out);
@@ -783,6 +791,11 @@ impl Block {
 }
 
 impl Var {
+    #[inline]
+    pub fn new(name: &str) -> Self {
+        Self(name.into())
+    }
+
     fn make_unique(&self, uniq: &mut usize) -> Var {
         *uniq += 1;
         Var(format!("{}#{}", self.name(), uniq).into())
@@ -793,6 +806,7 @@ impl Var {
 mod tests {
     use super::slot::SlotsCounter;
     use super::*;
+    use crate::eval::lang::{DummyCoprocessor, Lang};
     use crate::{func, lem::pointers::Ptr};
     use bellpepper::util_cs::Comparable;
     use bellpepper_core::test_cs::TestConstraintSystem;
@@ -820,18 +834,21 @@ mod tests {
 
         let log_fmt = |_: usize, _: &[Ptr<Fr>], _: &[Ptr<Fr>], _: &Store<Fr>| String::default();
 
+        let lang: Lang<Fr, DummyCoprocessor<Fr>> = Lang::new();
+
         let mut cs_prev = None;
         for input in inputs {
             let input = [input, nil, outermost];
             let (frames, ..) = func
-                .call_until(&input, store, stop_cond, 10, log_fmt)
+                .call_until(&input, store, stop_cond, 10, log_fmt, &lang)
                 .unwrap();
 
             let mut cs;
 
             for frame in frames {
                 cs = TestConstraintSystem::<Fr>::new();
-                func.synthesize_frame_aux(&mut cs, store, &frame).unwrap();
+                func.synthesize_frame_aux(&mut cs, store, &frame, &lang)
+                    .unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(computed_num_constraints, cs.num_constraints());
                 if let Some(cs_prev) = cs_prev {

@@ -90,6 +90,8 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                     Control::ApplyContinuation(expr, env, cont)
                 }
 
+                ExprTag::Cproc => unreachable!(),
+
                 ExprTag::Thunk => match store
                     .fetch(&expr)
                     .ok_or_else(|| store::Error("Fetch failed".into()))?
@@ -710,6 +712,7 @@ fn apply_continuation<F: LurkField>(
     let cont_witness = &mut witness.conts;
 
     let control = match cont.tag {
+        ContTag::Cproc => unreachable!(),
         ContTag::Terminal | ContTag::Error => Control::Return(result, env, cont),
         ContTag::Dummy => unreachable!("Dummy Continuation should never be applied."),
         ContTag::Outermost => Control::Return(result, env, store.intern_cont_terminal()),
