@@ -592,7 +592,7 @@ impl ClutchState<F, Coproc<F>> {
             .ok_or_else(|| anyhow!("proof not found: {zptr_string}"))?;
 
         let pp = public_params(self.reduction_count, true, self.lang(), &public_param_dir())?;
-        let result = proof.verify(&pp, &self.lang()).unwrap();
+        let result = proof.verify(&pp, &self.lang())?;
 
         if result.verified {
             Ok(Some(lurk_sym_ptr!(store, t)))
