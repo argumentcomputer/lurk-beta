@@ -79,7 +79,7 @@ use crate::{
     eval::lang::Lang,
     field::LurkField,
     symbol::Symbol,
-    tag::{ContTag, ExprTag, Tag as TagTrait},
+    tag::{ContTag, ExprTag, Op1, Op2, Tag as TagTrait},
 };
 
 use self::{pointers::Ptr, slot::SlotsCounter, store::Store, var_map::VarMap};
@@ -112,6 +112,8 @@ pub struct Var(AString);
 pub enum Tag {
     Expr(ExprTag),
     Cont(ContTag),
+    Op1(Op1),
+    Op2(Op2),
 }
 
 impl From<u16> for Tag {
@@ -131,6 +133,8 @@ impl From<Tag> for u16 {
         match val {
             Tag::Expr(tag) => tag.into(),
             Tag::Cont(tag) => tag.into(),
+            Tag::Op1(tag) => tag.into(),
+            Tag::Op2(tag) => tag.into(),
         }
     }
 }
@@ -151,6 +155,8 @@ impl Tag {
         match self {
             Tag::Expr(tag) => tag.to_field(),
             Tag::Cont(tag) => tag.to_field(),
+            Tag::Op1(tag) => tag.to_field(),
+            Tag::Op2(tag) => tag.to_field(),
         }
     }
 }
@@ -161,6 +167,8 @@ impl std::fmt::Display for Tag {
         match self {
             Expr(tag) => write!(f, "expr.{}", tag),
             Cont(tag) => write!(f, "cont.{}", tag),
+            Op1(tag) => write!(f, "op1.{}", tag),
+            Op2(tag) => write!(f, "op2.{}", tag),
         }
     }
 }
@@ -463,6 +471,8 @@ impl Func {
                         let tag_kind = match tag {
                             Tag::Expr(..) => 0,
                             Tag::Cont(..) => 1,
+                            Tag::Op1(..) => 2,
+                            Tag::Op2(..) => 3,
                         };
                         if let Some(kind) = kind {
                             if kind != tag_kind {
