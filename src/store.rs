@@ -798,7 +798,10 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn fetch_cont(&self, ptr: &ContPtr<F>) -> Option<Continuation<F>> {
-        use ContTag::*;
+        use ContTag::{
+            Binop, Binop2, Call, Call0, Call2, Dummy, Emit, Error, If, Let, LetRec, Lookup,
+            Outermost, Tail, Terminal, Unop,
+        };
         match ptr.tag {
             Outermost => Some(Continuation::Outermost),
             Call0 => self
@@ -1414,7 +1417,9 @@ impl<F: LurkField> Store<F> {
         if let Some(ptr) = self.fetch_z_expr_ptr(z_ptr) {
             Some(ptr)
         } else {
-            use ZExpr::*;
+            use ZExpr::{
+                Char, Comm, Cons, EmptyStr, Fun, Key, Nil, Num, RootSym, Str, Sym, Thunk, UInt,
+            };
             match (z_ptr.tag(), z_store.get_expr(z_ptr)) {
                 (ExprTag::Nil, Some(Nil)) => {
                     let ptr = lurk_sym_ptr!(self, nil);
@@ -1526,7 +1531,10 @@ impl<F: LurkField> Store<F> {
         z_ptr: &ZContPtr<F>,
         z_store: &ZStore<F>,
     ) -> Option<ContPtr<F>> {
-        use ZCont::*;
+        use ZCont::{
+            Binop, Binop2, Call, Call0, Call2, Dummy, Emit, Error, If, Let, LetRec, Lookup,
+            Outermost, Tail, Terminal, Unop,
+        };
         let tag: ContTag = z_ptr.tag();
 
         if let Some(cont) = z_store.get_cont(z_ptr) {
@@ -1892,7 +1900,10 @@ pub mod test {
 
     #[test]
     fn cont_tag_vals() {
-        use super::ContTag::*;
+        use super::ContTag::{
+            Binop, Binop2, Call, Call0, Call2, Dummy, Emit, Error, If, Let, LetRec, Lookup,
+            Outermost, Tail, Terminal, Unop,
+        };
 
         assert_eq!(0b0001_0000_0000_0000, Outermost as u16);
         assert_eq!(0b0001_0000_0000_0001, Call0 as u16);

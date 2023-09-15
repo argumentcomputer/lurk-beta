@@ -62,7 +62,9 @@ fn write_symbol<W: io::Write>(w: &mut W, sym: Symbol, state: &State) -> io::Resu
 
 impl<F: LurkField> Write<F> for Expression<F> {
     fn fmt<W: io::Write>(&self, store: &Store<F>, state: &State, w: &mut W) -> io::Result<()> {
-        use Expression::*;
+        use Expression::{
+            Char, Comm, Cons, EmptyStr, Fun, Key, Nil, Num, RootKey, RootSym, Str, Sym, Thunk, UInt,
+        };
 
         match self {
             Nil => write!(w, "nil"),

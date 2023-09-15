@@ -1,7 +1,12 @@
 use anyhow::Result;
 use once_cell::sync::OnceCell;
 
-use crate::{field::LurkField, func, state::initial_lurk_state, tag::ContTag::*};
+use crate::{
+    field::LurkField,
+    func,
+    state::initial_lurk_state,
+    tag::ContTag::{Error, Outermost, Terminal},
+};
 
 use super::{interpreter::Frame, pointers::Ptr, store::Store, Func, Tag};
 

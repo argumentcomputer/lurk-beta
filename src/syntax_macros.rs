@@ -1,10 +1,10 @@
 #[macro_export]
 macro_rules! num {
     ($f:ty, $i:literal) => {
-        $crate::syntax::Syntax::<$f>::Num(Pos::No, ($i as u64).into())
+        $crate::syntax::Syntax::<$f>::Num(Pos::No, ($i).into())
     };
     ($i:literal) => {
-        $crate::syntax::Syntax::Num(Pos::No, ($i as u64).into())
+        $crate::syntax::Syntax::Num(Pos::No, ($i).into())
     };
     ($i:expr) => {
         $crate::syntax::Syntax::Num(Pos::No, $i)
@@ -14,10 +14,10 @@ macro_rules! num {
 #[macro_export]
 macro_rules! uint {
     ($f:ty, $i:literal) => {
-        $crate::syntax::Syntax::<$f>::UInt(Pos::No, $crate::uint::UInt::U64($i as u64))
+        $crate::syntax::Syntax::<$f>::UInt(Pos::No, $crate::uint::UInt::U64($i))
     };
     ($i:literal) => {
-        $crate::syntax::Syntax::UInt(Pos::No, $crate::uint::UInt::U64($i as u64))
+        $crate::syntax::Syntax::UInt(Pos::No, $crate::uint::UInt::U64($i))
     };
 }
 

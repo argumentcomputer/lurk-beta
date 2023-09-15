@@ -9,7 +9,7 @@ use super::{
     store::Store,
 };
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ZStore<F: LurkField> {
     dag: BTreeMap<ZPtr<F>, ZChildren<F>>,
     comms: BTreeMap<FWrap<F>, (F, ZPtr<F>)>,

@@ -85,10 +85,8 @@ impl Path {
 
     /// Computes the number of different paths taken given a list of paths
     pub fn num_paths_taken(paths: &[Self]) -> usize {
-        let mut all_paths: HashSet<Self> = HashSet::default();
-        paths.iter().for_each(|path| {
-            all_paths.insert(path.clone());
-        });
+        let mut all_paths: HashSet<&Self> = HashSet::default();
+        all_paths.extend(paths);
         all_paths.len()
     }
 }

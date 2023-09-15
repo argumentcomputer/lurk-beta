@@ -43,7 +43,7 @@ use crate::circuit::gadgets::{
 
 use crate::{
     field::{FWrap, LurkField},
-    tag::ExprTag::*,
+    tag::ExprTag::{Comm, Nil, Num, Sym},
 };
 
 use super::{

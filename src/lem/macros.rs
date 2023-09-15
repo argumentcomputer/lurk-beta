@@ -572,7 +572,7 @@ mod tests {
     use crate::{
         lem::{Block, Ctrl, Op, Tag, Var},
         state::lurk_sym,
-        tag::ExprTag::*,
+        tag::ExprTag::{Char, Num, Str},
         Symbol,
     };
 
