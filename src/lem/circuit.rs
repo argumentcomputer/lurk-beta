@@ -347,8 +347,17 @@ impl Block {
                     g.alloc_const(cs, *lit_z_ptr.value());
                 }
                 Op::Null(_, tag) => {
+                    use crate::tag::ContTag::{Dummy, Error, Outermost, Terminal};
                     g.alloc_const(cs, tag.to_field());
-                    g.alloc_const(cs, F::ZERO);
+                    match tag {
+                        Tag::Cont(Outermost | Error | Dummy | Terminal) => {
+                            // temporary shim for compatibility with Lurk Alpha
+                            g.alloc_const(cs, store.poseidon_cache.hash8(&[F::ZERO; 8]));
+                        }
+                        _ => {
+                            g.alloc_const(cs, F::ZERO);
+                        }
+                    }
                 }
                 Op::EqTag(..)
                 | Op::EqVal(..)
@@ -667,11 +676,20 @@ impl Func {
                         decons_helper!(preimg, img, SlotType::Hash8);
                     }
                     Op::Null(tgt, tag) => {
-                        let tag = g
+                        use crate::tag::ContTag::{Dummy, Error, Outermost, Terminal};
+                        let tag_num = g
                             .global_allocator
                             .get_allocated_const_cloned(tag.to_field())?;
-                        let zero = g.global_allocator.get_allocated_const_cloned(F::ZERO)?;
-                        let allocated_ptr = AllocatedPtr::from_parts(tag, zero);
+                        let value = match tag {
+                            Tag::Cont(Outermost | Error | Dummy | Terminal) => {
+                                // temporary shim for compatibility with Lurk Alpha
+                                g.global_allocator.get_allocated_const_cloned(
+                                    g.store.poseidon_cache.hash8(&[F::ZERO; 8]),
+                                )?
+                            }
+                            _ => g.global_allocator.get_allocated_const_cloned(F::ZERO)?,
+                        };
+                        let allocated_ptr = AllocatedPtr::from_parts(tag_num, value);
                         bound_allocations.insert(tgt.clone(), allocated_ptr);
                     }
                     Op::Lit(tgt, lit) => {
@@ -1237,9 +1255,18 @@ impl Func {
                         num_constraints += recurse(&func.body, globals, store);
                     }
                     Op::Null(_, tag) => {
+                        use crate::tag::ContTag::{Dummy, Error, Outermost, Terminal};
                         // constrain tag and hash
                         globals.insert(FWrap(tag.to_field()));
-                        globals.insert(FWrap(F::ZERO));
+                        match tag {
+                            Tag::Cont(Outermost | Error | Dummy | Terminal) => {
+                                // temporary shim for compatibility with Lurk Alpha
+                                globals.insert(FWrap(store.poseidon_cache.hash8(&[F::ZERO; 8])));
+                            }
+                            _ => {
+                                globals.insert(FWrap(F::ZERO));
+                            }
+                        }
                     }
                     Op::Lit(_, lit) => {
                         let lit_ptr = lit.to_ptr_cached(store);

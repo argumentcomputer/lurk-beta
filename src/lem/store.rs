@@ -461,8 +461,18 @@ impl<F: LurkField> Store<F> {
     /// Warning: without cache hits, this function might blow up Rust's recursion
     /// depth limit. This limitation is circumvented by calling `hydrate_z_cache`.
     pub fn hash_ptr(&self, ptr: &Ptr<F>) -> Result<ZPtr<F>> {
+        use crate::tag::ContTag::{Dummy, Error, Outermost, Terminal};
         match ptr {
-            Ptr::Atom(tag, x) => Ok(ZPtr::from_parts(*tag, *x)),
+            Ptr::Atom(tag, x) => match tag {
+                Tag::Cont(Outermost | Error | Dummy | Terminal) => {
+                    // temporary shim for compatibility with Lurk Alpha
+                    Ok(ZPtr::from_parts(
+                        *tag,
+                        self.poseidon_cache.hash8(&[F::ZERO; 8]),
+                    ))
+                }
+                _ => Ok(ZPtr::from_parts(*tag, *x)),
+            },
             Ptr::Tuple2(tag, idx) => match self.z_cache.get(ptr) {
                 Some(z_ptr) => Ok(*z_ptr),
                 None => {
@@ -755,6 +765,7 @@ impl<F: LurkField> Ptr<F> {
                 },
             },
             Tag::Cont(_) => "<CONTINUATION (TODO)>".into(),
+            _ => unreachable!(),
         }
     }
 }

@@ -83,19 +83,11 @@ fn car_cdr() -> Func {
     func!(car_cdr(xs): 2 => {
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
-        let empty_str = String("");
         match xs.tag {
             Expr::Nil => {
                 return (nil, nil)
             }
             Expr::Cons => {
-                let (car, cdr) = decons2(xs);
-                return (car, cdr)
-            }
-            Expr::Str => {
-                if xs == empty_str {
-                    return (nil, empty_str)
-                }
                 let (car, cdr) = decons2(xs);
                 return (car, cdr)
             }
@@ -151,41 +143,133 @@ fn reduce() -> Func {
             }
         }
     });
-    let is_unop = func!(is_unop(head): 1 => {
+    let get_unop = func!(get_unop(head): 1 => {
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
-        let t = Symbol("t");
         match symbol head {
-            "car", "cdr", "commit", "num", "u64", "comm", "char", "open", "secret", "atom", "emit" => {
-                return (t)
+            "car" => {
+                let op: Op1::Car;
+                return (op);
+            }
+            "cdr" => {
+                let op: Op1::Cdr;
+                return (op);
+            }
+            "commit" => {
+                let op: Op1::Commit;
+                return (op);
+            }
+            "num" => {
+                let op: Op1::Num;
+                return (op);
+            }
+            "u64" => {
+                let op: Op1::U64;
+                return (op);
+            }
+            "comm" => {
+                let op: Op1::Comm;
+                return (op);
+            }
+            "char" => {
+                let op: Op1::Char;
+                return (op);
+            }
+            "open" => {
+                let op: Op1::Open;
+                return (op);
+            }
+            "secret" => {
+                let op: Op1::Secret;
+                return (op);
+            }
+            "atom" => {
+                let op: Op1::Atom;
+                return (op);
+            }
+            "emit" => {
+                let op: Op1::Emit;
+                return (op);
             }
         };
         return (nil)
     });
-
-    let is_binop = func!(is_binop(head): 1 => {
+    let get_binop = func!(get_binop(head): 1 => {
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
-        let t = Symbol("t");
         match symbol head {
-            "cons", "strcons", "hide", "+", "-", "*", "/", "%", "=", "eq", "<", ">", "<=", ">=" => {
-                return (t)
+            "cons" => {
+                let op: Op2::Cons;
+                return (op);
+            }
+            "strcons" => {
+                let op: Op2::StrCons;
+                return (op);
+            }
+            "hide" => {
+                let op: Op2::Hide;
+                return (op);
+            }
+            "+" => {
+                let op: Op2::Sum;
+                return (op);
+            }
+            "-" => {
+                let op: Op2::Diff;
+                return (op);
+            }
+            "*" => {
+                let op: Op2::Product;
+                return (op);
+            }
+            "/" => {
+                let op: Op2::Quotient;
+                return (op);
+            }
+            "%" => {
+                let op: Op2::Modulo;
+                return (op);
+            }
+            "=" => {
+                let op: Op2::NumEqual;
+                return (op);
+            }
+            "eq" => {
+                let op: Op2::Equal;
+                return (op);
+            }
+            "<" => {
+                let op: Op2::Less;
+                return (op);
+            }
+            ">" => {
+                let op: Op2::Greater;
+                return (op);
+            }
+            "<=" => {
+                let op: Op2::LessEqual;
+                return (op);
+            }
+            ">=" => {
+                let op: Op2::GreaterEqual;
+                return (op);
             }
         };
         return (nil)
     });
     let make_call = func!(make_call(head, rest, env, cont): 4 => {
         let ret = Symbol("return");
+        let foo: Expr::Nil;
         match rest.tag {
             Expr::Nil => {
-                let cont: Cont::Call0 = cons2(env, cont);
+                let cont: Cont::Call0 = cons4(env, cont, foo, foo);
                 return (head, env, cont, ret)
             }
             Expr::Cons => {
                 let (arg, more_args) = decons2(rest);
                 match more_args.tag {
                     Expr::Nil => {
-                        let cont: Cont::Call = cons3(arg, env, cont);
+                        let cont: Cont::Call = cons4(arg, env, cont, foo);
                         return (head, env, cont, ret)
                     }
                 };
@@ -219,6 +303,7 @@ fn reduce() -> Func {
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
         let t = Symbol("t");
+        let foo: Expr::Nil;
 
         match cont.tag {
             Cont::Terminal | Cont::Error => {
@@ -267,11 +352,11 @@ fn reduce() -> Func {
                                 return (expr, smaller_env, cont, ret)
                             }
                         };
-                        let cont: Cont::Lookup = cons2(env, cont);
+                        let cont: Cont::Lookup = cons4(env, cont, foo, foo);
                         return (expr, smaller_env, cont, ret)
                     }
                     Expr::Cons => {
-                        let (v2, val2) = car_cdr(var_or_rec_binding);
+                        let (v2, val2) = decons2(var_or_rec_binding);
 
                         if v2 == expr {
                             match val2.tag {
@@ -294,7 +379,7 @@ fn reduce() -> Func {
                                 return (expr, env_to_use, cont, ret)
                             }
                         };
-                        let cont: Cont::Lookup = cons2(env, cont);
+                        let cont: Cont::Lookup = cons4(env, cont, foo, foo);
                         return (expr, env_to_use, cont, ret)
                     }
                 };
@@ -387,7 +472,8 @@ fn reduce() -> Func {
                                         return (arg1, env, cont, ret)
                                     }
                                 };
-                                let cont: Cont::Binop = cons4(head, env, more, cont);
+                                let op: Op2::Begin;
+                                let cont: Cont::Binop = cons4(op, env, more, cont);
                                 return (arg1, env, cont, ret)
                             }
                             "eval" => {
@@ -399,11 +485,13 @@ fn reduce() -> Func {
                                 let (arg1, more) = car_cdr(rest);
                                 match more.tag {
                                     Expr::Nil => {
-                                        let cont: Cont::Unop = cons2(head, cont);
+                                        let op: Op1::Eval;
+                                        let cont: Cont::Unop = cons4(op, cont, foo, foo);
                                         return (arg1, env, cont, ret)
                                     }
                                 };
-                                let cont: Cont::Binop = cons4(head, env, more, cont);
+                                let op: Op2::Eval;
+                                let cont: Cont::Binop = cons4(op, env, more, cont);
                                 return (arg1, env, cont, ret)
                             }
                             "if" => {
@@ -413,7 +501,7 @@ fn reduce() -> Func {
                                         return (expr, env, err, errctrl)
                                     }
                                 };
-                                let cont: Cont::If = cons2(more, cont);
+                                let cont: Cont::If = cons4(more, cont, foo, foo);
                                 return (condition, env, cont, ret)
                             }
                             "current-env" => {
@@ -426,38 +514,30 @@ fn reduce() -> Func {
                             }
                         };
                         // unops
-                        let (op) = is_unop(head);
-                        if op == t {
-                            match rest.tag {
-                                Expr::Nil => {
-                                    return (expr, env, err, errctrl)
-                                }
-                            };
-                            let (arg1, end) = decons2(rest);
-                            match end.tag {
-                                Expr::Nil => {
-                                    let cont: Cont::Unop = cons2(head, cont);
+                        let (op) = get_unop(head);
+                        if op != nil {
+                            if rest != nil {
+                                let (arg1, end) = decons2(rest);
+                                if end == nil {
+                                    let cont: Cont::Unop = cons4(op, cont, foo, foo);
                                     return (arg1, env, cont, ret)
                                 }
-                            };
-                            return (expr, env, err, errctrl)
+                                return (expr, env, err, errctrl);
+                            }
+                            return (expr, env, err, errctrl);
                         }
                         // binops
-                        let (op) = is_binop(head);
-                        if op == t {
-                            match rest.tag {
-                                Expr::Nil => {
-                                    return (expr, env, err, errctrl)
+                        let (op) = get_binop(head);
+                        if op != nil {
+                            if rest != nil {
+                                let (arg1, more) = decons2(rest);
+                                if more != nil {
+                                    let cont: Cont::Binop = cons4(op, env, more, cont);
+                                    return (arg1, env, cont, ret);
                                 }
-                            };
-                            let (arg1, more) = decons2(rest);
-                            match more.tag {
-                                Expr::Nil => {
-                                    return (expr, env, err, errctrl)
-                                }
-                            };
-                            let cont: Cont::Binop = cons4(head, env, more, cont);
-                            return (arg1, env, cont, ret)
+                                return (expr, env, err, errctrl);
+                            }
+                            return (expr, env, err, errctrl);
                         }
                         // just call assuming that the symbol is bound to a function
                         let (fun, env, cont, ret) = make_call(head, rest, env, cont);
@@ -481,12 +561,13 @@ fn reduce() -> Func {
 fn apply_cont() -> Func {
     let car_cdr = car_cdr();
     let make_tail_continuation = func!(make_tail_continuation(env, continuation): 1 => {
+        let foo: Expr::Nil;
         match continuation.tag {
             Cont::Tail => {
                 return (continuation);
             }
         };
-        let tail_continuation: Cont::Tail = cons2(env, continuation);
+        let tail_continuation: Cont::Tail = cons4(env, continuation, foo, foo);
         return (tail_continuation);
     });
 
@@ -559,6 +640,7 @@ fn apply_cont() -> Func {
         let zero = Num(0);
         let size_u64 = Num(18446744073709551616);
         let empty_str = String("");
+        let foo: Expr::Nil;
 
         match symbol ctrl {
             "apply-continuation" => {
@@ -571,12 +653,11 @@ fn apply_cont() -> Func {
                         return (result, env, cont, ret)
                     }
                     Cont::Emit => {
-                        // TODO Does this make sense?
-                        let (cont, _rest) = decons2(cont);
+                        let (cont, _rest, _foo, _foo) = decons4(cont);
                         return (result, env, cont, makethunk)
                     }
                     Cont::Call0 => {
-                        let (saved_env, continuation) = decons2(cont);
+                        let (saved_env, continuation, _foo, _foo) = decons4(cont);
                         match result.tag {
                             Expr::Fun => {
                                 let (arg, body, closed_env) = decons3(result);
@@ -605,15 +686,15 @@ fn apply_cont() -> Func {
                     Cont::Call => {
                         match result.tag {
                             Expr::Fun => {
-                                let (unevaled_arg, saved_env, continuation) = decons3(cont);
-                                let newer_cont: Cont::Call2 = cons3(result, saved_env, continuation);
+                                let (unevaled_arg, saved_env, continuation, _foo) = decons4(cont);
+                                let newer_cont: Cont::Call2 = cons4(result, saved_env, continuation, foo);
                                 return (unevaled_arg, env, newer_cont, ret)
                             }
                         };
                         return (result, env, err, errctrl)
                     }
                     Cont::Call2 => {
-                        let (function, saved_env, continuation) = decons3(cont);
+                        let (function, saved_env, continuation, _foo) = decons4(cont);
                         match function.tag {
                             Expr::Fun => {
                                 let (arg, body, closed_env) = decons3(function);
@@ -655,11 +736,11 @@ fn apply_cont() -> Func {
                         return (body, extended_env, cont, ret)
                     }
                     Cont::Unop => {
-                        let (operator, continuation) = decons2(cont);
-                        match symbol operator {
-                            "car" => {
+                        let (operator, continuation, _foo, _foo) = decons4(cont);
+                        match operator.tag {
+                            Op1::Car => {
                                 // Almost like car_cdr, except it returns
-                                // an error in case it can't unhash it
+                                // an error in case it can't deconstruct it
                                 match result.tag {
                                     Expr::Nil => {
                                         return (nil, env, continuation, makethunk)
@@ -678,7 +759,7 @@ fn apply_cont() -> Func {
                                 };
                                 return(result, env, err, errctrl)
                             }
-                            "cdr" => {
+                            Op1::Cdr => {
                                 match result.tag {
                                     Expr::Nil => {
                                         return (nil, env, continuation, makethunk)
@@ -697,7 +778,7 @@ fn apply_cont() -> Func {
                                 };
                                 return(result, env, err, errctrl)
                             }
-                            "atom" => {
+                            Op1::Atom => {
                                 match result.tag {
                                     Expr::Cons => {
                                         return (nil, env, continuation, makethunk)
@@ -705,13 +786,12 @@ fn apply_cont() -> Func {
                                 };
                                 return (t, env, continuation, makethunk)
                             }
-                            "emit" => {
-                                // TODO Does this make sense?
+                            Op1::Emit => {
                                 emit(result);
-                                let emit: Cont::Emit = cons2(continuation, nil);
+                                let emit: Cont::Emit = cons4(continuation, nil, foo, foo);
                                 return (result, env, emit, makethunk)
                             }
-                            "open" => {
+                            Op1::Open => {
                                 match result.tag {
                                     Expr::Num => {
                                         let result = cast(result, Expr::Comm);
@@ -725,7 +805,7 @@ fn apply_cont() -> Func {
                                 };
                                 return(result, env, err, errctrl)
                             }
-                            "secret" => {
+                            Op1::Secret => {
                                 match result.tag {
                                     Expr::Num => {
                                         let result = cast(result, Expr::Comm);
@@ -739,11 +819,11 @@ fn apply_cont() -> Func {
                                 };
                                 return(result, env, err, errctrl)
                             }
-                            "commit" => {
+                            Op1::Commit => {
                                 let comm = hide(zero, result);
                                 return(comm, env, continuation, makethunk)
                             }
-                            "num" => {
+                            Op1::Num => {
                                 match result.tag {
                                     Expr::Num | Expr::Comm | Expr::Char | Expr::U64 => {
                                         let cast = cast(result, Expr::Num);
@@ -752,7 +832,7 @@ fn apply_cont() -> Func {
                                 };
                                 return(result, env, err, errctrl)
                             }
-                            "u64" => {
+                            Op1::U64 => {
                                 match result.tag {
                                     Expr::Num => {
                                         // The limit is 2**64 - 1
@@ -766,7 +846,7 @@ fn apply_cont() -> Func {
                                 };
                                 return(result, env, err, errctrl)
                             }
-                            "comm" => {
+                            Op1::Comm => {
                                 match result.tag {
                                     Expr::Num | Expr::Comm => {
                                         let cast = cast(result, Expr::Comm);
@@ -775,7 +855,7 @@ fn apply_cont() -> Func {
                                 };
                                 return(result, env, err, errctrl)
                             }
-                            "char" => {
+                            Op1::Char => {
                                 match result.tag {
                                     Expr::Num => {
                                         // The limit is 2**32 - 1
@@ -789,7 +869,7 @@ fn apply_cont() -> Func {
                                 };
                                 return(result, env, err, errctrl)
                             }
-                            "eval" => {
+                            Op1::Eval => {
                                 return(result, nil, continuation, ret)
                             }
                         };
@@ -798,8 +878,8 @@ fn apply_cont() -> Func {
                     Cont::Binop => {
                         let (operator, saved_env, unevaled_args, continuation) = decons4(cont);
                         let (arg2, rest) = car_cdr(unevaled_args);
-                        match symbol operator {
-                            "begin" => {
+                        match operator.tag {
+                            Op2::Begin => {
                                 match rest.tag {
                                     Expr::Nil => {
                                         return (arg2, saved_env, continuation, ret)
@@ -811,24 +891,24 @@ fn apply_cont() -> Func {
                         };
                         match rest.tag {
                             Expr::Nil => {
-                                let cont: Cont::Binop2 = cons3(operator, result, continuation);
+                                let cont: Cont::Binop2 = cons4(operator, result, continuation, foo);
                                 return (arg2, saved_env, cont, ret)
                             }
                         };
                         return (result, env, err, errctrl)
                     }
                     Cont::Binop2 => {
-                        let (operator, evaled_arg, continuation) = decons3(cont);
+                        let (operator, evaled_arg, continuation, _foo) = decons4(cont);
                         let (args_num_type) = args_num_type(evaled_arg, result);
-                        match symbol operator {
-                            "eval" => {
+                        match operator.tag {
+                            Op2::Eval => {
                                 return (evaled_arg, result, continuation, ret)
                             }
-                            "cons" => {
+                            Op2::Cons => {
                                 let val: Expr::Cons = cons2(evaled_arg, result);
                                 return (val, env, continuation, makethunk)
                             }
-                            "strcons" => {
+                            Op2::StrCons => {
                                 match evaled_arg.tag {
                                     Expr::Char => {
                                         match result.tag {
@@ -842,7 +922,7 @@ fn apply_cont() -> Func {
                                 };
                                 return (result, env, err, errctrl)
                             }
-                            "hide" => {
+                            Op2::Hide => {
                                 match evaled_arg.tag {
                                     Expr::Num => {
                                         let hidden = hide(evaled_arg, result);
@@ -851,7 +931,7 @@ fn apply_cont() -> Func {
                                 };
                                 return (result, env, err, errctrl)
                             }
-                            "eq" => {
+                            Op2::Equal => {
                                 let eq_tag = eq_tag(evaled_arg, result);
                                 let eq_val = eq_val(evaled_arg, result);
                                 let eq = mul(eq_tag, eq_val);
@@ -860,7 +940,7 @@ fn apply_cont() -> Func {
                                 }
                                 return (t, env, continuation, makethunk)
                             }
-                            "+" => {
+                            Op2::Sum => {
                                 match args_num_type.tag {
                                     Expr::Nil => {
                                         return (result, env, err, errctrl)
@@ -882,7 +962,7 @@ fn apply_cont() -> Func {
                                     }
                                 }
                             }
-                            "-" => {
+                            Op2::Diff => {
                                 match args_num_type.tag {
                                     Expr::Nil => {
                                         return (result, env, err, errctrl)
@@ -907,7 +987,7 @@ fn apply_cont() -> Func {
                                     }
                                 }
                             }
-                            "*" => {
+                            Op2::Product => {
                                 match args_num_type.tag {
                                     Expr::Nil => {
                                         return (result, env, err, errctrl)
@@ -925,7 +1005,7 @@ fn apply_cont() -> Func {
                                     }
                                 }
                             }
-                            "/" => {
+                            Op2::Quotient => {
                                 let is_z = eq_val(result, zero);
                                 if is_z == zero {
                                     match args_num_type.tag {
@@ -945,7 +1025,7 @@ fn apply_cont() -> Func {
                                 }
                                 return (result, env, err, errctrl)
                             }
-                            "%" => {
+                            Op2::Modulo => {
                                 let is_z = eq_val(result, zero);
                                 if is_z == zero {
                                     match args_num_type.tag {
@@ -959,7 +1039,7 @@ fn apply_cont() -> Func {
                                 }
                                 return (result, env, err, errctrl)
                             }
-                            "=" => {
+                            Op2::NumEqual => {
                                 match args_num_type.tag {
                                     Expr::Nil => {
                                         return (result, env, err, errctrl)
@@ -971,28 +1051,28 @@ fn apply_cont() -> Func {
                                 }
                                 return (t, env, continuation, makethunk)
                             }
-                            "<" => {
+                            Op2::Less => {
                                 let val = lt(evaled_arg, result);
                                 if val == zero {
                                     return (nil, env, continuation, makethunk)
                                 }
                                 return (t, env, continuation, makethunk)
                             }
-                            ">" => {
+                            Op2::Greater => {
                                 let val = lt(result, evaled_arg);
                                 if val == zero {
                                     return (nil, env, continuation, makethunk)
                                 }
                                 return (t, env, continuation, makethunk)
                             }
-                            "<=" => {
+                            Op2::LessEqual => {
                                 let val = lt(result, evaled_arg);
                                 if val == zero {
                                     return (t, env, continuation, makethunk)
                                 }
                                 return (nil, env, continuation, makethunk)
                             }
-                            ">=" => {
+                            Op2::GreaterEqual => {
                                 let val = lt(evaled_arg, result);
                                 if val == zero {
                                     return (t, env, continuation, makethunk)
@@ -1003,7 +1083,7 @@ fn apply_cont() -> Func {
                         return (result, env, err, errctrl)
                     }
                     Cont::If => {
-                        let (unevaled_args, continuation) = decons2(cont);
+                        let (unevaled_args, continuation, _foo, _foo) = decons4(cont);
                         let (arg1, more) = car_cdr(unevaled_args);
                         let (arg2, end) = car_cdr(more);
                         match end.tag {
@@ -1019,11 +1099,11 @@ fn apply_cont() -> Func {
                         return (arg1, env, err, errctrl)
                     }
                     Cont::Lookup => {
-                        let (saved_env, continuation) = decons2(cont);
+                        let (saved_env, continuation, _foo, _foo) = decons4(cont);
                         return (result, saved_env, continuation, makethunk)
                     }
                     Cont::Tail => {
-                        let (saved_env, continuation) = decons2(cont);
+                        let (saved_env, continuation, _foo, _foo) = decons4(cont);
                         return (result, saved_env, continuation, makethunk)
                     }
                 }
@@ -1040,7 +1120,7 @@ fn make_thunk() -> Func {
             "make-thunk" => {
                 match cont.tag {
                     Cont::Tail => {
-                        let (saved_env, saved_cont) = decons2(cont);
+                        let (saved_env, saved_cont, _foo, _foo) = decons4(cont);
                         let thunk: Expr::Thunk = cons2(expr, saved_cont);
                         let cont: Cont::Dummy;
                         return (thunk, saved_env, cont, ret)
@@ -1070,12 +1150,12 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 10748;
-    const NUM_CONSTRAINTS: usize = 13305;
+    const NUM_AUX: usize = 10538;
+    const NUM_CONSTRAINTS: usize = 12851;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
-        hash4: 16,
-        hash6: 4,
-        hash8: 2,
+        hash4: 14,
+        hash6: 3,
+        hash8: 4,
         commitment: 1,
         less_than: 1,
     };
@@ -1105,13 +1185,13 @@ mod tests {
         let limit = 10000;
 
         let mut cs_prev = None;
-        for (expr_in, expr_out) in pairs {
+        for (i, (expr_in, expr_out)) in pairs.into_iter().enumerate() {
             let input = [expr_in, nil, outermost];
             let (frames, _, paths) = eval_step
                 .call_until(&input, store, stop_cond, limit, log_fmt)
                 .unwrap();
             let last_frame = frames.last().expect("eval should add at least one frame");
-            assert_eq!(last_frame.output[0], expr_out);
+            assert_eq!(last_frame.output[0], expr_out, "pair {i}");
             store.hydrate_z_cache();
             for frame in frames.iter() {
                 let mut cs = TestConstraintSystem::<Fr>::new();
