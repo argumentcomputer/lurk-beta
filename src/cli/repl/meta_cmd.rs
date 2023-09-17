@@ -637,7 +637,7 @@ impl<F: LurkField> MetaCmd<F> {
         run: |repl, cmd, args, _pwd_path| {
             let first = repl.peek1(cmd, args)?;
             match first.tag {
-                ExprTag::Str =>  {
+                ExprTag::Str => {
                     let name = repl.get_string(&first)?;
                     Self::meta_help(&name);
                 }
@@ -673,7 +673,7 @@ impl<F: LurkField> MetaCmd<F> {
                 for &e in i.example.iter() {
                     println!("    {}", e);
                 }
-            }
+            },
             None => println!("unknown command {}", cmd),
         }
     }
