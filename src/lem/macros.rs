@@ -35,8 +35,11 @@ macro_rules! tag {
     ( Cont::$tag:ident ) => {
         $crate::lem::Tag::Cont($crate::tag::ContTag::$tag)
     };
-    ( Ctrl::$tag:ident ) => {
-        $crate::lem::Tag::Ctrl($crate::lem::CtrlTag::$tag)
+    ( Op1::$tag:ident ) => {
+        $crate::lem::Tag::Op1($crate::tag::Op1::$tag)
+    };
+    ( Op2::$tag:ident ) => {
+        $crate::lem::Tag::Op2($crate::tag::Op2::$tag)
     };
 }
 
@@ -124,38 +127,38 @@ macro_rules! op {
     ( emit($v:ident) ) => {
         $crate::lem::Op::Emit($crate::var!($v))
     };
-    ( let $tgt:ident : $kind:ident::$tag:ident = hash2($src1:ident, $src2:ident) ) => {
-        $crate::lem::Op::Hash2(
+    ( let $tgt:ident : $kind:ident::$tag:ident = cons2($src1:ident, $src2:ident) ) => {
+        $crate::lem::Op::Cons2(
             $crate::var!($tgt),
             $crate::tag!($kind::$tag),
             $crate::vars!($src1, $src2),
         )
     };
-    ( let $tgt:ident : $kind:ident::$tag:ident = hash3($src1:ident, $src2:ident, $src3:ident) ) => {
-        $crate::lem::Op::Hash3(
+    ( let $tgt:ident : $kind:ident::$tag:ident = cons3($src1:ident, $src2:ident, $src3:ident) ) => {
+        $crate::lem::Op::Cons3(
             $crate::var!($tgt),
             $crate::tag!($kind::$tag),
             $crate::vars!($src1, $src2, $src3),
         )
     };
-    ( let $tgt:ident : $kind:ident::$tag:ident = hash4($src1:ident, $src2:ident, $src3:ident, $src4:ident) ) => {
-        $crate::lem::Op::Hash4(
+    ( let $tgt:ident : $kind:ident::$tag:ident = cons4($src1:ident, $src2:ident, $src3:ident, $src4:ident) ) => {
+        $crate::lem::Op::Cons4(
             $crate::var!($tgt),
             $crate::tag!($kind::$tag),
             $crate::vars!($src1, $src2, $src3, $src4),
         )
     };
-    ( let ($tgt1:ident, $tgt2:ident) = unhash2($src:ident) ) => {
-        $crate::lem::Op::Unhash2(
+    ( let ($tgt1:ident, $tgt2:ident) = decons2($src:ident) ) => {
+        $crate::lem::Op::Decons2(
             $crate::vars!($tgt1, $tgt2),
             $crate::var!($src),
         )
     };
-    ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = unhash3($src:ident) ) => {
-        $crate::lem::Op::Unhash3($crate::vars!($tgt1, $tgt2, $tgt3), $crate::var!($src))
+    ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = decons3($src:ident) ) => {
+        $crate::lem::Op::Decons3($crate::vars!($tgt1, $tgt2, $tgt3), $crate::var!($src))
     };
-    ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident, $tgt4:ident) = unhash4($src:ident) ) => {
-        $crate::lem::Op::Unhash4(
+    ( let ($tgt1:ident, $tgt2:ident, $tgt3:ident, $tgt4:ident) = decons4($src:ident) ) => {
+        $crate::lem::Op::Decons4(
             $crate::vars!($tgt1, $tgt2, $tgt3, $tgt4),
             $crate::var!($src),
         )
@@ -201,19 +204,19 @@ macro_rules! ctrl {
             $crate::lem::Ctrl::MatchTag($crate::var!($sii), cases, default)
         }
     };
-    ( match $sii:ident.val { $( $cnstr:ident($val:literal) $(| $other_cnstr:ident($other_val:literal))* => $case_ops:tt )* } $(; $($def:tt)*)? ) => {
+    ( match symbol $sii:ident { $( $sym:expr $(, $other_sym:expr)* => $case_ops:tt )* } $(; $($def:tt)*)? ) => {
         {
             let mut cases = indexmap::IndexMap::new();
             $(
                 if cases.insert(
-                    $crate::lit!($cnstr($val)),
+                    $crate::state::lurk_sym($sym),
                     $crate::block!( $case_ops ),
                 ).is_some() {
                     panic!("Repeated value on `match`");
                 };
                 $(
                     if cases.insert(
-                        $crate::lit!($other_cnstr($other_val)),
+                        $crate::state::lurk_sym($other_sym),
                         $crate::block!( $case_ops ),
                     ).is_some() {
                         panic!("Repeated value on `match`");
@@ -221,7 +224,7 @@ macro_rules! ctrl {
                 )*
             )*
             let default = None $( .or (Some(Box::new($crate::block!( @seq {}, $($def)* )))) )?;
-            $crate::lem::Ctrl::MatchVal($crate::var!($sii), cases, default)
+            $crate::lem::Ctrl::MatchSymbol($crate::var!($sii), cases, default)
         }
     };
     ( if $x:ident == $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
@@ -408,62 +411,62 @@ macro_rules! block {
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, let $tgt:ident : $kind:ident::$tag:ident = hash2($src1:ident, $src2:ident) ; $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, let $tgt:ident : $kind:ident::$tag:ident = cons2($src1:ident, $src2:ident) ; $($tail:tt)*) => {
         $crate::block! (
             @seq
             {
                 $($limbs)*
-                $crate::op!(let $tgt: $kind::$tag = hash2($src1, $src2) )
+                $crate::op!(let $tgt: $kind::$tag = cons2($src1, $src2) )
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, let $tgt:ident : $kind:ident::$tag:ident = hash3($src1:ident, $src2:ident, $src3:ident) ; $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, let $tgt:ident : $kind:ident::$tag:ident = cons3($src1:ident, $src2:ident, $src3:ident) ; $($tail:tt)*) => {
         $crate::block! (
             @seq
             {
                 $($limbs)*
-                $crate::op!(let $tgt: $kind::$tag = hash3($src1, $src2, $src3) )
+                $crate::op!(let $tgt: $kind::$tag = cons3($src1, $src2, $src3) )
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, let $tgt:ident : $kind:ident::$tag:ident = hash4($src1:ident, $src2:ident, $src3:ident, $src4:ident) ; $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, let $tgt:ident : $kind:ident::$tag:ident = cons4($src1:ident, $src2:ident, $src3:ident, $src4:ident) ; $($tail:tt)*) => {
         $crate::block! (
             @seq
             {
                 $($limbs)*
-                $crate::op!(let $tgt: $kind::$tag = hash4($src1, $src2, $src3, $src4))
+                $crate::op!(let $tgt: $kind::$tag = cons4($src1, $src2, $src3, $src4))
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident) = unhash2($src:ident) ; $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident) = decons2($src:ident) ; $($tail:tt)*) => {
         $crate::block! (
             @seq
             {
                 $($limbs)*
-                $crate::op!(let ($tgt1, $tgt2) = unhash2($src) )
+                $crate::op!(let ($tgt1, $tgt2) = decons2($src) )
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = unhash3($src:ident) ; $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident) = decons3($src:ident) ; $($tail:tt)*) => {
         $crate::block! (
             @seq
             {
                 $($limbs)*
-                $crate::op!(let ($tgt1, $tgt2, $tgt3) = unhash3($src) )
+                $crate::op!(let ($tgt1, $tgt2, $tgt3) = decons3($src) )
             },
             $($tail)*
         )
     };
-    (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident, $tgt4:ident) = unhash4($src:ident) ; $($tail:tt)*) => {
+    (@seq {$($limbs:expr)*}, let ($tgt1:ident, $tgt2:ident, $tgt3:ident, $tgt4:ident) = decons4($src:ident) ; $($tail:tt)*) => {
         $crate::block! (
             @seq
             {
                 $($limbs)*
-                $crate::op!(let ($tgt1, $tgt2, $tgt3, $tgt4) = unhash4($src) )
+                $crate::op!(let ($tgt1, $tgt2, $tgt3, $tgt4) = decons4($src) )
             },
             $($tail)*
         )
@@ -508,13 +511,13 @@ macro_rules! block {
             $crate::ctrl!( match $sii.tag { $( $kind::$tag $(| $other_kind::$other_tag)* => $case_ops )* } $(; $($def)*)? )
         )
     };
-    (@seq {$($limbs:expr)*}, match $sii:ident.val { $( $cnstr:ident($val:literal) $(| $other_cnstr:ident($other_val:literal))* => $case_ops:tt )* } $(; $($def:tt)*)?) => {
+    (@seq {$($limbs:expr)*}, match symbol $sii:ident { $( $sym:expr $(, $other_sym:expr)* => $case_ops:tt )* } $(; $($def:tt)*)?) => {
         $crate::block! (
             @end
             {
                 $($limbs)*
             },
-            $crate::ctrl!( match $sii.val { $( $cnstr($val) $(| $other_cnstr($other_val))* => $case_ops )* } $(; $($def)*)? )
+            $crate::ctrl!( match symbol $sii { $( $sym $(, $other_sym)* => $case_ops )* } $(; $($def)*)? )
         )
     };
     (@seq {$($limbs:expr)*}, if $x:ident == $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
@@ -572,9 +575,12 @@ macro_rules! func {
 
 #[cfg(test)]
 mod tests {
-    use crate::lem::{Block, Ctrl, Lit, Op, Tag, Var};
-    use crate::state::lurk_sym;
-    use crate::tag::ExprTag::*;
+    use crate::{
+        lem::{Block, Ctrl, Op, Tag, Var},
+        state::lurk_sym,
+        tag::ExprTag::*,
+        Symbol,
+    };
 
     #[inline]
     fn mptr(name: &str) -> Var {
@@ -587,28 +593,28 @@ mod tests {
     }
 
     #[inline]
-    fn match_val(i: Var, cases: Vec<(Lit, Block)>, def: Block) -> Ctrl {
-        Ctrl::MatchVal(i, indexmap::IndexMap::from_iter(cases), Some(Box::new(def)))
+    fn match_symbol(i: Var, cases: Vec<(Symbol, Block)>, def: Block) -> Ctrl {
+        Ctrl::MatchSymbol(i, indexmap::IndexMap::from_iter(cases), Some(Box::new(def)))
     }
 
     #[test]
     fn test_macros() {
         let lemops = [
             Op::Null(mptr("foo"), Tag::Expr(Num)),
-            Op::Hash2(mptr("foo"), Tag::Expr(Char), [mptr("bar"), mptr("baz")]),
-            Op::Hash3(
+            Op::Cons2(mptr("foo"), Tag::Expr(Char), [mptr("bar"), mptr("baz")]),
+            Op::Cons3(
                 mptr("foo"),
                 Tag::Expr(Char),
                 [mptr("bar"), mptr("baz"), mptr("bazz")],
             ),
-            Op::Hash4(
+            Op::Cons4(
                 mptr("foo"),
                 Tag::Expr(Char),
                 [mptr("bar"), mptr("baz"), mptr("bazz"), mptr("baxx")],
             ),
-            Op::Unhash2([mptr("foo"), mptr("goo")], mptr("aaa")),
-            Op::Unhash3([mptr("foo"), mptr("goo"), mptr("moo")], mptr("aaa")),
-            Op::Unhash4(
+            Op::Decons2([mptr("foo"), mptr("goo")], mptr("aaa")),
+            Op::Decons3([mptr("foo"), mptr("goo"), mptr("moo")], mptr("aaa")),
+            Op::Decons4(
                 [mptr("foo"), mptr("goo"), mptr("moo"), mptr("noo")],
                 mptr("aaa"),
             ),
@@ -617,12 +623,12 @@ mod tests {
         ];
         let lemops_macro = vec![
             op!(let foo: Expr::Num),
-            op!(let foo: Expr::Char = hash2(bar, baz)),
-            op!(let foo: Expr::Char = hash3(bar, baz, bazz)),
-            op!(let foo: Expr::Char = hash4(bar, baz, bazz, baxx)),
-            op!(let (foo, goo) = unhash2(aaa)),
-            op!(let (foo, goo, moo) = unhash3(aaa)),
-            op!(let (foo, goo, moo, noo) = unhash4(aaa)),
+            op!(let foo: Expr::Char = cons2(bar, baz)),
+            op!(let foo: Expr::Char = cons3(bar, baz, bazz)),
+            op!(let foo: Expr::Char = cons4(bar, baz, bazz, baxx)),
+            op!(let (foo, goo) = decons2(aaa)),
+            op!(let (foo, goo, moo) = decons3(aaa)),
+            op!(let (foo, goo, moo, noo) = decons4(aaa)),
             op!(let bar = hide(baz, bazz)),
             op!(let (bar, baz) = open(bazz)),
         ];
@@ -638,12 +644,12 @@ mod tests {
         };
         let lem_macro_seq = block!({
             let foo: Expr::Num;
-            let foo: Expr::Char = hash2(bar, baz);
-            let foo: Expr::Char = hash3(bar, baz, bazz);
-            let foo: Expr::Char = hash4(bar, baz, bazz, baxx);
-            let (foo, goo) = unhash2(aaa);
-            let (foo, goo, moo) = unhash3(aaa);
-            let (foo, goo, moo, noo) = unhash4(aaa);
+            let foo: Expr::Char = cons2(bar, baz);
+            let foo: Expr::Char = cons3(bar, baz, bazz);
+            let foo: Expr::Char = cons4(bar, baz, bazz, baxx);
+            let (foo, goo) = decons2(aaa);
+            let (foo, goo, moo) = decons3(aaa);
+            let (foo, goo, moo, noo) = decons4(aaa);
             let bar = hide(baz, bazz);
             let (bar, baz) = open(bazz);
             return (bar, baz, bazz);
@@ -698,11 +704,11 @@ mod tests {
         );
 
         let moo = ctrl!(
-            match www.val {
-                Symbol("nil") => {
+            match symbol www {
+                "nil" => {
                     return (foo, foo, foo); // a single Ctrl will not turn into a Seq
                 }
-                Symbol("cons") => {
+                "cons" => {
                     let foo: Expr::Num;
                     let goo: Expr::Char;
                     return (foo, goo, goo);
@@ -713,18 +719,18 @@ mod tests {
         );
 
         assert!(
-            moo == match_val(
+            moo == match_symbol(
                 mptr("www"),
                 vec![
                     (
-                        Lit::Symbol(lurk_sym("nil")),
+                        lurk_sym("nil"),
                         Block {
                             ops: vec![],
                             ctrl: Ctrl::Return(vec![mptr("foo"), mptr("foo"), mptr("foo")]),
                         }
                     ),
                     (
-                        Lit::Symbol(lurk_sym("cons")),
+                        lurk_sym("cons"),
                         Block {
                             ops: vec![
                                 Op::Null(mptr("foo"), Tag::Expr(Num)),

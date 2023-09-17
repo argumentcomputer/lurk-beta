@@ -1,9 +1,10 @@
+pub mod backend;
 mod circom;
 mod commitment;
 mod field_data;
 mod lurk_proof;
 pub mod paths;
-mod repl;
+pub mod repl;
 
 use anyhow::{bail, Context, Result};
 use camino::Utf8PathBuf;
@@ -22,10 +23,10 @@ use crate::{
 
 use crate::cli::{
     paths::set_lurk_dirs,
-    repl::{validate_non_zero, Backend, Repl},
+    repl::{validate_non_zero, Repl},
 };
 
-use crate::lurk_sym_ptr;
+use self::backend::Backend;
 
 const DEFAULT_LIMIT: usize = 100_000_000;
 const DEFAULT_RC: usize = 10;
@@ -349,8 +350,7 @@ fn get_store<F: LurkField + for<'a> serde::de::Deserialize<'a>>(
 macro_rules! new_repl {
     ( $cli: expr, $rc: expr, $limit: expr, $field: path, $backend: expr ) => {{
         let store = get_store(&$cli.zstore).with_context(|| "reading store from file")?;
-        let env = lurk_sym_ptr!(store, nil);
-        Repl::<$field>::new(store, env, $rc, $limit, $backend)
+        Repl::<$field>::new(store, $rc, $limit, $backend)
     }};
 }
 

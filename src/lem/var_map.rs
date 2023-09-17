@@ -9,7 +9,7 @@ use super::Var;
 /// variables before using them, so we don't expect to need some piece of
 /// information from a variable that hasn't been defined.
 #[derive(Clone)]
-pub(crate) struct VarMap<V>(HashMap<Var, V>);
+pub struct VarMap<V>(HashMap<Var, V>);
 
 impl<V> VarMap<V> {
     /// Creates an empty `VarMap`

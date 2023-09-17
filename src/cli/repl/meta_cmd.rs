@@ -8,7 +8,7 @@ use crate::{
     package::{Package, SymbolRef},
     ptr::Ptr,
     writer::Write,
-    tag::ExprTag,
+    tag::{ContTag, ExprTag},
     field::LurkField,
 };
 
@@ -272,7 +272,8 @@ impl MetaCmd<F> {
         ],
         run: |repl, cmd, args, _pwd_path| {
             let first = repl.peek1(cmd, args)?;
-            if repl.eval_expr(first).is_ok() {
+            let (first_io, ..) = repl.eval_expr_allowing_error_continuation(first)?;
+            if first_io.cont.tag != ContTag::Error {
                 eprintln!(
                     "`assert-error` failed. {} doesn't result on evaluation error.",
                     first.fmt_to_string(&repl.store, &repl.state.borrow())

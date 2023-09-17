@@ -107,9 +107,9 @@ use super::{Block, Ctrl, Op};
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SlotsCounter {
-    pub hash2: usize,
-    pub hash3: usize,
     pub hash4: usize,
+    pub hash6: usize,
+    pub hash8: usize,
     pub commitment: usize,
     pub less_than: usize,
 }
@@ -119,30 +119,30 @@ impl SlotsCounter {
     #[inline]
     pub fn new(num_slots: (usize, usize, usize, usize, usize)) -> Self {
         Self {
-            hash2: num_slots.0,
-            hash3: num_slots.1,
-            hash4: num_slots.2,
+            hash4: num_slots.0,
+            hash6: num_slots.1,
+            hash8: num_slots.2,
             commitment: num_slots.3,
             less_than: num_slots.4,
         }
     }
 
     #[inline]
-    pub fn consume_hash2(&mut self) -> usize {
-        self.hash2 += 1;
-        self.hash2 - 1
-    }
-
-    #[inline]
-    pub fn consume_hash3(&mut self) -> usize {
-        self.hash3 += 1;
-        self.hash3 - 1
-    }
-
-    #[inline]
     pub fn consume_hash4(&mut self) -> usize {
         self.hash4 += 1;
         self.hash4 - 1
+    }
+
+    #[inline]
+    pub fn consume_hash6(&mut self) -> usize {
+        self.hash6 += 1;
+        self.hash6 - 1
+    }
+
+    #[inline]
+    pub fn consume_hash8(&mut self) -> usize {
+        self.hash8 += 1;
+        self.hash8 - 1
     }
 
     #[inline]
@@ -161,9 +161,9 @@ impl SlotsCounter {
     pub fn max(&self, other: Self) -> Self {
         use std::cmp::max;
         Self {
-            hash2: max(self.hash2, other.hash2),
-            hash3: max(self.hash3, other.hash3),
             hash4: max(self.hash4, other.hash4),
+            hash6: max(self.hash6, other.hash6),
+            hash8: max(self.hash8, other.hash8),
             commitment: max(self.commitment, other.commitment),
             less_than: max(self.less_than, other.less_than),
         }
@@ -172,12 +172,17 @@ impl SlotsCounter {
     #[inline]
     pub fn add(&self, other: Self) -> Self {
         Self {
-            hash2: self.hash2 + other.hash2,
-            hash3: self.hash3 + other.hash3,
             hash4: self.hash4 + other.hash4,
+            hash6: self.hash6 + other.hash6,
+            hash8: self.hash8 + other.hash8,
             commitment: self.commitment + other.commitment,
             less_than: self.less_than + other.less_than,
         }
+    }
+
+    #[inline]
+    pub fn fold_max(self, vec: Vec<Self>) -> Self {
+        vec.into_iter().fold(self, |acc, i| acc.max(i))
     }
 }
 
@@ -185,9 +190,9 @@ impl Block {
     pub fn count_slots(&self) -> SlotsCounter {
         let ops_slots = self.ops.iter().fold(SlotsCounter::default(), |acc, op| {
             let val = match op {
-                Op::Hash2(..) | Op::Unhash2(..) => SlotsCounter::new((1, 0, 0, 0, 0)),
-                Op::Hash3(..) | Op::Unhash3(..) => SlotsCounter::new((0, 1, 0, 0, 0)),
-                Op::Hash4(..) | Op::Unhash4(..) => SlotsCounter::new((0, 0, 1, 0, 0)),
+                Op::Cons2(..) | Op::Decons2(..) => SlotsCounter::new((1, 0, 0, 0, 0)),
+                Op::Cons3(..) | Op::Decons3(..) => SlotsCounter::new((0, 1, 0, 0, 0)),
+                Op::Cons4(..) | Op::Decons4(..) => SlotsCounter::new((0, 0, 1, 0, 0)),
                 Op::Hide(..) | Op::Open(..) => SlotsCounter::new((0, 0, 0, 1, 0)),
                 Op::Lt(..) => SlotsCounter::new((0, 0, 0, 0, 1)),
                 Op::Call(_, func, _) => func.slot,
@@ -204,7 +209,7 @@ impl Block {
                     .values()
                     .fold(init, |acc, block| acc.max(block.count_slots()))
             }
-            Ctrl::MatchVal(_, cases, def) => {
+            Ctrl::MatchSymbol(_, cases, def) => {
                 let init = def
                     .as_ref()
                     .map_or(SlotsCounter::default(), |def| def.count_slots());
@@ -224,9 +229,9 @@ impl Block {
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum SlotType {
-    Hash2,
-    Hash3,
     Hash4,
+    Hash6,
+    Hash8,
     Commitment,
     LessThan,
 }
@@ -234,9 +239,9 @@ pub(crate) enum SlotType {
 impl SlotType {
     pub(crate) fn preimg_size(&self) -> usize {
         match self {
-            Self::Hash2 => 4,
-            Self::Hash3 => 6,
-            Self::Hash4 => 8,
+            Self::Hash4 => 4,
+            Self::Hash6 => 6,
+            Self::Hash8 => 8,
             Self::Commitment => 3,
             Self::LessThan => 2,
         }
@@ -246,9 +251,9 @@ impl SlotType {
 impl std::fmt::Display for SlotType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Hash2 => write!(f, "Hash2"),
-            Self::Hash3 => write!(f, "Hash3"),
             Self::Hash4 => write!(f, "Hash4"),
+            Self::Hash6 => write!(f, "Hash6"),
+            Self::Hash8 => write!(f, "Hash8"),
             Self::Commitment => write!(f, "Commitment"),
             Self::LessThan => write!(f, "LessThan"),
         }

@@ -21,7 +21,7 @@
 //! operations `Op` followed by a control `Ctrl` statement.
 //!
 //! Operations are much like `let` statements in functional languages. For
-//! example, a `Op::Hash2(x, t, ys)` is to be understood as `let x = hash2(ys)`.
+//! example, a `Op::Cons2(x, t, ys)` is to be understood as `let x = cons2(ys)`.
 //! If a second operation binds its result to the same variable as a previous
 //! operation, we shadow the previous value. There is no mutation, thus the
 //! language is referentially transparent.
@@ -59,22 +59,28 @@
 //! 6. We also check for variables that are not used. If intended they should
 //!    be prefixed by "_"
 
-mod circuit;
-mod eval;
-mod interpreter;
+pub mod circuit;
+pub mod eval;
+pub mod interpreter;
 mod macros;
 mod path;
-mod pointers;
+pub mod pointers;
 mod slot;
-mod store;
+pub mod store;
 mod var_map;
-
-use crate::field::LurkField;
-use crate::symbol::Symbol;
-use crate::tag::{ContTag, ExprTag, Tag as TagTrait};
+pub mod zstore;
 use anyhow::{bail, Result};
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+
+use crate::{
+    coprocessor::Coprocessor,
+    eval::lang::Lang,
+    field::LurkField,
+    symbol::Symbol,
+    tag::{ContTag, ExprTag, Op1, Op2, Tag as TagTrait},
+};
 
 use self::{pointers::Ptr, slot::SlotsCounter, store::Store, var_map::VarMap};
 
@@ -84,11 +90,17 @@ pub type AString = Arc<str>;
 /// function body, which is a `Block`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Func {
-    name: String,
-    input_params: Vec<Var>,
-    output_size: usize,
-    body: Block,
-    slot: SlotsCounter,
+    pub name: String,
+    pub input_params: Vec<Var>,
+    pub output_size: usize,
+    pub body: Block,
+    pub slot: SlotsCounter,
+}
+
+impl<F: LurkField, C: Coprocessor<F>> From<&Lang<F, C>> for Func {
+    fn from(_lang: &Lang<F, C>) -> Self {
+        eval::eval_step().clone()
+    }
 }
 
 /// LEM variables
@@ -96,47 +108,55 @@ pub struct Func {
 pub struct Var(AString);
 
 /// LEM tags
-#[derive(Copy, Debug, PartialEq, Clone, Eq, Hash)]
+#[derive(Copy, Debug, PartialEq, Clone, Eq, Hash, Serialize, Deserialize)]
 pub enum Tag {
     Expr(ExprTag),
     Cont(ContTag),
-    Ctrl(CtrlTag),
+    Op1(Op1),
+    Op2(Op2),
 }
 
-#[derive(Copy, Debug, PartialEq, Clone, Eq, Hash)]
-pub enum CtrlTag {
-    Return,
-    MakeThunk,
-    ApplyContinuation,
-    Error,
-}
-
-impl Tag {
-    #[inline]
-    pub fn to_field<F: LurkField>(self) -> F {
-        use Tag::*;
-        match self {
-            Expr(tag) => tag.to_field(),
-            Cont(tag) => tag.to_field(),
-            Ctrl(tag) => tag.to_field(),
+impl From<u16> for Tag {
+    fn from(val: u16) -> Self {
+        if let Ok(tag) = ExprTag::try_from(val) {
+            Tag::Expr(tag)
+        } else if let Ok(tag) = ContTag::try_from(val) {
+            Tag::Cont(tag)
+        } else {
+            panic!("Invalid u16 for Tag: {val}")
         }
     }
 }
 
-impl CtrlTag {
-    #[inline]
-    fn to_field<F: LurkField>(self) -> F {
-        F::from(self as u64)
+impl From<Tag> for u16 {
+    fn from(val: Tag) -> Self {
+        match val {
+            Tag::Expr(tag) => tag.into(),
+            Tag::Cont(tag) => tag.into(),
+            Tag::Op1(tag) => tag.into(),
+            Tag::Op2(tag) => tag.into(),
+        }
     }
 }
 
-impl std::fmt::Display for CtrlTag {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl TagTrait for Tag {
+    fn from_field<F: LurkField>(f: &F) -> Option<Self> {
+        Self::try_from(f.to_u16()?).ok()
+    }
+
+    fn to_field<F: LurkField>(&self) -> F {
+        Tag::to_field(self)
+    }
+}
+
+impl Tag {
+    #[inline]
+    pub fn to_field<F: LurkField>(&self) -> F {
         match self {
-            Self::Return => write!(f, "return#"),
-            Self::ApplyContinuation => write!(f, "apply-cont#"),
-            Self::MakeThunk => write!(f, "make-thunk#"),
-            Self::Error => write!(f, "error#"),
+            Tag::Expr(tag) => tag.to_field(),
+            Tag::Cont(tag) => tag.to_field(),
+            Tag::Op1(tag) => tag.to_field(),
+            Tag::Op2(tag) => tag.to_field(),
         }
     }
 }
@@ -147,7 +167,8 @@ impl std::fmt::Display for Tag {
         match self {
             Expr(tag) => write!(f, "expr.{}", tag),
             Cont(tag) => write!(f, "cont.{}", tag),
-            Ctrl(tag) => write!(f, "ctrl.{}", tag),
+            Op1(tag) => write!(f, "op1.{}", tag),
+            Op2(tag) => write!(f, "op2.{}", tag),
         }
     }
 }
@@ -169,18 +190,31 @@ impl Lit {
             Self::Num(num) => Ptr::num(F::from_u128(*num)),
         }
     }
+
+    pub fn to_ptr_cached<F: LurkField>(&self, store: &Store<F>) -> Ptr<F> {
+        match self {
+            Self::Symbol(s) => *store
+                .interned_symbol(s)
+                .expect("Symbol should have been cached"),
+            Self::String(s) => *store
+                .interned_string(s)
+                .expect("String should have been cached"),
+            Self::Num(num) => Ptr::num(F::from_u128(*num)),
+        }
+    }
+
     pub fn from_ptr<F: LurkField>(ptr: &Ptr<F>, store: &Store<F>) -> Option<Self> {
         use ExprTag::*;
         use Tag::*;
         match ptr.tag() {
             Expr(Num) => match ptr {
-                Ptr::Leaf(_, f) => {
+                Ptr::Atom(_, f) => {
                     let num = LurkField::to_u128_unchecked(f);
                     Some(Self::Num(num))
                 }
                 _ => unreachable!(),
             },
-            Expr(Str) => store.fetch_string(ptr).cloned().map(Lit::String),
+            Expr(Str) => store.fetch_string(ptr).map(Lit::String),
             Expr(Sym) => store.fetch_symbol(ptr).map(Lit::Symbol),
             _ => None,
         }
@@ -212,13 +246,14 @@ pub struct Block {
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ctrl {
-    /// `MatchTag(x, cases)` performs a match on the tag of `x`, choosing the
-    /// appropriate `Block` among the ones provided in `cases`
+    /// `MatchTag(x, cases, def)` checks whether the tag of `x` matches some tag
+    /// among the ones provided in `cases`. If so, run the corresponding `Block`.
+    /// Run `def` otherwise
     MatchTag(Var, IndexMap<Tag, Block>, Option<Box<Block>>),
-    /// `MatchSymbol(x, cases, def)` checks whether `x` matches some symbol among
-    /// the ones provided in `cases`. If so, run the corresponding `Block`. Run
-    /// `def` otherwise
-    MatchVal(Var, IndexMap<Lit, Block>, Option<Box<Block>>),
+    /// `MatchSymbol(x, cases, def)` requires that `x` is a symbol and checks
+    /// whether `x` matches some symbol among the ones provided in `cases`. If so,
+    /// run the corresponding `Block`. Run `def` otherwise
+    MatchSymbol(Var, IndexMap<Symbol, Block>, Option<Box<Block>>),
     /// `IfEq(x, y, eq_block, else_block)` runs `eq_block` if `x == y`, and
     /// otherwise runs `else_block`
     IfEq(Var, Var, Box<Block>, Box<Block>),
@@ -257,18 +292,18 @@ pub enum Op {
     DivRem64([Var; 2], Var, Var),
     /// `Emit(v)` simply prints out the value of `v` when interpreting the code
     Emit(Var),
-    /// `Hash2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
-    Hash2(Var, Tag, [Var; 2]),
-    /// `Hash3(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 3 children `ys`
-    Hash3(Var, Tag, [Var; 3]),
-    /// `Hash4(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 4 children `ys`
-    Hash4(Var, Tag, [Var; 4]),
-    /// `Unhash2([a, b], x)` binds `a` and `b` to the 2 children of `x`
-    Unhash2([Var; 2], Var),
-    /// `Unhash3([a, b, c], x)` binds `a`, `b` and `c` to the 3 children of `x`
-    Unhash3([Var; 3], Var),
-    /// `Unhash4([a, b, c, d], x)` binds `a`, `b`, `c` and `d` to the 4 children of `x`
-    Unhash4([Var; 4], Var),
+    /// `Cons2(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 2 children `ys`
+    Cons2(Var, Tag, [Var; 2]),
+    /// `Cons3(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 3 children `ys`
+    Cons3(Var, Tag, [Var; 3]),
+    /// `Cons4(x, t, ys)` binds `x` to a `Ptr` with tag `t` and 4 children `ys`
+    Cons4(Var, Tag, [Var; 4]),
+    /// `Decons2([a, b], x)` binds `a` and `b` to the 2 children of `x`
+    Decons2([Var; 2], Var),
+    /// `Decons3([a, b, c], x)` binds `a`, `b` and `c` to the 3 children of `x`
+    Decons3([Var; 3], Var),
+    /// `Decons4([a, b, c, d], x)` binds `a`, `b`, `c` and `d` to the 4 children of `x`
+    Decons4([Var; 4], Var),
     /// `Hide(x, s, p)` binds `x` to a (comm) `Ptr` resulting from hiding the
     /// payload `p` with (num) secret `s`
     Hide(Var, Var, Var),
@@ -380,27 +415,27 @@ impl Func {
                     Op::Emit(a) => {
                         is_bound(a, map)?;
                     }
-                    Op::Hash2(img, _tag, preimg) => {
+                    Op::Cons2(img, _tag, preimg) => {
                         preimg.iter().try_for_each(|arg| is_bound(arg, map))?;
                         is_unique(img, map);
                     }
-                    Op::Hash3(img, _tag, preimg) => {
+                    Op::Cons3(img, _tag, preimg) => {
                         preimg.iter().try_for_each(|arg| is_bound(arg, map))?;
                         is_unique(img, map);
                     }
-                    Op::Hash4(img, _tag, preimg) => {
+                    Op::Cons4(img, _tag, preimg) => {
                         preimg.iter().try_for_each(|arg| is_bound(arg, map))?;
                         is_unique(img, map);
                     }
-                    Op::Unhash2(preimg, img) => {
+                    Op::Decons2(preimg, img) => {
                         is_bound(img, map)?;
                         preimg.iter().for_each(|var| is_unique(var, map))
                     }
-                    Op::Unhash3(preimg, img) => {
+                    Op::Decons3(preimg, img) => {
                         is_bound(img, map)?;
                         preimg.iter().for_each(|var| is_unique(var, map))
                     }
-                    Op::Unhash4(preimg, img) => {
+                    Op::Decons4(preimg, img) => {
                         is_bound(img, map)?;
                         preimg.iter().for_each(|var| is_unique(var, map))
                     }
@@ -432,10 +467,12 @@ impl Func {
                     let mut tags = HashSet::new();
                     let mut kind = None;
                     for (tag, block) in cases {
+                        // make sure that this `MatchTag` doesn't have weird semantics
                         let tag_kind = match tag {
                             Tag::Expr(..) => 0,
                             Tag::Cont(..) => 1,
-                            Tag::Ctrl(..) => 4,
+                            Tag::Op1(..) => 2,
+                            Tag::Op2(..) => 3,
                         };
                         if let Some(kind) = kind {
                             if kind != tag_kind {
@@ -454,31 +491,13 @@ impl Func {
                         None => (),
                     }
                 }
-                Ctrl::MatchVal(var, cases, def) => {
+                Ctrl::MatchSymbol(var, cases, def) => {
                     is_bound(var, map)?;
-                    let mut lits = HashSet::new();
-                    let mut kind = None;
-                    for (lit, block) in cases {
-                        let lit_kind = match lit {
-                            Lit::Num(..) => 0,
-                            Lit::String(..) => 1,
-                            Lit::Symbol(..) => 2,
-                        };
-                        if let Some(kind) = kind {
-                            if kind != lit_kind {
-                                bail!("Only values of the same kind allowed.");
-                            }
-                        } else {
-                            kind = Some(lit_kind)
-                        }
-                        if !lits.insert(lit) {
-                            bail!("Case {:?} already defined.", lit);
-                        }
+                    for block in cases.values() {
                         recurse(block, return_size, map)?;
                     }
-                    match def {
-                        Some(def) => recurse(def, return_size, map)?,
-                        None => (),
+                    if let Some(def) = def {
+                        recurse(def, return_size, map)?;
                     }
                 }
                 Ctrl::IfEq(x, y, eq_block, else_block) => {
@@ -547,6 +566,12 @@ impl Func {
             self.output_size,
             body,
         )
+    }
+
+    pub fn init_store<F: LurkField>(&self) -> Store<F> {
+        let mut store = Store::default();
+        self.body.intern_lits(&mut store);
+        store
     }
 }
 
@@ -637,35 +662,35 @@ impl Block {
                     let a = map.get_cloned(&a)?;
                     ops.push(Op::Emit(a))
                 }
-                Op::Hash2(img, tag, preimg) => {
+                Op::Cons2(img, tag, preimg) => {
                     let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
                     let img = insert_one(map, uniq, &img);
-                    ops.push(Op::Hash2(img, tag, preimg))
+                    ops.push(Op::Cons2(img, tag, preimg))
                 }
-                Op::Hash3(img, tag, preimg) => {
+                Op::Cons3(img, tag, preimg) => {
                     let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
                     let img = insert_one(map, uniq, &img);
-                    ops.push(Op::Hash3(img, tag, preimg))
+                    ops.push(Op::Cons3(img, tag, preimg))
                 }
-                Op::Hash4(img, tag, preimg) => {
+                Op::Cons4(img, tag, preimg) => {
                     let preimg = map.get_many_cloned(&preimg)?.try_into().unwrap();
                     let img = insert_one(map, uniq, &img);
-                    ops.push(Op::Hash4(img, tag, preimg))
+                    ops.push(Op::Cons4(img, tag, preimg))
                 }
-                Op::Unhash2(preimg, img) => {
+                Op::Decons2(preimg, img) => {
                     let img = map.get_cloned(&img)?;
                     let preimg = insert_many(map, uniq, &preimg);
-                    ops.push(Op::Unhash2(preimg.try_into().unwrap(), img))
+                    ops.push(Op::Decons2(preimg.try_into().unwrap(), img))
                 }
-                Op::Unhash3(preimg, img) => {
+                Op::Decons3(preimg, img) => {
                     let img = map.get_cloned(&img)?;
                     let preimg = insert_many(map, uniq, &preimg);
-                    ops.push(Op::Unhash3(preimg.try_into().unwrap(), img))
+                    ops.push(Op::Decons3(preimg.try_into().unwrap(), img))
                 }
-                Op::Unhash4(preimg, img) => {
+                Op::Decons4(preimg, img) => {
                     let img = map.get_cloned(&img)?;
                     let preimg = insert_many(map, uniq, &preimg);
-                    ops.push(Op::Unhash4(preimg.try_into().unwrap(), img))
+                    ops.push(Op::Decons4(preimg.try_into().unwrap(), img))
                 }
                 Op::Hide(tgt, sec, pay) => {
                     let sec = map.get_cloned(&sec)?;
@@ -695,18 +720,18 @@ impl Block {
                 };
                 Ctrl::MatchTag(var, IndexMap::from_iter(new_cases), new_def)
             }
-            Ctrl::MatchVal(var, cases, def) => {
+            Ctrl::MatchSymbol(var, cases, def) => {
                 let var = map.get_cloned(&var)?;
                 let mut new_cases = Vec::with_capacity(cases.len());
-                for (lit, case) in cases {
+                for (sym, case) in cases {
                     let new_case = case.deconflict(&mut map.clone(), uniq)?;
-                    new_cases.push((lit.clone(), new_case));
+                    new_cases.push((sym.clone(), new_case));
                 }
                 let new_def = match def {
                     Some(def) => Some(Box::new(def.deconflict(map, uniq)?)),
                     None => None,
                 };
-                Ctrl::MatchVal(var, IndexMap::from_iter(new_cases), new_def)
+                Ctrl::MatchSymbol(var, IndexMap::from_iter(new_cases), new_def)
             }
             Ctrl::IfEq(x, y, eq_block, else_block) => {
                 let x = map.get_cloned(&x)?;
@@ -718,6 +743,40 @@ impl Block {
             Ctrl::Return(o) => Ctrl::Return(map.get_many_cloned(&o)?),
         };
         Ok(Block { ops, ctrl })
+    }
+
+    fn intern_lits<F: LurkField>(&self, store: &mut Store<F>) {
+        for op in &self.ops {
+            match op {
+                Op::Call(_, func, _) => func.body.intern_lits(store),
+                Op::Lit(_, lit) => {
+                    lit.to_ptr(store);
+                }
+                _ => (),
+            }
+        }
+        match &self.ctrl {
+            Ctrl::IfEq(.., a, b) => {
+                a.intern_lits(store);
+                b.intern_lits(store);
+            }
+            Ctrl::MatchTag(_, cases, def) => {
+                cases.values().for_each(|block| block.intern_lits(store));
+                if let Some(def) = def {
+                    def.intern_lits(store);
+                }
+            }
+            Ctrl::MatchSymbol(_, cases, def) => {
+                for (sym, b) in cases {
+                    store.intern_symbol(sym);
+                    b.intern_lits(store);
+                }
+                if let Some(def) = def {
+                    def.intern_lits(store);
+                }
+            }
+            Ctrl::Return(..) => (),
+        }
     }
 }
 
@@ -731,8 +790,7 @@ impl Var {
 #[cfg(test)]
 mod tests {
     use super::slot::SlotsCounter;
-    use super::{store::Store, *};
-    use crate::state::lurk_sym;
+    use super::*;
     use crate::{func, lem::pointers::Ptr};
     use bellpepper::util_cs::Comparable;
     use bellpepper_core::test_cs::TestConstraintSystem;
@@ -747,27 +805,31 @@ mod tests {
     ///   - `expected_slots` gives the number of expected slots for each type of hash.
     fn synthesize_test_helper(func: &Func, inputs: Vec<Ptr<Fr>>, expected_num_slots: SlotsCounter) {
         use crate::tag::ContTag::*;
-        let store = &mut Store::default();
+        let store = &mut func.init_store();
         let outermost = Ptr::null(Tag::Cont(Outermost));
         let terminal = Ptr::null(Tag::Cont(Terminal));
         let error = Ptr::null(Tag::Cont(Error));
-        let nil = store.intern_symbol(&lurk_sym("nil"));
+        let nil = store.intern_nil();
         let stop_cond = |output: &[Ptr<Fr>]| output[2] == terminal || output[2] == error;
 
         assert_eq!(func.slot, expected_num_slots);
 
         let computed_num_constraints = func.num_constraints::<Fr>(store);
 
+        let log_fmt = |_: usize, _: &[Ptr<Fr>], _: &[Ptr<Fr>], _: &Store<Fr>| String::default();
+
         let mut cs_prev = None;
         for input in inputs.into_iter() {
-            let input = vec![input, nil, outermost];
-            let (frames, _) = func.call_until(input, store, stop_cond).unwrap();
+            let input = [input, nil, outermost];
+            let (frames, ..) = func
+                .call_until(&input, store, stop_cond, 10, log_fmt)
+                .unwrap();
 
             let mut cs;
 
-            for frame in frames.clone() {
+            for frame in frames {
                 cs = TestConstraintSystem::<Fr>::new();
-                func.synthesize(&mut cs, store, &frame).unwrap();
+                func.synthesize_frame_aux(&mut cs, store, &frame).unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(computed_num_constraints, cs.num_constraints());
                 if let Some(cs_prev) = cs_prev {
@@ -845,10 +907,10 @@ mod tests {
     #[test]
     fn handles_non_ssa() {
         let func = func!(foo(expr_in, _env_in, _cont_in): 3 => {
-            let x: Expr::Cons = hash2(expr_in, expr_in);
+            let x: Expr::Cons = cons2(expr_in, expr_in);
             // The next line rewrites `x` and it should move on smoothly, matching
             // the expected number of constraints accordingly
-            let x: Expr::Cons = hash2(x, x);
+            let x: Expr::Cons = cons2(x, x);
             let cont_out_terminal: Cont::Terminal;
             return (x, x, cont_out_terminal);
         });
@@ -890,16 +952,16 @@ mod tests {
     #[test]
     fn test_hash_slots() {
         let lem = func!(foo(expr_in, env_in, cont_in): 3 => {
-            let _x: Expr::Cons = hash2(expr_in, env_in);
-            let _y: Expr::Cons = hash3(expr_in, env_in, cont_in);
-            let _z: Expr::Cons = hash4(expr_in, env_in, cont_in, cont_in);
+            let _x: Expr::Cons = cons2(expr_in, env_in);
+            let _y: Expr::Cons = cons3(expr_in, env_in, cont_in);
+            let _z: Expr::Cons = cons4(expr_in, env_in, cont_in, cont_in);
             let t: Cont::Terminal;
             let p: Expr::Nil;
             match expr_in.tag {
                 Expr::Num => {
-                    let m: Expr::Cons = hash2(env_in, expr_in);
-                    let n: Expr::Cons = hash3(cont_in, env_in, expr_in);
-                    let _k: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                    let m: Expr::Cons = cons2(env_in, expr_in);
+                    let n: Expr::Cons = cons3(cont_in, env_in, expr_in);
+                    let _k: Expr::Cons = cons4(expr_in, cont_in, env_in, expr_in);
                     return (m, n, t);
                 }
                 Expr::Char => {
@@ -921,19 +983,19 @@ mod tests {
     #[test]
     fn test_unhash_slots() {
         let lem = func!(foo(expr_in, env_in, cont_in): 3 => {
-            let _x: Expr::Cons = hash2(expr_in, env_in);
-            let _y: Expr::Cons = hash3(expr_in, env_in, cont_in);
-            let _z: Expr::Cons = hash4(expr_in, env_in, cont_in, cont_in);
+            let _x: Expr::Cons = cons2(expr_in, env_in);
+            let _y: Expr::Cons = cons3(expr_in, env_in, cont_in);
+            let _z: Expr::Cons = cons4(expr_in, env_in, cont_in, cont_in);
             let t: Cont::Terminal;
             let p: Expr::Nil;
             match expr_in.tag {
                 Expr::Num => {
-                    let m: Expr::Cons = hash2(env_in, expr_in);
-                    let n: Expr::Cons = hash3(cont_in, env_in, expr_in);
-                    let k: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
-                    let (_m1, _m2) = unhash2(m);
-                    let (_n1, _n2, _n3) = unhash3(n);
-                    let (_k1, _k2, _k3, _k4) = unhash4(k);
+                    let m: Expr::Cons = cons2(env_in, expr_in);
+                    let n: Expr::Cons = cons3(cont_in, env_in, expr_in);
+                    let k: Expr::Cons = cons4(expr_in, cont_in, env_in, expr_in);
+                    let (_m1, _m2) = decons2(m);
+                    let (_n1, _n2, _n3) = decons3(n);
+                    let (_k1, _k2, _k3, _k4) = decons4(k);
                     return (m, n, t);
                 }
                 Expr::Char => {
@@ -955,30 +1017,30 @@ mod tests {
     #[test]
     fn test_unhash_nested_slots() {
         let lem = func!(foo(expr_in, env_in, cont_in): 3 => {
-            let _x: Expr::Cons = hash2(expr_in, env_in);
-            let _y: Expr::Cons = hash3(expr_in, env_in, cont_in);
-            let _z: Expr::Cons = hash4(expr_in, env_in, cont_in, cont_in);
+            let _x: Expr::Cons = cons2(expr_in, env_in);
+            let _y: Expr::Cons = cons3(expr_in, env_in, cont_in);
+            let _z: Expr::Cons = cons4(expr_in, env_in, cont_in, cont_in);
             let t: Cont::Terminal;
             let p: Expr::Nil;
             match expr_in.tag {
                 Expr::Num => {
-                    let m: Expr::Cons = hash2(env_in, expr_in);
-                    let n: Expr::Cons = hash3(cont_in, env_in, expr_in);
-                    let k: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
-                    let (_m1, _m2) = unhash2(m);
-                    let (_n1, _n2, _n3) = unhash3(n);
-                    let (_k1, _k2, _k3, _k4) = unhash4(k);
+                    let m: Expr::Cons = cons2(env_in, expr_in);
+                    let n: Expr::Cons = cons3(cont_in, env_in, expr_in);
+                    let k: Expr::Cons = cons4(expr_in, cont_in, env_in, expr_in);
+                    let (_m1, _m2) = decons2(m);
+                    let (_n1, _n2, _n3) = decons3(n);
+                    let (_k1, _k2, _k3, _k4) = decons4(k);
                     match cont_in.tag {
                         Cont::Outermost => {
-                            let _a: Expr::Cons = hash2(env_in, expr_in);
-                            let _b: Expr::Cons = hash3(cont_in, env_in, expr_in);
-                            let _c: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                            let _a: Expr::Cons = cons2(env_in, expr_in);
+                            let _b: Expr::Cons = cons3(cont_in, env_in, expr_in);
+                            let _c: Expr::Cons = cons4(expr_in, cont_in, env_in, expr_in);
                             return (m, n, t);
                         }
                         Cont::Terminal => {
-                            let _d: Expr::Cons = hash2(env_in, expr_in);
-                            let _e: Expr::Cons = hash3(cont_in, env_in, expr_in);
-                            let _f: Expr::Cons = hash4(expr_in, cont_in, env_in, expr_in);
+                            let _d: Expr::Cons = cons2(env_in, expr_in);
+                            let _e: Expr::Cons = cons3(cont_in, env_in, expr_in);
+                            let _f: Expr::Cons = cons4(expr_in, cont_in, env_in, expr_in);
                             return (m, n, t);
                         }
                     }
