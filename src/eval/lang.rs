@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+use indexmap::IndexMap;
 use lurk_macros::Coproc;
 use serde::{Deserialize, Serialize};
 
@@ -13,8 +14,6 @@ use crate::symbol::Symbol;
 use crate::z_ptr::ZExprPtr;
 
 use crate::{self as lurk, lurk_sym_ptr};
-
-type IndexSet<K> = indexmap::IndexSet<K, ahash::RandomState>;
 
 /// `DummyCoprocessor` is a concrete implementation of the [`crate::coprocessor::Coprocessor`] trait.
 ///
@@ -80,27 +79,22 @@ pub enum Coproc<F: LurkField> {
 // TODO: Define a trait for the Hash and parameterize on that also.
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 pub struct Lang<F: LurkField, C: Coprocessor<F>> {
-    //  A HashMap that stores coprocessors with their associated `Sym` keys.
-    coprocessors: HashMap<Symbol, (C, ZExprPtr<F>)>,
-    names: Vec<Symbol>,
-    index: IndexSet<ZExprPtr<F>>,
+    /// An IndexMap that stores coprocessors with their associated `Sym` keys.
+    coprocessors: IndexMap<Symbol, (C, ZExprPtr<F>)>,
+    index: HashMap<ZExprPtr<F>, usize>,
 }
 
 impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
+    #[inline]
     pub fn new() -> Self {
         Self {
             coprocessors: Default::default(),
-            names: Default::default(),
             index: Default::default(),
         }
     }
 
     pub fn new_with_bindings<B: Into<Binding<F, C>>>(s: &mut Store<F>, bindings: Vec<B>) -> Self {
-        let mut new = Self {
-            coprocessors: Default::default(),
-            names: Default::default(),
-            index: Default::default(),
-        };
+        let mut new = Self::new();
         for b in bindings {
             new.add_binding(b.into(), s);
         }
@@ -133,19 +127,16 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
 
         self.coprocessors
             .insert(name.clone(), (cproc.into(), z_ptr));
-        self.names.push(name.clone());
-        self.index.insert(z_ptr);
+        self.index.insert(z_ptr, self.index.len());
     }
 
     pub fn add_binding<B: Into<Binding<F, C>>>(&mut self, binding: B, store: &mut Store<F>) {
         let Binding { name, coproc, _p } = binding.into();
-        let ptr = store.intern_symbol(&name);
-        let _z_ptr = store.hash_expr(&ptr).unwrap();
-
         self.add_coprocessor(name, coproc, store);
     }
 
-    pub fn coprocessors(&self) -> &HashMap<Symbol, (C, ZExprPtr<F>)> {
+    #[inline]
+    pub fn coprocessors(&self) -> &IndexMap<Symbol, (C, ZExprPtr<F>)> {
         &self.coprocessors
     }
 
@@ -163,33 +154,36 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         maybe_sym.and_then(|sym| self.coprocessors.get(&sym))
     }
 
+    #[inline]
     pub fn has_coprocessors(&self) -> bool {
         !self.coprocessors.is_empty()
     }
 
+    #[inline]
     pub fn is_default(&self) -> bool {
         !self.has_coprocessors()
     }
 
+    #[inline]
     pub fn coprocessor_count(&self) -> usize {
-        self.index.len()
+        self.coprocessors.len()
     }
 
+    #[inline]
     pub fn get_index(&self, z_ptr: &ZExprPtr<F>) -> Option<usize> {
-        self.index.get_index_of(z_ptr)
+        self.index.get(z_ptr).copied()
     }
 
     pub fn get_coprocessor(&self, index: usize) -> Option<&C> {
-        self.names
-            .get(index)
-            .map(|name| &self.coprocessors.get(name).unwrap().0)
+        self.coprocessors.get_index(index).map(|(_, (c, _))| c)
     }
 
     pub fn get_coprocessor_z_ptr(&self, index: usize) -> Option<&ZExprPtr<F>> {
-        self.names
-            .get(index)
-            .map(|name| &self.coprocessors.get(name).unwrap().1)
+        self.coprocessors
+            .get_index(index)
+            .map(|(_, (_, z_ptr))| z_ptr)
     }
+
     pub fn get_coprocessor_from_zptr(&self, z_ptr: &ZExprPtr<F>) -> Option<&C> {
         self.get_index(z_ptr)
             .and_then(|index| self.get_coprocessor(index))
