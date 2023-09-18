@@ -14,9 +14,6 @@ use crate::{
 
 use super::Repl;
 
-// -------------------------------------------------------------------------- //
-// Meta Command
-
 pub(super) struct MetaCmd<F: LurkField>
 {
     name: &'static str,
@@ -28,9 +25,6 @@ pub(super) struct MetaCmd<F: LurkField>
 }
 
 type F = pasta_curves::pallas::Scalar; // TODO: generalize this
-
-// -------------------------------------------------------------------------- //
-// load
 
 impl MetaCmd<F> {
     const LOAD: MetaCmd<F> = MetaCmd {
@@ -57,9 +51,6 @@ impl MetaCmd<F> {
         }
     };
 }
-
-// -------------------------------------------------------------------------- //
-// def
 
 impl MetaCmd<F> {
     const DEF: MetaCmd<F> = MetaCmd {
@@ -96,9 +87,6 @@ impl MetaCmd<F> {
         },
     };
 }
-
-// -------------------------------------------------------------------------- //
-// defrec
 
 impl MetaCmd<F> {
     const DEFREC: MetaCmd<F> = MetaCmd {
@@ -140,9 +128,6 @@ impl MetaCmd<F> {
     };
  }
 
-// -------------------------------------------------------------------------- //
-// assert
-
 impl MetaCmd<F> {
     const ASSERT: MetaCmd<F> = MetaCmd {
         name:
@@ -170,9 +155,6 @@ impl MetaCmd<F> {
         },
     };
 }
-
-// -------------------------------------------------------------------------- //
-// assert-eq
 
 impl MetaCmd<F> {
     const ASSERT_EQ: MetaCmd<F> = MetaCmd {
@@ -213,9 +195,6 @@ impl MetaCmd<F> {
     };
 }
 
-// -------------------------------------------------------------------------- //
-// assert-emitted
-
 impl MetaCmd<F> {
     const ASSERT_EMITTED: MetaCmd<F> = MetaCmd {
         name:
@@ -255,9 +234,6 @@ impl MetaCmd<F> {
     };
 }
 
-// -------------------------------------------------------------------------- //
-// assert-error
-
 impl MetaCmd<F> {
     const ASSERT_ERROR: MetaCmd<F> = MetaCmd {
         name:
@@ -285,9 +261,6 @@ impl MetaCmd<F> {
     };
 }
 
-// -------------------------------------------------------------------------- //
-// commit
-
 impl MetaCmd<F> {
     const COMMIT: MetaCmd<F> = MetaCmd {
         name:
@@ -309,9 +282,6 @@ impl MetaCmd<F> {
         }
     };
 }
-
-// -------------------------------------------------------------------------- //
-// hide
 
 impl MetaCmd<F> {
     const HIDE: MetaCmd<F> = MetaCmd {
@@ -347,9 +317,6 @@ impl MetaCmd<F> {
     };
 }
 
-// -------------------------------------------------------------------------- //
-// fetch
-
 impl MetaCmd<F> {
     const FETCH: MetaCmd<F> = MetaCmd {
         name:
@@ -371,9 +338,6 @@ impl MetaCmd<F> {
     };
 }
 
-// -------------------------------------------------------------------------- //
-// open
-
 impl MetaCmd<F> {
     const OPEN: MetaCmd<F> = MetaCmd {
         name:
@@ -394,9 +358,6 @@ impl MetaCmd<F> {
         }
     };
 }
-
-// -------------------------------------------------------------------------- //
-// clear
 
 impl<F: LurkField> MetaCmd<F> {
     const CLEAR: MetaCmd<F> = MetaCmd {
@@ -420,9 +381,6 @@ impl<F: LurkField> MetaCmd<F> {
     };
 }
 
-// -------------------------------------------------------------------------- //
-// set-env
-
 impl MetaCmd<F> {
     const SET_ENV: MetaCmd<F> = MetaCmd {
         name:
@@ -445,9 +403,6 @@ impl MetaCmd<F> {
         }
     };
 }
-
-// -------------------------------------------------------------------------- //
-// prove
 
 impl MetaCmd<F> {
     const PROVE: MetaCmd<F> = MetaCmd {
@@ -475,9 +430,6 @@ impl MetaCmd<F> {
     };
 }
 
-// -------------------------------------------------------------------------- //
-// verify
-
 impl<F: LurkField> MetaCmd<F> {
     const VERIFY: MetaCmd<F> = MetaCmd {
         name:
@@ -502,9 +454,6 @@ impl<F: LurkField> MetaCmd<F> {
         }
     };
 }
-
-// -------------------------------------------------------------------------- //
-// defpackage
 
 impl<F: LurkField> MetaCmd<F> {
     const DEFPACKAGE: MetaCmd<F> = MetaCmd {
@@ -531,9 +480,6 @@ impl<F: LurkField> MetaCmd<F> {
         }
     };
 }
-
-// -------------------------------------------------------------------------- //
-// import
 
 impl<F: LurkField> MetaCmd<F> {
     const IMPORT: MetaCmd<F> = MetaCmd {
@@ -570,9 +516,6 @@ impl<F: LurkField> MetaCmd<F> {
         }
     };
 }
-
-// -------------------------------------------------------------------------- //
-// in-package
 
 impl<F: LurkField> MetaCmd<F> {
     const IN_PACKAGE: MetaCmd<F> = MetaCmd {
@@ -613,9 +556,6 @@ impl<F: LurkField> MetaCmd<F> {
         }
     };
 }
-
-// -------------------------------------------------------------------------- //
-// help
 
 impl<F: LurkField> MetaCmd<F> {
     const HELP: MetaCmd<F> = MetaCmd {
@@ -679,32 +619,32 @@ impl<F: LurkField> MetaCmd<F> {
     }
 }
 
-// -------------------------------------------------------------------------- //
-// Meta Command Map
-
 impl MetaCmd<F> {
+
+    const CMDS: [MetaCmd<F>; 19] = [
+            MetaCmd::LOAD,
+            MetaCmd::DEF,
+            MetaCmd::DEFREC,
+            MetaCmd::ASSERT,
+            MetaCmd::ASSERT_EQ,
+            MetaCmd::ASSERT_EMITTED,
+            MetaCmd::ASSERT_ERROR,
+            MetaCmd::COMMIT,
+            MetaCmd::HIDE,
+            MetaCmd::FETCH,
+            MetaCmd::OPEN,
+            MetaCmd::CLEAR,
+            MetaCmd::SET_ENV,
+            MetaCmd::PROVE,
+            MetaCmd::VERIFY,
+            MetaCmd::DEFPACKAGE,
+            MetaCmd::IMPORT,
+            MetaCmd::IN_PACKAGE,
+            MetaCmd::HELP,
+    ];
+
     pub(super) fn cmds() -> std::collections::HashMap<&'static str, MetaCmd<F>> {
-        return std::collections::HashMap::from([
-            ("load", MetaCmd::LOAD),
-            ("def", MetaCmd::DEF),
-            ("defrec", MetaCmd::DEFREC),
-            ("assert", MetaCmd::ASSERT),
-            ("assert-eq", MetaCmd::ASSERT_EQ),
-            ("assert-emitted", MetaCmd::ASSERT_EMITTED),
-            ("assert-error", MetaCmd::ASSERT_ERROR),
-            ("commit", MetaCmd::COMMIT),
-            ("hide", MetaCmd::HIDE),
-            ("fetch", MetaCmd::FETCH),
-            ("open", MetaCmd::OPEN),
-            ("clear", MetaCmd::CLEAR),
-            ("set-env", MetaCmd::SET_ENV),
-            ("prove", MetaCmd::PROVE),
-            ("verify", MetaCmd::VERIFY),
-            ("defpackage", MetaCmd::DEFPACKAGE),
-            ("import", MetaCmd::IMPORT),
-            ("in-package", MetaCmd::IN_PACKAGE),
-            ("help", MetaCmd::HELP),
-        ]);
+        return std::collections::HashMap::from(Self::CMDS.map(|x| (x.name, x)));
     }
 }
 
