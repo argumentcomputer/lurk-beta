@@ -478,7 +478,6 @@ impl MetaCmd<F> {
 // -------------------------------------------------------------------------- //
 // verify
 
-// impl<F: LurkField + CurveCycleEquipped> MetaCmd<F> {
 impl<F: LurkField> MetaCmd<F> {
     const VERIFY: MetaCmd<F> = MetaCmd {
         name:

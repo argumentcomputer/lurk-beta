@@ -88,9 +88,6 @@ fn pad(a: usize, m: usize) -> usize {
     (a + m - 1) / m * m
 }
 
-// -------------------------------------------------------------------------- //
-// Implementations that are generic in the field
-
 impl<F: LurkField> Repl<F> {
     fn peek1(&self, cmd: &str, args: &Ptr<F>) -> Result<Ptr<F>> {
         let (first, rest) = self.store.car_cdr(args)?;
@@ -129,9 +126,6 @@ impl<F: LurkField> Repl<F> {
         }
     }
 }
-
-// -------------------------------------------------------------------------- //
-// The following implementations are only for the Pallas curves
 
 type F = pasta_curves::pallas::Scalar; // TODO: generalize this
 
@@ -422,7 +416,7 @@ impl Repl<F> {
                         Ok(()) => (),
                         Err(e) => println!("meta command failed with {}", e),
                     },
-                    _ => bail!("Unsupported meta command: {cmdstr}"),
+                    None => bail!("Unsupported meta command: {cmdstr}"),
                 }
             }
             None => bail!(
