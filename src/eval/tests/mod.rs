@@ -157,7 +157,7 @@ fn test_reduce_simple() {
     {
         let num = store.num(123);
 
-        let (result, _new_env, _cont, _witness) = reduce(
+        let (result, _new_env, _cont, _witness, _meta) = reduce(
             num,
             empty_sym_env(&store),
             store.intern_cont_outermost(),
@@ -169,7 +169,7 @@ fn test_reduce_simple() {
     }
 
     {
-        let (result, _new_env, _cont, _witness) = reduce(
+        let (result, _new_env, _cont, _witness, _meta) = reduce(
             lurk_sym_ptr!(store, nil),
             empty_sym_env(&store),
             store.intern_cont_outermost(),
@@ -2652,9 +2652,28 @@ pub(crate) mod coproc {
 
         let res = s.num(89);
         let error = s.get_cont_error();
+        let terminal = s.get_cont_terminal();
 
-        test_aux(s, expr, Some(res), None, None, None, 1, Some(&lang));
-        test_aux(s, expr2, Some(res), None, None, None, 3, Some(&lang));
+        test_aux(
+            s,
+            expr,
+            Some(res),
+            None,
+            Some(terminal),
+            None,
+            2,
+            Some(&lang),
+        );
+        test_aux(
+            s,
+            expr2,
+            Some(res),
+            None,
+            Some(terminal),
+            None,
+            5,
+            Some(&lang),
+        );
         test_aux(s, expr3, None, None, Some(error), None, 1, Some(&lang));
     }
 }

@@ -33,9 +33,9 @@ use crate::config::CONFIG;
 
 use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
-use crate::eval::{lang::Lang, Evaluator, Frame, Witness, IO};
+use crate::eval::{lang::Lang, Frame, Meta, Witness, IO};
 use crate::field::LurkField;
-use crate::proof::{Prover, PublicParameters};
+use crate::proof::{supernova::FoldingConfig, Prover, PublicParameters};
 use crate::ptr::Ptr;
 use crate::store::Store;
 
@@ -207,8 +207,9 @@ where
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> C1<'a, F, C> {
     fn circuits(count: usize, lang: Arc<Lang<F, C>>) -> (C1<'a, F, C>, C2<F>) {
+        let folding_config = Arc::new(FoldingConfig::new_ivc(lang, count));
         (
-            MultiFrame::blank(count, lang),
+            MultiFrame::blank(folding_config, Meta::Lurk),
             TrivialTestCircuit::default(),
         )
     }
@@ -229,7 +230,7 @@ where
 {
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, '_, F, C> for NovaProver<F, C>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, F, C> for NovaProver<F, C>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -255,35 +256,18 @@ where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    /// Evaluates and generates the frames of the computation given the expression, environment, and store
-    pub fn get_evaluation_frames(
-        &self,
-        expr: Ptr<F>,
-        env: Ptr<F>,
-        store: &mut Store<F>,
-        limit: usize,
-        lang: &Lang<F, C>,
-    ) -> Result<Vec<Frame<IO<F>, Witness<F>, C>>, ProofError> {
-        let padding_predicate = |count| self.needs_frame_padding(count);
-
-        let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate, lang)?;
-
-        store.hydrate_scalar_cache();
-
-        Ok(frames)
-    }
-
     /// Proves the computation given the public parameters, frames, and store.
     pub fn prove<'a>(
         &'a self,
         pp: &'a PublicParams<'_, F, C>,
-        frames: &[Frame<IO<F>, Witness<F>, C>],
+        frames: &[Frame<IO<F>, Witness<F>, F, C>],
         store: &'a mut Store<F>,
         lang: Arc<Lang<F, C>>,
     ) -> Result<(Proof<'_, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
         let z0 = frames[0].input.to_vector(store)?;
         let zi = frames.last().unwrap().output.to_vector(store)?;
-        let circuits = MultiFrame::from_frames(self.reduction_count(), frames, store, lang.clone());
+        let folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), self.reduction_count()));
+        let circuits = MultiFrame::from_frames(self.reduction_count, frames, store, folding_config);
 
         let num_steps = circuits.len();
         let proof =
@@ -302,7 +286,7 @@ where
         limit: usize,
         lang: Arc<Lang<F, C>>,
     ) -> Result<(Proof<'_, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
-        let frames = self.get_evaluation_frames(expr, env, store, limit, &lang)?;
+        let frames = self.get_evaluation_frames(expr, env, store, limit, lang.clone())?;
         self.prove(pp, &frames, store, lang)
     }
 }
@@ -384,22 +368,50 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
 
         let count = self.count;
 
-        let (new_expr, new_env, new_cont) = match self.frames.as_ref() {
-            Some(frames) => {
-                let s = self.store.expect("store missing");
-                let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?;
+        let (new_expr, new_env, new_cont) = match self.meta {
+            Meta::Lurk => match self.frames.as_ref() {
+                Some(frames) => {
+                    let s = self.store.expect("store missing");
+                    let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?;
 
-                self.synthesize_frames(cs, s, input_expr, input_env, input_cont, frames, &g)
-            }
-            None => {
-                assert!(self.store.is_none());
-                let s = Store::default();
-                let blank_frame = CircuitFrame::blank();
-                let frames = vec![blank_frame; count];
+                    self.synthesize_frames(cs, s, input_expr, input_env, input_cont, frames, &g)
+                }
+                None => {
+                    assert!(self.store.is_none());
+                    let s = Store::default();
+                    let blank_frame = CircuitFrame::blank();
+                    let frames = vec![blank_frame; count];
 
-                let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?;
+                    let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?;
 
-                self.synthesize_frames(cs, &s, input_expr, input_env, input_cont, &frames, &g)
+                    self.synthesize_frames(cs, &s, input_expr, input_env, input_cont, &frames, &g)
+                }
+            },
+            Meta::Coprocessor(z_ptr) => {
+                let c = self
+                    .folding_config
+                    .lang()
+                    .get_coprocessor_from_zptr(&z_ptr)
+                    .expect("coprocessor missing");
+                match self.frames.as_ref() {
+                    Some(frames) => {
+                        assert_eq!(1, frames.len());
+                        let s = self.store.expect("store missing");
+                        let g =
+                            GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?;
+
+                        c.synthesize_step_circuit(cs, s, &g, &input_expr, &input_env, &input_cont)?
+                    }
+                    None => {
+                        assert!(self.store.is_none());
+                        let s = Store::default();
+
+                        let g =
+                            GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?;
+
+                        c.synthesize_step_circuit(cs, &s, &g, &input_expr, &input_env, &input_cont)?
+                    }
+                }
             }
         };
 
@@ -603,6 +615,7 @@ where
 pub mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
+    use tracing_test::traced_test;
 
     use crate::lurk_sym_ptr;
     use crate::num::Num;
@@ -743,11 +756,16 @@ pub mod tests {
         }
 
         let frames = nova_prover
-            .get_evaluation_frames(expr, e, s, limit, &lang)
+            .get_evaluation_frames(expr, e, s, limit, lang.clone())
             .unwrap();
+        let folding_config = Arc::new(FoldingConfig::new_ivc(lang, nova_prover.reduction_count()));
 
-        let multiframes =
-            MultiFrame::from_frames(nova_prover.reduction_count(), &frames, s, lang.clone());
+        let multiframes = MultiFrame::from_frames(
+            nova_prover.reduction_count(),
+            &frames,
+            s,
+            folding_config.clone(),
+        );
         let len = multiframes.len();
 
         let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);
@@ -755,7 +773,7 @@ pub mod tests {
 
         let mut cs_blank = MetricCS::<Fr>::new();
 
-        let blank = MultiFrame::<Fr, C>::blank(reduction_count, lang);
+        let blank = MultiFrame::<Fr, C>::blank(folding_config, Meta::Lurk);
         blank
             .synthesize(&mut cs_blank)
             .expect("failed to synthesize blank");
@@ -3888,6 +3906,7 @@ pub mod tests {
     }
 
     #[test]
+    #[traced_test]
     fn test_dumb_lang() {
         use crate::coprocessor::test::DumbCoprocessor;
         use crate::eval::tests::coproc::DumbCoproc;
@@ -3915,8 +3934,8 @@ pub mod tests {
         let error = s.get_cont_error();
         let lang = Arc::new(lang);
 
-        test_aux(s, expr, Some(res), None, None, None, 1, Some(lang.clone()));
-        test_aux(s, expr2, Some(res), None, None, None, 3, Some(lang.clone()));
+        test_aux(s, expr, Some(res), None, None, None, 2, Some(lang.clone()));
+        test_aux(s, expr2, Some(res), None, None, None, 5, Some(lang.clone()));
         test_aux(
             s,
             expr3,

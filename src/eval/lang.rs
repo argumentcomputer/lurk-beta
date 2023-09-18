@@ -14,6 +14,8 @@ use crate::z_ptr::ZExprPtr;
 
 use crate::{self as lurk, lurk_sym_ptr};
 
+type IndexSet<K> = indexmap::IndexSet<K, ahash::RandomState>;
+
 /// `DummyCoprocessor` is a concrete implementation of the [`crate::coprocessor::Coprocessor`] trait.
 ///
 /// It provides specific behavior for a dummy coprocessor.
@@ -80,18 +82,24 @@ pub enum Coproc<F: LurkField> {
 pub struct Lang<F: LurkField, C: Coprocessor<F>> {
     //  A HashMap that stores coprocessors with their associated `Sym` keys.
     coprocessors: HashMap<Symbol, (C, ZExprPtr<F>)>,
+    names: Vec<Symbol>,
+    index: IndexSet<ZExprPtr<F>>,
 }
 
 impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
     pub fn new() -> Self {
         Self {
             coprocessors: Default::default(),
+            names: Default::default(),
+            index: Default::default(),
         }
     }
 
     pub fn new_with_bindings<B: Into<Binding<F, C>>>(s: &mut Store<F>, bindings: Vec<B>) -> Self {
         let mut new = Self {
             coprocessors: Default::default(),
+            names: Default::default(),
+            index: Default::default(),
         };
         for b in bindings {
             new.add_binding(b.into(), s);
@@ -120,19 +128,21 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         store: &mut Store<F>,
     ) {
         let name = name.into();
-        // TODO: Check if intern_symbol should take a reference
         let ptr = store.intern_symbol(&name);
         let z_ptr = store.hash_expr(&ptr).unwrap();
 
-        self.coprocessors.insert(name, (cproc.into(), z_ptr));
+        self.coprocessors
+            .insert(name.clone(), (cproc.into(), z_ptr));
+        self.names.push(name.clone());
+        self.index.insert(z_ptr);
     }
 
     pub fn add_binding<B: Into<Binding<F, C>>>(&mut self, binding: B, store: &mut Store<F>) {
         let Binding { name, coproc, _p } = binding.into();
         let ptr = store.intern_symbol(&name);
-        let z_ptr = store.hash_expr(&ptr).unwrap();
+        let _z_ptr = store.hash_expr(&ptr).unwrap();
 
-        self.coprocessors.insert(name, (coproc, z_ptr));
+        self.add_coprocessor(name, coproc, store);
     }
 
     pub fn coprocessors(&self) -> &HashMap<Symbol, (C, ZExprPtr<F>)> {
@@ -159,6 +169,30 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
 
     pub fn is_default(&self) -> bool {
         !self.has_coprocessors()
+    }
+
+    pub fn coprocessor_count(&self) -> usize {
+        self.index.len()
+    }
+
+    pub fn get_index(&self, z_ptr: &ZExprPtr<F>) -> Option<usize> {
+        self.index.get_index_of(z_ptr)
+    }
+
+    pub fn get_coprocessor(&self, index: usize) -> Option<&C> {
+        self.names
+            .get(index)
+            .map(|name| &self.coprocessors.get(name).unwrap().0)
+    }
+
+    pub fn get_coprocessor_z_ptr(&self, index: usize) -> Option<&ZExprPtr<F>> {
+        self.names
+            .get(index)
+            .map(|name| &self.coprocessors.get(name).unwrap().1)
+    }
+    pub fn get_coprocessor_from_zptr(&self, z_ptr: &ZExprPtr<F>) -> Option<&C> {
+        self.get_index(z_ptr)
+            .and_then(|index| self.get_coprocessor(index))
     }
 }
 

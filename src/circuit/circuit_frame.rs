@@ -7,6 +7,7 @@ use bellpepper_core::{
     boolean::Boolean, num::AllocatedNum, Circuit, ConstraintSystem, SynthesisError,
 };
 use rayon::prelude::*;
+use tracing::{debug, info};
 
 use crate::{
     circuit::gadgets::{
@@ -34,11 +35,11 @@ use crate::circuit::circuit_frame::constraints::{
 use crate::circuit::gadgets::hashes::{AllocatedConsWitness, AllocatedContWitness};
 use crate::circuit::ToInputs;
 use crate::coprocessor::Coprocessor;
-use crate::eval::{lang::Lang, Frame, Witness, IO};
+use crate::eval::{Frame, Meta, Witness, IO};
 use crate::expr::Thunk;
 use crate::hash_witness::HashWitness;
 use crate::lurk_sym_ptr;
-use crate::proof::Provable;
+use crate::proof::{supernova::FoldingConfig, Provable};
 use crate::ptr::Ptr;
 use crate::store::Store;
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
@@ -59,12 +60,13 @@ pub struct CircuitFrame<'a, F: LurkField, C: Coprocessor<F>> {
 #[derive(Debug, Clone)]
 pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     pub store: Option<&'a Store<F>>,
-    pub lang: Option<Arc<Lang<F, C>>>,
     pub input: Option<IO<F>>,
     pub output: Option<IO<F>>,
     pub frames: Option<Vec<CircuitFrame<'a, F, C>>>,
     pub cached_witness: Option<WitnessCS<F>>,
     pub count: usize,
+    pub folding_config: Arc<FoldingConfig<F, C>>,
+    pub meta: Meta<F>,
 }
 
 impl<'a, F: LurkField, C: Coprocessor<F>> CircuitFrame<'a, F, C> {
@@ -78,7 +80,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> CircuitFrame<'a, F, C> {
         }
     }
 
-    pub fn from_frame(frame: &Frame<IO<F>, Witness<F>, C>, store: &'a Store<F>) -> Self {
+    pub fn from_frame(frame: &Frame<IO<F>, Witness<F>, F, C>, store: &'a Store<F>) -> Self {
         CircuitFrame {
             store: Some(store),
             input: Some(frame.input),
@@ -90,15 +92,28 @@ impl<'a, F: LurkField, C: Coprocessor<F>> CircuitFrame<'a, F, C> {
 }
 
 impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
-    pub fn blank(count: usize, lang: Arc<Lang<F, C>>) -> Self {
-        Self {
-            store: None,
-            lang: Some(lang),
-            input: None,
-            output: None,
-            frames: None,
-            cached_witness: None,
-            count,
+    pub fn blank(folding_config: Arc<FoldingConfig<F, C>>, meta: Meta<F>) -> Self {
+        match meta {
+            Meta::Lurk => Self {
+                store: None,
+                input: None,
+                output: None,
+                frames: None,
+                cached_witness: None,
+                count: folding_config.reduction_count(),
+                folding_config,
+                meta,
+            },
+            Meta::Coprocessor(_z_ptr) => Self {
+                store: None,
+                input: None,
+                output: None,
+                frames: None,
+                cached_witness: None,
+                count: 1,
+                folding_config,
+                meta,
+            },
         }
     }
 
@@ -107,21 +122,28 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     }
 
     pub fn from_frames(
+        // we need this count, even though folding_config contains reduction_count
+        // because it might be overridden in the case of a coprocoessor, which should have rc=1.
+        // This is not ideal and might not *actually* be needed.
         count: usize,
-        frames: &[Frame<IO<F>, Witness<F>, C>],
+        frames: &[Frame<IO<F>, Witness<F>, F, C>],
         store: &'a Store<F>,
-        lang: Arc<Lang<F, C>>,
+        folding_config: Arc<FoldingConfig<F, C>>,
     ) -> Vec<Self> {
         // `count` is the number of `Frames` to include per `MultiFrame`.
         let total_frames = frames.len();
         let n = (total_frames + count - 1) / count;
         let mut multi_frames = Vec::with_capacity(n);
 
+        let mut meta = None;
         for chunk in frames.chunks(count) {
             let mut inner_frames = Vec::with_capacity(count);
 
             for x in chunk {
                 let circuit_frame = CircuitFrame::from_frame(x, store);
+                if meta.is_none() {
+                    meta = Some(x.meta);
+                }
                 inner_frames.push(circuit_frame);
             }
 
@@ -137,14 +159,17 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
             let output = last_frame.output;
             debug_assert!(!inner_frames.is_empty());
 
+            let meta = meta.unwrap_or(Meta::Lurk);
+
             let mf = MultiFrame {
                 store: Some(store),
-                lang: Some(lang.clone()),
                 input: Some(chunk[0].input),
                 output: Some(output),
                 frames: Some(inner_frames),
                 cached_witness: None,
                 count,
+                folding_config: folding_config.clone(),
+                meta,
             };
 
             multi_frames.push(mf);
@@ -158,7 +183,8 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         count: usize,
         circuit_frame: Option<CircuitFrame<'a, F, C>>,
         store: &'a Store<F>,
-        lang: Arc<Lang<F, C>>,
+        folding_config: Arc<FoldingConfig<F, C>>,
+        meta: Meta<F>,
     ) -> Self {
         let (frames, input, output) = if let Some(circuit_frame) = circuit_frame {
             (
@@ -171,12 +197,13 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         };
         Self {
             store: Some(store),
-            lang: Some(lang),
             input,
             output,
             frames,
             cached_witness: None,
             count,
+            folding_config,
+            meta,
         }
     }
 
@@ -216,13 +243,13 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
 
         let (_, (new_expr, new_env, new_cont)) =
             frames.iter().fold((0, acc), |(i, allocated_io), frame| {
+                info!("synthesizing frame {i}");
                 if let Some(next_input) = frame.input {
-                    // Ensure all intermediate allocated I/O values match the provided executation trace.
+                    // Ensure all intermediate allocated I/O values match the provided execution trace.
 
                     let next_expr_hash = store.hash_expr(&next_input.expr);
                     let next_env_hash = store.hash_expr(&next_input.env);
                     let next_cont_hash = store.hash_cont(&next_input.cont);
-
                     assert_eq!(
                         allocated_io.0.tag().get_value(),
                         next_expr_hash.map(|x| x.tag_field()),
@@ -269,7 +296,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                         cs,
                         i,
                         allocated_io,
-                        self.lang.as_ref().expect("Lang missing"),
+                        self.folding_config.clone(),
                         g,
                         &mut hash_circuit_witness_cache,
                         cons_witnesses,
@@ -449,14 +476,14 @@ impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, C> {
         cs: &mut CS,
         i: usize,
         inputs: AllocatedIO<F>,
-        lang: &Lang<F, C>,
+        folding_config: Arc<FoldingConfig<F, C>>,
         g: &GlobalAllocations<F>,
         _hash_circuit_witness_cache: &mut HashCircuitWitnessCache<F>, // Currently unused.
         cons_circuit_witness: Option<ConsCircuitWitness<F>>,
         cont_circuit_witness: Option<ContCircuitWitness<F>>,
     ) -> Result<AllocatedIO<F>, SynthesisError> {
         let (input_expr, input_env, input_cont) = inputs;
-
+        debug!("synthesizing frame");
         let reduce = |store| {
             let cons_circuit_witness = if let Some(ccw) = cons_circuit_witness {
                 ccw
@@ -498,7 +525,7 @@ impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, C> {
                 &mut allocated_cons_witness,
                 &mut allocated_cont_witness,
                 store,
-                lang,
+                folding_config,
                 g,
             )
         };
@@ -849,14 +876,14 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     allocated_cons_witness: &mut AllocatedConsWitness<'_, F>,
     allocated_cont_witness: &mut AllocatedContWitness<'_, F>,
     store: &Store<F>,
-    lang: &Lang<F, C>,
+    folding_config: Arc<FoldingConfig<F, C>>,
     g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
-    // tracing::debug!("reduce_expression");
-    // tracing::debug!("{}", &expr.fetch_and_write_str(store));
-    // tracing::debug!("{:?}", &expr);
-    // tracing::debug!("{}", &env.fetch_and_write_str(store));
-    // tracing::debug!("{} {:?}", &cont.fetch_and_write_cont_str(store), &cont);
+    debug!("reduce_expression");
+    debug!("{}", &expr.fetch_and_write_str(store));
+    debug!("{:?}", &expr);
+    debug!("{}", &env.fetch_and_write_str(store));
+    debug!("{} {:?}", &cont.fetch_and_write_cont_str(store), &cont);
     let mut results = Results::default();
     {
         // Self-evaluating expressions
@@ -946,7 +973,7 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
         allocated_cons_witness,
         allocated_cont_witness,
         store,
-        lang,
+        folding_config,
         g,
     )?;
 
@@ -1117,10 +1144,10 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     allocated_cons_witness.assert_final_invariants();
     allocated_cont_witness.assert_final_invariants();
 
-    // tracing::debug!("{}", &result_expr.fetch_and_write_str(store));
-    // tracing::debug!("{}", &result_env.fetch_and_write_str(store));
-    // tracing::debug!("{}", &result_cont.fetch_and_write_cont_str(store));
-    // tracing::debug!("{:?} {:?} {:?}", expr, env, cont);
+    // tracing::debug!("result_expr: {}", &result_expr.fetch_and_write_str(store));
+    // tracing::debug!("result_env: {}", &result_env.fetch_and_write_str(store));
+    // tracing::debug!("result_cont: {}", &result_cont.fetch_and_write_cont_str(store));
+    // tracing::debug!("expr: {:?}; env: {:?}; cont: {:?}", expr, env, cont);
 
     Ok((result_expr, result_env, result_cont))
 }
@@ -1451,7 +1478,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     allocated_cons_witness: &mut AllocatedConsWitness<'_, F>,
     allocated_cont_witness: &mut AllocatedContWitness<'_, F>,
     store: &Store<F>,
-    lang: &Lang<F, C>,
+    folding_config: Arc<FoldingConfig<F, C>>,
     g: &GlobalAllocations<F>,
 ) -> Result<
     (
@@ -1570,9 +1597,10 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     let head_is_current_env = and!(cs, &head_is_current_env0, &head_is_a_sym)?;
     let head_is_if = and!(cs, &head_is_if0, &head_is_a_sym)?;
 
-    let mut head_is_coprocessor_bools = Vec::with_capacity(lang.coprocessors().len());
+    let mut head_is_coprocessor_bools =
+        Vec::with_capacity(folding_config.lang().coprocessors().len());
 
-    for (sym, (coproc, z_ptr)) in lang.coprocessors().iter() {
+    for (sym, (coproc, z_ptr)) in folding_config.lang().coprocessors().iter() {
         if !coproc.has_circuit() {
             continue;
         };
@@ -2785,50 +2813,93 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     // The latter also means that all Coprocessor invocations only require 1 iteration.
 
     let mut coprocessor_results = Vec::new();
+    let lang = folding_config.lang();
 
-    {
-        if !lang.coprocessors().is_empty() {
-            let max_coprocessor_arity = lang.max_coprocessor_arity();
+    if !lang.coprocessors().is_empty() {
+        match folding_config.as_ref() {
+            FoldingConfig::NIVC(_lang, _reduction_count) => {
+                for (_, (coproc, z_ptr)) in lang.coprocessors().iter() {
+                    if !coproc.has_circuit() {
+                        info!("coproc has no circuit, continuing");
+                        continue;
+                    };
+                    coprocessor_results.push((
+                        z_ptr,
+                        expr.clone(),
+                        env.clone(),
+                        cont.clone(),
+                        &g.false_num,
+                    ));
+                }
+            }
+            FoldingConfig::IVC(lang, _reduction_count) => {
+                let max_coprocessor_arity = lang.max_coprocessor_arity();
 
-            let (inputs, actual_length) = destructure_list(
-                &mut cs.namespace(|| "coprocessor inputs"),
-                store,
-                g,
-                max_coprocessor_arity,
-                &rest,
-            )?;
-
-            for (sym, (coproc, z_ptr)) in lang.coprocessors().iter() {
-                if !coproc.has_circuit() {
-                    continue;
-                };
-
-                let cs = &mut cs.namespace(|| format!("{} coprocessor", sym));
-
-                let arity = coproc.arity();
-
-                let arity_is_correct = alloc_equal_const(
-                    &mut cs.namespace(|| "arity_is_correct"),
-                    &actual_length,
-                    F::from(arity as u64),
+                let (inputs, actual_length) = destructure_list(
+                    &mut cs.namespace(|| "coprocessor inputs"),
+                    store,
+                    g,
+                    max_coprocessor_arity,
+                    &rest,
                 )?;
 
-                let (result_expr, result_env, result_cont) =
-                    coproc.synthesize(cs, g, store, &inputs[..arity], env, cont)?;
+                for (sym, (coproc, z_ptr)) in lang.coprocessors().iter() {
+                    if !coproc.has_circuit() {
+                        continue;
+                    };
 
-                let new_expr = pick_ptr!(cs, &arity_is_correct, &result_expr, &rest)?; // TODO: The error case should probably be expr, but this is harder in straight evaluation atm.
-                let new_env = pick_ptr!(cs, &arity_is_correct, &result_env, &env)?;
-                let new_cont =
-                    pick_cont_ptr!(cs, &arity_is_correct, &result_cont, &g.error_ptr_cont)?;
+                    let cs = &mut cs.namespace(|| format!("{} coprocessor", sym));
 
-                // We can't just call `results.add_clauses_cons` here because of lifetime issues.
-                coprocessor_results.push((z_ptr, new_expr, new_env, new_cont));
+                    let arity = coproc.arity();
+
+                    let arity_is_correct = alloc_equal_const(
+                        &mut cs.namespace(|| "arity_is_correct"),
+                        &actual_length,
+                        F::from(arity as u64),
+                    )?;
+
+                    let (result_expr, result_env, result_cont) =
+                        coproc.synthesize(cs, g, store, &inputs[..arity], env, cont)?;
+
+                    let quoted_expr = AllocatedPtr::construct_list(
+                        &mut cs.namespace(|| "quote coprocessor result"),
+                        g,
+                        store,
+                        &[&g.quote_ptr, &result_expr],
+                    )?;
+
+                    let default_num_pair = &[&g.default_num, &g.default_num];
+
+                    // TODO: This should be better abstracted, perhaps by resurrecting historical code.
+                    let tail_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+                        &result_env,
+                        &result_cont,
+                        default_num_pair,
+                        default_num_pair,
+                    ];
+
+                    let tail_cont = AllocatedContPtr::construct(
+                        &mut cs.namespace(|| "coprocessor tail cont"),
+                        store,
+                        &g.tail_cont_tag,
+                        tail_components,
+                    )?;
+
+                    let new_expr = pick_ptr!(cs, &arity_is_correct, &quoted_expr, &rest)?; // TODO: The error case should probably be expr, but this is harder in straight evaluation atm.
+
+                    let new_env = pick_ptr!(cs, &arity_is_correct, &result_env, &env)?;
+                    let new_cont =
+                        pick_cont_ptr!(cs, &arity_is_correct, &tail_cont, &g.error_ptr_cont)?;
+
+                    // We can't just call `results.add_clauses_cons` here because of lifetime issues.
+                    coprocessor_results.push((z_ptr, new_expr, new_env, new_cont, &g.false_num));
+                }
             }
         }
     }
 
     for c in &coprocessor_results {
-        results.add_clauses_cons(*c.0.value(), &c.1, &c.2, &c.3, &g.true_num);
+        results.add_clauses_cons(*c.0.value(), &c.1, &c.2, &c.3, c.4);
     }
 
     let is_zero_arg_call = rest_is_nil;
@@ -5271,7 +5342,7 @@ fn extend_rec<F: LurkField, CS: ConstraintSystem<F>>(
     )
 }
 
-fn destructure_list<F: LurkField, CS: ConstraintSystem<F>>(
+pub fn destructure_list<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     store: &Store<F>,
     g: &GlobalAllocations<F>,
@@ -5437,7 +5508,7 @@ mod tests {
         };
         let raw_lang = Lang::<Fr, Coproc<Fr>>::new();
         let lang = Arc::new(raw_lang.clone());
-        let (_, witness) = input.reduce(&mut store, &lang).unwrap();
+        let (_, witness, meta) = input.reduce(&mut store, &lang).unwrap();
 
         let public_params = Groth16Prover::<Bls12, Coproc<Fr>, Fr>::create_groth_params(
             DEFAULT_REDUCTION_COUNT,
@@ -5456,9 +5527,13 @@ mod tests {
             let mut cs = TestConstraintSystem::new();
 
             let mut cs_blank = MetricCS::<Fr>::new();
-            let blank_multiframe = MultiFrame::<<Bls12 as Engine>::Fr, Coproc<Fr>>::blank(
-                DEFAULT_REDUCTION_COUNT,
+            let folding_config = Arc::new(FoldingConfig::new_ivc(
                 lang.clone(),
+                DEFAULT_REDUCTION_COUNT,
+            ));
+            let blank_multiframe = MultiFrame::<<Bls12 as Engine>::Fr, Coproc<Fr>>::blank(
+                folding_config.clone(),
+                Meta::Lurk,
             );
 
             blank_multiframe
@@ -5472,10 +5547,11 @@ mod tests {
                     output,
                     i: 0,
                     witness,
+                    meta,
                     _p: Default::default(),
                 }],
                 store,
-                lang.clone(),
+                folding_config,
             );
 
             let multiframe = &multiframes[0];
@@ -5490,9 +5566,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             // println!("{}", print_cs(&cs));
-            assert_eq!(12032, cs.num_constraints());
+            assert_eq!(12034, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(11688, cs.aux().len());
+            assert_eq!(11690, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
@@ -5574,7 +5650,7 @@ mod tests {
         };
 
         let lang = Arc::new(Lang::<Fr, Coproc<Fr>>::new());
-        let (_, witness) = input.reduce(&mut store, &lang).unwrap();
+        let (_, witness, meta) = input.reduce(&mut store, &lang).unwrap();
         store.hydrate_scalar_cache();
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
@@ -5585,14 +5661,18 @@ mod tests {
                 output,
                 i: 0,
                 witness,
+                meta,
                 _p: Default::default(),
             };
-
+            let folding_config = Arc::new(FoldingConfig::new_ivc(
+                lang.clone(),
+                DEFAULT_REDUCTION_COUNT,
+            ));
             MultiFrame::<<Bls12 as Engine>::Fr, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                lang.clone(),
+                folding_config,
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5654,7 +5734,7 @@ mod tests {
         };
 
         let lang = Arc::new(Lang::<Fr, Coproc<Fr>>::new());
-        let (_, witness) = input.reduce(&mut store, &lang).unwrap();
+        let (_, witness, meta) = input.reduce(&mut store, &lang).unwrap();
         store.hydrate_scalar_cache();
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
@@ -5665,14 +5745,19 @@ mod tests {
                 output,
                 i: 0,
                 witness,
+                meta,
                 _p: Default::default(),
             };
 
+            let folding_config = Arc::new(FoldingConfig::new_ivc(
+                lang.clone(),
+                DEFAULT_REDUCTION_COUNT,
+            ));
             MultiFrame::<<Bls12 as Engine>::Fr, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                lang.clone(),
+                folding_config,
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5735,7 +5820,7 @@ mod tests {
         };
 
         let lang = Arc::new(Lang::<Fr, Coproc<Fr>>::new());
-        let (_, witness) = input.reduce(&mut store, &lang).unwrap();
+        let (_, witness, meta) = input.reduce(&mut store, &lang).unwrap();
 
         store.hydrate_scalar_cache();
 
@@ -5747,14 +5832,20 @@ mod tests {
                 output,
                 i: 0,
                 witness,
+                meta,
                 _p: Default::default(),
             };
+
+            let folding_config = Arc::new(FoldingConfig::new_ivc(
+                lang.clone(),
+                DEFAULT_REDUCTION_COUNT,
+            ));
 
             MultiFrame::<<Bls12 as Engine>::Fr, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                lang.clone(),
+                folding_config,
             )[0]
             .clone()
             .synthesize(&mut cs)
@@ -5817,7 +5908,7 @@ mod tests {
         };
 
         let lang = Arc::new(Lang::<Fr, Coproc<Fr>>::new());
-        let (_, witness) = input.reduce(&mut store, &lang).unwrap();
+        let (_, witness, meta) = input.reduce(&mut store, &lang).unwrap();
 
         store.hydrate_scalar_cache();
 
@@ -5829,14 +5920,19 @@ mod tests {
                 output,
                 i: 0,
                 witness,
+                meta,
                 _p: Default::default(),
             };
+            let folding_config = Arc::new(FoldingConfig::new_ivc(
+                lang.clone(),
+                DEFAULT_REDUCTION_COUNT,
+            ));
 
             MultiFrame::<<Bls12 as Engine>::Fr, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
-                lang,
+                folding_config,
             )[0]
             .clone()
             .synthesize(&mut cs)
