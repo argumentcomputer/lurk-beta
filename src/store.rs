@@ -1,12 +1,11 @@
+use elsa::sync::FrozenMap;
+use once_cell::sync::OnceCell;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fmt;
 use std::usize;
 use thiserror;
 
-use once_cell::sync::OnceCell;
-
-use crate::cache_map::CacheMap;
 use crate::cont::Continuation;
 use crate::expr;
 use crate::expr::{Expression, Thunk};
@@ -60,12 +59,12 @@ pub struct Store<F: LurkField> {
     pub opaque_cont_ptrs: IndexSet<ZContPtr<F>>,
 
     /// Holds a mapping of `ZExprPtr` -> `Ptr` for reverse lookups
-    pub z_expr_ptr_map: CacheMap<ZExprPtr<F>, Box<Ptr<F>>>,
+    pub z_expr_ptr_map: FrozenMap<ZExprPtr<F>, Box<Ptr<F>>>,
     /// Holds a mapping of `ZExprPtr` -> `ContPtr<F>` for reverse lookups
-    pub z_cont_ptr_map: CacheMap<ZContPtr<F>, Box<ContPtr<F>>>,
+    pub z_cont_ptr_map: FrozenMap<ZContPtr<F>, Box<ContPtr<F>>>,
 
-    z_expr_ptr_cache: CacheMap<Ptr<F>, Box<(ZExprPtr<F>, Option<ZExpr<F>>)>>,
-    z_cont_ptr_cache: CacheMap<ContPtr<F>, Box<(ZContPtr<F>, Option<ZCont<F>>)>>,
+    z_expr_ptr_cache: FrozenMap<Ptr<F>, Box<(ZExprPtr<F>, Option<ZExpr<F>>)>>,
+    z_cont_ptr_cache: FrozenMap<ContPtr<F>, Box<(ZContPtr<F>, Option<ZCont<F>>)>>,
 
     /// Caches poseidon hashes
     pub poseidon_cache: PoseidonCache<F>,

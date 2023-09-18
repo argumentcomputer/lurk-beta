@@ -531,7 +531,9 @@ impl Repl<F> {
                 let Some(secret) = self.store.fetch_num(&first_io.expr) else {
                     bail!(
                         "Secret must be a number. Got {}",
-                        first_io.expr.fmt_to_string(&self.store, &self.state.borrow())
+                        first_io
+                            .expr
+                            .fmt_to_string(&self.store, &self.state.borrow())
                     )
                 };
                 self.hide(secret.into_scalar(), second_io.expr)?;

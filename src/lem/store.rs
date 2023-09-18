@@ -1,11 +1,11 @@
 use anyhow::{bail, Result};
+use elsa::sync::FrozenMap;
 use indexmap::IndexSet;
 use nom::{sequence::preceded, Parser};
 use rayon::prelude::*;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
-    cache_map::CacheMap,
     field::{FWrap, LurkField},
     hash::PoseidonCache,
     lem::Tag,
@@ -46,13 +46,13 @@ pub struct Store<F: LurkField> {
     string_ptr_cache: HashMap<String, Ptr<F>>,
     symbol_ptr_cache: HashMap<Symbol, Ptr<F>>,
 
-    ptr_string_cache: CacheMap<Ptr<F>, String>,
-    ptr_symbol_cache: CacheMap<Ptr<F>, Box<Symbol>>,
+    ptr_string_cache: FrozenMap<Ptr<F>, String>,
+    ptr_symbol_cache: FrozenMap<Ptr<F>, Box<Symbol>>,
 
     pub poseidon_cache: PoseidonCache<F>,
 
     dehydrated: Vec<Ptr<F>>,
-    z_cache: CacheMap<Ptr<F>, Box<ZPtr<F>>>,
+    z_cache: FrozenMap<Ptr<F>, Box<ZPtr<F>>>,
 
     comms: HashMap<FWrap<F>, (F, Ptr<F>)>, // hash -> (secret, src)
 }

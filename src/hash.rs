@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::sync::Arc;
 
-use crate::cache_map::CacheMap;
 use crate::field::{FWrap, LurkField};
+use elsa::sync::FrozenMap;
 
 use generic_array::typenum::{U3, U4, U6, U8};
 use neptune::{poseidon::PoseidonConstants, Poseidon};
@@ -86,10 +86,10 @@ impl<F: LurkField> HashConstants<F> {
 
 #[derive(Clone, Default, Debug)]
 pub struct PoseidonCache<F: LurkField> {
-    a3: Arc<CacheMap<CacheKey<F, 3>, F>>,
-    a4: Arc<CacheMap<CacheKey<F, 4>, F>>,
-    a6: Arc<CacheMap<CacheKey<F, 6>, F>>,
-    a8: Arc<CacheMap<CacheKey<F, 8>, F>>,
+    a3: Arc<FrozenMap<CacheKey<F, 3>, F>>,
+    a4: Arc<FrozenMap<CacheKey<F, 4>, F>>,
+    a6: Arc<FrozenMap<CacheKey<F, 6>, F>>,
+    a8: Arc<FrozenMap<CacheKey<F, 8>, F>>,
 
     pub constants: HashConstants<F>,
 }

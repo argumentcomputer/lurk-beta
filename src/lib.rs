@@ -2,7 +2,6 @@
 #[macro_use]
 extern crate alloc;
 
-pub mod cache_map;
 pub mod circuit;
 pub mod cli;
 pub mod config;
