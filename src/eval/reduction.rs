@@ -1,4 +1,4 @@
-use super::{empty_sym_env, Witness};
+use super::{empty_sym_env, Meta, Witness};
 use crate::cont::Continuation;
 use crate::coprocessor::Coprocessor;
 use crate::error::ReductionError;
@@ -20,12 +20,12 @@ pub(crate) fn reduce<F: LurkField, C: Coprocessor<F>>(
     cont: ContPtr<F>,
     store: &mut Store<F>,
     lang: &Lang<F, C>,
-) -> Result<(Ptr<F>, Ptr<F>, ContPtr<F>, Witness<F>), ReductionError> {
+) -> Result<(Ptr<F>, Ptr<F>, ContPtr<F>, Witness<F>, Meta<F>), ReductionError> {
     let c = *store.expect_constants();
-    let (ctrl, witness) = reduce_with_witness(expr, env, cont, store, &c, lang)?;
+    let (ctrl, witness, meta) = reduce_with_witness(expr, env, cont, store, &c, lang)?;
     let (new_expr, new_env, new_cont) = ctrl.into_results(store);
 
-    Ok((new_expr, new_env, new_cont, witness))
+    Ok((new_expr, new_env, new_cont, witness, meta))
 }
 
 #[derive(Debug, Clone)]
@@ -66,7 +66,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
     cont_witness: &mut ContWitness<F>,
     c: &NamedConstants<F>,
     lang: &Lang<F, C>,
-) -> Result<(Control<F>, Option<Ptr<F>>), ReductionError> {
+) -> Result<(Control<F>, Option<Ptr<F>>, Meta<F>), ReductionError> {
     // sanity-check: this should return the number of iterations
     // of the last 5s of computation
     metrics::counter!("evaluation", 1, "type" => "step");
@@ -278,7 +278,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                             let pair = cons_witness.car_cdr_named($cons_name, store, $cons);
 
                             if matches!(pair, Err(ReductionError::CarCdrType(_))) {
-                                return Ok((Control::Error(expr, env), None));
+                                return Ok((Control::Error(expr, env), None, Meta::Lurk));
                             } else {
                                 pair
                             }
@@ -492,7 +492,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                         }
                     } else if head == c.eval.ptr() {
                         if rest.is_nil() {
-                            return Ok((Control::Error(expr, env), None));
+                            return Ok((Control::Error(expr, env), None, Meta::Lurk));
                         }
                         let (arg1, more) = car_cdr_named!(ConsName::ExprCdr, &rest)?;
 
@@ -552,16 +552,38 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                         let args = rest;
 
                         // NOTE: Any Coprocessor found will take precedence, which means coprocessor bindings cannot be shadowed.
-                        if let Some((coprocessor, _z_ptr)) = lang.lookup(store, head) {
+                        if let Some((coprocessor, z_ptr)) = lang.lookup(store, head) {
                             let (_arg, _more_args) = car_cdr_named!(ConsName::ExprCdr, &args)?;
 
-                            let IO { expr, env, cont } =
-                                coprocessor.evaluate(store, args, env, cont);
+                            let IO {
+                                expr,
+                                env,
+                                // This continuation can't be used directly because we are returning a quoted result for evaluation.
+                                // This is to avoid having to begin the first reduction (in NIVC) after an evaluation, in the middle (ApplyContinuation),
+                                // or alternately performing the ApplyContinuation part of reduction at the end of each (NIVC) coprocessor step.
+                                // Instead, we wrap this in a (potentially unoptimized) tail call.
+                                cont,
+                            } = coprocessor.evaluate(store, args, env, cont);
 
-                            return Ok((
-                                Control::ApplyContinuation(expr, env, cont),
-                                closure_to_extend,
-                            ));
+                            if cont == store.intern_cont_error() {
+                                return Ok((
+                                    Control::Error(expr, env),
+                                    None,
+                                    Meta::Coprocessor(*z_ptr),
+                                ));
+                            } else {
+                                let quoted = store.list(&[quote, expr]);
+
+                                // NOTE: This will be a potentially redundant tail cont, which is 'okay' as long as circuit does same.
+                                // Alternately, here and in circuit(s), we could use the dynamic logic to avoid.
+                                let tail_cont = make_tail_continuation_raw(env, cont, store);
+
+                                return Ok((
+                                    Control::Return(quoted, env, tail_cont),
+                                    None,
+                                    Meta::Coprocessor(*z_ptr),
+                                ));
+                            }
                         };
 
                         // `fun_form` must be a function or potentially evaluate to one.
@@ -630,6 +652,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
             }
         },
         closure_to_extend,
+        Meta::Lurk,
     ))
 }
 
@@ -640,11 +663,11 @@ fn reduce_with_witness<F: LurkField, C: Coprocessor<F>>(
     store: &mut Store<F>,
     c: &NamedConstants<F>,
     lang: &Lang<F, C>,
-) -> Result<(Control<F>, Witness<F>), ReductionError> {
+) -> Result<(Control<F>, Witness<F>, Meta<F>), ReductionError> {
     let cons_witness = &mut ConsWitness::<F>::new_dummy();
     let cont_witness = &mut ContWitness::<F>::new_dummy();
 
-    let (control, closure_to_extend) =
+    let (control, closure_to_extend, meta) =
         reduce_with_witness_inner(expr, env, cont, store, cons_witness, cont_witness, c, lang)?;
 
     let (new_expr, new_env, new_cont) = control.clone().into_results(store);
@@ -667,7 +690,7 @@ fn reduce_with_witness<F: LurkField, C: Coprocessor<F>>(
     witness.conses.assert_invariants(store);
     witness.conts.assert_invariants(store);
 
-    Ok((ctrl, witness))
+    Ok((ctrl, witness, meta))
 }
 
 fn apply_continuation<F: LurkField>(
@@ -1301,6 +1324,18 @@ fn make_tail_continuation<F: LurkField>(
     }
     // Since this is the only place Tail continuation are created, this ensures Tail continuations never
     // point to one another: they can only be nested one deep.
+}
+
+fn make_tail_continuation_raw<F: LurkField>(
+    saved_env: Ptr<F>,
+    continuation: ContPtr<F>,
+    store: &mut Store<F>,
+) -> ContPtr<F> {
+    Continuation::Tail {
+        saved_env,
+        continuation,
+    }
+    .intern_aux(store)
 }
 
 // Only used in tests. Real evalution should use extend_name.

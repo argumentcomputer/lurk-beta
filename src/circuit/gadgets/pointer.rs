@@ -742,6 +742,31 @@ impl<F: LurkField> AllocatedContPtr<F> {
         }
     }
 
+    pub fn construct<CS: ConstraintSystem<F>>(
+        mut cs: CS,
+        store: &Store<F>,
+        cont_tag: &AllocatedNum<F>,
+        components: &[&dyn AsAllocatedHashComponents<F>; 4],
+    ) -> Result<Self, SynthesisError> {
+        let components = components
+            .iter()
+            .flat_map(|c| c.as_allocated_hash_components())
+            .cloned()
+            .collect();
+
+        let hash = hash_poseidon(
+            cs.namespace(|| "Continuation"),
+            components,
+            store.poseidon_constants().c8(),
+        )?;
+
+        let cont = AllocatedContPtr {
+            tag: cont_tag.clone(),
+            hash,
+        };
+        Ok(cont)
+    }
+
     pub fn construct_named<CS: ConstraintSystem<F>>(
         mut cs: CS,
         name: ContName,

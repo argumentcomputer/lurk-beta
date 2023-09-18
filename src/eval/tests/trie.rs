@@ -25,7 +25,7 @@ fn trie_lang() {
         None,
         None,
         None,
-        3,
+        5,
         Some(&lang),
     );
 
@@ -47,7 +47,7 @@ fn trie_lang() {
         None,
         None,
         None,
-        1,
+        2,
         Some(&lang),
     );
 
@@ -65,7 +65,7 @@ fn trie_lang() {
         None,
         None,
         None,
-        1,
+        2,
         Some(&lang),
     );
 
@@ -81,7 +81,7 @@ fn trie_lang() {
         None,
         None,
         None,
-        1,
+        2,
         Some(&lang),
     );
 }

@@ -10,11 +10,19 @@ pub mod groth16;
 /// An adapter to a Nova proving system implementation.
 pub mod nova;
 
+/// An adapter to a SuperNova proving system implementation.
+pub mod supernova;
+
 use crate::circuit::MultiFrame;
 use crate::coprocessor::Coprocessor;
-use crate::eval::lang::Lang;
+use crate::error::ProofError;
+use crate::eval::{lang::Lang, Evaluator, Frame, Witness, IO};
 use crate::field::LurkField;
+
+use crate::ptr::Ptr;
+use crate::store::Store;
 use bellpepper_core::{test_cs::TestConstraintSystem, Circuit, SynthesisError};
+use std::sync::Arc;
 
 /// Represents a sequential Constraint System for a given proof.
 pub(crate) type SequentialCS<'a, F, C> = Vec<(MultiFrame<'a, F, C>, TestConstraintSystem<F>)>;
@@ -60,7 +68,7 @@ pub fn verify_sequential_css<F: LurkField + Copy, C: Coprocessor<F>>(
 pub trait PublicParameters {}
 
 /// A trait for a prover that works with a field `F`.
-pub trait Prover<'a, 'b, F: LurkField, C: Coprocessor<F>> {
+pub trait Prover<'a, F: LurkField, C: Coprocessor<F>> {
     /// The associated public parameters type for the prover.
     type PublicParams: PublicParameters;
 
@@ -121,4 +129,24 @@ pub trait Prover<'a, 'b, F: LurkField, C: Coprocessor<F>> {
             })
             .collect::<Result<_, _>>()
     }
+    /// Evaluates and generates the `Frame`s of the computation given the expression, environment, and store
+    fn get_evaluation_frames(
+        &self,
+        expr: Ptr<F>,
+        env: Ptr<F>,
+        store: &mut Store<F>,
+        limit: usize,
+        lang: Arc<Lang<F, C>>,
+    ) -> Result<Vec<Frame<IO<F>, Witness<F>, F, C>>, ProofError> {
+        let padding_predicate = |count| self.needs_frame_padding(count);
+
+        let frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate, &lang)?;
+
+        store.hydrate_scalar_cache();
+
+        Ok(frames)
+    }
 }
+
+/// Supertrait for `Prover` that also supports NIVC.
+pub trait NIVCProver<'a, F: LurkField, C: Coprocessor<F>>: Prover<'a, F, C> {}

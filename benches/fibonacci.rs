@@ -98,7 +98,7 @@ fn fibo_prove<M: measurement::Measurement>(
             let prover = NovaProver::new(prove_params.reduction_count, lang_pallas.clone());
 
             let frames = &prover
-                .get_evaluation_frames(ptr, env, &mut store, limit, &lang_pallas)
+                .get_evaluation_frames(ptr, env, &mut store, limit, lang_rc.clone())
                 .unwrap();
 
             b.iter_batched(

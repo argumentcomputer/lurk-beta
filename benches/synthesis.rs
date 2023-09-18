@@ -15,6 +15,7 @@ use lurk::{
     },
     field::LurkField,
     proof::nova::NovaProver,
+    proof::supernova::FoldingConfig,
     proof::Prover,
     ptr::Ptr,
     state::State,
@@ -60,11 +61,13 @@ fn synthesize<M: measurement::Measurement>(
             let prover = NovaProver::new(*reduction_count, lang_pallas.clone());
 
             let frames = prover
-                .get_evaluation_frames(ptr, env, &mut store, limit, &lang_pallas)
+                .get_evaluation_frames(ptr, env, &mut store, limit, lang_rc.clone())
                 .unwrap();
+            let folding_config =
+                Arc::new(FoldingConfig::new_ivc(lang_rc.clone(), *reduction_count));
 
             let multiframe =
-                MultiFrame::from_frames(*reduction_count, &frames, &store, lang_rc.clone())[0]
+                MultiFrame::from_frames(*reduction_count, &frames, &store, folding_config)[0]
                     .clone();
 
             b.iter_batched(

@@ -77,6 +77,7 @@ pub struct GlobalAllocations<F: LurkField> {
     pub op2_greater_equal_tag: AllocatedNum<F>,
 
     pub lambda_sym: AllocatedPtr<F>,
+    pub quote_ptr: AllocatedPtr<F>,
 
     pub true_num: AllocatedNum<F>,
     pub false_num: AllocatedNum<F>,
@@ -199,6 +200,7 @@ impl<F: LurkField> GlobalAllocations<F> {
         defsym!(t_ptr, "t", t);
         defsym!(dummy_arg_ptr, "_", dummy);
         defsym!(lambda_sym, "lambda", lambda);
+        defsym!(quote_ptr, "quote", quote);
 
         let true_num = allocate_constant(&mut cs.namespace(|| "true"), F::ONE);
         let false_num = allocate_constant(&mut cs.namespace(|| "false"), F::ZERO);
@@ -267,6 +269,7 @@ impl<F: LurkField> GlobalAllocations<F> {
             op2_greater_tag,
             op2_greater_equal_tag,
             lambda_sym,
+            quote_ptr,
             true_num,
             false_num,
             default_num,
