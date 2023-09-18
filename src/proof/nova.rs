@@ -194,13 +194,12 @@ where
     let commitment_size_hint1 = <SS1<F> as RelaxedR1CSSNARKTrait<G1<F>>>::commitment_key_floor();
     let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<G2<F>>>::commitment_key_floor();
 
-    let pp = nova::PublicParams::setup(
+    let pp = nova::PublicParams::new(
         &circuit_primary,
         &circuit_secondary,
         Some(commitment_size_hint1),
         Some(commitment_size_hint2),
-    )
-    .unwrap();
+    );
     let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
     PublicParams { pp, pk, vk }
 }

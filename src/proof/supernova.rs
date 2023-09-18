@@ -119,7 +119,7 @@ where
         let blank_step = NIVCStep::blank(folding_config, Meta::Lurk);
 
         info!("setting up running claims");
-        let running_claims = blank_step.setup_running_claims().unwrap();
+        let running_claims = blank_step.setup_running_claims();
         info!("running claim setup complete");
         let mut recursive_snark_option: Option<RecursiveSNARK<G1<F>, G2<F>>> = None;
 
