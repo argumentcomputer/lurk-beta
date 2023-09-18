@@ -565,12 +565,12 @@ impl PublicParamArgs {
     }
 
     fn run(&self) -> Result<()> {
-        let metadata = self.get_metadata()?;
         if self.list {
+            let metadata = self.get_metadata()?;
             for (_path, data) in metadata.iter() {
                 println!(
                     "{: <9} {: >4} {: >6} {: >35}",
-                    &data.circuit_digest[2..10],
+                    &data.cache_key[2..10],
                     data.rc,
                     data.abomonated,
                     data.lang
@@ -578,9 +578,10 @@ impl PublicParamArgs {
             }
         }
         if let Some(key) = &self.remove {
+            let metadata = self.get_metadata()?;
             if let Some((json_path, _)) = metadata
                 .iter()
-                .find(|(_, data)| &data.circuit_digest[2..10] == key)
+                .find(|(_, data)| &data.cache_key[2..10] == key)
             {
                 let path = json_path.with_extension("");
                 fs::remove_file(path)?;
@@ -589,9 +590,10 @@ impl PublicParamArgs {
             }
         }
         if let Some(key) = &self.show {
+            let metadata = self.get_metadata()?;
             if let Some((json_path, data)) = metadata
                 .iter()
-                .find(|(_, data)| &data.circuit_digest[2..10] == key)
+                .find(|(_, data)| &data.cache_key[2..10] == key)
             {
                 let path = json_path.with_extension("");
                 println!("cached param `{path:?}`;");

@@ -17,7 +17,7 @@ use crate::{
 };
 use crate::{proof::nova::CurveCycleEquipped, public_parameters::error::Error};
 
-use super::{disk_cache::PublicParamDiskCache, instance::Instance};
+use super::{disk_cache::DiskCache, instance::Instance};
 
 type AnyMap = anymap::Map<dyn core::any::Any + Send + Sync>;
 type PublicParamMap<F, M> = HashMap<(usize, bool), Arc<PublicParams<F, M>>>;
@@ -39,10 +39,10 @@ pub(crate) static PUBLIC_PARAM_MEM_CACHE: Lazy<PublicParamMemCache> =
 
 impl PublicParamMemCache {
     fn get_from_disk_cache_or_update_with<
-        'a,
         F: CurveCycleEquipped,
         C: Coprocessor<F> + 'static,
-        Fn: FnOnce(&Instance<F, C>) -> Arc<PublicParams<'static, F, C>>,
+        M: MultiFrameTrait<'static, F, C>,
+        Fn: FnOnce(&Instance<F, C>) -> Arc<PublicParams<F, M>>,
     >(
         &'static self,
         instance: &Instance<F, C>,
@@ -54,15 +54,15 @@ impl PublicParamMemCache {
         <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     {
         // subdirectory search
-        let disk_cache = PublicParamDiskCache::new(disk_cache_path).unwrap();
+        let disk_cache = DiskCache::new(disk_cache_path).unwrap();
 
         // read the file if it exists, otherwise initialize
         if instance.abomonated {
-            match disk_cache.get_raw_bytes(instance) {
-                Ok(mut bytes) => {
+            let mut bytes = vec![];
+            match disk_cache.read_bytes(instance, &mut bytes) {
+                Ok(()) => {
                     info!("loading abomonated {}", instance.key());
-                    let (pp, rest) =
-                        unsafe { decode::<PublicParams<'_, F, C>>(&mut bytes).unwrap() };
+                    let (pp, rest) = unsafe { decode::<PublicParams<F, M>>(&mut bytes).unwrap() };
                     assert!(rest.is_empty());
                     Ok(Arc::new(pp.clone())) // this clone is VERY expensive
                 }
@@ -72,7 +72,7 @@ impl PublicParamMemCache {
                     let pp = default(instance);
                     // maybe just directly write
                     disk_cache
-                        .set_abomonated(instance, &*pp)
+                        .write_abomonated(instance, &*pp)
                         .tap_ok(|_| {
                             info!("writing public params to disk-cache: {}", instance.key())
                         })
@@ -83,13 +83,13 @@ impl PublicParamMemCache {
             }
         } else {
             // read the file if it exists, otherwise initialize
-            if let Ok(pp) = disk_cache.get(instance) {
+            if let Ok(pp) = disk_cache.read(instance) {
                 info!("loading abomonated {}", instance.key());
                 Ok(Arc::new(pp))
             } else {
                 let pp = default(instance);
                 disk_cache
-                    .set(instance, &*pp)
+                    .write(instance, &*pp)
                     .tap_ok(|_| info!("writing public params to disk-cache: {}", instance.key()))
                     .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
                 Ok(pp)
@@ -102,7 +102,8 @@ impl PublicParamMemCache {
     pub(crate) fn get_from_mem_cache_or_update_with<
         F: CurveCycleEquipped,
         C: Coprocessor<F> + 'static,
-        Fn: FnOnce(&Instance<F, C>) -> Arc<PublicParams<'static, F, C>>,
+        M: MultiFrameTrait<'static, F, C>,
+        Fn: FnOnce(&Instance<F, C>) -> Arc<PublicParams<F, M>>,
     >(
         &'static self,
         instance: &Instance<F, C>,

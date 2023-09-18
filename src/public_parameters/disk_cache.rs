@@ -8,11 +8,12 @@ use nova::traits::Group;
 
 use crate::coprocessor::Coprocessor;
 use crate::proof::nova::{CurveCycleEquipped, PublicParams, G1, G2};
+use crate::proof::MultiFrameTrait;
 use crate::public_parameters::error::Error;
 
 use super::instance::Instance;
 
-pub(crate) struct PublicParamDiskCache<F, C>
+pub(crate) struct DiskCache<'a, F, C, M>
 where
     F: CurveCycleEquipped,
     C: Coprocessor<F> + 'a,
@@ -23,7 +24,7 @@ where
 }
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>>
-    PublicParamDiskCache<'a, F, C, M>
+    DiskCache<'a, F, C, M>
 where
     // technical bounds that would disappear once associated_type_bounds stabilizes
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -38,10 +39,7 @@ where
         })
     }
 
-    pub(crate) fn get(
-        &self,
-        instance: &Instance<F, C>,
-    ) -> Result<PublicParams<'static, F, C>, Error> {
+    pub(crate) fn read(&self, instance: &Instance<F, C>) -> Result<PublicParams<F, M>, Error> {
         let file = instance.open(&self.dir)?;
         let reader = BufReader::new(file);
         bincode::deserialize_from(reader).map_err(|e| {
@@ -49,18 +47,21 @@ where
         })
     }
 
-    pub(crate) fn get_raw_bytes(&self, instance: &Instance<F, C>) -> Result<Vec<u8>, Error> {
-        let file = instance.open(&self.dir)?;
-        let mut reader = BufReader::new(file);
-        let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes)?;
-        Ok(bytes)
-    }
-
-    pub(crate) fn set(
+    pub(crate) fn read_bytes(
         &self,
         instance: &Instance<F, C>,
-        data: &PublicParams<'static, F, C>,
+        byte_sink: &mut Vec<u8>,
+    ) -> Result<(), Error> {
+        let file = instance.open(&self.dir)?;
+        let mut reader = BufReader::new(file);
+        reader.read_to_end(byte_sink)?;
+        Ok(())
+    }
+
+    pub(crate) fn write(
+        &self,
+        instance: &Instance<F, C>,
+        data: &PublicParams<F, M>,
     ) -> Result<(), Error> {
         let file = instance.create(&self.dir)?;
         let writer = BufWriter::new(&file);
@@ -69,7 +70,7 @@ where
         })
     }
 
-    pub(crate) fn set_abomonated<V: Abomonation>(
+    pub(crate) fn write_abomonated<V: Abomonation>(
         &self,
         instance: &Instance<F, C>,
         data: &V,

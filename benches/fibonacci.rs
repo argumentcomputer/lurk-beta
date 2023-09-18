@@ -18,7 +18,10 @@ use lurk::{
     proof::nova::NovaProver,
     proof::Prover,
     ptr::Ptr,
-    public_parameters::{instance::Instance, public_params},
+    public_parameters::{
+        instance::{Instance, Kind},
+        public_params,
+    },
     state::State,
     store::Store,
 };
@@ -76,8 +79,15 @@ fn fibo_prove<M: measurement::Measurement>(
     let lang_rc = Arc::new(lang_pallas.clone());
 
     // use cached public params
-    let instance = Instance::new(reduction_count, lang_rc.clone(), true);
-    let pp = public_params(&instance, Utf8Path::new(PUBLIC_PARAMS_PATH)).unwrap();
+    let instance = Instance::new(
+        reduction_count,
+        lang_rc.clone(),
+        true,
+        Kind::NovaPublicParams,
+    );
+    let pp =
+        public_params::<_, _, MultiFrame<'_, _, _>>(&instance, Utf8Path::new(PUBLIC_PARAMS_PATH))
+            .unwrap();
 
     c.bench_with_input(
         BenchmarkId::new(prove_params.name(), fib_n),

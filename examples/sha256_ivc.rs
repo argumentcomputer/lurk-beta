@@ -10,8 +10,8 @@ use lurk::eval::{empty_sym_env, lang::Lang};
 use lurk::field::LurkField;
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::ptr::Ptr;
-use lurk::public_parameters::instance::Instance;
-use lurk::public_parameters::with_public_params;
+use lurk::public_parameters::instance::{Instance, Kind};
+use lurk::public_parameters::{public_params, public_params_default_dir};
 use lurk::state::user_sym;
 use lurk::store::Store;
 use lurk::tag::{ExprTag, Tag};
@@ -55,7 +55,7 @@ fn sha256_ivc<F: LurkField>(store: &Store<F>, n: usize, input: Vec<usize>) -> Pt
                     (cons 
                         (encode-1 (car input))
                         (encode (cdr input)))))))
-  (encode '((sha256 . {input}) (lurk . 5) (id . 15))))
+  (encode '((sha256 . {input}))))
 "#
     );
 
@@ -201,36 +201,41 @@ fn main() {
     println!("Setting up public parameters (rc = {REDUCTION_COUNT})...");
 
     let pp_start = Instant::now();
-
-    let instance = Instance::new(REDUCTION_COUNT, lang_rc.clone(), true);
+    let instance = Instance::new(
+        REDUCTION_COUNT,
+        lang_rc.clone(),
+        true,
+        Kind::NovaPublicParams,
+    );
     // see the documentation on `with_public_params`
-    with_public_params(&instance, |pp| {
-        let pp_end = pp_start.elapsed();
-        println!("Public parameters took {:?}", pp_end);
+    let pp = public_params(&instance, &public_params_default_dir()).unwrap();
+    let pp_end = pp_start.elapsed();
+    println!("Public parameters took {:?}", pp_end);
 
-        println!("Beginning proof step...");
-        let proof_start = Instant::now();
-        let (proof, z0, zi, num_steps) = nova_prover
-            .evaluate_and_prove(pp, call, empty_sym_env(store), store, 10000, &lang_rc)
-            .unwrap();
-        let proof_end = proof_start.elapsed();
+    println!("Beginning proof step...");
+    let proof_start = Instant::now();
+    let (proof, z0, zi, num_steps) = tracing_texray::examine(tracing::info_span!("bang!"))
+        .in_scope(|| {
+            nova_prover
+                .evaluate_and_prove(&pp, call, empty_sym_env(store), store, 10000, &lang_rc)
+                .unwrap()
+        });
+    let proof_end = proof_start.elapsed();
 
-        println!("Proofs took {:?}", proof_end);
+    println!("Proofs took {:?}", proof_end);
 
-        println!("Verifying proof...");
+    println!("Verifying proof...");
 
-        let verify_start = Instant::now();
-        let res = proof.verify(pp, num_steps, &z0, &zi).unwrap();
-        let verify_end = verify_start.elapsed();
+    let verify_start = Instant::now();
+    let res = proof.verify(&pp, num_steps, &z0, &zi).unwrap();
+    let verify_end = verify_start.elapsed();
 
-        println!("Verify took {:?}", verify_end);
+    println!("Verify took {:?}", verify_end);
 
-        if res {
-            println!(
-                "Congratulations! You proved and verified a SHA256 hash calculation in {:?} time!",
-                pp_end + proof_end + verify_end
-            );
-        }
-    })
-    .unwrap();
+    if res {
+        println!(
+            "Congratulations! You proved and verified a SHA256 hash calculation in {:?} time!",
+            pp_end + proof_end + verify_end
+        );
+    }
 }

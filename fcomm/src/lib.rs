@@ -1099,7 +1099,7 @@ mod test {
     use crate::file_map::FileStore;
     use camino::Utf8Path;
     use insta::assert_json_snapshot;
-    use lurk::public_parameters::instance::Instance;
+    use lurk::public_parameters::instance::{Instance, Kind};
     use std::path::Path;
     use std::sync::Arc;
     use tempfile::Builder;
@@ -1209,7 +1209,7 @@ mod test {
         let lang = Lang::new();
         let lang_rc = Arc::new(lang.clone());
         let rc = ReductionCount::One;
-        let instance = Instance::new(rc.count(), lang_rc.clone(), true);
+        let instance = Instance::new(rc.count(), lang_rc.clone(), true, Kind::NovaPublicParams);
         let pp =
             public_params(&instance, &fcomm_path_val.join("public_params")).expect("public params");
         let chained = true;

@@ -8,7 +8,9 @@
 
 use lurk::circuit::circuit_frame::MultiFrame;
 use lurk::circuit::gadgets::data::GlobalAllocations;
-use lurk::public_parameters::instance::Instance;
+use lurk::proof::supernova::SuperNovaProver;
+use lurk::public_parameters::instance::{Instance, Kind};
+use lurk::public_parameters::supernova_public_params;
 use lurk::state::user_sym;
 use lurk::{circuit::gadgets::pointer::AllocatedContPtr, tag::Tag};
 use std::{cell::RefCell, marker::PhantomData, rc::Rc, sync::Arc, time::Duration};
@@ -229,8 +231,15 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
 
     // use cached public params
 
-    let instance = Instance::new(reduction_count, lang_rc.clone(), true);
-    let pp = public_params(&instance, Utf8Path::new(PUBLIC_PARAMS_PATH)).unwrap();
+    let instance: Instance<pasta_curves::Fq, Sha256Coproc<pasta_curves::Fq>> = Instance::new(
+        reduction_count,
+        lang_rc.clone(),
+        true,
+        Kind::NovaPublicParams,
+    );
+    let pp =
+        public_params::<_, _, MultiFrame<'_, _, _>>(&instance, Utf8Path::new(PUBLIC_PARAMS_PATH))
+            .unwrap();
 
     c.bench_with_input(
         BenchmarkId::new(prove_params.name(), arity),
@@ -263,7 +272,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
     );
 }
 
-fn prove_benchmarks(c: &mut Criterion) {
+fn ivc_prove_benchmarks(c: &mut Criterion) {
     tracing::debug!("{:?}", &*lurk::config::CONFIG);
     let reduction_counts = vec![10, 100];
     let batch_sizes = vec![1, 2, 5, 10, 20];
@@ -307,8 +316,15 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
     let lang_rc = Arc::new(lang.clone());
 
     // use cached public params
-    let instance = Instance::new(reduction_count, lang_rc.clone(), true);
-    let pp = public_params(&instance, Utf8Path::new(PUBLIC_PARAMS_PATH)).unwrap();
+    let instance = Instance::new(
+        reduction_count,
+        lang_rc.clone(),
+        true,
+        Kind::NovaPublicParams,
+    );
+    let pp =
+        public_params::<_, _, MultiFrame<'_, _, _>>(&instance, Utf8Path::new(PUBLIC_PARAMS_PATH))
+            .unwrap();
 
     c.bench_with_input(
         BenchmarkId::new(prove_params.name(), arity),
@@ -343,7 +359,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
     );
 }
 
-fn prove_compressed_benchmarks(c: &mut Criterion) {
+fn ivc_prove_compressed_benchmarks(c: &mut Criterion) {
     tracing::debug!("{:?}", &*lurk::config::CONFIG);
     let reduction_counts = vec![10, 100];
     let batch_sizes = vec![1, 2, 5, 10, 20];
@@ -364,29 +380,139 @@ fn prove_compressed_benchmarks(c: &mut Criterion) {
     }
 }
 
+fn sha256_nivc_prove<M: measurement::Measurement>(
+    prove_params: ProveParams,
+    c: &mut BenchmarkGroup<'_, M>,
+    state: Rc<RefCell<State>>,
+) {
+    let ProveParams {
+        arity,
+        n: _,
+        reduction_count,
+    } = prove_params;
+
+    let limit = 10000;
+
+    let store = &mut Store::<Fr>::new();
+    let cproc_sym = user_sym(&format!("sha256_ivc_{arity}"));
+
+    let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
+        store,
+        vec![(cproc_sym, Sha256Coprocessor::new(arity).into())],
+    );
+    let lang_rc = Arc::new(lang.clone());
+
+    // use cached public params
+    let instance = Instance::new(
+        reduction_count,
+        lang_rc.clone(),
+        true,
+        Kind::SuperNovaAuxParams,
+    );
+    let pp = supernova_public_params::<_, _, MultiFrame<'_, _, _>>(
+        &instance,
+        Utf8Path::new(PUBLIC_PARAMS_PATH),
+    )
+    .unwrap();
+
+    c.bench_with_input(
+        BenchmarkId::new(prove_params.name(), arity),
+        &prove_params,
+        |b, prove_params| {
+            let env = empty_sym_env(store);
+            let ptr = sha256_ivc(
+                store,
+                state.clone(),
+                black_box(prove_params.arity),
+                black_box(prove_params.n),
+                (0..prove_params.n).collect(),
+            );
+
+            let prover = SuperNovaProver::new(prove_params.reduction_count, lang.clone());
+
+            let frames = &prover
+                .get_evaluation_frames(ptr, env, store, limit, lang_rc.clone())
+                .unwrap();
+
+            b.iter_batched(
+                || (frames, lang_rc.clone()),
+                |(frames, lang_rc)| {
+                    let result = prover.prove(&pp, frames, store, lang_rc);
+                    let _ = black_box(result);
+                },
+                BatchSize::LargeInput,
+            )
+        },
+    );
+}
+
+fn nivc_prove_benchmarks(c: &mut Criterion) {
+    tracing::debug!("{:?}", &*lurk::config::CONFIG);
+    let reduction_counts = vec![10, 100];
+    let batch_sizes = vec![1, 2, 5, 10, 20];
+    let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("prove");
+    group.sampling_mode(SamplingMode::Flat); // This can take a *while*
+    group.sample_size(10);
+    let state = State::init_lurk_state().rccell();
+
+    for &n in batch_sizes.iter() {
+        for &reduction_count in reduction_counts.iter() {
+            let prove_params = ProveParams {
+                arity: 1,
+                n,
+                reduction_count,
+            };
+            sha256_nivc_prove(prove_params, &mut group, state.clone());
+        }
+    }
+}
+
 cfg_if::cfg_if! {
     if #[cfg(feature = "flamegraph")] {
         criterion_group! {
-            name = benches;
+            name = ivc_benches;
             config = Criterion::default()
             .measurement_time(Duration::from_secs(120))
             .sample_size(10)
             .with_profiler(pprof::criterion::PProfProfiler::new(100, pprof::criterion::Output::Flamegraph(None)));
             targets =
-                prove_benchmarks,
-                prove_compressed_benchmarks
+                ivc_prove_benchmarks,
+                ivc_prove_compressed_benchmarks
+         }
+         criterion_group! {
+            name = nivc_benches;
+            config = Criterion::default()
+            .measurement_time(Duration::from_secs(120))
+            .sample_size(10)
+            .with_profiler(pprof::criterion::PProfProfiler::new(100, pprof::criterion::Output::Flamegraph(None)));
+            targets =
+                nivc_prove_benchmarks
+                // TODO: Add when compressed SNARK is implemented for SuperNova
+                // https://github.com/lurk-lab/arecibo/issues/27https://github.com/lurk-lab/arecibo/issues/27
+                // nivc_prove_compressed_benchmarks
          }
     } else {
         criterion_group! {
-            name = benches;
+            name = ivc_benches;
             config = Criterion::default()
             .measurement_time(Duration::from_secs(120))
             .sample_size(10);
             targets =
-                prove_benchmarks,
-                prove_compressed_benchmarks
+                ivc_prove_benchmarks,
+                ivc_prove_compressed_benchmarks
          }
+         criterion_group! {
+             name = nivc_benches;
+             config = Criterion::default()
+             .measurement_time(Duration::from_secs(120))
+             .sample_size(10);
+             targets =
+                 nivc_prove_benchmarks
+                 // TODO: Add when compressed SNARK is implemented for SuperNova
+                 // https://github.com/lurk-lab/arecibo/issues/27https://github.com/lurk-lab/arecibo/issues/27
+                 // nivc_prove_compressed_benchmarks
+          }
     }
 }
 
-criterion_main!(benches);
+criterion_main!(ivc_benches, nivc_benches);

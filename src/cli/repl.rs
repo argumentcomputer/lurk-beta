@@ -29,7 +29,10 @@ use crate::{
     lurk_sym_ptr, parser,
     proof::{nova::NovaProver, Prover},
     ptr::Ptr,
-    public_parameters::{instance::Instance, public_params},
+    public_parameters::{
+        instance::{Instance, Kind},
+        public_params,
+    },
     state::State,
     store::Store,
     tag::{ContTag, ExprTag},
@@ -236,7 +239,8 @@ impl Repl<F> {
                         info!("Proof not cached");
 
                         info!("Loading public parameters");
-                        let instance = Instance::new(self.rc, self.lang.clone(), true);
+                        let instance =
+                            Instance::new(self.rc, self.lang.clone(), true, Kind::NovaPublicParams);
                         let pp = public_params(&instance, &public_params_dir())?;
 
                         let prover = NovaProver::<F, Coproc<F>, MultiFrame<'_, F, Coproc<F>>>::new(

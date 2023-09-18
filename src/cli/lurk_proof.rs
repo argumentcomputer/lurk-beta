@@ -9,8 +9,14 @@ use crate::{
     coprocessor::Coprocessor,
     eval::lang::{Coproc, Lang},
     field::LurkField,
-    proof::nova::{self, CurveCycleEquipped, G1, G2},
-    public_parameters::{instance::Instance, public_params},
+    proof::{
+        nova::{self, CurveCycleEquipped, G1, G2},
+        MultiFrameTrait,
+    },
+    public_parameters::{
+        instance::{Instance, Kind},
+        public_params,
+    },
     z_ptr::{ZContPtr, ZExprPtr},
     z_store::ZStore,
 };
@@ -132,7 +138,7 @@ where
                 lang,
             } => {
                 tracing::info!("Loading public parameters");
-                let instance = Instance::new(rc, Arc::new(lang), true);
+                let instance = Instance::new(rc, Arc::new(lang), true, Kind::NovaPublicParams);
                 let pp = public_params(&instance, &public_params_dir())?;
                 Ok(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?)
             }
