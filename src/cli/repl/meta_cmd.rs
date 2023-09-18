@@ -42,7 +42,7 @@ impl MetaCmd<F> {
                 }
                 _ => bail!("Argument of `load` must be a string."),
             }
-            return Ok(());
+            Ok(())
         },
     };
 }
@@ -73,7 +73,7 @@ impl MetaCmd<F> {
                 "{}",
                 new_name.fmt_to_string(&repl.store, &repl.state.borrow())
             );
-            return Ok(());
+            Ok(())
         },
     };
 }
@@ -110,7 +110,7 @@ impl MetaCmd<F> {
                 "{}",
                 new_name.fmt_to_string(&repl.store, &repl.state.borrow())
             );
-            return Ok(());
+            Ok(())
         },
     };
 }
@@ -132,7 +132,7 @@ impl MetaCmd<F> {
                 );
                 process::exit(1);
             }
-            return Ok(());
+            Ok(())
         },
     };
 }
@@ -166,7 +166,7 @@ impl MetaCmd<F> {
                 );
                 process::exit(1);
             }
-            return Ok(());
+            Ok(())
         },
     };
 }
@@ -205,7 +205,7 @@ impl MetaCmd<F> {
                 }
                 (first_emitted, rest_emitted) = repl.store.car_cdr(&rest_emitted)?;
             }
-            return Ok(());
+            Ok(())
         },
     };
 }
@@ -227,7 +227,7 @@ impl MetaCmd<F> {
                 );
                 process::exit(1);
             }
-            return Ok(());
+            Ok(())
         },
     };
 }
@@ -249,7 +249,7 @@ impl MetaCmd<F> {
             let first = repl.peek1(cmd, args)?;
             let (first_io, ..) = repl.eval_expr(first)?;
             repl.hide(ff::Field::ZERO, first_io.expr)?;
-            return Ok(());
+            Ok(())
         }
     };
 }
@@ -280,7 +280,7 @@ impl MetaCmd<F> {
                 )
             };
             repl.hide(secret.into_scalar(), second_io.expr)?;
-            return Ok(());
+            Ok(())
         },
     };
 }
@@ -298,7 +298,7 @@ impl MetaCmd<F> {
         run: |repl, cmd, args, _pwd_path| {
             let hash = repl.get_comm_hash(cmd, args)?;
             repl.fetch(&hash, false)?;
-            return Ok(());
+            Ok(())
         },
     };
 }
@@ -316,7 +316,7 @@ impl MetaCmd<F> {
         run: |repl, cmd, args, _pwd_path| {
             let hash = repl.get_comm_hash(cmd, args)?;
             repl.fetch(&hash, true)?;
-            return Ok(());
+            Ok(())
         },
     };
 }
@@ -330,7 +330,7 @@ impl<F: LurkField> MetaCmd<F> {
         example: &["!(def a 1)", "(current-env)", "!(clear)", "(current-env)"],
         run: |repl, _cmd, _args, _pwd_path| {
             repl.env = lurk_sym_ptr!(&repl.store, nil);
-            return Ok(());
+            Ok(())
         },
     };
 }
@@ -347,7 +347,7 @@ impl MetaCmd<F> {
             let first = repl.peek1(cmd, args)?;
             let (first_io, ..) = repl.eval_expr(first)?;
             repl.env = first_io.expr;
-            return Ok(());
+            Ok(())
         },
     };
 }
@@ -373,7 +373,7 @@ impl MetaCmd<F> {
                 repl.eval_expr_and_memoize(repl.peek1(cmd, args)?)?;
             }
             repl.prove_last_frames()?;
-            return Ok(());
+            Ok(())
         }
     };
 }
@@ -398,7 +398,7 @@ impl<F: LurkField> MetaCmd<F> {
             let first = repl.peek1(cmd, args)?;
             let proof_id = repl.get_string(&first)?;
             LurkProof::verify_proof(&proof_id)?;
-            return Ok(());
+            Ok(())
         }
     };
 }
@@ -421,7 +421,7 @@ impl<F: LurkField> MetaCmd<F> {
             println!("{}", repl.state.borrow().fmt_to_string(&name));
             let package = Package::new(name);
             repl.state.borrow_mut().add_package(package);
-            return Ok(());
+            Ok(())
         },
     };
 }
@@ -454,7 +454,7 @@ impl<F: LurkField> MetaCmd<F> {
                 }
                 repl.state.borrow_mut().import(&symbols_vec)?;
             }
-            return Ok(());
+            Ok(())
         },
     };
 }
@@ -491,7 +491,7 @@ impl<F: LurkField> MetaCmd<F> {
                     first.fmt_to_string(&repl.store, &repl.state.borrow())
                 ),
             }
-            return Ok(());
+            Ok(())
         },
     };
 }
@@ -527,7 +527,7 @@ impl<F: LurkField> MetaCmd<F> {
                 }
                 _ => bail!("The optional argument of `help` must be a string or symbol"),
             }
-            return Ok(());
+            Ok(())
         },
     };
 
@@ -539,7 +539,7 @@ impl<F: LurkField> MetaCmd<F> {
                     println!("  {}", e);
                 }
                 println!("  Usage: {}", i.format);
-                if i.example.len() > 0 {
+                if !i.example.is_empty() {
                     println!("  Example:");
                 }
                 for &e in i.example.iter() {
@@ -575,6 +575,6 @@ impl MetaCmd<F> {
     ];
 
     pub(super) fn cmds() -> std::collections::HashMap<&'static str, MetaCmd<F>> {
-        return std::collections::HashMap::from(Self::CMDS.map(|x| (x.name, x)));
+        std::collections::HashMap::from(Self::CMDS.map(|x| (x.name, x)))
     }
 }
