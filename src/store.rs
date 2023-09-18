@@ -1,4 +1,5 @@
 use elsa::sync::FrozenMap;
+use elsa::sync_index_set::FrozenIndexSet;
 use once_cell::sync::OnceCell;
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -22,41 +23,41 @@ use crate::{Num, UInt};
 
 use crate::hash::{HashConstants, InversePoseidonCache, PoseidonCache};
 
-type IndexSet<K> = indexmap::IndexSet<K, ahash::RandomState>;
+type IndexSet<K> = FrozenIndexSet<K, ahash::RandomState>;
 
 #[derive(Debug)]
 pub struct Store<F: LurkField> {
-    pub cons_store: IndexSet<(Ptr<F>, Ptr<F>)>,
-    pub comm_store: IndexSet<(FWrap<F>, Ptr<F>)>,
+    pub cons_store: IndexSet<Box<(Ptr<F>, Ptr<F>)>>,
+    pub comm_store: IndexSet<Box<(FWrap<F>, Ptr<F>)>>,
 
-    pub fun_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
+    pub fun_store: IndexSet<Box<(Ptr<F>, Ptr<F>, Ptr<F>)>>,
 
     /// Holds a Sym or Key which is a string head and a symbol tail
-    pub sym_store: IndexSet<(Ptr<F>, Ptr<F>)>,
+    pub sym_store: IndexSet<Box<(Ptr<F>, Ptr<F>)>>,
 
     // Other sparse storage format without hashing is likely more efficient
-    pub num_store: IndexSet<Num<F>>,
+    pub num_store: IndexSet<Box<Num<F>>>,
 
     /// Holds a Str, which is a char head and a string tail
-    pub str_store: IndexSet<(Ptr<F>, Ptr<F>)>,
-    pub thunk_store: IndexSet<Thunk<F>>,
-    pub call0_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
-    pub call_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    pub call2_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    pub tail_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
-    pub lookup_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
-    pub unop_store: IndexSet<(Op1, ContPtr<F>)>,
-    pub binop_store: IndexSet<(Op2, Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    pub binop2_store: IndexSet<(Op2, Ptr<F>, ContPtr<F>)>,
-    pub if_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
-    pub let_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    pub letrec_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    pub emit_store: IndexSet<ContPtr<F>>,
+    pub str_store: IndexSet<Box<(Ptr<F>, Ptr<F>)>>,
+    pub thunk_store: IndexSet<Box<Thunk<F>>>,
+    pub call0_store: IndexSet<Box<(Ptr<F>, ContPtr<F>)>>,
+    pub call_store: IndexSet<Box<(Ptr<F>, Ptr<F>, ContPtr<F>)>>,
+    pub call2_store: IndexSet<Box<(Ptr<F>, Ptr<F>, ContPtr<F>)>>,
+    pub tail_store: IndexSet<Box<(Ptr<F>, ContPtr<F>)>>,
+    pub lookup_store: IndexSet<Box<(Ptr<F>, ContPtr<F>)>>,
+    pub unop_store: IndexSet<Box<(Op1, ContPtr<F>)>>,
+    pub binop_store: IndexSet<Box<(Op2, Ptr<F>, Ptr<F>, ContPtr<F>)>>,
+    pub binop2_store: IndexSet<Box<(Op2, Ptr<F>, ContPtr<F>)>>,
+    pub if_store: IndexSet<Box<(Ptr<F>, ContPtr<F>)>>,
+    pub let_store: IndexSet<Box<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>>,
+    pub letrec_store: IndexSet<Box<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>>,
+    pub emit_store: IndexSet<Box<ContPtr<F>>>,
 
     /// Holds opaque pointers
-    pub opaque_ptrs: IndexSet<ZExprPtr<F>>,
+    pub opaque_ptrs: IndexSet<Box<ZExprPtr<F>>>,
     /// Holds opaque continuation pointers
-    pub opaque_cont_ptrs: IndexSet<ZContPtr<F>>,
+    pub opaque_cont_ptrs: IndexSet<Box<ZContPtr<F>>>,
 
     /// Holds a mapping of `ZExprPtr` -> `Ptr` for reverse lookups
     pub z_expr_ptr_map: FrozenMap<ZExprPtr<F>, Box<Ptr<F>>>,
@@ -171,8 +172,8 @@ impl<F: LurkField> Store<F> {
 
     pub fn hidden(&self, secret: F, payload: Ptr<F>) -> Option<Ptr<F>> {
         self.comm_store
-            .get_index_of(&(FWrap(secret), payload))
-            .map(|c| Ptr::index(ExprTag::Comm, c))
+            .get_full(&Box::new((FWrap(secret), payload)))
+            .map(|(c, _ref)| Ptr::index(ExprTag::Comm, c))
     }
 
     pub fn hide(&mut self, secret: F, payload: Ptr<F>) -> Ptr<F> {
@@ -299,7 +300,7 @@ impl<F: LurkField> Store<F> {
             self.hash_expr(&cdr);
         }
 
-        let (p, inserted) = self.cons_store.insert_full((car, cdr));
+        let (p, inserted) = self.cons_store.insert_probe(Box::new((car, cdr)));
         let ptr = Ptr::index(ExprTag::Cons, p);
         if inserted {
             self.dehydrated.push(ptr);
@@ -313,7 +314,7 @@ impl<F: LurkField> Store<F> {
             self.hash_expr(&cdr);
         }
         assert_eq!((car.tag, cdr.tag), (ExprTag::Char, ExprTag::Str));
-        let (i, _) = self.str_store.insert_full((car, cdr));
+        let (i, _) = self.str_store.insert_probe(Box::new((car, cdr)));
         Ptr::index(ExprTag::Str, i)
     }
 
@@ -323,7 +324,7 @@ impl<F: LurkField> Store<F> {
             self.hash_expr(&cdr);
         }
         assert_eq!((car.tag, cdr.tag), (ExprTag::Str, ExprTag::Sym));
-        let (i, _) = self.sym_store.insert_full((car, cdr));
+        let (i, _) = self.sym_store.insert_probe(Box::new((car, cdr)));
         Ptr::index(ExprTag::Sym, i)
     }
 
@@ -333,7 +334,7 @@ impl<F: LurkField> Store<F> {
             self.hash_expr(&cdr);
         }
         assert_eq!((car.tag, cdr.tag), (ExprTag::Str, ExprTag::Sym));
-        let (i, _) = self.sym_store.insert_full((car, cdr));
+        let (i, _) = self.sym_store.insert_probe(Box::new((car, cdr)));
         Ptr::index(ExprTag::Key, i)
     }
 
@@ -341,7 +342,9 @@ impl<F: LurkField> Store<F> {
         if payload.is_opaque() {
             self.hash_expr(&payload);
         }
-        let (p, inserted) = self.comm_store.insert_full((FWrap(secret), payload));
+        let (p, inserted) = self
+            .comm_store
+            .insert_probe(Box::new((FWrap(secret), payload)));
 
         let ptr = Ptr::index(ExprTag::Comm, p);
 
@@ -394,7 +397,7 @@ impl<F: LurkField> Store<F> {
             }
         }
 
-        let (i, _) = self.opaque_ptrs.insert_full(z_ptr);
+        let (i, _) = self.opaque_ptrs.insert_probe(Box::new(z_ptr));
         Ptr::opaque(tag, i)
     }
 
@@ -481,7 +484,7 @@ impl<F: LurkField> Store<F> {
             }
             Num::U64(_) => num,
         };
-        let (ptr, _) = self.num_store.insert_full(num);
+        let (ptr, _) = self.num_store.insert_probe(Box::new(num));
 
         Ptr::index(ExprTag::Num, ptr)
     }
@@ -500,8 +503,8 @@ impl<F: LurkField> Store<F> {
         };
 
         self.num_store
-            .get_index_of::<Num<F>>(&num)
-            .map(|x| Ptr::index(ExprTag::Num, x))
+            .get_full(&num)
+            .map(|(x, _)| Ptr::index(ExprTag::Num, x))
     }
 
     #[inline]
@@ -535,7 +538,9 @@ impl<F: LurkField> Store<F> {
     pub fn intern_fun(&mut self, arg: Ptr<F>, body: Ptr<F>, closed_env: Ptr<F>) -> Ptr<F> {
         // TODO: closed_env must be an env
         assert!(matches!(arg.tag, ExprTag::Sym), "ARG must be a symbol");
-        let (p, inserted) = self.fun_store.insert_full((arg, body, closed_env));
+        let (p, inserted) = self
+            .fun_store
+            .insert_probe(Box::new((arg, body, closed_env)));
         let ptr = Ptr::index(ExprTag::Fun, p);
         if inserted {
             self.dehydrated.push(ptr);
@@ -544,7 +549,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn intern_thunk(&mut self, thunk: Thunk<F>) -> Ptr<F> {
-        let (p, inserted) = self.thunk_store.insert_full(thunk);
+        let (p, inserted) = self.thunk_store.insert_probe(Box::new(thunk));
         let ptr = Ptr::index(ExprTag::Thunk, p);
         if inserted {
             self.dehydrated.push(ptr);
@@ -1320,7 +1325,7 @@ impl<F: LurkField> Store<F> {
         // Meanwhile, it is illegal to try to dereference/follow an opaque PTR.
         // So any tag and RawPtr are okay.
         let z_ptr = ZExpr::Nil.z_ptr(&self.poseidon_cache);
-        let (i, _) = self.opaque_ptrs.insert_full(z_ptr);
+        let (i, _) = self.opaque_ptrs.insert_probe(Box::new(z_ptr));
         Ptr::opaque(ExprTag::Nil, i)
     }
 
