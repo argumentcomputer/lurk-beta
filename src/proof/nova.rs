@@ -278,9 +278,9 @@ where
         &'a self,
         pp: &'a PublicParams<'_, F, C>,
         frames: &[Frame<IO<F>, Witness<F>, C>],
-        store: &'a mut Store<F>,
+        store: &'a Store<F>,
         lang: Arc<Lang<F, C>>,
-    ) -> Result<(Proof<'_, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
+    ) -> Result<(Proof<'a, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
         let z0 = frames[0].input.to_vector(store)?;
         let zi = frames.last().unwrap().output.to_vector(store)?;
         let circuits = MultiFrame::from_frames(self.reduction_count(), frames, store, lang.clone());

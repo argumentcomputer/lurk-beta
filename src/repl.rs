@@ -324,7 +324,7 @@ pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor
 }
 
 impl<F: LurkField, C: Coprocessor<F>> ReplState<F, C> {
-    pub fn new(s: &mut Store<F>, limit: usize, command: Option<Command>, lang: Lang<F, C>) -> Self {
+    pub fn new(s: &Store<F>, limit: usize, command: Option<Command>, lang: Lang<F, C>) -> Self {
         Self {
             env: empty_sym_env(s),
             limit,
