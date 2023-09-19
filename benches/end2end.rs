@@ -298,7 +298,13 @@ fn prove_benchmark(c: &mut Criterion) {
         )
         .unwrap();
         let frames = prover
-            .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
+            .get_evaluation_frames(
+                ptr,
+                empty_sym_env(&store),
+                &mut store,
+                limit,
+                lang_pallas_rc.clone(),
+            )
             .unwrap();
 
         b.iter(|| {
@@ -345,7 +351,13 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
         )
         .unwrap();
         let frames = prover
-            .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
+            .get_evaluation_frames(
+                ptr,
+                empty_sym_env(&store),
+                &mut store,
+                limit,
+                lang_pallas_rc.clone(),
+            )
             .unwrap();
 
         b.iter(|| {
@@ -391,7 +403,13 @@ fn verify_benchmark(c: &mut Criterion) {
             )
             .unwrap();
             let frames = prover
-                .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
+                .get_evaluation_frames(
+                    ptr,
+                    empty_sym_env(&store),
+                    &mut store,
+                    limit,
+                    lang_pallas_rc.clone(),
+                )
                 .unwrap();
             let (proof, z0, zi, num_steps) = prover
                 .prove(&pp, &frames, &mut store, lang_pallas_rc.clone())
@@ -443,7 +461,13 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
             )
             .unwrap();
             let frames = prover
-                .get_evaluation_frames(ptr, empty_sym_env(&store), &mut store, limit, &lang_pallas)
+                .get_evaluation_frames(
+                    ptr,
+                    empty_sym_env(&store),
+                    &mut store,
+                    limit,
+                    lang_pallas_rc.clone(),
+                )
                 .unwrap();
             let (proof, z0, zi, num_steps) = prover
                 .prove(&pp, &frames, &mut store, lang_pallas_rc.clone())

@@ -54,8 +54,8 @@ impl Validator for InputValidator {
 }
 
 #[allow(dead_code)]
-struct Evaluation<F: LurkField> {
-    frames: Vec<Frame<IO<F>, Witness<F>, Coproc<F>>>,
+struct Evaluation<F: LurkField, C> {
+    frames: Vec<Frame<IO<F>, Witness<F>, F, C>>,
     iterations: usize,
 }
 
@@ -68,7 +68,7 @@ pub struct Repl<F: LurkField> {
     rc: usize,
     limit: usize,
     backend: Backend,
-    evaluation: Option<Evaluation<F>>,
+    evaluation: Option<Evaluation<F, Coproc<F>>>,
     meta: std::collections::HashMap<&'static str, MetaCmd<F>>,
 }
 

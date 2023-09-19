@@ -2,8 +2,10 @@ use std::fmt::Debug;
 
 use bellpepper_core::{ConstraintSystem, SynthesisError};
 
+use crate::circuit::circuit_frame::destructure_list;
+use crate::circuit::gadgets::constraints::alloc_equal_const;
 use crate::circuit::gadgets::data::GlobalAllocations;
-use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
+use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents};
 use crate::eval::IO;
 use crate::field::LurkField;
 use crate::ptr::{ContPtr, Ptr};
@@ -60,6 +62,71 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
     /// Returns true if this Coprocessor actually implements a circuit.
     fn has_circuit(&self) -> bool {
         false
+    }
+
+    fn synthesize_step_circuit<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        store: &Store<F>,
+        g: &GlobalAllocations<F>,
+        input_expr: &AllocatedPtr<F>,
+        input_env: &AllocatedPtr<F>,
+        input_cont: &AllocatedContPtr<F>,
+    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
+        // TODO: This code is almost identical to that in circuit_frame.rs (the arg destructuring is factored out and shared there).
+        // Refactor to share.
+        let arity = self.arity();
+        let (form, actual_length) = destructure_list(
+            &mut cs.namespace(|| "coprocessor form"),
+            store,
+            g,
+            arity + 1,
+            input_expr,
+        )?;
+        let _head = &form[0];
+        let inputs = &form[1..];
+
+        let arity_is_correct = alloc_equal_const(
+            &mut cs.namespace(|| "arity_is_correct"),
+            &actual_length,
+            F::from(1 + arity as u64),
+        )?;
+
+        let (result_expr, result_env, result_cont) =
+            self.synthesize(cs, g, store, &inputs[..arity], input_env, input_cont)?;
+
+        let quoted_expr = AllocatedPtr::construct_list(
+            &mut cs.namespace(|| "quote coprocessor result"),
+            g,
+            store,
+            &[&g.quote_ptr, &result_expr],
+        )?;
+
+        let default_num_pair = &[&g.default_num, &g.default_num];
+
+        // TODO: This should be better abstracted, perhaps by resurrecting historical code.
+        let tail_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
+            &result_env,
+            &result_cont,
+            default_num_pair,
+            default_num_pair,
+        ];
+
+        let tail_cont = AllocatedContPtr::construct(
+            &mut cs.namespace(|| "coprocessor tail cont"),
+            store,
+            &g.tail_cont_tag,
+            tail_components,
+        )?;
+
+        // FIXME: technically, the error is defined to be rest -- which is the cdr of input_expr.
+        //let new_expr = pick_ptr!(cs, &arity_is_correct, &quoted_expr, &rest)?;
+        let new_expr = pick_ptr!(cs, &arity_is_correct, &quoted_expr, &input_expr)?;
+
+        let new_env = pick_ptr!(cs, &arity_is_correct, &result_env, &input_env)?;
+        let new_cont = pick_cont_ptr!(cs, &arity_is_correct, &tail_cont, &g.error_ptr_cont)?;
+
+        Ok((new_expr, new_env, new_cont))
     }
 }
 
