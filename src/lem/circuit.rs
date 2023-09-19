@@ -92,7 +92,7 @@ fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
     preallocated_preimg: Vec<AllocatedNum<F>>,
     store: &Store<F>,
 ) -> Result<AllocatedNum<F>> {
-    let cs = &mut cs.namespace(|| format!("image for slot {slot}"));
+    let mut cs = cs.namespace(|| format!("image for slot {slot}"));
     let preallocated_img = {
         match slot.typ {
             SlotType::Hash4 => {
@@ -112,40 +112,20 @@ fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
                 // When a and b have different signs, a < b iff a is negative
                 let a_num = &preallocated_preimg[0];
                 let b_num = &preallocated_preimg[1];
-                let slot_str = &slot.to_string();
-                let a_is_negative = allocate_is_negative(
-                    &mut cs.namespace(|| format!("a_is_negative for slot {slot_str}")),
-                    a_num,
-                )?;
-                let a_is_negative_num = boolean_to_num(
-                    &mut cs.namespace(|| format!("a_is_negative_num for slot {slot_str}")),
-                    &a_is_negative,
-                )?;
-                let b_is_negative = allocate_is_negative(
-                    &mut cs.namespace(|| format!("b_is_negative for slot {slot_str}")),
-                    b_num,
-                )?;
-                let same_sign = Boolean::xor(
-                    &mut cs.namespace(|| format!("same_sign for slot {slot_str}")),
-                    &a_is_negative,
-                    &b_is_negative,
-                )?
-                .not();
-                let diff = sub(
-                    &mut cs.namespace(|| format!("diff for slot {slot_str}")),
-                    a_num,
-                    b_num,
-                )?;
-                let diff_is_negative = allocate_is_negative(
-                    &mut cs.namespace(|| format!("diff_is_negative for slot {slot_str}")),
-                    &diff,
-                )?;
-                let diff_is_negative_num = boolean_to_num(
-                    &mut cs.namespace(|| format!("diff_is_negative_num for slot {slot_str}")),
-                    &diff_is_negative,
-                )?;
+                let a_is_negative = allocate_is_negative(cs.namespace(|| "a_is_negative"), a_num)?;
+                let a_is_negative_num =
+                    boolean_to_num(cs.namespace(|| "a_is_negative_num"), &a_is_negative)?;
+                let b_is_negative = allocate_is_negative(cs.namespace(|| "b_is_negative"), b_num)?;
+                let same_sign =
+                    Boolean::xor(cs.namespace(|| "same_sign"), &a_is_negative, &b_is_negative)?
+                        .not();
+                let diff = sub(cs.namespace(|| "diff"), a_num, b_num)?;
+                let diff_is_negative =
+                    allocate_is_negative(cs.namespace(|| "diff_is_negative"), &diff)?;
+                let diff_is_negative_num =
+                    boolean_to_num(cs.namespace(|| "diff_is_negative_num"), &diff_is_negative)?;
                 pick(
-                    &mut cs.namespace(|| format!("pick for slot {slot}")),
+                    cs.namespace(|| "pick"),
                     &same_sign,
                     &diff_is_negative_num,
                     &a_is_negative_num,
@@ -253,7 +233,7 @@ fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
             let preallocated_preimg: Vec<_> = (0..slot_type.preimg_size())
                 .map(|component_idx| {
                     AllocatedNum::alloc(
-                        &mut cs.namespace(|| format!("component {component_idx} slot {slot}")),
+                        cs.namespace(|| format!("component {component_idx} slot {slot}")),
                         || Ok(F::ZERO),
                     )
                 })
@@ -688,8 +668,8 @@ impl Func {
                         let b = bound_allocations.get(b)?;
                         let a_num = a.tag();
                         let b_num = b.tag();
-                        let eq = alloc_equal(&mut cs.namespace(|| "equal_tag"), a_num, b_num)?;
-                        let c_num = boolean_to_num(&mut cs.namespace(|| "equal_tag.to_num"), &eq)?;
+                        let eq = alloc_equal(cs.namespace(|| "equal_tag"), a_num, b_num)?;
+                        let c_num = boolean_to_num(cs.namespace(|| "equal_tag.to_num"), &eq)?;
                         let tag = g
                             .global_allocator
                             .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
@@ -701,8 +681,8 @@ impl Func {
                         let b = bound_allocations.get(b)?;
                         let a_num = a.hash();
                         let b_num = b.hash();
-                        let eq = alloc_equal(&mut cs.namespace(|| "equal_val"), a_num, b_num)?;
-                        let c_num = boolean_to_num(&mut cs.namespace(|| "equal_val.to_num"), &eq)?;
+                        let eq = alloc_equal(cs.namespace(|| "equal_val"), a_num, b_num)?;
+                        let c_num = boolean_to_num(cs.namespace(|| "equal_val.to_num"), &eq)?;
                         let tag = g
                             .global_allocator
                             .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
@@ -714,7 +694,7 @@ impl Func {
                         let b = bound_allocations.get(b)?;
                         let a_num = a.hash();
                         let b_num = b.hash();
-                        let c_num = add(&mut cs.namespace(|| "add"), a_num, b_num)?;
+                        let c_num = add(cs.namespace(|| "add"), a_num, b_num)?;
                         let tag = g
                             .global_allocator
                             .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
@@ -726,7 +706,7 @@ impl Func {
                         let b = bound_allocations.get(b)?;
                         let a_num = a.hash();
                         let b_num = b.hash();
-                        let c_num = sub(&mut cs.namespace(|| "sub"), a_num, b_num)?;
+                        let c_num = sub(cs.namespace(|| "sub"), a_num, b_num)?;
                         let tag = g
                             .global_allocator
                             .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
@@ -738,7 +718,7 @@ impl Func {
                         let b = bound_allocations.get(b)?;
                         let a_num = a.hash();
                         let b_num = b.hash();
-                        let c_num = mul(&mut cs.namespace(|| "mul"), a_num, b_num)?;
+                        let c_num = mul(cs.namespace(|| "mul"), a_num, b_num)?;
                         let tag = g
                             .global_allocator
                             .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
@@ -751,17 +731,17 @@ impl Func {
                         let a_num = a.hash();
                         let b_num = b.hash();
 
-                        let b_is_zero = &alloc_is_zero(&mut cs.namespace(|| "b_is_zero"), b_num)?;
+                        let b_is_zero = &alloc_is_zero(cs.namespace(|| "b_is_zero"), b_num)?;
                         let one = g.global_allocator.get_allocated_const(F::ONE)?;
 
                         let divisor = pick(
-                            &mut cs.namespace(|| "maybe-dummy divisor"),
+                            cs.namespace(|| "maybe-dummy divisor"),
                             b_is_zero,
                             one,
                             b_num,
                         )?;
 
-                        let quotient = div(&mut cs.namespace(|| "quotient"), a_num, &divisor)?;
+                        let quotient = div(cs.namespace(|| "quotient"), a_num, &divisor)?;
 
                         let tag = g
                             .global_allocator
@@ -793,9 +773,8 @@ impl Func {
                     Op::Trunc(tgt, a, n) => {
                         assert!(*n <= 64);
                         let a = bound_allocations.get(a)?;
-                        let mut trunc_bits = a
-                            .hash()
-                            .to_bits_le_strict(&mut cs.namespace(|| "to_bits_le"))?;
+                        let mut trunc_bits =
+                            a.hash().to_bits_le_strict(cs.namespace(|| "to_bits_le"))?;
                         trunc_bits.truncate(*n as usize);
                         let trunc = AllocatedNum::alloc(cs.namespace(|| "trunc"), || {
                             let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
@@ -804,7 +783,7 @@ impl Func {
                                 .map(|a| F::from_u64(a.to_u64_unchecked() & b))
                                 .ok_or(SynthesisError::AssignmentMissing)
                         })?;
-                        enforce_pack(&mut cs.namespace(|| "enforce_trunc"), &trunc_bits, &trunc);
+                        enforce_pack(cs.namespace(|| "enforce_trunc"), &trunc_bits, &trunc);
                         let tag = g
                             .global_allocator
                             .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
@@ -958,7 +937,7 @@ impl Func {
                                 .map(|matched_f| not_dummy && &matched_f == f)
                         });
                     let not_dummy_and_has_match = Boolean::Is(AllocatedBit::alloc(
-                        &mut cs.namespace(|| format!("{i}.allocated_bit")),
+                        cs.namespace(|| format!("{i}.allocated_bit")),
                         not_dummy_and_has_match_bool,
                     )?);
 
@@ -993,7 +972,7 @@ impl Func {
                         acc.and_then(|acc| b.get_value().map(|b| acc && !b))
                     });
                     let is_default = Boolean::Is(AllocatedBit::alloc(
-                        &mut cs.namespace(|| "_.allocated_bit"),
+                        cs.namespace(|| "_.allocated_bit"),
                         is_default_bool,
                     )?);
 
@@ -1070,12 +1049,9 @@ impl Func {
                             .get_value()
                             .and_then(|x| y_ptr.get_value().map(|y| not_dummy && x != y))
                     });
-                    let is_eq =
-                        Boolean::Is(AllocatedBit::alloc(&mut cs.namespace(|| "if_eq"), eq_val)?);
-                    let is_neq = Boolean::Is(AllocatedBit::alloc(
-                        &mut cs.namespace(|| "if_neq"),
-                        neq_val,
-                    )?);
+                    let is_eq = Boolean::Is(AllocatedBit::alloc(cs.namespace(|| "if_eq"), eq_val)?);
+                    let is_neq =
+                        Boolean::Is(AllocatedBit::alloc(cs.namespace(|| "if_neq"), neq_val)?);
                     implies_equal(
                         &mut cs.namespace(|| format!("{x} = {y}")),
                         &is_eq,
