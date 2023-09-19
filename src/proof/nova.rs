@@ -3630,6 +3630,7 @@ pub mod tests {
         let res2 = s.uint64(1);
 
         let expr3 = "(% 100u64 0u64)";
+        let expr4 = "(% 18446744073709551617u64 8u64)";
 
         let terminal = s.get_cont_terminal();
         let error = s.get_cont_error();
@@ -3637,6 +3638,7 @@ pub mod tests {
         test_aux::<Coproc<Fr>>(s, expr, Some(res), None, Some(terminal), None, 3, None);
         test_aux::<Coproc<Fr>>(s, expr2, Some(res2), None, Some(terminal), None, 3, None);
         test_aux::<Coproc<Fr>>(s, expr3, None, None, Some(error), None, 3, None);
+        test_aux::<Coproc<Fr>>(s, expr4, None, None, Some(error), None, 3, None);
     }
 
     #[test]
