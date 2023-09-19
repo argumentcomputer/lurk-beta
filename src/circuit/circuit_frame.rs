@@ -5071,7 +5071,7 @@ fn to_u64<F: LurkField, CS: ConstraintSystem<F>>(
 // equal to False. But even if cond is True, we output correct
 // q and r, as if arg1 and arg2 were indeed u64 elements,
 // which is obtained by ignoring most significant bits from arg1
-// and arg2, respectivelly.
+// and arg2, respectively.
 fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     cond: &Boolean,
