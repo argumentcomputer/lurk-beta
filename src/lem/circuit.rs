@@ -452,7 +452,6 @@ impl Func {
             preallocated_commitment_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             preallocated_less_than_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
             call_outputs: VecDeque<Vec<Ptr<F>>>,
-            call_count: usize,
         }
 
         fn recurse<F: LurkField, CS: ConstraintSystem<F>>(
@@ -464,7 +463,9 @@ impl Func {
             preallocated_outputs: &Vec<AllocatedPtr<F>>,
             g: &mut Globals<'_, F>,
         ) -> Result<()> {
-            for op in &block.ops {
+            for (op_idx, op) in block.ops.iter().enumerate() {
+                let mut cs = cs.namespace(|| format!("op {op_idx}"));
+
                 macro_rules! cons_helper {
                     ( $img: expr, $tag: expr, $preimg: expr, $slot: expr ) => {
                         // Retrieve allocated preimage
@@ -490,20 +491,13 @@ impl Func {
                             let var = &$preimg[i];
                             let ptr_idx = 2 * i;
                             implies_equal(
-                                &mut cs.namespace(|| {
-                                    format!("implies equal for {var}'s tag (OP {:?}, pos {i})", &op)
-                                }),
+                                &mut cs.namespace(|| format!("implies equal {var}.tag pos {i}")),
                                 not_dummy,
                                 allocated_ptr.tag(),
                                 &preallocated_preimg[ptr_idx], // tag index
                             );
                             implies_equal(
-                                &mut cs.namespace(|| {
-                                    format!(
-                                        "implies equal for {var}'s hash (OP {:?}, pos {i})",
-                                        &op
-                                    )
-                                }),
+                                &mut cs.namespace(|| format!("implies equal {var}.hash pos {i}")),
                                 not_dummy,
                                 allocated_ptr.hash(),
                                 &preallocated_preimg[ptr_idx + 1], // hash index
@@ -542,9 +536,7 @@ impl Func {
 
                         // Add the implication constraint for the image
                         implies_equal(
-                            &mut cs.namespace(|| {
-                                format!("implies equal for {}'s hash (OP {:?})", $img, &op)
-                            }),
+                            &mut cs.namespace(|| format!("implies equal {}.hash", $img)),
                             not_dummy,
                             allocated_img.hash(),
                             &preallocated_img,
@@ -598,9 +590,8 @@ impl Func {
                             bound_allocations.insert(param.clone(), arg);
                         });
                         // Finally, we synthesize the circuit for the function body
-                        g.call_count += 1;
                         recurse(
-                            &mut cs.namespace(|| format!("Call {}", g.call_count)),
+                            &mut cs.namespace(|| "call"),
                             &func.body,
                             not_dummy,
                             next_slot,
@@ -759,9 +750,7 @@ impl Func {
                             &g.preallocated_less_than_slots[next_slot.consume_less_than()];
                         for (i, n) in [a.hash(), b.hash()].into_iter().enumerate() {
                             implies_equal(
-                                &mut cs.namespace(|| {
-                                    format!("implies equal for component {i} (OP {:?})", &op)
-                                }),
+                                &mut cs.namespace(|| format!("implies equal component {i}")),
                                 not_dummy,
                                 n,
                                 &preallocated_preimg[i],
@@ -815,7 +804,7 @@ impl Func {
                         implies_u64(cs.namespace(|| "diff_u64"), not_dummy, &diff)?;
 
                         enforce_product_and_sum(
-                            cs,
+                            &mut cs,
                             || "enforce a = b * div + rem",
                             b,
                             &div,
@@ -840,33 +829,25 @@ impl Func {
                         let (preallocated_preimg, hash) =
                             &g.preallocated_commitment_slots[next_slot.consume_commitment()];
                         implies_equal(
-                            &mut cs.namespace(|| {
-                                format!("implies equal for the secret's tag (OP {:?})", &op)
-                            }),
+                            &mut cs.namespace(|| "implies equal secret.tag"),
                             not_dummy,
                             sec.tag(),
                             sec_tag,
                         );
                         implies_equal(
-                            &mut cs.namespace(|| {
-                                format!("implies equal for the secret's hash (OP {:?})", &op)
-                            }),
+                            &mut cs.namespace(|| "implies equal secret.hash"),
                             not_dummy,
                             sec.hash(),
                             &preallocated_preimg[0],
                         );
                         implies_equal(
-                            &mut cs.namespace(|| {
-                                format!("implies equal for the payload's tag (OP {:?})", &op)
-                            }),
+                            &mut cs.namespace(|| "implies equal payload.tag"),
                             not_dummy,
                             pay.tag(),
                             &preallocated_preimg[1],
                         );
                         implies_equal(
-                            &mut cs.namespace(|| {
-                                format!("implies equal for the payload's hash (OP {:?})", &op)
-                            }),
+                            &mut cs.namespace(|| "implies equal payload.hash"),
                             not_dummy,
                             pay.hash(),
                             &preallocated_preimg[2],
@@ -885,17 +866,13 @@ impl Func {
                             .global_allocator
                             .get_allocated_const(Tag::Expr(Comm).to_field())?;
                         implies_equal(
-                            &mut cs.namespace(|| {
-                                format!("implies equal for comm's tag (OP {:?})", &op)
-                            }),
+                            &mut cs.namespace(|| "implies equal comm.tag"),
                             not_dummy,
                             comm.tag(),
                             comm_tag,
                         );
                         implies_equal(
-                            &mut cs.namespace(|| {
-                                format!("implies equal for comm's hash (OP {:?})", &op)
-                            }),
+                            &mut cs.namespace(|| "implies equal comm.hash "),
                             not_dummy,
                             comm.hash(),
                             com_hash,
@@ -1025,9 +1002,7 @@ impl Func {
                         let allocated_ptr = bound_allocations.get(return_var)?;
 
                         allocated_ptr.implies_ptr_equal(
-                            &mut cs.namespace(|| {
-                                format!("implies_ptr_equal {return_var} (return_var {i})")
-                            }),
+                            &mut cs.namespace(|| format!("implies_ptr_equal {return_var} pos {i}")),
                             not_dummy,
                             &preallocated_outputs[i],
                         );
@@ -1137,7 +1112,7 @@ impl Func {
                         .get_allocated_const(Tag::Expr(Sym).to_field())?;
 
                     implies_equal(
-                        &mut cs.namespace(|| format!("implies equal for {match_var}'s tag (Sym)")),
+                        &mut cs.namespace(|| format!("implies equal {match_var}.tag")),
                         not_dummy,
                         match_var_ptr.tag(),
                         sym_tag,
@@ -1167,7 +1142,6 @@ impl Func {
                 preallocated_commitment_slots,
                 preallocated_less_than_slots,
                 call_outputs,
-                call_count: 0,
             },
         )?;
         Ok(preallocated_outputs)
