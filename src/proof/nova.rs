@@ -3638,7 +3638,7 @@ pub mod tests {
         test_aux::<Coproc<Fr>>(s, expr, Some(res), None, Some(terminal), None, 3, None);
         test_aux::<Coproc<Fr>>(s, expr2, Some(res2), None, Some(terminal), None, 3, None);
         test_aux::<Coproc<Fr>>(s, expr3, None, None, Some(error), None, 3, None);
-        test_aux::<Coproc<Fr>>(s, expr4, None, None, Some(error), None, 3, None);
+        test_aux::<Coproc<Fr>>(s, expr4, None, None, Some(error), None, 2, None);
     }
 
     #[test]

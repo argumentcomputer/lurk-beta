@@ -5115,7 +5115,7 @@ fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
 
     let diff = sub(
         cs.namespace(|| "diff for b and rem"),
-        arg2.hash(),
+        &alloc_arg2_num,
         &alloc_r_num,
     )?;
     implies_u64(cs.namespace(|| "div_u64"), cond, &alloc_q_num)?;
