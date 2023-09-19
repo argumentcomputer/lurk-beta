@@ -4236,9 +4236,20 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &field_arithmetic_result,
         )?;
 
+        let op2_is_mod_and_args_are_u64s = Boolean::and(
+            &mut cs.namespace(|| "op2 is mod and args are u64s"),
+            &op2_is_mod,
+            &both_args_are_u64s,
+        )?;
+        let op2_is_mod_and_args_are_not_u64s = Boolean::and(
+            &mut cs.namespace(|| "op2 is mod and args are not u64s"),
+            &op2_is_mod,
+            &both_args_are_u64s.not(),
+        )?;
+
         let (alloc_q, alloc_r) = enforce_u64_div_mod(
             &mut cs.namespace(|| "u64 div mod equation"),
-            &op2_is_mod,
+            &op2_is_mod_and_args_are_u64s,
             &arg1,
             arg2,
         )?;
@@ -4255,16 +4266,6 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &op2_is_div_and_args_are_u64s,
             &alloc_q_ptr,
             &partial_u64_result,
-        )?;
-        let op2_is_mod_and_args_are_u64s = Boolean::and(
-            &mut cs.namespace(|| "op2 is mod and args are u64s"),
-            &op2_is_mod,
-            &both_args_are_u64s,
-        )?;
-        let op2_is_mod_and_args_are_not_u64s = Boolean::and(
-            &mut cs.namespace(|| "op2 is mod and args are not u64s"),
-            &op2_is_mod,
-            &both_args_are_u64s.not(),
         )?;
         // include u64 mod
         let arithmetic_result = AllocatedPtr::pick(
@@ -5053,8 +5054,24 @@ fn to_u64<F: LurkField, CS: ConstraintSystem<F>>(
     Ok(r64_num)
 }
 
-// Enforce div and mod operation for U64. We need to show that
-// arg1 = q * arg2 + r, such that 0 <= r < arg2.
+// Enforce div and mod operation for u64. We need to show that
+// arg1 = q * arg2 + r  (1),
+// for non-deterministic q, r such that 0 <= r < arg2.
+// Since calculations occur on a finite field, we need to take
+// care with q, since a malicious prover could choose q to obtain
+// any desired q * arg2, and consequently any r.
+// To solve this soundness problem we constrain q, r and (arg2 - r)
+// to be u64s. This function is NOT responsible for constraining
+// arg1 and arg2 to be u64, because in this case a continuation error
+// must be enforced, so these checks occur outside this function.
+// On the other hand, this function never produces a circuit that
+// is not satisfiable, because it internally coerces both input
+// arguments to be u64s respecting equation (1).
+// If arg1 or arg2 is invalid (not u64), the user can pass cond
+// equal to False. But even if cond is True, we output correct
+// q and r, as if arg1 and arg2 were indeed u64 elements,
+// which is obtained by ignoring most significant bits from arg1
+// and arg2, respectivelly.
 fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     cond: &Boolean,
