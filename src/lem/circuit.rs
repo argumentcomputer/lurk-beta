@@ -286,6 +286,9 @@ impl Block {
                 }
                 Op::EqTag(..)
                 | Op::EqVal(..)
+                | Op::Not(..)
+                | Op::And(..)
+                | Op::Or(..)
                 | Op::Add(..)
                 | Op::Sub(..)
                 | Op::Mul(..)
@@ -306,7 +309,7 @@ impl Block {
             }
         }
         match &self.ctrl {
-            Ctrl::IfEq(.., a, b) => {
+            Ctrl::If(.., a, b) | Ctrl::IfEq(.., a, b) => {
                 a.alloc_globals(cs, store, g)?;
                 b.alloc_globals(cs, store, g)?;
             }
@@ -680,6 +683,9 @@ impl Func {
                         let c = AllocatedPtr::from_parts(tag, c_num);
                         bound_allocations.insert(tgt.clone(), c);
                     }
+                    Op::Not(..) | Op::And(..) | Op::Or(..) => {
+                        todo!()
+                    }
                     Op::Add(tgt, a, b) => {
                         let a = bound_allocations.get(a)?;
                         let b = bound_allocations.get(b)?;
@@ -1009,6 +1015,9 @@ impl Func {
                     }
                     Ok(())
                 }
+                Ctrl::If(..) => {
+                    todo!()
+                }
                 Ctrl::IfEq(x, y, eq_block, else_block) => {
                     let x_ptr = bound_allocations.get(x)?.hash();
                     let y_ptr = bound_allocations.get(y)?.hash();
@@ -1203,6 +1212,9 @@ impl Func {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
                         num_constraints += 5;
                     }
+                    Op::Not(..) | Op::And(..) | Op::Or(..) => {
+                        todo!()
+                    }
                     Op::Add(..) | Op::Sub(..) | Op::Mul(..) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
                         num_constraints += 1;
@@ -1263,6 +1275,9 @@ impl Func {
             }
             match &block.ctrl {
                 Ctrl::Return(vars) => num_constraints + 2 * vars.len(),
+                Ctrl::If(..) => {
+                    todo!()
+                }
                 Ctrl::IfEq(_, _, eq_block, else_block) => {
                     num_constraints
                         + 5

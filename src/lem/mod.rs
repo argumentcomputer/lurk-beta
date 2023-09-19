@@ -259,6 +259,9 @@ pub enum Ctrl {
     /// `IfEq(x, y, eq_block, else_block)` runs `eq_block` if `x == y`, and
     /// otherwise runs `else_block`
     IfEq(Var, Var, Box<Block>, Box<Block>),
+    /// `If(x, true_block, false_block)` runs `true_block` if `x` is true, and
+    /// otherwise runs `false_block`
+    If(Var, Box<Block>, Box<Block>),
     /// `Return(rets)` sets the output to `rets`
     Return(Vec<Var>),
 }
@@ -274,11 +277,17 @@ pub enum Op {
     Lit(Var, Lit),
     /// `Cast(y, t, x)` binds `y` to a pointer with tag `t` and the hash of `x`
     Cast(Var, Tag, Var),
-    /// `Add(y, a, b)` binds `y` to the sum of `a` and `b`
+    /// `EqTag(y, a, b)` binds `y` to the boolean `a.tag == b.tag`
     EqTag(Var, Var, Var),
-    /// `EqVal(y, a, b)` binds `y` to `1` if `a.val != b.val`, or to `0` otherwise
+    /// `EqVal(y, a, b)` binds `y` to the boolean `a.val == b.val`
     EqVal(Var, Var, Var),
-    /// `Lt(y, a, b)` binds `y` to `1` if `a < b`, or to `0` otherwise
+    /// `Not(y, a)` binds `y` to the negation of `a`
+    Not(Var, Var),
+    /// `And(y, a, b)` binds `y` to the conjunction of `a` and `b`
+    And(Var, Var, Var),
+    /// `Or(y, a, b)` binds `y` to the disjunction of `a` and `b`
+    Or(Var, Var, Var),
+    /// `Add(y, a, b)` binds `y` to the sum of `a` and `b`
     Add(Var, Var, Var),
     /// `Sub(y, a, b)` binds `y` to the sum of `a` and `b`
     Sub(Var, Var, Var),
@@ -391,8 +400,14 @@ impl Func {
                         is_bound(src, map)?;
                         is_unique(tgt, map);
                     }
+                    Op::Not(tgt, a) => {
+                        is_bound(a, map)?;
+                        is_unique(tgt, map);
+                    }
                     Op::EqTag(tgt, a, b)
                     | Op::EqVal(tgt, a, b)
+                    | Op::And(tgt, a, b)
+                    | Op::Or(tgt, a, b)
                     | Op::Add(tgt, a, b)
                     | Op::Sub(tgt, a, b)
                     | Op::Mul(tgt, a, b)
@@ -501,6 +516,11 @@ impl Func {
                     if let Some(def) = def {
                         recurse(def, return_size, map)?;
                     }
+                }
+                Ctrl::If(x, true_block, false_block) => {
+                    is_bound(x, map)?;
+                    recurse(true_block, return_size, map)?;
+                    recurse(false_block, return_size, map)?;
                 }
                 Ctrl::IfEq(x, y, eq_block, else_block) => {
                     is_bound(x, map)?;
@@ -619,6 +639,23 @@ impl Block {
                     let tgt = insert_one(map, uniq, &tgt);
                     ops.push(Op::EqVal(tgt, a, b))
                 }
+                Op::Not(tgt, a) => {
+                    let a = map.get_cloned(&a)?;
+                    let tgt = insert_one(map, uniq, &tgt);
+                    ops.push(Op::Not(tgt, a))
+                }
+                Op::And(tgt, a, b) => {
+                    let a = map.get_cloned(&a)?;
+                    let b = map.get_cloned(&b)?;
+                    let tgt = insert_one(map, uniq, &tgt);
+                    ops.push(Op::And(tgt, a, b))
+                }
+                Op::Or(tgt, a, b) => {
+                    let a = map.get_cloned(&a)?;
+                    let b = map.get_cloned(&b)?;
+                    let tgt = insert_one(map, uniq, &tgt);
+                    ops.push(Op::Or(tgt, a, b))
+                }
                 Op::Add(tgt, a, b) => {
                     let a = map.get_cloned(&a)?;
                     let b = map.get_cloned(&b)?;
@@ -735,6 +772,12 @@ impl Block {
                 };
                 Ctrl::MatchSymbol(var, IndexMap::from_iter(new_cases), new_def)
             }
+            Ctrl::If(x, true_block, false_block) => {
+                let x = map.get_cloned(&x)?;
+                let true_block = Box::new(true_block.deconflict(&mut map.clone(), uniq)?);
+                let false_block = Box::new(false_block.deconflict(&mut map.clone(), uniq)?);
+                Ctrl::If(x, true_block, false_block)
+            }
             Ctrl::IfEq(x, y, eq_block, else_block) => {
                 let x = map.get_cloned(&x)?;
                 let y = map.get_cloned(&y)?;
@@ -758,7 +801,7 @@ impl Block {
             }
         }
         match &self.ctrl {
-            Ctrl::IfEq(.., a, b) => {
+            Ctrl::If(.., a, b) | Ctrl::IfEq(.., a, b) => {
                 a.intern_lits(store);
                 b.intern_lits(store);
             }

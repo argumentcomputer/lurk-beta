@@ -39,6 +39,17 @@ impl<F: LurkField> VarMap<Val<F>> {
     fn insert_ptr(&mut self, var: Var, ptr: Ptr<F>) -> Option<Val<F>> {
         self.insert(var, Val::Pointer(ptr))
     }
+
+    fn get_bool(&self, var: &Var) -> Result<bool> {
+        if let Val::Boolean(b) = self.get(var)? {
+            return Ok(*b);
+        }
+        bail!("Expected {var} to be a boolean")
+    }
+
+    fn insert_bool(&mut self, var: Var, b: bool) -> Option<Val<F>> {
+        self.insert(var, Val::Boolean(b))
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -173,24 +184,30 @@ impl Block {
                 Op::EqTag(tgt, a, b) => {
                     let a = bindings.get_ptr(a)?;
                     let b = bindings.get_ptr(b)?;
-                    let c = if a.tag() == b.tag() {
-                        Ptr::Atom(Tag::Expr(Num), F::ONE)
-                    } else {
-                        Ptr::Atom(Tag::Expr(Num), F::ZERO)
-                    };
-                    bindings.insert_ptr(tgt.clone(), c);
+                    let c = a.tag() == b.tag();
+                    bindings.insert_bool(tgt.clone(), c);
                 }
                 Op::EqVal(tgt, a, b) => {
                     let a = bindings.get_ptr(a)?;
                     let b = bindings.get_ptr(b)?;
                     // In order to compare Ptrs, we *must* resolve the hashes. Otherwise, we risk failing to recognize equality of
                     // compound data with opaque data in either element's transitive closure.
-                    let c = if store.hash_ptr(&a)?.value() == store.hash_ptr(&b)?.value() {
-                        Ptr::Atom(Tag::Expr(Num), F::ONE)
-                    } else {
-                        Ptr::Atom(Tag::Expr(Num), F::ZERO)
-                    };
-                    bindings.insert_ptr(tgt.clone(), c);
+                    let c = store.hash_ptr(&a)?.value() == store.hash_ptr(&b)?.value();
+                    bindings.insert_bool(tgt.clone(), c);
+                }
+                Op::Not(tgt, a) => {
+                    let a = bindings.get_bool(a)?;
+                    bindings.insert_bool(tgt.clone(), !a);
+                }
+                Op::And(tgt, a, b) => {
+                    let a = bindings.get_bool(a)?;
+                    let b = bindings.get_bool(b)?;
+                    bindings.insert_bool(tgt.clone(), a && b);
+                }
+                Op::Or(tgt, a, b) => {
+                    let a = bindings.get_bool(a)?;
+                    let b = bindings.get_bool(b)?;
+                    bindings.insert_bool(tgt.clone(), a || b);
                 }
                 Op::Add(tgt, a, b) => {
                     let a = bindings.get_ptr(a)?;
@@ -242,12 +259,11 @@ impl Block {
                         preimages.less_than.push(Some(PreimageData::FPair(f, g)));
                         let f = BaseNum::Scalar(f);
                         let g = BaseNum::Scalar(g);
-                        let b = if f < g { F::ONE } else { F::ZERO };
-                        Ptr::Atom(Tag::Expr(Num), b)
+                        f < g
                     } else {
                         bail!("`Lt` only works on atoms")
                     };
-                    bindings.insert_ptr(tgt.clone(), c);
+                    bindings.insert_bool(tgt.clone(), c);
                 }
                 Op::Trunc(tgt, a, n) => {
                     assert!(*n <= 64);
@@ -420,6 +436,15 @@ impl Block {
                         bail!("No match for symbol {sym}")
                     };
                     def.run(input, store, bindings, preimages, path, emitted)
+                }
+            }
+            Ctrl::If(b, true_block, false_block) => {
+                let b = bindings.get_bool(b)?;
+                path.push_bool_inplace(b);
+                if b {
+                    true_block.run(input, store, bindings, preimages, path, emitted)
+                } else {
+                    false_block.run(input, store, bindings, preimages, path, emitted)
                 }
             }
             Ctrl::IfEq(x, y, eq_block, else_block) => {
