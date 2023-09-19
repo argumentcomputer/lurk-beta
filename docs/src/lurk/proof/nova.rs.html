@@ -3997,7 +3997,6 @@
 <a href="#3997" id="3997">3997</a>
 <a href="#3998" id="3998">3998</a>
 <a href="#3999" id="3999">3999</a>
-<a href="#4000" id="4000">4000</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 </span><span class="kw">use </span>std::sync::Mutex;
 
@@ -4194,13 +4193,12 @@
     <span class="kw">let </span>commitment_size_hint1 = &lt;SS1&lt;F&gt; <span class="kw">as </span>RelaxedR1CSSNARKTrait&lt;G1&lt;F&gt;&gt;&gt;::commitment_key_floor();
     <span class="kw">let </span>commitment_size_hint2 = &lt;SS2&lt;F&gt; <span class="kw">as </span>RelaxedR1CSSNARKTrait&lt;G2&lt;F&gt;&gt;&gt;::commitment_key_floor();
 
-    <span class="kw">let </span>pp = nova::PublicParams::setup(
+    <span class="kw">let </span>pp = nova::PublicParams::new(
         <span class="kw-2">&amp;</span>circuit_primary,
         <span class="kw-2">&amp;</span>circuit_secondary,
         <span class="prelude-val">Some</span>(commitment_size_hint1),
         <span class="prelude-val">Some</span>(commitment_size_hint2),
-    )
-    .unwrap();
+    );
     <span class="kw">let </span>(pk, vk) = CompressedSNARK::setup(<span class="kw-2">&amp;</span>pp).unwrap();
     PublicParams { pp, pk, vk }
 }
