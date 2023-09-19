@@ -907,7 +907,7 @@
     store::Store,
     tag::{ExprTag, Tag},
     writer::Write,
-    z_ptr::{ZContPtr, ZExprPtr},
+    z_ptr::{ZContPtr, ZExprPtr, ZPtr},
 };
 
 <span class="kw">use super</span>::{
@@ -946,12 +946,12 @@
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; AllocatedPtr&lt;F&gt; {
-    <span class="kw">pub fn </span>alloc&lt;Fo, CS: ConstraintSystem&lt;F&gt;&gt;(
+    <span class="kw">pub fn </span>alloc&lt;Fo, CS: ConstraintSystem&lt;F&gt;, T: Tag&gt;(
         cs: <span class="kw-2">&amp;mut </span>CS,
         value: Fo,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SynthesisError&gt;
     <span class="kw">where
-        </span>Fo: FnOnce() -&gt; <span class="prelude-ty">Result</span>&lt;ZExprPtr&lt;F&gt;, SynthesisError&gt;,
+        </span>Fo: FnOnce() -&gt; <span class="prelude-ty">Result</span>&lt;ZPtr&lt;T, F&gt;, SynthesisError&gt;,
     {
         <span class="kw">let </span><span class="kw-2">mut </span>hash = <span class="prelude-val">None</span>;
         <span class="kw">let </span>alloc_tag = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tag&quot;</span>), || {
