@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/nova.rs`."><title>nova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-085727c29c2fa99e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (203c57dbe 2023-09-17)" data-channel="nightly" data-search-js="search-5d3eaacf19ebf04f.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-f6ec288034ea164c.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/nova.rs`."><title>nova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-085727c29c2fa99e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (65ea825f4 2023-09-18)" data-channel="nightly" data-search-js="search-5d3eaacf19ebf04f.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-f6ec288034ea164c.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -3997,6 +3997,25 @@
 <a href="#3997" id="3997">3997</a>
 <a href="#3998" id="3998">3998</a>
 <a href="#3999" id="3999">3999</a>
+<a href="#4000" id="4000">4000</a>
+<a href="#4001" id="4001">4001</a>
+<a href="#4002" id="4002">4002</a>
+<a href="#4003" id="4003">4003</a>
+<a href="#4004" id="4004">4004</a>
+<a href="#4005" id="4005">4005</a>
+<a href="#4006" id="4006">4006</a>
+<a href="#4007" id="4007">4007</a>
+<a href="#4008" id="4008">4008</a>
+<a href="#4009" id="4009">4009</a>
+<a href="#4010" id="4010">4010</a>
+<a href="#4011" id="4011">4011</a>
+<a href="#4012" id="4012">4012</a>
+<a href="#4013" id="4013">4013</a>
+<a href="#4014" id="4014">4014</a>
+<a href="#4015" id="4015">4015</a>
+<a href="#4016" id="4016">4016</a>
+<a href="#4017" id="4017">4017</a>
+<a href="#4018" id="4018">4018</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 </span><span class="kw">use </span>std::sync::Mutex;
 
@@ -4032,9 +4051,9 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
 <span class="kw">use </span><span class="kw">crate</span>::error::ProofError;
-<span class="kw">use </span><span class="kw">crate</span>::eval::{lang::Lang, Evaluator, Frame, Witness, IO};
+<span class="kw">use </span><span class="kw">crate</span>::eval::{lang::Lang, Frame, Meta, Witness, IO};
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
-<span class="kw">use </span><span class="kw">crate</span>::proof::{Prover, PublicParameters};
+<span class="kw">use </span><span class="kw">crate</span>::proof::{supernova::FoldingConfig, Prover, PublicParameters};
 <span class="kw">use </span><span class="kw">crate</span>::ptr::Ptr;
 <span class="kw">use </span><span class="kw">crate</span>::store::Store;
 
@@ -4205,8 +4224,9 @@
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; C1&lt;<span class="lifetime">&#39;a</span>, F, C&gt; {
     <span class="kw">fn </span>circuits(count: usize, lang: Arc&lt;Lang&lt;F, C&gt;&gt;) -&gt; (C1&lt;<span class="lifetime">&#39;a</span>, F, C&gt;, C2&lt;F&gt;) {
+        <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang, count));
         (
-            MultiFrame::blank(count, lang),
+            MultiFrame::blank(folding_config, Meta::Lurk),
             TrivialTestCircuit::default(),
         )
     }
@@ -4227,7 +4247,7 @@
 {
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt; Prover&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;_</span>, F, C&gt; <span class="kw">for </span>NovaProver&lt;F, C&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt; Prover&lt;<span class="lifetime">&#39;a</span>, F, C&gt; <span class="kw">for </span>NovaProver&lt;F, C&gt;
 <span class="kw">where
     </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
@@ -4253,35 +4273,18 @@
     </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
-    <span class="doccomment">/// Evaluates and generates the frames of the computation given the expression, environment, and store
-    </span><span class="kw">pub fn </span>get_evaluation_frames(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        expr: Ptr&lt;F&gt;,
-        env: Ptr&lt;F&gt;,
-        store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
-        limit: usize,
-        lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;&gt;, ProofError&gt; {
-        <span class="kw">let </span>padding_predicate = |count| <span class="self">self</span>.needs_frame_padding(count);
-
-        <span class="kw">let </span>frames = Evaluator::generate_frames(expr, env, store, limit, padding_predicate, lang)<span class="question-mark">?</span>;
-
-        store.hydrate_scalar_cache();
-
-        <span class="prelude-val">Ok</span>(frames)
-    }
-
     <span class="doccomment">/// Proves the computation given the public parameters, frames, and store.
     </span><span class="kw">pub fn </span>prove&lt;<span class="lifetime">&#39;a</span>&gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
         pp: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PublicParams&lt;<span class="lifetime">&#39;_</span>, F, C&gt;,
-        frames: <span class="kw-2">&amp;</span>[Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;],
+        frames: <span class="kw-2">&amp;</span>[Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, F, C&gt;],
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Store&lt;F&gt;,
         lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;<span class="lifetime">&#39;_</span>, F, C&gt;, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
         <span class="kw">let </span>z0 = frames[<span class="number">0</span>].input.to_vector(store)<span class="question-mark">?</span>;
         <span class="kw">let </span>zi = frames.last().unwrap().output.to_vector(store)<span class="question-mark">?</span>;
-        <span class="kw">let </span>circuits = MultiFrame::from_frames(<span class="self">self</span>.reduction_count(), frames, store, lang.clone());
+        <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), <span class="self">self</span>.reduction_count()));
+        <span class="kw">let </span>circuits = MultiFrame::from_frames(<span class="self">self</span>.reduction_count, frames, store, folding_config);
 
         <span class="kw">let </span>num_steps = circuits.len();
         <span class="kw">let </span>proof =
@@ -4300,7 +4303,7 @@
         limit: usize,
         lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;<span class="lifetime">&#39;_</span>, F, C&gt;, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
-        <span class="kw">let </span>frames = <span class="self">self</span>.get_evaluation_frames(expr, env, store, limit, <span class="kw-2">&amp;</span>lang)<span class="question-mark">?</span>;
+        <span class="kw">let </span>frames = <span class="self">self</span>.get_evaluation_frames(expr, env, store, limit, lang.clone())<span class="question-mark">?</span>;
         <span class="self">self</span>.prove(pp, <span class="kw-2">&amp;</span>frames, store, lang)
     }
 }
@@ -4382,22 +4385,50 @@
 
         <span class="kw">let </span>count = <span class="self">self</span>.count;
 
-        <span class="kw">let </span>(new_expr, new_env, new_cont) = <span class="kw">match </span><span class="self">self</span>.frames.as_ref() {
-            <span class="prelude-val">Some</span>(frames) =&gt; {
-                <span class="kw">let </span>s = <span class="self">self</span>.store.expect(<span class="string">&quot;store missing&quot;</span>);
-                <span class="kw">let </span>g = GlobalAllocations::new(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;global_allocations&quot;</span>), s)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(new_expr, new_env, new_cont) = <span class="kw">match </span><span class="self">self</span>.meta {
+            Meta::Lurk =&gt; <span class="kw">match </span><span class="self">self</span>.frames.as_ref() {
+                <span class="prelude-val">Some</span>(frames) =&gt; {
+                    <span class="kw">let </span>s = <span class="self">self</span>.store.expect(<span class="string">&quot;store missing&quot;</span>);
+                    <span class="kw">let </span>g = GlobalAllocations::new(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;global_allocations&quot;</span>), s)<span class="question-mark">?</span>;
 
-                <span class="self">self</span>.synthesize_frames(cs, s, input_expr, input_env, input_cont, frames, <span class="kw-2">&amp;</span>g)
-            }
-            <span class="prelude-val">None </span>=&gt; {
-                <span class="macro">assert!</span>(<span class="self">self</span>.store.is_none());
-                <span class="kw">let </span>s = Store::default();
-                <span class="kw">let </span>blank_frame = CircuitFrame::blank();
-                <span class="kw">let </span>frames = <span class="macro">vec!</span>[blank_frame; count];
+                    <span class="self">self</span>.synthesize_frames(cs, s, input_expr, input_env, input_cont, frames, <span class="kw-2">&amp;</span>g)
+                }
+                <span class="prelude-val">None </span>=&gt; {
+                    <span class="macro">assert!</span>(<span class="self">self</span>.store.is_none());
+                    <span class="kw">let </span>s = Store::default();
+                    <span class="kw">let </span>blank_frame = CircuitFrame::blank();
+                    <span class="kw">let </span>frames = <span class="macro">vec!</span>[blank_frame; count];
 
-                <span class="kw">let </span>g = GlobalAllocations::new(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;global_allocations&quot;</span>), <span class="kw-2">&amp;</span>s)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>g = GlobalAllocations::new(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;global_allocations&quot;</span>), <span class="kw-2">&amp;</span>s)<span class="question-mark">?</span>;
 
-                <span class="self">self</span>.synthesize_frames(cs, <span class="kw-2">&amp;</span>s, input_expr, input_env, input_cont, <span class="kw-2">&amp;</span>frames, <span class="kw-2">&amp;</span>g)
+                    <span class="self">self</span>.synthesize_frames(cs, <span class="kw-2">&amp;</span>s, input_expr, input_env, input_cont, <span class="kw-2">&amp;</span>frames, <span class="kw-2">&amp;</span>g)
+                }
+            },
+            Meta::Coprocessor(z_ptr) =&gt; {
+                <span class="kw">let </span>c = <span class="self">self
+                    </span>.folding_config
+                    .lang()
+                    .get_coprocessor_from_zptr(<span class="kw-2">&amp;</span>z_ptr)
+                    .expect(<span class="string">&quot;coprocessor missing&quot;</span>);
+                <span class="kw">match </span><span class="self">self</span>.frames.as_ref() {
+                    <span class="prelude-val">Some</span>(frames) =&gt; {
+                        <span class="macro">assert_eq!</span>(<span class="number">1</span>, frames.len());
+                        <span class="kw">let </span>s = <span class="self">self</span>.store.expect(<span class="string">&quot;store missing&quot;</span>);
+                        <span class="kw">let </span>g =
+                            GlobalAllocations::new(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;global_allocations&quot;</span>), s)<span class="question-mark">?</span>;
+
+                        c.synthesize_step_circuit(cs, s, <span class="kw-2">&amp;</span>g, <span class="kw-2">&amp;</span>input_expr, <span class="kw-2">&amp;</span>input_env, <span class="kw-2">&amp;</span>input_cont)<span class="question-mark">?
+                    </span>}
+                    <span class="prelude-val">None </span>=&gt; {
+                        <span class="macro">assert!</span>(<span class="self">self</span>.store.is_none());
+                        <span class="kw">let </span>s = Store::default();
+
+                        <span class="kw">let </span>g =
+                            GlobalAllocations::new(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;global_allocations&quot;</span>), <span class="kw-2">&amp;</span>s)<span class="question-mark">?</span>;
+
+                        c.synthesize_step_circuit(cs, <span class="kw-2">&amp;</span>s, <span class="kw-2">&amp;</span>g, <span class="kw-2">&amp;</span>input_expr, <span class="kw-2">&amp;</span>input_env, <span class="kw-2">&amp;</span>input_cont)<span class="question-mark">?
+                    </span>}
+                }
             }
         };
 
@@ -4601,6 +4632,7 @@
 </span><span class="kw">pub mod </span>tests {
     <span class="kw">use </span>std::cell::RefCell;
     <span class="kw">use </span>std::rc::Rc;
+    <span class="kw">use </span>tracing_test::traced_test;
 
     <span class="kw">use </span><span class="kw">crate</span>::lurk_sym_ptr;
     <span class="kw">use </span><span class="kw">crate</span>::num::Num;
@@ -4741,11 +4773,16 @@
         }
 
         <span class="kw">let </span>frames = nova_prover
-            .get_evaluation_frames(expr, e, s, limit, <span class="kw-2">&amp;</span>lang)
+            .get_evaluation_frames(expr, e, s, limit, lang.clone())
             .unwrap();
+        <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang, nova_prover.reduction_count()));
 
-        <span class="kw">let </span>multiframes =
-            MultiFrame::from_frames(nova_prover.reduction_count(), <span class="kw-2">&amp;</span>frames, s, lang.clone());
+        <span class="kw">let </span>multiframes = MultiFrame::from_frames(
+            nova_prover.reduction_count(),
+            <span class="kw-2">&amp;</span>frames,
+            s,
+            folding_config.clone(),
+        );
         <span class="kw">let </span>len = multiframes.len();
 
         <span class="kw">let </span>adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);
@@ -4753,7 +4790,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>cs_blank = MetricCS::&lt;Fr&gt;::new();
 
-        <span class="kw">let </span>blank = MultiFrame::&lt;Fr, C&gt;::blank(reduction_count, lang);
+        <span class="kw">let </span>blank = MultiFrame::&lt;Fr, C&gt;::blank(folding_config, Meta::Lurk);
         blank
             .synthesize(<span class="kw-2">&amp;mut </span>cs_blank)
             .expect(<span class="string">&quot;failed to synthesize blank&quot;</span>);
@@ -7886,6 +7923,7 @@
     }
 
     <span class="attr">#[test]
+    #[traced_test]
     </span><span class="kw">fn </span>test_dumb_lang() {
         <span class="kw">use </span><span class="kw">crate</span>::coprocessor::test::DumbCoprocessor;
         <span class="kw">use </span><span class="kw">crate</span>::eval::tests::coproc::DumbCoproc;
@@ -7913,8 +7951,8 @@
         <span class="kw">let </span>error = s.get_cont_error();
         <span class="kw">let </span>lang = Arc::new(lang);
 
-        test_aux(s, expr, <span class="prelude-val">Some</span>(res), <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="number">1</span>, <span class="prelude-val">Some</span>(lang.clone()));
-        test_aux(s, expr2, <span class="prelude-val">Some</span>(res), <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="number">3</span>, <span class="prelude-val">Some</span>(lang.clone()));
+        test_aux(s, expr, <span class="prelude-val">Some</span>(res), <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="number">2</span>, <span class="prelude-val">Some</span>(lang.clone()));
+        test_aux(s, expr2, <span class="prelude-val">Some</span>(res), <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="number">5</span>, <span class="prelude-val">Some</span>(lang.clone()));
         test_aux(
             s,
             expr3,

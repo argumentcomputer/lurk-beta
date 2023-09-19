@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/circuit_frame.rs`."><title>circuit_frame.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-085727c29c2fa99e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (203c57dbe 2023-09-17)" data-channel="nightly" data-search-js="search-5d3eaacf19ebf04f.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-f6ec288034ea164c.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/circuit_frame.rs`."><title>circuit_frame.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-085727c29c2fa99e.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (65ea825f4 2023-09-18)" data-channel="nightly" data-search-js="search-5d3eaacf19ebf04f.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-f6ec288034ea164c.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -6124,6 +6124,102 @@
 <a href="#6124" id="6124">6124</a>
 <a href="#6125" id="6125">6125</a>
 <a href="#6126" id="6126">6126</a>
+<a href="#6127" id="6127">6127</a>
+<a href="#6128" id="6128">6128</a>
+<a href="#6129" id="6129">6129</a>
+<a href="#6130" id="6130">6130</a>
+<a href="#6131" id="6131">6131</a>
+<a href="#6132" id="6132">6132</a>
+<a href="#6133" id="6133">6133</a>
+<a href="#6134" id="6134">6134</a>
+<a href="#6135" id="6135">6135</a>
+<a href="#6136" id="6136">6136</a>
+<a href="#6137" id="6137">6137</a>
+<a href="#6138" id="6138">6138</a>
+<a href="#6139" id="6139">6139</a>
+<a href="#6140" id="6140">6140</a>
+<a href="#6141" id="6141">6141</a>
+<a href="#6142" id="6142">6142</a>
+<a href="#6143" id="6143">6143</a>
+<a href="#6144" id="6144">6144</a>
+<a href="#6145" id="6145">6145</a>
+<a href="#6146" id="6146">6146</a>
+<a href="#6147" id="6147">6147</a>
+<a href="#6148" id="6148">6148</a>
+<a href="#6149" id="6149">6149</a>
+<a href="#6150" id="6150">6150</a>
+<a href="#6151" id="6151">6151</a>
+<a href="#6152" id="6152">6152</a>
+<a href="#6153" id="6153">6153</a>
+<a href="#6154" id="6154">6154</a>
+<a href="#6155" id="6155">6155</a>
+<a href="#6156" id="6156">6156</a>
+<a href="#6157" id="6157">6157</a>
+<a href="#6158" id="6158">6158</a>
+<a href="#6159" id="6159">6159</a>
+<a href="#6160" id="6160">6160</a>
+<a href="#6161" id="6161">6161</a>
+<a href="#6162" id="6162">6162</a>
+<a href="#6163" id="6163">6163</a>
+<a href="#6164" id="6164">6164</a>
+<a href="#6165" id="6165">6165</a>
+<a href="#6166" id="6166">6166</a>
+<a href="#6167" id="6167">6167</a>
+<a href="#6168" id="6168">6168</a>
+<a href="#6169" id="6169">6169</a>
+<a href="#6170" id="6170">6170</a>
+<a href="#6171" id="6171">6171</a>
+<a href="#6172" id="6172">6172</a>
+<a href="#6173" id="6173">6173</a>
+<a href="#6174" id="6174">6174</a>
+<a href="#6175" id="6175">6175</a>
+<a href="#6176" id="6176">6176</a>
+<a href="#6177" id="6177">6177</a>
+<a href="#6178" id="6178">6178</a>
+<a href="#6179" id="6179">6179</a>
+<a href="#6180" id="6180">6180</a>
+<a href="#6181" id="6181">6181</a>
+<a href="#6182" id="6182">6182</a>
+<a href="#6183" id="6183">6183</a>
+<a href="#6184" id="6184">6184</a>
+<a href="#6185" id="6185">6185</a>
+<a href="#6186" id="6186">6186</a>
+<a href="#6187" id="6187">6187</a>
+<a href="#6188" id="6188">6188</a>
+<a href="#6189" id="6189">6189</a>
+<a href="#6190" id="6190">6190</a>
+<a href="#6191" id="6191">6191</a>
+<a href="#6192" id="6192">6192</a>
+<a href="#6193" id="6193">6193</a>
+<a href="#6194" id="6194">6194</a>
+<a href="#6195" id="6195">6195</a>
+<a href="#6196" id="6196">6196</a>
+<a href="#6197" id="6197">6197</a>
+<a href="#6198" id="6198">6198</a>
+<a href="#6199" id="6199">6199</a>
+<a href="#6200" id="6200">6200</a>
+<a href="#6201" id="6201">6201</a>
+<a href="#6202" id="6202">6202</a>
+<a href="#6203" id="6203">6203</a>
+<a href="#6204" id="6204">6204</a>
+<a href="#6205" id="6205">6205</a>
+<a href="#6206" id="6206">6206</a>
+<a href="#6207" id="6207">6207</a>
+<a href="#6208" id="6208">6208</a>
+<a href="#6209" id="6209">6209</a>
+<a href="#6210" id="6210">6210</a>
+<a href="#6211" id="6211">6211</a>
+<a href="#6212" id="6212">6212</a>
+<a href="#6213" id="6213">6213</a>
+<a href="#6214" id="6214">6214</a>
+<a href="#6215" id="6215">6215</a>
+<a href="#6216" id="6216">6216</a>
+<a href="#6217" id="6217">6217</a>
+<a href="#6218" id="6218">6218</a>
+<a href="#6219" id="6219">6219</a>
+<a href="#6220" id="6220">6220</a>
+<a href="#6221" id="6221">6221</a>
+<a href="#6222" id="6222">6222</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
@@ -6133,6 +6229,7 @@
     boolean::Boolean, num::AllocatedNum, Circuit, ConstraintSystem, SynthesisError,
 };
 <span class="kw">use </span>rayon::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>tracing::{debug, info};
 
 <span class="kw">use crate</span>::{
     circuit::gadgets::{
@@ -6160,11 +6257,11 @@
 <span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::hashes::{AllocatedConsWitness, AllocatedContWitness};
 <span class="kw">use </span><span class="kw">crate</span>::circuit::ToInputs;
 <span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
-<span class="kw">use </span><span class="kw">crate</span>::eval::{lang::Lang, Frame, Witness, IO};
+<span class="kw">use </span><span class="kw">crate</span>::eval::{Frame, Meta, Witness, IO};
 <span class="kw">use </span><span class="kw">crate</span>::expr::Thunk;
 <span class="kw">use </span><span class="kw">crate</span>::hash_witness::HashWitness;
 <span class="kw">use </span><span class="kw">crate</span>::lurk_sym_ptr;
-<span class="kw">use </span><span class="kw">crate</span>::proof::Provable;
+<span class="kw">use </span><span class="kw">crate</span>::proof::{supernova::FoldingConfig, Provable};
 <span class="kw">use </span><span class="kw">crate</span>::ptr::Ptr;
 <span class="kw">use </span><span class="kw">crate</span>::store::Store;
 <span class="kw">use </span><span class="kw">crate</span>::tag::{ContTag, ExprTag, Op1, Op2};
@@ -6185,12 +6282,13 @@
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>MultiFrame&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
     <span class="kw">pub </span>store: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;&gt;,
-    <span class="kw">pub </span>lang: <span class="prelude-ty">Option</span>&lt;Arc&lt;Lang&lt;F, C&gt;&gt;&gt;,
     <span class="kw">pub </span>input: <span class="prelude-ty">Option</span>&lt;IO&lt;F&gt;&gt;,
     <span class="kw">pub </span>output: <span class="prelude-ty">Option</span>&lt;IO&lt;F&gt;&gt;,
     <span class="kw">pub </span>frames: <span class="prelude-ty">Option</span>&lt;Vec&lt;CircuitFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;&gt;,
     <span class="kw">pub </span>cached_witness: <span class="prelude-ty">Option</span>&lt;WitnessCS&lt;F&gt;&gt;,
     <span class="kw">pub </span>count: usize,
+    <span class="kw">pub </span>folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
+    <span class="kw">pub </span>meta: Meta&lt;F&gt;,
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; CircuitFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt; {
@@ -6204,7 +6302,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>from_frame(frame: <span class="kw-2">&amp;</span>Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;, store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>from_frame(frame: <span class="kw-2">&amp;</span>Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, F, C&gt;, store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;) -&gt; <span class="self">Self </span>{
         CircuitFrame {
             store: <span class="prelude-val">Some</span>(store),
             input: <span class="prelude-val">Some</span>(frame.input),
@@ -6216,15 +6314,28 @@
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt; {
-    <span class="kw">pub fn </span>blank(count: usize, lang: Arc&lt;Lang&lt;F, C&gt;&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            store: <span class="prelude-val">None</span>,
-            lang: <span class="prelude-val">Some</span>(lang),
-            input: <span class="prelude-val">None</span>,
-            output: <span class="prelude-val">None</span>,
-            frames: <span class="prelude-val">None</span>,
-            cached_witness: <span class="prelude-val">None</span>,
-            count,
+    <span class="kw">pub fn </span>blank(folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;, meta: Meta&lt;F&gt;) -&gt; <span class="self">Self </span>{
+        <span class="kw">match </span>meta {
+            Meta::Lurk =&gt; <span class="self">Self </span>{
+                store: <span class="prelude-val">None</span>,
+                input: <span class="prelude-val">None</span>,
+                output: <span class="prelude-val">None</span>,
+                frames: <span class="prelude-val">None</span>,
+                cached_witness: <span class="prelude-val">None</span>,
+                count: folding_config.reduction_count(),
+                folding_config,
+                meta,
+            },
+            Meta::Coprocessor(_z_ptr) =&gt; <span class="self">Self </span>{
+                store: <span class="prelude-val">None</span>,
+                input: <span class="prelude-val">None</span>,
+                output: <span class="prelude-val">None</span>,
+                frames: <span class="prelude-val">None</span>,
+                cached_witness: <span class="prelude-val">None</span>,
+                count: <span class="number">1</span>,
+                folding_config,
+                meta,
+            },
         }
     }
 
@@ -6233,21 +6344,28 @@
     }
 
     <span class="kw">pub fn </span>from_frames(
-        count: usize,
-        frames: <span class="kw-2">&amp;</span>[Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, C&gt;],
+        <span class="comment">// we need this count, even though folding_config contains reduction_count
+        // because it might be overridden in the case of a coprocoessor, which should have rc=1.
+        // This is not ideal and might not *actually* be needed.
+        </span>count: usize,
+        frames: <span class="kw-2">&amp;</span>[Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, F, C&gt;],
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
-        lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
+        folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
     ) -&gt; Vec&lt;<span class="self">Self</span>&gt; {
         <span class="comment">// `count` is the number of `Frames` to include per `MultiFrame`.
         </span><span class="kw">let </span>total_frames = frames.len();
         <span class="kw">let </span>n = (total_frames + count - <span class="number">1</span>) / count;
         <span class="kw">let </span><span class="kw-2">mut </span>multi_frames = Vec::with_capacity(n);
 
+        <span class="kw">let </span><span class="kw-2">mut </span>meta = <span class="prelude-val">None</span>;
         <span class="kw">for </span>chunk <span class="kw">in </span>frames.chunks(count) {
             <span class="kw">let </span><span class="kw-2">mut </span>inner_frames = Vec::with_capacity(count);
 
             <span class="kw">for </span>x <span class="kw">in </span>chunk {
                 <span class="kw">let </span>circuit_frame = CircuitFrame::from_frame(x, store);
+                <span class="kw">if </span>meta.is_none() {
+                    meta = <span class="prelude-val">Some</span>(x.meta);
+                }
                 inner_frames.push(circuit_frame);
             }
 
@@ -6263,14 +6381,17 @@
             <span class="kw">let </span>output = last_frame.output;
             <span class="macro">debug_assert!</span>(!inner_frames.is_empty());
 
+            <span class="kw">let </span>meta = meta.unwrap_or(Meta::Lurk);
+
             <span class="kw">let </span>mf = MultiFrame {
                 store: <span class="prelude-val">Some</span>(store),
-                lang: <span class="prelude-val">Some</span>(lang.clone()),
                 input: <span class="prelude-val">Some</span>(chunk[<span class="number">0</span>].input),
                 output: <span class="prelude-val">Some</span>(output),
                 frames: <span class="prelude-val">Some</span>(inner_frames),
                 cached_witness: <span class="prelude-val">None</span>,
                 count,
+                folding_config: folding_config.clone(),
+                meta,
             };
 
             multi_frames.push(mf);
@@ -6284,7 +6405,8 @@
         count: usize,
         circuit_frame: <span class="prelude-ty">Option</span>&lt;CircuitFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;,
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
-        lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
+        folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
+        meta: Meta&lt;F&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>(frames, input, output) = <span class="kw">if let </span><span class="prelude-val">Some</span>(circuit_frame) = circuit_frame {
             (
@@ -6297,12 +6419,13 @@
         };
         <span class="self">Self </span>{
             store: <span class="prelude-val">Some</span>(store),
-            lang: <span class="prelude-val">Some</span>(lang),
             input,
             output,
             frames,
             cached_witness: <span class="prelude-val">None</span>,
             count,
+            folding_config,
+            meta,
         }
     }
 
@@ -6342,13 +6465,13 @@
 
         <span class="kw">let </span>(<span class="kw">_</span>, (new_expr, new_env, new_cont)) =
             frames.iter().fold((<span class="number">0</span>, acc), |(i, allocated_io), frame| {
+                <span class="macro">info!</span>(<span class="string">&quot;synthesizing frame {i}&quot;</span>);
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(next_input) = frame.input {
-                    <span class="comment">// Ensure all intermediate allocated I/O values match the provided executation trace.
+                    <span class="comment">// Ensure all intermediate allocated I/O values match the provided execution trace.
 
                     </span><span class="kw">let </span>next_expr_hash = store.hash_expr(<span class="kw-2">&amp;</span>next_input.expr);
                     <span class="kw">let </span>next_env_hash = store.hash_expr(<span class="kw-2">&amp;</span>next_input.env);
                     <span class="kw">let </span>next_cont_hash = store.hash_cont(<span class="kw-2">&amp;</span>next_input.cont);
-
                     <span class="macro">assert_eq!</span>(
                         allocated_io.<span class="number">0</span>.tag().get_value(),
                         next_expr_hash.map(|x| x.tag_field()),
@@ -6395,7 +6518,7 @@
                         cs,
                         i,
                         allocated_io,
-                        <span class="self">self</span>.lang.as_ref().expect(<span class="string">&quot;Lang missing&quot;</span>),
+                        <span class="self">self</span>.folding_config.clone(),
                         g,
                         <span class="kw-2">&amp;mut </span>hash_circuit_witness_cache,
                         cons_witnesses,
@@ -6575,14 +6698,14 @@
         cs: <span class="kw-2">&amp;mut </span>CS,
         i: usize,
         inputs: AllocatedIO&lt;F&gt;,
-        lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
+        folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
         g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
         _hash_circuit_witness_cache: <span class="kw-2">&amp;mut </span>HashCircuitWitnessCache&lt;F&gt;, <span class="comment">// Currently unused.
         </span>cons_circuit_witness: <span class="prelude-ty">Option</span>&lt;ConsCircuitWitness&lt;F&gt;&gt;,
         cont_circuit_witness: <span class="prelude-ty">Option</span>&lt;ContCircuitWitness&lt;F&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedIO&lt;F&gt;, SynthesisError&gt; {
         <span class="kw">let </span>(input_expr, input_env, input_cont) = inputs;
-
+        <span class="macro">debug!</span>(<span class="string">&quot;synthesizing frame&quot;</span>);
         <span class="kw">let </span>reduce = |store| {
             <span class="kw">let </span>cons_circuit_witness = <span class="kw">if let </span><span class="prelude-val">Some</span>(ccw) = cons_circuit_witness {
                 ccw
@@ -6624,7 +6747,7 @@
                 <span class="kw-2">&amp;mut </span>allocated_cons_witness,
                 <span class="kw-2">&amp;mut </span>allocated_cont_witness,
                 store,
-                lang,
+                folding_config,
                 g,
             )
         };
@@ -6975,15 +7098,15 @@
     allocated_cons_witness: <span class="kw-2">&amp;mut </span>AllocatedConsWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
     allocated_cont_witness: <span class="kw-2">&amp;mut </span>AllocatedContWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-    lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
+    folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
     g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedContPtr&lt;F&gt;), SynthesisError&gt; {
-    <span class="comment">// tracing::debug!(&quot;reduce_expression&quot;);
-    // tracing::debug!(&quot;{}&quot;, &amp;expr.fetch_and_write_str(store));
-    // tracing::debug!(&quot;{:?}&quot;, &amp;expr);
-    // tracing::debug!(&quot;{}&quot;, &amp;env.fetch_and_write_str(store));
-    // tracing::debug!(&quot;{} {:?}&quot;, &amp;cont.fetch_and_write_cont_str(store), &amp;cont);
-    </span><span class="kw">let </span><span class="kw-2">mut </span>results = Results::default();
+    <span class="macro">debug!</span>(<span class="string">&quot;reduce_expression&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;{}&quot;</span>, <span class="kw-2">&amp;</span>expr.fetch_and_write_str(store));
+    <span class="macro">debug!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="kw-2">&amp;</span>expr);
+    <span class="macro">debug!</span>(<span class="string">&quot;{}&quot;</span>, <span class="kw-2">&amp;</span>env.fetch_and_write_str(store));
+    <span class="macro">debug!</span>(<span class="string">&quot;{} {:?}&quot;</span>, <span class="kw-2">&amp;</span>cont.fetch_and_write_cont_str(store), <span class="kw-2">&amp;</span>cont);
+    <span class="kw">let </span><span class="kw-2">mut </span>results = Results::default();
     {
         <span class="comment">// Self-evaluating expressions
         </span>results.add_clauses_expr(ExprTag::Nil, expr, env, cont, <span class="kw-2">&amp;</span>g.true_num);
@@ -7072,7 +7195,7 @@
         allocated_cons_witness,
         allocated_cont_witness,
         store,
-        lang,
+        folding_config,
         g,
     )<span class="question-mark">?</span>;
 
@@ -7243,10 +7366,10 @@
     allocated_cons_witness.assert_final_invariants();
     allocated_cont_witness.assert_final_invariants();
 
-    <span class="comment">// tracing::debug!(&quot;{}&quot;, &amp;result_expr.fetch_and_write_str(store));
-    // tracing::debug!(&quot;{}&quot;, &amp;result_env.fetch_and_write_str(store));
-    // tracing::debug!(&quot;{}&quot;, &amp;result_cont.fetch_and_write_cont_str(store));
-    // tracing::debug!(&quot;{:?} {:?} {:?}&quot;, expr, env, cont);
+    <span class="comment">// tracing::debug!(&quot;result_expr: {}&quot;, &amp;result_expr.fetch_and_write_str(store));
+    // tracing::debug!(&quot;result_env: {}&quot;, &amp;result_env.fetch_and_write_str(store));
+    // tracing::debug!(&quot;result_cont: {}&quot;, &amp;result_cont.fetch_and_write_cont_str(store));
+    // tracing::debug!(&quot;expr: {:?}; env: {:?}; cont: {:?}&quot;, expr, env, cont);
 
     </span><span class="prelude-val">Ok</span>((result_expr, result_env, result_cont))
 }
@@ -7577,7 +7700,7 @@
     allocated_cons_witness: <span class="kw-2">&amp;mut </span>AllocatedConsWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
     allocated_cont_witness: <span class="kw-2">&amp;mut </span>AllocatedContWitness&lt;<span class="lifetime">&#39;_</span>, F&gt;,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-    lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
+    folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
     g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;
     (
@@ -7696,9 +7819,10 @@
     <span class="kw">let </span>head_is_current_env = <span class="macro">and!</span>(cs, <span class="kw-2">&amp;</span>head_is_current_env0, <span class="kw-2">&amp;</span>head_is_a_sym)<span class="question-mark">?</span>;
     <span class="kw">let </span>head_is_if = <span class="macro">and!</span>(cs, <span class="kw-2">&amp;</span>head_is_if0, <span class="kw-2">&amp;</span>head_is_a_sym)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span><span class="kw-2">mut </span>head_is_coprocessor_bools = Vec::with_capacity(lang.coprocessors().len());
+    <span class="kw">let </span><span class="kw-2">mut </span>head_is_coprocessor_bools =
+        Vec::with_capacity(folding_config.lang().coprocessors().len());
 
-    <span class="kw">for </span>(sym, (coproc, z_ptr)) <span class="kw">in </span>lang.coprocessors().iter() {
+    <span class="kw">for </span>(sym, (coproc, z_ptr)) <span class="kw">in </span>folding_config.lang().coprocessors().iter() {
         <span class="kw">if </span>!coproc.has_circuit() {
             <span class="kw">continue</span>;
         };
@@ -8911,50 +9035,93 @@
     // The latter also means that all Coprocessor invocations only require 1 iteration.
 
     </span><span class="kw">let </span><span class="kw-2">mut </span>coprocessor_results = Vec::new();
+    <span class="kw">let </span>lang = folding_config.lang();
 
-    {
-        <span class="kw">if </span>!lang.coprocessors().is_empty() {
-            <span class="kw">let </span>max_coprocessor_arity = lang.max_coprocessor_arity();
+    <span class="kw">if </span>!lang.coprocessors().is_empty() {
+        <span class="kw">match </span>folding_config.as_ref() {
+            FoldingConfig::NIVC(_lang, _reduction_count) =&gt; {
+                <span class="kw">for </span>(<span class="kw">_</span>, (coproc, z_ptr)) <span class="kw">in </span>lang.coprocessors().iter() {
+                    <span class="kw">if </span>!coproc.has_circuit() {
+                        <span class="macro">info!</span>(<span class="string">&quot;coproc has no circuit, continuing&quot;</span>);
+                        <span class="kw">continue</span>;
+                    };
+                    coprocessor_results.push((
+                        z_ptr,
+                        expr.clone(),
+                        env.clone(),
+                        cont.clone(),
+                        <span class="kw-2">&amp;</span>g.false_num,
+                    ));
+                }
+            }
+            FoldingConfig::IVC(lang, _reduction_count) =&gt; {
+                <span class="kw">let </span>max_coprocessor_arity = lang.max_coprocessor_arity();
 
-            <span class="kw">let </span>(inputs, actual_length) = destructure_list(
-                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;coprocessor inputs&quot;</span>),
-                store,
-                g,
-                max_coprocessor_arity,
-                <span class="kw-2">&amp;</span>rest,
-            )<span class="question-mark">?</span>;
-
-            <span class="kw">for </span>(sym, (coproc, z_ptr)) <span class="kw">in </span>lang.coprocessors().iter() {
-                <span class="kw">if </span>!coproc.has_circuit() {
-                    <span class="kw">continue</span>;
-                };
-
-                <span class="kw">let </span>cs = <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;{} coprocessor&quot;</span>, sym));
-
-                <span class="kw">let </span>arity = coproc.arity();
-
-                <span class="kw">let </span>arity_is_correct = alloc_equal_const(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;arity_is_correct&quot;</span>),
-                    <span class="kw-2">&amp;</span>actual_length,
-                    F::from(arity <span class="kw">as </span>u64),
+                <span class="kw">let </span>(inputs, actual_length) = destructure_list(
+                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;coprocessor inputs&quot;</span>),
+                    store,
+                    g,
+                    max_coprocessor_arity,
+                    <span class="kw-2">&amp;</span>rest,
                 )<span class="question-mark">?</span>;
 
-                <span class="kw">let </span>(result_expr, result_env, result_cont) =
-                    coproc.synthesize(cs, g, store, <span class="kw-2">&amp;</span>inputs[..arity], env, cont)<span class="question-mark">?</span>;
+                <span class="kw">for </span>(sym, (coproc, z_ptr)) <span class="kw">in </span>lang.coprocessors().iter() {
+                    <span class="kw">if </span>!coproc.has_circuit() {
+                        <span class="kw">continue</span>;
+                    };
 
-                <span class="kw">let </span>new_expr = <span class="macro">pick_ptr!</span>(cs, <span class="kw-2">&amp;</span>arity_is_correct, <span class="kw-2">&amp;</span>result_expr, <span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>; <span class="comment">// TODO: The error case should probably be expr, but this is harder in straight evaluation atm.
-                </span><span class="kw">let </span>new_env = <span class="macro">pick_ptr!</span>(cs, <span class="kw-2">&amp;</span>arity_is_correct, <span class="kw-2">&amp;</span>result_env, <span class="kw-2">&amp;</span>env)<span class="question-mark">?</span>;
-                <span class="kw">let </span>new_cont =
-                    <span class="macro">pick_cont_ptr!</span>(cs, <span class="kw-2">&amp;</span>arity_is_correct, <span class="kw-2">&amp;</span>result_cont, <span class="kw-2">&amp;</span>g.error_ptr_cont)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>cs = <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;{} coprocessor&quot;</span>, sym));
 
-                <span class="comment">// We can&#39;t just call `results.add_clauses_cons` here because of lifetime issues.
-                </span>coprocessor_results.push((z_ptr, new_expr, new_env, new_cont));
+                    <span class="kw">let </span>arity = coproc.arity();
+
+                    <span class="kw">let </span>arity_is_correct = alloc_equal_const(
+                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;arity_is_correct&quot;</span>),
+                        <span class="kw-2">&amp;</span>actual_length,
+                        F::from(arity <span class="kw">as </span>u64),
+                    )<span class="question-mark">?</span>;
+
+                    <span class="kw">let </span>(result_expr, result_env, result_cont) =
+                        coproc.synthesize(cs, g, store, <span class="kw-2">&amp;</span>inputs[..arity], env, cont)<span class="question-mark">?</span>;
+
+                    <span class="kw">let </span>quoted_expr = AllocatedPtr::construct_list(
+                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;quote coprocessor result&quot;</span>),
+                        g,
+                        store,
+                        <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>g.quote_ptr, <span class="kw-2">&amp;</span>result_expr],
+                    )<span class="question-mark">?</span>;
+
+                    <span class="kw">let </span>default_num_pair = <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>g.default_num, <span class="kw-2">&amp;</span>g.default_num];
+
+                    <span class="comment">// TODO: This should be better abstracted, perhaps by resurrecting historical code.
+                    </span><span class="kw">let </span>tail_components: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="kw">dyn </span>AsAllocatedHashComponents&lt;F&gt;; <span class="number">4</span>] = <span class="kw-2">&amp;</span>[
+                        <span class="kw-2">&amp;</span>result_env,
+                        <span class="kw-2">&amp;</span>result_cont,
+                        default_num_pair,
+                        default_num_pair,
+                    ];
+
+                    <span class="kw">let </span>tail_cont = AllocatedContPtr::construct(
+                        <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;coprocessor tail cont&quot;</span>),
+                        store,
+                        <span class="kw-2">&amp;</span>g.tail_cont_tag,
+                        tail_components,
+                    )<span class="question-mark">?</span>;
+
+                    <span class="kw">let </span>new_expr = <span class="macro">pick_ptr!</span>(cs, <span class="kw-2">&amp;</span>arity_is_correct, <span class="kw-2">&amp;</span>quoted_expr, <span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>; <span class="comment">// TODO: The error case should probably be expr, but this is harder in straight evaluation atm.
+
+                    </span><span class="kw">let </span>new_env = <span class="macro">pick_ptr!</span>(cs, <span class="kw-2">&amp;</span>arity_is_correct, <span class="kw-2">&amp;</span>result_env, <span class="kw-2">&amp;</span>env)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>new_cont =
+                        <span class="macro">pick_cont_ptr!</span>(cs, <span class="kw-2">&amp;</span>arity_is_correct, <span class="kw-2">&amp;</span>tail_cont, <span class="kw-2">&amp;</span>g.error_ptr_cont)<span class="question-mark">?</span>;
+
+                    <span class="comment">// We can&#39;t just call `results.add_clauses_cons` here because of lifetime issues.
+                    </span>coprocessor_results.push((z_ptr, new_expr, new_env, new_cont, <span class="kw-2">&amp;</span>g.false_num));
+                }
             }
         }
     }
 
     <span class="kw">for </span>c <span class="kw">in </span><span class="kw-2">&amp;</span>coprocessor_results {
-        results.add_clauses_cons(<span class="kw-2">*</span>c.<span class="number">0</span>.value(), <span class="kw-2">&amp;</span>c.<span class="number">1</span>, <span class="kw-2">&amp;</span>c.<span class="number">2</span>, <span class="kw-2">&amp;</span>c.<span class="number">3</span>, <span class="kw-2">&amp;</span>g.true_num);
+        results.add_clauses_cons(<span class="kw-2">*</span>c.<span class="number">0</span>.value(), <span class="kw-2">&amp;</span>c.<span class="number">1</span>, <span class="kw-2">&amp;</span>c.<span class="number">2</span>, <span class="kw-2">&amp;</span>c.<span class="number">3</span>, c.<span class="number">4</span>);
     }
 
     <span class="kw">let </span>is_zero_arg_call = rest_is_nil;
@@ -11397,7 +11564,7 @@
     )
 }
 
-<span class="kw">fn </span>destructure_list&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+<span class="kw">pub fn </span>destructure_list&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     g: <span class="kw-2">&amp;</span>GlobalAllocations&lt;F&gt;,
@@ -11563,7 +11730,7 @@
         };
         <span class="kw">let </span>raw_lang = Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new();
         <span class="kw">let </span>lang = Arc::new(raw_lang.clone());
-        <span class="kw">let </span>(<span class="kw">_</span>, witness) = input.reduce(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>lang).unwrap();
+        <span class="kw">let </span>(<span class="kw">_</span>, witness, meta) = input.reduce(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>lang).unwrap();
 
         <span class="kw">let </span>public_params = Groth16Prover::&lt;Bls12, Coproc&lt;Fr&gt;, Fr&gt;::create_groth_params(
             DEFAULT_REDUCTION_COUNT,
@@ -11582,9 +11749,13 @@
             <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::new();
 
             <span class="kw">let </span><span class="kw-2">mut </span>cs_blank = MetricCS::&lt;Fr&gt;::new();
-            <span class="kw">let </span>blank_multiframe = MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, Coproc&lt;Fr&gt;&gt;::blank(
-                DEFAULT_REDUCTION_COUNT,
+            <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(
                 lang.clone(),
+                DEFAULT_REDUCTION_COUNT,
+            ));
+            <span class="kw">let </span>blank_multiframe = MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, Coproc&lt;Fr&gt;&gt;::blank(
+                folding_config.clone(),
+                Meta::Lurk,
             );
 
             blank_multiframe
@@ -11598,10 +11769,11 @@
                     output,
                     i: <span class="number">0</span>,
                     witness,
+                    meta,
                     _p: Default::default(),
                 }],
                 store,
-                lang.clone(),
+                folding_config,
             );
 
             <span class="kw">let </span>multiframe = <span class="kw-2">&amp;</span>multiframes[<span class="number">0</span>];
@@ -11616,9 +11788,9 @@
             <span class="macro">assert!</span>(delta == Delta::Equal);
 
             <span class="comment">// println!(&quot;{}&quot;, print_cs(&amp;cs));
-            </span><span class="macro">assert_eq!</span>(<span class="number">12032</span>, cs.num_constraints());
+            </span><span class="macro">assert_eq!</span>(<span class="number">12034</span>, cs.num_constraints());
             <span class="macro">assert_eq!</span>(<span class="number">13</span>, cs.num_inputs());
-            <span class="macro">assert_eq!</span>(<span class="number">11688</span>, cs.aux().len());
+            <span class="macro">assert_eq!</span>(<span class="number">11690</span>, cs.aux().len());
 
             <span class="kw">let </span>public_inputs = multiframe.public_inputs();
             <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
@@ -11700,7 +11872,7 @@
         };
 
         <span class="kw">let </span>lang = Arc::new(Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new());
-        <span class="kw">let </span>(<span class="kw">_</span>, witness) = input.reduce(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>lang).unwrap();
+        <span class="kw">let </span>(<span class="kw">_</span>, witness, meta) = input.reduce(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>lang).unwrap();
         store.hydrate_scalar_cache();
 
         <span class="kw">let </span>test_with_output = |output: IO&lt;Fr&gt;, expect_success: bool, store: <span class="kw-2">&amp;</span>Store&lt;Fr&gt;| {
@@ -11711,14 +11883,18 @@
                 output,
                 i: <span class="number">0</span>,
                 witness,
+                meta,
                 _p: Default::default(),
             };
-
+            <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(
+                lang.clone(),
+                DEFAULT_REDUCTION_COUNT,
+            ));
             MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, Coproc&lt;Fr&gt;&gt;::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
-                lang.clone(),
+                folding_config,
             )[<span class="number">0</span>]
             .clone()
             .synthesize(<span class="kw-2">&amp;mut </span>cs)
@@ -11780,7 +11956,7 @@
         };
 
         <span class="kw">let </span>lang = Arc::new(Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new());
-        <span class="kw">let </span>(<span class="kw">_</span>, witness) = input.reduce(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>lang).unwrap();
+        <span class="kw">let </span>(<span class="kw">_</span>, witness, meta) = input.reduce(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>lang).unwrap();
         store.hydrate_scalar_cache();
 
         <span class="kw">let </span>test_with_output = |output: IO&lt;Fr&gt;, expect_success: bool, store: <span class="kw-2">&amp;</span>Store&lt;Fr&gt;| {
@@ -11791,14 +11967,19 @@
                 output,
                 i: <span class="number">0</span>,
                 witness,
+                meta,
                 _p: Default::default(),
             };
 
+            <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(
+                lang.clone(),
+                DEFAULT_REDUCTION_COUNT,
+            ));
             MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, Coproc&lt;Fr&gt;&gt;::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
-                lang.clone(),
+                folding_config,
             )[<span class="number">0</span>]
             .clone()
             .synthesize(<span class="kw-2">&amp;mut </span>cs)
@@ -11861,7 +12042,7 @@
         };
 
         <span class="kw">let </span>lang = Arc::new(Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new());
-        <span class="kw">let </span>(<span class="kw">_</span>, witness) = input.reduce(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>lang).unwrap();
+        <span class="kw">let </span>(<span class="kw">_</span>, witness, meta) = input.reduce(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>lang).unwrap();
 
         store.hydrate_scalar_cache();
 
@@ -11873,14 +12054,20 @@
                 output,
                 i: <span class="number">0</span>,
                 witness,
+                meta,
                 _p: Default::default(),
             };
+
+            <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(
+                lang.clone(),
+                DEFAULT_REDUCTION_COUNT,
+            ));
 
             MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, Coproc&lt;Fr&gt;&gt;::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
-                lang.clone(),
+                folding_config,
             )[<span class="number">0</span>]
             .clone()
             .synthesize(<span class="kw-2">&amp;mut </span>cs)
@@ -11943,7 +12130,7 @@
         };
 
         <span class="kw">let </span>lang = Arc::new(Lang::&lt;Fr, Coproc&lt;Fr&gt;&gt;::new());
-        <span class="kw">let </span>(<span class="kw">_</span>, witness) = input.reduce(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>lang).unwrap();
+        <span class="kw">let </span>(<span class="kw">_</span>, witness, meta) = input.reduce(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>lang).unwrap();
 
         store.hydrate_scalar_cache();
 
@@ -11955,14 +12142,19 @@
                 output,
                 i: <span class="number">0</span>,
                 witness,
+                meta,
                 _p: Default::default(),
             };
+            <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(
+                lang.clone(),
+                DEFAULT_REDUCTION_COUNT,
+            ));
 
             MultiFrame::&lt;&lt;Bls12 <span class="kw">as </span>Engine&gt;::Fr, Coproc&lt;Fr&gt;&gt;::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 <span class="kw-2">&amp;</span>[frame],
                 store,
-                lang,
+                folding_config,
             )[<span class="number">0</span>]
             .clone()
             .synthesize(<span class="kw-2">&amp;mut </span>cs)

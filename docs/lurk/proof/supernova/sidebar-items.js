@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["FoldingConfig","Proof"],"struct":["NIVCStep","NIVCSteps","PublicParams","SuperNovaProver"],"type":["SuperNovaPublicParams"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["CircuitFrame","MultiFrame"]};
+window.SIDEBAR_ITEMS = {"fn":["destructure_list"],"struct":["CircuitFrame","MultiFrame"]};
