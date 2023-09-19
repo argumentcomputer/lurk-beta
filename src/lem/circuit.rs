@@ -48,30 +48,21 @@ use crate::{
 
 use super::{
     interpreter::{Frame, PreimageData},
-    pointers::{Ptr, ZPtr},
+    pointers::Ptr,
     slot::*,
     store::Store,
     var_map::VarMap,
-    Block, Ctrl, Func, Op, Tag, Var,
+    Block, Ctrl, Func, Op, Tag,
 };
 
 /// Manages global allocations for constants in a constraint system
 #[derive(Default)]
 pub struct GlobalAllocator<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);
 
-#[inline]
-fn allocate_num<F: LurkField, CS: ConstraintSystem<F>>(
-    cs: &mut CS,
-    namespace: &str,
-    value: F,
-) -> Result<AllocatedNum<F>, SynthesisError> {
-    AllocatedNum::alloc(cs.namespace(|| namespace), || Ok(value))
-}
-
 impl<F: LurkField> GlobalAllocator<F> {
     /// Checks if the allocation for a numeric variable has already been cached.
     /// If so, don't do anything. Otherwise, allocate and cache it.
-    fn alloc_const<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, f: F) {
+    fn insert_allocate_const<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, f: F) {
         self.0.entry(FWrap(f)).or_insert_with(|| {
             allocate_constant(
                 &mut cs.namespace(|| format!("allocate constant {}", f.hex_digits())),
@@ -94,56 +85,6 @@ impl<F: LurkField> GlobalAllocator<F> {
 }
 
 pub(crate) type BoundAllocations<F> = VarMap<AllocatedPtr<F>>;
-
-/// Allocates an unconstrained pointer
-fn allocate_ptr<F: LurkField, CS: ConstraintSystem<F>>(
-    cs: &mut CS,
-    z_ptr: &ZPtr<F>,
-    var: &Var,
-    bound_allocations: &mut BoundAllocations<F>,
-) -> Result<AllocatedPtr<F>> {
-    let allocated_tag = allocate_num(cs, &format!("allocate {var}'s tag"), z_ptr.tag_field())?;
-    let allocated_hash = allocate_num(cs, &format!("allocate {var}'s hash"), *z_ptr.value())?;
-    let allocated_ptr = AllocatedPtr::from_parts(allocated_tag, allocated_hash);
-    bound_allocations.insert(var.clone(), allocated_ptr.clone());
-    Ok(allocated_ptr)
-}
-
-/// Allocates an unconstrained pointer for each output of the frame
-fn allocate_output<F: LurkField, CS: ConstraintSystem<F>>(
-    cs: &mut CS,
-    store: &Store<F>,
-    frame: &Frame<F>,
-    bound_allocations: &mut BoundAllocations<F>,
-) -> Result<Vec<AllocatedPtr<F>>> {
-    frame
-        .output
-        .iter()
-        .enumerate()
-        .map(|(i, ptr)| {
-            allocate_ptr(
-                cs,
-                &store.hash_ptr(ptr)?,
-                &Var(format!("output[{}]", i).into()),
-                bound_allocations,
-            )
-        })
-        .collect()
-}
-
-#[inline]
-fn allocate_preimg_component_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
-    cs: &mut CS,
-    slot: &Slot,
-    component_idx: usize,
-    value: F,
-) -> Result<AllocatedNum<F>, SynthesisError> {
-    allocate_num(
-        cs,
-        &format!("component {component_idx} for slot {slot}"),
-        value,
-    )
-}
 
 fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
@@ -249,21 +190,17 @@ fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
                         let z_ptr = store.hash_ptr(ptr)?;
 
                         // allocate pointer tag
-                        preallocated_preimg.push(allocate_preimg_component_for_slot(
-                            cs,
-                            &slot,
-                            component_idx,
-                            z_ptr.tag_field(),
+                        preallocated_preimg.push(AllocatedNum::alloc(
+                            cs.namespace(|| format!("component {component_idx} slot {slot}")),
+                            || Ok(z_ptr.tag_field()),
                         )?);
 
                         component_idx += 1;
 
                         // allocate pointer hash
-                        preallocated_preimg.push(allocate_preimg_component_for_slot(
-                            cs,
-                            &slot,
-                            component_idx,
-                            *z_ptr.value(),
+                        preallocated_preimg.push(AllocatedNum::alloc(
+                            cs.namespace(|| format!("component {component_idx} slot {slot}")),
+                            || Ok(*z_ptr.value()),
                         )?);
 
                         component_idx += 1;
@@ -272,28 +209,33 @@ fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
                 PreimageData::FPtr(f, ptr) => {
                     let z_ptr = store.hash_ptr(ptr)?;
                     // allocate first component
-                    preallocated_preimg.push(allocate_preimg_component_for_slot(cs, &slot, 0, *f)?);
+                    preallocated_preimg.push(AllocatedNum::alloc(
+                        cs.namespace(|| format!("component 0 slot {slot}")),
+                        || Ok(*f),
+                    )?);
                     // allocate second component
-                    preallocated_preimg.push(allocate_preimg_component_for_slot(
-                        cs,
-                        &slot,
-                        1,
-                        z_ptr.tag_field(),
+                    preallocated_preimg.push(AllocatedNum::alloc(
+                        cs.namespace(|| format!("component 1 slot {slot}")),
+                        || Ok(z_ptr.tag_field()),
                     )?);
                     // allocate third component
-                    preallocated_preimg.push(allocate_preimg_component_for_slot(
-                        cs,
-                        &slot,
-                        2,
-                        *z_ptr.value(),
+                    preallocated_preimg.push(AllocatedNum::alloc(
+                        cs.namespace(|| format!("component 2 slot {slot}")),
+                        || Ok(*z_ptr.value()),
                     )?);
                 }
                 PreimageData::FPair(a, b) => {
                     // allocate first component
-                    preallocated_preimg.push(allocate_preimg_component_for_slot(cs, &slot, 0, *a)?);
+                    preallocated_preimg.push(AllocatedNum::alloc(
+                        cs.namespace(|| format!("component 0 slot {slot}")),
+                        || Ok(*a),
+                    )?);
 
                     // allocate second component
-                    preallocated_preimg.push(allocate_preimg_component_for_slot(cs, &slot, 1, *b)?);
+                    preallocated_preimg.push(AllocatedNum::alloc(
+                        cs.namespace(|| format!("component 1 slot {slot}")),
+                        || Ok(*b),
+                    )?);
                 }
             }
 
@@ -310,7 +252,10 @@ fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
             };
             let preallocated_preimg: Vec<_> = (0..slot_type.preimg_size())
                 .map(|component_idx| {
-                    allocate_preimg_component_for_slot(cs, &slot, component_idx, F::ZERO)
+                    AllocatedNum::alloc(
+                        &mut cs.namespace(|| format!("component {component_idx} slot {slot}")),
+                        || Ok(F::ZERO),
+                    )
                 })
                 .collect::<Result<_, _>>()?;
 
@@ -338,24 +283,24 @@ impl Block {
                 | Op::Cons3(_, tag, _)
                 | Op::Cons4(_, tag, _)
                 | Op::Cast(_, tag, _) => {
-                    g.alloc_const(cs, tag.to_field());
+                    g.insert_allocate_const(cs, tag.to_field());
                 }
                 Op::Lit(_, lit) => {
                     let lit_ptr = lit.to_ptr_cached(store);
                     let lit_z_ptr = store.hash_ptr(&lit_ptr).unwrap();
-                    g.alloc_const(cs, lit_z_ptr.tag_field());
-                    g.alloc_const(cs, *lit_z_ptr.value());
+                    g.insert_allocate_const(cs, lit_z_ptr.tag_field());
+                    g.insert_allocate_const(cs, *lit_z_ptr.value());
                 }
                 Op::Null(_, tag) => {
                     use crate::tag::ContTag::{Dummy, Error, Outermost, Terminal};
-                    g.alloc_const(cs, tag.to_field());
+                    g.insert_allocate_const(cs, tag.to_field());
                     match tag {
                         Tag::Cont(Outermost | Error | Dummy | Terminal) => {
                             // temporary shim for compatibility with Lurk Alpha
-                            g.alloc_const(cs, store.poseidon_cache.hash8(&[F::ZERO; 8]));
+                            g.insert_allocate_const(cs, store.poseidon_cache.hash8(&[F::ZERO; 8]));
                         }
                         _ => {
-                            g.alloc_const(cs, F::ZERO);
+                            g.insert_allocate_const(cs, F::ZERO);
                         }
                     }
                 }
@@ -367,15 +312,15 @@ impl Block {
                 | Op::Lt(..)
                 | Op::Trunc(..)
                 | Op::DivRem64(..) => {
-                    g.alloc_const(cs, Tag::Expr(Num).to_field());
+                    g.insert_allocate_const(cs, Tag::Expr(Num).to_field());
                 }
                 Op::Div(..) => {
-                    g.alloc_const(cs, Tag::Expr(Num).to_field());
-                    g.alloc_const(cs, F::ONE);
+                    g.insert_allocate_const(cs, Tag::Expr(Num).to_field());
+                    g.insert_allocate_const(cs, F::ONE);
                 }
                 Op::Hide(..) | Op::Open(..) => {
-                    g.alloc_const(cs, Tag::Expr(Num).to_field());
-                    g.alloc_const(cs, Tag::Expr(Comm).to_field());
+                    g.insert_allocate_const(cs, Tag::Expr(Num).to_field());
+                    g.insert_allocate_const(cs, Tag::Expr(Comm).to_field());
                 }
                 _ => (),
             }
@@ -394,7 +339,7 @@ impl Block {
                 }
             }
             Ctrl::MatchSymbol(_, cases, def) => {
-                g.alloc_const(cs, Tag::Expr(Sym).to_field());
+                g.insert_allocate_const(cs, Tag::Expr(Sym).to_field());
                 for block in cases.values() {
                     block.alloc_globals(cs, store, g)?;
                 }
@@ -409,6 +354,25 @@ impl Block {
 }
 
 impl Func {
+    /// Allocates an unconstrained pointer for each output of the frame
+    fn allocate_output<F: LurkField, CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        store: &Store<F>,
+        frame: &Frame<F>,
+    ) -> Result<Vec<AllocatedPtr<F>>> {
+        assert_eq!(self.output_size, frame.output.len());
+        let mut output = Vec::with_capacity(frame.output.len());
+        for (i, ptr) in frame.output.iter().enumerate() {
+            let zptr = store.hash_ptr(ptr)?;
+            output.push(AllocatedPtr::alloc(
+                &mut cs.namespace(|| format!("var: output[{}]", i)),
+                || Ok(zptr),
+            )?);
+        }
+        Ok(output)
+    }
+
     /// Allocates an unconstrained pointer for each input of the frame
     fn allocate_input<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
@@ -419,7 +383,10 @@ impl Func {
     ) -> Result<()> {
         for (i, ptr) in frame.input.iter().enumerate() {
             let param = &self.input_params[i];
-            allocate_ptr(cs, &store.hash_ptr(ptr)?, param, bound_allocations)?;
+            let zptr = store.hash_ptr(ptr)?;
+            let ptr =
+                AllocatedPtr::alloc(&mut cs.namespace(|| format!("var: {param}")), || Ok(zptr))?;
+            bound_allocations.insert(param.clone(), ptr);
         }
         Ok(())
     }
@@ -451,7 +418,7 @@ impl Func {
         bound_allocations: &mut BoundAllocations<F>,
     ) -> Result<Vec<AllocatedPtr<F>>> {
         // Outputs are constrained by the return statement. All functions return
-        let preallocated_outputs = allocate_output(cs, store, frame, bound_allocations)?;
+        let preallocated_outputs = self.allocate_output(cs, store, frame)?;
 
         // Slots are constrained by their usage inside the function body. The ones
         // not used in throughout the concrete path are effectively unconstrained,
@@ -634,8 +601,13 @@ impl Func {
                         assert_eq!(output_vals.len(), out.len());
                         let mut output_ptrs = Vec::with_capacity(out.len());
                         for (ptr, var) in output_vals.iter().zip(out.iter()) {
-                            let zptr = &g.store.hash_ptr(ptr)?;
-                            output_ptrs.push(allocate_ptr(cs, zptr, var, bound_allocations)?);
+                            let zptr = g.store.hash_ptr(ptr)?;
+                            let ptr = AllocatedPtr::alloc(
+                                &mut cs.namespace(|| format!("var: {var}")),
+                                || Ok(zptr),
+                            )?;
+                            bound_allocations.insert(var.clone(), ptr.clone());
+                            output_ptrs.push(ptr);
                         }
                         // Get the pointers for the input, i.e. the arguments
                         let args = bound_allocations.get_many_cloned(inp)?;
