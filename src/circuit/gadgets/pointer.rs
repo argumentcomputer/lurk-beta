@@ -14,7 +14,7 @@ use crate::{
     store::Store,
     tag::{ExprTag, Tag},
     writer::Write,
-    z_ptr::{ZContPtr, ZExprPtr},
+    z_ptr::{ZContPtr, ZExprPtr, ZPtr},
 };
 
 use super::{
@@ -53,12 +53,12 @@ impl<F: LurkField> Debug for AllocatedPtr<F> {
 }
 
 impl<F: LurkField> AllocatedPtr<F> {
-    pub fn alloc<Fo, CS: ConstraintSystem<F>>(
+    pub fn alloc<Fo, CS: ConstraintSystem<F>, T: Tag>(
         cs: &mut CS,
         value: Fo,
     ) -> Result<Self, SynthesisError>
     where
-        Fo: FnOnce() -> Result<ZExprPtr<F>, SynthesisError>,
+        Fo: FnOnce() -> Result<ZPtr<T, F>, SynthesisError>,
     {
         let mut hash = None;
         let alloc_tag = AllocatedNum::alloc(&mut cs.namespace(|| "tag"), || {
