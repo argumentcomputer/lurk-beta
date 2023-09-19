@@ -62,7 +62,7 @@ pub struct GlobalAllocator<F: LurkField>(HashMap<FWrap<F>, AllocatedNum<F>>);
 impl<F: LurkField> GlobalAllocator<F> {
     /// Checks if the allocation for a numeric variable has already been cached.
     /// If so, don't do anything. Otherwise, allocate and cache it.
-    fn insert_allocate_const<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, f: F) {
+    fn new_const<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, f: F) {
         self.0.entry(FWrap(f)).or_insert_with(|| {
             allocate_constant(
                 &mut cs.namespace(|| format!("allocate constant {}", f.hex_digits())),
@@ -170,18 +170,18 @@ fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
                         let z_ptr = store.hash_ptr(ptr)?;
 
                         // allocate pointer tag
-                        preallocated_preimg.push(AllocatedNum::alloc(
+                        preallocated_preimg.push(AllocatedNum::alloc_infallible(
                             cs.namespace(|| format!("component {component_idx} slot {slot}")),
-                            || Ok(z_ptr.tag_field()),
-                        )?);
+                            || z_ptr.tag_field(),
+                        ));
 
                         component_idx += 1;
 
                         // allocate pointer hash
-                        preallocated_preimg.push(AllocatedNum::alloc(
+                        preallocated_preimg.push(AllocatedNum::alloc_infallible(
                             cs.namespace(|| format!("component {component_idx} slot {slot}")),
-                            || Ok(*z_ptr.value()),
-                        )?);
+                            || *z_ptr.value(),
+                        ));
 
                         component_idx += 1;
                     }
@@ -189,33 +189,33 @@ fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
                 PreimageData::FPtr(f, ptr) => {
                     let z_ptr = store.hash_ptr(ptr)?;
                     // allocate first component
-                    preallocated_preimg.push(AllocatedNum::alloc(
+                    preallocated_preimg.push(AllocatedNum::alloc_infallible(
                         cs.namespace(|| format!("component 0 slot {slot}")),
-                        || Ok(*f),
-                    )?);
+                        || *f,
+                    ));
                     // allocate second component
-                    preallocated_preimg.push(AllocatedNum::alloc(
+                    preallocated_preimg.push(AllocatedNum::alloc_infallible(
                         cs.namespace(|| format!("component 1 slot {slot}")),
-                        || Ok(z_ptr.tag_field()),
-                    )?);
+                        || z_ptr.tag_field(),
+                    ));
                     // allocate third component
-                    preallocated_preimg.push(AllocatedNum::alloc(
+                    preallocated_preimg.push(AllocatedNum::alloc_infallible(
                         cs.namespace(|| format!("component 2 slot {slot}")),
-                        || Ok(*z_ptr.value()),
-                    )?);
+                        || *z_ptr.value(),
+                    ));
                 }
                 PreimageData::FPair(a, b) => {
                     // allocate first component
-                    preallocated_preimg.push(AllocatedNum::alloc(
+                    preallocated_preimg.push(AllocatedNum::alloc_infallible(
                         cs.namespace(|| format!("component 0 slot {slot}")),
-                        || Ok(*a),
-                    )?);
+                        || *a,
+                    ));
 
                     // allocate second component
-                    preallocated_preimg.push(AllocatedNum::alloc(
+                    preallocated_preimg.push(AllocatedNum::alloc_infallible(
                         cs.namespace(|| format!("component 1 slot {slot}")),
-                        || Ok(*b),
-                    )?);
+                        || *b,
+                    ));
                 }
             }
 
@@ -232,12 +232,12 @@ fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
             };
             let preallocated_preimg: Vec<_> = (0..slot_type.preimg_size())
                 .map(|component_idx| {
-                    AllocatedNum::alloc(
+                    AllocatedNum::alloc_infallible(
                         cs.namespace(|| format!("component {component_idx} slot {slot}")),
-                        || Ok(F::ZERO),
+                        || F::ZERO,
                     )
                 })
-                .collect::<Result<_, _>>()?;
+                .collect();
 
             let preallocated_img =
                 allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
@@ -263,24 +263,24 @@ impl Block {
                 | Op::Cons3(_, tag, _)
                 | Op::Cons4(_, tag, _)
                 | Op::Cast(_, tag, _) => {
-                    g.insert_allocate_const(cs, tag.to_field());
+                    g.new_const(cs, tag.to_field());
                 }
                 Op::Lit(_, lit) => {
                     let lit_ptr = lit.to_ptr_cached(store);
                     let lit_z_ptr = store.hash_ptr(&lit_ptr).unwrap();
-                    g.insert_allocate_const(cs, lit_z_ptr.tag_field());
-                    g.insert_allocate_const(cs, *lit_z_ptr.value());
+                    g.new_const(cs, lit_z_ptr.tag_field());
+                    g.new_const(cs, *lit_z_ptr.value());
                 }
                 Op::Null(_, tag) => {
                     use crate::tag::ContTag::{Dummy, Error, Outermost, Terminal};
-                    g.insert_allocate_const(cs, tag.to_field());
+                    g.new_const(cs, tag.to_field());
                     match tag {
                         Tag::Cont(Outermost | Error | Dummy | Terminal) => {
                             // temporary shim for compatibility with Lurk Alpha
-                            g.insert_allocate_const(cs, store.poseidon_cache.hash8(&[F::ZERO; 8]));
+                            g.new_const(cs, store.poseidon_cache.hash8(&[F::ZERO; 8]));
                         }
                         _ => {
-                            g.insert_allocate_const(cs, F::ZERO);
+                            g.new_const(cs, F::ZERO);
                         }
                     }
                 }
@@ -292,15 +292,15 @@ impl Block {
                 | Op::Lt(..)
                 | Op::Trunc(..)
                 | Op::DivRem64(..) => {
-                    g.insert_allocate_const(cs, Tag::Expr(Num).to_field());
+                    g.new_const(cs, Tag::Expr(Num).to_field());
                 }
                 Op::Div(..) => {
-                    g.insert_allocate_const(cs, Tag::Expr(Num).to_field());
-                    g.insert_allocate_const(cs, F::ONE);
+                    g.new_const(cs, Tag::Expr(Num).to_field());
+                    g.new_const(cs, F::ONE);
                 }
                 Op::Hide(..) | Op::Open(..) => {
-                    g.insert_allocate_const(cs, Tag::Expr(Num).to_field());
-                    g.insert_allocate_const(cs, Tag::Expr(Comm).to_field());
+                    g.new_const(cs, Tag::Expr(Num).to_field());
+                    g.new_const(cs, Tag::Expr(Comm).to_field());
                 }
                 _ => (),
             }
@@ -319,7 +319,7 @@ impl Block {
                 }
             }
             Ctrl::MatchSymbol(_, cases, def) => {
-                g.insert_allocate_const(cs, Tag::Expr(Sym).to_field());
+                g.new_const(cs, Tag::Expr(Sym).to_field());
                 for block in cases.values() {
                     block.alloc_globals(cs, store, g)?;
                 }
