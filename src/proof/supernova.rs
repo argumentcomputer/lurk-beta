@@ -514,9 +514,7 @@ where
 
         for frame in frames {
             if frame.meta == last_meta {
-                let mut padding_frame = frame.clone();
-                // is this right, or should it be unmodified?
-                padding_frame.output = padding_frame.input;
+                let padding_frame = frame.clone();
                 consecutive_frames.push(padding_frame);
             } else {
                 if last_meta == Meta::Lurk {
