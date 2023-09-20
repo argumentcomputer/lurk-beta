@@ -12,15 +12,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  runBenchmark:
-    name: run benchmark
+  run-benchmark:
+    name: run end2end benchmark
     runs-on: [self-hosted, bench]
     if:
       github.event.issue.pull_request
       && github.event.issue.state == 'open'
       && contains(github.event.comment.body, '!benchmark')
-      && (github.event.comment.author_association == 'MEMBER'
-      || github.event.comment.author_association == 'OWNER')
+      && (github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
     steps:
       - uses: xt0rted/pull-request-comment-branch@v2
         id: comment-branch
@@ -36,5 +35,31 @@ jobs:
         with:
           # Optional. Compare only this benchmark target
           benchName: "end2end"
+          # Needed. The name of the branch to compare with
+          branchName: ${{ github.ref_name }}
+
+  gpu-benchmark:
+    name: run fibonacci benchmark on GPU
+    runs-on: [self-hosted, gpu-bench]
+    if:
+      github.event.issue.pull_request
+      && github.event.issue.state == 'open'
+      && contains(github.event.comment.body, '!benchmark')
+      && (github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
+    steps:
+      - uses: xt0rted/pull-request-comment-branch@v2
+        id: comment-branch
+
+      - uses: actions/checkout@v4
+        if: success()
+        with:
+          ref: ${{ steps.comment-branch.outputs.head_ref }}
+      # Set the Rust env vars
+      - uses: actions-rs/toolchain@v1
+      - uses: Swatinem/rust-cache@v2
+      - uses: boa-dev/criterion-compare-action@v3
+        with:
+          # Optional. Compare only this benchmark target
+          benchName: "fibonacci"
           # Needed. The name of the branch to compare with
           branchName: ${{ github.ref_name }}
