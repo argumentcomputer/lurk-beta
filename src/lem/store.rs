@@ -1,8 +1,10 @@
 use anyhow::{bail, Result};
+use arc_swap::ArcSwap;
 use elsa::sync::{FrozenMap, FrozenVec};
 use elsa::sync_index_set::FrozenIndexSet;
 use nom::{sequence::preceded, Parser};
-use std::{cell::RefCell, rc::Rc};
+use rayon::prelude::{ParallelBridge, ParallelIterator};
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use crate::{
     field::{FWrap, LurkField},
@@ -50,7 +52,7 @@ pub struct Store<F: LurkField> {
 
     pub poseidon_cache: PoseidonCache<F>,
 
-    dehydrated: FrozenVec<Box<Ptr<F>>>,
+    dehydrated: ArcSwap<FrozenVec<Box<Ptr<F>>>>,
     z_cache: FrozenMap<Ptr<F>, Box<ZPtr<F>>>,
 
     comms: FrozenMap<FWrap<F>, Box<(F, Ptr<F>)>>, // hash -> (secret, src)
@@ -63,7 +65,7 @@ impl<F: LurkField> Store<F> {
         let ptr = Ptr::Tuple2(tag, idx);
         if inserted {
             // this is for `hydrate_z_cache`
-            self.dehydrated.push(Box::new(ptr));
+            self.dehydrated.load().push(Box::new(ptr));
         }
         ptr
     }
@@ -83,7 +85,7 @@ impl<F: LurkField> Store<F> {
         let ptr = Ptr::Tuple3(tag, idx);
         if inserted {
             // this is for `hydrate_z_cache`
-            self.dehydrated.push(Box::new(ptr));
+            self.dehydrated.load().push(Box::new(ptr));
         }
         ptr
     }
@@ -110,7 +112,7 @@ impl<F: LurkField> Store<F> {
         let ptr = Ptr::Tuple4(tag, idx);
         if inserted {
             // this is for `hydrate_z_cache`
-            self.dehydrated.push(Box::new(ptr));
+            self.dehydrated.load().push(Box::new(ptr));
         }
         ptr
     }
@@ -533,15 +535,11 @@ impl<F: LurkField> Store<F> {
 
     /// Hashes `Ptr` trees from the bottom to the top, avoiding deep recursions
     /// in `hash_ptr`.
-    pub fn hydrate_z_cache(&mut self) {
-        for i in 0..self.dehydrated.len() {
-            let ptr = self
-                .dehydrated
-                .get(i)
-                .expect("Out of bounds. FrozenVec is broken");
-            self.hash_ptr(ptr).expect("failed to hydrate pointer");
-        }
-        self.dehydrated = FrozenVec::new();
+    pub fn hydrate_z_cache(&self) {
+        self.dehydrated.load().iter().par_bridge().for_each(|ptr| {
+            self.hash_ptr(ptr).expect("failed to hash_expr");
+        });
+        self.dehydrated.swap(Arc::new(FrozenVec::default()));
     }
 
     pub fn to_vector(&self, ptrs: &[Ptr<F>]) -> Result<Vec<F>> {
