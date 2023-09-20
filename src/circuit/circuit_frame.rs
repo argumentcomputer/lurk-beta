@@ -523,7 +523,7 @@ impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, C> {
         if let Some(store) = self.store {
             reduce(store)
         } else {
-            let mut store: Store<F> = Default::default();
+            let store: Store<F> = Default::default();
             store.hydrate_scalar_cache();
             reduce(&store)
         }

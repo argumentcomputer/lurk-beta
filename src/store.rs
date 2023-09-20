@@ -85,7 +85,7 @@ pub struct Store<F: LurkField> {
 
 impl<F: LurkField> Default for Store<F> {
     fn default() -> Self {
-        let mut store = Self {
+        let store = Self {
             cons_store: Default::default(),
             comm_store: Default::default(),
             sym_store: Default::default(),
@@ -152,7 +152,7 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn cons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+    pub fn cons(&self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         self.intern_cons(car, cdr)
     }
 
@@ -177,11 +177,11 @@ impl<F: LurkField> Store<F> {
             .map(|(c, _ref)| Ptr::index(ExprTag::Comm, c))
     }
 
-    pub fn hide(&mut self, secret: F, payload: Ptr<F>) -> Ptr<F> {
+    pub fn hide(&self, secret: F, payload: Ptr<F>) -> Ptr<F> {
         self.intern_comm(secret, payload)
     }
 
-    pub fn commit(&mut self, payload: Ptr<F>) -> Ptr<F> {
+    pub fn commit(&self, payload: Ptr<F>) -> Ptr<F> {
         self.hide(F::NON_HIDING_COMMITMENT_SECRET, payload)
     }
 
@@ -204,7 +204,7 @@ impl<F: LurkField> Store<F> {
             .map(|(secret, payload)| (secret.0, *payload))
     }
 
-    pub fn open_mut(&mut self, ptr: Ptr<F>) -> Result<(F, Ptr<F>), Error> {
+    pub fn open_mut(&self, ptr: Ptr<F>) -> Result<(F, Ptr<F>), Error> {
         let p = match ptr.tag {
             ExprTag::Comm => ptr,
             ExprTag::Num => {
@@ -232,7 +232,7 @@ impl<F: LurkField> Store<F> {
             .and_then(|(secret, _payload)| self.get_num(Num::Scalar(secret.0)))
     }
 
-    pub fn secret_mut(&mut self, ptr: Ptr<F>) -> Result<Ptr<F>, Error> {
+    pub fn secret_mut(&self, ptr: Ptr<F>) -> Result<Ptr<F>, Error> {
         let p = match ptr.tag {
             ExprTag::Comm => ptr,
             _ => return Err(Error("wrong type for commitment specifier".into())),
@@ -247,7 +247,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn list(&mut self, elts: &[Ptr<F>]) -> Ptr<F> {
+    pub fn list(&self, elts: &[Ptr<F>]) -> Ptr<F> {
         self.intern_list(elts)
     }
 
@@ -255,19 +255,19 @@ impl<F: LurkField> Store<F> {
         self.intern_num(num)
     }
 
-    pub fn uint64(&mut self, n: u64) -> Ptr<F> {
+    pub fn uint64(&self, n: u64) -> Ptr<F> {
         self.intern_u64(n)
     }
 
-    pub fn str(&mut self, s: &str) -> Ptr<F> {
+    pub fn str(&self, s: &str) -> Ptr<F> {
         self.intern_string(s)
     }
 
-    pub fn sym<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
+    pub fn sym<T: AsRef<str>>(&self, name: T) -> Ptr<F> {
         self.intern_symbol(&Symbol::sym(&[name.as_ref()]))
     }
 
-    pub fn key<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
+    pub fn key<T: AsRef<str>>(&self, name: T) -> Ptr<F> {
         self.intern_symbol(&Symbol::key(&[name.as_ref()]))
     }
 
@@ -295,7 +295,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn intern_cons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+    pub fn intern_cons(&self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         if car.is_opaque() || cdr.is_opaque() {
             self.hash_expr(&car);
             self.hash_expr(&cdr);
@@ -339,7 +339,7 @@ impl<F: LurkField> Store<F> {
         Ptr::index(ExprTag::Key, i)
     }
 
-    pub fn intern_comm(&mut self, secret: F, payload: Ptr<F>) -> Ptr<F> {
+    pub fn intern_comm(&self, secret: F, payload: Ptr<F>) -> Ptr<F> {
         if payload.is_opaque() {
             self.hash_expr(&payload);
         }
@@ -357,13 +357,13 @@ impl<F: LurkField> Store<F> {
 
     // Intern a potentially-opaque value. If the corresponding value is already known to the store,
     // return the known value.
-    pub fn intern_maybe_opaque(&mut self, tag: ExprTag, hash: F) -> Ptr<F> {
+    pub fn intern_maybe_opaque(&self, tag: ExprTag, hash: F) -> Ptr<F> {
         self.intern_opaque_aux(tag, hash, true)
     }
 
     // Intern an opaque value. If the corresponding non-opaque value is already known to the store,
     // return an opaque one anyway.
-    fn intern_opaque(&mut self, tag: ExprTag, hash: F) -> Ptr<F> {
+    fn intern_opaque(&self, tag: ExprTag, hash: F) -> Ptr<F> {
         self.intern_opaque_aux(tag, hash, false)
     }
 
@@ -380,7 +380,7 @@ impl<F: LurkField> Store<F> {
     // Intern a potentially-opaque value. If the corresponding non-opaque value is already known to the store, and
     // `return_non_opaque_if_existing` is true, return the known value.
     fn intern_opaque_aux(
-        &mut self,
+        &self,
         tag: ExprTag,
         hash: F,
         return_non_opaque_if_existing: bool,
@@ -402,40 +402,40 @@ impl<F: LurkField> Store<F> {
         Ptr::opaque(tag, i)
     }
 
-    pub fn intern_maybe_opaque_fun(&mut self, hash: F) -> Ptr<F> {
+    pub fn intern_maybe_opaque_fun(&self, hash: F) -> Ptr<F> {
         self.intern_maybe_opaque(ExprTag::Fun, hash)
     }
 
-    pub fn intern_maybe_opaque_sym(&mut self, hash: F) -> Ptr<F> {
+    pub fn intern_maybe_opaque_sym(&self, hash: F) -> Ptr<F> {
         self.intern_maybe_opaque(ExprTag::Sym, hash)
     }
 
-    pub fn intern_maybe_opaque_cons(&mut self, hash: F) -> Ptr<F> {
+    pub fn intern_maybe_opaque_cons(&self, hash: F) -> Ptr<F> {
         self.intern_maybe_opaque(ExprTag::Cons, hash)
     }
 
-    pub fn intern_maybe_opaque_comm(&mut self, hash: F) -> Ptr<F> {
+    pub fn intern_maybe_opaque_comm(&self, hash: F) -> Ptr<F> {
         self.intern_maybe_opaque(ExprTag::Comm, hash)
     }
 
-    pub fn intern_opaque_fun(&mut self, hash: F) -> Ptr<F> {
+    pub fn intern_opaque_fun(&self, hash: F) -> Ptr<F> {
         self.intern_opaque(ExprTag::Fun, hash)
     }
 
-    pub fn intern_opaque_sym(&mut self, hash: F) -> Ptr<F> {
+    pub fn intern_opaque_sym(&self, hash: F) -> Ptr<F> {
         self.intern_opaque(ExprTag::Sym, hash)
     }
 
-    pub fn intern_opaque_cons(&mut self, hash: F) -> Ptr<F> {
+    pub fn intern_opaque_cons(&self, hash: F) -> Ptr<F> {
         self.intern_opaque(ExprTag::Cons, hash)
     }
 
-    pub fn intern_opaque_comm(&mut self, hash: F) -> Ptr<F> {
+    pub fn intern_opaque_comm(&self, hash: F) -> Ptr<F> {
         self.intern_opaque(ExprTag::Comm, hash)
     }
 
     /// Helper to allocate a list, instead of manually using `cons`.
-    pub fn intern_list(&mut self, elts: &[Ptr<F>]) -> Ptr<F> {
+    pub fn intern_list(&self, elts: &[Ptr<F>]) -> Ptr<F> {
         elts.iter()
             .rev()
             .fold(lurk_sym_ptr!(self, nil), |acc, elt| {
@@ -450,7 +450,7 @@ impl<F: LurkField> Store<F> {
         })
     }
 
-    pub fn intern_symbol(&mut self, sym: &Symbol) -> Ptr<F> {
+    pub fn intern_symbol(&self, sym: &Symbol) -> Ptr<F> {
         match self.symbol_cache.get(sym) {
             Some(ptr) => *ptr,
             None => {
@@ -469,11 +469,11 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn user_sym(&mut self, name: &str) -> Ptr<F> {
+    pub fn user_sym(&self, name: &str) -> Ptr<F> {
         self.intern_symbol(&user_sym(name))
     }
 
-    pub fn intern_num<T: Into<Num<F>>>(&mut self, num: T) -> Ptr<F> {
+    pub fn intern_num<T: Into<Num<F>>>(&self, num: T) -> Ptr<F> {
         let num = num.into();
         let num = match num {
             Num::Scalar(scalar) => {
@@ -536,7 +536,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn intern_fun(&mut self, arg: Ptr<F>, body: Ptr<F>, closed_env: Ptr<F>) -> Ptr<F> {
+    pub fn intern_fun(&self, arg: Ptr<F>, body: Ptr<F>, closed_env: Ptr<F>) -> Ptr<F> {
         // TODO: closed_env must be an env
         assert!(matches!(arg.tag, ExprTag::Sym), "ARG must be a symbol");
         let (p, inserted) = self
@@ -549,7 +549,7 @@ impl<F: LurkField> Store<F> {
         ptr
     }
 
-    pub fn intern_thunk(&mut self, thunk: Thunk<F>) -> Ptr<F> {
+    pub fn intern_thunk(&self, thunk: Thunk<F>) -> Ptr<F> {
         let (p, inserted) = self.thunk_store.insert_probe(Box::new(thunk));
         let ptr = Ptr::index(ExprTag::Thunk, p);
         if inserted {
@@ -558,7 +558,7 @@ impl<F: LurkField> Store<F> {
         ptr
     }
 
-    pub fn mark_dehydrated_cont(&mut self, p: ContPtr<F>) -> ContPtr<F> {
+    pub fn mark_dehydrated_cont(&self, p: ContPtr<F>) -> ContPtr<F> {
         self.dehydrated_cont.load().push(Box::new(p));
         p
     }
@@ -595,19 +595,19 @@ impl<F: LurkField> Store<F> {
         ])
     }
 
-    pub fn intern_cont_error(&mut self) -> ContPtr<F> {
+    pub fn intern_cont_error(&self) -> ContPtr<F> {
         self.mark_dehydrated_cont(self.get_cont_error())
     }
 
-    pub fn intern_cont_outermost(&mut self) -> ContPtr<F> {
+    pub fn intern_cont_outermost(&self) -> ContPtr<F> {
         self.mark_dehydrated_cont(self.get_cont_outermost())
     }
 
-    pub fn intern_cont_terminal(&mut self) -> ContPtr<F> {
+    pub fn intern_cont_terminal(&self) -> ContPtr<F> {
         self.mark_dehydrated_cont(self.get_cont_terminal())
     }
 
-    pub fn intern_cont_dummy(&mut self) -> ContPtr<F> {
+    pub fn intern_cont_dummy(&self) -> ContPtr<F> {
         self.mark_dehydrated_cont(self.get_cont_dummy())
     }
 
@@ -1283,14 +1283,14 @@ impl<F: LurkField> Store<F> {
         self.get_z_cont(ptr, &mut None).ok().map(|x| x.0)
     }
 
-    pub fn hash_string(&mut self, s: &str) -> ZExprPtr<F> {
+    pub fn hash_string(&self, s: &str) -> ZExprPtr<F> {
         let ptr = self.intern_string(s);
         self.get_z_expr(&ptr, &mut None)
             .expect("known string can't be opaque")
             .0
     }
 
-    pub fn hash_symbol(&mut self, s: &Symbol) -> ZExprPtr<F> {
+    pub fn hash_symbol(&self, s: &Symbol) -> ZExprPtr<F> {
         let ptr = self.intern_symbol(s);
         self.get_z_expr(&ptr, &mut None)
             .expect("known symbol can't be opaque")
@@ -1323,7 +1323,7 @@ impl<F: LurkField> Store<F> {
     // An opaque Ptr is one for which we have the hash, but not the preimages.
     // So we cannot open or traverse the enclosed data, but we can manipulate
     // it atomically and include it in containing structures, etc.
-    pub fn new_opaque_ptr(&mut self) -> Ptr<F> {
+    pub fn new_opaque_ptr(&self) -> Ptr<F> {
         // TODO: May need new tag for this.
         // Meanwhile, it is illegal to try to dereference/follow an opaque PTR.
         // So any tag and RawPtr are okay.
@@ -1360,7 +1360,7 @@ impl<F: LurkField> Store<F> {
     /// safe to call this incrementally. However, for best proving performance, we should call exactly once so all
     /// hashing can be batched, e.g. on the GPU.
     #[tracing::instrument(skip_all, name = "Store::hydrate_scalar_cache")]
-    pub fn hydrate_scalar_cache(&mut self) {
+    pub fn hydrate_scalar_cache(&self) {
         self.ensure_constants();
 
         self.dehydrated.load().iter().par_bridge().for_each(|ptr| {
@@ -1380,7 +1380,7 @@ impl<F: LurkField> Store<F> {
         self.dehydrated_cont.swap(Arc::new(FrozenVec::default()));
     }
 
-    fn ensure_constants(&mut self) {
+    fn ensure_constants(&self) {
         if self.constants.get().is_none() {
             let new = NamedConstants::new(self);
             self.constants.set(new).expect("constants are not set");
@@ -1415,11 +1415,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn intern_z_expr_ptr(
-        &mut self,
-        z_ptr: &ZExprPtr<F>,
-        z_store: &ZStore<F>,
-    ) -> Option<Ptr<F>> {
+    pub fn intern_z_expr_ptr(&self, z_ptr: &ZExprPtr<F>, z_store: &ZStore<F>) -> Option<Ptr<F>> {
         if let Some(ptr) = self.fetch_z_expr_ptr(z_ptr) {
             Some(ptr)
         } else {
@@ -1533,7 +1529,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn intern_z_cont_ptr(
-        &mut self,
+        &self,
         z_ptr: &ZContPtr<F>,
         z_store: &ZStore<F>,
     ) -> Option<ContPtr<F>> {
@@ -1751,11 +1747,11 @@ pub struct NamedConstants<F: LurkField> {
 }
 
 impl<F: LurkField> NamedConstants<F> {
-    pub fn new(store: &mut Store<F>) -> Self {
+    pub fn new(store: &Store<F>) -> Self {
         let nil_ptr = store.intern_symbol(&lurk_sym("nil"));
         let nil_z_ptr = Some(ZExpr::Nil.z_ptr(&store.poseidon_cache));
 
-        let mut hash_sym = |name: &str| {
+        let hash_sym = |name: &str| {
             let ptr = store.intern_symbol(&lurk_sym(name));
             let maybe_z_ptr = store.hash_expr(&ptr);
             ConstantPtrs(maybe_z_ptr, ptr)
@@ -1841,7 +1837,7 @@ impl<F: LurkField> NamedConstants<F> {
 
 impl<F: LurkField> ZStore<F> {
     pub fn to_store(&self) -> Store<F> {
-        let mut store = Store::new();
+        let store = Store::new();
 
         for ptr in self.expr_map.keys() {
             store.intern_z_expr_ptr(ptr, self);
@@ -1853,7 +1849,7 @@ impl<F: LurkField> ZStore<F> {
     }
 
     pub fn to_store_with_z_ptr(&self, z_ptr: &ZExprPtr<F>) -> Result<(Store<F>, Ptr<F>), Error> {
-        let mut store = Store::new();
+        let store = Store::new();
 
         for z_ptr in self.expr_map.keys() {
             store.intern_z_expr_ptr(z_ptr, self);

@@ -69,7 +69,7 @@ pub enum Continuation<F: LurkField> {
 }
 
 impl<F: LurkField> Continuation<F> {
-    pub(crate) fn intern_aux(&self, store: &mut crate::store::Store<F>) -> ContPtr<F> {
+    pub(crate) fn intern_aux(&self, store: &crate::store::Store<F>) -> ContPtr<F> {
         match self {
             Self::Outermost | Self::Dummy | Self::Error | Self::Terminal => {
                 let cont_ptr = self.get_simple_cont();
