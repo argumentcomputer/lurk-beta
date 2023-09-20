@@ -165,7 +165,7 @@ impl Tag {
 
 impl std::fmt::Display for Tag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use Tag::*;
+        use Tag::{Cont, Expr, Op1, Op2};
         match self {
             Expr(tag) => write!(f, "expr.{}", tag),
             Cont(tag) => write!(f, "cont.{}", tag),
@@ -206,8 +206,8 @@ impl Lit {
     }
 
     pub fn from_ptr<F: LurkField>(ptr: &Ptr<F>, store: &Store<F>) -> Option<Self> {
-        use ExprTag::*;
-        use Tag::*;
+        use ExprTag::{Num, Str, Sym};
+        use Tag::Expr;
         match ptr.tag() {
             Expr(Num) => match ptr {
                 Ptr::Atom(_, f) => {
@@ -806,7 +806,7 @@ mod tests {
     ///   provided expressions.
     ///   - `expected_slots` gives the number of expected slots for each type of hash.
     fn synthesize_test_helper(func: &Func, inputs: Vec<Ptr<Fr>>, expected_num_slots: SlotsCounter) {
-        use crate::tag::ContTag::*;
+        use crate::tag::ContTag::{Error, Outermost, Terminal};
         let store = &mut func.init_store();
         let outermost = Ptr::null(Tag::Cont(Outermost));
         let terminal = Ptr::null(Tag::Cont(Terminal));

@@ -3,7 +3,12 @@ use std::collections::VecDeque;
 
 use super::{path::Path, pointers::Ptr, store::Store, var_map::VarMap, Block, Ctrl, Func, Op, Tag};
 
-use crate::{field::LurkField, num::Num, state::initial_lurk_state, tag::ExprTag::*};
+use crate::{
+    field::LurkField,
+    num::Num as BaseNum,
+    state::initial_lurk_state,
+    tag::ExprTag::{Comm, Nil, Num, Sym},
+};
 
 #[derive(Clone, Debug)]
 pub enum PreimageData<F: LurkField> {
@@ -211,8 +216,8 @@ impl Block {
                     let b = bindings.get(b)?;
                     let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
                         preimages.less_than.push(Some(PreimageData::FPair(*f, *g)));
-                        let f = Num::Scalar(*f);
-                        let g = Num::Scalar(*g);
+                        let f = BaseNum::Scalar(*f);
+                        let g = BaseNum::Scalar(*g);
                         let b = if f < g { F::ONE } else { F::ZERO };
                         Ptr::Atom(Tag::Expr(Num), b)
                     } else {
@@ -363,18 +368,15 @@ impl Block {
             Ctrl::MatchTag(match_var, cases, def) => {
                 let ptr = bindings.get(match_var)?;
                 let tag = ptr.tag();
-                match cases.get(tag) {
-                    Some(block) => {
-                        path.push_tag_inplace(*tag);
-                        block.run(input, store, bindings, preimages, path, emitted)
-                    }
-                    None => {
-                        path.push_default_inplace();
-                        match def {
-                            Some(def) => def.run(input, store, bindings, preimages, path, emitted),
-                            None => bail!("No match for tag {}", tag),
-                        }
-                    }
+                if let Some(block) = cases.get(tag) {
+                    path.push_tag_inplace(*tag);
+                    block.run(input, store, bindings, preimages, path, emitted)
+                } else {
+                    path.push_default_inplace();
+                    let Some(def) = def else {
+                        bail!("No match for tag {}", tag)
+                    };
+                    def.run(input, store, bindings, preimages, path, emitted)
                 }
             }
             Ctrl::MatchSymbol(match_var, cases, def) => {
@@ -385,18 +387,15 @@ impl Block {
                 let Some(sym) = store.fetch_symbol(ptr) else {
                     bail!("Symbol bound to {match_var} wasn't interned");
                 };
-                match cases.get(&sym) {
-                    Some(block) => {
-                        path.push_symbol_inplace(sym);
-                        block.run(input, store, bindings, preimages, path, emitted)
-                    }
-                    None => {
-                        path.push_default_inplace();
-                        match def {
-                            Some(def) => def.run(input, store, bindings, preimages, path, emitted),
-                            None => bail!("No match for symbol {sym}"),
-                        }
-                    }
+                if let Some(block) = cases.get(&sym) {
+                    path.push_symbol_inplace(sym);
+                    block.run(input, store, bindings, preimages, path, emitted)
+                } else {
+                    path.push_default_inplace();
+                    let Some(def) = def else {
+                        bail!("No match for symbol {sym}")
+                    };
+                    def.run(input, store, bindings, preimages, path, emitted)
                 }
             }
             Ctrl::IfEq(x, y, eq_block, else_block) => {

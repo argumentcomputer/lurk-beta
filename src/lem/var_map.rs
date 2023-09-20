@@ -8,7 +8,7 @@ use super::Var;
 /// to be more ergonomic under the assumption that a LEM must always define
 /// variables before using them, so we don't expect to need some piece of
 /// information from a variable that hasn't been defined.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct VarMap<V>(HashMap<Var, V>);
 
 impl<V> VarMap<V> {

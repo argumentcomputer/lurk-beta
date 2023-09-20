@@ -9,11 +9,11 @@ use crate::{
     field::{FWrap, LurkField},
     hash::PoseidonCache,
     lem::Tag,
-    parser::*,
+    parser::{syntax, Error, Span},
     state::{lurk_sym, State},
     symbol::Symbol,
     syntax::Syntax,
-    tag::ExprTag::*,
+    tag::ExprTag::{Char, Comm, Cons, Fun, Key, Nil, Num, Str, Sym, Thunk, U64},
     uint::UInt,
 };
 
@@ -279,7 +279,7 @@ impl<F: LurkField> Store<F> {
                         None
                     }
                 }
-                Ptr::Tuple2(Tag::Expr(Sym), idx) | Ptr::Tuple2(Tag::Expr(Nil), idx) => {
+                Ptr::Tuple2(Tag::Expr(Sym | Nil), idx) => {
                     let path = self.fetch_symbol_path(*idx)?;
                     let sym = Symbol::sym_from_vec(path);
                     self.ptr_symbol_cache.insert(*ptr, Box::new(sym.clone()));
@@ -438,7 +438,7 @@ impl<F: LurkField> Store<F> {
         &mut self,
         state: Rc<RefCell<State>>,
         input: &'a str,
-    ) -> Result<(Span<'a>, Ptr<F>, bool), crate::parser::Error> {
+    ) -> Result<(Span<'a>, Ptr<F>, bool), Error> {
         match preceded(syntax::parse_space, syntax::parse_maybe_meta(state, false))
             .parse(input.into())
         {
@@ -473,9 +473,10 @@ impl<F: LurkField> Store<F> {
                 }
                 _ => Ok(ZPtr::from_parts(*tag, *x)),
             },
-            Ptr::Tuple2(tag, idx) => match self.z_cache.get(ptr) {
-                Some(z_ptr) => Ok(*z_ptr),
-                None => {
+            Ptr::Tuple2(tag, idx) => {
+                if let Some(z_ptr) = self.z_cache.get(ptr) {
+                    Ok(*z_ptr)
+                } else {
                     let Some((a, b)) = self.fetch_2_ptrs(*idx) else {
                         bail!("Index {idx} not found on tuple2")
                     };
@@ -493,10 +494,11 @@ impl<F: LurkField> Store<F> {
                     self.z_cache.insert(*ptr, Box::new(z_ptr));
                     Ok(z_ptr)
                 }
-            },
-            Ptr::Tuple3(tag, idx) => match self.z_cache.get(ptr) {
-                Some(z_ptr) => Ok(*z_ptr),
-                None => {
+            }
+            Ptr::Tuple3(tag, idx) => {
+                if let Some(z_ptr) = self.z_cache.get(ptr) {
+                    Ok(*z_ptr)
+                } else {
                     let Some((a, b, c)) = self.fetch_3_ptrs(*idx) else {
                         bail!("Index {idx} not found on tuple3")
                     };
@@ -517,10 +519,11 @@ impl<F: LurkField> Store<F> {
                     self.z_cache.insert(*ptr, Box::new(z_ptr));
                     Ok(z_ptr)
                 }
-            },
-            Ptr::Tuple4(tag, idx) => match self.z_cache.get(ptr) {
-                Some(z_ptr) => Ok(*z_ptr),
-                None => {
+            }
+            Ptr::Tuple4(tag, idx) => {
+                if let Some(z_ptr) = self.z_cache.get(ptr) {
+                    Ok(*z_ptr)
+                } else {
                     let Some((a, b, c, d)) = self.fetch_4_ptrs(*idx) else {
                         bail!("Index {idx} not found on tuple4")
                     };
@@ -544,7 +547,7 @@ impl<F: LurkField> Store<F> {
                     self.z_cache.insert(*ptr, Box::new(z_ptr));
                     Ok(z_ptr)
                 }
-            },
+            }
         }
     }
 

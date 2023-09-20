@@ -25,7 +25,7 @@ impl Backend {
     }
 
     fn compatible_fields(&self) -> Vec<LanguageField> {
-        use LanguageField::*;
+        use LanguageField::{Pallas, Vesta, BLS12_381};
         match self {
             Self::Nova => vec![Pallas, Vesta],
             Self::SnarkPackPlus => vec![BLS12_381],
