@@ -594,6 +594,7 @@
 <a href="#594" id="594">594</a>
 <a href="#595" id="595">595</a>
 <a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 </span><span class="kw">use </span>std::marker::PhantomData;
 <span class="kw">use </span>std::ops::Index;
@@ -642,6 +643,7 @@
 {
     pp: SuperNovaPublicParams&lt;F&gt;,
     <span class="comment">// SuperNova does not yet have a `CompressedSNARK`.
+    // see https://github.com/lurk-lab/arecibo/issues/27
     // pk: ProverKey&lt;G1&lt;F&gt;, G2&lt;F&gt;, C1&lt;&#39;a, F, C&gt;, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
     // vk: VerifierKey&lt;G1&lt;F&gt;, G2&lt;F&gt;, C1&lt;&#39;a, F, C&gt;, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
     </span>_p: PhantomData&lt;C&gt;,

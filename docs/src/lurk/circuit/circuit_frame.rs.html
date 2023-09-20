@@ -6207,16 +6207,6 @@
 <a href="#6207" id="6207">6207</a>
 <a href="#6208" id="6208">6208</a>
 <a href="#6209" id="6209">6209</a>
-<a href="#6210" id="6210">6210</a>
-<a href="#6211" id="6211">6211</a>
-<a href="#6212" id="6212">6212</a>
-<a href="#6213" id="6213">6213</a>
-<a href="#6214" id="6214">6214</a>
-<a href="#6215" id="6215">6215</a>
-<a href="#6216" id="6216">6216</a>
-<a href="#6217" id="6217">6217</a>
-<a href="#6218" id="6218">6218</a>
-<a href="#6219" id="6219">6219</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
@@ -6312,27 +6302,19 @@
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt; {
     <span class="kw">pub fn </span>blank(folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;, meta: Meta&lt;F&gt;) -&gt; <span class="self">Self </span>{
-        <span class="kw">match </span>meta {
-            Meta::Lurk =&gt; <span class="self">Self </span>{
-                store: <span class="prelude-val">None</span>,
-                input: <span class="prelude-val">None</span>,
-                output: <span class="prelude-val">None</span>,
-                frames: <span class="prelude-val">None</span>,
-                cached_witness: <span class="prelude-val">None</span>,
-                count: folding_config.reduction_count(),
-                folding_config,
-                meta,
-            },
-            Meta::Coprocessor(_z_ptr) =&gt; <span class="self">Self </span>{
-                store: <span class="prelude-val">None</span>,
-                input: <span class="prelude-val">None</span>,
-                output: <span class="prelude-val">None</span>,
-                frames: <span class="prelude-val">None</span>,
-                cached_witness: <span class="prelude-val">None</span>,
-                count: <span class="number">1</span>,
-                folding_config,
-                meta,
-            },
+        <span class="kw">let </span>count = <span class="kw">match </span>meta {
+            Meta::Lurk =&gt; folding_config.reduction_count(),
+            Meta::Coprocessor(_zptr) =&gt; <span class="number">1</span>,
+        };
+        <span class="self">Self </span>{
+            store: <span class="prelude-val">None</span>,
+            input: <span class="prelude-val">None</span>,
+            output: <span class="prelude-val">None</span>,
+            frames: <span class="prelude-val">None</span>,
+            cached_witness: <span class="prelude-val">None</span>,
+            count,
+            folding_config,
+            meta,
         }
     }
 
@@ -6360,9 +6342,7 @@
 
             <span class="kw">for </span>x <span class="kw">in </span>chunk {
                 <span class="kw">let </span>circuit_frame = CircuitFrame::from_frame(x, store);
-                <span class="kw">if </span>meta.is_none() {
-                    meta = <span class="prelude-val">Some</span>(x.meta);
-                }
+                meta.get_or_insert(x.meta);
                 inner_frames.push(circuit_frame);
             }
 
@@ -6690,7 +6670,8 @@
 <span class="kw">type </span>AllocatedIO&lt;F&gt; = (AllocatedPtr&lt;F&gt;, AllocatedPtr&lt;F&gt;, AllocatedContPtr&lt;F&gt;);
 
 <span class="kw">impl</span>&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; CircuitFrame&lt;<span class="lifetime">&#39;_</span>, F, C&gt; {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
+    <span class="attr">#[tracing::instrument(skip_all, name = <span class="string">&quot;CircuitFrame::synthesize&quot;</span>, level = <span class="string">&quot;debug&quot;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>synthesize&lt;CS: ConstraintSystem&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         i: usize,
@@ -6702,7 +6683,6 @@
         cont_circuit_witness: <span class="prelude-ty">Option</span>&lt;ContCircuitWitness&lt;F&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;AllocatedIO&lt;F&gt;, SynthesisError&gt; {
         <span class="kw">let </span>(input_expr, input_env, input_cont) = inputs;
-        <span class="macro">debug!</span>(<span class="string">&quot;synthesizing frame&quot;</span>);
         <span class="kw">let </span>reduce = |store| {
             <span class="kw">let </span>cons_circuit_witness = <span class="kw">if let </span><span class="prelude-val">Some</span>(ccw) = cons_circuit_witness {
                 ccw
