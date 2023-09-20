@@ -40,7 +40,7 @@ pub(crate) static PUBLIC_PARAM_MEM_CACHE: Lazy<PublicParamMemCache> =
 impl PublicParamMemCache {
     fn get_from_disk_cache_or_update_with<
         F: CurveCycleEquipped,
-        C: Coprocessor<F> + 'static,
+        C: Coprocessor<F>,
         Fn: FnOnce(Arc<Lang<F, C>>) -> Arc<PublicParams<'static, F, C>>,
     >(
         &'static self,
@@ -80,7 +80,7 @@ impl PublicParamMemCache {
                     disk_cache
                         .set_abomonated(&key, &*pp)
                         .tap_ok(|_| info!("writing public params to disk-cache: {}", lang_key))
-                        .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+                        .map_err(|e| Error::CacheError(format!("Disk write error: {}", e)))?;
                     Ok(pp)
                 }
                 _ => unreachable!(),
@@ -95,7 +95,7 @@ impl PublicParamMemCache {
                 disk_cache
                     .set(&key, &*pp)
                     .tap_ok(|_| info!("writing public params to disk-cache: {}", lang_key))
-                    .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+                    .map_err(|e| Error::CacheError(format!("Disk write error: {}", e)))?;
                 Ok(pp)
             }
         }
@@ -126,7 +126,7 @@ impl PublicParamMemCache {
         // retrieve the per-Coproc public param table
         let entry = mem_cache.entry::<PublicParamMap<F, C>>();
         // deduce the map and populate it if needed
-        let param_entry = entry.or_insert_with(HashMap::new);
+        let param_entry = entry.or_default();
         match param_entry.entry((rc, abomonated)) {
             Entry::Occupied(o) => Ok(o.into_mut()),
             Entry::Vacant(v) => {

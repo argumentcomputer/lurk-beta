@@ -178,7 +178,7 @@ impl Symbol {
         let mut res = String::new();
         for x in xs.chars() {
             if ESCAPE_CHARS.chars().any(|c| c == x) {
-                res.push_str(&format!("\\{}", x));
+                res.push_str(&format!("\\{x}"));
             } else if Self::is_whitespace(x) {
                 res.push_str(&format!("{}", x.escape_unicode()));
             } else {
@@ -419,8 +419,8 @@ pub mod test {
         let a_b = a.direct_child("b");
         let a_b_path = vec!["a", "b"];
 
-        assert_eq!(".a", format!("{}", a));
-        assert_eq!(".a.b", format!("{}", a_b));
+        assert_eq!(".a", format!("{a}"));
+        assert_eq!(".a.b", format!("{a_b}"));
         assert_eq!(&a_b_path, &a_b.path);
         assert_eq!(Some(a.clone()), a_b.direct_parent());
         assert_eq!(Some(root.clone()), a.direct_parent());
@@ -437,8 +437,8 @@ pub mod test {
 
         assert!(!root.is_keyword());
         assert!(key_root.is_keyword());
-        assert_eq!(".apple", format!("{}", apple));
-        assert_eq!(":orange", format!("{}", orange));
+        assert_eq!(".apple", format!("{apple}"));
+        assert_eq!(":orange", format!("{orange}"));
         assert!(!apple.is_keyword());
         assert!(orange.is_keyword());
         assert_eq!(key_root, orange.direct_parent().unwrap());

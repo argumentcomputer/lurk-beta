@@ -62,7 +62,7 @@ impl Display for ZData {
                     .map(|x| format!("{:02x?}", x))
                     .collect::<Vec<_>>()
                     .join(", ");
-                write!(f, "a:{}", xs_str)?;
+                write!(f, "a:{xs_str}")?;
             }
             Self::Cell(xs) => {
                 let xs_str = xs
@@ -70,7 +70,7 @@ impl Display for ZData {
                     .map(|x| format!("{}", x))
                     .collect::<Vec<_>>()
                     .join(", ");
-                write!(f, "c:{}", xs_str)?;
+                write!(f, "c:{xs_str}")?;
             }
         }
         write!(f, "]")?;
@@ -200,7 +200,7 @@ impl ZData {
             (i, ZData::Atom(data.to_vec()))
         } else {
             let (i, xs) = count(ZData::from_bytes_aux, size)(i)?;
-            (i, ZData::Cell(xs.to_vec()))
+            (i, ZData::Cell(xs))
         };
 
         Ok((i, res))

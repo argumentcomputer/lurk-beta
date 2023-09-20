@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{field::*, tag::ExprTag::*};
+use crate::{
+    field::*,
+    tag::ExprTag::{Char, Comm, Nil, Num, U64},
+};
 
 use super::Tag;
 

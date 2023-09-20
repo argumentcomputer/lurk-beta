@@ -78,7 +78,7 @@ where
         Ok(mut bytes) => {
             if let Some((pp, remaining)) = unsafe { decode(&mut bytes) } {
                 assert!(remaining.is_empty());
-                eprintln!("Using disk-cached public params for lang {}", lang_key);
+                eprintln!("Using disk-cached public params for lang {lang_key}");
                 Ok(bind(pp))
             } else {
                 eprintln!("failed to decode bytes");
@@ -88,7 +88,7 @@ where
                 // maybe just directly write
                 disk_cache
                     .set_abomonated(&key, &pp)
-                    .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+                    .map_err(|e| Error::CacheError(format!("Disk write error: {}", e)))?;
                 Ok(bind(&pp))
             }
         }
@@ -98,7 +98,7 @@ where
             // maybe just directly write
             disk_cache
                 .set_abomonated(&key, &pp)
-                .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+                .map_err(|e| Error::CacheError(format!("Disk write error: {}", e)))?;
             Ok(bind(&pp))
         }
     }

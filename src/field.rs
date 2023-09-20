@@ -84,7 +84,7 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         let bytes = self.to_bytes();
         let mut s = String::with_capacity(bytes.len() * 2);
         for b in bytes.iter().rev() {
-            s.push_str(&format!("{:02x?}", b));
+            s.push_str(&format!("{b:02x?}"));
         }
         s
     }
@@ -309,7 +309,7 @@ impl<F: LurkField> Hash for FWrap<F> {
 
 impl<F: LurkField> PartialOrd for FWrap<F> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        (self.0.to_repr().as_ref()).partial_cmp(other.0.to_repr().as_ref())
+        Some(self.cmp(other))
     }
 }
 

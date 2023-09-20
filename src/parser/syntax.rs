@@ -451,7 +451,7 @@ pub mod tests {
     {
         match (expected, p.parse(Span::<'a>::new(i))) {
             (Some(expected), Ok((_, x))) if x == expected => true,
-            (Some(_), Ok(..)) | (Some(..), Err(_)) | (None, Ok(..)) => {
+            (Some(_) | None, Ok(..)) | (Some(..), Err(_)) => {
                 // println!("input: {:?}", i);
                 // println!("expected parse error");
                 // println!("detected: {:?}", x);
@@ -1007,7 +1007,7 @@ pub mod tests {
     #[test]
     fn test_minus_zero_symbol() {
         let x: Syntax<Scalar> = symbol!(["-0"]);
-        let text = format!("{}", x);
+        let text = format!("{x}");
         let (_, res) = parse_syntax(State::default().rccell(), false, true)(Span::new(&text))
             .expect("valid parse");
         assert_eq!(x, res)

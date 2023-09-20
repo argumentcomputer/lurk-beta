@@ -413,7 +413,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
 
         let mut final_output = None;
 
-        for (frames_cs, output) in css.into_iter() {
+        for (frames_cs, output) in css {
             final_output = Some(output);
 
             let aux = frames_cs.aux_slice();
@@ -5194,10 +5194,7 @@ fn car_cdr_named<F: LurkField, CS: ConstraintSystem<F>>(
             maybe_cons.hash().get_value(),
             &allocated_digest.get_value()
         );
-        panic!(
-            "tried to take car_cdr of a non-dummy cons ({:?}) but supplied wrong value",
-            name
-        );
+        panic!("tried to take car_cdr of a non-dummy cons ({name:?}) but supplied wrong value");
     }
 
     implies!(cs, &cons_not_dummy, &real_cons);

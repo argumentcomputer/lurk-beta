@@ -173,7 +173,7 @@ impl<'a, F: LurkField> HashConst<'a, F> {
     #[allow(dead_code)]
     fn cache_hash_witness<CS: ConstraintSystem<F>>(
         &self,
-        cs: &mut CS,
+        cs: &CS,
         preimage: Vec<F>,
         hash_circuit_witness_cache: &mut HashCircuitWitnessCache<F>,
     ) {
@@ -344,7 +344,7 @@ impl<'a, F: LurkField> AllocatedConsWitness<'a, F> {
         } = &self.slots[index];
         if !expect_dummy {
             match allocated_name {
-                Err(_) => panic!("requested {:?} but found a dummy allocation", name),
+                Err(_) => panic!("requested {name:?} but found a dummy allocation"),
                 Ok(alloc_name) => assert_eq!(
                     name, *alloc_name,
                     "requested and allocated names don't match."
@@ -364,7 +364,7 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
     // Currently unused, but not necessarily useless.
     #[allow(dead_code)]
     fn make_hash_cache<CS: ConstraintSystem<F>>(
-        cs: &mut CS,
+        cs: &CS,
         names_and_ptrs: &[(ContName, (Option<ContPtr<F>>, Option<Vec<F>>))],
         hash_constants: HashConst<'_, F>,
     ) -> Option<HashCircuitWitnessCache<F>> {
@@ -478,7 +478,7 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
         if !expect_dummy {
             match allocated_name {
                 Err(_) => {
-                    panic!("requested {:?} but found a dummy allocation", name)
+                    panic!("requested {name:?} but found a dummy allocation")
                 }
                 Ok(alloc_name) => {
                     assert_eq!(

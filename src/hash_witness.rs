@@ -296,28 +296,6 @@ impl<F: LurkField> ConsStub<F> {
         }
     }
 
-    pub fn car_cdr_mut(
-        &mut self,
-        s: &mut Store<F>,
-        cons: &Ptr<F>,
-    ) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
-        match self {
-            Self::Dummy => {
-                let (car, cdr) = Cons::get_car_cdr_mut(s, cons)?;
-
-                *self = Self::Value(Cons {
-                    car,
-                    cdr,
-                    cons: *cons,
-                });
-
-                Ok((car, cdr))
-            }
-            Self::Blank => unreachable!("Blank ConsStub should be used only in blank circuits."),
-            Self::Value(h) => Ok(h.car_cdr(cons)),
-        }
-    }
-
     pub fn cons(&mut self, store: &mut Store<F>, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         match self {
             Self::Dummy => {
@@ -572,10 +550,10 @@ impl<F: LurkField> ConsWitness<F> {
     pub fn car_cdr_mut_named(
         &mut self,
         name: ConsName,
-        store: &mut Store<F>,
+        store: &Store<F>,
         cons: &Ptr<F>,
     ) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
-        self.get_assigned_slot(name).car_cdr_mut(store, cons)
+        self.get_assigned_slot(name).car_cdr(store, cons)
     }
 
     pub fn extend_named(
@@ -610,17 +588,13 @@ impl<F: LurkField> Cons<F> {
     fn get_car_cdr(s: &Store<F>, cons: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
         s.car_cdr(cons)
     }
-
-    fn get_car_cdr_mut(s: &mut Store<F>, cons: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>), store::Error> {
-        s.car_cdr(cons)
-    }
 }
 
 impl<F: LurkField> ContWitness<F> {
     pub fn fetch_named_cont(
         &mut self,
         name: ContName,
-        store: &mut Store<F>,
+        store: &Store<F>,
         cont: &ContPtr<F>,
     ) -> Option<Continuation<F>> {
         self.get_assigned_slot(name).fetch_cont(store, cont)
@@ -638,11 +612,7 @@ impl<F: LurkField> ContWitness<F> {
 }
 
 impl<F: LurkField> ContStub<F> {
-    pub fn fetch_cont(
-        &mut self,
-        store: &mut Store<F>,
-        cont: &ContPtr<F>,
-    ) -> Option<Continuation<F>> {
+    pub fn fetch_cont(&mut self, store: &Store<F>, cont: &ContPtr<F>) -> Option<Continuation<F>> {
         match self {
             Self::Dummy => {
                 let continuation = store.fetch_cont(cont)?;

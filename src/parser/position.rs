@@ -47,8 +47,8 @@ impl Pos {
         upto_column: usize,
     ) -> String {
         let mut res = String::new();
-        let gutter = format!("{}", upto_line).len();
-        let pad = format!("{: >gutter$}", from_line, gutter = gutter).len() + 3 + from_column;
+        let gutter = format!("{upto_line}").len();
+        let pad = format!("{from_line: >gutter$}").len() + 3 + from_column;
         res.push_str(&format!("{}▼\n", " ".to_owned().repeat(pad)));
         for (line_number, line) in input.lines().enumerate() {
             if ((line_number + 1) >= from_line) && ((line_number + 1) <= upto_line) {
@@ -60,7 +60,7 @@ impl Pos {
                 ));
             }
         }
-        let pad = format!("{: >gutter$}", upto_line, gutter = gutter).len() + 3 + upto_column;
+        let pad = format!("{upto_line: >gutter$}").len() + 3 + upto_column;
         res.push_str(&format!("{}▲", " ".to_owned().repeat(pad)));
         res
     }

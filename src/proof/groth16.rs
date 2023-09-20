@@ -156,7 +156,7 @@ impl<C: Coprocessor<Scalar>> Groth16Prover<Bls12, C, Scalar> {
         let mut multiframe_proofs = Vec::with_capacity(multiframes_count);
 
         let last_multiframe = multiframes.last().unwrap().clone();
-        for multiframe in multiframes.into_iter() {
+        for multiframe in multiframes {
             statements.push(multiframe.public_inputs());
             let proof = self.prove(multiframe.clone(), params, &mut rng).unwrap();
 

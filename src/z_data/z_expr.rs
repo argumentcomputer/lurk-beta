@@ -55,25 +55,25 @@ impl<F: LurkField> std::fmt::Display for ZExpr<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ZExpr::Nil => write!(f, "nil"),
-            ZExpr::Cons(x, y) => write!(f, "({} . {})", x, y),
-            ZExpr::Str(x, y) => write!(f, "(str {} {})", x, y),
-            ZExpr::Sym(x, y) => write!(f, "(sym {} {})", x, y),
-            ZExpr::Key(x, y) => write!(f, "(key {} {})", x, y),
+            ZExpr::Cons(x, y) => write!(f, "({x} . {y})"),
+            ZExpr::Str(x, y) => write!(f, "(str {x} {y})"),
+            ZExpr::Sym(x, y) => write!(f, "(sym {x} {y})"),
+            ZExpr::Key(x, y) => write!(f, "(key {x} {y})"),
             ZExpr::Comm(ff, x) => {
                 write!(f, "(comm {} {})", ff.trimmed_hex_digits(), x)
             }
             ZExpr::EmptyStr => write!(f, "emptystr"),
             ZExpr::RootSym => write!(f, "rootsym"),
             ZExpr::RootKey => write!(f, "rootkey"),
-            ZExpr::Thunk(val, cont) => write!(f, "(thunk {} {})", val, cont),
+            ZExpr::Thunk(val, cont) => write!(f, "(thunk {val} {cont})"),
             ZExpr::Fun {
                 arg,
                 body,
                 closed_env,
-            } => write!(f, "(fun {} {} {})", arg, body, closed_env),
-            ZExpr::Char(x) => write!(f, "(char {})", x),
-            ZExpr::Num(x) => write!(f, "(num  {:?})", x),
-            ZExpr::UInt(x) => write!(f, "(uint {})", x),
+            } => write!(f, "(fun {arg} {body} {closed_env})"),
+            ZExpr::Char(x) => write!(f, "(char {x})"),
+            ZExpr::Num(x) => write!(f, "(num  {x:?})"),
+            ZExpr::UInt(x) => write!(f, "(uint {x})"),
         }
     }
 }

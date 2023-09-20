@@ -205,7 +205,7 @@ fn main() {
     .unwrap();
     let pp_end = pp_start.elapsed();
 
-    println!("Public parameters took {:?}", pp_end);
+    println!("Public parameters took {pp_end:?}");
 
     if setup_only {
         return;
@@ -222,7 +222,7 @@ fn main() {
         });
     let proof_end = proof_start.elapsed();
 
-    println!("Proofs took {:?}", proof_end);
+    println!("Proofs took {proof_end:?}");
 
     println!("Verifying proof...");
 
@@ -230,7 +230,7 @@ fn main() {
     let res = proof.verify(&pp, num_steps, &z0, &zi).unwrap();
     let verify_end = verify_start.elapsed();
 
-    println!("Verify took {:?}", verify_end);
+    println!("Verify took {verify_end:?}");
 
     if res {
         println!(

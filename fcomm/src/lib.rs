@@ -78,7 +78,7 @@ mod base64 {
 
 pub type NovaProofCache = FileMap<String, Proof<'static, S1>>;
 pub fn nova_proof_cache(reduction_count: usize) -> NovaProofCache {
-    FileMap::<String, Proof<'_, S1>>::new(format!("nova_proofs.{}", reduction_count)).unwrap()
+    FileMap::<String, Proof<'_, S1>>::new(format!("nova_proofs.{reduction_count}")).unwrap()
 }
 
 pub type CommittedExpressionMap = FileMap<Commitment<S1>, CommittedExpression<S1>>;
@@ -264,7 +264,7 @@ impl<F: LurkField> Eq for LurkPtr<F> {}
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[cfg_attr(not(target_arch = "wasm32"), serde_test(types(S1), zdata(true)))]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct CommittedExpression<F: LurkField + Serialize> {
+pub struct CommittedExpression<F: LurkField> {
     pub expr: LurkPtr<F>,
     #[cfg_attr(
         not(target_arch = "wasm32"),
@@ -405,7 +405,7 @@ impl ReductionCount {
 
 impl Evaluation {
     fn new<F: LurkField>(
-        s: &mut Store<F>,
+        s: &Store<F>,
         input: IO<F>,
         output: IO<F>,
         iterations: Option<usize>, // This might be padded, so is not quite 'iterations' in the sense of number of actual reduction steps required
@@ -491,7 +491,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> PtrEvaluation<F> {
 }
 
 impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
-    pub fn from_comm(s: &mut Store<F>, ptr: &Ptr<F>) -> Result<Self, Error> {
+    pub fn from_comm(s: &Store<F>, ptr: &Ptr<F>) -> Result<Self, Error> {
         assert_eq!(ExprTag::Comm, ptr.tag);
 
         let digest = *s
@@ -589,7 +589,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> LurkPtr<F> {
         }
     }
 
-    pub fn from_ptr(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
+    pub fn from_ptr(s: &Store<F>, ptr: &Ptr<F>) -> Self {
         let (z_store, z_ptr) = ZStore::new_with_expr(s, ptr);
         let z_ptr = z_ptr.unwrap();
         Self::ZStorePtr(ZStorePtr { z_store, z_ptr })
@@ -599,7 +599,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> LurkPtr<F> {
 impl LurkCont {
     pub fn cont_ptr<F: LurkField + Serialize + DeserializeOwned>(
         &self,
-        s: &mut Store<F>,
+        s: &Store<F>,
     ) -> ContPtr<F> {
         match self {
             Self::Outermost => s.get_cont_outermost(),
@@ -969,11 +969,11 @@ impl<'a> Proof<'a, S1> {
         let input_io = {
             let expr = s
                 .read(&evaluation.expr)
-                .map_err(|_| Error::VerificationError("failed to read expr".into()))?;
+                .map_err(|e| Error::VerificationError(format!("failed to read expr: {}", e)))?;
 
             let env = s
                 .read(&evaluation.env)
-                .map_err(|_| Error::VerificationError("failed to read env".into()))?;
+                .map_err(|e| Error::VerificationError(format!("failed to read env: {}", e)))?;
 
             // FIXME: We ignore cont and assume Outermost, since we can't read a Cont.
             let cont = s.intern_cont_outermost();
@@ -984,11 +984,11 @@ impl<'a> Proof<'a, S1> {
         let output_io = {
             let expr = s
                 .read(&evaluation.expr_out)
-                .map_err(|_| Error::VerificationError("failed to read expr out".into()))?;
+                .map_err(|e| Error::VerificationError(format!("failed to read expr out: {}", e)))?;
 
             let env = s
                 .read(&evaluation.env_out)
-                .map_err(|_| Error::VerificationError("failed to read env out".into()))?;
+                .map_err(|e| Error::VerificationError(format!("failed to read env out: {}", e)))?;
             let cont = evaluation
                 .status
                 .to_cont(s)
@@ -1261,7 +1261,7 @@ mod test {
                 Some(c) => commitment = c,
                 _ => panic!("new commitment missing"),
             }
-            println!("Commitment: {:?}", commitment);
+            println!("Commitment: {commitment:?}");
         }
     }
 

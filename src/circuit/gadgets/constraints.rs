@@ -377,10 +377,7 @@ pub(crate) fn pick<F: PrimeField, CS: ConstraintSystem<F>>(
     condition: &Boolean,
     a: &AllocatedNum<F>,
     b: &AllocatedNum<F>,
-) -> Result<AllocatedNum<F>, SynthesisError>
-where
-    CS: ConstraintSystem<F>,
-{
+) -> Result<AllocatedNum<F>, SynthesisError> {
     let c = AllocatedNum::alloc(cs.namespace(|| "pick result"), || {
         if condition
             .get_value()
@@ -410,10 +407,7 @@ pub(crate) fn pick_const<F: PrimeField, CS: ConstraintSystem<F>>(
     condition: &Boolean,
     a: F,
     b: F,
-) -> Result<AllocatedNum<F>, SynthesisError>
-where
-    CS: ConstraintSystem<F>,
-{
+) -> Result<AllocatedNum<F>, SynthesisError> {
     let c = AllocatedNum::alloc(cs.namespace(|| "pick result"), || {
         if condition
             .get_value()
@@ -441,10 +435,7 @@ where
 pub(crate) fn boolean_to_num<F: PrimeField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     bit: &Boolean,
-) -> Result<AllocatedNum<F>, SynthesisError>
-where
-    CS: ConstraintSystem<F>,
-{
+) -> Result<AllocatedNum<F>, SynthesisError> {
     let num = AllocatedNum::alloc(cs.namespace(|| "Allocate num"), || {
         if bit.get_value().ok_or(SynthesisError::AssignmentMissing)? {
             Ok(F::ONE)

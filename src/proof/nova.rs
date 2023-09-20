@@ -260,7 +260,7 @@ where
         &'a self,
         pp: &'a PublicParams<'_, F, C>,
         frames: &[Frame<IO<F>, Witness<F>, F, C>],
-        store: &'a mut Store<F>,
+        store: &'a Store<F>,
         lang: Arc<Lang<F, C>>,
     ) -> Result<(Proof<'_, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
         let z0 = frames[0].input.to_vector(store)?;

@@ -68,25 +68,25 @@ impl<Fr: LurkField> Arbitrary for Syntax<Fr> {
 impl<F: LurkField> fmt::Display for Syntax<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Num(_, x) => write!(f, "{}", x),
-            Self::UInt(_, x) => write!(f, "{}u64", x),
-            Self::Symbol(_, x) => write!(f, "{}", x),
+            Self::Num(_, x) => write!(f, "{x}"),
+            Self::UInt(_, x) => write!(f, "{x}u64"),
+            Self::Symbol(_, x) => write!(f, "{x}"),
             Self::String(_, x) => write!(f, "\"{}\"", x.escape_default()),
             Self::Char(_, x) => {
                 if *x == '(' || *x == ')' {
-                    write!(f, "'\\{}'", x)
+                    write!(f, "'\\{x}'")
                 } else {
                     write!(f, "'{}'", x.escape_default())
                 }
             }
-            Self::Quote(_, x) => write!(f, "'{}", x),
+            Self::Quote(_, x) => write!(f, "'{x}"),
             Self::List(_, xs) => {
                 let mut iter = xs.iter().peekable();
                 write!(f, "(")?;
                 while let Some(x) = iter.next() {
                     match iter.peek() {
-                        Some(_) => write!(f, "{} ", x)?,
-                        None => write!(f, "{}", x)?,
+                        Some(_) => write!(f, "{x} ")?,
+                        None => write!(f, "{x}")?,
                     }
                 }
                 write!(f, ")")
@@ -96,7 +96,7 @@ impl<F: LurkField> fmt::Display for Syntax<F> {
                 write!(f, "(")?;
                 while let Some(x) = iter.next() {
                     match iter.peek() {
-                        Some(_) => write!(f, "{} ", x)?,
+                        Some(_) => write!(f, "{x} ")?,
                         None => write!(f, "{} . {}", x, *end)?,
                     }
                 }
@@ -226,28 +226,28 @@ mod test {
         // Quote tests
         let expr = list!(lurk_sym_ptr!(s, quote), list!(sym!(f), sym!(x), sym!(y)));
         let output = s.fetch_syntax(expr).unwrap();
-        assert_eq!("(.lurk.quote (.f .x .y))", &format!("{}", output));
+        assert_eq!("(.lurk.quote (.f .x .y))", &format!("{output}"));
 
         let expr = list!(lurk_sym_ptr!(s, quote), list!(sym!(f), sym!(x), sym!(y)));
         let output = s.fetch_syntax(expr).unwrap();
-        assert_eq!("(.lurk.quote (.f .x .y))", &format!("{}", output));
+        assert_eq!("(.lurk.quote (.f .x .y))", &format!("{output}"));
 
         let expr = list!(lurk_sym_ptr!(s, quote), sym!(f), sym!(x), sym!(y));
         let output = s.fetch_syntax(expr).unwrap();
-        assert_eq!("(.lurk.quote .f .x .y)", &format!("{}", output));
+        assert_eq!("(.lurk.quote .f .x .y)", &format!("{output}"));
 
         // List tests
         let expr = list!();
         let output = s.fetch_syntax(expr).unwrap();
-        assert_eq!(".lurk.nil", &format!("{}", output));
+        assert_eq!(".lurk.nil", &format!("{output}"));
 
         let expr = improper!(sym!(x), sym!(y), sym!(z));
         let output = s.fetch_syntax(expr).unwrap();
-        assert_eq!("(.x .y . .z)", &format!("{}", output));
+        assert_eq!("(.x .y . .z)", &format!("{output}"));
 
         let expr = improper!(sym!(x), sym!(y), lurk_sym_ptr!(s, nil));
         let output = s.fetch_syntax(expr).unwrap();
-        assert_eq!("(.x .y)", &format!("{}", output));
+        assert_eq!("(.x .y)", &format!("{output}"));
     }
 
     #[test]

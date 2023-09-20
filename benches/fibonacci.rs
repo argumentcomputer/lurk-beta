@@ -104,7 +104,7 @@ fn fibo_prove<M: measurement::Measurement>(
             b.iter_batched(
                 || (frames, lang_rc.clone()),
                 |(frames, lang_rc)| {
-                    let result = prover.prove(&pp, frames, &mut store, lang_rc);
+                    let result = prover.prove(&pp, frames, &store, lang_rc);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,

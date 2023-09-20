@@ -36,7 +36,7 @@ fn sha256_ivc<F: LurkField>(store: &mut Store<F>, n: usize, input: Vec<usize>) -
         .map(|i| i.to_string())
         .collect::<Vec<String>>()
         .join(" ");
-    let input = format!("'({})", input);
+    let input = format!("'({input})");
     let program = format!(
         r#"
 (letrec ((encode-1 (lambda (term) 

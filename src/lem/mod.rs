@@ -116,14 +116,16 @@ pub enum Tag {
     Op2(Op2),
 }
 
-impl From<u16> for Tag {
-    fn from(val: u16) -> Self {
+impl TryFrom<u16> for Tag {
+    type Error = anyhow::Error;
+
+    fn try_from(val: u16) -> Result<Self, Self::Error> {
         if let Ok(tag) = ExprTag::try_from(val) {
-            Tag::Expr(tag)
+            Ok(Tag::Expr(tag))
         } else if let Ok(tag) = ContTag::try_from(val) {
-            Tag::Cont(tag)
+            Ok(Tag::Cont(tag))
         } else {
-            panic!("Invalid u16 for Tag: {val}")
+            bail!("Invalid u16 for Tag: {val}")
         }
     }
 }
@@ -163,7 +165,7 @@ impl Tag {
 
 impl std::fmt::Display for Tag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use Tag::*;
+        use Tag::{Cont, Expr, Op1, Op2};
         match self {
             Expr(tag) => write!(f, "expr.{}", tag),
             Cont(tag) => write!(f, "cont.{}", tag),
@@ -204,8 +206,8 @@ impl Lit {
     }
 
     pub fn from_ptr<F: LurkField>(ptr: &Ptr<F>, store: &Store<F>) -> Option<Self> {
-        use ExprTag::*;
-        use Tag::*;
+        use ExprTag::{Num, Str, Sym};
+        use Tag::Expr;
         match ptr.tag() {
             Expr(Num) => match ptr {
                 Ptr::Atom(_, f) => {
@@ -804,7 +806,7 @@ mod tests {
     ///   provided expressions.
     ///   - `expected_slots` gives the number of expected slots for each type of hash.
     fn synthesize_test_helper(func: &Func, inputs: Vec<Ptr<Fr>>, expected_num_slots: SlotsCounter) {
-        use crate::tag::ContTag::*;
+        use crate::tag::ContTag::{Error, Outermost, Terminal};
         let store = &mut func.init_store();
         let outermost = Ptr::null(Tag::Cont(Outermost));
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -819,7 +821,7 @@ mod tests {
         let log_fmt = |_: usize, _: &[Ptr<Fr>], _: &[Ptr<Fr>], _: &Store<Fr>| String::default();
 
         let mut cs_prev = None;
-        for input in inputs.into_iter() {
+        for input in inputs {
             let input = [input, nil, outermost];
             let (frames, ..) = func
                 .call_until(&input, store, stop_cond, 10, log_fmt)

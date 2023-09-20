@@ -109,7 +109,7 @@ fn main() {
         )],
     );
 
-    let coproc_expr = format!("{}", sym_str);
+    let coproc_expr = format!("{sym_str}");
 
     let expr = format!("({coproc_expr})");
     let ptr = store.read(&expr).unwrap();
@@ -129,7 +129,7 @@ fn main() {
     .unwrap();
     let pp_end = pp_start.elapsed();
 
-    println!("Public parameters took {:?}", pp_end);
+    println!("Public parameters took {pp_end:?}");
 
     println!("Beginning proof step...");
 
@@ -139,7 +139,7 @@ fn main() {
         .unwrap();
     let proof_end = proof_start.elapsed();
 
-    println!("Proofs took {:?}", proof_end);
+    println!("Proofs took {proof_end:?}");
 
     println!("Verifying proof...");
 
@@ -147,7 +147,7 @@ fn main() {
     let res = proof.verify(&pp, num_steps, &z0, &zi).unwrap();
     let verify_end = verify_start.elapsed();
 
-    println!("Verify took {:?}", verify_end);
+    println!("Verify took {verify_end:?}");
 
     if res {
         println!(

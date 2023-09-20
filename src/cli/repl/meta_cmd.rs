@@ -276,7 +276,9 @@ impl MetaCmd<F> {
             let Some(secret) = repl.store.fetch_num(&first_io.expr) else {
                 bail!(
                     "Secret must be a number. Got {}",
-                    first_io.expr.fmt_to_string(&repl.store, &repl.state.borrow())
+                    first_io
+                        .expr
+                        .fmt_to_string(&repl.store, &repl.state.borrow())
                 )
             };
             repl.hide(secret.into_scalar(), second_io.expr)?;
