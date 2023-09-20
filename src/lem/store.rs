@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 use elsa::sync::FrozenMap;
-use indexmap::IndexSet;
+use elsa::sync_index_set::FrozenIndexSet;
 use nom::{sequence::preceded, Parser};
 use rayon::prelude::*;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
@@ -39,9 +39,9 @@ use super::pointers::{Ptr, ZPtr};
 /// the resulting commitment hash.
 #[derive(Default, Debug)]
 pub struct Store<F: LurkField> {
-    tuple2: IndexSet<(Ptr<F>, Ptr<F>)>,
-    tuple3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
-    tuple4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
+    tuple2: FrozenIndexSet<Box<(Ptr<F>, Ptr<F>)>>,
+    tuple3: FrozenIndexSet<Box<(Ptr<F>, Ptr<F>, Ptr<F>)>>,
+    tuple4: FrozenIndexSet<Box<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>>,
 
     string_ptr_cache: HashMap<String, Ptr<F>>,
     symbol_ptr_cache: HashMap<Symbol, Ptr<F>>,
@@ -60,7 +60,7 @@ pub struct Store<F: LurkField> {
 impl<F: LurkField> Store<F> {
     /// Creates a `Ptr` that's a parent of two children
     pub fn intern_2_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>) -> Ptr<F> {
-        let (idx, inserted) = self.tuple2.insert_full((a, b));
+        let (idx, inserted) = self.tuple2.insert_probe(Box::new((a, b)));
         let ptr = Ptr::Tuple2(tag, idx);
         if inserted {
             // this is for `hydrate_z_cache`
@@ -73,14 +73,14 @@ impl<F: LurkField> Store<F> {
     /// `dehydrated`. This function is used when converting a `ZStore` to a
     /// `Store`.
     pub fn intern_2_ptrs_hydrated(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, z: ZPtr<F>) -> Ptr<F> {
-        let ptr = Ptr::Tuple2(tag, self.tuple2.insert_full((a, b)).0);
+        let ptr = Ptr::Tuple2(tag, self.tuple2.insert_probe(Box::new((a, b))).0);
         self.z_cache.insert(ptr, Box::new(z));
         ptr
     }
 
     /// Creates a `Ptr` that's a parent of three children
     pub fn intern_3_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>) -> Ptr<F> {
-        let (idx, inserted) = self.tuple3.insert_full((a, b, c));
+        let (idx, inserted) = self.tuple3.insert_probe(Box::new((a, b, c)));
         let ptr = Ptr::Tuple3(tag, idx);
         if inserted {
             // this is for `hydrate_z_cache`
@@ -100,7 +100,7 @@ impl<F: LurkField> Store<F> {
         c: Ptr<F>,
         z: ZPtr<F>,
     ) -> Ptr<F> {
-        let ptr = Ptr::Tuple3(tag, self.tuple3.insert_full((a, b, c)).0);
+        let ptr = Ptr::Tuple3(tag, self.tuple3.insert_probe(Box::new((a, b, c))).0);
         self.z_cache.insert(ptr, Box::new(z));
         ptr
     }
@@ -114,7 +114,7 @@ impl<F: LurkField> Store<F> {
         c: Ptr<F>,
         d: Ptr<F>,
     ) -> Ptr<F> {
-        let (idx, inserted) = self.tuple4.insert_full((a, b, c, d));
+        let (idx, inserted) = self.tuple4.insert_probe(Box::new((a, b, c, d)));
         let ptr = Ptr::Tuple4(tag, idx);
         if inserted {
             // this is for `hydrate_z_cache`
@@ -135,7 +135,7 @@ impl<F: LurkField> Store<F> {
         d: Ptr<F>,
         z: ZPtr<F>,
     ) -> Ptr<F> {
-        let ptr = Ptr::Tuple4(tag, self.tuple4.insert_full((a, b, c, d)).0);
+        let ptr = Ptr::Tuple4(tag, self.tuple4.insert_probe(Box::new((a, b, c, d))).0);
         self.z_cache.insert(ptr, Box::new(z));
         ptr
     }
