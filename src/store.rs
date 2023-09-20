@@ -1,8 +1,10 @@
-use elsa::sync::FrozenMap;
+use arc_swap::ArcSwap;
+use elsa::sync::{FrozenMap, FrozenVec};
 use elsa::sync_index_set::FrozenIndexSet;
 use once_cell::sync::OnceCell;
-use rayon::prelude::*;
+use rayon::prelude::{ParallelBridge, ParallelIterator};
 use std::fmt;
+use std::sync::Arc;
 use std::usize;
 use thiserror;
 
@@ -72,8 +74,8 @@ pub struct Store<F: LurkField> {
     pub inverse_poseidon_cache: InversePoseidonCache<F>,
 
     /// Contains Ptrs which have not yet been hydrated.
-    pub dehydrated: Vec<Ptr<F>>,
-    pub dehydrated_cont: Vec<ContPtr<F>>,
+    pub dehydrated: ArcSwap<FrozenVec<Box<Ptr<F>>>>,
+    pub dehydrated_cont: ArcSwap<FrozenVec<Box<ContPtr<F>>>>,
 
     str_cache: FrozenMap<String, Box<Ptr<F>>>,
     symbol_cache: FrozenMap<Symbol, Box<Ptr<F>>>,
@@ -302,7 +304,7 @@ impl<F: LurkField> Store<F> {
         let (p, inserted) = self.cons_store.insert_probe(Box::new((car, cdr)));
         let ptr = Ptr::index(ExprTag::Cons, p);
         if inserted {
-            self.dehydrated.push(ptr);
+            self.dehydrated.load().push(Box::new(ptr));
         }
         ptr
     }
@@ -348,7 +350,7 @@ impl<F: LurkField> Store<F> {
         let ptr = Ptr::index(ExprTag::Comm, p);
 
         if inserted {
-            self.dehydrated.push(ptr);
+            self.dehydrated.load().push(Box::new(ptr));
         }
         ptr
     }
@@ -542,7 +544,7 @@ impl<F: LurkField> Store<F> {
             .insert_probe(Box::new((arg, body, closed_env)));
         let ptr = Ptr::index(ExprTag::Fun, p);
         if inserted {
-            self.dehydrated.push(ptr);
+            self.dehydrated.load().push(Box::new(ptr));
         }
         ptr
     }
@@ -551,13 +553,13 @@ impl<F: LurkField> Store<F> {
         let (p, inserted) = self.thunk_store.insert_probe(Box::new(thunk));
         let ptr = Ptr::index(ExprTag::Thunk, p);
         if inserted {
-            self.dehydrated.push(ptr);
+            self.dehydrated.load().push(Box::new(ptr));
         }
         ptr
     }
 
     pub fn mark_dehydrated_cont(&mut self, p: ContPtr<F>) -> ContPtr<F> {
-        self.dehydrated_cont.push(p);
+        self.dehydrated_cont.load().push(Box::new(p));
         p
     }
 
@@ -1361,19 +1363,21 @@ impl<F: LurkField> Store<F> {
     pub fn hydrate_scalar_cache(&mut self) {
         self.ensure_constants();
 
-        self.dehydrated.par_iter().for_each(|ptr| {
+        self.dehydrated.load().iter().par_bridge().for_each(|ptr| {
             self.hash_expr(ptr).expect("failed to hash_expr");
         });
 
-        self.dehydrated.truncate(0);
+        self.dehydrated.swap(Arc::new(FrozenVec::default()));
 
-        self.dehydrated_cont.par_iter().for_each(|ptr| {
-            self.hash_cont(ptr).expect("failed to hash_cont");
-        });
+        self.dehydrated_cont
+            .load()
+            .iter()
+            .par_bridge()
+            .for_each(|ptr| {
+                self.hash_cont(ptr).expect("failed to hash_cont");
+            });
 
-        self.dehydrated_cont.truncate(0);
-
-        self.dehydrated_cont.clear();
+        self.dehydrated_cont.swap(Arc::new(FrozenVec::default()));
     }
 
     fn ensure_constants(&mut self) {

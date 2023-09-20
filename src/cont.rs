@@ -80,7 +80,7 @@ impl<F: LurkField> Continuation<F> {
                 let (p, inserted) = self.insert_in_store(store);
                 let ptr = ContPtr::index(self.cont_tag(), p);
                 if inserted {
-                    store.dehydrated_cont.push(ptr)
+                    store.dehydrated_cont.load().push(Box::new(ptr))
                 }
                 ptr
             }
