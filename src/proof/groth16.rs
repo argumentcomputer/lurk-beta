@@ -636,7 +636,7 @@ mod tests {
         let limit = 300;
         let lang = Lang::<Fr, Coproc<Fr>>::new();
 
-        let (evaled, _, _) = Evaluator::new(fun_src, empty_sym_env(&s), &mut s, limit, &lang)
+        let (evaled, _, _) = Evaluator::new(fun_src, empty_sym_env(&s), &s, limit, &lang)
             .eval()
             .unwrap();
 
@@ -653,7 +653,7 @@ mod tests {
         let input = s.list(&[fun_from_comm, five]);
 
         let (output, _iterations, _emitted) =
-            Evaluator::new(input, empty_sym_env(&s), &mut s, limit, &lang)
+            Evaluator::new(input, empty_sym_env(&s), &s, limit, &lang)
                 .eval()
                 .unwrap();
 

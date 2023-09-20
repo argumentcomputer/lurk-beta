@@ -151,7 +151,7 @@ impl Status {
         }
     }
 
-    pub fn to_cont<F: LurkField>(&self, s: &mut Store<F>) -> Option<ContPtr<F>> {
+    pub fn to_cont<F: LurkField>(&self, s: &Store<F>) -> Option<ContPtr<F>> {
         match self {
             Self::Terminal => Some(s.intern_cont_terminal()),
             Self::Error => Some(s.intern_cont_error()),
@@ -201,7 +201,7 @@ impl<F: LurkField, W: Copy, C: Coprocessor<F>> Frame<IO<F>, W, F, C> {
 pub trait Evaluable<F: LurkField, W, C: Coprocessor<F>> {
     fn reduce(
         &self,
-        store: &mut Store<F>,
+        store: &Store<F>,
         lang: &Lang<F, C>,
     ) -> Result<(Self, W, Meta<F>), ReductionError>
     where
@@ -218,7 +218,7 @@ pub trait Evaluable<F: LurkField, W, C: Coprocessor<F>> {
 impl<F: LurkField, C: Coprocessor<F>> Evaluable<F, Witness<F>, C> for IO<F> {
     fn reduce(
         &self,
-        store: &mut Store<F>,
+        store: &Store<F>,
         lang: &Lang<F, C>,
     ) -> Result<(Self, Witness<F>, Meta<F>), ReductionError> {
         let (expr, env, cont, witness, meta) =
@@ -303,11 +303,7 @@ impl<F: LurkField> IO<F> {
 impl<F: LurkField, T: Evaluable<F, Witness<F>, C> + Copy, C: Coprocessor<F>>
     Frame<T, Witness<F>, F, C>
 {
-    pub(crate) fn next(
-        &self,
-        store: &mut Store<F>,
-        lang: &Lang<F, C>,
-    ) -> Result<Self, ReductionError> {
+    pub(crate) fn next(&self, store: &Store<F>, lang: &Lang<F, C>) -> Result<Self, ReductionError> {
         let input = self.output;
         let (output, witness, meta) = input.reduce(store, lang)?;
 
@@ -330,7 +326,7 @@ impl<F: LurkField, T: Evaluable<F, Witness<F>, C> + Copy, C: Coprocessor<F> + Cl
 {
     fn from_initial_input(
         input: T,
-        store: &mut Store<F>,
+        store: &Store<F>,
         lang: &Lang<F, C>,
     ) -> Result<Self, ReductionError> {
         input.log(store, 0);
@@ -350,14 +346,14 @@ impl<F: LurkField, T: Evaluable<F, Witness<F>, C> + Copy, C: Coprocessor<F> + Cl
 pub struct FrameIt<'a, W: Copy, F: LurkField, C: Coprocessor<F>> {
     first: bool,
     frame: Frame<IO<F>, W, F, C>,
-    store: &'a mut Store<F>,
+    store: &'a Store<F>,
     lang: &'a Lang<F, C>,
 }
 
 impl<'a, F: LurkField, C: Coprocessor<F>> FrameIt<'a, Witness<F>, F, C> {
     fn new(
         initial_input: IO<F>,
-        store: &'a mut Store<F>,
+        store: &'a Store<F>,
         lang: &'a Lang<F, C>,
     ) -> Result<Self, ReductionError> {
         let frame = Frame::from_initial_input(initial_input, store, lang)?;
@@ -442,7 +438,7 @@ where
     pub fn new(
         expr: Ptr<F>,
         env: Ptr<F>,
-        store: &'a mut Store<F>,
+        store: &'a Store<F>,
         limit: usize,
         lang: &'a Lang<F, C>,
     ) -> Self {
@@ -569,7 +565,7 @@ pub fn eval_to_ptr<F: LurkField, C: Coprocessor<F>>(
 pub struct Evaluator<'a, F: LurkField, C: Coprocessor<F>> {
     expr: Ptr<F>,
     env: Ptr<F>,
-    store: &'a mut Store<F>,
+    store: &'a Store<F>,
     limit: usize,
     lang: &'a Lang<F, C>,
 }

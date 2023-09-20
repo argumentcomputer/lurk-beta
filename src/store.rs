@@ -1978,26 +1978,23 @@ pub mod test {
         let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
         {
             let comparison_expr = store.list(&[eq, fun, opaque_fun]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(t, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, fun2, opaque_fun]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(nil, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, fun2, opaque_fun2]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(t, result.expr);
         }
         {
@@ -2010,10 +2007,9 @@ pub mod test {
             let cons_expr2 = store.list(&[cons, opaque_fun, n]);
 
             let comparison_expr = store.list(&[eq, cons_expr1, cons_expr2]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(t, result.expr);
         }
     }
@@ -2054,7 +2050,7 @@ pub mod test {
         // For now, all opaque data remains opaque, even if the Store has enough information to clarify it.
         assert!(sym.fmt_to_string(&store, state) != opaque_sym.fmt_to_string(&store, state));
 
-        let mut other_store = Store::<Fr>::default();
+        let other_store = Store::<Fr>::default();
         let other_opaque_sym = other_store.intern_opaque_sym(*sym_hash.value());
 
         let other_sym = other_store.sym("sym");
@@ -2082,26 +2078,23 @@ pub mod test {
         let lang = Lang::<Fr, Coproc<Fr>>::new();
         {
             let comparison_expr = store.list(&[eq, qsym, qsym_opaque]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(t, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qsym2, qsym_opaque]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(nil, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qsym2, qsym_opaque2]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(t, result.expr);
         }
         {
@@ -2115,10 +2108,9 @@ pub mod test {
 
             let comparison_expr = store.list(&[eq, cons_expr1, cons_expr2]);
             let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(t, result.expr);
         }
     }
@@ -2159,26 +2151,23 @@ pub mod test {
 
         {
             let comparison_expr = store.list(&[eq, qcons, qcons_opaque]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(t, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qcons2, qcons_opaque]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(nil, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qcons2, qcons_opaque2]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(t, result.expr);
         }
         {
@@ -2198,14 +2187,14 @@ pub mod test {
             let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
             {
                 let (result, _, _) =
-                    Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
                         .eval()
                         .unwrap();
                 assert_eq!(t, result.expr);
             }
             {
                 let (result, _, _) =
-                    Evaluator::new(comparison_expr2, empty_env, &mut store, limit, &lang)
+                    Evaluator::new(comparison_expr2, empty_env, &store, limit, &lang)
                         .eval()
                         .unwrap();
                 assert_eq!(nil, result.expr);

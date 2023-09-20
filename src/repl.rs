@@ -333,7 +333,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplState<F, C> {
     pub fn eval_expr(
         &mut self,
         expr: Ptr<F>,
-        store: &mut Store<F>,
+        store: &Store<F>,
     ) -> Result<(Ptr<F>, usize, ContPtr<F>, Vec<Ptr<F>>)> {
         let (io, iterations, emitted) =
             Evaluator::new(expr, self.env, store, self.limit, &self.lang).eval()?;

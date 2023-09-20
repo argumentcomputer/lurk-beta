@@ -296,7 +296,7 @@ impl<F: LurkField> ConsStub<F> {
         }
     }
 
-    pub fn cons(&mut self, store: &mut Store<F>, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+    pub fn cons(&mut self, store: &Store<F>, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         match self {
             Self::Dummy => {
                 let cons = Cons::cons(store, car, cdr);
@@ -309,7 +309,7 @@ impl<F: LurkField> ConsStub<F> {
             Self::Value(_) => Cons::cons(store, car, cdr),
         }
     }
-    pub fn strcons(&mut self, store: &mut Store<F>, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+    pub fn strcons(&mut self, store: &Store<F>, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         match self {
             Self::Dummy => {
                 let cons = Cons::strcons(store, car, cdr);
@@ -530,7 +530,7 @@ impl<F: LurkField> ConsWitness<F> {
     pub fn cons_named(
         &mut self,
         name: ConsName,
-        store: &mut Store<F>,
+        store: &Store<F>,
         car: Ptr<F>,
         cdr: Ptr<F>,
     ) -> Ptr<F> {
@@ -540,7 +540,7 @@ impl<F: LurkField> ConsWitness<F> {
     pub fn strcons_named(
         &mut self,
         name: ConsName,
-        store: &mut Store<F>,
+        store: &Store<F>,
         car: Ptr<F>,
         cdr: Ptr<F>,
     ) -> Ptr<F> {
@@ -562,7 +562,7 @@ impl<F: LurkField> ConsWitness<F> {
         env: Ptr<F>,
         var: Ptr<F>,
         val: Ptr<F>,
-        store: &mut Store<F>,
+        store: &Store<F>,
     ) -> Ptr<F> {
         let binding = self.cons_named(ConsName::Binding, store, var, val);
 
@@ -571,11 +571,11 @@ impl<F: LurkField> ConsWitness<F> {
 }
 
 impl<F: LurkField> Cons<F> {
-    fn cons(store: &mut Store<F>, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+    fn cons(store: &Store<F>, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         store.cons(car, cdr)
     }
 
-    fn strcons(store: &mut Store<F>, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+    fn strcons(store: &Store<F>, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         store.strcons(car, cdr)
     }
 
@@ -603,7 +603,7 @@ impl<F: LurkField> ContWitness<F> {
     pub fn intern_named_cont(
         &mut self,
         name: ContName,
-        store: &mut Store<F>,
+        store: &Store<F>,
         continuation: Continuation<F>,
     ) -> ContPtr<F> {
         self.get_assigned_slot(name)
@@ -628,11 +628,7 @@ impl<F: LurkField> ContStub<F> {
             Self::Value(h) => Some(h.fetch_cont(cont)),
         }
     }
-    pub fn intern_cont(
-        &mut self,
-        store: &mut Store<F>,
-        continuation: Continuation<F>,
-    ) -> ContPtr<F> {
+    pub fn intern_cont(&mut self, store: &Store<F>, continuation: Continuation<F>) -> ContPtr<F> {
         match self {
             Self::Dummy => {
                 let cont_ptr = continuation.intern_aux(store);

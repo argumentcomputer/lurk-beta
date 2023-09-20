@@ -18,7 +18,7 @@ pub(crate) fn reduce<F: LurkField, C: Coprocessor<F>>(
     expr: Ptr<F>,
     env: Ptr<F>,
     cont: ContPtr<F>,
-    store: &mut Store<F>,
+    store: &Store<F>,
     lang: &Lang<F, C>,
 ) -> Result<(Ptr<F>, Ptr<F>, ContPtr<F>, Witness<F>, Meta<F>), ReductionError> {
     let c = *store.expect_constants();
@@ -37,7 +37,7 @@ enum Control<F: LurkField> {
 }
 
 impl<F: LurkField> Control<F> {
-    fn into_results(self, store: &mut Store<F>) -> (Ptr<F>, Ptr<F>, ContPtr<F>) {
+    fn into_results(self, store: &Store<F>) -> (Ptr<F>, Ptr<F>, ContPtr<F>) {
         match self {
             Self::Return(expr, env, cont)
             | Self::MakeThunk(expr, env, cont)
@@ -61,7 +61,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
     expr: Ptr<F>,
     env: Ptr<F>,
     cont: ContPtr<F>,
-    store: &mut Store<F>,
+    store: &Store<F>,
     cons_witness: &mut ConsWitness<F>,
     cont_witness: &mut ContWitness<F>,
     c: &NamedConstants<F>,
@@ -656,7 +656,7 @@ fn reduce_with_witness<F: LurkField, C: Coprocessor<F>>(
     expr: Ptr<F>,
     env: Ptr<F>,
     cont: ContPtr<F>,
-    store: &mut Store<F>,
+    store: &Store<F>,
     c: &NamedConstants<F>,
     lang: &Lang<F, C>,
 ) -> Result<(Control<F>, Witness<F>, Meta<F>), ReductionError> {
@@ -691,7 +691,7 @@ fn reduce_with_witness<F: LurkField, C: Coprocessor<F>>(
 
 fn apply_continuation<F: LurkField>(
     control: Control<F>,
-    store: &mut Store<F>,
+    store: &Store<F>,
     witness: &mut Witness<F>,
     c: &NamedConstants<F>,
 ) -> Result<Control<F>, ReductionError> {
@@ -1027,7 +1027,7 @@ fn apply_continuation<F: LurkField>(
             } => {
                 let arg2 = result;
 
-                let num_num = |store: &mut Store<F>,
+                let num_num = |store: &Store<F>,
                                operator,
                                a: Num<F>,
                                b: Num<F>|
@@ -1251,7 +1251,7 @@ fn apply_continuation<F: LurkField>(
 // Returns (Expression::Thunk, Expression::Env, Continuation)
 fn make_thunk<F: LurkField>(
     control: Control<F>,
-    store: &mut Store<F>,
+    store: &Store<F>,
     witness: &mut Witness<F>,
 ) -> Result<Control<F>, ReductionError> {
     if !control.is_make_thunk() {
@@ -1299,7 +1299,7 @@ fn make_thunk<F: LurkField>(
 fn make_tail_continuation<F: LurkField>(
     env: Ptr<F>,
     continuation: ContPtr<F>,
-    store: &mut Store<F>,
+    store: &Store<F>,
     cont_witness: &mut ContWitness<F>,
 ) -> ContPtr<F> {
     // Result must be either a Tail or Outermost continuation.
@@ -1327,7 +1327,7 @@ pub(crate) fn extend<F: LurkField>(
     env: Ptr<F>,
     var: Ptr<F>,
     val: Ptr<F>,
-    store: &mut Store<F>,
+    store: &Store<F>,
 ) -> Ptr<F> {
     let cons = store.cons(var, val);
     store.cons(cons, env)
@@ -1337,7 +1337,7 @@ fn extend_rec<F: LurkField>(
     env: Ptr<F>,
     var: Ptr<F>,
     val: Ptr<F>,
-    store: &mut Store<F>,
+    store: &Store<F>,
     cons_witness: &mut ConsWitness<F>,
 ) -> Result<Ptr<F>, ReductionError> {
     let (binding_or_env, rest) = cons_witness.car_cdr_named(ConsName::Env, store, &env)?;
@@ -1367,7 +1367,7 @@ fn extend_rec<F: LurkField>(
 fn extend_closure<F: LurkField>(
     fun: &Ptr<F>,
     rec_env: &Ptr<F>,
-    store: &mut Store<F>,
+    store: &Store<F>,
     cons_witness: &mut ConsWitness<F>,
 ) -> Result<Ptr<F>, ReductionError> {
     match fun.tag {
@@ -1393,7 +1393,7 @@ fn extend_closure<F: LurkField>(
 }
 
 impl<F: LurkField> Store<F> {
-    pub fn as_lurk_boolean(&mut self, x: bool) -> Ptr<F> {
+    pub fn as_lurk_boolean(&self, x: bool) -> Ptr<F> {
         if x {
             lurk_sym_ptr!(self, t)
         } else {

@@ -189,7 +189,7 @@ mod test {
 
     #[test]
     fn display_syntax() {
-        let mut s = Store::<Fr>::default();
+        let s = Store::<Fr>::default();
 
         macro_rules! improper {
             ( $( $x:expr ),+ ) => {

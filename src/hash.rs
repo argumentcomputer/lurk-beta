@@ -1,9 +1,8 @@
-use std::collections::HashMap;
 use std::hash::Hash;
 use std::sync::Arc;
 
 use crate::field::{FWrap, LurkField};
-use elsa::sync::FrozenMap;
+use elsa::{sync::FrozenMap, sync_index_map::FrozenIndexMap};
 
 use generic_array::typenum::{U3, U4, U6, U8};
 use neptune::{poseidon::PoseidonConstants, Poseidon};
@@ -114,12 +113,12 @@ impl<F: LurkField> PoseidonCache<F> {
     }
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Default, Debug)]
 pub struct InversePoseidonCache<F: LurkField> {
-    a3: HashMap<FWrap<F>, [F; 3]>,
-    a4: HashMap<FWrap<F>, [F; 4]>,
-    a6: HashMap<FWrap<F>, [F; 6]>,
-    a8: HashMap<FWrap<F>, [F; 8]>,
+    a3: FrozenIndexMap<FWrap<F>, Box<[F; 3]>>,
+    a4: FrozenIndexMap<FWrap<F>, Box<[F; 4]>>,
+    a6: FrozenIndexMap<FWrap<F>, Box<[F; 6]>>,
+    a8: FrozenIndexMap<FWrap<F>, Box<[F; 8]>>,
 
     pub constants: HashConstants<F>,
 }
@@ -148,15 +147,15 @@ impl<F: LurkField> InversePoseidonCache<F> {
             _ => unreachable!(),
         }
     }
-    pub fn insert<const ARITY: usize>(&mut self, key: FWrap<F>, preimage: [F; ARITY]) {
+    pub fn insert<const ARITY: usize>(&self, key: FWrap<F>, preimage: [F; ARITY]) {
         macro_rules! insert {
             ($name:ident, $n:expr) => {{
                 assert_eq!(ARITY, $n);
                 // SAFETY: we are just teaching the compiler that the slice has size, ARITY, which is guaranteed by
                 // the assertion above.
-                self.$name.insert(key, unsafe {
+                self.$name.insert(key, Box::new(unsafe {
                     *std::mem::transmute::<&[F; ARITY], &[F; $n]>(&preimage)
-                });
+                }));
             }};
         }
 

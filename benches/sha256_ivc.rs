@@ -139,7 +139,7 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
         self.arity
     }
 
-    fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
+    fn simple_evaluate(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
         let mut hasher = <Sha256 as sha2::Digest>::new();
 
         let mut input = vec![0u8; 64 * self.arity];

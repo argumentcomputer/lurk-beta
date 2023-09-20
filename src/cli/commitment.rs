@@ -27,7 +27,7 @@ impl<F: LurkField> HasFieldModulus for Commitment<F> {
 }
 
 impl<F: LurkField> Commitment<F> {
-    pub(crate) fn new(secret: Option<F>, payload: Ptr<F>, store: &mut Store<F>) -> Result<Self> {
+    pub(crate) fn new(secret: Option<F>, payload: Ptr<F>, store: &Store<F>) -> Result<Self> {
         let comm_ptr = match secret {
             Some(secret) => store.hide(secret, payload),
             None => store.commit(payload),

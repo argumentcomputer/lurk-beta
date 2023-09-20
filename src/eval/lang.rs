@@ -35,7 +35,7 @@ impl<F: LurkField> Coprocessor<F> for DummyCoprocessor<F> {
 
     /// And does nothing but return nil. It should probably never be used and can perhaps be eliminated,
     /// but for now it exists as an exemplar demonstrating the intended shape of enums like the default, `Coproc`.
-    fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
+    fn simple_evaluate(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
         assert!(args.is_empty());
         lurk_sym_ptr!(s, nil)
     }
@@ -93,7 +93,7 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         }
     }
 
-    pub fn new_with_bindings<B: Into<Binding<F, C>>>(s: &mut Store<F>, bindings: Vec<B>) -> Self {
+    pub fn new_with_bindings<B: Into<Binding<F, C>>>(s: &Store<F>, bindings: Vec<B>) -> Self {
         let mut new = Self::new();
         for b in bindings {
             new.add_binding(b.into(), s);
@@ -119,7 +119,7 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         &mut self,
         name: S,
         cproc: T,
-        store: &mut Store<F>,
+        store: &Store<F>,
     ) {
         let name = name.into();
         let ptr = store.intern_symbol(&name);
@@ -130,7 +130,7 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         self.index.insert(z_ptr, self.index.len());
     }
 
-    pub fn add_binding<B: Into<Binding<F, C>>>(&mut self, binding: B, store: &mut Store<F>) {
+    pub fn add_binding<B: Into<Binding<F, C>>>(&mut self, binding: B, store: &Store<F>) {
         let Binding { name, coproc, _p } = binding.into();
         self.add_coprocessor(name, coproc, store);
     }

@@ -146,7 +146,7 @@ fn test_lookup() {
 
     assert!(lookup(&env, &var, &store).unwrap().is_nil());
 
-    let new_env = extend(env, var, val, &mut store);
+    let new_env = extend(env, var, val, &store);
     assert_eq!(val, lookup(&new_env, &var, &store).unwrap());
 }
 
@@ -161,7 +161,7 @@ fn test_reduce_simple() {
             num,
             empty_sym_env(&store),
             store.intern_cont_outermost(),
-            &mut store,
+            &store,
             &lang,
         )
         .unwrap();
@@ -173,7 +173,7 @@ fn test_reduce_simple() {
             lurk_sym_ptr!(store, nil),
             empty_sym_env(&store),
             store.intern_cont_outermost(),
-            &mut store,
+            &store,
             &lang,
         )
         .unwrap();
@@ -199,7 +199,7 @@ fn evaluate_lookup() {
     let var = store.sym("apple");
     let val2 = store.num(888);
     let var2 = store.sym("banana");
-    let env = extend(empty_sym_env(&store), var, val, &mut store);
+    let env = extend(empty_sym_env(&store), var, val, &store);
     let lang = Lang::<Fr, Coproc<Fr>>::new();
 
     {
@@ -211,7 +211,7 @@ fn evaluate_lookup() {
             },
             iterations,
             _emitted,
-        ) = Evaluator::new(var, env, &mut store, limit, &lang)
+        ) = Evaluator::new(var, env, &store, limit, &lang)
             .eval()
             .unwrap();
 
@@ -219,7 +219,7 @@ fn evaluate_lookup() {
         assert_eq!(&result_expr, &val);
     }
     {
-        let env2 = extend(env, var2, val2, &mut store);
+        let env2 = extend(env, var2, val2, &store);
         let (
             IO {
                 expr: result_expr,
@@ -228,7 +228,7 @@ fn evaluate_lookup() {
             },
             iterations,
             _emitted,
-        ) = Evaluator::new(var, env2, &mut store, limit, &lang)
+        ) = Evaluator::new(var, env2, &store, limit, &lang)
             .eval()
             .unwrap();
 
@@ -1133,7 +1133,7 @@ fn evaluate_make_tree_minimal_regression() {
             },
             iterations,
             _emitted,
-        ) = Evaluator::new(expr, empty_sym_env(&s), &mut s, limit, &lang)
+        ) = Evaluator::new(expr, empty_sym_env(&s), &s, limit, &lang)
             .eval()
             .unwrap();
 

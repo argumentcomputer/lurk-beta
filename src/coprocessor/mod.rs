@@ -33,7 +33,7 @@ pub mod trie;
 pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> {
     fn eval_arity(&self) -> usize;
 
-    fn evaluate(&self, s: &mut Store<F>, args: Ptr<F>, env: Ptr<F>, cont: ContPtr<F>) -> IO<F> {
+    fn evaluate(&self, s: &Store<F>, args: Ptr<F>, env: Ptr<F>, cont: ContPtr<F>) -> IO<F> {
         let Some(argv) = s.fetch_list(&args) else {
             return IO {
                 expr: args,
@@ -60,7 +60,7 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
     }
 
     /// As with all evaluation, the value returned from `simple_evaluate` must be fully evaluated.
-    fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F>;
+    fn simple_evaluate(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F>;
 
     /// Returns true if this Coprocessor actually implements a circuit.
     fn has_circuit(&self) -> bool {
@@ -220,7 +220,7 @@ pub(crate) mod test {
         }
 
         /// It squares the first arg and adds it to the second.
-        fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
+        fn simple_evaluate(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
             let a = args[0];
             let b = args[1];
 

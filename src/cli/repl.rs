@@ -223,7 +223,7 @@ impl Repl<F> {
                         (cont.parts(), cont_out.parts()),
                     );
 
-                    let claim_comm = Commitment::new(None, claim, &mut self.store)?;
+                    let claim_comm = Commitment::new(None, claim, &self.store)?;
                     let claim_hash = &claim_comm.hash.hex_digits();
                     let proof_key = &Self::proof_key(&self.backend, &self.rc, claim_hash);
                     let proof_path = proof_path(proof_key);
@@ -282,7 +282,7 @@ impl Repl<F> {
     }
 
     fn hide(&mut self, secret: F, payload: Ptr<F>) -> Result<()> {
-        let commitment = Commitment::new(Some(secret), payload, &mut self.store)?;
+        let commitment = Commitment::new(Some(secret), payload, &self.store)?;
         let hash_str = &commitment.hash.hex_digits();
         commitment.persist()?;
         println!(
@@ -324,8 +324,7 @@ impl Repl<F> {
     }
 
     fn eval_expr(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize, Vec<Ptr<F>>)> {
-        let ret =
-            Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang).eval()?;
+        let ret = Evaluator::new(expr_ptr, self.env, &self.store, self.limit, &self.lang).eval()?;
         match ret.0.cont.tag {
             ContTag::Terminal => Ok(ret),
             t => {
@@ -344,8 +343,7 @@ impl Repl<F> {
         &mut self,
         expr_ptr: Ptr<F>,
     ) -> Result<(IO<F>, usize, Vec<Ptr<F>>)> {
-        let ret =
-            Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang).eval()?;
+        let ret = Evaluator::new(expr_ptr, self.env, &self.store, self.limit, &self.lang).eval()?;
         if matches!(ret.0.cont.tag, ContTag::Terminal | ContTag::Error) {
             Ok(ret)
         } else {
@@ -357,8 +355,8 @@ impl Repl<F> {
     }
 
     fn eval_expr_and_memoize(&mut self, expr_ptr: Ptr<F>) -> Result<(IO<F>, usize)> {
-        let frames = Evaluator::new(expr_ptr, self.env, &mut self.store, self.limit, &self.lang)
-            .get_frames()?;
+        let frames =
+            Evaluator::new(expr_ptr, self.env, &self.store, self.limit, &self.lang).get_frames()?;
 
         let n_frames = frames.len();
         let last_frame = &frames[n_frames - 1];
