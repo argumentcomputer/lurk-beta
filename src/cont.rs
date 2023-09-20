@@ -86,7 +86,7 @@ impl<F: LurkField> Continuation<F> {
             }
         }
     }
-    pub fn insert_in_store(&self, store: &mut crate::store::Store<F>) -> (usize, bool) {
+    pub fn insert_in_store(&self, store: &crate::store::Store<F>) -> (usize, bool) {
         match self {
             Self::Outermost | Self::Dummy | Self::Error | Self::Terminal => (0, false),
             Self::Call0 {
