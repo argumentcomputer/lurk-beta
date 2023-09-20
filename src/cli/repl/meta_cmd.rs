@@ -20,8 +20,7 @@ pub(super) struct MetaCmd<F: LurkField> {
     format: &'static str,
     description: &'static [&'static str],
     example: &'static [&'static str],
-    pub(super) run:
-        fn(repl: &mut Repl<F>, cmd: &str, args: &Ptr<F>, pwd_path: &Utf8Path) -> Result<()>,
+    pub(super) run: fn(repl: &mut Repl<F>, cmd: &str, args: &Ptr<F>) -> Result<()>,
 }
 
 type F = pasta_curves::pallas::Scalar; // TODO: generalize this
@@ -33,11 +32,11 @@ impl MetaCmd<F> {
         format: "!(load <string>)",
         description: &[],
         example: &["Load lurk expressions from a file path."],
-        run: |repl, cmd, args, pwd_path| {
+        run: |repl, cmd, args| {
             let first = repl.peek1(cmd, args)?;
             match repl.store.fetch_string(&first) {
                 Some(path) => {
-                    let joined = pwd_path.join(Utf8Path::new(&path));
+                    let joined = repl.pwd_path.join(Utf8Path::new(&path));
                     repl.load_file(&joined)?
                 }
                 _ => bail!("Argument of `load` must be a string."),
@@ -57,7 +56,7 @@ impl MetaCmd<F> {
             "The state's env is set to the result.",
         ],
         example: &["!(def foo (lambda () 123))"],
-        run: |repl: &mut Repl<F>, cmd: &str, args: &Ptr<F>, _pwd_path: &Utf8Path| {
+        run: |repl: &mut Repl<F>, cmd: &str, args: &Ptr<F>| {
             let (first, second) = repl.peek2(cmd, args)?;
             let l = lurk_sym_ptr!(&repl.store, let_);
             let current_env = lurk_sym_ptr!(&repl.store, current_env);
@@ -91,7 +90,7 @@ impl MetaCmd<F> {
             "!(defrec sum (lambda (l) (if (eq l nil) 0 (+ (car l) (sum (cdr l))))))",
             "(sum '(1 2 3))",
         ],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             let (first, second) = repl.peek2(cmd, args)?;
             let l = lurk_sym_ptr!(&repl.store, letrec);
             let current_env = lurk_sym_ptr!(&repl.store, current_env);
@@ -122,7 +121,7 @@ impl MetaCmd<F> {
         format: "!(assert <expr>)",
         description: &[],
         example: &["!(assert t)", "!(assert (eq 3 (+ 1 2)))"],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             let first = repl.peek1(cmd, args)?;
             let (first_io, ..) = repl.eval_expr(first)?;
             if first_io.expr.is_nil() {
@@ -144,7 +143,7 @@ impl MetaCmd<F> {
         format: "!(assert-eq <expr> <expr>)",
         description: &[],
         example: &["!(assert-eq 3 (+ 1 2))"],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             let (first, second) = repl.peek2(cmd, args)?;
             let (first_io, ..) = repl
                 .eval_expr(first)
@@ -185,7 +184,7 @@ impl MetaCmd<F> {
         example: &[
             "!(assert-emitted '(1 2) (begin (emit 1) (emit 2)))"
         ],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             let (first, second) = repl.peek2(cmd, args)?;
             let (first_io, ..) = repl
                 .eval_expr(first)
@@ -217,7 +216,7 @@ impl MetaCmd<F> {
         format: "!(assert-error <expr>)",
         description: &[],
         example: &["!(assert-error (1 1))"],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             let first = repl.peek1(cmd, args)?;
             let (first_io, ..) = repl.eval_expr_allowing_error_continuation(first)?;
             if first_io.cont.tag != ContTag::Error {
@@ -245,7 +244,7 @@ impl MetaCmd<F> {
             "!(commit '(13 . 21))",
             "(let ((n (open 0x2c4e1dc8a344764c52d97c691ef0d8312e07b38e99f12cf2f200891c53fb36c0))) (* (car n) (cdr n)))",
         ],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             let first = repl.peek1(cmd, args)?;
             let (first_io, ..) = repl.eval_expr(first)?;
             repl.hide(ff::Field::ZERO, first_io.expr)?;
@@ -265,7 +264,7 @@ impl MetaCmd<F> {
             "(secret (comm 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425))",
             "(open 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425)",
         ],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             let (first, second) = repl.peek2(cmd, args)?;
             let (first_io, ..) = repl
                 .eval_expr(first)
@@ -297,7 +296,7 @@ impl MetaCmd<F> {
             "!(commit '(13 . 21))",
             "(fetch 0x2c4e1dc8a344764c52d97c691ef0d8312e07b38e99f12cf2f200891c53fb36c0)",
         ],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             let hash = repl.get_comm_hash(cmd, args)?;
             repl.fetch(&hash, false)?;
             Ok(())
@@ -315,7 +314,7 @@ impl MetaCmd<F> {
             "!(commit '(13 . 21))",
             "!(open 0x2c4e1dc8a344764c52d97c691ef0d8312e07b38e99f12cf2f200891c53fb36c0)",
         ],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             let hash = repl.get_comm_hash(cmd, args)?;
             repl.fetch(&hash, true)?;
             Ok(())
@@ -330,7 +329,7 @@ impl<F: LurkField> MetaCmd<F> {
         format: "!(clear)",
         description: &[],
         example: &["!(def a 1)", "(current-env)", "!(clear)", "(current-env)"],
-        run: |repl, _cmd, _args, _pwd_path| {
+        run: |repl, _cmd, _args| {
             repl.env = lurk_sym_ptr!(&repl.store, nil);
             Ok(())
         },
@@ -344,7 +343,7 @@ impl MetaCmd<F> {
         format: "!(set-env <expr>)",
         description: &[],
         example: &["!(set-env '((a . 1) (b . 2)))", "a"],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             // The state's env is set to the result of evaluating the first argument.
             let first = repl.peek1(cmd, args)?;
             let (first_io, ..) = repl.eval_expr(first)?;
@@ -370,7 +369,7 @@ impl MetaCmd<F> {
             "!(verify \"Nova_Pallas_10_166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca\")",
             "!(open 0x166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca)",
         ],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             if !args.is_nil() {
                 repl.eval_expr_and_memoize(repl.peek1(cmd, args)?)?;
             }
@@ -396,7 +395,7 @@ impl<F: LurkField> MetaCmd<F> {
             "!(verify \"Nova_Pallas_10_166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca\")",
             "!(open 0x166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca)",
         ],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             let first = repl.peek1(cmd, args)?;
             let proof_id = repl.get_string(&first)?;
             LurkProof::verify_proof(&proof_id)?;
@@ -412,7 +411,7 @@ impl<F: LurkField> MetaCmd<F> {
         format: "!(defpackage <string|symbol>)",
         description: &[],
         example: &["!(defpackage abc)"],
-        run: |repl, _cmd, args, _pwd_path| {
+        run: |repl, _cmd, args| {
             // TODO: handle args
             let (name, _args) = repl.store.car_cdr(args)?;
             let name = match name.tag {
@@ -435,7 +434,7 @@ impl<F: LurkField> MetaCmd<F> {
         format: "!(import <string|package> ...)",
         description: &[],
         example: &[],
-        run: |repl, _cmd, args, _pwd_path| {
+        run: |repl, _cmd, args| {
             // TODO: handle pkg
             let (mut symbols, _pkg) = repl.store.car_cdr(args)?;
             if symbols.tag == ExprTag::Sym {
@@ -474,7 +473,7 @@ impl<F: LurkField> MetaCmd<F> {
             "!(in-package .lurk.user)",
             "(.lurk.user.abc.two)",
         ],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             let first = repl.peek1(cmd, args)?;
             match first.tag {
                 ExprTag::Str => {
@@ -508,7 +507,7 @@ impl<F: LurkField> MetaCmd<F> {
             "Otherwise the full help for the command in the first argument is printed.",
         ],
         example: &["!(help)", "!(help verify)", "!(help \"load\")"],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             let first = repl.peek1(cmd, args)?;
             match first.tag {
                 ExprTag::Str => {
