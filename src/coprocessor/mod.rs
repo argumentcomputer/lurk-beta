@@ -81,6 +81,8 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
         // Refactor to share.
         let arity = self.arity();
 
+        // If `input_expr` is not a cons, the circuit will not be satisified, per `car_cdr`'s contract.
+        // That is also the desired behavior for the coprocessor circuit's validation, so this is fine.
         let (head, rest) = car_cdr(
             &mut cs.namespace(|| "coprocessor_input car_cdr"),
             g,

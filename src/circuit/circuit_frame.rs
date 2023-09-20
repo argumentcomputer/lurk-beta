@@ -5386,6 +5386,7 @@ fn destructure_list_aux<F: LurkField, CS: ConstraintSystem<F>>(
     )
 }
 
+/// Returns allocated car and cdr of `maybe_cons` if `not_dummy`.  If `maybe_cons` is not a cons and `not_dummy` is true, the circuit will not be satisfied.
 pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
