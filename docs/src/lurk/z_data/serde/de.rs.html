@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/z_data/serde/de.rs`."><title>de.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-085727c29c2fa99e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (65ea825f4 2023-09-18)" data-channel="nightly" data-search-js="search-5d3eaacf19ebf04f.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-f6ec288034ea164c.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../lurk/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/z_data/serde/de.rs`."><title>de.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-085727c29c2fa99e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (bdb0fa3ee 2023-09-19)" data-channel="nightly" data-search-js="search-cfcb9d78f851226e.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../lurk/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -537,13 +537,6 @@
 <a href="#537" id="537">537</a>
 <a href="#538" id="538">538</a>
 <a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
-<a href="#545" id="545">545</a>
-<a href="#546" id="546">546</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::{
     de,
     de::{IntoDeserializer, Visitor},
@@ -595,9 +588,9 @@
             ZData::Atom(x) <span class="kw">if </span>x.len() == <span class="number">1 </span>=&gt; <span class="kw">match </span>x[<span class="number">0</span>] {
                 <span class="number">0u8 </span>=&gt; visitor.visit_bool(<span class="bool-val">false</span>),
                 <span class="number">1u8 </span>=&gt; visitor.visit_bool(<span class="bool-val">true</span>),
-                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected bool, got: {}&quot;</span>, err))),
+                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected bool, got: {err}&quot;</span>))),
             },
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected bool, got: {}&quot;</span>, err))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected bool, got: {err}&quot;</span>))),
         }
     }
 
@@ -651,7 +644,7 @@
     {
         <span class="kw">match </span><span class="self">self</span>.input {
             ZData::Atom(x) <span class="kw">if </span>x.len() == <span class="number">1 </span>=&gt; visitor.visit_u8(x[<span class="number">0</span>]),
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected u8, got: {}&quot;</span>, err))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected u8, got: {err}&quot;</span>))),
         }
     }
 
@@ -665,7 +658,7 @@
                 <span class="kw">let </span>a: [u8; <span class="number">2</span>] = x.clone().try_into().unwrap();
                 visitor.visit_u16(u16::from_le_bytes(a))
             }
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected u16, got: {}&quot;</span>, err))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected u16, got: {err}&quot;</span>))),
         }
     }
 
@@ -679,7 +672,7 @@
                 <span class="kw">let </span>a: [u8; <span class="number">4</span>] = x.clone().try_into().unwrap();
                 visitor.visit_u32(u32::from_le_bytes(a))
             }
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected u32: got {}&quot;</span>, err))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected u32: got {err}&quot;</span>))),
         }
     }
 
@@ -693,7 +686,7 @@
                 <span class="kw">let </span>a: [u8; <span class="number">8</span>] = x.clone().try_into().unwrap();
                 visitor.visit_u64(u64::from_le_bytes(a))
             }
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected u64: got {}&quot;</span>, err))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected u64: got {err}&quot;</span>))),
         }
     }
 
@@ -728,10 +721,7 @@
             .map_err(|e| SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected char: {}&quot;</span>, e)))<span class="question-mark">?</span>;
         <span class="kw">match </span>char::from_u32(num) {
             <span class="prelude-val">Some</span>(a) =&gt; visitor.visit_char(a),
-            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(
-                <span class="string">&quot;failed to get char from: {}&quot;</span>,
-                num
-            ))),
+            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;failed to get char from: {num}&quot;</span>))),
         }
     }
 
@@ -749,12 +739,12 @@
                             v.push(char::deserialize(<span class="kw-2">&amp;mut </span>Deserializer::from_z_data(zd))<span class="question-mark">?</span>)
                         }
                         err =&gt; {
-                            <span class="kw">return </span><span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected string, got: {}&quot;</span>, err)))
+                            <span class="kw">return </span><span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected string, got: {err}&quot;</span>)))
                         }
                     }
                 }
             }
-            err =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected string, got: {}&quot;</span>, err))),
+            err =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected string, got: {err}&quot;</span>))),
         }
         visitor.visit_str(<span class="kw-2">&amp;</span>v.into_iter().collect::&lt;String&gt;())
     }
@@ -774,7 +764,7 @@
     {
         <span class="kw">match </span><span class="self">self</span>.input {
             ZData::Atom(x) =&gt; visitor.visit_bytes(x),
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected bytes, got: {}&quot;</span>, err))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected bytes, got: {err}&quot;</span>))),
         }
     }
 
@@ -794,11 +784,11 @@
         <span class="kw">match </span><span class="self">self</span>.input {
             ZData::Atom(x) =&gt; <span class="kw">match </span>x.as_slice() {
                 [] =&gt; visitor.visit_none(),
-                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected Option, got: {:?}&quot;</span>, err))),
+                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected Option, got: {err:?}&quot;</span>))),
             },
             ZData::Cell(xs) =&gt; <span class="kw">match </span>xs.as_slice() {
                 [a] =&gt; visitor.visit_some(<span class="kw-2">&amp;mut </span>Deserializer::from_z_data(a)),
-                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected Option, got: {:?}&quot;</span>, err))),
+                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected Option, got: {err:?}&quot;</span>))),
             },
         }
     }
@@ -811,12 +801,9 @@
         <span class="kw">match </span><span class="self">self</span>.input {
             ZData::Atom(x) =&gt; <span class="kw">match </span>x.as_slice() {
                 [] =&gt; visitor.visit_none(),
-                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(
-                    <span class="string">&quot;expected Unit (), got: {:?}&quot;</span>,
-                    err
-                ))),
+                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected Unit (), got: {err:?}&quot;</span>))),
             },
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected Unit (), got: {}&quot;</span>, err))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected Unit (), got: {err}&quot;</span>))),
         }
     }
 
@@ -851,7 +838,7 @@
     {
         <span class="kw">match </span><span class="self">self</span>.input {
             ZData::Cell(xs) =&gt; visitor.visit_seq(SeqAccess::new(xs, <span class="number">0</span>)),
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected sequence, got: {}&quot;</span>, err))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected sequence, got: {err}&quot;</span>))),
         }
     }
 
@@ -883,7 +870,7 @@
     {
         <span class="kw">match </span><span class="self">self</span>.input {
             ZData::Cell(xs) =&gt; visitor.visit_map(MapAccess::new(xs)),
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected map, got: {}&quot;</span>, err))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected map, got: {err}&quot;</span>))),
         }
     }
 
@@ -916,9 +903,9 @@
                     <span class="kw">let </span>variant = String::from(variants[idx_vec[<span class="number">0</span>] <span class="kw">as </span>usize]);
                     visitor.visit_enum(Enum::new(<span class="self">self</span>, variant, <span class="number">1</span>))
                 }
-                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected enum, got: {}&quot;</span>, err))),
+                err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected enum, got: {err}&quot;</span>))),
             },
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected enum, got: {}&quot;</span>, err))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected enum, got: {err}&quot;</span>))),
         }
     }
 
@@ -1061,9 +1048,8 @@
             ZData::Cell(xs) <span class="kw">if </span>xs.len() &gt; <span class="number">1 </span>=&gt; Deserializer::from_z_data(<span class="kw-2">&amp;</span>xs[<span class="number">1</span>]),
             err =&gt; {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(
-                    <span class="string">&quot;expected newtype variant, got: {}&quot;</span>,
-                    err
-                )))
+                    <span class="string">&quot;expected newtype variant, got: {err}&quot;
+                </span>)))
             }
         };
         seed.deserialize(<span class="kw-2">&amp;mut </span>newtype)
@@ -1075,7 +1061,7 @@
     {
         <span class="kw">match </span><span class="self">self</span>.de.input {
             ZData::Cell(xs) =&gt; visitor.visit_seq(SeqAccess::new(xs, <span class="self">self</span>.index)),
-            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected sequence, got: {}&quot;</span>, err))),
+            err =&gt; <span class="prelude-val">Err</span>(SerdeError::Type(<span class="macro">format!</span>(<span class="string">&quot;expected sequence, got: {err}&quot;</span>))),
         }
     }
 
