@@ -939,11 +939,11 @@ fn apply_cont() -> Func {
                             Op2::Equal => {
                                 let eq_tag = eq_tag(evaled_arg, result);
                                 let eq_val = eq_val(evaled_arg, result);
-                                let eq = mul(eq_tag, eq_val);
-                                if eq == zero {
-                                    return (nil, env, continuation, makethunk)
+                                let eq = and(eq_tag, eq_val);
+                                iff eq {
+                                    return (t, env, continuation, makethunk)
                                 }
-                                return (t, env, continuation, makethunk)
+                                return (nil, env, continuation, makethunk)
                             }
                             Op2::Sum => {
                                 match args_num_type.tag {
@@ -957,11 +957,11 @@ fn apply_cont() -> Func {
                                     Expr::U64 => {
                                         let val = add(evaled_arg, result);
                                         let not_overflow = lt(val, size_u64);
-                                        if not_overflow == zero {
-                                            let val = sub(val, size_u64);
+                                        iff not_overflow {
                                             let val = cast(val, Expr::U64);
                                             return (val, env, continuation, makethunk)
                                         }
+                                        let val = sub(val, size_u64);
                                         let val = cast(val, Expr::U64);
                                         return (val, env, continuation, makethunk)
                                     }
@@ -982,7 +982,8 @@ fn apply_cont() -> Func {
                                         // to add 2^64 to get back to U64 domain.
                                         let val = sub(evaled_arg, result);
                                         let is_neg = lt(val, zero);
-                                        if is_neg == zero {
+                                        let not_neg = not(is_neg);
+                                        iff not_neg {
                                             let val = cast(val, Expr::U64);
                                             return (val, env, continuation, makethunk)
                                         }
@@ -1012,36 +1013,36 @@ fn apply_cont() -> Func {
                             }
                             Op2::Quotient => {
                                 let is_z = eq_val(result, zero);
-                                if is_z == zero {
-                                    match args_num_type.tag {
-                                        Expr::Nil => {
-                                            return (result, env, err, errctrl)
-                                        }
-                                        Expr::Num => {
-                                            let val = div(evaled_arg, result);
-                                            return (val, env, continuation, makethunk)
-                                        }
-                                        Expr::U64 => {
-                                            let (div, _rem) = div_rem64(evaled_arg, result);
-                                            let div = cast(div, Expr::U64);
-                                            return (div, env, continuation, makethunk)
-                                        }
+                                iff is_z {
+                                    return (result, env, err, errctrl)
+                                }
+                                match args_num_type.tag {
+                                    Expr::Nil => {
+                                        return (result, env, err, errctrl)
+                                    }
+                                    Expr::Num => {
+                                        let val = div(evaled_arg, result);
+                                        return (val, env, continuation, makethunk)
+                                    }
+                                    Expr::U64 => {
+                                        let (div, _rem) = div_rem64(evaled_arg, result);
+                                        let div = cast(div, Expr::U64);
+                                        return (div, env, continuation, makethunk)
                                     }
                                 }
-                                return (result, env, err, errctrl)
                             }
                             Op2::Modulo => {
                                 let is_z = eq_val(result, zero);
-                                if is_z == zero {
-                                    match args_num_type.tag {
-                                        Expr::U64 => {
-                                            let (_div, rem) = div_rem64(evaled_arg, result);
-                                            let rem = cast(rem, Expr::U64);
-                                            return (rem, env, continuation, makethunk)
-                                        }
-                                    };
+                                iff is_z {
                                     return (result, env, err, errctrl)
                                 }
+                                match args_num_type.tag {
+                                    Expr::U64 => {
+                                        let (_div, rem) = div_rem64(evaled_arg, result);
+                                        let rem = cast(rem, Expr::U64);
+                                        return (rem, env, continuation, makethunk)
+                                    }
+                                };
                                 return (result, env, err, errctrl)
                             }
                             Op2::NumEqual => {
@@ -1051,38 +1052,38 @@ fn apply_cont() -> Func {
                                     }
                                 };
                                 let eq = eq_val(evaled_arg, result);
-                                if eq == zero {
-                                    return (nil, env, continuation, makethunk)
+                                iff eq {
+                                    return (t, env, continuation, makethunk)
                                 }
-                                return (t, env, continuation, makethunk)
+                                return (nil, env, continuation, makethunk)
                             }
                             Op2::Less => {
                                 let val = lt(evaled_arg, result);
-                                if val == zero {
-                                    return (nil, env, continuation, makethunk)
+                                iff val {
+                                    return (t, env, continuation, makethunk)
                                 }
-                                return (t, env, continuation, makethunk)
+                                return (nil, env, continuation, makethunk)
                             }
                             Op2::Greater => {
                                 let val = lt(result, evaled_arg);
-                                if val == zero {
+                                iff val {
+                                    return (t, env, continuation, makethunk)
+                                }
+                                return (nil, env, continuation, makethunk)
+                            }
+                            Op2::LessEqual => {
+                                let val = lt(result, evaled_arg);
+                                iff val {
                                     return (nil, env, continuation, makethunk)
                                 }
                                 return (t, env, continuation, makethunk)
                             }
-                            Op2::LessEqual => {
-                                let val = lt(result, evaled_arg);
-                                if val == zero {
-                                    return (t, env, continuation, makethunk)
-                                }
-                                return (nil, env, continuation, makethunk)
-                            }
                             Op2::GreaterEqual => {
                                 let val = lt(evaled_arg, result);
-                                if val == zero {
-                                    return (t, env, continuation, makethunk)
+                                iff val {
+                                    return (nil, env, continuation, makethunk)
                                 }
-                                return (nil, env, continuation, makethunk)
+                                return (t, env, continuation, makethunk)
                             }
                         };
                         return (result, env, err, errctrl)
@@ -1155,8 +1156,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 10538;
-    const NUM_CONSTRAINTS: usize = 12851;
+    const NUM_AUX: usize = 10523;
+    const NUM_CONSTRAINTS: usize = 12816;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash4: 14,
         hash6: 3,

@@ -33,10 +33,9 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::circuit::gadgets::{
     constraints::{
-        add, alloc_equal, alloc_is_zero, allocate_is_negative, and, boolean_to_num, div,
-        enforce_pack, enforce_product_and_sum, enforce_selector_with_premise, implies_equal,
-        implies_equal_const, implies_u64, implies_unequal, implies_unequal_const, mul, or, pick,
-        sub,
+        add, alloc_equal, alloc_is_zero, allocate_is_negative, and, div, enforce_pack,
+        enforce_product_and_sum, enforce_selector_with_premise, implies_equal, implies_equal_const,
+        implies_u64, implies_unequal, implies_unequal_const, mul, or, pick, sub,
     },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
@@ -58,6 +57,7 @@ use super::{
 
 pub enum AllocatedVal<F: LurkField> {
     Pointer(AllocatedPtr<F>),
+    Number(AllocatedNum<F>),
     Boolean(Boolean),
 }
 
@@ -125,45 +125,52 @@ fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
     slot: &Slot,
     preallocated_preimg: Vec<AllocatedNum<F>>,
     store: &Store<F>,
-) -> Result<AllocatedNum<F>> {
+) -> Result<AllocatedVal<F>> {
     let mut cs = cs.namespace(|| format!("image for slot {slot}"));
     let preallocated_img = {
         match slot.typ {
-            SlotType::Hash4 => {
-                hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c4())?
-            }
-            SlotType::Hash6 => {
-                hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c6())?
-            }
-            SlotType::Hash8 => {
-                hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c8())?
-            }
-            SlotType::Commitment => {
-                hash_poseidon(cs, preallocated_preimg, store.poseidon_cache.constants.c3())?
-            }
+            SlotType::Hash4 => AllocatedVal::Number(hash_poseidon(
+                cs,
+                preallocated_preimg,
+                store.poseidon_cache.constants.c4(),
+            )?),
+            SlotType::Hash6 => AllocatedVal::Number(hash_poseidon(
+                cs,
+                preallocated_preimg,
+                store.poseidon_cache.constants.c6(),
+            )?),
+            SlotType::Hash8 => AllocatedVal::Number(hash_poseidon(
+                cs,
+                preallocated_preimg,
+                store.poseidon_cache.constants.c8(),
+            )?),
+            SlotType::Commitment => AllocatedVal::Number(hash_poseidon(
+                cs,
+                preallocated_preimg,
+                store.poseidon_cache.constants.c3(),
+            )?),
             SlotType::LessThan => {
                 // When a and b have the same sign, a < b iff a - b < 0
                 // When a and b have different signs, a < b iff a is negative
                 let a_num = &preallocated_preimg[0];
                 let b_num = &preallocated_preimg[1];
                 let a_is_negative = allocate_is_negative(cs.namespace(|| "a_is_negative"), a_num)?;
-                let a_is_negative_num =
-                    boolean_to_num(cs.namespace(|| "a_is_negative_num"), &a_is_negative)?;
                 let b_is_negative = allocate_is_negative(cs.namespace(|| "b_is_negative"), b_num)?;
+                // (same_sign && diff_is_neg) || (!same_sign && a_is_neg)
                 let same_sign =
                     Boolean::xor(cs.namespace(|| "same_sign"), &a_is_negative, &b_is_negative)?
                         .not();
                 let diff = sub(cs.namespace(|| "diff"), a_num, b_num)?;
                 let diff_is_negative =
                     allocate_is_negative(cs.namespace(|| "diff_is_negative"), &diff)?;
-                let diff_is_negative_num =
-                    boolean_to_num(cs.namespace(|| "diff_is_negative_num"), &diff_is_negative)?;
-                pick(
-                    cs.namespace(|| "pick"),
-                    &same_sign,
-                    &diff_is_negative_num,
-                    &a_is_negative_num,
-                )?
+                let and1 = and(&mut cs.namespace(|| "and1"), &same_sign, &diff_is_negative)?;
+                let and2 = and(
+                    &mut cs.namespace(|| "and2"),
+                    &same_sign.not(),
+                    &a_is_negative,
+                )?;
+                let lt = or(&mut cs.namespace(|| "or"), &and1, &and2)?;
+                AllocatedVal::Boolean(lt)
             }
         }
     };
@@ -177,7 +184,7 @@ fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
     slot_type: SlotType,
     num_slots: usize,
     store: &Store<F>,
-) -> Result<Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>> {
+) -> Result<Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>> {
     assert!(
         preimg_data.len() == num_slots,
         "collected preimages not equal to the number of available slots"
@@ -481,11 +488,11 @@ impl Func {
         struct Globals<'a, F: LurkField> {
             store: &'a Store<F>,
             global_allocator: &'a GlobalAllocator<F>,
-            preallocated_hash4_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
-            preallocated_hash6_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
-            preallocated_hash8_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
-            preallocated_commitment_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
-            preallocated_less_than_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedNum<F>)>,
+            preallocated_hash4_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
+            preallocated_hash6_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
+            preallocated_hash8_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
+            preallocated_commitment_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
+            preallocated_less_than_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
             call_outputs: VecDeque<Vec<Ptr<F>>>,
         }
 
@@ -544,8 +551,8 @@ impl Func {
                         let img_tag = g
                             .global_allocator
                             .get_allocated_const_cloned($tag.to_field())?;
-                        let img_hash = preallocated_img_hash.clone();
-                        let img_ptr = AllocatedPtr::from_parts(img_tag, img_hash);
+                        let AllocatedVal::Number(img_hash) = preallocated_img_hash else { bail!("Expected number")};
+                        let img_ptr = AllocatedPtr::from_parts(img_tag, img_hash.clone());
                         bound_allocations.insert_ptr($img, img_ptr);
                     };
                 }
@@ -556,7 +563,7 @@ impl Func {
                         let allocated_img = bound_allocations.get_ptr($img)?;
 
                         // Retrieve the preallocated preimage and image for this slot
-                        let (preallocated_preimg, preallocated_img) = match $slot {
+                        let (preallocated_preimg, preallocated_img_hash) = match $slot {
                             SlotType::Hash4 => {
                                 &g.preallocated_hash4_slots[next_slot.consume_hash4()]
                             }
@@ -570,11 +577,12 @@ impl Func {
                         };
 
                         // Add the implication constraint for the image
+                        let AllocatedVal::Number(img_hash) = preallocated_img_hash else { bail!("Expected number")};
                         implies_equal(
                             &mut cs.namespace(|| format!("implies equal {}.hash", $img)),
                             not_dummy,
                             allocated_img.hash(),
-                            &preallocated_img,
+                            img_hash,
                         );
 
                         // Retrieve preimage hashes and tags create the full preimage pointers
@@ -784,9 +792,6 @@ impl Func {
                     Op::Lt(tgt, a, b) => {
                         let a = bound_allocations.get_ptr(a)?;
                         let b = bound_allocations.get_ptr(b)?;
-                        let tag = g
-                            .global_allocator
-                            .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
                         let (preallocated_preimg, lt) =
                             &g.preallocated_less_than_slots[next_slot.consume_less_than()];
                         for (i, n) in [a.hash(), b.hash()].into_iter().enumerate() {
@@ -797,8 +802,8 @@ impl Func {
                                 &preallocated_preimg[i],
                             );
                         }
-                        let c = AllocatedPtr::from_parts(tag, lt.clone());
-                        bound_allocations.insert_ptr(tgt.clone(), c);
+                        let AllocatedVal::Boolean(lt) = lt else { panic!("Expected boolean") };
+                        bound_allocations.insert_bool(tgt.clone(), lt.clone());
                     }
                     Op::Trunc(tgt, a, n) => {
                         assert!(*n <= 64);
@@ -869,6 +874,7 @@ impl Func {
                             .get_allocated_const(Tag::Expr(Num).to_field())?;
                         let (preallocated_preimg, hash) =
                             &g.preallocated_commitment_slots[next_slot.consume_commitment()];
+                        let AllocatedVal::Number(hash) = hash else { panic!("Excepted number") };
                         implies_equal(
                             &mut cs.namespace(|| "implies equal secret.tag"),
                             not_dummy,
@@ -906,6 +912,7 @@ impl Func {
                         let comm_tag = g
                             .global_allocator
                             .get_allocated_const(Tag::Expr(Comm).to_field())?;
+                        let AllocatedVal::Number(com_hash) = com_hash else { panic!("Excepted number") };
                         implies_equal(
                             &mut cs.namespace(|| "implies equal comm.tag"),
                             not_dummy,
