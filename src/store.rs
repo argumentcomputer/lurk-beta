@@ -2,7 +2,7 @@ use arc_swap::ArcSwap;
 use elsa::sync::{FrozenMap, FrozenVec};
 use elsa::sync_index_set::FrozenIndexSet;
 use once_cell::sync::OnceCell;
-use rayon::prelude::{ParallelBridge, ParallelIterator};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::fmt;
 use std::sync::Arc;
 use std::usize;
@@ -1363,19 +1363,24 @@ impl<F: LurkField> Store<F> {
     pub fn hydrate_scalar_cache(&self) {
         self.ensure_constants();
 
-        self.dehydrated.load().iter().par_bridge().for_each(|ptr| {
+        let dehydrated = self.dehydrated.load().iter().cloned().collect::<Vec<_>>();
+
+        dehydrated.par_iter().for_each(|ptr| {
             self.hash_expr(ptr).expect("failed to hash_expr");
         });
 
         self.dehydrated.swap(Arc::new(FrozenVec::default()));
 
-        self.dehydrated_cont
+        let dehydrated_cont = self
+            .dehydrated_cont
             .load()
             .iter()
-            .par_bridge()
-            .for_each(|ptr| {
-                self.hash_cont(ptr).expect("failed to hash_cont");
-            });
+            .cloned()
+            .collect::<Vec<_>>();
+
+        dehydrated_cont.par_iter().for_each(|ptr| {
+            self.hash_cont(ptr).expect("failed to hash_cont");
+        });
 
         self.dehydrated_cont.swap(Arc::new(FrozenVec::default()));
     }
