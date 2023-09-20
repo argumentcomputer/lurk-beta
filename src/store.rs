@@ -2,7 +2,6 @@ use elsa::sync::FrozenMap;
 use elsa::sync_index_set::FrozenIndexSet;
 use once_cell::sync::OnceCell;
 use rayon::prelude::*;
-use std::collections::HashMap;
 use std::fmt;
 use std::usize;
 use thiserror;
@@ -76,8 +75,8 @@ pub struct Store<F: LurkField> {
     pub dehydrated: Vec<Ptr<F>>,
     pub dehydrated_cont: Vec<ContPtr<F>>,
 
-    str_cache: HashMap<String, Ptr<F>>,
-    symbol_cache: HashMap<Symbol, Ptr<F>>,
+    str_cache: FrozenMap<String, Box<Ptr<F>>>,
+    symbol_cache: FrozenMap<Symbol, Box<Ptr<F>>>,
 
     pub constants: OnceCell<NamedConstants<F>>,
 }
@@ -462,7 +461,7 @@ impl<F: LurkField> Store<F> {
                 } else {
                     path_ptr
                 };
-                self.symbol_cache.insert(sym.clone(), sym_ptr);
+                self.symbol_cache.insert(sym.clone(), Box::new(sym_ptr));
                 sym_ptr
             }
         }
@@ -529,7 +528,7 @@ impl<F: LurkField> Store<F> {
                 let ptr = s.chars().rev().fold(self.strnil(), |acc, c| {
                     self.intern_strcons(self.intern_char(c), acc)
                 });
-                self.str_cache.insert(s.to_string(), ptr);
+                self.str_cache.insert(s.to_string(), Box::new(ptr));
                 ptr
             }
         }
