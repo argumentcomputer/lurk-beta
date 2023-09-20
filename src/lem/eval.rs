@@ -27,7 +27,7 @@ pub fn eval_step() -> &'static Func {
 
 pub fn make_eval_step(cprocs: &[(&Symbol, usize)]) -> Func {
     let reduce = reduce(cprocs);
-    let apply_cont = apply_cont();
+    let apply_cont = apply_cont(cprocs);
     let make_thunk = make_thunk();
 
     func!(step(expr, env, cont): 3 => {
@@ -479,7 +479,6 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         return (nil)
     });
     let is_cproc = is_cproc(cprocs);
-    let call_cproc = call_cproc(cprocs);
 
     func!(reduce(expr, env, cont): 4 => {
         // Useful constants
@@ -746,16 +745,11 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                 }
                 return (expr, env, err, errctrl)
             }
-            Expr::Cproc => {
-                let (cproc_name, evaluated_args) = decons2(expr);
-                let (expr, env, cont) = call_cproc(cproc_name, evaluated_args, env, cont);
-                return (expr, env, cont, apply);
-            }
         }
     })
 }
 
-fn apply_cont() -> Func {
+fn apply_cont(cprocs: &[(&Symbol, usize)]) -> Func {
     let car_cdr = car_cdr();
     let make_tail_continuation = func!(make_tail_continuation(env, continuation): 1 => {
         let foo: Expr::Nil;
@@ -825,6 +819,7 @@ fn apply_cont() -> Func {
         };
         return (nil)
     });
+    let call_cproc = call_cproc(cprocs);
     func!(apply_cont(result, env, cont, ctrl): 4 => {
         // Useful constants
         let ret = Symbol("return");
@@ -1309,9 +1304,9 @@ fn apply_cont() -> Func {
                         let evaluated_args: Expr::Cons = cons2(result, evaluated_args);
                         match unevaled_args.tag {
                             Expr::Nil => {
-                                // nothing else to evaluate. prepare the call to `Ctrl::Cproc`
-                                let expr: Expr::Cproc = cons2(cproc_name, evaluated_args);
-                                return (expr, env, cont, ret);
+                                // nothing else to evaluate
+                                let (expr, env, cont) = call_cproc(cproc_name, evaluated_args, env, cont);
+                                return (expr, env, cont, makethunk);
                             }
                             Expr::Cons => {
                                 // pop the next argument that needs to be evaluated
@@ -1371,8 +1366,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 10561;
-    const NUM_CONSTRAINTS: usize = 12948;
+    const NUM_AUX: usize = 10559;
+    const NUM_CONSTRAINTS: usize = 12932;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash4: 14,
         hash6: 3,
@@ -1558,16 +1553,34 @@ mod tests {
 
         let state = State::init_lurk_state().rccell();
 
+        let mut all_frames = Vec::default();
         for e in [expr, expr2, expr3] {
             let ptr = store.read(state.clone(), e).unwrap();
-            let (io, ..) = evaluate_simple(Some((&func, &lang)), ptr, store, 100).unwrap();
-            assert_eq!(io[0], res);
+            let (frames, _) = evaluate(Some((&func, &lang)), ptr, store, 100).unwrap();
+            assert_eq!(frames.last().unwrap().output[0], res);
+            all_frames.extend(frames);
         }
 
         for e in [expr4, expr5] {
             let ptr = store.read(state.clone(), e).unwrap();
-            let (io, ..) = evaluate_simple(Some((&func, &lang)), ptr, store, 100).unwrap();
-            assert_eq!(io[2], error);
+            let (frames, _) = evaluate(Some((&func, &lang)), ptr, store, 100).unwrap();
+            assert_eq!(frames.last().unwrap().output[2], error);
+            all_frames.extend(frames);
+        }
+
+        store.hydrate_z_cache();
+
+        let mut cs_prev = None;
+        for frame in all_frames.iter() {
+            let mut cs = TestConstraintSystem::<Fr>::new();
+            func.synthesize_frame_aux(&mut cs, store, frame, &lang)
+                .unwrap();
+            assert!(cs.is_satisfied());
+            if let Some(cs_prev) = cs_prev {
+                // Check for all input expresssions that all frames are uniform.
+                assert_eq!(cs.delta(&cs_prev, true), Delta::Equal);
+            }
+            cs_prev = Some(cs);
         }
     }
 }

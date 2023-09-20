@@ -272,7 +272,10 @@ pub(crate) mod test {
             let a = &args[0];
             let b = &args[1];
 
-            // FIXME: Check tags.
+            // We don't need to enforce variants on the input because they're
+            // already constrained from outside. In fact, we're not allowed to
+            // do so because we might be on a virtual path, with dummy values at
+            // hand. Thus we don't check/enforce the tags for the input.
 
             // a^2 + b = c
             let a2 = mul(&mut cs.namespace(|| "square"), a.hash(), a.hash())?;

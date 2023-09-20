@@ -77,14 +77,14 @@ impl<F: LurkField> GlobalAllocator<F> {
     }
 
     #[inline]
-    fn get_allocated_const(&self, f: F) -> Result<&AllocatedNum<F>> {
+    pub fn get_allocated_const(&self, f: F) -> Result<&AllocatedNum<F>> {
         self.0
             .get(&FWrap(f))
             .ok_or_else(|| anyhow!("Global allocation not found for {}", f.hex_digits()))
     }
 
     #[inline]
-    fn get_allocated_const_cloned(&self, f: F) -> Result<AllocatedNum<F>> {
+    pub fn get_allocated_const_cloned(&self, f: F) -> Result<AllocatedNum<F>> {
         self.get_allocated_const(f).cloned()
     }
 }

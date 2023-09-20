@@ -39,7 +39,6 @@ pub enum ExprTag {
     Comm,
     U64,
     Key,
-    Cproc,
 }
 
 impl From<ExprTag> for u16 {
@@ -68,7 +67,6 @@ impl fmt::Display for ExprTag {
             ExprTag::Char => write!(f, "char#"),
             ExprTag::Comm => write!(f, "comm#"),
             ExprTag::U64 => write!(f, "u64#"),
-            ExprTag::Cproc => write!(f, "cproc#"),
         }
     }
 }
@@ -79,7 +77,7 @@ impl TypePredicates for ExprTag {
     }
     fn is_self_evaluating(&self) -> bool {
         match self {
-            Self::Cons | Self::Thunk | Self::Sym | Self::Cproc => false,
+            Self::Cons | Self::Thunk | Self::Sym => false,
             Self::Nil
             | Self::Fun
             | Self::Num

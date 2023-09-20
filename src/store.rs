@@ -773,7 +773,6 @@ impl<F: LurkField> Store<F> {
                 .map(|(car, cdr)| Expression::Str(car, cdr)),
             ExprTag::Char => self.fetch_char(ptr).map(Expression::Char),
             ExprTag::U64 => self.fetch_uint(ptr).map(Expression::UInt),
-            ExprTag::Cproc => unreachable!(),
         }
     }
 
