@@ -33,9 +33,10 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::circuit::gadgets::{
     constraints::{
-        add, alloc_equal, alloc_is_zero, allocate_is_negative, boolean_to_num, div, enforce_pack,
-        enforce_product_and_sum, enforce_selector_with_premise, implies_equal, implies_equal_const,
-        implies_u64, implies_unequal, implies_unequal_const, mul, pick, sub,
+        add, alloc_equal, alloc_is_zero, allocate_is_negative, and, boolean_to_num, div,
+        enforce_pack, enforce_product_and_sum, enforce_selector_with_premise, implies_equal,
+        implies_equal_const, implies_u64, implies_unequal, implies_unequal_const, mul, or, pick,
+        sub,
     },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
@@ -105,6 +106,17 @@ impl<F: LurkField> BoundAllocations<F> {
 
     fn insert_ptr(&mut self, var: Var, ptr: AllocatedPtr<F>) -> Option<AllocatedVal<F>> {
         self.insert(var, AllocatedVal::Pointer(ptr))
+    }
+
+    fn get_bool(&self, var: &Var) -> Result<&Boolean> {
+        if let AllocatedVal::Boolean(b) = self.get(var)? {
+            return Ok(b);
+        }
+        bail!("Expected {var} to be a boolean")
+    }
+
+    fn insert_bool(&mut self, var: Var, b: Boolean) -> Option<AllocatedVal<F>> {
+        self.insert(var, AllocatedVal::Boolean(b))
     }
 }
 
@@ -306,9 +318,7 @@ impl Block {
                         }
                     }
                 }
-                Op::EqTag(..)
-                | Op::EqVal(..)
-                | Op::Not(..)
+                Op::Not(..)
                 | Op::And(..)
                 | Op::Or(..)
                 | Op::Add(..)
@@ -685,12 +695,7 @@ impl Func {
                         let a_num = a.tag();
                         let b_num = b.tag();
                         let eq = alloc_equal(cs.namespace(|| "equal_tag"), a_num, b_num)?;
-                        let c_num = boolean_to_num(cs.namespace(|| "equal_tag.to_num"), &eq)?;
-                        let tag = g
-                            .global_allocator
-                            .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
-                        let c = AllocatedPtr::from_parts(tag, c_num);
-                        bound_allocations.insert_ptr(tgt.clone(), c);
+                        bound_allocations.insert_bool(tgt.clone(), eq);
                     }
                     Op::EqVal(tgt, a, b) => {
                         let a = bound_allocations.get_ptr(a)?;
@@ -698,15 +703,23 @@ impl Func {
                         let a_num = a.hash();
                         let b_num = b.hash();
                         let eq = alloc_equal(cs.namespace(|| "equal_val"), a_num, b_num)?;
-                        let c_num = boolean_to_num(cs.namespace(|| "equal_val.to_num"), &eq)?;
-                        let tag = g
-                            .global_allocator
-                            .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
-                        let c = AllocatedPtr::from_parts(tag, c_num);
-                        bound_allocations.insert_ptr(tgt.clone(), c);
+                        bound_allocations.insert_bool(tgt.clone(), eq);
                     }
-                    Op::Not(..) | Op::And(..) | Op::Or(..) => {
-                        todo!()
+                    Op::Not(tgt, a) => {
+                        let a = bound_allocations.get_bool(a)?;
+                        bound_allocations.insert_bool(tgt.clone(), a.not());
+                    }
+                    Op::And(tgt, a, b) => {
+                        let a = bound_allocations.get_bool(a)?;
+                        let b = bound_allocations.get_bool(b)?;
+                        let c = and(&mut cs.namespace(|| "and"), a, b)?;
+                        bound_allocations.insert_bool(tgt.clone(), c);
+                    }
+                    Op::Or(tgt, a, b) => {
+                        let a = bound_allocations.get_bool(a)?;
+                        let b = bound_allocations.get_bool(b)?;
+                        let c = or(cs.namespace(|| "or"), a, b)?;
+                        bound_allocations.insert_bool(tgt.clone(), c);
                     }
                     Op::Add(tgt, a, b) => {
                         let a = bound_allocations.get_ptr(a)?;
@@ -928,8 +941,7 @@ impl Func {
              -> Result<Vec<SlotsCounter>> {
                 // * One `Boolean` for each case
                 // * Maybe one `Boolean` for the default case
-                // * One `Boolean` for the negation of `not_dummy`
-                let selector_size = cases.len() + usize::from(def.is_some()) + 1;
+                let selector_size = cases.len() + usize::from(def.is_some());
                 let mut selector = Vec::with_capacity(selector_size);
                 let mut branch_slots = Vec::with_capacity(cases.len());
                 for (i, (f, block)) in cases.iter().enumerate() {
@@ -1009,12 +1021,6 @@ impl Func {
                 // Now we need to enforce that exactly one path was taken. We do that by enforcing
                 // that the sum of the previously collected `Boolean`s is one. But, of course, this
                 // is irrelevant if we're on a virtual path and thus we use an implication gadget.
-
-                // If `not_dummy` is false, then all booleans in `selector` are false up to this point.
-                // Thus we need to add a negation of `not_dummy` to make it satisfiable. If it's true,
-                // it will count as a 0 and will not influence the sum.
-                selector.push(not_dummy.not());
-
                 enforce_selector_with_premise(
                     &mut cs.namespace(|| "enforce_selector_with_premise"),
                     not_dummy,
@@ -1037,13 +1043,39 @@ impl Func {
                     }
                     Ok(())
                 }
-                Ctrl::If(..) => {
-                    todo!()
+                Ctrl::If(b, true_block, false_block) => {
+                    let b = bound_allocations.get_bool(b)?;
+                    let b_not_dummy = and(&mut cs.namespace(|| "b and not_dummy"), b, not_dummy)?;
+                    let not_b_not_dummy = and(
+                        &mut cs.namespace(|| "not_b and not_dummy"),
+                        &b.not(),
+                        not_dummy,
+                    )?;
+                    let mut branch_slot = *next_slot;
+                    recurse(
+                        &mut cs.namespace(|| "if_eq.true"),
+                        true_block,
+                        &b_not_dummy,
+                        &mut branch_slot,
+                        bound_allocations,
+                        preallocated_outputs,
+                        g,
+                    )?;
+                    recurse(
+                        &mut cs.namespace(|| "if_eq.false"),
+                        false_block,
+                        &not_b_not_dummy,
+                        next_slot,
+                        bound_allocations,
+                        preallocated_outputs,
+                        g,
+                    )?;
+                    *next_slot = next_slot.max(branch_slot);
+                    Ok(())
                 }
                 Ctrl::IfEq(x, y, eq_block, else_block) => {
                     let x_ptr = bound_allocations.get_ptr(x)?.hash();
                     let y_ptr = bound_allocations.get_ptr(y)?.hash();
-                    let mut selector = Vec::with_capacity(3);
 
                     let eq_val = not_dummy.get_value().and_then(|not_dummy| {
                         x_ptr
@@ -1071,13 +1103,10 @@ impl Func {
                         y_ptr,
                     )?;
 
-                    selector.push(not_dummy.not());
-                    selector.push(is_eq.clone());
-                    selector.push(is_neq.clone());
                     enforce_selector_with_premise(
                         &mut cs.namespace(|| "if_enforce_selector_with_premise"),
                         not_dummy,
-                        &selector,
+                        &[is_eq.clone(), is_neq.clone()],
                     );
 
                     let mut branch_slot = *next_slot;
@@ -1231,12 +1260,7 @@ impl Func {
                         globals.insert(FWrap(tag.to_field()));
                     }
                     Op::EqTag(..) | Op::EqVal(..) => {
-                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
-                        num_constraints += 5;
-                    }
-                    Op::Not(..) => (),
-                    Op::And(..) | Op::Or(..) => {
-                        num_constraints += 1;
+                        num_constraints += 4;
                     }
                     Op::Add(..) | Op::Sub(..) | Op::Mul(..) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
@@ -1261,7 +1285,7 @@ impl Func {
                         // three implies_u64, one sub and one linear
                         num_constraints += 197;
                     }
-                    Op::Emit(_) => (),
+                    Op::Not(..) | Op::Emit(_) => (),
                     Op::Cons2(_, tag, _) => {
                         // tag for the image
                         globals.insert(FWrap(tag.to_field()));
@@ -1280,7 +1304,11 @@ impl Func {
                         // tag and hash for 4 preimage pointers
                         num_constraints += 8;
                     }
-                    Op::Decons2(..) | Op::Decons3(..) | Op::Decons4(..) => {
+                    Op::And(..)
+                    | Op::Or(..)
+                    | Op::Decons2(..)
+                    | Op::Decons3(..)
+                    | Op::Decons4(..) => {
                         // one constraint for the image's hash
                         num_constraints += 1;
                     }
@@ -1300,6 +1328,7 @@ impl Func {
                 Ctrl::Return(vars) => num_constraints + 2 * vars.len(),
                 Ctrl::If(_, true_block, false_block) => {
                     num_constraints
+                        + 2
                         + recurse(true_block, globals, store)
                         + recurse(false_block, globals, store)
                 }
