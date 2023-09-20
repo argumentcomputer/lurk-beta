@@ -40,7 +40,7 @@ pub(crate) static PUBLIC_PARAM_MEM_CACHE: Lazy<PublicParamMemCache> =
 impl PublicParamMemCache {
     fn get_from_disk_cache_or_update_with<
         F: CurveCycleEquipped,
-        C: Coprocessor<F> + 'static,
+        C: Coprocessor<F>,
         Fn: FnOnce(Arc<Lang<F, C>>) -> Arc<PublicParams<'static, F, C>>,
     >(
         &'static self,

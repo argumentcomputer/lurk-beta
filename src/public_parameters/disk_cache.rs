@@ -13,7 +13,7 @@ use crate::public_parameters::error::Error;
 pub(crate) struct PublicParamDiskCache<F, C>
 where
     F: CurveCycleEquipped,
-    C: Coprocessor<F> + 'static,
+    C: Coprocessor<F>,
 {
     dir: Utf8PathBuf,
     _t: PhantomData<(F, C)>,
