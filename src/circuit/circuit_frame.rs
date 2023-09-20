@@ -5386,7 +5386,7 @@ fn destructure_list_aux<F: LurkField, CS: ConstraintSystem<F>>(
     )
 }
 
-fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
+pub(crate) fn car_cdr<F: LurkField, CS: ConstraintSystem<F>>(
     mut cs: CS,
     g: &GlobalAllocations<F>,
     maybe_cons: &AllocatedPtr<F>,

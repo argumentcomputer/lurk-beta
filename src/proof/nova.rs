@@ -399,7 +399,15 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
                         let g =
                             GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?;
 
-                        c.synthesize_step_circuit(cs, s, &g, &input_expr, &input_env, &input_cont)?
+                        c.synthesize_step_circuit(
+                            cs,
+                            s,
+                            &g,
+                            &z_ptr,
+                            &input_expr,
+                            &input_env,
+                            &input_cont,
+                        )?
                     }
                     None => {
                         assert!(self.store.is_none());
@@ -408,7 +416,15 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
                         let g =
                             GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?;
 
-                        c.synthesize_step_circuit(cs, &s, &g, &input_expr, &input_env, &input_cont)?
+                        c.synthesize_step_circuit(
+                            cs,
+                            &s,
+                            &g,
+                            &z_ptr,
+                            &input_expr,
+                            &input_env,
+                            &input_cont,
+                        )?
                     }
                 }
             }

@@ -52,6 +52,28 @@ pub(crate) fn enforce_equal_zero<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
     );
 }
 
+/// Adds a constraint to CS, enforcing an equality relationship between an allocated number a and constant k.
+///
+/// a == k
+#[allow(dead_code)]
+pub(crate) fn enforce_equal_const<F: PrimeField, A, AR, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    annotation: A,
+    k: F,
+    a: &AllocatedNum<F>,
+) where
+    A: FnOnce() -> AR,
+    AR: Into<String>,
+{
+    // a * 1 = k
+    cs.enforce(
+        annotation,
+        |lc| lc + a.get_variable(),
+        |lc| lc + CS::one(),
+        |lc| lc + (k, CS::one()),
+    );
+}
+
 /// Adds a constraint to CS, enforcing a add relationship between the allocated numbers a, b, and sum.
 ///
 /// a + b = sum
