@@ -155,7 +155,7 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn strcons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+    pub fn strcons(&self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         self.intern_strcons(car, cdr)
     }
 
@@ -307,7 +307,7 @@ impl<F: LurkField> Store<F> {
         ptr
     }
 
-    pub fn intern_strcons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+    pub fn intern_strcons(&self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         if car.is_opaque() || cdr.is_opaque() {
             self.hash_expr(&car);
             self.hash_expr(&cdr);
@@ -317,7 +317,7 @@ impl<F: LurkField> Store<F> {
         Ptr::index(ExprTag::Str, i)
     }
 
-    pub fn intern_symcons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+    pub fn intern_symcons(&self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         if car.is_opaque() || cdr.is_opaque() {
             self.hash_expr(&car);
             self.hash_expr(&cdr);
@@ -327,7 +327,7 @@ impl<F: LurkField> Store<F> {
         Ptr::index(ExprTag::Sym, i)
     }
 
-    pub fn intern_keycons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+    pub fn intern_keycons(&self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         if car.is_opaque() || cdr.is_opaque() {
             self.hash_expr(&car);
             self.hash_expr(&cdr);
@@ -441,7 +441,7 @@ impl<F: LurkField> Store<F> {
             })
     }
 
-    pub fn intern_symbol_path(&mut self, path: &[String]) -> Ptr<F> {
+    pub fn intern_symbol_path(&self, path: &[String]) -> Ptr<F> {
         path.iter().fold(self.symnil(), |acc, s| {
             let s_ptr = self.intern_string(s);
             self.intern_symcons(s_ptr, acc)
@@ -521,7 +521,7 @@ impl<F: LurkField> Store<F> {
         Ptr::index(ExprTag::U64, n as usize)
     }
 
-    pub fn intern_string(&mut self, s: &str) -> Ptr<F> {
+    pub fn intern_string(&self, s: &str) -> Ptr<F> {
         match self.str_cache.get(s) {
             Some(ptr) => *ptr,
             None => {
