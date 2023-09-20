@@ -1179,7 +1179,7 @@ mod tests {
 
     fn test_eval_and_constrain_aux(
         eval_step: &Func,
-        store: &mut Store<Fr>,
+        store: &Store<Fr>,
         pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>,
     ) {
         assert_eq!(eval_step.slot, NUM_SLOTS);
@@ -1314,9 +1314,9 @@ mod tests {
     #[test]
     fn test_pairs() {
         let step_fn = eval_step();
-        let store = &mut step_fn.init_store();
-        let pairs = expr_in_expr_out_pairs(store);
+        let store = step_fn.init_store();
+        let pairs = expr_in_expr_out_pairs(&store);
         store.hydrate_z_cache();
-        test_eval_and_constrain_aux(step_fn, store, pairs);
+        test_eval_and_constrain_aux(step_fn, &store, pairs);
     }
 }
