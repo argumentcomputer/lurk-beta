@@ -969,11 +969,11 @@ impl<'a> Proof<'a, S1> {
         let input_io = {
             let expr = s
                 .read(&evaluation.expr)
-                .map_err(|_| Error::VerificationError("failed to read expr".into()))?;
+                .map_err(|e| Error::VerificationError(format!("failed to read expr: {}", e)))?;
 
             let env = s
                 .read(&evaluation.env)
-                .map_err(|_| Error::VerificationError("failed to read env".into()))?;
+                .map_err(|e| Error::VerificationError(format!("failed to read env: {}", e)))?;
 
             // FIXME: We ignore cont and assume Outermost, since we can't read a Cont.
             let cont = s.intern_cont_outermost();
@@ -984,11 +984,11 @@ impl<'a> Proof<'a, S1> {
         let output_io = {
             let expr = s
                 .read(&evaluation.expr_out)
-                .map_err(|_| Error::VerificationError("failed to read expr out".into()))?;
+                .map_err(|e| Error::VerificationError(format!("failed to read expr out: {}", e)))?;
 
             let env = s
                 .read(&evaluation.env_out)
-                .map_err(|_| Error::VerificationError("failed to read env out".into()))?;
+                .map_err(|e| Error::VerificationError(format!("failed to read env out: {}", e)))?;
             let cont = evaluation
                 .status
                 .to_cont(s)

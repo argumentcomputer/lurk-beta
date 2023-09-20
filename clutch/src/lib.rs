@@ -566,7 +566,7 @@ impl ClutchState<F, Coproc<F>> {
             let zptr_string = proof
                 .claim
                 .proof_key()
-                .map_err(|_| Error::msg("Failed to generate proof key"))?
+                .map_err(|e| Error::msg(format!("Failed to generate proof key: {}", e)))?
                 .to_base32();
             match proof.claim {
                 Claim::Evaluation(_) | Claim::Opening(_) => println!("{0:#?}", proof.claim),

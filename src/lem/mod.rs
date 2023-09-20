@@ -116,14 +116,16 @@ pub enum Tag {
     Op2(Op2),
 }
 
-impl From<u16> for Tag {
-    fn from(val: u16) -> Self {
+impl TryFrom<u16> for Tag {
+    type Error = anyhow::Error;
+
+    fn try_from(val: u16) -> Result<Self, Self::Error> {
         if let Ok(tag) = ExprTag::try_from(val) {
-            Tag::Expr(tag)
+            Ok(Tag::Expr(tag))
         } else if let Ok(tag) = ContTag::try_from(val) {
-            Tag::Cont(tag)
+            Ok(Tag::Cont(tag))
         } else {
-            panic!("Invalid u16 for Tag: {val}")
+            bail!("Invalid u16 for Tag: {val}")
         }
     }
 }

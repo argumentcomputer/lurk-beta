@@ -50,8 +50,8 @@ pub fn populate_z_store<F: LurkField>(
                 }
                 Ptr::Tuple2(tag, idx) => {
                     let Some((a, b)) = store.fetch_2_ptrs(*idx) else {
-                    bail!("Index {idx} not found on tuple2")
-                };
+                        bail!("Index {idx} not found on tuple2")
+                    };
                     let a = populate_z_store(z_store, a, store)?;
                     let b = populate_z_store(z_store, b, store)?;
                     let z_ptr = ZPtr::from_parts(
@@ -68,8 +68,8 @@ pub fn populate_z_store<F: LurkField>(
                 }
                 Ptr::Tuple3(tag, idx) => {
                     let Some((a, b, c)) = store.fetch_3_ptrs(*idx) else {
-                    bail!("Index {idx} not found on tuple3")
-                };
+                        bail!("Index {idx} not found on tuple3")
+                    };
                     let a = populate_z_store(z_store, a, store)?;
                     let b = populate_z_store(z_store, b, store)?;
                     let c = populate_z_store(z_store, c, store)?;
@@ -89,8 +89,8 @@ pub fn populate_z_store<F: LurkField>(
                 }
                 Ptr::Tuple4(tag, idx) => {
                     let Some((a, b, c, d)) = store.fetch_4_ptrs(*idx) else {
-                    bail!("Index {idx} not found on tuple4")
-                };
+                        bail!("Index {idx} not found on tuple4")
+                    };
                     let a = populate_z_store(z_store, a, store)?;
                     let b = populate_z_store(z_store, b, store)?;
                     let c = populate_z_store(z_store, c, store)?;

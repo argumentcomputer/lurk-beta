@@ -80,7 +80,7 @@ impl PublicParamMemCache {
                     disk_cache
                         .set_abomonated(&key, &*pp)
                         .tap_ok(|_| info!("writing public params to disk-cache: {}", lang_key))
-                        .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+                        .map_err(|e| Error::CacheError(format!("Disk write error: {}", e)))?;
                     Ok(pp)
                 }
                 _ => unreachable!(),
@@ -95,7 +95,7 @@ impl PublicParamMemCache {
                 disk_cache
                     .set(&key, &*pp)
                     .tap_ok(|_| info!("writing public params to disk-cache: {}", lang_key))
-                    .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+                    .map_err(|e| Error::CacheError(format!("Disk write error: {}", e)))?;
                 Ok(pp)
             }
         }

@@ -88,7 +88,7 @@ where
                 // maybe just directly write
                 disk_cache
                     .set_abomonated(&key, &pp)
-                    .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+                    .map_err(|e| Error::CacheError(format!("Disk write error: {}", e)))?;
                 Ok(bind(&pp))
             }
         }
@@ -98,7 +98,7 @@ where
             // maybe just directly write
             disk_cache
                 .set_abomonated(&key, &pp)
-                .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
+                .map_err(|e| Error::CacheError(format!("Disk write error: {}", e)))?;
             Ok(bind(&pp))
         }
     }

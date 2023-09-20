@@ -116,11 +116,11 @@ impl<E: Tag, F: LurkField> ZPtr<E, F> {
     /// Converts a base32-encoded string to a ZPtr
     pub fn from_base32(zptr: &str) -> Result<Self, anyhow::Error> {
         let tag_bytes = Base32Unpadded::decode_vec(&zptr[0..4])
-            .map_err(|_| anyhow!("Failed to decode base32"))?;
+            .map_err(|e| anyhow!(format!("Failed to decode base32: {}", e)))?;
         let val_bytes = Base32Unpadded::decode_vec(&zptr[5..])
-            .map_err(|_| anyhow!("Failed to decode base32"))?;
+            .map_err(|e| anyhow!(format!("Failed to decode base32: {}", e)))?;
         let tag = E::try_from(u16::from_le_bytes(tag_bytes[..2].try_into().unwrap()))
-            .map_err(|_| anyhow!("Failed to decode tag"))?;
+            .map_err(|e| anyhow!(format!("Failed to decode tag: {}", e)))?;
         let val = F::from_bytes(&val_bytes).ok_or_else(|| anyhow!("Failed to decode field"))?;
         Ok(Self::from_parts(tag, val))
     }
@@ -135,7 +135,7 @@ impl<F: LurkField> ZExprPtr<F> {
         let mut store = Store::<F>::default();
         let ptr = store
             .read(value)
-            .map_err(|_| store::Error("Parse error".into()))?;
+            .map_err(|e| store::Error(format!("Parse error: {}", e)))?;
         let zptr = store
             .hash_expr(&ptr)
             .ok_or(store::Error("Invalid ptr".into()))?;
