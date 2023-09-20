@@ -391,7 +391,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
                     .folding_config
                     .lang()
                     .get_coprocessor_from_zptr(&z_ptr)
-                    .expect("coprocessor missing");
+                    .expect("coprocessor not found for a frame that requires one");
                 match self.frames.as_ref() {
                     Some(frames) => {
                         assert_eq!(1, frames.len());

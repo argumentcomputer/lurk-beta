@@ -46,6 +46,7 @@ where
 {
     pp: SuperNovaPublicParams<F>,
     // SuperNova does not yet have a `CompressedSNARK`.
+    // see https://github.com/lurk-lab/arecibo/issues/27
     // pk: ProverKey<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>,
     // vk: VerifierKey<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>,
     _p: PhantomData<C>,
