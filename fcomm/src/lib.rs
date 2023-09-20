@@ -78,7 +78,7 @@ mod base64 {
 
 pub type NovaProofCache = FileMap<String, Proof<'static, S1>>;
 pub fn nova_proof_cache(reduction_count: usize) -> NovaProofCache {
-    FileMap::<String, Proof<'_, S1>>::new(format!("nova_proofs.{}", reduction_count)).unwrap()
+    FileMap::<String, Proof<'_, S1>>::new(format!("nova_proofs.{reduction_count}")).unwrap()
 }
 
 pub type CommittedExpressionMap = FileMap<Commitment<S1>, CommittedExpression<S1>>;
@@ -1261,7 +1261,7 @@ mod test {
                 Some(c) => commitment = c,
                 _ => panic!("new commitment missing"),
             }
-            println!("Commitment: {:?}", commitment);
+            println!("Commitment: {commitment:?}");
         }
     }
 

@@ -44,7 +44,7 @@ impl<F: LurkField> Store<F> {
         .parse(Span::new(input))
         {
             Ok((_i, x)) => Ok(self.intern_syntax(x)),
-            Err(e) => Err(Error::Syntax(format!("{}", e))),
+            Err(e) => Err(Error::Syntax(format!("{e}"))),
         }
     }
 
@@ -60,7 +60,7 @@ impl<F: LurkField> Store<F> {
         .parse(Span::new(input))
         {
             Ok((_i, x)) => Ok(self.intern_syntax(x)),
-            Err(e) => Err(Error::Syntax(format!("{}", e))),
+            Err(e) => Err(Error::Syntax(format!("{e}"))),
         }
     }
 
@@ -73,7 +73,7 @@ impl<F: LurkField> Store<F> {
         match preceded(parse_space, parse_maybe_meta(state, false)).parse(input) {
             Ok((i, Some((is_meta, x)))) => Ok((i, self.intern_syntax(x), is_meta)),
             Ok((_, None)) => Err(Error::NoInput),
-            Err(e) => Err(Error::Syntax(format!("{}", e))),
+            Err(e) => Err(Error::Syntax(format!("{e}"))),
         }
     }
 }

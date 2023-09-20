@@ -1295,8 +1295,7 @@ impl<F: LurkField> Store<F> {
             ExprTag::Cons => match self.fetch(ptr) {
                 Some(Expression::Cons(car, cdr)) => Ok((car, cdr)),
                 e => Err(Error(format!(
-                    "Can only extract car_cdr from known Cons, instead got {:?} {:?}",
-                    ptr, e,
+                    "Can only extract car_cdr from known Cons, instead got {ptr:?} {e:?}",
                 ))),
             },
             ExprTag::Str => match self.fetch(ptr) {

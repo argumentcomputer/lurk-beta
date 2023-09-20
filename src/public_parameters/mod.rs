@@ -78,7 +78,7 @@ where
         Ok(mut bytes) => {
             if let Some((pp, remaining)) = unsafe { decode(&mut bytes) } {
                 assert!(remaining.is_empty());
-                eprintln!("Using disk-cached public params for lang {}", lang_key);
+                eprintln!("Using disk-cached public params for lang {lang_key}");
                 Ok(bind(pp))
             } else {
                 eprintln!("failed to decode bytes");

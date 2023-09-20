@@ -298,10 +298,10 @@ pub fn serde_test(args: TokenStream, input: TokenStream) -> TokenStream {
                     }
                 }
 
-                _ => panic!("invalid attribute {:?}", path),
+                _ => panic!("invalid attribute {path:?}"),
             },
 
-            _ => panic!("invalid argument {:?}", arg),
+            _ => panic!("invalid argument {arg:?}"),
         }
     }
 
@@ -318,7 +318,7 @@ pub fn serde_test(args: TokenStream, input: TokenStream) -> TokenStream {
     for (i, ty) in types.into_iter().enumerate() {
         let serde_test = {
             let test_name = Ident::new(
-                &format!("test_serde_roundtrip_{}_{}", name, i),
+                &format!("test_serde_roundtrip_{name}_{i}"),
                 Span::mixed_site(),
             );
             quote! {
@@ -335,7 +335,7 @@ pub fn serde_test(args: TokenStream, input: TokenStream) -> TokenStream {
 
         let zdata_test = if test_zdata {
             let test_name = Ident::new(
-                &format!("test_zdata_roundtrip_{}_{}", name, i),
+                &format!("test_zdata_roundtrip_{name}_{i}"),
                 Span::mixed_site(),
             );
             quote! {
@@ -398,7 +398,7 @@ fn get_type_from_attrs(attrs: &[syn::Attribute], attr_name: &str) -> syn::Result
     }) else {
         return Err(syn::Error::new(
             proc_macro2::Span::call_site(),
-            format!("Could not find attribute {}", attr_name),
+            format!("Could not find attribute {attr_name}"),
         ));
     };
 
@@ -406,7 +406,7 @@ fn get_type_from_attrs(attrs: &[syn::Attribute], attr_name: &str) -> syn::Result
         NestedMeta::Meta(Meta::Path(path)) => Ok(path),
         bad => Err(syn::Error::new_spanned(
             bad,
-            &format!("Could not parse {} attribute", attr_name)[..],
+            &format!("Could not parse {attr_name} attribute")[..],
         )),
     }
 }
@@ -447,10 +447,7 @@ pub fn derive_try_from_repr(input: TokenStream) -> TokenStream {
     match res_ty {
         Err(e) => {
             // If no explicit repr were given for us, we can't pursue
-            panic!(
-                "TryFromRepr macro requires a repr parameter, which couldn't be parsed: {:?}",
-                e
-            );
+            panic!("TryFromRepr macro requires a repr parameter, which couldn't be parsed: {e:?}");
         }
         Ok(ty) => {
             let match_arms = try_from_match_arms(name, &variants, ty.clone());

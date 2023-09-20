@@ -445,7 +445,7 @@ impl Repl<F> {
 
     pub fn load_file(&mut self, file_path: &Utf8Path) -> Result<()> {
         let input = read_to_string(file_path)?;
-        println!("Loading {}", file_path);
+        println!("Loading {file_path}");
 
         let mut input = parser::Span::new(&input);
         loop {

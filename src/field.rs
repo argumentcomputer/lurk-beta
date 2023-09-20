@@ -84,7 +84,7 @@ pub trait LurkField: PrimeField + PrimeFieldBits {
         let bytes = self.to_bytes();
         let mut s = String::with_capacity(bytes.len() * 2);
         for b in bytes.iter().rev() {
-            s.push_str(&format!("{:02x?}", b));
+            s.push_str(&format!("{b:02x?}"));
         }
         s
     }

@@ -158,7 +158,7 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
             let name = gadget.name();
             let circom_folder = circom_dir().join(name);
 
-            let r1cs = circom_folder.join(format!("{}.r1cs", name));
+            let r1cs = circom_folder.join(format!("{name}.r1cs"));
             let wasm = circom_folder.join(name).with_extension("wasm");
 
             let config = CircomConfig::<F>::new(wasm, r1cs)?;

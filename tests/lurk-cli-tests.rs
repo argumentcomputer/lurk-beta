@@ -65,13 +65,13 @@ fn test_config_file() {
 
     let mut config_file = File::create(&config_dir).unwrap();
     config_file
-        .write_all(format!("public_params = \"{}\"\n", public_params_dir).as_bytes())
+        .write_all(format!("public_params = \"{public_params_dir}\"\n").as_bytes())
         .unwrap();
     config_file
-        .write_all(format!("proofs = \"{}\"\n", proofs_dir).as_bytes())
+        .write_all(format!("proofs = \"{proofs_dir}\"\n").as_bytes())
         .unwrap();
     config_file
-        .write_all(format!("commits = \"{}\"\n", commits_dir).as_bytes())
+        .write_all(format!("commits = \"{commits_dir}\"\n").as_bytes())
         .unwrap();
 
     // Overwrite proof dir with env var

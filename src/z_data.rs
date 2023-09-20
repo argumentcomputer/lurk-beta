@@ -62,7 +62,7 @@ impl Display for ZData {
                     .map(|x| format!("{:02x?}", x))
                     .collect::<Vec<_>>()
                     .join(", ");
-                write!(f, "a:{}", xs_str)?;
+                write!(f, "a:{xs_str}")?;
             }
             Self::Cell(xs) => {
                 let xs_str = xs
@@ -70,7 +70,7 @@ impl Display for ZData {
                     .map(|x| format!("{}", x))
                     .collect::<Vec<_>>()
                     .join(", ");
-                write!(f, "c:{}", xs_str)?;
+                write!(f, "c:{xs_str}")?;
             }
         }
         write!(f, "]")?;

@@ -24,7 +24,7 @@ impl From<usize> for HashArity {
             4 => Self::A4,
             6 => Self::A6,
             8 => Self::A8,
-            _ => panic!("unsupported arity: {}", n),
+            _ => panic!("unsupported arity: {n}"),
         }
     }
 }

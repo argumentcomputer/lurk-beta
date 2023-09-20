@@ -344,7 +344,7 @@ impl<'a, F: LurkField> AllocatedConsWitness<'a, F> {
         } = &self.slots[index];
         if !expect_dummy {
             match allocated_name {
-                Err(_) => panic!("requested {:?} but found a dummy allocation", name),
+                Err(_) => panic!("requested {name:?} but found a dummy allocation"),
                 Ok(alloc_name) => assert_eq!(
                     name, *alloc_name,
                     "requested and allocated names don't match."
@@ -478,7 +478,7 @@ impl<'a, F: LurkField> AllocatedContWitness<'a, F> {
         if !expect_dummy {
             match allocated_name {
                 Err(_) => {
-                    panic!("requested {:?} but found a dummy allocation", name)
+                    panic!("requested {name:?} but found a dummy allocation")
                 }
                 Ok(alloc_name) => {
                     assert_eq!(

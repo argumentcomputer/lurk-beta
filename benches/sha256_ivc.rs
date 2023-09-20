@@ -54,7 +54,7 @@ fn sha256_ivc<F: LurkField>(
         .map(|i| format!("(sha256 . {i})"))
         .collect::<Vec<String>>()
         .join(" ");
-    let input = format!("'({})", input);
+    let input = format!("'({input})");
     let program = format!(
         r#"
 (letrec ((encode-1 (lambda (term) 

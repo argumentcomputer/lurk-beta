@@ -571,17 +571,17 @@ impl<F: LurkField> Store<F> {
 impl<F: LurkField> Ptr<F> {
     pub fn dbg_display(self, store: &Store<F>) -> String {
         if let Some(s) = store.fetch_string(&self) {
-            return format!("\"{}\"", s);
+            return format!("\"{s}\"");
         }
         if let Some(s) = store.fetch_symbol(&self) {
-            return format!("{}", s);
+            return format!("{s}");
         }
         match self {
             Ptr::Atom(tag, f) => {
                 if let Some(x) = f.to_u64() {
-                    format!("{}{}", tag, x)
+                    format!("{tag}{x}")
                 } else {
-                    format!("{}{:?}", tag, f)
+                    format!("{tag}{f:?}")
                 }
             }
             Ptr::Tuple2(tag, x) => {

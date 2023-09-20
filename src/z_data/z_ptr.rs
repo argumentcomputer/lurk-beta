@@ -110,7 +110,7 @@ impl<E: Tag, F: LurkField> ZPtr<E, F> {
     pub fn to_base32(&self) -> String {
         let tag_b32 = Base32Unpadded::encode_string(&self.0.into().to_le_bytes());
         let val_b32 = Base32Unpadded::encode_string(self.1.to_repr().as_ref());
-        format!("{}z{}", tag_b32, val_b32)
+        format!("{tag_b32}z{val_b32}")
     }
 
     /// Converts a base32-encoded string to a ZPtr

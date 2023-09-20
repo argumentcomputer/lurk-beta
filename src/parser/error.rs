@@ -22,12 +22,12 @@ impl<F: LurkField> fmt::Display for ParseErrorKind<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidBase16EscapeSequence(seq, _) => {
-                write!(f, "Unknown base 16 string escape sequence {}.", seq)
+                write!(f, "Unknown base 16 string escape sequence {seq}.")
             }
             Self::ParseIntErr(e) => {
-                write!(f, "Error parsing number: {}", e)
+                write!(f, "Error parsing number: {e}")
             }
-            e => write!(f, "internal parser error {:?}", e),
+            e => write!(f, "internal parser error {e:?}"),
         }
     }
 }
@@ -98,7 +98,7 @@ impl<'a, F: LurkField> fmt::Display for ParseError<Span<'a>, F> {
         writeln!(&mut res, "^")?;
 
         if let Some(exp) = self.expected {
-            writeln!(&mut res, "Expected {}", exp)?;
+            writeln!(&mut res, "Expected {exp}")?;
         }
 
         let mut errs = self.errors.iter().filter(|x| !x.is_nom_err()).peekable();
@@ -109,12 +109,12 @@ impl<'a, F: LurkField> fmt::Display for ParseError<Span<'a>, F> {
             Some(_) => {
                 writeln!(&mut res, "Reported errors:")?;
                 for kind in errs {
-                    writeln!(&mut res, "- {}", kind)?;
+                    writeln!(&mut res, "- {kind}")?;
                 }
             }
         }
 
-        write!(f, "{}", res)
+        write!(f, "{res}")
     }
 }
 

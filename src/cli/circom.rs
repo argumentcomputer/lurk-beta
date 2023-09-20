@@ -95,10 +95,7 @@ pub(crate) fn create_circom_gadget(circom_folder: Utf8PathBuf, name: String) -> 
         default_field
     };
 
-    println!(
-        "Running circom binary to generate r1cs and witness files to {:?}",
-        circom_gadget
-    );
+    println!("Running circom binary to generate r1cs and witness files to {circom_gadget:?}");
     fs::create_dir_all(&circom_gadget)?;
     let output = get_circom_binary()?
         .args(&[

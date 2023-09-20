@@ -21,7 +21,7 @@ fn test_make_fcomm_examples() {
 
     let make_output = Command::new("make")
         .current_dir(examples_dir)
-        .arg(format!("-j{}", cpus))
+        .arg(format!("-j{cpus}"))
         .output()
         .expect("Failed to run the make command, is make installed?");
 

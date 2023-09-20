@@ -212,19 +212,19 @@ pub mod tests {
         match (expected, p.parse(Span::new(i))) {
             (Some(expected), Ok((_i, x))) if x == expected => (),
             (Some(expected), Ok((i, x))) => {
-                println!("input: {:?}", i);
-                println!("expected: {:?}", expected);
-                println!("detected: {:?}", x);
+                println!("input: {i:?}");
+                println!("expected: {expected:?}");
+                println!("detected: {x:?}");
                 unreachable!("unexpected parse result")
             }
             (Some(..), Err(e)) => {
-                println!("{}", e);
+                println!("{e}");
                 unreachable!("unexpected parse result")
             }
             (None, Ok((i, x))) => {
-                println!("input: {:?}", i);
+                println!("input: {i:?}");
                 println!("expected parse error");
-                println!("detected: {:?}", x);
+                println!("detected: {x:?}");
                 unreachable!("unexpected parse result")
             }
             (None, Err(_e)) => (),
