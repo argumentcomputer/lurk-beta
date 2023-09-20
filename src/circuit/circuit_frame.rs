@@ -93,27 +93,19 @@ impl<'a, F: LurkField, C: Coprocessor<F>> CircuitFrame<'a, F, C> {
 
 impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     pub fn blank(folding_config: Arc<FoldingConfig<F, C>>, meta: Meta<F>) -> Self {
-        match meta {
-            Meta::Lurk => Self {
-                store: None,
-                input: None,
-                output: None,
-                frames: None,
-                cached_witness: None,
-                count: folding_config.reduction_count(),
-                folding_config,
-                meta,
-            },
-            Meta::Coprocessor(_z_ptr) => Self {
-                store: None,
-                input: None,
-                output: None,
-                frames: None,
-                cached_witness: None,
-                count: 1,
-                folding_config,
-                meta,
-            },
+        let count = match meta {
+            Meta::Lurk => folding_config.reduction_count(),
+            Meta::Coprocessor(_zptr) => 1,
+        };
+        Self {
+            store: None,
+            input: None,
+            output: None,
+            frames: None,
+            cached_witness: None,
+            count,
+            folding_config,
+            meta,
         }
     }
 
@@ -141,9 +133,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
 
             for x in chunk {
                 let circuit_frame = CircuitFrame::from_frame(x, store);
-                if meta.is_none() {
-                    meta = Some(x.meta);
-                }
+                meta.get_or_insert(x.meta);
                 inner_frames.push(circuit_frame);
             }
 
@@ -471,6 +461,7 @@ impl<
 type AllocatedIO<F> = (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>);
 
 impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, C> {
+    #[tracing::instrument(skip_all, name = "CircuitFrame::synthesize", level = "debug")]
     pub(crate) fn synthesize<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -483,7 +474,6 @@ impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, C> {
         cont_circuit_witness: Option<ContCircuitWitness<F>>,
     ) -> Result<AllocatedIO<F>, SynthesisError> {
         let (input_expr, input_env, input_cont) = inputs;
-        debug!("synthesizing frame");
         let reduce = |store| {
             let cons_circuit_witness = if let Some(ccw) = cons_circuit_witness {
                 ccw
