@@ -1150,8 +1150,7 @@ fn apply_continuation<F: LurkField>(
                                 Err(control) => return Ok(control),
                             }
                         }
-                        (Expression::Char(_), Expression::EmptyStr)
-                        | (Expression::Char(_), Expression::Str(..))
+                        (Expression::Char(_), Expression::EmptyStr | Expression::Str(..))
                             if matches!(operator, Op2::StrCons) =>
                         {
                             cons_witness.strcons_named(ConsName::TheCons, store, evaled_arg, arg2)

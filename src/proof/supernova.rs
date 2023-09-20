@@ -97,8 +97,6 @@ where
     <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
     <F as PrimeField>::Repr: Abomonation,
-    C: Coprocessor<F>,
-    F: CurveCycleEquipped + LurkField,
     <<<F as CurveCycleEquipped>::G2 as Group>::Scalar as PrimeField>::Repr: Abomonation,
 {
     /// Proves the computation recursively, generating a recursive SNARK proof.

@@ -54,21 +54,20 @@ impl<E: Tag + Display, F: LurkField> Display for ZPtr<E, F> {
 
 impl<E: Tag, F: LurkField> PartialOrd for ZPtr<E, F> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        (
-            self.0.to_field_bytes::<F>().as_ref(),
-            self.1.to_repr().as_ref(),
-        )
-            .partial_cmp(&(
-                other.0.to_field_bytes::<F>().as_ref(),
-                other.1.to_repr().as_ref(),
-            ))
+        Some(self.cmp(other))
     }
 }
 
 impl<E: Tag, F: LurkField> Ord for ZPtr<E, F> {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        self.partial_cmp(other)
-            .expect("ZPtr::cmp: partial_cmp domain invariant violation")
+        (
+            self.0.to_field_bytes::<F>().as_ref(),
+            self.1.to_repr().as_ref(),
+        )
+            .cmp(&(
+                other.0.to_field_bytes::<F>().as_ref(),
+                other.1.to_repr().as_ref(),
+            ))
     }
 }
 

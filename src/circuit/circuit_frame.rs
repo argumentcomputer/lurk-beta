@@ -413,7 +413,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
 
         let mut final_output = None;
 
-        for (frames_cs, output) in css.into_iter() {
+        for (frames_cs, output) in css {
             final_output = Some(output);
 
             let aux = frames_cs.aux_slice();

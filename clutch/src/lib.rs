@@ -510,14 +510,14 @@ impl ClutchState<F, Coproc<F>> {
         println!();
         Ok(None)
     }
-    fn proof_claim(&self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+    fn proof_claim(&self, store: &Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let proof = self.get_proof(store, rest)?;
 
         println!("{0:#?}", proof.claim);
         Ok(None)
     }
 
-    fn get_proof(&self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Proof<'_, F>> {
+    fn get_proof(&self, store: &Store<F>, rest: Ptr<F>) -> Result<Proof<'_, F>> {
         let (proof_cid, _rest1) = store.car_cdr(&rest)?;
         let zptr_string = store
             .fetch_string(&proof_cid)
@@ -579,7 +579,7 @@ impl ClutchState<F, Coproc<F>> {
             bail!("verification of new proof failed");
         }
     }
-    fn verify(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+    fn verify(&mut self, store: &Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let (proof_cid, _) = store.car_cdr(&rest)?;
 
         let zptr_string = store

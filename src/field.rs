@@ -309,7 +309,7 @@ impl<F: LurkField> Hash for FWrap<F> {
 
 impl<F: LurkField> PartialOrd for FWrap<F> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        (self.0.to_repr().as_ref()).partial_cmp(other.0.to_repr().as_ref())
+        Some(self.cmp(other))
     }
 }
 

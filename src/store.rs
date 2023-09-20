@@ -625,7 +625,7 @@ impl<F: LurkField> Store<F> {
     // fetch a symbol cons or keyword cons
     pub fn fetch_symcons(&self, ptr: &Ptr<F>) -> Option<(Ptr<F>, Ptr<F>)> {
         match (ptr.tag, ptr.raw) {
-            (ExprTag::Sym, RawPtr::Index(x)) | (ExprTag::Key, RawPtr::Index(x)) => {
+            (ExprTag::Sym | ExprTag::Key, RawPtr::Index(x)) => {
                 let (car, cdr) = self.sym_store.get_index(x)?;
                 Some((*car, *cdr))
             }

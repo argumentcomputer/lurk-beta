@@ -264,7 +264,7 @@ impl<F: LurkField> Eq for LurkPtr<F> {}
 #[cfg_attr(not(target_arch = "wasm32"), proptest(no_bound))]
 #[cfg_attr(not(target_arch = "wasm32"), serde_test(types(S1), zdata(true)))]
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct CommittedExpression<F: LurkField + Serialize> {
+pub struct CommittedExpression<F: LurkField> {
     pub expr: LurkPtr<F>,
     #[cfg_attr(
         not(target_arch = "wasm32"),
@@ -405,7 +405,7 @@ impl ReductionCount {
 
 impl Evaluation {
     fn new<F: LurkField>(
-        s: &mut Store<F>,
+        s: &Store<F>,
         input: IO<F>,
         output: IO<F>,
         iterations: Option<usize>, // This might be padded, so is not quite 'iterations' in the sense of number of actual reduction steps required
@@ -491,7 +491,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> PtrEvaluation<F> {
 }
 
 impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
-    pub fn from_comm(s: &mut Store<F>, ptr: &Ptr<F>) -> Result<Self, Error> {
+    pub fn from_comm(s: &Store<F>, ptr: &Ptr<F>) -> Result<Self, Error> {
         assert_eq!(ExprTag::Comm, ptr.tag);
 
         let digest = *s
@@ -589,7 +589,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> LurkPtr<F> {
         }
     }
 
-    pub fn from_ptr(s: &mut Store<F>, ptr: &Ptr<F>) -> Self {
+    pub fn from_ptr(s: &Store<F>, ptr: &Ptr<F>) -> Self {
         let (z_store, z_ptr) = ZStore::new_with_expr(s, ptr);
         let z_ptr = z_ptr.unwrap();
         Self::ZStorePtr(ZStorePtr { z_store, z_ptr })
@@ -599,7 +599,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> LurkPtr<F> {
 impl LurkCont {
     pub fn cont_ptr<F: LurkField + Serialize + DeserializeOwned>(
         &self,
-        s: &mut Store<F>,
+        s: &Store<F>,
     ) -> ContPtr<F> {
         match self {
             Self::Outermost => s.get_cont_outermost(),

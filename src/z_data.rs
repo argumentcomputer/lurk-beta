@@ -200,7 +200,7 @@ impl ZData {
             (i, ZData::Atom(data.to_vec()))
         } else {
             let (i, xs) = count(ZData::from_bytes_aux, size)(i)?;
-            (i, ZData::Cell(xs.to_vec()))
+            (i, ZData::Cell(xs))
         };
 
         Ok((i, res))
