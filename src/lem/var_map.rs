@@ -40,10 +40,6 @@ impl<V> VarMap<V> {
             None => bail!("Data for variable {var} not found"),
         }
     }
-
-    pub(crate) fn get_many(&self, args: &[Var]) -> Result<Vec<&V>> {
-        args.iter().map(|arg| self.get(arg)).collect()
-    }
 }
 
 impl<V: Clone> VarMap<V> {
