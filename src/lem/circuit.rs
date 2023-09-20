@@ -307,7 +307,7 @@ impl Block {
                     g.new_const(cs, tag.to_field());
                 }
                 Op::Lit(_, lit) => {
-                    let lit_ptr = lit.to_ptr_cached(store);
+                    let lit_ptr = lit.to_ptr(store);
                     let lit_z_ptr = store.hash_ptr(&lit_ptr).unwrap();
                     g.new_const(cs, lit_z_ptr.tag_field());
                     g.new_const(cs, *lit_z_ptr.value());
@@ -679,7 +679,7 @@ impl Func {
                         bound_allocations.insert_ptr(tgt.clone(), allocated_ptr);
                     }
                     Op::Lit(tgt, lit) => {
-                        let lit_ptr = lit.to_ptr_cached(g.store);
+                        let lit_ptr = lit.to_ptr(g.store);
                         let lit_tag = lit_ptr.tag().to_field();
                         let allocated_tag =
                             g.global_allocator.get_allocated_const_cloned(lit_tag)?;
@@ -1098,11 +1098,8 @@ impl Func {
 
                     let mut cases_vec = Vec::with_capacity(cases.len());
                     for (sym, block) in cases {
-                        let sym_ptr = g
-                            .store
-                            .interned_symbol(sym)
-                            .expect("symbol must have been interned");
-                        let sym_hash = *g.store.hash_ptr(sym_ptr)?.value();
+                        let sym_ptr = g.store.intern_symbol(sym);
+                        let sym_hash = *g.store.hash_ptr(&sym_ptr)?.value();
                         cases_vec.push((sym_hash, block));
                     }
 
@@ -1200,7 +1197,7 @@ impl Func {
                         }
                     }
                     Op::Lit(_, lit) => {
-                        let lit_ptr = lit.to_ptr_cached(store);
+                        let lit_ptr = lit.to_ptr(store);
                         let lit_z_ptr = store.hash_ptr(&lit_ptr).unwrap();
                         globals.insert(FWrap(lit_z_ptr.tag_field()));
                         globals.insert(FWrap(*lit_z_ptr.value()));

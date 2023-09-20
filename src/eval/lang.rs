@@ -125,8 +125,7 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         let ptr = store.intern_symbol(&name);
         let z_ptr = store.hash_expr(&ptr).unwrap();
 
-        self.coprocessors
-            .insert(name.clone(), (cproc.into(), z_ptr));
+        self.coprocessors.insert(name, (cproc.into(), z_ptr));
         self.index.insert(z_ptr, self.index.len());
     }
 

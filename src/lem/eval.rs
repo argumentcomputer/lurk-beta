@@ -32,7 +32,7 @@ pub fn evaluate_with_env_and_cont<F: LurkField>(
     expr: Ptr<F>,
     env: Ptr<F>,
     cont: Ptr<F>,
-    store: &mut Store<F>,
+    store: &Store<F>,
     limit: usize,
 ) -> Result<(Vec<Frame<F>>, usize)> {
     let stop_cond = |output: &[Ptr<F>]| {
@@ -60,7 +60,7 @@ pub fn evaluate_with_env_and_cont<F: LurkField>(
 
 pub fn evaluate<F: LurkField>(
     expr: Ptr<F>,
-    store: &mut Store<F>,
+    store: &Store<F>,
     limit: usize,
 ) -> Result<(Vec<Frame<F>>, usize)> {
     evaluate_with_env_and_cont(
@@ -74,7 +74,7 @@ pub fn evaluate<F: LurkField>(
 
 pub fn evaluate_simple<F: LurkField>(
     expr: Ptr<F>,
-    store: &mut Store<F>,
+    store: &Store<F>,
     limit: usize,
 ) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
     let stop_cond = |output: &[Ptr<F>]| {
@@ -1236,9 +1236,9 @@ mod tests {
         // eval_step.assert_all_paths_taken(&all_paths);
     }
 
-    fn expr_in_expr_out_pairs(s: &mut Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
+    fn expr_in_expr_out_pairs(s: &Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
         let state = State::init_lurk_state().rccell();
-        let mut read = |code: &str| s.read(state.clone(), code).unwrap();
+        let read = |code: &str| s.read(state.clone(), code).unwrap();
         let div = read("(/ 70u64 8u64)");
         let div_res = read("8u64");
         let rem = read("(% 70u64 8u64)");

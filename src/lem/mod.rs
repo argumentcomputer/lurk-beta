@@ -185,22 +185,10 @@ pub enum Lit {
 }
 
 impl Lit {
-    pub fn to_ptr<F: LurkField>(&self, store: &mut Store<F>) -> Ptr<F> {
+    pub fn to_ptr<F: LurkField>(&self, store: &Store<F>) -> Ptr<F> {
         match self {
             Self::Symbol(s) => store.intern_symbol(s),
             Self::String(s) => store.intern_string(s),
-            Self::Num(num) => Ptr::num(F::from_u128(*num)),
-        }
-    }
-
-    pub fn to_ptr_cached<F: LurkField>(&self, store: &Store<F>) -> Ptr<F> {
-        match self {
-            Self::Symbol(s) => *store
-                .interned_symbol(s)
-                .expect("Symbol should have been cached"),
-            Self::String(s) => *store
-                .interned_string(s)
-                .expect("String should have been cached"),
             Self::Num(num) => Ptr::num(F::from_u128(*num)),
         }
     }
@@ -582,8 +570,8 @@ impl Func {
     }
 
     pub fn init_store<F: LurkField>(&self) -> Store<F> {
-        let mut store = Store::default();
-        self.body.intern_lits(&mut store);
+        let store = Store::default();
+        self.body.intern_lits(&store);
         store
     }
 }
@@ -774,7 +762,7 @@ impl Block {
         Ok(Block { ops, ctrl })
     }
 
-    fn intern_lits<F: LurkField>(&self, store: &mut Store<F>) {
+    fn intern_lits<F: LurkField>(&self, store: &Store<F>) {
         for op in &self.ops {
             match op {
                 Op::Call(_, func, _) => func.body.intern_lits(store),

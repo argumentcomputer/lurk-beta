@@ -120,7 +120,7 @@ pub fn populate_z_store<F: LurkField>(
 }
 
 pub fn populate_store<F: LurkField>(
-    store: &mut Store<F>,
+    store: &Store<F>,
     z_ptr: &ZPtr<F>,
     z_store: &ZStore<F>,
 ) -> Result<Ptr<F>> {
