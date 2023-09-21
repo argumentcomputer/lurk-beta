@@ -6,7 +6,7 @@ use bellpepper_core::{ConstraintSystem, SynthesisError};
 use crate::circuit::circuit_frame::{car_cdr, destructure_list};
 use crate::circuit::gadgets::constraints::{alloc_equal_const, enforce_equal_const};
 use crate::circuit::gadgets::data::GlobalAllocations;
-use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents};
+use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use crate::eval::IO;
 use crate::field::LurkField;
 use crate::ptr::{ContPtr, Ptr};
@@ -133,26 +133,12 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
             &[&g.quote_ptr, &result_expr],
         )?;
 
-        let default_num_pair = &[&g.default_num, &g.default_num];
+        // FIXME: technically, the error is defined to be rest -- which is the cdr of input_expr.tes
+        //let new_expr = pick_ptr!(cs, &arity_is_correct, &quoted_expr, &rest)?;
+        let new_expr = pick_ptr!(cs, &arity_is_correct, &quoted_expr, &input_expr)?;
 
-        // TODO: This should be better abstracted, perhaps by resurrecting historical code.
-        let tail_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
-            &result_env,
-            &result_cont,
-            default_num_pair,
-            default_num_pair,
-        ];
-
-        let tail_cont = AllocatedContPtr::construct(
-            &mut cs.namespace(|| "coprocessor tail cont"),
-            store,
-            &g.tail_cont_tag,
-            tail_components,
-        )?;
-
-        let new_expr = pick_ptr!(cs, &arity_is_correct, &quoted_expr, &rest)?;
         let new_env = pick_ptr!(cs, &arity_is_correct, &result_env, &input_env)?;
-        let new_cont = pick_cont_ptr!(cs, &arity_is_correct, &tail_cont, &g.error_ptr_cont)?;
+        let new_cont = pick_cont_ptr!(cs, &arity_is_correct, &result_cont, &g.error_ptr_cont)?;
 
         Ok((new_expr, new_env, new_cont))
     }

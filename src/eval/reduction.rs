@@ -560,7 +560,7 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                                 env,
                                 // This continuation can't be used directly because we are returning a quoted result for evaluation.
                                 // This is to avoid having to begin the first reduction (in NIVC) after an evaluation, in the middle (ApplyContinuation),
-                                // or alternately performing the ApplyContinuation part of reduction at the end of each (NIVC) coprocessor step.
+                                // or alternately performing the ApplyContinuation part of reduction at the end of each (NIVC coprocessor step.
                                 // Instead, we wrap this in a (potentially unoptimized) tail call.
                                 cont,
                             } = coprocessor.evaluate(store, args, env, cont);
@@ -574,12 +574,8 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                             } else {
                                 let quoted = store.list(&[quote, expr]);
 
-                                // NOTE: This will be a potentially redundant tail cont, which is 'okay' as long as circuit does same.
-                                // Alternately, here and in circuit(s), we could use the dynamic logic to avoid.
-                                let tail_cont = make_tail_continuation_raw(env, cont, store);
-
                                 return Ok((
-                                    Control::Return(quoted, env, tail_cont),
+                                    Control::Return(quoted, env, cont),
                                     None,
                                     Meta::Coprocessor(*z_ptr),
                                 ));
