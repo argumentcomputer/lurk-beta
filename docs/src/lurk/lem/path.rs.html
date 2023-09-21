@@ -131,6 +131,8 @@
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashSet;
 
 <span class="kw">use </span><span class="kw">crate</span>::Symbol;
@@ -258,7 +260,9 @@
                     .values()
                     .fold(init, |acc, block| acc + block.num_paths())
             }
-            Ctrl::IfEq(<span class="kw">_</span>, <span class="kw">_</span>, eq_block, else_block) =&gt; eq_block.num_paths() + else_block.num_paths(),
+            Ctrl::If(<span class="kw">_</span>, true_block, false_block) =&gt; {
+                true_block.num_paths() + false_block.num_paths()
+            }
             Ctrl::Return(..) =&gt; <span class="number">1</span>,
         };
         num_paths

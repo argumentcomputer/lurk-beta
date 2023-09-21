@@ -1063,6 +1063,33 @@
 <a href="#1063" id="1063">1063</a>
 <a href="#1064" id="1064">1064</a>
 <a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Lurk Evaluation Model (LEM)
 //!
 //! LEM is a simple, first order, referentially transparent language, designed to
@@ -1321,9 +1348,9 @@
     /// whether `x` matches some symbol among the ones provided in `cases`. If so,
     /// run the corresponding `Block`. Run `def` otherwise
     </span>MatchSymbol(Var, IndexMap&lt;Symbol, Block&gt;, <span class="prelude-ty">Option</span>&lt;Box&lt;Block&gt;&gt;),
-    <span class="doccomment">/// `IfEq(x, y, eq_block, else_block)` runs `eq_block` if `x == y`, and
-    /// otherwise runs `else_block`
-    </span>IfEq(Var, Var, Box&lt;Block&gt;, Box&lt;Block&gt;),
+    <span class="doccomment">/// `If(x, true_block, false_block)` runs `true_block` if `x` is true, and
+    /// otherwise runs `false_block`
+    </span>If(Var, Box&lt;Block&gt;, Box&lt;Block&gt;),
     <span class="doccomment">/// `Return(rets)` sets the output to `rets`
     </span>Return(Vec&lt;Var&gt;),
 }
@@ -1339,11 +1366,17 @@
     </span>Lit(Var, Lit),
     <span class="doccomment">/// `Cast(y, t, x)` binds `y` to a pointer with tag `t` and the hash of `x`
     </span>Cast(Var, Tag, Var),
-    <span class="doccomment">/// `Add(y, a, b)` binds `y` to the sum of `a` and `b`
+    <span class="doccomment">/// `EqTag(y, a, b)` binds `y` to the boolean `a.tag == b.tag`
     </span>EqTag(Var, Var, Var),
-    <span class="doccomment">/// `EqVal(y, a, b)` binds `y` to `1` if `a.val != b.val`, or to `0` otherwise
+    <span class="doccomment">/// `EqVal(y, a, b)` binds `y` to the boolean `a.val == b.val`
     </span>EqVal(Var, Var, Var),
-    <span class="doccomment">/// `Lt(y, a, b)` binds `y` to `1` if `a &lt; b`, or to `0` otherwise
+    <span class="doccomment">/// `Not(y, a)` binds `y` to the negation of `a`
+    </span>Not(Var, Var),
+    <span class="doccomment">/// `And(y, a, b)` binds `y` to the conjunction of `a` and `b`
+    </span>And(Var, Var, Var),
+    <span class="doccomment">/// `Or(y, a, b)` binds `y` to the disjunction of `a` and `b`
+    </span>Or(Var, Var, Var),
+    <span class="doccomment">/// `Add(y, a, b)` binds `y` to the sum of `a` and `b`
     </span>Add(Var, Var, Var),
     <span class="doccomment">/// `Sub(y, a, b)` binds `y` to the sum of `a` and `b`
     </span>Sub(Var, Var, Var),
@@ -1456,8 +1489,14 @@
                         is_bound(src, map)<span class="question-mark">?</span>;
                         is_unique(tgt, map);
                     }
+                    Op::Not(tgt, a) =&gt; {
+                        is_bound(a, map)<span class="question-mark">?</span>;
+                        is_unique(tgt, map);
+                    }
                     Op::EqTag(tgt, a, b)
                     | Op::EqVal(tgt, a, b)
+                    | Op::And(tgt, a, b)
+                    | Op::Or(tgt, a, b)
                     | Op::Add(tgt, a, b)
                     | Op::Sub(tgt, a, b)
                     | Op::Mul(tgt, a, b)
@@ -1567,11 +1606,10 @@
                         recurse(def, return_size, map)<span class="question-mark">?</span>;
                     }
                 }
-                Ctrl::IfEq(x, y, eq_block, else_block) =&gt; {
+                Ctrl::If(x, true_block, false_block) =&gt; {
                     is_bound(x, map)<span class="question-mark">?</span>;
-                    is_bound(y, map)<span class="question-mark">?</span>;
-                    recurse(eq_block, return_size, map)<span class="question-mark">?</span>;
-                    recurse(else_block, return_size, map)<span class="question-mark">?</span>;
+                    recurse(true_block, return_size, map)<span class="question-mark">?</span>;
+                    recurse(false_block, return_size, map)<span class="question-mark">?</span>;
                 }
             }
             <span class="prelude-val">Ok</span>(())
@@ -1683,6 +1721,23 @@
                     <span class="kw">let </span>b = map.get_cloned(<span class="kw-2">&amp;</span>b)<span class="question-mark">?</span>;
                     <span class="kw">let </span>tgt = insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt);
                     ops.push(Op::EqVal(tgt, a, b))
+                }
+                Op::Not(tgt, a) =&gt; {
+                    <span class="kw">let </span>a = map.get_cloned(<span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>tgt = insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt);
+                    ops.push(Op::Not(tgt, a))
+                }
+                Op::And(tgt, a, b) =&gt; {
+                    <span class="kw">let </span>a = map.get_cloned(<span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>b = map.get_cloned(<span class="kw-2">&amp;</span>b)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>tgt = insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt);
+                    ops.push(Op::And(tgt, a, b))
+                }
+                Op::Or(tgt, a, b) =&gt; {
+                    <span class="kw">let </span>a = map.get_cloned(<span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>b = map.get_cloned(<span class="kw-2">&amp;</span>b)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>tgt = insert_one(map, uniq, <span class="kw-2">&amp;</span>tgt);
+                    ops.push(Op::Or(tgt, a, b))
                 }
                 Op::Add(tgt, a, b) =&gt; {
                     <span class="kw">let </span>a = map.get_cloned(<span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>;
@@ -1800,12 +1855,11 @@
                 };
                 Ctrl::MatchSymbol(var, IndexMap::from_iter(new_cases), new_def)
             }
-            Ctrl::IfEq(x, y, eq_block, else_block) =&gt; {
+            Ctrl::If(x, true_block, false_block) =&gt; {
                 <span class="kw">let </span>x = map.get_cloned(<span class="kw-2">&amp;</span>x)<span class="question-mark">?</span>;
-                <span class="kw">let </span>y = map.get_cloned(<span class="kw-2">&amp;</span>y)<span class="question-mark">?</span>;
-                <span class="kw">let </span>eq_block = Box::new(eq_block.deconflict(<span class="kw-2">&amp;mut </span>map.clone(), uniq)<span class="question-mark">?</span>);
-                <span class="kw">let </span>else_block = Box::new(else_block.deconflict(<span class="kw-2">&amp;mut </span>map.clone(), uniq)<span class="question-mark">?</span>);
-                Ctrl::IfEq(x, y, eq_block, else_block)
+                <span class="kw">let </span>true_block = Box::new(true_block.deconflict(<span class="kw-2">&amp;mut </span>map.clone(), uniq)<span class="question-mark">?</span>);
+                <span class="kw">let </span>false_block = Box::new(false_block.deconflict(<span class="kw-2">&amp;mut </span>map.clone(), uniq)<span class="question-mark">?</span>);
+                Ctrl::If(x, true_block, false_block)
             }
             Ctrl::Return(o) =&gt; Ctrl::Return(map.get_many_cloned(<span class="kw-2">&amp;</span>o)<span class="question-mark">?</span>),
         };
@@ -1823,7 +1877,7 @@
             }
         }
         <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.ctrl {
-            Ctrl::IfEq(.., a, b) =&gt; {
+            Ctrl::If(.., a, b) =&gt; {
                 a.intern_lits(store);
                 b.intern_lits(store);
             }

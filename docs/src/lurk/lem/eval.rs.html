@@ -1308,6 +1308,18 @@
 <a href="#1308" id="1308">1308</a>
 <a href="#1309" id="1309">1309</a>
 <a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>once_cell::sync::OnceCell;
 
@@ -1659,7 +1671,8 @@
                     car_cdr(binding);
                 <span class="kw">match </span>var_or_rec_binding.tag {
                     Expr::Sym =&gt; {
-                        <span class="kw">if </span>var_or_rec_binding == expr {
+                        <span class="kw">let </span>eq_val = eq_val(var_or_rec_binding, expr);
+                        <span class="kw">if </span>eq_val {
                             <span class="kw">return </span>(val_or_more_rec_env, env, cont, apply)
                         }
                         <span class="kw">match </span>cont.tag {
@@ -1673,7 +1686,8 @@
                     Expr::Cons =&gt; {
                         <span class="kw">let </span>(v2, val2) = decons2(var_or_rec_binding);
 
-                        <span class="kw">if </span>v2 == expr {
+                        <span class="kw">let </span>eq_val = eq_val(v2, expr);
+                        <span class="kw">if </span>eq_val {
                             <span class="kw">match </span>val2.tag {
                                 Expr::Fun =&gt; {
                                     <span class="comment">// if `val2` is a closure, then extend its environment
@@ -1830,10 +1844,13 @@
                         };
                         <span class="comment">// unops
                         </span><span class="kw">let </span>(op) = get_unop(head);
-                        <span class="kw">if </span>op != nil {
-                            <span class="kw">if </span>rest != nil {
+                        <span class="kw">let </span>eq_val = eq_val(op, nil);
+                        <span class="kw">if </span>!eq_val {
+                            <span class="kw">let </span>eq_val = eq_val(rest, nil);
+                            <span class="kw">if </span>!eq_val {
                                 <span class="kw">let </span>(arg1, end) = decons2(rest);
-                                <span class="kw">if </span>end == nil {
+                                <span class="kw">let </span>eq_val = eq_val(end, nil);
+                                <span class="kw">if </span>eq_val {
                                     <span class="kw">let </span>cont: Cont::Unop = cons4(op, cont, foo, foo);
                                     <span class="kw">return </span>(arg1, env, cont, ret)
                                 }
@@ -1843,10 +1860,13 @@
                         }
                         <span class="comment">// binops
                         </span><span class="kw">let </span>(op) = get_binop(head);
-                        <span class="kw">if </span>op != nil {
-                            <span class="kw">if </span>rest != nil {
+                        <span class="kw">let </span>eq_val = eq_val(op, nil);
+                        <span class="kw">if </span>!eq_val {
+                            <span class="kw">let </span>eq_val = eq_val(rest, nil);
+                            <span class="kw">if </span>!eq_val {
                                 <span class="kw">let </span>(arg1, more) = decons2(rest);
-                                <span class="kw">if </span>more != nil {
+                                <span class="kw">let </span>eq_val = eq_val(more, nil);
+                                <span class="kw">if </span>!eq_val {
                                     <span class="kw">let </span>cont: Cont::Binop = cons4(op, env, more, cont);
                                     <span class="kw">return </span>(arg1, env, cont, ret);
                                 }
@@ -1863,7 +1883,8 @@
                 <span class="comment">// TODO coprocessors (could it be simply a `func`?)
                 // head -&gt; fn, rest -&gt; args
                 </span><span class="kw">let </span>(potentially_fun) = is_potentially_fun(head);
-                <span class="kw">if </span>potentially_fun == t {
+                <span class="kw">let </span>eq_val = eq_val(potentially_fun, t);
+                <span class="kw">if </span>eq_val {
                     <span class="kw">let </span>(fun, env, cont, ret) = make_call(head, rest, env, cont);
                     <span class="kw">return </span>(fun, env, cont, ret);
                 }
@@ -2065,7 +2086,8 @@
                                         <span class="kw">return </span>(car, env, continuation, makethunk)
                                     }
                                     Expr::Str =&gt; {
-                                        <span class="kw">if </span>result == empty_str {
+                                        <span class="kw">let </span>eq_val = eq_val(result, empty_str);
+                                        <span class="kw">if </span>eq_val {
                                             <span class="kw">return </span>(nil, env, continuation, makethunk)
                                         }
                                         <span class="kw">let </span>(car, _cdr) = decons2(result);
@@ -2084,7 +2106,8 @@
                                         <span class="kw">return </span>(cdr, env, continuation, makethunk)
                                     }
                                     Expr::Str =&gt; {
-                                        <span class="kw">if </span>result == empty_str {
+                                        <span class="kw">let </span>eq_val = eq_val(result, empty_str);
+                                        <span class="kw">if </span>eq_val {
                                             <span class="kw">return </span>(empty_str, env, continuation, makethunk)
                                         }
                                         <span class="kw">let </span>(_car, cdr) = decons2(result);
@@ -2249,11 +2272,11 @@
                             Op2::Equal =&gt; {
                                 <span class="kw">let </span>eq_tag = eq_tag(evaled_arg, result);
                                 <span class="kw">let </span>eq_val = eq_val(evaled_arg, result);
-                                <span class="kw">let </span>eq = mul(eq_tag, eq_val);
-                                <span class="kw">if </span>eq == zero {
-                                    <span class="kw">return </span>(nil, env, continuation, makethunk)
+                                <span class="kw">let </span>eq = and(eq_tag, eq_val);
+                                <span class="kw">if </span>eq {
+                                    <span class="kw">return </span>(t, env, continuation, makethunk)
                                 }
-                                <span class="kw">return </span>(t, env, continuation, makethunk)
+                                <span class="kw">return </span>(nil, env, continuation, makethunk)
                             }
                             Op2::Sum =&gt; {
                                 <span class="kw">match </span>args_num_type.tag {
@@ -2267,11 +2290,11 @@
                                     Expr::U64 =&gt; {
                                         <span class="kw">let </span>val = add(evaled_arg, result);
                                         <span class="kw">let </span>not_overflow = lt(val, size_u64);
-                                        <span class="kw">if </span>not_overflow == zero {
-                                            <span class="kw">let </span>val = sub(val, size_u64);
+                                        <span class="kw">if </span>not_overflow {
                                             <span class="kw">let </span>val = cast(val, Expr::U64);
                                             <span class="kw">return </span>(val, env, continuation, makethunk)
                                         }
+                                        <span class="kw">let </span>val = sub(val, size_u64);
                                         <span class="kw">let </span>val = cast(val, Expr::U64);
                                         <span class="kw">return </span>(val, env, continuation, makethunk)
                                     }
@@ -2292,7 +2315,8 @@
                                         // to add 2^64 to get back to U64 domain.
                                         </span><span class="kw">let </span>val = sub(evaled_arg, result);
                                         <span class="kw">let </span>is_neg = lt(val, zero);
-                                        <span class="kw">if </span>is_neg == zero {
+                                        <span class="kw">let </span>not_neg = not(is_neg);
+                                        <span class="kw">if </span>not_neg {
                                             <span class="kw">let </span>val = cast(val, Expr::U64);
                                             <span class="kw">return </span>(val, env, continuation, makethunk)
                                         }
@@ -2322,36 +2346,36 @@
                             }
                             Op2::Quotient =&gt; {
                                 <span class="kw">let </span>is_z = eq_val(result, zero);
-                                <span class="kw">if </span>is_z == zero {
-                                    <span class="kw">match </span>args_num_type.tag {
-                                        Expr::Nil =&gt; {
-                                            <span class="kw">return </span>(result, env, err, errctrl)
-                                        }
-                                        Expr::Num =&gt; {
-                                            <span class="kw">let </span>val = div(evaled_arg, result);
-                                            <span class="kw">return </span>(val, env, continuation, makethunk)
-                                        }
-                                        Expr::U64 =&gt; {
-                                            <span class="kw">let </span>(div, _rem) = div_rem64(evaled_arg, result);
-                                            <span class="kw">let </span>div = cast(div, Expr::U64);
-                                            <span class="kw">return </span>(div, env, continuation, makethunk)
-                                        }
+                                <span class="kw">if </span>is_z {
+                                    <span class="kw">return </span>(result, env, err, errctrl)
+                                }
+                                <span class="kw">match </span>args_num_type.tag {
+                                    Expr::Nil =&gt; {
+                                        <span class="kw">return </span>(result, env, err, errctrl)
+                                    }
+                                    Expr::Num =&gt; {
+                                        <span class="kw">let </span>val = div(evaled_arg, result);
+                                        <span class="kw">return </span>(val, env, continuation, makethunk)
+                                    }
+                                    Expr::U64 =&gt; {
+                                        <span class="kw">let </span>(div, _rem) = div_rem64(evaled_arg, result);
+                                        <span class="kw">let </span>div = cast(div, Expr::U64);
+                                        <span class="kw">return </span>(div, env, continuation, makethunk)
                                     }
                                 }
-                                <span class="kw">return </span>(result, env, err, errctrl)
                             }
                             Op2::Modulo =&gt; {
                                 <span class="kw">let </span>is_z = eq_val(result, zero);
-                                <span class="kw">if </span>is_z == zero {
-                                    <span class="kw">match </span>args_num_type.tag {
-                                        Expr::U64 =&gt; {
-                                            <span class="kw">let </span>(_div, rem) = div_rem64(evaled_arg, result);
-                                            <span class="kw">let </span>rem = cast(rem, Expr::U64);
-                                            <span class="kw">return </span>(rem, env, continuation, makethunk)
-                                        }
-                                    };
+                                <span class="kw">if </span>is_z {
                                     <span class="kw">return </span>(result, env, err, errctrl)
                                 }
+                                <span class="kw">match </span>args_num_type.tag {
+                                    Expr::U64 =&gt; {
+                                        <span class="kw">let </span>(_div, rem) = div_rem64(evaled_arg, result);
+                                        <span class="kw">let </span>rem = cast(rem, Expr::U64);
+                                        <span class="kw">return </span>(rem, env, continuation, makethunk)
+                                    }
+                                };
                                 <span class="kw">return </span>(result, env, err, errctrl)
                             }
                             Op2::NumEqual =&gt; {
@@ -2361,38 +2385,38 @@
                                     }
                                 };
                                 <span class="kw">let </span>eq = eq_val(evaled_arg, result);
-                                <span class="kw">if </span>eq == zero {
-                                    <span class="kw">return </span>(nil, env, continuation, makethunk)
+                                <span class="kw">if </span>eq {
+                                    <span class="kw">return </span>(t, env, continuation, makethunk)
                                 }
-                                <span class="kw">return </span>(t, env, continuation, makethunk)
+                                <span class="kw">return </span>(nil, env, continuation, makethunk)
                             }
                             Op2::Less =&gt; {
                                 <span class="kw">let </span>val = lt(evaled_arg, result);
-                                <span class="kw">if </span>val == zero {
-                                    <span class="kw">return </span>(nil, env, continuation, makethunk)
+                                <span class="kw">if </span>val {
+                                    <span class="kw">return </span>(t, env, continuation, makethunk)
                                 }
-                                <span class="kw">return </span>(t, env, continuation, makethunk)
+                                <span class="kw">return </span>(nil, env, continuation, makethunk)
                             }
                             Op2::Greater =&gt; {
                                 <span class="kw">let </span>val = lt(result, evaled_arg);
-                                <span class="kw">if </span>val == zero {
+                                <span class="kw">if </span>val {
+                                    <span class="kw">return </span>(t, env, continuation, makethunk)
+                                }
+                                <span class="kw">return </span>(nil, env, continuation, makethunk)
+                            }
+                            Op2::LessEqual =&gt; {
+                                <span class="kw">let </span>val = lt(result, evaled_arg);
+                                <span class="kw">if </span>val {
                                     <span class="kw">return </span>(nil, env, continuation, makethunk)
                                 }
                                 <span class="kw">return </span>(t, env, continuation, makethunk)
                             }
-                            Op2::LessEqual =&gt; {
-                                <span class="kw">let </span>val = lt(result, evaled_arg);
-                                <span class="kw">if </span>val == zero {
-                                    <span class="kw">return </span>(t, env, continuation, makethunk)
-                                }
-                                <span class="kw">return </span>(nil, env, continuation, makethunk)
-                            }
                             Op2::GreaterEqual =&gt; {
                                 <span class="kw">let </span>val = lt(evaled_arg, result);
-                                <span class="kw">if </span>val == zero {
-                                    <span class="kw">return </span>(t, env, continuation, makethunk)
+                                <span class="kw">if </span>val {
+                                    <span class="kw">return </span>(nil, env, continuation, makethunk)
                                 }
-                                <span class="kw">return </span>(nil, env, continuation, makethunk)
+                                <span class="kw">return </span>(t, env, continuation, makethunk)
                             }
                         };
                         <span class="kw">return </span>(result, env, err, errctrl)
@@ -2465,8 +2489,8 @@
     <span class="kw">use </span>blstrs::Scalar <span class="kw">as </span>Fr;
 
     <span class="kw">const </span>NUM_INPUTS: usize = <span class="number">1</span>;
-    <span class="kw">const </span>NUM_AUX: usize = <span class="number">10538</span>;
-    <span class="kw">const </span>NUM_CONSTRAINTS: usize = <span class="number">12851</span>;
+    <span class="kw">const </span>NUM_AUX: usize = <span class="number">10529</span>;
+    <span class="kw">const </span>NUM_CONSTRAINTS: usize = <span class="number">12811</span>;
     <span class="kw">const </span>NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash4: <span class="number">14</span>,
         hash6: <span class="number">3</span>,

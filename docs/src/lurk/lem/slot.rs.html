@@ -491,9 +491,9 @@
                     .values()
                     .fold(init, |acc, block| acc.max(block.count_slots()))
             }
-            Ctrl::IfEq(<span class="kw">_</span>, <span class="kw">_</span>, eq_block, else_block) =&gt; {
-                <span class="kw">let </span>eq_slots = eq_block.count_slots();
-                eq_slots.max(else_block.count_slots())
+            Ctrl::If(<span class="kw">_</span>, true_block, false_block) =&gt; {
+                <span class="kw">let </span>if_slots = true_block.count_slots();
+                if_slots.max(false_block.count_slots())
             }
             Ctrl::Return(..) =&gt; SlotsCounter::default(),
         };

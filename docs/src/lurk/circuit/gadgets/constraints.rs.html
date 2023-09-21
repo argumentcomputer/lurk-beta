@@ -1461,6 +1461,7 @@
 <a href="#1461" id="1461">1461</a>
 <a href="#1462" id="1462">1462</a>
 <a href="#1463" id="1463">1463</a>
+<a href="#1464" id="1464">1464</a>
 </pre></div><pre class="rust"><code><span class="comment">// Initially taken from: rust-fil-proofs/storage-proofs-core/src/gadgets/
 </span><span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 <span class="kw">use </span>bellpepper_core::LinearCombination;
@@ -1927,25 +1928,25 @@
     <span class="kw">let </span>equal = a.get_value().and_then(|x| b.get_value().map(|y| x == y));
 
     <span class="comment">// Difference between `a` and `b`. This will be zero if `a` and `b` are equal.
-    </span><span class="kw">let </span>diff = sub(cs.namespace(|| <span class="string">&quot;a - b&quot;</span>), a, b)<span class="question-mark">?</span>;
-
-    <span class="comment">// result = (a == b)
+    // result = (a == b)
     </span><span class="kw">let </span>result = AllocatedBit::alloc(cs.namespace(|| <span class="string">&quot;a = b&quot;</span>), equal)<span class="question-mark">?</span>;
 
-    <span class="comment">// result * diff = 0
-    // This means that at least one of result or diff is zero.
+    <span class="comment">// result * (a - b) = 0
+    // This means that at least one of result or a - b is zero.
     </span>cs.enforce(
         || <span class="string">&quot;result or diff is 0&quot;</span>,
         |lc| lc + result.get_variable(),
-        |lc| lc + diff.get_variable(),
+        |lc| lc + a.get_variable() - b.get_variable(),
         |lc| lc,
     );
 
-    <span class="comment">// Inverse of `diff`, if it exists, otherwise one.
+    <span class="comment">// Inverse of `a - b`, if it exists, otherwise one.
     </span><span class="kw">let </span>q = cs.alloc(
         || <span class="string">&quot;q&quot;</span>,
         || {
-            <span class="kw">let </span>tmp0 = diff.get_value().ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?</span>;
+            <span class="kw">let </span>a_val = a.get_value().ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?</span>;
+            <span class="kw">let </span>b_val = b.get_value().ok_or(SynthesisError::AssignmentMissing)<span class="question-mark">?</span>;
+            <span class="kw">let </span>tmp0 = a_val - b_val;
             <span class="kw">let </span>tmp1 = tmp0.invert();
 
             <span class="kw">if </span>tmp1.is_some().into() {
@@ -1956,11 +1957,11 @@
         },
     )<span class="question-mark">?</span>;
 
-    <span class="comment">// (diff + result) * q = 1.
+    <span class="comment">// (a - b + result) * q = 1.
     // This enforces that diff and result are not both 0.
     </span>cs.enforce(
-        || <span class="string">&quot;(diff + result) * q = 1&quot;</span>,
-        |lc| lc + diff.get_variable() + result.get_variable(),
+        || <span class="string">&quot;(a - b + result) * q = 1&quot;</span>,
+        |lc| lc + a.get_variable() - b.get_variable() + result.get_variable(),
         |lc| lc + q,
         |lc| lc + CS::one(),
     );
@@ -2251,6 +2252,7 @@
 }
 
 <span class="doccomment">/// Enforce inequality of two allocated numbers given an implication premise
+</span><span class="attr">#[allow(dead_code)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>implies_unequal&lt;CS: ConstraintSystem&lt;F&gt;, F: PrimeField&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
     premise: <span class="kw-2">&amp;</span>Boolean,
