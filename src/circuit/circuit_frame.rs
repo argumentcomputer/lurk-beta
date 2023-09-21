@@ -3955,7 +3955,9 @@ fn apply_continuation<F: LurkField, CS: ConstraintSystem<F>>(
             &arg2_is_num,
         )?;
         let arg1_is_u64 = arg1.is_u64(&mut cs.namespace(|| "arg1_is_u64"))?;
+        implies_u64(cs.namespace(|| "arg1 fits in u64"), &arg1_is_u64, arg1.hash())?;
         let arg2_is_u64 = arg2.is_u64(&mut cs.namespace(|| "arg2_is_u64"))?;
+        implies_u64(cs.namespace(|| "arg2 fits in u64"), &arg2_is_u64, arg2.hash())?;
         let both_args_are_u64s = Boolean::and(
             &mut cs.namespace(|| "both_args_are_u64s"),
             &arg1_is_u64,
@@ -5560,9 +5562,9 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             // println!("{}", print_cs(&cs));
-            assert_eq!(11839, cs.num_constraints());
+            assert_eq!(11969, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(11494, cs.aux().len());
+            assert_eq!(11622, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
