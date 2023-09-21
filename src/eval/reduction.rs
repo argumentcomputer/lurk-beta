@@ -1321,18 +1321,6 @@ fn make_tail_continuation<F: LurkField>(
     // point to one another: they can only be nested one deep.
 }
 
-fn make_tail_continuation_raw<F: LurkField>(
-    saved_env: Ptr<F>,
-    continuation: ContPtr<F>,
-    store: &mut Store<F>,
-) -> ContPtr<F> {
-    Continuation::Tail {
-        saved_env,
-        continuation,
-    }
-    .intern_aux(store)
-}
-
 // Only used in tests. Real evalution should use extend_name.
 #[allow(dead_code)]
 pub(crate) fn extend<F: LurkField>(
