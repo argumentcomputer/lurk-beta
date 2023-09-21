@@ -464,25 +464,25 @@ pub fn alloc_equal<CS: ConstraintSystem<F>, F: PrimeField>(
     let equal = a.get_value().and_then(|x| b.get_value().map(|y| x == y));
 
     // Difference between `a` and `b`. This will be zero if `a` and `b` are equal.
-    let diff = sub(cs.namespace(|| "a - b"), a, b)?;
-
     // result = (a == b)
     let result = AllocatedBit::alloc(cs.namespace(|| "a = b"), equal)?;
 
-    // result * diff = 0
-    // This means that at least one of result or diff is zero.
+    // result * (a - b) = 0
+    // This means that at least one of result or a - b is zero.
     cs.enforce(
         || "result or diff is 0",
         |lc| lc + result.get_variable(),
-        |lc| lc + diff.get_variable(),
+        |lc| lc + a.get_variable() - b.get_variable(),
         |lc| lc,
     );
 
-    // Inverse of `diff`, if it exists, otherwise one.
+    // Inverse of `a - b`, if it exists, otherwise one.
     let q = cs.alloc(
         || "q",
         || {
-            let tmp0 = diff.get_value().ok_or(SynthesisError::AssignmentMissing)?;
+            let a_val = a.get_value().ok_or(SynthesisError::AssignmentMissing)?;
+            let b_val = b.get_value().ok_or(SynthesisError::AssignmentMissing)?;
+            let tmp0 = a_val - b_val;
             let tmp1 = tmp0.invert();
 
             if tmp1.is_some().into() {
@@ -493,11 +493,11 @@ pub fn alloc_equal<CS: ConstraintSystem<F>, F: PrimeField>(
         },
     )?;
 
-    // (diff + result) * q = 1.
+    // (a - b + result) * q = 1.
     // This enforces that diff and result are not both 0.
     cs.enforce(
-        || "(diff + result) * q = 1",
-        |lc| lc + diff.get_variable() + result.get_variable(),
+        || "(a - b + result) * q = 1",
+        |lc| lc + a.get_variable() - b.get_variable() + result.get_variable(),
         |lc| lc + q,
         |lc| lc + CS::one(),
     );
@@ -788,6 +788,7 @@ pub(crate) fn implies_equal_const<CS: ConstraintSystem<F>, F: PrimeField>(
 }
 
 /// Enforce inequality of two allocated numbers given an implication premise
+#[allow(dead_code)]
 pub(crate) fn implies_unequal<CS: ConstraintSystem<F>, F: PrimeField>(
     cs: &mut CS,
     premise: &Boolean,

@@ -247,7 +247,7 @@ macro_rules! ctrl {
             $crate::lem::Ctrl::MatchSymbol($crate::var!($sii), cases, default)
         }
     };
-    ( iff $x:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
+    ( if $x:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
         {
             let x = $crate::var!($x);
             let true_block = Box::new($crate::block!( @seq {}, $($true_block)+ ));
@@ -255,22 +255,12 @@ macro_rules! ctrl {
             $crate::lem::Ctrl::If(x, true_block, false_block)
         }
     };
-    ( if $x:ident == $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
+    ( if !$x:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
         {
             let x = $crate::var!($x);
-            let y = $crate::var!($y);
             let true_block = Box::new($crate::block!( @seq {}, $($true_block)+ ));
             let false_block = Box::new($crate::block!( @seq {}, $($false_block)+ ));
-            $crate::lem::Ctrl::IfEq(x, y, true_block, false_block)
-        }
-    };
-    ( if $x:ident != $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
-        {
-            let x = $crate::var!($x);
-            let y = $crate::var!($y);
-            let true_block = Box::new($crate::block!( @seq {}, $($true_block)+ ));
-            let false_block = Box::new($crate::block!( @seq {}, $($false_block)+ ));
-            $crate::lem::Ctrl::IfEq(x, y, false_block, true_block)
+            $crate::lem::Ctrl::If(x, false_block, true_block)
         }
     };
     ( return ($($src:ident),*) ) => {
@@ -578,31 +568,22 @@ macro_rules! block {
             $crate::ctrl!( match symbol $sii { $( $sym $(, $other_sym)* => $case_ops )* } $(; $($def)*)? )
         )
     };
-    (@seq {$($limbs:expr)*}, iff $x:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
+    (@seq {$($limbs:expr)*}, if $x:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
         $crate::block! (
             @end
             {
                 $($limbs)*
             },
-            $crate::ctrl!( iff $x { $($true_block)+ } $($false_block)+ )
+            $crate::ctrl!( if $x { $($true_block)+ } $($false_block)+ )
         )
     };
-    (@seq {$($limbs:expr)*}, if $x:ident == $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
+    (@seq {$($limbs:expr)*}, if !$x:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
         $crate::block! (
             @end
             {
                 $($limbs)*
             },
-            $crate::ctrl!( if $x == $y { $($true_block)+ } $($false_block)+ )
-        )
-    };
-    (@seq {$($limbs:expr)*}, if $x:ident != $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
-        $crate::block! (
-            @end
-            {
-                $($limbs)*
-            },
-            $crate::ctrl!( if $x != $y { $($true_block)+ } $($false_block)+ )
+            $crate::ctrl!( if !$x { $($true_block)+ } $($false_block)+ )
         )
     };
     (@seq {$($limbs:expr)*}, return ($($src:ident),*) $(;)?) => {

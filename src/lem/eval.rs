@@ -349,7 +349,8 @@ fn reduce() -> Func {
                     car_cdr(binding);
                 match var_or_rec_binding.tag {
                     Expr::Sym => {
-                        if var_or_rec_binding == expr {
+                        let eq_val = eq_val(var_or_rec_binding, expr);
+                        if eq_val {
                             return (val_or_more_rec_env, env, cont, apply)
                         }
                         match cont.tag {
@@ -363,7 +364,8 @@ fn reduce() -> Func {
                     Expr::Cons => {
                         let (v2, val2) = decons2(var_or_rec_binding);
 
-                        if v2 == expr {
+                        let eq_val = eq_val(v2, expr);
+                        if eq_val {
                             match val2.tag {
                                 Expr::Fun => {
                                     // if `val2` is a closure, then extend its environment
@@ -520,10 +522,13 @@ fn reduce() -> Func {
                         };
                         // unops
                         let (op) = get_unop(head);
-                        if op != nil {
-                            if rest != nil {
+                        let eq_val = eq_val(op, nil);
+                        if !eq_val {
+                            let eq_val = eq_val(rest, nil);
+                            if !eq_val {
                                 let (arg1, end) = decons2(rest);
-                                if end == nil {
+                                let eq_val = eq_val(end, nil);
+                                if eq_val {
                                     let cont: Cont::Unop = cons4(op, cont, foo, foo);
                                     return (arg1, env, cont, ret)
                                 }
@@ -533,10 +538,13 @@ fn reduce() -> Func {
                         }
                         // binops
                         let (op) = get_binop(head);
-                        if op != nil {
-                            if rest != nil {
+                        let eq_val = eq_val(op, nil);
+                        if !eq_val {
+                            let eq_val = eq_val(rest, nil);
+                            if !eq_val {
                                 let (arg1, more) = decons2(rest);
-                                if more != nil {
+                                let eq_val = eq_val(more, nil);
+                                if !eq_val {
                                     let cont: Cont::Binop = cons4(op, env, more, cont);
                                     return (arg1, env, cont, ret);
                                 }
@@ -553,7 +561,8 @@ fn reduce() -> Func {
                 // TODO coprocessors (could it be simply a `func`?)
                 // head -> fn, rest -> args
                 let (potentially_fun) = is_potentially_fun(head);
-                if potentially_fun == t {
+                let eq_val = eq_val(potentially_fun, t);
+                if eq_val {
                     let (fun, env, cont, ret) = make_call(head, rest, env, cont);
                     return (fun, env, cont, ret);
                 }
@@ -755,7 +764,8 @@ fn apply_cont() -> Func {
                                         return (car, env, continuation, makethunk)
                                     }
                                     Expr::Str => {
-                                        if result == empty_str {
+                                        let eq_val = eq_val(result, empty_str);
+                                        if eq_val {
                                             return (nil, env, continuation, makethunk)
                                         }
                                         let (car, _cdr) = decons2(result);
@@ -774,7 +784,8 @@ fn apply_cont() -> Func {
                                         return (cdr, env, continuation, makethunk)
                                     }
                                     Expr::Str => {
-                                        if result == empty_str {
+                                        let eq_val = eq_val(result, empty_str);
+                                        if eq_val {
                                             return (empty_str, env, continuation, makethunk)
                                         }
                                         let (_car, cdr) = decons2(result);
@@ -940,7 +951,7 @@ fn apply_cont() -> Func {
                                 let eq_tag = eq_tag(evaled_arg, result);
                                 let eq_val = eq_val(evaled_arg, result);
                                 let eq = and(eq_tag, eq_val);
-                                iff eq {
+                                if eq {
                                     return (t, env, continuation, makethunk)
                                 }
                                 return (nil, env, continuation, makethunk)
@@ -957,7 +968,7 @@ fn apply_cont() -> Func {
                                     Expr::U64 => {
                                         let val = add(evaled_arg, result);
                                         let not_overflow = lt(val, size_u64);
-                                        iff not_overflow {
+                                        if not_overflow {
                                             let val = cast(val, Expr::U64);
                                             return (val, env, continuation, makethunk)
                                         }
@@ -983,7 +994,7 @@ fn apply_cont() -> Func {
                                         let val = sub(evaled_arg, result);
                                         let is_neg = lt(val, zero);
                                         let not_neg = not(is_neg);
-                                        iff not_neg {
+                                        if not_neg {
                                             let val = cast(val, Expr::U64);
                                             return (val, env, continuation, makethunk)
                                         }
@@ -1013,7 +1024,7 @@ fn apply_cont() -> Func {
                             }
                             Op2::Quotient => {
                                 let is_z = eq_val(result, zero);
-                                iff is_z {
+                                if is_z {
                                     return (result, env, err, errctrl)
                                 }
                                 match args_num_type.tag {
@@ -1033,7 +1044,7 @@ fn apply_cont() -> Func {
                             }
                             Op2::Modulo => {
                                 let is_z = eq_val(result, zero);
-                                iff is_z {
+                                if is_z {
                                     return (result, env, err, errctrl)
                                 }
                                 match args_num_type.tag {
@@ -1052,35 +1063,35 @@ fn apply_cont() -> Func {
                                     }
                                 };
                                 let eq = eq_val(evaled_arg, result);
-                                iff eq {
+                                if eq {
                                     return (t, env, continuation, makethunk)
                                 }
                                 return (nil, env, continuation, makethunk)
                             }
                             Op2::Less => {
                                 let val = lt(evaled_arg, result);
-                                iff val {
+                                if val {
                                     return (t, env, continuation, makethunk)
                                 }
                                 return (nil, env, continuation, makethunk)
                             }
                             Op2::Greater => {
                                 let val = lt(result, evaled_arg);
-                                iff val {
+                                if val {
                                     return (t, env, continuation, makethunk)
                                 }
                                 return (nil, env, continuation, makethunk)
                             }
                             Op2::LessEqual => {
                                 let val = lt(result, evaled_arg);
-                                iff val {
+                                if val {
                                     return (nil, env, continuation, makethunk)
                                 }
                                 return (t, env, continuation, makethunk)
                             }
                             Op2::GreaterEqual => {
                                 let val = lt(evaled_arg, result);
-                                iff val {
+                                if val {
                                     return (nil, env, continuation, makethunk)
                                 }
                                 return (t, env, continuation, makethunk)
@@ -1156,8 +1167,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 10523;
-    const NUM_CONSTRAINTS: usize = 12816;
+    const NUM_AUX: usize = 10529;
+    const NUM_CONSTRAINTS: usize = 12811;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash4: 14,
         hash6: 3,

@@ -128,7 +128,6 @@ impl Block {
             Ctrl::If(_, true_block, false_block) => {
                 true_block.num_paths() + false_block.num_paths()
             }
-            Ctrl::IfEq(_, _, eq_block, else_block) => eq_block.num_paths() + else_block.num_paths(),
             Ctrl::Return(..) => 1,
         };
         num_paths

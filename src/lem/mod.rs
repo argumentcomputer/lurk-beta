@@ -256,9 +256,6 @@ pub enum Ctrl {
     /// whether `x` matches some symbol among the ones provided in `cases`. If so,
     /// run the corresponding `Block`. Run `def` otherwise
     MatchSymbol(Var, IndexMap<Symbol, Block>, Option<Box<Block>>),
-    /// `IfEq(x, y, eq_block, else_block)` runs `eq_block` if `x == y`, and
-    /// otherwise runs `else_block`
-    IfEq(Var, Var, Box<Block>, Box<Block>),
     /// `If(x, true_block, false_block)` runs `true_block` if `x` is true, and
     /// otherwise runs `false_block`
     If(Var, Box<Block>, Box<Block>),
@@ -522,12 +519,6 @@ impl Func {
                     recurse(true_block, return_size, map)?;
                     recurse(false_block, return_size, map)?;
                 }
-                Ctrl::IfEq(x, y, eq_block, else_block) => {
-                    is_bound(x, map)?;
-                    is_bound(y, map)?;
-                    recurse(eq_block, return_size, map)?;
-                    recurse(else_block, return_size, map)?;
-                }
             }
             Ok(())
         }
@@ -778,13 +769,6 @@ impl Block {
                 let false_block = Box::new(false_block.deconflict(&mut map.clone(), uniq)?);
                 Ctrl::If(x, true_block, false_block)
             }
-            Ctrl::IfEq(x, y, eq_block, else_block) => {
-                let x = map.get_cloned(&x)?;
-                let y = map.get_cloned(&y)?;
-                let eq_block = Box::new(eq_block.deconflict(&mut map.clone(), uniq)?);
-                let else_block = Box::new(else_block.deconflict(&mut map.clone(), uniq)?);
-                Ctrl::IfEq(x, y, eq_block, else_block)
-            }
             Ctrl::Return(o) => Ctrl::Return(map.get_many_cloned(&o)?),
         };
         Ok(Block { ops, ctrl })
@@ -801,7 +785,7 @@ impl Block {
             }
         }
         match &self.ctrl {
-            Ctrl::If(.., a, b) | Ctrl::IfEq(.., a, b) => {
+            Ctrl::If(.., a, b) => {
                 a.intern_lits(store);
                 b.intern_lits(store);
             }

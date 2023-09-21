@@ -447,17 +447,6 @@ impl Block {
                     false_block.run(input, store, bindings, preimages, path, emitted)
                 }
             }
-            Ctrl::IfEq(x, y, eq_block, else_block) => {
-                let x = bindings.get_ptr(x)?;
-                let y = bindings.get_ptr(y)?;
-                let b = x == y;
-                path.push_bool_inplace(b);
-                if b {
-                    eq_block.run(input, store, bindings, preimages, path, emitted)
-                } else {
-                    else_block.run(input, store, bindings, preimages, path, emitted)
-                }
-            }
             Ctrl::Return(output_vars) => {
                 let mut output = Vec::with_capacity(output_vars.len());
                 for var in output_vars.iter() {

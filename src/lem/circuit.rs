@@ -35,7 +35,7 @@ use crate::circuit::gadgets::{
     constraints::{
         add, alloc_equal, alloc_is_zero, allocate_is_negative, and, div, enforce_pack,
         enforce_product_and_sum, enforce_selector_with_premise, implies_equal, implies_equal_const,
-        implies_u64, implies_unequal, implies_unequal_const, mul, or, pick, sub,
+        implies_u64, implies_unequal_const, mul, or, pick, sub,
     },
     data::{allocate_constant, hash_poseidon},
     pointer::AllocatedPtr,
@@ -348,7 +348,7 @@ impl Block {
             }
         }
         match &self.ctrl {
-            Ctrl::If(.., a, b) | Ctrl::IfEq(.., a, b) => {
+            Ctrl::If(.., a, b) => {
                 a.alloc_globals(cs, store, g)?;
                 b.alloc_globals(cs, store, g)?;
             }
@@ -1080,64 +1080,6 @@ impl Func {
                     *next_slot = next_slot.max(branch_slot);
                     Ok(())
                 }
-                Ctrl::IfEq(x, y, eq_block, else_block) => {
-                    let x_ptr = bound_allocations.get_ptr(x)?.hash();
-                    let y_ptr = bound_allocations.get_ptr(y)?.hash();
-
-                    let eq_val = not_dummy.get_value().and_then(|not_dummy| {
-                        x_ptr
-                            .get_value()
-                            .and_then(|x| y_ptr.get_value().map(|y| not_dummy && x == y))
-                    });
-                    let neq_val = not_dummy.get_value().and_then(|not_dummy| {
-                        x_ptr
-                            .get_value()
-                            .and_then(|x| y_ptr.get_value().map(|y| not_dummy && x != y))
-                    });
-                    let is_eq = Boolean::Is(AllocatedBit::alloc(cs.namespace(|| "if_eq"), eq_val)?);
-                    let is_neq =
-                        Boolean::Is(AllocatedBit::alloc(cs.namespace(|| "if_neq"), neq_val)?);
-                    implies_equal(
-                        &mut cs.namespace(|| format!("{x} = {y}")),
-                        &is_eq,
-                        x_ptr,
-                        y_ptr,
-                    );
-                    implies_unequal(
-                        &mut cs.namespace(|| format!("{x} != {y}")),
-                        &is_neq,
-                        x_ptr,
-                        y_ptr,
-                    )?;
-
-                    enforce_selector_with_premise(
-                        &mut cs.namespace(|| "if_enforce_selector_with_premise"),
-                        not_dummy,
-                        &[is_eq.clone(), is_neq.clone()],
-                    );
-
-                    let mut branch_slot = *next_slot;
-                    recurse(
-                        &mut cs.namespace(|| "if_eq.true"),
-                        eq_block,
-                        &is_eq,
-                        &mut branch_slot,
-                        bound_allocations,
-                        preallocated_outputs,
-                        g,
-                    )?;
-                    recurse(
-                        &mut cs.namespace(|| "if_eq.false"),
-                        else_block,
-                        &is_neq,
-                        next_slot,
-                        bound_allocations,
-                        preallocated_outputs,
-                        g,
-                    )?;
-                    *next_slot = next_slot.max(branch_slot);
-                    Ok(())
-                }
                 Ctrl::MatchTag(match_var, cases, def) => {
                     let matched = bound_allocations.get_ptr(match_var)?.tag().clone();
                     let cases_vec = cases
@@ -1267,7 +1209,7 @@ impl Func {
                         globals.insert(FWrap(tag.to_field()));
                     }
                     Op::EqTag(..) | Op::EqVal(..) => {
-                        num_constraints += 4;
+                        num_constraints += 3;
                     }
                     Op::Add(..) | Op::Sub(..) | Op::Mul(..) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
@@ -1338,12 +1280,6 @@ impl Func {
                         + 2
                         + recurse(true_block, globals, store)
                         + recurse(false_block, globals, store)
-                }
-                Ctrl::IfEq(_, _, eq_block, else_block) => {
-                    num_constraints
-                        + 5
-                        + recurse(eq_block, globals, store)
-                        + recurse(else_block, globals, store)
                 }
                 Ctrl::MatchTag(_, cases, def) => {
                     // We allocate one boolean per case and constrain it once
