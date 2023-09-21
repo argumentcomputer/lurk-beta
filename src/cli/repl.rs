@@ -69,6 +69,7 @@ pub struct Repl<F: LurkField> {
     limit: usize,
     backend: Backend,
     evaluation: Option<Evaluation<F, Coproc<F>>>,
+    pwd_path: Utf8PathBuf,
     meta: std::collections::HashMap<&'static str, MetaCmd<F>>,
 }
 
@@ -135,6 +136,9 @@ impl Repl<F> {
             "Launching REPL with backend {backend}, field {}, rc {rc} and limit {limit}",
             F::FIELD
         );
+        let current_dir = std::env::current_dir().expect("couldn't capture current directory");
+        let pwd_path =
+            Utf8PathBuf::from_path_buf(current_dir).expect("path contains invalid Unicode");
         let env = lurk_sym_ptr!(store, nil);
         Repl {
             store,
@@ -145,6 +149,7 @@ impl Repl<F> {
             limit,
             backend,
             evaluation: None,
+            pwd_path,
             meta: MetaCmd::cmds(),
         }
     }
@@ -405,13 +410,13 @@ impl Repl<F> {
             })
     }
 
-    fn handle_meta(&mut self, expr_ptr: Ptr<F>, pwd_path: &Utf8Path) -> Result<()> {
+    fn handle_meta(&mut self, expr_ptr: Ptr<F>) -> Result<()> {
         let (car, cdr) = self.store.car_cdr(&expr_ptr)?;
         match &self.store.fetch_sym(&car) {
             Some(symbol) => {
                 let cmdstr = symbol.name()?;
                 match self.meta.get(cmdstr) {
-                    Some(cmd) => match (cmd.run)(self, cmdstr, &cdr, pwd_path) {
+                    Some(cmd) => match (cmd.run)(self, cmdstr, &cdr) {
                         Ok(()) => (),
                         Err(e) => println!("meta command failed with {}", e),
                     },
@@ -426,17 +431,13 @@ impl Repl<F> {
         Ok(())
     }
 
-    fn handle_form<'a>(
-        &mut self,
-        input: parser::Span<'a>,
-        pwd_path: &Utf8Path,
-    ) -> Result<parser::Span<'a>> {
+    fn handle_form<'a>(&mut self, input: parser::Span<'a>) -> Result<parser::Span<'a>> {
         let (input, ptr, is_meta) = self
             .store
             .read_maybe_meta_with_state(self.state.clone(), input)?;
 
         if is_meta {
-            self.handle_meta(ptr, pwd_path)?;
+            self.handle_meta(ptr)?;
         } else {
             self.handle_non_meta(ptr)?;
         }
@@ -449,7 +450,7 @@ impl Repl<F> {
 
         let mut input = parser::Span::new(&input);
         loop {
-            match self.handle_form(input, file_path) {
+            match self.handle_form(input) {
                 Ok(new_input) => input = new_input,
                 Err(e) => {
                     if let Some(parser::Error::NoInput) = e.downcast_ref::<parser::Error>() {
@@ -465,9 +466,6 @@ impl Repl<F> {
 
     pub(crate) fn start(&mut self) -> Result<()> {
         println!("Lurk REPL welcomes you.");
-
-        let pwd_path = Utf8PathBuf::from_path_buf(std::env::current_dir()?)
-            .expect("path contains invalid Unicode");
 
         let mut editor: Editor<InputValidator, DefaultHistory> = Editor::with_config(
             Config::builder()
@@ -501,7 +499,7 @@ impl Repl<F> {
                     {
                         Ok((_, expr_ptr, is_meta)) => {
                             if is_meta {
-                                if let Err(e) = self.handle_meta(expr_ptr, &pwd_path) {
+                                if let Err(e) = self.handle_meta(expr_ptr) {
                                     println!("!Error: {e}");
                                 }
                             } else if let Err(e) = self.handle_non_meta(expr_ptr) {
