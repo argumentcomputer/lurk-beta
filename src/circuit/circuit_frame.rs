@@ -5099,16 +5099,12 @@ fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
         AllocatedNum::alloc_infallible(&mut cs.namespace(|| "r num"), || F::from_u64(r));
     let alloc_q_num =
         AllocatedNum::alloc_infallible(&mut cs.namespace(|| "q num"), || F::from_u64(q));
-    let alloc_arg1_num =
-        AllocatedNum::alloc_infallible(&mut cs.namespace(|| "arg1 num"), || F::from_u64(arg1_u64));
-    let alloc_arg2_num =
-        AllocatedNum::alloc_infallible(&mut cs.namespace(|| "arg2 num"), || F::from_u64(arg2_u64));
 
     // a = b * q + r
     let product_u64mod = mul(
         &mut cs.namespace(|| "product(q,arg2)"),
         &alloc_q_num,
-        &alloc_arg2_num,
+        arg2.hash(),
     )?;
     let sum_u64mod = add(
         &mut cs.namespace(|| "sum remainder mod u64"),
@@ -5118,7 +5114,7 @@ fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
     let u64mod_decomp = alloc_equal(
         &mut cs.namespace(|| "check u64 mod decomposition"),
         &sum_u64mod,
-        &alloc_arg1_num,
+        arg1.hash(),
     )?;
     let b_is_zero = alloc_is_zero(&mut cs.namespace(|| "b is zero"), arg2.hash())?;
     let b_is_not_zero_and_cond = Boolean::and(
@@ -5134,7 +5130,7 @@ fn enforce_u64_div_mod<F: LurkField, CS: ConstraintSystem<F>>(
 
     let diff = sub(
         cs.namespace(|| "diff for b and rem"),
-        &alloc_arg2_num,
+        arg2.hash(),
         &alloc_r_num,
     )?;
     implies_u64(cs.namespace(|| "div_u64"), cond, &alloc_q_num)?;
@@ -5564,7 +5560,7 @@ mod tests {
             // println!("{}", print_cs(&cs));
             assert_eq!(11969, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(11622, cs.aux().len());
+            assert_eq!(11620, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
             let mut rng = rand::thread_rng();
