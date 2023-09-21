@@ -25,7 +25,7 @@ fn trie_lang() {
         None,
         None,
         None,
-        5,
+        4,
         Some(&lang),
     );
 

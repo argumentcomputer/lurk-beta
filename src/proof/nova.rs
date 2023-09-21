@@ -3934,7 +3934,7 @@ pub mod tests {
         let lang = Arc::new(lang);
 
         test_aux(s, expr, Some(res), None, None, None, 2, Some(lang.clone()));
-        test_aux(s, expr2, Some(res), None, None, None, 5, Some(lang.clone()));
+        test_aux(s, expr2, Some(res), None, None, None, 4, Some(lang.clone()));
         test_aux(
             s,
             expr3,
