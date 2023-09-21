@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl/meta_cmd.rs`."><title>meta_cmd.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-085727c29c2fa99e.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (bdb0fa3ee 2023-09-19)" data-channel="nightly" data-search-js="search-cfcb9d78f851226e.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../lurk/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/repl/meta_cmd.rs`."><title>meta_cmd.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (3223b0b5e 2023-09-20)" data-channel="nightly" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../lurk/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -579,7 +579,6 @@
 <a href="#579" id="579">579</a>
 <a href="#580" id="580">580</a>
 <a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>camino::Utf8Path;
 <span class="kw">use </span>std::process;
@@ -602,8 +601,7 @@
     format: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
     description: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str],
     example: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str],
-    <span class="kw">pub</span>(<span class="kw">super</span>) run:
-        <span class="kw">fn</span>(repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, cmd: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;, pwd_path: <span class="kw-2">&amp;</span>Utf8Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;,
+    <span class="kw">pub</span>(<span class="kw">super</span>) run: <span class="kw">fn</span>(repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, cmd: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;,
 }
 
 <span class="kw">type </span>F = pasta_curves::pallas::Scalar; <span class="comment">// TODO: generalize this
@@ -615,11 +613,11 @@
         format: <span class="string">&quot;!(load &lt;string&gt;)&quot;</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;Load lurk expressions from a file path.&quot;</span>],
-        run: |repl, cmd, args, pwd_path| {
+        run: |repl, cmd, args| {
             <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
             <span class="kw">match </span>repl.store.fetch_string(<span class="kw-2">&amp;</span>first) {
                 <span class="prelude-val">Some</span>(path) =&gt; {
-                    <span class="kw">let </span>joined = pwd_path.join(Utf8Path::new(<span class="kw-2">&amp;</span>path));
+                    <span class="kw">let </span>joined = repl.pwd_path.join(Utf8Path::new(<span class="kw-2">&amp;</span>path));
                     repl.load_file(<span class="kw-2">&amp;</span>joined)<span class="question-mark">?
                 </span>}
                 <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Argument of `load` must be a string.&quot;</span>),
@@ -639,7 +637,7 @@
             <span class="string">&quot;The state&#39;s env is set to the result.&quot;</span>,
         ],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(def foo (lambda () 123))&quot;</span>],
-        run: |repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, cmd: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;, _pwd_path: <span class="kw-2">&amp;</span>Utf8Path| {
+        run: |repl: <span class="kw-2">&amp;mut </span>Repl&lt;F&gt;, cmd: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;| {
             <span class="kw">let </span>(first, second) = repl.peek2(cmd, args)<span class="question-mark">?</span>;
             <span class="kw">let </span>l = <span class="macro">lurk_sym_ptr!</span>(<span class="kw-2">&amp;</span>repl.store, let_);
             <span class="kw">let </span>current_env = <span class="macro">lurk_sym_ptr!</span>(<span class="kw-2">&amp;</span>repl.store, current_env);
@@ -673,7 +671,7 @@
             <span class="string">&quot;!(defrec sum (lambda (l) (if (eq l nil) 0 (+ (car l) (sum (cdr l))))))&quot;</span>,
             <span class="string">&quot;(sum &#39;(1 2 3))&quot;</span>,
         ],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             <span class="kw">let </span>(first, second) = repl.peek2(cmd, args)<span class="question-mark">?</span>;
             <span class="kw">let </span>l = <span class="macro">lurk_sym_ptr!</span>(<span class="kw-2">&amp;</span>repl.store, letrec);
             <span class="kw">let </span>current_env = <span class="macro">lurk_sym_ptr!</span>(<span class="kw-2">&amp;</span>repl.store, current_env);
@@ -704,7 +702,7 @@
         format: <span class="string">&quot;!(assert &lt;expr&gt;)&quot;</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(assert t)&quot;</span>, <span class="string">&quot;!(assert (eq 3 (+ 1 2)))&quot;</span>],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl.eval_expr(first)<span class="question-mark">?</span>;
             <span class="kw">if </span>first_io.expr.is_nil() {
@@ -726,7 +724,7 @@
         format: <span class="string">&quot;!(assert-eq &lt;expr&gt; &lt;expr&gt;)&quot;</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(assert-eq 3 (+ 1 2))&quot;</span>],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             <span class="kw">let </span>(first, second) = repl.peek2(cmd, args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl
                 .eval_expr(first)
@@ -767,7 +765,7 @@
         example: <span class="kw-2">&amp;</span>[
             <span class="string">&quot;!(assert-emitted &#39;(1 2) (begin (emit 1) (emit 2)))&quot;
         </span>],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             <span class="kw">let </span>(first, second) = repl.peek2(cmd, args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl
                 .eval_expr(first)
@@ -799,7 +797,7 @@
         format: <span class="string">&quot;!(assert-error &lt;expr&gt;)&quot;</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(assert-error (1 1))&quot;</span>],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl.eval_expr_allowing_error_continuation(first)<span class="question-mark">?</span>;
             <span class="kw">if </span>first_io.cont.tag != ContTag::Error {
@@ -827,7 +825,7 @@
             <span class="string">&quot;!(commit &#39;(13 . 21))&quot;</span>,
             <span class="string">&quot;(let ((n (open 0x2c4e1dc8a344764c52d97c691ef0d8312e07b38e99f12cf2f200891c53fb36c0))) (* (car n) (cdr n)))&quot;</span>,
         ],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl.eval_expr(first)<span class="question-mark">?</span>;
             repl.hide(ff::Field::ZERO, first_io.expr)<span class="question-mark">?</span>;
@@ -847,7 +845,7 @@
             <span class="string">&quot;(secret (comm 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425))&quot;</span>,
             <span class="string">&quot;(open 0x3be5f551534baa53a9c180e49b48c4a75ed7642a82197be5f674d54681de4425)&quot;</span>,
         ],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             <span class="kw">let </span>(first, second) = repl.peek2(cmd, args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl
                 .eval_expr(first)
@@ -879,7 +877,7 @@
             <span class="string">&quot;!(commit &#39;(13 . 21))&quot;</span>,
             <span class="string">&quot;(fetch 0x2c4e1dc8a344764c52d97c691ef0d8312e07b38e99f12cf2f200891c53fb36c0)&quot;</span>,
         ],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             <span class="kw">let </span>hash = repl.get_comm_hash(cmd, args)<span class="question-mark">?</span>;
             repl.fetch(<span class="kw-2">&amp;</span>hash, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
             <span class="prelude-val">Ok</span>(())
@@ -897,7 +895,7 @@
             <span class="string">&quot;!(commit &#39;(13 . 21))&quot;</span>,
             <span class="string">&quot;!(open 0x2c4e1dc8a344764c52d97c691ef0d8312e07b38e99f12cf2f200891c53fb36c0)&quot;</span>,
         ],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             <span class="kw">let </span>hash = repl.get_comm_hash(cmd, args)<span class="question-mark">?</span>;
             repl.fetch(<span class="kw-2">&amp;</span>hash, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
             <span class="prelude-val">Ok</span>(())
@@ -912,7 +910,7 @@
         format: <span class="string">&quot;!(clear)&quot;</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(def a 1)&quot;</span>, <span class="string">&quot;(current-env)&quot;</span>, <span class="string">&quot;!(clear)&quot;</span>, <span class="string">&quot;(current-env)&quot;</span>],
-        run: |repl, _cmd, _args, _pwd_path| {
+        run: |repl, _cmd, _args| {
             repl.env = <span class="macro">lurk_sym_ptr!</span>(<span class="kw-2">&amp;</span>repl.store, nil);
             <span class="prelude-val">Ok</span>(())
         },
@@ -926,7 +924,7 @@
         format: <span class="string">&quot;!(set-env &lt;expr&gt;)&quot;</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(set-env &#39;((a . 1) (b . 2)))&quot;</span>, <span class="string">&quot;a&quot;</span>],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             <span class="comment">// The state&#39;s env is set to the result of evaluating the first argument.
             </span><span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
             <span class="kw">let </span>(first_io, ..) = repl.eval_expr(first)<span class="question-mark">?</span>;
@@ -952,7 +950,7 @@
             <span class="string">&quot;!(verify \&quot;Nova_Pallas_10_166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca\&quot;)&quot;</span>,
             <span class="string">&quot;!(open 0x166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca)&quot;</span>,
         ],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             <span class="kw">if </span>!args.is_nil() {
                 repl.eval_expr_and_memoize(repl.peek1(cmd, args)<span class="question-mark">?</span>)<span class="question-mark">?</span>;
             }
@@ -978,7 +976,7 @@
             <span class="string">&quot;!(verify \&quot;Nova_Pallas_10_166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca\&quot;)&quot;</span>,
             <span class="string">&quot;!(open 0x166fafef9d86d1ddd29e7b62fa5e4fb2d7f4d885baf28e23187860d0720f74ca)&quot;</span>,
         ],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
             <span class="kw">let </span>proof_id = repl.get_string(<span class="kw-2">&amp;</span>first)<span class="question-mark">?</span>;
             LurkProof::verify_proof(<span class="kw-2">&amp;</span>proof_id)<span class="question-mark">?</span>;
@@ -994,7 +992,7 @@
         format: <span class="string">&quot;!(defpackage &lt;string|symbol&gt;)&quot;</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(defpackage abc)&quot;</span>],
-        run: |repl, _cmd, args, _pwd_path| {
+        run: |repl, _cmd, args| {
             <span class="comment">// TODO: handle args
             </span><span class="kw">let </span>(name, _args) = repl.store.car_cdr(args)<span class="question-mark">?</span>;
             <span class="kw">let </span>name = <span class="kw">match </span>name.tag {
@@ -1017,7 +1015,7 @@
         format: <span class="string">&quot;!(import &lt;string|package&gt; ...)&quot;</span>,
         description: <span class="kw-2">&amp;</span>[],
         example: <span class="kw-2">&amp;</span>[],
-        run: |repl, _cmd, args, _pwd_path| {
+        run: |repl, _cmd, args| {
             <span class="comment">// TODO: handle pkg
             </span><span class="kw">let </span>(<span class="kw-2">mut </span>symbols, _pkg) = repl.store.car_cdr(args)<span class="question-mark">?</span>;
             <span class="kw">if </span>symbols.tag == ExprTag::Sym {
@@ -1056,7 +1054,7 @@
             <span class="string">&quot;!(in-package .lurk.user)&quot;</span>,
             <span class="string">&quot;(.lurk.user.abc.two)&quot;</span>,
         ],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
             <span class="kw">match </span>first.tag {
                 ExprTag::Str =&gt; {
@@ -1090,7 +1088,7 @@
             <span class="string">&quot;Otherwise the full help for the command in the first argument is printed.&quot;</span>,
         ],
         example: <span class="kw-2">&amp;</span>[<span class="string">&quot;!(help)&quot;</span>, <span class="string">&quot;!(help verify)&quot;</span>, <span class="string">&quot;!(help \&quot;load\&quot;)&quot;</span>],
-        run: |repl, cmd, args, _pwd_path| {
+        run: |repl, cmd, args| {
             <span class="kw">let </span>first = repl.peek1(cmd, args)<span class="question-mark">?</span>;
             <span class="kw">match </span>first.tag {
                 ExprTag::Str =&gt; {
