@@ -1,7 +1,9 @@
 use anyhow::{bail, Result};
 use std::collections::VecDeque;
 
-use super::{path::Path, pointers::Ptr, store::Store, var_map::VarMap, Block, Ctrl, Func, Op, Tag};
+use super::{
+    path::Path, pointers::Ptr, store::Store, var_map::VarMap, Block, Ctrl, Func, Op, Tag, Var,
+};
 
 use crate::{
     field::LurkField,
@@ -15,6 +17,39 @@ pub enum PreimageData<F: LurkField> {
     PtrVec(Vec<Ptr<F>>),
     FPtr(F, Ptr<F>),
     FPair(F, F),
+}
+
+pub enum Val<F: LurkField> {
+    Pointer(Ptr<F>),
+    Boolean(bool),
+}
+
+impl<F: LurkField> VarMap<Val<F>> {
+    fn get_many_ptr(&self, args: &[Var]) -> Result<Vec<Ptr<F>>> {
+        args.iter().map(|arg| self.get_ptr(arg)).collect()
+    }
+
+    fn get_ptr(&self, var: &Var) -> Result<Ptr<F>> {
+        if let Val::Pointer(ptr) = self.get(var)? {
+            return Ok(*ptr);
+        }
+        bail!("Expected {var} to be a pointer")
+    }
+
+    fn insert_ptr(&mut self, var: Var, ptr: Ptr<F>) -> Option<Val<F>> {
+        self.insert(var, Val::Pointer(ptr))
+    }
+
+    fn get_bool(&self, var: &Var) -> Result<bool> {
+        if let Val::Boolean(b) = self.get(var)? {
+            return Ok(*b);
+        }
+        bail!("Expected {var} to be a boolean")
+    }
+
+    fn insert_bool(&mut self, var: Var, b: bool) -> Option<Val<F>> {
+        self.insert(var, Val::Boolean(b))
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -104,7 +139,7 @@ impl Block {
         &self,
         input: &[Ptr<F>],
         store: &mut Store<F>,
-        mut bindings: VarMap<Ptr<F>>,
+        mut bindings: VarMap<Val<F>>,
         mut preimages: Preimages<F>,
         mut path: Path,
         emitted: &mut Vec<Ptr<F>>,
@@ -113,7 +148,7 @@ impl Block {
             match op {
                 Op::Call(out, func, inp) => {
                     // Get the argument values
-                    let inp_ptrs = bindings.get_many_cloned(inp)?;
+                    let inp_ptrs = bindings.get_many_ptr(inp)?;
 
                     // To save lexical order of `call_outputs` we need to push the output
                     // of the call *before* the inner calls of the `func`. To do this, we
@@ -127,7 +162,7 @@ impl Block {
                     // Extend the path and bind the output variables to the output values
                     path.extend_from_path(&func_path);
                     for (var, ptr) in out.iter().zip(frame.output.iter()) {
-                        bindings.insert(var.clone(), *ptr);
+                        bindings.insert_ptr(var.clone(), *ptr);
                     }
 
                     // Update `preimages` correctly
@@ -136,111 +171,116 @@ impl Block {
                     preimages.call_outputs.extend(inner_call_outputs);
                 }
                 Op::Null(tgt, tag) => {
-                    bindings.insert(tgt.clone(), Ptr::null(*tag));
+                    bindings.insert_ptr(tgt.clone(), Ptr::null(*tag));
                 }
                 Op::Lit(tgt, lit) => {
-                    bindings.insert(tgt.clone(), lit.to_ptr(store));
+                    bindings.insert_ptr(tgt.clone(), lit.to_ptr(store));
                 }
                 Op::Cast(tgt, tag, src) => {
-                    let src_ptr = bindings.get(src)?;
+                    let src_ptr = bindings.get_ptr(src)?;
                     let tgt_ptr = src_ptr.cast(*tag);
-                    bindings.insert(tgt.clone(), tgt_ptr);
+                    bindings.insert_ptr(tgt.clone(), tgt_ptr);
                 }
                 Op::EqTag(tgt, a, b) => {
-                    let a = bindings.get(a)?;
-                    let b = bindings.get(b)?;
-                    let c = if a.tag() == b.tag() {
-                        Ptr::Atom(Tag::Expr(Num), F::ONE)
-                    } else {
-                        Ptr::Atom(Tag::Expr(Num), F::ZERO)
-                    };
-                    bindings.insert(tgt.clone(), c);
+                    let a = bindings.get_ptr(a)?;
+                    let b = bindings.get_ptr(b)?;
+                    let c = a.tag() == b.tag();
+                    bindings.insert_bool(tgt.clone(), c);
                 }
                 Op::EqVal(tgt, a, b) => {
-                    let a = bindings.get(a)?;
-                    let b = bindings.get(b)?;
+                    let a = bindings.get_ptr(a)?;
+                    let b = bindings.get_ptr(b)?;
                     // In order to compare Ptrs, we *must* resolve the hashes. Otherwise, we risk failing to recognize equality of
                     // compound data with opaque data in either element's transitive closure.
-                    let c = if store.hash_ptr(a)?.value() == store.hash_ptr(b)?.value() {
-                        Ptr::Atom(Tag::Expr(Num), F::ONE)
-                    } else {
-                        Ptr::Atom(Tag::Expr(Num), F::ZERO)
-                    };
-                    bindings.insert(tgt.clone(), c);
+                    let c = store.hash_ptr(&a)?.value() == store.hash_ptr(&b)?.value();
+                    bindings.insert_bool(tgt.clone(), c);
+                }
+                Op::Not(tgt, a) => {
+                    let a = bindings.get_bool(a)?;
+                    bindings.insert_bool(tgt.clone(), !a);
+                }
+                Op::And(tgt, a, b) => {
+                    let a = bindings.get_bool(a)?;
+                    let b = bindings.get_bool(b)?;
+                    bindings.insert_bool(tgt.clone(), a && b);
+                }
+                Op::Or(tgt, a, b) => {
+                    let a = bindings.get_bool(a)?;
+                    let b = bindings.get_bool(b)?;
+                    bindings.insert_bool(tgt.clone(), a || b);
                 }
                 Op::Add(tgt, a, b) => {
-                    let a = bindings.get(a)?;
-                    let b = bindings.get(b)?;
+                    let a = bindings.get_ptr(a)?;
+                    let b = bindings.get_ptr(b)?;
                     let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
-                        Ptr::Atom(Tag::Expr(Num), *f + *g)
+                        Ptr::Atom(Tag::Expr(Num), f + g)
                     } else {
                         bail!("`Add` only works on atoms")
                     };
-                    bindings.insert(tgt.clone(), c);
+                    bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::Sub(tgt, a, b) => {
-                    let a = bindings.get(a)?;
-                    let b = bindings.get(b)?;
+                    let a = bindings.get_ptr(a)?;
+                    let b = bindings.get_ptr(b)?;
                     let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
-                        Ptr::Atom(Tag::Expr(Num), *f - *g)
+                        Ptr::Atom(Tag::Expr(Num), f - g)
                     } else {
                         bail!("`Sub` only works on atoms")
                     };
-                    bindings.insert(tgt.clone(), c);
+                    bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::Mul(tgt, a, b) => {
-                    let a = bindings.get(a)?;
-                    let b = bindings.get(b)?;
+                    let a = bindings.get_ptr(a)?;
+                    let b = bindings.get_ptr(b)?;
                     let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
-                        Ptr::Atom(Tag::Expr(Num), *f * *g)
+                        Ptr::Atom(Tag::Expr(Num), f * g)
                     } else {
                         bail!("`Mul` only works on atoms")
                     };
-                    bindings.insert(tgt.clone(), c);
+                    bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::Div(tgt, a, b) => {
-                    let a = bindings.get(a)?;
-                    let b = bindings.get(b)?;
+                    let a = bindings.get_ptr(a)?;
+                    let b = bindings.get_ptr(b)?;
                     let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
-                        if g == &F::ZERO {
+                        if g == F::ZERO {
                             bail!("Can't divide by zero")
                         }
-                        Ptr::Atom(Tag::Expr(Num), *f * g.invert().expect("not zero"))
+                        Ptr::Atom(Tag::Expr(Num), f * g.invert().expect("not zero"))
                     } else {
                         bail!("`Div` only works on numbers")
                     };
-                    bindings.insert(tgt.clone(), c);
+                    bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::Lt(tgt, a, b) => {
-                    let a = bindings.get(a)?;
-                    let b = bindings.get(b)?;
+                    let a = bindings.get_ptr(a)?;
+                    let b = bindings.get_ptr(b)?;
                     let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
-                        preimages.less_than.push(Some(PreimageData::FPair(*f, *g)));
-                        let f = BaseNum::Scalar(*f);
-                        let g = BaseNum::Scalar(*g);
-                        let b = if f < g { F::ONE } else { F::ZERO };
-                        Ptr::Atom(Tag::Expr(Num), b)
+                        preimages.less_than.push(Some(PreimageData::FPair(f, g)));
+                        let f = BaseNum::Scalar(f);
+                        let g = BaseNum::Scalar(g);
+                        f < g
                     } else {
                         bail!("`Lt` only works on atoms")
                     };
-                    bindings.insert(tgt.clone(), c);
+                    bindings.insert_bool(tgt.clone(), c);
                 }
                 Op::Trunc(tgt, a, n) => {
                     assert!(*n <= 64);
-                    let a = bindings.get(a)?;
+                    let a = bindings.get_ptr(a)?;
                     let c = if let Ptr::Atom(_, f) = a {
                         let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
                         Ptr::Atom(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() & b))
                     } else {
                         bail!("`Trunc` only works a leaf")
                     };
-                    bindings.insert(tgt.clone(), c);
+                    bindings.insert_ptr(tgt.clone(), c);
                 }
                 Op::DivRem64(tgt, a, b) => {
-                    let a = bindings.get(a)?;
-                    let b = bindings.get(b)?;
+                    let a = bindings.get_ptr(a)?;
+                    let b = bindings.get_ptr(b)?;
                     let (c1, c2) = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
-                        if g == &F::ZERO {
+                        if g == F::ZERO {
                             bail!("Can't divide by zero")
                         }
                         let f = f.to_u64_unchecked();
@@ -251,33 +291,33 @@ impl Block {
                     } else {
                         bail!("`DivRem64` only works on atoms")
                     };
-                    bindings.insert(tgt[0].clone(), c1);
-                    bindings.insert(tgt[1].clone(), c2);
+                    bindings.insert_ptr(tgt[0].clone(), c1);
+                    bindings.insert_ptr(tgt[1].clone(), c2);
                 }
                 Op::Emit(a) => {
-                    let a = bindings.get(a)?;
+                    let a = bindings.get_ptr(a)?;
                     println!("{}", a.fmt_to_string(store, initial_lurk_state()));
-                    emitted.push(*a);
+                    emitted.push(a);
                 }
                 Op::Cons2(img, tag, preimg) => {
-                    let preimg_ptrs = bindings.get_many_cloned(preimg)?;
+                    let preimg_ptrs = bindings.get_many_ptr(preimg)?;
                     let tgt_ptr = store.intern_2_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1]);
-                    bindings.insert(img.clone(), tgt_ptr);
+                    bindings.insert_ptr(img.clone(), tgt_ptr);
                     preimages
                         .hash4
                         .push(Some(PreimageData::PtrVec(preimg_ptrs)));
                 }
                 Op::Cons3(img, tag, preimg) => {
-                    let preimg_ptrs = bindings.get_many_cloned(preimg)?;
+                    let preimg_ptrs = bindings.get_many_ptr(preimg)?;
                     let tgt_ptr =
                         store.intern_3_ptrs(*tag, preimg_ptrs[0], preimg_ptrs[1], preimg_ptrs[2]);
-                    bindings.insert(img.clone(), tgt_ptr);
+                    bindings.insert_ptr(img.clone(), tgt_ptr);
                     preimages
                         .hash6
                         .push(Some(PreimageData::PtrVec(preimg_ptrs)));
                 }
                 Op::Cons4(img, tag, preimg) => {
-                    let preimg_ptrs = bindings.get_many_cloned(preimg)?;
+                    let preimg_ptrs = bindings.get_many_ptr(preimg)?;
                     let tgt_ptr = store.intern_4_ptrs(
                         *tag,
                         preimg_ptrs[0],
@@ -285,13 +325,13 @@ impl Block {
                         preimg_ptrs[2],
                         preimg_ptrs[3],
                     );
-                    bindings.insert(img.clone(), tgt_ptr);
+                    bindings.insert_ptr(img.clone(), tgt_ptr);
                     preimages
                         .hash8
                         .push(Some(PreimageData::PtrVec(preimg_ptrs)));
                 }
                 Op::Decons2(preimg, img) => {
-                    let img_ptr = bindings.get(img)?;
+                    let img_ptr = bindings.get_ptr(img)?;
                     let Some(idx) = img_ptr.get_index2() else {
                         bail!("{img} isn't a Tree2 pointer");
                     };
@@ -300,14 +340,14 @@ impl Block {
                     };
                     let preimg_ptrs = [*a, *b];
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
-                        bindings.insert(var.clone(), *ptr);
+                        bindings.insert_ptr(var.clone(), *ptr);
                     }
                     preimages
                         .hash4
                         .push(Some(PreimageData::PtrVec(preimg_ptrs.to_vec())));
                 }
                 Op::Decons3(preimg, img) => {
-                    let img_ptr = bindings.get(img)?;
+                    let img_ptr = bindings.get_ptr(img)?;
                     let Some(idx) = img_ptr.get_index3() else {
                         bail!("{img} isn't a Tree3 pointer");
                     };
@@ -316,14 +356,14 @@ impl Block {
                     };
                     let preimg_ptrs = [*a, *b, *c];
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
-                        bindings.insert(var.clone(), *ptr);
+                        bindings.insert_ptr(var.clone(), *ptr);
                     }
                     preimages
                         .hash6
                         .push(Some(PreimageData::PtrVec(preimg_ptrs.to_vec())));
                 }
                 Op::Decons4(preimg, img) => {
-                    let img_ptr = bindings.get(img)?;
+                    let img_ptr = bindings.get_ptr(img)?;
                     let Some(idx) = img_ptr.get_index4() else {
                         bail!("{img} isn't a Tree4 pointer");
                     };
@@ -332,32 +372,32 @@ impl Block {
                     };
                     let preimg_ptrs = [*a, *b, *c, *d];
                     for (var, ptr) in preimg.iter().zip(preimg_ptrs.iter()) {
-                        bindings.insert(var.clone(), *ptr);
+                        bindings.insert_ptr(var.clone(), *ptr);
                     }
                     preimages
                         .hash8
                         .push(Some(PreimageData::PtrVec(preimg_ptrs.to_vec())));
                 }
                 Op::Hide(tgt, sec, src) => {
-                    let src_ptr = bindings.get(src)?;
-                    let Ptr::Atom(Tag::Expr(Num), secret) = bindings.get(sec)? else {
+                    let src_ptr = bindings.get_ptr(src)?;
+                    let Ptr::Atom(Tag::Expr(Num), secret) = bindings.get_ptr(sec)? else {
                         bail!("{sec} is not a numeric pointer")
                     };
-                    let tgt_ptr = store.hide(*secret, *src_ptr)?;
+                    let tgt_ptr = store.hide(secret, src_ptr)?;
                     preimages
                         .commitment
-                        .push(Some(PreimageData::FPtr(*secret, *src_ptr)));
-                    bindings.insert(tgt.clone(), tgt_ptr);
+                        .push(Some(PreimageData::FPtr(secret, src_ptr)));
+                    bindings.insert_ptr(tgt.clone(), tgt_ptr);
                 }
                 Op::Open(tgt_secret, tgt_ptr, comm) => {
-                    let Ptr::Atom(Tag::Expr(Comm), hash) = bindings.get(comm)? else {
+                    let Ptr::Atom(Tag::Expr(Comm), hash) = bindings.get_ptr(comm)? else {
                         bail!("{comm} is not a comm pointer")
                     };
-                    let Some((secret, ptr)) = store.open(*hash) else {
+                    let Some((secret, ptr)) = store.open(hash) else {
                         bail!("No committed data for hash {}", &hash.hex_digits())
                     };
-                    bindings.insert(tgt_ptr.clone(), *ptr);
-                    bindings.insert(tgt_secret.clone(), Ptr::Atom(Tag::Expr(Num), *secret));
+                    bindings.insert_ptr(tgt_ptr.clone(), *ptr);
+                    bindings.insert_ptr(tgt_secret.clone(), Ptr::Atom(Tag::Expr(Num), *secret));
                     preimages
                         .commitment
                         .push(Some(PreimageData::FPtr(*secret, *ptr)))
@@ -366,7 +406,7 @@ impl Block {
         }
         match &self.ctrl {
             Ctrl::MatchTag(match_var, cases, def) => {
-                let ptr = bindings.get(match_var)?;
+                let ptr = bindings.get_ptr(match_var)?;
                 let tag = ptr.tag();
                 if let Some(block) = cases.get(tag) {
                     path.push_tag_inplace(*tag);
@@ -380,11 +420,11 @@ impl Block {
                 }
             }
             Ctrl::MatchSymbol(match_var, cases, def) => {
-                let ptr = bindings.get(match_var)?;
+                let ptr = bindings.get_ptr(match_var)?;
                 if ptr.tag() != &Tag::Expr(Sym) {
                     bail!("{match_var} is not a symbol");
                 }
-                let Some(sym) = store.fetch_symbol(ptr) else {
+                let Some(sym) = store.fetch_symbol(&ptr) else {
                     bail!("Symbol bound to {match_var} wasn't interned");
                 };
                 if let Some(block) = cases.get(&sym) {
@@ -398,21 +438,19 @@ impl Block {
                     def.run(input, store, bindings, preimages, path, emitted)
                 }
             }
-            Ctrl::IfEq(x, y, eq_block, else_block) => {
-                let x = bindings.get(x)?;
-                let y = bindings.get(y)?;
-                let b = x == y;
+            Ctrl::If(b, true_block, false_block) => {
+                let b = bindings.get_bool(b)?;
                 path.push_bool_inplace(b);
                 if b {
-                    eq_block.run(input, store, bindings, preimages, path, emitted)
+                    true_block.run(input, store, bindings, preimages, path, emitted)
                 } else {
-                    else_block.run(input, store, bindings, preimages, path, emitted)
+                    false_block.run(input, store, bindings, preimages, path, emitted)
                 }
             }
             Ctrl::Return(output_vars) => {
                 let mut output = Vec::with_capacity(output_vars.len());
                 for var in output_vars.iter() {
-                    output.push(*bindings.get(var)?)
+                    output.push(bindings.get_ptr(var)?)
                 }
                 let input = input.to_vec();
                 Ok((
@@ -439,7 +477,7 @@ impl Func {
     ) -> Result<(Frame<F>, Path)> {
         let mut bindings = VarMap::new();
         for (i, param) in self.input_params.iter().enumerate() {
-            bindings.insert(param.clone(), args[i]);
+            bindings.insert_ptr(param.clone(), args[i]);
         }
 
         // We must fill any unused slots with `None` values so we save

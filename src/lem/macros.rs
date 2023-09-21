@@ -75,6 +75,26 @@ macro_rules! op {
             $crate::var!($b),
         )
     };
+    ( let $tgt:ident = not($a:ident) ) => {
+        $crate::lem::Op::Not(
+            $crate::var!($tgt),
+            $crate::var!($a),
+        )
+    };
+    ( let $tgt:ident = and($a:ident, $b:ident) ) => {
+        $crate::lem::Op::And(
+            $crate::var!($tgt),
+            $crate::var!($a),
+            $crate::var!($b),
+        )
+    };
+    ( let $tgt:ident = or($a:ident, $b:ident) ) => {
+        $crate::lem::Op::Or(
+            $crate::var!($tgt),
+            $crate::var!($a),
+            $crate::var!($b),
+        )
+    };
     ( let $tgt:ident = add($a:ident, $b:ident) ) => {
         $crate::lem::Op::Add(
             $crate::var!($tgt),
@@ -227,22 +247,20 @@ macro_rules! ctrl {
             $crate::lem::Ctrl::MatchSymbol($crate::var!($sii), cases, default)
         }
     };
-    ( if $x:ident == $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
+    ( if $x:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
         {
             let x = $crate::var!($x);
-            let y = $crate::var!($y);
             let true_block = Box::new($crate::block!( @seq {}, $($true_block)+ ));
             let false_block = Box::new($crate::block!( @seq {}, $($false_block)+ ));
-            $crate::lem::Ctrl::IfEq(x, y, true_block, false_block)
+            $crate::lem::Ctrl::If(x, true_block, false_block)
         }
     };
-    ( if $x:ident != $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
+    ( if !$x:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
         {
             let x = $crate::var!($x);
-            let y = $crate::var!($y);
             let true_block = Box::new($crate::block!( @seq {}, $($true_block)+ ));
             let false_block = Box::new($crate::block!( @seq {}, $($false_block)+ ));
-            $crate::lem::Ctrl::IfEq(x, y, false_block, true_block)
+            $crate::lem::Ctrl::If(x, false_block, true_block)
         }
     };
     ( return ($($src:ident),*) ) => {
@@ -297,6 +315,36 @@ macro_rules! block {
             {
                 $($limbs)*
                 $crate::op!(let $tgt = eq_val($a, $b))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = not($a:ident) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = not($a))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = and($a:ident, $b:ident) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = and($a, $b))
+            },
+            $($tail)*
+        )
+    };
+    (@seq {$($limbs:expr)*}, let $tgt:ident = or($a:ident, $b:ident) ; $($tail:tt)*) => {
+        $crate::block! (
+            @seq
+            {
+                $($limbs)*
+                $crate::op!(let $tgt = or($a, $b))
             },
             $($tail)*
         )
@@ -520,22 +568,22 @@ macro_rules! block {
             $crate::ctrl!( match symbol $sii { $( $sym $(, $other_sym)* => $case_ops )* } $(; $($def)*)? )
         )
     };
-    (@seq {$($limbs:expr)*}, if $x:ident == $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
+    (@seq {$($limbs:expr)*}, if $x:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
         $crate::block! (
             @end
             {
                 $($limbs)*
             },
-            $crate::ctrl!( if $x == $y { $($true_block)+ } $($false_block)+ )
+            $crate::ctrl!( if $x { $($true_block)+ } $($false_block)+ )
         )
     };
-    (@seq {$($limbs:expr)*}, if $x:ident != $y:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
+    (@seq {$($limbs:expr)*}, if !$x:ident { $($true_block:tt)+ } $($false_block:tt)+ ) => {
         $crate::block! (
             @end
             {
                 $($limbs)*
             },
-            $crate::ctrl!( if $x != $y { $($true_block)+ } $($false_block)+ )
+            $crate::ctrl!( if !$x { $($true_block)+ } $($false_block)+ )
         )
     };
     (@seq {$($limbs:expr)*}, return ($($src:ident),*) $(;)?) => {

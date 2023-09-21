@@ -217,9 +217,9 @@ impl Block {
                     .values()
                     .fold(init, |acc, block| acc.max(block.count_slots()))
             }
-            Ctrl::IfEq(_, _, eq_block, else_block) => {
-                let eq_slots = eq_block.count_slots();
-                eq_slots.max(else_block.count_slots())
+            Ctrl::If(_, true_block, false_block) => {
+                let if_slots = true_block.count_slots();
+                if_slots.max(false_block.count_slots())
             }
             Ctrl::Return(..) => SlotsCounter::default(),
         };
