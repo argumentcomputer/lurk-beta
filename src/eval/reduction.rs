@@ -1321,6 +1321,7 @@ fn make_tail_continuation<F: LurkField>(
     // point to one another: they can only be nested one deep.
 }
 
+#[allow(dead_code)]
 fn make_tail_continuation_raw<F: LurkField>(
     saved_env: Ptr<F>,
     continuation: ContPtr<F>,
