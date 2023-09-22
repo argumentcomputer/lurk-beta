@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use std::collections::VecDeque;
 
 use super::{
@@ -6,6 +6,8 @@ use super::{
 };
 
 use crate::{
+    coprocessor::Coprocessor,
+    eval::lang::Lang,
     field::LurkField,
     num::Num as BaseNum,
     state::initial_lurk_state,
@@ -115,10 +117,11 @@ pub struct Frame<F: LurkField> {
     pub output: Vec<Ptr<F>>,
     pub preimages: Preimages<F>,
     pub blank: bool,
+    pub pc: usize,
 }
 
 impl<F: LurkField> Frame<F> {
-    pub fn blank(func: &Func) -> Frame<F> {
+    pub fn blank(func: &Func, pc: usize) -> Frame<F> {
         let input = vec![Ptr::null(Tag::Expr(Nil)); func.input_params.len()];
         let output = vec![Ptr::null(Tag::Expr(Nil)); func.output_size];
         let preimages = Preimages::blank(func);
@@ -127,6 +130,7 @@ impl<F: LurkField> Frame<F> {
             output,
             preimages,
             blank: true,
+            pc,
         }
     }
 }
@@ -135,7 +139,7 @@ impl Block {
     /// Interprets a LEM while i) modifying a `Store`, ii) binding `Var`s to
     /// `Ptr`s and iii) collecting the preimages from visited slots (more on this
     /// in `circuit.rs`)
-    fn run<F: LurkField>(
+    fn run<F: LurkField, C: Coprocessor<F>>(
         &self,
         input: &[Ptr<F>],
         store: &Store<F>,
@@ -143,9 +147,24 @@ impl Block {
         mut preimages: Preimages<F>,
         mut path: Path,
         emitted: &mut Vec<Ptr<F>>,
+        lang: &Lang<F, C>,
+        pc: usize,
     ) -> Result<(Frame<F>, Path)> {
         for op in &self.ops {
             match op {
+                Op::Cproc(out, sym, inp) => {
+                    let inp_ptrs = bindings.get_many_ptr(inp)?;
+                    let cproc = lang
+                        .lookup_by_sym(sym)
+                        .ok_or_else(|| anyhow!("Coprocessor for {sym} not found"))?;
+                    let out_ptrs = cproc.evaluate_lem_internal(store, &inp_ptrs);
+                    if out.len() != out_ptrs.len() {
+                        bail!("Incompatible output length for coprocessor {sym}")
+                    }
+                    for (var, ptr) in out.iter().zip(out_ptrs) {
+                        bindings.insert(var.clone(), Val::Pointer(ptr));
+                    }
+                }
                 Op::Call(out, func, inp) => {
                     // Get the argument values
                     let inp_ptrs = bindings.get_many_ptr(inp)?;
@@ -156,7 +175,8 @@ impl Block {
                     // of it, then extend `call_outputs`
                     let mut inner_call_outputs = VecDeque::new();
                     std::mem::swap(&mut inner_call_outputs, &mut preimages.call_outputs);
-                    let (mut frame, func_path) = func.call(&inp_ptrs, store, preimages, emitted)?;
+                    let (mut frame, func_path) =
+                        func.call(&inp_ptrs, store, preimages, emitted, lang, pc)?;
                     std::mem::swap(&mut inner_call_outputs, &mut frame.preimages.call_outputs);
 
                     // Extend the path and bind the output variables to the output values
@@ -410,13 +430,13 @@ impl Block {
                 let tag = ptr.tag();
                 if let Some(block) = cases.get(tag) {
                     path.push_tag_inplace(*tag);
-                    block.run(input, store, bindings, preimages, path, emitted)
+                    block.run(input, store, bindings, preimages, path, emitted, lang, pc)
                 } else {
                     path.push_default_inplace();
                     let Some(def) = def else {
                         bail!("No match for tag {}", tag)
                     };
-                    def.run(input, store, bindings, preimages, path, emitted)
+                    def.run(input, store, bindings, preimages, path, emitted, lang, pc)
                 }
             }
             Ctrl::MatchSymbol(match_var, cases, def) => {
@@ -429,22 +449,22 @@ impl Block {
                 };
                 if let Some(block) = cases.get(&sym) {
                     path.push_symbol_inplace(sym);
-                    block.run(input, store, bindings, preimages, path, emitted)
+                    block.run(input, store, bindings, preimages, path, emitted, lang, pc)
                 } else {
                     path.push_default_inplace();
                     let Some(def) = def else {
                         bail!("No match for symbol {sym}")
                     };
-                    def.run(input, store, bindings, preimages, path, emitted)
+                    def.run(input, store, bindings, preimages, path, emitted, lang, pc)
                 }
             }
             Ctrl::If(b, true_block, false_block) => {
                 let b = bindings.get_bool(b)?;
                 path.push_bool_inplace(b);
                 if b {
-                    true_block.run(input, store, bindings, preimages, path, emitted)
+                    true_block.run(input, store, bindings, preimages, path, emitted, lang, pc)
                 } else {
-                    false_block.run(input, store, bindings, preimages, path, emitted)
+                    false_block.run(input, store, bindings, preimages, path, emitted, lang, pc)
                 }
             }
             Ctrl::Return(output_vars) => {
@@ -459,6 +479,7 @@ impl Block {
                         output,
                         preimages,
                         blank: false,
+                        pc,
                     },
                     path,
                 ))
@@ -468,12 +489,14 @@ impl Block {
 }
 
 impl Func {
-    pub fn call<F: LurkField>(
+    pub fn call<F: LurkField, C: Coprocessor<F>>(
         &self,
         args: &[Ptr<F>],
         store: &Store<F>,
         preimages: Preimages<F>,
         emitted: &mut Vec<Ptr<F>>,
+        lang: &Lang<F, C>,
+        pc: usize,
     ) -> Result<(Frame<F>, Path)> {
         let mut bindings = VarMap::new();
         for (i, param) in self.input_params.iter().enumerate() {
@@ -488,9 +511,16 @@ impl Func {
         let commitment_init = preimages.commitment.len();
         let less_than_init = preimages.less_than.len();
 
-        let mut res = self
-            .body
-            .run(args, store, bindings, preimages, Path::default(), emitted)?;
+        let mut res = self.body.run(
+            args,
+            store,
+            bindings,
+            preimages,
+            Path::default(),
+            emitted,
+            lang,
+            pc,
+        )?;
         let preimages = &mut res.0.preimages;
 
         let hash4_used = preimages.hash4.len() - hash4_init;
@@ -525,6 +555,7 @@ impl Func {
         StopCond: Fn(&[Ptr<F>]) -> bool,
         // iteration -> input -> emitted -> store -> string
         LogFmt: Fn(usize, &[Ptr<F>], &[Ptr<F>], &Store<F>) -> String,
+        C: Coprocessor<F>,
     >(
         &self,
         args: &[Ptr<F>],
@@ -533,6 +564,7 @@ impl Func {
         limit: usize,
         // TODO: make this argument optional
         log_fmt: LogFmt,
+        lang: &Lang<F, C>,
     ) -> Result<(Vec<Frame<F>>, usize, Vec<Path>)> {
         assert_eq!(self.input_params.len(), self.output_size);
         assert_eq!(self.input_params.len(), args.len());
@@ -549,7 +581,7 @@ impl Func {
         for _ in 0..limit {
             let preimages = Preimages::new_from_func(self);
             let mut emitted = vec![];
-            let (frame, path) = self.call(&input, store, preimages, &mut emitted)?;
+            let (frame, path) = self.call(&input, store, preimages, &mut emitted, lang)?;
             input = frame.output.clone();
             iterations += 1;
             tracing::info!("{}", &log_fmt(iterations, &input, &emitted, store));
@@ -564,19 +596,20 @@ impl Func {
         if iterations < limit {
             // pushing a frame that can be padded
             let preimages = Preimages::new_from_func(self);
-            let (frame, path) = self.call(&input, store, preimages, &mut vec![])?;
+            let (frame, path) = self.call(&input, store, preimages, &mut vec![], lang)?;
             frames.push(frame);
             paths.push(path);
         }
         Ok((frames, iterations, paths))
     }
 
-    pub fn call_until_simple<F: LurkField, StopCond: Fn(&[Ptr<F>]) -> bool>(
+    pub fn call_until_simple<F: LurkField, StopCond: Fn(&[Ptr<F>]) -> bool, C: Coprocessor<F>>(
         &self,
         args: Vec<Ptr<F>>,
         store: &Store<F>,
         stop_cond: StopCond,
         limit: usize,
+        lang: &Lang<F, C>,
     ) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
         assert_eq!(self.input_params.len(), self.output_size);
         assert_eq!(self.input_params.len(), args.len());
@@ -587,7 +620,7 @@ impl Func {
         let mut iterations = 0;
 
         for _ in 0..limit {
-            let (frame, _) = self.call(&input, store, Preimages::default(), &mut emitted)?;
+            let (frame, _) = self.call(&input, store, Preimages::default(), &mut emitted, lang)?;
             input = frame.output.clone();
             iterations += 1;
             if stop_cond(&frame.output) {

@@ -31,14 +31,18 @@ use bellpepper_core::{
 };
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::circuit::gadgets::{
-    constraints::{
-        add, alloc_equal, alloc_is_zero, allocate_is_negative, and, div, enforce_pack,
-        enforce_product_and_sum, enforce_selector_with_premise, implies_equal, implies_equal_const,
-        implies_u64, implies_unequal_const, mul, or, pick, sub,
+use crate::{
+    circuit::gadgets::{
+        constraints::{
+            add, alloc_equal, alloc_is_zero, allocate_is_negative, and, div, enforce_pack,
+            enforce_product_and_sum, enforce_selector_with_premise, implies_equal,
+            implies_equal_const, implies_u64, implies_unequal_const, mul, or, pick, sub,
+        },
+        data::{allocate_constant, hash_poseidon},
+        pointer::AllocatedPtr,
     },
-    data::{allocate_constant, hash_poseidon},
-    pointer::AllocatedPtr,
+    coprocessor::Coprocessor,
+    eval::lang::Lang,
 };
 
 use crate::{
@@ -431,13 +435,14 @@ impl Func {
     /// each slot and then, as we traverse the function, we add constraints to make
     /// sure that the witness satisfies the arithmetic equations for the
     /// corresponding slots.
-    pub fn synthesize_frame<F: LurkField, CS: ConstraintSystem<F>>(
+    pub fn synthesize_frame<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
         &self,
         cs: &mut CS,
         store: &Store<F>,
         frame: &Frame<F>,
         global_allocator: &GlobalAllocator<F>,
         bound_allocations: &mut BoundAllocations<F>,
+        lang: &Lang<F, C>,
     ) -> Result<Vec<AllocatedPtr<F>>> {
         // Outputs are constrained by the return statement. All functions return
         let preallocated_outputs = self.allocate_output(cs, store, frame)?;
@@ -485,7 +490,8 @@ impl Func {
             store,
         )?;
 
-        struct Globals<'a, F: LurkField> {
+        struct Globals<'a, F: LurkField, C: Coprocessor<F>> {
+            lang: &'a Lang<F, C>,
             store: &'a Store<F>,
             global_allocator: &'a GlobalAllocator<F>,
             preallocated_hash4_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
@@ -496,14 +502,14 @@ impl Func {
             call_outputs: VecDeque<Vec<Ptr<F>>>,
         }
 
-        fn recurse<F: LurkField, CS: ConstraintSystem<F>>(
+        fn recurse<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             cs: &mut CS,
             block: &Block,
             not_dummy: &Boolean,
             next_slot: &mut SlotsCounter,
             bound_allocations: &mut BoundAllocations<F>,
             preallocated_outputs: &Vec<AllocatedPtr<F>>,
-            g: &mut Globals<'_, F>,
+            g: &mut Globals<'_, F, C>,
         ) -> Result<()> {
             for (op_idx, op) in block.ops.iter().enumerate() {
                 let mut cs = cs.namespace(|| format!("op {op_idx}"));
@@ -598,6 +604,25 @@ impl Func {
                 }
 
                 match op {
+                    Op::Cproc(out, sym, inp) => {
+                        let inp_ptrs = bound_allocations.get_many_ptr(inp)?;
+                        let cproc = g
+                            .lang
+                            .lookup_by_sym(sym)
+                            .ok_or_else(|| anyhow!("Coprocessor for {sym} not found"))?;
+                        let out_ptrs = cproc.synthesize_lem_internal(
+                            &mut cs.namespace(|| format!("Coprocessor {sym}")),
+                            g.global_allocator,
+                            g.store,
+                            &inp_ptrs,
+                        )?;
+                        if out.len() != out_ptrs.len() {
+                            bail!("Incompatible output length for coprocessor {sym}")
+                        }
+                        for (var, ptr) in out.iter().zip(out_ptrs) {
+                            bound_allocations.insert(var.clone(), AllocatedVal::Pointer(ptr));
+                        }
+                    }
                     Op::Call(out, func, inp) => {
                         // Allocate the output pointers that the `func` will return to.
                         // These should be unconstrained as of yet, and will be constrained
@@ -944,7 +969,7 @@ impl Func {
                                         cases: &[(F, &Block)],
                                         def: &Option<Box<Block>>,
                                         bound_allocations: &mut VarMap<AllocatedVal<F>>,
-                                        g: &mut Globals<'_, F>|
+                                        g: &mut Globals<'_, F, C>|
              -> Result<Vec<SlotsCounter>> {
                 // * One `Boolean` for each case
                 // * Maybe one `Boolean` for the default case
@@ -1140,6 +1165,7 @@ impl Func {
             bound_allocations,
             &preallocated_outputs,
             &mut Globals {
+                lang,
                 store,
                 global_allocator,
                 preallocated_hash4_slots,
@@ -1154,16 +1180,17 @@ impl Func {
     }
 
     /// Helper API for tests
-    pub fn synthesize_frame_aux<F: LurkField, CS: ConstraintSystem<F>>(
+    pub fn synthesize_frame_aux<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
         &self,
         cs: &mut CS,
         store: &Store<F>,
         frame: &Frame<F>,
+        lang: &Lang<F, C>,
     ) -> Result<()> {
         let bound_allocations = &mut BoundAllocations::new();
         let global_allocator = self.alloc_globals(cs, store)?;
         self.allocate_input(cs, store, frame, bound_allocations)?;
-        self.synthesize_frame(cs, store, frame, &global_allocator, bound_allocations)?;
+        self.synthesize_frame(cs, store, frame, &global_allocator, bound_allocations, lang)?;
         Ok(())
     }
 
@@ -1231,7 +1258,7 @@ impl Func {
                         // three implies_u64, one sub and one linear
                         num_constraints += 197;
                     }
-                    Op::Not(..) | Op::Emit(_) => (),
+                    Op::Not(..) | Op::Emit(_) | Op::Cproc(..) => (),
                     Op::Cons2(_, tag, _) => {
                         // tag for the image
                         globals.insert(FWrap(tag.to_field()));

@@ -39,6 +39,7 @@ pub enum ExprTag {
     Comm,
     U64,
     Key,
+    Cproc,
 }
 
 impl From<ExprTag> for u16 {
@@ -67,6 +68,7 @@ impl fmt::Display for ExprTag {
             ExprTag::Char => write!(f, "char#"),
             ExprTag::Comm => write!(f, "comm#"),
             ExprTag::U64 => write!(f, "u64#"),
+            ExprTag::Cproc => write!(f, "cproc#"),
         }
     }
 }
@@ -85,7 +87,8 @@ impl TypePredicates for ExprTag {
             | Self::Char
             | Self::Comm
             | Self::U64
-            | Self::Key => true,
+            | Self::Key
+            | Self::Cproc => true,
         }
     }
 
@@ -134,6 +137,7 @@ pub enum ContTag {
     Dummy,
     Terminal,
     Emit,
+    Cproc,
 }
 
 impl From<ContTag> for u16 {
@@ -184,6 +188,7 @@ impl fmt::Display for ContTag {
             ContTag::Dummy => write!(f, "dummy#"),
             ContTag::Terminal => write!(f, "terminal#"),
             ContTag::Emit => write!(f, "emit#"),
+            ContTag::Cproc => write!(f, "cproc#"),
         }
     }
 }
