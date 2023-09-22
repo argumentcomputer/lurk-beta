@@ -1,15 +1,18 @@
 use std::fmt::Debug;
 
+use bellpepper::gadgets::boolean::Boolean;
 use bellpepper_core::{ConstraintSystem, SynthesisError};
 
-use crate::circuit::circuit_frame::destructure_list;
-use crate::circuit::gadgets::constraints::alloc_equal_const;
+use crate::circuit::circuit_frame::{car_cdr, destructure_list};
+use crate::circuit::gadgets::constraints::{alloc_equal_const, enforce_equal_const};
 use crate::circuit::gadgets::data::GlobalAllocations;
 use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents};
 use crate::eval::IO;
 use crate::field::LurkField;
 use crate::ptr::{ContPtr, Ptr};
 use crate::store::Store;
+use crate::tag::Tag;
+use crate::z_data::z_ptr::ZExprPtr;
 
 pub mod circom;
 pub mod trie;
@@ -69,6 +72,7 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
         cs: &mut CS,
         store: &Store<F>,
         g: &GlobalAllocations<F>,
+        coprocessor_zptr: &ZExprPtr<F>,
         input_expr: &AllocatedPtr<F>,
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
@@ -76,24 +80,51 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
         // TODO: This code is almost identical to that in circuit_frame.rs (the arg destructuring is factored out and shared there).
         // Refactor to share.
         let arity = self.arity();
-        let (form, actual_length) = destructure_list(
+
+        // If `input_expr` is not a cons, the circuit will not be satisified, per `car_cdr`'s contract.
+        // That is also the desired behavior for the coprocessor circuit's validation, so this is fine.
+        let (head, rest) = car_cdr(
+            &mut cs.namespace(|| "coprocessor_input car_cdr"),
+            g,
+            input_expr,
+            store,
+            &Boolean::Constant(true),
+        )?;
+
+        {
+            // The NIVC coprocessor contract requires that a proof (of any kind, including error) will be generated only if
+            // the control expression can be correctly handled by the coprocessor. This means each circuit must validate its
+            // input to ensure it matches the coprocessor.
+            enforce_equal_const(
+                cs,
+                || "coprocessor head tag matches",
+                coprocessor_zptr.tag().to_field(),
+                head.tag(),
+            );
+            enforce_equal_const(
+                cs,
+                || "coprocessor head val matches",
+                *coprocessor_zptr.value(),
+                head.hash(),
+            );
+        }
+
+        let (inputs, actual_length) = destructure_list(
             &mut cs.namespace(|| "coprocessor form"),
             store,
             g,
-            arity + 1,
-            input_expr,
+            arity,
+            &rest,
         )?;
-        let _head = &form[0];
-        let inputs = &form[1..];
 
         let arity_is_correct = alloc_equal_const(
             &mut cs.namespace(|| "arity_is_correct"),
             &actual_length,
-            F::from(1 + arity as u64),
+            F::from(arity as u64),
         )?;
 
         let (result_expr, result_env, result_cont) =
-            self.synthesize(cs, g, store, &inputs[..arity], input_env, input_cont)?;
+            self.synthesize(cs, g, store, &inputs, input_env, input_cont)?;
 
         let quoted_expr = AllocatedPtr::construct_list(
             &mut cs.namespace(|| "quote coprocessor result"),
@@ -119,10 +150,7 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
             tail_components,
         )?;
 
-        // FIXME: technically, the error is defined to be rest -- which is the cdr of input_expr.
-        //let new_expr = pick_ptr!(cs, &arity_is_correct, &quoted_expr, &rest)?;
-        let new_expr = pick_ptr!(cs, &arity_is_correct, &quoted_expr, &input_expr)?;
-
+        let new_expr = pick_ptr!(cs, &arity_is_correct, &quoted_expr, &rest)?;
         let new_env = pick_ptr!(cs, &arity_is_correct, &result_env, &input_env)?;
         let new_cont = pick_cont_ptr!(cs, &arity_is_correct, &tail_cont, &g.error_ptr_cont)?;
 
