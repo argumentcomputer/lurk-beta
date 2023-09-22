@@ -208,6 +208,11 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         self.get_index(z_ptr)
             .and_then(|index| self.get_coprocessor(index))
     }
+
+    #[inline]
+    pub fn get_index_by_symbol(&self, sym: &Symbol) -> Option<usize> {
+        self.coprocessors.get_index_of(sym)
+    }
 }
 
 /// A `Binding` associates a name (`Sym`) and `Coprocessor`. It facilitates modular construction of `Lang`s using

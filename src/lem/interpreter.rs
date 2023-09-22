@@ -566,6 +566,9 @@ impl Func {
         log_fmt: LogFmt,
         lang: &Lang<F, C>,
     ) -> Result<(Vec<Frame<F>>, usize, Vec<Path>)> {
+        // TODO correct pc
+        let pc = 0;
+
         assert_eq!(self.input_params.len(), self.output_size);
         assert_eq!(self.input_params.len(), args.len());
 
@@ -581,7 +584,7 @@ impl Func {
         for _ in 0..limit {
             let preimages = Preimages::new_from_func(self);
             let mut emitted = vec![];
-            let (frame, path) = self.call(&input, store, preimages, &mut emitted, lang)?;
+            let (frame, path) = self.call(&input, store, preimages, &mut emitted, lang, pc)?;
             input = frame.output.clone();
             iterations += 1;
             tracing::info!("{}", &log_fmt(iterations, &input, &emitted, store));
@@ -596,7 +599,7 @@ impl Func {
         if iterations < limit {
             // pushing a frame that can be padded
             let preimages = Preimages::new_from_func(self);
-            let (frame, path) = self.call(&input, store, preimages, &mut vec![], lang)?;
+            let (frame, path) = self.call(&input, store, preimages, &mut vec![], lang, pc)?;
             frames.push(frame);
             paths.push(path);
         }
@@ -620,7 +623,10 @@ impl Func {
         let mut iterations = 0;
 
         for _ in 0..limit {
-            let (frame, _) = self.call(&input, store, Preimages::default(), &mut emitted, lang)?;
+            // TODO correct pc
+            let pc = 0;
+            let (frame, _) =
+                self.call(&input, store, Preimages::default(), &mut emitted, lang, pc)?;
             input = frame.output.clone();
             iterations += 1;
             if stop_cond(&frame.output) {

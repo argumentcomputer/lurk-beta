@@ -15,9 +15,69 @@ use crate::{
     Symbol,
 };
 
-use super::{interpreter::Frame, pointers::Ptr, store::Store, Ctrl, Func, Op, Tag, Var};
+use super::{
+    interpreter::{Frame, Preimages},
+    pointers::Ptr,
+    store::Store,
+    Ctrl, Func, Op, Tag, Var,
+};
 
 static EVAL_STEP: OnceCell<Func> = OnceCell::new();
+
+// Builds frames for NIVC scheme. Can be used for IVC schemes as well if `step_funcs` has size 1.
+pub fn build_frames<
+    F: LurkField,
+    C: Coprocessor<F>,
+    LogFmt: Fn(usize, &[Ptr<F>], &[Ptr<F>], &Store<F>) -> String,
+>(
+    step_funcs: &[Func],
+    mut input: Vec<Ptr<F>>,
+    store: &mut Store<F>,
+    limit: usize,
+    lang: &Lang<F, C>,
+    log_fmt: LogFmt,
+) -> Result<(Vec<Frame<F>>, usize)> {
+    let mut pc = 0;
+    let mut frames = vec![];
+    let mut iterations = 0;
+    for _ in 0..limit {
+        // let Some(pc) = next_step(&input) else { break };
+        let step_func = &step_funcs.get(pc).expect("Program counter outside range");
+        assert_eq!(step_func.input_params.len(), input.len());
+        let preimages = Preimages::new_from_func(step_func);
+        let mut emitted = vec![];
+        let (frame, _) = step_func.call(&input, store, preimages, &mut emitted, lang, pc)?;
+
+        let expr = &frame.output[0];
+        let cont = &frame.output[2];
+        if cont == &Ptr::null(Tag::Cont(Terminal)) || cont == &Ptr::null(Tag::Cont(Error)) {
+            break;
+        } else {
+            use crate::tag::ExprTag::Cproc;
+            pc = match expr.tag() {
+                Tag::Expr(Cproc) => {
+                    let idx = expr.get_index2().expect("Malformed coprocessor expression");
+                    let (cproc, _) = store
+                        .fetch_2_ptrs(idx)
+                        .expect("Coprocessor expression is not interned");
+                    let cproc_sym = store
+                        .fetch_symbol(cproc)
+                        .expect("Coprocessor expression is not interned");
+                    lang.get_index_by_symbol(&cproc_sym)
+                        .expect("Coprocessor not found")
+                        + 1
+                }
+                _ => 0,
+            };
+        }
+
+        input = frame.output.clone();
+        iterations += 1;
+        tracing::info!("{}", &log_fmt(iterations, &input, &emitted, store));
+        frames.push(frame);
+    }
+    Ok((frames, iterations))
+}
 
 /// Lurk's default step function (no coprocessors)
 #[inline]
@@ -130,7 +190,7 @@ pub fn evaluate_simple<F: LurkField, C: Coprocessor<F>>(
     }
 }
 
-/// run_cproc(cproc, env, cont): 4 {
+/// run_cproc(cproc, env, cont): 3 {
 ///     let err: Cont::Error;
 ///     let nil = Symbol("nil");
 ///     let nil = cast(nil, Expr::Nil);
