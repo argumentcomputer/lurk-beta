@@ -574,12 +574,8 @@ fn reduce_with_witness_inner<F: LurkField, C: Coprocessor<F>>(
                             } else {
                                 let quoted = store.list(&[quote, expr]);
 
-                                // NOTE: This will be a potentially redundant tail cont, which is 'okay' as long as circuit does same.
-                                // Alternately, here and in circuit(s), we could use the dynamic logic to avoid.
-                                let tail_cont = make_tail_continuation_raw(env, cont, store);
-
                                 return Ok((
-                                    Control::Return(quoted, env, tail_cont),
+                                    Control::Return(quoted, env, cont),
                                     None,
                                     Meta::Coprocessor(*z_ptr),
                                 ));
@@ -1323,18 +1319,6 @@ fn make_tail_continuation<F: LurkField>(
     }
     // Since this is the only place Tail continuation are created, this ensures Tail continuations never
     // point to one another: they can only be nested one deep.
-}
-
-fn make_tail_continuation_raw<F: LurkField>(
-    saved_env: Ptr<F>,
-    continuation: ContPtr<F>,
-    store: &mut Store<F>,
-) -> ContPtr<F> {
-    Continuation::Tail {
-        saved_env,
-        continuation,
-    }
-    .intern_aux(store)
 }
 
 // Only used in tests. Real evalution should use extend_name.

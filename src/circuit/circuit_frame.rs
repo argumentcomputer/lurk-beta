@@ -2858,28 +2858,11 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                         &[&g.quote_ptr, &result_expr],
                     )?;
 
-                    let default_num_pair = &[&g.default_num, &g.default_num];
-
-                    // TODO: This should be better abstracted, perhaps by resurrecting historical code.
-                    let tail_components: &[&dyn AsAllocatedHashComponents<F>; 4] = &[
-                        &result_env,
-                        &result_cont,
-                        default_num_pair,
-                        default_num_pair,
-                    ];
-
-                    let tail_cont = AllocatedContPtr::construct(
-                        &mut cs.namespace(|| "coprocessor tail cont"),
-                        store,
-                        &g.tail_cont_tag,
-                        tail_components,
-                    )?;
-
                     let new_expr = pick_ptr!(cs, &arity_is_correct, &quoted_expr, &rest)?; // TODO: The error case should probably be expr, but this is harder in straight evaluation atm.
 
                     let new_env = pick_ptr!(cs, &arity_is_correct, &result_env, &env)?;
                     let new_cont =
-                        pick_cont_ptr!(cs, &arity_is_correct, &tail_cont, &g.error_ptr_cont)?;
+                        pick_cont_ptr!(cs, &arity_is_correct, &result_cont, &g.error_ptr_cont)?;
 
                     // We can't just call `results.add_clauses_cons` here because of lifetime issues.
                     coprocessor_results.push((z_ptr, new_expr, new_env, new_cont, &g.false_num));

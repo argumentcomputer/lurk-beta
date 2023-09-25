@@ -2671,7 +2671,7 @@ pub(crate) mod coproc {
             None,
             Some(terminal),
             None,
-            5,
+            4,
             Some(&lang),
         );
         test_aux(s, expr3, None, None, Some(error), None, 1, Some(&lang));
