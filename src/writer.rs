@@ -133,7 +133,7 @@ impl<F: LurkField> Write<F> for Expression<F> {
                 write!(w, ")")
             }
             Char(c) => {
-                write!(w, "#\\{c}")
+                write!(w, "'{c}'")
             }
             UInt(n) => write!(w, "{n}u64"),
         }
@@ -380,6 +380,14 @@ pub mod test {
         let num = store.num(5);
         let res = num.fmt_to_string(&store, initial_lurk_state());
         assert_eq!(&res, &"5");
+    }
+
+    #[test]
+    fn test_print_char() {
+        let store = Store::<Fr>::default();
+        let char = store.intern_char('a');
+        let res = char.fmt_to_string(&store, initial_lurk_state());
+        assert_eq!(&res, &"'a'");
     }
 
     #[test]
