@@ -6,20 +6,25 @@ use std::sync::Arc;
 use crate::{
     circuit::gadgets::pointer::AllocatedPtr,
     coprocessor::Coprocessor,
+    error::{ProofError, ReductionError},
     eval::lang::Lang,
     field::LurkField,
-    proof::{MultiFrameTrait, Provable},
+    proof::{CEKState, EvaluationStore, FrameLike, MultiFrameTrait, Provable},
+    state::initial_lurk_state,
+    store,
+    tag::ContTag,
 };
 
 use super::{
     circuit::{BoundAllocations, GlobalAllocator},
+    eval::eval_step,
     interpreter::Frame,
     pointers::Ptr,
     store::Store,
-    Func,
+    Func, Tag,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     pub store: Option<&'a Store<F>>,
     pub lang: Arc<Lang<F, C>>,
@@ -31,13 +36,98 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     pub reduction_count: usize,
 }
 
-impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFrame<'a, F, C> {
-    type Store = Store<F>;
+impl<F: LurkField> CEKState<Ptr<F>, Ptr<F>> for Vec<Ptr<F>> {
+    fn expr(&self) -> &Ptr<F> {
+        &self[0]
+    }
+    fn env(&self) -> &Ptr<F> {
+        &self[1]
+    }
+    fn cont(&self) -> &Ptr<F> {
+        &self[2]
+    }
+}
+
+impl<F: LurkField> FrameLike<Ptr<F>, Ptr<F>> for Frame<F> {
+    type FrameIO = Vec<Ptr<F>>;
+    fn input(&self) -> &Self::FrameIO {
+        &self.input
+    }
+    fn output(&self) -> &Self::FrameIO {
+        &self.output
+    }
+}
+
+impl<F: LurkField> EvaluationStore for Store<F> {
     type Ptr = Ptr<F>;
-    type Frame = Frame<F>;
+    type ContPtr = Ptr<F>;
+    type Error = anyhow::Error;
+
+    fn read(&mut self, expr: &str) -> Result<Self::Ptr, Self::Error> {
+        self.read_with_default_state(expr)
+    }
+
+    fn initial_empty_env(&mut self) -> Self::Ptr {
+        self.intern_nil()
+    }
+
+    fn get_cont_terminal(&self) -> Self::ContPtr {
+        Ptr::null(Tag::Cont(ContTag::Terminal))
+    }
+
+    fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> Result<bool, Self::Error> {
+        Ok(self.hash_ptr(left)? == self.hash_ptr(right)?)
+    }
+}
+
+impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for MultiFrame<'a, F, C> {
+    type Ptr = Ptr<F>;
+    type ContPtr = Ptr<F>;
+    type Store = Store<F>;
+    type StoreError = store::Error;
+    type EvalFrame = Frame<F>;
     type CircuitFrame = Frame<F>;
     type GlobalAllocation = GlobalAllocator<F>;
     type AllocatedIO = Vec<AllocatedPtr<F>>;
+
+    fn emitted(_store: &Store<F>, eval_frame: &Self::EvalFrame) -> Vec<Ptr<F>> {
+        eval_frame.emitted.to_vec()
+    }
+
+    fn io_to_scalar_vector(
+        store: &Self::Store,
+        io: &<Self::EvalFrame as FrameLike<Ptr<F>, Ptr<F>>>::FrameIO,
+    ) -> Result<Vec<F>, Self::StoreError> {
+        store.to_vector(io).map_err(|e| store::Error(e.to_string()))
+    }
+
+    fn compute_witness(&self, s: &Store<F>) -> WitnessCS<F> {
+        let mut wcs = WitnessCS::new();
+
+        let z_scalar = s.to_vector(self.input.as_ref().unwrap()).unwrap();
+
+        let mut bogus_cs = WitnessCS::<F>::new();
+        let z: Vec<AllocatedNum<F>> = z_scalar
+            .iter()
+            .map(|x| AllocatedNum::alloc(&mut bogus_cs, || Ok(*x)).unwrap())
+            .collect::<Vec<_>>();
+
+        let _ = nova::traits::circuit::StepCircuit::synthesize(self, &mut wcs, z.as_slice());
+
+        wcs
+    }
+
+    fn cached_witness(&mut self) -> &mut Option<WitnessCS<F>> {
+        &mut self.cached_witness
+    }
+
+    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike<Ptr<F>, Ptr<F>>>::FrameIO> {
+        &self.output
+    }
+
+    fn frames(&self) -> Option<&Vec<Self::CircuitFrame>> {
+        self.frames.as_ref()
+    }
 
     fn precedes(&self, maybe_next: &Self) -> bool {
         self.output == maybe_next.input
@@ -99,7 +189,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
 
     fn from_frames(
         count: usize,
-        frames: &[Self::Frame],
+        frames: &[Frame<F>],
         store: &'a Self::Store,
         lang: Arc<Lang<F, C>>,
     ) -> Vec<Self> {
@@ -165,6 +255,51 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrameTrait<'a, F, C> for MultiFra
             cached_witness: None,
             reduction_count: count,
         }
+    }
+
+    fn get_evaluation_frames(
+        _padding_predicate: impl Fn(usize) -> bool,
+        expr: Self::Ptr,
+        env: Self::Ptr,
+        store: &mut Self::Store,
+        limit: usize,
+        _lang: &Lang<F, C>,
+    ) -> std::result::Result<Vec<Self::EvalFrame>, ProofError> {
+        // TODO: integrate https://github.com/lurk-lab/lurk-rs/commit/963a6361701efcaa78735d8fc9c927f518d8e31c
+        let input = vec![expr, env, Ptr::null(Tag::Cont(ContTag::Outermost))];
+        let state = initial_lurk_state();
+        let log_fmt = |i: usize, inp: &[Ptr<F>], emit: &[Ptr<F>], store: &Store<F>| {
+            let mut out = format!(
+                "Frame: {i}\n\tExpr: {}\n\tEnv:  {}\n\tCont: {}",
+                inp[0].fmt_to_string(store, state),
+                inp[1].fmt_to_string(store, state),
+                inp[2].fmt_to_string(store, state)
+            );
+            if let Some(ptr) = emit.first() {
+                out.push_str(&format!("\n\tEmtd: {}", ptr.fmt_to_string(store, state)));
+            }
+            out
+        };
+        let stop_cond = |output: &[Ptr<F>]| {
+            output[2] == Ptr::null(Tag::Cont(ContTag::Terminal))
+                || output[2] == Ptr::null(Tag::Cont(ContTag::Error))
+        };
+        match eval_step().call_until(&input, store, stop_cond, limit, log_fmt) {
+            Ok((frames, ..)) => Ok(frames),
+            Err(e) => Err(ProofError::Reduction(ReductionError::Misc(e.to_string()))),
+        }
+    }
+
+    fn significant_frame_count(frames: &[Self::EvalFrame]) -> usize {
+        let stop_cond = |output: &[Ptr<F>]| {
+            output[2] == Ptr::null(Tag::Cont(ContTag::Terminal))
+                || output[2] == Ptr::null(Tag::Cont(ContTag::Error))
+        };
+        frames
+            .iter()
+            .rev()
+            .skip_while(|f| f.input == f.output && stop_cond(&f.output))
+            .count()
     }
 }
 

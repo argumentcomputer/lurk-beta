@@ -3,7 +3,6 @@
 use std::sync::{Arc, Mutex};
 
 use abomonation::Abomonation;
-use bellpepper::util_cs::witness_cs::WitnessCS;
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 use ff::Field;
 use nova::{
@@ -25,10 +24,7 @@ use crate::error::ProofError;
 use crate::eval::lang::Lang;
 use crate::field::LurkField;
 use crate::lem::{interpreter::Frame, multiframe::MultiFrame, store::Store};
-use crate::proof::{
-    nova::{NovaProver, PublicParams},
-    Prover,
-};
+use crate::proof::nova::PublicParams;
 
 use super::{
     nova::{CurveCycleEquipped, C2, G1, G2, SS1, SS2},
@@ -39,33 +35,6 @@ use super::{
 /// This uses the <<F as CurveCycleEquipped>::G1 as Group>::Scalar type for the G1 scalar field elements
 /// to reflect it this should not be used outside the Nova context
 pub type C1<'a, F, C> = MultiFrame<'a, <G1<F> as Group>::Scalar, C>;
-
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> MultiFrame<'a, F, C> {
-    fn circuits(lang: Arc<Lang<F, C>>, count: usize) -> (C1<'a, F, C>, C2<F>) {
-        (
-            MultiFrame::blank(count, lang),
-            TrivialTestCircuit::default(),
-        )
-    }
-}
-
-impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
-    fn compute_witness(&self, s: &Store<F>) -> WitnessCS<F> {
-        let mut wcs = WitnessCS::new();
-
-        let z_scalar = s.to_vector(self.input.as_ref().unwrap()).unwrap();
-
-        let mut bogus_cs = WitnessCS::<F>::new();
-        let z: Vec<AllocatedNum<F>> = z_scalar
-            .iter()
-            .map(|x| AllocatedNum::alloc(&mut bogus_cs, || Ok(*x)).unwrap())
-            .collect::<Vec<_>>();
-
-        let _ = self.clone().synthesize(&mut wcs, z.as_slice());
-
-        wcs
-    }
-}
 
 impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C> {
     fn arity(&self) -> usize {
@@ -118,37 +87,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
     }
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> NovaProver<'a, F, C, MultiFrame<'a, F, C>>
-where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
-    /// Proves the computation given the public parameters, frames, and store.
-    pub fn prove(
-        &'a self,
-        pp: &'a PublicParams<F, MultiFrame<'a, F, C>>,
-        frames: &[Frame<F>],
-        store: &'a Store<F>,
-        lang: &Arc<Lang<F, C>>,
-    ) -> Result<(Proof<'_, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
-        let z0 = store.to_vector(&frames.first().unwrap().input).unwrap();
-        let zi = store.to_vector(&frames.last().unwrap().output).unwrap();
-        let circuits = MultiFrame::from_frames(self.reduction_count(), frames, store, lang.clone());
-
-        let num_steps = circuits.len();
-        let proof = Proof::prove_recursively(
-            pp,
-            store,
-            &circuits,
-            self.reduction_count(),
-            z0.clone(),
-            lang.clone(),
-        )?;
-
-        Ok((proof, z0, zi, num_steps))
-    }
-}
-
 /// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
 pub enum Proof<'a, F: CurveCycleEquipped, C: Coprocessor<F>>
@@ -189,7 +127,7 @@ where
         let (_circuit_primary, circuit_secondary): (
             MultiFrame<'_, F, C>,
             TrivialTestCircuit<<G2<F> as Group>::Scalar>,
-        ) = C1::<'a, F, C>::circuits(lang, num_iters_per_step);
+        ) = crate::proof::nova::circuits(num_iters_per_step, lang);
 
         // produce a recursive SNARK
         let mut recursive_snark: Option<RecursiveSNARK<G1<F>, G2<F>, C1<'a, F, C>, C2<F>>> = None;
@@ -357,6 +295,7 @@ pub mod tests {
     use crate::lem::eval::{eval_step, evaluate};
     use crate::num::Num;
     use crate::proof::nova::public_params;
+    use crate::proof::Prover;
     use crate::state::{user_sym, State};
 
     use super::*;
@@ -448,10 +387,11 @@ pub mod tests {
         let lang = Arc::new(Lang::new());
         let func = eval_step();
         let limit = limit.unwrap_or(10000);
-        let nova_prover = NovaProver::<Fr, Coproc<Fr>, MultiFrame<'_, Fr, Coproc<Fr>>>::new(
-            reduction_count,
-            Lang::new(),
-        );
+        let nova_prover = crate::proof::nova::NovaProver::<
+            Fr,
+            Coproc<Fr>,
+            MultiFrame<Fr, Coproc<Fr>>,
+        >::new(reduction_count, Lang::new());
 
         let (frames, iterations) = evaluate(expr, s, limit).unwrap();
         s.hydrate_z_cache();

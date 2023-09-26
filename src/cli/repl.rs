@@ -32,7 +32,10 @@ use crate::{
     lurk_sym_ptr,
     package::{Package, SymbolRef},
     parser,
-    proof::{nova::NovaProver, Prover},
+    proof::{
+        nova::{NovaProver, C1},
+        Prover,
+    },
     ptr::Ptr,
     public_parameters::public_params,
     state::State,
@@ -167,15 +170,14 @@ impl Repl<F> {
                         let pp =
                             public_params(self.rc, true, self.lang.clone(), &public_params_dir())?;
 
-                        let prover =
-                            NovaProver::<'_, F, Coproc<F>, MultiFrame<'_, F, Coproc<F>>>::new(
-                                self.rc,
-                                (*self.lang).clone(),
-                            );
+                        let prover = NovaProver::<F, Coproc<F>, MultiFrame<'_, F, Coproc<F>>>::new(
+                            self.rc,
+                            (*self.lang).clone(),
+                        );
 
                         info!("Proving");
                         let (proof, public_inputs, public_outputs, num_steps) =
-                            prover.prove(&pp, frames, &mut self.store, &self.lang)?;
+                            prover.prove(&pp, frames, &self.store, &self.lang)?;
                         info!("Compressing proof");
                         let proof = proof.compress(&pp)?;
                         assert_eq!(self.rc * num_steps, pad(n_frames, self.rc));
@@ -515,7 +517,7 @@ impl Repl<F> {
             "verify" => {
                 let first = self.peek1(cmd, args)?;
                 let proof_id = self.get_string(&first)?;
-                LurkProof::verify_proof(&proof_id)?;
+                LurkProof::<_, _, C1<'_, _, Coproc<F>>>::verify_proof(&proof_id)?;
             }
             "defpackage" => {
                 // TODO: handle args
