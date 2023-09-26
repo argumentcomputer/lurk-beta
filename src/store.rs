@@ -1363,24 +1363,25 @@ impl<F: LurkField> Store<F> {
     pub fn hydrate_scalar_cache(&self) {
         self.ensure_constants();
 
-        let dehydrated = self.dehydrated.load().iter().cloned().collect::<Vec<_>>();
-
-        dehydrated.par_iter().for_each(|ptr| {
-            self.hash_expr(ptr).expect("failed to hash_expr");
-        });
+        self.dehydrated
+            .load()
+            .iter()
+            .collect::<Vec<_>>()
+            .par_iter()
+            .for_each(|ptr| {
+                self.hash_expr(ptr).expect("failed to hash_expr");
+            });
 
         self.dehydrated.swap(Arc::new(FrozenVec::default()));
 
-        let dehydrated_cont = self
-            .dehydrated_cont
+        self.dehydrated_cont
             .load()
             .iter()
-            .cloned()
-            .collect::<Vec<_>>();
-
-        dehydrated_cont.par_iter().for_each(|ptr| {
-            self.hash_cont(ptr).expect("failed to hash_cont");
-        });
+            .collect::<Vec<_>>()
+            .par_iter()
+            .for_each(|ptr| {
+                self.hash_cont(ptr).expect("failed to hash_cont");
+            });
 
         self.dehydrated_cont.swap(Arc::new(FrozenVec::default()));
     }

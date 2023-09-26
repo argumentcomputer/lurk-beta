@@ -3,6 +3,7 @@ use arc_swap::ArcSwap;
 use elsa::sync::{FrozenMap, FrozenVec};
 use elsa::sync_index_set::FrozenIndexSet;
 use nom::{sequence::preceded, Parser};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use crate::{
@@ -51,9 +52,8 @@ pub struct Store<F: LurkField> {
 
     pub poseidon_cache: PoseidonCache<F>,
 
-    dehydrated: FrozenVec<Box<Ptr<F>>>,
+    dehydrated: ArcSwap<FrozenVec<Box<Ptr<F>>>>,
     z_cache: FrozenMap<Ptr<F>, Box<ZPtr<F>>>,
-    next_hydration_idx: ArcSwap<usize>,
 
     comms: FrozenMap<FWrap<F>, Box<(F, Ptr<F>)>>, // hash -> (secret, src)
 }
@@ -65,7 +65,7 @@ impl<F: LurkField> Store<F> {
         let ptr = Ptr::Tuple2(tag, idx);
         if inserted {
             // this is for `hydrate_z_cache`
-            self.dehydrated.push(Box::new(ptr));
+            self.dehydrated.load().push(Box::new(ptr));
         }
         ptr
     }
@@ -85,7 +85,7 @@ impl<F: LurkField> Store<F> {
         let ptr = Ptr::Tuple3(tag, idx);
         if inserted {
             // this is for `hydrate_z_cache`
-            self.dehydrated.push(Box::new(ptr));
+            self.dehydrated.load().push(Box::new(ptr));
         }
         ptr
     }
@@ -112,7 +112,7 @@ impl<F: LurkField> Store<F> {
         let ptr = Ptr::Tuple4(tag, idx);
         if inserted {
             // this is for `hydrate_z_cache`
-            self.dehydrated.push(Box::new(ptr));
+            self.dehydrated.load().push(Box::new(ptr));
         }
         ptr
     }
@@ -536,26 +536,15 @@ impl<F: LurkField> Store<F> {
     /// Hashes `Ptr` trees from the bottom to the top, avoiding deep recursions
     /// in `hash_ptr`.
     pub fn hydrate_z_cache(&self) {
-        let dehydrated_len = self.dehydrated.len();
-        // TODO: can we recover the parallel hydration?
-        for i in **self.next_hydration_idx.load()..dehydrated_len {
-            let ptr = self
-                .dehydrated
-                .get(i)
-                .expect("Out of bounds. Implementation broken");
-            self.hash_ptr(ptr).expect("failed to hash_expr");
-        }
-        self.next_hydration_idx.swap(Arc::new(dehydrated_len));
-    }
-
-    pub fn clear_dehydrated_queue(&mut self) {
-        self.dehydrated = FrozenVec::new();
-        self.next_hydration_idx.swap(Arc::new(0));
-    }
-
-    pub fn hydrate_z_cache_and_clear_queue(&mut self) {
-        self.hydrate_z_cache();
-        self.clear_dehydrated_queue();
+        self.dehydrated
+            .load()
+            .iter()
+            .collect::<Vec<_>>()
+            .par_iter()
+            .for_each(|ptr| {
+                self.hash_ptr(ptr).expect("failed to hash_ptr");
+            });
+        self.dehydrated.swap(Arc::new(FrozenVec::default()));
     }
 
     pub fn to_vector(&self, ptrs: &[Ptr<F>]) -> Result<Vec<F>> {
