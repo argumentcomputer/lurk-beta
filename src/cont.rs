@@ -69,7 +69,7 @@ pub enum Continuation<F: LurkField> {
 }
 
 impl<F: LurkField> Continuation<F> {
-    pub(crate) fn intern_aux(&self, store: &mut crate::store::Store<F>) -> ContPtr<F> {
+    pub(crate) fn intern_aux(&self, store: &crate::store::Store<F>) -> ContPtr<F> {
         match self {
             Self::Outermost | Self::Dummy | Self::Error | Self::Terminal => {
                 let cont_ptr = self.get_simple_cont();
@@ -80,67 +80,79 @@ impl<F: LurkField> Continuation<F> {
                 let (p, inserted) = self.insert_in_store(store);
                 let ptr = ContPtr::index(self.cont_tag(), p);
                 if inserted {
-                    store.dehydrated_cont.push(ptr)
+                    store.dehydrated_cont.load().push(Box::new(ptr))
                 }
                 ptr
             }
         }
     }
-    pub fn insert_in_store(&self, store: &mut crate::store::Store<F>) -> (usize, bool) {
+    pub fn insert_in_store(&self, store: &crate::store::Store<F>) -> (usize, bool) {
         match self {
             Self::Outermost | Self::Dummy | Self::Error | Self::Terminal => (0, false),
             Self::Call0 {
                 saved_env,
                 continuation,
-            } => store.call0_store.insert_full((*saved_env, *continuation)),
+            } => store
+                .call0_store
+                .insert_probe(Box::new((*saved_env, *continuation))),
             Self::Call {
                 unevaled_arg,
                 saved_env,
                 continuation,
-            } => store
-                .call_store
-                .insert_full((*unevaled_arg, *saved_env, *continuation)),
+            } => {
+                store
+                    .call_store
+                    .insert_probe(Box::new((*unevaled_arg, *saved_env, *continuation)))
+            }
             Self::Call2 {
                 function,
                 saved_env,
                 continuation,
             } => store
                 .call2_store
-                .insert_full((*function, *saved_env, *continuation)),
+                .insert_probe(Box::new((*function, *saved_env, *continuation))),
             Self::Tail {
                 saved_env,
                 continuation,
-            } => store.tail_store.insert_full((*saved_env, *continuation)),
+            } => store
+                .tail_store
+                .insert_probe(Box::new((*saved_env, *continuation))),
             Self::Lookup {
                 saved_env,
                 continuation,
-            } => store.lookup_store.insert_full((*saved_env, *continuation)),
+            } => store
+                .lookup_store
+                .insert_probe(Box::new((*saved_env, *continuation))),
             Self::Unop {
                 operator,
                 continuation,
-            } => store.unop_store.insert_full((*operator, *continuation)),
+            } => store
+                .unop_store
+                .insert_probe(Box::new((*operator, *continuation))),
             Self::Binop {
                 operator,
                 saved_env,
                 unevaled_args,
                 continuation,
-            } => store.binop_store.insert_full((
+            } => store.binop_store.insert_probe(Box::new((
                 *operator,
                 *saved_env,
                 *unevaled_args,
                 *continuation,
-            )),
+            ))),
             Self::Binop2 {
                 operator,
                 evaled_arg,
                 continuation,
             } => store
                 .binop2_store
-                .insert_full((*operator, *evaled_arg, *continuation)),
+                .insert_probe(Box::new((*operator, *evaled_arg, *continuation))),
             Self::If {
                 unevaled_args,
                 continuation,
-            } => store.if_store.insert_full((*unevaled_args, *continuation)),
+            } => store
+                .if_store
+                .insert_probe(Box::new((*unevaled_args, *continuation))),
             Self::Let {
                 var,
                 body,
@@ -148,16 +160,18 @@ impl<F: LurkField> Continuation<F> {
                 continuation,
             } => store
                 .let_store
-                .insert_full((*var, *body, *saved_env, *continuation)),
+                .insert_probe(Box::new((*var, *body, *saved_env, *continuation))),
             Self::LetRec {
                 var,
                 body,
                 saved_env,
                 continuation,
-            } => store
-                .letrec_store
-                .insert_full((*var, *body, *saved_env, *continuation)),
-            Self::Emit { continuation } => store.emit_store.insert_full(*continuation),
+            } => {
+                store
+                    .letrec_store
+                    .insert_probe(Box::new((*var, *body, *saved_env, *continuation)))
+            }
+            Self::Emit { continuation } => store.emit_store.insert_probe(Box::new(*continuation)),
         }
     }
 

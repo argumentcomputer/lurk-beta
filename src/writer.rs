@@ -384,7 +384,7 @@ pub mod test {
 
     #[test]
     fn test_print_keyword() {
-        let mut store = Store::<Fr>::default();
+        let store = Store::<Fr>::default();
         let foo_key_ptr = store.intern_symbol(&Symbol::key_from_vec(vec!["foo".into()]));
         let foo_key_str = foo_key_ptr.fmt_to_string(&store, initial_lurk_state());
         assert_eq!(":foo", foo_key_str);

@@ -1,8 +1,5 @@
 #![deny(unreachable_pub)]
-#[macro_use]
-extern crate alloc;
 
-pub mod cache_map;
 #[macro_use]
 pub mod circuit;
 pub mod cli;

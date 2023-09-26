@@ -138,7 +138,7 @@ impl Block {
     fn run<F: LurkField>(
         &self,
         input: &[Ptr<F>],
-        store: &mut Store<F>,
+        store: &Store<F>,
         mut bindings: VarMap<Val<F>>,
         mut preimages: Preimages<F>,
         mut path: Path,
@@ -471,7 +471,7 @@ impl Func {
     pub fn call<F: LurkField>(
         &self,
         args: &[Ptr<F>],
-        store: &mut Store<F>,
+        store: &Store<F>,
         preimages: Preimages<F>,
         emitted: &mut Vec<Ptr<F>>,
     ) -> Result<(Frame<F>, Path)> {
@@ -528,7 +528,7 @@ impl Func {
     >(
         &self,
         args: &[Ptr<F>],
-        store: &mut Store<F>,
+        store: &Store<F>,
         stop_cond: StopCond,
         limit: usize,
         // TODO: make this argument optional
@@ -574,7 +574,7 @@ impl Func {
     pub fn call_until_simple<F: LurkField, StopCond: Fn(&[Ptr<F>]) -> bool>(
         &self,
         args: Vec<Ptr<F>>,
-        store: &mut Store<F>,
+        store: &Store<F>,
         stop_cond: StopCond,
         limit: usize,
     ) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {

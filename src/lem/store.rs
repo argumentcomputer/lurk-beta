@@ -1,11 +1,12 @@
 use anyhow::{bail, Result};
-use indexmap::IndexSet;
+use arc_swap::ArcSwap;
+use elsa::sync::{FrozenMap, FrozenVec};
+use elsa::sync_index_set::FrozenIndexSet;
 use nom::{sequence::preceded, Parser};
-use rayon::prelude::*;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use crate::{
-    cache_map::CacheMap,
     field::{FWrap, LurkField},
     hash::PoseidonCache,
     lem::Tag,
@@ -39,32 +40,32 @@ use super::pointers::{Ptr, ZPtr};
 /// the resulting commitment hash.
 #[derive(Default, Debug)]
 pub struct Store<F: LurkField> {
-    tuple2: IndexSet<(Ptr<F>, Ptr<F>)>,
-    tuple3: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
-    tuple4: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>,
+    tuple2: FrozenIndexSet<Box<(Ptr<F>, Ptr<F>)>>,
+    tuple3: FrozenIndexSet<Box<(Ptr<F>, Ptr<F>, Ptr<F>)>>,
+    tuple4: FrozenIndexSet<Box<(Ptr<F>, Ptr<F>, Ptr<F>, Ptr<F>)>>,
 
-    string_ptr_cache: HashMap<String, Ptr<F>>,
-    symbol_ptr_cache: HashMap<Symbol, Ptr<F>>,
+    string_ptr_cache: FrozenMap<String, Box<Ptr<F>>>,
+    symbol_ptr_cache: FrozenMap<Symbol, Box<Ptr<F>>>,
 
-    ptr_string_cache: CacheMap<Ptr<F>, String>,
-    ptr_symbol_cache: CacheMap<Ptr<F>, Box<Symbol>>,
+    ptr_string_cache: FrozenMap<Ptr<F>, String>,
+    ptr_symbol_cache: FrozenMap<Ptr<F>, Box<Symbol>>,
 
     pub poseidon_cache: PoseidonCache<F>,
 
-    dehydrated: Vec<Ptr<F>>,
-    z_cache: CacheMap<Ptr<F>, Box<ZPtr<F>>>,
+    dehydrated: ArcSwap<FrozenVec<Box<Ptr<F>>>>,
+    z_cache: FrozenMap<Ptr<F>, Box<ZPtr<F>>>,
 
-    comms: HashMap<FWrap<F>, (F, Ptr<F>)>, // hash -> (secret, src)
+    comms: FrozenMap<FWrap<F>, Box<(F, Ptr<F>)>>, // hash -> (secret, src)
 }
 
 impl<F: LurkField> Store<F> {
     /// Creates a `Ptr` that's a parent of two children
-    pub fn intern_2_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>) -> Ptr<F> {
-        let (idx, inserted) = self.tuple2.insert_full((a, b));
+    pub fn intern_2_ptrs(&self, tag: Tag, a: Ptr<F>, b: Ptr<F>) -> Ptr<F> {
+        let (idx, inserted) = self.tuple2.insert_probe(Box::new((a, b)));
         let ptr = Ptr::Tuple2(tag, idx);
         if inserted {
             // this is for `hydrate_z_cache`
-            self.dehydrated.push(ptr);
+            self.dehydrated.load().push(Box::new(ptr));
         }
         ptr
     }
@@ -72,19 +73,19 @@ impl<F: LurkField> Store<F> {
     /// Similar to `intern_2_ptrs` but doesn't add the resulting pointer to
     /// `dehydrated`. This function is used when converting a `ZStore` to a
     /// `Store`.
-    pub fn intern_2_ptrs_hydrated(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, z: ZPtr<F>) -> Ptr<F> {
-        let ptr = Ptr::Tuple2(tag, self.tuple2.insert_full((a, b)).0);
+    pub fn intern_2_ptrs_hydrated(&self, tag: Tag, a: Ptr<F>, b: Ptr<F>, z: ZPtr<F>) -> Ptr<F> {
+        let ptr = Ptr::Tuple2(tag, self.tuple2.insert_probe(Box::new((a, b))).0);
         self.z_cache.insert(ptr, Box::new(z));
         ptr
     }
 
     /// Creates a `Ptr` that's a parent of three children
-    pub fn intern_3_ptrs(&mut self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>) -> Ptr<F> {
-        let (idx, inserted) = self.tuple3.insert_full((a, b, c));
+    pub fn intern_3_ptrs(&self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>) -> Ptr<F> {
+        let (idx, inserted) = self.tuple3.insert_probe(Box::new((a, b, c)));
         let ptr = Ptr::Tuple3(tag, idx);
         if inserted {
             // this is for `hydrate_z_cache`
-            self.dehydrated.push(ptr);
+            self.dehydrated.load().push(Box::new(ptr));
         }
         ptr
     }
@@ -93,32 +94,25 @@ impl<F: LurkField> Store<F> {
     /// `dehydrated`. This function is used when converting a `ZStore` to a
     /// `Store`.
     pub fn intern_3_ptrs_hydrated(
-        &mut self,
+        &self,
         tag: Tag,
         a: Ptr<F>,
         b: Ptr<F>,
         c: Ptr<F>,
         z: ZPtr<F>,
     ) -> Ptr<F> {
-        let ptr = Ptr::Tuple3(tag, self.tuple3.insert_full((a, b, c)).0);
+        let ptr = Ptr::Tuple3(tag, self.tuple3.insert_probe(Box::new((a, b, c))).0);
         self.z_cache.insert(ptr, Box::new(z));
         ptr
     }
 
     /// Creates a `Ptr` that's a parent of four children
-    pub fn intern_4_ptrs(
-        &mut self,
-        tag: Tag,
-        a: Ptr<F>,
-        b: Ptr<F>,
-        c: Ptr<F>,
-        d: Ptr<F>,
-    ) -> Ptr<F> {
-        let (idx, inserted) = self.tuple4.insert_full((a, b, c, d));
+    pub fn intern_4_ptrs(&self, tag: Tag, a: Ptr<F>, b: Ptr<F>, c: Ptr<F>, d: Ptr<F>) -> Ptr<F> {
+        let (idx, inserted) = self.tuple4.insert_probe(Box::new((a, b, c, d)));
         let ptr = Ptr::Tuple4(tag, idx);
         if inserted {
             // this is for `hydrate_z_cache`
-            self.dehydrated.push(ptr);
+            self.dehydrated.load().push(Box::new(ptr));
         }
         ptr
     }
@@ -127,7 +121,7 @@ impl<F: LurkField> Store<F> {
     /// `dehydrated`. This function is used when converting a `ZStore` to a
     /// `Store`.
     pub fn intern_4_ptrs_hydrated(
-        &mut self,
+        &self,
         tag: Tag,
         a: Ptr<F>,
         b: Ptr<F>,
@@ -135,7 +129,7 @@ impl<F: LurkField> Store<F> {
         d: Ptr<F>,
         z: ZPtr<F>,
     ) -> Ptr<F> {
-        let ptr = Ptr::Tuple4(tag, self.tuple4.insert_full((a, b, c, d)).0);
+        let ptr = Ptr::Tuple4(tag, self.tuple4.insert_probe(Box::new((a, b, c, d))).0);
         self.z_cache.insert(ptr, Box::new(z));
         ptr
     }
@@ -155,22 +149,17 @@ impl<F: LurkField> Store<F> {
         self.tuple4.get_index(idx)
     }
 
-    pub fn intern_string(&mut self, s: &str) -> Ptr<F> {
+    pub fn intern_string(&self, s: &str) -> Ptr<F> {
         if let Some(ptr) = self.string_ptr_cache.get(s) {
             *ptr
         } else {
             let ptr = s.chars().rev().fold(Ptr::null(Tag::Expr(Str)), |acc, c| {
                 self.intern_2_ptrs(Tag::Expr(Str), Ptr::char(c), acc)
             });
-            self.string_ptr_cache.insert(s.to_string(), ptr);
+            self.string_ptr_cache.insert(s.to_string(), Box::new(ptr));
             self.ptr_string_cache.insert(ptr, s.to_string());
             ptr
         }
-    }
-
-    #[inline]
-    pub fn interned_string(&self, s: &str) -> Option<&Ptr<F>> {
-        self.string_ptr_cache.get(s)
     }
 
     pub fn fetch_string(&self, ptr: &Ptr<F>) -> Option<String> {
@@ -205,14 +194,14 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn intern_symbol_path(&mut self, path: &[String]) -> Ptr<F> {
+    pub fn intern_symbol_path(&self, path: &[String]) -> Ptr<F> {
         path.iter().fold(Ptr::null(Tag::Expr(Sym)), |acc, s| {
             let s_ptr = self.intern_string(s);
             self.intern_2_ptrs(Tag::Expr(Sym), s_ptr, acc)
         })
     }
 
-    pub fn intern_symbol(&mut self, sym: &Symbol) -> Ptr<F> {
+    pub fn intern_symbol(&self, sym: &Symbol) -> Ptr<F> {
         if let Some(ptr) = self.symbol_ptr_cache.get(sym) {
             *ptr
         } else {
@@ -224,15 +213,10 @@ impl<F: LurkField> Store<F> {
             } else {
                 path_ptr
             };
-            self.symbol_ptr_cache.insert(sym.clone(), sym_ptr);
+            self.symbol_ptr_cache.insert(sym.clone(), Box::new(sym_ptr));
             self.ptr_symbol_cache.insert(sym_ptr, Box::new(sym.clone()));
             sym_ptr
         }
-    }
-
-    #[inline]
-    pub fn interned_symbol(&self, s: &Symbol) -> Option<&Ptr<F>> {
-        self.symbol_ptr_cache.get(s)
     }
 
     pub fn fetch_symbol_path(&self, mut idx: usize) -> Option<Vec<String>> {
@@ -312,30 +296,28 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn hide(&mut self, secret: F, payload: Ptr<F>) -> Result<Ptr<F>> {
+    pub fn hide(&self, secret: F, payload: Ptr<F>) -> Result<Ptr<F>> {
         let z_ptr = self.hash_ptr(&payload)?;
         let hash = self
             .poseidon_cache
             .hash3(&[secret, z_ptr.tag_field(), *z_ptr.value()]);
-        self.comms.insert(FWrap::<F>(hash), (secret, payload));
+        self.comms
+            .insert(FWrap::<F>(hash), Box::new((secret, payload)));
         Ok(Ptr::comm(hash))
     }
 
-    pub fn hide_and_return_z_payload(
-        &mut self,
-        secret: F,
-        payload: Ptr<F>,
-    ) -> Result<(F, ZPtr<F>)> {
+    pub fn hide_and_return_z_payload(&self, secret: F, payload: Ptr<F>) -> Result<(F, ZPtr<F>)> {
         let z_ptr = self.hash_ptr(&payload)?;
         let hash = self
             .poseidon_cache
             .hash3(&[secret, z_ptr.tag_field(), *z_ptr.value()]);
-        self.comms.insert(FWrap::<F>(hash), (secret, payload));
+        self.comms
+            .insert(FWrap::<F>(hash), Box::new((secret, payload)));
         Ok((hash, z_ptr))
     }
 
     #[inline]
-    pub fn commit(&mut self, payload: Ptr<F>) -> Result<Ptr<F>> {
+    pub fn commit(&self, payload: Ptr<F>) -> Result<Ptr<F>> {
         self.hide(F::NON_HIDING_COMMITMENT_SECRET, payload)
     }
 
@@ -344,21 +326,21 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn intern_lurk_sym(&mut self, name: &str) -> Ptr<F> {
+    pub fn intern_lurk_sym(&self, name: &str) -> Ptr<F> {
         self.intern_symbol(&lurk_sym(name))
     }
 
     #[inline]
-    pub fn intern_nil(&mut self) -> Ptr<F> {
+    pub fn intern_nil(&self) -> Ptr<F> {
         self.intern_lurk_sym("nil")
     }
 
     #[inline]
-    pub fn key(&mut self, name: &str) -> Ptr<F> {
+    pub fn key(&self, name: &str) -> Ptr<F> {
         self.intern_symbol(&Symbol::key(&[name.to_string()]))
     }
 
-    pub fn car_cdr(&mut self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>)> {
+    pub fn car_cdr(&self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>)> {
         match ptr.tag() {
             Tag::Expr(Nil) => {
                 let nil = self.intern_nil();
@@ -390,13 +372,13 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn list(&mut self, elts: Vec<Ptr<F>>) -> Ptr<F> {
+    pub fn list(&self, elts: Vec<Ptr<F>>) -> Ptr<F> {
         elts.into_iter().rev().fold(self.intern_nil(), |acc, elt| {
             self.intern_2_ptrs(Tag::Expr(Cons), elt, acc)
         })
     }
 
-    pub fn intern_syntax(&mut self, syn: Syntax<F>) -> Ptr<F> {
+    pub fn intern_syntax(&self, syn: Syntax<F>) -> Ptr<F> {
         match syn {
             Syntax::Num(_, x) => Ptr::Atom(Tag::Expr(Num), x.into_scalar()),
             Syntax::UInt(_, UInt::U64(x)) => Ptr::Atom(Tag::Expr(U64), x.into()),
@@ -422,7 +404,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn read(&mut self, state: Rc<RefCell<State>>, input: &str) -> Result<Ptr<F>> {
+    pub fn read(&self, state: Rc<RefCell<State>>, input: &str) -> Result<Ptr<F>> {
         match preceded(
             syntax::parse_space,
             syntax::parse_syntax(state, false, false),
@@ -435,7 +417,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn read_maybe_meta<'a>(
-        &mut self,
+        &self,
         state: Rc<RefCell<State>>,
         input: &'a str,
     ) -> Result<(Span<'a>, Ptr<F>, bool), Error> {
@@ -449,7 +431,7 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn read_with_default_state(&mut self, input: &str) -> Result<Ptr<F>> {
+    pub fn read_with_default_state(&self, input: &str) -> Result<Ptr<F>> {
         self.read(State::init_lurk_state().rccell(), input)
     }
 
@@ -553,11 +535,16 @@ impl<F: LurkField> Store<F> {
 
     /// Hashes `Ptr` trees from the bottom to the top, avoiding deep recursions
     /// in `hash_ptr`.
-    pub fn hydrate_z_cache(&mut self) {
-        self.dehydrated.par_iter().for_each(|ptr| {
-            self.hash_ptr(ptr).expect("failed to hydrate pointer");
-        });
-        self.dehydrated = Vec::new();
+    pub fn hydrate_z_cache(&self) {
+        self.dehydrated
+            .load()
+            .iter()
+            .collect::<Vec<_>>()
+            .par_iter()
+            .for_each(|ptr| {
+                self.hash_ptr(ptr).expect("failed to hash_ptr");
+            });
+        self.dehydrated.swap(Arc::new(FrozenVec::default()));
     }
 
     pub fn to_vector(&self, ptrs: &[Ptr<F>]) -> Result<Vec<F>> {
@@ -758,7 +745,7 @@ impl<F: LurkField> Ptr<F> {
                 },
                 Comm => match self.get_atom() {
                     Some(f) => {
-                        if store.comms.contains_key(&FWrap(*f)) {
+                        if store.comms.get(&FWrap(*f)).is_some() {
                             format!("(comm 0x{})", f.hex_digits())
                         } else {
                             format!("<Opaque Comm 0x{}>", f.hex_digits())

@@ -50,13 +50,13 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
                 }
             }
 
-            fn evaluate(&self, s: &mut lurk::store::Store<F>, args: lurk::ptr::Ptr<F>, env: lurk::ptr::Ptr<F>, cont: lurk::ptr::ContPtr<F>) -> lurk::eval::IO<F> {
+            fn evaluate(&self, s: &lurk::store::Store<F>, args: lurk::ptr::Ptr<F>, env: lurk::ptr::Ptr<F>, cont: lurk::ptr::ContPtr<F>) -> lurk::eval::IO<F> {
                 match self {
                     #evaluate_arms
                 }
             }
 
-            fn simple_evaluate(&self, s: &mut lurk::store::Store<F>, args: &[lurk::ptr::Ptr<F>]) -> lurk::ptr::Ptr<F> {
+            fn simple_evaluate(&self, s: &lurk::store::Store<F>, args: &[lurk::ptr::Ptr<F>]) -> lurk::ptr::Ptr<F> {
                 match self {
                     #simple_evaluate_arms
                 }

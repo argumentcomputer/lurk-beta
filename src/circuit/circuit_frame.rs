@@ -523,7 +523,7 @@ impl<F: LurkField, C: Coprocessor<F>> CircuitFrame<'_, F, C> {
         if let Some(store) = self.store {
             reduce(store)
         } else {
-            let mut store: Store<F> = Default::default();
+            let store: Store<F> = Default::default();
             store.hydrate_scalar_cache();
             reduce(&store)
         }
@@ -5479,7 +5479,7 @@ mod tests {
         };
         let raw_lang = Lang::<Fr, Coproc<Fr>>::new();
         let lang = Arc::new(raw_lang.clone());
-        let (_, witness, meta) = input.reduce(&mut store, &lang).unwrap();
+        let (_, witness, meta) = input.reduce(&store, &lang).unwrap();
 
         let public_params = Groth16Prover::<Bls12, Coproc<Fr>, Fr>::create_groth_params(
             DEFAULT_REDUCTION_COUNT,
@@ -5621,7 +5621,7 @@ mod tests {
         };
 
         let lang = Arc::new(Lang::<Fr, Coproc<Fr>>::new());
-        let (_, witness, meta) = input.reduce(&mut store, &lang).unwrap();
+        let (_, witness, meta) = input.reduce(&store, &lang).unwrap();
         store.hydrate_scalar_cache();
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
@@ -5705,7 +5705,7 @@ mod tests {
         };
 
         let lang = Arc::new(Lang::<Fr, Coproc<Fr>>::new());
-        let (_, witness, meta) = input.reduce(&mut store, &lang).unwrap();
+        let (_, witness, meta) = input.reduce(&store, &lang).unwrap();
         store.hydrate_scalar_cache();
 
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
@@ -5791,7 +5791,7 @@ mod tests {
         };
 
         let lang = Arc::new(Lang::<Fr, Coproc<Fr>>::new());
-        let (_, witness, meta) = input.reduce(&mut store, &lang).unwrap();
+        let (_, witness, meta) = input.reduce(&store, &lang).unwrap();
 
         store.hydrate_scalar_cache();
 
@@ -5879,7 +5879,7 @@ mod tests {
         };
 
         let lang = Arc::new(Lang::<Fr, Coproc<Fr>>::new());
-        let (_, witness, meta) = input.reduce(&mut store, &lang).unwrap();
+        let (_, witness, meta) = input.reduce(&store, &lang).unwrap();
 
         store.hydrate_scalar_cache();
 

@@ -51,7 +51,7 @@ impl<F: LurkField> ZStore<F> {
     /// Converts an entire store to a `ZStore`
     /// WARNING: This will leak secrets used for opaque data in
     /// `Store::comm_store`. Not for use with hiding commitments
-    pub fn to_z_store(store: &mut Store<F>) -> Self {
+    pub fn to_z_store(store: &Store<F>) -> Self {
         store.hydrate_scalar_cache();
         let mut zstore = ZStore::new();
         for zptr in store.z_expr_ptr_map.keys_cloned() {

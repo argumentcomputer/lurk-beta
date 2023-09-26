@@ -1,12 +1,13 @@
-use rayon::prelude::*;
-use std::collections::HashMap;
+use arc_swap::ArcSwap;
+use elsa::sync::{FrozenMap, FrozenVec};
+use elsa::sync_index_set::FrozenIndexSet;
+use once_cell::sync::OnceCell;
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::fmt;
+use std::sync::Arc;
 use std::usize;
 use thiserror;
 
-use once_cell::sync::OnceCell;
-
-use crate::cache_map::CacheMap;
 use crate::cont::Continuation;
 use crate::expr;
 use crate::expr::{Expression, Thunk};
@@ -23,49 +24,49 @@ use crate::{Num, UInt};
 
 use crate::hash::{HashConstants, InversePoseidonCache, PoseidonCache};
 
-type IndexSet<K> = indexmap::IndexSet<K, ahash::RandomState>;
+type IndexSet<K> = FrozenIndexSet<K, ahash::RandomState>;
 
 #[derive(Debug)]
 pub struct Store<F: LurkField> {
-    pub cons_store: IndexSet<(Ptr<F>, Ptr<F>)>,
-    pub comm_store: IndexSet<(FWrap<F>, Ptr<F>)>,
+    pub cons_store: IndexSet<Box<(Ptr<F>, Ptr<F>)>>,
+    pub comm_store: IndexSet<Box<(FWrap<F>, Ptr<F>)>>,
 
-    pub fun_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>)>,
+    pub fun_store: IndexSet<Box<(Ptr<F>, Ptr<F>, Ptr<F>)>>,
 
     /// Holds a Sym or Key which is a string head and a symbol tail
-    pub sym_store: IndexSet<(Ptr<F>, Ptr<F>)>,
+    pub sym_store: IndexSet<Box<(Ptr<F>, Ptr<F>)>>,
 
     // Other sparse storage format without hashing is likely more efficient
-    pub num_store: IndexSet<Num<F>>,
+    pub num_store: IndexSet<Box<Num<F>>>,
 
     /// Holds a Str, which is a char head and a string tail
-    pub str_store: IndexSet<(Ptr<F>, Ptr<F>)>,
-    pub thunk_store: IndexSet<Thunk<F>>,
-    pub call0_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
-    pub call_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    pub call2_store: IndexSet<(Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    pub tail_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
-    pub lookup_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
-    pub unop_store: IndexSet<(Op1, ContPtr<F>)>,
-    pub binop_store: IndexSet<(Op2, Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    pub binop2_store: IndexSet<(Op2, Ptr<F>, ContPtr<F>)>,
-    pub if_store: IndexSet<(Ptr<F>, ContPtr<F>)>,
-    pub let_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    pub letrec_store: IndexSet<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>,
-    pub emit_store: IndexSet<ContPtr<F>>,
+    pub str_store: IndexSet<Box<(Ptr<F>, Ptr<F>)>>,
+    pub thunk_store: IndexSet<Box<Thunk<F>>>,
+    pub call0_store: IndexSet<Box<(Ptr<F>, ContPtr<F>)>>,
+    pub call_store: IndexSet<Box<(Ptr<F>, Ptr<F>, ContPtr<F>)>>,
+    pub call2_store: IndexSet<Box<(Ptr<F>, Ptr<F>, ContPtr<F>)>>,
+    pub tail_store: IndexSet<Box<(Ptr<F>, ContPtr<F>)>>,
+    pub lookup_store: IndexSet<Box<(Ptr<F>, ContPtr<F>)>>,
+    pub unop_store: IndexSet<Box<(Op1, ContPtr<F>)>>,
+    pub binop_store: IndexSet<Box<(Op2, Ptr<F>, Ptr<F>, ContPtr<F>)>>,
+    pub binop2_store: IndexSet<Box<(Op2, Ptr<F>, ContPtr<F>)>>,
+    pub if_store: IndexSet<Box<(Ptr<F>, ContPtr<F>)>>,
+    pub let_store: IndexSet<Box<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>>,
+    pub letrec_store: IndexSet<Box<(Ptr<F>, Ptr<F>, Ptr<F>, ContPtr<F>)>>,
+    pub emit_store: IndexSet<Box<ContPtr<F>>>,
 
     /// Holds opaque pointers
-    pub opaque_ptrs: IndexSet<ZExprPtr<F>>,
+    pub opaque_ptrs: IndexSet<Box<ZExprPtr<F>>>,
     /// Holds opaque continuation pointers
-    pub opaque_cont_ptrs: IndexSet<ZContPtr<F>>,
+    pub opaque_cont_ptrs: IndexSet<Box<ZContPtr<F>>>,
 
     /// Holds a mapping of `ZExprPtr` -> `Ptr` for reverse lookups
-    pub z_expr_ptr_map: CacheMap<ZExprPtr<F>, Box<Ptr<F>>>,
+    pub z_expr_ptr_map: FrozenMap<ZExprPtr<F>, Box<Ptr<F>>>,
     /// Holds a mapping of `ZExprPtr` -> `ContPtr<F>` for reverse lookups
-    pub z_cont_ptr_map: CacheMap<ZContPtr<F>, Box<ContPtr<F>>>,
+    pub z_cont_ptr_map: FrozenMap<ZContPtr<F>, Box<ContPtr<F>>>,
 
-    z_expr_ptr_cache: CacheMap<Ptr<F>, Box<(ZExprPtr<F>, Option<ZExpr<F>>)>>,
-    z_cont_ptr_cache: CacheMap<ContPtr<F>, Box<(ZContPtr<F>, Option<ZCont<F>>)>>,
+    z_expr_ptr_cache: FrozenMap<Ptr<F>, Box<(ZExprPtr<F>, Option<ZExpr<F>>)>>,
+    z_cont_ptr_cache: FrozenMap<ContPtr<F>, Box<(ZContPtr<F>, Option<ZCont<F>>)>>,
 
     /// Caches poseidon hashes
     pub poseidon_cache: PoseidonCache<F>,
@@ -73,18 +74,18 @@ pub struct Store<F: LurkField> {
     pub inverse_poseidon_cache: InversePoseidonCache<F>,
 
     /// Contains Ptrs which have not yet been hydrated.
-    pub dehydrated: Vec<Ptr<F>>,
-    pub dehydrated_cont: Vec<ContPtr<F>>,
+    pub dehydrated: ArcSwap<FrozenVec<Box<Ptr<F>>>>,
+    pub dehydrated_cont: ArcSwap<FrozenVec<Box<ContPtr<F>>>>,
 
-    str_cache: HashMap<String, Ptr<F>>,
-    symbol_cache: HashMap<Symbol, Ptr<F>>,
+    str_cache: FrozenMap<String, Box<Ptr<F>>>,
+    symbol_cache: FrozenMap<Symbol, Box<Ptr<F>>>,
 
     pub constants: OnceCell<NamedConstants<F>>,
 }
 
 impl<F: LurkField> Default for Store<F> {
     fn default() -> Self {
-        let mut store = Self {
+        let store = Self {
             cons_store: Default::default(),
             comm_store: Default::default(),
             sym_store: Default::default(),
@@ -151,12 +152,12 @@ impl<F: LurkField> Store<F> {
     }
 
     #[inline]
-    pub fn cons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+    pub fn cons(&self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         self.intern_cons(car, cdr)
     }
 
     #[inline]
-    pub fn strcons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+    pub fn strcons(&self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         self.intern_strcons(car, cdr)
     }
 
@@ -172,15 +173,15 @@ impl<F: LurkField> Store<F> {
 
     pub fn hidden(&self, secret: F, payload: Ptr<F>) -> Option<Ptr<F>> {
         self.comm_store
-            .get_index_of(&(FWrap(secret), payload))
-            .map(|c| Ptr::index(ExprTag::Comm, c))
+            .get_full(&Box::new((FWrap(secret), payload)))
+            .map(|(c, _ref)| Ptr::index(ExprTag::Comm, c))
     }
 
-    pub fn hide(&mut self, secret: F, payload: Ptr<F>) -> Ptr<F> {
+    pub fn hide(&self, secret: F, payload: Ptr<F>) -> Ptr<F> {
         self.intern_comm(secret, payload)
     }
 
-    pub fn commit(&mut self, payload: Ptr<F>) -> Ptr<F> {
+    pub fn commit(&self, payload: Ptr<F>) -> Ptr<F> {
         self.hide(F::NON_HIDING_COMMITMENT_SECRET, payload)
     }
 
@@ -203,7 +204,7 @@ impl<F: LurkField> Store<F> {
             .map(|(secret, payload)| (secret.0, *payload))
     }
 
-    pub fn open_mut(&mut self, ptr: Ptr<F>) -> Result<(F, Ptr<F>), Error> {
+    pub fn open_mut(&self, ptr: Ptr<F>) -> Result<(F, Ptr<F>), Error> {
         let p = match ptr.tag {
             ExprTag::Comm => ptr,
             ExprTag::Num => {
@@ -231,7 +232,7 @@ impl<F: LurkField> Store<F> {
             .and_then(|(secret, _payload)| self.get_num(Num::Scalar(secret.0)))
     }
 
-    pub fn secret_mut(&mut self, ptr: Ptr<F>) -> Result<Ptr<F>, Error> {
+    pub fn secret_mut(&self, ptr: Ptr<F>) -> Result<Ptr<F>, Error> {
         let p = match ptr.tag {
             ExprTag::Comm => ptr,
             _ => return Err(Error("wrong type for commitment specifier".into())),
@@ -246,7 +247,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn list(&mut self, elts: &[Ptr<F>]) -> Ptr<F> {
+    pub fn list(&self, elts: &[Ptr<F>]) -> Ptr<F> {
         self.intern_list(elts)
     }
 
@@ -254,19 +255,19 @@ impl<F: LurkField> Store<F> {
         self.intern_num(num)
     }
 
-    pub fn uint64(&mut self, n: u64) -> Ptr<F> {
+    pub fn uint64(&self, n: u64) -> Ptr<F> {
         self.intern_u64(n)
     }
 
-    pub fn str(&mut self, s: &str) -> Ptr<F> {
+    pub fn str(&self, s: &str) -> Ptr<F> {
         self.intern_string(s)
     }
 
-    pub fn sym<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
+    pub fn sym<T: AsRef<str>>(&self, name: T) -> Ptr<F> {
         self.intern_symbol(&Symbol::sym(&[name.as_ref()]))
     }
 
-    pub fn key<T: AsRef<str>>(&mut self, name: T) -> Ptr<F> {
+    pub fn key<T: AsRef<str>>(&self, name: T) -> Ptr<F> {
         self.intern_symbol(&Symbol::key(&[name.as_ref()]))
     }
 
@@ -294,73 +295,75 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn intern_cons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+    pub fn intern_cons(&self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         if car.is_opaque() || cdr.is_opaque() {
             self.hash_expr(&car);
             self.hash_expr(&cdr);
         }
 
-        let (p, inserted) = self.cons_store.insert_full((car, cdr));
+        let (p, inserted) = self.cons_store.insert_probe(Box::new((car, cdr)));
         let ptr = Ptr::index(ExprTag::Cons, p);
         if inserted {
-            self.dehydrated.push(ptr);
+            self.dehydrated.load().push(Box::new(ptr));
         }
         ptr
     }
 
-    pub fn intern_strcons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+    pub fn intern_strcons(&self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         if car.is_opaque() || cdr.is_opaque() {
             self.hash_expr(&car);
             self.hash_expr(&cdr);
         }
         assert_eq!((car.tag, cdr.tag), (ExprTag::Char, ExprTag::Str));
-        let (i, _) = self.str_store.insert_full((car, cdr));
+        let (i, _) = self.str_store.insert_probe(Box::new((car, cdr)));
         Ptr::index(ExprTag::Str, i)
     }
 
-    pub fn intern_symcons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+    pub fn intern_symcons(&self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         if car.is_opaque() || cdr.is_opaque() {
             self.hash_expr(&car);
             self.hash_expr(&cdr);
         }
         assert_eq!((car.tag, cdr.tag), (ExprTag::Str, ExprTag::Sym));
-        let (i, _) = self.sym_store.insert_full((car, cdr));
+        let (i, _) = self.sym_store.insert_probe(Box::new((car, cdr)));
         Ptr::index(ExprTag::Sym, i)
     }
 
-    pub fn intern_keycons(&mut self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+    pub fn intern_keycons(&self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
         if car.is_opaque() || cdr.is_opaque() {
             self.hash_expr(&car);
             self.hash_expr(&cdr);
         }
         assert_eq!((car.tag, cdr.tag), (ExprTag::Str, ExprTag::Sym));
-        let (i, _) = self.sym_store.insert_full((car, cdr));
+        let (i, _) = self.sym_store.insert_probe(Box::new((car, cdr)));
         Ptr::index(ExprTag::Key, i)
     }
 
-    pub fn intern_comm(&mut self, secret: F, payload: Ptr<F>) -> Ptr<F> {
+    pub fn intern_comm(&self, secret: F, payload: Ptr<F>) -> Ptr<F> {
         if payload.is_opaque() {
             self.hash_expr(&payload);
         }
-        let (p, inserted) = self.comm_store.insert_full((FWrap(secret), payload));
+        let (p, inserted) = self
+            .comm_store
+            .insert_probe(Box::new((FWrap(secret), payload)));
 
         let ptr = Ptr::index(ExprTag::Comm, p);
 
         if inserted {
-            self.dehydrated.push(ptr);
+            self.dehydrated.load().push(Box::new(ptr));
         }
         ptr
     }
 
     // Intern a potentially-opaque value. If the corresponding value is already known to the store,
     // return the known value.
-    pub fn intern_maybe_opaque(&mut self, tag: ExprTag, hash: F) -> Ptr<F> {
+    pub fn intern_maybe_opaque(&self, tag: ExprTag, hash: F) -> Ptr<F> {
         self.intern_opaque_aux(tag, hash, true)
     }
 
     // Intern an opaque value. If the corresponding non-opaque value is already known to the store,
     // return an opaque one anyway.
-    fn intern_opaque(&mut self, tag: ExprTag, hash: F) -> Ptr<F> {
+    fn intern_opaque(&self, tag: ExprTag, hash: F) -> Ptr<F> {
         self.intern_opaque_aux(tag, hash, false)
     }
 
@@ -377,7 +380,7 @@ impl<F: LurkField> Store<F> {
     // Intern a potentially-opaque value. If the corresponding non-opaque value is already known to the store, and
     // `return_non_opaque_if_existing` is true, return the known value.
     fn intern_opaque_aux(
-        &mut self,
+        &self,
         tag: ExprTag,
         hash: F,
         return_non_opaque_if_existing: bool,
@@ -395,44 +398,44 @@ impl<F: LurkField> Store<F> {
             }
         }
 
-        let (i, _) = self.opaque_ptrs.insert_full(z_ptr);
+        let (i, _) = self.opaque_ptrs.insert_probe(Box::new(z_ptr));
         Ptr::opaque(tag, i)
     }
 
-    pub fn intern_maybe_opaque_fun(&mut self, hash: F) -> Ptr<F> {
+    pub fn intern_maybe_opaque_fun(&self, hash: F) -> Ptr<F> {
         self.intern_maybe_opaque(ExprTag::Fun, hash)
     }
 
-    pub fn intern_maybe_opaque_sym(&mut self, hash: F) -> Ptr<F> {
+    pub fn intern_maybe_opaque_sym(&self, hash: F) -> Ptr<F> {
         self.intern_maybe_opaque(ExprTag::Sym, hash)
     }
 
-    pub fn intern_maybe_opaque_cons(&mut self, hash: F) -> Ptr<F> {
+    pub fn intern_maybe_opaque_cons(&self, hash: F) -> Ptr<F> {
         self.intern_maybe_opaque(ExprTag::Cons, hash)
     }
 
-    pub fn intern_maybe_opaque_comm(&mut self, hash: F) -> Ptr<F> {
+    pub fn intern_maybe_opaque_comm(&self, hash: F) -> Ptr<F> {
         self.intern_maybe_opaque(ExprTag::Comm, hash)
     }
 
-    pub fn intern_opaque_fun(&mut self, hash: F) -> Ptr<F> {
+    pub fn intern_opaque_fun(&self, hash: F) -> Ptr<F> {
         self.intern_opaque(ExprTag::Fun, hash)
     }
 
-    pub fn intern_opaque_sym(&mut self, hash: F) -> Ptr<F> {
+    pub fn intern_opaque_sym(&self, hash: F) -> Ptr<F> {
         self.intern_opaque(ExprTag::Sym, hash)
     }
 
-    pub fn intern_opaque_cons(&mut self, hash: F) -> Ptr<F> {
+    pub fn intern_opaque_cons(&self, hash: F) -> Ptr<F> {
         self.intern_opaque(ExprTag::Cons, hash)
     }
 
-    pub fn intern_opaque_comm(&mut self, hash: F) -> Ptr<F> {
+    pub fn intern_opaque_comm(&self, hash: F) -> Ptr<F> {
         self.intern_opaque(ExprTag::Comm, hash)
     }
 
     /// Helper to allocate a list, instead of manually using `cons`.
-    pub fn intern_list(&mut self, elts: &[Ptr<F>]) -> Ptr<F> {
+    pub fn intern_list(&self, elts: &[Ptr<F>]) -> Ptr<F> {
         elts.iter()
             .rev()
             .fold(lurk_sym_ptr!(self, nil), |acc, elt| {
@@ -440,14 +443,14 @@ impl<F: LurkField> Store<F> {
             })
     }
 
-    pub fn intern_symbol_path(&mut self, path: &[String]) -> Ptr<F> {
+    pub fn intern_symbol_path(&self, path: &[String]) -> Ptr<F> {
         path.iter().fold(self.symnil(), |acc, s| {
             let s_ptr = self.intern_string(s);
             self.intern_symcons(s_ptr, acc)
         })
     }
 
-    pub fn intern_symbol(&mut self, sym: &Symbol) -> Ptr<F> {
+    pub fn intern_symbol(&self, sym: &Symbol) -> Ptr<F> {
         match self.symbol_cache.get(sym) {
             Some(ptr) => *ptr,
             None => {
@@ -460,17 +463,17 @@ impl<F: LurkField> Store<F> {
                 } else {
                     path_ptr
                 };
-                self.symbol_cache.insert(sym.clone(), sym_ptr);
+                self.symbol_cache.insert(sym.clone(), Box::new(sym_ptr));
                 sym_ptr
             }
         }
     }
 
-    pub fn user_sym(&mut self, name: &str) -> Ptr<F> {
+    pub fn user_sym(&self, name: &str) -> Ptr<F> {
         self.intern_symbol(&user_sym(name))
     }
 
-    pub fn intern_num<T: Into<Num<F>>>(&mut self, num: T) -> Ptr<F> {
+    pub fn intern_num<T: Into<Num<F>>>(&self, num: T) -> Ptr<F> {
         let num = num.into();
         let num = match num {
             Num::Scalar(scalar) => {
@@ -482,7 +485,7 @@ impl<F: LurkField> Store<F> {
             }
             Num::U64(_) => num,
         };
-        let (ptr, _) = self.num_store.insert_full(num);
+        let (ptr, _) = self.num_store.insert_probe(Box::new(num));
 
         Ptr::index(ExprTag::Num, ptr)
     }
@@ -501,8 +504,8 @@ impl<F: LurkField> Store<F> {
         };
 
         self.num_store
-            .get_index_of::<Num<F>>(&num)
-            .map(|x| Ptr::index(ExprTag::Num, x))
+            .get_full(&num)
+            .map(|(x, _)| Ptr::index(ExprTag::Num, x))
     }
 
     #[inline]
@@ -520,41 +523,43 @@ impl<F: LurkField> Store<F> {
         Ptr::index(ExprTag::U64, n as usize)
     }
 
-    pub fn intern_string(&mut self, s: &str) -> Ptr<F> {
+    pub fn intern_string(&self, s: &str) -> Ptr<F> {
         match self.str_cache.get(s) {
             Some(ptr) => *ptr,
             None => {
                 let ptr = s.chars().rev().fold(self.strnil(), |acc, c| {
                     self.intern_strcons(self.intern_char(c), acc)
                 });
-                self.str_cache.insert(s.to_string(), ptr);
+                self.str_cache.insert(s.to_string(), Box::new(ptr));
                 ptr
             }
         }
     }
 
-    pub fn intern_fun(&mut self, arg: Ptr<F>, body: Ptr<F>, closed_env: Ptr<F>) -> Ptr<F> {
+    pub fn intern_fun(&self, arg: Ptr<F>, body: Ptr<F>, closed_env: Ptr<F>) -> Ptr<F> {
         // TODO: closed_env must be an env
         assert!(matches!(arg.tag, ExprTag::Sym), "ARG must be a symbol");
-        let (p, inserted) = self.fun_store.insert_full((arg, body, closed_env));
+        let (p, inserted) = self
+            .fun_store
+            .insert_probe(Box::new((arg, body, closed_env)));
         let ptr = Ptr::index(ExprTag::Fun, p);
         if inserted {
-            self.dehydrated.push(ptr);
+            self.dehydrated.load().push(Box::new(ptr));
         }
         ptr
     }
 
-    pub fn intern_thunk(&mut self, thunk: Thunk<F>) -> Ptr<F> {
-        let (p, inserted) = self.thunk_store.insert_full(thunk);
+    pub fn intern_thunk(&self, thunk: Thunk<F>) -> Ptr<F> {
+        let (p, inserted) = self.thunk_store.insert_probe(Box::new(thunk));
         let ptr = Ptr::index(ExprTag::Thunk, p);
         if inserted {
-            self.dehydrated.push(ptr);
+            self.dehydrated.load().push(Box::new(ptr));
         }
         ptr
     }
 
-    pub fn mark_dehydrated_cont(&mut self, p: ContPtr<F>) -> ContPtr<F> {
-        self.dehydrated_cont.push(p);
+    pub fn mark_dehydrated_cont(&self, p: ContPtr<F>) -> ContPtr<F> {
+        self.dehydrated_cont.load().push(Box::new(p));
         p
     }
 
@@ -590,19 +595,19 @@ impl<F: LurkField> Store<F> {
         ])
     }
 
-    pub fn intern_cont_error(&mut self) -> ContPtr<F> {
+    pub fn intern_cont_error(&self) -> ContPtr<F> {
         self.mark_dehydrated_cont(self.get_cont_error())
     }
 
-    pub fn intern_cont_outermost(&mut self) -> ContPtr<F> {
+    pub fn intern_cont_outermost(&self) -> ContPtr<F> {
         self.mark_dehydrated_cont(self.get_cont_outermost())
     }
 
-    pub fn intern_cont_terminal(&mut self) -> ContPtr<F> {
+    pub fn intern_cont_terminal(&self) -> ContPtr<F> {
         self.mark_dehydrated_cont(self.get_cont_terminal())
     }
 
-    pub fn intern_cont_dummy(&mut self) -> ContPtr<F> {
+    pub fn intern_cont_dummy(&self) -> ContPtr<F> {
         self.mark_dehydrated_cont(self.get_cont_dummy())
     }
 
@@ -1278,14 +1283,14 @@ impl<F: LurkField> Store<F> {
         self.get_z_cont(ptr, &mut None).ok().map(|x| x.0)
     }
 
-    pub fn hash_string(&mut self, s: &str) -> ZExprPtr<F> {
+    pub fn hash_string(&self, s: &str) -> ZExprPtr<F> {
         let ptr = self.intern_string(s);
         self.get_z_expr(&ptr, &mut None)
             .expect("known string can't be opaque")
             .0
     }
 
-    pub fn hash_symbol(&mut self, s: &Symbol) -> ZExprPtr<F> {
+    pub fn hash_symbol(&self, s: &Symbol) -> ZExprPtr<F> {
         let ptr = self.intern_symbol(s);
         self.get_z_expr(&ptr, &mut None)
             .expect("known symbol can't be opaque")
@@ -1318,12 +1323,12 @@ impl<F: LurkField> Store<F> {
     // An opaque Ptr is one for which we have the hash, but not the preimages.
     // So we cannot open or traverse the enclosed data, but we can manipulate
     // it atomically and include it in containing structures, etc.
-    pub fn new_opaque_ptr(&mut self) -> Ptr<F> {
+    pub fn new_opaque_ptr(&self) -> Ptr<F> {
         // TODO: May need new tag for this.
         // Meanwhile, it is illegal to try to dereference/follow an opaque PTR.
         // So any tag and RawPtr are okay.
         let z_ptr = ZExpr::Nil.z_ptr(&self.poseidon_cache);
-        let (i, _) = self.opaque_ptrs.insert_full(z_ptr);
+        let (i, _) = self.opaque_ptrs.insert_probe(Box::new(z_ptr));
         Ptr::opaque(ExprTag::Nil, i)
     }
 
@@ -1355,25 +1360,33 @@ impl<F: LurkField> Store<F> {
     /// safe to call this incrementally. However, for best proving performance, we should call exactly once so all
     /// hashing can be batched, e.g. on the GPU.
     #[tracing::instrument(skip_all, name = "Store::hydrate_scalar_cache")]
-    pub fn hydrate_scalar_cache(&mut self) {
+    pub fn hydrate_scalar_cache(&self) {
         self.ensure_constants();
 
-        self.dehydrated.par_iter().for_each(|ptr| {
-            self.hash_expr(ptr).expect("failed to hash_expr");
-        });
+        self.dehydrated
+            .load()
+            .iter()
+            .collect::<Vec<_>>()
+            .par_iter()
+            .for_each(|ptr| {
+                self.hash_expr(ptr).expect("failed to hash_expr");
+            });
 
-        self.dehydrated.truncate(0);
+        self.dehydrated.swap(Arc::new(FrozenVec::default()));
 
-        self.dehydrated_cont.par_iter().for_each(|ptr| {
-            self.hash_cont(ptr).expect("failed to hash_cont");
-        });
+        self.dehydrated_cont
+            .load()
+            .iter()
+            .collect::<Vec<_>>()
+            .par_iter()
+            .for_each(|ptr| {
+                self.hash_cont(ptr).expect("failed to hash_cont");
+            });
 
-        self.dehydrated_cont.truncate(0);
-
-        self.dehydrated_cont.clear();
+        self.dehydrated_cont.swap(Arc::new(FrozenVec::default()));
     }
 
-    fn ensure_constants(&mut self) {
+    fn ensure_constants(&self) {
         if self.constants.get().is_none() {
             let new = NamedConstants::new(self);
             self.constants.set(new).expect("constants are not set");
@@ -1408,11 +1421,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn intern_z_expr_ptr(
-        &mut self,
-        z_ptr: &ZExprPtr<F>,
-        z_store: &ZStore<F>,
-    ) -> Option<Ptr<F>> {
+    pub fn intern_z_expr_ptr(&self, z_ptr: &ZExprPtr<F>, z_store: &ZStore<F>) -> Option<Ptr<F>> {
         if let Some(ptr) = self.fetch_z_expr_ptr(z_ptr) {
             Some(ptr)
         } else {
@@ -1526,7 +1535,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn intern_z_cont_ptr(
-        &mut self,
+        &self,
         z_ptr: &ZContPtr<F>,
         z_store: &ZStore<F>,
     ) -> Option<ContPtr<F>> {
@@ -1744,11 +1753,11 @@ pub struct NamedConstants<F: LurkField> {
 }
 
 impl<F: LurkField> NamedConstants<F> {
-    pub fn new(store: &mut Store<F>) -> Self {
+    pub fn new(store: &Store<F>) -> Self {
         let nil_ptr = store.intern_symbol(&lurk_sym("nil"));
         let nil_z_ptr = Some(ZExpr::Nil.z_ptr(&store.poseidon_cache));
 
-        let mut hash_sym = |name: &str| {
+        let hash_sym = |name: &str| {
             let ptr = store.intern_symbol(&lurk_sym(name));
             let maybe_z_ptr = store.hash_expr(&ptr);
             ConstantPtrs(maybe_z_ptr, ptr)
@@ -1834,7 +1843,7 @@ impl<F: LurkField> NamedConstants<F> {
 
 impl<F: LurkField> ZStore<F> {
     pub fn to_store(&self) -> Store<F> {
-        let mut store = Store::new();
+        let store = Store::new();
 
         for ptr in self.expr_map.keys() {
             store.intern_z_expr_ptr(ptr, self);
@@ -1846,7 +1855,7 @@ impl<F: LurkField> ZStore<F> {
     }
 
     pub fn to_store_with_z_ptr(&self, z_ptr: &ZExprPtr<F>) -> Result<(Store<F>, Ptr<F>), Error> {
-        let mut store = Store::new();
+        let store = Store::new();
 
         for z_ptr in self.expr_map.keys() {
             store.intern_z_expr_ptr(z_ptr, self);
@@ -1975,26 +1984,23 @@ pub mod test {
         let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
         {
             let comparison_expr = store.list(&[eq, fun, opaque_fun]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(t, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, fun2, opaque_fun]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(nil, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, fun2, opaque_fun2]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(t, result.expr);
         }
         {
@@ -2007,10 +2013,9 @@ pub mod test {
             let cons_expr2 = store.list(&[cons, opaque_fun, n]);
 
             let comparison_expr = store.list(&[eq, cons_expr1, cons_expr2]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(t, result.expr);
         }
     }
@@ -2051,7 +2056,7 @@ pub mod test {
         // For now, all opaque data remains opaque, even if the Store has enough information to clarify it.
         assert!(sym.fmt_to_string(&store, state) != opaque_sym.fmt_to_string(&store, state));
 
-        let mut other_store = Store::<Fr>::default();
+        let other_store = Store::<Fr>::default();
         let other_opaque_sym = other_store.intern_opaque_sym(*sym_hash.value());
 
         let other_sym = other_store.sym("sym");
@@ -2079,26 +2084,23 @@ pub mod test {
         let lang = Lang::<Fr, Coproc<Fr>>::new();
         {
             let comparison_expr = store.list(&[eq, qsym, qsym_opaque]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(t, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qsym2, qsym_opaque]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(nil, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qsym2, qsym_opaque2]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(t, result.expr);
         }
         {
@@ -2112,10 +2114,9 @@ pub mod test {
 
             let comparison_expr = store.list(&[eq, cons_expr1, cons_expr2]);
             let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(t, result.expr);
         }
     }
@@ -2156,26 +2157,23 @@ pub mod test {
 
         {
             let comparison_expr = store.list(&[eq, qcons, qcons_opaque]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(t, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qcons2, qcons_opaque]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(nil, result.expr);
         }
         {
             let comparison_expr = store.list(&[eq, qcons2, qcons_opaque2]);
-            let (result, _, _) =
-                Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
-                    .eval()
-                    .unwrap();
+            let (result, _, _) = Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
+                .eval()
+                .unwrap();
             assert_eq!(t, result.expr);
         }
         {
@@ -2195,14 +2193,14 @@ pub mod test {
             let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
             {
                 let (result, _, _) =
-                    Evaluator::new(comparison_expr, empty_env, &mut store, limit, &lang)
+                    Evaluator::new(comparison_expr, empty_env, &store, limit, &lang)
                         .eval()
                         .unwrap();
                 assert_eq!(t, result.expr);
             }
             {
                 let (result, _, _) =
-                    Evaluator::new(comparison_expr2, empty_env, &mut store, limit, &lang)
+                    Evaluator::new(comparison_expr2, empty_env, &store, limit, &lang)
                         .eval()
                         .unwrap();
                 assert_eq!(nil, result.expr);

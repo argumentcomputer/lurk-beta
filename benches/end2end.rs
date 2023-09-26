@@ -203,7 +203,7 @@ fn eval_benchmark(c: &mut Criterion) {
                     Evaluator::new(
                         ptr,
                         empty_sym_env(&bls12_store),
-                        &mut bls12_store,
+                        &bls12_store,
                         limit,
                         &lang_bls12,
                     )
@@ -220,7 +220,7 @@ fn eval_benchmark(c: &mut Criterion) {
                     Evaluator::new(
                         ptr,
                         empty_sym_env(&pallas_store),
-                        &mut pallas_store,
+                        &pallas_store,
                         limit,
                         &lang_pallas,
                     )

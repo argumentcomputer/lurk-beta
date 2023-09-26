@@ -68,6 +68,8 @@ ansi_term = "0.12.1"
 tracing = { workspace = true }
 tracing-texray = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+elsa = { version = "1.9.0", git="https://github.com/lurk-lab/elsa", branch = "sync_index_map", features = ["indexmap"] }
+arc-swap = "1.6.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 memmap = { version = "0.5.10", package = "memmap2" }

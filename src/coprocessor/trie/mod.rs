@@ -62,7 +62,7 @@ impl<F: LurkField> Coprocessor<F> for NewCoprocessor<F> {
         0
     }
 
-    fn simple_evaluate(&self, s: &mut Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
+    fn simple_evaluate(&self, s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
         let trie: Trie<'_, F, 8, 85> = Trie::new(s);
 
         let root = trie.root;
@@ -84,7 +84,7 @@ impl<F: LurkField> Coprocessor<F> for LookupCoprocessor<F> {
         2
     }
 
-    fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
+    fn simple_evaluate(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
         let root_ptr = args[0];
         let key_ptr = args[1];
         let root_scalar = *s.hash_expr(&root_ptr).unwrap().value();
@@ -109,7 +109,7 @@ impl<F: LurkField> Coprocessor<F> for InsertCoprocessor<F> {
         3
     }
 
-    fn simple_evaluate(&self, s: &mut Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
+    fn simple_evaluate(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
         let root_ptr = args[0];
         let key_ptr = args[1];
         let val_ptr = args[2];
@@ -129,7 +129,7 @@ impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {}
 /// Add the `Trie`-associated functions to a `Lang` with standard bindings.
 // TODO: define standard patterns for such modularity.
 pub fn install<F: LurkField>(
-    s: &mut Store<F>,
+    s: &Store<F>,
     state: Rc<RefCell<State>>,
     lang: &mut Lang<F, TrieCoproc<F>>,
 ) {
@@ -160,7 +160,7 @@ pub struct Trie<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> {
     root: F,
     empty_roots: [F; HEIGHT],
     hash_cache: &'a PoseidonCache<F>,
-    children: &'a mut ChildMap<F, ARITY>,
+    children: &'a ChildMap<F, ARITY>,
 }
 
 #[derive(Debug)]
@@ -326,22 +326,22 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
 
     /// Creates a new `Trie`, saving preimage data in `store`.
     /// HEIGHT must be exactly that required to minimally store all elements of `F`.
-    pub fn new(store: &'a mut Store<F>) -> Self {
+    pub fn new(store: &'a Store<F>) -> Self {
         Self::new_aux(store, None)
     }
 
     /// Creates a new `Trie`, saving preimage data in `store`.
     /// Height must be at least that required to store `size` elements.
-    pub fn new_with_capacity(store: &'a mut Store<F>, size: usize) -> Self {
+    pub fn new_with_capacity(store: &'a Store<F>, size: usize) -> Self {
         Self::new_aux(store, Some(size))
     }
 
-    fn new_aux(store: &'a mut Store<F>, size: Option<usize>) -> Self {
+    fn new_aux(store: &'a Store<F>, size: Option<usize>) -> Self {
         // ARITY must be a power of two.
         assert_eq!(1, ARITY.count_ones());
 
         let poseidon_cache = &store.poseidon_cache;
-        let inverse_poseidon_cache = &mut store.inverse_poseidon_cache;
+        let inverse_poseidon_cache = &store.inverse_poseidon_cache;
 
         // This will panic if ARITY is unsupporteed.
         let _ = HashArity::from(ARITY);
@@ -383,7 +383,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
     }
 
     /// Create a new `Trie` with specified root.
-    fn new_with_root(store: &'a mut Store<F>, root: F) -> Self {
+    fn new_with_root(store: &'a Store<F>, root: F) -> Self {
         let mut new = Self::new(store);
 
         new.root = root;

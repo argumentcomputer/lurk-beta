@@ -77,7 +77,7 @@ impl<F: LurkField> CircomGadget<F> for CircomSha256<F> {
         vec![a, b]
     }
 
-    fn simple_evaluate(&self, s: &mut Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
+    fn simple_evaluate(&self, s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
         // TODO: actually use the lurk inputs
         let expected = Num::Scalar(
             F::from_str_vartime(

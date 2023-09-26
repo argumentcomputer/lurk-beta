@@ -262,7 +262,7 @@ where
         frames: &[Frame<IO<F>, Witness<F>, F, C>],
         store: &'a Store<F>,
         lang: Arc<Lang<F, C>>,
-    ) -> Result<(Proof<'_, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
+    ) -> Result<(Proof<'a, F, C>, Vec<F>, Vec<F>, usize), ProofError> {
         let z0 = frames[0].input.to_vector(store)?;
         let zi = frames.last().unwrap().output.to_vector(store)?;
         let folding_config = Arc::new(FoldingConfig::new_ivc(lang.clone(), self.reduction_count()));
