@@ -1,4 +1,5 @@
 use abomonation::Abomonation;
+use fcomm::file_map::data_dir;
 use lurk::circuit::circuit_frame::MultiFrame;
 use lurk::lurk_sym_ptr;
 use lurk::proof::nova::{CurveCycleEquipped, G1, G2};
@@ -31,9 +32,9 @@ use clap::{Args, Parser, Subcommand};
 use clap_verbosity_flag::{Verbosity, WarnLevel};
 
 use fcomm::{
-    committed_expression_store, error::Error, evaluate, file_map::FileStore, public_param_dir,
-    Claim, Commitment, CommittedExpression, Evaluation, Expression, LurkPtr, Opening,
-    OpeningRequest, Proof, ReductionCount, S1,
+    committed_expression_store, error::Error, evaluate, file_map::FileStore, Claim, Commitment,
+    CommittedExpression, Evaluation, Expression, LurkPtr, Opening, OpeningRequest, Proof,
+    ReductionCount, S1,
 };
 
 use lurk::public_parameters::public_params;
@@ -239,7 +240,7 @@ impl Open {
         );
         let lang_rc = Arc::new(lang.clone());
         let instance = Instance::new(rc.count(), lang_rc, true, Kind::NovaPublicParams);
-        let pp = public_params(&instance, &public_param_dir()).expect("public params");
+        let pp = public_params(&instance).expect("public params");
         let function_map = committed_expression_store();
 
         let handle_proof = |out_path, proof: Proof<'_, S1>| {
@@ -347,7 +348,7 @@ impl Prove {
         );
         let lang_rc = Arc::new(lang.clone());
         let instance = Instance::new(rc.count(), lang_rc.clone(), true, Kind::NovaPublicParams);
-        let pp = public_params(&instance, &public_param_dir()).unwrap();
+        let pp = public_params(&instance).unwrap();
 
         let proof = match &self.claim {
             Some(claim) => {
@@ -399,7 +400,7 @@ impl Verify {
             true,
             Kind::NovaPublicParams,
         );
-        let pp = public_params(&instance, &public_param_dir()).unwrap();
+        let pp = public_params(&instance).unwrap();
         let result = proof.verify(&pp, lang).unwrap();
 
         serde_json::to_writer(io::stdout(), &result).unwrap();
@@ -535,6 +536,8 @@ fn main() {
         .with(fmt::layer().pretty())
         .with(EnvFilter::from_default_env());
     tracing::subscriber::set_global_default(subscriber).unwrap();
+
+    std::env::set_var("LURK_PUBLIC_PARAMS_DIR", data_dir().join("public_params"));
 
     // TODO: make this properly configurable, e.g. allowing coprocessors
     let lang = Lang::new();

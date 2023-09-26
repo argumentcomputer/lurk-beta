@@ -6,7 +6,7 @@
 #[cfg(not(target_arch = "wasm32"))]
 pub mod non_wasm {
     use core::fmt::Debug;
-    use std::{collections::HashMap, fs::read_dir};
+    use std::fs::read_dir;
 
     use ansi_term::Colour::Red;
     use anyhow::{bail, Result};
@@ -20,7 +20,7 @@ pub mod non_wasm {
             data::GlobalAllocations,
             pointer::{AllocatedContPtr, AllocatedPtr},
         },
-        cli::paths::{circom_dir, set_lurk_dirs},
+        cli::paths::circom_dir,
         coprocessor::{CoCircuit, Coprocessor},
         field::LurkField,
         lem::{pointers::Ptr as LEMPtr, store::Store as LEMStore, Tag},
@@ -49,9 +49,6 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
     }
 
     fn validate_gadget<F: LurkField, C: CircomGadget<F>>(gadget: &C) -> Result<()> {
-        // TODO: This is a temporary hack, see: https://github.com/lurk-lab/lurk-rs/issues/621
-        set_lurk_dirs(&HashMap::new(), &None, &None, &None, &None);
-
         if !circom_dir().exists() {
             std::fs::create_dir_all(circom_dir())?;
             return print_error(gadget.name(), vec![]);

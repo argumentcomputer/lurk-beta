@@ -15,7 +15,7 @@ use crate::{
         data::GlobalAllocations,
         pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents},
     },
-    config::CONFIG,
+    config::lurk_config,
     eval::{empty_sym_env, lang::Lang},
     field::LurkField,
     hash::HashConst,
@@ -481,7 +481,13 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         frames: &[CircuitFrame<'_, F, C>],
         g: &GlobalAllocations<F>,
     ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
-        if cs.is_witness_generator() && CONFIG.parallelism.synthesis.is_parallel() {
+        if cs.is_witness_generator()
+            && lurk_config(None, None)
+                .perf
+                .parallelism
+                .synthesis
+                .is_parallel()
+        {
             self.synthesize_frames_parallel(cs, store, input_expr, input_env, input_cont, frames, g)
         } else {
             self.synthesize_frames_sequential(
@@ -586,14 +592,16 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         g: &GlobalAllocations<F>,
     ) -> (AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>) {
         assert!(cs.is_witness_generator());
-        assert!(CONFIG.parallelism.synthesis.is_parallel());
+        let config = lurk_config(None, None);
+        assert!(config.perf.parallelism.synthesis.is_parallel());
 
         // TODO: this probably belongs in config, perhaps per-Flow.
         const MIN_CHUNK_SIZE: usize = 10;
 
         let num_frames = frames.len();
 
-        let chunk_size = CONFIG
+        let chunk_size = config
+            .perf
             .parallelism
             .synthesis
             .chunk_size(num_frames, MIN_CHUNK_SIZE);
@@ -652,7 +660,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                         };
                     }
 
-                    if CONFIG.parallelism.poseidon_witnesses.is_parallel() {
+                    if config.perf.parallelism.poseidon_witnesses.is_parallel() {
                         chunk.par_iter().map(f!()).collect::<Vec<_>>()
                     } else {
                         chunk.iter().map(f!()).collect::<Vec<_>>()

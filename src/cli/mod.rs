@@ -1,6 +1,7 @@
 pub mod backend;
 mod circom;
 mod commitment;
+pub mod config;
 mod field_data;
 mod lurk_proof;
 pub mod paths;
@@ -10,7 +11,6 @@ mod zstore;
 use anyhow::{bail, Context, Result};
 use camino::Utf8PathBuf;
 use clap::{Args, Parser, Subcommand};
-use config::{Config, Environment, File};
 use pasta_curves::pallas;
 
 use std::{
@@ -24,20 +24,19 @@ use crate::{
     eval::lang::Coproc,
     field::{LanguageField, LurkField},
     lem::{multiframe::MultiFrame, store::Store},
+    public_parameters::disk_cache::public_params_dir,
     public_parameters::instance::Metadata,
 };
 
 use crate::cli::{
-    paths::set_lurk_dirs,
+    backend::Backend,
+    config::cli_config,
+    paths::create_lurk_dirs,
     repl::{validate_non_zero, Repl},
     zstore::ZStore,
 };
 
-use self::{backend::Backend, field_data::load, paths::public_params_dir};
-
-const DEFAULT_LIMIT: usize = 100_000_000;
-const DEFAULT_RC: usize = 10;
-const DEFAULT_BACKEND: Backend = Backend::Nova;
+use self::field_data::load;
 
 #[derive(Parser, Debug)]
 #[clap(version)]
@@ -89,12 +88,12 @@ struct LoadArgs {
     limit: Option<usize>,
 
     /// Prover backend (defaults to "Nova")
-    #[clap(long, value_parser)]
-    backend: Option<String>,
+    #[clap(long, value_enum)]
+    backend: Option<Backend>,
 
     /// Arithmetic field (defaults to the backend's standard field)
-    #[clap(long, value_parser)]
-    field: Option<String>,
+    #[clap(long, value_enum)]
+    field: Option<LanguageField>,
 
     /// Path to public parameters directory
     #[clap(long, value_parser)]
@@ -133,11 +132,11 @@ struct LoadCli {
     #[clap(long, value_parser)]
     limit: Option<usize>,
 
-    #[clap(long, value_parser)]
-    backend: Option<String>,
+    #[clap(long, value_enum)]
+    backend: Option<Backend>,
 
-    #[clap(long, value_parser)]
-    field: Option<String>,
+    #[clap(long, value_enum)]
+    field: Option<LanguageField>,
 
     #[clap(long, value_parser)]
     public_params_dir: Option<Utf8PathBuf>,
@@ -173,13 +172,13 @@ impl LoadArgs {
 
 #[derive(Args, Debug)]
 struct ReplArgs {
-    /// ZStore to be preloaded before entering the REPL (and loading a file)
-    #[clap(long, value_parser)]
-    zstore: Option<Utf8PathBuf>,
-
     /// Optional file to be loaded before entering the REPL
     #[clap(long, value_parser)]
     load: Option<Utf8PathBuf>,
+
+    /// ZStore to be preloaded before entering the REPL (and loading a file)
+    #[clap(long, value_parser)]
+    zstore: Option<Utf8PathBuf>,
 
     /// Config file, containing the lowest precedence parameters
     #[clap(long, value_parser)]
@@ -194,12 +193,12 @@ struct ReplArgs {
     limit: Option<usize>,
 
     /// Prover backend (defaults to "Nova")
-    #[clap(long, value_parser)]
-    backend: Option<String>,
+    #[clap(long, value_enum)]
+    backend: Option<Backend>,
 
     /// Arithmetic field (defaults to the backend's standard field)
-    #[clap(long, value_parser)]
-    field: Option<String>,
+    #[clap(long, value_enum)]
+    field: Option<LanguageField>,
 
     /// Path to public parameters directory
     #[clap(long, value_parser)]
@@ -235,11 +234,11 @@ struct ReplCli {
     #[clap(long, value_parser)]
     limit: Option<usize>,
 
-    #[clap(long, value_parser)]
-    backend: Option<String>,
+    #[clap(long, value_enum)]
+    backend: Option<Backend>,
 
-    #[clap(long, value_parser)]
-    field: Option<String>,
+    #[clap(long, value_enum)]
+    field: Option<LanguageField>,
 
     #[clap(long, value_parser)]
     public_params_dir: Option<Utf8PathBuf>,
@@ -272,71 +271,12 @@ impl ReplArgs {
     }
 }
 
-fn parse_backend(backend_str: &String) -> Result<Backend> {
-    match backend_str.to_lowercase().as_str() {
-        "nova" => Ok(Backend::Nova),
-        _ => bail!("Backend not supported: {backend_str}"),
-    }
-}
-
-fn parse_field(field_str: &String) -> Result<LanguageField> {
-    match field_str.to_lowercase().as_str() {
-        "pallas" => Ok(LanguageField::Pallas),
-        "vesta" => Ok(LanguageField::Vesta),
-        _ => bail!("Field not supported: {field_str}"),
-    }
-}
-
 fn parse_filename(file: &str) -> Result<Utf8PathBuf> {
     if file == "help" {
         bail!("help is not a valid filename. printing help console instead");
     }
     let path: Utf8PathBuf = file.into();
     Ok(path)
-}
-
-fn get_parsed_usize(
-    param_name: &str,
-    arg: &Option<usize>,
-    config: &HashMap<String, String>,
-    default: usize,
-) -> Result<usize> {
-    match arg {
-        Some(arg) => Ok(*arg),
-        None => match config.get(param_name) {
-            None => Ok(default),
-            Some(arg_str) => Ok(arg_str.parse::<usize>()?),
-        },
-    }
-}
-
-fn get_parsed<T>(
-    param_name: &str,
-    arg: &Option<String>,
-    config: &HashMap<String, String>,
-    parse_fn: fn(&String) -> Result<T>,
-    default: T,
-) -> Result<T> {
-    match arg {
-        Some(arg) => parse_fn(arg),
-        None => match config.get(param_name) {
-            None => Ok(default),
-            Some(arg) => parse_fn(arg),
-        },
-    }
-}
-
-pub fn get_config(config_path: &Option<Utf8PathBuf>) -> Result<HashMap<String, String>> {
-    // First load from the config file
-    let builder = match config_path {
-        Some(config_path) if config_path.exists() => {
-            Config::builder().add_source(File::with_name(config_path.as_str()))
-        }
-        _ => Config::builder(),
-    };
-    // Then potentially overwrite with environment variables
-    let builder = builder.add_source(Environment::with_prefix("LURK"));
-    Ok(builder.build()?.try_deserialize()?)
 }
 
 fn get_store<F: LurkField + for<'a> serde::de::Deserialize<'a>>(
@@ -369,35 +309,41 @@ impl ReplCli {
                 repl.start()
             }};
         }
-        let config = get_config(&self.config)?;
-        tracing::info!("Configured variables: {:?}", config);
-        set_lurk_dirs(
-            &config,
-            &self.public_params_dir,
-            &self.proofs_dir,
-            &self.commits_dir,
-            &self.circom_dir,
+        macro_rules! map_insert {
+            ( $map:expr, $( $field:ident ),* ) => {
+                $(
+                    if let Some(val) = &self.$field {
+                       $map.insert(stringify!($field), val.to_string());
+                    }
+                )*
+            };
+        }
+        let mut cli_settings: HashMap<&str, String> = HashMap::new();
+        map_insert!(
+            &mut cli_settings,
+            public_params_dir,
+            proofs_dir,
+            commits_dir,
+            circom_dir,
+            backend,
+            field,
+            rc,
+            limit
         );
-        let rc = get_parsed_usize("rc", &self.rc, &config, DEFAULT_RC)?;
-        let limit = get_parsed_usize("limit", &self.limit, &config, DEFAULT_LIMIT)?;
-        let backend = get_parsed(
-            "backend",
-            &self.backend,
-            &config,
-            parse_backend,
-            DEFAULT_BACKEND,
-        )?;
-        let field = get_parsed(
-            "field",
-            &self.field,
-            &config,
-            parse_field,
-            backend.default_field(),
-        )?;
+
+        // Initializes CLI config with CLI arguments as overrides
+        let config = cli_config(self.config.as_ref(), Some(&cli_settings));
+
+        create_lurk_dirs().unwrap();
+
+        let rc = config.rc;
+        let limit = config.limit;
+        let backend = &config.backend;
+        let field = &config.field;
         validate_non_zero("rc", rc)?;
-        backend.validate_field(&field)?;
+        backend.validate_field(field)?;
         match field {
-            LanguageField::Pallas => repl!(rc, limit, pallas::Scalar, backend),
+            LanguageField::Pallas => repl!(rc, limit, pallas::Scalar, backend.clone()),
             // LanguageField::Vesta => repl!(rc, limit, vesta::Scalar, backend),
             LanguageField::Vesta => todo!(),
             LanguageField::BLS12_381 => todo!(),
@@ -419,35 +365,41 @@ impl LoadCli {
                 Ok(())
             }};
         }
-        let config = get_config(&self.config)?;
-        tracing::info!("Configured variables: {:?}", config);
-        set_lurk_dirs(
-            &config,
-            &self.public_params_dir,
-            &self.proofs_dir,
-            &self.commits_dir,
-            &self.circom_dir,
+        macro_rules! map_insert {
+            ( $map:expr, $( $field:ident ),* ) => {
+                $(
+                    if let Some(val) = &self.$field {
+                       $map.insert(stringify!($field), val.to_string());
+                    }
+                )*
+            };
+        }
+        let mut cli_settings: HashMap<&str, String> = HashMap::new();
+        map_insert!(
+            &mut cli_settings,
+            public_params_dir,
+            proofs_dir,
+            commits_dir,
+            circom_dir,
+            backend,
+            field,
+            rc,
+            limit
         );
-        let rc = get_parsed_usize("rc", &self.rc, &config, DEFAULT_RC)?;
-        let limit = get_parsed_usize("limit", &self.limit, &config, DEFAULT_LIMIT)?;
-        let backend = get_parsed(
-            "backend",
-            &self.backend,
-            &config,
-            parse_backend,
-            DEFAULT_BACKEND,
-        )?;
-        let field = get_parsed(
-            "field",
-            &self.field,
-            &config,
-            parse_field,
-            backend.default_field(),
-        )?;
+
+        // Initializes CLI config with CLI arguments as overrides
+        let config = cli_config(self.config.as_ref(), Some(&cli_settings));
+
+        create_lurk_dirs().unwrap();
+
+        let rc = config.rc;
+        let limit = config.limit;
+        let backend = &config.backend;
+        let field = &config.field;
         validate_non_zero("rc", rc)?;
-        backend.validate_field(&field)?;
+        backend.validate_field(field)?;
         match field {
-            LanguageField::Pallas => load!(rc, limit, pallas::Scalar, backend),
+            LanguageField::Pallas => load!(rc, limit, pallas::Scalar, backend.clone()),
             // LanguageField::Vesta => load!(rc, limit, vesta::Scalar, backend),
             LanguageField::Vesta => todo!(),
             LanguageField::BLS12_381 => todo!(),
@@ -463,10 +415,6 @@ struct VerifyArgs {
     #[clap(value_parser)]
     proof_id: String,
 
-    /// Config file, containing the lowest precedence parameters
-    #[clap(long, value_parser)]
-    config: Option<Utf8PathBuf>,
-
     /// Path to public parameters directory
     #[clap(long, value_parser)]
     public_params_dir: Option<Utf8PathBuf>,
@@ -474,6 +422,10 @@ struct VerifyArgs {
     /// Path to proofs directory
     #[clap(long, value_parser)]
     proofs_dir: Option<Utf8PathBuf>,
+
+    /// Config file, containing the lowest precedence parameters
+    #[clap(long, value_parser)]
+    config: Option<Utf8PathBuf>,
 }
 
 /// To setup a new circom gadget `<NAME>`, place your circom files in a designated folder and
@@ -495,13 +447,13 @@ struct CircomArgs {
     #[clap(long, value_parser)]
     name: String,
 
-    /// Config file, containing the lowest precedence parameters
-    #[clap(long, value_parser)]
-    config: Option<Utf8PathBuf>,
-
     /// Path to circom directory
     #[clap(long, value_parser)]
     circom_dir: Option<Utf8PathBuf>,
+
+    /// Config file, containing the lowest precedence parameters
+    #[clap(long, value_parser)]
+    config: Option<Utf8PathBuf>,
 }
 
 #[derive(Args, Debug)]
@@ -509,23 +461,26 @@ struct PublicParamArgs {
     /// Lists all the cached params
     #[arg(long)]
     list: bool,
+
     /// Clears everything
     #[arg(long)]
     clean: bool,
+
     /// Remove specified params from cache
     #[clap(long, value_parser)]
     remove: Option<String>,
+
     /// Show specified params configurations
     #[clap(long, value_parser)]
     show: Option<String>,
 
-    /// Config file, containing the lowest precedence parameters
-    #[clap(long, value_parser)]
-    config: Option<Utf8PathBuf>,
-
     /// Path to public params directory
     #[clap(long, value_parser)]
     public_params_dir: Option<Utf8PathBuf>,
+
+    /// Config file, containing the lowest precedence parameters
+    #[clap(long, value_parser)]
+    config: Option<Utf8PathBuf>,
 }
 
 impl PublicParamArgs {
@@ -609,15 +564,15 @@ impl Cli {
             #[allow(unused_variables)]
             Command::Verify(verify_args) => {
                 use crate::cli::lurk_proof::LurkProof;
-                let config = get_config(&verify_args.config)?;
-                tracing::info!("Configured variables: {:?}", config);
-                set_lurk_dirs(
-                    &config,
-                    &verify_args.public_params_dir,
-                    &verify_args.proofs_dir,
-                    &None,
-                    &None,
-                );
+                let mut cli_settings = HashMap::new();
+                if let Some(dir) = verify_args.public_params_dir {
+                    cli_settings.insert("public_params_dir", dir.to_string());
+                }
+                if let Some(dir) = verify_args.proofs_dir {
+                    cli_settings.insert("proofs_dir", dir.to_string());
+                }
+                cli_config(verify_args.config.as_ref(), Some(&cli_settings));
+
                 LurkProof::<_, _, MultiFrame<'_, _, Coproc<pallas::Scalar>>>::verify_proof(
                     &verify_args.proof_id,
                 )?;
@@ -628,24 +583,24 @@ impl Cli {
                 if circom_args.name == "main" {
                     bail!("Circom gadget name cannot be `main`, see circom documentation")
                 }
-
-                let config = get_config(&circom_args.config)?;
-                tracing::info!("Configured variables: {:?}", config);
-                set_lurk_dirs(&config, &None, &None, &None, &circom_args.circom_dir);
+                let mut cli_settings = HashMap::new();
+                if let Some(dir) = circom_args.circom_dir {
+                    cli_settings.insert("circom_dir", dir.to_string());
+                }
+                cli_config(circom_args.config.as_ref(), Some(&cli_settings));
 
                 create_circom_gadget(circom_args.circom_folder, circom_args.name)?;
                 Ok(())
             }
             Command::PublicParams(public_params_args) => {
-                let config = get_config(&public_params_args.config)?;
-                tracing::info!("Configured variables: {:?}", config);
-                set_lurk_dirs(
-                    &config,
-                    &public_params_args.public_params_dir,
-                    &None,
-                    &None,
-                    &None,
-                );
+                let mut cli_settings = HashMap::new();
+                if let Some(dir) = public_params_args.public_params_dir.clone() {
+                    cli_settings.insert("public_params_dir", dir.to_string());
+                }
+
+                cli_config(public_params_args.config.as_ref(), Some(&cli_settings));
+
+                create_lurk_dirs().unwrap();
                 public_params_args.run()?;
                 Ok(())
             }

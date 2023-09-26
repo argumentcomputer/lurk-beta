@@ -45,7 +45,7 @@ use lurk::lem::{pointers::Ptr as LEMPtr, store::Store as LEMStore};
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::ptr::Ptr;
 use lurk::public_parameters::instance::{Instance, Kind};
-use lurk::public_parameters::{public_params, public_params_default_dir};
+use lurk::public_parameters::public_params;
 use lurk::store::Store;
 use lurk::{Num, Symbol};
 use lurk_macros::Coproc;
@@ -135,8 +135,7 @@ fn main() {
         true,
         Kind::NovaPublicParams,
     );
-    let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance, &public_params_default_dir())
-        .unwrap();
+    let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
     let pp_end = pp_start.elapsed();
 
     println!("Public parameters took {pp_end:?}");

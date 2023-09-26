@@ -1,6 +1,5 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
-use camino::Utf8Path;
 use criterion::{
     black_box, criterion_group, criterion_main, measurement, BatchSize, BenchmarkGroup,
     BenchmarkId, Criterion, SamplingMode,
@@ -21,7 +20,8 @@ use lurk::{
 };
 use pasta_curves::pallas;
 
-const PUBLIC_PARAMS_PATH: &str = "/var/tmp/lurk_benches/public_params";
+mod common;
+use common::set_bench_config;
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Copy, Debug, Clone, PartialEq, Eq)]
@@ -86,11 +86,7 @@ mod alpha {
             true,
             Kind::NovaPublicParams,
         );
-        let pp = public_params::<_, _, MultiFrame<'_, _, _>>(
-            &instance,
-            Utf8Path::new(PUBLIC_PARAMS_PATH),
-        )
-        .unwrap();
+        let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
         let date = env!("VERGEN_GIT_COMMIT_DATE");
         let sha = env!("VERGEN_GIT_SHA");
@@ -186,11 +182,7 @@ mod lem {
             true,
             Kind::NovaPublicParams,
         );
-        let pp = public_params::<_, _, MultiFrame<'_, _, _>>(
-            &instance,
-            Utf8Path::new(PUBLIC_PARAMS_PATH),
-        )
-        .unwrap();
+        let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
         let date = env!("VERGEN_GIT_COMMIT_DATE");
         let sha = env!("VERGEN_GIT_SHA");
@@ -239,8 +231,8 @@ mod lem {
 }
 
 fn fib_bench(c: &mut Criterion) {
-    tracing::debug!("{:?}", &*lurk::config::CONFIG);
-
+    set_bench_config();
+    tracing::debug!("{:?}", lurk::config::LURK_CONFIG);
     let reduction_counts = [100, 600, 700, 800, 900];
     let folding_step_sizes = [2, 4, 8];
 

@@ -4,6 +4,7 @@
 //! This defines the LurkField trait used pervasively in the code base
 //! as an extension of the ff::PrimeField trait, with conveniance methods
 //! relating this field to the expresions of the language.
+use clap::ValueEnum;
 use ff::{PrimeField, PrimeFieldBits};
 use nova::provider::bn256_grumpkin::bn256;
 use serde::{Deserialize, Serialize};
@@ -31,11 +32,12 @@ use crate::tag::{ContTag, ExprTag, Op1, Op2};
 /// Because confusion on this point, perhaps combined with cargo-cult copying of incorrect previous usage has led to
 /// inconsistencies and inaccuracies in the code base, please prefer the named Scalar forms when correspondence to a
 /// named `LanguageField` is important.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, ValueEnum)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Arbitrary))]
 #[cfg_attr(not(target_arch = "wasm32"), serde_test)]
 pub enum LanguageField {
     /// The Pallas field,
+    #[default]
     Pallas,
     /// The Vesta field,
     Vesta,

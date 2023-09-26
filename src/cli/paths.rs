@@ -1,20 +1,10 @@
 use anyhow::Result;
 use camino::{Utf8Path, Utf8PathBuf};
-use once_cell::sync::OnceCell;
 
-use std::collections::HashMap;
 use std::fs;
 
-use crate::public_parameters::public_params_default_dir;
-
-pub(crate) static LURK_DIRS: OnceCell<LurkDirs> = OnceCell::new();
-
-pub(crate) struct LurkDirs {
-    public_params: Utf8PathBuf,
-    proofs: Utf8PathBuf,
-    commits: Utf8PathBuf,
-    circom: Utf8PathBuf,
-}
+use crate::cli::config::cli_config;
+use crate::public_parameters::disk_cache::public_params_dir;
 
 #[cfg(not(target_arch = "wasm32"))]
 fn home_dir() -> Utf8PathBuf {
@@ -23,81 +13,40 @@ fn home_dir() -> Utf8PathBuf {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn lurk_dir() -> Utf8PathBuf {
+pub fn lurk_default_dir() -> Utf8PathBuf {
     home_dir().join(Utf8Path::new(".lurk"))
 }
 
 #[cfg(target_arch = "wasm32")]
-pub(crate) fn lurk_dir() -> Utf8PathBuf {
+pub fn lurk_default_dir() -> Utf8PathBuf {
     Utf8PathBuf::from(".lurk")
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn proofs_default_dir() -> Utf8PathBuf {
-    let home = home::home_dir().unwrap();
-    Utf8PathBuf::from_path_buf(home.join(".lurk/proofs")).expect("path contains invalid Unicode")
+    lurk_default_dir().join("proofs")
 }
 
-#[cfg(target_arch = "wasm32")]
-pub(crate) fn proofs_default_dir() -> Utf8PathBuf {
-    Utf8PathBuf::from(".lurk/public_params")
-}
-
-#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn commits_default_dir() -> Utf8PathBuf {
-    let home = home::home_dir().unwrap();
-    Utf8PathBuf::from_path_buf(home.join(".lurk/commits")).expect("path contains invalid Unicode")
+    lurk_default_dir().join("commits")
 }
 
-#[cfg(target_arch = "wasm32")]
-pub(crate) fn commits_default_dir() -> Utf8PathBuf {
-    Utf8PathBuf::from(".lurk/commits")
-}
-
-#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn circom_default_dir() -> Utf8PathBuf {
-    let home = home::home_dir().unwrap();
-    Utf8PathBuf::from_path_buf(home.join(".lurk/circom")).expect("path contains invalid Unicode")
+    lurk_default_dir().join("circom")
 }
 
-#[cfg(target_arch = "wasm32")]
-pub(crate) fn circom_default_dir() -> Utf8PathBuf {
-    Utf8PathBuf::from(".lurk/circom")
+pub(crate) fn proofs_dir() -> &'static Utf8PathBuf {
+    &cli_config(None, None).proofs_dir
 }
 
-pub(crate) fn public_params_dir() -> Utf8PathBuf {
-    LURK_DIRS
-        .get()
-        .expect("failed to initialize beforehand with `set_lurk_dirs()`")
-        .public_params
-        .to_owned()
+pub(crate) fn commits_dir() -> &'static Utf8PathBuf {
+    &cli_config(None, None).commits_dir
 }
 
-pub(crate) fn proofs_dir() -> Utf8PathBuf {
-    LURK_DIRS
-        .get()
-        .expect("failed to initialize beforehand with `set_lurk_dirs()`")
-        .proofs
-        .to_owned()
+pub(crate) fn circom_dir() -> &'static Utf8PathBuf {
+    &cli_config(None, None).circom_dir
 }
 
-pub(crate) fn commits_dir() -> Utf8PathBuf {
-    LURK_DIRS
-        .get()
-        .expect("failed to initialize beforehand with `set_lurk_dirs()`")
-        .commits
-        .to_owned()
-}
-
-pub(crate) fn circom_dir() -> Utf8PathBuf {
-    LURK_DIRS
-        .get()
-        .expect("failed to initialize beforehand with `set_lurk_dirs()`")
-        .circom
-        .to_owned()
-}
-
-fn lurk_leaf_dirs() -> [Utf8PathBuf; 4] {
+fn lurk_leaf_dirs() -> [&'static Utf8PathBuf; 4] {
     [
         proofs_dir(),
         commits_dir(),
@@ -106,41 +55,9 @@ fn lurk_leaf_dirs() -> [Utf8PathBuf; 4] {
     ]
 }
 
-pub(crate) fn set_lurk_dirs(
-    config: &HashMap<String, String>,
-    public_params_dir: &Option<Utf8PathBuf>,
-    proofs_dir: &Option<Utf8PathBuf>,
-    commits_dir: &Option<Utf8PathBuf>,
-    circom_dir: &Option<Utf8PathBuf>,
-) {
-    let get_path = |given_path: &Option<Utf8PathBuf>, config_key: &str, default: Utf8PathBuf| {
-        given_path.clone().unwrap_or_else(|| {
-            config
-                .get(config_key)
-                .map_or_else(|| default, Utf8PathBuf::from)
-        })
-    };
-
-    let public_params = get_path(
-        public_params_dir,
-        "public_params",
-        public_params_default_dir(),
-    );
-    let proofs = get_path(proofs_dir, "proofs", proofs_default_dir());
-    let commits = get_path(commits_dir, "commits", commits_default_dir());
-    let circom = get_path(circom_dir, "circom", circom_default_dir());
-
-    LURK_DIRS.get_or_init(|| LurkDirs {
-        public_params,
-        proofs,
-        commits,
-        circom,
-    });
-
-    create_lurk_dirs().unwrap();
-}
-
-/// Must call this function after setting `LURK_DIRS` via the `set_lurk_dirs()` function
+// Creates dirs for public params, proofs, commits, and circom
+// NOTE: call this function after `cli_config()` or `lurk_config()` if non-default
+// config settings are desired, as it will initialize them if unset
 pub(crate) fn create_lurk_dirs() -> Result<()> {
     for dir in lurk_leaf_dirs() {
         fs::create_dir_all(dir)?;
@@ -150,7 +67,7 @@ pub(crate) fn create_lurk_dirs() -> Result<()> {
 
 // Not currently configurable
 pub(crate) fn repl_history() -> Utf8PathBuf {
-    lurk_dir().join(Utf8Path::new("repl-history"))
+    lurk_default_dir().join(Utf8Path::new("repl-history"))
 }
 
 pub(crate) fn commitment_path(name: &str) -> Utf8PathBuf {

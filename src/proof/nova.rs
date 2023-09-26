@@ -32,7 +32,7 @@ use crate::{
         },
         CircuitFrame, MultiFrame,
     },
-    config::CONFIG,
+    config::lurk_config,
     coprocessor::Coprocessor,
     error::ProofError,
     eval::{lang::Lang, Meta},
@@ -425,7 +425,12 @@ where
         let mut recursive_snark: Option<RecursiveSNARK<G1<F>, G2<F>, M, C2<F>>> = recursive_snark;
 
         // the shadowing here is voluntary
-        let recursive_snark = if CONFIG.parallelism.recursive_steps.is_parallel() {
+        let recursive_snark = if lurk_config(None, None)
+            .perf
+            .parallelism
+            .recursive_steps
+            .is_parallel()
+        {
             let cc = circuits
                 .iter()
                 .map(|c| Mutex::new(c.clone()))

@@ -1,12 +1,10 @@
 #![doc = include_str!("../README.md")]
 
 use anyhow::{anyhow, bail, Context, Error, Result};
-use camino::Utf8PathBuf;
 use clap::{Arg, ArgAction, Command};
 use fcomm::{
-    committed_expression_store, file_map::data_dir, nova_proof_cache, Claim, Commitment,
-    CommittedExpression, CommittedExpressionMap, LurkCont, LurkPtr, NovaProofCache, Opening, Proof,
-    PtrEvaluation,
+    committed_expression_store, nova_proof_cache, Claim, Commitment, CommittedExpression,
+    CommittedExpressionMap, LurkCont, LurkPtr, NovaProofCache, Opening, Proof, PtrEvaluation,
 };
 use lurk::circuit::circuit_frame::MultiFrame;
 use lurk::lurk_sym_ptr;
@@ -40,10 +38,6 @@ use std::sync::Arc;
 use std::thread;
 
 const DEFAULT_REDUCTION_COUNT: usize = 10;
-
-pub fn public_param_dir() -> Utf8PathBuf {
-    data_dir().join("public_params")
-}
 
 #[derive(Clone, Debug)]
 struct Demo {
@@ -145,9 +139,7 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
         let lang_rc = Arc::new(lang.clone());
         let instance = Instance::new(reduction_count, lang_rc, true, Kind::NovaPublicParams);
         // Load params from disk cache, or generate them in the background.
-        thread::spawn(move || {
-            public_params::<_, _, MultiFrame<'_, _, Coproc<_>>>(&instance, &public_param_dir())
-        });
+        thread::spawn(move || public_params::<_, _, MultiFrame<'_, _, Coproc<_>>>(&instance));
 
         Self {
             repl_state: ReplState::new(s, limit, command, lang),
@@ -527,7 +519,7 @@ impl ClutchState<F, Coproc<F>> {
             true,
             Kind::NovaPublicParams,
         );
-        let pp = public_params(&instance, &public_param_dir())?;
+        let pp = public_params(&instance)?;
 
         let proof = if rest.is_nil() {
             self.last_claim
@@ -592,7 +584,7 @@ impl ClutchState<F, Coproc<F>> {
             true,
             Kind::NovaPublicParams,
         );
-        let pp = public_params(&instance, &public_param_dir())?;
+        let pp = public_params(&instance)?;
         let result = proof.verify(&pp, &self.lang()).unwrap();
 
         if result.verified {

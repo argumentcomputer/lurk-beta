@@ -26,7 +26,7 @@ use crate::{
 
 use super::{
     field_data::{dump, load, HasFieldModulus},
-    paths::{proof_meta_path, proof_path, public_params_dir},
+    paths::{proof_meta_path, proof_path},
     zstore::ZStore,
 };
 
@@ -144,7 +144,7 @@ where
             } => {
                 tracing::info!("Loading public parameters");
                 let instance = Instance::new(rc, Arc::new(lang), true, Kind::NovaPublicParams);
-                let pp = public_params(&instance, &public_params_dir())?;
+                let pp = public_params(&instance)?;
                 Ok(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?)
             }
         }

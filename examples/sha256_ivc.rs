@@ -12,7 +12,7 @@ use lurk::{
     ptr::Ptr,
     public_parameters::{
         instance::{Instance, Kind},
-        public_params, public_params_default_dir,
+        public_params,
     },
     state::user_sym,
     store::Store,
@@ -88,7 +88,7 @@ fn main() {
         Kind::NovaPublicParams,
     );
     // see the documentation on `with_public_params`
-    let pp = public_params(&instance, &public_params_default_dir()).unwrap();
+    let pp = public_params(&instance).unwrap();
     let pp_end = pp_start.elapsed();
     println!("Public parameters took {:?}", pp_end);
 

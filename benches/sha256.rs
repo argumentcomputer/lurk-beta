@@ -5,8 +5,6 @@
 //!
 //! Note: The example [example/sha256_ivc.rs] is this same benchmark but as an example
 //! that's easier to play with and run.
-
-use camino::Utf8Path;
 use criterion::{
     black_box, criterion_group, criterion_main, measurement, BatchSize, BenchmarkGroup,
     BenchmarkId, Criterion, SamplingMode,
@@ -29,7 +27,8 @@ use lurk::{
     store::Store,
 };
 
-const PUBLIC_PARAMS_PATH: &str = "/var/tmp/lurk_benches/public_params";
+mod common;
+use common::set_bench_config;
 
 fn sha256_ivc<F: LurkField>(
     store: &Store<F>,
@@ -108,7 +107,6 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
     let lang_rc = Arc::new(lang.clone());
 
     // use cached public params
-
     let instance: Instance<
         '_,
         pasta_curves::Fq,
@@ -120,9 +118,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
         true,
         Kind::NovaPublicParams,
     );
-    let pp =
-        public_params::<_, _, MultiFrame<'_, _, _>>(&instance, Utf8Path::new(PUBLIC_PARAMS_PATH))
-            .unwrap();
+    let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
     c.bench_with_input(
         BenchmarkId::new(prove_params.name(), arity),
@@ -156,7 +152,8 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
 }
 
 fn ivc_prove_benchmarks(c: &mut Criterion) {
-    tracing::debug!("{:?}", &*lurk::config::CONFIG);
+    set_bench_config();
+    tracing::debug!("{:?}", &lurk::config::LURK_CONFIG);
     let reduction_counts = [10, 100];
     let batch_sizes = [1, 2, 5, 10, 20];
     let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("prove");
@@ -205,9 +202,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
         true,
         Kind::NovaPublicParams,
     );
-    let pp =
-        public_params::<_, _, MultiFrame<'_, _, _>>(&instance, Utf8Path::new(PUBLIC_PARAMS_PATH))
-            .unwrap();
+    let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
     c.bench_with_input(
         BenchmarkId::new(prove_params.name(), arity),
@@ -243,7 +238,8 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
 }
 
 fn ivc_prove_compressed_benchmarks(c: &mut Criterion) {
-    tracing::debug!("{:?}", &*lurk::config::CONFIG);
+    set_bench_config();
+    tracing::debug!("{:?}", &lurk::config::LURK_CONFIG);
     let reduction_counts = [10, 100];
     let batch_sizes = [1, 2, 5, 10, 20];
     let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("prove_compressed");
@@ -292,11 +288,7 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
         true,
         Kind::SuperNovaAuxParams,
     );
-    let pp = supernova_public_params::<_, _, MultiFrame<'_, _, _>>(
-        &instance,
-        Utf8Path::new(PUBLIC_PARAMS_PATH),
-    )
-    .unwrap();
+    let pp = supernova_public_params::<_, _, MultiFrame<'_, _, _>>(&instance).unwrap();
 
     c.bench_with_input(
         BenchmarkId::new(prove_params.name(), arity),
@@ -330,7 +322,8 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
 }
 
 fn nivc_prove_benchmarks(c: &mut Criterion) {
-    tracing::debug!("{:?}", &*lurk::config::CONFIG);
+    set_bench_config();
+    tracing::debug!("{:?}", &lurk::config::LURK_CONFIG);
     let reduction_counts = [10, 100];
     let batch_sizes = [1, 2, 5, 10, 20];
     let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("prove");

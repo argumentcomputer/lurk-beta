@@ -16,7 +16,7 @@ use lurk::{
     proof::{supernova::SuperNovaProver, Prover},
     public_parameters::{
         instance::{Instance, Kind},
-        public_params_default_dir, supernova_public_params,
+        supernova_public_params,
     },
     state::user_sym,
 };
@@ -91,11 +91,7 @@ fn main() {
         true,
         Kind::SuperNovaAuxParams,
     );
-    let pp = supernova_public_params::<_, _, MultiFrame<'_, _, _>>(
-        &instance_primary,
-        &public_params_default_dir(),
-    )
-    .unwrap();
+    let pp = supernova_public_params::<_, _, MultiFrame<'_, _, _>>(&instance_primary).unwrap();
 
     let pp_end = pp_start.elapsed();
     println!("Running claim parameters took {:?}", pp_end);
