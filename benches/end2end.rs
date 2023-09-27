@@ -301,7 +301,7 @@ fn prove_benchmark(c: &mut Criterion) {
             .get_evaluation_frames(
                 ptr,
                 empty_sym_env(&store),
-                &mut store,
+                &store,
                 limit,
                 lang_pallas_rc.clone(),
             )
@@ -354,7 +354,7 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
             .get_evaluation_frames(
                 ptr,
                 empty_sym_env(&store),
-                &mut store,
+                &store,
                 limit,
                 lang_pallas_rc.clone(),
             )
@@ -406,7 +406,7 @@ fn verify_benchmark(c: &mut Criterion) {
                 .get_evaluation_frames(
                     ptr,
                     empty_sym_env(&store),
-                    &mut store,
+                    &store,
                     limit,
                     lang_pallas_rc.clone(),
                 )
@@ -464,7 +464,7 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
                 .get_evaluation_frames(
                     ptr,
                     empty_sym_env(&store),
-                    &mut store,
+                    &store,
                     limit,
                     lang_pallas_rc.clone(),
                 )
