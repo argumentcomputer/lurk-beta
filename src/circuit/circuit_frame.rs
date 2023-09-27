@@ -115,10 +115,10 @@ impl<F: LurkField> EvaluationStore for Store<F> {
     type ContPtr = ContPtr<F>;
     type Error = store::Error;
 
-    fn read(&mut self, expr: &str) -> Result<Self::Ptr, Self::Error> {
+    fn read(&self, expr: &str) -> Result<Self::Ptr, Self::Error> {
         Store::read(self, expr).map_err(|e| store::Error(e.to_string()))
     }
-    fn initial_empty_env(&mut self) -> Self::Ptr {
+    fn initial_empty_env(&self) -> Self::Ptr {
         empty_sym_env(self)
     }
     fn get_cont_terminal(&self) -> Self::ContPtr {
@@ -5684,13 +5684,16 @@ mod tests {
         let lang = Arc::new(raw_lang.clone());
         let (_, witness, meta) = input.reduce(&store, &lang).unwrap();
 
-        let public_params = Groth16Prover::<Bls12, Coproc<Fr>, Fr>::create_groth_params(
+        let public_params = Groth16Prover::<Bls12, Coproc<Fr>, Fr, MultiFrame<'_, Fr, Coproc<Fr>>>::create_groth_params(
             DEFAULT_REDUCTION_COUNT,
             lang.clone(),
         )
         .unwrap();
         let groth_prover =
-            Groth16Prover::<Bls12, Coproc<Fr>, Fr>::new(DEFAULT_REDUCTION_COUNT, raw_lang);
+            Groth16Prover::<Bls12, Coproc<Fr>, Fr, MultiFrame<'_, Fr, Coproc<Fr>>>::new(
+                DEFAULT_REDUCTION_COUNT,
+                raw_lang,
+            );
         let groth_params = &public_params.0;
 
         let vk = &groth_params.vk;

@@ -6,6 +6,7 @@
 //! Note: The example [example/sha256_ivc.rs] is this same benchmark but as an example
 //! that's easier to play with and run.
 
+use lurk::circuit::circuit_frame::MultiFrame;
 use lurk::circuit::gadgets::data::GlobalAllocations;
 use lurk::state::user_sym;
 use lurk::{circuit::gadgets::pointer::AllocatedContPtr, tag::Tag};
@@ -226,7 +227,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
     let lang_rc = Arc::new(lang.clone());
 
     // use cached public params
-    let pp = public_params(
+    let pp = public_params::<_, _, MultiFrame<'_, _, _>>(
         reduction_count,
         true,
         lang_rc.clone(),
@@ -256,7 +257,7 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
             b.iter_batched(
                 || (frames, lang_rc.clone()),
                 |(frames, lang_rc)| {
-                    let result = prover.prove(&pp, frames, store, lang_rc);
+                    let result = prover.prove(&pp, frames, store, &lang_rc);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,
@@ -309,7 +310,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
     let lang_rc = Arc::new(lang.clone());
 
     // use cached public params
-    let pp = public_params(
+    let pp = public_params::<_, _, MultiFrame<'_, _, _>>(
         reduction_count,
         true,
         lang_rc.clone(),
@@ -339,7 +340,7 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
             b.iter_batched(
                 || (frames, lang_rc.clone()),
                 |(frames, lang_rc)| {
-                    let (proof, _, _, _) = prover.prove(&pp, frames, store, lang_rc).unwrap();
+                    let (proof, _, _, _) = prover.prove(&pp, frames, store, &lang_rc).unwrap();
                     let compressed_result = proof.compress(&pp).unwrap();
 
                     let _ = black_box(compressed_result);

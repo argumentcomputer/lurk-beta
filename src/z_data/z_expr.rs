@@ -216,7 +216,7 @@ mod tests {
         #[test]
         // TODO: Overflows stack in non-release mode
         fn prop_expr_z_expr_roundtrip(x in any::<Syntax<Scalar>>()) {
-            let mut store = Store::<Scalar>::default();
+            let store = Store::<Scalar>::default();
             let ptr = store.intern_syntax(x);
             let expr = store.fetch(&ptr).unwrap();
 
@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     fn unit_expr_z_expr() {
-        let mut store = Store::<Scalar>::default();
+        let store = Store::<Scalar>::default();
         let x = "(+ 1 1)";
         let ptr = store.read(x).unwrap();
         let expr = store.fetch(&ptr).unwrap();

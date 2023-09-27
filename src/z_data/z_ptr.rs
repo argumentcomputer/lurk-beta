@@ -131,7 +131,7 @@ pub type ZExprPtr<F> = ZPtr<ExprTag, F>;
 impl<F: LurkField> ZExprPtr<F> {
     /// Parses and hashes a Lurk source string into a ZExprPtr
     pub fn from_lurk_str(value: &str) -> Result<Self, store::Error> {
-        let mut store = Store::<F>::default();
+        let store = Store::<F>::default();
         let ptr = store
             .read(value)
             .map_err(|e| store::Error(format!("Parse error: {}", e)))?;

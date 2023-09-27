@@ -58,7 +58,10 @@ fn synthesize<M: measurement::Measurement>(
             let env = empty_sym_env(&store);
             let fib_n = (reduction_count / 3) as u64; // Heuristic, since one fib is 35 iterations.
             let ptr = fib::<pasta_curves::Fq>(&mut store, state.clone(), black_box(fib_n));
-            let prover = NovaProver::new(*reduction_count, lang_pallas.clone());
+            let prover = NovaProver::<_, _, MultiFrame<'_, _, _>>::new(
+                *reduction_count,
+                lang_pallas.clone(),
+            );
 
             let frames = prover
                 .get_evaluation_frames(ptr, env, &store, limit, lang_rc.clone())

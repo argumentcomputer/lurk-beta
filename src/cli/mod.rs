@@ -15,6 +15,8 @@ use pasta_curves::pallas;
 use std::{collections::HashMap, fs};
 
 use crate::{
+    circuit::MultiFrame,
+    eval::lang::Coproc,
     field::{LanguageField, LurkField},
     store::Store,
     z_data::{from_z_data, ZData},
@@ -519,7 +521,9 @@ impl Cli {
                     &None,
                     &None,
                 );
-                LurkProof::verify_proof(&verify_args.proof_id)?;
+                LurkProof::<_, _, MultiFrame<'_, _, Coproc<pallas::Scalar>>>::verify_proof(
+                    &verify_args.proof_id,
+                )?;
                 Ok(())
             }
             Command::Circom(circom_args) => {

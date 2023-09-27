@@ -19,6 +19,7 @@ use tracing::info;
 use super::{backend::Backend, commitment::Commitment, field_data::load, paths::commitment_path};
 
 use crate::{
+    circuit::MultiFrame,
     cli::paths::{proof_path, public_params_dir},
     eval::{
         lang::{Coproc, Lang},
@@ -238,11 +239,14 @@ impl Repl<F> {
                         let pp =
                             public_params(self.rc, true, self.lang.clone(), &public_params_dir())?;
 
-                        let prover = NovaProver::new(self.rc, (*self.lang).clone());
+                        let prover = NovaProver::<F, Coproc<F>, MultiFrame<'_, F, Coproc<F>>>::new(
+                            self.rc,
+                            (*self.lang).clone(),
+                        );
 
                         info!("Proving");
                         let (proof, public_inputs, public_outputs, num_steps) =
-                            prover.prove(&pp, frames, &self.store, self.lang.clone())?;
+                            prover.prove(&pp, frames, &self.store, &self.lang)?;
                         info!("Compressing proof");
                         let proof = proof.compress(&pp)?;
                         assert_eq!(self.rc * num_steps, pad(n_frames, self.rc));

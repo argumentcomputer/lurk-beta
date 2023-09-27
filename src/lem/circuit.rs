@@ -551,9 +551,7 @@ impl Func {
                         let img_tag = g
                             .global_allocator
                             .get_allocated_const_cloned($tag.to_field())?;
-                        let AllocatedVal::Number(img_hash) = preallocated_img_hash else {
-                            bail!("Expected number")
-                        };
+                        let AllocatedVal::Number(img_hash) = preallocated_img_hash else { bail!("Expected number")};
                         let img_ptr = AllocatedPtr::from_parts(img_tag, img_hash.clone());
                         bound_allocations.insert_ptr($img, img_ptr);
                     };
@@ -579,9 +577,7 @@ impl Func {
                         };
 
                         // Add the implication constraint for the image
-                        let AllocatedVal::Number(img_hash) = preallocated_img_hash else {
-                            bail!("Expected number")
-                        };
+                        let AllocatedVal::Number(img_hash) = preallocated_img_hash else { bail!("Expected number")};
                         implies_equal(
                             &mut cs.namespace(|| format!("implies equal {}.hash", $img)),
                             not_dummy,
@@ -806,9 +802,7 @@ impl Func {
                                 &preallocated_preimg[i],
                             );
                         }
-                        let AllocatedVal::Boolean(lt) = lt else {
-                            panic!("Expected boolean")
-                        };
+                        let AllocatedVal::Boolean(lt) = lt else { panic!("Expected boolean") };
                         bound_allocations.insert_bool(tgt.clone(), lt.clone());
                     }
                     Op::Trunc(tgt, a, n) => {
@@ -880,9 +874,7 @@ impl Func {
                             .get_allocated_const(Tag::Expr(Num).to_field())?;
                         let (preallocated_preimg, hash) =
                             &g.preallocated_commitment_slots[next_slot.consume_commitment()];
-                        let AllocatedVal::Number(hash) = hash else {
-                            panic!("Excepted number")
-                        };
+                        let AllocatedVal::Number(hash) = hash else { panic!("Excepted number") };
                         implies_equal(
                             &mut cs.namespace(|| "implies equal secret.tag"),
                             not_dummy,
@@ -920,9 +912,7 @@ impl Func {
                         let comm_tag = g
                             .global_allocator
                             .get_allocated_const(Tag::Expr(Comm).to_field())?;
-                        let AllocatedVal::Number(com_hash) = com_hash else {
-                            panic!("Excepted number")
-                        };
+                        let AllocatedVal::Number(com_hash) = com_hash else { panic!("Excepted number") };
                         implies_equal(
                             &mut cs.namespace(|| "implies equal comm.tag"),
                             not_dummy,

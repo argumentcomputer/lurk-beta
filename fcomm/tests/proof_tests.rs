@@ -234,7 +234,7 @@ fn test_function_aux(
         let proof = Proof::<S1>::read_from_json_path(&proof_path).expect("read proof");
         let opening = proof.claim.opening().expect("expected opening claim");
 
-        let mut store = Store::<S1>::default();
+        let store = Store::<S1>::default();
 
         let input = store.read(function_input).expect("store read");
         let canonical_input = input.fmt_to_string(&store, initial_lurk_state());

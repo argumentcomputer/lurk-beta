@@ -1,14 +1,16 @@
 use ::nova::traits::Group;
 use abomonation::Abomonation;
 use anyhow::Result;
-use pasta_curves::pallas::Scalar;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{
     coprocessor::Coprocessor,
     eval::lang::{Coproc, Lang},
     field::LurkField,
-    proof::nova::{self, CurveCycleEquipped, G1, G2},
+    proof::{
+        nova::{self, CurveCycleEquipped, G1, G2},
+        MultiFrameTrait,
+    },
     public_parameters::public_params,
     z_ptr::{ZContPtr, ZExprPtr},
     z_store::ZStore,
@@ -46,15 +48,20 @@ impl<F: LurkField> HasFieldModulus for LurkProofMeta<F> {
 }
 
 /// Minimal data structure containing just enough for proof verification
+#[non_exhaustive]
 #[derive(Serialize, Deserialize)]
-pub(crate) enum LurkProof<'a, F: CurveCycleEquipped>
-where
-    Coproc<F>: Coprocessor<F>,
+#[serde(bound(serialize = "F: Serialize", deserialize = "F: DeserializeOwned"))]
+pub(crate) enum LurkProof<
+    'a,
+    F: CurveCycleEquipped,
+    C: Coprocessor<F>,
+    M: MultiFrameTrait<'a, F, C>,
+> where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     Nova {
-        proof: nova::Proof<'a, F, Coproc<F>>,
+        proof: nova::Proof<'a, F, C, M>,
         public_inputs: Vec<F>,
         public_outputs: Vec<F>,
         num_steps: usize,
@@ -63,9 +70,9 @@ where
     },
 }
 
-impl<'a, F: CurveCycleEquipped> HasFieldModulus for LurkProof<'a, F>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>>
+    HasFieldModulus for LurkProof<'a, F, C, M>
 where
-    Coproc<F>: Coprocessor<F>,
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
@@ -81,11 +88,13 @@ impl<F: LurkField + Serialize> LurkProofMeta<F> {
     }
 }
 
-impl<'a, F: CurveCycleEquipped + Serialize> LurkProof<'a, F>
+impl<'a, F: CurveCycleEquipped + Serialize, M: MultiFrameTrait<'a, F, Coproc<F>>>
+    LurkProof<'a, F, Coproc<F>, M>
 where
-    Coproc<F>: Coprocessor<F>,
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <F as CurveCycleEquipped>::CK1: Sync + Send,
+    <F as CurveCycleEquipped>::CK2: Sync + Send,
 {
     #[inline]
     pub(crate) fn persist(self, proof_key: &str) -> Result<()> {
@@ -93,7 +102,26 @@ where
     }
 }
 
-impl<'a> LurkProof<'a, Scalar> {
+impl<
+        F: CurveCycleEquipped + DeserializeOwned,
+        M: MultiFrameTrait<'static, F, Coproc<F>> + 'static,
+    > LurkProof<'static, F, Coproc<F>, M>
+where
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <F as CurveCycleEquipped>::CK1: Sync + Send,
+    <F as CurveCycleEquipped>::CK2: Sync + Send,
+{
+    pub(crate) fn verify_proof(proof_key: &str) -> Result<()> {
+        let lurk_proof: LurkProof<'_, F, Coproc<F>, M> = load(proof_path(proof_key))?;
+        if lurk_proof.verify()? {
+            println!("✓ Proof \"{proof_key}\" verified");
+        } else {
+            println!("✗ Proof \"{proof_key}\" failed on verification");
+        }
+        Ok(())
+    }
+
     fn verify(self) -> Result<bool> {
         match self {
             Self::Nova {
@@ -106,18 +134,8 @@ impl<'a> LurkProof<'a, Scalar> {
             } => {
                 tracing::info!("Loading public parameters");
                 let pp = public_params(rc, true, std::sync::Arc::new(lang), &public_params_dir())?;
-                Ok(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?)
+                Ok(proof.verify(&*pp, num_steps, &public_inputs, &public_outputs)?)
             }
         }
-    }
-
-    pub(crate) fn verify_proof(proof_key: &str) -> Result<()> {
-        let lurk_proof: LurkProof<'_, Scalar> = load(proof_path(proof_key))?;
-        if lurk_proof.verify()? {
-            println!("✓ Proof \"{proof_key}\" verified");
-        } else {
-            println!("✗ Proof \"{proof_key}\" failed on verification");
-        }
-        Ok(())
     }
 }

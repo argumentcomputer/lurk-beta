@@ -8,6 +8,7 @@ use fcomm::{
     CommittedExpression, CommittedExpressionMap, LurkCont, LurkPtr, NovaProofCache, Opening, Proof,
     PtrEvaluation,
 };
+use lurk::circuit::circuit_frame::MultiFrame;
 use lurk::lurk_sym_ptr;
 use lurk::public_parameters::public_params;
 
@@ -147,7 +148,14 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
 
         let lang_rc = Arc::new(lang.clone());
         // Load params from disk cache, or generate them in the background.
-        thread::spawn(move || public_params(reduction_count, true, lang_rc, &public_param_dir()));
+        thread::spawn(move || {
+            public_params::<_, _, MultiFrame<'_, _, Coproc<_>>>(
+                reduction_count,
+                true,
+                lang_rc,
+                &public_param_dir(),
+            )
+        });
 
         Self {
             repl_state: ReplState::new(s, limit, command, lang),
@@ -531,7 +539,10 @@ impl ClutchState<F, Coproc<F>> {
     fn prove(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let (proof_in_expr, _rest1) = store.car_cdr(&rest)?;
 
-        let prover = NovaProver::<F, Coproc<F>>::new(self.reduction_count, (*self.lang()).clone());
+        let prover = NovaProver::<'_, F, Coproc<F>, MultiFrame<'_, F, Coproc<F>>>::new(
+            self.reduction_count,
+            (*self.lang()).clone(),
+        );
         let pp = public_params(self.reduction_count, true, self.lang(), &public_param_dir())?;
 
         let proof = if rest.is_nil() {

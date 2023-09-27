@@ -10,6 +10,7 @@ use once_cell::sync::Lazy;
 use tap::TapFallible;
 use tracing::{info, warn};
 
+use crate::proof::MultiFrameTrait;
 use crate::{
     coprocessor::Coprocessor,
     eval::lang::Lang,
@@ -20,7 +21,7 @@ use crate::{proof::nova::CurveCycleEquipped, public_parameters::error::Error};
 use super::disk_cache::PublicParamDiskCache;
 
 type AnyMap = anymap::Map<dyn core::any::Any + Send + Sync>;
-type PublicParamMap<F, C> = HashMap<(usize, bool), Arc<PublicParams<'static, F, C>>>;
+type PublicParamMap<F, M> = HashMap<(usize, bool), Arc<PublicParams<F, M>>>;
 
 /// This is a global registry for Coproc-specific parameters.
 /// It is used to cache parameters for each Coproc, so that they are not
@@ -39,9 +40,11 @@ pub(crate) static PUBLIC_PARAM_MEM_CACHE: Lazy<PublicParamMemCache> =
 
 impl PublicParamMemCache {
     fn get_from_disk_cache_or_update_with<
+        'a,
         F: CurveCycleEquipped,
-        C: Coprocessor<F>,
-        Fn: FnOnce(Arc<Lang<F, C>>) -> Arc<PublicParams<'static, F, C>>,
+        C: Coprocessor<F> + 'a,
+        M: MultiFrameTrait<'a, F, C>,
+        Fn: FnOnce(Arc<Lang<F, C>>) -> Arc<PublicParams<F, M>>,
     >(
         &'static self,
         rc: usize,
@@ -49,7 +52,7 @@ impl PublicParamMemCache {
         default: Fn,
         lang: Arc<Lang<F, C>>,
         disk_cache_path: &Utf8Path,
-    ) -> Result<Arc<PublicParams<'static, F, C>>, Error>
+    ) -> Result<Arc<PublicParams<F, M>>, Error>
     where
         <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
         <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -67,8 +70,7 @@ impl PublicParamMemCache {
             match disk_cache.get_raw_bytes(&key) {
                 Ok(mut bytes) => {
                     info!("loading abomonated {lang_key}");
-                    let (pp, rest) =
-                        unsafe { decode::<PublicParams<'_, F, C>>(&mut bytes).unwrap() };
+                    let (pp, rest) = unsafe { decode::<PublicParams<F, M>>(&mut bytes).unwrap() };
                     assert!(rest.is_empty());
                     Ok(Arc::new(pp.clone())) // this clone is VERY expensive
                 }
@@ -106,7 +108,8 @@ impl PublicParamMemCache {
     pub(crate) fn get_from_mem_cache_or_update_with<
         F: CurveCycleEquipped,
         C: Coprocessor<F> + 'static,
-        Fn: FnOnce(Arc<Lang<F, C>>) -> Arc<PublicParams<'static, F, C>>,
+        M: MultiFrameTrait<'static, F, C> + 'static,
+        Fn: FnOnce(Arc<Lang<F, C>>) -> Arc<PublicParams<F, M>>,
     >(
         &'static self,
         rc: usize,
@@ -114,7 +117,7 @@ impl PublicParamMemCache {
         default: Fn,
         lang: Arc<Lang<F, C>>,
         disk_cache_path: &Utf8Path,
-    ) -> Result<Arc<PublicParams<'static, F, C>>, Error>
+    ) -> Result<Arc<PublicParams<F, M>>, Error>
     where
         F::CK1: Sync + Send,
         F::CK2: Sync + Send,
@@ -124,7 +127,7 @@ impl PublicParamMemCache {
         // re-grab the lock
         let mut mem_cache = self.mem_cache.lock().unwrap();
         // retrieve the per-Coproc public param table
-        let entry = mem_cache.entry::<PublicParamMap<F, C>>();
+        let entry = mem_cache.entry::<PublicParamMap<F, M>>();
         // deduce the map and populate it if needed
         let param_entry = entry.or_default();
         match param_entry.entry((rc, abomonated)) {

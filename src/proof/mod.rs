@@ -13,7 +13,6 @@ pub mod nova;
 /// An adapter to a SuperNova proving system implementation.
 pub mod supernova;
 
-use crate::circuit::MultiFrame;
 use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
 use crate::eval::Meta;
@@ -60,9 +59,9 @@ pub trait EvaluationStore {
     type Error: std::fmt::Debug;
 
     /// interpreting a string representation of an expression
-    fn read(&mut self, expr: &str) -> Result<Self::Ptr, Self::Error>;
+    fn read(&self, expr: &str) -> Result<Self::Ptr, Self::Error>;
     /// getting a pointer to the initial, empty environment
-    fn initial_empty_env(&mut self) -> Self::Ptr;
+    fn initial_empty_env(&self) -> Self::Ptr;
     /// getting the terminal continuation pointer
     fn get_cont_terminal(&self) -> Self::ContPtr;
 
@@ -165,7 +164,7 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
 }
 
 /// Represents a sequential Constraint System for a given proof.
-pub(crate) type SequentialCS<'a, F, C> = Vec<(MultiFrame<'a, F, C>, TestConstraintSystem<F>)>;
+pub(crate) type SequentialCS<F, M> = Vec<(M, TestConstraintSystem<F>)>;
 
 /// A trait for provable structures over a field `F`.
 pub trait Provable<F: LurkField> {
@@ -178,10 +177,15 @@ pub trait Provable<F: LurkField> {
 }
 
 /// Verifies a sequence of constraint systems (CSs) for sequentiality & validity.
-pub fn verify_sequential_css<F: LurkField + Copy, C: Coprocessor<F>>(
-    css: &SequentialCS<'_, F, C>,
+pub fn verify_sequential_css<
+    'a,
+    F: LurkField + Copy,
+    C: Coprocessor<F> + 'a,
+    M: MultiFrameTrait<'a, F, C>,
+>(
+    css: &SequentialCS<F, M>,
 ) -> Result<bool, SynthesisError> {
-    let mut previous_frame: Option<&MultiFrame<'_, F, C>> = None;
+    let mut previous_frame: Option<&M> = None;
 
     for (i, (multiframe, cs)) in css.iter().enumerate() {
         if let Some(prev) = previous_frame {
@@ -208,7 +212,7 @@ pub fn verify_sequential_css<F: LurkField + Copy, C: Coprocessor<F>>(
 pub trait PublicParameters {}
 
 /// A trait for a prover that works with a field `F`.
-pub trait Prover<'a, F: LurkField, C: Coprocessor<F>> {
+pub trait Prover<'a, F: LurkField, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>> {
     /// The associated public parameters type for the prover.
     type PublicParams: PublicParameters;
 
@@ -252,10 +256,7 @@ pub trait Prover<'a, F: LurkField, C: Coprocessor<F>> {
     }
 
     /// Synthesizes the outer circuit for the prover given a slice of multiframes.
-    fn outer_synthesize(
-        &self,
-        multiframes: &'a [MultiFrame<'_, F, C>],
-    ) -> Result<SequentialCS<'a, F, C>, SynthesisError> {
+    fn outer_synthesize(&self, multiframes: &[M]) -> Result<SequentialCS<F, M>, SynthesisError> {
         // Note: This loop terminates and returns an error on the first occurrence of `SynthesisError`.
         multiframes
             .iter()
@@ -289,4 +290,7 @@ pub trait Prover<'a, F: LurkField, C: Coprocessor<F>> {
 }
 
 /// Supertrait for `Prover` that also supports NIVC.
-pub trait NIVCProver<'a, F: LurkField, C: Coprocessor<F>>: Prover<'a, F, C> {}
+pub trait NIVCProver<'a, F: LurkField, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>>:
+    Prover<'a, F, C, M>
+{
+}
