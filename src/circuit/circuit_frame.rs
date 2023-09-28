@@ -198,7 +198,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         let mut bogus_cs = WitnessCS::<F>::new();
         let z: Vec<AllocatedNum<F>> = z_scalar
             .iter()
-            .map(|x| AllocatedNum::alloc(&mut bogus_cs, || Ok(*x)).unwrap())
+            .map(|x| AllocatedNum::alloc_infallible(&mut bogus_cs, || *x))
             .collect::<Vec<_>>();
 
         let _ = nova::traits::circuit::StepCircuit::synthesize(self, &mut wcs, z.as_slice());
@@ -6218,9 +6218,9 @@ mod tests {
     fn test_enforce_less_than_bound() {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let alloc_num =
-            AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(Fr::from_u64(42))).unwrap();
+            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "num"), || Fr::from_u64(42));
         let alloc_bound =
-            AllocatedNum::alloc(&mut cs.namespace(|| "bound"), || Ok(Fr::from_u64(43))).unwrap();
+            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "bound"), || Fr::from_u64(43));
         let cond = Boolean::Constant(true);
 
         let res = enforce_less_than_bound(
@@ -6237,9 +6237,9 @@ mod tests {
     fn test_enforce_less_than_bound_negative() {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let alloc_num =
-            AllocatedNum::alloc(&mut cs.namespace(|| "num"), || Ok(Fr::from_u64(43))).unwrap();
+            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "num"), || Fr::from_u64(43));
         let alloc_bound =
-            AllocatedNum::alloc(&mut cs.namespace(|| "bound"), || Ok(Fr::from_u64(42))).unwrap();
+            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "bound"), || Fr::from_u64(42));
         let cond = Boolean::Constant(true);
 
         let res = enforce_less_than_bound(
@@ -6338,7 +6338,7 @@ mod tests {
         let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
 
         let a_plus_power2_32_num =
-            AllocatedNum::alloc(&mut cs.namespace(|| "pow(2, 32) + 2"), || Ok(v)).unwrap();
+            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "pow(2, 32) + 2"), || v);
 
         let bits = a_plus_power2_32_num
             .to_bits_le(&mut cs.namespace(|| "bits"))
@@ -6368,7 +6368,7 @@ mod tests {
         let field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
 
         let a_plus_power2_64_num =
-            AllocatedNum::alloc(&mut cs.namespace(|| "pow(2, 64) + 2"), || Ok(v)).unwrap();
+            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "pow(2, 64) + 2"), || v);
 
         let bits = a_plus_power2_64_num
             .to_bits_le(&mut cs.namespace(|| "bits"))
@@ -6391,7 +6391,7 @@ mod tests {
     fn test_enforce_pack() {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let a_num =
-            AllocatedNum::alloc(&mut cs.namespace(|| "a num"), || Ok(Fr::from_u64(42))).unwrap();
+            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "a num"), || Fr::from_u64(42));
         let bits = a_num.to_bits_le(&mut cs.namespace(|| "bits")).unwrap();
         enforce_pack(&mut cs, &bits, &a_num);
         assert!(cs.is_satisfied());
