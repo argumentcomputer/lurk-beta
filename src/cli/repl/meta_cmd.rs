@@ -1,12 +1,18 @@
+use abomonation::Abomonation;
 use anyhow::{bail, Context, Result};
 use camino::Utf8Path;
+use nova::traits::Group;
+use serde::de::DeserializeOwned;
 use std::process;
 
 use crate::{
+    circuit::MultiFrame,
     cli::lurk_proof::LurkProof,
+    eval::lang::Coproc,
     field::LurkField,
     lurk_sym_ptr,
     package::{Package, SymbolRef},
+    proof::nova::{CurveCycleEquipped, G1, G2},
     ptr::Ptr,
     tag::{ContTag, ExprTag},
     writer::Write,
@@ -379,7 +385,14 @@ impl MetaCmd<F> {
     };
 }
 
-impl<F: LurkField> MetaCmd<F> {
+impl<F: CurveCycleEquipped + DeserializeOwned> MetaCmd<F>
+where
+    // TODO(huitseeker): this is a bit pedantic, revisit later.
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <F as CurveCycleEquipped>::CK1: Sync + Send,
+    <F as CurveCycleEquipped>::CK2: Sync + Send,
+{
     const VERIFY: MetaCmd<F> = MetaCmd {
         name:
             "verify",
@@ -398,7 +411,9 @@ impl<F: LurkField> MetaCmd<F> {
         run: |repl, cmd, args| {
             let first = repl.peek1(cmd, args)?;
             let proof_id = repl.get_string(&first)?;
-            LurkProof::verify_proof(&proof_id)?;
+            LurkProof::<_, _, MultiFrame<'_, _, Coproc<F>>>::verify_proof(
+                &proof_id,
+            )?;
             Ok(())
         }
     };

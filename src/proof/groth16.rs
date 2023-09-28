@@ -33,6 +33,8 @@ use std::marker::PhantomData;
 #[cfg(not(target_arch = "wasm32"))]
 use std::{env, fs::File, io};
 
+use super::MultiFrameTrait;
+
 const DUMMY_RNG_SEED: [u8; 16] = [
     0x01, 0x03, 0x02, 0x04, 0x05, 0x07, 0x06, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0C, 0x0B, 0x0A,
 ];
@@ -97,7 +99,9 @@ where
     pub reduction_count: usize,
 }
 
-impl<C: Coprocessor<Scalar>> Groth16Prover<Bls12, C, Scalar> {
+impl<'a, C: Coprocessor<Scalar> + 'a, M: MultiFrameTrait<'a, Scalar, C>>
+    Groth16Prover<'a, Bls12, C, Scalar, M>
+{
     /// Creates Groth16 parameters using the given reduction count.
     pub fn create_groth_params(
         reduction_count: usize,
@@ -247,10 +251,16 @@ impl<C: Coprocessor<Scalar>> Groth16Prover<Bls12, C, Scalar> {
 /// A prover struct for the Groth16 proving system.
 /// Implements the crate::Prover trait.
 #[derive(Debug)]
-pub struct Groth16Prover<E: Engine + MultiMillerLoop, C: Coprocessor<F>, F: LurkField> {
+pub struct Groth16Prover<
+    'a,
+    E: MultiMillerLoop,
+    C: Coprocessor<F> + 'a,
+    F: LurkField,
+    M: MultiFrameTrait<'a, F, C>,
+> {
     reduction_count: usize,
     lang: Lang<F, C>,
-    _p: PhantomData<(E, C, F)>,
+    _p: PhantomData<(E, &'a M)>,
 }
 
 /// Public parameters for the Groth16 proving system.
@@ -259,7 +269,9 @@ pub struct PublicParams<E: Engine + MultiMillerLoop>(pub groth16::Parameters<E>)
 
 impl PublicParameters for PublicParams<Bls12> {}
 
-impl<'a, C: Coprocessor<Scalar>> Prover<'a, Scalar, C> for Groth16Prover<Bls12, C, Scalar> {
+impl<'a, C: Coprocessor<Scalar>, M: MultiFrameTrait<'a, Scalar, C>> Prover<'a, Scalar, C, M>
+    for Groth16Prover<'a, Bls12, C, Scalar, M>
+{
     type PublicParams = PublicParams<Bls12>;
 
     fn new(reduction_count: usize, lang: Lang<Scalar, C>) -> Self {
@@ -374,7 +386,7 @@ mod tests {
         let rng = OsRng;
 
         let lang_rc = Arc::new(lang.clone());
-        let public_params = Groth16Prover::<_, C, Fr>::create_groth_params(
+        let public_params = Groth16Prover::<_, C, Fr, MultiFrame<'_, Fr, C>>::create_groth_params(
             DEFAULT_REDUCTION_COUNT,
             lang_rc.clone(),
         )
@@ -416,10 +428,11 @@ mod tests {
                     .unwrap());
             }
 
-            let constraint_systems_verified = verify_sequential_css::<Scalar, C>(&cs).unwrap();
+            let constraint_systems_verified =
+                verify_sequential_css::<Scalar, C, MultiFrame<'_, Fr, C>>(&cs).unwrap();
             assert!(constraint_systems_verified);
 
-            check_cs_deltas(&cs, limit, lang_rc.clone());
+            check_cs_deltas::<C>(&cs, limit, lang_rc.clone());
         }
 
         let proof_results = (check_groth16).then(|| {
@@ -456,13 +469,13 @@ mod tests {
     }
 
     fn check_cs_deltas<C: Coprocessor<Fr>>(
-        constraint_systems: &SequentialCS<'_, Fr, C>,
+        constraint_systems: &SequentialCS<Fr, MultiFrame<'_, Fr, C>>,
         limit: usize,
         lang: Arc<Lang<Fr, C>>,
     ) {
         let mut cs_blank = MetricCS::<Fr>::new();
         let folding_config = Arc::new(FoldingConfig::new_ivc(lang, DEFAULT_REDUCTION_COUNT));
-        let blank_frame = MultiFrame::<Scalar, C>::blank(folding_config, Meta::Lurk);
+        let blank_frame = MultiFrame::<'_, Scalar, C>::blank(folding_config, Meta::Lurk);
         blank_frame
             .synthesize(&mut cs_blank)
             .expect("failed to synthesize");

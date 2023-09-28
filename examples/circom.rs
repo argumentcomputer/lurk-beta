@@ -32,6 +32,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Instant;
 
+use lurk::circuit::circuit_frame::MultiFrame;
 use lurk::circuit::gadgets::circom::CircomGadget;
 use lurk::circuit::gadgets::pointer::AllocatedPtr;
 
@@ -114,13 +115,16 @@ fn main() {
     let expr = format!("({coproc_expr})");
     let ptr = store.read(&expr).unwrap();
 
-    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang.clone());
+    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(
+        REDUCTION_COUNT,
+        lang.clone(),
+    );
     let lang_rc = Arc::new(lang);
 
     println!("Setting up public parameters...");
 
     let pp_start = Instant::now();
-    let pp = public_params::<_, Sha256Coproc<Fr>>(
+    let pp = public_params::<_, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>(
         REDUCTION_COUNT,
         true,
         lang_rc.clone(),
@@ -135,7 +139,7 @@ fn main() {
 
     let proof_start = Instant::now();
     let (proof, z0, zi, num_steps) = nova_prover
-        .evaluate_and_prove(&pp, ptr, empty_sym_env(store), store, 10000, lang_rc)
+        .evaluate_and_prove(&pp, ptr, empty_sym_env(store), store, 10000, &lang_rc)
         .unwrap();
     let proof_end = proof_start.elapsed();
 

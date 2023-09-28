@@ -513,7 +513,7 @@ where
     pub fn generate_frames<Fp: Fn(usize) -> bool>(
         expr: Ptr<F>,
         env: Ptr<F>,
-        store: &'a mut Store<F>,
+        store: &'a Store<F>,
         limit: usize,
         needs_frame_padding: Fp,
         lang: &'a Lang<F, C>,

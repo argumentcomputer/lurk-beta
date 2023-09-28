@@ -1110,7 +1110,7 @@ fn evaluate_make_tree() {
 #[test]
 fn evaluate_make_tree_minimal_regression() {
     {
-        let mut s = Store::<Fr>::default();
+        let s = Store::<Fr>::default();
         let limit = 100;
         let expr = s
             .read(

@@ -9,6 +9,7 @@ use criterion::{
 use pasta_curves::pallas;
 
 use lurk::{
+    circuit::circuit_frame::MultiFrame,
     eval::{
         empty_sym_env,
         lang::{Coproc, Lang},
@@ -75,7 +76,7 @@ fn fibo_prove<M: measurement::Measurement>(
     let lang_rc = Arc::new(lang_pallas.clone());
 
     // use cached public params
-    let pp = public_params(
+    let pp = public_params::<_, _, MultiFrame<'_, _, _>>(
         prove_params.reduction_count,
         true,
         lang_rc.clone(),
@@ -98,13 +99,13 @@ fn fibo_prove<M: measurement::Measurement>(
             let prover = NovaProver::new(prove_params.reduction_count, lang_pallas.clone());
 
             let frames = &prover
-                .get_evaluation_frames(ptr, env, &mut store, limit, lang_rc.clone())
+                .get_evaluation_frames(ptr, env, &store, limit, lang_rc.clone())
                 .unwrap();
 
             b.iter_batched(
                 || (frames, lang_rc.clone()),
                 |(frames, lang_rc)| {
-                    let result = prover.prove(&pp, frames, &store, lang_rc);
+                    let result = prover.prove(&pp, frames, &store, &lang_rc);
                     let _ = black_box(result);
                 },
                 BatchSize::LargeInput,

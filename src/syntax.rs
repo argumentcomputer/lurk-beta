@@ -107,7 +107,7 @@ impl<F: LurkField> fmt::Display for Syntax<F> {
 }
 
 impl<F: LurkField> Store<F> {
-    pub fn intern_syntax(&mut self, syn: Syntax<F>) -> Ptr<F> {
+    pub fn intern_syntax(&self, syn: Syntax<F>) -> Ptr<F> {
         match syn {
             Syntax::Num(_, x) => self.intern_num(x),
             Syntax::UInt(_, x) => self.intern_uint(x),
@@ -252,7 +252,7 @@ mod test {
 
     #[test]
     fn syntax_rootkey_roundtrip() {
-        let mut store1 = Store::<Fr>::default();
+        let store1 = Store::<Fr>::default();
         let ptr1 = store1.intern_syntax(Syntax::Symbol(Pos::No, Symbol::root_key().into()));
         let (z_store, z_ptr) = store1.to_z_store_with_ptr(&ptr1).unwrap();
         let (store2, ptr2) = z_store.to_store_with_z_ptr(&z_ptr).unwrap();
@@ -263,7 +263,7 @@ mod test {
 
     #[test]
     fn syntax_empty_keyword_roundtrip() {
-        let mut store1 = Store::<Fr>::default();
+        let store1 = Store::<Fr>::default();
         let ptr1 = store1.intern_syntax(Syntax::Symbol(Pos::No, Symbol::key(&[""]).into()));
         let (z_store, z_ptr) = store1.to_z_store_with_ptr(&ptr1).unwrap();
         let (store2, ptr2) = z_store.to_store_with_z_ptr(&z_ptr).unwrap();
@@ -276,7 +276,7 @@ mod test {
         // TODO: Proptest the Store/ZStore roundtrip with two distinct syntaxes
         #[test]
         fn syntax_full_roundtrip(x in any::<Syntax<Fr>>()) {
-            let mut store1 = Store::<Fr>::default();
+            let store1 = Store::<Fr>::default();
             let ptr1 = store1.intern_syntax(x);
             let (z_store, z_ptr) = store1.to_z_store_with_ptr(&ptr1).unwrap();
             let (store2, ptr2) = z_store.to_store_with_z_ptr(&z_ptr).unwrap();

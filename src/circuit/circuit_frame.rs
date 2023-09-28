@@ -16,11 +16,13 @@ use crate::{
         pointer::{AllocatedContPtr, AllocatedPtr, AsAllocatedHashComponents},
     },
     config::CONFIG,
+    eval::{empty_sym_env, lang::Lang},
     field::LurkField,
     hash::HashConst,
     hash_witness::{
         ConsCircuitWitness, ConsName, ContCircuitWitness, ContName, HashCircuitWitnessCache,
     },
+    proof::CEKState,
     store::NamedConstants,
     tag::Tag,
 };
@@ -39,9 +41,11 @@ use crate::eval::{Frame, Meta, Witness, IO};
 use crate::expr::Thunk;
 use crate::hash_witness::HashWitness;
 use crate::lurk_sym_ptr;
-use crate::proof::{supernova::FoldingConfig, Provable};
-use crate::ptr::Ptr;
-use crate::store::Store;
+use crate::proof::{
+    supernova::FoldingConfig, EvaluationStore, FrameLike, MultiFrameTrait, Provable,
+};
+use crate::ptr::{ContPtr, Ptr};
+use crate::store::{self, Store};
 use crate::tag::{ContTag, ExprTag, Op1, Op2};
 use num_bigint::BigUint;
 use num_integer::Integer;
@@ -67,6 +71,205 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     pub count: usize,
     pub folding_config: Arc<FoldingConfig<F, C>>,
     pub meta: Meta<F>,
+}
+
+impl<F: LurkField> CEKState<Ptr<F>, ContPtr<F>> for IO<F> {
+    fn expr(&self) -> &Ptr<F> {
+        &self.expr
+    }
+    fn env(&self) -> &Ptr<F> {
+        &self.env
+    }
+    fn cont(&self) -> &ContPtr<F> {
+        &self.cont
+    }
+}
+
+impl<F: LurkField, C: Coprocessor<F>> FrameLike<Ptr<F>, ContPtr<F>>
+    for Frame<IO<F>, Witness<F>, F, C>
+{
+    type FrameIO = IO<F>;
+    fn input(&self) -> &Self::FrameIO {
+        &self.input
+    }
+    fn output(&self) -> &Self::FrameIO {
+        &self.output
+    }
+}
+
+impl<'a, F: LurkField, C: Coprocessor<F>> FrameLike<Ptr<F>, ContPtr<F>> for CircuitFrame<'a, F, C> {
+    // TODO: fix the inability to return an error here
+    // We *could* add an Error type here, but actually, this is a case where a builder pattern
+    // would resolve the initialization of these structures
+    type FrameIO = IO<F>;
+    fn input(&self) -> &Self::FrameIO {
+        self.input.as_ref().unwrap()
+    }
+    fn output(&self) -> &Self::FrameIO {
+        self.output.as_ref().unwrap()
+    }
+}
+
+impl<F: LurkField> EvaluationStore for Store<F> {
+    type Ptr = Ptr<F>;
+    type ContPtr = ContPtr<F>;
+    type Error = store::Error;
+
+    fn read(&self, expr: &str) -> Result<Self::Ptr, Self::Error> {
+        Store::read(self, expr).map_err(|e| store::Error(e.to_string()))
+    }
+    fn initial_empty_env(&self) -> Self::Ptr {
+        empty_sym_env(self)
+    }
+    fn get_cont_terminal(&self) -> Self::ContPtr {
+        // qualified syntax for the
+        Store::get_cont_terminal(self)
+    }
+
+    fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> Result<bool, Self::Error> {
+        self.ptr_eq(left, right)
+    }
+}
+
+impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for MultiFrame<'a, F, C> {
+    type Ptr = Ptr<F>;
+    type ContPtr = ContPtr<F>;
+    type Store = Store<F>;
+    type StoreError = store::Error;
+    type EvalFrame = Frame<IO<F>, Witness<F>, F, C>;
+    type CircuitFrame = CircuitFrame<'a, F, C>;
+    type GlobalAllocation = GlobalAllocations<F>;
+    type AllocatedIO = AllocatedIO<F>;
+
+    fn emitted(store: &Self::Store, eval_frame: &Self::EvalFrame) -> Vec<Ptr<F>> {
+        match eval_frame.output.maybe_emitted_expression(store) {
+            Some(ptr) => vec![ptr],
+            None => Vec::default(),
+        }
+    }
+
+    fn get_evaluation_frames(
+        padding_predicate: impl Fn(usize) -> bool,
+        expr: Ptr<F>,
+        env: Ptr<F>,
+        store: &Self::Store,
+        limit: usize,
+        lang: &Lang<F, C>,
+    ) -> Result<Vec<Frame<IO<F>, Witness<F>, F, C>>, crate::error::ProofError> {
+        let frames = crate::eval::Evaluator::generate_frames(
+            expr,
+            env,
+            store,
+            limit,
+            padding_predicate,
+            lang,
+        )?;
+
+        store.hydrate_scalar_cache();
+
+        Ok(frames)
+    }
+
+    fn io_to_scalar_vector(
+        store: &Self::Store,
+        io: &<Self::EvalFrame as FrameLike<Ptr<F>, ContPtr<F>>>::FrameIO,
+    ) -> Result<Vec<F>, Self::StoreError> {
+        io.to_vector(store)
+    }
+
+    fn compute_witness(&self, s: &Self::Store) -> WitnessCS<F> {
+        let mut wcs = WitnessCS::new();
+
+        let input = self.input.unwrap();
+
+        let expr = s.hash_expr(&input.expr).unwrap();
+        let env = s.hash_expr(&input.env).unwrap();
+        let cont = s.hash_cont(&input.cont).unwrap();
+
+        let z_scalar = vec![
+            expr.tag().to_field(),
+            *expr.value(),
+            env.tag().to_field(),
+            *env.value(),
+            cont.tag().to_field(),
+            *cont.value(),
+        ];
+
+        let mut bogus_cs = WitnessCS::<F>::new();
+        let z: Vec<AllocatedNum<F>> = z_scalar
+            .iter()
+            .map(|x| AllocatedNum::alloc(&mut bogus_cs, || Ok(*x)).unwrap())
+            .collect::<Vec<_>>();
+
+        let _ = nova::traits::circuit::StepCircuit::synthesize(self, &mut wcs, z.as_slice());
+
+        wcs
+    }
+
+    fn cached_witness(&mut self) -> &mut Option<WitnessCS<F>> {
+        &mut self.cached_witness
+    }
+
+    fn output(&self) -> &Option<<Self::EvalFrame as FrameLike<Ptr<F>, ContPtr<F>>>::FrameIO> {
+        &self.output
+    }
+
+    fn frames(&self) -> Option<&Vec<Self::CircuitFrame>> {
+        self.frames.as_ref()
+    }
+
+    fn precedes(&self, maybe_next: &Self) -> bool {
+        self.output == maybe_next.input
+    }
+
+    fn synthesize_frames<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        store: &Self::Store,
+        input: Self::AllocatedIO,
+        frames: &[Self::CircuitFrame],
+        g: &GlobalAllocations<F>,
+    ) -> Self::AllocatedIO {
+        let (allocated_expr, allocated_env, allocated_cont) = input;
+        MultiFrame::synthesize_frames(
+            self,
+            cs,
+            store,
+            allocated_expr,
+            allocated_env,
+            allocated_cont,
+            frames,
+            g,
+        )
+    }
+
+    fn blank(folding_config: Arc<FoldingConfig<F, C>>, meta: Meta<F>) -> Self {
+        MultiFrame::blank(folding_config, meta)
+    }
+
+    fn from_frames(
+        count: usize,
+        frames: &[Self::EvalFrame],
+        store: &'a Self::Store,
+        folding_config: Arc<FoldingConfig<F, C>>,
+    ) -> Vec<Self> {
+        MultiFrame::from_frames(count, frames, store, folding_config)
+    }
+
+    /// Make a dummy `MultiFrame`, duplicating `self`'s final `CircuitFrame`.
+    fn make_dummy(
+        count: usize,
+        circuit_frame: Option<CircuitFrame<'a, F, C>>,
+        store: &'a Self::Store,
+        folding_config: Arc<FoldingConfig<F, C>>,
+        meta: Meta<F>,
+    ) -> Self {
+        MultiFrame::make_dummy(count, circuit_frame, store, folding_config, meta)
+    }
+
+    fn significant_frame_count(frames: &[Self::EvalFrame]) -> usize {
+        frames.iter().rev().skip_while(|f| f.is_complete()).count()
+    }
 }
 
 impl<'a, F: LurkField, C: Coprocessor<F>> CircuitFrame<'a, F, C> {
@@ -5481,13 +5684,16 @@ mod tests {
         let lang = Arc::new(raw_lang.clone());
         let (_, witness, meta) = input.reduce(&store, &lang).unwrap();
 
-        let public_params = Groth16Prover::<Bls12, Coproc<Fr>, Fr>::create_groth_params(
+        let public_params = Groth16Prover::<Bls12, Coproc<Fr>, Fr, MultiFrame<'_, Fr, Coproc<Fr>>>::create_groth_params(
             DEFAULT_REDUCTION_COUNT,
             lang.clone(),
         )
         .unwrap();
         let groth_prover =
-            Groth16Prover::<Bls12, Coproc<Fr>, Fr>::new(DEFAULT_REDUCTION_COUNT, raw_lang);
+            Groth16Prover::<Bls12, Coproc<Fr>, Fr, MultiFrame<'_, Fr, Coproc<Fr>>>::new(
+                DEFAULT_REDUCTION_COUNT,
+                raw_lang,
+            );
         let groth_params = &public_params.0;
 
         let vk = &groth_params.vk;

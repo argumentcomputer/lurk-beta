@@ -1,6 +1,7 @@
 use blstrs::Scalar as Fr;
 use criterion::{black_box, criterion_group, criterion_main, Criterion, SamplingMode};
 use lurk::{
+    circuit::circuit_frame::MultiFrame,
     eval::lang::{Coproc, Lang},
     proof::groth16::Groth16Prover,
     proof::nova,
@@ -26,15 +27,26 @@ fn public_params_benchmark(c: &mut Criterion) {
 
     group.bench_function("public_params_nova", |b| {
         b.iter(|| {
-            let result = nova::public_params(reduction_count, lang_pallas_rc.clone());
+            let result = nova::public_params::<_, _, MultiFrame<'_, _, _>>(
+                reduction_count,
+                lang_pallas_rc.clone(),
+            );
             black_box(result)
         })
     });
 
     group.bench_function("public_params_groth", |b| {
         b.iter(|| {
-            let result =
-                Groth16Prover::create_groth_params(DEFAULT_REDUCTION_COUNT, lang_bls_rc.clone());
+            let result = Groth16Prover::<
+                _,
+                Coproc<Fr>,
+                Fr,
+                MultiFrame<'_, Fr, Coproc<Fr>>,
+            >::create_groth_params(
+                DEFAULT_REDUCTION_COUNT,
+                lang_bls_rc.clone(),
+            )
+            .unwrap();
             black_box(result)
         })
     });

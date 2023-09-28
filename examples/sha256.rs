@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Instant;
 
+use lurk::circuit::circuit_frame::MultiFrame;
 use lurk::circuit::gadgets::constraints::alloc_equal;
 use lurk::circuit::gadgets::data::{allocate_constant, GlobalAllocations};
 use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
@@ -190,13 +191,16 @@ fn main() {
 
     let cproc_call = store.list(&[cproc_sym_ptr]);
 
-    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang.clone());
+    let nova_prover = NovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(
+        REDUCTION_COUNT,
+        lang.clone(),
+    );
     let lang_rc = Arc::new(lang);
 
     println!("Setting up public parameters...");
 
     let pp_start = Instant::now();
-    let pp = public_params::<_, Sha256Coproc<Fr>>(
+    let pp = public_params::<_, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>(
         REDUCTION_COUNT,
         true,
         lang_rc.clone(),
@@ -217,7 +221,14 @@ fn main() {
     let (proof, z0, zi, num_steps) = tracing_texray::examine(tracing::info_span!("prog_start"))
         .in_scope(|| {
             nova_prover
-                .evaluate_and_prove(&pp, cproc_call, empty_sym_env(store), store, 10000, lang_rc)
+                .evaluate_and_prove(
+                    &pp,
+                    cproc_call,
+                    empty_sym_env(store),
+                    store,
+                    10000,
+                    &lang_rc,
+                )
                 .unwrap()
         });
     let proof_end = proof_start.elapsed();

@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use crate::coprocessor::Coprocessor;
 use crate::proof::nova::{CurveCycleEquipped, G1, G2};
+use crate::proof::MultiFrameTrait;
 use crate::{
     eval::lang::Lang,
     proof::nova::{self, PublicParams},
@@ -28,19 +29,23 @@ pub fn public_params_default_dir() -> Utf8PathBuf {
     Utf8PathBuf::from(".lurk/public_params")
 }
 
-pub fn public_params<F: CurveCycleEquipped, C: Coprocessor<F> + 'static>(
+pub fn public_params<
+    F: CurveCycleEquipped,
+    C: Coprocessor<F> + 'static,
+    M: MultiFrameTrait<'static, F, C> + 'static,
+>(
     rc: usize,
     abomonated: bool,
     lang: Arc<Lang<F, C>>,
     disk_cache_path: &Utf8Path,
-) -> Result<Arc<PublicParams<'static, F, C>>, Error>
+) -> Result<Arc<PublicParams<F, M>>, Error>
 where
     F::CK1: Sync + Send,
     F::CK2: Sync + Send,
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    let f = |lang: Arc<Lang<F, C>>| Arc::new(nova::public_params(rc, lang));
+    let f = |lang: Arc<Lang<F, C>>| Arc::new(nova::public_params::<F, C, M>(rc, lang));
     mem_cache::PUBLIC_PARAM_MEM_CACHE.get_from_mem_cache_or_update_with(
         rc,
         abomonated,
@@ -55,19 +60,20 @@ where
 /// this leads to extremely high performance, but restricts the lifetime of the data
 /// to the lifetime of the file. Thus, we cannot pass a reference out and must
 /// rely on a closure to capture the data and continue the computation in `bind`.
-pub fn with_public_params<C, F: CurveCycleEquipped, Fn, T>(
+pub fn with_public_params<'a, F: CurveCycleEquipped, C, M, Fn, T>(
     rc: usize,
     lang: Arc<Lang<F, C>>,
     bind: Fn,
 ) -> Result<T, Error>
 where
-    C: Coprocessor<F> + 'static,
-    Fn: FnOnce(&PublicParams<'static, F, C>) -> T,
+    C: Coprocessor<F> + 'a,
+    M: MultiFrameTrait<'a, F, C>,
+    Fn: FnOnce(&PublicParams<F, M>) -> T,
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let disk_cache =
-        disk_cache::PublicParamDiskCache::<F, C>::new(&public_params_default_dir()).unwrap();
+        disk_cache::PublicParamDiskCache::<F, C, M>::new(&public_params_default_dir()).unwrap();
     // use the cached language key
     let lang_key = lang.key();
     // Sanity-check: we're about to use a lang-dependent disk cache, which should be specialized
@@ -120,9 +126,13 @@ mod tests {
             .join("public_params");
 
         let lang: Arc<Lang<S1, Coproc<S1>>> = Arc::new(Lang::new());
+        type OG = crate::proof::nova::C1<'static, S1, Coproc<S1>>;
         // Without disk cache, writes to tmpfile
-        let _public_params = public_params(10, true, lang.clone(), &public_params_dir).unwrap();
+        let _public_params =
+            public_params::<S1, Coproc<S1>, OG>(10, true, lang.clone(), &public_params_dir)
+                .unwrap();
         // With disk cache, reads from tmpfile
-        let _public_params = public_params(10, true, lang, &public_params_dir).unwrap();
+        let _public_params =
+            public_params::<S1, Coproc<S1>, OG>(10, true, lang, &public_params_dir).unwrap();
     }
 }
