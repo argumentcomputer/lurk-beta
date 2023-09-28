@@ -4144,7 +4144,7 @@
     provider::bn256_grumpkin::{bn256, grumpkin},
     provider::pedersen::CommitmentKeyExtTrait,
     traits::{
-        circuit::{StepCircuit, TrivialTestCircuit},
+        circuit::{StepCircuit, TrivialCircuit},
         commitment::CommitmentEngineTrait,
         snark::RelaxedR1CSSNARKTrait,
         Group,
@@ -4255,7 +4255,7 @@
 /// to reflect it this should not be used outside the Nova context
 </span><span class="kw">pub type </span>C1&lt;<span class="lifetime">&#39;a</span>, F, C&gt; = MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt;;
 <span class="doccomment">/// Type alias for a Trivial Test Circuit with G2 scalar field elements.
-</span><span class="kw">pub type </span>C2&lt;F&gt; = TrivialTestCircuit&lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar&gt;;
+</span><span class="kw">pub type </span>C2&lt;F&gt; = TrivialCircuit&lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar&gt;;
 
 <span class="doccomment">/// Type alias for Nova Public Parameters with the curve cycle types defined above.
 </span><span class="kw">pub type </span>NovaPublicParams&lt;F, C1&gt; = nova::PublicParams&lt;G1&lt;F&gt;, G2&lt;F&gt;, C1, C2&lt;F&gt;&gt;;
@@ -4359,7 +4359,7 @@
     <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang, count));
     (
         M::blank(folding_config, Meta::Lurk),
-        TrivialTestCircuit::default(),
+        TrivialCircuit::default(),
     )
 }
 
@@ -4638,7 +4638,7 @@
         <span class="macro">assert_eq!</span>(circuits[<span class="number">0</span>].frames().unwrap().len(), num_iters_per_step);
         <span class="kw">let </span>(_circuit_primary, circuit_secondary): (
             MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, C&gt;,
-            TrivialTestCircuit&lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar&gt;,
+            TrivialCircuit&lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar&gt;,
         ) = <span class="kw">crate</span>::proof::nova::circuits(num_iters_per_step, lang);
 
         <span class="macro">tracing::debug!</span>(<span class="string">&quot;circuits.len: {}&quot;</span>, circuits.len());
