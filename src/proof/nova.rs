@@ -923,12 +923,14 @@ pub mod tests {
     // more than 30 we ignore it.
     ////////////////////////////////////////////////////////////////////////////
 
+    type M1<'a, Fr> = C1<'a, Fr, Coproc<Fr>>;
+
     #[test]
     fn test_prove_binop() {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(3);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(+ 1 2)",
             Some(expected),
@@ -948,7 +950,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(2);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(+ 1 2)",
             Some(expected),
@@ -966,7 +968,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(3);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(let ((a 5)
                       (b 1)
@@ -987,7 +989,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = lurk_sym_ptr!(s, t);
         let terminal = s.get_cont_terminal();
-        nova_test_full_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        nova_test_full_aux::<_, _, M1<'_, _>>(
             s,
             "(eq 5 5)",
             Some(expected),
@@ -1008,7 +1010,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = lurk_sym_ptr!(s, t);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(= 5 5)",
             Some(expected),
@@ -1021,7 +1023,7 @@ pub mod tests {
 
         let expected = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(= 5 6)",
             Some(expected),
@@ -1038,7 +1040,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = lurk_sym_ptr!(s, nil);
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(= 5 nil)",
             Some(expected),
@@ -1050,7 +1052,7 @@ pub mod tests {
         );
 
         let expected = s.num(5);
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(= nil 5)",
             Some(expected),
@@ -1069,7 +1071,7 @@ pub mod tests {
         let t = lurk_sym_ptr!(s, t);
         let terminal = s.get_cont_terminal();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(eq 5 nil)",
             Some(nil),
@@ -1079,7 +1081,7 @@ pub mod tests {
             3,
             None,
         );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(eq nil 5)",
             Some(nil),
@@ -1089,7 +1091,7 @@ pub mod tests {
             3,
             None,
         );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(eq nil nil)",
             Some(t),
@@ -1099,32 +1101,14 @@ pub mod tests {
             3,
             None,
         );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            "(eq 5 5)",
-            Some(t),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, "(eq 5 5)", Some(t), None, Some(terminal), None, 3, None);
     }
 
     #[test]
     fn test_prove_quote_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            "(quote (1) (2))",
-            None,
-            None,
-            Some(error),
-            None,
-            1,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, "(quote (1) (2))", None, None, Some(error), None, 1, None);
     }
 
     #[test]
@@ -1132,7 +1116,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(5);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(if t 5 6)",
             Some(expected),
@@ -1145,7 +1129,7 @@ pub mod tests {
 
         let expected = s.num(6);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(if nil 5 6)",
             Some(expected),
@@ -1162,7 +1146,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(5);
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(if nil 5 6 7)",
             Some(expected),
@@ -1180,7 +1164,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(10);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(if t (+ 5 5) 6)",
             Some(expected),
@@ -1198,7 +1182,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec ((exp (lambda (base)
                                (lambda (exponent)
@@ -1221,7 +1205,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec ((exp (lambda (base)
                                   (lambda (exponent)
@@ -1243,7 +1227,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = lurk_sym_ptr!(s, t);
         let terminal = s.get_cont_terminal();
-        nova_test_full_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        nova_test_full_aux::<_, _, M1<'_, _>>(
             s,
             "(atom 123)",
             Some(expected),
@@ -1258,7 +1242,7 @@ pub mod tests {
         );
 
         let expected = s.num(1);
-        nova_test_full_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        nova_test_full_aux::<_, _, M1<'_, _>>(
             s,
             "(car '(1 . 2))",
             Some(expected),
@@ -1273,7 +1257,7 @@ pub mod tests {
         );
 
         let expected = s.num(2);
-        nova_test_full_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        nova_test_full_aux::<_, _, M1<'_, _>>(
             s,
             "(cdr '(1 . 2))",
             Some(expected),
@@ -1288,7 +1272,7 @@ pub mod tests {
         );
 
         let expected = s.num(123);
-        nova_test_full_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        nova_test_full_aux::<_, _, M1<'_, _>>(
             s,
             "(emit 123)",
             Some(expected),
@@ -1319,7 +1303,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(emit 123)",
             Some(expected),
@@ -1337,7 +1321,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(99);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "((lambda (x) x) 99)",
             Some(expected),
@@ -1355,7 +1339,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(99);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "((lambda (y)
                     ((lambda (x) y) 888))
@@ -1375,7 +1359,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(999);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "((lambda (y)
                      ((lambda (x)
@@ -1398,7 +1382,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(888);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "((lambda (y)
                      ((lambda (x)
@@ -1422,7 +1406,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(999);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(((lambda (fn)
                       (lambda (x) (fn x)))
@@ -1443,7 +1427,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(9);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(+ 2 (+ 3 4))",
             Some(expected),
@@ -1460,7 +1444,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(9);
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(- 9 8 7)",
             Some(expected),
@@ -1470,7 +1454,7 @@ pub mod tests {
             2,
             None,
         );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(= 9 8 7)",
             Some(expected),
@@ -1491,51 +1475,24 @@ pub mod tests {
             if !op.supports_arity(0) {
                 let expr = format!("({name})");
                 tracing::debug!("{:?}", &expr);
-                test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-                    s,
-                    &expr,
-                    None,
-                    None,
-                    Some(error),
-                    None,
-                    1,
-                    None,
-                );
+                test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
             }
             if !op.supports_arity(1) {
                 let expr = format!("({name} 123)");
                 tracing::debug!("{:?}", &expr);
-                test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-                    s,
-                    &expr,
-                    None,
-                    None,
-                    Some(error),
-                    None,
-                    1,
-                    None,
-                );
+                test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
             }
             if !op.supports_arity(2) {
                 let expr = format!("({name} 123 456)");
                 tracing::debug!("{:?}", &expr);
-                test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-                    s,
-                    &expr,
-                    None,
-                    None,
-                    Some(error),
-                    None,
-                    1,
-                    None,
-                );
+                test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
             }
 
             if !op.supports_arity(3) {
                 let expr = format!("({name} 123 456 789)");
                 tracing::debug!("{:?}", &expr);
                 let iterations = if op.supports_arity(2) { 2 } else { 1 };
-                test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+                test_aux::<_, _, M1<'_, _>>(
                     s,
                     &expr,
                     None,
@@ -1570,7 +1527,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(4);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(- 9 5)",
             Some(expected),
@@ -1588,7 +1545,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(45);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(* 9 5)",
             Some(expected),
@@ -1606,7 +1563,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(7);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(/ 21 3)",
             Some(expected),
@@ -1623,7 +1580,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(0);
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(/ 21 0)",
             Some(expected),
@@ -1640,7 +1597,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = lurk_sym_ptr!(s, nil);
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(/ 21 nil)",
             Some(expected),
@@ -1658,7 +1615,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(5);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(((lambda (x)
                     (lambda (y)
@@ -1679,7 +1636,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(current-env)",
             Some(expected),
@@ -1696,7 +1653,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.read("(current-env a)").unwrap();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(current-env a)",
             Some(expected),
@@ -1714,7 +1671,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(1);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(let ((a 1))
                   a)",
@@ -1731,7 +1688,7 @@ pub mod tests {
     fn test_prove_let_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(let ((a 1 2)) a)",
             None,
@@ -1747,7 +1704,7 @@ pub mod tests {
     fn test_prove_letrec_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec ((a 1 2)) a)",
             None,
@@ -1763,7 +1720,7 @@ pub mod tests {
     fn test_prove_lambda_empty_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "((lambda (x)) 0)",
             None,
@@ -1779,46 +1736,28 @@ pub mod tests {
     fn test_prove_let_empty_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, "(let)", None, None, Some(error), None, 1, None);
+        test_aux::<_, _, M1<'_, _>>(s, "(let)", None, None, Some(error), None, 1, None);
     }
 
     #[test]
     fn test_prove_let_empty_body_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            "(let ((a 1)))",
-            None,
-            None,
-            Some(error),
-            None,
-            1,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, "(let ((a 1)))", None, None, Some(error), None, 1, None);
     }
 
     #[test]
     fn test_prove_letrec_empty_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            "(letrec)",
-            None,
-            None,
-            Some(error),
-            None,
-            1,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, "(letrec)", None, None, Some(error), None, 1, None);
     }
 
     #[test]
     fn test_prove_letrec_empty_body_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec ((a 1)))",
             None,
@@ -1835,7 +1774,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = lurk_sym_ptr!(s, t);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(eq nil (let () nil))",
             Some(expected),
@@ -1851,7 +1790,7 @@ pub mod tests {
     fn test_prove_let_rest_body_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(let ((a 1)) a 1)",
             None,
@@ -1867,7 +1806,7 @@ pub mod tests {
     fn test_prove_letrec_rest_body_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec ((a 1)) a 1)",
             None,
@@ -1885,7 +1824,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(3);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(let () (+ 1 2))",
             Some(expected),
@@ -1902,7 +1841,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(3);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec () (+ 1 2))",
             Some(expected),
@@ -1920,7 +1859,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(6);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(let ((a 1)
                        (b 2)
@@ -1941,7 +1880,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(20);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "((((lambda (x)
                       (lambda (y)
@@ -1966,7 +1905,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = lurk_sym_ptr!(s, t);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(let ((x 2)
                        (y 3)
@@ -1988,7 +1927,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(5);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(let ((true (lambda (a)
                                (lambda (b)
@@ -2017,7 +1956,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(6);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(let ((true (lambda (a)
                                (lambda (b)
@@ -2046,7 +1985,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(5);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(let ((true (lambda (a)
                                (lambda (b)
@@ -2072,7 +2011,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(10);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(if t (+ 5 5) 6)",
             Some(expected),
@@ -2090,7 +2029,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec ((exp (lambda (base)
                                    (lambda (exponent)
@@ -2113,7 +2052,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec ((exp (lambda (base exponent)
                                    (if (= 0 exponent)
@@ -2135,7 +2074,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(let ((exp (lambda (base)
                                 (letrec ((base-inner
@@ -2160,7 +2099,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec ((exp (lambda (base)
                                    (lambda (exponent-remaining)
@@ -2183,7 +2122,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(25);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec ((exp (lambda (base)
                                    (letrec ((base-inner
@@ -2208,7 +2147,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = lurk_sym_ptr!(s, t);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec ((even (lambda (n)
                                   (if (= 0 n)
@@ -2233,7 +2172,7 @@ pub mod tests {
     fn test_prove_no_mutual_recursion_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec ((even (lambda (n)
                                   (if (= 0 n)
@@ -2259,7 +2198,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(1);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(car (cons 1 2))",
             Some(expected),
@@ -2275,64 +2214,28 @@ pub mod tests {
     fn test_prove_car_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            "(car (1 2) 3)",
-            None,
-            None,
-            Some(error),
-            None,
-            1,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, "(car (1 2) 3)", None, None, Some(error), None, 1, None);
     }
 
     #[test]
     fn test_prove_cdr_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            "(cdr (1 2) 3)",
-            None,
-            None,
-            Some(error),
-            None,
-            1,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, "(cdr (1 2) 3)", None, None, Some(error), None, 1, None);
     }
 
     #[test]
     fn test_prove_atom_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            "(atom 123 4)",
-            None,
-            None,
-            Some(error),
-            None,
-            1,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, "(atom 123 4)", None, None, Some(error), None, 1, None);
     }
 
     #[test]
     fn test_prove_emit_end_is_nil_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            "(emit 123 4)",
-            None,
-            None,
-            Some(error),
-            None,
-            1,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, "(emit 123 4)", None, None, Some(error), None, 1, None);
     }
 
     #[test]
@@ -2340,7 +2243,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(2);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(cdr (cons 1 2))",
             Some(expected),
@@ -2357,7 +2260,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "((lambda () 123))",
             Some(expected),
@@ -2374,7 +2277,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(10);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(let ((x 9) (f (lambda () (+ x 1)))) (f))",
             Some(expected),
@@ -2397,7 +2300,7 @@ pub mod tests {
             s.intern_fun(arg, body, env)
         };
         let terminal = s.get_cont_terminal();
-        nova_test_full_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        nova_test_full_aux::<_, _, M1<'_, _>>(
             s,
             "((lambda (x) 123))",
             Some(expected),
@@ -2416,7 +2319,7 @@ pub mod tests {
     fn test_prove_zero_arg_lambda4() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "((lambda () 123) 1)",
             None,
@@ -2433,16 +2336,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.read("(123)").unwrap();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            "(123)",
-            Some(expected),
-            None,
-            Some(error),
-            None,
-            1,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, "(123)", Some(expected), None, Some(error), None, 1, None);
     }
 
     #[test]
@@ -2450,7 +2344,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(123);
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "((emit 123))",
             Some(expected),
@@ -2471,7 +2365,7 @@ pub mod tests {
                           (x 6)
                           (data (data-function)))
                       x)";
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             expr,
             Some(expected),
@@ -2489,7 +2383,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec
                    ((f (lambda (x)
@@ -2512,7 +2406,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(2);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(((lambda (a)
                     (lambda (b)
@@ -2534,7 +2428,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(3);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(((lambda (a)
                     (lambda (b)
@@ -2556,7 +2450,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(2);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(car (cdr '(1 2 3 4)))",
             Some(expected),
@@ -2574,7 +2468,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec
                    ((x 888)
@@ -2598,7 +2492,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec
                    ((f (lambda (x)
@@ -2622,7 +2516,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(13);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec ((double (lambda (x) (* 2 x)))
                            (square (lambda (x) (* x x))))
@@ -2642,7 +2536,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(11);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec ((double (lambda (x) (* 2 x)))
                            (double-inc (lambda (x) (+ 1 (double x)))))
@@ -2662,7 +2556,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(33);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec ((exp (lambda (base exponent)
                                   (if (= 0 exponent)
@@ -2693,7 +2587,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(18);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(let ((z 9))
                    (letrec ((a 1)
@@ -2715,7 +2609,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(1);
         let terminal = s.get_cont_terminal();
-        nova_test_full_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        nova_test_full_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec ((next (lambda (a b n target)
                      (if (eq n target)
@@ -2769,7 +2663,7 @@ pub mod tests {
     fn test_prove_terminal_continuation_regression() {
         let s = &mut Store::<Fr>::default();
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec ((a (lambda (x) (cons 2 2))))
                (a 1))",
@@ -2787,7 +2681,7 @@ pub mod tests {
     fn test_prove_chained_functional_commitment() {
         let s = &mut Store::<Fr>::default();
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec ((secret 12345)
                       (a (lambda (acc x)
@@ -2808,7 +2702,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(begin)",
             Some(expected),
@@ -2826,7 +2720,7 @@ pub mod tests {
         let expr = "(begin (emit 1) (emit 2) (emit 3))";
         let expected_expr = s.num(3);
         let expected_emitted = vec![s.num(1), s.num(2), s.num(3)];
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             expr,
             Some(expected_expr),
@@ -2843,7 +2737,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected_a = s.read(r"#\a").unwrap();
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r#"(car "apple")"#,
             Some(expected_a),
@@ -2860,7 +2754,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected_pple = s.read(r#" "pple" "#).unwrap();
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r#"(cdr "apple")"#,
             Some(expected_pple),
@@ -2877,7 +2771,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected_nil = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r#"(car "")"#,
             Some(expected_nil),
@@ -2894,7 +2788,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected_empty_str = s.intern_string("");
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r#"(cdr "")"#,
             Some(expected_empty_str),
@@ -2911,7 +2805,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected_apple = s.read(r#" "apple" "#).unwrap();
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r#"(strcons #\a "pple")"#,
             Some(expected_apple),
@@ -2927,7 +2821,7 @@ pub mod tests {
     fn test_prove_str_cons_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r"(strcons #\a 123)",
             None,
@@ -2943,16 +2837,7 @@ pub mod tests {
     fn test_prove_one_arg_cons_error() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            r#"(cons "")"#,
-            None,
-            None,
-            Some(error),
-            None,
-            1,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, r#"(cons "")"#, None, None, Some(error), None, 1, None);
     }
 
     #[test]
@@ -2960,7 +2845,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r#"(car nil)"#,
             Some(expected),
@@ -2977,7 +2862,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r#"(cdr nil)"#,
             Some(expected),
@@ -2993,78 +2878,24 @@ pub mod tests {
     fn test_prove_car_cdr_invalid_tag_error_sym() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            r#"(car car)"#,
-            None,
-            None,
-            Some(error),
-            None,
-            2,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            r#"(cdr car)"#,
-            None,
-            None,
-            Some(error),
-            None,
-            2,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, r#"(car car)"#, None, None, Some(error), None, 2, None);
+        test_aux::<_, _, M1<'_, _>>(s, r#"(cdr car)"#, None, None, Some(error), None, 2, None);
     }
 
     #[test]
     fn test_prove_car_cdr_invalid_tag_error_char() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            r"(car #\a)",
-            None,
-            None,
-            Some(error),
-            None,
-            2,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            r"(cdr #\a)",
-            None,
-            None,
-            Some(error),
-            None,
-            2,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, r"(car #\a)", None, None, Some(error), None, 2, None);
+        test_aux::<_, _, M1<'_, _>>(s, r"(cdr #\a)", None, None, Some(error), None, 2, None);
     }
 
     #[test]
     fn test_prove_car_cdr_invalid_tag_error_num() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            r#"(car 42)"#,
-            None,
-            None,
-            Some(error),
-            None,
-            2,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            r#"(cdr 42)"#,
-            None,
-            None,
-            Some(error),
-            None,
-            2,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, r#"(car 42)"#, None, None, Some(error), None, 2, None);
+        test_aux::<_, _, M1<'_, _>>(s, r#"(cdr 42)"#, None, None, Some(error), None, 2, None);
     }
 
     #[test]
@@ -3073,7 +2904,7 @@ pub mod tests {
         let res1 = s.num(1);
         let res2 = s.num(2);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r#"(car (cons 1 2))"#,
             Some(res1),
@@ -3083,7 +2914,7 @@ pub mod tests {
             5,
             None,
         );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r#"(cdr (cons 1 2))"#,
             Some(res2),
@@ -3099,7 +2930,7 @@ pub mod tests {
     fn test_prove_car_cdr_invalid_tag_error_lambda() {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r#"(car (lambda (x) x))"#,
             None,
@@ -3109,7 +2940,7 @@ pub mod tests {
             2,
             None,
         );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r#"(cdr (lambda (x) x))"#,
             None,
@@ -3127,16 +2958,7 @@ pub mod tests {
         let expr = "(open (hide 123 456))";
         let expected = s.num(456);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(expected),
-            None,
-            Some(terminal),
-            None,
-            5,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 5, None);
     }
 
     #[test]
@@ -3144,7 +2966,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expr = "(hide 'x 456)";
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, Some(error), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 3, None);
     }
 
     #[test]
@@ -3153,16 +2975,7 @@ pub mod tests {
         let expr = "(secret (hide 123 456))";
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(expected),
-            None,
-            Some(terminal),
-            None,
-            5,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 5, None);
     }
 
     #[test]
@@ -3171,16 +2984,7 @@ pub mod tests {
         let expr = "(open (hide 123 'x))";
         let x = s.user_sym("x");
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(x),
-            None,
-            Some(terminal),
-            None,
-            5,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(x), None, Some(terminal), None, 5, None);
     }
 
     #[test]
@@ -3189,16 +2993,7 @@ pub mod tests {
         let expr = "(open (commit 'x))";
         let x = s.user_sym("x");
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(x),
-            None,
-            Some(terminal),
-            None,
-            4,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(x), None, Some(terminal), None, 4, None);
     }
 
     #[test]
@@ -3207,16 +3002,7 @@ pub mod tests {
         let expr = "(open (commit 123))";
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(expected),
-            None,
-            Some(terminal),
-            None,
-            4,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 4, None);
     }
 
     #[test]
@@ -3224,7 +3010,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expr = "(commit 123 456)";
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, Some(error), None, 1, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 1, None);
     }
 
     #[test]
@@ -3232,7 +3018,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expr = "(open 123 456)";
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, Some(error), None, 1, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 1, None);
     }
 
     #[test]
@@ -3240,7 +3026,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expr = "(open 'asdf)";
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, Some(error), None, 2, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 2, None);
     }
 
     #[test]
@@ -3248,7 +3034,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret 'asdf)";
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, Some(error), None, 2, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 2, None);
     }
 
     #[test]
@@ -3257,16 +3043,7 @@ pub mod tests {
         let expr = "(secret (commit 123))";
         let expected = s.num(0);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(expected),
-            None,
-            Some(terminal),
-            None,
-            4,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 4, None);
     }
 
     #[test]
@@ -3275,16 +3052,7 @@ pub mod tests {
         let expr = "(num 123)";
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(expected),
-            None,
-            Some(terminal),
-            None,
-            2,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 2, None);
     }
 
     #[test]
@@ -3293,16 +3061,7 @@ pub mod tests {
         let expr = r"(num #\a)";
         let expected = s.num(97);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(expected),
-            None,
-            Some(terminal),
-            None,
-            2,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 2, None);
     }
 
     #[test]
@@ -3311,7 +3070,7 @@ pub mod tests {
         let expr = r#"(char 97)"#;
         let expected_a = s.read(r"#\a").unwrap();
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             expr,
             Some(expected_a),
@@ -3331,7 +3090,7 @@ pub mod tests {
         let expected_a = s.read(r"#\a").unwrap();
         let expected_b = s.read(r"#\b").unwrap();
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             expr,
             Some(expected_a),
@@ -3341,7 +3100,7 @@ pub mod tests {
             5,
             None,
         );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             expr2,
             Some(expected_b),
@@ -3358,7 +3117,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expr = "(num (commit 123))";
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, Some(terminal), None, 4, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(terminal), None, 4, None);
     }
 
     #[test]
@@ -3367,16 +3126,7 @@ pub mod tests {
         let expr = "(open (comm (num (hide 123 456))))";
         let expected = s.num(456);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(expected),
-            None,
-            Some(terminal),
-            None,
-            9,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 9, None);
     }
 
     #[test]
@@ -3385,16 +3135,7 @@ pub mod tests {
         let expr = "(secret (comm (num (hide 123 456))))";
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(expected),
-            None,
-            Some(terminal),
-            None,
-            9,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 9, None);
     }
 
     #[test]
@@ -3403,16 +3144,7 @@ pub mod tests {
         let expr = "(open (comm (num (commit 123))))";
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(expected),
-            None,
-            Some(terminal),
-            None,
-            8,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 8, None);
     }
 
     #[test]
@@ -3421,16 +3153,7 @@ pub mod tests {
         let expr = "(secret (comm (num (commit 123))))";
         let expected = s.num(0);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(expected),
-            None,
-            Some(terminal),
-            None,
-            8,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 8, None);
     }
 
     #[test]
@@ -3439,16 +3162,7 @@ pub mod tests {
         let expr = "(open (num (commit 123)))";
         let expected = s.num(123);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(expected),
-            None,
-            Some(terminal),
-            None,
-            6,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 6, None);
     }
 
     #[test]
@@ -3458,9 +3172,9 @@ pub mod tests {
         let expr1 = "(num \"asdf\")";
         let expr2 = "(num '(1))";
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, Some(error), None, 2, None);
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr1, None, None, Some(error), None, 2, None);
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr2, None, None, Some(error), None, 2, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 2, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr1, None, None, Some(error), None, 2, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr2, None, None, Some(error), None, 2, None);
     }
 
     #[test]
@@ -3470,9 +3184,9 @@ pub mod tests {
         let expr1 = "(comm \"asdf\")";
         let expr2 = "(comm '(1))";
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, Some(error), None, 2, None);
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr1, None, None, Some(error), None, 2, None);
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr2, None, None, Some(error), None, 2, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 2, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr1, None, None, Some(error), None, 2, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr2, None, None, Some(error), None, 2, None);
     }
 
     #[test]
@@ -3482,9 +3196,9 @@ pub mod tests {
         let expr1 = "(char \"asdf\")";
         let expr2 = "(char '(1))";
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, Some(error), None, 2, None);
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr1, None, None, Some(error), None, 2, None);
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr2, None, None, Some(error), None, 2, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 2, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr1, None, None, Some(error), None, 2, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr2, None, None, Some(error), None, 2, None);
     }
 
     #[test]
@@ -3493,16 +3207,7 @@ pub mod tests {
         let expr = "(quote x)";
         let x = s.user_sym("x");
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(x),
-            None,
-            Some(terminal),
-            None,
-            1,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(x), None, Some(terminal), None, 1, None);
     }
 
     #[test]
@@ -3510,7 +3215,7 @@ pub mod tests {
     fn test_prove_open_opaque_commit() {
         let s = &mut Store::<Fr>::default();
         let expr = "(open 123)";
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, None, None, 2, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, None, None, 2, None);
     }
 
     #[test]
@@ -3518,7 +3223,7 @@ pub mod tests {
     fn test_prove_secret_invalid_tag() {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret 123)";
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, None, None, 2, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, None, None, 2, None);
     }
 
     #[test]
@@ -3526,7 +3231,7 @@ pub mod tests {
     fn test_prove_secret_opaque_commit() {
         let s = &mut Store::<Fr>::default();
         let expr = "(secret (comm 123))";
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, None, None, 2, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, None, None, 2, None);
     }
 
     #[test]
@@ -3541,7 +3246,7 @@ pub mod tests {
         let terminal = s.get_cont_terminal();
         let error = s.get_cont_error();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r#"(car "apple")"#,
             Some(a),
@@ -3551,7 +3256,7 @@ pub mod tests {
             2,
             None,
         );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r#"(cdr "apple")"#,
             Some(pple),
@@ -3561,7 +3266,7 @@ pub mod tests {
             2,
             None,
         );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r#"(car "")"#,
             Some(nil),
@@ -3571,7 +3276,7 @@ pub mod tests {
             2,
             None,
         );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r#"(cdr "")"#,
             Some(empty),
@@ -3581,7 +3286,7 @@ pub mod tests {
             2,
             None,
         );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r#"(cons #\a "pple")"#,
             Some(a_pple),
@@ -3592,7 +3297,7 @@ pub mod tests {
             None,
         );
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r#"(strcons #\a "pple")"#,
             Some(apple),
@@ -3603,7 +3308,7 @@ pub mod tests {
             None,
         );
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r"(strcons #\a #\b)",
             None,
@@ -3614,7 +3319,7 @@ pub mod tests {
             None,
         );
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r#"(strcons "a" "b")"#,
             None,
@@ -3625,7 +3330,7 @@ pub mod tests {
             None,
         );
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             r#"(strcons 1 2)"#,
             None,
@@ -3646,16 +3351,7 @@ pub mod tests {
         };
         let terminal = s.get_cont_terminal();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(expected),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(expected), None, Some(terminal), None, 3, None);
     }
 
     #[ignore]
@@ -3783,16 +3479,7 @@ pub mod tests {
         let t = lurk_sym_ptr!(s, t);
         let terminal = s.get_cont_terminal();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(t),
-            None,
-            Some(terminal),
-            None,
-            19,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(t), None, Some(terminal), None, 19, None);
     }
 
     #[test]
@@ -3804,26 +3491,8 @@ pub mod tests {
         let res2 = s.num(20);
         let terminal = s.get_cont_terminal();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(res),
-            None,
-            Some(terminal),
-            None,
-            17,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr2,
-            Some(res2),
-            None,
-            Some(terminal),
-            None,
-            9,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 17, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res2), None, Some(terminal), None, 9, None);
     }
 
     #[test]
@@ -3839,36 +3508,9 @@ pub mod tests {
 
         let terminal = s.get_cont_terminal();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(res),
-            None,
-            Some(terminal),
-            None,
-            1,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr2,
-            Some(res2),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr3,
-            Some(res3),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 1, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res2), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr3, Some(res3), None, Some(terminal), None, 3, None);
     }
 
     // The following functional commitment tests were discovered to fail. They are commented out (as tests) for now so
@@ -3884,16 +3526,7 @@ pub mod tests {
         let res = s.num(10);
         let terminal = s.get_cont_terminal();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(res),
-            None,
-            Some(terminal),
-            None,
-            25,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 25, None);
     }
 
     #[test]
@@ -3914,16 +3547,7 @@ pub mod tests {
         let res = s.num(6);
         let terminal = s.get_cont_terminal();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(res),
-            None,
-            Some(terminal),
-            None,
-            108,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 108, None);
     }
 
     #[test]
@@ -3937,16 +3561,7 @@ pub mod tests {
         let res = s.num(6);
         let terminal = s.get_cont_terminal();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(res),
-            None,
-            Some(terminal),
-            None,
-            152,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 152, None);
     }
 
     #[test]
@@ -3956,7 +3571,7 @@ pub mod tests {
         let expr = "(cons (lambda (x y) nil) nil)";
         let terminal = s.get_cont_terminal();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(terminal), None, 3, None);
     }
 
     #[test]
@@ -3966,7 +3581,7 @@ pub mod tests {
         let expr = "(eval 'a '(nil))";
         let error = s.get_cont_error();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, Some(error), None, 4, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 4, None);
     }
 
     #[test]
@@ -3981,7 +3596,7 @@ pub mod tests {
         let expr = "(let ((a 1)) t)";
 
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(terminal), None, 3, None);
     }
 
     #[test]
@@ -3992,7 +3607,7 @@ pub mod tests {
         let expr = "nil";
 
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, Some(terminal), None, 1, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(terminal), None, 1, None);
     }
 
     #[test]
@@ -4002,7 +3617,7 @@ pub mod tests {
         let expr = "(let ((a 1) (b 2)) c)";
 
         let error = s.get_cont_error();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, Some(error), None, 7, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 7, None);
     }
 
     #[test]
@@ -4011,7 +3626,7 @@ pub mod tests {
         let expr = "(* 5 (eval '(+ 1 a) '((0 . 3))))"; // two-arg eval, optional second arg is env. This tests for error on malformed env.
         let error = s.get_cont_error();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, Some(error), None, 8, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 8, None);
     }
 
     #[test]
@@ -4022,16 +3637,7 @@ pub mod tests {
         let res = s.uint64(123);
         let terminal = s.get_cont_terminal();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(res),
-            None,
-            Some(terminal),
-            None,
-            1,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 1, None);
     }
 
     #[test]
@@ -4046,46 +3652,10 @@ pub mod tests {
         let res2 = s.uint64(1);
         let terminal = s.get_cont_terminal();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(res),
-            None,
-            Some(terminal),
-            None,
-            7,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr2,
-            Some(res),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr3,
-            Some(res),
-            None,
-            Some(terminal),
-            None,
-            6,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr4,
-            Some(res2),
-            None,
-            Some(terminal),
-            None,
-            2,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 7, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr3, Some(res), None, Some(terminal), None, 6, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr4, Some(res2), None, Some(terminal), None, 2, None);
     }
 
     #[test]
@@ -4097,26 +3667,8 @@ pub mod tests {
         let res = s.uint64(1);
         let terminal = s.get_cont_terminal();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(res),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr2,
-            Some(res),
-            None,
-            Some(terminal),
-            None,
-            6,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res), None, Some(terminal), None, 6, None);
     }
 
     #[test]
@@ -4131,36 +3683,9 @@ pub mod tests {
         let res3 = s.uint64(0);
         let terminal = s.get_cont_terminal();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(res),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr2,
-            Some(res2),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr3,
-            Some(res3),
-            None,
-            Some(terminal),
-            None,
-            6,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res2), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr3, Some(res3), None, Some(terminal), None, 6, None);
     }
 
     #[test]
@@ -4178,27 +3703,9 @@ pub mod tests {
         let terminal = s.get_cont_terminal();
         let error = s.get_cont_error();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(res),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr2,
-            Some(res2),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr3, None, None, Some(error), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res2), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr3, None, None, Some(error), None, 3, None);
     }
 
     #[test]
@@ -4216,27 +3723,9 @@ pub mod tests {
         let terminal = s.get_cont_terminal();
         let error = s.get_cont_error();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(res),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr2,
-            Some(res2),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr3, None, None, Some(error), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res2), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr3, None, None, Some(error), None, 3, None);
     }
 
     #[test]
@@ -4249,9 +3738,9 @@ pub mod tests {
 
         let error = s.get_cont_error();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, Some(error), None, 3, None);
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr2, None, None, Some(error), None, 3, None);
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr3, None, None, Some(error), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr2, None, None, Some(error), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr3, None, None, Some(error), None, 3, None);
     }
 
     #[test]
@@ -4275,108 +3764,18 @@ pub mod tests {
         let nil = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(t),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr2,
-            Some(nil),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr3,
-            Some(t),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr4,
-            Some(nil),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(t), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr2, Some(nil), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr3, Some(t), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr4, Some(nil), None, Some(terminal), None, 3, None);
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr5,
-            Some(nil),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr6,
-            Some(t),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr7,
-            Some(nil),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr8,
-            Some(t),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr5, Some(nil), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr6, Some(t), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr7, Some(nil), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr8, Some(t), None, Some(terminal), None, 3, None);
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr9,
-            Some(t),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr10,
-            Some(t),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr9, Some(t), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr10, Some(t), None, Some(terminal), None, 3, None);
     }
 
     #[test]
@@ -4392,46 +3791,10 @@ pub mod tests {
         let res3 = s.intern_u64(2);
         let terminal = s.get_cont_terminal();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(res),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr2,
-            Some(res),
-            None,
-            Some(terminal),
-            None,
-            2,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr3,
-            Some(res2),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr4,
-            Some(res3),
-            None,
-            Some(terminal),
-            None,
-            5,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res), None, Some(terminal), None, 2, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr3, Some(res2), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr4, Some(res3), None, Some(terminal), None, 5, None);
     }
 
     #[test]
@@ -4444,26 +3807,8 @@ pub mod tests {
         let nil = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(t),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr2,
-            Some(nil),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(t), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr2, Some(nil), None, Some(terminal), None, 3, None);
     }
 
     #[test]
@@ -4476,26 +3821,8 @@ pub mod tests {
         let res2 = s.read("(1u64 . 1)").unwrap();
         let terminal = s.get_cont_terminal();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr,
-            Some(res),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            expr2,
-            Some(res2),
-            None,
-            Some(terminal),
-            None,
-            3,
-            None,
-        );
+        test_aux::<_, _, M1<'_, _>>(s, expr, Some(res), None, Some(terminal), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr2, Some(res2), None, Some(terminal), None, 3, None);
     }
 
     #[test]
@@ -4505,7 +3832,7 @@ pub mod tests {
         let expr = "(hide 0u64 123)";
         let error = s.get_cont_error();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, Some(error), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 3, None);
     }
 
     #[test]
@@ -4515,7 +3842,7 @@ pub mod tests {
         let expr = "(% 0 0)";
         let error = s.get_cont_error();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, Some(error), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 3, None);
     }
 
     #[test]
@@ -4524,7 +3851,7 @@ pub mod tests {
         let expr = "(let ((a (lambda (x) (+ x 1)))) (a . 1))";
         let error = s.get_cont_error();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(s, expr, None, None, Some(error), None, 3, None);
+        test_aux::<_, _, M1<'_, _>>(s, expr, None, None, Some(error), None, 3, None);
     }
 
     #[test]
@@ -4540,7 +3867,7 @@ pub mod tests {
         let terminal = s.get_cont_terminal();
         let lang: Arc<Lang<Fr, Coproc<Fr>>> = Arc::new(Lang::new());
 
-        nova_test_full_aux2::<_, _, C1<'_, _, Coproc<_>>>(
+        nova_test_full_aux2::<_, _, M1<'_, _>>(
             s,
             expr,
             Some(res),
@@ -4560,17 +3887,8 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
 
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-            s,
-            "((lambda ()))",
-            None,
-            None,
-            Some(error),
-            None,
-            2,
-            None,
-        );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(s, "((lambda ()))", None, None, Some(error), None, 2, None);
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "((lambda () 1 2))",
             None,
@@ -4580,7 +3898,7 @@ pub mod tests {
             2,
             None,
         );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "((lambda (x)) 1)",
             None,
@@ -4590,7 +3908,7 @@ pub mod tests {
             3,
             None,
         );
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "((lambda (x) 1 2) 1)",
             None,
@@ -4613,36 +3931,9 @@ pub mod tests {
             let expr2 = format!("(letrec (({x} 123)) {x})");
             let expr3 = format!("(lambda ({x}) {x})");
 
-            test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-                s,
-                &expr,
-                None,
-                None,
-                Some(error),
-                None,
-                1,
-                None,
-            );
-            test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-                s,
-                &expr2,
-                None,
-                None,
-                Some(error),
-                None,
-                1,
-                None,
-            );
-            test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-                s,
-                &expr3,
-                None,
-                None,
-                Some(error),
-                None,
-                1,
-                None,
-            );
+            test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
+            test_aux::<_, _, M1<'_, _>>(s, &expr2, None, None, Some(error), None, 1, None);
+            test_aux::<_, _, M1<'_, _>>(s, &expr3, None, None, Some(error), None, 1, None);
         };
 
         test(":a");
@@ -4668,100 +3959,37 @@ pub mod tests {
         {
             // binop
             let expr = format!("({} 1 1)", hash_num(s, state.clone(), "+"));
-            test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-                s,
-                &expr,
-                None,
-                None,
-                Some(error),
-                None,
-                1,
-                None,
-            );
+            test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         {
             // unop
             let expr = format!("({} '(1 . 2))", hash_num(s, state.clone(), "car"));
-            test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-                s,
-                &expr,
-                None,
-                None,
-                Some(error),
-                None,
-                1,
-                None,
-            );
+            test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         {
             // let_or_letrec
             let expr = format!("({} ((a 1)) a)", hash_num(s, state.clone(), "let"));
-            test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-                s,
-                &expr,
-                None,
-                None,
-                Some(error),
-                None,
-                1,
-                None,
-            );
+            test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         {
             // current-env
             let expr = format!("({})", hash_num(s, state.clone(), "current-env"));
-            test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-                s,
-                &expr,
-                None,
-                None,
-                Some(error),
-                None,
-                1,
-                None,
-            );
+            test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         {
             // lambda
             let expr = format!("({} (x) 123)", hash_num(s, state.clone(), "lambda"));
-            test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-                s,
-                &expr,
-                None,
-                None,
-                Some(error),
-                None,
-                1,
-                None,
-            );
+            test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         {
             // quote
             let expr = format!("({} asdf)", hash_num(s, state.clone(), "quote"));
-            test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-                s,
-                &expr,
-                None,
-                None,
-                Some(error),
-                None,
-                1,
-                None,
-            );
+            test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
         }
         {
             // if
             let expr = format!("({} t 123 456)", hash_num(s, state, "if"));
-            test_aux::<_, _, C1<'_, _, Coproc<_>>>(
-                s,
-                &expr,
-                None,
-                None,
-                Some(error),
-                None,
-                1,
-                None,
-            );
+            test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, 1, None);
         }
     }
 
@@ -4842,7 +4070,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = lurk_sym_ptr!(s, nil);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "((lambda (x) nil) 0)",
             Some(expected),
@@ -4860,7 +4088,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(2);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec ((x (let ((z 0)) 1))) 2)",
             Some(expected),
@@ -4876,7 +4104,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(1);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(let ((x 0) (y x)) 1)",
             Some(expected),
@@ -4892,7 +4120,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let expected = s.num(3);
         let terminal = s.get_cont_terminal();
-        test_aux::<_, _, C1<'_, _, Coproc<_>>>(
+        test_aux::<_, _, M1<'_, _>>(
             s,
             "(letrec ((x 0) (y (letrec ((inner 1)) 2))) 3)",
             Some(expected),
