@@ -63,6 +63,7 @@ pub mod circuit;
 pub mod eval;
 pub mod interpreter;
 mod macros;
+pub mod multiframe;
 mod path;
 pub mod pointers;
 mod slot;

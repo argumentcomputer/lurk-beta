@@ -172,11 +172,7 @@ pub fn evaluate_with_env_and_cont<F: LurkField, C: Coprocessor<F>>(
             build_frames(eval_step(), &[], input, store, limit, &lang, log_fmt)
         }
         Some((func, lang)) => {
-            let funcs = lang
-                .coprocessors()
-                .iter()
-                .map(|(name, (c, _))| run_cproc(name.clone(), c.arity()))
-                .collect::<Vec<_>>();
+            let funcs = make_cprocs_funcs_from_lang(lang);
             build_frames(func, &funcs, input, store, limit, lang, log_fmt)
         }
     }
@@ -211,11 +207,7 @@ pub fn evaluate_simple<F: LurkField, C: Coprocessor<F>>(
             traverse_frames(eval_step(), &[], input, store, limit, &lang)
         }
         Some((func, lang)) => {
-            let funcs = lang
-                .coprocessors()
-                .iter()
-                .map(|(name, (c, _))| run_cproc(name.clone(), c.arity()))
-                .collect::<Vec<_>>();
+            let funcs = make_cprocs_funcs_from_lang(lang);
             traverse_frames(func, &funcs, input, store, limit, lang)
         }
     }
@@ -378,6 +370,15 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
     };
     let func_inp = vec![cproc, env, cont];
     Func::new("run_cproc".into(), func_inp, 3, block).unwrap()
+}
+
+pub(crate) fn make_cprocs_funcs_from_lang<F: LurkField, C: Coprocessor<F>>(
+    lang: &Lang<F, C>,
+) -> std::sync::Arc<[Func]> {
+    lang.coprocessors()
+        .iter()
+        .map(|(name, (c, _))| run_cproc(name.clone(), c.arity()))
+        .collect()
 }
 
 /// Tells whether `head`, which is assumed to be a symbol, corresponds to the name

@@ -115,6 +115,7 @@ impl<F: LurkField> Preimages<F> {
 pub struct Frame<F: LurkField> {
     pub input: Vec<Ptr<F>>,
     pub output: Vec<Ptr<F>>,
+    pub emitted: Vec<Ptr<F>>,
     pub preimages: Preimages<F>,
     pub blank: bool,
     pub pc: usize,
@@ -128,6 +129,7 @@ impl<F: LurkField> Frame<F> {
         Frame {
             input,
             output,
+            emitted: Vec::default(),
             preimages,
             blank: true,
             pc,
@@ -477,6 +479,7 @@ impl Block {
                     Frame {
                         input,
                         output,
+                        emitted: emitted.clone(),
                         preimages,
                         blank: false,
                         pc,
