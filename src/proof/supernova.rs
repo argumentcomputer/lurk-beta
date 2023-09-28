@@ -423,7 +423,7 @@ where
 /// first circuit (index 0) of every Lurk NIVC circuit set.
 impl<F: LurkField, C: Coprocessor<F>> StepCircuit<F> for NIVCStep<'_, F, C> {
     fn arity(&self) -> usize {
-        MultiFrame::<'_, F, C>::public_input_size() / 2
+        self.multiframe.public_input_size() / 2
     }
 
     fn circuit_index(&self) -> usize {

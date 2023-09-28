@@ -380,6 +380,18 @@ impl Block {
 }
 
 impl Func {
+    /// Add input to bound_allocations
+    pub(crate) fn add_input<F: LurkField>(
+        &self,
+        input: &[AllocatedPtr<F>],
+        bound_allocations: &mut BoundAllocations<F>,
+    ) {
+        assert_eq!(input.len(), self.input_params.len());
+        for (var, ptr) in self.input_params.iter().zip(input) {
+            bound_allocations.insert_ptr(var.clone(), ptr.clone());
+        }
+    }
+
     /// Allocates an unconstrained pointer for each output of the frame
     fn allocate_output<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
