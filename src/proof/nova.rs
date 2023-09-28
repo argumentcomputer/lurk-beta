@@ -10,7 +10,7 @@ use nova::{
     provider::bn256_grumpkin::{bn256, grumpkin},
     provider::pedersen::CommitmentKeyExtTrait,
     traits::{
-        circuit::{StepCircuit, TrivialTestCircuit},
+        circuit::{StepCircuit, TrivialCircuit},
         commitment::CommitmentEngineTrait,
         snark::RelaxedR1CSSNARKTrait,
         Group,
@@ -121,7 +121,7 @@ pub type SS2<F> = nova::spartan::snark::RelaxedR1CSSNARK<G2<F>, EE2<F>>;
 /// to reflect it this should not be used outside the Nova context
 pub type C1<'a, F, C> = MultiFrame<'a, F, C>;
 /// Type alias for a Trivial Test Circuit with G2 scalar field elements.
-pub type C2<F> = TrivialTestCircuit<<G2<F> as Group>::Scalar>;
+pub type C2<F> = TrivialCircuit<<G2<F> as Group>::Scalar>;
 
 /// Type alias for Nova Public Parameters with the curve cycle types defined above.
 pub type NovaPublicParams<F, C1> = nova::PublicParams<G1<F>, G2<F>, C1, C2<F>>;
@@ -225,7 +225,7 @@ pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrame
     let folding_config = Arc::new(FoldingConfig::new_ivc(lang, count));
     (
         M::blank(folding_config, Meta::Lurk),
-        TrivialTestCircuit::default(),
+        TrivialCircuit::default(),
     )
 }
 
@@ -504,7 +504,7 @@ where
         assert_eq!(circuits[0].frames().unwrap().len(), num_iters_per_step);
         let (_circuit_primary, circuit_secondary): (
             MultiFrame<'_, F, C>,
-            TrivialTestCircuit<<G2<F> as Group>::Scalar>,
+            TrivialCircuit<<G2<F> as Group>::Scalar>,
         ) = crate::proof::nova::circuits(num_iters_per_step, lang);
 
         tracing::debug!("circuits.len: {}", circuits.len());
