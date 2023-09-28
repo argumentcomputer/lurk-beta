@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/groth16.rs`."><title>groth16.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (0288f2e19 2023-09-25)" data-channel="nightly" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/groth16.rs`."><title>groth16.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (e7c502d93 2023-09-27)" data-channel="nightly" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -672,6 +672,19 @@
 <a href="#672" id="672">672</a>
 <a href="#673" id="673">673</a>
 <a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bellpepper_core::SynthesisError;
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>bellperson::groth16::aggregate::setup_fake_srs;
@@ -706,6 +719,8 @@
 <span class="kw">use </span>std::marker::PhantomData;
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>std::{env, fs::File, io};
+
+<span class="kw">use </span><span class="kw">super</span>::MultiFrameTrait;
 
 <span class="kw">const </span>DUMMY_RNG_SEED: [u8; <span class="number">16</span>] = [
     <span class="number">0x01</span>, <span class="number">0x03</span>, <span class="number">0x02</span>, <span class="number">0x04</span>, <span class="number">0x05</span>, <span class="number">0x07</span>, <span class="number">0x06</span>, <span class="number">0x08</span>, <span class="number">0x09</span>, <span class="number">0x0A</span>, <span class="number">0x0B</span>, <span class="number">0x0C</span>, <span class="number">0x0D</span>, <span class="number">0x0C</span>, <span class="number">0x0B</span>, <span class="number">0x0A</span>,
@@ -771,7 +786,9 @@
     </span><span class="kw">pub </span>reduction_count: usize,
 }
 
-<span class="kw">impl</span>&lt;C: Coprocessor&lt;Scalar&gt;&gt; Groth16Prover&lt;Bls12, C, Scalar&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, C: Coprocessor&lt;Scalar&gt; + <span class="lifetime">&#39;a</span>, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, Scalar, C&gt;&gt;
+    Groth16Prover&lt;<span class="lifetime">&#39;a</span>, Bls12, C, Scalar, M&gt;
+{
     <span class="doccomment">/// Creates Groth16 parameters using the given reduction count.
     </span><span class="kw">pub fn </span>create_groth_params(
         reduction_count: usize,
@@ -921,10 +938,16 @@
 <span class="doccomment">/// A prover struct for the Groth16 proving system.
 /// Implements the crate::Prover trait.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>Groth16Prover&lt;E: Engine + MultiMillerLoop, C: Coprocessor&lt;F&gt;, F: LurkField&gt; {
+</span><span class="kw">pub struct </span>Groth16Prover&lt;
+    <span class="lifetime">&#39;a</span>,
+    E: MultiMillerLoop,
+    C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
+    F: LurkField,
+    M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
+&gt; {
     reduction_count: usize,
     lang: Lang&lt;F, C&gt;,
-    _p: PhantomData&lt;(E, C, F)&gt;,
+    _p: PhantomData&lt;(E, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>M)&gt;,
 }
 
 <span class="doccomment">/// Public parameters for the Groth16 proving system.
@@ -933,7 +956,9 @@
 
 <span class="kw">impl </span>PublicParameters <span class="kw">for </span>PublicParams&lt;Bls12&gt; {}
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, C: Coprocessor&lt;Scalar&gt;&gt; Prover&lt;<span class="lifetime">&#39;a</span>, Scalar, C&gt; <span class="kw">for </span>Groth16Prover&lt;Bls12, C, Scalar&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, C: Coprocessor&lt;Scalar&gt;, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, Scalar, C&gt;&gt; Prover&lt;<span class="lifetime">&#39;a</span>, Scalar, C, M&gt;
+    <span class="kw">for </span>Groth16Prover&lt;<span class="lifetime">&#39;a</span>, Bls12, C, Scalar, M&gt;
+{
     <span class="kw">type </span>PublicParams = PublicParams&lt;Bls12&gt;;
 
     <span class="kw">fn </span>new(reduction_count: usize, lang: Lang&lt;Scalar, C&gt;) -&gt; <span class="self">Self </span>{
@@ -1048,7 +1073,7 @@
         <span class="kw">let </span>rng = OsRng;
 
         <span class="kw">let </span>lang_rc = Arc::new(lang.clone());
-        <span class="kw">let </span>public_params = Groth16Prover::&lt;<span class="kw">_</span>, C, Fr&gt;::create_groth_params(
+        <span class="kw">let </span>public_params = Groth16Prover::&lt;<span class="kw">_</span>, C, Fr, MultiFrame&lt;<span class="lifetime">&#39;_</span>, Fr, C&gt;&gt;::create_groth_params(
             DEFAULT_REDUCTION_COUNT,
             lang_rc.clone(),
         )
@@ -1090,10 +1115,11 @@
                     .unwrap());
             }
 
-            <span class="kw">let </span>constraint_systems_verified = verify_sequential_css::&lt;Scalar, C&gt;(<span class="kw-2">&amp;</span>cs).unwrap();
+            <span class="kw">let </span>constraint_systems_verified =
+                verify_sequential_css::&lt;Scalar, C, MultiFrame&lt;<span class="lifetime">&#39;_</span>, Fr, C&gt;&gt;(<span class="kw-2">&amp;</span>cs).unwrap();
             <span class="macro">assert!</span>(constraint_systems_verified);
 
-            check_cs_deltas(<span class="kw-2">&amp;</span>cs, limit, lang_rc.clone());
+            check_cs_deltas::&lt;C&gt;(<span class="kw-2">&amp;</span>cs, limit, lang_rc.clone());
         }
 
         <span class="kw">let </span>proof_results = (check_groth16).then(|| {
@@ -1130,13 +1156,13 @@
     }
 
     <span class="kw">fn </span>check_cs_deltas&lt;C: Coprocessor&lt;Fr&gt;&gt;(
-        constraint_systems: <span class="kw-2">&amp;</span>SequentialCS&lt;<span class="lifetime">&#39;_</span>, Fr, C&gt;,
+        constraint_systems: <span class="kw-2">&amp;</span>SequentialCS&lt;Fr, MultiFrame&lt;<span class="lifetime">&#39;_</span>, Fr, C&gt;&gt;,
         limit: usize,
         lang: Arc&lt;Lang&lt;Fr, C&gt;&gt;,
     ) {
         <span class="kw">let </span><span class="kw-2">mut </span>cs_blank = MetricCS::&lt;Fr&gt;::new();
         <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang, DEFAULT_REDUCTION_COUNT));
-        <span class="kw">let </span>blank_frame = MultiFrame::&lt;Scalar, C&gt;::blank(folding_config, Meta::Lurk);
+        <span class="kw">let </span>blank_frame = MultiFrame::&lt;<span class="lifetime">&#39;_</span>, Scalar, C&gt;::blank(folding_config, Meta::Lurk);
         blank_frame
             .synthesize(<span class="kw-2">&amp;mut </span>cs_blank)
             .expect(<span class="string">&quot;failed to synthesize&quot;</span>);

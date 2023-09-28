@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Proof"],"fn":["public_params"],"struct":["NovaProver","PublicParams"],"trait":["CurveCycleEquipped"],"type":["C1","C2","EE1","EE2","G1","G2","NovaPublicParams","SS1","SS2"]};
+window.SIDEBAR_ITEMS = {"enum":["Proof"],"fn":["circuits","public_params"],"struct":["NovaProver","PublicParams"],"trait":["CurveCycleEquipped"],"type":["C1","C2","EE1","EE2","G1","G2","NovaPublicParams","SS1","SS2"]};

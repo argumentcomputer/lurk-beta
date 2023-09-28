@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/lurk_proof.rs`."><title>lurk_proof.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (0288f2e19 2023-09-25)" data-channel="nightly" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/lurk_proof.rs`."><title>lurk_proof.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (e7c502d93 2023-09-27)" data-channel="nightly" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -121,17 +121,37 @@
 <a href="#121" id="121">121</a>
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>::nova::traits::Group;
 <span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::Result;
-<span class="kw">use </span>pasta_curves::pallas::Scalar;
-<span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 <span class="kw">use crate</span>::{
     coprocessor::Coprocessor,
     eval::lang::{Coproc, Lang},
     field::LurkField,
-    proof::nova::{<span class="self">self</span>, CurveCycleEquipped, G1, G2},
+    proof::{
+        nova::{<span class="self">self</span>, CurveCycleEquipped, G1, G2},
+        MultiFrameTrait,
+    },
     public_parameters::public_params,
     z_ptr::{ZContPtr, ZExprPtr},
     z_store::ZStore,
@@ -169,15 +189,20 @@
 }
 
 <span class="doccomment">/// Minimal data structure containing just enough for proof verification
-</span><span class="attr">#[derive(Serialize, Deserialize)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>LurkProof&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped&gt;
-<span class="kw">where
-    </span>Coproc&lt;F&gt;: Coprocessor&lt;F&gt;,
-    &lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+</span><span class="attr">#[non_exhaustive]
+#[derive(Serialize, Deserialize)]
+#[serde(bound(serialize = <span class="string">&quot;F: Serialize&quot;</span>, deserialize = <span class="string">&quot;F: DeserializeOwned&quot;</span>))]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>LurkProof&lt;
+    <span class="lifetime">&#39;a</span>,
+    F: CurveCycleEquipped,
+    C: Coprocessor&lt;F&gt;,
+    M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
+&gt; <span class="kw">where
+    </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     Nova {
-        proof: nova::Proof&lt;<span class="lifetime">&#39;a</span>, F, Coproc&lt;F&gt;&gt;,
+        proof: nova::Proof&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;,
         public_inputs: Vec&lt;F&gt;,
         public_outputs: Vec&lt;F&gt;,
         num_steps: usize,
@@ -186,10 +211,10 @@
     },
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped&gt; HasFieldModulus <span class="kw">for </span>LurkProof&lt;<span class="lifetime">&#39;a</span>, F&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
+    HasFieldModulus <span class="kw">for </span>LurkProof&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
 <span class="kw">where
-    </span>Coproc&lt;F&gt;: Coprocessor&lt;F&gt;,
-    &lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">fn </span>field_modulus() -&gt; String {
@@ -204,11 +229,13 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped + Serialize&gt; LurkProof&lt;<span class="lifetime">&#39;a</span>, F&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped + Serialize, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, Coproc&lt;F&gt;&gt;&gt;
+    LurkProof&lt;<span class="lifetime">&#39;a</span>, F, Coproc&lt;F&gt;, M&gt;
 <span class="kw">where
-    </span>Coproc&lt;F&gt;: Coprocessor&lt;F&gt;,
-    &lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    &lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::CK1: Sync + Send,
+    &lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::CK2: Sync + Send,
 {
     <span class="attr">#[inline]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>persist(<span class="self">self</span>, proof_key: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -216,7 +243,26 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; LurkProof&lt;<span class="lifetime">&#39;a</span>, Scalar&gt; {
+<span class="kw">impl</span>&lt;
+        F: CurveCycleEquipped + DeserializeOwned,
+        M: MultiFrameTrait&lt;<span class="lifetime">&#39;static</span>, F, Coproc&lt;F&gt;&gt; + <span class="lifetime">&#39;static</span>,
+    &gt; LurkProof&lt;<span class="lifetime">&#39;static</span>, F, Coproc&lt;F&gt;, M&gt;
+<span class="kw">where
+    </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
+    &lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::CK1: Sync + Send,
+    &lt;F <span class="kw">as </span>CurveCycleEquipped&gt;::CK2: Sync + Send,
+{
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>verify_proof(proof_key: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>lurk_proof: LurkProof&lt;<span class="lifetime">&#39;_</span>, F, Coproc&lt;F&gt;, M&gt; = load(proof_path(proof_key))<span class="question-mark">?</span>;
+        <span class="kw">if </span>lurk_proof.verify()<span class="question-mark">? </span>{
+            <span class="macro">println!</span>(<span class="string">&quot;✓ Proof \&quot;{proof_key}\&quot; verified&quot;</span>);
+        } <span class="kw">else </span>{
+            <span class="macro">println!</span>(<span class="string">&quot;✗ Proof \&quot;{proof_key}\&quot; failed on verification&quot;</span>);
+        }
+        <span class="prelude-val">Ok</span>(())
+    }
+
     <span class="kw">fn </span>verify(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Nova {
@@ -229,19 +275,9 @@
             } =&gt; {
                 <span class="macro">tracing::info!</span>(<span class="string">&quot;Loading public parameters&quot;</span>);
                 <span class="kw">let </span>pp = public_params(rc, <span class="bool-val">true</span>, std::sync::Arc::new(lang), <span class="kw-2">&amp;</span>public_params_dir())<span class="question-mark">?</span>;
-                <span class="prelude-val">Ok</span>(proof.verify(<span class="kw-2">&amp;</span>pp, num_steps, <span class="kw-2">&amp;</span>public_inputs, <span class="kw-2">&amp;</span>public_outputs)<span class="question-mark">?</span>)
+                <span class="prelude-val">Ok</span>(proof.verify(<span class="kw-2">&amp;*</span>pp, num_steps, <span class="kw-2">&amp;</span>public_inputs, <span class="kw-2">&amp;</span>public_outputs)<span class="question-mark">?</span>)
             }
         }
-    }
-
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>verify_proof(proof_key: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>lurk_proof: LurkProof&lt;<span class="lifetime">&#39;_</span>, Scalar&gt; = load(proof_path(proof_key))<span class="question-mark">?</span>;
-        <span class="kw">if </span>lurk_proof.verify()<span class="question-mark">? </span>{
-            <span class="macro">println!</span>(<span class="string">&quot;✓ Proof \&quot;{proof_key}\&quot; verified&quot;</span>);
-        } <span class="kw">else </span>{
-            <span class="macro">println!</span>(<span class="string">&quot;✗ Proof \&quot;{proof_key}\&quot; failed on verification&quot;</span>);
-        }
-        <span class="prelude-val">Ok</span>(())
     }
 }
 </code></pre></div></section></main></body></html>
