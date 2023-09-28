@@ -139,7 +139,7 @@ impl<'a, C: Coprocessor<Scalar> + 'a, M: MultiFrameTrait<'a, Scalar, C>>
         srs: &GenericSRS<Bls12>,
         expr: Ptr<Scalar>,
         env: Ptr<Scalar>,
-        store: &mut Store<Scalar>,
+        store: &Store<Scalar>,
         limit: usize,
         mut rng: R,
         lang: Arc<Lang<Scalar, C>>,
@@ -344,7 +344,7 @@ mod tests {
     const DEFAULT_CHECK_GROTH16: bool = false;
     const DEFAULT_REDUCTION_COUNT: usize = 5;
 
-    fn outer_prove_aux<Fo: Fn(&'_ mut Store<Fr>) -> Ptr<Fr>>(
+    fn outer_prove_aux<Fo: Fn(&'_ Store<Fr>) -> Ptr<Fr>>(
         source: &str,
         expected_result: Fo,
         expected_iterations: usize,
@@ -353,14 +353,14 @@ mod tests {
         limit: usize,
         debug: bool,
     ) {
-        let mut s = Store::default();
-        let expected_result = expected_result(&mut s);
+        let s = Store::default();
+        let expected_result = expected_result(&s);
 
         let expr = s.read(source).unwrap();
         let lang = Lang::<Fr, Coproc<Fr>>::new();
 
         outer_prove_aux0(
-            &mut s,
+            &s,
             expr,
             expected_result,
             expected_iterations,
@@ -373,7 +373,7 @@ mod tests {
     }
 
     fn outer_prove_aux0<C: Coprocessor<Fr>>(
-        s: &mut Store<Fr>,
+        s: &Store<Fr>,
         expr: Ptr<Fr>,
         expected_result: Ptr<Fr>,
         expected_iterations: usize,
@@ -635,7 +635,7 @@ mod tests {
     #[test]
     #[ignore]
     fn outer_prove_chained_functional_commitment() {
-        let mut s = Store::<Fr>::default();
+        let s = Store::<Fr>::default();
 
         let fun_src = s
             .read(
@@ -672,16 +672,6 @@ mod tests {
 
         let result_expr = output.expr;
 
-        outer_prove_aux0(
-            &mut s,
-            input,
-            result_expr,
-            32,
-            true,
-            true,
-            limit,
-            false,
-            &lang,
-        );
+        outer_prove_aux0(&s, input, result_expr, 32, true, true, limit, false, &lang);
     }
 }

@@ -48,11 +48,7 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn read_with_state(
-        &mut self,
-        state: Rc<RefCell<State>>,
-        input: &str,
-    ) -> Result<Ptr<F>, Error> {
+    pub fn read_with_state(&self, state: Rc<RefCell<State>>, input: &str) -> Result<Ptr<F>, Error> {
         match preceded(
             syntax::parse_space,
             syntax::parse_syntax(state, false, false),
@@ -65,7 +61,7 @@ impl<F: LurkField> Store<F> {
     }
 
     pub fn read_maybe_meta_with_state<'a>(
-        &mut self,
+        &self,
         state: Rc<RefCell<State>>,
         input: Span<'a>,
     ) -> Result<(Span<'a>, Ptr<F>, bool), Error> {

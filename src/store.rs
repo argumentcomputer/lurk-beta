@@ -251,7 +251,7 @@ impl<F: LurkField> Store<F> {
         self.intern_list(elts)
     }
 
-    pub fn num<T: Into<Num<F>>>(&mut self, num: T) -> Ptr<F> {
+    pub fn num<T: Into<Num<F>>>(&self, num: T) -> Ptr<F> {
         self.intern_num(num)
     }
 
@@ -1933,7 +1933,7 @@ pub mod test {
 
     #[test]
     fn store() {
-        let mut store = Store::<Fr>::default();
+        let store = Store::<Fr>::default();
 
         let num_ptr = store.num(123);
         let num = store.fetch(&num_ptr).unwrap();
@@ -1944,7 +1944,7 @@ pub mod test {
 
     #[test]
     fn equality() {
-        let mut store = Store::<Fr>::default();
+        let store = Store::<Fr>::default();
 
         let (a, b) = (store.num(123), store.sym("pumpkin"));
         let cons1 = store.intern_cons(a, b);
@@ -1962,7 +1962,7 @@ pub mod test {
 
     #[test]
     fn opaque_fun() {
-        let mut store = Store::<Fr>::default();
+        let store = Store::<Fr>::default();
 
         let arg = store.sym("A");
         let body_form = store.num(123);
@@ -2022,7 +2022,7 @@ pub mod test {
 
     #[test]
     fn opaque_sym() {
-        let mut store = Store::<Fr>::default();
+        let store = Store::<Fr>::default();
 
         let empty_env = empty_sym_env(&store);
         let sym = store.sym("sym");
@@ -2123,7 +2123,7 @@ pub mod test {
 
     #[test]
     fn opaque_cons() {
-        let mut store = Store::<Fr>::default();
+        let store = Store::<Fr>::default();
 
         let num1 = store.num(123);
         let num2 = store.num(987);
@@ -2208,7 +2208,7 @@ pub mod test {
         }
     }
 
-    fn make_maybe_opaque_cons(store: &mut Store<Fr>, car: u64, cdr: u64) -> Ptr<Fr> {
+    fn make_maybe_opaque_cons(store: &Store<Fr>, car: u64, cdr: u64) -> Ptr<Fr> {
         let num1 = store.num(Num::<Fr>::from(car));
         let num2 = store.num(Num::<Fr>::from(cdr));
         let cons = store.intern_cons(num1, num2);
@@ -2217,39 +2217,39 @@ pub mod test {
         store.intern_maybe_opaque_cons(*cons_hash.value())
     }
 
-    fn make_opaque_cons(store: &mut Store<Fr>) -> Ptr<Fr> {
+    fn make_opaque_cons(store: &Store<Fr>) -> Ptr<Fr> {
         store.intern_opaque_cons(12345.into())
     }
 
     #[test]
     #[should_panic]
     fn opaque_cons_car() {
-        let mut store = Store::<Fr>::default();
+        let store = Store::<Fr>::default();
 
-        let opaque_cons = make_opaque_cons(&mut store);
+        let opaque_cons = make_opaque_cons(&store);
         store.car(&opaque_cons).unwrap();
     }
     #[test]
     #[should_panic]
     fn opaque_cons_cdr() {
-        let mut store = Store::<Fr>::default();
+        let store = Store::<Fr>::default();
 
-        let opaque_cons = make_opaque_cons(&mut store);
+        let opaque_cons = make_opaque_cons(&store);
         store.cdr(&opaque_cons).unwrap();
     }
 
     #[test]
     fn maybe_opaque_cons_car() {
-        let mut store = Store::<Fr>::default();
+        let store = Store::<Fr>::default();
 
-        let opaque_cons = make_maybe_opaque_cons(&mut store, 123, 987);
+        let opaque_cons = make_maybe_opaque_cons(&store, 123, 987);
         store.car(&opaque_cons).unwrap();
     }
     #[test]
     fn maybe_opaque_cons_cdr() {
-        let mut store = Store::<Fr>::default();
+        let store = Store::<Fr>::default();
 
-        let opaque_cons = make_maybe_opaque_cons(&mut store, 123, 987);
+        let opaque_cons = make_maybe_opaque_cons(&store, 123, 987);
         store.cdr(&opaque_cons).unwrap();
     }
 
@@ -2414,7 +2414,7 @@ pub mod test {
         );
     }
 
-    fn commit_and_open(store: &mut Store<S1>, expr: Ptr<S1>) -> Ptr<S1> {
+    fn commit_and_open(store: &Store<S1>, expr: Ptr<S1>) -> Ptr<S1> {
         let secret = <S1>::random(OsRng);
         let comm = store.hide(secret, expr);
 

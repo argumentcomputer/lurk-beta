@@ -43,7 +43,7 @@ use sha2::{Digest, Sha256};
 const PUBLIC_PARAMS_PATH: &str = "/var/tmp/lurk_benches/public_params";
 
 fn sha256_ivc<F: LurkField>(
-    store: &mut Store<F>,
+    store: &Store<F>,
     state: Rc<RefCell<State>>,
     arity: usize,
     n: usize,

@@ -412,7 +412,7 @@ impl Verify {
 }
 
 fn read_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
-    store: &mut Store<F>,
+    store: &Store<F>,
     path: P,
 ) -> Result<Ptr<F>, Error> {
     let path = env::current_dir().unwrap().join(path);
@@ -423,7 +423,7 @@ fn read_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
 }
 
 fn read_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
-    store: &mut Store<F>,
+    store: &Store<F>,
     path: P,
     limit: usize,
     lang: &Lang<F, Coproc<F>>,
@@ -442,7 +442,7 @@ fn read_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
 }
 
 fn read_no_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
-    store: &mut Store<F>,
+    store: &Store<F>,
     path: P,
 ) -> Result<(Ptr<F>, Ptr<F>), Error> {
     let src = read_from_path(store, path)?;
@@ -453,7 +453,7 @@ fn read_no_eval_from_path<P: AsRef<Path>, F: LurkField + Serialize>(
 }
 
 fn _lurk_function<P: AsRef<Path>, F: LurkField + Serialize>(
-    store: &mut Store<F>,
+    store: &Store<F>,
     function_path: P,
     limit: usize,
     lang: &Lang<F, Coproc<F>>,
@@ -466,7 +466,7 @@ fn _lurk_function<P: AsRef<Path>, F: LurkField + Serialize>(
 }
 
 fn input<P: AsRef<Path>, F: LurkField + Serialize>(
-    store: &mut Store<F>,
+    store: &Store<F>,
     input_path: P,
     eval_input: bool,
     limit: usize,
@@ -489,7 +489,7 @@ fn input<P: AsRef<Path>, F: LurkField + Serialize>(
 }
 
 fn expression<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
-    store: &mut Store<F>,
+    store: &Store<F>,
     expression_path: P,
     lurk: bool,
     limit: usize,

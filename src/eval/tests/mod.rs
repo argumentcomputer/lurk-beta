@@ -17,7 +17,7 @@ use crate as lurk;
 mod trie;
 
 fn test_aux_with_state<C: Coprocessor<Fr>>(
-    s: &mut Store<Fr>,
+    s: &Store<Fr>,
     state: Rc<RefCell<State>>,
     expr: &str,
     expected_result: Option<Ptr<Fr>>,
@@ -56,7 +56,7 @@ fn test_aux_with_state<C: Coprocessor<Fr>>(
 }
 
 fn test_aux<C: Coprocessor<Fr>>(
-    s: &mut Store<Fr>,
+    s: &Store<Fr>,
     expr: &str,
     expected_result: Option<Ptr<Fr>>,
     expected_env: Option<Ptr<Fr>>,
@@ -94,7 +94,7 @@ fn test_aux<C: Coprocessor<Fr>>(
 }
 
 fn test_aux2<C: Coprocessor<Fr>>(
-    s: &mut Store<Fr>,
+    s: &Store<Fr>,
     expr: &Ptr<Fr>,
     expected_result: Option<Ptr<Fr>>,
     expected_env: Option<Ptr<Fr>>,
@@ -139,7 +139,7 @@ fn test_aux2<C: Coprocessor<Fr>>(
 
 #[test]
 fn test_lookup() {
-    let mut store = Store::<Fr>::default();
+    let store = Store::<Fr>::default();
     let env = empty_sym_env(&store);
     let var = store.sym("variable");
     let val = store.num(123);
@@ -152,7 +152,7 @@ fn test_lookup() {
 
 #[test]
 fn test_reduce_simple() {
-    let mut store = Store::<Fr>::default();
+    let store = Store::<Fr>::default();
     let lang = Lang::<Fr, Coproc<Fr>>::new();
     {
         let num = store.num(123);
@@ -192,7 +192,7 @@ fn evaluate_simple() {
 
 #[test]
 fn evaluate_lookup() {
-    let mut store = Store::<Fr>::default();
+    let store = Store::<Fr>::default();
 
     let limit = 20;
     let val = store.num(999);
@@ -1856,7 +1856,7 @@ fn secret_opaque_commit() {
     test_aux::<Coproc<Fr>>(s, expr, None, None, None, None, 2, None);
 }
 
-fn relational_aux(s: &mut Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
+fn relational_aux(s: &Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
     let expr = &format!("({op} {a} {b})");
     let expected = if res {
         lurk_sym_ptr!(s, t)
@@ -2296,7 +2296,7 @@ fn test_numeric_type_error() {
     let s = &mut Store::<Fr>::default();
     let error = s.get_cont_error();
 
-    let mut test = |op| {
+    let test = |op| {
         let expr = &format!("({op} 0 'a)");
         let expr2 = &format!("({op} 0u64 'a)");
 
@@ -2510,7 +2510,7 @@ fn test_eval_dotted_syntax_error() {
 fn op_syntax_error<T: Op + Copy>() {
     let s = &mut Store::<Fr>::default();
     let error = s.get_cont_error();
-    let mut test = |op: T| {
+    let test = |op: T| {
         let name = op.symbol_name();
 
         {
@@ -2601,7 +2601,7 @@ fn test_eval_non_symbol_binding_error() {
     let s = &mut Store::<Fr>::default();
     let error = s.get_cont_error();
 
-    let mut test = |x| {
+    let test = |x| {
         let expr = format!("(let (({x} 123)) {x})");
         let expr2 = format!("(letrec (({x} 123)) {x})");
         let expr3 = format!("(lambda ({x}) {x})");

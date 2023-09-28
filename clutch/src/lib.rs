@@ -126,12 +126,7 @@ impl<F: LurkField, C: Coprocessor<F>> ClutchState<F, C> {
 }
 
 impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
-    fn new(
-        s: &mut Store<F>,
-        limit: usize,
-        command: Option<Command>,
-        lang: Lang<F, Coproc<F>>,
-    ) -> Self {
+    fn new(s: &Store<F>, limit: usize, command: Option<Command>, lang: Lang<F, Coproc<F>>) -> Self {
         let reduction_count = DEFAULT_REDUCTION_COUNT;
 
         let proof_map = nova_proof_cache(reduction_count);
@@ -210,7 +205,7 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
 
     fn handle_meta<P: AsRef<Path> + Copy>(
         &mut self,
-        store: &mut Store<F>,
+        store: &Store<F>,
         state: Rc<RefCell<State>>,
         expr_ptr: Ptr<F>,
         p: P,
@@ -269,7 +264,7 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
 
     fn handle_non_meta(
         &mut self,
-        store: &mut Store<F>,
+        store: &Store<F>,
         state: &State,
         expr_ptr: Ptr<F>,
     ) -> Result<(IO<F>, IO<F>, usize)> {
@@ -306,7 +301,7 @@ impl ClutchState<F, Coproc<F>> {
     fn lang(&self) -> Arc<Lang<F, Coproc<F>>> {
         self.repl_state.lang.clone()
     }
-    fn commit(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+    fn commit(&mut self, store: &Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let (first, rest) = store.car_cdr(&rest)?;
         let (second, _) = store.car_cdr(&rest)?;
 
@@ -337,13 +332,13 @@ impl ClutchState<F, Coproc<F>> {
         Ok(Some(store.intern_maybe_opaque_comm(commitment.comm)))
     }
 
-    fn open(&self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+    fn open(&self, store: &Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         Ok(self.open_aux(store, rest)?.1)
     }
 
     fn apply_comm(
         &mut self,
-        store: &mut Store<F>,
+        store: &Store<F>,
         state: &State,
         comm: Ptr<F>,
         rest: Ptr<F>,
@@ -351,20 +346,10 @@ impl ClutchState<F, Coproc<F>> {
         let call_form = store.cons(comm, rest);
         self.apply_comm_aux(store, state, call_form, false)
     }
-    fn call(
-        &mut self,
-        store: &mut Store<F>,
-        state: &State,
-        rest: Ptr<F>,
-    ) -> Result<Option<Ptr<F>>> {
+    fn call(&mut self, store: &Store<F>, state: &State, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         self.apply_comm_aux(store, state, rest, false)
     }
-    fn chain(
-        &mut self,
-        store: &mut Store<F>,
-        state: &State,
-        rest: Ptr<F>,
-    ) -> Result<Option<Ptr<F>>> {
+    fn chain(&mut self, store: &Store<F>, state: &State, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let (result_expr, new_comm) = self
             .apply_comm_aux(store, state, rest, true)?
             .and_then(|cons| store.car_cdr(&cons).ok()) // unpack pair
@@ -409,7 +394,7 @@ impl ClutchState<F, Coproc<F>> {
     }
     fn apply_comm_aux(
         &mut self,
-        store: &mut Store<F>,
+        store: &Store<F>,
         state: &State,
         rest: Ptr<F>,
         chain: bool,
@@ -445,11 +430,7 @@ impl ClutchState<F, Coproc<F>> {
 
         Ok(Some(result))
     }
-    fn open_aux(
-        &self,
-        store: &mut Store<F>,
-        rest: Ptr<F>,
-    ) -> Result<(Commitment<F>, Option<Ptr<F>>)> {
+    fn open_aux(&self, store: &Store<F>, rest: Ptr<F>) -> Result<(Commitment<F>, Option<Ptr<F>>)> {
         let maybe_comm = store.car(&rest)?;
 
         let comm = match maybe_comm.tag {
@@ -492,7 +473,7 @@ impl ClutchState<F, Coproc<F>> {
 
     fn proof_in_expr(
         &self,
-        store: &mut Store<F>,
+        store: &Store<F>,
         state: &State,
         rest: Ptr<F>,
     ) -> Result<Option<Ptr<F>>> {
@@ -506,7 +487,7 @@ impl ClutchState<F, Coproc<F>> {
     }
     fn proof_out_expr(
         &self,
-        store: &mut Store<F>,
+        store: &Store<F>,
         state: &State,
         rest: Ptr<F>,
     ) -> Result<Option<Ptr<F>>> {
@@ -536,7 +517,7 @@ impl ClutchState<F, Coproc<F>> {
             .ok_or_else(|| anyhow!("proof not found: {zptr_string}"))
     }
 
-    fn prove(&mut self, store: &mut Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
+    fn prove(&mut self, store: &Store<F>, rest: Ptr<F>) -> Result<Option<Ptr<F>>> {
         let (proof_in_expr, _rest1) = store.car_cdr(&rest)?;
 
         let prover = NovaProver::<'_, F, Coproc<F>, MultiFrame<'_, F, Coproc<F>>>::new(

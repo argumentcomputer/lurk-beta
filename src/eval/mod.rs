@@ -549,7 +549,7 @@ pub fn empty_sym_env<F: LurkField>(store: &Store<F>) -> Ptr<F> {
 // Convenience functions, mostly for use in tests.
 
 pub fn eval_to_ptr<F: LurkField, C: Coprocessor<F>>(
-    s: &mut Store<F>,
+    s: &Store<F>,
     src: &str,
 ) -> Result<Ptr<F>, ReductionError> {
     let expr = s.read(src).unwrap();

@@ -22,7 +22,7 @@ use lurk::{
     store::Store,
 };
 
-fn fib<F: LurkField>(store: &mut Store<F>, state: Rc<RefCell<State>>, a: u64) -> Ptr<F> {
+fn fib<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, a: u64) -> Ptr<F> {
     let program = format!(
         r#"
 (let ((fib (lambda (target)
@@ -54,10 +54,10 @@ fn synthesize<M: measurement::Measurement>(
         BenchmarkId::new(name.to_string(), reduction_count),
         &reduction_count,
         |b, reduction_count| {
-            let mut store = Store::default();
+            let store = Store::default();
             let env = empty_sym_env(&store);
             let fib_n = (reduction_count / 3) as u64; // Heuristic, since one fib is 35 iterations.
-            let ptr = fib::<pasta_curves::Fq>(&mut store, state.clone(), black_box(fib_n));
+            let ptr = fib::<pasta_curves::Fq>(&store, state.clone(), black_box(fib_n));
             let prover = NovaProver::<_, _, MultiFrame<'_, _, _>>::new(
                 *reduction_count,
                 lang_pallas.clone(),

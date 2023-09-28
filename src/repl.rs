@@ -60,7 +60,7 @@ pub struct Repl<F: LurkField, T: ReplTrait<F, C>, C: Coprocessor<F>> {
 }
 
 pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
-    fn new(s: &mut Store<F>, limit: usize, command: Option<Command>, lang: Lang<F, C>) -> Self;
+    fn new(s: &Store<F>, limit: usize, command: Option<Command>, lang: Lang<F, C>) -> Self;
 
     fn name() -> String;
 
@@ -72,7 +72,7 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
 
     fn handle_form<'a, P: AsRef<Path> + Copy>(
         &mut self,
-        store: &mut Store<F>,
+        store: &Store<F>,
         state: Rc<RefCell<State>>,
         input: parser::Span<'a>,
         pwd: P,
@@ -92,7 +92,7 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
 
     fn handle_load<P: AsRef<Path>>(
         &mut self,
-        store: &mut Store<F>,
+        store: &Store<F>,
         state: Rc<RefCell<State>>,
         file_path: P,
     ) -> Result<()> {
@@ -102,7 +102,7 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
 
     fn handle_file<P: AsRef<Path> + Copy>(
         &mut self,
-        store: &mut Store<F>,
+        store: &Store<F>,
         state: Rc<RefCell<State>>,
         file_path: P,
     ) -> Result<()> {
@@ -137,7 +137,7 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
 
     fn handle_meta<P: AsRef<Path> + Copy>(
         &mut self,
-        store: &mut Store<F>,
+        store: &Store<F>,
         state: Rc<RefCell<State>>,
         expr_ptr: Ptr<F>,
         p: P,
@@ -145,7 +145,7 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
 
     fn handle_non_meta(
         &mut self,
-        store: &mut Store<F>,
+        store: &Store<F>,
         state: &State,
         expr_ptr: Ptr<F>,
     ) -> Result<(IO<F>, IO<F>, usize)>;
@@ -153,7 +153,7 @@ pub trait ReplTrait<F: LurkField, C: Coprocessor<F>> {
 
 impl<F: LurkField, T: ReplTrait<F, C>, C: Coprocessor<F>> Repl<F, T, C> {
     pub fn new(
-        s: &mut Store<F>,
+        s: &Store<F>,
         limit: usize,
         command: Option<Command>,
         lang: Lang<F, C>,
@@ -254,7 +254,7 @@ fn repl_aux<
 
 // For the moment, input must be on a single line.
 pub fn run_repl<P: AsRef<Path>, F: LurkField, T: ReplTrait<F, C>, C: Coprocessor<F>>(
-    s: &mut Store<F>,
+    s: &Store<F>,
     mut repl: Repl<F, T, C>,
     lurk_file: Option<P>,
 ) -> Result<()> {
@@ -353,7 +353,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplState<F, C> {
 }
 
 impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
-    fn new(s: &mut Store<F>, limit: usize, command: Option<Command>, lang: Lang<F, C>) -> Self {
+    fn new(s: &Store<F>, limit: usize, command: Option<Command>, lang: Lang<F, C>) -> Self {
         Self {
             env: empty_sym_env(s),
             limit,
@@ -396,7 +396,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
 
     fn handle_meta<P: AsRef<Path> + Copy>(
         &mut self,
-        store: &mut Store<F>,
+        store: &Store<F>,
         state: Rc<RefCell<State>>,
         expr_ptr: Ptr<F>,
         p: P,
@@ -588,7 +588,7 @@ impl<F: LurkField, C: Coprocessor<F>> ReplTrait<F, C> for ReplState<F, C> {
 
     fn handle_non_meta(
         &mut self,
-        store: &mut Store<F>,
+        store: &Store<F>,
         state: &State,
         expr_ptr: Ptr<F>,
     ) -> Result<(IO<F>, IO<F>, usize)> {

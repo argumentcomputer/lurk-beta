@@ -356,7 +356,7 @@ pub mod test {
 
     #[test]
     fn print_expr() {
-        let mut s = Store::<Fr>::default();
+        let s = Store::<Fr>::default();
         let state = &mut State::init_lurk_state();
         let nil = lurk_sym_ptr!(s, nil);
         let x = s.user_sym("x");
@@ -376,7 +376,7 @@ pub mod test {
 
     #[test]
     fn test_print_num() {
-        let mut store = Store::<Fr>::default();
+        let store = Store::<Fr>::default();
         let num = store.num(5);
         let res = num.fmt_to_string(&store, initial_lurk_state());
         assert_eq!(&res, &"5");

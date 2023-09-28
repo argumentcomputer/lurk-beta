@@ -25,7 +25,7 @@ use lurk::{
 
 const PUBLIC_PARAMS_PATH: &str = "/var/tmp/lurk_benches/public_params";
 
-fn fib<F: LurkField>(store: &mut Store<F>, state: Rc<RefCell<State>>, _a: u64) -> Ptr<F> {
+fn fib<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, _a: u64) -> Ptr<F> {
     let program = r#"
 (letrec ((next (lambda (a b) (next b (+ a b))))
            (fib (next 0 1)))
@@ -88,11 +88,11 @@ fn fibo_prove<M: measurement::Measurement>(
         BenchmarkId::new(prove_params.name(), fib_n),
         &prove_params,
         |b, prove_params| {
-            let mut store = Store::default();
+            let store = Store::default();
 
             let env = empty_sym_env(&store);
             let ptr = fib::<pasta_curves::Fq>(
-                &mut store,
+                &store,
                 state.clone(),
                 black_box(prove_params.fib_n as u64),
             );
