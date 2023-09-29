@@ -1381,7 +1381,8 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                         return (arg2, saved_env, continuation, ret)
                                     }
                                 };
-                                let begin_again: Expr::Cons = cons2(operator, unevaled_args);
+                                let begin = Symbol("begin");
+                                let begin_again: Expr::Cons = cons2(begin, unevaled_args);
                                 return (begin_again, saved_env, continuation, ctrl)
                             }
                         };
@@ -1671,8 +1672,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 10554;
-    const NUM_CONSTRAINTS: usize = 12904;
+    const NUM_AUX: usize = 10555;
+    const NUM_CONSTRAINTS: usize = 12905;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash4: 14,
         hash6: 3,
