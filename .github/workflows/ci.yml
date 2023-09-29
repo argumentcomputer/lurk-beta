@@ -34,7 +34,7 @@ concurrency:
 
 jobs:
   linux:
-    runs-on: [self-hosted, test]
+    runs-on: lurk-ci-runner
     env:
       RUSTFLAGS: -D warnings
     steps:

@@ -14,7 +14,7 @@ concurrency:
 jobs:
   run-benchmark:
     name: run end2end benchmark
-    runs-on: [self-hosted, bench]
+    runs-on: ubuntu-benchmark-runner
     if:
       github.event.issue.pull_request
       && github.event.issue.state == 'open'
