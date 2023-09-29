@@ -157,7 +157,7 @@ impl Repl<F> {
 
     #[allow(dead_code)]
     fn proof_claim(
-        store: &mut Store<F>,
+        store: &Store<F>,
         exprs: (Ptr<F>, Ptr<F>),
         envs: (Ptr<F>, Ptr<F>),
         conts: ((F, F), (F, F)),
@@ -218,7 +218,7 @@ impl Repl<F> {
                     let cont_out = self.store.get_z_cont(&output.cont, &mut zstore)?.0;
 
                     let claim = Self::proof_claim(
-                        &mut self.store,
+                        &self.store,
                         (input.expr, output.expr),
                         (input.env, output.env),
                         (cont.parts(), cont_out.parts()),

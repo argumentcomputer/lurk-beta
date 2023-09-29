@@ -5671,7 +5671,7 @@ mod tests {
 
     #[test]
     fn num_self_evaluating() {
-        let mut store = Store::default();
+        let store = Store::default();
         let env = empty_sym_env(&store);
         let num = store.num(123);
 
@@ -5816,7 +5816,7 @@ mod tests {
 
     #[test]
     fn nil_self_evaluating() {
-        let mut store = Store::default();
+        let store = Store::default();
         let env = empty_sym_env(&store);
         let nil = lurk_sym_ptr!(store, nil);
 
@@ -5900,7 +5900,7 @@ mod tests {
 
     #[test]
     fn t_self_evaluating() {
-        let mut store = Store::default();
+        let store = Store::default();
         let env = empty_sym_env(&store);
         let t = lurk_sym_ptr!(store, t);
 
@@ -5984,7 +5984,7 @@ mod tests {
 
     #[test]
     fn fun_self_evaluating() {
-        let mut store = Store::default();
+        let store = Store::default();
         let env = empty_sym_env(&store);
         let var = store.sym("a");
         let body = store.intern_list(&[var]);
@@ -6073,7 +6073,7 @@ mod tests {
 
     #[test]
     fn non_self_evaluating() {
-        let mut store = Store::default();
+        let store = Store::default();
         let env = empty_sym_env(&store);
 
         // Input is not self-evaluating.
@@ -6089,7 +6089,7 @@ mod tests {
 
         store.hydrate_scalar_cache();
 
-        let test_with_output = |output, expect_success, store: &mut Store<Fr>| {
+        let test_with_output = |output, expect_success, store: &Store<Fr>| {
             let mut cs = TestConstraintSystem::<Fr>::new();
 
             let frame = Frame {
@@ -6132,7 +6132,7 @@ mod tests {
                     cont: store.intern_cont_terminal(),
                 };
 
-                test_with_output(output, false, &mut store);
+                test_with_output(output, false, &store);
             }
         }
     }
@@ -6140,7 +6140,7 @@ mod tests {
     #[test]
     fn test_enforce_comparison() {
         let mut cs = TestConstraintSystem::<Fr>::new();
-        let s = &mut Store::<Fr>::default();
+        let s = &Store::<Fr>::default();
         s.hydrate_scalar_cache();
 
         let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
@@ -6167,7 +6167,7 @@ mod tests {
     #[test]
     fn test_u64_op() {
         let mut cs = TestConstraintSystem::<Fr>::new();
-        let s = &mut Store::<Fr>::default();
+        let s = &Store::<Fr>::default();
 
         let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s).unwrap();
 

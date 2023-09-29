@@ -448,7 +448,7 @@ impl Evaluation {
     }
 
     pub fn eval<F: LurkField + Serialize>(
-        store: &mut Store<F>,
+        store: &Store<F>,
         expr: Ptr<F>,
         limit: usize,
     ) -> Result<Self, Error> {
@@ -466,7 +466,7 @@ impl Evaluation {
 
 impl<F: LurkField + Serialize + DeserializeOwned> PtrEvaluation<F> {
     fn new(
-        s: &mut Store<F>,
+        s: &Store<F>,
         input: IO<F>,
         output: IO<F>,
         iterations: Option<usize>, // This might be padded, so is not quite 'iterations' in the sense of number of actual reduction steps required
@@ -502,11 +502,11 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
         Ok(Commitment { comm: digest })
     }
 
-    pub fn ptr(&self, s: &mut Store<F>) -> Ptr<F> {
+    pub fn ptr(&self, s: &Store<F>) -> Ptr<F> {
         s.intern_opaque_comm(self.comm)
     }
 
-    pub fn from_ptr_with_hiding(s: &mut Store<F>, ptr: &Ptr<F>) -> Result<(Self, F), Error> {
+    pub fn from_ptr_with_hiding(s: &Store<F>, ptr: &Ptr<F>) -> Result<(Self, F), Error> {
         let secret = F::random(OsRng);
 
         let commitment = Self::from_ptr_and_secret(s, ptr, secret)?;
@@ -514,7 +514,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
         Ok((commitment, secret))
     }
 
-    pub fn from_ptr_and_secret(s: &mut Store<F>, ptr: &Ptr<F>, secret: F) -> Result<Self, Error> {
+    pub fn from_ptr_and_secret(s: &Store<F>, ptr: &Ptr<F>, secret: F) -> Result<Self, Error> {
         let hidden = s.hide(secret, *ptr);
 
         Self::from_comm(s, &hidden)
@@ -522,7 +522,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
 
     // Importantly, this ensures the function and secret are in the Store, s.
     fn construct_with_fun_application(
-        s: &mut Store<F>,
+        s: &Store<F>,
         function: &CommittedExpression<F>,
         input: Ptr<F>,
         limit: usize,
@@ -545,7 +545,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
         Ok((commitment, expression))
     }
 
-    fn fun_application(&self, s: &mut Store<F>, input: Ptr<F>) -> Ptr<F> {
+    fn fun_application(&self, s: &Store<F>, input: Ptr<F>) -> Ptr<F> {
         let open = lurk_sym_ptr!(s, open);
         let comm_ptr = self.ptr(s);
 
@@ -560,7 +560,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> Commitment<F> {
 impl<F: LurkField + Serialize + DeserializeOwned> CommittedExpression<F> {
     pub fn expr_ptr(
         &self,
-        s: &mut Store<F>,
+        s: &Store<F>,
         limit: usize,
         lang: &Lang<F, Coproc<F>>,
     ) -> Result<Ptr<F>, Error> {
@@ -571,7 +571,7 @@ impl<F: LurkField + Serialize + DeserializeOwned> CommittedExpression<F> {
 }
 
 impl<F: LurkField + Serialize + DeserializeOwned> LurkPtr<F> {
-    pub fn ptr(&self, s: &mut Store<F>, limit: usize, lang: &Lang<F, Coproc<F>>) -> Ptr<F> {
+    pub fn ptr(&self, s: &Store<F>, limit: usize, lang: &Lang<F, Coproc<F>>) -> Ptr<F> {
         match self {
             LurkPtr::Source(source) => {
                 let ptr = s.read(source).expect("could not read source");
@@ -608,10 +608,7 @@ impl LurkCont {
         }
     }
 
-    pub fn from_cont_ptr<F: LurkField + Serialize>(
-        _s: &mut Store<F>,
-        cont_ptr: &ContPtr<F>,
-    ) -> Self {
+    pub fn from_cont_ptr<F: LurkField + Serialize>(_s: &Store<F>, cont_ptr: &ContPtr<F>) -> Self {
         use lurk::tag::ContTag;
 
         match cont_ptr.tag {
@@ -626,7 +623,7 @@ impl LurkCont {
 impl<F: LurkField + Serialize + DeserializeOwned> Expression<F> {
     pub fn eval(
         &self,
-        s: &mut Store<F>,
+        s: &Store<F>,
         limit: usize,
         lang: &Lang<F, Coproc<F>>,
     ) -> Result<Ptr<F>, Error> {
@@ -692,7 +689,7 @@ impl<'a> Opening<S1> {
     }
 
     pub fn open(
-        s: &mut Store<S1>,
+        s: &Store<S1>,
         request: &OpeningRequest<S1>,
         limit: usize,
         chain: bool,
@@ -713,7 +710,7 @@ impl<'a> Opening<S1> {
         self.new_commitment.is_some()
     }
 
-    fn public_output_expression(&self, s: &mut Store<S1>) -> Ptr<S1> {
+    fn public_output_expression(&self, s: &Store<S1>) -> Ptr<S1> {
         let result = s.read(&self.output).expect("unreadable result");
 
         if let Some(commitment) = self.new_commitment {
@@ -726,7 +723,7 @@ impl<'a> Opening<S1> {
     }
 
     pub fn apply(
-        s: &mut Store<S1>,
+        s: &Store<S1>,
         input: Ptr<S1>,
         function: CommittedExpression<S1>,
         limit: usize,
@@ -794,7 +791,7 @@ impl<'a> Opening<S1> {
 
 impl<'a> Proof<'a, S1> {
     pub fn eval_and_prove(
-        s: &'a mut Store<S1>,
+        s: &'a Store<S1>,
         expr: Ptr<S1>,
         supplied_env: Option<Ptr<S1>>,
         limit: usize,
@@ -833,7 +830,7 @@ impl<'a> Proof<'a, S1> {
     }
 
     pub fn prove_claim(
-        s: &'a mut Store<S1>,
+        s: &'a Store<S1>,
         claim: &Claim<S1>,
         limit: usize,
         only_use_cached_proofs: bool,
@@ -963,7 +960,7 @@ impl<'a> Proof<'a, S1> {
         Ok(result)
     }
 
-    pub fn evaluation_io(&self, s: &mut Store<S1>) -> Result<(IO<S1>, IO<S1>), Error> {
+    pub fn evaluation_io(&self, s: &Store<S1>) -> Result<(IO<S1>, IO<S1>), Error> {
         let evaluation = &self.claim.evaluation().expect("expected evaluation claim");
 
         let input_io = {
@@ -1002,7 +999,7 @@ impl<'a> Proof<'a, S1> {
 
     pub fn ptr_evaluation_io(
         &self,
-        s: &mut Store<S1>,
+        s: &Store<S1>,
         lang: &Lang<S1, Coproc<S1>>,
     ) -> Result<(IO<S1>, IO<S1>), Error> {
         let ptr_evaluation = &self
@@ -1029,7 +1026,7 @@ impl<'a> Proof<'a, S1> {
         Ok((input_io, output_io))
     }
 
-    pub fn opening_io(&self, s: &mut Store<S1>) -> Result<(IO<S1>, IO<S1>), Error> {
+    pub fn opening_io(&self, s: &Store<S1>) -> Result<(IO<S1>, IO<S1>), Error> {
         assert!(self.claim.is_opening());
 
         let opening = self.claim.opening().expect("expected opening claim");
@@ -1056,7 +1053,7 @@ impl<'a> Proof<'a, S1> {
 
     pub fn io(
         &self,
-        s: &mut Store<S1>,
+        s: &Store<S1>,
         lang: &Lang<S1, Coproc<S1>>,
     ) -> Result<(IO<S1>, IO<S1>), Error> {
         match self.claim {
@@ -1081,7 +1078,7 @@ impl VerificationResult {
 }
 
 pub fn evaluate<F: LurkField>(
-    store: &mut Store<F>,
+    store: &Store<F>,
     expr: Ptr<F>,
     supplied_env: Option<Ptr<F>>,
     limit: usize,

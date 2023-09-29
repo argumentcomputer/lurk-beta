@@ -29,7 +29,7 @@ use tracing_texray::TeXRayLayer;
 
 const REDUCTION_COUNT: usize = 10;
 
-fn sha256_encode<F: LurkField>(store: &mut Store<F>) -> Ptr<F> {
+fn sha256_encode<F: LurkField>(store: &Store<F>) -> Ptr<F> {
     let program = r#"
 (letrec ((encode-1 (lambda (term)
             (let ((type (car term))

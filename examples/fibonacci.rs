@@ -12,7 +12,7 @@ use lurk::{
 };
 use pasta_curves::pallas::Scalar;
 
-fn fib_expr<F: LurkField>(store: &mut Store<F>) -> Ptr<F> {
+fn fib_expr<F: LurkField>(store: &Store<F>) -> Ptr<F> {
     let program = r#"
 (letrec ((next (lambda (a b) (next b (+ a b))))
            (fib (next 0 1)))
@@ -35,7 +35,7 @@ fn fib_limit(n: usize, rc: usize) -> usize {
     rc * (frame / rc + usize::from(frame % rc != 0))
 }
 
-fn lurk_fib(store: &mut Store<Scalar>, n: usize, _rc: usize) -> Ptr<Scalar> {
+fn lurk_fib(store: &Store<Scalar>, n: usize, _rc: usize) -> Ptr<Scalar> {
     let lang = Lang::<Scalar, Coproc<Scalar>>::new();
     let frame_idx = fib_frame(n);
     // let limit = fib_limit(n, rc);

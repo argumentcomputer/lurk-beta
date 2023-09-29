@@ -30,7 +30,7 @@ use tracing_texray::TeXRayLayer;
 
 const REDUCTION_COUNT: usize = 10;
 
-fn sha256_ivc<F: LurkField>(store: &mut Store<F>, n: usize, input: Vec<usize>) -> Ptr<F> {
+fn sha256_ivc<F: LurkField>(store: &Store<F>, n: usize, input: Vec<usize>) -> Ptr<F> {
     assert_eq!(n, input.len());
     let input = input
         .iter()

@@ -312,7 +312,7 @@ where
         pp: &PublicParams<F, M>,
         expr: M::Ptr,
         env: M::Ptr,
-        store: &'a mut M::Store,
+        store: &'a M::Store,
         limit: usize,
         lang: &Arc<Lang<F, C>>,
     ) -> Result<(Proof<'a, F, C, M>, Vec<F>, Vec<F>, usize), ProofError> {
@@ -3948,7 +3948,7 @@ pub mod tests {
         let s = &mut Store::<Fr>::default();
         let error = s.get_cont_error();
 
-        let hash_num = |s: &mut Store<Fr>, state: Rc<RefCell<State>>, name| {
+        let hash_num = |s: &Store<Fr>, state: Rc<RefCell<State>>, name| {
             let sym = s.read_with_state(state, name).unwrap();
             let z_ptr = s.hash_expr(&sym).unwrap();
             let hash = *z_ptr.value();
