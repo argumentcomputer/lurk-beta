@@ -352,7 +352,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         let mut bogus_cs = WitnessCS::<F>::new();
         let z: Vec<AllocatedNum<F>> = z_scalar
             .iter()
-            .map(|x| AllocatedNum::alloc(&mut bogus_cs, || Ok(*x)).unwrap())
+            .map(|x| AllocatedNum::alloc_infallible(&mut bogus_cs, || *x))
             .collect::<Vec<_>>();
 
         let _ = self.clone().synthesize(&mut wcs, z.as_slice());
@@ -393,7 +393,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
 
                     scalars
                         .iter()
-                        .map(|scalar| AllocatedNum::alloc(&mut bogus_cs, || Ok(*scalar)).unwrap())
+                        .map(|scalar| AllocatedNum::alloc_infallible(&mut bogus_cs, || *scalar))
                         .collect::<Vec<_>>()
                 };
 

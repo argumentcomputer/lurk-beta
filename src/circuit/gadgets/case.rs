@@ -374,11 +374,11 @@ mod tests {
 
         let x = Fr::from(123);
         let y = Fr::from(124);
-        let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(x)).unwrap();
-        let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
-        let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
+        let selected = AllocatedNum::alloc_infallible(cs.namespace(|| "selected"), || x);
+        let val0 = AllocatedNum::alloc_infallible(cs.namespace(|| "val0"), || Fr::from(666));
+        let val1 = AllocatedNum::alloc_infallible(cs.namespace(|| "val1"), || Fr::from(777));
         let default =
-            AllocatedNum::alloc(cs.namespace(|| "default_v"), || Ok(Fr::from(999))).unwrap();
+            AllocatedNum::alloc_infallible(cs.namespace(|| "default_v"), || Fr::from(999));
 
         {
             let clauses = [CaseClause::new(x, &val0), CaseClause::new(y, &val1)];
@@ -425,15 +425,15 @@ mod tests {
         let x = Fr::from(123);
         let y = Fr::from(124);
         let z = Fr::from(125);
-        let selected0 = AllocatedNum::alloc(cs.namespace(|| "selected0"), || Ok(x)).unwrap();
-        let selected1 = AllocatedNum::alloc(cs.namespace(|| "selected1"), || Ok(z)).unwrap();
-        let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
-        let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
-        let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(Fr::from(700))).unwrap();
+        let selected0 = AllocatedNum::alloc_infallible(cs.namespace(|| "selected0"), || x);
+        let selected1 = AllocatedNum::alloc_infallible(cs.namespace(|| "selected1"), || z);
+        let val0 = AllocatedNum::alloc_infallible(cs.namespace(|| "val0"), || Fr::from(666));
+        let val1 = AllocatedNum::alloc_infallible(cs.namespace(|| "val1"), || Fr::from(777));
+        let val2 = AllocatedNum::alloc_infallible(cs.namespace(|| "val2"), || Fr::from(700));
         let default_vec = [
-            &AllocatedNum::alloc(cs.namespace(|| "default0"), || Ok(Fr::from(999))).unwrap(),
-            &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
-            &AllocatedNum::alloc(cs.namespace(|| "default2"), || Ok(Fr::from(997))).unwrap(),
+            &AllocatedNum::alloc_infallible(cs.namespace(|| "default0"), || Fr::from(999)),
+            &AllocatedNum::alloc_infallible(cs.namespace(|| "default1"), || Fr::from(998)),
+            &AllocatedNum::alloc_infallible(cs.namespace(|| "default2"), || Fr::from(997)),
         ];
 
         {
@@ -496,14 +496,14 @@ mod tests {
 
         let x = Fr::from(123);
         let z = Fr::from(125);
-        let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(z)).unwrap();
-        let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
-        let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
-        let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(Fr::from(700))).unwrap();
+        let selected = AllocatedNum::alloc_infallible(cs.namespace(|| "selected"), || z);
+        let val0 = AllocatedNum::alloc_infallible(cs.namespace(|| "val0"), || Fr::from(666));
+        let val1 = AllocatedNum::alloc_infallible(cs.namespace(|| "val1"), || Fr::from(777));
+        let val2 = AllocatedNum::alloc_infallible(cs.namespace(|| "val2"), || Fr::from(700));
 
         let default_vec = [
-            &AllocatedNum::alloc(cs.namespace(|| "default0"), || Ok(Fr::from(999))).unwrap(),
-            &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
+            &AllocatedNum::alloc_infallible(cs.namespace(|| "default0"), || Fr::from(999)),
+            &AllocatedNum::alloc_infallible(cs.namespace(|| "default1"), || Fr::from(998)),
         ];
 
         let clauses0 = [CaseClause::new(x, &val0), CaseClause::new(x, &val1)];
@@ -534,15 +534,15 @@ mod tests {
         let x = Fr::from(123);
         let y = Fr::from(124);
         let z = Fr::from(125);
-        let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(z)).unwrap();
-        let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
-        let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
-        let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(Fr::from(700))).unwrap();
+        let selected = AllocatedNum::alloc_infallible(cs.namespace(|| "selected"), || z);
+        let val0 = AllocatedNum::alloc_infallible(cs.namespace(|| "val0"), || Fr::from(666));
+        let val1 = AllocatedNum::alloc_infallible(cs.namespace(|| "val1"), || Fr::from(777));
+        let val2 = AllocatedNum::alloc_infallible(cs.namespace(|| "val2"), || Fr::from(700));
 
         let default_vec = [
-            &AllocatedNum::alloc(cs.namespace(|| "default0"), || Ok(Fr::from(999))).unwrap(),
-            &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
-            &AllocatedNum::alloc(cs.namespace(|| "default2"), || Ok(Fr::from(997))).unwrap(),
+            &AllocatedNum::alloc_infallible(cs.namespace(|| "default0"), || Fr::from(999)),
+            &AllocatedNum::alloc_infallible(cs.namespace(|| "default1"), || Fr::from(998)),
+            &AllocatedNum::alloc_infallible(cs.namespace(|| "default2"), || Fr::from(997)),
         ];
 
         let clauses0 = [CaseClause::new(x, &val0), CaseClause::new(y, &val1)];
@@ -572,14 +572,14 @@ mod tests {
         let x = Fr::from(123);
         let y = Fr::from(124);
         let z = Fr::from(125);
-        let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(z)).unwrap();
-        let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
-        let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
-        let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(Fr::from(700))).unwrap();
+        let selected = AllocatedNum::alloc_infallible(cs.namespace(|| "selected"), || z);
+        let val0 = AllocatedNum::alloc_infallible(cs.namespace(|| "val0"), || Fr::from(666));
+        let val1 = AllocatedNum::alloc_infallible(cs.namespace(|| "val1"), || Fr::from(777));
+        let val2 = AllocatedNum::alloc_infallible(cs.namespace(|| "val2"), || Fr::from(700));
 
         let default_vec = [
-            &AllocatedNum::alloc(cs.namespace(|| "default0"), || Ok(Fr::from(999))).unwrap(),
-            &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
+            &AllocatedNum::alloc_infallible(cs.namespace(|| "default0"), || Fr::from(999)),
+            &AllocatedNum::alloc_infallible(cs.namespace(|| "default1"), || Fr::from(998)),
         ];
 
         let clauses0 = [CaseClause::new(x, &val0), CaseClause::new(y, &val1)];
@@ -611,10 +611,10 @@ mod tests {
         let g = GlobalAllocations::new(&mut cs, s).unwrap();
 
         let x = Fr::from(123);
-        let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(x)).unwrap();
+        let selected = AllocatedNum::alloc_infallible(cs.namespace(|| "selected"), || x);
         let default_vec = [
-            &AllocatedNum::alloc(cs.namespace(|| "default0"), || Ok(Fr::from(999))).unwrap(),
-            &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
+            &AllocatedNum::alloc_infallible(cs.namespace(|| "default0"), || Fr::from(999)),
+            &AllocatedNum::alloc_infallible(cs.namespace(|| "default1"), || Fr::from(998)),
         ];
 
         let _ = multi_case(
@@ -637,10 +637,10 @@ mod tests {
 
         let x = Fr::from(123);
         let y = Fr::from(124);
-        let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(x)).unwrap();
-        let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
-        let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
-        let val2 = AllocatedNum::alloc(cs.namespace(|| "val2"), || Ok(Fr::from(700))).unwrap();
+        let selected = AllocatedNum::alloc_infallible(cs.namespace(|| "selected"), || x);
+        let val0 = AllocatedNum::alloc_infallible(cs.namespace(|| "val0"), || Fr::from(666));
+        let val1 = AllocatedNum::alloc_infallible(cs.namespace(|| "val1"), || Fr::from(777));
+        let val2 = AllocatedNum::alloc_infallible(cs.namespace(|| "val2"), || Fr::from(700));
         let clauses0 = [CaseClause::new(x, &val0), CaseClause::new(y, &val1)];
         let clauses1 = [
             CaseClause::new(x, &val2),
@@ -670,12 +670,12 @@ mod tests {
 
         let x = Fr::from(123);
         let y = Fr::from(124);
-        let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(x)).unwrap();
-        let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
-        let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
+        let selected = AllocatedNum::alloc_infallible(cs.namespace(|| "selected"), || x);
+        let val0 = AllocatedNum::alloc_infallible(cs.namespace(|| "val0"), || Fr::from(666));
+        let val1 = AllocatedNum::alloc_infallible(cs.namespace(|| "val1"), || Fr::from(777));
         let default_vec = [
-            &AllocatedNum::alloc(cs.namespace(|| "default0"), || Ok(Fr::from(999))).unwrap(),
-            &AllocatedNum::alloc(cs.namespace(|| "default1"), || Ok(Fr::from(998))).unwrap(),
+            &AllocatedNum::alloc_infallible(cs.namespace(|| "default0"), || Fr::from(999)),
+            &AllocatedNum::alloc_infallible(cs.namespace(|| "default1"), || Fr::from(998)),
         ];
         let clauses0 = [CaseClause::new(x, &val0), CaseClause::new(y, &val1)];
         let clauses1 = [];
@@ -701,23 +701,23 @@ mod tests {
 
         let x = Fr::from(123);
         let y = Fr::from(124);
-        let selected = AllocatedNum::alloc(cs.namespace(|| "selected"), || Ok(x)).unwrap();
+        let selected = AllocatedNum::alloc_infallible(cs.namespace(|| "selected"), || x);
         let _selected_blank = AllocatedNum::alloc(cs_blank.namespace(|| "selected"), || {
             Err(SynthesisError::AssignmentMissing)
         })
         .unwrap();
-        let val0 = AllocatedNum::alloc(cs.namespace(|| "val0"), || Ok(Fr::from(666))).unwrap();
+        let val0 = AllocatedNum::alloc_infallible(cs.namespace(|| "val0"), || Fr::from(666));
         let val0_blank = AllocatedNum::alloc(cs_blank.namespace(|| "val0"), || {
             Err(SynthesisError::AssignmentMissing)
         })
         .unwrap();
-        let val1 = AllocatedNum::alloc(cs.namespace(|| "val1"), || Ok(Fr::from(777))).unwrap();
+        let val1 = AllocatedNum::alloc_infallible(cs.namespace(|| "val1"), || Fr::from(777));
         let val1_blank = AllocatedNum::alloc(cs_blank.namespace(|| "val1"), || {
             Err(SynthesisError::AssignmentMissing)
         })
         .unwrap();
         let default =
-            AllocatedNum::alloc(cs.namespace(|| "default_v"), || Ok(Fr::from(999))).unwrap();
+            AllocatedNum::alloc_infallible(cs.namespace(|| "default_v"), || Fr::from(999));
         let default_blank = AllocatedNum::alloc(cs_blank.namespace(|| "default_v"), || {
             Err(SynthesisError::AssignmentMissing)
         })

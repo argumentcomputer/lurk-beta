@@ -839,10 +839,12 @@ impl Func {
                                 }
                             })
                         });
-                        let div =
-                            AllocatedNum::alloc(cs.namespace(|| "div"), || Ok(div_rem.unwrap().0))?;
-                        let rem =
-                            AllocatedNum::alloc(cs.namespace(|| "rem"), || Ok(div_rem.unwrap().1))?;
+                        let div = AllocatedNum::alloc_infallible(cs.namespace(|| "div"), || {
+                            div_rem.unwrap().0
+                        });
+                        let rem = AllocatedNum::alloc_infallible(cs.namespace(|| "rem"), || {
+                            div_rem.unwrap().1
+                        });
 
                         let diff = sub(cs.namespace(|| "diff for slot {slot}"), b, &rem)?;
                         implies_u64(cs.namespace(|| "div_u64"), not_dummy, &div)?;

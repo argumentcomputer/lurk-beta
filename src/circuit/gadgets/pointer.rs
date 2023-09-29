@@ -288,8 +288,8 @@ impl<F: LurkField> AllocatedPtr<F> {
     ) -> Result<Self, SynthesisError> {
         let [tag, hash] = t.into_hash_components();
 
-        let tag = AllocatedNum::alloc(&mut cs.namespace(|| "tag"), || Ok(tag))?;
-        let hash = AllocatedNum::alloc(&mut cs.namespace(|| "hash"), || Ok(hash))?;
+        let tag = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "tag"), || tag);
+        let hash = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "hash"), || hash);
 
         Ok(Self { tag, hash })
     }
