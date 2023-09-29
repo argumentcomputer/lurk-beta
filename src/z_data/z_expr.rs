@@ -171,6 +171,7 @@ impl<F: LurkField> ZExpr<F> {
                     store.hash_cont(&thunk.continuation)?,
                 ))
             }),
+            ExprTag::Cproc => unreachable!("Lurk Alpha doesn't produce such expressions"),
         }
     }
 }

@@ -9,6 +9,7 @@ use crate::circuit::gadgets::data::GlobalAllocations;
 use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use crate::eval::IO;
 use crate::field::LurkField;
+use crate::lem::{circuit::GlobalAllocator, pointers::Ptr as LEMPtr, store::Store as LEMStore};
 use crate::ptr::{ContPtr, Ptr};
 use crate::store::Store;
 use crate::tag::Tag;
@@ -142,6 +143,29 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
 
         Ok((new_expr, new_env, new_cont))
     }
+
+    fn evaluate_lem_internal(&self, s: &LEMStore<F>, ptrs: &[LEMPtr<F>]) -> Vec<LEMPtr<F>> {
+        let arity = self.arity();
+        let args = &ptrs[0..arity];
+        let env = &ptrs[arity];
+        let cont = &ptrs[arity + 1];
+        self.evaluate_lem(s, args, env, cont)
+    }
+
+    fn evaluate_lem(
+        &self,
+        s: &LEMStore<F>,
+        args: &[LEMPtr<F>],
+        env: &LEMPtr<F>,
+        cont: &LEMPtr<F>,
+    ) -> Vec<LEMPtr<F>> {
+        vec![self.evaluate_lem_simple(s, args), *env, *cont]
+    }
+
+    // TODO: this default implementation should disappear once we make the switch to LEM
+    fn evaluate_lem_simple(&self, _s: &LEMStore<F>, _args: &[LEMPtr<F>]) -> LEMPtr<F> {
+        unimplemented!()
+    }
 }
 
 /// `CoCircuit` is a trait that represents a generalized interface for coprocessors.
@@ -167,6 +191,49 @@ pub trait CoCircuit<F: LurkField>: Send + Sync + Clone {
         // A `synthesize` implementation needs to be provided by implementers of `CoCircuit`.
         unimplemented!()
     }
+
+    fn synthesize_lem_internal<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        g: &GlobalAllocator<F>,
+        s: &LEMStore<F>,
+        not_dummy: &Boolean,
+        ptrs: &[AllocatedPtr<F>],
+    ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
+        let arity = self.arity();
+        let args = &ptrs[0..arity];
+        let env = &ptrs[arity];
+        let cont = &ptrs[arity + 1];
+        self.synthesize_lem(cs, g, s, not_dummy, args, env, cont)
+    }
+
+    fn synthesize_lem<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        g: &GlobalAllocator<F>,
+        s: &LEMStore<F>,
+        not_dummy: &Boolean,
+        args: &[AllocatedPtr<F>],
+        env: &AllocatedPtr<F>,
+        cont: &AllocatedPtr<F>,
+    ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
+        Ok(vec![
+            self.synthesize_lem_simple(cs, g, s, not_dummy, args)?,
+            env.clone(),
+            cont.clone(),
+        ])
+    }
+
+    fn synthesize_lem_simple<CS: ConstraintSystem<F>>(
+        &self,
+        _cs: &mut CS,
+        _g: &GlobalAllocator<F>,
+        _s: &LEMStore<F>,
+        _not_dummy: &Boolean,
+        _args: &[AllocatedPtr<F>],
+    ) -> Result<AllocatedPtr<F>, SynthesisError> {
+        unimplemented!()
+    }
 }
 
 #[cfg(test)]
@@ -174,7 +241,8 @@ pub(crate) mod test {
     use serde::{Deserialize, Serialize};
 
     use super::*;
-    use crate::circuit::gadgets::constraints::{add, mul};
+    use crate::circuit::gadgets::constraints::{add, implies_equal, mul};
+    use crate::lem::Tag as LEMTag;
     use crate::tag::{ExprTag, Tag};
     use std::marker::PhantomData;
 
@@ -211,6 +279,40 @@ pub(crate) mod test {
 
             Ok((c_ptr, input_env.clone(), input_cont.clone()))
         }
+
+        fn synthesize_lem_simple<CS: ConstraintSystem<F>>(
+            &self,
+            cs: &mut CS,
+            g: &GlobalAllocator<F>,
+            _s: &LEMStore<F>,
+            not_dummy: &Boolean,
+            args: &[AllocatedPtr<F>],
+        ) -> Result<AllocatedPtr<F>, SynthesisError> {
+            use crate::lem::Tag::Expr;
+            let a = &args[0];
+            let b = &args[1];
+
+            let allocated_num_tag = g
+                .get_allocated_const(Expr(ExprTag::Num).to_field())
+                .expect("Num tag should have been allocated");
+            implies_equal(
+                &mut cs.namespace(|| "first arg tag"),
+                not_dummy,
+                a.tag(),
+                allocated_num_tag,
+            );
+            implies_equal(
+                &mut cs.namespace(|| "second arg tag"),
+                not_dummy,
+                b.tag(),
+                allocated_num_tag,
+            );
+
+            // a^2 + b = c
+            let a2 = mul(&mut cs.namespace(|| "square"), a.hash(), a.hash())?;
+            let c = add(&mut cs.namespace(|| "add"), &a2, b.hash())?;
+            AllocatedPtr::alloc_tag(cs, ExprTag::Num.to_field(), c)
+        }
     }
 
     impl<F: LurkField> Coprocessor<F> for DumbCoprocessor<F> {
@@ -235,6 +337,16 @@ pub(crate) mod test {
 
         fn has_circuit(&self) -> bool {
             true
+        }
+
+        fn evaluate_lem_simple(&self, _s: &LEMStore<F>, args: &[LEMPtr<F>]) -> LEMPtr<F> {
+            match (&args[0], &args[1]) {
+                (
+                    LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), a),
+                    LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), b),
+                ) => LEMPtr::Atom(LEMTag::Expr(ExprTag::Num), (*a * *a) + *b),
+                _ => panic!("Invalid input"),
+            }
         }
     }
 

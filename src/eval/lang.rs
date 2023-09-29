@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::coprocessor::{CoCircuit, Coprocessor};
 use crate::field::LurkField;
+use crate::lem::store::Store as LEMStore;
 use crate::ptr::Ptr;
 use crate::store::Store;
 use crate::symbol::Symbol;
@@ -129,6 +130,22 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         self.index.insert(z_ptr, self.index.len());
     }
 
+    pub fn add_coprocessor_lem<T: Into<C>, S: Into<Symbol>>(
+        &mut self,
+        name: S,
+        cproc: T,
+        store: &mut LEMStore<F>,
+    ) {
+        let name = name.into();
+
+        // TODO: this `z_ptr` is not really needed by LEM
+        let ptr = store.intern_symbol(&name);
+        let z_ptr = store.hash_ptr(&ptr).unwrap();
+        let z_ptr = ZExprPtr::from_parts(lurk::tag::ExprTag::Sym, *z_ptr.value());
+
+        self.coprocessors.insert(name, (cproc.into(), z_ptr));
+    }
+
     pub fn add_binding<B: Into<Binding<F, C>>>(&mut self, binding: B, store: &Store<F>) {
         let Binding { name, coproc, _p } = binding.into();
         self.add_coprocessor(name, coproc, store);
@@ -151,6 +168,11 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         let maybe_sym = s.fetch_maybe_sym(&name);
 
         maybe_sym.and_then(|sym| self.coprocessors.get(&sym))
+    }
+
+    #[inline]
+    pub fn lookup_by_sym(&self, sym: &Symbol) -> Option<&C> {
+        self.coprocessors.get(sym).map(|(c, _)| c)
     }
 
     #[inline]
@@ -186,6 +208,11 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
     pub fn get_coprocessor_from_zptr(&self, z_ptr: &ZExprPtr<F>) -> Option<&C> {
         self.get_index(z_ptr)
             .and_then(|index| self.get_coprocessor(index))
+    }
+
+    #[inline]
+    pub fn get_index_by_symbol(&self, sym: &Symbol) -> Option<usize> {
+        self.coprocessors.get_index_of(sym)
     }
 }
 

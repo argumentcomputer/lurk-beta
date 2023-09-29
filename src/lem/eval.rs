@@ -1,43 +1,155 @@
 use anyhow::Result;
+use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
 
 use crate::{
+    coprocessor::Coprocessor,
+    ctrl,
+    eval::lang::Lang,
     field::LurkField,
     func,
+    lem::Block,
+    op,
     state::initial_lurk_state,
-    tag::ContTag::{Error, Outermost, Terminal},
+    tag::{
+        ContTag::{Error, Outermost, Terminal},
+        ExprTag::Cproc,
+    },
+    Symbol,
 };
 
-use super::{interpreter::Frame, pointers::Ptr, store::Store, Func, Tag};
+use super::{
+    interpreter::{Frame, Preimages},
+    pointers::Ptr,
+    store::Store,
+    Ctrl, Func, Op, Tag, Var,
+};
 
 static EVAL_STEP: OnceCell<Func> = OnceCell::new();
 
-/// Lurk's step function
+/// Cached version of Lurk's default step function (IVC, no coprocessors)
+#[inline]
 pub fn eval_step() -> &'static Func {
-    EVAL_STEP.get_or_init(|| {
-        let reduce = reduce();
-        let apply_cont = apply_cont();
-        let make_thunk = make_thunk();
-
-        func!(step(expr, env, cont): 3 => {
-            let (expr, env, cont, ctrl) = reduce(expr, env, cont);
-            let (expr, env, cont, ctrl) = apply_cont(expr, env, cont, ctrl);
-            let (expr, env, cont, _ctrl) = make_thunk(expr, env, cont, ctrl);
-            return (expr, env, cont)
-        })
-    })
+    EVAL_STEP.get_or_init(|| make_eval_step(&[], true))
 }
 
-pub fn evaluate_with_env_and_cont<F: LurkField>(
+#[inline]
+fn get_pc<F: LurkField, C: Coprocessor<F>>(
+    expr: &Ptr<F>,
+    store: &Store<F>,
+    lang: &Lang<F, C>,
+) -> usize {
+    match expr {
+        Ptr::Tuple2(Tag::Expr(Cproc), idx) => {
+            let (cproc, _) = store
+                .fetch_2_ptrs(*idx)
+                .expect("Coprocessor expression is not interned");
+            let cproc_sym = store
+                .fetch_symbol(cproc)
+                .expect("Coprocessor expression is not interned");
+            lang.get_index_by_symbol(&cproc_sym)
+                .expect("Coprocessor not found")
+                + 1
+        }
+        _ => 0,
+    }
+}
+
+fn compute_frame<F: LurkField, C: Coprocessor<F>>(
+    lurk_step: &Func,
+    cprocs_run: &[Func],
+    input: &[Ptr<F>],
+    store: &Store<F>,
+    lang: &Lang<F, C>,
+    emitted: &mut Vec<Ptr<F>>,
+    pc: usize,
+) -> Result<(Frame<F>, bool)> {
+    let func = if pc == 0 {
+        lurk_step
+    } else {
+        cprocs_run
+            .get(pc - 1)
+            .expect("Program counter outside range")
+    };
+    assert_eq!(func.input_params.len(), input.len());
+    let preimages = Preimages::new_from_func(func);
+    let (frame, _) = func.call(input, store, preimages, emitted, lang, pc)?;
+    let must_break = matches!(frame.output[2].tag(), Tag::Cont(Terminal | Error));
+    Ok((frame, must_break))
+}
+
+// Builds frames for IVC or NIVC scheme
+pub fn build_frames<
+    F: LurkField,
+    C: Coprocessor<F>,
+    LogFmt: Fn(usize, &[Ptr<F>], &[Ptr<F>], &Store<F>) -> String,
+>(
+    lurk_step: &Func,
+    cprocs_run: &[Func],
+    mut input: Vec<Ptr<F>>,
+    store: &Store<F>,
+    limit: usize,
+    lang: &Lang<F, C>,
+    log_fmt: LogFmt,
+) -> Result<(Vec<Frame<F>>, usize)> {
+    let mut pc = 0;
+    let mut frames = vec![];
+    let mut iterations = 0;
+    tracing::info!("{}", &log_fmt(0, &input, &[], store));
+    for _ in 0..limit {
+        let mut emitted = vec![];
+        let (frame, must_break) =
+            compute_frame(lurk_step, cprocs_run, &input, store, lang, &mut emitted, pc)?;
+
+        iterations += 1;
+        input = frame.output.clone();
+        tracing::info!("{}", &log_fmt(iterations, &input, &emitted, store));
+        let expr = frame.output[0];
+        frames.push(frame);
+
+        if must_break {
+            break;
+        }
+        pc = get_pc(&expr, store, lang);
+    }
+    Ok((frames, iterations))
+}
+
+/// Faster version of `build_frames` that doesn't accumulate frames
+pub fn traverse_frames<F: LurkField, C: Coprocessor<F>>(
+    lurk_step: &Func,
+    cprocs_run: &[Func],
+    mut input: Vec<Ptr<F>>,
+    store: &Store<F>,
+    limit: usize,
+    lang: &Lang<F, C>,
+) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
+    let mut pc = 0;
+    let mut iterations = 0;
+    let mut emitted = vec![];
+    for _ in 0..limit {
+        let (frame, must_break) =
+            compute_frame(lurk_step, cprocs_run, &input, store, lang, &mut emitted, pc)?;
+
+        iterations += 1;
+        input = frame.output.clone();
+
+        if must_break {
+            break;
+        }
+        pc = get_pc(&frame.output[0], store, lang);
+    }
+    Ok((input, iterations, emitted))
+}
+
+pub fn evaluate_with_env_and_cont<F: LurkField, C: Coprocessor<F>>(
+    func_lang: Option<(&Func, &Lang<F, C>)>,
     expr: Ptr<F>,
     env: Ptr<F>,
     cont: Ptr<F>,
     store: &Store<F>,
     limit: usize,
 ) -> Result<(Vec<Frame<F>>, usize)> {
-    let stop_cond = |output: &[Ptr<F>]| {
-        output[2] == Ptr::null(Tag::Cont(Terminal)) || output[2] == Ptr::null(Tag::Cont(Error))
-    };
     let state = initial_lurk_state();
     let log_fmt = |i: usize, inp: &[Ptr<F>], emit: &[Ptr<F>], store: &Store<F>| {
         let mut out = format!(
@@ -52,18 +164,32 @@ pub fn evaluate_with_env_and_cont<F: LurkField>(
         out
     };
 
-    let input = &[expr, env, cont];
-    let (frames, iterations, _) =
-        eval_step().call_until(input, store, stop_cond, limit, log_fmt)?;
-    Ok((frames, iterations))
+    let input = vec![expr, env, cont];
+
+    match func_lang {
+        None => {
+            let lang: Lang<F, C> = Lang::new();
+            build_frames(eval_step(), &[], input, store, limit, &lang, log_fmt)
+        }
+        Some((func, lang)) => {
+            let funcs = lang
+                .coprocessors()
+                .iter()
+                .map(|(name, (c, _))| run_cproc(name.clone(), c.arity()))
+                .collect::<Vec<_>>();
+            build_frames(func, &funcs, input, store, limit, lang, log_fmt)
+        }
+    }
 }
 
-pub fn evaluate<F: LurkField>(
+pub fn evaluate<F: LurkField, C: Coprocessor<F>>(
+    func_lang: Option<(&Func, &Lang<F, C>)>,
     expr: Ptr<F>,
     store: &Store<F>,
     limit: usize,
 ) -> Result<(Vec<Frame<F>>, usize)> {
     evaluate_with_env_and_cont(
+        func_lang,
         expr,
         store.intern_nil(),
         Ptr::null(Tag::Cont(Outermost)),
@@ -72,16 +198,54 @@ pub fn evaluate<F: LurkField>(
     )
 }
 
-pub fn evaluate_simple<F: LurkField>(
+pub fn evaluate_simple<F: LurkField, C: Coprocessor<F>>(
+    func_lang: Option<(&Func, &Lang<F, C>)>,
     expr: Ptr<F>,
     store: &Store<F>,
     limit: usize,
 ) -> Result<(Vec<Ptr<F>>, usize, Vec<Ptr<F>>)> {
-    let stop_cond = |output: &[Ptr<F>]| {
-        output[2] == Ptr::null(Tag::Cont(Terminal)) || output[2] == Ptr::null(Tag::Cont(Error))
-    };
     let input = vec![expr, store.intern_nil(), Ptr::null(Tag::Cont(Outermost))];
-    eval_step().call_until_simple(input, store, stop_cond, limit)
+    match func_lang {
+        None => {
+            let lang: Lang<F, C> = Lang::new();
+            traverse_frames(eval_step(), &[], input, store, limit, &lang)
+        }
+        Some((func, lang)) => {
+            let funcs = lang
+                .coprocessors()
+                .iter()
+                .map(|(name, (c, _))| run_cproc(name.clone(), c.arity()))
+                .collect::<Vec<_>>();
+            traverse_frames(func, &funcs, input, store, limit, lang)
+        }
+    }
+}
+
+pub fn make_eval_step_from_lang<F: LurkField, C: Coprocessor<F>>(
+    lang: &Lang<F, C>,
+    ivc: bool,
+) -> Func {
+    make_eval_step(
+        &lang
+            .coprocessors()
+            .iter()
+            .map(|(s, (c, _))| (s, c.arity()))
+            .collect::<Vec<_>>(),
+        ivc,
+    )
+}
+
+pub fn make_eval_step(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
+    let reduce = reduce(cprocs);
+    let apply_cont = apply_cont(cprocs, ivc);
+    let make_thunk = make_thunk();
+
+    func!(step(expr, env, cont): 3 => {
+        let (expr, env, cont, ctrl) = reduce(expr, env, cont);
+        let (expr, env, cont, ctrl) = apply_cont(expr, env, cont, ctrl);
+        let (expr, env, cont, _ctrl) = make_thunk(expr, env, cont, ctrl);
+        return (expr, env, cont)
+    })
 }
 
 fn car_cdr() -> Func {
@@ -100,7 +264,281 @@ fn car_cdr() -> Func {
     })
 }
 
-fn reduce() -> Func {
+/// This `Func` is used to call a standalone coprocessor out of the Lurk's step
+/// function. It checks whether the coprocessor expression corresponds the right
+/// coprocessor. If it doesn't, return the same input. If it does, destructure
+/// the list of arguments and call the coprocessor.
+///
+/// `run_cproc` is meant to be used in the context of NIVC, when the circuit for
+/// each coprocessor is detached from Lurk's universal circuit.
+///
+/// run_cproc(cproc, env, cont): 3 {
+///     let err: Cont::Error;
+///     let nil = Symbol("nil");
+///     let nil = cast(nil, Expr::Nil);
+///     match cproc.tag {
+///         Expr::Cproc => {
+///             let (cproc_name, evaluated_args) = decons2(cproc);
+///             match symbol cproc_name {
+///                 // `x` is the name of the coprocessor being called
+///                 x => {
+///                     // `n` is the arity of the coprocessor `x`
+///                     if evaluated_args != nil {
+///                         let (x{n-1}, evaluated_args) = car_cdr(evaluated_args);
+///                         if evaluated_args != nil {
+///                             ...
+///                             let (x0, evaluated_args) = car_cdr(evaluated_args);
+///                             if evaluated_args == nil {
+///                                 Op::Cproc([expr, env, cont], x, [x0, x1, ..., x{n-1}, env, cont]);
+///                                 return (expr, env, cont);
+///                             }
+///                             return (cproc_name, env, err);
+///                         }
+///                         return (cproc_name, env, err);
+///                     }
+///                     return (cproc_name, env, err);
+///                 }
+///             };
+///             return (cproc, env, cont);
+///         }
+///     };
+///     return (cproc, env, cont);
+/// }
+fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
+    let evaluated_args = Var::new("evaluated_args");
+    let expr = Var::new("expr");
+    let env = Var::new("env");
+    let cont = Var::new("cont");
+    let nil = Var::new("nil");
+    let is_nil = Var::new("is_nil");
+    let cproc = Var::new("cproc");
+    let cproc_out = vec![expr.clone(), env.clone(), cont.clone()];
+    let func_out = vec![expr, env.clone(), cont.clone()];
+    let err_block = Block {
+        ops: vec![],
+        ctrl: ctrl!(return (cproc_name, env, err)),
+    };
+    let def_block = Block {
+        ops: vec![],
+        ctrl: ctrl!(return (cproc, env, err)),
+    };
+    let mut cproc_inp = (0..arity)
+        .map(|i| Var(format!("x{i}").into()))
+        .collect::<Vec<_>>();
+    cproc_inp.push(env.clone());
+    cproc_inp.push(cont.clone());
+    let mut block = Block {
+        ops: vec![Op::Cproc(cproc_out, cproc_sym.clone(), cproc_inp.clone())],
+        ctrl: Ctrl::Return(func_out),
+    };
+    for (i, cproc_arg) in cproc_inp[0..arity].iter().enumerate() {
+        let ops = vec![
+            Op::Call(
+                vec![cproc_arg.clone(), evaluated_args.clone()],
+                Box::new(car_cdr()),
+                vec![evaluated_args.clone()],
+            ),
+            Op::EqVal(is_nil.clone(), evaluated_args.clone(), nil.clone()),
+        ];
+        block = if i == 0 {
+            Block {
+                ops,
+                ctrl: Ctrl::If(is_nil.clone(), Box::new(block), Box::new(err_block.clone())),
+            }
+        } else {
+            Block {
+                ops,
+                ctrl: Ctrl::If(is_nil.clone(), Box::new(err_block.clone()), Box::new(block)),
+            }
+        }
+    }
+
+    // MatchSymbol
+    let mut match_symbol_map = IndexMap::default();
+    match_symbol_map.insert(cproc_sym, block);
+    block = Block {
+        ops: vec![op!(let (cproc_name, evaluated_args) = decons2(cproc))],
+        ctrl: Ctrl::MatchSymbol(
+            Var::new("cproc_name"),
+            match_symbol_map,
+            Some(Box::new(def_block.clone())),
+        ),
+    };
+
+    // MatchTag
+    let mut match_tag_map = IndexMap::default();
+    match_tag_map.insert(Tag::Expr(Cproc), block);
+    block = Block {
+        ops: vec![
+            op!(let err: Cont::Error),
+            op!(let nil = Symbol("nil")),
+            op!(let nil = cast(nil, Expr::Nil)),
+        ],
+        ctrl: Ctrl::MatchTag(cproc.clone(), match_tag_map, Some(Box::new(def_block))),
+    };
+    let func_inp = vec![cproc, env, cont];
+    Func::new("run_cproc".into(), func_inp, 3, block).unwrap()
+}
+
+/// Tells whether `head`, which is assumed to be a symbol, corresponds to the name
+/// of a coprocessor in the `Lang`.
+///
+/// is_cproc(head): 1 {
+///     let nil = Symbol("nil");
+///     let nil = cast(nil, Expr::Nil);
+///     let t = Symbol("t");
+///     match symbol head {
+///         // one arm for each coprocessor in the `Lang`
+///         ... => {
+///             return (t)
+///         }
+///     };
+///     return (nil)
+/// }
+fn is_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
+    if cprocs.is_empty() {
+        func!(is_cproc(_head): 1 => {
+            let nil = Symbol("nil");
+            let nil = cast(nil, Expr::Nil);
+            return (nil);
+        })
+    } else {
+        let head = Var::new("head");
+        let ops = vec![
+            op!(let nil = Symbol("nil")),
+            op!(let nil = cast(nil, Expr::Nil)),
+            op!(let t = Symbol("t")),
+        ];
+        let mut match_symbol_map = IndexMap::default();
+        for (cproc, _) in cprocs {
+            match_symbol_map.insert(
+                (*cproc).clone(),
+                Block {
+                    ops: vec![],
+                    ctrl: ctrl!(return (t)),
+                },
+            );
+        }
+        let def = Some(Box::new(Block {
+            ops: vec![],
+            ctrl: ctrl!(return (nil)),
+        }));
+        let ctrl = Ctrl::MatchSymbol(head.clone(), match_symbol_map, def);
+        Func::new("is_cproc".into(), vec![head], 1, Block { ops, ctrl }).unwrap()
+    }
+}
+
+/// Checks which coprocessor a name corresponds to, destructures its list of
+/// arguments according to its arity and then calls it.
+///
+/// `match_and_run_cproc` is meant to be used in the context of IVC, when the
+/// circuit for each coprocessor goes within Lurk's universal circuit.
+///
+/// Bonus: destructuring the list of arguments for the coprocessors share
+/// allocated slots
+///
+/// match_and_run_cproc(cproc_name, evaluated_args, env, cont): 4 {
+///     let err: Cont::Error;
+///     let nil = Symbol("nil");
+///     let nil = cast(nil, Expr::Nil);
+///     let makethunk = Symbol("make-thunk");
+///     let errctrl = Symbol("error");
+///     match symbol cproc_name {
+///         x => {
+///             // `n` is the arity of the coprocessor `x`
+///             if evaluated_args != nil {
+///                 let (x{n-1}, evaluated_args) = car_cdr(evaluated_args);
+///                 if evaluated_args != nil {
+///                     ...
+///                     let (x0, evaluated_args) = car_cdr(evaluated_args);
+///                     if evaluated_args == nil {
+///                         Op::Cproc([expr, env, cont], x, [x0, x1, ..., x{n-1}, env, cont]);
+///                         return (expr, env, cont, makethunk);
+///                     }
+///                     return (cproc_name, env, err, errctrl);
+///                 }
+///                 return (cproc_name, env, err, errctrl);
+///             }
+///             return (cproc_name, env, err, errctrl);
+///         }
+///         ...
+///     };
+///     return (cproc_name, env, err, errctrl);
+/// }
+fn match_and_run_cproc(cprocs: &[(&Symbol, usize)]) -> Func {
+    let cproc_name = Var::new("cproc_name");
+    let evaluated_args = Var::new("evaluated_args");
+    let expr = Var::new("expr");
+    let env = Var::new("env");
+    let cont = Var::new("cont");
+    let nil = Var::new("nil");
+    let is_nil = Var::new("is_nil");
+    let cproc_out = vec![expr.clone(), env.clone(), cont.clone()];
+    let func_out = vec![expr, env.clone(), cont.clone(), Var::new("makethunk")];
+    let err_block = Block {
+        ops: vec![],
+        ctrl: ctrl!(return (cproc_name, env, err, errctrl)),
+    };
+    let mut match_symbol_map = IndexMap::default();
+    for (cproc, arity) in cprocs {
+        let cproc = *cproc;
+        let arity = *arity;
+        let mut cproc_inp = (0..arity)
+            .map(|i| Var(format!("x{i}").into()))
+            .collect::<Vec<_>>();
+        cproc_inp.push(env.clone());
+        cproc_inp.push(cont.clone());
+        let mut block = Block {
+            ops: vec![Op::Cproc(
+                cproc_out.clone(),
+                cproc.clone(),
+                cproc_inp.clone(),
+            )],
+            ctrl: Ctrl::Return(func_out.clone()),
+        };
+        for (i, cproc_arg) in cproc_inp[0..arity].iter().enumerate() {
+            let ops = vec![
+                Op::Call(
+                    vec![cproc_arg.clone(), evaluated_args.clone()],
+                    Box::new(car_cdr()),
+                    vec![evaluated_args.clone()],
+                ),
+                Op::EqVal(is_nil.clone(), evaluated_args.clone(), nil.clone()),
+            ];
+            block = if i == 0 {
+                Block {
+                    ops,
+                    ctrl: Ctrl::If(is_nil.clone(), Box::new(block), Box::new(err_block.clone())),
+                }
+            } else {
+                Block {
+                    ops,
+                    ctrl: Ctrl::If(is_nil.clone(), Box::new(err_block.clone()), Box::new(block)),
+                }
+            }
+        }
+        match_symbol_map.insert(cproc.clone(), block);
+    }
+    let def = Some(Box::new(err_block));
+    let ctrl = Ctrl::MatchSymbol(cproc_name.clone(), match_symbol_map, def);
+    let func_inp = vec![cproc_name, evaluated_args, env, cont];
+    let ops = vec![
+        op!(let err: Cont::Error),
+        op!(let nil = Symbol("nil")),
+        op!(let nil = cast(nil, Expr::Nil)),
+        op!(let makethunk = Symbol("make-thunk")),
+        op!(let errctrl = Symbol("error")),
+    ];
+    Func::new(
+        "match_and_run_cproc".into(),
+        func_inp,
+        4,
+        Block { ops, ctrl },
+    )
+    .unwrap()
+}
+
+fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
     // Auxiliary functions
     let car_cdr = car_cdr();
     let env_to_use = func!(env_to_use(smaller_env, smaller_rec_env): 1 => {
@@ -298,6 +736,7 @@ fn reduce() -> Func {
         };
         return (nil)
     });
+    let is_cproc = is_cproc(cprocs);
 
     func!(reduce(expr, env, cont): 4 => {
         // Useful constants
@@ -316,8 +755,11 @@ fn reduce() -> Func {
             }
         };
 
-
         match expr.tag {
+            // Lurk's step function can never reduce such expressions
+            Expr::Cproc => {
+                return (expr, env, cont, ret)
+            }
             Expr::Nil | Expr::Fun | Expr::Num | Expr::Str | Expr::Char | Expr::Comm | Expr::U64 | Expr::Key => {
                 return (expr, env, cont, apply)
             }
@@ -552,13 +994,20 @@ fn reduce() -> Func {
                             }
                             return (expr, env, err, errctrl);
                         }
+                        //coprocessors
+                        let (is_cproc) = is_cproc(head);
+                        let is_t = eq_val(is_cproc, t);
+                        if is_t {
+                            let (arg, unevaled_args) = car_cdr(rest);
+                            let cont: Cont::Cproc = cons4(head, unevaled_args, nil, cont);
+                            return (arg, env, cont, ret);
+                        }
                         // just call assuming that the symbol is bound to a function
                         let (fun, env, cont, ret) = make_call(head, rest, env, cont);
                         return (fun, env, cont, ret);
                     }
                 };
 
-                // TODO coprocessors (could it be simply a `func`?)
                 // head -> fn, rest -> args
                 let (potentially_fun) = is_potentially_fun(head);
                 let eq_val = eq_val(potentially_fun, t);
@@ -572,7 +1021,37 @@ fn reduce() -> Func {
     })
 }
 
-fn apply_cont() -> Func {
+/// Produces the correct `Func` used to call a coprocessor, depending on the context.
+///
+/// If there are no coprocessors available, just error straightaway. Otherwise:
+///
+/// * In the IVC context, just return the `Func` that does the coprocessor matching,
+/// argument list destructuring and coprocessor call
+/// * In the NIVC context, build an expression tagged as `Cproc`, setting up an
+/// infinite loop in Lurk's step's `reduce`
+///
+/// Note: to break out of the (intended) NIVC loop, choose the correct coprocessor
+/// from outside, which is supposed to know how to reduce such expression.
+fn choose_cproc_call(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
+    if cprocs.is_empty() {
+        func!(no_cproc_error(cproc_name, _evaluated_args, env, _cont): 4 => {
+            let err: Cont::Error;
+            let errctrl = Symbol("error");
+            return (cproc_name, env, err, errctrl);
+        })
+    } else if ivc {
+        match_and_run_cproc(cprocs)
+    } else {
+        func!(setup_cproc_loop(cproc_name, evaluated_args, env, cont): 4 => {
+            let ret = Symbol("return");
+            // setup loop
+            let cproc: Expr::Cproc = cons2(cproc_name, evaluated_args);
+            return (cproc, env, cont, ret);
+        })
+    }
+}
+
+fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
     let car_cdr = car_cdr();
     let make_tail_continuation = func!(make_tail_continuation(env, continuation): 1 => {
         let foo: Expr::Nil;
@@ -642,6 +1121,7 @@ fn apply_cont() -> Func {
         };
         return (nil)
     });
+    let choose_cproc_call = choose_cproc_call(cprocs, ivc);
     func!(apply_cont(result, env, cont, ctrl): 4 => {
         // Useful constants
         let ret = Symbol("return");
@@ -1123,6 +1603,29 @@ fn apply_cont() -> Func {
                         let (saved_env, continuation, _foo, _foo) = decons4(cont);
                         return (result, saved_env, continuation, makethunk)
                     }
+                    Cont::Cproc => {
+                        let (cproc_name, unevaled_args, evaluated_args, cont) = decons4(cont);
+                        // accumulate the evaluated arg (`result`)
+                        let evaluated_args: Expr::Cons = cons2(result, evaluated_args);
+                        match unevaled_args.tag {
+                            Expr::Nil => {
+                                // nothing else to evaluate
+                                let (expr, env, cont, ctrl) = choose_cproc_call(cproc_name, evaluated_args, env, cont);
+                                return (expr, env, cont, ctrl);
+                            }
+                            Expr::Cons => {
+                                // pop the next argument that needs to be evaluated
+                                let (arg, unevaled_args) = decons2(unevaled_args);
+                                let cont: Cont::Cproc = cons4(
+                                    cproc_name,
+                                    unevaled_args,
+                                    evaluated_args,
+                                    cont
+                                );
+                                return (arg, env, cont, ret);
+                            }
+                        }
+                    }
                 }
             }
         };
@@ -1160,15 +1663,16 @@ fn make_thunk() -> Func {
 mod tests {
     use super::*;
     use crate::{
+        eval::lang::{DummyCoprocessor, Lang},
         lem::{pointers::Ptr, slot::SlotsCounter, store::Store, Tag},
-        state::State,
+        state::{user_sym, State},
     };
     use bellpepper_core::{test_cs::TestConstraintSystem, Comparable, Delta};
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 10529;
-    const NUM_CONSTRAINTS: usize = 12811;
+    const NUM_AUX: usize = 10554;
+    const NUM_CONSTRAINTS: usize = 12904;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash4: 14,
         hash6: 3,
@@ -1186,34 +1690,20 @@ mod tests {
 
         let computed_num_constraints = eval_step.num_constraints::<Fr>(store);
 
-        let mut all_paths = vec![];
-
-        // Auxiliary Lurk constants
-        let outermost = Ptr::null(Tag::Cont(Outermost));
-        let terminal = Ptr::null(Tag::Cont(Terminal));
-        let error = Ptr::null(Tag::Cont(Error));
-        let nil = store.intern_nil();
-
-        // Stop condition: the continuation is either terminal or error
-        let stop_cond = |output: &[Ptr<Fr>]| output[2] == terminal || output[2] == error;
-
-        let log_fmt = |_: usize, _: &[Ptr<Fr>], _: &[Ptr<Fr>], _: &Store<Fr>| String::default();
-
         let limit = 10000;
+
+        let lang: Lang<Fr, DummyCoprocessor<Fr>> = Lang::new();
 
         let mut cs_prev = None;
         for (i, (expr_in, expr_out)) in pairs.into_iter().enumerate() {
-            let input = [expr_in, nil, outermost];
-            let (frames, _, paths) = eval_step
-                .call_until(&input, store, stop_cond, limit, log_fmt)
-                .unwrap();
+            let (frames, _) = evaluate(Some((eval_step, &lang)), expr_in, store, limit).unwrap();
             let last_frame = frames.last().expect("eval should add at least one frame");
             assert_eq!(last_frame.output[0], expr_out, "pair {i}");
             store.hydrate_z_cache();
             for frame in frames.iter() {
                 let mut cs = TestConstraintSystem::<Fr>::new();
                 eval_step
-                    .synthesize_frame_aux(&mut cs, store, frame)
+                    .synthesize_frame_aux(&mut cs, store, frame, &lang)
                     .unwrap();
                 assert!(cs.is_satisfied());
                 assert_eq!(cs.num_inputs(), NUM_INPUTS);
@@ -1229,11 +1719,7 @@ mod tests {
                 }
                 cs_prev = Some(cs);
             }
-            all_paths.extend(paths);
         }
-
-        // TODO do we really need this?
-        // eval_step.assert_all_paths_taken(&all_paths);
     }
 
     fn expr_in_expr_out_pairs(s: &Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
@@ -1314,9 +1800,56 @@ mod tests {
     #[test]
     fn test_pairs() {
         let step_fn = eval_step();
-        let store = step_fn.init_store();
+        let store = Store::default();
         let pairs = expr_in_expr_out_pairs(&store);
         store.hydrate_z_cache();
         test_eval_and_constrain_aux(step_fn, &store, pairs);
+    }
+
+    #[test]
+    fn test_dumb_lang() {
+        use crate::coprocessor::test::DumbCoprocessor;
+
+        let mut lang = Lang::<Fr, DumbCoprocessor<Fr>>::new();
+        let dumb = DumbCoprocessor::new();
+        let name = user_sym("cproc-dumb");
+
+        let store = &mut Store::default();
+        lang.add_coprocessor_lem(name, dumb, store);
+        let func_ivc = make_eval_step_from_lang(&lang, true);
+        let func_nivc = make_eval_step_from_lang(&lang, false);
+        for func in [func_ivc, func_nivc] {
+            // 9^2 + 8 = 89
+            let expr = "(cproc-dumb 9 8)";
+
+            // The dumb coprocessor cannot be shadowed
+            let expr2 = "(let ((cproc-dumb (lambda (a b) (* a b))))
+                       (cproc-dumb 9 8))";
+
+            // arguments for coprocessors are evaluated
+            let expr3 = "(cproc-dumb (+ 1 8) (+ 1 7))";
+
+            // wrong number of parameters
+            let expr4 = "(cproc-dumb 9 8 123)";
+            let expr5 = "(cproc-dumb 9)";
+            let expr6 = "(cproc-unknown 9)";
+
+            let res = Ptr::num_u64(89);
+            let error = Ptr::null(Tag::Cont(Error));
+
+            let state = State::init_lurk_state().rccell();
+
+            for e in [expr, expr2, expr3] {
+                let ptr = store.read(state.clone(), e).unwrap();
+                let (io, ..) = evaluate_simple(Some((&func, &lang)), ptr, store, 100).unwrap();
+                assert_eq!(io[0], res);
+            }
+
+            for e in [expr4, expr5, expr6] {
+                let ptr = store.read(state.clone(), e).unwrap();
+                let (io, ..) = evaluate_simple(Some((&func, &lang)), ptr, store, 100).unwrap();
+                assert_eq!(io[2], error);
+            }
+        }
     }
 }

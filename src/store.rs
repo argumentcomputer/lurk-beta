@@ -778,6 +778,7 @@ impl<F: LurkField> Store<F> {
                 .map(|(car, cdr)| Expression::Str(car, cdr)),
             ExprTag::Char => self.fetch_char(ptr).map(Expression::Char),
             ExprTag::U64 => self.fetch_uint(ptr).map(Expression::UInt),
+            ExprTag::Cproc => unreachable!("Lurk Alpha doesn't produce such expressions"),
         }
     }
 
@@ -804,7 +805,7 @@ impl<F: LurkField> Store<F> {
 
     pub fn fetch_cont(&self, ptr: &ContPtr<F>) -> Option<Continuation<F>> {
         use ContTag::{
-            Binop, Binop2, Call, Call0, Call2, Dummy, Emit, Error, If, Let, LetRec, Lookup,
+            Binop, Binop2, Call, Call0, Call2, Cproc, Dummy, Emit, Error, If, Let, LetRec, Lookup,
             Outermost, Tail, Terminal, Unop,
         };
         match ptr.tag {
@@ -906,6 +907,7 @@ impl<F: LurkField> Store<F> {
                 .map(|continuation| Continuation::Emit {
                     continuation: *continuation,
                 }),
+            Cproc => unreachable!("Lurk Alpha doesn't produce such continuations"),
         }
     }
 
