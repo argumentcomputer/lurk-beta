@@ -22,13 +22,6 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::circuit::{
-    gadgets::{
-        data::GlobalAllocations,
-        pointer::{AllocatedContPtr, AllocatedPtr},
-    },
-    CircuitFrame, MultiFrame,
-};
 use crate::config::CONFIG;
 
 use crate::coprocessor::Coprocessor;
@@ -36,7 +29,6 @@ use crate::error::ProofError;
 use crate::eval::{lang::Lang, Meta};
 use crate::field::LurkField;
 use crate::proof::{supernova::FoldingConfig, MultiFrameTrait, Prover, PublicParameters};
-use crate::store::Store;
 
 use super::FrameLike;
 
@@ -379,125 +371,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     }
 }
 
-impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C> {
-    fn arity(&self) -> usize {
-        6
-    }
-
-    #[tracing::instrument(skip_all, name = "<MultiFrame as StepCircuit>::synthesize")]
-    fn synthesize<CS>(
-        &self,
-        cs: &mut CS,
-        z: &[AllocatedNum<F>],
-    ) -> Result<Vec<AllocatedNum<F>>, SynthesisError>
-    where
-        CS: ConstraintSystem<F>,
-    {
-        assert_eq!(self.arity(), z.len());
-
-        if cs.is_witness_generator() {
-            if let Some(w) = &self.cached_witness {
-                let aux = w.aux_slice();
-                let end = aux.len() - 6;
-                let inputs = &w.inputs_slice()[1..];
-
-                cs.extend_aux(aux);
-                cs.extend_inputs(inputs);
-
-                let scalars = &aux[end..];
-
-                let allocated = {
-                    let mut bogus_cs = WitnessCS::new();
-
-                    scalars
-                        .iter()
-                        .map(|scalar| AllocatedNum::alloc_infallible(&mut bogus_cs, || *scalar))
-                        .collect::<Vec<_>>()
-                };
-
-                return Ok(allocated);
-            }
-        };
-        let input_expr = AllocatedPtr::by_index(0, z);
-        let input_env = AllocatedPtr::by_index(1, z);
-        let input_cont = AllocatedContPtr::by_index(2, z);
-
-        let count = self.count;
-
-        let (new_expr, new_env, new_cont) = match self.meta {
-            Meta::Lurk => match self.frames.as_ref() {
-                Some(frames) => {
-                    let s = self.store.expect("store missing");
-                    let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?;
-
-                    self.synthesize_frames(cs, s, input_expr, input_env, input_cont, frames, &g)
-                }
-                None => {
-                    assert!(self.store.is_none());
-                    let s = Store::default();
-                    let blank_frame = CircuitFrame::blank();
-                    let frames = vec![blank_frame; count];
-
-                    let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?;
-
-                    self.synthesize_frames(cs, &s, input_expr, input_env, input_cont, &frames, &g)
-                }
-            },
-            Meta::Coprocessor(z_ptr) => {
-                let c = self
-                    .folding_config
-                    .lang()
-                    .get_coprocessor_from_zptr(&z_ptr)
-                    .expect("coprocessor not found for a frame that requires one");
-                match self.frames.as_ref() {
-                    Some(frames) => {
-                        assert_eq!(1, frames.len());
-                        let s = self.store.expect("store missing");
-                        let g =
-                            GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?;
-
-                        c.synthesize_step_circuit(
-                            cs,
-                            s,
-                            &g,
-                            &z_ptr,
-                            &input_expr,
-                            &input_env,
-                            &input_cont,
-                        )?
-                    }
-                    None => {
-                        assert!(self.store.is_none());
-                        let s = Store::default();
-
-                        let g =
-                            GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?;
-
-                        c.synthesize_step_circuit(
-                            cs,
-                            &s,
-                            &g,
-                            &z_ptr,
-                            &input_expr,
-                            &input_env,
-                            &input_cont,
-                        )?
-                    }
-                }
-            }
-        };
-
-        Ok(vec![
-            new_expr.tag().clone(),
-            new_expr.hash().clone(),
-            new_env.tag().clone(),
-            new_env.hash().clone(),
-            new_cont.tag().clone(),
-            new_cont.hash().clone(),
-        ])
-    }
-}
-
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>> Proof<'a, F, C, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -678,3 +551,130 @@ where
     }
 }
 
+// TODO Move to `circuit/circuit_frame.rs`
+use crate::circuit::{
+    gadgets::{
+        data::GlobalAllocations,
+        pointer::{AllocatedContPtr, AllocatedPtr},
+    },
+    CircuitFrame, MultiFrame,
+};
+use crate::store::Store;
+impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C> {
+    fn arity(&self) -> usize {
+        6
+    }
+
+    #[tracing::instrument(skip_all, name = "<MultiFrame as StepCircuit>::synthesize")]
+    fn synthesize<CS>(
+        &self,
+        cs: &mut CS,
+        z: &[AllocatedNum<F>],
+    ) -> Result<Vec<AllocatedNum<F>>, SynthesisError>
+    where
+        CS: ConstraintSystem<F>,
+    {
+        assert_eq!(self.arity(), z.len());
+
+        if cs.is_witness_generator() {
+            if let Some(w) = &self.cached_witness {
+                let aux = w.aux_slice();
+                let end = aux.len() - 6;
+                let inputs = &w.inputs_slice()[1..];
+
+                cs.extend_aux(aux);
+                cs.extend_inputs(inputs);
+
+                let scalars = &aux[end..];
+
+                let allocated = {
+                    let mut bogus_cs = WitnessCS::new();
+
+                    scalars
+                        .iter()
+                        .map(|scalar| AllocatedNum::alloc_infallible(&mut bogus_cs, || *scalar))
+                        .collect::<Vec<_>>()
+                };
+
+                return Ok(allocated);
+            }
+        };
+        let input_expr = AllocatedPtr::by_index(0, z);
+        let input_env = AllocatedPtr::by_index(1, z);
+        let input_cont = AllocatedContPtr::by_index(2, z);
+
+        let count = self.count;
+
+        let (new_expr, new_env, new_cont) = match self.meta {
+            Meta::Lurk => match self.frames.as_ref() {
+                Some(frames) => {
+                    let s = self.store.expect("store missing");
+                    let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?;
+
+                    self.synthesize_frames(cs, s, input_expr, input_env, input_cont, frames, &g)
+                }
+                None => {
+                    assert!(self.store.is_none());
+                    let s = Store::default();
+                    let blank_frame = CircuitFrame::blank();
+                    let frames = vec![blank_frame; count];
+
+                    let g = GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?;
+
+                    self.synthesize_frames(cs, &s, input_expr, input_env, input_cont, &frames, &g)
+                }
+            },
+            Meta::Coprocessor(z_ptr) => {
+                let c = self
+                    .folding_config
+                    .lang()
+                    .get_coprocessor_from_zptr(&z_ptr)
+                    .expect("coprocessor not found for a frame that requires one");
+                match self.frames.as_ref() {
+                    Some(frames) => {
+                        assert_eq!(1, frames.len());
+                        let s = self.store.expect("store missing");
+                        let g =
+                            GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), s)?;
+
+                        c.synthesize_step_circuit(
+                            cs,
+                            s,
+                            &g,
+                            &z_ptr,
+                            &input_expr,
+                            &input_env,
+                            &input_cont,
+                        )?
+                    }
+                    None => {
+                        assert!(self.store.is_none());
+                        let s = Store::default();
+
+                        let g =
+                            GlobalAllocations::new(&mut cs.namespace(|| "global_allocations"), &s)?;
+
+                        c.synthesize_step_circuit(
+                            cs,
+                            &s,
+                            &g,
+                            &z_ptr,
+                            &input_expr,
+                            &input_env,
+                            &input_cont,
+                        )?
+                    }
+                }
+            }
+        };
+
+        Ok(vec![
+            new_expr.tag().clone(),
+            new_expr.hash().clone(),
+            new_env.tag().clone(),
+            new_env.hash().clone(),
+            new_cont.tag().clone(),
+            new_cont.hash().clone(),
+        ])
+    }
+}
