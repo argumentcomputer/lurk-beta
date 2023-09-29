@@ -175,6 +175,7 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         self.coprocessors.get(sym).map(|(c, _)| c)
     }
 
+    #[inline]
     pub fn has_coprocessors(&self) -> bool {
         !self.coprocessors.is_empty()
     }

@@ -778,7 +778,7 @@ impl<F: LurkField> Store<F> {
                 .map(|(car, cdr)| Expression::Str(car, cdr)),
             ExprTag::Char => self.fetch_char(ptr).map(Expression::Char),
             ExprTag::U64 => self.fetch_uint(ptr).map(Expression::UInt),
-            ExprTag::Cproc => unreachable!(),
+            ExprTag::Cproc => unreachable!("Lurk Alpha doesn't produce such expressions"),
         }
     }
 
@@ -907,7 +907,7 @@ impl<F: LurkField> Store<F> {
                 .map(|continuation| Continuation::Emit {
                     continuation: *continuation,
                 }),
-            Cproc => unreachable!(),
+            Cproc => unreachable!("Lurk Alpha doesn't produce such continuations"),
         }
     }
 

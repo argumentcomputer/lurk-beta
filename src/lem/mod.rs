@@ -566,17 +566,6 @@ impl Func {
             body,
         )
     }
-
-    #[inline]
-    pub fn intern_lits<F: LurkField>(&self, store: &Store<F>) {
-        self.body.intern_lits(store)
-    }
-
-    pub fn init_store<F: LurkField>(&self) -> Store<F> {
-        let store = Store::default();
-        self.intern_lits(&store);
-        store
-    }
 }
 
 impl Block {
@@ -769,40 +758,6 @@ impl Block {
         };
         Ok(Block { ops, ctrl })
     }
-
-    fn intern_lits<F: LurkField>(&self, store: &Store<F>) {
-        for op in &self.ops {
-            match op {
-                Op::Call(_, func, _) => func.body.intern_lits(store),
-                Op::Lit(_, lit) => {
-                    lit.to_ptr(store);
-                }
-                _ => (),
-            }
-        }
-        match &self.ctrl {
-            Ctrl::If(.., a, b) => {
-                a.intern_lits(store);
-                b.intern_lits(store);
-            }
-            Ctrl::MatchTag(_, cases, def) => {
-                cases.values().for_each(|block| block.intern_lits(store));
-                if let Some(def) = def {
-                    def.intern_lits(store);
-                }
-            }
-            Ctrl::MatchSymbol(_, cases, def) => {
-                for (sym, b) in cases {
-                    store.intern_symbol(sym);
-                    b.intern_lits(store);
-                }
-                if let Some(def) = def {
-                    def.intern_lits(store);
-                }
-            }
-            Ctrl::Return(..) => (),
-        }
-    }
 }
 
 impl Var {
@@ -836,7 +791,7 @@ mod tests {
     ///   - `expected_slots` gives the number of expected slots for each type of hash.
     fn synthesize_test_helper(func: &Func, inputs: Vec<Ptr<Fr>>, expected_num_slots: SlotsCounter) {
         use crate::tag::ContTag::Outermost;
-        let store = &mut func.init_store();
+        let store = &Store::default();
         let nil = store.intern_nil();
         let outermost = Ptr::null(Tag::Cont(Outermost));
 

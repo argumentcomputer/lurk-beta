@@ -82,7 +82,7 @@ impl<F: LurkField> GlobalAllocator<F> {
     }
 
     #[inline]
-    fn get_allocated_const(&self, f: F) -> Result<&AllocatedNum<F>> {
+    pub fn get_allocated_const(&self, f: F) -> Result<&AllocatedNum<F>> {
         self.0
             .get(&FWrap(f))
             .ok_or_else(|| anyhow!("Global allocation not found for {}", f.hex_digits()))
@@ -614,6 +614,7 @@ impl Func {
                             &mut cs.namespace(|| format!("Coprocessor {sym}")),
                             g.global_allocator,
                             g.store,
+                            not_dummy,
                             &inp_ptrs,
                         )?;
                         if out.len() != out_ptrs.len() {
