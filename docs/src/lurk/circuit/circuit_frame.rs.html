@@ -6597,7 +6597,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>bogus_cs = WitnessCS::&lt;F&gt;::new();
         <span class="kw">let </span>z: Vec&lt;AllocatedNum&lt;F&gt;&gt; = z_scalar
             .iter()
-            .map(|x| AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>bogus_cs, || <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>x)).unwrap())
+            .map(|x| AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>bogus_cs, || <span class="kw-2">*</span>x))
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
         <span class="kw">let _ </span>= nova::traits::circuit::StepCircuit::synthesize(<span class="self">self</span>, <span class="kw-2">&amp;mut </span>wcs, z.as_slice());
@@ -12617,9 +12617,9 @@
     </span><span class="kw">fn </span>test_enforce_less_than_bound() {
         <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
         <span class="kw">let </span>alloc_num =
-            AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;num&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from_u64(<span class="number">42</span>))).unwrap();
+            AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;num&quot;</span>), || Fr::from_u64(<span class="number">42</span>));
         <span class="kw">let </span>alloc_bound =
-            AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;bound&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from_u64(<span class="number">43</span>))).unwrap();
+            AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;bound&quot;</span>), || Fr::from_u64(<span class="number">43</span>));
         <span class="kw">let </span>cond = Boolean::Constant(<span class="bool-val">true</span>);
 
         <span class="kw">let </span>res = enforce_less_than_bound(
@@ -12636,9 +12636,9 @@
     </span><span class="kw">fn </span>test_enforce_less_than_bound_negative() {
         <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
         <span class="kw">let </span>alloc_num =
-            AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;num&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from_u64(<span class="number">43</span>))).unwrap();
+            AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;num&quot;</span>), || Fr::from_u64(<span class="number">43</span>));
         <span class="kw">let </span>alloc_bound =
-            AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;bound&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from_u64(<span class="number">42</span>))).unwrap();
+            AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;bound&quot;</span>), || Fr::from_u64(<span class="number">42</span>));
         <span class="kw">let </span>cond = Boolean::Constant(<span class="bool-val">true</span>);
 
         <span class="kw">let </span>res = enforce_less_than_bound(
@@ -12737,7 +12737,7 @@
         <span class="kw">let </span>field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
 
         <span class="kw">let </span>a_plus_power2_32_num =
-            AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;pow(2, 32) + 2&quot;</span>), || <span class="prelude-val">Ok</span>(v)).unwrap();
+            AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;pow(2, 32) + 2&quot;</span>), || v);
 
         <span class="kw">let </span>bits = a_plus_power2_32_num
             .to_bits_le(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;bits&quot;</span>))
@@ -12767,7 +12767,7 @@
         <span class="kw">let </span>field_bn = BigUint::from_bytes_le(v.to_repr().as_ref());
 
         <span class="kw">let </span>a_plus_power2_64_num =
-            AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;pow(2, 64) + 2&quot;</span>), || <span class="prelude-val">Ok</span>(v)).unwrap();
+            AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;pow(2, 64) + 2&quot;</span>), || v);
 
         <span class="kw">let </span>bits = a_plus_power2_64_num
             .to_bits_le(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;bits&quot;</span>))
@@ -12790,7 +12790,7 @@
     </span><span class="kw">fn </span>test_enforce_pack() {
         <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
         <span class="kw">let </span>a_num =
-            AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;a num&quot;</span>), || <span class="prelude-val">Ok</span>(Fr::from_u64(<span class="number">42</span>))).unwrap();
+            AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;a num&quot;</span>), || Fr::from_u64(<span class="number">42</span>));
         <span class="kw">let </span>bits = a_num.to_bits_le(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;bits&quot;</span>)).unwrap();
         enforce_pack(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>bits, <span class="kw-2">&amp;</span>a_num);
         <span class="macro">assert!</span>(cs.is_satisfied());

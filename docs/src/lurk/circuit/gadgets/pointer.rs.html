@@ -1181,8 +1181,8 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SynthesisError&gt; {
         <span class="kw">let </span>[tag, hash] = t.into_hash_components();
 
-        <span class="kw">let </span>tag = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tag&quot;</span>), || <span class="prelude-val">Ok</span>(tag))<span class="question-mark">?</span>;
-        <span class="kw">let </span>hash = AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;hash&quot;</span>), || <span class="prelude-val">Ok</span>(hash))<span class="question-mark">?</span>;
+        <span class="kw">let </span>tag = AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;tag&quot;</span>), || tag);
+        <span class="kw">let </span>hash = AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;hash&quot;</span>), || hash);
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ tag, hash })
     }

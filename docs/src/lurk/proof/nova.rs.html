@@ -4486,7 +4486,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>bogus_cs = WitnessCS::&lt;F&gt;::new();
         <span class="kw">let </span>z: Vec&lt;AllocatedNum&lt;F&gt;&gt; = z_scalar
             .iter()
-            .map(|x| AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>bogus_cs, || <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>x)).unwrap())
+            .map(|x| AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>bogus_cs, || <span class="kw-2">*</span>x))
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
         <span class="kw">let _ </span>= <span class="self">self</span>.clone().synthesize(<span class="kw-2">&amp;mut </span>wcs, z.as_slice());
@@ -4527,7 +4527,7 @@
 
                     scalars
                         .iter()
-                        .map(|scalar| AllocatedNum::alloc(<span class="kw-2">&amp;mut </span>bogus_cs, || <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>scalar)).unwrap())
+                        .map(|scalar| AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>bogus_cs, || <span class="kw-2">*</span>scalar))
                         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
                 };
 

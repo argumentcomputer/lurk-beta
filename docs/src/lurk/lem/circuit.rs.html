@@ -1327,6 +1327,8 @@
 <a href="#1327" id="1327">1327</a>
 <a href="#1328" id="1328">1328</a>
 <a href="#1329" id="1329">1329</a>
+<a href="#1330" id="1330">1330</a>
+<a href="#1331" id="1331">1331</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellperson constraints for LEM, such
@@ -2168,10 +2170,12 @@
                                 }
                             })
                         });
-                        <span class="kw">let </span>div =
-                            AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;div&quot;</span>), || <span class="prelude-val">Ok</span>(div_rem.unwrap().<span class="number">0</span>))<span class="question-mark">?</span>;
-                        <span class="kw">let </span>rem =
-                            AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;rem&quot;</span>), || <span class="prelude-val">Ok</span>(div_rem.unwrap().<span class="number">1</span>))<span class="question-mark">?</span>;
+                        <span class="kw">let </span>div = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;div&quot;</span>), || {
+                            div_rem.unwrap().<span class="number">0
+                        </span>});
+                        <span class="kw">let </span>rem = AllocatedNum::alloc_infallible(cs.namespace(|| <span class="string">&quot;rem&quot;</span>), || {
+                            div_rem.unwrap().<span class="number">1
+                        </span>});
 
                         <span class="kw">let </span>diff = sub(cs.namespace(|| <span class="string">&quot;diff for slot {slot}&quot;</span>), b, <span class="kw-2">&amp;</span>rem)<span class="question-mark">?</span>;
                         implies_u64(cs.namespace(|| <span class="string">&quot;div_u64&quot;</span>), not_dummy, <span class="kw-2">&amp;</span>div)<span class="question-mark">?</span>;
