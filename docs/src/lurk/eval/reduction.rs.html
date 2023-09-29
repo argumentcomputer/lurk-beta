@@ -1424,6 +1424,9 @@
 <a href="#1424" id="1424">1424</a>
 <a href="#1425" id="1425">1425</a>
 <a href="#1426" id="1426">1426</a>
+<a href="#1427" id="1427">1427</a>
+<a href="#1428" id="1428">1428</a>
+<a href="#1429" id="1429">1429</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{empty_sym_env, Meta, Witness};
 <span class="kw">use </span><span class="kw">crate</span>::cont::Continuation;
 <span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
@@ -1515,6 +1518,8 @@
                     <span class="macro">debug_assert!</span>(expr.tag.is_self_evaluating());
                     Control::ApplyContinuation(expr, env, cont)
                 }
+
+                ExprTag::Cproc =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Lurk Alpha doesn&#39;t produce such expressions&quot;</span>),
 
                 ExprTag::Thunk =&gt; <span class="kw">match </span>store
                     .fetch(<span class="kw-2">&amp;</span>expr)
@@ -2132,6 +2137,7 @@
     <span class="kw">let </span>cont_witness = <span class="kw-2">&amp;mut </span>witness.conts;
 
     <span class="kw">let </span>control = <span class="kw">match </span>cont.tag {
+        ContTag::Cproc =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Lurk Alpha doesn&#39;t produce such continuations&quot;</span>),
         ContTag::Terminal | ContTag::Error =&gt; Control::Return(result, env, cont),
         ContTag::Dummy =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Dummy Continuation should never be applied.&quot;</span>),
         ContTag::Outermost =&gt; Control::Return(result, env, store.intern_cont_terminal()),

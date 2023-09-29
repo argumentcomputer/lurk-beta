@@ -2447,6 +2447,8 @@
 <a href="#2447" id="2447">2447</a>
 <a href="#2448" id="2448">2448</a>
 <a href="#2449" id="2449">2449</a>
+<a href="#2450" id="2450">2450</a>
+<a href="#2451" id="2451">2451</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>arc_swap::ArcSwap;
 <span class="kw">use </span>elsa::sync::{FrozenMap, FrozenVec};
 <span class="kw">use </span>elsa::sync_index_set::FrozenIndexSet;
@@ -3227,6 +3229,7 @@
                 .map(|(car, cdr)| Expression::Str(car, cdr)),
             ExprTag::Char =&gt; <span class="self">self</span>.fetch_char(ptr).map(Expression::Char),
             ExprTag::U64 =&gt; <span class="self">self</span>.fetch_uint(ptr).map(Expression::UInt),
+            ExprTag::Cproc =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Lurk Alpha doesn&#39;t produce such expressions&quot;</span>),
         }
     }
 
@@ -3253,7 +3256,7 @@
 
     <span class="kw">pub fn </span>fetch_cont(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>ContPtr&lt;F&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Continuation&lt;F&gt;&gt; {
         <span class="kw">use </span>ContTag::{
-            Binop, Binop2, Call, Call0, Call2, Dummy, Emit, Error, If, Let, LetRec, Lookup,
+            Binop, Binop2, Call, Call0, Call2, Cproc, Dummy, Emit, Error, If, Let, LetRec, Lookup,
             Outermost, Tail, Terminal, Unop,
         };
         <span class="kw">match </span>ptr.tag {
@@ -3355,6 +3358,7 @@
                 .map(|continuation| Continuation::Emit {
                     continuation: <span class="kw-2">*</span>continuation,
                 }),
+            Cproc =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Lurk Alpha doesn&#39;t produce such continuations&quot;</span>),
         }
     }
 

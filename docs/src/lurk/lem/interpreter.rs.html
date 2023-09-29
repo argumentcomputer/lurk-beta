@@ -548,56 +548,7 @@
 <a href="#548" id="548">548</a>
 <a href="#549" id="549">549</a>
 <a href="#550" id="550">550</a>
-<a href="#551" id="551">551</a>
-<a href="#552" id="552">552</a>
-<a href="#553" id="553">553</a>
-<a href="#554" id="554">554</a>
-<a href="#555" id="555">555</a>
-<a href="#556" id="556">556</a>
-<a href="#557" id="557">557</a>
-<a href="#558" id="558">558</a>
-<a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
-<a href="#584" id="584">584</a>
-<a href="#585" id="585">585</a>
-<a href="#586" id="586">586</a>
-<a href="#587" id="587">587</a>
-<a href="#588" id="588">588</a>
-<a href="#589" id="589">589</a>
-<a href="#590" id="590">590</a>
-<a href="#591" id="591">591</a>
-<a href="#592" id="592">592</a>
-<a href="#593" id="593">593</a>
-<a href="#594" id="594">594</a>
-<a href="#595" id="595">595</a>
-<a href="#596" id="596">596</a>
-<a href="#597" id="597">597</a>
-<a href="#598" id="598">598</a>
-<a href="#599" id="599">599</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
+</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{anyhow, bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>std::collections::VecDeque;
 
 <span class="kw">use super</span>::{
@@ -605,6 +556,8 @@
 };
 
 <span class="kw">use crate</span>::{
+    coprocessor::Coprocessor,
+    eval::lang::Lang,
     field::LurkField,
     num::Num <span class="kw">as </span>BaseNum,
     state::initial_lurk_state,
@@ -714,10 +667,11 @@
     <span class="kw">pub </span>output: Vec&lt;Ptr&lt;F&gt;&gt;,
     <span class="kw">pub </span>preimages: Preimages&lt;F&gt;,
     <span class="kw">pub </span>blank: bool,
+    <span class="kw">pub </span>pc: usize,
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; Frame&lt;F&gt; {
-    <span class="kw">pub fn </span>blank(func: <span class="kw-2">&amp;</span>Func) -&gt; Frame&lt;F&gt; {
+    <span class="kw">pub fn </span>blank(func: <span class="kw-2">&amp;</span>Func, pc: usize) -&gt; Frame&lt;F&gt; {
         <span class="kw">let </span>input = <span class="macro">vec!</span>[Ptr::null(Tag::Expr(Nil)); func.input_params.len()];
         <span class="kw">let </span>output = <span class="macro">vec!</span>[Ptr::null(Tag::Expr(Nil)); func.output_size];
         <span class="kw">let </span>preimages = Preimages::blank(func);
@@ -726,6 +680,7 @@
             output,
             preimages,
             blank: <span class="bool-val">true</span>,
+            pc,
         }
     }
 }
@@ -734,7 +689,7 @@
     <span class="doccomment">/// Interprets a LEM while i) modifying a `Store`, ii) binding `Var`s to
     /// `Ptr`s and iii) collecting the preimages from visited slots (more on this
     /// in `circuit.rs`)
-    </span><span class="kw">fn </span>run&lt;F: LurkField&gt;(
+    </span><span class="kw">fn </span>run&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         input: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;],
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
@@ -742,9 +697,24 @@
         <span class="kw-2">mut </span>preimages: Preimages&lt;F&gt;,
         <span class="kw-2">mut </span>path: Path,
         emitted: <span class="kw-2">&amp;mut </span>Vec&lt;Ptr&lt;F&gt;&gt;,
+        lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
+        pc: usize,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(Frame&lt;F&gt;, Path)&gt; {
         <span class="kw">for </span>op <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.ops {
             <span class="kw">match </span>op {
+                Op::Cproc(out, sym, inp) =&gt; {
+                    <span class="kw">let </span>inp_ptrs = bindings.get_many_ptr(inp)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>cproc = lang
+                        .lookup_by_sym(sym)
+                        .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;Coprocessor for {sym} not found&quot;</span>))<span class="question-mark">?</span>;
+                    <span class="kw">let </span>out_ptrs = cproc.evaluate_lem_internal(store, <span class="kw-2">&amp;</span>inp_ptrs);
+                    <span class="kw">if </span>out.len() != out_ptrs.len() {
+                        <span class="macro">bail!</span>(<span class="string">&quot;Incompatible output length for coprocessor {sym}&quot;</span>)
+                    }
+                    <span class="kw">for </span>(var, ptr) <span class="kw">in </span>out.iter().zip(out_ptrs) {
+                        bindings.insert(var.clone(), Val::Pointer(ptr));
+                    }
+                }
                 Op::Call(out, func, inp) =&gt; {
                     <span class="comment">// Get the argument values
                     </span><span class="kw">let </span>inp_ptrs = bindings.get_many_ptr(inp)<span class="question-mark">?</span>;
@@ -755,7 +725,8 @@
                     // of it, then extend `call_outputs`
                     </span><span class="kw">let </span><span class="kw-2">mut </span>inner_call_outputs = VecDeque::new();
                     std::mem::swap(<span class="kw-2">&amp;mut </span>inner_call_outputs, <span class="kw-2">&amp;mut </span>preimages.call_outputs);
-                    <span class="kw">let </span>(<span class="kw-2">mut </span>frame, func_path) = func.call(<span class="kw-2">&amp;</span>inp_ptrs, store, preimages, emitted)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>(<span class="kw-2">mut </span>frame, func_path) =
+                        func.call(<span class="kw-2">&amp;</span>inp_ptrs, store, preimages, emitted, lang, pc)<span class="question-mark">?</span>;
                     std::mem::swap(<span class="kw-2">&amp;mut </span>inner_call_outputs, <span class="kw-2">&amp;mut </span>frame.preimages.call_outputs);
 
                     <span class="comment">// Extend the path and bind the output variables to the output values
@@ -1009,13 +980,13 @@
                 <span class="kw">let </span>tag = ptr.tag();
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = cases.get(tag) {
                     path.push_tag_inplace(<span class="kw-2">*</span>tag);
-                    block.run(input, store, bindings, preimages, path, emitted)
+                    block.run(input, store, bindings, preimages, path, emitted, lang, pc)
                 } <span class="kw">else </span>{
                     path.push_default_inplace();
                     <span class="kw">let </span><span class="prelude-val">Some</span>(def) = def <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;No match for tag {}&quot;</span>, tag)
                     };
-                    def.run(input, store, bindings, preimages, path, emitted)
+                    def.run(input, store, bindings, preimages, path, emitted, lang, pc)
                 }
             }
             Ctrl::MatchSymbol(match_var, cases, def) =&gt; {
@@ -1028,22 +999,22 @@
                 };
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = cases.get(<span class="kw-2">&amp;</span>sym) {
                     path.push_symbol_inplace(sym);
-                    block.run(input, store, bindings, preimages, path, emitted)
+                    block.run(input, store, bindings, preimages, path, emitted, lang, pc)
                 } <span class="kw">else </span>{
                     path.push_default_inplace();
                     <span class="kw">let </span><span class="prelude-val">Some</span>(def) = def <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;No match for symbol {sym}&quot;</span>)
                     };
-                    def.run(input, store, bindings, preimages, path, emitted)
+                    def.run(input, store, bindings, preimages, path, emitted, lang, pc)
                 }
             }
             Ctrl::If(b, true_block, false_block) =&gt; {
                 <span class="kw">let </span>b = bindings.get_bool(b)<span class="question-mark">?</span>;
                 path.push_bool_inplace(b);
                 <span class="kw">if </span>b {
-                    true_block.run(input, store, bindings, preimages, path, emitted)
+                    true_block.run(input, store, bindings, preimages, path, emitted, lang, pc)
                 } <span class="kw">else </span>{
-                    false_block.run(input, store, bindings, preimages, path, emitted)
+                    false_block.run(input, store, bindings, preimages, path, emitted, lang, pc)
                 }
             }
             Ctrl::Return(output_vars) =&gt; {
@@ -1058,6 +1029,7 @@
                         output,
                         preimages,
                         blank: <span class="bool-val">false</span>,
+                        pc,
                     },
                     path,
                 ))
@@ -1067,12 +1039,14 @@
 }
 
 <span class="kw">impl </span>Func {
-    <span class="kw">pub fn </span>call&lt;F: LurkField&gt;(
+    <span class="kw">pub fn </span>call&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;],
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         preimages: Preimages&lt;F&gt;,
         emitted: <span class="kw-2">&amp;mut </span>Vec&lt;Ptr&lt;F&gt;&gt;,
+        lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
+        pc: usize,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(Frame&lt;F&gt;, Path)&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>bindings = VarMap::new();
         <span class="kw">for </span>(i, param) <span class="kw">in </span><span class="self">self</span>.input_params.iter().enumerate() {
@@ -1087,9 +1061,16 @@
         <span class="kw">let </span>commitment_init = preimages.commitment.len();
         <span class="kw">let </span>less_than_init = preimages.less_than.len();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>res = <span class="self">self
-            </span>.body
-            .run(args, store, bindings, preimages, Path::default(), emitted)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>res = <span class="self">self</span>.body.run(
+            args,
+            store,
+            bindings,
+            preimages,
+            Path::default(),
+            emitted,
+            lang,
+            pc,
+        )<span class="question-mark">?</span>;
         <span class="kw">let </span>preimages = <span class="kw-2">&amp;mut </span>res.<span class="number">0</span>.preimages;
 
         <span class="kw">let </span>hash4_used = preimages.hash4.len() - hash4_init;
@@ -1115,85 +1096,6 @@
         }
 
         <span class="prelude-val">Ok</span>(res)
-    }
-
-    <span class="doccomment">/// Calls a `Func` on an input until the stop contidion is satisfied, using the output of one
-    /// iteration as the input of the next one.
-    </span><span class="kw">pub fn </span>call_until&lt;
-        F: LurkField,
-        StopCond: Fn(<span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; bool,
-        <span class="comment">// iteration -&gt; input -&gt; emitted -&gt; store -&gt; string
-        </span>LogFmt: Fn(usize, <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;], <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;], <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; String,
-    &gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;],
-        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        stop_cond: StopCond,
-        limit: usize,
-        <span class="comment">// TODO: make this argument optional
-        </span>log_fmt: LogFmt,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Frame&lt;F&gt;&gt;, usize, Vec&lt;Path&gt;)&gt; {
-        <span class="macro">assert_eq!</span>(<span class="self">self</span>.input_params.len(), <span class="self">self</span>.output_size);
-        <span class="macro">assert_eq!</span>(<span class="self">self</span>.input_params.len(), args.len());
-
-        <span class="comment">// Initial input, path vector and frames
-        </span><span class="kw">let </span><span class="kw-2">mut </span>input = args.to_vec();
-        <span class="kw">let </span><span class="kw-2">mut </span>frames = <span class="macro">vec!</span>[];
-        <span class="kw">let </span><span class="kw-2">mut </span>paths = <span class="macro">vec!</span>[];
-
-        <span class="kw">let </span><span class="kw-2">mut </span>iterations = <span class="number">0</span>;
-
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;{}&quot;</span>, <span class="kw-2">&amp;</span>log_fmt(iterations, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>[], store));
-
-        <span class="kw">for _ in </span><span class="number">0</span>..limit {
-            <span class="kw">let </span>preimages = Preimages::new_from_func(<span class="self">self</span>);
-            <span class="kw">let </span><span class="kw-2">mut </span>emitted = <span class="macro">vec!</span>[];
-            <span class="kw">let </span>(frame, path) = <span class="self">self</span>.call(<span class="kw-2">&amp;</span>input, store, preimages, <span class="kw-2">&amp;mut </span>emitted)<span class="question-mark">?</span>;
-            input = frame.output.clone();
-            iterations += <span class="number">1</span>;
-            <span class="macro">tracing::info!</span>(<span class="string">&quot;{}&quot;</span>, <span class="kw-2">&amp;</span>log_fmt(iterations, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>emitted, store));
-            <span class="kw">if </span>stop_cond(<span class="kw-2">&amp;</span>frame.output) {
-                frames.push(frame);
-                paths.push(path);
-                <span class="kw">break</span>;
-            }
-            frames.push(frame);
-            paths.push(path);
-        }
-        <span class="kw">if </span>iterations &lt; limit {
-            <span class="comment">// pushing a frame that can be padded
-            </span><span class="kw">let </span>preimages = Preimages::new_from_func(<span class="self">self</span>);
-            <span class="kw">let </span>(frame, path) = <span class="self">self</span>.call(<span class="kw-2">&amp;</span>input, store, preimages, <span class="kw-2">&amp;mut </span><span class="macro">vec!</span>[])<span class="question-mark">?</span>;
-            frames.push(frame);
-            paths.push(path);
-        }
-        <span class="prelude-val">Ok</span>((frames, iterations, paths))
-    }
-
-    <span class="kw">pub fn </span>call_until_simple&lt;F: LurkField, StopCond: Fn(<span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; bool&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        args: Vec&lt;Ptr&lt;F&gt;&gt;,
-        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        stop_cond: StopCond,
-        limit: usize,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Ptr&lt;F&gt;&gt;, usize, Vec&lt;Ptr&lt;F&gt;&gt;)&gt; {
-        <span class="macro">assert_eq!</span>(<span class="self">self</span>.input_params.len(), <span class="self">self</span>.output_size);
-        <span class="macro">assert_eq!</span>(<span class="self">self</span>.input_params.len(), args.len());
-
-        <span class="kw">let </span><span class="kw-2">mut </span>input = args;
-        <span class="kw">let </span><span class="kw-2">mut </span>emitted = <span class="macro">vec!</span>[];
-
-        <span class="kw">let </span><span class="kw-2">mut </span>iterations = <span class="number">0</span>;
-
-        <span class="kw">for _ in </span><span class="number">0</span>..limit {
-            <span class="kw">let </span>(frame, <span class="kw">_</span>) = <span class="self">self</span>.call(<span class="kw-2">&amp;</span>input, store, Preimages::default(), <span class="kw-2">&amp;mut </span>emitted)<span class="question-mark">?</span>;
-            input = frame.output.clone();
-            iterations += <span class="number">1</span>;
-            <span class="kw">if </span>stop_cond(<span class="kw-2">&amp;</span>frame.output) {
-                <span class="kw">break</span>;
-            }
-        }
-        <span class="prelude-val">Ok</span>((input, iterations, emitted))
     }
 }
 </code></pre></div></section></main></body></html>

@@ -1042,42 +1042,6 @@
 <a href="#1042" id="1042">1042</a>
 <a href="#1043" id="1043">1043</a>
 <a href="#1044" id="1044">1044</a>
-<a href="#1045" id="1045">1045</a>
-<a href="#1046" id="1046">1046</a>
-<a href="#1047" id="1047">1047</a>
-<a href="#1048" id="1048">1048</a>
-<a href="#1049" id="1049">1049</a>
-<a href="#1050" id="1050">1050</a>
-<a href="#1051" id="1051">1051</a>
-<a href="#1052" id="1052">1052</a>
-<a href="#1053" id="1053">1053</a>
-<a href="#1054" id="1054">1054</a>
-<a href="#1055" id="1055">1055</a>
-<a href="#1056" id="1056">1056</a>
-<a href="#1057" id="1057">1057</a>
-<a href="#1058" id="1058">1058</a>
-<a href="#1059" id="1059">1059</a>
-<a href="#1060" id="1060">1060</a>
-<a href="#1061" id="1061">1061</a>
-<a href="#1062" id="1062">1062</a>
-<a href="#1063" id="1063">1063</a>
-<a href="#1064" id="1064">1064</a>
-<a href="#1065" id="1065">1065</a>
-<a href="#1066" id="1066">1066</a>
-<a href="#1067" id="1067">1067</a>
-<a href="#1068" id="1068">1068</a>
-<a href="#1069" id="1069">1069</a>
-<a href="#1070" id="1070">1070</a>
-<a href="#1071" id="1071">1071</a>
-<a href="#1072" id="1072">1072</a>
-<a href="#1073" id="1073">1073</a>
-<a href="#1074" id="1074">1074</a>
-<a href="#1075" id="1075">1075</a>
-<a href="#1076" id="1076">1076</a>
-<a href="#1077" id="1077">1077</a>
-<a href="#1078" id="1078">1078</a>
-<a href="#1079" id="1079">1079</a>
-<a href="#1080" id="1080">1080</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Lurk Evaluation Model (LEM)
 //!
 //! LEM is a simple, first order, referentially transparent language, designed to
@@ -1155,8 +1119,6 @@
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use crate</span>::{
-    coprocessor::Coprocessor,
-    eval::lang::Lang,
     field::LurkField,
     symbol::Symbol,
     tag::{ContTag, ExprTag, Op1, Op2, Tag <span class="kw">as </span>TagTrait},
@@ -1175,12 +1137,6 @@
     <span class="kw">pub </span>output_size: usize,
     <span class="kw">pub </span>body: Block,
     <span class="kw">pub </span>slot: SlotsCounter,
-}
-
-<span class="kw">impl</span>&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; From&lt;<span class="kw-2">&amp;</span>Lang&lt;F, C&gt;&gt; <span class="kw">for </span>Func {
-    <span class="kw">fn </span>from(_lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;) -&gt; <span class="self">Self </span>{
-        eval::eval_step().clone()
-    }
 }
 
 <span class="doccomment">/// LEM variables
@@ -1334,6 +1290,8 @@
 <span class="doccomment">/// The atomic operations of LEMs.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>Op {
+    <span class="doccomment">/// `Cproc(ys, c, xs)` binds `ys` to the results of coprocessor `c` applied to `xs`
+    </span>Cproc(Vec&lt;Var&gt;, Symbol, Vec&lt;Var&gt;),
     <span class="doccomment">/// `Call(ys, f, xs)` binds `ys` to the results of `f` applied to `xs`
     </span>Call(Vec&lt;Var&gt;, Box&lt;Func&gt;, Vec&lt;Var&gt;),
     <span class="doccomment">/// `Null(x, t)` binds `x` to a `Ptr::Leaf(t, F::zero())`
@@ -1435,6 +1393,10 @@
         <span class="kw">fn </span>recurse(block: <span class="kw-2">&amp;</span>Block, return_size: usize, map: <span class="kw-2">&amp;mut </span>HashMap&lt;Var, bool&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
             <span class="kw">for </span>op <span class="kw">in </span><span class="kw-2">&amp;</span>block.ops {
                 <span class="kw">match </span>op {
+                    Op::Cproc(out, <span class="kw">_</span>, inp) =&gt; {
+                        inp.iter().try_for_each(|arg| is_bound(arg, map))<span class="question-mark">?</span>;
+                        out.iter().for_each(|var| is_unique(var, map));
+                    }
                     Op::Call(out, func, inp) =&gt; {
                         <span class="kw">if </span>out.len() != func.output_size {
                             <span class="macro">bail!</span>(
@@ -1648,12 +1610,6 @@
             body,
         )
     }
-
-    <span class="kw">pub fn </span>init_store&lt;F: LurkField&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Store&lt;F&gt; {
-        <span class="kw">let </span>store = Store::default();
-        <span class="self">self</span>.body.intern_lits(<span class="kw-2">&amp;</span>store);
-        store
-    }
 }
 
 <span class="kw">impl </span>Block {
@@ -1673,6 +1629,11 @@
         <span class="kw">let </span><span class="kw-2">mut </span>ops = Vec::with_capacity(<span class="self">self</span>.ops.len());
         <span class="kw">for </span>op <span class="kw">in </span><span class="self">self</span>.ops {
             <span class="kw">match </span>op {
+                Op::Cproc(out, sym, inp) =&gt; {
+                    <span class="kw">let </span>inp = map.get_many_cloned(<span class="kw-2">&amp;</span>inp)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>out = insert_many(map, uniq, <span class="kw-2">&amp;</span>out);
+                    ops.push(Op::Cproc(out, sym, inp))
+                }
                 Op::Call(out, func, inp) =&gt; {
                     <span class="kw">let </span>inp = map.get_many_cloned(<span class="kw-2">&amp;</span>inp)<span class="question-mark">?</span>;
                     <span class="kw">let </span>out = insert_many(map, uniq, <span class="kw-2">&amp;</span>out);
@@ -1841,43 +1802,14 @@
         };
         <span class="prelude-val">Ok</span>(Block { ops, ctrl })
     }
-
-    <span class="kw">fn </span>intern_lits&lt;F: LurkField&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;) {
-        <span class="kw">for </span>op <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.ops {
-            <span class="kw">match </span>op {
-                Op::Call(<span class="kw">_</span>, func, <span class="kw">_</span>) =&gt; func.body.intern_lits(store),
-                Op::Lit(<span class="kw">_</span>, lit) =&gt; {
-                    lit.to_ptr(store);
-                }
-                <span class="kw">_ </span>=&gt; (),
-            }
-        }
-        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.ctrl {
-            Ctrl::If(.., a, b) =&gt; {
-                a.intern_lits(store);
-                b.intern_lits(store);
-            }
-            Ctrl::MatchTag(<span class="kw">_</span>, cases, def) =&gt; {
-                cases.values().for_each(|block| block.intern_lits(store));
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(def) = def {
-                    def.intern_lits(store);
-                }
-            }
-            Ctrl::MatchSymbol(<span class="kw">_</span>, cases, def) =&gt; {
-                <span class="kw">for </span>(sym, b) <span class="kw">in </span>cases {
-                    store.intern_symbol(sym);
-                    b.intern_lits(store);
-                }
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(def) = def {
-                    def.intern_lits(store);
-                }
-            }
-            Ctrl::Return(..) =&gt; (),
-        }
-    }
 }
 
 <span class="kw">impl </span>Var {
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>new(name: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(name.into())
+    }
+
     <span class="kw">fn </span>make_unique(<span class="kw-2">&amp;</span><span class="self">self</span>, uniq: <span class="kw-2">&amp;mut </span>usize) -&gt; Var {
         <span class="kw-2">*</span>uniq += <span class="number">1</span>;
         Var(<span class="macro">format!</span>(<span class="string">&quot;{}#{}&quot;</span>, <span class="self">self</span>.name(), uniq).into())
@@ -1888,6 +1820,7 @@
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span><span class="kw">super</span>::slot::SlotsCounter;
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span><span class="kw">crate</span>::eval::lang::{DummyCoprocessor, Lang};
     <span class="kw">use crate</span>::{func, lem::pointers::Ptr};
     <span class="kw">use </span>bellpepper::util_cs::Comparable;
     <span class="kw">use </span>bellpepper_core::test_cs::TestConstraintSystem;
@@ -1901,40 +1834,35 @@
     ///   provided expressions.
     ///   - `expected_slots` gives the number of expected slots for each type of hash.
     </span><span class="kw">fn </span>synthesize_test_helper(func: <span class="kw-2">&amp;</span>Func, inputs: Vec&lt;Ptr&lt;Fr&gt;&gt;, expected_num_slots: SlotsCounter) {
-        <span class="kw">use </span><span class="kw">crate</span>::tag::ContTag::{Error, Outermost, Terminal};
-        <span class="kw">let </span>store = <span class="kw-2">&amp;mut </span>func.init_store();
-        <span class="kw">let </span>outermost = Ptr::null(Tag::Cont(Outermost));
-        <span class="kw">let </span>terminal = Ptr::null(Tag::Cont(Terminal));
-        <span class="kw">let </span>error = Ptr::null(Tag::Cont(Error));
+        <span class="kw">use </span><span class="kw">crate</span>::tag::ContTag::Outermost;
+        <span class="kw">let </span>store = <span class="kw-2">&amp;</span>Store::default();
         <span class="kw">let </span>nil = store.intern_nil();
-        <span class="kw">let </span>stop_cond = |output: <span class="kw-2">&amp;</span>[Ptr&lt;Fr&gt;]| output[<span class="number">2</span>] == terminal || output[<span class="number">2</span>] == error;
+        <span class="kw">let </span>outermost = Ptr::null(Tag::Cont(Outermost));
 
         <span class="macro">assert_eq!</span>(func.slot, expected_num_slots);
 
         <span class="kw">let </span>computed_num_constraints = func.num_constraints::&lt;Fr&gt;(store);
 
-        <span class="kw">let </span>log_fmt = |<span class="kw">_</span>: usize, <span class="kw">_</span>: <span class="kw-2">&amp;</span>[Ptr&lt;Fr&gt;], <span class="kw">_</span>: <span class="kw-2">&amp;</span>[Ptr&lt;Fr&gt;], <span class="kw">_</span>: <span class="kw-2">&amp;</span>Store&lt;Fr&gt;| String::default();
+        <span class="kw">let </span>lang: Lang&lt;Fr, DummyCoprocessor&lt;Fr&gt;&gt; = Lang::new();
 
         <span class="kw">let </span><span class="kw-2">mut </span>cs_prev = <span class="prelude-val">None</span>;
         <span class="kw">for </span>input <span class="kw">in </span>inputs {
             <span class="kw">let </span>input = [input, nil, outermost];
-            <span class="kw">let </span>(frames, ..) = func
-                .call_until(<span class="kw-2">&amp;</span>input, store, stop_cond, <span class="number">10</span>, log_fmt)
+            <span class="kw">let </span>(frame, <span class="kw">_</span>) = func
+                .call(<span class="kw-2">&amp;</span>input, store, Default::default(), <span class="kw-2">&amp;mut </span><span class="macro">vec!</span>[], <span class="kw-2">&amp;</span>lang, <span class="number">0</span>)
                 .unwrap();
 
-            <span class="kw">let </span><span class="kw-2">mut </span>cs;
+            <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::&lt;Fr&gt;::new();
 
-            <span class="kw">for </span>frame <span class="kw">in </span>frames {
-                cs = TestConstraintSystem::&lt;Fr&gt;::new();
-                func.synthesize_frame_aux(<span class="kw-2">&amp;mut </span>cs, store, <span class="kw-2">&amp;</span>frame).unwrap();
-                <span class="macro">assert!</span>(cs.is_satisfied());
-                <span class="macro">assert_eq!</span>(computed_num_constraints, cs.num_constraints());
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(cs_prev) = cs_prev {
-                    <span class="comment">// Check for all input expresssions that all frames are uniform.
-                    </span><span class="macro">assert_eq!</span>(cs.delta(<span class="kw-2">&amp;</span>cs_prev, <span class="bool-val">true</span>), Delta::Equal);
-                }
-                cs_prev = <span class="prelude-val">Some</span>(cs);
+            func.synthesize_frame_aux(<span class="kw-2">&amp;mut </span>cs, store, <span class="kw-2">&amp;</span>frame, <span class="kw-2">&amp;</span>lang)
+                .unwrap();
+            <span class="macro">assert!</span>(cs.is_satisfied());
+            <span class="macro">assert_eq!</span>(computed_num_constraints, cs.num_constraints());
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(cs_prev) = cs_prev {
+                <span class="comment">// Check for all input expresssions that all frames are uniform.
+                </span><span class="macro">assert_eq!</span>(cs.delta(<span class="kw-2">&amp;</span>cs_prev, <span class="bool-val">true</span>), Delta::Equal);
             }
+            cs_prev = <span class="prelude-val">Some</span>(cs);
         }
     }
 

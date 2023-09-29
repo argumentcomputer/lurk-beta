@@ -252,6 +252,7 @@
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>lurk_macros::serde_test;
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
@@ -425,6 +426,7 @@
                     store.hash_cont(<span class="kw-2">&amp;</span>thunk.continuation)<span class="question-mark">?</span>,
                 ))
             }),
+            ExprTag::Cproc =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Lurk Alpha doesn&#39;t produce such expressions&quot;</span>),
         }
     }
 }

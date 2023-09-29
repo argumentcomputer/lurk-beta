@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["eval_step","evaluate","evaluate_simple","evaluate_with_env_and_cont"]};
+window.SIDEBAR_ITEMS = {"fn":["build_frames","eval_step","evaluate","evaluate_simple","evaluate_with_env_and_cont","make_eval_step","make_eval_step_from_lang","traverse_frames"]};

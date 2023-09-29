@@ -510,6 +510,11 @@
 <a href="#510" id="510">510</a>
 <a href="#511" id="511">511</a>
 <a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>lurk_macros::TryFromRepr;
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>proptest_derive::Arbitrary;
@@ -551,6 +556,7 @@
     Comm,
     U64,
     Key,
+    Cproc,
 }
 
 <span class="kw">impl </span>From&lt;ExprTag&gt; <span class="kw">for </span>u16 {
@@ -579,6 +585,7 @@
             ExprTag::Char =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;char#&quot;</span>),
             ExprTag::Comm =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;comm#&quot;</span>),
             ExprTag::U64 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;u64#&quot;</span>),
+            ExprTag::Cproc =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;cproc#&quot;</span>),
         }
     }
 }
@@ -597,7 +604,8 @@
             | <span class="self">Self</span>::Char
             | <span class="self">Self</span>::Comm
             | <span class="self">Self</span>::U64
-            | <span class="self">Self</span>::Key =&gt; <span class="bool-val">true</span>,
+            | <span class="self">Self</span>::Key
+            | <span class="self">Self</span>::Cproc =&gt; <span class="bool-val">true</span>,
         }
     }
 
@@ -646,6 +654,7 @@
     Dummy,
     Terminal,
     Emit,
+    Cproc,
 }
 
 <span class="kw">impl </span>From&lt;ContTag&gt; <span class="kw">for </span>u16 {
@@ -696,6 +705,7 @@
             ContTag::Dummy =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;dummy#&quot;</span>),
             ContTag::Terminal =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;terminal#&quot;</span>),
             ContTag::Emit =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;emit#&quot;</span>),
+            ContTag::Cproc =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;cproc#&quot;</span>),
         }
     }
 }

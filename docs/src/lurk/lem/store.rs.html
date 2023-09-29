@@ -759,6 +759,7 @@
 <a href="#759" id="759">759</a>
 <a href="#760" id="760">760</a>
 <a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>arc_swap::ArcSwap;
 <span class="kw">use </span>elsa::sync::{FrozenMap, FrozenVec};
@@ -775,7 +776,7 @@
     state::{lurk_sym, State},
     symbol::Symbol,
     syntax::Syntax,
-    tag::ExprTag::{Char, Comm, Cons, Fun, Key, Nil, Num, Str, Sym, Thunk, U64},
+    tag::ExprTag::{Char, Comm, Cons, Cproc, Fun, Key, Nil, Num, Str, Sym, Thunk, U64},
     uint::UInt,
 };
 
@@ -1514,6 +1515,7 @@
                     }
                     <span class="prelude-val">None </span>=&gt; <span class="string">&quot;&lt;Malformed Comm&gt;&quot;</span>.into(),
                 },
+                Cproc =&gt; <span class="string">&quot;&lt;COPROCESSOR (TODO)&gt;&quot;</span>.into(),
             },
             Tag::Cont(<span class="kw">_</span>) =&gt; <span class="string">&quot;&lt;CONTINUATION (TODO)&gt;&quot;</span>.into(),
             <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),

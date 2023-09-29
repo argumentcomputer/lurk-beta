@@ -1329,6 +1329,34 @@
 <a href="#1329" id="1329">1329</a>
 <a href="#1330" id="1330">1330</a>
 <a href="#1331" id="1331">1331</a>
+<a href="#1332" id="1332">1332</a>
+<a href="#1333" id="1333">1333</a>
+<a href="#1334" id="1334">1334</a>
+<a href="#1335" id="1335">1335</a>
+<a href="#1336" id="1336">1336</a>
+<a href="#1337" id="1337">1337</a>
+<a href="#1338" id="1338">1338</a>
+<a href="#1339" id="1339">1339</a>
+<a href="#1340" id="1340">1340</a>
+<a href="#1341" id="1341">1341</a>
+<a href="#1342" id="1342">1342</a>
+<a href="#1343" id="1343">1343</a>
+<a href="#1344" id="1344">1344</a>
+<a href="#1345" id="1345">1345</a>
+<a href="#1346" id="1346">1346</a>
+<a href="#1347" id="1347">1347</a>
+<a href="#1348" id="1348">1348</a>
+<a href="#1349" id="1349">1349</a>
+<a href="#1350" id="1350">1350</a>
+<a href="#1351" id="1351">1351</a>
+<a href="#1352" id="1352">1352</a>
+<a href="#1353" id="1353">1353</a>
+<a href="#1354" id="1354">1354</a>
+<a href="#1355" id="1355">1355</a>
+<a href="#1356" id="1356">1356</a>
+<a href="#1357" id="1357">1357</a>
+<a href="#1358" id="1358">1358</a>
+<a href="#1359" id="1359">1359</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellperson constraints for LEM, such
@@ -1362,14 +1390,18 @@
 };
 <span class="kw">use </span>std::collections::{HashMap, HashSet, VecDeque};
 
-<span class="kw">use </span><span class="kw">crate</span>::circuit::gadgets::{
-    constraints::{
-        add, alloc_equal, alloc_is_zero, allocate_is_negative, and, div, enforce_pack,
-        enforce_product_and_sum, enforce_selector_with_premise, implies_equal, implies_equal_const,
-        implies_u64, implies_unequal_const, mul, or, pick, sub,
+<span class="kw">use crate</span>::{
+    circuit::gadgets::{
+        constraints::{
+            add, alloc_equal, alloc_is_zero, allocate_is_negative, and, div, enforce_pack,
+            enforce_product_and_sum, enforce_selector_with_premise, implies_equal,
+            implies_equal_const, implies_u64, implies_unequal_const, mul, or, pick, sub,
+        },
+        data::{allocate_constant, hash_poseidon},
+        pointer::AllocatedPtr,
     },
-    data::{allocate_constant, hash_poseidon},
-    pointer::AllocatedPtr,
+    coprocessor::Coprocessor,
+    eval::lang::Lang,
 };
 
 <span class="kw">use crate</span>::{
@@ -1409,7 +1441,7 @@
     }
 
     <span class="attr">#[inline]
-    </span><span class="kw">fn </span>get_allocated_const(<span class="kw-2">&amp;</span><span class="self">self</span>, f: F) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;&gt; {
+    </span><span class="kw">pub fn </span>get_allocated_const(<span class="kw-2">&amp;</span><span class="self">self</span>, f: F) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>AllocatedNum&lt;F&gt;&gt; {
         <span class="self">self</span>.<span class="number">0
             </span>.get(<span class="kw-2">&amp;</span>FWrap(f))
             .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;Global allocation not found for {}&quot;</span>, f.hex_digits()))
@@ -1762,13 +1794,14 @@
     /// each slot and then, as we traverse the function, we add constraints to make
     /// sure that the witness satisfies the arithmetic equations for the
     /// corresponding slots.
-    </span><span class="kw">pub fn </span>synthesize_frame&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+    </span><span class="kw">pub fn </span>synthesize_frame&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;, C: Coprocessor&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         frame: <span class="kw-2">&amp;</span>Frame&lt;F&gt;,
         global_allocator: <span class="kw-2">&amp;</span>GlobalAllocator&lt;F&gt;,
         bound_allocations: <span class="kw-2">&amp;mut </span>BoundAllocations&lt;F&gt;,
+        lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AllocatedPtr&lt;F&gt;&gt;&gt; {
         <span class="comment">// Outputs are constrained by the return statement. All functions return
         </span><span class="kw">let </span>preallocated_outputs = <span class="self">self</span>.allocate_output(cs, store, frame)<span class="question-mark">?</span>;
@@ -1816,7 +1849,8 @@
             store,
         )<span class="question-mark">?</span>;
 
-        <span class="kw">struct </span>Globals&lt;<span class="lifetime">&#39;a</span>, F: LurkField&gt; {
+        <span class="kw">struct </span>Globals&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
+            lang: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Lang&lt;F, C&gt;,
             store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
             global_allocator: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>GlobalAllocator&lt;F&gt;,
             preallocated_hash4_slots: Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)&gt;,
@@ -1827,14 +1861,14 @@
             call_outputs: VecDeque&lt;Vec&lt;Ptr&lt;F&gt;&gt;&gt;,
         }
 
-        <span class="kw">fn </span>recurse&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+        <span class="kw">fn </span>recurse&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;, C: Coprocessor&lt;F&gt;&gt;(
             cs: <span class="kw-2">&amp;mut </span>CS,
             block: <span class="kw-2">&amp;</span>Block,
             not_dummy: <span class="kw-2">&amp;</span>Boolean,
             next_slot: <span class="kw-2">&amp;mut </span>SlotsCounter,
             bound_allocations: <span class="kw-2">&amp;mut </span>BoundAllocations&lt;F&gt;,
             preallocated_outputs: <span class="kw-2">&amp;</span>Vec&lt;AllocatedPtr&lt;F&gt;&gt;,
-            g: <span class="kw-2">&amp;mut </span>Globals&lt;<span class="lifetime">&#39;_</span>, F&gt;,
+            g: <span class="kw-2">&amp;mut </span>Globals&lt;<span class="lifetime">&#39;_</span>, F, C&gt;,
         ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
             <span class="kw">for </span>(op_idx, op) <span class="kw">in </span>block.ops.iter().enumerate() {
                 <span class="kw">let </span><span class="kw-2">mut </span>cs = cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;op {op_idx}&quot;</span>));
@@ -1929,6 +1963,26 @@
                 }
 
                 <span class="kw">match </span>op {
+                    Op::Cproc(out, sym, inp) =&gt; {
+                        <span class="kw">let </span>inp_ptrs = bound_allocations.get_many_ptr(inp)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>cproc = g
+                            .lang
+                            .lookup_by_sym(sym)
+                            .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;Coprocessor for {sym} not found&quot;</span>))<span class="question-mark">?</span>;
+                        <span class="kw">let </span>out_ptrs = cproc.synthesize_lem_internal(
+                            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;Coprocessor {sym}&quot;</span>)),
+                            g.global_allocator,
+                            g.store,
+                            not_dummy,
+                            <span class="kw-2">&amp;</span>inp_ptrs,
+                        )<span class="question-mark">?</span>;
+                        <span class="kw">if </span>out.len() != out_ptrs.len() {
+                            <span class="macro">bail!</span>(<span class="string">&quot;Incompatible output length for coprocessor {sym}&quot;</span>)
+                        }
+                        <span class="kw">for </span>(var, ptr) <span class="kw">in </span>out.iter().zip(out_ptrs) {
+                            bound_allocations.insert(var.clone(), AllocatedVal::Pointer(ptr));
+                        }
+                    }
                     Op::Call(out, func, inp) =&gt; {
                         <span class="comment">// Allocate the output pointers that the `func` will return to.
                         // These should be unconstrained as of yet, and will be constrained
@@ -2277,7 +2331,7 @@
                                         cases: <span class="kw-2">&amp;</span>[(F, <span class="kw-2">&amp;</span>Block)],
                                         def: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Box&lt;Block&gt;&gt;,
                                         bound_allocations: <span class="kw-2">&amp;mut </span>VarMap&lt;AllocatedVal&lt;F&gt;&gt;,
-                                        g: <span class="kw-2">&amp;mut </span>Globals&lt;<span class="lifetime">&#39;_</span>, F&gt;|
+                                        g: <span class="kw-2">&amp;mut </span>Globals&lt;<span class="lifetime">&#39;_</span>, F, C&gt;|
              -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;SlotsCounter&gt;&gt; {
                 <span class="comment">// * One `Boolean` for each case
                 // * Maybe one `Boolean` for the default case
@@ -2473,6 +2527,7 @@
             bound_allocations,
             <span class="kw-2">&amp;</span>preallocated_outputs,
             <span class="kw-2">&amp;mut </span>Globals {
+                lang,
                 store,
                 global_allocator,
                 preallocated_hash4_slots,
@@ -2487,16 +2542,17 @@
     }
 
     <span class="doccomment">/// Helper API for tests
-    </span><span class="kw">pub fn </span>synthesize_frame_aux&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
+    </span><span class="kw">pub fn </span>synthesize_frame_aux&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;, C: Coprocessor&lt;F&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cs: <span class="kw-2">&amp;mut </span>CS,
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         frame: <span class="kw-2">&amp;</span>Frame&lt;F&gt;,
+        lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>bound_allocations = <span class="kw-2">&amp;mut </span>BoundAllocations::new();
         <span class="kw">let </span>global_allocator = <span class="self">self</span>.alloc_globals(cs, store)<span class="question-mark">?</span>;
         <span class="self">self</span>.allocate_input(cs, store, frame, bound_allocations)<span class="question-mark">?</span>;
-        <span class="self">self</span>.synthesize_frame(cs, store, frame, <span class="kw-2">&amp;</span>global_allocator, bound_allocations)<span class="question-mark">?</span>;
+        <span class="self">self</span>.synthesize_frame(cs, store, frame, <span class="kw-2">&amp;</span>global_allocator, bound_allocations, lang)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -2564,7 +2620,7 @@
                         <span class="comment">// three implies_u64, one sub and one linear
                         </span>num_constraints += <span class="number">197</span>;
                     }
-                    Op::Not(..) | Op::Emit(<span class="kw">_</span>) =&gt; (),
+                    Op::Not(..) | Op::Emit(<span class="kw">_</span>) | Op::Cproc(..) =&gt; (),
                     Op::Cons2(<span class="kw">_</span>, tag, <span class="kw">_</span>) =&gt; {
                         <span class="comment">// tag for the image
                         </span>globals.insert(FWrap(tag.to_field()));
