@@ -111,7 +111,9 @@ pub type SS2<F> = nova::spartan::snark::RelaxedR1CSSNARK<G2<F>, EE2<F>>;
 /// Type alias for a MultiFrame with S1 field elements.
 /// This uses the <<F as CurveCycleEquipped>::G1 as Group>::Scalar type for the G1 scalar field elements
 /// to reflect it this should not be used outside the Nova context
-pub type C1<'a, F, C> = MultiFrame<'a, F, C>;
+pub type C1Lurk<'a, F, C> = crate::circuit::circuit_frame::MultiFrame<'a, F, C>;
+/// LEM's version of C1
+pub type C1LEM<'a, F, C> = crate::lem::multiframe::MultiFrame<'a, F, C>;
 /// Type alias for a Trivial Test Circuit with G2 scalar field elements.
 pub type C2<F> = TrivialCircuit<<G2<F> as Group>::Scalar>;
 
@@ -335,39 +337,6 @@ where
             lang,
         )?;
         self.prove(pp, &frames, store, lang)
-    }
-}
-
-impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
-    #[allow(dead_code)] // TODO(huitseeker): is this used?
-    fn compute_witness(&self, s: &Store<F>) -> WitnessCS<F> {
-        let mut wcs = WitnessCS::new();
-
-        let input = self.input.unwrap();
-
-        use crate::tag::Tag;
-        let expr = s.hash_expr(&input.expr).unwrap();
-        let env = s.hash_expr(&input.env).unwrap();
-        let cont = s.hash_cont(&input.cont).unwrap();
-
-        let z_scalar = vec![
-            expr.tag().to_field(),
-            *expr.value(),
-            env.tag().to_field(),
-            *env.value(),
-            cont.tag().to_field(),
-            *cont.value(),
-        ];
-
-        let mut bogus_cs = WitnessCS::<F>::new();
-        let z: Vec<AllocatedNum<F>> = z_scalar
-            .iter()
-            .map(|x| AllocatedNum::alloc_infallible(&mut bogus_cs, || *x))
-            .collect::<Vec<_>>();
-
-        let _ = self.clone().synthesize(&mut wcs, z.as_slice());
-
-        wcs
     }
 }
 
@@ -676,5 +645,38 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
             new_cont.tag().clone(),
             new_cont.hash().clone(),
         ])
+    }
+}
+
+impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
+    #[allow(dead_code)] // TODO(huitseeker): is this used?
+    fn compute_witness(&self, s: &Store<F>) -> WitnessCS<F> {
+        let mut wcs = WitnessCS::new();
+
+        let input = self.input.unwrap();
+
+        use crate::tag::Tag;
+        let expr = s.hash_expr(&input.expr).unwrap();
+        let env = s.hash_expr(&input.env).unwrap();
+        let cont = s.hash_cont(&input.cont).unwrap();
+
+        let z_scalar = vec![
+            expr.tag().to_field(),
+            *expr.value(),
+            env.tag().to_field(),
+            *env.value(),
+            cont.tag().to_field(),
+            *cont.value(),
+        ];
+
+        let mut bogus_cs = WitnessCS::<F>::new();
+        let z: Vec<AllocatedNum<F>> = z_scalar
+            .iter()
+            .map(|x| AllocatedNum::alloc(&mut bogus_cs, || Ok(*x)).unwrap())
+            .collect::<Vec<_>>();
+
+        let _ = self.clone().synthesize(&mut wcs, z.as_slice());
+
+        wcs
     }
 }
