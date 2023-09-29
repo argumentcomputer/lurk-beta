@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `fcomm/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="fcomm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (e7c502d93 2023-09-27)" data-channel="nightly" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../fcomm/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `fcomm/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="fcomm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (7b4d9e155 2023-09-28)" data-channel="nightly" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../fcomm/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1342,9 +1342,6 @@
 <a href="#1342" id="1342">1342</a>
 <a href="#1343" id="1343">1343</a>
 <a href="#1344" id="1344">1344</a>
-<a href="#1345" id="1345">1345</a>
-<a href="#1346" id="1346">1346</a>
-<a href="#1347" id="1347">1347</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>::nova::traits::Group;
 <span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>std::convert::TryFrom;
@@ -1795,7 +1792,7 @@
     }
 
     <span class="kw">pub fn </span>eval&lt;F: LurkField + Serialize&gt;(
-        store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         expr: Ptr&lt;F&gt;,
         limit: usize,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
@@ -1813,7 +1810,7 @@
 
 <span class="kw">impl</span>&lt;F: LurkField + Serialize + DeserializeOwned&gt; PtrEvaluation&lt;F&gt; {
     <span class="kw">fn </span>new(
-        s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         input: IO&lt;F&gt;,
         output: IO&lt;F&gt;,
         iterations: <span class="prelude-ty">Option</span>&lt;usize&gt;, <span class="comment">// This might be padded, so is not quite &#39;iterations&#39; in the sense of number of actual reduction steps required
@@ -1849,11 +1846,11 @@
         <span class="prelude-val">Ok</span>(Commitment { comm: digest })
     }
 
-    <span class="kw">pub fn </span>ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
+    <span class="kw">pub fn </span>ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
         s.intern_opaque_comm(<span class="self">self</span>.comm)
     }
 
-    <span class="kw">pub fn </span>from_ptr_with_hiding(s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, F), Error&gt; {
+    <span class="kw">pub fn </span>from_ptr_with_hiding(s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, F), Error&gt; {
         <span class="kw">let </span>secret = F::random(OsRng);
 
         <span class="kw">let </span>commitment = <span class="self">Self</span>::from_ptr_and_secret(s, ptr, secret)<span class="question-mark">?</span>;
@@ -1861,7 +1858,7 @@
         <span class="prelude-val">Ok</span>((commitment, secret))
     }
 
-    <span class="kw">pub fn </span>from_ptr_and_secret(s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;, secret: F) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
+    <span class="kw">pub fn </span>from_ptr_and_secret(s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;, secret: F) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
         <span class="kw">let </span>hidden = s.hide(secret, <span class="kw-2">*</span>ptr);
 
         <span class="self">Self</span>::from_comm(s, <span class="kw-2">&amp;</span>hidden)
@@ -1869,7 +1866,7 @@
 
     <span class="comment">// Importantly, this ensures the function and secret are in the Store, s.
     </span><span class="kw">fn </span>construct_with_fun_application(
-        s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         function: <span class="kw-2">&amp;</span>CommittedExpression&lt;F&gt;,
         input: Ptr&lt;F&gt;,
         limit: usize,
@@ -1892,7 +1889,7 @@
         <span class="prelude-val">Ok</span>((commitment, expression))
     }
 
-    <span class="kw">fn </span>fun_application(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, input: Ptr&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
+    <span class="kw">fn </span>fun_application(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, input: Ptr&lt;F&gt;) -&gt; Ptr&lt;F&gt; {
         <span class="kw">let </span>open = <span class="macro">lurk_sym_ptr!</span>(s, open);
         <span class="kw">let </span>comm_ptr = <span class="self">self</span>.ptr(s);
 
@@ -1907,7 +1904,7 @@
 <span class="kw">impl</span>&lt;F: LurkField + Serialize + DeserializeOwned&gt; CommittedExpression&lt;F&gt; {
     <span class="kw">pub fn </span>expr_ptr(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         limit: usize,
         lang: <span class="kw-2">&amp;</span>Lang&lt;F, Coproc&lt;F&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;, Error&gt; {
@@ -1918,7 +1915,7 @@
 }
 
 <span class="kw">impl</span>&lt;F: LurkField + Serialize + DeserializeOwned&gt; LurkPtr&lt;F&gt; {
-    <span class="kw">pub fn </span>ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, limit: usize, lang: <span class="kw-2">&amp;</span>Lang&lt;F, Coproc&lt;F&gt;&gt;) -&gt; Ptr&lt;F&gt; {
+    <span class="kw">pub fn </span>ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, limit: usize, lang: <span class="kw-2">&amp;</span>Lang&lt;F, Coproc&lt;F&gt;&gt;) -&gt; Ptr&lt;F&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             LurkPtr::Source(source) =&gt; {
                 <span class="kw">let </span>ptr = s.read(source).expect(<span class="string">&quot;could not read source&quot;</span>);
@@ -1955,10 +1952,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>from_cont_ptr&lt;F: LurkField + Serialize&gt;(
-        _s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
-        cont_ptr: <span class="kw-2">&amp;</span>ContPtr&lt;F&gt;,
-    ) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>from_cont_ptr&lt;F: LurkField + Serialize&gt;(_s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, cont_ptr: <span class="kw-2">&amp;</span>ContPtr&lt;F&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">use </span>lurk::tag::ContTag;
 
         <span class="kw">match </span>cont_ptr.tag {
@@ -1973,7 +1967,7 @@
 <span class="kw">impl</span>&lt;F: LurkField + Serialize + DeserializeOwned&gt; Expression&lt;F&gt; {
     <span class="kw">pub fn </span>eval(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        s: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         limit: usize,
         lang: <span class="kw-2">&amp;</span>Lang&lt;F, Coproc&lt;F&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;, Error&gt; {
@@ -2039,7 +2033,7 @@
     }
 
     <span class="kw">pub fn </span>open(
-        s: <span class="kw-2">&amp;mut </span>Store&lt;S1&gt;,
+        s: <span class="kw-2">&amp;</span>Store&lt;S1&gt;,
         request: <span class="kw-2">&amp;</span>OpeningRequest&lt;S1&gt;,
         limit: usize,
         chain: bool,
@@ -2060,7 +2054,7 @@
         <span class="self">self</span>.new_commitment.is_some()
     }
 
-    <span class="kw">fn </span>public_output_expression(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;mut </span>Store&lt;S1&gt;) -&gt; Ptr&lt;S1&gt; {
+    <span class="kw">fn </span>public_output_expression(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;S1&gt;) -&gt; Ptr&lt;S1&gt; {
         <span class="kw">let </span>result = s.read(<span class="kw-2">&amp;</span><span class="self">self</span>.output).expect(<span class="string">&quot;unreadable result&quot;</span>);
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(commitment) = <span class="self">self</span>.new_commitment {
@@ -2073,7 +2067,7 @@
     }
 
     <span class="kw">pub fn </span>apply(
-        s: <span class="kw-2">&amp;mut </span>Store&lt;S1&gt;,
+        s: <span class="kw-2">&amp;</span>Store&lt;S1&gt;,
         input: Ptr&lt;S1&gt;,
         function: CommittedExpression&lt;S1&gt;,
         limit: usize,
@@ -2141,7 +2135,7 @@
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Proof&lt;<span class="lifetime">&#39;a</span>, S1&gt; {
     <span class="kw">pub fn </span>eval_and_prove(
-        s: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Store&lt;S1&gt;,
+        s: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;S1&gt;,
         expr: Ptr&lt;S1&gt;,
         supplied_env: <span class="prelude-ty">Option</span>&lt;Ptr&lt;S1&gt;&gt;,
         limit: usize,
@@ -2180,7 +2174,7 @@
     }
 
     <span class="kw">pub fn </span>prove_claim(
-        s: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Store&lt;S1&gt;,
+        s: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;S1&gt;,
         claim: <span class="kw-2">&amp;</span>Claim&lt;S1&gt;,
         limit: usize,
         only_use_cached_proofs: bool,
@@ -2310,7 +2304,7 @@
         <span class="prelude-val">Ok</span>(result)
     }
 
-    <span class="kw">pub fn </span>evaluation_io(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;mut </span>Store&lt;S1&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;S1&gt;, IO&lt;S1&gt;), Error&gt; {
+    <span class="kw">pub fn </span>evaluation_io(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;S1&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;S1&gt;, IO&lt;S1&gt;), Error&gt; {
         <span class="kw">let </span>evaluation = <span class="kw-2">&amp;</span><span class="self">self</span>.claim.evaluation().expect(<span class="string">&quot;expected evaluation claim&quot;</span>);
 
         <span class="kw">let </span>input_io = {
@@ -2349,7 +2343,7 @@
 
     <span class="kw">pub fn </span>ptr_evaluation_io(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        s: <span class="kw-2">&amp;mut </span>Store&lt;S1&gt;,
+        s: <span class="kw-2">&amp;</span>Store&lt;S1&gt;,
         lang: <span class="kw-2">&amp;</span>Lang&lt;S1, Coproc&lt;S1&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;S1&gt;, IO&lt;S1&gt;), Error&gt; {
         <span class="kw">let </span>ptr_evaluation = <span class="kw-2">&amp;</span><span class="self">self
@@ -2376,7 +2370,7 @@
         <span class="prelude-val">Ok</span>((input_io, output_io))
     }
 
-    <span class="kw">pub fn </span>opening_io(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;mut </span>Store&lt;S1&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;S1&gt;, IO&lt;S1&gt;), Error&gt; {
+    <span class="kw">pub fn </span>opening_io(<span class="kw-2">&amp;</span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>Store&lt;S1&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;S1&gt;, IO&lt;S1&gt;), Error&gt; {
         <span class="macro">assert!</span>(<span class="self">self</span>.claim.is_opening());
 
         <span class="kw">let </span>opening = <span class="self">self</span>.claim.opening().expect(<span class="string">&quot;expected opening claim&quot;</span>);
@@ -2403,7 +2397,7 @@
 
     <span class="kw">pub fn </span>io(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        s: <span class="kw-2">&amp;mut </span>Store&lt;S1&gt;,
+        s: <span class="kw-2">&amp;</span>Store&lt;S1&gt;,
         lang: <span class="kw-2">&amp;</span>Lang&lt;S1, Coproc&lt;S1&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;S1&gt;, IO&lt;S1&gt;), Error&gt; {
         <span class="kw">match </span><span class="self">self</span>.claim {
@@ -2428,7 +2422,7 @@
 }
 
 <span class="kw">pub fn </span>evaluate&lt;F: LurkField&gt;(
-    store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+    store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
     expr: Ptr&lt;F&gt;,
     supplied_env: <span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;,
     limit: usize,

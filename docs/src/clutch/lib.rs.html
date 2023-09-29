@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `clutch/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="clutch" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (e7c502d93 2023-09-27)" data-channel="nightly" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../clutch/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `clutch/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="clutch" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (7b4d9e155 2023-09-28)" data-channel="nightly" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../clutch/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -593,25 +593,6 @@
 <a href="#593" id="593">593</a>
 <a href="#594" id="594">594</a>
 <a href="#595" id="595">595</a>
-<a href="#596" id="596">596</a>
-<a href="#597" id="597">597</a>
-<a href="#598" id="598">598</a>
-<a href="#599" id="599">599</a>
-<a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
-<a href="#611" id="611">611</a>
-<a href="#612" id="612">612</a>
-<a href="#613" id="613">613</a>
-<a href="#614" id="614">614</a>
 </pre></div><pre class="rust"><code><span class="attr">#![doc = <span class="macro">include_str!</span>(<span class="string">&quot;../README.md&quot;</span>)]
 
 </span><span class="kw">use </span>anyhow::{anyhow, bail, Context, Error, <span class="prelude-ty">Result</span>};
@@ -740,12 +721,7 @@
 }
 
 <span class="kw">impl </span>ReplTrait&lt;F, Coproc&lt;F&gt;&gt; <span class="kw">for </span>ClutchState&lt;F, Coproc&lt;F&gt;&gt; {
-    <span class="kw">fn </span>new(
-        s: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
-        limit: usize,
-        command: <span class="prelude-ty">Option</span>&lt;Command&gt;,
-        lang: Lang&lt;F, Coproc&lt;F&gt;&gt;,
-    ) -&gt; <span class="self">Self </span>{
+    <span class="kw">fn </span>new(s: <span class="kw-2">&amp;</span>Store&lt;F&gt;, limit: usize, command: <span class="prelude-ty">Option</span>&lt;Command&gt;, lang: Lang&lt;F, Coproc&lt;F&gt;&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>reduction_count = DEFAULT_REDUCTION_COUNT;
 
         <span class="kw">let </span>proof_map = nova_proof_cache(reduction_count);
@@ -824,7 +800,7 @@
 
     <span class="kw">fn </span>handle_meta&lt;P: AsRef&lt;Path&gt; + Copy&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         state: Rc&lt;RefCell&lt;State&gt;&gt;,
         expr_ptr: Ptr&lt;F&gt;,
         p: P,
@@ -883,7 +859,7 @@
 
     <span class="kw">fn </span>handle_non_meta(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         state: <span class="kw-2">&amp;</span>State,
         expr_ptr: Ptr&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(IO&lt;F&gt;, IO&lt;F&gt;, usize)&gt; {
@@ -920,7 +896,7 @@
     <span class="kw">fn </span>lang(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;Lang&lt;F, Coproc&lt;F&gt;&gt;&gt; {
         <span class="self">self</span>.repl_state.lang.clone()
     }
-    <span class="kw">fn </span>commit(<span class="kw-2">&amp;mut </span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, rest: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;&gt; {
+    <span class="kw">fn </span>commit(<span class="kw-2">&amp;mut </span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, rest: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;&gt; {
         <span class="kw">let </span>(first, rest) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
         <span class="kw">let </span>(second, <span class="kw">_</span>) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
 
@@ -951,13 +927,13 @@
         <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(store.intern_maybe_opaque_comm(commitment.comm)))
     }
 
-    <span class="kw">fn </span>open(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, rest: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;&gt; {
+    <span class="kw">fn </span>open(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, rest: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;&gt; {
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.open_aux(store, rest)<span class="question-mark">?</span>.<span class="number">1</span>)
     }
 
     <span class="kw">fn </span>apply_comm(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         state: <span class="kw-2">&amp;</span>State,
         comm: Ptr&lt;F&gt;,
         rest: Ptr&lt;F&gt;,
@@ -965,20 +941,10 @@
         <span class="kw">let </span>call_form = store.cons(comm, rest);
         <span class="self">self</span>.apply_comm_aux(store, state, call_form, <span class="bool-val">false</span>)
     }
-    <span class="kw">fn </span>call(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
-        state: <span class="kw-2">&amp;</span>State,
-        rest: Ptr&lt;F&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;&gt; {
+    <span class="kw">fn </span>call(<span class="kw-2">&amp;mut </span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, state: <span class="kw-2">&amp;</span>State, rest: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;&gt; {
         <span class="self">self</span>.apply_comm_aux(store, state, rest, <span class="bool-val">false</span>)
     }
-    <span class="kw">fn </span>chain(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
-        state: <span class="kw-2">&amp;</span>State,
-        rest: Ptr&lt;F&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;&gt; {
+    <span class="kw">fn </span>chain(<span class="kw-2">&amp;mut </span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, state: <span class="kw-2">&amp;</span>State, rest: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;&gt; {
         <span class="kw">let </span>(result_expr, new_comm) = <span class="self">self
             </span>.apply_comm_aux(store, state, rest, <span class="bool-val">true</span>)<span class="question-mark">?
             </span>.and_then(|cons| store.car_cdr(<span class="kw-2">&amp;</span>cons).ok()) <span class="comment">// unpack pair
@@ -1023,7 +989,7 @@
     }
     <span class="kw">fn </span>apply_comm_aux(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         state: <span class="kw-2">&amp;</span>State,
         rest: Ptr&lt;F&gt;,
         chain: bool,
@@ -1059,11 +1025,7 @@
 
         <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(result))
     }
-    <span class="kw">fn </span>open_aux(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
-        rest: Ptr&lt;F&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Commitment&lt;F&gt;, <span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;)&gt; {
+    <span class="kw">fn </span>open_aux(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, rest: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(Commitment&lt;F&gt;, <span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;)&gt; {
         <span class="kw">let </span>maybe_comm = store.car(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>comm = <span class="kw">match </span>maybe_comm.tag {
@@ -1106,7 +1068,7 @@
 
     <span class="kw">fn </span>proof_in_expr(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         state: <span class="kw-2">&amp;</span>State,
         rest: Ptr&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;&gt; {
@@ -1120,7 +1082,7 @@
     }
     <span class="kw">fn </span>proof_out_expr(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;,
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         state: <span class="kw-2">&amp;</span>State,
         rest: Ptr&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;&gt; {
@@ -1150,7 +1112,7 @@
             .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;proof not found: {zptr_string}&quot;</span>))
     }
 
-    <span class="kw">fn </span>prove(<span class="kw-2">&amp;mut </span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span>Store&lt;F&gt;, rest: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;&gt; {
+    <span class="kw">fn </span>prove(<span class="kw-2">&amp;mut </span><span class="self">self</span>, store: <span class="kw-2">&amp;</span>Store&lt;F&gt;, rest: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Ptr&lt;F&gt;&gt;&gt; {
         <span class="kw">let </span>(proof_in_expr, _rest1) = store.car_cdr(<span class="kw-2">&amp;</span>rest)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>prover = NovaProver::&lt;<span class="lifetime">&#39;_</span>, F, Coproc&lt;F&gt;, MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, Coproc&lt;F&gt;&gt;&gt;::new(

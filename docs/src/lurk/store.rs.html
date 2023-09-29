@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/store.rs`."><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (e7c502d93 2023-09-27)" data-channel="nightly" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../lurk/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/store.rs`."><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (7b4d9e155 2023-09-28)" data-channel="nightly" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../lurk/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2700,7 +2700,7 @@
         <span class="self">self</span>.intern_list(elts)
     }
 
-    <span class="kw">pub fn </span>num&lt;T: Into&lt;Num&lt;F&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num: T) -&gt; Ptr&lt;F&gt; {
+    <span class="kw">pub fn </span>num&lt;T: Into&lt;Num&lt;F&gt;&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, num: T) -&gt; Ptr&lt;F&gt; {
         <span class="self">self</span>.intern_num(num)
     }
 
@@ -4382,7 +4382,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>store() {
-        <span class="kw">let </span><span class="kw-2">mut </span>store = Store::&lt;Fr&gt;::default();
+        <span class="kw">let </span>store = Store::&lt;Fr&gt;::default();
 
         <span class="kw">let </span>num_ptr = store.num(<span class="number">123</span>);
         <span class="kw">let </span>num = store.fetch(<span class="kw-2">&amp;</span>num_ptr).unwrap();
@@ -4393,7 +4393,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>equality() {
-        <span class="kw">let </span><span class="kw-2">mut </span>store = Store::&lt;Fr&gt;::default();
+        <span class="kw">let </span>store = Store::&lt;Fr&gt;::default();
 
         <span class="kw">let </span>(a, b) = (store.num(<span class="number">123</span>), store.sym(<span class="string">&quot;pumpkin&quot;</span>));
         <span class="kw">let </span>cons1 = store.intern_cons(a, b);
@@ -4411,7 +4411,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>opaque_fun() {
-        <span class="kw">let </span><span class="kw-2">mut </span>store = Store::&lt;Fr&gt;::default();
+        <span class="kw">let </span>store = Store::&lt;Fr&gt;::default();
 
         <span class="kw">let </span>arg = store.sym(<span class="string">&quot;A&quot;</span>);
         <span class="kw">let </span>body_form = store.num(<span class="number">123</span>);
@@ -4471,7 +4471,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>opaque_sym() {
-        <span class="kw">let </span><span class="kw-2">mut </span>store = Store::&lt;Fr&gt;::default();
+        <span class="kw">let </span>store = Store::&lt;Fr&gt;::default();
 
         <span class="kw">let </span>empty_env = empty_sym_env(<span class="kw-2">&amp;</span>store);
         <span class="kw">let </span>sym = store.sym(<span class="string">&quot;sym&quot;</span>);
@@ -4572,7 +4572,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>opaque_cons() {
-        <span class="kw">let </span><span class="kw-2">mut </span>store = Store::&lt;Fr&gt;::default();
+        <span class="kw">let </span>store = Store::&lt;Fr&gt;::default();
 
         <span class="kw">let </span>num1 = store.num(<span class="number">123</span>);
         <span class="kw">let </span>num2 = store.num(<span class="number">987</span>);
@@ -4657,7 +4657,7 @@
         }
     }
 
-    <span class="kw">fn </span>make_maybe_opaque_cons(store: <span class="kw-2">&amp;mut </span>Store&lt;Fr&gt;, car: u64, cdr: u64) -&gt; Ptr&lt;Fr&gt; {
+    <span class="kw">fn </span>make_maybe_opaque_cons(store: <span class="kw-2">&amp;</span>Store&lt;Fr&gt;, car: u64, cdr: u64) -&gt; Ptr&lt;Fr&gt; {
         <span class="kw">let </span>num1 = store.num(Num::&lt;Fr&gt;::from(car));
         <span class="kw">let </span>num2 = store.num(Num::&lt;Fr&gt;::from(cdr));
         <span class="kw">let </span>cons = store.intern_cons(num1, num2);
@@ -4666,39 +4666,39 @@
         store.intern_maybe_opaque_cons(<span class="kw-2">*</span>cons_hash.value())
     }
 
-    <span class="kw">fn </span>make_opaque_cons(store: <span class="kw-2">&amp;mut </span>Store&lt;Fr&gt;) -&gt; Ptr&lt;Fr&gt; {
+    <span class="kw">fn </span>make_opaque_cons(store: <span class="kw-2">&amp;</span>Store&lt;Fr&gt;) -&gt; Ptr&lt;Fr&gt; {
         store.intern_opaque_cons(<span class="number">12345</span>.into())
     }
 
     <span class="attr">#[test]
     #[should_panic]
     </span><span class="kw">fn </span>opaque_cons_car() {
-        <span class="kw">let </span><span class="kw-2">mut </span>store = Store::&lt;Fr&gt;::default();
+        <span class="kw">let </span>store = Store::&lt;Fr&gt;::default();
 
-        <span class="kw">let </span>opaque_cons = make_opaque_cons(<span class="kw-2">&amp;mut </span>store);
+        <span class="kw">let </span>opaque_cons = make_opaque_cons(<span class="kw-2">&amp;</span>store);
         store.car(<span class="kw-2">&amp;</span>opaque_cons).unwrap();
     }
     <span class="attr">#[test]
     #[should_panic]
     </span><span class="kw">fn </span>opaque_cons_cdr() {
-        <span class="kw">let </span><span class="kw-2">mut </span>store = Store::&lt;Fr&gt;::default();
+        <span class="kw">let </span>store = Store::&lt;Fr&gt;::default();
 
-        <span class="kw">let </span>opaque_cons = make_opaque_cons(<span class="kw-2">&amp;mut </span>store);
+        <span class="kw">let </span>opaque_cons = make_opaque_cons(<span class="kw-2">&amp;</span>store);
         store.cdr(<span class="kw-2">&amp;</span>opaque_cons).unwrap();
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>maybe_opaque_cons_car() {
-        <span class="kw">let </span><span class="kw-2">mut </span>store = Store::&lt;Fr&gt;::default();
+        <span class="kw">let </span>store = Store::&lt;Fr&gt;::default();
 
-        <span class="kw">let </span>opaque_cons = make_maybe_opaque_cons(<span class="kw-2">&amp;mut </span>store, <span class="number">123</span>, <span class="number">987</span>);
+        <span class="kw">let </span>opaque_cons = make_maybe_opaque_cons(<span class="kw-2">&amp;</span>store, <span class="number">123</span>, <span class="number">987</span>);
         store.car(<span class="kw-2">&amp;</span>opaque_cons).unwrap();
     }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>maybe_opaque_cons_cdr() {
-        <span class="kw">let </span><span class="kw-2">mut </span>store = Store::&lt;Fr&gt;::default();
+        <span class="kw">let </span>store = Store::&lt;Fr&gt;::default();
 
-        <span class="kw">let </span>opaque_cons = make_maybe_opaque_cons(<span class="kw-2">&amp;mut </span>store, <span class="number">123</span>, <span class="number">987</span>);
+        <span class="kw">let </span>opaque_cons = make_maybe_opaque_cons(<span class="kw-2">&amp;</span>store, <span class="number">123</span>, <span class="number">987</span>);
         store.cdr(<span class="kw-2">&amp;</span>opaque_cons).unwrap();
     }
 
@@ -4863,7 +4863,7 @@
         );
     }
 
-    <span class="kw">fn </span>commit_and_open(store: <span class="kw-2">&amp;mut </span>Store&lt;S1&gt;, expr: Ptr&lt;S1&gt;) -&gt; Ptr&lt;S1&gt; {
+    <span class="kw">fn </span>commit_and_open(store: <span class="kw-2">&amp;</span>Store&lt;S1&gt;, expr: Ptr&lt;S1&gt;) -&gt; Ptr&lt;S1&gt; {
         <span class="kw">let </span>secret = &lt;S1&gt;::random(OsRng);
         <span class="kw">let </span>comm = store.hide(secret, expr);
 
