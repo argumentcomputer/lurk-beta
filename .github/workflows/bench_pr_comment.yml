@@ -23,11 +23,12 @@ jobs:
     steps:
       - uses: xt0rted/pull-request-comment-branch@v2
         id: comment-branch
-
       - uses: actions/checkout@v4
         if: success()
         with:
           ref: ${{ steps.comment-branch.outputs.head_ref }}
+      - name: Install dependencies
+        run: sudo apt-get install -y pkg-config libssl-dev
       # Set the Rust env vars
       - uses: actions-rs/toolchain@v1
       - uses: Swatinem/rust-cache@v2
