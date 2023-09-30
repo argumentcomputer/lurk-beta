@@ -1,0 +1,52 @@
+# Run ignored tests only when attempting to merge
+name: Linux ignored tests
+
+on:
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  linux-ignored:
+    runs-on: buildjet-8vcpu-ubuntu-2204
+    env:
+      RUSTFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions-rs/toolchain@v1
+      - uses: taiki-e/install-action@nextest
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux Tests
+        run: |
+          cargo nextest run --profile ci --workspace --cargo-profile dev-ci --run-ignored ignored-only -E 'all() - test(groth16::tests::outer_prove_recursion) - test(test_make_fcomm_examples) - test(test_functional_commitments_demo) - test(test_chained_functional_commitments_demo)'
+
+  linux-arm:
+    runs-on: buildjet-16vcpu-ubuntu-2204-arm
+    env:
+      RUSTFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions-rs/toolchain@v1
+      - uses: taiki-e/install-action@nextest
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux Tests
+        run: |
+          cargo nextest run --profile ci --workspace --cargo-profile dev-ci
+      - name: Linux Gadget Tests w/o debug assertions
+        run: |
+          cargo nextest run --profile ci --workspace --cargo-profile dev-no-assertions -E 'test(circuit::gadgets)'
+
+  trigger-circleci-m1-mac:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger CircleCI M1 Mac workflow
+        id: mac-circleci
+        uses: CircleCI-Public/trigger-circleci-pipeline-action@v1.1.0
+        env:
+          CCI_TOKEN: ${{ secrets.CIRCLECI_API_TOKEN }}

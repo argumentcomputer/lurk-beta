@@ -28,7 +28,7 @@ env:
 
 jobs:
   linux_exhaustive:
-    runs-on: [self-hosted, test]
+    runs-on: buildjet-16vcpu-ubuntu-2204
     env:
       RUSTFLAGS: -D warnings
     steps:
