@@ -19,13 +19,11 @@ use crate::{
 
 use super::{
     circuit::{BoundAllocations, GlobalAllocator},
-    // eval::{eval_step, make_eval_step_from_lang, make_cprocs_funcs_from_lang},
-    eval::*,
+    eval::{build_frames, make_cprocs_funcs_from_lang, make_eval_step_from_lang},
     interpreter::Frame,
     pointers::Ptr,
     store::Store,
-    Func,
-    Tag,
+    Func, Tag,
 };
 
 #[derive(Clone, Debug)]
@@ -181,80 +179,80 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
     }
 
     fn blank(folding_config: Arc<FoldingConfig<F, C>>, _meta: Meta<F>) -> Self {
-        match &*folding_config {
-            FoldingConfig::IVC(lang, rc) => Self {
-                store: None,
-                lang: lang.clone(),
-                lurk_step: make_eval_step_from_lang(&**lang, true).into(),
-                cprocs: None,
-                input: None,
-                output: None,
-                frames: None,
-                cached_witness: None,
-                reduction_count: *rc,
-            },
-            FoldingConfig::NIVC(lang, rc) => Self {
-                store: None,
-                lang: lang.clone(),
-                lurk_step: make_eval_step_from_lang(&**lang, false).into(),
-                cprocs: Some(make_cprocs_funcs_from_lang(&**lang)),
-                input: None,
-                output: None,
-                frames: None,
-                cached_witness: None,
-                reduction_count: *rc,
-            },
+        let (lang, lurk_step, cprocs, reduction_count) = match &*folding_config {
+            FoldingConfig::IVC(lang, rc) => (
+                lang.clone(),
+                Arc::new(make_eval_step_from_lang(lang, true)),
+                None,
+                *rc,
+            ),
+            FoldingConfig::NIVC(lang, rc) => (
+                lang.clone(),
+                Arc::new(make_eval_step_from_lang(lang, false)),
+                Some(make_cprocs_funcs_from_lang(lang)),
+                *rc,
+            ),
+        };
+        Self {
+            store: None,
+            lang,
+            lurk_step,
+            cprocs,
+            input: None,
+            output: None,
+            frames: None,
+            cached_witness: None,
+            reduction_count,
         }
     }
 
     fn from_frames(
-        count: usize,
+        reduction_count: usize,
         frames: &[Frame<F>],
         store: &'a Self::Store,
         folding_config: Arc<FoldingConfig<F, C>>,
     ) -> Vec<Self> {
         let total_frames = frames.len();
-        let n = (total_frames + count - 1) / count;
+        let n = (total_frames + reduction_count - 1) / reduction_count;
         let mut multi_frames = Vec::with_capacity(n);
-        let (lang, ivc) = match &*folding_config {
-            FoldingConfig::IVC(lang, _) => (lang, true),
-            FoldingConfig::NIVC(lang, _) => (lang, false),
-        };
-        let lurk_step = Arc::new(make_eval_step_from_lang(&**lang, ivc));
-        let cprocs = if ivc {
-            None
-        } else {
-            Some(make_cprocs_funcs_from_lang(&**lang))
-        };
+        match &*folding_config {
+            FoldingConfig::IVC(lang, _) => {
+                let lurk_step = Arc::new(make_eval_step_from_lang(lang, true));
+                let cprocs = None;
+                for chunk in frames.chunks(reduction_count) {
+                    let last_frame = chunk.last().expect("chunk must not be empty");
+                    let inner_frames = if chunk.len() < reduction_count {
+                        let mut inner_frames = Vec::with_capacity(reduction_count);
+                        inner_frames.extend(chunk.to_vec());
+                        inner_frames.resize(reduction_count, last_frame.clone());
+                        inner_frames
+                    } else {
+                        chunk.to_vec()
+                    };
 
-        for chunk in frames.chunks(count) {
-            // TODO fix padding
-            let last_frame = chunk.last().expect("chunk must not be empty");
-            let inner_frames = if chunk.len() < count {
-                let mut inner_frames = Vec::with_capacity(count);
-                inner_frames.extend(chunk.to_vec());
-                inner_frames.resize(count, last_frame.clone());
-                inner_frames
-            } else {
-                chunk.to_vec()
-            };
+                    let output = last_frame.output.clone();
+                    let input = chunk[0].input.clone();
 
-            let output = last_frame.output.clone();
-            let input = chunk[0].input.clone();
+                    let mf = MultiFrame {
+                        store: Some(store),
+                        lang: lang.clone(),
+                        lurk_step: lurk_step.clone(),
+                        cprocs: cprocs.clone(),
+                        input: Some(input),
+                        output: Some(output),
+                        frames: Some(inner_frames),
+                        cached_witness: None,
+                        reduction_count,
+                    };
 
-            let mf = MultiFrame {
-                store: Some(store),
-                lang: lang.clone(),
-                lurk_step: lurk_step.clone(),
-                cprocs: cprocs.clone(),
-                input: Some(input),
-                output: Some(output),
-                frames: Some(inner_frames),
-                cached_witness: None,
-                reduction_count: count,
-            };
-
-            multi_frames.push(mf);
+                    multi_frames.push(mf);
+                }
+            }
+            FoldingConfig::NIVC(lang, _) => {
+                let _lurk_step = Arc::new(make_eval_step_from_lang(lang, false));
+                let _cprocs = make_cprocs_funcs_from_lang(lang);
+                todo!()
+            }
         }
 
         multi_frames
@@ -262,25 +260,27 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
 
     /// Make a dummy instance, duplicating `self`'s final `CircuitFrame`.
     fn make_dummy(
-        count: usize,
+        reduction_count: usize,
         circuit_frame: Option<Self::CircuitFrame>,
         store: &'a Self::Store,
         folding_config: Arc<FoldingConfig<F, C>>,
         _meta: Meta<F>,
     ) -> Self {
-        let (lang, ivc) = match &*folding_config {
-            FoldingConfig::IVC(lang, _) => (lang, true),
-            FoldingConfig::NIVC(lang, _) => (lang, false),
-        };
-        let lurk_step = Arc::new(make_eval_step_from_lang(&**lang, ivc));
-        let cprocs = if ivc {
-            None
-        } else {
-            Some(make_cprocs_funcs_from_lang(&**lang))
+        let (lang, lurk_step, cprocs) = match &*folding_config {
+            FoldingConfig::IVC(lang, _) => (
+                lang.clone(),
+                Arc::new(make_eval_step_from_lang(lang, true)),
+                None,
+            ),
+            FoldingConfig::NIVC(lang, _) => (
+                lang.clone(),
+                Arc::new(make_eval_step_from_lang(lang, false)),
+                Some(make_cprocs_funcs_from_lang(lang)),
+            ),
         };
         let (frames, input, output) = if let Some(circuit_frame) = circuit_frame {
             (
-                Some(vec![circuit_frame.clone(); count]),
+                Some(vec![circuit_frame.clone(); reduction_count]),
                 Some(circuit_frame.input),
                 Some(circuit_frame.output),
             )
@@ -289,14 +289,14 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         };
         Self {
             store: Some(store),
-            lang: lang.clone(),
+            lang,
             lurk_step,
             cprocs,
             input,
             output,
             frames,
             cached_witness: None,
-            reduction_count: count,
+            reduction_count,
         }
     }
 
@@ -351,17 +351,17 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
                 for (i, ptr) in input.iter().enumerate() {
                     let z_ptr = store.hash_ptr(ptr).expect("pointer hashing failed");
 
-                    let allocated_tag = AllocatedNum::alloc(
+                    let allocated_tag = AllocatedNum::alloc_infallible(
                         &mut cs.namespace(|| format!("allocated tag for input {i}")),
-                        || Ok(z_ptr.tag().to_field()),
-                    )?;
+                        || z_ptr.tag().to_field(),
+                    );
                     allocated_tag
                         .inputize(&mut cs.namespace(|| format!("inputized tag for input {i}")))?;
 
-                    let allocated_hash = AllocatedNum::alloc(
+                    let allocated_hash = AllocatedNum::alloc_infallible(
                         &mut cs.namespace(|| format!("allocated hash for input {i}")),
-                        || Ok(*z_ptr.value()),
-                    )?;
+                        || *z_ptr.value(),
+                    );
                     allocated_hash
                         .inputize(&mut cs.namespace(|| format!("inputized hash for input {i}")))?;
 
@@ -372,17 +372,17 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
                 for (i, ptr) in output.iter().enumerate() {
                     let z_ptr = store.hash_ptr(ptr).expect("pointer hashing failed");
 
-                    let allocated_tag = AllocatedNum::alloc(
+                    let allocated_tag = AllocatedNum::alloc_infallible(
                         &mut cs.namespace(|| format!("allocated tag for output {i}")),
-                        || Ok(z_ptr.tag().to_field()),
-                    )?;
+                        || z_ptr.tag().to_field(),
+                    );
                     allocated_tag
                         .inputize(&mut cs.namespace(|| format!("inputized tag for output {i}")))?;
 
-                    let allocated_hash = AllocatedNum::alloc(
+                    let allocated_hash = AllocatedNum::alloc_infallible(
                         &mut cs.namespace(|| format!("allocated hash for output {i}")),
-                        || Ok(*z_ptr.value()),
-                    )?;
+                        || *z_ptr.value(),
+                    );
                     allocated_hash
                         .inputize(&mut cs.namespace(|| format!("inputized hash for output {i}")))?;
 
@@ -425,8 +425,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> Circuit<F> for MultiFrame<'a, F, C> {
             }
             None => {
                 assert!(self.frames.is_none());
-                let dummy_ptr = Ptr::null(Tag::Expr(crate::tag::ExprTag::Nil));
-                let dummy_io = vec![dummy_ptr; 3];
+                let dummy_io = [Ptr::dummy(); 3];
                 let func = &self.lurk_step;
                 let store = Store::default();
                 let blank_frame = Frame::blank(func, 0);

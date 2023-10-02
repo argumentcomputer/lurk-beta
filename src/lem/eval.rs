@@ -112,6 +112,17 @@ pub fn build_frames<
         }
         pc = get_pc(&expr, store, lang);
     }
+    if iterations < limit {
+        let (frame, _) = lurk_step.call(
+            &input,
+            store,
+            Preimages::new_from_func(lurk_step),
+            &mut vec![],
+            lang,
+            pc,
+        )?;
+        frames.push(frame);
+    }
     Ok((frames, iterations))
 }
 
@@ -1816,7 +1827,7 @@ mod tests {
         let dumb = DumbCoprocessor::new();
         let name = user_sym("cproc-dumb");
 
-        let store = &mut Store::default();
+        let store = &Store::default();
         lang.add_coprocessor_lem(name, dumb, store);
         let func_ivc = make_eval_step_from_lang(&lang, true);
         let func_nivc = make_eval_step_from_lang(&lang, false);

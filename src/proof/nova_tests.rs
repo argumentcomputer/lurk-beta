@@ -194,7 +194,6 @@ pub mod tests {
         let adjusted_iterations = nova_prover.expected_total_iterations(expected_iterations);
         let mut previous_frame: Option<&M> = None;
 
-        // TODO fix blank for LEM
         let mut cs_blank = MetricCS::<F>::new();
 
         let blank = M::blank(folding_config, Meta::Lurk);
@@ -3495,13 +3494,13 @@ pub mod tests_lem {
     use crate::eval::lang::Lang;
     use crate::num::Num;
     use crate::proof::nova::*;
+    use crate::state::user_sym;
     use crate::state::State;
     use crate::tag::{
         ContTag::{Error, Terminal},
         ExprTag, Op, Op1, Op2,
     };
 
-    use crate::lem::eval::eval_step;
     use crate::lem::pointers::Ptr;
     use crate::lem::store::Store;
     use crate::lem::Tag;
@@ -3570,7 +3569,7 @@ pub mod tests_lem {
     #[ignore]
     fn test_prove_eq() {
         let s = &Store::<Fr>::default();
-        let expected = s.intern_lurk_sym("t");
+        let expected = s.intern_lurk_symbol("t");
         let terminal = Ptr::null(Tag::Cont(Terminal));
         nova_test_full_aux::<_, _, M1<'_, _>>(
             s,
@@ -3591,7 +3590,7 @@ pub mod tests_lem {
     #[ignore]
     fn test_prove_num_equal() {
         let s = &Store::<Fr>::default();
-        let expected = s.intern_lurk_sym("t");
+        let expected = s.intern_lurk_symbol("t");
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux::<_, _, M1<'_, _>>(
             s,
@@ -3651,7 +3650,7 @@ pub mod tests_lem {
     fn test_prove_equal() {
         let s = &Store::<Fr>::default();
         let nil = s.intern_nil();
-        let t = s.intern_lurk_sym("t");
+        let t = s.intern_lurk_symbol("t");
         let terminal = Ptr::null(Tag::Cont(Terminal));
 
         test_aux::<_, _, M1<'_, _>>(
@@ -3808,7 +3807,7 @@ pub mod tests_lem {
 
     fn test_prove_unop_regression_aux(chunk_count: usize) {
         let s = &Store::<Fr>::default();
-        let expected = s.intern_lurk_sym("t");
+        let expected = s.intern_lurk_symbol("t");
         let terminal = Ptr::null(Tag::Cont(Terminal));
         nova_test_full_aux::<_, _, M1<'_, _>>(
             s,
@@ -4355,7 +4354,7 @@ pub mod tests_lem {
     #[test]
     fn test_prove_let_body_nil() {
         let s = &Store::<Fr>::default();
-        let expected = s.intern_lurk_sym("t");
+        let expected = s.intern_lurk_symbol("t");
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux::<_, _, M1<'_, _>>(
             s,
@@ -4486,7 +4485,7 @@ pub mod tests_lem {
     #[ignore]
     fn test_prove_comparison() {
         let s = &Store::<Fr>::default();
-        let expected = s.intern_lurk_sym("t");
+        let expected = s.intern_lurk_symbol("t");
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux::<_, _, M1<'_, _>>(
             s,
@@ -4728,7 +4727,7 @@ pub mod tests_lem {
     #[ignore]
     fn test_prove_no_mutual_recursion() {
         let s = &Store::<Fr>::default();
-        let expected = s.intern_lurk_sym("t");
+        let expected = s.intern_lurk_symbol("t");
         let terminal = Ptr::null(Tag::Cont(Terminal));
         test_aux::<_, _, M1<'_, _>>(
             s,
@@ -5928,7 +5927,7 @@ pub mod tests_lem {
     fn relational_aux(s: &Store<Fr>, op: &str, a: &str, b: &str, res: bool) {
         let expr = &format!("({op} {a} {b})");
         let expected = if res {
-            s.intern_lurk_sym("t")
+            s.intern_lurk_symbol("t")
         } else {
             s.intern_nil()
         };
@@ -6059,7 +6058,7 @@ pub mod tests_lem {
         let expr = "(let ((most-positive (/ (- 0 1) 2))
                           (most-negative (+ 1 most-positive)))
                       (< most-negative most-positive))";
-        let t = s.intern_lurk_sym("t");
+        let t = s.intern_lurk_symbol("t");
         let terminal = Ptr::null(Tag::Cont(Terminal));
 
         test_aux::<_, _, M1<'_, _>>(s, expr, Some(t), None, Some(terminal), None, 19, None);
@@ -6086,7 +6085,7 @@ pub mod tests_lem {
         let expr2 = "(eq :asdf :asdf)";
         let expr3 = "(eq :asdf 'asdf)";
         let res = s.key("asdf");
-        let res2 = s.intern_lurk_sym("t");
+        let res2 = s.intern_lurk_symbol("t");
         let res3 = s.intern_nil();
 
         let terminal = Ptr::null(Tag::Cont(Terminal));
@@ -6343,7 +6342,7 @@ pub mod tests_lem {
         let expr9 = "(<= 0u64 0u64)";
         let expr10 = "(>= 0u64 0u64)";
 
-        let t = s.intern_lurk_sym("t");
+        let t = s.intern_lurk_symbol("t");
         let nil = s.intern_nil();
         let terminal = Ptr::null(Tag::Cont(Terminal));
 
@@ -6386,7 +6385,7 @@ pub mod tests_lem {
 
         let expr = "(= 1 1u64)";
         let expr2 = "(= 1 2u64)";
-        let t = s.intern_lurk_sym("t");
+        let t = s.intern_lurk_symbol("t");
         let nil = s.intern_nil();
         let terminal = Ptr::null(Tag::Cont(Terminal));
 
@@ -6576,77 +6575,73 @@ pub mod tests_lem {
         }
     }
 
-    // TODO this will only work after #703
-    // #[test]
-    // #[traced_test]
-    // fn test_dumb_lang() {
-    //     use crate::coprocessor::test::DumbCoprocessor;
-    //     use crate::eval::tests::coproc::DumbCoproc;
+    #[test]
+    fn test_dumb_lang() {
+        use crate::coprocessor::test::DumbCoprocessor;
 
-    //     let s = &Store::<Fr>::default();
+        let s = &Store::<Fr>::default();
 
-    //     let mut lang = Lang::<Fr, DumbCoproc<Fr>>::new();
-    //     let name = user_sym("cproc-dumb");
-    //     let dumb = DumbCoprocessor::new();
-    //     let coproc = DumbCoproc::DC(dumb);
+        let mut lang = Lang::<Fr, DumbCoprocessor<Fr>>::new();
+        let name = user_sym("cproc-dumb");
+        let dumb = DumbCoprocessor::new();
 
-    //     lang.add_coprocessor(name, coproc, s);
+        lang.add_coprocessor_lem(name, dumb, s);
 
-    //     // 9^2 + 8 = 89
-    //     let expr = "(cproc-dumb 9 8)";
+        // 9^2 + 8 = 89
+        let expr = "(cproc-dumb 9 8)";
 
-    //     // The dumb coprocessor cannot be shadowed.
-    //     let expr2 = "(let ((cproc-dumb (lambda (a b) (* a b))))
-    //                (cproc-dumb 9 8))";
+        // The dumb coprocessor cannot be shadowed.
+        let expr2 = "(let ((cproc-dumb (lambda (a b) (* a b))))
+                   (cproc-dumb 9 8))";
 
-    //     let expr3 = "(cproc-dumb 9 8 123)";
-    //     let expr4 = "(cproc-dumb 9)";
+        let expr3 = "(cproc-dumb 9 8 123)";
+        let expr4 = "(cproc-dumb 9)";
 
-    //     let res = Ptr::num_u64(89);
-    //     let error = Ptr::null(Tag::Cont(Error));
-    //     let lang = Arc::new(lang);
+        let res = Ptr::num_u64(89);
+        let error = Ptr::null(Tag::Cont(Error));
+        let lang = Arc::new(lang);
 
-    //     test_aux::<_, _, C1Lurk<'_, _, DumbCoproc<_>>>(
-    //         s,
-    //         expr,
-    //         Some(res),
-    //         None,
-    //         None,
-    //         None,
-    //         2,
-    //         Some(lang.clone()),
-    //     );
-    //     test_aux::<_, _, C1Lurk<'_, _, DumbCoproc<_>>>(
-    //         s,
-    //         expr2,
-    //         Some(res),
-    //         None,
-    //         None,
-    //         None,
-    //         4,
-    //         Some(lang.clone()),
-    //     );
-    //     test_aux::<_, _, C1Lurk<'_, _, DumbCoproc<_>>>(
-    //         s,
-    //         expr3,
-    //         None,
-    //         None,
-    //         Some(error),
-    //         None,
-    //         1,
-    //         Some(lang.clone()),
-    //     );
-    //     test_aux::<_, _, C1Lurk<'_, _, DumbCoproc<_>>>(
-    //         s,
-    //         expr4,
-    //         None,
-    //         None,
-    //         Some(error),
-    //         None,
-    //         1,
-    //         Some(lang),
-    //     );
-    // }
+        test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
+            s,
+            expr,
+            Some(res),
+            None,
+            None,
+            None,
+            3,
+            Some(lang.clone()),
+        );
+        test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
+            s,
+            expr2,
+            Some(res),
+            None,
+            None,
+            None,
+            6,
+            Some(lang.clone()),
+        );
+        test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
+            s,
+            expr3,
+            None,
+            None,
+            Some(error),
+            None,
+            4,
+            Some(lang.clone()),
+        );
+        test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
+            s,
+            expr4,
+            None,
+            None,
+            Some(error),
+            None,
+            2,
+            Some(lang),
+        );
+    }
 
     // This is related to issue #426
     #[test]

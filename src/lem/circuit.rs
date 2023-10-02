@@ -47,7 +47,7 @@ use crate::{
 
 use crate::{
     field::{FWrap, LurkField},
-    tag::ExprTag::{Comm, Nil, Num, Sym},
+    tag::ExprTag::{Comm, Num, Sym},
 };
 
 use super::{
@@ -643,13 +643,12 @@ impl Func {
                         // Note that, because there's currently no way of deferring giving
                         // a value to the allocated nums to be filled later, we must either
                         // add the results of the call to the witness, or recompute them.
-                        let dummy = Ptr::null(Tag::Expr(Nil));
                         let output_vals = if let Some(true) = not_dummy.get_value() {
                             g.call_outputs
                                 .pop_front()
-                                .unwrap_or_else(|| (0..out.len()).map(|_| dummy).collect())
+                                .unwrap_or_else(|| (0..out.len()).map(|_| Ptr::dummy()).collect())
                         } else {
-                            (0..out.len()).map(|_| dummy).collect()
+                            (0..out.len()).map(|_| Ptr::dummy()).collect()
                         };
                         assert_eq!(output_vals.len(), out.len());
                         let mut output_ptrs = Vec::with_capacity(out.len());

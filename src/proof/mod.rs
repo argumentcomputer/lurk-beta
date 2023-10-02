@@ -149,7 +149,7 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
 
     /// Create an instance from some `Self::Frame`s.
     fn from_frames(
-        count: usize,
+        reduction_count: usize,
         frames: &[Self::EvalFrame],
         store: &'a Self::Store,
         folding_config: Arc<FoldingConfig<F, C>>,
@@ -157,7 +157,7 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
 
     /// Make a dummy instance, duplicating `self`'s final `CircuitFrame`.
     fn make_dummy(
-        count: usize,
+        reduction_count: usize,
         circuit_frame: Option<Self::CircuitFrame>,
         store: &'a Self::Store,
         folding_config: Arc<FoldingConfig<F, C>>,
