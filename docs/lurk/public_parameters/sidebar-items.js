@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["public_params","public_params_default_dir","with_public_params"],"mod":["error"]};
+window.SIDEBAR_ITEMS = {"fn":["public_params","public_params_default_dir","supernova_aux_params","supernova_circuit_params","supernova_public_params","with_public_params"],"mod":["disk_cache","error","instance"]};

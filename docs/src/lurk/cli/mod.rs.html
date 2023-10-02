@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.0-nightly (7b4d9e155 2023-09-28)" data-channel="nightly" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/cli/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (e0d7ed1f4 2023-10-01)" data-channel="nightly" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -558,6 +558,123 @@
 <a href="#558" id="558">558</a>
 <a href="#559" id="559">559</a>
 <a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>backend;
 <span class="kw">mod </span>circom;
 <span class="kw">mod </span>commitment;
@@ -572,12 +689,18 @@
 <span class="kw">use </span>config::{Config, Environment, File};
 <span class="kw">use </span>pasta_curves::pallas;
 
-<span class="kw">use </span>std::{collections::HashMap, fs};
+<span class="kw">use </span>std::{
+    collections::HashMap,
+    fs::{<span class="self">self</span>, read_dir},
+    io::BufReader,
+    path::PathBuf,
+};
 
 <span class="kw">use crate</span>::{
     circuit::MultiFrame,
     eval::lang::Coproc,
     field::{LanguageField, LurkField},
+    public_parameters::instance::Metadata,
     store::Store,
     z_data::{from_z_data, ZData},
     z_store::ZStore,
@@ -588,7 +711,7 @@
     repl::{validate_non_zero, Repl},
 };
 
-<span class="kw">use </span><span class="self">self</span>::backend::Backend;
+<span class="kw">use </span><span class="self">self</span>::{backend::Backend, paths::public_params_dir};
 
 <span class="kw">const </span>DEFAULT_LIMIT: usize = <span class="number">100_000_000</span>;
 <span class="kw">const </span>DEFAULT_RC: usize = <span class="number">10</span>;
@@ -614,6 +737,7 @@
     /// See `lurk circom --help` for more details
     </span><span class="attr">#[command(verbatim_doc_comment)]
     </span>Circom(CircomArgs),
+    PublicParams(PublicParamArgs),
 }
 
 <span class="attr">#[derive(Args, Debug)]
@@ -1059,9 +1183,106 @@
     </span><span class="attr">#[clap(long, value_parser)]
     </span>config: <span class="prelude-ty">Option</span>&lt;Utf8PathBuf&gt;,
 
-    <span class="doccomment">/// Path to proofs directory
+    <span class="doccomment">/// Path to circom directory
     </span><span class="attr">#[clap(long, value_parser)]
     </span>circom_dir: <span class="prelude-ty">Option</span>&lt;Utf8PathBuf&gt;,
+}
+
+<span class="attr">#[derive(Args, Debug)]
+</span><span class="kw">struct </span>PublicParamArgs {
+    <span class="doccomment">/// Lists all the cached params
+    </span><span class="attr">#[arg(long)]
+    </span>list: bool,
+    <span class="doccomment">/// Clears everything
+    </span><span class="attr">#[arg(long)]
+    </span>clean: bool,
+    <span class="doccomment">/// Remove specified params from cache
+    </span><span class="attr">#[clap(long, value_parser)]
+    </span>remove: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="doccomment">/// Show specified params configurations
+    </span><span class="attr">#[clap(long, value_parser)]
+    </span>show: <span class="prelude-ty">Option</span>&lt;String&gt;,
+
+    <span class="doccomment">/// Config file, containing the lowest precedence parameters
+    </span><span class="attr">#[clap(long, value_parser)]
+    </span>config: <span class="prelude-ty">Option</span>&lt;Utf8PathBuf&gt;,
+
+    <span class="doccomment">/// Path to public params directory
+    </span><span class="attr">#[clap(long, value_parser)]
+    </span>public_params_dir: <span class="prelude-ty">Option</span>&lt;Utf8PathBuf&gt;,
+}
+
+<span class="kw">impl </span>PublicParamArgs {
+    <span class="kw">fn </span>get_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(PathBuf, Metadata)&gt;&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>subdirs = Vec::new();
+
+        <span class="kw">for </span>entry <span class="kw">in </span>read_dir(public_params_dir())<span class="question-mark">? </span>{
+            <span class="kw">let </span>entry = entry<span class="question-mark">?</span>;
+            <span class="kw">let </span>path = entry.path();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(ex) = path.extension() {
+                <span class="kw">if </span>ex == <span class="string">&quot;json&quot; </span>{
+                    <span class="kw">let </span>metadata_file = std::fs::File::open(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+
+                    <span class="kw">let </span>reader = BufReader::new(metadata_file);
+                    <span class="kw">let </span>metadata: Metadata = serde_json::from_reader(reader)<span class="question-mark">?</span>;
+                    subdirs.push((path, metadata));
+                }
+            }
+        }
+
+        subdirs.sort_by_key(|(<span class="kw">_</span>, data)| (data.lang.clone(), data.rc));
+        <span class="prelude-val">Ok</span>(subdirs)
+    }
+
+    <span class="kw">fn </span>clean(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">for </span>entry <span class="kw">in </span>read_dir(public_params_dir())<span class="question-mark">? </span>{
+            fs::remove_file(entry<span class="question-mark">?</span>.path())<span class="question-mark">?</span>;
+        }
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>run(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">if </span><span class="self">self</span>.list {
+            <span class="kw">let </span>metadata = <span class="self">self</span>.get_metadata()<span class="question-mark">?</span>;
+            <span class="kw">for </span>(_path, data) <span class="kw">in </span>metadata.iter() {
+                <span class="macro">println!</span>(
+                    <span class="string">&quot;{: &lt;9} {: &gt;4} {: &gt;6} {: &gt;35}&quot;</span>,
+                    <span class="kw-2">&amp;</span>data.cache_key[<span class="number">2</span>..<span class="number">10</span>],
+                    data.rc,
+                    data.abomonated,
+                    data.lang
+                );
+            }
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = <span class="kw-2">&amp;</span><span class="self">self</span>.remove {
+            <span class="kw">let </span>metadata = <span class="self">self</span>.get_metadata()<span class="question-mark">?</span>;
+            <span class="kw">if let </span><span class="prelude-val">Some</span>((json_path, <span class="kw">_</span>)) = metadata
+                .iter()
+                .find(|(<span class="kw">_</span>, data)| <span class="kw-2">&amp;</span>data.cache_key[<span class="number">2</span>..<span class="number">10</span>] == key)
+            {
+                <span class="kw">let </span>path = json_path.with_extension(<span class="string">&quot;&quot;</span>);
+                fs::remove_file(path)<span class="question-mark">?</span>;
+                fs::remove_file(json_path)<span class="question-mark">?</span>;
+                <span class="macro">println!</span>(<span class="string">&quot;cached param `{key}` removed&quot;</span>);
+            }
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = <span class="kw-2">&amp;</span><span class="self">self</span>.show {
+            <span class="kw">let </span>metadata = <span class="self">self</span>.get_metadata()<span class="question-mark">?</span>;
+            <span class="kw">if let </span><span class="prelude-val">Some</span>((json_path, data)) = metadata
+                .iter()
+                .find(|(<span class="kw">_</span>, data)| <span class="kw-2">&amp;</span>data.cache_key[<span class="number">2</span>..<span class="number">10</span>] == key)
+            {
+                <span class="kw">let </span>path = json_path.with_extension(<span class="string">&quot;&quot;</span>);
+                <span class="macro">println!</span>(<span class="string">&quot;cached param `{path:?}`;&quot;</span>);
+                <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, data);
+            }
+        }
+        <span class="kw">if </span><span class="self">self</span>.clean {
+            <span class="self">self</span>.clean()<span class="question-mark">?</span>;
+            <span class="macro">println!</span>(<span class="string">&quot;public param cache cleaned&quot;</span>);
+        }
+        <span class="prelude-val">Ok</span>(())
+    }
 }
 
 <span class="kw">impl </span>Cli {
@@ -1097,6 +1318,19 @@
                 set_lurk_dirs(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span><span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>circom_args.circom_dir);
 
                 create_circom_gadget(circom_args.circom_folder, circom_args.name)<span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>(())
+            }
+            Command::PublicParams(public_params_args) =&gt; {
+                <span class="kw">let </span>config = get_config(<span class="kw-2">&amp;</span>public_params_args.config)<span class="question-mark">?</span>;
+                <span class="macro">tracing::info!</span>(<span class="string">&quot;Configured variables: {:?}&quot;</span>, config);
+                set_lurk_dirs(
+                    <span class="kw-2">&amp;</span>config,
+                    <span class="kw-2">&amp;</span>public_params_args.public_params_dir,
+                    <span class="kw-2">&amp;</span><span class="prelude-val">None</span>,
+                    <span class="kw-2">&amp;</span><span class="prelude-val">None</span>,
+                    <span class="kw-2">&amp;</span><span class="prelude-val">None</span>,
+                );
+                public_params_args.run()<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(())
             }
         }
