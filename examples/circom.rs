@@ -43,6 +43,7 @@ use lurk::eval::{empty_sym_env, lang::Lang};
 use lurk::field::LurkField;
 use lurk::proof::{nova::NovaProver, Prover};
 use lurk::ptr::Ptr;
+use lurk::public_parameters::instance::{Instance, Kind};
 use lurk::public_parameters::{public_params, public_params_default_dir};
 use lurk::store::Store;
 use lurk::{Num, Symbol};
@@ -124,13 +125,14 @@ fn main() {
     println!("Setting up public parameters...");
 
     let pp_start = Instant::now();
-    let pp = public_params::<_, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>(
+    let instance = Instance::new(
         REDUCTION_COUNT,
-        true,
         lang_rc.clone(),
-        &public_params_default_dir(),
-    )
-    .unwrap();
+        true,
+        Kind::NovaPublicParams,
+    );
+    let pp = public_params::<_, _, MultiFrame<'_, _, _>>(&instance, &public_params_default_dir())
+        .unwrap();
     let pp_end = pp_start.elapsed();
 
     println!("Public parameters took {pp_end:?}");

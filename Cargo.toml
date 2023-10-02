@@ -178,7 +178,7 @@ name = "synthesis"
 harness = false
 
 [[bench]]
-name = "sha256_ivc"
+name = "sha256"
 harness = false
 
 [[bench]]

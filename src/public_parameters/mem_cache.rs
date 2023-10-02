@@ -13,12 +13,11 @@ use tracing::{info, warn};
 use crate::proof::MultiFrameTrait;
 use crate::{
     coprocessor::Coprocessor,
-    eval::lang::Lang,
     proof::nova::{PublicParams, G1, G2},
 };
 use crate::{proof::nova::CurveCycleEquipped, public_parameters::error::Error};
 
-use super::disk_cache::PublicParamDiskCache;
+use super::{disk_cache::DiskCache, instance::Instance};
 
 type AnyMap = anymap::Map<dyn core::any::Any + Send + Sync>;
 type PublicParamMap<F, M> = HashMap<(usize, bool), Arc<PublicParams<F, M>>>;
@@ -40,17 +39,14 @@ pub(crate) static PUBLIC_PARAM_MEM_CACHE: Lazy<PublicParamMemCache> =
 
 impl PublicParamMemCache {
     fn get_from_disk_cache_or_update_with<
-        'a,
         F: CurveCycleEquipped,
-        C: Coprocessor<F> + 'a,
-        M: MultiFrameTrait<'a, F, C>,
-        Fn: FnOnce(Arc<Lang<F, C>>) -> Arc<PublicParams<F, M>>,
+        C: Coprocessor<F> + 'static,
+        M: MultiFrameTrait<'static, F, C>,
+        Fn: FnOnce(&Instance<F, C>) -> Arc<PublicParams<F, M>>,
     >(
         &'static self,
-        rc: usize,
-        abomonated: bool,
+        instance: &Instance<F, C>,
         default: Fn,
-        lang: Arc<Lang<F, C>>,
         disk_cache_path: &Utf8Path,
     ) -> Result<Arc<PublicParams<F, M>>, Error>
     where
@@ -58,18 +54,14 @@ impl PublicParamMemCache {
         <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     {
         // subdirectory search
-        let disk_cache = PublicParamDiskCache::new(disk_cache_path).unwrap();
-        // use the cached language key
-        let lang_key = lang.key();
-        let quick_suffix = if abomonated { "-abomonated" } else { "" };
-        // Sanity-check: we're about to use a lang-dependent disk cache, which should be specialized
-        // for this lang/coprocessor.
-        let key = format!("public-params-rc-{rc}-coproc-{lang_key}{quick_suffix}");
+        let disk_cache = DiskCache::new(disk_cache_path).unwrap();
+
         // read the file if it exists, otherwise initialize
-        if abomonated {
-            match disk_cache.get_raw_bytes(&key) {
-                Ok(mut bytes) => {
-                    info!("loading abomonated {lang_key}");
+        if instance.abomonated {
+            let mut bytes = vec![];
+            match disk_cache.read_bytes(instance, &mut bytes) {
+                Ok(()) => {
+                    info!("loading abomonated {}", instance.key());
                     let (pp, rest) = unsafe { decode::<PublicParams<F, M>>(&mut bytes).unwrap() };
                     assert!(rest.is_empty());
                     Ok(Arc::new(pp.clone())) // this clone is VERY expensive
@@ -77,27 +69,29 @@ impl PublicParamMemCache {
                 Err(Error::IOError(e)) => {
                     warn!("{e}");
                     info!("Generating fresh public parameters");
-                    let pp = default(lang);
+                    let pp = default(instance);
                     // maybe just directly write
                     disk_cache
-                        .set_abomonated(&key, &*pp)
-                        .tap_ok(|_| info!("writing public params to disk-cache: {}", lang_key))
-                        .map_err(|e| Error::CacheError(format!("Disk write error: {}", e)))?;
+                        .write_abomonated(instance, &*pp)
+                        .tap_ok(|_| {
+                            info!("writing public params to disk-cache: {}", instance.key())
+                        })
+                        .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
                     Ok(pp)
                 }
                 _ => unreachable!(),
             }
         } else {
             // read the file if it exists, otherwise initialize
-            if let Ok(pp) = disk_cache.get(&key) {
-                info!("loading abomonated {lang_key}");
+            if let Ok(pp) = disk_cache.read(instance) {
+                info!("loading abomonated {}", instance.key());
                 Ok(Arc::new(pp))
             } else {
-                let pp = default(lang);
+                let pp = default(instance);
                 disk_cache
-                    .set(&key, &*pp)
-                    .tap_ok(|_| info!("writing public params to disk-cache: {}", lang_key))
-                    .map_err(|e| Error::CacheError(format!("Disk write error: {}", e)))?;
+                    .write(instance, &*pp)
+                    .tap_ok(|_| info!("writing public params to disk-cache: {}", instance.key()))
+                    .map_err(|e| Error::CacheError(format!("Disk write error: {e}")))?;
                 Ok(pp)
             }
         }
@@ -108,14 +102,12 @@ impl PublicParamMemCache {
     pub(crate) fn get_from_mem_cache_or_update_with<
         F: CurveCycleEquipped,
         C: Coprocessor<F> + 'static,
-        M: MultiFrameTrait<'static, F, C> + 'static,
-        Fn: FnOnce(Arc<Lang<F, C>>) -> Arc<PublicParams<F, M>>,
+        M: MultiFrameTrait<'static, F, C>,
+        Fn: FnOnce(&Instance<F, C>) -> Arc<PublicParams<F, M>>,
     >(
         &'static self,
-        rc: usize,
-        abomonated: bool,
+        instance: &Instance<F, C>,
         default: Fn,
-        lang: Arc<Lang<F, C>>,
         disk_cache_path: &Utf8Path,
     ) -> Result<Arc<PublicParams<F, M>>, Error>
     where
@@ -129,17 +121,12 @@ impl PublicParamMemCache {
         // retrieve the per-Coproc public param table
         let entry = mem_cache.entry::<PublicParamMap<F, M>>();
         // deduce the map and populate it if needed
-        let param_entry = entry.or_default();
-        match param_entry.entry((rc, abomonated)) {
+        let param_entry = entry.or_insert_with(HashMap::new);
+        match param_entry.entry((instance.rc, instance.abomonated)) {
             Entry::Occupied(o) => Ok(o.into_mut()),
             Entry::Vacant(v) => {
-                let val = self.get_from_disk_cache_or_update_with(
-                    rc,
-                    true,
-                    default,
-                    lang,
-                    disk_cache_path,
-                )?;
+                let val =
+                    self.get_from_disk_cache_or_update_with(instance, default, disk_cache_path)?;
                 Ok(v.insert(val))
             }
         }
