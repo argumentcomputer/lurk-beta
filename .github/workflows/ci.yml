@@ -34,7 +34,7 @@ concurrency:
 
 jobs:
   linux:
-    runs-on: lurk-ci-8cpu
+    runs-on: buildjet-8vcpu-ubuntu-2204
     env:
       RUSTFLAGS: -D warnings
     steps:

@@ -1,7 +1,8 @@
-# Run ignored tests only when attempting to merge
-name: Linux ignored tests
+# Run final tests only when attempting to merge, shown as skipped beforehand
+name: Merge group tests
 
 on:
+  pull_request:
   merge_group:
 
 concurrency:
@@ -10,7 +11,8 @@ concurrency:
 
 jobs:
   linux-ignored:
-    runs-on: buildjet-8vcpu-ubuntu-2204
+    if: github.event_name != 'pull_request' || github.event.action == 'enqueued'
+    runs-on: buildjet-16vcpu-ubuntu-2204
     env:
       RUSTFLAGS: -D warnings
     steps:
@@ -25,6 +27,7 @@ jobs:
           cargo nextest run --profile ci --workspace --cargo-profile dev-ci --run-ignored ignored-only -E 'all() - test(groth16::tests::outer_prove_recursion) - test(test_make_fcomm_examples) - test(test_functional_commitments_demo) - test(test_chained_functional_commitments_demo)'
 
   linux-arm:
+    if: github.event_name != 'pull_request' || github.event.action == 'enqueued'
     runs-on: buildjet-16vcpu-ubuntu-2204-arm
     env:
       RUSTFLAGS: -D warnings
@@ -42,7 +45,11 @@ jobs:
         run: |
           cargo nextest run --profile ci --workspace --cargo-profile dev-no-assertions -E 'test(circuit::gadgets)'
 
+  # Note: Currently impossible to require a CircleCI status check when running on `merge_group` only
+  # If the M1 Mac test fails, merge will still occur
+  # TODO: open an issue for this, including an automated alert on failure
   trigger-circleci-m1-mac:
+    if: github.event_name != 'pull_request' || github.event.action == 'enqueued'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger CircleCI M1 Mac workflow
