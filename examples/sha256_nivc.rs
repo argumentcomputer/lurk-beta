@@ -2,7 +2,6 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Instant;
 
-use lurk::circuit::circuit_frame::MultiFrame;
 use lurk::circuit::gadgets::data::GlobalAllocations;
 use lurk::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use lurk::coprocessor::{CoCircuit, Coprocessor};
@@ -11,8 +10,6 @@ use lurk::field::LurkField;
 use lurk::proof::{supernova::SuperNovaProver, Prover};
 use lurk::ptr::Ptr;
 
-use lurk::public_parameters::instance::{Instance, Kind};
-use lurk::public_parameters::{public_params_default_dir, supernova_public_params};
 use lurk::state::user_sym;
 use lurk::store::Store;
 use lurk::tag::{ExprTag, Tag};
@@ -32,46 +29,37 @@ use tracing_texray::TeXRayLayer;
 
 const REDUCTION_COUNT: usize = 10;
 
-fn sha256_nivc<F: LurkField>(store: &mut Store<F>, n: usize, input: Vec<usize>) -> Ptr<F> {
-    assert_eq!(n, input.len());
-    let input = input
-        .iter()
-        .map(|i| i.to_string())
-        .collect::<Vec<String>>()
-        .join(" ");
-    let input = format!("({})", input);
-    let program = format!(
-        r#"
-(letrec ((encode-1 (lambda (term) 
+fn sha256_encode<F: LurkField>(store: &Store<F>) -> Ptr<F> {
+    let program = r#"
+(letrec ((encode-1 (lambda (term)
             (let ((type (car term))
                   (value (cdr term)))
                 (if (eq 'sha256 type)
-                    (eval (cons 'sha256_nivc_{n} value))
+                    (eval (cons 'sha256 (cons value nil)))
                     (if (eq 'lurk type)
                         (commit value)
                         (if (eq 'id type)
                             value))))))
       (encode (lambda (input)
                 (if input
-                    (cons 
+                    (cons
                         (encode-1 (car input))
                         (encode (cdr input)))))))
-  (encode '((sha256 . {input}))))
+  (encode '((sha256 . 123) (lurk . 5) (id . 15))))
 "#
-    );
+    .to_string();
 
     store.read(&program).unwrap()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Sha256Coprocessor<F: LurkField> {
-    n: usize,
     pub(crate) _p: PhantomData<F>,
 }
 
 impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
     fn arity(&self) -> usize {
-        self.n
+        1
     }
 
     fn synthesize<CS: ConstraintSystem<F>>(
@@ -122,13 +110,13 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
 
 impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
     fn eval_arity(&self) -> usize {
-        self.n
+        1
     }
 
     fn simple_evaluate(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
         let mut hasher = Sha256::new();
 
-        let mut input = vec![0u8; 64 * self.n];
+        let mut input = vec![0u8; 64];
 
         for (i, input_ptr) in args.iter().enumerate() {
             let input_zptr = s.hash_expr(input_ptr).unwrap();
@@ -159,9 +147,8 @@ impl<F: LurkField> Coprocessor<F> for Sha256Coprocessor<F> {
 }
 
 impl<F: LurkField> Sha256Coprocessor<F> {
-    pub(crate) fn new(n: usize) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
-            n,
             _p: Default::default(),
         }
     }
@@ -182,66 +169,54 @@ fn main() {
         .with(TeXRayLayer::new());
     tracing::subscriber::set_global_default(subscriber).unwrap();
 
-    let args = std::env::args().collect::<Vec<_>>();
-    let n = args[1].parse().unwrap();
-
     let store = &mut Store::<Fr>::new();
-    let cproc_sym = user_sym(&format!("sha256_nivc_{n}"));
+    let cproc_sym = user_sym("sha256");
 
-    let call = sha256_nivc(store, n, (0..n).collect());
+    let call = sha256_encode(store);
 
     let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
         store,
-        vec![(cproc_sym, Sha256Coprocessor::new(n).into())],
+        vec![(cproc_sym, Sha256Coprocessor::new().into())],
     );
     let lang_rc = Arc::new(lang.clone());
 
     let supernova_prover = SuperNovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang);
 
-    println!("Setting up running claim parameters (rc = {REDUCTION_COUNT})...");
+    // println!("Setting up public parameters (rc = {REDUCTION_COUNT})...");
+
     let pp_start = Instant::now();
 
-    let instance_primary = Instance::new(
-        REDUCTION_COUNT,
-        lang_rc.clone(),
-        true,
-        Kind::SuperNovaAuxParams,
-    );
-    let pp = supernova_public_params::<_, _, MultiFrame<'_, _, _>>(
-        &instance_primary,
-        &public_params_default_dir(),
-    )
-    .unwrap();
-
+    // // see the documentation on `with_public_params`
+    // with_public_params(REDUCTION_COUNT, lang_rc.clone(), |pp| {
     let pp_end = pp_start.elapsed();
-    println!("Running claim parameters took {:?}", pp_end);
+    // println!("Public parameters took {:?}", pp_end);
 
-    println!("Beginning proof step...");
+    println!("Beginning proof+public-parameters step...");
     let proof_start = Instant::now();
-    let (proof, z0, zi, num_steps, last_circuit_index) =
-        tracing_texray::examine(tracing::info_span!("bang!")).in_scope(|| {
-            supernova_prover
-                .evaluate_and_prove(&pp, call, empty_sym_env(store), store, 10000, lang_rc)
-                .unwrap()
-        });
+    let (_proof, _z0, _zi, _num_steps) = supernova_prover
+        .evaluate_and_prove(None, call, empty_sym_env(store), store, 10000, lang_rc)
+        .unwrap();
     let proof_end = proof_start.elapsed();
 
     println!("Proofs took {:?}", proof_end);
 
-    println!("Verifying proof...");
+    // TODO: plumb verification.
+    // println!("Verifying proof...");
 
-    let verify_start = Instant::now();
-    let res = proof
-        .verify(&pp, last_circuit_index, num_steps, &z0, &zi)
-        .unwrap();
-    let verify_end = verify_start.elapsed();
+    // let verify_start = Instant::now();
+    // let res = proof.verify(claim, &z0, &zi).unwrap();
+    // let verify_end = verify_start.elapsed();
 
-    println!("Verify took {:?}", verify_end);
+    // println!("Verify took {:?}", verify_end);
 
-    if res {
-        println!(
-            "Congratulations! You proved and verified a SHA256 hash calculation in {:?} time!",
-            pp_end + proof_end + verify_end
-        );
-    }
+    // if res {
+    println!(
+        // "Congratulations! You proved and verified a SHA256 hash calculation in {:?} time!",
+        // pp_end + proof_end + verify_end
+        "Congratulations! You proved a dynamic SHA256 encoding in {:?} time!",
+        pp_end + proof_end
+    );
+    // }
+    // })
+    // .unwrap();
 }

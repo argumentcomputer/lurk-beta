@@ -12,18 +12,12 @@ use clap::{Args, Parser, Subcommand};
 use config::{Config, Environment, File};
 use pasta_curves::pallas;
 
-use std::{
-    collections::HashMap,
-    fs::{self, read_dir},
-    io::BufReader,
-    path::PathBuf,
-};
+use std::{collections::HashMap, fs};
 
 use crate::{
     circuit::MultiFrame,
     eval::lang::Coproc,
     field::{LanguageField, LurkField},
-    public_parameters::instance::Metadata,
     store::Store,
     z_data::{from_z_data, ZData},
     z_store::ZStore,
@@ -34,7 +28,7 @@ use crate::cli::{
     repl::{validate_non_zero, Repl},
 };
 
-use self::{backend::Backend, paths::public_params_dir};
+use self::backend::Backend;
 
 const DEFAULT_LIMIT: usize = 100_000_000;
 const DEFAULT_RC: usize = 10;
@@ -60,7 +54,6 @@ enum Command {
     /// See `lurk circom --help` for more details
     #[command(verbatim_doc_comment)]
     Circom(CircomArgs),
-    PublicParams(PublicParamArgs),
 }
 
 #[derive(Args, Debug)]
@@ -506,106 +499,9 @@ struct CircomArgs {
     #[clap(long, value_parser)]
     config: Option<Utf8PathBuf>,
 
-    /// Path to circom directory
+    /// Path to proofs directory
     #[clap(long, value_parser)]
     circom_dir: Option<Utf8PathBuf>,
-}
-
-#[derive(Args, Debug)]
-struct PublicParamArgs {
-    /// Lists all the cached params
-    #[arg(long)]
-    list: bool,
-    /// Clears everything
-    #[arg(long)]
-    clean: bool,
-    /// Remove specified params from cache
-    #[clap(long, value_parser)]
-    remove: Option<String>,
-    /// Show specified params configurations
-    #[clap(long, value_parser)]
-    show: Option<String>,
-
-    /// Config file, containing the lowest precedence parameters
-    #[clap(long, value_parser)]
-    config: Option<Utf8PathBuf>,
-
-    /// Path to public params directory
-    #[clap(long, value_parser)]
-    public_params_dir: Option<Utf8PathBuf>,
-}
-
-impl PublicParamArgs {
-    fn get_metadata(&self) -> Result<Vec<(PathBuf, Metadata)>> {
-        let mut subdirs = Vec::new();
-
-        for entry in read_dir(public_params_dir())? {
-            let entry = entry?;
-            let path = entry.path();
-            if let Some(ex) = path.extension() {
-                if ex == "json" {
-                    let metadata_file = std::fs::File::open(&path)?;
-
-                    let reader = BufReader::new(metadata_file);
-                    let metadata: Metadata = serde_json::from_reader(reader)?;
-                    subdirs.push((path, metadata));
-                }
-            }
-        }
-
-        subdirs.sort_by_key(|(_, data)| (data.lang.clone(), data.rc));
-        Ok(subdirs)
-    }
-
-    fn clean(&self) -> Result<()> {
-        for entry in read_dir(public_params_dir())? {
-            fs::remove_file(entry?.path())?;
-        }
-        Ok(())
-    }
-
-    fn run(&self) -> Result<()> {
-        if self.list {
-            let metadata = self.get_metadata()?;
-            for (_path, data) in metadata.iter() {
-                println!(
-                    "{: <9} {: >4} {: >6} {: >35}",
-                    &data.cache_key[2..10],
-                    data.rc,
-                    data.abomonated,
-                    data.lang
-                );
-            }
-        }
-        if let Some(key) = &self.remove {
-            let metadata = self.get_metadata()?;
-            if let Some((json_path, _)) = metadata
-                .iter()
-                .find(|(_, data)| &data.cache_key[2..10] == key)
-            {
-                let path = json_path.with_extension("");
-                fs::remove_file(path)?;
-                fs::remove_file(json_path)?;
-                println!("cached param `{key}` removed");
-            }
-        }
-        if let Some(key) = &self.show {
-            let metadata = self.get_metadata()?;
-            if let Some((json_path, data)) = metadata
-                .iter()
-                .find(|(_, data)| &data.cache_key[2..10] == key)
-            {
-                let path = json_path.with_extension("");
-                println!("cached param `{path:?}`;");
-                println!("{:?}", data);
-            }
-        }
-        if self.clean {
-            self.clean()?;
-            println!("public param cache cleaned");
-        }
-        Ok(())
-    }
 }
 
 impl Cli {
@@ -641,19 +537,6 @@ impl Cli {
                 set_lurk_dirs(&config, &None, &None, &None, &circom_args.circom_dir);
 
                 create_circom_gadget(circom_args.circom_folder, circom_args.name)?;
-                Ok(())
-            }
-            Command::PublicParams(public_params_args) => {
-                let config = get_config(&public_params_args.config)?;
-                tracing::info!("Configured variables: {:?}", config);
-                set_lurk_dirs(
-                    &config,
-                    &public_params_args.public_params_dir,
-                    &None,
-                    &None,
-                    &None,
-                );
-                public_params_args.run()?;
                 Ok(())
             }
         }

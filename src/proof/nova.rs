@@ -15,7 +15,7 @@ use nova::{
         snark::RelaxedR1CSSNARKTrait,
         Group,
     },
-    CircuitShape, CompressedSNARK, ProverKey, RecursiveSNARK, VerifierKey,
+    CompressedSNARK, ProverKey, RecursiveSNARK, VerifierKey,
 };
 use pasta_curves::{pallas, vesta};
 use rayon::prelude::*;
@@ -123,9 +123,6 @@ pub type C1<'a, F, C> = MultiFrame<'a, F, C>;
 /// Type alias for a Trivial Test Circuit with G2 scalar field elements.
 pub type C2<F> = TrivialCircuit<<G2<F> as Group>::Scalar>;
 
-/// Type alias for Nova Circuit Parameters with the curve cycle types defined above.
-pub type NovaCircuitShape<F> = CircuitShape<G1<F>>;
-
 /// Type alias for Nova Public Parameters with the curve cycle types defined above.
 pub type NovaPublicParams<F, C1> = nova::PublicParams<G1<F>, G2<F>, C1, C2<F>>;
 
@@ -189,21 +186,6 @@ where
         Box<CompressedSNARK<G1<F>, G2<F>, M, C2<F>, SS1<F>, SS2<F>>>,
         PhantomData<&'a C>,
     ),
-}
-
-/// Computes a cache key of the primary circuit. The point is that if a circuit
-/// changes in any way but has the same `rc`/`Lang`, then we still want the
-/// public params to stay in sync with the changes.
-///
-/// Note: For now, we use ad-hoc circuit cache keys.
-/// See: [crate::public_parameters::instance]
-pub fn circuit_cache_key<F: CurveCycleEquipped, C: Coprocessor<F>>(
-    rc: usize,
-    lang: Arc<Lang<F, C>>,
-) -> F {
-    let folding_config = Arc::new(FoldingConfig::new_ivc(lang, 2));
-    let circuit = MultiFrame::blank(folding_config, Meta::Lurk);
-    F::from(rc as u64) * nova::circuit_digest::<F::G1, F::G2, _>(&circuit)
 }
 
 /// Generates the public parameters for the Nova proving system.
@@ -504,7 +486,7 @@ where
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     /// Proves the computation recursively, generating a recursive SNARK proof.
-    #[tracing::instrument(skip_all, name = "nova::prove_recursively")]
+    #[tracing::instrument(skip_all, name = "Proof::prove_recursively")]
     pub fn prove_recursively(
         pp: &PublicParams<F, M>,
         store: &M::Store,

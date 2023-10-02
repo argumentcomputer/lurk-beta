@@ -15,10 +15,7 @@ use lurk::{
     proof::Prover,
     proof::{nova::NovaProver, MultiFrameTrait},
     ptr::Ptr,
-    public_parameters::{
-        self,
-        instance::{Instance, Kind},
-    },
+    public_parameters,
     state::State,
     store::Store,
 };
@@ -69,14 +66,10 @@ fn end2end_benchmark(c: &mut Criterion) {
     let prover = NovaProver::new(reduction_count, lang_pallas);
 
     // use cached public params
-    let instance = Instance::new(
+    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, Coproc<pallas::Scalar>>>(
         reduction_count,
-        lang_pallas_rc.clone(),
         true,
-        Kind::NovaPublicParams,
-    );
-    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(
-        &instance,
+        lang_pallas_rc.clone(),
         Utf8Path::new(PUBLIC_PARAMS_PATH),
     )
     .unwrap();
@@ -293,17 +286,14 @@ fn prove_benchmark(c: &mut Criterion) {
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<pallas::Scalar>(&store, state.clone(), s.0, s.1);
         let prover = NovaProver::new(reduction_count, lang_pallas.clone());
-        let instance = Instance::new(
-            reduction_count,
-            lang_pallas_rc.clone(),
-            true,
-            Kind::NovaPublicParams,
-        );
-        let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(
-            &instance,
-            Utf8Path::new(PUBLIC_PARAMS_PATH),
-        )
-        .unwrap();
+        let pp =
+            public_parameters::public_params::<_, _, MultiFrame<'_, _, Coproc<pallas::Scalar>>>(
+                reduction_count,
+                true,
+                lang_pallas_rc.clone(),
+                Utf8Path::new(PUBLIC_PARAMS_PATH),
+            )
+            .unwrap();
         let frames = MultiFrame::get_evaluation_frames(
             |count| prover.needs_frame_padding(count),
             ptr,
@@ -345,29 +335,27 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
 
     let state = State::init_lurk_state().rccell();
 
+    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(
+        reduction_count,
+        true,
+        lang_pallas_rc.clone(),
+        Utf8Path::new(PUBLIC_PARAMS_PATH),
+    )
+    .unwrap();
+
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         let ptr = go_base::<pallas::Scalar>(&store, state.clone(), s.0, s.1);
         let prover = NovaProver::new(reduction_count, lang_pallas.clone());
-        let instance = Instance::new(
-            reduction_count,
-            lang_pallas_rc.clone(),
-            true,
-            Kind::NovaPublicParams,
-        );
-        let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(
-            &instance,
-            Utf8Path::new(PUBLIC_PARAMS_PATH),
+
+        let frames = MultiFrame::get_evaluation_frames(
+            |count| prover.needs_frame_padding(count),
+            ptr,
+            empty_sym_env(&store),
+            &store,
+            limit,
+            &lang_pallas,
         )
         .unwrap();
-        let frames = prover
-            .get_evaluation_frames(
-                ptr,
-                empty_sym_env(&store),
-                &store,
-                limit,
-                lang_pallas_rc.clone(),
-            )
-            .unwrap();
 
         b.iter(|| {
             let (proof, _, _, _) = prover.prove(&pp, &frames, &store, &lang_pallas_rc).unwrap();
@@ -402,29 +390,24 @@ fn verify_benchmark(c: &mut Criterion) {
         group.bench_with_input(benchmark_id, &size, |b, &s| {
             let ptr = go_base(&store, state.clone(), s.0, s.1);
             let prover = NovaProver::new(reduction_count, lang_pallas.clone());
-            let instance = Instance::new(
-                reduction_count,
-                lang_pallas_rc.clone(),
-                true,
-                Kind::NovaPublicParams,
-            );
             let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(
-                &instance,
+                reduction_count,
+                true,
+                lang_pallas_rc.clone(),
                 Utf8Path::new(PUBLIC_PARAMS_PATH),
             )
             .unwrap();
-            let frames = prover
-                .get_evaluation_frames(
-                    ptr,
-                    empty_sym_env(&store),
-                    &store,
-                    limit,
-                    lang_pallas_rc.clone(),
-                )
-                .unwrap();
-            let (proof, z0, zi, num_steps) = prover
-                .prove(&pp, &frames, &store, &lang_pallas_rc.clone())
-                .unwrap();
+            let frames = MultiFrame::get_evaluation_frames(
+                |count| prover.needs_frame_padding(count),
+                ptr,
+                empty_sym_env(&store),
+                &store,
+                limit,
+                &lang_pallas,
+            )
+            .unwrap();
+            let (proof, z0, zi, num_steps) =
+                prover.prove(&pp, &frames, &store, &lang_pallas_rc).unwrap();
 
             b.iter_batched(
                 || z0.clone(),
@@ -464,14 +447,10 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
         group.bench_with_input(benchmark_id, &size, |b, &s| {
             let ptr = go_base(&store, state.clone(), s.0, s.1);
             let prover = NovaProver::new(reduction_count, lang_pallas.clone());
-            let instance = Instance::new(
-                reduction_count,
-                lang_pallas_rc.clone(),
-                true,
-                Kind::NovaPublicParams,
-            );
             let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(
-                &instance,
+                reduction_count,
+                true,
+                lang_pallas_rc.clone(),
                 Utf8Path::new(PUBLIC_PARAMS_PATH),
             )
             .unwrap();

@@ -10,7 +10,6 @@ use fcomm::{
 };
 use lurk::circuit::circuit_frame::MultiFrame;
 use lurk::lurk_sym_ptr;
-use lurk::public_parameters::instance::{Instance, Kind};
 use lurk::public_parameters::public_params;
 
 use lurk::state::State;
@@ -143,10 +142,14 @@ impl ReplTrait<F, Coproc<F>> for ClutchState<F, Coproc<F>> {
         });
 
         let lang_rc = Arc::new(lang.clone());
-        let instance = Instance::new(reduction_count, lang_rc, true, Kind::NovaPublicParams);
         // Load params from disk cache, or generate them in the background.
         thread::spawn(move || {
-            public_params::<_, _, MultiFrame<'_, _, Coproc<_>>>(&instance, &public_param_dir())
+            public_params::<_, _, MultiFrame<'_, _, Coproc<_>>>(
+                reduction_count,
+                true,
+                lang_rc,
+                &public_param_dir(),
+            )
         });
 
         Self {
@@ -521,13 +524,7 @@ impl ClutchState<F, Coproc<F>> {
             self.reduction_count,
             (*self.lang()).clone(),
         );
-        let instance = Instance::new(
-            self.reduction_count,
-            self.lang(),
-            true,
-            Kind::NovaPublicParams,
-        );
-        let pp = public_params(&instance, &public_param_dir())?;
+        let pp = public_params(self.reduction_count, true, self.lang(), &public_param_dir())?;
 
         let proof = if rest.is_nil() {
             self.last_claim
@@ -586,14 +583,8 @@ impl ClutchState<F, Coproc<F>> {
             .get(&zptr_string)
             .ok_or_else(|| anyhow!("proof not found: {zptr_string}"))?;
 
-        let instance = Instance::new(
-            self.reduction_count,
-            self.lang(),
-            true,
-            Kind::NovaPublicParams,
-        );
-        let pp = public_params(&instance, &public_param_dir())?;
-        let result = proof.verify(&pp, &self.lang()).unwrap();
+        let pp = public_params(self.reduction_count, true, self.lang(), &public_param_dir())?;
+        let result = proof.verify(&pp, &self.lang())?;
 
         if result.verified {
             Ok(Some(lurk_sym_ptr!(store, t)))

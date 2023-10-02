@@ -1,4 +1,4 @@
-use std::fs::create_dir_all;
+use std::fs::{create_dir_all, File};
 use std::io::{BufReader, BufWriter, Read};
 use std::marker::PhantomData;
 
@@ -11,9 +11,7 @@ use crate::proof::nova::{CurveCycleEquipped, PublicParams, G1, G2};
 use crate::proof::MultiFrameTrait;
 use crate::public_parameters::error::Error;
 
-use super::instance::Instance;
-
-pub(crate) struct DiskCache<'a, F, C, M>
+pub(crate) struct PublicParamDiskCache<'a, F, C, M>
 where
     F: CurveCycleEquipped,
     C: Coprocessor<F> + 'a,
@@ -24,7 +22,7 @@ where
 }
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>>
-    DiskCache<'a, F, C, M>
+    PublicParamDiskCache<'a, F, C, M>
 where
     // technical bounds that would disappear once associated_type_bounds stabilizes
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -39,43 +37,36 @@ where
         })
     }
 
-    pub(crate) fn read(&self, instance: &Instance<F, C>) -> Result<PublicParams<F, M>, Error> {
-        let file = instance.open(&self.dir)?;
+    fn key_path(&self, key: &str) -> Utf8PathBuf {
+        self.dir.join(Utf8PathBuf::from(key))
+    }
+
+    pub(crate) fn get(&self, key: &str) -> Result<PublicParams<F, M>, Error> {
+        let file = File::open(self.key_path(key))?;
         let reader = BufReader::new(file);
         bincode::deserialize_from(reader).map_err(|e| {
             Error::CacheError(format!("Public param cache deserialization error: {}", e))
         })
     }
 
-    pub(crate) fn read_bytes(
-        &self,
-        instance: &Instance<F, C>,
-        byte_sink: &mut Vec<u8>,
-    ) -> Result<(), Error> {
-        let file = instance.open(&self.dir)?;
+    pub(crate) fn get_raw_bytes(&self, key: &str) -> Result<Vec<u8>, Error> {
+        let file = File::open(self.key_path(key))?;
         let mut reader = BufReader::new(file);
-        reader.read_to_end(byte_sink)?;
-        Ok(())
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes)?;
+        Ok(bytes)
     }
 
-    pub(crate) fn write(
-        &self,
-        instance: &Instance<F, C>,
-        data: &PublicParams<F, M>,
-    ) -> Result<(), Error> {
-        let file = instance.create(&self.dir)?;
+    pub(crate) fn set(&self, key: &str, data: &PublicParams<F, M>) -> Result<(), Error> {
+        let file = File::create(self.key_path(key)).expect("failed to create file");
         let writer = BufWriter::new(&file);
         bincode::serialize_into(writer, &data).map_err(|e| {
             Error::CacheError(format!("Public param cache serialization error: {}", e))
         })
     }
 
-    pub(crate) fn write_abomonated<V: Abomonation>(
-        &self,
-        instance: &Instance<F, C>,
-        data: &V,
-    ) -> Result<(), Error> {
-        let mut file = instance.create(&self.dir)?;
+    pub(crate) fn set_abomonated<V: Abomonation>(&self, key: &str, data: &V) -> Result<(), Error> {
+        let mut file = File::create(self.key_path(key))?;
         unsafe { encode(data, &mut file).expect("failed to encode") };
         Ok(())
     }

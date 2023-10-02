@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use ::nova::traits::Group;
 use abomonation::Abomonation;
 use anyhow::Result;
@@ -13,10 +11,7 @@ use crate::{
         nova::{self, CurveCycleEquipped, G1, G2},
         MultiFrameTrait,
     },
-    public_parameters::{
-        instance::{Instance, Kind},
-        public_params,
-    },
+    public_parameters::public_params,
     z_ptr::{ZContPtr, ZExprPtr},
     z_store::ZStore,
 };
@@ -138,9 +133,8 @@ where
                 lang,
             } => {
                 tracing::info!("Loading public parameters");
-                let instance = Instance::new(rc, Arc::new(lang), true, Kind::NovaPublicParams);
-                let pp = public_params(&instance, &public_params_dir())?;
-                Ok(proof.verify(&pp, num_steps, &public_inputs, &public_outputs)?)
+                let pp = public_params(rc, true, std::sync::Arc::new(lang), &public_params_dir())?;
+                Ok(proof.verify(&*pp, num_steps, &public_inputs, &public_outputs)?)
             }
         }
     }

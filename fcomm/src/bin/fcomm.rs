@@ -2,7 +2,6 @@ use abomonation::Abomonation;
 use lurk::circuit::circuit_frame::MultiFrame;
 use lurk::lurk_sym_ptr;
 use lurk::proof::nova::{CurveCycleEquipped, G1, G2};
-use lurk::public_parameters::instance::{Instance, Kind};
 use nova::traits::Group;
 use std::convert::TryFrom;
 use std::env;
@@ -238,8 +237,8 @@ impl Open {
             lang.clone(),
         );
         let lang_rc = Arc::new(lang.clone());
-        let instance = Instance::new(rc.count(), lang_rc, true, Kind::NovaPublicParams);
-        let pp = public_params(&instance, &public_param_dir()).expect("public params");
+        let pp =
+            public_params(rc.count(), true, lang_rc, &public_param_dir()).expect("public params");
         let function_map = committed_expression_store();
 
         let handle_proof = |out_path, proof: Proof<'_, S1>| {
@@ -346,8 +345,7 @@ impl Prove {
             lang.clone(),
         );
         let lang_rc = Arc::new(lang.clone());
-        let instance = Instance::new(rc.count(), lang_rc.clone(), true, Kind::NovaPublicParams);
-        let pp = public_params(&instance, &public_param_dir()).unwrap();
+        let pp = public_params(rc.count(), true, lang_rc.clone(), &public_param_dir()).unwrap();
 
         let proof = match &self.claim {
             Some(claim) => {
@@ -393,13 +391,13 @@ impl Verify {
     fn verify(&self, cli_error: bool, lang: &Lang<S1, Coproc<S1>>) {
         let proof = proof(Some(&self.proof)).unwrap();
         let lang_rc = Arc::new(lang.clone());
-        let instance = Instance::new(
+        let pp = public_params(
             proof.reduction_count.count(),
-            lang_rc,
             true,
-            Kind::NovaPublicParams,
-        );
-        let pp = public_params(&instance, &public_param_dir()).unwrap();
+            lang_rc,
+            &public_param_dir(),
+        )
+        .unwrap();
         let result = proof.verify(&pp, lang).unwrap();
 
         serde_json::to_writer(io::stdout(), &result).unwrap();
