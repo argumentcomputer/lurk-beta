@@ -88,6 +88,11 @@ impl<F: LurkField> Ptr<F> {
     }
 
     #[inline]
+    pub fn dummy() -> Self {
+        Self::null(Tag::Expr(Nil))
+    }
+
+    #[inline]
     pub fn cast(self, tag: Tag) -> Self {
         match self {
             Ptr::Atom(_, f) => Ptr::Atom(tag, f),

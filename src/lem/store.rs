@@ -219,10 +219,6 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    pub fn intern_user_symbol(&self, name: &str) -> Ptr<F> {
-        self.intern_symbol(&crate::state::user_sym(name))
-    }
-
     pub fn fetch_symbol_path(&self, mut idx: usize) -> Option<Vec<String>> {
         let mut path = vec![];
         loop {
