@@ -173,8 +173,8 @@ enum Sha256Coproc<F: LurkField> {
 }
 
 /// Run the example in this file with
-/// `cargo run --release --example sha256_nivc`
-/// where `n` is the needed arity
+/// `cargo run --release --example sha256_nivc <n>`
+/// where `n` is the needed arity (default is 1)
 fn main() {
     let subscriber = Registry::default()
         .with(fmt::layer().pretty())
@@ -183,7 +183,7 @@ fn main() {
     tracing::subscriber::set_global_default(subscriber).unwrap();
 
     let args = std::env::args().collect::<Vec<_>>();
-    let n = args[1].parse().unwrap();
+    let n = args.get(1).unwrap_or(&"1".into()).parse().unwrap();
 
     let store = &mut Store::<Fr>::new();
     let cproc_sym = user_sym(&format!("sha256_nivc_{n}"));

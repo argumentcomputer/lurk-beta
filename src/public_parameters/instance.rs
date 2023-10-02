@@ -213,7 +213,7 @@ where
 
     pub fn reindex(&self, circuit_index: usize) -> Self {
         match self.kind {
-            Kind::SuperNovaCircuitParams(_) => Instance::new(
+            Kind::SuperNovaAuxParams | Kind::SuperNovaCircuitParams(_) => Instance::new(
                 self.rc,
                 self.lang(),
                 self.abomonated,
