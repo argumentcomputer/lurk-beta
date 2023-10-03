@@ -1,4 +1,4 @@
-# Run final tests only when attempting to merge, shown as skipped beforehand
+# Run final tests only when attempting to merge, shown as skipped status checks beforehand
 name: Merge group tests
 
 on:
@@ -48,8 +48,7 @@ jobs:
           cargo nextest run --profile ci --workspace --cargo-profile dev-no-assertions -E 'test(circuit::gadgets)'
 
   mac-m1:
-    # Temporarily testing on pull_request event
-    #if: github.event_name != 'pull_request' || github.event.action == 'enqueued'
+    if: github.event_name != 'pull_request' || github.event.action == 'enqueued'
     runs-on: macos-latest-xlarge
     steps:
       - uses: actions/checkout@v4
