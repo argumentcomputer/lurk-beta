@@ -467,3 +467,45 @@ pub fn derive_try_from_repr(input: TokenStream) -> TokenStream {
     }
     .into()
 }
+
+mod generic_tests;
+
+/// Provides a set of generic tests using different type parameters.
+///
+/// When used on a module, `generic_tests`:
+/// - Strips test-related attributes (like `#[test]`, `#[ignore]`) from each test function in the module.
+/// - Retains all other items in the module.
+/// - Adds a macro, named `instantiate_<module_name>`, to instantiate generic tests in the module.
+///
+/// The instantiation macro, when invoked with type parameters, defines new test functions based on
+/// the original generic functions in the module, preserving their test attributes. The new tests will
+/// invoke the original generic functions using the provided type parameters.
+///
+/// Note:
+/// - All test functions must be public, as they're invoked outside the module where they're defined.
+/// - The instantiation macro respects standard macro visibility rules. To use it outside its module or crate,
+///   relevant annotations and imports, such as `#[macro_use]` and `use crate_name::instantiate_macro`, are required.
+///
+/// # Example
+/// ```
+/// use lurk_macros::generic_tests;
+///
+/// #[generic_tests]
+/// mod tests {
+///     #[test]
+///     pub fn a_test<T: std::fmt::Debug + Default + PartialEq>() {
+///         assert_eq!(T::default(), T::default());
+///     }
+/// }
+///
+/// #[cfg(test)]
+/// mod specific_tests {
+///     use super::tests;
+///     instantiate_tests!(u32);
+///     instantiate_tests!(Vec<u32>);
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn generic_tests(args: TokenStream, input: TokenStream) -> TokenStream {
+    generic_tests::generic_tests(args, input)
+}
