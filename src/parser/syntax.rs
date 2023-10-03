@@ -28,7 +28,7 @@ use crate::{
 };
 
 pub fn parse_line_comment<F: LurkField>(i: Span<'_>) -> ParseResult<'_, F, Span<'_>> {
-    let (i, _) = tag(";;")(i)?;
+    let (i, _) = tag(";")(i)?;
     let (i, com) = take_till(|c| c == '\n')(i)?;
     Ok((i, com))
 }
@@ -901,6 +901,11 @@ pub mod tests {
         let state_ = State::default().rccell();
         let state = || state_.clone();
 
+        assert!(test(
+            parse_syntax(state(), false, true),
+            ".a ;arst",
+            Some(symbol!(["a"])),
+        ));
         assert!(test(
             parse_syntax(state(), false, true),
             "(0x6e2e5055dcf61486b03bb80ed2b3f1a35c30e122defebae824fae4ed32408e87)",
