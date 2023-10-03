@@ -3,6 +3,8 @@ name: Merge group tests
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [master]
   merge_group:
 
 concurrency:
@@ -45,15 +47,20 @@ jobs:
         run: |
           cargo nextest run --profile ci --workspace --cargo-profile dev-no-assertions -E 'test(circuit::gadgets)'
 
-  # Note: Currently impossible to require a CircleCI status check when running on `merge_group` only
-  # If the M1 Mac test fails, merge will still occur
-  # TODO: open an issue for this, including an automated alert on failure
-  trigger-circleci-m1-mac:
-    if: github.event_name != 'pull_request' || github.event.action == 'enqueued'
-    runs-on: ubuntu-latest
+  mac-m1:
+    # Temporarily testing on pull_request event
+    #if: github.event_name != 'pull_request' || github.event.action == 'enqueued'
+    runs-on: macos-latest-xlarge
     steps:
-      - name: Trigger CircleCI M1 Mac workflow
-        id: mac-circleci
-        uses: CircleCI-Public/trigger-circleci-pipeline-action@v1.1.0
-        env:
-          CCI_TOKEN: ${{ secrets.CIRCLECI_API_TOKEN }}
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions-rs/toolchain@v1
+      - uses: taiki-e/install-action@nextest
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux Tests
+        run: |
+          cargo nextest run --profile ci --workspace --cargo-profile dev-ci
+      - name: Linux Gadget Tests w/o debug assertions
+        run: |
+          cargo nextest run --profile ci --workspace --cargo-profile dev-no-assertions -E 'test(circuit::gadgets)'
