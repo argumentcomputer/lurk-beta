@@ -44,24 +44,23 @@ pub type C2<F> = TrivialSecondaryCircuit<<G2<F> as Group>::Scalar>;
 pub type SuperNovaAuxParams<F> = supernova::AuxParams<G1<F>, G2<F>>;
 
 /// Type alias for SuperNova Public Parameters with the curve cycle types defined above.
-pub type SuperNovaPublicParams<'a, F, C> =
-    supernova::PublicParams<G1<F>, G2<F>, C1<'a, F, C>, C2<F>>;
+pub type SuperNovaPublicParams<F, C1> = supernova::PublicParams<G1<F>, G2<F>, C1, C2<F>>;
 
 /// A struct that contains public parameters for the SuperNova proving system.
-pub struct PublicParams<'a, F: CurveCycleEquipped, C: Coprocessor<F>>
+pub struct PublicParams<F: CurveCycleEquipped, SC: StepCircuit<F>>
 where
     // technical bounds that would disappear once associated_type_bounds stabilizes
     <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
 {
     /// Public params for SuperNova.
-    pub pp: SuperNovaPublicParams<'a, F, C>,
+    pub pp: SuperNovaPublicParams<F, SC>,
     // SuperNova does not yet have a `CompressedSNARK`.
-    // pk: ProverKey<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>,
-    // vk: VerifierKey<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>,
+    // pk: ProverKey<G1<F>, G2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
+    // vk: VerifierKey<G1<F>, G2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> Index<usize> for PublicParams<'a, F, C>
+impl<F: CurveCycleEquipped, SC: StepCircuit<F>> Index<usize> for PublicParams<F, SC>
 where
     // technical bounds that would disappear once associated_type_bounds stabilizes
     <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
@@ -74,7 +73,7 @@ where
     }
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> PublicParams<'a, F, C>
+impl<F: CurveCycleEquipped, SC: StepCircuit<F>> PublicParams<F, SC>
 where
     // technical bounds that would disappear once associated_type_bounds stabilizes
     <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
@@ -90,14 +89,14 @@ where
 pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F>>(
     rc: usize,
     lang: Arc<Lang<F, C>>,
-) -> PublicParams<'a, F, C>
+) -> PublicParams<F, C1<'a, F, C>>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, rc));
     let non_uniform_circuit = NIVCStep::blank(folding_config, Meta::Lurk);
-    let pp = SuperNovaPublicParams::new(&non_uniform_circuit);
+    let pp = SuperNovaPublicParams::<F, C1<'a, F, C>>::new(&non_uniform_circuit);
     PublicParams { pp }
 }
 
@@ -123,7 +122,7 @@ where
     /// Proves the computation recursively, generating a recursive SNARK proof.
     #[tracing::instrument(skip_all, name = "supernova::prove_recursively")]
     pub fn prove_recursively<'a>(
-        pp: &PublicParams<'_, F, C>,
+        pp: &PublicParams<F, C1<'a, F, C>>,
         _store: &Store<F>,
         nivc_steps: &NIVCSteps<'a, G1<F>, C>,
         z0: Vec<F>,
@@ -189,7 +188,7 @@ where
     /// Verifies the proof given the claim, which (for now), contains the public parameters.
     pub fn verify(
         &self,
-        pp: &PublicParams<'_, F, C>,
+        pp: &PublicParams<F, C1<'_, F, C>>,
         circuit_index: usize,
         _num_steps: usize,
         z0: &[F],
@@ -242,7 +241,7 @@ pub struct SuperNovaProver<F: CurveCycleEquipped, C: Coprocessor<F>> {
     lang: Lang<F, C>,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> PublicParameters for PublicParams<'a, F, C>
+impl<F: CurveCycleEquipped, C1: StepCircuit<F>> PublicParameters for PublicParams<F, C1>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -255,7 +254,7 @@ where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    type PublicParams = PublicParams<'a, F, C>;
+    type PublicParams = PublicParams<F, C1<'a, F, C>>;
     fn new(reduction_count: usize, lang: Lang<F, C>) -> Self {
         SuperNovaProver::<F, C> {
             reduction_count,
@@ -279,7 +278,7 @@ where
     /// Proves the computation given the public parameters, frames, and store.
     pub fn prove<'a>(
         &'a self,
-        pp: &PublicParams<'a, F, C>,
+        pp: &PublicParams<F, C1<'a, F, C>>,
         frames: &[Frame<IO<F>, Witness<F>, F, C>],
         store: &'a mut Store<F>,
         lang: Arc<Lang<F, C>>,
@@ -301,7 +300,7 @@ where
     /// Evaluates and proves the computation given the public parameters, expression, environment, and store.
     pub fn evaluate_and_prove<'a>(
         &'a self,
-        pp: &PublicParams<'a, F, C>,
+        pp: &PublicParams<F, C1<'a, F, C>>,
         expr: Ptr<F>,
         env: Ptr<F>,
         store: &'a mut Store<F>,

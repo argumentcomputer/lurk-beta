@@ -156,6 +156,7 @@ where
 }
 
 /// Attempts to extract abomonated public parameters.
+use supernova::C1;
 pub fn supernova_public_params<
     'a,
     F: CurveCycleEquipped,
@@ -164,7 +165,7 @@ pub fn supernova_public_params<
 >(
     instance_primary: &Instance<F, C>,
     disk_cache_path: &Utf8Path,
-) -> Result<supernova::PublicParams<'static, F, C>, Error>
+) -> Result<supernova::PublicParams<F, C1<'static, F, C>>, Error>
 where
     F::CK1: Sync + Send,
     F::CK2: Sync + Send,
@@ -187,7 +188,10 @@ where
         (Ok(circuit_params_vec), Ok(aux_params)) => {
             println!("generating public params");
             supernova::PublicParams {
-                pp: SuperNovaPublicParams::from_parts_unchecked(circuit_params_vec, aux_params),
+                pp: SuperNovaPublicParams::<F, C1<'static, F, C>>::from_parts_unchecked(
+                    circuit_params_vec,
+                    aux_params,
+                ),
             }
         }
         _ => {
@@ -203,7 +207,10 @@ where
                 disk_cache.write_abomonated(&instance, circuit_params)?;
             }
             supernova::PublicParams {
-                pp: SuperNovaPublicParams::from_parts_unchecked(circuit_params_vec, aux_params),
+                pp: SuperNovaPublicParams::<F, C1<'static, F, C>>::from_parts_unchecked(
+                    circuit_params_vec,
+                    aux_params,
+                ),
             }
         }
     };
