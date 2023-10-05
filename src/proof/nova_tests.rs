@@ -3478,9 +3478,13 @@ pub trait MultiFrameExt<'a, F: LurkField, C: Coprocessor<F> + 'a>:
         s: &<Self as MultiFrameTrait<'a, F, C>>::Store,
         u: u64,
     ) -> <Self as MultiFrameTrait<'a, F, C>>::Ptr;
-    fn terminal_cont(
+    fn ptr_for_true(
         s: &<Self as MultiFrameTrait<'a, F, C>>::Store,
-    ) -> <Self as MultiFrameTrait<'a, F, C>>::ContPtr;
+    ) -> <Self as MultiFrameTrait<'a, F, C>>::Ptr;
+    fn ptr_for_nil(
+        s: &<Self as MultiFrameTrait<'a, F, C>>::Store,
+    ) -> <Self as MultiFrameTrait<'a, F, C>>::Ptr;
+
     fn error_cont(
         s: &<Self as MultiFrameTrait<'a, F, C>>::Store,
     ) -> <Self as MultiFrameTrait<'a, F, C>>::ContPtr;
@@ -3491,8 +3495,12 @@ impl<'a, F: LurkField> MultiFrameExt<'a, F, Coproc<F>> for C1Lurk<'a, F, Coproc<
         s.num(u)
     }
 
-    fn terminal_cont(s: &crate::store::Store<F>) -> crate::ptr::ContPtr<F> {
-        s.get_cont_terminal()
+    fn ptr_for_true(s: &crate::store::Store<F>) -> crate::ptr::Ptr<F> {
+        lurk_sym_ptr!(s, t)
+    }
+
+    fn ptr_for_nil(s: &crate::store::Store<F>) -> crate::ptr::Ptr<F> {
+        lurk_sym_ptr!(s, nil)
     }
 
     fn error_cont(s: &crate::store::Store<F>) -> crate::ptr::ContPtr<F> {
@@ -3500,16 +3508,34 @@ impl<'a, F: LurkField> MultiFrameExt<'a, F, Coproc<F>> for C1Lurk<'a, F, Coproc<
     }
 }
 
+impl<'a, F: LurkField> MultiFrameExt<'a, F, Coproc<F>> for C1LEM<'a, F, Coproc<F>> {
+    fn ptr_for_num(_s: &crate::lem::store::Store<F>, u: u64) -> crate::lem::pointers::Ptr<F> {
+        crate::lem::pointers::Ptr::num_u64(u)
+    }
+
+    fn ptr_for_true(s: &crate::lem::store::Store<F>) -> crate::lem::pointers::Ptr<F> {
+        s.intern_lurk_symbol("t")
+    }
+
+    fn ptr_for_nil(s: &crate::lem::store::Store<F>) -> crate::lem::pointers::Ptr<F> {
+        s.intern_nil()
+    }
+
+    fn error_cont(_s: &crate::lem::store::Store<F>) -> crate::lem::pointers::Ptr<F> {
+        crate::lem::pointers::Ptr::null(crate::lem::Tag::Cont(crate::tag::ContTag::Error))
+    }
+}
+
 #[generic_tests]
 pub mod proof_tests {
 
     use crate::proof::nova::{CurveCycleEquipped, G1, G2};
-    use crate::proof::{Coprocessor, MultiFrameTrait};
+    use crate::proof::{Coprocessor, EvaluationStore, MultiFrameTrait};
     use abomonation::Abomonation;
     use nova::traits::Group;
 
-    use super::test_aux;
     use super::MultiFrameExt;
+    use super::{nova_test_full_aux, nova_test_full_aux2, test_aux, DEFAULT_REDUCTION_COUNT};
     use std::sync::Mutex;
 
     trait Any {}
@@ -3519,6 +3545,7 @@ pub mod proof_tests {
         ts: Mutex<Vec<Box<dyn Any>>>,
     }
 
+    // We reproduce those marker traits because of the same requirement on store
     unsafe impl Send for Warehouse {}
     unsafe impl Sync for Warehouse {}
 
@@ -3528,8 +3555,8 @@ pub mod proof_tests {
             let boxed = Box::new(t);
             let ptr = &*boxed as *const T;
             let any = unsafe {
-                // A combination of lifetime elision and implied
-                // lifetime bounds ensures that any borrowed data in T outlives self.
+                // A combination of lifetime elision and implied lifetime bounds
+                // ensures that any borrowed data in T outlives self.
                 // Written explicitly, the store signature is:
                 // fn store<'a, T: 'a>(&'a self, t: T) -> &'a T.
                 // That means we can treat the borrowed data in T as being alive as
@@ -3558,9 +3585,9 @@ pub mod proof_tests {
     {
         let store = <G as MultiFrameTrait<'a, F, C>>::Store::default();
         let expected = G::ptr_for_num(&store, 3);
-        let terminal = G::terminal_cont(&store);
+        let terminal = store.get_cont_terminal();
         // we need to create a reference to the store that outlives the outer 'a lifetime,
-        // which requires the store to be "kept" elsewhere. This is a hack.
+        // and this requires the store to be "kept" elsewhere. This is a hack.
         let s_ref: &'a _ = WAREHOUSE.store(store);
 
         test_aux::<_, _, G>(
@@ -3591,7 +3618,7 @@ pub mod proof_tests {
     {
         let store = <G as MultiFrameTrait<'a, F, C>>::Store::default();
         let expected = G::ptr_for_num(&store, 2);
-        let terminal = G::terminal_cont(&store);
+        let terminal = store.get_cont_terminal();
         let s_ref: &'a _ = WAREHOUSE.store(store);
         test_aux::<_, _, G>(
             s_ref,
@@ -3604,16 +3631,760 @@ pub mod proof_tests {
             None,
         );
     }
+
+    #[test]
+    #[ignore]
+    pub fn test_prove_arithmetic_let<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let store = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let expected = G::ptr_for_num(&store, 3);
+        let terminal = store.get_cont_terminal();
+        let s_ref: &'a _ = WAREHOUSE.store(store);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(let ((a 5)
+                      (b 1)
+                      (c 2))
+                 (/ (+ a b) c))",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            18,
+            None,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    pub fn test_prove_eq<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let store = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let expected = G::ptr_for_true(&store);
+        let terminal = store.get_cont_terminal();
+        let s_ref: &'a _ = WAREHOUSE.store(store);
+        nova_test_full_aux::<_, _, G>(
+            s_ref,
+            "(eq 5 5)",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            3,
+            DEFAULT_REDUCTION_COUNT,
+            true,
+            None,
+            None,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    pub fn test_prove_num_equal<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let store = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let expected = G::ptr_for_true(&store);
+        let nil: <G as MultiFrameTrait<F, C>>::Ptr = G::ptr_for_nil(&store);
+        let terminal = store.get_cont_terminal();
+        let s_ref: &'a _ = WAREHOUSE.store(store);
+        test_aux::<_, _, G>(
+            s_ref,
+            "(= 5 5)",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            3,
+            None,
+        );
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(= 5 6)",
+            Some(nil),
+            None,
+            Some(terminal),
+            None,
+            3,
+            None,
+        );
+    }
+
+    #[test]
+    pub fn test_prove_invalid_num_equal<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let store = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let nil = G::ptr_for_nil(&store);
+        let num_5 = G::ptr_for_num(&store, 5);
+        let error = G::error_cont(&store);
+        let s_ref: &'a _ = WAREHOUSE.store(store);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(= 5 nil)",
+            Some(nil),
+            None,
+            Some(error),
+            None,
+            3,
+            None,
+        );
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(= nil 5)",
+            Some(num_5),
+            None,
+            Some(error),
+            None,
+            3,
+            None,
+        );
+    }
+
+    #[test]
+    pub fn test_prove_equal<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let store = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let nil = G::ptr_for_nil(&store);
+        let t = G::ptr_for_true(&store);
+        let terminal = store.get_cont_terminal();
+        let s_ref: &'a _ = WAREHOUSE.store(store);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(eq 5 nil)",
+            Some(nil),
+            None,
+            Some(terminal),
+            None,
+            3,
+            None,
+        );
+        test_aux::<_, _, G>(
+            s_ref,
+            "(eq nil 5)",
+            Some(nil),
+            None,
+            Some(terminal),
+            None,
+            3,
+            None,
+        );
+        test_aux::<_, _, G>(
+            s_ref,
+            "(eq nil nil)",
+            Some(t),
+            None,
+            Some(terminal),
+            None,
+            3,
+            None,
+        );
+        test_aux::<_, _, G>(
+            s_ref,
+            "(eq 5 5)",
+            Some(t),
+            None,
+            Some(terminal),
+            None,
+            3,
+            None,
+        );
+    }
+
+    #[test]
+    pub fn test_prove_quote_end_is_nil_error<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let store = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let error = G::error_cont(&store);
+        let s_ref: &'a _ = WAREHOUSE.store(store);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(quote (1) (2))",
+            None,
+            None,
+            Some(error),
+            None,
+            1,
+            None,
+        );
+    }
+
+    #[test]
+    pub fn test_prove_if<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let s = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let num_5 = G::ptr_for_num(&s, 5);
+        let num_6 = G::ptr_for_num(&s, 6);
+        let terminal = s.get_cont_terminal();
+        let s_ref: &'a _ = WAREHOUSE.store(s);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(if t 5 6)",
+            Some(num_5),
+            None,
+            Some(terminal),
+            None,
+            3,
+            None,
+        );
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(if nil 5 6)",
+            Some(num_6),
+            None,
+            Some(terminal),
+            None,
+            3,
+            None,
+        )
+    }
+
+    #[test]
+    pub fn test_prove_if_end_is_nil_error<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let s = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let num_5 = G::ptr_for_num(&s, 5);
+        let error = G::error_cont(&s);
+        let s_ref: &'a _ = WAREHOUSE.store(s);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(if nil 5 6 7)",
+            Some(num_5),
+            None,
+            Some(error),
+            None,
+            2,
+            None,
+        )
+    }
+
+    #[test]
+    #[ignore]
+    pub fn test_prove_if_fully_evaluates<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let s = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let expected = G::ptr_for_num(&s, 10);
+        let terminal = s.get_cont_terminal();
+        let s_ref: &'a _ = WAREHOUSE.store(s);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(if t (+ 5 5) 6)",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            5,
+            None,
+        );
+    }
+
+    #[test]
+    #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
+    pub fn test_prove_recursion1<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let s = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let expected = G::ptr_for_num(&s, 25);
+        let terminal = s.get_cont_terminal();
+        let s_ref: &'a _ = WAREHOUSE.store(s);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(letrec ((exp (lambda (base)
+                               (lambda (exponent)
+                                 (if (= 0 exponent)
+                                     1
+                                     (* base ((exp base) (- exponent 1))))))))
+                 ((exp 5) 2))",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            66,
+            None,
+        );
+    }
+
+    #[test]
+    #[ignore] // Skip expensive tests in CI for now. Do run these locally, please.
+    pub fn test_prove_recursion2<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let s = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let expected = G::ptr_for_num(&s, 25);
+        let terminal = s.get_cont_terminal();
+        let s_ref: &'a _ = WAREHOUSE.store(s);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(letrec ((exp (lambda (base)
+                                  (lambda (exponent)
+                                     (lambda (acc)
+                                       (if (= 0 exponent)
+                                          acc
+                                          (((exp base) (- exponent 1)) (* acc base))))))))
+                (((exp 5) 2) 1))",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            93,
+            None,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    pub fn test_prove_unop_regression<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        // We need to at least use chunk size 1 to exercise the regression.
+        // Also use a non-1 value to check the MultiFrame case.
+        for chunk_count in 1..2 {
+            let s = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+            let expected = G::ptr_for_true(&s);
+            let num_1 = G::ptr_for_num(&s, 1);
+            let num_2 = G::ptr_for_num(&s, 2);
+            let num_123 = G::ptr_for_num(&s, 123);
+            let terminal = s.get_cont_terminal();
+            let s_ref: &'a _ = WAREHOUSE.store(s);
+
+            nova_test_full_aux::<_, _, G>(
+                s_ref,
+                "(atom 123)",
+                Some(expected),
+                None,
+                Some(terminal),
+                None,
+                2,
+                chunk_count, // This needs to be 1 to exercise the bug.
+                false,
+                None,
+                None,
+            );
+
+            nova_test_full_aux::<_, _, G>(
+                s_ref,
+                "(car '(1 . 2))",
+                Some(num_1),
+                None,
+                Some(terminal),
+                None,
+                2,
+                chunk_count, // This needs to be 1 to exercise the bug.
+                false,
+                None,
+                None,
+            );
+
+            nova_test_full_aux::<_, _, G>(
+                s_ref,
+                "(cdr '(1 . 2))",
+                Some(num_2),
+                None,
+                Some(terminal),
+                None,
+                2,
+                chunk_count, // This needs to be 1 to exercise the bug.
+                false,
+                None,
+                None,
+            );
+
+            nova_test_full_aux::<_, _, G>(
+                s_ref,
+                "(emit 123)",
+                Some(num_123),
+                None,
+                Some(terminal),
+                None,
+                3,
+                chunk_count,
+                false,
+                None,
+                None,
+            )
+        }
+    }
+
+    #[test]
+    #[ignore]
+    pub fn test_prove_emit_output<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let s = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let num_123 = G::ptr_for_num(&s, 123);
+        let terminal = s.get_cont_terminal();
+        let s_ref: &'a _ = WAREHOUSE.store(s);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(emit 123)",
+            Some(num_123),
+            None,
+            Some(terminal),
+            None,
+            3,
+            None,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    pub fn test_prove_evaluate<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let s = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let num_99 = G::ptr_for_num(&s, 99);
+        let terminal = s.get_cont_terminal();
+        let s_ref: &'a _ = WAREHOUSE.store(s);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "((lambda (x) x) 99)",
+            Some(num_99),
+            None,
+            Some(terminal),
+            None,
+            4,
+            None,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    pub fn test_prove_evaluate2<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let s = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let num_99 = G::ptr_for_num(&s, 99);
+        let terminal = s.get_cont_terminal();
+        let s_ref: &'a _ = WAREHOUSE.store(s);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "((lambda (y)
+                    ((lambda (x) y) 888))
+                  99)",
+            Some(num_99),
+            None,
+            Some(terminal),
+            None,
+            9,
+            None,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    pub fn test_prove_evaluate3<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let s = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let num_999 = G::ptr_for_num(&s, 999);
+        let terminal = s.get_cont_terminal();
+        let s_ref: &'a _ = WAREHOUSE.store(s);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "((lambda (y)
+                     ((lambda (x)
+                        ((lambda (z) z)
+                         x))
+                      y))
+                   999)",
+            Some(num_999),
+            None,
+            Some(terminal),
+            None,
+            10,
+            None,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    pub fn test_prove_evaluate4<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let s = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let num_888 = G::ptr_for_num(&s, 888);
+        let terminal = s.get_cont_terminal();
+        let s_ref: &'a _ = WAREHOUSE.store(s);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "((lambda (y)
+                     ((lambda (x)
+                        ((lambda (z) z)
+                         x))
+                      ;; NOTE: We pass a different value here.
+                      888))
+                  999)",
+            Some(num_888),
+            None,
+            Some(terminal),
+            None,
+            10,
+            None,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    pub fn test_prove_evaluate5<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let s = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let num_999 = G::ptr_for_num(&s, 999);
+        let terminal = s.get_cont_terminal();
+        let s_ref: &'a _ = WAREHOUSE.store(s);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(((lambda (fn)
+                      (lambda (x) (fn x)))
+                    (lambda (y) y))
+                   999)",
+            Some(num_999),
+            None,
+            Some(terminal),
+            None,
+            13,
+            None,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    pub fn test_prove_evaluate_sum<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let s = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let num_9 = G::ptr_for_num(&s, 9);
+        let terminal = s.get_cont_terminal();
+        let s_ref: &'a _ = WAREHOUSE.store(s);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(+ 2 (+ 3 4))",
+            Some(num_9),
+            None,
+            Some(terminal),
+            None,
+            6,
+            None,
+        );
+    }
+
+    #[test]
+    pub fn test_prove_binop_rest_is_nil<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let s = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let num_9 = G::ptr_for_num(&s, 9);
+        let error = G::error_cont(&s);
+        let s_ref: &'a _ = WAREHOUSE.store(s);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(- 9 8 7)",
+            Some(num_9),
+            None,
+            Some(error),
+            None,
+            2,
+            None,
+        );
+        test_aux::<_, _, G>(
+            s_ref,
+            "(= 9 8 7)",
+            Some(num_9),
+            None,
+            Some(error),
+            None,
+            2,
+            None,
+        );
+    }
 }
 
+////////////////////////////////////////////////////////////////////////////////
 #[cfg(test)]
-mod fancy_tests {
+mod fancy_lurk_tests {
     use super::proof_tests;
     use crate::proof::nova_tests::{C1Lurk, Coproc};
     use pasta_curves::pallas::Scalar as Fr;
 
     instantiate_proof_tests!(Fr, Coproc<Fr>, C1Lurk<'_, Fr, Coproc<Fr>>);
 }
+
+#[cfg(test)]
+mod fancy_lem_tests {
+    use super::proof_tests;
+    use crate::proof::nova_tests::{Coproc, C1LEM};
+    use pasta_curves::pallas::Scalar as Fr;
+
+    instantiate_proof_tests!(Fr, Coproc<Fr>, C1LEM<'_, Fr, Coproc<Fr>>);
+}
+////////////////////////////////////////////////////////////////////////////////
 
 pub mod tests_lem {
     use pasta_curves::pallas::Scalar as Fr;
