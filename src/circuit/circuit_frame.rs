@@ -71,6 +71,7 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     pub count: usize,
     pub folding_config: Arc<FoldingConfig<F, C>>,
     pub meta: Meta<F>,
+    pub next_pc: Option<usize>,
 }
 
 impl<F: LurkField> CEKState<Ptr<F>, ContPtr<F>> for IO<F> {
@@ -305,6 +306,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
             input: None,
             output: None,
             frames: None,
+            next_pc: None,
             cached_witness: None,
             count,
             folding_config,
@@ -359,6 +361,8 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                 input: Some(chunk[0].input),
                 output: Some(output),
                 frames: Some(inner_frames),
+                // TODO
+                next_pc: None,
                 cached_witness: None,
                 count,
                 folding_config: folding_config.clone(),
@@ -393,6 +397,8 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
             input,
             output,
             frames,
+            // TODO
+            next_pc: None,
             cached_witness: None,
             count,
             folding_config,

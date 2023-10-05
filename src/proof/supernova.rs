@@ -33,10 +33,10 @@ use crate::store::Store;
 
 use super::nova::NovaCircuitShape;
 
-/// Type alias for a NIVCStep with S1 field elements.
+/// Type alias for a MultiFrame with S1 field elements.
 /// This uses the <<F as CurveCycleEquipped>::G1 as Group>::Scalar type for the G1 scalar field elements
 /// to reflect it this should not be used outside the Nova context
-pub type C1<'a, F, C> = NIVCStep<'a, F, C>;
+pub type C1<'a, F, C> = MultiFrame<'a, F, C>;
 /// Type alias for a Trivial Test Circuit with G2 scalar field elements.
 pub type C2<F> = TrivialSecondaryCircuit<<G2<F> as Group>::Scalar>;
 
@@ -385,53 +385,15 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     }
 }
 
-#[derive(Clone, Debug)]
-/// One step of an NIVC computation
-pub struct NIVCStep<'a, F: LurkField, C: Coprocessor<F>> {
-    multiframe: MultiFrame<'a, F, C>,
-    next: Option<MultiFrame<'a, F, C>>,
-    _p: PhantomData<F>,
-}
-
-impl<'a, 'b, F: LurkField, C: Coprocessor<F>> NIVCStep<'a, F, C>
-where
-    'b: 'a,
-{
-    fn new(multiframe: MultiFrame<'b, F, C>) -> Self {
-        Self {
-            multiframe,
-            next: None,
-            _p: Default::default(),
-        }
-    }
-
-    fn blank(folding_config: Arc<FoldingConfig<F, C>>, meta: Meta<F>) -> Self {
-        let multiframe = MultiFrame::blank(folding_config, meta);
-        Self::new(multiframe)
-    }
-
-    fn lang(&self) -> Arc<Lang<F, C>> {
-        self.multiframe.folding_config.lang().clone()
-    }
-
-    fn meta(&self) -> Meta<F> {
-        self.multiframe.meta
-    }
-
-    fn folding_config(&self) -> Arc<FoldingConfig<F, C>> {
-        self.multiframe.folding_config.clone()
-    }
-}
-
 /// Implement `supernova::StepCircuit` for `MultiFrame`. This is the universal Lurk circuit that will be included as the
 /// first circuit (index 0) of every Lurk NIVC circuit set.
-impl<F: LurkField, C: Coprocessor<F>> StepCircuit<F> for NIVCStep<'_, F, C> {
+impl<F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'_, F, C> {
     fn arity(&self) -> usize {
         self.multiframe.public_input_size() / 2
     }
 
     fn circuit_index(&self) -> usize {
-        self.multiframe.circuit_index()
+        self.circuit_index()
     }
 
     fn synthesize<CS>(
@@ -454,17 +416,14 @@ impl<F: LurkField, C: Coprocessor<F>> StepCircuit<F> for NIVCStep<'_, F, C> {
             }
         }
         let output = <MultiFrame<'_, F, C> as nova::traits::circuit::StepCircuit<F>>::synthesize(
-            &self.multiframe,
-            cs,
-            z,
+            self, cs, z,
         )?;
 
         let next_pc = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "next_pc"), || {
-            self.next
-                .as_ref()
+            self.next_pc
                 // This is missing in the case of a final `MultiFrame`. The Lurk circuit is defined to always have index
                 // 0, so it is a good default in this case.
-                .map_or(F::ZERO, |x| F::from(x.circuit_index() as u64))
+                .map_or(F::ZERO, |x| F::from(x as u64))
         });
         debug!("synthesizing with next_pc: {:?}", next_pc.get_value());
 
@@ -477,7 +436,7 @@ pub struct NIVCSteps<'a, G: Group, C: Coprocessor<G::Scalar>>
 where
     G::Scalar: LurkField,
 {
-    steps: Vec<NIVCStep<'a, G::Scalar, C>>,
+    steps: Vec<MultiFrame<'a, G::Scalar, C>>,
 }
 impl<'a, G1, F, C1> Index<usize> for NIVCSteps<'a, G1, C1>
 where
@@ -485,7 +444,7 @@ where
     G1: Group<Scalar = F> + 'a,
     F: LurkField,
 {
-    type Output = NIVCStep<'a, G1::Scalar, C1>;
+    type Output = MultiFrame<'a, G1::Scalar, C1>;
 
     fn index(&self, idx: usize) -> &<Self as std::ops::Index<usize>>::Output {
         &self.steps[idx]
@@ -527,8 +486,7 @@ where
                     store,
                     folding_config.clone(),
                 )
-                .into_iter()
-                .map(NIVCStep::<'_, F, C1>::new);
+                .into_iter();
 
                 steps.extend(new_steps);
                 consecutive_frames.truncate(0);
@@ -541,8 +499,7 @@ where
         if !consecutive_frames.is_empty() {
             let new_steps =
                 MultiFrame::from_frames(count, &consecutive_frames, store, folding_config)
-                    .into_iter()
-                    .map(NIVCStep::<'_, F, C1>::new);
+                    .into_iter();
 
             steps.extend(new_steps);
         }
@@ -550,14 +507,15 @@ where
         if !steps.is_empty() {
             let penultimate = steps.len() - 1;
             for i in 0..(penultimate - 1) {
-                steps[i].next = Some(steps[i + 1].multiframe.clone());
+                steps[i].next_pc = Some(steps[i + 1].circuit_index());
             }
         }
         Self { steps }
     }
 }
 
-impl<'a, F, C1> NonUniformCircuit<G1<F>, G2<F>, NIVCStep<'a, F, C1>, C2<F>> for NIVCStep<'a, F, C1>
+impl<'a, F, C1> NonUniformCircuit<G1<F>, G2<F>, MultiFrame<'a, F, C1>, C2<F>>
+    for MultiFrame<'a, F, C1>
 where
     F: CurveCycleEquipped + LurkField,
     C1: Coprocessor<F>,
@@ -565,27 +523,31 @@ where
     <<G2<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
 {
     fn num_circuits(&self) -> usize {
-        assert!(self.meta().is_lurk());
-        self.lang().coprocessor_count() + 1
+        assert!(self.meta.is_lurk());
+        self.folding_config.lang().coprocessor_count() + 1
     }
 
     fn primary_circuit(&self, circuit_index: usize) -> Self {
         debug!(
             "getting primary_circuit for index {circuit_index} and Meta: {:?}",
-            self.meta()
+            self.meta
         );
         if circuit_index == 0 {
             debug!("using Lurk circuit");
             return self.clone();
         };
-        if let Some(z_ptr) = self.lang().get_coprocessor_z_ptr(circuit_index - 1) {
+        if let Some(z_ptr) = self
+            .folding_config
+            .lang()
+            .get_coprocessor_z_ptr(circuit_index - 1)
+        {
             let meta = Meta::Coprocessor(*z_ptr);
             debug!(
                 "using coprocessor {} with meta: {:?}",
                 circuit_index - 1,
                 meta
             );
-            Self::blank(self.folding_config(), meta)
+            Self::blank(self.folding_config.clone(), meta)
         } else {
             debug!("unsupported primary circuit index: {circuit_index}");
             panic!("unsupported primary circuit index")
@@ -613,7 +575,7 @@ where
     <<G2<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
 {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, 2));
-    let circuit = NIVCStep::blank(folding_config, Meta::Lurk);
+    let circuit = MultiFrame::blank(folding_config, Meta::Lurk);
     let num_circuits = circuit.num_circuits();
     let circuit = circuit.primary_circuit(circuit_index);
     F::from(rc as u64) * supernova::circuit_digest::<F::G1, F::G2, _>(&circuit, num_circuits)
