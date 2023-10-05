@@ -27,7 +27,7 @@ use crate::error::ProofError;
 use crate::eval::{lang::Lang, Frame, Meta, Witness, IO};
 use crate::field::LurkField;
 use crate::proof::nova::{CurveCycleEquipped, G1, G2};
-use crate::proof::{Provable, Prover, PublicParameters};
+use crate::proof::{MultiFrameTrait, Provable, Prover, PublicParameters};
 use crate::ptr::Ptr;
 use crate::store::Store;
 
@@ -86,17 +86,22 @@ where
 }
 
 /// Generates the running claim params for the SuperNova proving system.
-pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F>>(
+pub fn public_params<
+    'a,
+    F: CurveCycleEquipped,
+    C: Coprocessor<F> + 'a,
+    M: StepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>> + MultiFrameTrait<'a, F, C>,
+>(
     rc: usize,
     lang: Arc<Lang<F, C>>,
-) -> PublicParams<F, C1<'a, F, C>>
+) -> PublicParams<F, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, rc));
-    let non_uniform_circuit = NIVCStep::blank(folding_config, Meta::Lurk);
-    let pp = SuperNovaPublicParams::<F, C1<'a, F, C>>::new(&non_uniform_circuit);
+    let non_uniform_circuit = M::blank(folding_config, Meta::Lurk);
+    let pp = SuperNovaPublicParams::<F, M>::new(&non_uniform_circuit);
     PublicParams { pp }
 }
 

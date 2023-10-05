@@ -156,24 +156,27 @@ where
 }
 
 /// Attempts to extract abomonated public parameters.
-use supernova::C1;
+use ::nova::supernova::NonUniformCircuit;
+use ::nova::traits::circuit_supernova::StepCircuit as SuperStepCircuit;
+use supernova::C2;
 pub fn supernova_public_params<
     'a,
     F: CurveCycleEquipped,
     C: Coprocessor<F> + 'a,
-    M: MultiFrameTrait<'a, F, C>,
+    M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
 >(
     instance_primary: &Instance<F, C>,
     disk_cache_path: &Utf8Path,
-) -> Result<supernova::PublicParams<F, C1<'static, F, C>>, Error>
+) -> Result<supernova::PublicParams<F, M>, Error>
 where
     F::CK1: Sync + Send,
     F::CK2: Sync + Send,
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    let default =
-        |instance: &Instance<F, C>| supernova::public_params(instance.rc, instance.lang());
+    let default = |instance: &Instance<F, C>| {
+        supernova::public_params::<'a, F, C, M>(instance.rc, instance.lang())
+    };
     let disk_cache = DiskCache::<F, C, M>::new(disk_cache_path).unwrap();
 
     let maybe_circuit_params_vec = instance_primary
@@ -188,7 +191,7 @@ where
         (Ok(circuit_params_vec), Ok(aux_params)) => {
             println!("generating public params");
             supernova::PublicParams {
-                pp: SuperNovaPublicParams::<F, C1<'static, F, C>>::from_parts_unchecked(
+                pp: SuperNovaPublicParams::<F, M>::from_parts_unchecked(
                     circuit_params_vec,
                     aux_params,
                 ),
@@ -207,7 +210,7 @@ where
                 disk_cache.write_abomonated(&instance, circuit_params)?;
             }
             supernova::PublicParams {
-                pp: SuperNovaPublicParams::<F, C1<'static, F, C>>::from_parts_unchecked(
+                pp: SuperNovaPublicParams::<F, M>::from_parts_unchecked(
                     circuit_params_vec,
                     aux_params,
                 ),
