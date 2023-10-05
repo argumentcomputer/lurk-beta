@@ -8793,6 +8793,118 @@ pub mod proof_tests {
         test("1u64");
         test("#\\x");
     }
+
+    // This is related to issue #426
+    #[test]
+    pub fn test_prove_lambda_body_nil<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let s = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let expected = G::ptr_for_nil(&s);
+        let terminal = s.get_cont_terminal();
+        let s_ref = WAREHOUSE.store(s);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "((lambda (x) nil) 0)",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            4,
+            None,
+        );
+    }
+
+    // The following 3 tests are related to issue #424
+    #[test]
+    pub fn test_letrec_let_nesting<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let s = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let expected = G::ptr_for_num(&s, 2);
+        let terminal = s.get_cont_terminal();
+        let s_ref = WAREHOUSE.store(s);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(letrec ((x (let ((z 0)) 1))) 2)",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            6,
+            None,
+        );
+    }
+    #[test]
+    pub fn test_let_sequencing<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let s = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let expected = G::ptr_for_num(&s, 1);
+        let terminal = s.get_cont_terminal();
+        let s_ref = WAREHOUSE.store(s);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(let ((x 0) (y x)) 1)",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            5,
+            None,
+        );
+    }
+    #[test]
+    pub fn test_letrec_sequencing<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let s = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let expected = G::ptr_for_num(&s, 3);
+        let terminal = s.get_cont_terminal();
+        let s_ref = WAREHOUSE.store(s);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(letrec ((x 0) (y (letrec ((inner 1)) 2))) 3)",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            8,
+            None,
+        );
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
