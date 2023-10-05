@@ -129,11 +129,11 @@ where
     pub fn prove_recursively<'a>(
         pp: &PublicParams<F, C1<'a, F, C>>,
         _store: &Store<F>,
-        nivc_steps: &NIVCSteps<'a, G1<F>, C>,
+        nivc_steps: &[MultiFrame<'a, F, C>],
         z0: Vec<F>,
     ) -> Result<(Self, usize), ProofError> {
         // Is this assertion strictly necessary?
-        assert!(nivc_steps.num_steps() != 0);
+        assert!(!nivc_steps.is_empty());
 
         let mut recursive_snark_option: Option<RecursiveSNARK<G1<F>, G2<F>>> = None;
 
@@ -142,7 +142,7 @@ where
 
         let mut last_circuit_index = 0;
 
-        for (i, step) in nivc_steps.steps.iter().enumerate() {
+        for (i, step) in nivc_steps.iter().enumerate() {
             info!("prove_recursively, step {i}");
             let augmented_circuit_index = step.circuit_index();
             let program_counter = F::from(augmented_circuit_index as u64);
@@ -293,9 +293,9 @@ where
         let folding_config = Arc::new(FoldingConfig::new_nivc(lang, self.reduction_count));
 
         let nivc_steps =
-            NIVCSteps::from_frames(self.reduction_count(), frames, store, folding_config);
+            MultiFrame::from_frames(self.reduction_count(), frames, store, folding_config);
 
-        let num_steps = nivc_steps.num_steps();
+        let num_steps = nivc_steps.len();
         let (proof, last_running_claim) =
             Proof::prove_recursively(pp, store, &nivc_steps, z0.clone())?;
 
@@ -432,88 +432,6 @@ impl<F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'_, F, C> {
 }
 
 /// All steps of an NIVC computation
-pub struct NIVCSteps<'a, G: Group, C: Coprocessor<G::Scalar>>
-where
-    G::Scalar: LurkField,
-{
-    steps: Vec<MultiFrame<'a, G::Scalar, C>>,
-}
-impl<'a, G1, F, C1> Index<usize> for NIVCSteps<'a, G1, C1>
-where
-    C1: Coprocessor<F> + 'a,
-    G1: Group<Scalar = F> + 'a,
-    F: LurkField,
-{
-    type Output = MultiFrame<'a, G1::Scalar, C1>;
-
-    fn index(&self, idx: usize) -> &<Self as std::ops::Index<usize>>::Output {
-        &self.steps[idx]
-    }
-}
-
-impl<'a, G1, F, C1> NIVCSteps<'a, G1, C1>
-where
-    C1: Coprocessor<F>,
-    G1: Group<Scalar = F>,
-    F: LurkField,
-{
-    /// Number of NIVC steps contained.
-    pub fn num_steps(&self) -> usize {
-        self.steps.len()
-    }
-    /// Separate frames according to NIVC circuit requirements.
-    pub fn from_frames(
-        count: usize,
-        frames: &[Frame<IO<F>, Witness<F>, F, C1>],
-        store: &'a Store<F>,
-        folding_config: Arc<FoldingConfig<F, C1>>,
-    ) -> Self {
-        let mut steps = Vec::new();
-        let mut last_meta = frames[0].meta;
-        let mut consecutive_frames = Vec::new();
-
-        for frame in frames {
-            if frame.meta == last_meta {
-                let padding_frame = frame.clone();
-                consecutive_frames.push(padding_frame);
-            } else {
-                if last_meta == Meta::Lurk {
-                    consecutive_frames.push(frame.clone());
-                }
-                let new_steps = MultiFrame::from_frames(
-                    if last_meta == Meta::Lurk { count } else { 1 },
-                    &consecutive_frames,
-                    store,
-                    folding_config.clone(),
-                )
-                .into_iter();
-
-                steps.extend(new_steps);
-                consecutive_frames.truncate(0);
-                consecutive_frames.push(frame.clone());
-                last_meta = frame.meta;
-            }
-        }
-
-        // TODO: refactor
-        if !consecutive_frames.is_empty() {
-            let new_steps =
-                MultiFrame::from_frames(count, &consecutive_frames, store, folding_config)
-                    .into_iter();
-
-            steps.extend(new_steps);
-        }
-
-        if !steps.is_empty() {
-            let penultimate = steps.len() - 1;
-            for i in 0..(penultimate - 1) {
-                steps[i].next_pc = Some(steps[i + 1].circuit_index());
-            }
-        }
-        Self { steps }
-    }
-}
-
 impl<'a, F, C1> NonUniformCircuit<G1<F>, G2<F>, MultiFrame<'a, F, C1>, C2<F>>
     for MultiFrame<'a, F, C1>
 where
