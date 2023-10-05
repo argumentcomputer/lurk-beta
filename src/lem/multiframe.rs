@@ -74,12 +74,28 @@ impl<F: LurkField> EvaluationStore for Store<F> {
         self.intern_nil()
     }
 
+    fn intern_string(&self, str: &str) -> Self::Ptr {
+        self.intern_string(str)
+    }
+
     fn get_cont_terminal(&self) -> Self::ContPtr {
         Ptr::null(Tag::Cont(ContTag::Terminal))
     }
 
     fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> Result<bool, Self::Error> {
         Ok(self.hash_ptr(left)? == self.hash_ptr(right)?)
+    }
+
+    fn get_cont_error(&self) -> Self::ContPtr {
+        Ptr::null(Tag::Cont(ContTag::Error))
+    }
+
+    fn intern_user_symbol(&self, name: &str) -> Self::Ptr {
+        Store::intern_user_symbol(self, name)
+    }
+
+    fn key(&self, name: &str) -> Self::Ptr {
+        Store::key(self, name)
     }
 }
 

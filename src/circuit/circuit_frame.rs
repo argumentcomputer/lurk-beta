@@ -121,13 +121,30 @@ impl<F: LurkField> EvaluationStore for Store<F> {
     fn initial_empty_env(&self) -> Self::Ptr {
         empty_sym_env(self)
     }
+
+    fn intern_string(&self, str: &str) -> Self::Ptr {
+        self.intern_string(str)
+    }
+
     fn get_cont_terminal(&self) -> Self::ContPtr {
-        // qualified syntax for the
+        // qualified syntax for the trait to not be confused with the struct
         Store::get_cont_terminal(self)
     }
 
     fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> Result<bool, Self::Error> {
         self.ptr_eq(left, right)
+    }
+
+    fn get_cont_error(&self) -> Self::ContPtr {
+        Store::get_cont_error(self)
+    }
+
+    fn intern_user_symbol(&self, str: &str) -> Self::Ptr {
+        self.user_sym(str)
+    }
+
+    fn key(&self, name: &str) -> Self::Ptr {
+        Store::key(self, name)
     }
 }
 

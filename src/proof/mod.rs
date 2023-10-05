@@ -67,6 +67,15 @@ pub trait EvaluationStore: Default {
     fn initial_empty_env(&self) -> Self::Ptr;
     /// getting the terminal continuation pointer
     fn get_cont_terminal(&self) -> Self::ContPtr;
+    /// getting the error continuation pointer
+    fn get_cont_error(&self) -> Self::ContPtr;
+
+    /// getting a pointer to the internalized representation of a string
+    fn intern_string(&self, str: &str) -> Self::Ptr;
+    /// getting a pointer to an internalized user symbol
+    fn intern_user_symbol(&self, name: &str) -> Self::Ptr;
+    /// getting a pointer to a keyword
+    fn key(&self, name: &str) -> Self::Ptr;
 
     /// hash-equality of the expressions represented by Ptrs
     fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> Result<bool, Self::Error>;
