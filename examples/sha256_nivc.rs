@@ -196,7 +196,8 @@ fn main() {
     );
     let lang_rc = Arc::new(lang.clone());
 
-    let supernova_prover = SuperNovaProver::<Fr, Sha256Coproc<Fr>>::new(REDUCTION_COUNT, lang);
+    let supernova_prover =
+        SuperNovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(REDUCTION_COUNT, lang);
 
     println!("Setting up running claim parameters (rc = {REDUCTION_COUNT})...");
     let pp_start = Instant::now();

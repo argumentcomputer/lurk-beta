@@ -24,12 +24,10 @@ use crate::circuit::MultiFrame;
 use crate::coprocessor::Coprocessor;
 
 use crate::error::ProofError;
-use crate::eval::{lang::Lang, Frame, Meta, Witness, IO};
+use crate::eval::{lang::Lang, Meta};
 use crate::field::LurkField;
 use crate::proof::nova::{CurveCycleEquipped, G1, G2};
 use crate::proof::{MultiFrameTrait, Provable, Prover, PublicParameters};
-use crate::ptr::Ptr;
-use crate::store::Store;
 
 use super::nova::NovaCircuitShape;
 
@@ -107,7 +105,7 @@ where
 
 /// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
-pub enum Proof<F: CurveCycleEquipped, C: Coprocessor<F>>
+pub enum Proof<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -116,20 +114,25 @@ where
     Recursive(Box<RecursiveSNARK<G1<F>, G2<F>>>),
     /// A proof for the final step of a recursive computation
     // Compressed(Box<CompressedSNARK<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>>),
-    Compressed(PhantomData<C>),
+    Compressed(PhantomData<&'a (C, M)>),
 }
 
-impl<F: CurveCycleEquipped, C: Coprocessor<F>> Proof<F, C>
+impl<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F>,
+        M: MultiFrameTrait<'a, F, C> + StepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
+    > Proof<'a, F, C, M>
 where
     <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
 {
     /// Proves the computation recursively, generating a recursive SNARK proof.
     #[tracing::instrument(skip_all, name = "supernova::prove_recursively")]
-    pub fn prove_recursively<'a>(
-        pp: &PublicParams<F, C1<'a, F, C>>,
-        _store: &Store<F>,
-        nivc_steps: &[MultiFrame<'a, F, C>],
+    pub fn prove_recursively(
+        pp: &PublicParams<F, M>,
+        _store: &M::Store,
+        nivc_steps: &[M],
         z0: Vec<F>,
     ) -> Result<(Self, usize), ProofError> {
         // Is this assertion strictly necessary?
@@ -193,7 +196,7 @@ where
     /// Verifies the proof given the claim, which (for now), contains the public parameters.
     pub fn verify(
         &self,
-        pp: &PublicParams<F, C1<'_, F, C>>,
+        pp: &PublicParams<F, M>,
         circuit_index: usize,
         _num_steps: usize,
         z0: &[F],
@@ -240,10 +243,16 @@ where
 
 /// A struct for the Nova prover that operates on field elements of type `F`.
 #[derive(Debug)]
-pub struct SuperNovaProver<F: CurveCycleEquipped, C: Coprocessor<F>> {
+pub struct SuperNovaProver<
+    'a,
+    F: CurveCycleEquipped,
+    C: Coprocessor<F> + 'a,
+    M: MultiFrameTrait<'a, F, C>,
+> {
     // `reduction_count` specifies the number of small-step reductions are performed in each recursive step of the primary Lurk circuit.
     reduction_count: usize,
     lang: Lang<F, C>,
+    _phantom: PhantomData<&'a M>,
 }
 
 impl<F: CurveCycleEquipped, C1: StepCircuit<F>> PublicParameters for PublicParams<F, C1>
@@ -253,17 +262,18 @@ where
 {
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, F, C, MultiFrame<'a, F, C>>
-    for SuperNovaProver<F, C>
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>> Prover<'a, F, C, M>
+    for SuperNovaProver<'a, F, C, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     type PublicParams = PublicParams<F, C1<'a, F, C>>;
     fn new(reduction_count: usize, lang: Lang<F, C>) -> Self {
-        SuperNovaProver::<F, C> {
+        SuperNovaProver::<'a, F, C, M> {
             reduction_count,
             lang,
+            _phantom: PhantomData,
         }
     }
     fn reduction_count(&self) -> usize {
@@ -275,25 +285,31 @@ where
     }
 }
 
-impl<F: CurveCycleEquipped, C: Coprocessor<F>> SuperNovaProver<F, C>
+use super::FrameLike;
+impl<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F>,
+        M: MultiFrameTrait<'a, F, C> + StepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
+    > SuperNovaProver<'a, F, C, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     /// Proves the computation given the public parameters, frames, and store.
-    pub fn prove<'a>(
+    pub fn prove(
         &'a self,
-        pp: &PublicParams<F, C1<'a, F, C>>,
-        frames: &[Frame<IO<F>, Witness<F>, F, C>],
-        store: &'a mut Store<F>,
+        pp: &PublicParams<F, M>,
+        frames: &[M::EvalFrame],
+        store: &'a M::Store,
         lang: Arc<Lang<F, C>>,
-    ) -> Result<(Proof<F, C>, Vec<F>, Vec<F>, usize, usize), ProofError> {
-        let z0 = frames[0].input.to_vector(store)?;
-        let zi = frames.last().unwrap().output.to_vector(store)?;
+    ) -> Result<(Proof<'a, F, C, M>, Vec<F>, Vec<F>, usize, usize), ProofError> {
+        let z0 = M::io_to_scalar_vector(store, frames[0].input()).map_err(|e| e.into())?;
+        let zi =
+            M::io_to_scalar_vector(store, frames.last().unwrap().output()).map_err(|e| e.into())?;
         let folding_config = Arc::new(FoldingConfig::new_nivc(lang, self.reduction_count));
 
-        let nivc_steps =
-            MultiFrame::from_frames(self.reduction_count(), frames, store, folding_config);
+        let nivc_steps = M::from_frames(self.reduction_count(), frames, store, folding_config);
 
         let num_steps = nivc_steps.len();
         let (proof, last_running_claim) =
@@ -303,16 +319,23 @@ where
     }
 
     /// Evaluates and proves the computation given the public parameters, expression, environment, and store.
-    pub fn evaluate_and_prove<'a>(
+    pub fn evaluate_and_prove(
         &'a self,
-        pp: &PublicParams<F, C1<'a, F, C>>,
-        expr: Ptr<F>,
-        env: Ptr<F>,
-        store: &'a mut Store<F>,
+        pp: &PublicParams<F, M>,
+        expr: M::Ptr,
+        env: M::Ptr,
+        store: &'a M::Store,
         limit: usize,
         lang: Arc<Lang<F, C>>,
-    ) -> Result<(Proof<F, C>, Vec<F>, Vec<F>, usize, usize), ProofError> {
-        let frames = self.get_evaluation_frames(expr, env, store, limit, lang.clone())?;
+    ) -> Result<(Proof<'a, F, C, M>, Vec<F>, Vec<F>, usize, usize), ProofError> {
+        let frames = M::get_evaluation_frames(
+            |count| self.needs_frame_padding(count),
+            expr,
+            env,
+            store,
+            limit,
+            &lang,
+        )?;
         info!("got {} evaluation frames", frames.len());
         self.prove(pp, &frames, store, lang)
     }
