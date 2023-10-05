@@ -66,6 +66,7 @@ pub struct Preimages<F: LurkField> {
     pub commitment: Vec<Option<PreimageData<F>>>,
     pub less_than: Vec<Option<PreimageData<F>>>,
     pub call_outputs: VecDeque<Vec<Ptr<F>>>,
+    pub cproc_outputs: Vec<Vec<Ptr<F>>>,
 }
 
 impl<F: LurkField> Preimages<F> {
@@ -77,6 +78,7 @@ impl<F: LurkField> Preimages<F> {
         let commitment = Vec::with_capacity(slot.commitment);
         let less_than = Vec::with_capacity(slot.less_than);
         let call_outputs = VecDeque::new();
+        let cproc_outputs = Vec::new();
         Preimages {
             hash4,
             hash6,
@@ -84,6 +86,7 @@ impl<F: LurkField> Preimages<F> {
             commitment,
             less_than,
             call_outputs,
+            cproc_outputs,
         }
     }
 
@@ -95,6 +98,7 @@ impl<F: LurkField> Preimages<F> {
         let commitment = vec![None; slot.commitment];
         let less_than = vec![None; slot.less_than];
         let call_outputs = VecDeque::new();
+        let cproc_outputs = Vec::new();
         Preimages {
             hash4,
             hash6,
@@ -102,6 +106,7 @@ impl<F: LurkField> Preimages<F> {
             commitment,
             less_than,
             call_outputs,
+            cproc_outputs,
         }
     }
 }
@@ -163,9 +168,10 @@ impl Block {
                     if out.len() != out_ptrs.len() {
                         bail!("Incompatible output length for coprocessor {sym}")
                     }
-                    for (var, ptr) in out.iter().zip(out_ptrs) {
-                        bindings.insert(var.clone(), Val::Pointer(ptr));
+                    for (var, ptr) in out.iter().zip(&out_ptrs) {
+                        bindings.insert(var.clone(), Val::Pointer(*ptr));
                     }
+                    preimages.cproc_outputs.push(out_ptrs);
                 }
                 Op::Call(out, func, inp) => {
                     // Get the argument values
