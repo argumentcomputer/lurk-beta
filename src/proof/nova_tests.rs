@@ -18,6 +18,7 @@ use crate::state::{user_sym, State};
 use crate::store::Store;
 
 use crate::eval::lang::Coproc;
+use crate::field::LurkField;
 use crate::proof::{CEKState, EvaluationStore};
 use crate::tag::{Op, Op1, Op2};
 
@@ -836,16 +837,7 @@ fn op_syntax_error<T: Op + Copy>() {
             let expr = format!("({name} 123 456 789)");
             tracing::debug!("{:?}", &expr);
             let iterations = if op.supports_arity(2) { 2 } else { 1 };
-            test_aux::<_, _, M1<'_, _>>(
-                s,
-                &expr,
-                None,
-                None,
-                Some(error),
-                None,
-                iterations,
-                None,
-            );
+            test_aux::<_, _, M1<'_, _>>(s, &expr, None, None, Some(error), None, iterations, None);
         }
     };
 
@@ -1456,7 +1448,8 @@ fn test_prove_tail_recursion() {
         None,
         Some(terminal),
         None,
-        93,None
+        93,
+        None,
     );
 }
 
@@ -3476,6 +3469,151 @@ fn test_letrec_sequencing() {
     );
 }
 
+use lurk_macros::generic_tests;
+
+pub trait MultiFrameExt<'a, F: LurkField, C: Coprocessor<F> + 'a>:
+    MultiFrameTrait<'a, F, C>
+{
+    fn ptr_for_num(
+        s: &<Self as MultiFrameTrait<'a, F, C>>::Store,
+        u: u64,
+    ) -> <Self as MultiFrameTrait<'a, F, C>>::Ptr;
+    fn terminal_cont(
+        s: &<Self as MultiFrameTrait<'a, F, C>>::Store,
+    ) -> <Self as MultiFrameTrait<'a, F, C>>::ContPtr;
+    fn error_cont(
+        s: &<Self as MultiFrameTrait<'a, F, C>>::Store,
+    ) -> <Self as MultiFrameTrait<'a, F, C>>::ContPtr;
+}
+
+impl<'a, F: LurkField> MultiFrameExt<'a, F, Coproc<F>> for C1Lurk<'a, F, Coproc<F>> {
+    fn ptr_for_num(s: &crate::store::Store<F>, u: u64) -> crate::ptr::Ptr<F> {
+        s.num(u)
+    }
+
+    fn terminal_cont(s: &crate::store::Store<F>) -> crate::ptr::ContPtr<F> {
+        s.get_cont_terminal()
+    }
+
+    fn error_cont(s: &crate::store::Store<F>) -> crate::ptr::ContPtr<F> {
+        s.get_cont_error()
+    }
+}
+
+#[generic_tests]
+pub mod proof_tests {
+
+    use crate::proof::nova::{CurveCycleEquipped, G1, G2};
+    use crate::proof::{Coprocessor, MultiFrameTrait};
+    use abomonation::Abomonation;
+    use nova::traits::Group;
+
+    use super::test_aux;
+    use super::MultiFrameExt;
+    use std::sync::Mutex;
+
+    trait Any {}
+    impl<T> Any for T {}
+
+    struct Warehouse {
+        ts: Mutex<Vec<Box<dyn Any>>>,
+    }
+
+    unsafe impl Send for Warehouse {}
+    unsafe impl Sync for Warehouse {}
+
+    impl Warehouse {
+        fn store<T: Send + Sync>(&self, t: T) -> &T {
+            let mut ts = self.ts.lock().unwrap();
+            let boxed = Box::new(t);
+            let ptr = &*boxed as *const T;
+            let any = unsafe {
+                // A combination of lifetime elision and implied
+                // lifetime bounds ensures that any borrowed data in T outlives self.
+                // Written explicitly, the store signature is:
+                // fn store<'a, T: 'a>(&'a self, t: T) -> &'a T.
+                // That means we can treat the borrowed data in T as being alive as
+                // long as we need.
+                std::mem::transmute::<Box<dyn Any>, Box<dyn Any + 'static>>(boxed)
+            };
+            ts.push(any);
+            unsafe { &*ptr }
+        }
+    }
+
+    static WAREHOUSE: Warehouse = Warehouse {
+        ts: Mutex::new(Vec::new()),
+    };
+
+    #[test]
+    pub fn test_prove_binop<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let store = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let expected = G::ptr_for_num(&store, 3);
+        let terminal = G::terminal_cont(&store);
+        // we need to create a reference to the store that outlives the outer 'a lifetime,
+        // which requires the store to be "kept" elsewhere. This is a hack.
+        let s_ref: &'a _ = WAREHOUSE.store(store);
+
+        test_aux::<_, _, G>(
+            s_ref,
+            "(+ 1 2)",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            3,
+            None,
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    // This tests the testing mechanism. Since the supplied expected value is wrong,
+    // the test should panic on an assertion failure.
+    pub fn test_prove_binop_fail<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        G: MultiFrameExt<'a, F, C>,
+    >()
+    where
+        <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+        <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    {
+        let store = <G as MultiFrameTrait<'a, F, C>>::Store::default();
+        let expected = G::ptr_for_num(&store, 2);
+        let terminal = G::terminal_cont(&store);
+        let s_ref: &'a _ = WAREHOUSE.store(store);
+        test_aux::<_, _, G>(
+            s_ref,
+            "(+ 1 2)",
+            Some(expected),
+            None,
+            Some(terminal),
+            None,
+            3,
+            None,
+        );
+    }
+}
+
+#[cfg(test)]
+mod fancy_tests {
+    use super::proof_tests;
+    use crate::proof::nova_tests::{C1Lurk, Coproc};
+    use pasta_curves::pallas::Scalar as Fr;
+
+    instantiate_proof_tests!(Fr, Coproc<Fr>, C1Lurk<'_, Fr, Coproc<Fr>>);
+}
 
 pub mod tests_lem {
     use pasta_curves::pallas::Scalar as Fr;
@@ -3483,9 +3621,7 @@ pub mod tests_lem {
     use std::rc::Rc;
     use std::sync::Arc;
 
-    use super::{
-        nova_test_full_aux, nova_test_full_aux2, test_aux, DEFAULT_REDUCTION_COUNT,
-    };
+    use super::{nova_test_full_aux, nova_test_full_aux2, test_aux, DEFAULT_REDUCTION_COUNT};
 
     use crate::eval::lang::Coproc;
     use crate::eval::lang::Lang;

@@ -53,7 +53,7 @@ pub trait FrameLike<ExprPtr, ContPtr>: Sized {
 }
 
 /// A trait for a store of expressions
-pub trait EvaluationStore {
+pub trait EvaluationStore: Default {
     /// the type for the Store's pointers
     type Ptr;
     /// the type for the Store's continuation poitners
