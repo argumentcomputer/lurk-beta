@@ -373,7 +373,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                 input: Some(chunk[0].input),
                 output: Some(output),
                 frames: Some(inner_frames),
-                // TODO
                 next_pc: None,
                 cached_witness: None,
                 count,
@@ -460,7 +459,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
             input,
             output,
             frames,
-            // TODO
             next_pc: None,
             cached_witness: None,
             count,
