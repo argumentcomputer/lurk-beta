@@ -520,7 +520,6 @@ where
     }
 }
 
-// TODO Move to `circuit/circuit_frame.rs`
 use crate::circuit::{
     gadgets::{
         data::GlobalAllocations,

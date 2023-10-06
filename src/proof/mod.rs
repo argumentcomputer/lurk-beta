@@ -9,11 +9,12 @@
 pub mod groth16;
 /// An adapter to a Nova proving system implementation.
 pub mod nova;
-/// Nova tests
-pub mod nova_tests;
 
 /// An adapter to a SuperNova proving system implementation.
 pub mod supernova;
+
+#[cfg(test)]
+mod tests;
 
 use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
