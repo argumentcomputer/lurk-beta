@@ -1381,7 +1381,8 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                         return (arg2, saved_env, continuation, ret)
                                     }
                                 };
-                                let begin_again: Expr::Cons = cons2(operator, unevaled_args);
+                                let begin = Symbol("begin");
+                                let begin_again: Expr::Cons = cons2(begin, unevaled_args);
                                 return (begin_again, saved_env, continuation, ctrl)
                             }
                         };
@@ -1396,6 +1397,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                     Cont::Binop2 => {
                         let (operator, evaled_arg, continuation, _foo) = decons4(cont);
                         let (args_num_type) = args_num_type(evaled_arg, result);
+                        let args_num_type_eq_nil = eq_tag(args_num_type, nil);
                         match operator.tag {
                             Op2::Eval => {
                                 return (evaled_arg, result, continuation, ret)
@@ -1537,11 +1539,9 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                 return (result, env, err, errctrl)
                             }
                             Op2::NumEqual => {
-                                match args_num_type.tag {
-                                    Expr::Nil => {
-                                        return (result, env, err, errctrl)
-                                    }
-                                };
+                                if args_num_type_eq_nil {
+                                    return (result, env, err, errctrl)
+                                }
                                 let eq = eq_val(evaled_arg, result);
                                 if eq {
                                     return (t, env, continuation, makethunk)
@@ -1549,6 +1549,9 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                 return (nil, env, continuation, makethunk)
                             }
                             Op2::Less => {
+                                if args_num_type_eq_nil {
+                                    return (result, env, err, errctrl)
+                                }
                                 let val = lt(evaled_arg, result);
                                 if val {
                                     return (t, env, continuation, makethunk)
@@ -1556,6 +1559,9 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                 return (nil, env, continuation, makethunk)
                             }
                             Op2::Greater => {
+                                if args_num_type_eq_nil {
+                                    return (result, env, err, errctrl)
+                                }
                                 let val = lt(result, evaled_arg);
                                 if val {
                                     return (t, env, continuation, makethunk)
@@ -1563,6 +1569,9 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                 return (nil, env, continuation, makethunk)
                             }
                             Op2::LessEqual => {
+                                if args_num_type_eq_nil {
+                                    return (result, env, err, errctrl)
+                                }
                                 let val = lt(result, evaled_arg);
                                 if val {
                                     return (nil, env, continuation, makethunk)
@@ -1570,6 +1579,9 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                 return (t, env, continuation, makethunk)
                             }
                             Op2::GreaterEqual => {
+                                if args_num_type_eq_nil {
+                                    return (result, env, err, errctrl)
+                                }
                                 let val = lt(evaled_arg, result);
                                 if val {
                                     return (nil, env, continuation, makethunk)
@@ -1659,6 +1671,8 @@ fn make_thunk() -> Func {
     })
 }
 
+// TODO: refactor this test suite, turning it into simple
+// inputs/aux/constraints/slots counts checks after #717 and #718
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1671,8 +1685,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 10554;
-    const NUM_CONSTRAINTS: usize = 12904;
+    const NUM_AUX: usize = 10564;
+    const NUM_CONSTRAINTS: usize = 12945;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash4: 14,
         hash6: 3,
