@@ -10,7 +10,7 @@ use nova::{
     self,
     supernova::{self, error::SuperNovaError, CircuitDigests, NonUniformCircuit, RecursiveSNARK},
     traits::{
-        circuit_supernova::{StepCircuit, TrivialSecondaryCircuit},
+        circuit_supernova::{StepCircuit as SuperStepCircuit, TrivialSecondaryCircuit},
         Group,
     },
 };
@@ -27,14 +27,11 @@ use crate::error::ProofError;
 use crate::eval::{lang::Lang, Meta};
 use crate::field::LurkField;
 use crate::proof::nova::{CurveCycleEquipped, G1, G2};
-use crate::proof::{MultiFrameTrait, Provable, Prover, PublicParameters};
+use crate::proof::{MultiFrameTrait, Provable, Prover};
 
 use super::nova::NovaCircuitShape;
+use super::FrameLike;
 
-/// Type alias for a MultiFrame with S1 field elements.
-/// This uses the <<F as CurveCycleEquipped>::G1 as Group>::Scalar type for the G1 scalar field elements
-/// to reflect it this should not be used outside the Nova context
-pub type C1<'a, F, C> = MultiFrame<'a, F, C>;
 /// Type alias for a Trivial Test Circuit with G2 scalar field elements.
 pub type C2<F> = TrivialSecondaryCircuit<<G2<F> as Group>::Scalar>;
 
@@ -45,7 +42,7 @@ pub type SuperNovaAuxParams<F> = supernova::AuxParams<G1<F>, G2<F>>;
 pub type SuperNovaPublicParams<F, C1> = supernova::PublicParams<G1<F>, G2<F>, C1, C2<F>>;
 
 /// A struct that contains public parameters for the SuperNova proving system.
-pub struct PublicParams<F: CurveCycleEquipped, SC: StepCircuit<F>>
+pub struct PublicParams<F: CurveCycleEquipped, SC: SuperStepCircuit<F>>
 where
     // technical bounds that would disappear once associated_type_bounds stabilizes
     <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
@@ -58,7 +55,7 @@ where
     // vk: VerifierKey<G1<F>, G2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
 }
 
-impl<F: CurveCycleEquipped, SC: StepCircuit<F>> Index<usize> for PublicParams<F, SC>
+impl<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> Index<usize> for PublicParams<F, SC>
 where
     // technical bounds that would disappear once associated_type_bounds stabilizes
     <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
@@ -71,7 +68,7 @@ where
     }
 }
 
-impl<F: CurveCycleEquipped, SC: StepCircuit<F>> PublicParams<F, SC>
+impl<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> PublicParams<F, SC>
 where
     // technical bounds that would disappear once associated_type_bounds stabilizes
     <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
@@ -88,7 +85,7 @@ pub fn public_params<
     'a,
     F: CurveCycleEquipped,
     C: Coprocessor<F> + 'a,
-    M: StepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>> + MultiFrameTrait<'a, F, C>,
+    M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
 >(
     rc: usize,
     lang: Arc<Lang<F, C>>,
@@ -121,7 +118,7 @@ impl<
         'a,
         F: CurveCycleEquipped,
         C: Coprocessor<F>,
-        M: MultiFrameTrait<'a, F, C> + StepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
+        M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
     > Proof<'a, F, C, M>
 where
     <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
@@ -217,30 +214,6 @@ where
     }
 }
 
-// /// Generates the public parameters for the Nova proving system.
-// pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F>>(
-//     num_iters_per_step: usize,
-//     lang: Arc<Lang<F, C>>,
-// ) -> PublicParams<'a, F, C>
-// where
-//     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-//     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-// {
-//     let (circuit_primary, circuit_secondary) = C1::circuits(num_iters_per_step, lang);
-
-//     let commitment_size_hint1 = <SS1<F> as RelaxedR1CSSNARKTrait<G1<F>>>::commitment_key_floor();
-//     let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<G2<F>>>::commitment_key_floor();
-
-//     let pp = nova::PublicParams::setup(
-//         &circuit_primary,
-//         &circuit_secondary,
-//         Some(commitment_size_hint1),
-//         Some(commitment_size_hint2),
-//     );
-//     let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
-//     PublicParams { pp, pk, vk }
-// }
-
 /// A struct for the Nova prover that operates on field elements of type `F`.
 #[derive(Debug)]
 pub struct SuperNovaProver<
@@ -255,20 +228,17 @@ pub struct SuperNovaProver<
     _phantom: PhantomData<&'a M>,
 }
 
-impl<F: CurveCycleEquipped, C1: StepCircuit<F>> PublicParameters for PublicParams<F, C1>
+impl<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F>,
+        M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F>,
+    > Prover<'a, F, C, M> for SuperNovaProver<'a, F, C, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-}
-
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>> Prover<'a, F, C, M>
-    for SuperNovaProver<'a, F, C, M>
-where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
-    type PublicParams = PublicParams<F, C1<'a, F, C>>;
+    type PublicParams = PublicParams<F, M>;
     fn new(reduction_count: usize, lang: Lang<F, C>) -> Self {
         SuperNovaProver::<'a, F, C, M> {
             reduction_count,
@@ -285,12 +255,11 @@ where
     }
 }
 
-use super::FrameLike;
 impl<
         'a,
         F: CurveCycleEquipped,
         C: Coprocessor<F>,
-        M: MultiFrameTrait<'a, F, C> + StepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
+        M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
     > SuperNovaProver<'a, F, C, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -410,9 +379,9 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
 
 /// Implement `supernova::StepCircuit` for `MultiFrame`. This is the universal Lurk circuit that will be included as the
 /// first circuit (index 0) of every Lurk NIVC circuit set.
-impl<F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'_, F, C> {
+impl<F: LurkField, C: Coprocessor<F>> SuperStepCircuit<F> for MultiFrame<'_, F, C> {
     fn arity(&self) -> usize {
-        self.multiframe.public_input_size() / 2
+        self.public_input_size() / 2
     }
 
     fn circuit_index(&self) -> usize {

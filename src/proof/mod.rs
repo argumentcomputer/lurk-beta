@@ -211,13 +211,11 @@ pub fn verify_sequential_css<
     }
     Ok(true)
 }
-/// A trait representing the public parameters for a proving system.
-pub trait PublicParameters {}
 
 /// A trait for a prover that works with a field `F`.
 pub trait Prover<'a, F: LurkField, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>> {
     /// The associated public parameters type for the prover.
-    type PublicParams: PublicParameters;
+    type PublicParams;
 
     /// Creates a new prover with the specified number of reductions.
     fn new(reduction_count: usize, lang: Lang<F, C>) -> Self;
