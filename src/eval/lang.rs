@@ -134,7 +134,7 @@ impl<F: LurkField, C: Coprocessor<F>> Lang<F, C> {
         &mut self,
         name: S,
         cproc: T,
-        store: &mut LEMStore<F>,
+        store: &LEMStore<F>,
     ) {
         let name = name.into();
 

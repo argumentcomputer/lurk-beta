@@ -11,7 +11,7 @@ use crate::{
     hash::PoseidonCache,
     lem::Tag,
     parser::{syntax, Error, Span},
-    state::{lurk_sym, State},
+    state::{lurk_sym, user_sym, State},
     symbol::Symbol,
     syntax::Syntax,
     tag::ExprTag::{Char, Comm, Cons, Cproc, Fun, Key, Nil, Num, Str, Sym, Thunk, U64},
@@ -321,23 +321,39 @@ impl<F: LurkField> Store<F> {
         self.hide(F::NON_HIDING_COMMITMENT_SECRET, payload)
     }
 
+    #[inline]
     pub fn open(&self, hash: F) -> Option<&(F, Ptr<F>)> {
         self.comms.get(&FWrap(hash))
     }
 
     #[inline]
-    pub fn intern_lurk_sym(&self, name: &str) -> Ptr<F> {
+    pub fn intern_lurk_symbol(&self, name: &str) -> Ptr<F> {
         self.intern_symbol(&lurk_sym(name))
     }
 
     #[inline]
     pub fn intern_nil(&self) -> Ptr<F> {
-        self.intern_lurk_sym("nil")
+        self.intern_lurk_symbol("nil")
+    }
+
+    #[inline]
+    pub fn intern_user_symbol(&self, name: &str) -> Ptr<F> {
+        self.intern_symbol(&user_sym(name))
     }
 
     #[inline]
     pub fn key(&self, name: &str) -> Ptr<F> {
         self.intern_symbol(&Symbol::key(&[name.to_string()]))
+    }
+
+    #[inline]
+    pub fn cons(&self, car: Ptr<F>, cdr: Ptr<F>) -> Ptr<F> {
+        self.intern_2_ptrs(Tag::Expr(Cons), car, cdr)
+    }
+
+    #[inline]
+    pub fn intern_fun(&self, arg: Ptr<F>, body: Ptr<F>, env: Ptr<F>) -> Ptr<F> {
+        self.intern_3_ptrs(Tag::Expr(Fun), arg, body, env)
     }
 
     pub fn car_cdr(&self, ptr: &Ptr<F>) -> Result<(Ptr<F>, Ptr<F>)> {
@@ -555,6 +571,10 @@ impl<F: LurkField> Store<F> {
                 acc.push(*z_ptr.value());
                 Ok(acc)
             })
+    }
+
+    pub fn ptr_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> Result<bool> {
+        Ok(self.hash_ptr(a)? == self.hash_ptr(b)?)
     }
 }
 
