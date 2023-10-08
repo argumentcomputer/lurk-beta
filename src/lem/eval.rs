@@ -112,6 +112,17 @@ pub fn build_frames<
         }
         pc = get_pc(&expr, store, lang);
     }
+    if iterations < limit {
+        let (frame, _) = lurk_step.call(
+            &input,
+            store,
+            Preimages::new_from_func(lurk_step),
+            &mut vec![],
+            lang,
+            pc,
+        )?;
+        frames.push(frame);
+    }
     Ok((frames, iterations))
 }
 
@@ -172,11 +183,7 @@ pub fn evaluate_with_env_and_cont<F: LurkField, C: Coprocessor<F>>(
             build_frames(eval_step(), &[], input, store, limit, &lang, log_fmt)
         }
         Some((func, lang)) => {
-            let funcs = lang
-                .coprocessors()
-                .iter()
-                .map(|(name, (c, _))| run_cproc(name.clone(), c.arity()))
-                .collect::<Vec<_>>();
+            let funcs = make_cprocs_funcs_from_lang(lang);
             build_frames(func, &funcs, input, store, limit, lang, log_fmt)
         }
     }
@@ -211,11 +218,7 @@ pub fn evaluate_simple<F: LurkField, C: Coprocessor<F>>(
             traverse_frames(eval_step(), &[], input, store, limit, &lang)
         }
         Some((func, lang)) => {
-            let funcs = lang
-                .coprocessors()
-                .iter()
-                .map(|(name, (c, _))| run_cproc(name.clone(), c.arity()))
-                .collect::<Vec<_>>();
+            let funcs = make_cprocs_funcs_from_lang(lang);
             traverse_frames(func, &funcs, input, store, limit, lang)
         }
     }
@@ -378,6 +381,15 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
     };
     let func_inp = vec![cproc, env, cont];
     Func::new("run_cproc".into(), func_inp, 3, block).unwrap()
+}
+
+pub(crate) fn make_cprocs_funcs_from_lang<F: LurkField, C: Coprocessor<F>>(
+    lang: &Lang<F, C>,
+) -> std::sync::Arc<[Func]> {
+    lang.coprocessors()
+        .iter()
+        .map(|(name, (c, _))| run_cproc(name.clone(), c.arity()))
+        .collect()
 }
 
 /// Tells whether `head`, which is assumed to be a symbol, corresponds to the name
@@ -1828,7 +1840,7 @@ mod tests {
         let dumb = DumbCoprocessor::new();
         let name = user_sym("cproc-dumb");
 
-        let store = &mut Store::default();
+        let store = &Store::default();
         lang.add_coprocessor_lem(name, dumb, store);
         let func_ivc = make_eval_step_from_lang(&lang, true);
         let func_nivc = make_eval_step_from_lang(&lang, false);

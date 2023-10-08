@@ -43,6 +43,7 @@ use crate::{
     },
     coprocessor::Coprocessor,
     eval::lang::Lang,
+    z_ptr::ZPtr,
 };
 
 use crate::{
@@ -380,6 +381,18 @@ impl Block {
 }
 
 impl Func {
+    /// Add input to bound_allocations
+    pub(crate) fn add_input<F: LurkField>(
+        &self,
+        input: &[AllocatedPtr<F>],
+        bound_allocations: &mut BoundAllocations<F>,
+    ) {
+        assert_eq!(input.len(), self.input_params.len());
+        for (var, ptr) in self.input_params.iter().zip(input) {
+            bound_allocations.insert_ptr(var.clone(), ptr.clone());
+        }
+    }
+
     /// Allocates an unconstrained pointer for each output of the frame
     fn allocate_output<F: LurkField, CS: ConstraintSystem<F>>(
         &self,
@@ -500,6 +513,7 @@ impl Func {
             preallocated_commitment_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
             preallocated_less_than_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
             call_outputs: VecDeque<Vec<Ptr<F>>>,
+            cproc_outputs: &'a [Vec<Ptr<F>>],
         }
 
         fn recurse<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
@@ -510,6 +524,8 @@ impl Func {
             bound_allocations: &mut BoundAllocations<F>,
             preallocated_outputs: &Vec<AllocatedPtr<F>>,
             g: &mut Globals<'_, F, C>,
+            mut cproc_idx: usize,
+            blank: bool,
         ) -> Result<()> {
             for (op_idx, op) in block.ops.iter().enumerate() {
                 let mut cs = cs.namespace(|| format!("op {op_idx}"));
@@ -605,24 +621,73 @@ impl Func {
 
                 match op {
                     Op::Cproc(out, sym, inp) => {
-                        let inp_ptrs = bound_allocations.get_many_ptr(inp)?;
                         let cproc = g
                             .lang
                             .lookup_by_sym(sym)
                             .ok_or_else(|| anyhow!("Coprocessor for {sym} not found"))?;
-                        let out_ptrs = cproc.synthesize_lem_internal(
-                            &mut cs.namespace(|| format!("Coprocessor {sym}")),
-                            g.global_allocator,
-                            g.store,
-                            not_dummy,
-                            &inp_ptrs,
-                        )?;
-                        if out.len() != out_ptrs.len() {
-                            bail!("Incompatible output length for coprocessor {sym}")
+                        let not_dummy_and_not_blank = not_dummy.get_value() == Some(true) && !blank;
+                        let collected_z_ptrs = if not_dummy_and_not_blank {
+                            let collected_ptrs = &g.cproc_outputs[cproc_idx];
+                            if out.len() != collected_ptrs.len() {
+                                bail!("Incompatible output length for coprocessor {sym}")
+                            }
+                            collected_ptrs
+                                .iter()
+                                .map(|ptr| g.store.hash_ptr(ptr).expect("hash_ptr failed"))
+                                .collect::<Vec<_>>()
+                        } else {
+                            vec![ZPtr::from_parts(Tag::Expr(Nil), F::ZERO); out.len()]
+                        };
+                        if cproc.has_circuit() {
+                            // call the coprocessor's synthesize and then make sure that
+                            // the output matches the data collected during interpretation
+                            let inp_ptrs = bound_allocations.get_many_ptr(inp)?;
+                            let synthesize_output = cproc.synthesize_lem_internal(
+                                &mut cs.namespace(|| format!("Coprocessor {sym}")),
+                                g.global_allocator,
+                                g.store,
+                                not_dummy,
+                                &inp_ptrs,
+                            )?;
+                            if out.len() != synthesize_output.len() {
+                                bail!("Incompatible output length for coprocessor {sym}")
+                            }
+                            for ((i, var), ptr) in out.iter().enumerate().zip(synthesize_output) {
+                                if not_dummy_and_not_blank {
+                                    let z_ptr = &collected_z_ptrs[i];
+                                    if ptr.tag().get_value() != Some(z_ptr.tag_field())
+                                        || ptr.hash().get_value() != Some(*z_ptr.value())
+                                    {
+                                        bail!("Mismatch between evaluate and synthesize outputs for coprocessor {sym} (pointer {i})")
+                                    }
+                                }
+                                bound_allocations.insert(var.clone(), AllocatedVal::Pointer(ptr));
+                            }
+                        } else {
+                            // just move on with the data that was collected from interpretation
+                            for ((i, var), z_ptr) in out.iter().enumerate().zip(collected_z_ptrs) {
+                                let allocated_tag = AllocatedNum::alloc_infallible(
+                                    &mut cs.namespace(|| {
+                                        format!("tag for pointer {i} from cproc {sym}")
+                                    }),
+                                    || z_ptr.tag_field(),
+                                );
+                                let allocated_hash = AllocatedNum::alloc_infallible(
+                                    &mut cs.namespace(|| {
+                                        format!("hash for pointer {i} from cproc {sym}")
+                                    }),
+                                    || *z_ptr.value(),
+                                );
+                                bound_allocations.insert(
+                                    var.clone(),
+                                    AllocatedVal::Pointer(AllocatedPtr::from_parts(
+                                        allocated_tag,
+                                        allocated_hash,
+                                    )),
+                                );
+                            }
                         }
-                        for (var, ptr) in out.iter().zip(out_ptrs) {
-                            bound_allocations.insert(var.clone(), AllocatedVal::Pointer(ptr));
-                        }
+                        cproc_idx += 1;
                     }
                     Op::Call(out, func, inp) => {
                         // Allocate the output pointers that the `func` will return to.
@@ -631,15 +696,16 @@ impl Func {
                         // Note that, because there's currently no way of deferring giving
                         // a value to the allocated nums to be filled later, we must either
                         // add the results of the call to the witness, or recompute them.
-                        let dummy = Ptr::null(Tag::Expr(Nil));
-                        let output_vals = if let Some(true) = not_dummy.get_value() {
-                            g.call_outputs
+                        let output_vals = if not_dummy.get_value() == Some(true) {
+                            let ptrs = g
+                                .call_outputs
                                 .pop_front()
-                                .unwrap_or_else(|| (0..out.len()).map(|_| dummy).collect())
+                                .unwrap_or_else(|| vec![Ptr::dummy(); out.len()]);
+                            assert_eq!(ptrs.len(), out.len());
+                            ptrs
                         } else {
-                            (0..out.len()).map(|_| dummy).collect()
+                            vec![Ptr::dummy(); out.len()]
                         };
-                        assert_eq!(output_vals.len(), out.len());
                         let mut output_ptrs = Vec::with_capacity(out.len());
                         for (ptr, var) in output_vals.iter().zip(out.iter()) {
                             let zptr = g.store.hash_ptr(ptr)?;
@@ -667,6 +733,8 @@ impl Func {
                             bound_allocations,
                             &output_ptrs,
                             g,
+                            cproc_idx,
+                            blank,
                         )?;
                     }
                     Op::Cons2(img, tag, preimg) => {
@@ -1012,6 +1080,8 @@ impl Func {
                         bound_allocations,
                         preallocated_outputs,
                         g,
+                        cproc_idx,
+                        blank,
                     )?;
                     branch_slots.push(branch_slot);
                 }
@@ -1047,6 +1117,8 @@ impl Func {
                         bound_allocations,
                         preallocated_outputs,
                         g,
+                        cproc_idx,
+                        blank,
                     )?;
 
                     // Pushing `is_default` to `selector` to enforce summation = 1
@@ -1095,6 +1167,8 @@ impl Func {
                         bound_allocations,
                         preallocated_outputs,
                         g,
+                        cproc_idx,
+                        blank,
                     )?;
                     recurse(
                         &mut cs.namespace(|| "if_eq.false"),
@@ -1104,6 +1178,8 @@ impl Func {
                         bound_allocations,
                         preallocated_outputs,
                         g,
+                        cproc_idx,
+                        blank,
                     )?;
                     *next_slot = next_slot.max(branch_slot);
                     Ok(())
@@ -1160,6 +1236,7 @@ impl Func {
         }
 
         let call_outputs = frame.preimages.call_outputs.clone();
+        let cproc_outputs = &frame.preimages.cproc_outputs;
         recurse(
             cs,
             &self.body,
@@ -1177,7 +1254,10 @@ impl Func {
                 preallocated_commitment_slots,
                 preallocated_less_than_slots,
                 call_outputs,
+                cproc_outputs,
             },
+            0,
+            frame.blank,
         )?;
         Ok(preallocated_outputs)
     }

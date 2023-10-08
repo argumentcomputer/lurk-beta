@@ -13,6 +13,9 @@ pub mod nova;
 /// An adapter to a SuperNova proving system implementation.
 pub mod supernova;
 
+#[cfg(test)]
+mod tests;
+
 use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
 use crate::eval::Meta;
@@ -101,7 +104,7 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
     /// Counting the number of non-trivial frames in the evaluation
     fn significant_frame_count(frames: &[Self::EvalFrame]) -> usize;
 
-    /// Evaluates and generates the frames of the computation given the expression, environment, and store
+    /// Evaluates and generates the frames of the computation given the expression, environment, and store (IVC only, TODO NIVC)
     fn get_evaluation_frames(
         padding_predicate: impl Fn(usize) -> bool, // Determines if the prover needs padding for a given total number of frames
         expr: Self::Ptr,
@@ -140,14 +143,14 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
         input: Self::AllocatedIO,
         frames: &[Self::CircuitFrame],
         g: &Self::GlobalAllocation,
-    ) -> Self::AllocatedIO;
+    ) -> Result<Self::AllocatedIO, SynthesisError>;
 
     /// Synthesize a blank circuit.
     fn blank(folding_config: Arc<FoldingConfig<F, C>>, meta: Meta<F>) -> Self;
 
     /// Create an instance from some `Self::Frame`s.
     fn from_frames(
-        count: usize,
+        reduction_count: usize,
         frames: &[Self::EvalFrame],
         store: &'a Self::Store,
         folding_config: Arc<FoldingConfig<F, C>>,
@@ -155,7 +158,7 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
 
     /// Make a dummy instance, duplicating `self`'s final `CircuitFrame`.
     fn make_dummy(
-        count: usize,
+        reduction_count: usize,
         circuit_frame: Option<Self::CircuitFrame>,
         store: &'a Self::Store,
         folding_config: Arc<FoldingConfig<F, C>>,
@@ -171,7 +174,7 @@ pub trait Provable<F: LurkField> {
     /// Returns the public inputs of the provable structure.
     fn public_inputs(&self) -> Vec<F>;
     /// Returns the size of the public inputs.
-    fn public_input_size() -> usize;
+    fn public_input_size(&self) -> usize;
     /// Returns the number of reductions in the provable structure.
     fn reduction_count(&self) -> usize;
 }
