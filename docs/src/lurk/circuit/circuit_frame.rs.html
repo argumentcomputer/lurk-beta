@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/circuit_frame.rs`."><title>circuit_frame.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (97c81e1b5 2023-10-07)" data-channel="nightly" data-search-js="search-5f5ec5419eadd0c9.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/circuit/circuit_frame.rs`."><title>circuit_frame.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (bf9a1c8a1 2023-10-08)" data-channel="nightly" data-search-js="search-5f5ec5419eadd0c9.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -6397,6 +6397,73 @@
 <a href="#6397" id="6397">6397</a>
 <a href="#6398" id="6398">6398</a>
 <a href="#6399" id="6399">6399</a>
+<a href="#6400" id="6400">6400</a>
+<a href="#6401" id="6401">6401</a>
+<a href="#6402" id="6402">6402</a>
+<a href="#6403" id="6403">6403</a>
+<a href="#6404" id="6404">6404</a>
+<a href="#6405" id="6405">6405</a>
+<a href="#6406" id="6406">6406</a>
+<a href="#6407" id="6407">6407</a>
+<a href="#6408" id="6408">6408</a>
+<a href="#6409" id="6409">6409</a>
+<a href="#6410" id="6410">6410</a>
+<a href="#6411" id="6411">6411</a>
+<a href="#6412" id="6412">6412</a>
+<a href="#6413" id="6413">6413</a>
+<a href="#6414" id="6414">6414</a>
+<a href="#6415" id="6415">6415</a>
+<a href="#6416" id="6416">6416</a>
+<a href="#6417" id="6417">6417</a>
+<a href="#6418" id="6418">6418</a>
+<a href="#6419" id="6419">6419</a>
+<a href="#6420" id="6420">6420</a>
+<a href="#6421" id="6421">6421</a>
+<a href="#6422" id="6422">6422</a>
+<a href="#6423" id="6423">6423</a>
+<a href="#6424" id="6424">6424</a>
+<a href="#6425" id="6425">6425</a>
+<a href="#6426" id="6426">6426</a>
+<a href="#6427" id="6427">6427</a>
+<a href="#6428" id="6428">6428</a>
+<a href="#6429" id="6429">6429</a>
+<a href="#6430" id="6430">6430</a>
+<a href="#6431" id="6431">6431</a>
+<a href="#6432" id="6432">6432</a>
+<a href="#6433" id="6433">6433</a>
+<a href="#6434" id="6434">6434</a>
+<a href="#6435" id="6435">6435</a>
+<a href="#6436" id="6436">6436</a>
+<a href="#6437" id="6437">6437</a>
+<a href="#6438" id="6438">6438</a>
+<a href="#6439" id="6439">6439</a>
+<a href="#6440" id="6440">6440</a>
+<a href="#6441" id="6441">6441</a>
+<a href="#6442" id="6442">6442</a>
+<a href="#6443" id="6443">6443</a>
+<a href="#6444" id="6444">6444</a>
+<a href="#6445" id="6445">6445</a>
+<a href="#6446" id="6446">6446</a>
+<a href="#6447" id="6447">6447</a>
+<a href="#6448" id="6448">6448</a>
+<a href="#6449" id="6449">6449</a>
+<a href="#6450" id="6450">6450</a>
+<a href="#6451" id="6451">6451</a>
+<a href="#6452" id="6452">6452</a>
+<a href="#6453" id="6453">6453</a>
+<a href="#6454" id="6454">6454</a>
+<a href="#6455" id="6455">6455</a>
+<a href="#6456" id="6456">6456</a>
+<a href="#6457" id="6457">6457</a>
+<a href="#6458" id="6458">6458</a>
+<a href="#6459" id="6459">6459</a>
+<a href="#6460" id="6460">6460</a>
+<a href="#6461" id="6461">6461</a>
+<a href="#6462" id="6462">6462</a>
+<a href="#6463" id="6463">6463</a>
+<a href="#6464" id="6464">6464</a>
+<a href="#6465" id="6465">6465</a>
+<a href="#6466" id="6466">6466</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
@@ -6470,6 +6537,7 @@
     <span class="kw">pub </span>count: usize,
     <span class="kw">pub </span>folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
     <span class="kw">pub </span>meta: Meta&lt;F&gt;,
+    <span class="kw">pub </span>next_pc: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 }
 
 <span class="kw">impl</span>&lt;F: LurkField&gt; CEKState&lt;Ptr&lt;F&gt;, ContPtr&lt;F&gt;&gt; <span class="kw">for </span>IO&lt;F&gt; {
@@ -6704,6 +6772,7 @@
             input: <span class="prelude-val">None</span>,
             output: <span class="prelude-val">None</span>,
             frames: <span class="prelude-val">None</span>,
+            next_pc: <span class="prelude-val">None</span>,
             cached_witness: <span class="prelude-val">None</span>,
             count,
             folding_config,
@@ -6716,6 +6785,18 @@
     }
 
     <span class="kw">pub fn </span>from_frames(
+        count: usize,
+        frames: <span class="kw-2">&amp;</span>[Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, F, C&gt;],
+        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
+        folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
+    ) -&gt; Vec&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">match </span><span class="kw-2">&amp;*</span>folding_config {
+            FoldingConfig::IVC(..) =&gt; <span class="self">Self</span>::from_frames_ivc(count, frames, store, folding_config),
+            FoldingConfig::NIVC(..) =&gt; <span class="self">Self</span>::from_frames_nivc(count, frames, store, folding_config),
+        }
+    }
+
+    <span class="kw">fn </span>from_frames_ivc(
         <span class="comment">// we need this count, even though folding_config contains reduction_count
         // because it might be overridden in the case of a coprocoessor, which should have rc=1.
         // This is not ideal and might not *actually* be needed.
@@ -6758,6 +6839,7 @@
                 input: <span class="prelude-val">Some</span>(chunk[<span class="number">0</span>].input),
                 output: <span class="prelude-val">Some</span>(output),
                 frames: <span class="prelude-val">Some</span>(inner_frames),
+                next_pc: <span class="prelude-val">None</span>,
                 cached_witness: <span class="prelude-val">None</span>,
                 count,
                 folding_config: folding_config.clone(),
@@ -6768,6 +6850,57 @@
         }
 
         multi_frames
+    }
+
+    <span class="kw">fn </span>from_frames_nivc(
+        count: usize,
+        frames: <span class="kw-2">&amp;</span>[Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, F, C&gt;],
+        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
+        folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;,
+    ) -&gt; Vec&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>steps = Vec::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>last_meta = frames[<span class="number">0</span>].meta;
+        <span class="kw">let </span><span class="kw-2">mut </span>consecutive_frames = Vec::new();
+
+        <span class="kw">for </span>frame <span class="kw">in </span>frames {
+            <span class="kw">if </span>frame.meta == last_meta {
+                <span class="kw">let </span>padding_frame = frame.clone();
+                consecutive_frames.push(padding_frame);
+            } <span class="kw">else </span>{
+                <span class="kw">if </span>last_meta == Meta::Lurk {
+                    consecutive_frames.push(frame.clone());
+                }
+                <span class="kw">let </span>new_steps = MultiFrame::from_frames_ivc(
+                    <span class="kw">if </span>last_meta == Meta::Lurk { count } <span class="kw">else </span>{ <span class="number">1 </span>},
+                    <span class="kw-2">&amp;</span>consecutive_frames,
+                    store,
+                    folding_config.clone(),
+                )
+                .into_iter();
+
+                steps.extend(new_steps);
+                consecutive_frames.truncate(<span class="number">0</span>);
+                consecutive_frames.push(frame.clone());
+                last_meta = frame.meta;
+            }
+        }
+
+        <span class="comment">// TODO: refactor
+        </span><span class="kw">if </span>!consecutive_frames.is_empty() {
+            <span class="kw">let </span>new_steps =
+                MultiFrame::from_frames_ivc(count, <span class="kw-2">&amp;</span>consecutive_frames, store, folding_config)
+                    .into_iter();
+
+            steps.extend(new_steps);
+        }
+
+        <span class="kw">if </span>!steps.is_empty() {
+            <span class="kw">let </span>penultimate = steps.len() - <span class="number">1</span>;
+            <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..(penultimate - <span class="number">1</span>) {
+                steps[i].next_pc = <span class="prelude-val">Some</span>(steps[i + <span class="number">1</span>].circuit_index());
+            }
+        }
+        steps
     }
 
     <span class="doccomment">/// Make a dummy `MultiFrame`, duplicating `self`&#39;s final `CircuitFrame`.
@@ -6792,6 +6925,7 @@
             input,
             output,
             frames,
+            next_pc: <span class="prelude-val">None</span>,
             cached_witness: <span class="prelude-val">None</span>,
             count,
             folding_config,

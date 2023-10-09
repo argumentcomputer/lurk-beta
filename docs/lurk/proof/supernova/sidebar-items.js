@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["FoldingConfig","Proof"],"fn":["circuit_cache_key","circuit_cache_keys","public_params"],"struct":["NIVCStep","NIVCSteps","PublicParams","SuperNovaProver"],"type":["C1","C2","SuperNovaAuxParams","SuperNovaPublicParams"]};
+window.SIDEBAR_ITEMS = {"enum":["FoldingConfig","Proof"],"fn":["circuit_cache_key","circuit_cache_keys","public_params"],"struct":["PublicParams","SuperNovaProver"],"type":["C2","SuperNovaAuxParams","SuperNovaPublicParams"]};

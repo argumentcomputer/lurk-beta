@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/supernova.rs`."><title>supernova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (97c81e1b5 2023-10-07)" data-channel="nightly" data-search-js="search-5f5ec5419eadd0c9.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/proof/supernova.rs`."><title>supernova.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (bf9a1c8a1 2023-10-08)" data-channel="nightly" data-search-js="search-5f5ec5419eadd0c9.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -507,130 +507,6 @@
 <a href="#507" id="507">507</a>
 <a href="#508" id="508">508</a>
 <a href="#509" id="509">509</a>
-<a href="#510" id="510">510</a>
-<a href="#511" id="511">511</a>
-<a href="#512" id="512">512</a>
-<a href="#513" id="513">513</a>
-<a href="#514" id="514">514</a>
-<a href="#515" id="515">515</a>
-<a href="#516" id="516">516</a>
-<a href="#517" id="517">517</a>
-<a href="#518" id="518">518</a>
-<a href="#519" id="519">519</a>
-<a href="#520" id="520">520</a>
-<a href="#521" id="521">521</a>
-<a href="#522" id="522">522</a>
-<a href="#523" id="523">523</a>
-<a href="#524" id="524">524</a>
-<a href="#525" id="525">525</a>
-<a href="#526" id="526">526</a>
-<a href="#527" id="527">527</a>
-<a href="#528" id="528">528</a>
-<a href="#529" id="529">529</a>
-<a href="#530" id="530">530</a>
-<a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
-<a href="#545" id="545">545</a>
-<a href="#546" id="546">546</a>
-<a href="#547" id="547">547</a>
-<a href="#548" id="548">548</a>
-<a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
-<a href="#551" id="551">551</a>
-<a href="#552" id="552">552</a>
-<a href="#553" id="553">553</a>
-<a href="#554" id="554">554</a>
-<a href="#555" id="555">555</a>
-<a href="#556" id="556">556</a>
-<a href="#557" id="557">557</a>
-<a href="#558" id="558">558</a>
-<a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
-<a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
-<a href="#584" id="584">584</a>
-<a href="#585" id="585">585</a>
-<a href="#586" id="586">586</a>
-<a href="#587" id="587">587</a>
-<a href="#588" id="588">588</a>
-<a href="#589" id="589">589</a>
-<a href="#590" id="590">590</a>
-<a href="#591" id="591">591</a>
-<a href="#592" id="592">592</a>
-<a href="#593" id="593">593</a>
-<a href="#594" id="594">594</a>
-<a href="#595" id="595">595</a>
-<a href="#596" id="596">596</a>
-<a href="#597" id="597">597</a>
-<a href="#598" id="598">598</a>
-<a href="#599" id="599">599</a>
-<a href="#600" id="600">600</a>
-<a href="#601" id="601">601</a>
-<a href="#602" id="602">602</a>
-<a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
-<a href="#611" id="611">611</a>
-<a href="#612" id="612">612</a>
-<a href="#613" id="613">613</a>
-<a href="#614" id="614">614</a>
-<a href="#615" id="615">615</a>
-<a href="#616" id="616">616</a>
-<a href="#617" id="617">617</a>
-<a href="#618" id="618">618</a>
-<a href="#619" id="619">619</a>
-<a href="#620" id="620">620</a>
-<a href="#621" id="621">621</a>
-<a href="#622" id="622">622</a>
-<a href="#623" id="623">623</a>
-<a href="#624" id="624">624</a>
-<a href="#625" id="625">625</a>
-<a href="#626" id="626">626</a>
-<a href="#627" id="627">627</a>
-<a href="#628" id="628">628</a>
-<a href="#629" id="629">629</a>
-<a href="#630" id="630">630</a>
-<a href="#631" id="631">631</a>
-<a href="#632" id="632">632</a>
-<a href="#633" id="633">633</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 </span><span class="kw">use </span>std::marker::PhantomData;
 <span class="kw">use </span>std::ops::Index;
@@ -643,7 +519,7 @@
     <span class="self">self</span>,
     supernova::{<span class="self">self</span>, error::SuperNovaError, CircuitDigests, NonUniformCircuit, RecursiveSNARK},
     traits::{
-        circuit_supernova::{StepCircuit, TrivialSecondaryCircuit},
+        circuit_supernova::{StepCircuit <span class="kw">as </span>SuperStepCircuit, TrivialSecondaryCircuit},
         Group,
     },
 };
@@ -657,19 +533,14 @@
 <span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
 
 <span class="kw">use </span><span class="kw">crate</span>::error::ProofError;
-<span class="kw">use </span><span class="kw">crate</span>::eval::{lang::Lang, Frame, Meta, Witness, IO};
+<span class="kw">use </span><span class="kw">crate</span>::eval::{lang::Lang, Meta};
 <span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
 <span class="kw">use </span><span class="kw">crate</span>::proof::nova::{CurveCycleEquipped, G1, G2};
-<span class="kw">use </span><span class="kw">crate</span>::proof::{Provable, Prover, PublicParameters};
-<span class="kw">use </span><span class="kw">crate</span>::ptr::Ptr;
-<span class="kw">use </span><span class="kw">crate</span>::store::Store;
+<span class="kw">use </span><span class="kw">crate</span>::proof::{MultiFrameTrait, Provable, Prover};
 
 <span class="kw">use </span><span class="kw">super</span>::nova::NovaCircuitShape;
+<span class="kw">use </span><span class="kw">super</span>::FrameLike;
 
-<span class="doccomment">/// Type alias for a NIVCStep with S1 field elements.
-/// This uses the &lt;&lt;F as CurveCycleEquipped&gt;::G1 as Group&gt;::Scalar type for the G1 scalar field elements
-/// to reflect it this should not be used outside the Nova context
-</span><span class="kw">pub type </span>C1&lt;<span class="lifetime">&#39;a</span>, F, C&gt; = NIVCStep&lt;<span class="lifetime">&#39;a</span>, F, C&gt;;
 <span class="doccomment">/// Type alias for a Trivial Test Circuit with G2 scalar field elements.
 </span><span class="kw">pub type </span>C2&lt;F&gt; = TrivialSecondaryCircuit&lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar&gt;;
 
@@ -677,24 +548,23 @@
 </span><span class="kw">pub type </span>SuperNovaAuxParams&lt;F&gt; = supernova::AuxParams&lt;G1&lt;F&gt;, G2&lt;F&gt;&gt;;
 
 <span class="doccomment">/// Type alias for SuperNova Public Parameters with the curve cycle types defined above.
-</span><span class="kw">pub type </span>SuperNovaPublicParams&lt;<span class="lifetime">&#39;a</span>, F, C&gt; =
-    supernova::PublicParams&lt;G1&lt;F&gt;, G2&lt;F&gt;, C1&lt;<span class="lifetime">&#39;a</span>, F, C&gt;, C2&lt;F&gt;&gt;;
+</span><span class="kw">pub type </span>SuperNovaPublicParams&lt;F, C1&gt; = supernova::PublicParams&lt;G1&lt;F&gt;, G2&lt;F&gt;, C1, C2&lt;F&gt;&gt;;
 
 <span class="doccomment">/// A struct that contains public parameters for the SuperNova proving system.
-</span><span class="kw">pub struct </span>PublicParams&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt;
+</span><span class="kw">pub struct </span>PublicParams&lt;F: CurveCycleEquipped, SC: SuperStepCircuit&lt;F&gt;&gt;
 <span class="kw">where
     </span><span class="comment">// technical bounds that would disappear once associated_type_bounds stabilizes
     </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
 {
     <span class="doccomment">/// Public params for SuperNova.
-    </span><span class="kw">pub </span>pp: SuperNovaPublicParams&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
+    </span><span class="kw">pub </span>pp: SuperNovaPublicParams&lt;F, SC&gt;,
     <span class="comment">// SuperNova does not yet have a `CompressedSNARK`.
-    // pk: ProverKey&lt;G1&lt;F&gt;, G2&lt;F&gt;, C1&lt;&#39;a, F, C&gt;, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
-    // vk: VerifierKey&lt;G1&lt;F&gt;, G2&lt;F&gt;, C1&lt;&#39;a, F, C&gt;, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
+    // pk: ProverKey&lt;G1&lt;F&gt;, G2&lt;F&gt;, SC, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
+    // vk: VerifierKey&lt;G1&lt;F&gt;, G2&lt;F&gt;, SC, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;,
 </span>}
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; Index&lt;usize&gt; <span class="kw">for </span>PublicParams&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
+<span class="kw">impl</span>&lt;F: CurveCycleEquipped, SC: SuperStepCircuit&lt;F&gt;&gt; Index&lt;usize&gt; <span class="kw">for </span>PublicParams&lt;F, SC&gt;
 <span class="kw">where
     </span><span class="comment">// technical bounds that would disappear once associated_type_bounds stabilizes
     </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
@@ -707,7 +577,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; PublicParams&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
+<span class="kw">impl</span>&lt;F: CurveCycleEquipped, SC: SuperStepCircuit&lt;F&gt;&gt; PublicParams&lt;F, SC&gt;
 <span class="kw">where
     </span><span class="comment">// technical bounds that would disappear once associated_type_bounds stabilizes
     </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
@@ -720,23 +590,28 @@
 }
 
 <span class="doccomment">/// Generates the running claim params for the SuperNova proving system.
-</span><span class="kw">pub fn </span>public_params&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt;(
+</span><span class="kw">pub fn </span>public_params&lt;
+    <span class="lifetime">&#39;a</span>,
+    F: CurveCycleEquipped,
+    C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
+    M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;G1&lt;F&gt;, G2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
+&gt;(
     rc: usize,
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
-) -&gt; PublicParams&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
+) -&gt; PublicParams&lt;F, M&gt;
 <span class="kw">where
     </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_nivc(lang, rc));
-    <span class="kw">let </span>non_uniform_circuit = NIVCStep::blank(folding_config, Meta::Lurk);
-    <span class="kw">let </span>pp = SuperNovaPublicParams::new(<span class="kw-2">&amp;</span>non_uniform_circuit);
+    <span class="kw">let </span>non_uniform_circuit = M::blank(folding_config, Meta::Lurk);
+    <span class="kw">let </span>pp = SuperNovaPublicParams::&lt;F, M&gt;::new(<span class="kw-2">&amp;</span>non_uniform_circuit);
     PublicParams { pp }
 }
 
 <span class="doccomment">/// An enum representing the two types of proofs that can be generated and verified.
 </span><span class="attr">#[derive(Serialize, Deserialize)]
-</span><span class="kw">pub enum </span>Proof&lt;F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt;
+</span><span class="kw">pub enum </span>Proof&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;, M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
 <span class="kw">where
     </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
@@ -745,24 +620,29 @@
     </span>Recursive(Box&lt;RecursiveSNARK&lt;G1&lt;F&gt;, G2&lt;F&gt;&gt;&gt;),
     <span class="doccomment">/// A proof for the final step of a recursive computation
     </span><span class="comment">// Compressed(Box&lt;CompressedSNARK&lt;G1&lt;F&gt;, G2&lt;F&gt;, C1&lt;&#39;a, F, C&gt;, C2&lt;F&gt;, SS1&lt;F&gt;, SS2&lt;F&gt;&gt;&gt;),
-    </span>Compressed(PhantomData&lt;C&gt;),
+    </span>Compressed(PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(C, M)&gt;),
 }
 
-<span class="kw">impl</span>&lt;F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; Proof&lt;F, C&gt;
+<span class="kw">impl</span>&lt;
+        <span class="lifetime">&#39;a</span>,
+        F: CurveCycleEquipped,
+        C: Coprocessor&lt;F&gt;,
+        M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;G1&lt;F&gt;, G2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
+    &gt; Proof&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
 <span class="kw">where
     </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
 {
     <span class="doccomment">/// Proves the computation recursively, generating a recursive SNARK proof.
     </span><span class="attr">#[tracing::instrument(skip_all, name = <span class="string">&quot;supernova::prove_recursively&quot;</span>)]
-    </span><span class="kw">pub fn </span>prove_recursively&lt;<span class="lifetime">&#39;a</span>&gt;(
-        pp: <span class="kw-2">&amp;</span>PublicParams&lt;<span class="lifetime">&#39;_</span>, F, C&gt;,
-        _store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        nivc_steps: <span class="kw-2">&amp;</span>NIVCSteps&lt;<span class="lifetime">&#39;a</span>, G1&lt;F&gt;, C&gt;,
+    </span><span class="kw">pub fn </span>prove_recursively(
+        pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, M&gt;,
+        _store: <span class="kw-2">&amp;</span>M::Store,
+        nivc_steps: <span class="kw-2">&amp;</span>[M],
         z0: Vec&lt;F&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, usize), ProofError&gt; {
         <span class="comment">// Is this assertion strictly necessary?
-        </span><span class="macro">assert!</span>(nivc_steps.num_steps() != <span class="number">0</span>);
+        </span><span class="macro">assert!</span>(!nivc_steps.is_empty());
 
         <span class="kw">let </span><span class="kw-2">mut </span>recursive_snark_option: <span class="prelude-ty">Option</span>&lt;RecursiveSNARK&lt;G1&lt;F&gt;, G2&lt;F&gt;&gt;&gt; = <span class="prelude-val">None</span>;
 
@@ -771,7 +651,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>last_circuit_index = <span class="number">0</span>;
 
-        <span class="kw">for </span>(i, step) <span class="kw">in </span>nivc_steps.steps.iter().enumerate() {
+        <span class="kw">for </span>(i, step) <span class="kw">in </span>nivc_steps.iter().enumerate() {
             <span class="macro">info!</span>(<span class="string">&quot;prove_recursively, step {i}&quot;</span>);
             <span class="kw">let </span>augmented_circuit_index = step.circuit_index();
             <span class="kw">let </span>program_counter = F::from(augmented_circuit_index <span class="kw">as </span>u64);
@@ -822,7 +702,7 @@
     <span class="doccomment">/// Verifies the proof given the claim, which (for now), contains the public parameters.
     </span><span class="kw">pub fn </span>verify(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        pp: <span class="kw-2">&amp;</span>PublicParams&lt;<span class="lifetime">&#39;_</span>, F, C&gt;,
+        pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, M&gt;,
         circuit_index: usize,
         _num_steps: usize,
         z0: <span class="kw-2">&amp;</span>[F],
@@ -843,56 +723,36 @@
     }
 }
 
-<span class="comment">// /// Generates the public parameters for the Nova proving system.
-// pub fn public_params&lt;&#39;a, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt;(
-//     num_iters_per_step: usize,
-//     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
-// ) -&gt; PublicParams&lt;&#39;a, F, C&gt;
-// where
-//     &lt;&lt;G1&lt;F&gt; as Group&gt;::Scalar as ff::PrimeField&gt;::Repr: Abomonation,
-//     &lt;&lt;G2&lt;F&gt; as Group&gt;::Scalar as ff::PrimeField&gt;::Repr: Abomonation,
-// {
-//     let (circuit_primary, circuit_secondary) = C1::circuits(num_iters_per_step, lang);
-
-//     let commitment_size_hint1 = &lt;SS1&lt;F&gt; as RelaxedR1CSSNARKTrait&lt;G1&lt;F&gt;&gt;&gt;::commitment_key_floor();
-//     let commitment_size_hint2 = &lt;SS2&lt;F&gt; as RelaxedR1CSSNARKTrait&lt;G2&lt;F&gt;&gt;&gt;::commitment_key_floor();
-
-//     let pp = nova::PublicParams::setup(
-//         &amp;circuit_primary,
-//         &amp;circuit_secondary,
-//         Some(commitment_size_hint1),
-//         Some(commitment_size_hint2),
-//     );
-//     let (pk, vk) = CompressedSNARK::setup(&amp;pp).unwrap();
-//     PublicParams { pp, pk, vk }
-// }
-
-</span><span class="doccomment">/// A struct for the Nova prover that operates on field elements of type `F`.
+<span class="doccomment">/// A struct for the Nova prover that operates on field elements of type `F`.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>SuperNovaProver&lt;F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; {
+</span><span class="kw">pub struct </span>SuperNovaProver&lt;
+    <span class="lifetime">&#39;a</span>,
+    F: CurveCycleEquipped,
+    C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
+    M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
+&gt; {
     <span class="comment">// `reduction_count` specifies the number of small-step reductions are performed in each recursive step of the primary Lurk circuit.
     </span>reduction_count: usize,
     lang: Lang&lt;F, C&gt;,
+    _phantom: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>M&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; PublicParameters <span class="kw">for </span>PublicParams&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
+<span class="kw">impl</span>&lt;
+        <span class="lifetime">&#39;a</span>,
+        F: CurveCycleEquipped,
+        C: Coprocessor&lt;F&gt;,
+        M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt;,
+    &gt; Prover&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt; <span class="kw">for </span>SuperNovaProver&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
 <span class="kw">where
     </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: CurveCycleEquipped, C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>&gt; Prover&lt;<span class="lifetime">&#39;a</span>, F, C, MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;
-    <span class="kw">for </span>SuperNovaProver&lt;F, C&gt;
-<span class="kw">where
-    </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-    &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
-{
-    <span class="kw">type </span>PublicParams = PublicParams&lt;<span class="lifetime">&#39;a</span>, F, C&gt;;
+    <span class="kw">type </span>PublicParams = PublicParams&lt;F, M&gt;;
     <span class="kw">fn </span>new(reduction_count: usize, lang: Lang&lt;F, C&gt;) -&gt; <span class="self">Self </span>{
-        SuperNovaProver::&lt;F, C&gt; {
+        SuperNovaProver::&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt; {
             reduction_count,
             lang,
+            _phantom: PhantomData,
         }
     }
     <span class="kw">fn </span>reduction_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
@@ -904,27 +764,32 @@
     }
 }
 
-<span class="kw">impl</span>&lt;F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt; SuperNovaProver&lt;F, C&gt;
+<span class="kw">impl</span>&lt;
+        <span class="lifetime">&#39;a</span>,
+        F: CurveCycleEquipped,
+        C: Coprocessor&lt;F&gt;,
+        M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;G1&lt;F&gt;, G2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
+    &gt; SuperNovaProver&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;
 <span class="kw">where
     </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="doccomment">/// Proves the computation given the public parameters, frames, and store.
-    </span><span class="kw">pub fn </span>prove&lt;<span class="lifetime">&#39;a</span>&gt;(
+    </span><span class="kw">pub fn </span>prove(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
-        pp: <span class="kw-2">&amp;</span>PublicParams&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
-        frames: <span class="kw-2">&amp;</span>[Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, F, C&gt;],
-        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Store&lt;F&gt;,
+        pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, M&gt;,
+        frames: <span class="kw-2">&amp;</span>[M::EvalFrame],
+        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>M::Store,
         lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;F, C&gt;, Vec&lt;F&gt;, Vec&lt;F&gt;, usize, usize), ProofError&gt; {
-        <span class="kw">let </span>z0 = frames[<span class="number">0</span>].input.to_vector(store)<span class="question-mark">?</span>;
-        <span class="kw">let </span>zi = frames.last().unwrap().output.to_vector(store)<span class="question-mark">?</span>;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;, Vec&lt;F&gt;, Vec&lt;F&gt;, usize, usize), ProofError&gt; {
+        <span class="kw">let </span>z0 = M::io_to_scalar_vector(store, frames[<span class="number">0</span>].input()).map_err(|e| e.into())<span class="question-mark">?</span>;
+        <span class="kw">let </span>zi =
+            M::io_to_scalar_vector(store, frames.last().unwrap().output()).map_err(|e| e.into())<span class="question-mark">?</span>;
         <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_nivc(lang, <span class="self">self</span>.reduction_count));
 
-        <span class="kw">let </span>nivc_steps =
-            NIVCSteps::from_frames(<span class="self">self</span>.reduction_count(), frames, store, folding_config);
+        <span class="kw">let </span>nivc_steps = M::from_frames(<span class="self">self</span>.reduction_count(), frames, store, folding_config);
 
-        <span class="kw">let </span>num_steps = nivc_steps.num_steps();
+        <span class="kw">let </span>num_steps = nivc_steps.len();
         <span class="kw">let </span>(proof, last_running_claim) =
             Proof::prove_recursively(pp, store, <span class="kw-2">&amp;</span>nivc_steps, z0.clone())<span class="question-mark">?</span>;
 
@@ -932,16 +797,23 @@
     }
 
     <span class="doccomment">/// Evaluates and proves the computation given the public parameters, expression, environment, and store.
-    </span><span class="kw">pub fn </span>evaluate_and_prove&lt;<span class="lifetime">&#39;a</span>&gt;(
+    </span><span class="kw">pub fn </span>evaluate_and_prove(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
-        pp: <span class="kw-2">&amp;</span>PublicParams&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
-        expr: Ptr&lt;F&gt;,
-        env: Ptr&lt;F&gt;,
-        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Store&lt;F&gt;,
+        pp: <span class="kw-2">&amp;</span>PublicParams&lt;F, M&gt;,
+        expr: M::Ptr,
+        env: M::Ptr,
+        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>M::Store,
         limit: usize,
         lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;F, C&gt;, Vec&lt;F&gt;, Vec&lt;F&gt;, usize, usize), ProofError&gt; {
-        <span class="kw">let </span>frames = <span class="self">self</span>.get_evaluation_frames(expr, env, store, limit, lang.clone())<span class="question-mark">?</span>;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;, Vec&lt;F&gt;, Vec&lt;F&gt;, usize, usize), ProofError&gt; {
+        <span class="kw">let </span>frames = M::get_evaluation_frames(
+            |count| <span class="self">self</span>.needs_frame_padding(count),
+            expr,
+            env,
+            store,
+            limit,
+            <span class="kw-2">&amp;</span>lang,
+        )<span class="question-mark">?</span>;
         <span class="macro">info!</span>(<span class="string">&quot;got {} evaluation frames&quot;</span>, frames.len());
         <span class="self">self</span>.prove(pp, <span class="kw-2">&amp;</span>frames, store, lang)
     }
@@ -1014,53 +886,15 @@
     }
 }
 
-<span class="attr">#[derive(Clone, Debug)]
-</span><span class="doccomment">/// One step of an NIVC computation
-</span><span class="kw">pub struct </span>NIVCStep&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; {
-    multiframe: MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
-    next: <span class="prelude-ty">Option</span>&lt;MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt;&gt;,
-    _p: PhantomData&lt;F&gt;,
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; NIVCStep&lt;<span class="lifetime">&#39;a</span>, F, C&gt;
-<span class="kw">where
-    </span><span class="lifetime">&#39;b</span>: <span class="lifetime">&#39;a</span>,
-{
-    <span class="kw">fn </span>new(multiframe: MultiFrame&lt;<span class="lifetime">&#39;b</span>, F, C&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            multiframe,
-            next: <span class="prelude-val">None</span>,
-            _p: Default::default(),
-        }
-    }
-
-    <span class="kw">fn </span>blank(folding_config: Arc&lt;FoldingConfig&lt;F, C&gt;&gt;, meta: Meta&lt;F&gt;) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>multiframe = MultiFrame::blank(folding_config, meta);
-        <span class="self">Self</span>::new(multiframe)
-    }
-
-    <span class="kw">fn </span>lang(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;Lang&lt;F, C&gt;&gt; {
-        <span class="self">self</span>.multiframe.folding_config.lang().clone()
-    }
-
-    <span class="kw">fn </span>meta(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Meta&lt;F&gt; {
-        <span class="self">self</span>.multiframe.meta
-    }
-
-    <span class="kw">fn </span>folding_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;FoldingConfig&lt;F, C&gt;&gt; {
-        <span class="self">self</span>.multiframe.folding_config.clone()
-    }
-}
-
 <span class="doccomment">/// Implement `supernova::StepCircuit` for `MultiFrame`. This is the universal Lurk circuit that will be included as the
 /// first circuit (index 0) of every Lurk NIVC circuit set.
-</span><span class="kw">impl</span>&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; StepCircuit&lt;F&gt; <span class="kw">for </span>NIVCStep&lt;<span class="lifetime">&#39;_</span>, F, C&gt; {
+</span><span class="kw">impl</span>&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt; SuperStepCircuit&lt;F&gt; <span class="kw">for </span>MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, C&gt; {
     <span class="kw">fn </span>arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.multiframe.public_input_size() / <span class="number">2
+        <span class="self">self</span>.public_input_size() / <span class="number">2
     </span>}
 
     <span class="kw">fn </span>circuit_index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.multiframe.circuit_index()
+        <span class="self">self</span>.circuit_index()
     }
 
     <span class="kw">fn </span>synthesize&lt;CS&gt;(
@@ -1083,17 +917,14 @@
             }
         }
         <span class="kw">let </span>output = &lt;MultiFrame&lt;<span class="lifetime">&#39;_</span>, F, C&gt; <span class="kw">as </span>nova::traits::circuit::StepCircuit&lt;F&gt;&gt;::synthesize(
-            <span class="kw-2">&amp;</span><span class="self">self</span>.multiframe,
-            cs,
-            z,
+            <span class="self">self</span>, cs, z,
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>next_pc = AllocatedNum::alloc_infallible(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;next_pc&quot;</span>), || {
-            <span class="self">self</span>.next
-                .as_ref()
+            <span class="self">self</span>.next_pc
                 <span class="comment">// This is missing in the case of a final `MultiFrame`. The Lurk circuit is defined to always have index
                 // 0, so it is a good default in this case.
-                </span>.map_or(F::ZERO, |x| F::from(x.circuit_index() <span class="kw">as </span>u64))
+                </span>.map_or(F::ZERO, |x| F::from(x <span class="kw">as </span>u64))
         });
         <span class="macro">debug!</span>(<span class="string">&quot;synthesizing with next_pc: {:?}&quot;</span>, next_pc.get_value());
 
@@ -1102,91 +933,8 @@
 }
 
 <span class="doccomment">/// All steps of an NIVC computation
-</span><span class="kw">pub struct </span>NIVCSteps&lt;<span class="lifetime">&#39;a</span>, G: Group, C: Coprocessor&lt;G::Scalar&gt;&gt;
-<span class="kw">where
-    </span>G::Scalar: LurkField,
-{
-    steps: Vec&lt;NIVCStep&lt;<span class="lifetime">&#39;a</span>, G::Scalar, C&gt;&gt;,
-}
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, G1, F, C1&gt; Index&lt;usize&gt; <span class="kw">for </span>NIVCSteps&lt;<span class="lifetime">&#39;a</span>, G1, C1&gt;
-<span class="kw">where
-    </span>C1: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
-    G1: Group&lt;Scalar = F&gt; + <span class="lifetime">&#39;a</span>,
-    F: LurkField,
-{
-    <span class="kw">type </span>Output = NIVCStep&lt;<span class="lifetime">&#39;a</span>, G1::Scalar, C1&gt;;
-
-    <span class="kw">fn </span>index(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; <span class="kw-2">&amp;</span>&lt;<span class="self">Self </span><span class="kw">as </span>std::ops::Index&lt;usize&gt;&gt;::Output {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.steps[idx]
-    }
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, G1, F, C1&gt; NIVCSteps&lt;<span class="lifetime">&#39;a</span>, G1, C1&gt;
-<span class="kw">where
-    </span>C1: Coprocessor&lt;F&gt;,
-    G1: Group&lt;Scalar = F&gt;,
-    F: LurkField,
-{
-    <span class="doccomment">/// Number of NIVC steps contained.
-    </span><span class="kw">pub fn </span>num_steps(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.steps.len()
-    }
-    <span class="doccomment">/// Separate frames according to NIVC circuit requirements.
-    </span><span class="kw">pub fn </span>from_frames(
-        count: usize,
-        frames: <span class="kw-2">&amp;</span>[Frame&lt;IO&lt;F&gt;, Witness&lt;F&gt;, F, C1&gt;],
-        store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Store&lt;F&gt;,
-        folding_config: Arc&lt;FoldingConfig&lt;F, C1&gt;&gt;,
-    ) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span><span class="kw-2">mut </span>steps = Vec::new();
-        <span class="kw">let </span><span class="kw-2">mut </span>last_meta = frames[<span class="number">0</span>].meta;
-        <span class="kw">let </span><span class="kw-2">mut </span>consecutive_frames = Vec::new();
-
-        <span class="kw">for </span>frame <span class="kw">in </span>frames {
-            <span class="kw">if </span>frame.meta == last_meta {
-                <span class="kw">let </span>padding_frame = frame.clone();
-                consecutive_frames.push(padding_frame);
-            } <span class="kw">else </span>{
-                <span class="kw">if </span>last_meta == Meta::Lurk {
-                    consecutive_frames.push(frame.clone());
-                }
-                <span class="kw">let </span>new_steps = MultiFrame::from_frames(
-                    <span class="kw">if </span>last_meta == Meta::Lurk { count } <span class="kw">else </span>{ <span class="number">1 </span>},
-                    <span class="kw-2">&amp;</span>consecutive_frames,
-                    store,
-                    folding_config.clone(),
-                )
-                .into_iter()
-                .map(NIVCStep::&lt;<span class="lifetime">&#39;_</span>, F, C1&gt;::new);
-
-                steps.extend(new_steps);
-                consecutive_frames.truncate(<span class="number">0</span>);
-                consecutive_frames.push(frame.clone());
-                last_meta = frame.meta;
-            }
-        }
-
-        <span class="comment">// TODO: refactor
-        </span><span class="kw">if </span>!consecutive_frames.is_empty() {
-            <span class="kw">let </span>new_steps =
-                MultiFrame::from_frames(count, <span class="kw-2">&amp;</span>consecutive_frames, store, folding_config)
-                    .into_iter()
-                    .map(NIVCStep::&lt;<span class="lifetime">&#39;_</span>, F, C1&gt;::new);
-
-            steps.extend(new_steps);
-        }
-
-        <span class="kw">if </span>!steps.is_empty() {
-            <span class="kw">let </span>penultimate = steps.len() - <span class="number">1</span>;
-            <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..(penultimate - <span class="number">1</span>) {
-                steps[i].next = <span class="prelude-val">Some</span>(steps[i + <span class="number">1</span>].multiframe.clone());
-            }
-        }
-        <span class="self">Self </span>{ steps }
-    }
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F, C1&gt; NonUniformCircuit&lt;G1&lt;F&gt;, G2&lt;F&gt;, NIVCStep&lt;<span class="lifetime">&#39;a</span>, F, C1&gt;, C2&lt;F&gt;&gt; <span class="kw">for </span>NIVCStep&lt;<span class="lifetime">&#39;a</span>, F, C1&gt;
+</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F, C1&gt; NonUniformCircuit&lt;G1&lt;F&gt;, G2&lt;F&gt;, MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, C1&gt;, C2&lt;F&gt;&gt;
+    <span class="kw">for </span>MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, C1&gt;
 <span class="kw">where
     </span>F: CurveCycleEquipped + LurkField,
     C1: Coprocessor&lt;F&gt;,
@@ -1194,27 +942,31 @@
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">fn </span>num_circuits(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="macro">assert!</span>(<span class="self">self</span>.meta().is_lurk());
-        <span class="self">self</span>.lang().coprocessor_count() + <span class="number">1
+        <span class="macro">assert!</span>(<span class="self">self</span>.meta.is_lurk());
+        <span class="self">self</span>.folding_config.lang().coprocessor_count() + <span class="number">1
     </span>}
 
     <span class="kw">fn </span>primary_circuit(<span class="kw-2">&amp;</span><span class="self">self</span>, circuit_index: usize) -&gt; <span class="self">Self </span>{
         <span class="macro">debug!</span>(
             <span class="string">&quot;getting primary_circuit for index {circuit_index} and Meta: {:?}&quot;</span>,
-            <span class="self">self</span>.meta()
+            <span class="self">self</span>.meta
         );
         <span class="kw">if </span>circuit_index == <span class="number">0 </span>{
             <span class="macro">debug!</span>(<span class="string">&quot;using Lurk circuit&quot;</span>);
             <span class="kw">return </span><span class="self">self</span>.clone();
         };
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(z_ptr) = <span class="self">self</span>.lang().get_coprocessor_z_ptr(circuit_index - <span class="number">1</span>) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(z_ptr) = <span class="self">self
+            </span>.folding_config
+            .lang()
+            .get_coprocessor_z_ptr(circuit_index - <span class="number">1</span>)
+        {
             <span class="kw">let </span>meta = Meta::Coprocessor(<span class="kw-2">*</span>z_ptr);
             <span class="macro">debug!</span>(
                 <span class="string">&quot;using coprocessor {} with meta: {:?}&quot;</span>,
                 circuit_index - <span class="number">1</span>,
                 meta
             );
-            <span class="self">Self</span>::blank(<span class="self">self</span>.folding_config(), meta)
+            <span class="self">Self</span>::blank(<span class="self">self</span>.folding_config.clone(), meta)
         } <span class="kw">else </span>{
             <span class="macro">debug!</span>(<span class="string">&quot;unsupported primary circuit index: {circuit_index}&quot;</span>);
             <span class="macro">panic!</span>(<span class="string">&quot;unsupported primary circuit index&quot;</span>)
@@ -1242,7 +994,7 @@
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_nivc(lang, <span class="number">2</span>));
-    <span class="kw">let </span>circuit = NIVCStep::blank(folding_config, Meta::Lurk);
+    <span class="kw">let </span>circuit = MultiFrame::blank(folding_config, Meta::Lurk);
     <span class="kw">let </span>num_circuits = circuit.num_circuits();
     <span class="kw">let </span>circuit = circuit.primary_circuit(circuit_index);
     F::from(rc <span class="kw">as </span>u64) * supernova::circuit_digest::&lt;F::G1, F::G2, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span>circuit, num_circuits)
