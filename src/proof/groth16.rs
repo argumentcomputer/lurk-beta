@@ -25,7 +25,7 @@ use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
 use crate::eval::{lang::Lang, Meta, IO};
 use crate::field::LurkField;
-use crate::proof::{supernova::FoldingConfig, Provable, Prover, PublicParameters};
+use crate::proof::{supernova::FoldingConfig, Provable, Prover};
 use crate::ptr::Ptr;
 use crate::store::Store;
 
@@ -266,8 +266,6 @@ pub struct Groth16Prover<
 /// Public parameters for the Groth16 proving system.
 /// implements the crate::PublicParameters trait.
 pub struct PublicParams<E: Engine + MultiMillerLoop>(pub groth16::Parameters<E>);
-
-impl PublicParameters for PublicParams<Bls12> {}
 
 impl<'a, C: Coprocessor<Scalar>, M: MultiFrameTrait<'a, Scalar, C>> Prover<'a, Scalar, C, M>
     for Groth16Prover<'a, Bls12, C, Scalar, M>

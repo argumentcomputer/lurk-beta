@@ -71,6 +71,7 @@ pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
     pub count: usize,
     pub folding_config: Arc<FoldingConfig<F, C>>,
     pub meta: Meta<F>,
+    pub next_pc: Option<usize>,
 }
 
 impl<F: LurkField> CEKState<Ptr<F>, ContPtr<F>> for IO<F> {
@@ -305,6 +306,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
             input: None,
             output: None,
             frames: None,
+            next_pc: None,
             cached_witness: None,
             count,
             folding_config,
@@ -317,6 +319,18 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     }
 
     pub fn from_frames(
+        count: usize,
+        frames: &[Frame<IO<F>, Witness<F>, F, C>],
+        store: &'a Store<F>,
+        folding_config: Arc<FoldingConfig<F, C>>,
+    ) -> Vec<Self> {
+        match &*folding_config {
+            FoldingConfig::IVC(..) => Self::from_frames_ivc(count, frames, store, folding_config),
+            FoldingConfig::NIVC(..) => Self::from_frames_nivc(count, frames, store, folding_config),
+        }
+    }
+
+    fn from_frames_ivc(
         // we need this count, even though folding_config contains reduction_count
         // because it might be overridden in the case of a coprocoessor, which should have rc=1.
         // This is not ideal and might not *actually* be needed.
@@ -359,6 +373,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                 input: Some(chunk[0].input),
                 output: Some(output),
                 frames: Some(inner_frames),
+                next_pc: None,
                 cached_witness: None,
                 count,
                 folding_config: folding_config.clone(),
@@ -369,6 +384,57 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         }
 
         multi_frames
+    }
+
+    fn from_frames_nivc(
+        count: usize,
+        frames: &[Frame<IO<F>, Witness<F>, F, C>],
+        store: &'a Store<F>,
+        folding_config: Arc<FoldingConfig<F, C>>,
+    ) -> Vec<Self> {
+        let mut steps = Vec::new();
+        let mut last_meta = frames[0].meta;
+        let mut consecutive_frames = Vec::new();
+
+        for frame in frames {
+            if frame.meta == last_meta {
+                let padding_frame = frame.clone();
+                consecutive_frames.push(padding_frame);
+            } else {
+                if last_meta == Meta::Lurk {
+                    consecutive_frames.push(frame.clone());
+                }
+                let new_steps = MultiFrame::from_frames_ivc(
+                    if last_meta == Meta::Lurk { count } else { 1 },
+                    &consecutive_frames,
+                    store,
+                    folding_config.clone(),
+                )
+                .into_iter();
+
+                steps.extend(new_steps);
+                consecutive_frames.truncate(0);
+                consecutive_frames.push(frame.clone());
+                last_meta = frame.meta;
+            }
+        }
+
+        // TODO: refactor
+        if !consecutive_frames.is_empty() {
+            let new_steps =
+                MultiFrame::from_frames_ivc(count, &consecutive_frames, store, folding_config)
+                    .into_iter();
+
+            steps.extend(new_steps);
+        }
+
+        if !steps.is_empty() {
+            let penultimate = steps.len() - 1;
+            for i in 0..(penultimate - 1) {
+                steps[i].next_pc = Some(steps[i + 1].circuit_index());
+            }
+        }
+        steps
     }
 
     /// Make a dummy `MultiFrame`, duplicating `self`'s final `CircuitFrame`.
@@ -393,6 +459,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
             input,
             output,
             frames,
+            next_pc: None,
             cached_witness: None,
             count,
             folding_config,

@@ -28,7 +28,8 @@ use crate::coprocessor::Coprocessor;
 use crate::error::ProofError;
 use crate::eval::{lang::Lang, Meta};
 use crate::field::LurkField;
-use crate::proof::{supernova::FoldingConfig, MultiFrameTrait, Prover, PublicParameters};
+use crate::proof::{supernova::FoldingConfig, MultiFrameTrait, Prover};
+use crate::store::Store;
 
 use super::FrameLike;
 
@@ -253,13 +254,6 @@ pub struct NovaProver<
     reduction_count: usize,
     lang: Lang<F, C>,
     _phantom: PhantomData<&'a M>,
-}
-
-impl<F: CurveCycleEquipped, C1: StepCircuit<F>> PublicParameters for PublicParams<F, C1>
-where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
 }
 
 impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>> Prover<'a, F, C, M>
@@ -527,7 +521,7 @@ use crate::circuit::{
     },
     CircuitFrame, MultiFrame,
 };
-use crate::store::Store;
+
 impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C> {
     fn arity(&self) -> usize {
         6

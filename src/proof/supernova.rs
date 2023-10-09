@@ -10,7 +10,7 @@ use nova::{
     self,
     supernova::{self, error::SuperNovaError, CircuitDigests, NonUniformCircuit, RecursiveSNARK},
     traits::{
-        circuit_supernova::{StepCircuit, TrivialSecondaryCircuit},
+        circuit_supernova::{StepCircuit as SuperStepCircuit, TrivialSecondaryCircuit},
         Group,
     },
 };
@@ -24,19 +24,14 @@ use crate::circuit::MultiFrame;
 use crate::coprocessor::Coprocessor;
 
 use crate::error::ProofError;
-use crate::eval::{lang::Lang, Frame, Meta, Witness, IO};
+use crate::eval::{lang::Lang, Meta};
 use crate::field::LurkField;
 use crate::proof::nova::{CurveCycleEquipped, G1, G2};
-use crate::proof::{Provable, Prover, PublicParameters};
-use crate::ptr::Ptr;
-use crate::store::Store;
+use crate::proof::{MultiFrameTrait, Provable, Prover};
 
 use super::nova::NovaCircuitShape;
+use super::FrameLike;
 
-/// Type alias for a NIVCStep with S1 field elements.
-/// This uses the <<F as CurveCycleEquipped>::G1 as Group>::Scalar type for the G1 scalar field elements
-/// to reflect it this should not be used outside the Nova context
-pub type C1<'a, F, C> = NIVCStep<'a, F, C>;
 /// Type alias for a Trivial Test Circuit with G2 scalar field elements.
 pub type C2<F> = TrivialSecondaryCircuit<<G2<F> as Group>::Scalar>;
 
@@ -44,24 +39,23 @@ pub type C2<F> = TrivialSecondaryCircuit<<G2<F> as Group>::Scalar>;
 pub type SuperNovaAuxParams<F> = supernova::AuxParams<G1<F>, G2<F>>;
 
 /// Type alias for SuperNova Public Parameters with the curve cycle types defined above.
-pub type SuperNovaPublicParams<'a, F, C> =
-    supernova::PublicParams<G1<F>, G2<F>, C1<'a, F, C>, C2<F>>;
+pub type SuperNovaPublicParams<F, C1> = supernova::PublicParams<G1<F>, G2<F>, C1, C2<F>>;
 
 /// A struct that contains public parameters for the SuperNova proving system.
-pub struct PublicParams<'a, F: CurveCycleEquipped, C: Coprocessor<F>>
+pub struct PublicParams<F: CurveCycleEquipped, SC: SuperStepCircuit<F>>
 where
     // technical bounds that would disappear once associated_type_bounds stabilizes
     <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
 {
     /// Public params for SuperNova.
-    pub pp: SuperNovaPublicParams<'a, F, C>,
+    pub pp: SuperNovaPublicParams<F, SC>,
     // SuperNova does not yet have a `CompressedSNARK`.
-    // pk: ProverKey<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>,
-    // vk: VerifierKey<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>,
+    // pk: ProverKey<G1<F>, G2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
+    // vk: VerifierKey<G1<F>, G2<F>, SC, C2<F>, SS1<F>, SS2<F>>,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> Index<usize> for PublicParams<'a, F, C>
+impl<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> Index<usize> for PublicParams<F, SC>
 where
     // technical bounds that would disappear once associated_type_bounds stabilizes
     <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
@@ -74,7 +68,7 @@ where
     }
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> PublicParams<'a, F, C>
+impl<F: CurveCycleEquipped, SC: SuperStepCircuit<F>> PublicParams<F, SC>
 where
     // technical bounds that would disappear once associated_type_bounds stabilizes
     <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
@@ -87,23 +81,28 @@ where
 }
 
 /// Generates the running claim params for the SuperNova proving system.
-pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F>>(
+pub fn public_params<
+    'a,
+    F: CurveCycleEquipped,
+    C: Coprocessor<F> + 'a,
+    M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
+>(
     rc: usize,
     lang: Arc<Lang<F, C>>,
-) -> PublicParams<'a, F, C>
+) -> PublicParams<F, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, rc));
-    let non_uniform_circuit = NIVCStep::blank(folding_config, Meta::Lurk);
-    let pp = SuperNovaPublicParams::new(&non_uniform_circuit);
+    let non_uniform_circuit = M::blank(folding_config, Meta::Lurk);
+    let pp = SuperNovaPublicParams::<F, M>::new(&non_uniform_circuit);
     PublicParams { pp }
 }
 
 /// An enum representing the two types of proofs that can be generated and verified.
 #[derive(Serialize, Deserialize)]
-pub enum Proof<F: CurveCycleEquipped, C: Coprocessor<F>>
+pub enum Proof<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
@@ -112,24 +111,29 @@ where
     Recursive(Box<RecursiveSNARK<G1<F>, G2<F>>>),
     /// A proof for the final step of a recursive computation
     // Compressed(Box<CompressedSNARK<G1<F>, G2<F>, C1<'a, F, C>, C2<F>, SS1<F>, SS2<F>>>),
-    Compressed(PhantomData<C>),
+    Compressed(PhantomData<&'a (C, M)>),
 }
 
-impl<F: CurveCycleEquipped, C: Coprocessor<F>> Proof<F, C>
+impl<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F>,
+        M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
+    > Proof<'a, F, C, M>
 where
     <<G1<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
 {
     /// Proves the computation recursively, generating a recursive SNARK proof.
     #[tracing::instrument(skip_all, name = "supernova::prove_recursively")]
-    pub fn prove_recursively<'a>(
-        pp: &PublicParams<'_, F, C>,
-        _store: &Store<F>,
-        nivc_steps: &NIVCSteps<'a, G1<F>, C>,
+    pub fn prove_recursively(
+        pp: &PublicParams<F, M>,
+        _store: &M::Store,
+        nivc_steps: &[M],
         z0: Vec<F>,
     ) -> Result<(Self, usize), ProofError> {
         // Is this assertion strictly necessary?
-        assert!(nivc_steps.num_steps() != 0);
+        assert!(!nivc_steps.is_empty());
 
         let mut recursive_snark_option: Option<RecursiveSNARK<G1<F>, G2<F>>> = None;
 
@@ -138,7 +142,7 @@ where
 
         let mut last_circuit_index = 0;
 
-        for (i, step) in nivc_steps.steps.iter().enumerate() {
+        for (i, step) in nivc_steps.iter().enumerate() {
             info!("prove_recursively, step {i}");
             let augmented_circuit_index = step.circuit_index();
             let program_counter = F::from(augmented_circuit_index as u64);
@@ -189,7 +193,7 @@ where
     /// Verifies the proof given the claim, which (for now), contains the public parameters.
     pub fn verify(
         &self,
-        pp: &PublicParams<'_, F, C>,
+        pp: &PublicParams<F, M>,
         circuit_index: usize,
         _num_steps: usize,
         z0: &[F],
@@ -210,56 +214,36 @@ where
     }
 }
 
-// /// Generates the public parameters for the Nova proving system.
-// pub fn public_params<'a, F: CurveCycleEquipped, C: Coprocessor<F>>(
-//     num_iters_per_step: usize,
-//     lang: Arc<Lang<F, C>>,
-// ) -> PublicParams<'a, F, C>
-// where
-//     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-//     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-// {
-//     let (circuit_primary, circuit_secondary) = C1::circuits(num_iters_per_step, lang);
-
-//     let commitment_size_hint1 = <SS1<F> as RelaxedR1CSSNARKTrait<G1<F>>>::commitment_key_floor();
-//     let commitment_size_hint2 = <SS2<F> as RelaxedR1CSSNARKTrait<G2<F>>>::commitment_key_floor();
-
-//     let pp = nova::PublicParams::setup(
-//         &circuit_primary,
-//         &circuit_secondary,
-//         Some(commitment_size_hint1),
-//         Some(commitment_size_hint2),
-//     );
-//     let (pk, vk) = CompressedSNARK::setup(&pp).unwrap();
-//     PublicParams { pp, pk, vk }
-// }
-
 /// A struct for the Nova prover that operates on field elements of type `F`.
 #[derive(Debug)]
-pub struct SuperNovaProver<F: CurveCycleEquipped, C: Coprocessor<F>> {
+pub struct SuperNovaProver<
+    'a,
+    F: CurveCycleEquipped,
+    C: Coprocessor<F> + 'a,
+    M: MultiFrameTrait<'a, F, C>,
+> {
     // `reduction_count` specifies the number of small-step reductions are performed in each recursive step of the primary Lurk circuit.
     reduction_count: usize,
     lang: Lang<F, C>,
+    _phantom: PhantomData<&'a M>,
 }
 
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>> PublicParameters for PublicParams<'a, F, C>
+impl<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F>,
+        M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F>,
+    > Prover<'a, F, C, M> for SuperNovaProver<'a, F, C, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-}
-
-impl<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a> Prover<'a, F, C, MultiFrame<'a, F, C>>
-    for SuperNovaProver<F, C>
-where
-    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
-{
-    type PublicParams = PublicParams<'a, F, C>;
+    type PublicParams = PublicParams<F, M>;
     fn new(reduction_count: usize, lang: Lang<F, C>) -> Self {
-        SuperNovaProver::<F, C> {
+        SuperNovaProver::<'a, F, C, M> {
             reduction_count,
             lang,
+            _phantom: PhantomData,
         }
     }
     fn reduction_count(&self) -> usize {
@@ -271,27 +255,32 @@ where
     }
 }
 
-impl<F: CurveCycleEquipped, C: Coprocessor<F>> SuperNovaProver<F, C>
+impl<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F>,
+        M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
+    > SuperNovaProver<'a, F, C, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     /// Proves the computation given the public parameters, frames, and store.
-    pub fn prove<'a>(
+    pub fn prove(
         &'a self,
-        pp: &PublicParams<'a, F, C>,
-        frames: &[Frame<IO<F>, Witness<F>, F, C>],
-        store: &'a mut Store<F>,
+        pp: &PublicParams<F, M>,
+        frames: &[M::EvalFrame],
+        store: &'a M::Store,
         lang: Arc<Lang<F, C>>,
-    ) -> Result<(Proof<F, C>, Vec<F>, Vec<F>, usize, usize), ProofError> {
-        let z0 = frames[0].input.to_vector(store)?;
-        let zi = frames.last().unwrap().output.to_vector(store)?;
+    ) -> Result<(Proof<'a, F, C, M>, Vec<F>, Vec<F>, usize, usize), ProofError> {
+        let z0 = M::io_to_scalar_vector(store, frames[0].input()).map_err(|e| e.into())?;
+        let zi =
+            M::io_to_scalar_vector(store, frames.last().unwrap().output()).map_err(|e| e.into())?;
         let folding_config = Arc::new(FoldingConfig::new_nivc(lang, self.reduction_count));
 
-        let nivc_steps =
-            NIVCSteps::from_frames(self.reduction_count(), frames, store, folding_config);
+        let nivc_steps = M::from_frames(self.reduction_count(), frames, store, folding_config);
 
-        let num_steps = nivc_steps.num_steps();
+        let num_steps = nivc_steps.len();
         let (proof, last_running_claim) =
             Proof::prove_recursively(pp, store, &nivc_steps, z0.clone())?;
 
@@ -299,16 +288,23 @@ where
     }
 
     /// Evaluates and proves the computation given the public parameters, expression, environment, and store.
-    pub fn evaluate_and_prove<'a>(
+    pub fn evaluate_and_prove(
         &'a self,
-        pp: &PublicParams<'a, F, C>,
-        expr: Ptr<F>,
-        env: Ptr<F>,
-        store: &'a mut Store<F>,
+        pp: &PublicParams<F, M>,
+        expr: M::Ptr,
+        env: M::Ptr,
+        store: &'a M::Store,
         limit: usize,
         lang: Arc<Lang<F, C>>,
-    ) -> Result<(Proof<F, C>, Vec<F>, Vec<F>, usize, usize), ProofError> {
-        let frames = self.get_evaluation_frames(expr, env, store, limit, lang.clone())?;
+    ) -> Result<(Proof<'a, F, C, M>, Vec<F>, Vec<F>, usize, usize), ProofError> {
+        let frames = M::get_evaluation_frames(
+            |count| self.needs_frame_padding(count),
+            expr,
+            env,
+            store,
+            limit,
+            &lang,
+        )?;
         info!("got {} evaluation frames", frames.len());
         self.prove(pp, &frames, store, lang)
     }
@@ -381,53 +377,15 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     }
 }
 
-#[derive(Clone, Debug)]
-/// One step of an NIVC computation
-pub struct NIVCStep<'a, F: LurkField, C: Coprocessor<F>> {
-    multiframe: MultiFrame<'a, F, C>,
-    next: Option<MultiFrame<'a, F, C>>,
-    _p: PhantomData<F>,
-}
-
-impl<'a, 'b, F: LurkField, C: Coprocessor<F>> NIVCStep<'a, F, C>
-where
-    'b: 'a,
-{
-    fn new(multiframe: MultiFrame<'b, F, C>) -> Self {
-        Self {
-            multiframe,
-            next: None,
-            _p: Default::default(),
-        }
-    }
-
-    fn blank(folding_config: Arc<FoldingConfig<F, C>>, meta: Meta<F>) -> Self {
-        let multiframe = MultiFrame::blank(folding_config, meta);
-        Self::new(multiframe)
-    }
-
-    fn lang(&self) -> Arc<Lang<F, C>> {
-        self.multiframe.folding_config.lang().clone()
-    }
-
-    fn meta(&self) -> Meta<F> {
-        self.multiframe.meta
-    }
-
-    fn folding_config(&self) -> Arc<FoldingConfig<F, C>> {
-        self.multiframe.folding_config.clone()
-    }
-}
-
 /// Implement `supernova::StepCircuit` for `MultiFrame`. This is the universal Lurk circuit that will be included as the
 /// first circuit (index 0) of every Lurk NIVC circuit set.
-impl<F: LurkField, C: Coprocessor<F>> StepCircuit<F> for NIVCStep<'_, F, C> {
+impl<F: LurkField, C: Coprocessor<F>> SuperStepCircuit<F> for MultiFrame<'_, F, C> {
     fn arity(&self) -> usize {
-        self.multiframe.public_input_size() / 2
+        self.public_input_size() / 2
     }
 
     fn circuit_index(&self) -> usize {
-        self.multiframe.circuit_index()
+        self.circuit_index()
     }
 
     fn synthesize<CS>(
@@ -450,17 +408,14 @@ impl<F: LurkField, C: Coprocessor<F>> StepCircuit<F> for NIVCStep<'_, F, C> {
             }
         }
         let output = <MultiFrame<'_, F, C> as nova::traits::circuit::StepCircuit<F>>::synthesize(
-            &self.multiframe,
-            cs,
-            z,
+            self, cs, z,
         )?;
 
         let next_pc = AllocatedNum::alloc_infallible(&mut cs.namespace(|| "next_pc"), || {
-            self.next
-                .as_ref()
+            self.next_pc
                 // This is missing in the case of a final `MultiFrame`. The Lurk circuit is defined to always have index
                 // 0, so it is a good default in this case.
-                .map_or(F::ZERO, |x| F::from(x.circuit_index() as u64))
+                .map_or(F::ZERO, |x| F::from(x as u64))
         });
         debug!("synthesizing with next_pc: {:?}", next_pc.get_value());
 
@@ -469,91 +424,8 @@ impl<F: LurkField, C: Coprocessor<F>> StepCircuit<F> for NIVCStep<'_, F, C> {
 }
 
 /// All steps of an NIVC computation
-pub struct NIVCSteps<'a, G: Group, C: Coprocessor<G::Scalar>>
-where
-    G::Scalar: LurkField,
-{
-    steps: Vec<NIVCStep<'a, G::Scalar, C>>,
-}
-impl<'a, G1, F, C1> Index<usize> for NIVCSteps<'a, G1, C1>
-where
-    C1: Coprocessor<F> + 'a,
-    G1: Group<Scalar = F> + 'a,
-    F: LurkField,
-{
-    type Output = NIVCStep<'a, G1::Scalar, C1>;
-
-    fn index(&self, idx: usize) -> &<Self as std::ops::Index<usize>>::Output {
-        &self.steps[idx]
-    }
-}
-
-impl<'a, G1, F, C1> NIVCSteps<'a, G1, C1>
-where
-    C1: Coprocessor<F>,
-    G1: Group<Scalar = F>,
-    F: LurkField,
-{
-    /// Number of NIVC steps contained.
-    pub fn num_steps(&self) -> usize {
-        self.steps.len()
-    }
-    /// Separate frames according to NIVC circuit requirements.
-    pub fn from_frames(
-        count: usize,
-        frames: &[Frame<IO<F>, Witness<F>, F, C1>],
-        store: &'a Store<F>,
-        folding_config: Arc<FoldingConfig<F, C1>>,
-    ) -> Self {
-        let mut steps = Vec::new();
-        let mut last_meta = frames[0].meta;
-        let mut consecutive_frames = Vec::new();
-
-        for frame in frames {
-            if frame.meta == last_meta {
-                let padding_frame = frame.clone();
-                consecutive_frames.push(padding_frame);
-            } else {
-                if last_meta == Meta::Lurk {
-                    consecutive_frames.push(frame.clone());
-                }
-                let new_steps = MultiFrame::from_frames(
-                    if last_meta == Meta::Lurk { count } else { 1 },
-                    &consecutive_frames,
-                    store,
-                    folding_config.clone(),
-                )
-                .into_iter()
-                .map(NIVCStep::<'_, F, C1>::new);
-
-                steps.extend(new_steps);
-                consecutive_frames.truncate(0);
-                consecutive_frames.push(frame.clone());
-                last_meta = frame.meta;
-            }
-        }
-
-        // TODO: refactor
-        if !consecutive_frames.is_empty() {
-            let new_steps =
-                MultiFrame::from_frames(count, &consecutive_frames, store, folding_config)
-                    .into_iter()
-                    .map(NIVCStep::<'_, F, C1>::new);
-
-            steps.extend(new_steps);
-        }
-
-        if !steps.is_empty() {
-            let penultimate = steps.len() - 1;
-            for i in 0..(penultimate - 1) {
-                steps[i].next = Some(steps[i + 1].multiframe.clone());
-            }
-        }
-        Self { steps }
-    }
-}
-
-impl<'a, F, C1> NonUniformCircuit<G1<F>, G2<F>, NIVCStep<'a, F, C1>, C2<F>> for NIVCStep<'a, F, C1>
+impl<'a, F, C1> NonUniformCircuit<G1<F>, G2<F>, MultiFrame<'a, F, C1>, C2<F>>
+    for MultiFrame<'a, F, C1>
 where
     F: CurveCycleEquipped + LurkField,
     C1: Coprocessor<F>,
@@ -561,27 +433,31 @@ where
     <<G2<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
 {
     fn num_circuits(&self) -> usize {
-        assert!(self.meta().is_lurk());
-        self.lang().coprocessor_count() + 1
+        assert!(self.meta.is_lurk());
+        self.folding_config.lang().coprocessor_count() + 1
     }
 
     fn primary_circuit(&self, circuit_index: usize) -> Self {
         debug!(
             "getting primary_circuit for index {circuit_index} and Meta: {:?}",
-            self.meta()
+            self.meta
         );
         if circuit_index == 0 {
             debug!("using Lurk circuit");
             return self.clone();
         };
-        if let Some(z_ptr) = self.lang().get_coprocessor_z_ptr(circuit_index - 1) {
+        if let Some(z_ptr) = self
+            .folding_config
+            .lang()
+            .get_coprocessor_z_ptr(circuit_index - 1)
+        {
             let meta = Meta::Coprocessor(*z_ptr);
             debug!(
                 "using coprocessor {} with meta: {:?}",
                 circuit_index - 1,
                 meta
             );
-            Self::blank(self.folding_config(), meta)
+            Self::blank(self.folding_config.clone(), meta)
         } else {
             debug!("unsupported primary circuit index: {circuit_index}");
             panic!("unsupported primary circuit index")
@@ -609,7 +485,7 @@ where
     <<G2<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
 {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, 2));
-    let circuit = NIVCStep::blank(folding_config, Meta::Lurk);
+    let circuit = MultiFrame::blank(folding_config, Meta::Lurk);
     let num_circuits = circuit.num_circuits();
     let circuit = circuit.primary_circuit(circuit_index);
     F::from(rc as u64) * supernova::circuit_digest::<F::G1, F::G2, _>(&circuit, num_circuits)
