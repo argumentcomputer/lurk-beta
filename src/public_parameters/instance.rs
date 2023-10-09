@@ -123,10 +123,7 @@ where
     pub fn new(rc: usize, lang: Arc<Lang<F, C>>, abomonated: bool, kind: Kind) -> Self {
         let cache_key = match kind {
             Kind::NovaPublicParams => nova::circuit_cache_key(rc, lang.clone()),
-            Kind::SuperNovaAuxParams => {
-                let cache_keys = supernova::circuit_cache_keys(rc, lang.clone());
-                cache_keys.digest()
-            }
+            Kind::SuperNovaAuxParams => supernova::circuit_cache_keys(rc, lang.clone()).digest(),
             Kind::SuperNovaCircuitParams(circuit_index) => {
                 supernova::circuit_cache_key(rc, lang.clone(), circuit_index)
             }

@@ -200,12 +200,17 @@ where
 ///
 /// Note: For now, we use ad-hoc circuit cache keys.
 /// See: [crate::public_parameters::instance]
-pub fn circuit_cache_key<F: CurveCycleEquipped, C: Coprocessor<F>>(
+pub fn circuit_cache_key<
+    'a,
+    F: CurveCycleEquipped,
+    C: Coprocessor<F> + 'a,
+    M: MultiFrameTrait<'a, F, C>,
+>(
     rc: usize,
     lang: Arc<Lang<F, C>>,
 ) -> F {
     let folding_config = Arc::new(FoldingConfig::new_ivc(lang, 2));
-    let circuit = MultiFrame::blank(folding_config, Meta::Lurk);
+    let circuit = M::blank(folding_config, Meta::Lurk, 0);
     F::from(rc as u64) * nova::circuit_digest::<F::G1, F::G2, _>(&circuit)
 }
 

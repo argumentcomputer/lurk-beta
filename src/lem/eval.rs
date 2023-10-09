@@ -232,7 +232,7 @@ pub fn make_eval_step_from_lang<F: LurkField, C: Coprocessor<F>>(
     )
 }
 
-pub fn make_eval_step(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
+fn make_eval_step(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
     let reduce = reduce(cprocs);
     let apply_cont = apply_cont(cprocs, ivc);
     let make_thunk = make_thunk();
@@ -377,7 +377,7 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
     Func::new("run_cproc".into(), func_inp, 3, block).unwrap()
 }
 
-pub(crate) fn make_cprocs_funcs_from_lang<F: LurkField, C: Coprocessor<F>>(
+pub fn make_cprocs_funcs_from_lang<F: LurkField, C: Coprocessor<F>>(
     lang: &Lang<F, C>,
 ) -> std::sync::Arc<[Func]> {
     lang.coprocessors()

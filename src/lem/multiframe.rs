@@ -645,6 +645,10 @@ impl<'a, F: LurkField, C: Coprocessor<F>> nova::traits::circuit_supernova::StepC
         )?;
         Ok((Some(next_pc), output))
     }
+
+    fn circuit_index(&self) -> usize {
+        self.pc
+    }
 }
 
 impl<'a, F, C> NonUniformCircuit<G1<F>, G2<F>, MultiFrame<'a, F, C>, C2<F>> for MultiFrame<'a, F, C>

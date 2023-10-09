@@ -471,7 +471,12 @@ where
 ///
 /// Note: For now, we use ad-hoc circuit cache keys.
 /// See: [crate::public_parameters::instance]
-pub fn circuit_cache_key<F: CurveCycleEquipped, C: Coprocessor<F>>(
+pub fn circuit_cache_key<
+    'a,
+    F: CurveCycleEquipped,
+    C: Coprocessor<F> + 'a,
+    M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
+>(
     rc: usize,
     lang: Arc<Lang<F, C>>,
     circuit_index: usize,
@@ -481,7 +486,7 @@ where
     <<G2<F> as Group>::Scalar as PrimeField>::Repr: Abomonation,
 {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, 2));
-    let circuit = MultiFrame::blank(folding_config, Meta::Lurk);
+    let circuit = M::blank(folding_config, Meta::Lurk, 0);
     let num_circuits = circuit.num_circuits();
     let circuit = circuit.primary_circuit(circuit_index);
     F::from(rc as u64) * supernova::circuit_digest::<F::G1, F::G2, _>(&circuit, num_circuits)
@@ -489,7 +494,12 @@ where
 
 /// Collects all the cache keys of supernova instance. We need all of them to compute
 /// a cache key for the digest of the [PublicParams] of the supernova instance.
-pub fn circuit_cache_keys<F: CurveCycleEquipped, C: Coprocessor<F>>(
+pub fn circuit_cache_keys<
+    'a,
+    F: CurveCycleEquipped,
+    C: Coprocessor<F> + 'a,
+    M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
+>(
     rc: usize,
     lang: Arc<Lang<F, C>>,
 ) -> CircuitDigests<G1<F>>
@@ -499,7 +509,7 @@ where
 {
     let num_circuits = lang.coprocessor_count() + 1;
     let digests = (0..num_circuits)
-        .map(|circuit_index| circuit_cache_key(rc, lang.clone(), circuit_index))
+        .map(|circuit_index| circuit_cache_key::<F, C, M>(rc, lang.clone(), circuit_index))
         .collect::<Vec<_>>();
     CircuitDigests::new(digests)
 }
