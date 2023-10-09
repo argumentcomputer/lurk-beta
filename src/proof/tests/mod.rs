@@ -175,7 +175,7 @@ where
 
     let mut cs_blank = MetricCS::<F>::new();
 
-    let blank = M::blank(folding_config, Meta::Lurk);
+    let blank = M::blank(folding_config, Meta::Lurk, 0);
     blank
         .synthesize(&mut cs_blank)
         .expect("failed to synthesize blank");

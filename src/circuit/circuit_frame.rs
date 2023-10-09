@@ -244,7 +244,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         ))
     }
 
-    fn blank(folding_config: Arc<FoldingConfig<F, C>>, meta: Meta<F>) -> Self {
+    fn blank(folding_config: Arc<FoldingConfig<F, C>>, meta: Meta<F>, _pc: usize) -> Self {
         MultiFrame::blank(folding_config, meta)
     }
 

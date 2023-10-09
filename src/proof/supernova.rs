@@ -1,42 +1,38 @@
 #![allow(non_snake_case)]
-use std::marker::PhantomData;
-use std::ops::Index;
 
 use abomonation::Abomonation;
-use tracing::{debug, info};
-
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
+use ff::{Field, PrimeField};
 use nova::{
-    self,
-    supernova::{self, error::SuperNovaError, CircuitDigests, NonUniformCircuit, RecursiveSNARK},
+    supernova::{
+        self, error::SuperNovaError, AuxParams, CircuitDigests, NonUniformCircuit, RecursiveSNARK,
+    },
     traits::{
         circuit_supernova::{StepCircuit as SuperStepCircuit, TrivialSecondaryCircuit},
         Group,
     },
 };
-
-use ff::{Field, PrimeField};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{marker::PhantomData, ops::Index, sync::Arc};
+use tracing::{debug, info};
 
-use crate::circuit::MultiFrame;
-
-use crate::coprocessor::Coprocessor;
-
-use crate::error::ProofError;
-use crate::eval::{lang::Lang, Meta};
-use crate::field::LurkField;
-use crate::proof::nova::{CurveCycleEquipped, G1, G2};
-use crate::proof::{MultiFrameTrait, Provable, Prover};
-
-use super::nova::NovaCircuitShape;
-use super::FrameLike;
+use crate::{
+    circuit::MultiFrame,
+    coprocessor::Coprocessor,
+    error::ProofError,
+    eval::{lang::Lang, Meta},
+    field::LurkField,
+    proof::{
+        nova::{CurveCycleEquipped, NovaCircuitShape, G1, G2},
+        {FrameLike, MultiFrameTrait, Provable, Prover},
+    },
+};
 
 /// Type alias for a Trivial Test Circuit with G2 scalar field elements.
 pub type C2<F> = TrivialSecondaryCircuit<<G2<F> as Group>::Scalar>;
 
 /// Type alias for SuperNova Aux Parameters with the curve cycle types defined above.
-pub type SuperNovaAuxParams<F> = supernova::AuxParams<G1<F>, G2<F>>;
+pub type SuperNovaAuxParams<F> = AuxParams<G1<F>, G2<F>>;
 
 /// Type alias for SuperNova Public Parameters with the curve cycle types defined above.
 pub type SuperNovaPublicParams<F, C1> = supernova::PublicParams<G1<F>, G2<F>, C1, C2<F>>;
@@ -95,7 +91,7 @@ where
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     let folding_config = Arc::new(FoldingConfig::new_nivc(lang, rc));
-    let non_uniform_circuit = M::blank(folding_config, Meta::Lurk);
+    let non_uniform_circuit = M::blank(folding_config, Meta::Lurk, 0);
     let pp = SuperNovaPublicParams::<F, M>::new(&non_uniform_circuit);
     PublicParams { pp }
 }

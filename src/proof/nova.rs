@@ -1,5 +1,4 @@
 #![allow(non_snake_case)]
-use std::{marker::PhantomData, sync::Mutex};
 
 use abomonation::Abomonation;
 use bellpepper::util_cs::witness_cs::WitnessCS;
@@ -20,18 +19,27 @@ use nova::{
 use pasta_curves::{pallas, vesta};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{
+    marker::PhantomData,
+    sync::{Arc, Mutex},
+};
 
-use crate::config::CONFIG;
-
-use crate::coprocessor::Coprocessor;
-use crate::error::ProofError;
-use crate::eval::{lang::Lang, Meta};
-use crate::field::LurkField;
-use crate::proof::{supernova::FoldingConfig, MultiFrameTrait, Prover};
-use crate::store::Store;
-
-use super::FrameLike;
+use crate::{
+    circuit::{
+        gadgets::{
+            data::GlobalAllocations,
+            pointer::{AllocatedContPtr, AllocatedPtr},
+        },
+        CircuitFrame, MultiFrame,
+    },
+    config::CONFIG,
+    coprocessor::Coprocessor,
+    error::ProofError,
+    eval::{lang::Lang, Meta},
+    field::LurkField,
+    proof::{supernova::FoldingConfig, FrameLike, MultiFrameTrait, Prover},
+    store::Store,
+};
 
 /// This trait defines most of the requirements for programming generically over the supported Nova curve cycles
 /// (currently Pallas/Vesta and BN254/Grumpkin). It being pegged on the `LurkField` trait encodes that we do
@@ -237,7 +245,7 @@ pub fn circuits<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrame
 ) -> (M, C2<F>) {
     let folding_config = Arc::new(FoldingConfig::new_ivc(lang, count));
     (
-        M::blank(folding_config, Meta::Lurk),
+        M::blank(folding_config, Meta::Lurk, 0),
         TrivialCircuit::default(),
     )
 }
@@ -513,14 +521,6 @@ where
         vec![<G2<F> as Group>::Scalar::ZERO]
     }
 }
-
-use crate::circuit::{
-    gadgets::{
-        data::GlobalAllocations,
-        pointer::{AllocatedContPtr, AllocatedPtr},
-    },
-    CircuitFrame, MultiFrame,
-};
 
 impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C> {
     fn arity(&self) -> usize {

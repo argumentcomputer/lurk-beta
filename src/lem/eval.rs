@@ -112,15 +112,9 @@ pub fn build_frames<
         }
         pc = get_pc(&expr, store, lang);
     }
+    // TODO: remove this
     if iterations < limit {
-        let (frame, _) = lurk_step.call(
-            &input,
-            store,
-            Preimages::new_from_func(lurk_step),
-            &mut vec![],
-            lang,
-            pc,
-        )?;
+        let frame = lurk_step.call_simple(&input, store, lang, pc)?;
         frames.push(frame);
     }
     Ok((frames, iterations))
