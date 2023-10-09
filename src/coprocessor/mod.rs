@@ -16,6 +16,7 @@ use crate::tag::Tag;
 use crate::z_data::z_ptr::ZExprPtr;
 
 pub mod circom;
+pub mod sha256;
 pub mod trie;
 
 /// `Coprocessor` is a trait that represents a generalized interface for coprocessors.
