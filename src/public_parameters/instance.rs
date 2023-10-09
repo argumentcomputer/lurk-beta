@@ -38,10 +38,15 @@
 use std::{
     fs::File,
     io::{self, BufReader, BufWriter},
+    marker::PhantomData,
     sync::Arc,
 };
 
-use ::nova::{constants::NUM_HASH_BITS, traits::Group};
+use ::nova::{
+    constants::NUM_HASH_BITS,
+    supernova::NonUniformCircuit,
+    traits::{circuit_supernova::StepCircuit as SuperStepCircuit, Group},
+};
 use abomonation::Abomonation;
 use camino::Utf8Path;
 use serde::{Deserialize, Serialize};
@@ -50,9 +55,10 @@ use sha2::{Digest, Sha256};
 use crate::{
     coprocessor::Coprocessor,
     eval::lang::Lang,
+    proof::MultiFrameTrait,
     proof::{
         nova::{self, CurveCycleEquipped, G1, G2},
-        supernova,
+        supernova::{self, C2},
     },
 };
 
@@ -68,12 +74,14 @@ use crate::{
 /// we derive the `num_circuits + 1` circuit param instances. This makes sure that we keep the SuperNova
 /// instances as modular as possible, and reuse as much overlapping circuit params as possible.
 #[derive(Debug)]
-pub struct Instance<F: CurveCycleEquipped, C: Coprocessor<F>> {
+pub struct Instance<'a, F: CurveCycleEquipped, C: Coprocessor<F> + 'a, M: MultiFrameTrait<'a, F, C>>
+{
     pub rc: usize,
     pub lang: Arc<Lang<F, C>>,
     pub abomonated: bool,
     pub cache_key: F,
     pub kind: Kind,
+    pub _p: PhantomData<&'a M>,
 }
 
 /// From [::nova], there are 3 "kinds" of public param objects that need to be cached.
@@ -104,7 +112,14 @@ pub struct Metadata {
 }
 
 impl Metadata {
-    fn from_instance<F: CurveCycleEquipped, C: Coprocessor<F>>(instance: &Instance<F, C>) -> Self {
+    fn from_instance<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F> + 'a,
+        M: MultiFrameTrait<'a, F, C>,
+    >(
+        instance: &Instance<'a, F, C, M>,
+    ) -> Self {
         Metadata {
             rc: instance.rc,
             lang: instance.lang.clone().key(),
@@ -115,17 +130,24 @@ impl Metadata {
     }
 }
 
-impl<F: CurveCycleEquipped, C: Coprocessor<F>> Instance<F, C>
+impl<
+        'a,
+        F: CurveCycleEquipped,
+        C: Coprocessor<F>,
+        M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
+    > Instance<'a, F, C, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
     pub fn new(rc: usize, lang: Arc<Lang<F, C>>, abomonated: bool, kind: Kind) -> Self {
         let cache_key = match kind {
-            Kind::NovaPublicParams => nova::circuit_cache_key(rc, lang.clone()),
-            Kind::SuperNovaAuxParams => supernova::circuit_cache_keys(rc, lang.clone()).digest(),
+            Kind::NovaPublicParams => nova::circuit_cache_key::<'a, F, C, M>(rc, lang.clone()),
+            Kind::SuperNovaAuxParams => {
+                supernova::circuit_cache_keys::<'a, F, C, M>(rc, lang.clone()).digest()
+            }
             Kind::SuperNovaCircuitParams(circuit_index) => {
-                supernova::circuit_cache_key(rc, lang.clone(), circuit_index)
+                supernova::circuit_cache_key::<'a, F, C, M>(rc, lang.clone(), circuit_index)
             }
         };
         Instance {
@@ -134,9 +156,49 @@ where
             abomonated,
             cache_key,
             kind,
+            _p: PhantomData::default(),
         }
     }
 
+    /// If this [Instance] is of [Kind::SuperNovaAuxParams], then generate the `num_circuits + 1`
+    /// circuit param instances that are determined by the internal [Lang].
+    pub fn circuit_param_instances(&self) -> Vec<Self> {
+        assert!(
+            matches!(self.kind, Kind::SuperNovaAuxParams),
+            "not a supernova instance"
+        );
+        let num_circuits = self.lang().coprocessors().len() + 1;
+        (0..num_circuits)
+            .map(|circuit_index| {
+                Instance::new(
+                    self.rc,
+                    self.lang(),
+                    self.abomonated,
+                    Kind::SuperNovaCircuitParams(circuit_index),
+                )
+            })
+            .collect::<Vec<_>>()
+    }
+
+    pub fn reindex(&self, circuit_index: usize) -> Self {
+        match self.kind {
+            Kind::SuperNovaAuxParams | Kind::SuperNovaCircuitParams(_) => Instance::new(
+                self.rc,
+                self.lang(),
+                self.abomonated,
+                Kind::SuperNovaCircuitParams(circuit_index),
+            ),
+            _ => panic!(),
+        }
+    }
+}
+
+impl<'a, F: CurveCycleEquipped, C: Coprocessor<F>, M: MultiFrameTrait<'a, F, C>>
+    Instance<'a, F, C, M>
+where
+    <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+    <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
+{
     /// The key (or cache_key) of this [Instance] used to retrieve it from the file cache
     pub fn lang(&self) -> Arc<Lang<F, C>> {
         self.lang.clone()
@@ -186,38 +248,6 @@ where
         }
 
         Ok(instance_file)
-    }
-
-    /// If this [Instance] is of [Kind::SuperNovaAuxParams], then generate the `num_circuits + 1`
-    /// circuit param instances that are determined by the internal [Lang].
-    pub fn circuit_param_instances(&self) -> Vec<Instance<F, C>> {
-        assert!(
-            matches!(self.kind, Kind::SuperNovaAuxParams),
-            "not a supernova instance"
-        );
-        let num_circuits = self.lang().coprocessors().len() + 1;
-        (0..num_circuits)
-            .map(|circuit_index| {
-                Instance::new(
-                    self.rc,
-                    self.lang(),
-                    self.abomonated,
-                    Kind::SuperNovaCircuitParams(circuit_index),
-                )
-            })
-            .collect::<Vec<_>>()
-    }
-
-    pub fn reindex(&self, circuit_index: usize) -> Self {
-        match self.kind {
-            Kind::SuperNovaAuxParams | Kind::SuperNovaCircuitParams(_) => Instance::new(
-                self.rc,
-                self.lang(),
-                self.abomonated,
-                Kind::SuperNovaCircuitParams(circuit_index),
-            ),
-            _ => panic!(),
-        }
     }
 }
 

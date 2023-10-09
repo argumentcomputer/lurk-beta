@@ -42,10 +42,10 @@ impl PublicParamMemCache {
         F: CurveCycleEquipped,
         C: Coprocessor<F> + 'static,
         M: MultiFrameTrait<'static, F, C>,
-        Fn: FnOnce(&Instance<F, C>) -> Arc<PublicParams<F, M>>,
+        Fn: FnOnce(&Instance<'static, F, C, M>) -> Arc<PublicParams<F, M>>,
     >(
         &'static self,
-        instance: &Instance<F, C>,
+        instance: &Instance<'static, F, C, M>,
         default: Fn,
         disk_cache_path: &Utf8Path,
     ) -> Result<Arc<PublicParams<F, M>>, Error>
@@ -103,10 +103,10 @@ impl PublicParamMemCache {
         F: CurveCycleEquipped,
         C: Coprocessor<F> + 'static,
         M: MultiFrameTrait<'static, F, C>,
-        Fn: FnOnce(&Instance<F, C>) -> Arc<PublicParams<F, M>>,
+        Fn: FnOnce(&Instance<'static, F, C, M>) -> Arc<PublicParams<F, M>>,
     >(
         &'static self,
-        instance: &Instance<F, C>,
+        instance: &Instance<'static, F, C, M>,
         default: Fn,
         disk_cache_path: &Utf8Path,
     ) -> Result<Arc<PublicParams<F, M>>, Error>

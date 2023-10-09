@@ -109,7 +109,12 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
 
     // use cached public params
 
-    let instance: Instance<pasta_curves::Fq, Sha256Coproc<pasta_curves::Fq>> = Instance::new(
+    let instance: Instance<
+        '_,
+        pasta_curves::Fq,
+        Sha256Coproc<pasta_curves::Fq>,
+        MultiFrame<'_, _, _>,
+    > = Instance::new(
         reduction_count,
         lang_rc.clone(),
         true,

@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use ::nova::traits::Group;
+use ::nova::{
+    supernova::NonUniformCircuit,
+    traits::{circuit_supernova::StepCircuit as SuperStepCircuit, Group},
+};
 use abomonation::Abomonation;
 use anyhow::Result;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -11,6 +14,7 @@ use crate::{
     field::LurkField,
     proof::{
         nova::{self, CurveCycleEquipped, G1, G2},
+        supernova::C2,
         MultiFrameTrait,
     },
     public_parameters::{
@@ -109,7 +113,10 @@ where
 
 impl<
         F: CurveCycleEquipped + DeserializeOwned,
-        M: MultiFrameTrait<'static, F, Coproc<F>> + 'static,
+        M: MultiFrameTrait<'static, F, Coproc<F>>
+            + SuperStepCircuit<F>
+            + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>
+            + 'static,
     > LurkProof<'static, F, Coproc<F>, M>
 where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,

@@ -36,7 +36,7 @@ pub fn public_params<
     C: Coprocessor<F> + 'static,
     M: MultiFrameTrait<'static, F, C>,
 >(
-    instance: &Instance<F, C>,
+    instance: &Instance<'static, F, C, M>,
     disk_cache_path: &Utf8Path,
 ) -> Result<Arc<PublicParams<F, M>>, Error>
 where
@@ -45,7 +45,9 @@ where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    let f = |instance: &Instance<F, C>| Arc::new(nova::public_params(instance.rc, instance.lang()));
+    let f = |instance: &Instance<'static, F, C, M>| {
+        Arc::new(nova::public_params(instance.rc, instance.lang()))
+    };
     mem_cache::PUBLIC_PARAM_MEM_CACHE.get_from_mem_cache_or_update_with(
         instance,
         f,
@@ -59,7 +61,7 @@ where
 /// to the lifetime of the file. Thus, we cannot pass a reference out and must
 /// rely on a closure to capture the data and continue the computation in `bind`.
 pub fn with_public_params<'a, F, C, M, Fn, T>(
-    instance: &Instance<F, C>,
+    instance: &Instance<'a, F, C, M>,
     disk_cache_path: &Utf8Path,
     bind: Fn,
 ) -> Result<T, Error>
@@ -71,7 +73,8 @@ where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    let default = |instance: &Instance<F, C>| nova::public_params(instance.rc, instance.lang());
+    let default =
+        |instance: &Instance<'a, F, C, M>| nova::public_params(instance.rc, instance.lang());
     let disk_cache = DiskCache::<F, C, M>::new(disk_cache_path).unwrap();
 
     let mut bytes = vec![];
@@ -102,7 +105,7 @@ pub fn supernova_circuit_params<
     C: Coprocessor<F> + 'a,
     M: MultiFrameTrait<'a, F, C>,
 >(
-    instance: &Instance<F, C>,
+    instance: &Instance<'a, F, C, M>,
     disk_cache_path: &Utf8Path,
 ) -> Result<NovaCircuitShape<F>, Error>
 where
@@ -131,7 +134,7 @@ pub fn supernova_aux_params<
     C: Coprocessor<F> + 'a,
     M: MultiFrameTrait<'a, F, C>,
 >(
-    instance: &Instance<F, C>,
+    instance: &Instance<'a, F, C, M>,
     disk_cache_path: &Utf8Path,
 ) -> Result<SuperNovaAuxParams<F>, Error>
 where
@@ -165,7 +168,7 @@ pub fn supernova_public_params<
     C: Coprocessor<F> + 'a,
     M: MultiFrameTrait<'a, F, C> + SuperStepCircuit<F> + NonUniformCircuit<G1<F>, G2<F>, M, C2<F>>,
 >(
-    instance_primary: &Instance<F, C>,
+    instance_primary: &Instance<'a, F, C, M>,
     disk_cache_path: &Utf8Path,
 ) -> Result<supernova::PublicParams<F, M>, Error>
 where
@@ -174,7 +177,7 @@ where
     <<G1<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
     <<G2<F> as Group>::Scalar as ff::PrimeField>::Repr: Abomonation,
 {
-    let default = |instance: &Instance<F, C>| {
+    let default = |instance: &Instance<'a, F, C, M>| {
         supernova::public_params::<'a, F, C, M>(instance.rc, instance.lang())
     };
     let disk_cache = DiskCache::<F, C, M>::new(disk_cache_path).unwrap();
