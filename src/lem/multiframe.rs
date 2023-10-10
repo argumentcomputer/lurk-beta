@@ -33,18 +33,20 @@ use super::{
 
 #[derive(Clone, Debug)]
 pub struct MultiFrame<'a, F: LurkField, C: Coprocessor<F>> {
-    pub store: Option<&'a Store<F>>,
-    pub lang: Arc<Lang<F, C>>,
-    pub lurk_step: Arc<Func>,
-    pub cprocs: Option<Arc<[Func]>>,
-    pub input: Option<Vec<Ptr<F>>>,
-    pub output: Option<Vec<Ptr<F>>>,
-    pub frames: Option<Vec<Frame<F>>>,
-    pub cached_witness: Option<WitnessCS<F>>,
-    pub reduction_count: usize,
-    pub folding_config: Arc<FoldingConfig<F, C>>,
-    pub pc: usize,
-    pub next_pc: usize,
+    store: Option<&'a Store<F>>,
+    /// Cached Lurk step function according to the `folding_config`
+    lurk_step: Arc<Func>,
+    /// Cached coprocessor functions according to the `folding_config`. Holds
+    /// `None` in case of IVC
+    cprocs: Option<Arc<[Func]>>,
+    input: Option<Vec<Ptr<F>>>,
+    output: Option<Vec<Ptr<F>>>,
+    frames: Option<Vec<Frame<F>>>,
+    cached_witness: Option<WitnessCS<F>>,
+    reduction_count: usize,
+    folding_config: Arc<FoldingConfig<F, C>>,
+    pc: usize,
+    next_pc: usize,
 }
 
 impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
@@ -54,6 +56,11 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         } else {
             &self.cprocs.as_ref().unwrap()[self.pc - 1]
         }
+    }
+
+    #[inline]
+    fn get_lang(&self) -> &Lang<F, C> {
+        self.folding_config.lang()
     }
 }
 
@@ -185,7 +192,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                         frame,
                         g,
                         bound_allocations,
-                        &self.lang,
+                        self.get_lang(),
                     )
                     .expect("failed to synthesize frame");
                 assert_eq!(input.len(), output.len());
@@ -195,15 +202,11 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
     }
 
     fn blank(folding_config: Arc<FoldingConfig<F, C>>, _meta: Meta<F>, pc: usize) -> Self {
-        let (lang, lurk_step, cprocs, rc) = match &*folding_config {
-            FoldingConfig::IVC(lang, rc) => (
-                lang.clone(),
-                Arc::new(make_eval_step_from_lang(lang, true)),
-                None,
-                *rc,
-            ),
+        let (lurk_step, cprocs, rc) = match &*folding_config {
+            FoldingConfig::IVC(lang, rc) => {
+                (Arc::new(make_eval_step_from_lang(lang, true)), None, *rc)
+            }
             FoldingConfig::NIVC(lang, rc) => (
-                lang.clone(),
                 Arc::new(make_eval_step_from_lang(lang, false)),
                 Some(make_cprocs_funcs_from_lang(lang)),
                 *rc,
@@ -212,7 +215,6 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         let reduction_count = if pc == 0 { rc } else { 1 };
         Self {
             store: None,
-            lang,
             lurk_step,
             cprocs,
             input: None,
@@ -238,7 +240,6 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         match &*folding_config {
             FoldingConfig::IVC(lang, _) => {
                 let lurk_step = Arc::new(make_eval_step_from_lang(lang, true));
-                let cprocs = None;
                 for chunk in frames.chunks(reduction_count) {
                     let output = chunk
                         .last()
@@ -260,9 +261,8 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
 
                     let mf = MultiFrame {
                         store: Some(store),
-                        lang: lang.clone(),
                         lurk_step: lurk_step.clone(),
-                        cprocs: cprocs.clone(),
+                        cprocs: None,
                         input: Some(chunk[0].input.to_vec()),
                         output: Some(output),
                         frames: Some(inner_frames),
@@ -282,20 +282,27 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                 let mut chunk_start_idx = 0;
                 while chunk_start_idx < frames.len() {
                     let first_frame = &frames[chunk_start_idx];
-                    let mf = if first_frame.pc == 0 {
+
+                    // Variables occurring in both branches
+                    let input = first_frame.input.clone();
+                    let output: Vec<_>;
+                    let frames_to_add: Vec<_>;
+                    let mut reduction_count_to_use = reduction_count;
+                    let mut pc = 0;
+                    let mut next_pc = 0;
+
+                    if first_frame.pc == 0 {
                         let mut inner_frames = Vec::with_capacity(reduction_count);
-                        let mut next_pc = 0;
                         let chunk_start_idx_saved = chunk_start_idx;
+
                         // fill `inner_frames` with `reduction_count` frames unless
                         // we don't have enough frames or we find some frame whose
                         // `pc` is not `0` on the way
                         for i in 0..reduction_count {
                             let current_frame_idx = chunk_start_idx_saved + i;
                             inner_frames.push(frames[current_frame_idx].clone());
-                            // update `chunk_start_idx` with the next index, which
-                            // might be the index of the first frame in the next
-                            // multiframe
                             chunk_start_idx = current_frame_idx + 1;
+
                             if let Some(next_frame) = frames.get(chunk_start_idx) {
                                 next_pc = next_frame.pc;
                                 if next_pc != 0 {
@@ -307,11 +314,13 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                                 break;
                             }
                         }
-                        let output = inner_frames
+
+                        output = inner_frames
                             .last()
                             .expect("empty inner_frames")
                             .output
                             .to_vec();
+
                         if inner_frames.len() < reduction_count {
                             let padding_frame = lurk_step
                                 .call_simple(&output, store, lang, 0)
@@ -319,37 +328,30 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                             assert_eq!(padding_frame.input, padding_frame.output);
                             inner_frames.resize(reduction_count, padding_frame);
                         }
-                        MultiFrame {
-                            store: Some(store),
-                            lang: lang.clone(),
-                            lurk_step: lurk_step.clone(),
-                            cprocs: Some(cprocs.clone()),
-                            input: Some(first_frame.input.clone()),
-                            output: Some(output),
-                            frames: Some(inner_frames),
-                            cached_witness: None,
-                            reduction_count,
-                            folding_config: folding_config.clone(),
-                            pc: 0,
-                            next_pc,
-                        }
+
+                        frames_to_add = inner_frames;
                     } else {
                         chunk_start_idx += 1;
-                        MultiFrame {
-                            store: Some(store),
-                            lang: lang.clone(),
-                            lurk_step: lurk_step.clone(),
-                            cprocs: Some(cprocs.clone()),
-                            input: Some(first_frame.input.clone()),
-                            output: Some(first_frame.output.clone()),
-                            frames: Some(vec![first_frame.clone()]),
-                            cached_witness: None,
-                            reduction_count: 1,
-                            folding_config: folding_config.clone(),
-                            pc: first_frame.pc,
-                            next_pc: 0,
-                        }
+                        output = first_frame.output.clone();
+                        frames_to_add = vec![first_frame.clone()];
+                        reduction_count_to_use = 1;
+                        pc = first_frame.pc;
+                    }
+
+                    let mf = MultiFrame {
+                        store: Some(store),
+                        lurk_step: lurk_step.clone(),
+                        cprocs: Some(cprocs.clone()),
+                        input: Some(input),
+                        output: Some(output),
+                        frames: Some(frames_to_add),
+                        cached_witness: None,
+                        reduction_count: reduction_count_to_use,
+                        folding_config: folding_config.clone(),
+                        pc,
+                        next_pc,
                     };
+
                     multi_frames.push(mf);
                 }
             }
@@ -366,14 +368,9 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         folding_config: Arc<FoldingConfig<F, C>>,
         _meta: Meta<F>,
     ) -> Self {
-        let (lang, lurk_step, cprocs) = match &*folding_config {
-            FoldingConfig::IVC(lang, _) => (
-                lang.clone(),
-                Arc::new(make_eval_step_from_lang(lang, true)),
-                None,
-            ),
+        let (lurk_step, cprocs) = match &*folding_config {
+            FoldingConfig::IVC(lang, _) => (Arc::new(make_eval_step_from_lang(lang, true)), None),
             FoldingConfig::NIVC(lang, _) => (
-                lang.clone(),
                 Arc::new(make_eval_step_from_lang(lang, false)),
                 Some(make_cprocs_funcs_from_lang(lang)),
             ),
@@ -389,7 +386,6 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         };
         Self {
             store: Some(store),
-            lang,
             lurk_step,
             cprocs,
             input,
@@ -660,7 +656,7 @@ where
 {
     fn num_circuits(&self) -> usize {
         assert_eq!(self.pc, 0);
-        self.lang.coprocessor_count() + 1
+        self.get_lang().coprocessor_count() + 1
     }
 
     fn primary_circuit(&self, circuit_index: usize) -> MultiFrame<'a, F, C> {

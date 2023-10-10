@@ -126,7 +126,7 @@ fn main() {
 
     if res {
         println!(
-            "Congratulations! You proved and verified a SHA256 hash calculation in {:?} time!",
+            "Congratulations! You proved and verified a LEM NIVC SHA256 hash calculation in {:?} time!",
             pp_end + proof_end + verify_end
         );
     }
