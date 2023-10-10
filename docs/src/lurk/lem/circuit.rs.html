@@ -1482,17 +1482,13 @@
     },
     coprocessor::Coprocessor,
     eval::lang::Lang,
-    z_ptr::ZPtr,
-};
-
-<span class="kw">use crate</span>::{
     field::{FWrap, LurkField},
-    tag::ExprTag::{Comm, Nil, Num, Sym},
+    tag::ExprTag::{Comm, Num, Sym},
 };
 
 <span class="kw">use super</span>::{
     interpreter::{Frame, PreimageData},
-    pointers::Ptr,
+    pointers::{Ptr, ZPtr},
     slot::<span class="kw-2">*</span>,
     store::Store,
     var_map::VarMap,
@@ -1951,7 +1947,8 @@
             preallocated_hash8_slots: Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)&gt;,
             preallocated_commitment_slots: Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)&gt;,
             preallocated_less_than_slots: Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)&gt;,
-            call_outputs: VecDeque&lt;Vec&lt;Ptr&lt;F&gt;&gt;&gt;,
+            call_outputs: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>VecDeque&lt;Vec&lt;Ptr&lt;F&gt;&gt;&gt;,
+            call_idx: usize,
             cproc_outputs: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[Vec&lt;Ptr&lt;F&gt;&gt;],
         }
 
@@ -2075,7 +2072,7 @@
                                 .map(|ptr| g.store.hash_ptr(ptr).expect(<span class="string">&quot;hash_ptr failed&quot;</span>))
                                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
                         } <span class="kw">else </span>{
-                            <span class="macro">vec!</span>[ZPtr::from_parts(Tag::Expr(Nil), F::ZERO); out.len()]
+                            <span class="macro">vec!</span>[ZPtr::dummy(); out.len()]
                         };
                         <span class="kw">if </span>cproc.has_circuit() {
                             <span class="comment">// call the coprocessor&#39;s synthesize and then make sure that
@@ -2135,22 +2132,23 @@
                         // Note that, because there&#39;s currently no way of deferring giving
                         // a value to the allocated nums to be filled later, we must either
                         // add the results of the call to the witness, or recompute them.
-                        </span><span class="kw">let </span>output_vals = <span class="kw">if </span>not_dummy.get_value() == <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) {
-                            <span class="kw">let </span>ptrs = g
-                                .call_outputs
-                                .pop_front()
-                                .unwrap_or_else(|| <span class="macro">vec!</span>[Ptr::dummy(); out.len()]);
-                            <span class="macro">assert_eq!</span>(ptrs.len(), out.len());
-                            ptrs
+                        </span><span class="kw">let </span>not_dummy_and_not_blank = not_dummy.get_value() == <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) &amp;&amp; !blank;
+                        <span class="kw">let </span>output_z_ptrs = <span class="kw">if </span>not_dummy_and_not_blank {
+                            <span class="kw">let </span>z_ptrs = g.call_outputs[g.call_idx]
+                                .iter()
+                                .map(|ptr| g.store.hash_ptr(ptr).expect(<span class="string">&quot;hash_ptr failed&quot;</span>))
+                                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+                            g.call_idx += <span class="number">1</span>;
+                            <span class="macro">assert_eq!</span>(z_ptrs.len(), out.len());
+                            z_ptrs
                         } <span class="kw">else </span>{
-                            <span class="macro">vec!</span>[Ptr::dummy(); out.len()]
+                            <span class="macro">vec!</span>[ZPtr::dummy(); out.len()]
                         };
                         <span class="kw">let </span><span class="kw-2">mut </span>output_ptrs = Vec::with_capacity(out.len());
-                        <span class="kw">for </span>(ptr, var) <span class="kw">in </span>output_vals.iter().zip(out.iter()) {
-                            <span class="kw">let </span>zptr = g.store.hash_ptr(ptr)<span class="question-mark">?</span>;
+                        <span class="kw">for </span>(z_ptr, var) <span class="kw">in </span>output_z_ptrs.into_iter().zip(out.iter()) {
                             <span class="kw">let </span>ptr = AllocatedPtr::alloc(
                                 <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;var: {var}&quot;</span>)),
-                                || <span class="prelude-val">Ok</span>(zptr),
+                                || <span class="prelude-val">Ok</span>(z_ptr),
                             )<span class="question-mark">?</span>;
                             bound_allocations.insert_ptr(var.clone(), ptr.clone());
                             output_ptrs.push(ptr);
@@ -2674,7 +2672,8 @@
             }
         }
 
-        <span class="kw">let </span>call_outputs = frame.preimages.call_outputs.clone();
+        <span class="kw">let </span>call_outputs = <span class="kw-2">&amp;</span>frame.preimages.call_outputs;
+        <span class="kw">let </span>call_idx = <span class="number">0</span>;
         <span class="kw">let </span>cproc_outputs = <span class="kw-2">&amp;</span>frame.preimages.cproc_outputs;
         recurse(
             cs,
@@ -2693,6 +2692,7 @@
                 preallocated_commitment_slots,
                 preallocated_less_than_slots,
                 call_outputs,
+                call_idx,
                 cproc_outputs,
             },
             <span class="number">0</span>,
