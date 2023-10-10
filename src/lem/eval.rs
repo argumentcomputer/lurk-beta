@@ -1683,17 +1683,14 @@ fn make_thunk() -> Func {
     })
 }
 
-// TODO: refactor this test suite, turning it into simple
-// inputs/aux/constraints/slots counts checks after #717 and #718
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        eval::lang::{DummyCoprocessor, Lang},
-        lem::{pointers::Ptr, slot::SlotsCounter, store::Store, Tag},
-        state::{user_sym, State},
+        eval::lang::{Coproc, Lang},
+        lem::{slot::SlotsCounter, store::Store},
     };
-    use bellpepper_core::{test_cs::TestConstraintSystem, Comparable, Delta};
+    use bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
@@ -1707,175 +1704,21 @@ mod tests {
         less_than: 1,
     };
 
-    fn test_eval_and_constrain_aux(
-        eval_step: &Func,
-        store: &Store<Fr>,
-        pairs: Vec<(Ptr<Fr>, Ptr<Fr>)>,
-    ) {
-        assert_eq!(eval_step.slot, NUM_SLOTS);
-
-        let computed_num_constraints = eval_step.num_constraints::<Fr>(store);
-
-        let limit = 10000;
-
-        let lang: Lang<Fr, DummyCoprocessor<Fr>> = Lang::new();
-
-        let mut cs_prev = None;
-        for (i, (expr_in, expr_out)) in pairs.into_iter().enumerate() {
-            let (frames, _) = evaluate(Some((eval_step, &lang)), expr_in, store, limit).unwrap();
-            let last_frame = frames.last().expect("eval should add at least one frame");
-            assert_eq!(last_frame.output[0], expr_out, "pair {i}");
-            store.hydrate_z_cache();
-            for frame in frames.iter() {
-                let mut cs = TestConstraintSystem::<Fr>::new();
-                eval_step
-                    .synthesize_frame_aux(&mut cs, store, frame, &lang)
-                    .unwrap();
-                assert!(cs.is_satisfied());
-                assert_eq!(cs.num_inputs(), NUM_INPUTS);
-                assert_eq!(cs.aux().len(), NUM_AUX);
-
-                let num_constraints = cs.num_constraints();
-                assert_eq!(computed_num_constraints, num_constraints);
-                assert_eq!(num_constraints, NUM_CONSTRAINTS);
-
-                if let Some(cs_prev) = cs_prev {
-                    // Check for all input expresssions that all frames are uniform.
-                    assert_eq!(cs.delta(&cs_prev, true), Delta::Equal);
-                }
-                cs_prev = Some(cs);
-            }
-        }
-    }
-
-    fn expr_in_expr_out_pairs(s: &Store<Fr>) -> Vec<(Ptr<Fr>, Ptr<Fr>)> {
-        let state = State::init_lurk_state().rccell();
-        let read = |code: &str| s.read(state.clone(), code).unwrap();
-        let div = read("(/ 70u64 8u64)");
-        let div_res = read("8u64");
-        let rem = read("(% 70u64 8u64)");
-        let rem_res = read("6u64");
-        let u64_1 = read("(u64 100000000)");
-        let u64_1_res = read("100000000u64");
-        let u64_2 = read("(u64 1000000000000000000000000)");
-        let u64_2_res = read("2003764205206896640u64");
-        let mul_overflow = read("(* 1000000000000u64 100000000000000u64)");
-        let mul_overflow_res = read("15908979783594147840u64");
-        let char_conv = read("(char 97)");
-        let char_conv_res = read("'a'");
-        let char_overflow = read("(char 4294967393)");
-        let char_overflow_res = read("'a'");
-        let t = read("t");
-        let nil = read("nil");
-        let le1 = read("(<= 4 8)");
-        let le2 = read("(<= 8 8)");
-        let le3 = read("(<= 10 8)");
-        let gt1 = read("(> 4 8)");
-        let gt2 = read("(> 8 8)");
-        let gt3 = read("(> 10 8)");
-        let ltz = read("(< (- 0 10) 0)");
-        let sum = read("(+ 21 21)");
-        let sum_res = read("42");
-        let car = read("(car (cons 1 2))");
-        let car_res = read("1");
-        let let_ = read(
-            "(let ((x (cons 1 2)))
-                (cons (car x) (cdr x)))",
-        );
-        let let_res = read("(1 . 2)");
-        let lam0 = read("((lambda () 1))");
-        let lam0_res = read("1");
-        let lam = read("((lambda (x y) (+ x y)) 3 4)");
-        let lam_res = read("7");
-        let fold = read(
-            "(letrec ((build (lambda (x)
-                                (if (eq x 0)
-                                    nil
-                                (cons x (build (- x 1))))))
-                    (sum (lambda (xs)
-                            (if (eq xs nil)
-                                0
-                                (+ (car xs) (sum (cdr xs)))))))
-                (sum (build 4)))",
-        );
-        let fold_res = read("10");
-        vec![
-            (div, div_res),
-            (rem, rem_res),
-            (u64_1, u64_1_res),
-            (u64_2, u64_2_res),
-            (mul_overflow, mul_overflow_res),
-            (char_conv, char_conv_res),
-            (char_overflow, char_overflow_res),
-            (le1, t),
-            (le2, t),
-            (le3, nil),
-            (gt1, nil),
-            (gt2, nil),
-            (gt3, t),
-            (ltz, t),
-            (sum, sum_res),
-            (car, car_res),
-            (let_, let_res),
-            (lam0, lam0_res),
-            (lam, lam_res),
-            (fold, fold_res),
-        ]
-    }
-
     #[test]
-    fn test_pairs() {
-        let step_fn = eval_step();
+    fn test_values() {
         let store = Store::default();
-        let pairs = expr_in_expr_out_pairs(&store);
-        store.hydrate_z_cache();
-        test_eval_and_constrain_aux(step_fn, &store, pairs);
-    }
+        let func = eval_step();
+        let frame = Frame::<Fr>::blank(func, 0);
+        let mut cs = TestConstraintSystem::<Fr>::new();
+        let lang: Lang<Fr, Coproc<Fr>> = Lang::new();
+        let _ = func.synthesize_frame_aux(&mut cs, &store, &frame, &lang);
+        assert_eq!(func.slot, NUM_SLOTS);
+        assert_eq!(cs.num_inputs(), NUM_INPUTS);
+        assert_eq!(cs.aux().len(), NUM_AUX);
 
-    #[test]
-    fn test_dumb_lang() {
-        use crate::coprocessor::test::DumbCoprocessor;
-
-        let mut lang = Lang::<Fr, DumbCoprocessor<Fr>>::new();
-        let dumb = DumbCoprocessor::new();
-        let name = user_sym("cproc-dumb");
-
-        let store = &Store::default();
-        lang.add_coprocessor_lem(name, dumb, store);
-        let func_ivc = make_eval_step_from_lang(&lang, true);
-        let func_nivc = make_eval_step_from_lang(&lang, false);
-        for func in [func_ivc, func_nivc] {
-            // 9^2 + 8 = 89
-            let expr = "(cproc-dumb 9 8)";
-
-            // The dumb coprocessor cannot be shadowed
-            let expr2 = "(let ((cproc-dumb (lambda (a b) (* a b))))
-                       (cproc-dumb 9 8))";
-
-            // arguments for coprocessors are evaluated
-            let expr3 = "(cproc-dumb (+ 1 8) (+ 1 7))";
-
-            // wrong number of parameters
-            let expr4 = "(cproc-dumb 9 8 123)";
-            let expr5 = "(cproc-dumb 9)";
-            let expr6 = "(cproc-unknown 9)";
-
-            let res = Ptr::num_u64(89);
-            let error = Ptr::null(Tag::Cont(Error));
-
-            let state = State::init_lurk_state().rccell();
-
-            for e in [expr, expr2, expr3] {
-                let ptr = store.read(state.clone(), e).unwrap();
-                let (io, ..) = evaluate_simple(Some((&func, &lang)), ptr, store, 100).unwrap();
-                assert_eq!(io[0], res);
-            }
-
-            for e in [expr4, expr5, expr6] {
-                let ptr = store.read(state.clone(), e).unwrap();
-                let (io, ..) = evaluate_simple(Some((&func, &lang)), ptr, store, 100).unwrap();
-                assert_eq!(io[2], error);
-            }
-        }
+        let computed_num_constraints = func.num_constraints(&store);
+        let num_constraints = cs.num_constraints();
+        assert_eq!(computed_num_constraints, num_constraints);
+        assert_eq!(num_constraints, NUM_CONSTRAINTS);
     }
 }
