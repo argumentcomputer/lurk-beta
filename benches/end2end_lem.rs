@@ -1,32 +1,26 @@
 use blstrs::Scalar as Fr;
-use camino::Utf8Path;
 use criterion::{
     black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, SamplingMode,
 };
+use pasta_curves::pallas::Scalar as Fq;
+use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
 use lurk::{
-    circuit::circuit_frame::MultiFrame,
-    eval::{
-        empty_sym_env,
-        lang::{Coproc, Lang},
-        Evaluator,
-    },
+    eval::lang::{Coproc, Lang},
     field::LurkField,
-    proof::Prover,
-    proof::{nova::NovaProver, MultiFrameTrait},
-    ptr::Ptr,
-    public_parameters::{
-        self,
-        instance::{Instance, Kind},
+    lem::{
+        eval::{evaluate, evaluate_simple},
+        multiframe::MultiFrame,
+        pointers::Ptr,
+        store::Store,
+    },
+    proof::{
+        nova::{public_params, NovaProver, PublicParams},
+        Prover,
     },
     state::State,
-    store::Store,
 };
-use pasta_curves::pallas;
-use std::time::Duration;
-use std::{cell::RefCell, rc::Rc, sync::Arc};
 
-const PUBLIC_PARAMS_PATH: &str = "/var/tmp/lurk_benches/public_params";
 const DEFAULT_REDUCTION_COUNT: usize = 10;
 
 fn go_base<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, a: u64, b: u64) -> Ptr<F> {
@@ -45,13 +39,13 @@ fn go_base<F: LurkField>(store: &Store<F>, state: Rc<RefCell<State>>, a: u64, b:
 "#
     );
 
-    store.read_with_state(state, &program).unwrap()
+    store.read(state, &program).unwrap()
 }
 
-/// To run these benchmarks, do `cargo criterion end2end_benchmark`.
+/// To run these benchmarks, do `cargo criterion end2end_benchmark_lem`.
 /// For flamegraphs, run:
-/// ```cargo criterion end2end_benchmark --features flamegraph -- --profile-time <secs>```
-fn end2end_benchmark(c: &mut Criterion) {
+/// ```cargo criterion end2end_benchmark_lem --features flamegraph -- --profile-time <secs>```
+fn end2end_benchmark_lem(c: &mut Criterion) {
     let mut group = c.benchmark_group("end2end_benchmark");
     group
         .sampling_mode(SamplingMode::Flat)
@@ -59,27 +53,16 @@ fn end2end_benchmark(c: &mut Criterion) {
         .sample_size(10);
 
     let limit = 1_000_000_000;
-    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
-    let lang_pallas_rc = Arc::new(lang_pallas.clone());
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
     // setup
+    let lang = Arc::new(Lang::new());
     let store = Store::default();
-    let env = empty_sym_env(&store);
-    let prover = NovaProver::new(reduction_count, lang_pallas);
+    let prover: NovaProver<'_, Fq, Coproc<Fq>, MultiFrame<'_, Fq, Coproc<Fq>>> =
+        NovaProver::new(reduction_count, (*lang).clone());
 
-    // use cached public params
-    let instance = Instance::new(
-        reduction_count,
-        lang_pallas_rc.clone(),
-        true,
-        Kind::NovaPublicParams,
-    );
-    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(
-        &instance,
-        Utf8Path::new(PUBLIC_PARAMS_PATH),
-    )
-    .unwrap();
+    let pp: PublicParams<Fq, MultiFrame<'_, Fq, Coproc<Fq>>> =
+        public_params(reduction_count, lang.clone());
 
     let size = (10, 0);
     let benchmark_id = BenchmarkId::new("end2end_go_base_nova", format!("_{}_{}", size.0, size.1));
@@ -88,27 +71,26 @@ fn end2end_benchmark(c: &mut Criterion) {
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
         b.iter(|| {
-            let ptr = go_base::<pallas::Scalar>(&store, state.clone(), s.0, s.1);
-            let _result = prover
-                .evaluate_and_prove(&pp, ptr, env, &store, limit, &lang_pallas_rc)
-                .unwrap();
+            let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
+            let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
+            let _result = prover.prove(&pp, &frames, &store, &lang).unwrap();
         })
     });
 
     group.finish();
 }
 
-/// To run these benchmarks, do `cargo criterion store_benchmark`.
+/// To run these benchmarks, do `cargo criterion store_benchmark_lem`.
 /// For flamegraphs, run:
-/// ```cargo criterion store_benchmark --features flamegraph -- --profile-time <secs>```
-fn store_benchmark(c: &mut Criterion) {
+/// ```cargo criterion store_benchmark_lem --features flamegraph -- --profile-time <secs>```
+fn store_benchmark_lem(c: &mut Criterion) {
     let mut group = c.benchmark_group("store_benchmark");
     group
         .measurement_time(Duration::from_secs(5))
         .sample_size(60);
 
     let bls12_store = Store::<Fr>::default();
-    let pallas_store = Store::<pallas::Scalar>::default();
+    let pallas_store = Store::<Fq>::default();
 
     let state = State::init_lurk_state().rccell();
 
@@ -128,7 +110,7 @@ fn store_benchmark(c: &mut Criterion) {
         let pasta_id = BenchmarkId::new("store_go_base_pallas", &parameter_string);
         group.bench_with_input(pasta_id, &size, |b, &s| {
             b.iter(|| {
-                let result = go_base::<pallas::Scalar>(&pallas_store, state.clone(), s.0, s.1);
+                let result = go_base::<Fq>(&pallas_store, state.clone(), s.0, s.1);
                 black_box(result)
             })
         });
@@ -137,17 +119,17 @@ fn store_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
-/// To run these benchmarks, do `cargo criterion hydration_benchmark`.
+/// To run these benchmarks, do `cargo criterion hydration_benchmark_lem`.
 /// For flamegraphs, run:
-/// ```cargo criterion hydration_benchmark --features flamegraph -- --profile-time <secs>```
-fn hydration_benchmark(c: &mut Criterion) {
+/// ```cargo criterion hydration_benchmark_lem --features flamegraph -- --profile-time <secs>```
+fn hydration_benchmark_lem(c: &mut Criterion) {
     let mut group = c.benchmark_group("hydration_benchmark");
     group
         .measurement_time(Duration::from_secs(5))
         .sample_size(60);
 
     let bls12_store = Store::<Fr>::default();
-    let pallas_store = Store::<pallas::Scalar>::default();
+    let pallas_store = Store::<Fq>::default();
 
     let state = State::init_lurk_state().rccell();
 
@@ -160,15 +142,15 @@ fn hydration_benchmark(c: &mut Criterion) {
             let benchmark_id = BenchmarkId::new("hydration_go_base_bls12", &parameter_string);
             group.bench_with_input(benchmark_id, &size, |b, &s| {
                 let _ptr = go_base::<Fr>(&bls12_store, state.clone(), s.0, s.1);
-                b.iter(|| bls12_store.hydrate_scalar_cache())
+                b.iter(|| bls12_store.hydrate_z_cache())
             });
         }
 
         {
             let benchmark_id = BenchmarkId::new("hydration_go_base_pallas", &parameter_string);
             group.bench_with_input(benchmark_id, &size, |b, &s| {
-                let _ptr = go_base::<pallas::Scalar>(&pallas_store, state.clone(), s.0, s.1);
-                b.iter(|| pallas_store.hydrate_scalar_cache())
+                let _ptr = go_base::<Fq>(&pallas_store, state.clone(), s.0, s.1);
+                b.iter(|| pallas_store.hydrate_z_cache())
             });
         }
     }
@@ -176,20 +158,18 @@ fn hydration_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
-/// To run these benchmarks, do `cargo criterion eval_benchmark`.
+/// To run these benchmarks, do `cargo criterion eval_benchmark_lem`.
 /// For flamegraphs, run:
-/// ```cargo criterion eval_benchmark --features flamegraph -- --profile-time <secs>```
-fn eval_benchmark(c: &mut Criterion) {
+/// ```cargo criterion eval_benchmark_lem --features flamegraph -- --profile-time <secs>```
+fn eval_benchmark_lem(c: &mut Criterion) {
     let mut group = c.benchmark_group("eval_benchmark");
     group
         .measurement_time(Duration::from_secs(5))
         .sample_size(60);
 
     let limit = 1_000_000_000;
-    let lang_bls12 = Lang::<Fr, Coproc<Fr>>::new();
-    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
-    let bls12_store = Store::<Fr>::default();
-    let pallas_store = Store::<pallas::Scalar>::default();
+    let bls12_store = Store::default();
+    let pallas_store = Store::default();
 
     let state = State::init_lurk_state().rccell();
 
@@ -202,33 +182,15 @@ fn eval_benchmark(c: &mut Criterion) {
             let benchmark_id = BenchmarkId::new("eval_go_base_bls12", &parameter_string);
             group.bench_with_input(benchmark_id, &size, |b, &s| {
                 let ptr = go_base::<Fr>(&bls12_store, state.clone(), s.0, s.1);
-                b.iter(|| {
-                    Evaluator::new(
-                        ptr,
-                        empty_sym_env(&bls12_store),
-                        &bls12_store,
-                        limit,
-                        &lang_bls12,
-                    )
-                    .eval()
-                })
+                b.iter(|| evaluate_simple::<Fr, Coproc<Fr>>(None, ptr, &bls12_store, limit))
             });
         }
 
         {
             let benchmark_id = BenchmarkId::new("eval_go_base_pallas", &parameter_string);
             group.bench_with_input(benchmark_id, &size, |b, &s| {
-                let ptr = go_base::<pallas::Scalar>(&pallas_store, state.clone(), s.0, s.1);
-                b.iter(|| {
-                    Evaluator::new(
-                        ptr,
-                        empty_sym_env(&pallas_store),
-                        &pallas_store,
-                        limit,
-                        &lang_pallas,
-                    )
-                    .eval()
-                })
+                let ptr = go_base::<Fq>(&pallas_store, state.clone(), s.0, s.1);
+                b.iter(|| evaluate_simple::<Fq, Coproc<Fq>>(None, ptr, &pallas_store, limit))
             });
         }
     }
@@ -244,15 +206,15 @@ fn eval_benchmark(c: &mut Criterion) {
 
 //     let limit = 1_000_000_000;
 //     let _lang_bls = Lang::<Fr, Coproc<Fr>>::new();
-//     let _lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
-//     let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
+//     let _lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
+//     let lang_pallas = Lang::<Fq, Coproc<Fq>>::new();
 
 //     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
 //     group.bench_function("circuit_generation_go_base_10_16_nova", |b| {
 //         let mut store = Store::default();
 //         let env = empty_sym_env(&store);
-//         let ptr = go_base::<pallas::Scalar>(&mut store, black_box(10), black_box(16));
+//         let ptr = go_base::<Fq>(&mut store, black_box(10), black_box(16));
 //         let prover = NovaProver::new(reduction_count, lang_pallas.clone());
 
 //         let pp = public_parameters::public_params(reduction_count).unwrap();
@@ -269,10 +231,10 @@ fn eval_benchmark(c: &mut Criterion) {
 //     });
 // }
 
-/// To run these benchmarks, do `cargo criterion prove_benchmark`.
+/// To run these benchmarks, do `cargo criterion prove_benchmark_lem`.
 /// For flamegraphs, run:
-/// ```cargo criterion prove_benchmark --features flamegraph -- --profile-time <secs>```
-fn prove_benchmark(c: &mut Criterion) {
+/// ```cargo criterion prove_benchmark_lem --features flamegraph -- --profile-time <secs>```
+fn prove_benchmark_lem(c: &mut Criterion) {
     let mut group = c.benchmark_group("prove_benchmark");
     group
         .sampling_mode(SamplingMode::Flat)
@@ -280,51 +242,36 @@ fn prove_benchmark(c: &mut Criterion) {
         .sample_size(10);
 
     let limit = 1_000_000_000;
-    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
-    let lang_pallas_rc = Arc::new(lang_pallas.clone());
-    let store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
+
+    let store = Store::default();
 
     let size = (10, 0);
     let benchmark_id = BenchmarkId::new("prove_go_base_nova", format!("_{}_{}", size.0, size.1));
 
     let state = State::init_lurk_state().rccell();
-    let instance = Instance::new(
-        reduction_count,
-        lang_pallas_rc.clone(),
-        true,
-        Kind::NovaPublicParams,
-    );
-    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(
-        &instance,
-        Utf8Path::new(PUBLIC_PARAMS_PATH),
-    )
-    .unwrap();
+
+    let lang = Arc::new(Lang::new());
+    let pp: PublicParams<Fq, MultiFrame<'_, Fq, Coproc<Fq>>> =
+        public_params(reduction_count, lang.clone());
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
-        let ptr = go_base::<pallas::Scalar>(&store, state.clone(), s.0, s.1);
-        let prover = NovaProver::new(reduction_count, lang_pallas.clone());
-        let frames = MultiFrame::get_evaluation_frames(
-            |count| prover.needs_frame_padding(count),
-            ptr,
-            empty_sym_env(&store),
-            &store,
-            limit,
-            &lang_pallas,
-        )
-        .unwrap();
+        let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
+        let prover: NovaProver<'_, Fq, Coproc<Fq>, MultiFrame<'_, Fq, Coproc<Fq>>> =
+            NovaProver::new(reduction_count, Lang::new());
+        let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
 
         b.iter(|| {
-            let result = prover.prove(&pp, &frames, &store, &lang_pallas_rc).unwrap();
+            let result = prover.prove(&pp, &frames, &store, &lang).unwrap();
             black_box(result);
         })
     });
 }
 
-/// To run these benchmarks, do `cargo criterion prove_compressed_benchmark`.
+/// To run these benchmarks, do `cargo criterion prove_compressed_benchmark_lem`.
 /// For flamegraphs, run:
-/// ```cargo criterion prove_compressed_benchmark --features flamegraph -- --profile-time <secs>```
-fn prove_compressed_benchmark(c: &mut Criterion) {
+/// ```cargo criterion prove_compressed_benchmark_lem --features flamegraph -- --profile-time <secs>```
+fn prove_compressed_benchmark_lem(c: &mut Criterion) {
     let mut group = c.benchmark_group("prove_compressed_benchmark");
     group
         .sampling_mode(SamplingMode::Flat)
@@ -332,8 +279,6 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
         .sample_size(10);
 
     let limit = 1_000_000_000;
-    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
-    let lang_pallas_rc = Arc::new(lang_pallas.clone());
     let store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
@@ -344,33 +289,18 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
     );
 
     let state = State::init_lurk_state().rccell();
-    let instance = Instance::new(
-        reduction_count,
-        lang_pallas_rc.clone(),
-        true,
-        Kind::NovaPublicParams,
-    );
-    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(
-        &instance,
-        Utf8Path::new(PUBLIC_PARAMS_PATH),
-    )
-    .unwrap();
+
+    let lang = Arc::new(Lang::new());
+    let pp: PublicParams<Fq, MultiFrame<'_, Fq, Coproc<Fq>>> =
+        public_params(reduction_count, lang.clone());
 
     group.bench_with_input(benchmark_id, &size, |b, &s| {
-        let ptr = go_base::<pallas::Scalar>(&store, state.clone(), s.0, s.1);
-        let prover = NovaProver::new(reduction_count, lang_pallas.clone());
-        let frames = prover
-            .get_evaluation_frames(
-                ptr,
-                empty_sym_env(&store),
-                &store,
-                limit,
-                lang_pallas_rc.clone(),
-            )
-            .unwrap();
+        let ptr = go_base::<Fq>(&store, state.clone(), s.0, s.1);
+        let prover = NovaProver::new(reduction_count, Lang::new());
+        let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
 
         b.iter(|| {
-            let (proof, _, _, _) = prover.prove(&pp, &frames, &store, &lang_pallas_rc).unwrap();
+            let (proof, _, _, _) = prover.prove(&pp, &frames, &store, &lang).unwrap();
 
             let compressed_result = proof.compress(&pp).unwrap();
             black_box(compressed_result);
@@ -378,33 +308,24 @@ fn prove_compressed_benchmark(c: &mut Criterion) {
     });
 }
 
-/// To run these benchmarks, do `cargo criterion verify_benchmark`.
+/// To run these benchmarks, do `cargo criterion verify_benchmark_lem`.
 /// For flamegraphs, run:
-/// ```cargo criterion verify_benchmark --features flamegraph -- --profile-time <secs>```
-fn verify_benchmark(c: &mut Criterion) {
+/// ```cargo criterion verify_benchmark_lem --features flamegraph -- --profile-time <secs>```
+fn verify_benchmark_lem(c: &mut Criterion) {
     let mut group = c.benchmark_group("verify_benchmark");
     group
         .measurement_time(Duration::from_secs(10))
         .sample_size(10);
 
     let limit = 1_000_000_000;
-    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
-    let lang_pallas_rc = Arc::new(lang_pallas.clone());
     let store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
     let state = State::init_lurk_state().rccell();
-    let instance = Instance::new(
-        reduction_count,
-        lang_pallas_rc.clone(),
-        true,
-        Kind::NovaPublicParams,
-    );
-    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(
-        &instance,
-        Utf8Path::new(PUBLIC_PARAMS_PATH),
-    )
-    .unwrap();
+
+    let lang = Arc::new(Lang::new());
+    let pp: PublicParams<Fq, MultiFrame<'_, Fq, Coproc<Fq>>> =
+        public_params(reduction_count, lang.clone());
 
     let sizes = vec![(10, 0)];
     for size in sizes {
@@ -412,19 +333,9 @@ fn verify_benchmark(c: &mut Criterion) {
         let benchmark_id = BenchmarkId::new("verify_go_base_nova", &parameter_string);
         group.bench_with_input(benchmark_id, &size, |b, &s| {
             let ptr = go_base(&store, state.clone(), s.0, s.1);
-            let prover = NovaProver::new(reduction_count, lang_pallas.clone());
-            let frames = prover
-                .get_evaluation_frames(
-                    ptr,
-                    empty_sym_env(&store),
-                    &store,
-                    limit,
-                    lang_pallas_rc.clone(),
-                )
-                .unwrap();
-            let (proof, z0, zi, num_steps) = prover
-                .prove(&pp, &frames, &store, &lang_pallas_rc.clone())
-                .unwrap();
+            let prover = NovaProver::new(reduction_count, Lang::new());
+            let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
+            let (proof, z0, zi, num_steps) = prover.prove(&pp, &frames, &store, &lang).unwrap();
 
             b.iter_batched(
                 || z0.clone(),
@@ -440,33 +351,24 @@ fn verify_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
-/// To run these benchmarks, do `cargo criterion verify_compressed_benchmark`.
+/// To run these benchmarks, do `cargo criterion verify_compressed_benchmark_lem`.
 /// For flamegraphs, run:
-/// ```cargo criterion verify_compressed_benchmark --features flamegraph -- --profile-time <secs>```
-fn verify_compressed_benchmark(c: &mut Criterion) {
+/// ```cargo criterion verify_compressed_benchmark_lem --features flamegraph -- --profile-time <secs>```
+fn verify_compressed_benchmark_lem(c: &mut Criterion) {
     let mut group = c.benchmark_group("verify_compressed_benchmark");
     group
         .measurement_time(Duration::from_secs(10))
         .sample_size(10);
 
     let limit = 1_000_000_000;
-    let lang_pallas = Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new();
-    let lang_pallas_rc = Arc::new(lang_pallas.clone());
     let store = Store::default();
     let reduction_count = DEFAULT_REDUCTION_COUNT;
 
     let state = State::init_lurk_state().rccell();
-    let instance = Instance::new(
-        reduction_count,
-        lang_pallas_rc.clone(),
-        true,
-        Kind::NovaPublicParams,
-    );
-    let pp = public_parameters::public_params::<_, _, MultiFrame<'_, _, _>>(
-        &instance,
-        Utf8Path::new(PUBLIC_PARAMS_PATH),
-    )
-    .unwrap();
+
+    let lang = Arc::new(Lang::new());
+    let pp: PublicParams<Fq, MultiFrame<'_, Fq, Coproc<Fq>>> =
+        public_params(reduction_count, lang.clone());
 
     let sizes = vec![(10, 0)];
     for size in sizes {
@@ -474,18 +376,9 @@ fn verify_compressed_benchmark(c: &mut Criterion) {
         let benchmark_id = BenchmarkId::new("verify_compressed_go_base_nova", &parameter_string);
         group.bench_with_input(benchmark_id, &size, |b, &s| {
             let ptr = go_base(&store, state.clone(), s.0, s.1);
-            let prover = NovaProver::new(reduction_count, lang_pallas.clone());
-            let frames = prover
-                .get_evaluation_frames(
-                    ptr,
-                    empty_sym_env(&store),
-                    &store,
-                    limit,
-                    lang_pallas_rc.clone(),
-                )
-                .unwrap();
-            let (proof, z0, zi, num_steps) =
-                prover.prove(&pp, &frames, &store, &lang_pallas_rc).unwrap();
+            let prover = NovaProver::new(reduction_count, Lang::new());
+            let (frames, _) = evaluate::<Fq, Coproc<Fq>>(None, ptr, &store, limit).unwrap();
+            let (proof, z0, zi, num_steps) = prover.prove(&pp, &frames, &store, &lang).unwrap();
 
             let compressed_proof = proof.compress(&pp).unwrap();
 
@@ -516,39 +409,38 @@ cfg_if::cfg_if! {
         criterion_group! {
             name = benches;
             config = Criterion::default()
-
                 .with_profiler(pprof::criterion::PProfProfiler::new(100, pprof::criterion::Output::Flamegraph(None)));
             targets =
-                end2end_benchmark,
-                store_benchmark,
-                hydration_benchmark,
-                eval_benchmark,
+                end2end_benchmark_lem,
+                store_benchmark_lem,
+                hydration_benchmark_lem,
+                eval_benchmark_lem,
                 // circuit_generation_benchmark,
-                prove_benchmark,
-                prove_compressed_benchmark,
-                verify_benchmark,
-                verify_compressed_benchmark
+                prove_benchmark_lem,
+                prove_compressed_benchmark_lem,
+                verify_benchmark_lem,
+                verify_compressed_benchmark_lem
         }
     } else {
         criterion_group! {
             name = benches;
             config = Criterion::default();
             targets =
-                end2end_benchmark,
-                store_benchmark,
-                hydration_benchmark,
-                eval_benchmark,
+                end2end_benchmark_lem,
+                store_benchmark_lem,
+                hydration_benchmark_lem,
+                eval_benchmark_lem,
                 // circuit_generation_benchmark,
-                prove_benchmark,
-                prove_compressed_benchmark,
-                verify_benchmark,
-                verify_compressed_benchmark
+                prove_benchmark_lem,
+                prove_compressed_benchmark_lem,
+                verify_benchmark_lem,
+                verify_compressed_benchmark_lem
         }
     }
 }
 
 // To run these benchmarks, first download `criterion` with `cargo install cargo-criterion`.
-// Then `cargo criterion --bench end2end`. The results are located in `target/criterion/data/<name-of-benchmark>`.
-// For flamegraphs, run `cargo criterion --bench end2end --features flamegraph -- --profile-time <secs>`.
+// Then `cargo criterion --bench end2end_lem`. The results are located in `target/criterion/data/<name-of-benchmark>`.
+// For flamegraphs, run `cargo criterion --bench end2end_lem --features flamegraph -- --profile-time <secs>`.
 // The results are located in `target/criterion/profile/<name-of-benchmark>`.
 criterion_main!(benches);
