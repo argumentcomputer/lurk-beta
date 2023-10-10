@@ -147,6 +147,13 @@ impl<F: LurkField> Ptr<F> {
 /// when interpreting LEMs and delay the need for `ZPtr`s as much as possible.
 pub type ZPtr<F> = crate::z_data::z_ptr::ZPtr<Tag, F>;
 
+impl<F: LurkField> ZPtr<F> {
+    #[inline]
+    pub fn dummy() -> Self {
+        Self(Tag::Expr(Nil), F::ZERO)
+    }
+}
+
 /// `ZChildren` keeps track of the children of `ZPtr`s, in case they have any.
 /// This information is saved during hydration and is needed to content-address
 /// a store.
