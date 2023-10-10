@@ -43,17 +43,13 @@ use crate::{
     },
     coprocessor::Coprocessor,
     eval::lang::Lang,
-    z_ptr::ZPtr,
-};
-
-use crate::{
     field::{FWrap, LurkField},
-    tag::ExprTag::{Comm, Nil, Num, Sym},
+    tag::ExprTag::{Comm, Num, Sym},
 };
 
 use super::{
     interpreter::{Frame, PreimageData},
-    pointers::Ptr,
+    pointers::{Ptr, ZPtr},
     slot::*,
     store::Store,
     var_map::VarMap,
@@ -512,7 +508,8 @@ impl Func {
             preallocated_hash8_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
             preallocated_commitment_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
             preallocated_less_than_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
-            call_outputs: VecDeque<Vec<Ptr<F>>>,
+            call_outputs: &'a VecDeque<Vec<Ptr<F>>>,
+            call_idx: usize,
             cproc_outputs: &'a [Vec<Ptr<F>>],
         }
 
@@ -636,7 +633,7 @@ impl Func {
                                 .map(|ptr| g.store.hash_ptr(ptr).expect("hash_ptr failed"))
                                 .collect::<Vec<_>>()
                         } else {
-                            vec![ZPtr::from_parts(Tag::Expr(Nil), F::ZERO); out.len()]
+                            vec![ZPtr::dummy(); out.len()]
                         };
                         if cproc.has_circuit() {
                             // call the coprocessor's synthesize and then make sure that
@@ -696,22 +693,23 @@ impl Func {
                         // Note that, because there's currently no way of deferring giving
                         // a value to the allocated nums to be filled later, we must either
                         // add the results of the call to the witness, or recompute them.
-                        let output_vals = if not_dummy.get_value() == Some(true) {
-                            let ptrs = g
-                                .call_outputs
-                                .pop_front()
-                                .unwrap_or_else(|| vec![Ptr::dummy(); out.len()]);
-                            assert_eq!(ptrs.len(), out.len());
-                            ptrs
+                        let not_dummy_and_not_blank = not_dummy.get_value() == Some(true) && !blank;
+                        let output_z_ptrs = if not_dummy_and_not_blank {
+                            let z_ptrs = g.call_outputs[g.call_idx]
+                                .iter()
+                                .map(|ptr| g.store.hash_ptr(ptr).expect("hash_ptr failed"))
+                                .collect::<Vec<_>>();
+                            g.call_idx += 1;
+                            assert_eq!(z_ptrs.len(), out.len());
+                            z_ptrs
                         } else {
-                            vec![Ptr::dummy(); out.len()]
+                            vec![ZPtr::dummy(); out.len()]
                         };
                         let mut output_ptrs = Vec::with_capacity(out.len());
-                        for (ptr, var) in output_vals.iter().zip(out.iter()) {
-                            let zptr = g.store.hash_ptr(ptr)?;
+                        for (z_ptr, var) in output_z_ptrs.into_iter().zip(out.iter()) {
                             let ptr = AllocatedPtr::alloc(
                                 &mut cs.namespace(|| format!("var: {var}")),
-                                || Ok(zptr),
+                                || Ok(z_ptr),
                             )?;
                             bound_allocations.insert_ptr(var.clone(), ptr.clone());
                             output_ptrs.push(ptr);
@@ -1235,7 +1233,8 @@ impl Func {
             }
         }
 
-        let call_outputs = frame.preimages.call_outputs.clone();
+        let call_outputs = &frame.preimages.call_outputs;
+        let call_idx = 0;
         let cproc_outputs = &frame.preimages.cproc_outputs;
         recurse(
             cs,
@@ -1254,6 +1253,7 @@ impl Func {
                 preallocated_commitment_slots,
                 preallocated_less_than_slots,
                 call_outputs,
+                call_idx,
                 cproc_outputs,
             },
             0,
