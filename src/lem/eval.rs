@@ -738,53 +738,69 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
         }
     });
     let is_potentially_fun = func!(is_potentially_fun(head): 1 => {
-        let t = Symbol("t");
+        let fun: Expr::Fun;
+        let cons: Expr::Cons;
+        let thunk: Expr::Thunk;
+        let head_is_fun = eq_tag(head, fun);
+        let head_is_cons = eq_tag(head, cons);
+        let head_is_thunk = eq_tag(head, thunk);
+        let acc = or(head_is_fun, head_is_cons);
+        let acc = or(acc, head_is_thunk);
+        if acc {
+            let t = Symbol("t");
+            return (t)
+        }
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
-        match head.tag {
-            Expr::Fun | Expr::Cons | Expr::Thunk => {
-                return (t)
-            }
-        };
         return (nil)
     });
     let is_cproc = is_cproc(cprocs);
 
     func!(reduce(expr, env, cont): 4 => {
-        // Useful constants
         let ret = Symbol("return");
-        let apply = Symbol("apply-continuation");
-        let errctrl = Symbol("error");
+        let term: Cont::Terminal;
         let err: Cont::Error;
+        let cproc: Expr::Cproc;
+
+        let cont_is_term = eq_tag(cont, term);
+        let cont_is_err = eq_tag(cont, err);
+        let expr_is_cproc = eq_tag(expr, cproc);
+        let acc_ret = or(cont_is_term, cont_is_err);
+        let acc_ret = or(acc_ret, expr_is_cproc);
+        if acc_ret {
+            return (expr, env, cont, ret)
+        }
+        let apply = Symbol("apply-continuation");
+        let thunk: Expr::Thunk;
+        let sym: Expr::Sym;
+        let cons: Expr::Cons;
+
+        let expr_is_thunk = eq_tag(expr, thunk);
+        let expr_is_sym = eq_tag(expr, sym);
+        let expr_is_cons = eq_tag(expr, cons);
+        let acc_not_apply = or(expr_is_thunk, expr_is_sym);
+        let acc_not_apply = or(acc_not_apply, expr_is_cons);
+        if !acc_not_apply {
+            return (expr, env, cont, apply)
+        }
+        let errctrl = Symbol("error");
         let nil = Symbol("nil");
         let nil = cast(nil, Expr::Nil);
         let t = Symbol("t");
         let foo: Expr::Nil;
 
-        match cont.tag {
-            Cont::Terminal | Cont::Error => {
-                return (expr, env, cont, ret)
-            }
-        };
-
         match expr.tag {
-            // Lurk's step function can never reduce such expressions
-            Expr::Cproc => {
-                return (expr, env, cont, ret)
-            }
-            Expr::Nil | Expr::Fun | Expr::Num | Expr::Str | Expr::Char | Expr::Comm | Expr::U64 | Expr::Key => {
-                return (expr, env, cont, apply)
-            }
             Expr::Thunk => {
                 let (thunk_expr, thunk_continuation) = decons2(expr);
                 return (thunk_expr, env, thunk_continuation, apply)
             }
             Expr::Sym => {
-                match symbol expr {
-                    "nil", "t" => {
-                        return (expr, env, cont, apply)
-                    }
-                };
+                let expr_is_nil = eq_val(expr, nil);
+                let expr_is_t = eq_val(expr, t);
+                let expr_is_nil_or_t = or(expr_is_nil, expr_is_t);
+                if expr_is_nil_or_t {
+                    return (expr, env, cont, apply)
+                }
 
                 match env.tag {
                     Expr::Nil => {
@@ -849,15 +865,56 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
             Expr::Cons => {
                 // No need for `car_cdr` since the expression is already a `Cons`
                 let (head, rest) = decons2(expr);
-                match rest.tag {
+                let rest_is_nil = eq_tag(rest, nil);
+                let rest_is_cons = eq_tag(rest, expr);
+                let rest_is_nil_or_cons = or(rest_is_nil, rest_is_cons);
+                if !rest_is_nil_or_cons {
                     // rest's tag can only be Nil or Cons
-                    Expr::Sym | Expr::Fun | Expr::Num | Expr::Thunk | Expr::Str
-                    | Expr::Char | Expr::Comm | Expr::U64 | Expr::Key => {
-                        return (expr, env, err, errctrl);
-                    }
-                };
+                    return (expr, env, err, errctrl);
+                }
                 match head.tag {
                     Expr::Sym => {
+                        let let_sym = Symbol("let");
+                        let letrec_sym = Symbol("letrec");
+                        let head_is_let_sym = eq_val(head, let_sym);
+                        let head_is_letrec_sym = eq_val(head, letrec_sym);
+                        let head_is_let_or_letrec_sym = or(head_is_let_sym, head_is_letrec_sym);
+                        if head_is_let_or_letrec_sym {
+                            let (bindings, body) = car_cdr(rest);
+                            let (body1, rest_body) = car_cdr(body);
+                            // Only a single body form allowed for now.
+                            match body.tag {
+                                Expr::Nil => {
+                                    return (expr, env, err, errctrl)
+                                }
+                            };
+                            match rest_body.tag {
+                                Expr::Nil => {
+                                    match bindings.tag {
+                                        Expr::Nil => {
+                                            return (body1, env, cont, ret)
+                                        }
+                                    };
+                                    let (binding1, rest_bindings) = car_cdr(bindings);
+                                    let (var, vals) = car_cdr(binding1);
+                                    match var.tag {
+                                        Expr::Sym => {
+                                            let (val, end) = car_cdr(vals);
+                                            match end.tag {
+                                                Expr::Nil => {
+                                                    let (expanded) = expand_bindings(head, body, body1, rest_bindings);
+                                                    let (cont) = choose_let_cont(head, var, env, expanded, cont);
+                                                    return (val, env, cont, ret)
+                                                }
+                                            };
+                                            return (expr, env, err, errctrl)
+                                        }
+                                    };
+                                    return (expr, env, err, errctrl)
+                                }
+                            };
+                            return (expr, env, err, errctrl)
+                        }
                         match symbol head {
                             "lambda" => {
                                 let (args, body) = car_cdr(rest);
@@ -886,42 +943,6 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                                 match end.tag {
                                     Expr::Nil => {
                                         return (quoted, env, cont, apply)
-                                    }
-                                };
-                                return (expr, env, err, errctrl)
-                            }
-                            "let", "letrec" => {
-                                let (bindings, body) = car_cdr(rest);
-                                let (body1, rest_body) = car_cdr(body);
-                                // Only a single body form allowed for now.
-                                match body.tag {
-                                    Expr::Nil => {
-                                        return (expr, env, err, errctrl)
-                                    }
-                                };
-                                match rest_body.tag {
-                                    Expr::Nil => {
-                                        match bindings.tag {
-                                            Expr::Nil => {
-                                                return (body1, env, cont, ret)
-                                            }
-                                        };
-                                        let (binding1, rest_bindings) = car_cdr(bindings);
-                                        let (var, vals) = car_cdr(binding1);
-                                        match var.tag {
-                                            Expr::Sym => {
-                                                let (val, end) = car_cdr(vals);
-                                                match end.tag {
-                                                    Expr::Nil => {
-                                                        let (expanded) = expand_bindings(head, body, body1, rest_bindings);
-                                                        let (cont) = choose_let_cont(head, var, env, expanded, cont);
-                                                        return (val, env, cont, ret)
-                                                    }
-                                                };
-                                                return (expr, env, err, errctrl)
-                                            }
-                                        };
-                                        return (expr, env, err, errctrl)
                                     }
                                 };
                                 return (expr, env, err, errctrl)
@@ -976,13 +997,13 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                         };
                         // unops
                         let (op) = get_unop(head);
-                        let eq_val = eq_val(op, nil);
-                        if !eq_val {
-                            let eq_val = eq_val(rest, nil);
-                            if !eq_val {
+                        let op_is_nil = eq_tag(op, nil);
+                        if !op_is_nil {
+                            let rest_is_nil = eq_tag(rest, nil);
+                            if !rest_is_nil {
                                 let (arg1, end) = decons2(rest);
-                                let eq_val = eq_val(end, nil);
-                                if eq_val {
+                                let end_is_nil = eq_tag(end, nil);
+                                if end_is_nil {
                                     let cont: Cont::Unop = cons4(op, cont, foo, foo);
                                     return (arg1, env, cont, ret)
                                 }
@@ -992,13 +1013,13 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                         }
                         // binops
                         let (op) = get_binop(head);
-                        let eq_val = eq_val(op, nil);
-                        if !eq_val {
-                            let eq_val = eq_val(rest, nil);
-                            if !eq_val {
+                        let op_is_nil = eq_tag(op, nil);
+                        if !op_is_nil {
+                            let rest_is_nil = eq_tag(rest, nil);
+                            if !rest_is_nil {
                                 let (arg1, more) = decons2(rest);
-                                let eq_val = eq_val(more, nil);
-                                if !eq_val {
+                                let more_is_nil = eq_tag(more, nil);
+                                if !more_is_nil {
                                     let cont: Cont::Binop = cons4(op, env, more, cont);
                                     return (arg1, env, cont, ret);
                                 }
@@ -1008,8 +1029,8 @@ fn reduce(cprocs: &[(&Symbol, usize)]) -> Func {
                         }
                         //coprocessors
                         let (is_cproc) = is_cproc(head);
-                        let is_t = eq_val(is_cproc, t);
-                        if is_t {
+                        let is_cproc_is_t = eq_val(is_cproc, t);
+                        if is_cproc_is_t {
                             let (arg, unevaled_args) = car_cdr(rest);
                             let cont: Cont::Cproc = cons4(head, unevaled_args, nil, cont);
                             return (arg, env, cont, ret);
@@ -1079,24 +1100,23 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
     let extend_rec = func!(extend_rec(env, var, result): 1 => {
         let (binding_or_env, rest) = car_cdr(env);
         let (var_or_binding, _val_or_more_bindings) = car_cdr(binding_or_env);
-        let cons: Expr::Cons = cons2(var, result);
-        match var_or_binding.tag {
+        let binding: Expr::Cons = cons2(var, result);
+        let nil = Symbol("nil");
+        let nil = cast(nil, Expr::Nil);
+        let sym: Expr::Sym;
+        let var_or_binding_is_sym = eq_tag(var_or_binding, sym);
+        let var_or_binding_is_nil = eq_tag(var_or_binding, nil);
+        let var_or_binding_is_sym_or_nil = or(var_or_binding_is_sym, var_or_binding_is_nil);
+        if var_or_binding_is_sym_or_nil {
             // It's a var, so we are extending a simple env with a recursive env.
-            Expr::Sym | Expr::Nil => {
-                let nil = Symbol("nil");
-                let nil = cast(nil, Expr::Nil);
-                let list: Expr::Cons = cons2(cons, nil);
-                let res: Expr::Cons = cons2(list, env);
-                return (res)
-            }
-            // It's a binding, so we are extending a recursive env.
-            Expr::Cons => {
-                let cons2: Expr::Cons = cons2(cons, binding_or_env);
-                let res: Expr::Cons = cons2(cons2, rest);
-
-                return (res)
-            }
+            let list: Expr::Cons = cons2(binding, nil);
+            let res: Expr::Cons = cons2(list, env);
+            return (res)
         }
+        // It's a binding, so we are extending a recursive env.
+        let cons2: Expr::Cons = cons2(binding, binding_or_env);
+        let res: Expr::Cons = cons2(cons2, rest);
+        return (res)
     });
     // Returns 0u64 if both arguments are U64, 0 (num) if the arguments are some kind of number (either U64 or Num),
     // and nil otherwise
@@ -1135,28 +1155,27 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
     });
     let choose_cproc_call = choose_cproc_call(cprocs, ivc);
     func!(apply_cont(result, env, cont, ctrl): 4 => {
-        // Useful constants
-        let ret = Symbol("return");
-        let makethunk = Symbol("make-thunk");
-        let errctrl = Symbol("error");
-        let err: Cont::Error;
-        let nil = Symbol("nil");
-        let nil = cast(nil, Expr::Nil);
-        let t = Symbol("t");
-        let zero = Num(0);
-        let size_u64 = Num(18446744073709551616);
-        let empty_str = String("");
-        let foo: Expr::Nil;
-
         match symbol ctrl {
             "apply-continuation" => {
+                let ret = Symbol("return");
+                let err: Cont::Error;
+                let term: Cont::Terminal;
+                let cont_is_term = eq_tag(cont, term);
+                let cont_is_err = eq_tag(cont, err);
+                let cont_is_term_or_err = or(cont_is_term, cont_is_err);
+                if cont_is_term_or_err {
+                    return (result, env, cont, ret)
+                }
+                let makethunk = Symbol("make-thunk");
+                let errctrl = Symbol("error");
+                let nil = Symbol("nil");
+                let nil = cast(nil, Expr::Nil);
+                let t = Symbol("t");
+                let zero = Num(0);
+                let foo: Expr::Nil;
                 match cont.tag {
-                    Cont::Terminal | Cont::Error => {
-                        return (result, env, cont, ret)
-                    }
                     Cont::Outermost => {
-                        let cont: Cont::Terminal;
-                        return (result, env, cont, ret)
+                        return (result, env, term, ret)
                     }
                     Cont::Emit => {
                         let (cont, _rest, _foo, _foo) = decons4(cont);
@@ -1242,7 +1261,12 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                         return (body, extended_env, cont, ret)
                     }
                     Cont::Unop => {
+                        let empty_str = String("");
+                        let comm: Expr::Comm;
                         let (operator, continuation, _foo, _foo) = decons4(cont);
+                        let result_is_num = eq_tag(result, zero);
+                        let result_is_comm = eq_tag(result, comm);
+                        let result_is_num_or_comm = or(result_is_num, result_is_comm);
                         match operator.tag {
                             Op1::Car => {
                                 // Almost like car_cdr, except it returns
@@ -1332,12 +1356,16 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                 return(comm, env, continuation, makethunk)
                             }
                             Op1::Num => {
-                                match result.tag {
-                                    Expr::Num | Expr::Comm | Expr::Char | Expr::U64 => {
-                                        let cast = cast(result, Expr::Num);
-                                        return(cast, env, continuation, makethunk)
-                                    }
-                                };
+                                let char: Expr::Char;
+                                let u64: Expr::U64;
+                                let result_is_char = eq_tag(result, char);
+                                let result_is_u64 = eq_tag(result, u64);
+                                let acc_cast = or(result_is_num_or_comm, result_is_char);
+                                let acc_cast = or(acc_cast, result_is_u64);
+                                if acc_cast {
+                                    let cast = cast(result, Expr::Num);
+                                    return(cast, env, continuation, makethunk)
+                                }
                                 return(result, env, err, errctrl)
                             }
                             Op1::U64 => {
@@ -1355,12 +1383,10 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                                 return(result, env, err, errctrl)
                             }
                             Op1::Comm => {
-                                match result.tag {
-                                    Expr::Num | Expr::Comm => {
-                                        let cast = cast(result, Expr::Comm);
-                                        return(cast, env, continuation, makethunk)
-                                    }
-                                };
+                                if result_is_num_or_comm {
+                                    let cast = cast(result, Expr::Comm);
+                                    return(cast, env, continuation, makethunk)
+                                }
                                 return(result, env, err, errctrl)
                             }
                             Op1::Char => {
@@ -1407,6 +1433,7 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
                         return (result, env, err, errctrl)
                     }
                     Cont::Binop2 => {
+                        let size_u64 = Num(18446744073709551616);
                         let (operator, evaled_arg, continuation, _foo) = decons4(cont);
                         let (args_num_type) = args_num_type(evaled_arg, result);
                         let args_num_type_eq_nil = eq_tag(args_num_type, nil);
@@ -1659,9 +1686,9 @@ fn apply_cont(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
 
 fn make_thunk() -> Func {
     func!(make_thunk(expr, env, cont, ctrl): 4 => {
-        let ret = Symbol("return");
         match symbol ctrl {
             "make-thunk" => {
+                let ret = Symbol("return");
                 match cont.tag {
                     Cont::Tail => {
                         let (saved_env, saved_cont, _foo, _foo) = decons4(cont);
@@ -1694,8 +1721,8 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 10564;
-    const NUM_CONSTRAINTS: usize = 12945;
+    const NUM_AUX: usize = 10523;
+    const NUM_CONSTRAINTS: usize = 12551;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash4: 14,
         hash6: 3,
@@ -1714,11 +1741,10 @@ mod tests {
         let _ = func.synthesize_frame_aux(&mut cs, &store, &frame, &lang);
         assert_eq!(func.slot, NUM_SLOTS);
         assert_eq!(cs.num_inputs(), NUM_INPUTS);
-        assert_eq!(cs.aux().len(), NUM_AUX);
-
-        let computed_num_constraints = func.num_constraints(&store);
-        let num_constraints = cs.num_constraints();
-        assert_eq!(computed_num_constraints, num_constraints);
-        assert_eq!(num_constraints, NUM_CONSTRAINTS);
+        assert_eq!(
+            (cs.aux().len(), cs.num_constraints()),
+            (NUM_AUX, NUM_CONSTRAINTS)
+        );
+        assert_eq!(func.num_constraints(&store), NUM_CONSTRAINTS);
     }
 }
