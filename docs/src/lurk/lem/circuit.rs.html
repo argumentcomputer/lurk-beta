@@ -1437,6 +1437,7 @@
 <a href="#1437" id="1437">1437</a>
 <a href="#1438" id="1438">1438</a>
 <a href="#1439" id="1439">1439</a>
+<a href="#1440" id="1440">1440</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellperson constraints for LEM, such
@@ -2724,12 +2725,13 @@
             block: <span class="kw-2">&amp;</span>Block,
             globals: <span class="kw-2">&amp;mut </span>HashSet&lt;FWrap&lt;F&gt;&gt;,
             store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+            is_nested: bool,
         ) -&gt; usize {
             <span class="kw">let </span><span class="kw-2">mut </span>num_constraints = <span class="number">0</span>;
             <span class="kw">for </span>op <span class="kw">in </span><span class="kw-2">&amp;</span>block.ops {
                 <span class="kw">match </span>op {
                     Op::Call(<span class="kw">_</span>, func, <span class="kw">_</span>) =&gt; {
-                        num_constraints += recurse(<span class="kw-2">&amp;</span>func.body, globals, store);
+                        num_constraints += recurse(<span class="kw-2">&amp;</span>func.body, globals, store, is_nested);
                     }
                     Op::Null(<span class="kw">_</span>, tag) =&gt; {
                         <span class="kw">use </span><span class="kw">crate</span>::tag::ContTag::{Dummy, Error, Outermost, Terminal};
@@ -2823,9 +2825,9 @@
                 Ctrl::Return(vars) =&gt; num_constraints + <span class="number">2 </span>* vars.len(),
                 Ctrl::If(<span class="kw">_</span>, true_block, false_block) =&gt; {
                     num_constraints
-                        + <span class="number">2
-                        </span>+ recurse(true_block, globals, store)
-                        + recurse(false_block, globals, store)
+                        + <span class="kw">if </span>is_nested { <span class="number">2 </span>} <span class="kw">else </span>{ <span class="number">0 </span>}
+                        + recurse(true_block, globals, store, <span class="bool-val">true</span>)
+                        + recurse(false_block, globals, store, <span class="bool-val">true</span>)
                 }
                 Ctrl::MatchTag(<span class="kw">_</span>, cases, def) =&gt; {
                     <span class="comment">// We allocate one boolean per case and constrain it once
@@ -2834,12 +2836,12 @@
                     </span>num_constraints += <span class="number">2 </span>* cases.len() + <span class="number">1</span>;
 
                     <span class="kw">for </span>block <span class="kw">in </span>cases.values() {
-                        num_constraints += recurse(block, globals, store);
+                        num_constraints += recurse(block, globals, store, <span class="bool-val">true</span>);
                     }
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(def) = def {
                         <span class="comment">// constraints for the boolean, the unequalities and the default case
                         </span>num_constraints += <span class="number">1 </span>+ cases.len();
-                        num_constraints += recurse(def, globals, store);
+                        num_constraints += recurse(def, globals, store, <span class="bool-val">true</span>);
                     }
                     num_constraints
                 }
@@ -2854,12 +2856,12 @@
                     </span>num_constraints += <span class="number">2 </span>* cases.len() + <span class="number">1</span>;
 
                     <span class="kw">for </span>block <span class="kw">in </span>cases.values() {
-                        num_constraints += recurse(block, globals, store);
+                        num_constraints += recurse(block, globals, store, <span class="bool-val">true</span>);
                     }
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(def) = def {
                         <span class="comment">// constraints for the boolean, the unequalities and the default case
                         </span>num_constraints += <span class="number">1 </span>+ cases.len();
-                        num_constraints += recurse(def, globals, store);
+                        num_constraints += recurse(def, globals, store, <span class="bool-val">true</span>);
                     }
                     num_constraints
                 }
@@ -2872,7 +2874,7 @@
             + <span class="number">388 </span>* <span class="self">self</span>.slot.hash8
             + <span class="number">265 </span>* <span class="self">self</span>.slot.commitment
             + <span class="number">1172 </span>* <span class="self">self</span>.slot.less_than;
-        <span class="kw">let </span>num_constraints = recurse(<span class="kw-2">&amp;</span><span class="self">self</span>.body, globals, store);
+        <span class="kw">let </span>num_constraints = recurse(<span class="kw-2">&amp;</span><span class="self">self</span>.body, globals, store, <span class="bool-val">false</span>);
         slot_constraints + num_constraints + globals.len()
     }
 }

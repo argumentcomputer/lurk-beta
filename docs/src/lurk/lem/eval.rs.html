@@ -1725,6 +1725,32 @@
 <a href="#1725" id="1725">1725</a>
 <a href="#1726" id="1726">1726</a>
 <a href="#1727" id="1727">1727</a>
+<a href="#1728" id="1728">1728</a>
+<a href="#1729" id="1729">1729</a>
+<a href="#1730" id="1730">1730</a>
+<a href="#1731" id="1731">1731</a>
+<a href="#1732" id="1732">1732</a>
+<a href="#1733" id="1733">1733</a>
+<a href="#1734" id="1734">1734</a>
+<a href="#1735" id="1735">1735</a>
+<a href="#1736" id="1736">1736</a>
+<a href="#1737" id="1737">1737</a>
+<a href="#1738" id="1738">1738</a>
+<a href="#1739" id="1739">1739</a>
+<a href="#1740" id="1740">1740</a>
+<a href="#1741" id="1741">1741</a>
+<a href="#1742" id="1742">1742</a>
+<a href="#1743" id="1743">1743</a>
+<a href="#1744" id="1744">1744</a>
+<a href="#1745" id="1745">1745</a>
+<a href="#1746" id="1746">1746</a>
+<a href="#1747" id="1747">1747</a>
+<a href="#1748" id="1748">1748</a>
+<a href="#1749" id="1749">1749</a>
+<a href="#1750" id="1750">1750</a>
+<a href="#1751" id="1751">1751</a>
+<a href="#1752" id="1752">1752</a>
+<a href="#1753" id="1753">1753</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -2468,53 +2494,69 @@
         }
     });
     <span class="kw">let </span>is_potentially_fun = <span class="macro">func!</span>(is_potentially_fun(head): <span class="number">1 </span>=&gt; {
-        <span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>);
+        <span class="kw">let </span>fun: Expr::Fun;
+        <span class="kw">let </span>cons: Expr::Cons;
+        <span class="kw">let </span>thunk: Expr::Thunk;
+        <span class="kw">let </span>head_is_fun = eq_tag(head, fun);
+        <span class="kw">let </span>head_is_cons = eq_tag(head, cons);
+        <span class="kw">let </span>head_is_thunk = eq_tag(head, thunk);
+        <span class="kw">let </span>acc = or(head_is_fun, head_is_cons);
+        <span class="kw">let </span>acc = or(acc, head_is_thunk);
+        <span class="kw">if </span>acc {
+            <span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>);
+            <span class="kw">return </span>(t)
+        }
         <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
         <span class="kw">let </span>nil = cast(nil, Expr::Nil);
-        <span class="kw">match </span>head.tag {
-            Expr::Fun | Expr::Cons | Expr::Thunk =&gt; {
-                <span class="kw">return </span>(t)
-            }
-        };
         <span class="kw">return </span>(nil)
     });
     <span class="kw">let </span>is_cproc = is_cproc(cprocs);
 
     <span class="macro">func!</span>(reduce(expr, env, cont): <span class="number">4 </span>=&gt; {
-        <span class="comment">// Useful constants
-        </span><span class="kw">let </span>ret = Symbol(<span class="string">&quot;return&quot;</span>);
-        <span class="kw">let </span>apply = Symbol(<span class="string">&quot;apply-continuation&quot;</span>);
-        <span class="kw">let </span>errctrl = Symbol(<span class="string">&quot;error&quot;</span>);
+        <span class="kw">let </span>ret = Symbol(<span class="string">&quot;return&quot;</span>);
+        <span class="kw">let </span>term: Cont::Terminal;
         <span class="kw">let </span>err: Cont::Error;
+        <span class="kw">let </span>cproc: Expr::Cproc;
+
+        <span class="kw">let </span>cont_is_term = eq_tag(cont, term);
+        <span class="kw">let </span>cont_is_err = eq_tag(cont, err);
+        <span class="kw">let </span>expr_is_cproc = eq_tag(expr, cproc);
+        <span class="kw">let </span>acc_ret = or(cont_is_term, cont_is_err);
+        <span class="kw">let </span>acc_ret = or(acc_ret, expr_is_cproc);
+        <span class="kw">if </span>acc_ret {
+            <span class="kw">return </span>(expr, env, cont, ret)
+        }
+        <span class="kw">let </span>apply = Symbol(<span class="string">&quot;apply-continuation&quot;</span>);
+        <span class="kw">let </span>thunk: Expr::Thunk;
+        <span class="kw">let </span>sym: Expr::Sym;
+        <span class="kw">let </span>cons: Expr::Cons;
+
+        <span class="kw">let </span>expr_is_thunk = eq_tag(expr, thunk);
+        <span class="kw">let </span>expr_is_sym = eq_tag(expr, sym);
+        <span class="kw">let </span>expr_is_cons = eq_tag(expr, cons);
+        <span class="kw">let </span>acc_not_apply = or(expr_is_thunk, expr_is_sym);
+        <span class="kw">let </span>acc_not_apply = or(acc_not_apply, expr_is_cons);
+        <span class="kw">if </span>!acc_not_apply {
+            <span class="kw">return </span>(expr, env, cont, apply)
+        }
+        <span class="kw">let </span>errctrl = Symbol(<span class="string">&quot;error&quot;</span>);
         <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
         <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>);
         <span class="kw">let </span>foo: Expr::Nil;
 
-        <span class="kw">match </span>cont.tag {
-            Cont::Terminal | Cont::Error =&gt; {
-                <span class="kw">return </span>(expr, env, cont, ret)
-            }
-        };
-
         <span class="kw">match </span>expr.tag {
-            <span class="comment">// Lurk&#39;s step function can never reduce such expressions
-            </span>Expr::Cproc =&gt; {
-                <span class="kw">return </span>(expr, env, cont, ret)
-            }
-            Expr::Nil | Expr::Fun | Expr::Num | Expr::Str | Expr::Char | Expr::Comm | Expr::U64 | Expr::Key =&gt; {
-                <span class="kw">return </span>(expr, env, cont, apply)
-            }
             Expr::Thunk =&gt; {
                 <span class="kw">let </span>(thunk_expr, thunk_continuation) = decons2(expr);
                 <span class="kw">return </span>(thunk_expr, env, thunk_continuation, apply)
             }
             Expr::Sym =&gt; {
-                <span class="kw">match </span>symbol expr {
-                    <span class="string">&quot;nil&quot;</span>, <span class="string">&quot;t&quot; </span>=&gt; {
-                        <span class="kw">return </span>(expr, env, cont, apply)
-                    }
-                };
+                <span class="kw">let </span>expr_is_nil = eq_val(expr, nil);
+                <span class="kw">let </span>expr_is_t = eq_val(expr, t);
+                <span class="kw">let </span>expr_is_nil_or_t = or(expr_is_nil, expr_is_t);
+                <span class="kw">if </span>expr_is_nil_or_t {
+                    <span class="kw">return </span>(expr, env, cont, apply)
+                }
 
                 <span class="kw">match </span>env.tag {
                     Expr::Nil =&gt; {
@@ -2579,15 +2621,56 @@
             Expr::Cons =&gt; {
                 <span class="comment">// No need for `car_cdr` since the expression is already a `Cons`
                 </span><span class="kw">let </span>(head, rest) = decons2(expr);
-                <span class="kw">match </span>rest.tag {
+                <span class="kw">let </span>rest_is_nil = eq_tag(rest, nil);
+                <span class="kw">let </span>rest_is_cons = eq_tag(rest, expr);
+                <span class="kw">let </span>rest_is_nil_or_cons = or(rest_is_nil, rest_is_cons);
+                <span class="kw">if </span>!rest_is_nil_or_cons {
                     <span class="comment">// rest&#39;s tag can only be Nil or Cons
-                    </span>Expr::Sym | Expr::Fun | Expr::Num | Expr::Thunk | Expr::Str
-                    | Expr::Char | Expr::Comm | Expr::U64 | Expr::Key =&gt; {
-                        <span class="kw">return </span>(expr, env, err, errctrl);
-                    }
-                };
+                    </span><span class="kw">return </span>(expr, env, err, errctrl);
+                }
                 <span class="kw">match </span>head.tag {
                     Expr::Sym =&gt; {
+                        <span class="kw">let </span>let_sym = Symbol(<span class="string">&quot;let&quot;</span>);
+                        <span class="kw">let </span>letrec_sym = Symbol(<span class="string">&quot;letrec&quot;</span>);
+                        <span class="kw">let </span>head_is_let_sym = eq_val(head, let_sym);
+                        <span class="kw">let </span>head_is_letrec_sym = eq_val(head, letrec_sym);
+                        <span class="kw">let </span>head_is_let_or_letrec_sym = or(head_is_let_sym, head_is_letrec_sym);
+                        <span class="kw">if </span>head_is_let_or_letrec_sym {
+                            <span class="kw">let </span>(bindings, body) = car_cdr(rest);
+                            <span class="kw">let </span>(body1, rest_body) = car_cdr(body);
+                            <span class="comment">// Only a single body form allowed for now.
+                            </span><span class="kw">match </span>body.tag {
+                                Expr::Nil =&gt; {
+                                    <span class="kw">return </span>(expr, env, err, errctrl)
+                                }
+                            };
+                            <span class="kw">match </span>rest_body.tag {
+                                Expr::Nil =&gt; {
+                                    <span class="kw">match </span>bindings.tag {
+                                        Expr::Nil =&gt; {
+                                            <span class="kw">return </span>(body1, env, cont, ret)
+                                        }
+                                    };
+                                    <span class="kw">let </span>(binding1, rest_bindings) = car_cdr(bindings);
+                                    <span class="kw">let </span>(var, vals) = car_cdr(binding1);
+                                    <span class="kw">match </span>var.tag {
+                                        Expr::Sym =&gt; {
+                                            <span class="kw">let </span>(val, end) = car_cdr(vals);
+                                            <span class="kw">match </span>end.tag {
+                                                Expr::Nil =&gt; {
+                                                    <span class="kw">let </span>(expanded) = expand_bindings(head, body, body1, rest_bindings);
+                                                    <span class="kw">let </span>(cont) = choose_let_cont(head, var, env, expanded, cont);
+                                                    <span class="kw">return </span>(val, env, cont, ret)
+                                                }
+                                            };
+                                            <span class="kw">return </span>(expr, env, err, errctrl)
+                                        }
+                                    };
+                                    <span class="kw">return </span>(expr, env, err, errctrl)
+                                }
+                            };
+                            <span class="kw">return </span>(expr, env, err, errctrl)
+                        }
                         <span class="kw">match </span>symbol head {
                             <span class="string">&quot;lambda&quot; </span>=&gt; {
                                 <span class="kw">let </span>(args, body) = car_cdr(rest);
@@ -2616,42 +2699,6 @@
                                 <span class="kw">match </span>end.tag {
                                     Expr::Nil =&gt; {
                                         <span class="kw">return </span>(quoted, env, cont, apply)
-                                    }
-                                };
-                                <span class="kw">return </span>(expr, env, err, errctrl)
-                            }
-                            <span class="string">&quot;let&quot;</span>, <span class="string">&quot;letrec&quot; </span>=&gt; {
-                                <span class="kw">let </span>(bindings, body) = car_cdr(rest);
-                                <span class="kw">let </span>(body1, rest_body) = car_cdr(body);
-                                <span class="comment">// Only a single body form allowed for now.
-                                </span><span class="kw">match </span>body.tag {
-                                    Expr::Nil =&gt; {
-                                        <span class="kw">return </span>(expr, env, err, errctrl)
-                                    }
-                                };
-                                <span class="kw">match </span>rest_body.tag {
-                                    Expr::Nil =&gt; {
-                                        <span class="kw">match </span>bindings.tag {
-                                            Expr::Nil =&gt; {
-                                                <span class="kw">return </span>(body1, env, cont, ret)
-                                            }
-                                        };
-                                        <span class="kw">let </span>(binding1, rest_bindings) = car_cdr(bindings);
-                                        <span class="kw">let </span>(var, vals) = car_cdr(binding1);
-                                        <span class="kw">match </span>var.tag {
-                                            Expr::Sym =&gt; {
-                                                <span class="kw">let </span>(val, end) = car_cdr(vals);
-                                                <span class="kw">match </span>end.tag {
-                                                    Expr::Nil =&gt; {
-                                                        <span class="kw">let </span>(expanded) = expand_bindings(head, body, body1, rest_bindings);
-                                                        <span class="kw">let </span>(cont) = choose_let_cont(head, var, env, expanded, cont);
-                                                        <span class="kw">return </span>(val, env, cont, ret)
-                                                    }
-                                                };
-                                                <span class="kw">return </span>(expr, env, err, errctrl)
-                                            }
-                                        };
-                                        <span class="kw">return </span>(expr, env, err, errctrl)
                                     }
                                 };
                                 <span class="kw">return </span>(expr, env, err, errctrl)
@@ -2706,13 +2753,13 @@
                         };
                         <span class="comment">// unops
                         </span><span class="kw">let </span>(op) = get_unop(head);
-                        <span class="kw">let </span>eq_val = eq_val(op, nil);
-                        <span class="kw">if </span>!eq_val {
-                            <span class="kw">let </span>eq_val = eq_val(rest, nil);
-                            <span class="kw">if </span>!eq_val {
+                        <span class="kw">let </span>op_is_nil = eq_tag(op, nil);
+                        <span class="kw">if </span>!op_is_nil {
+                            <span class="kw">let </span>rest_is_nil = eq_tag(rest, nil);
+                            <span class="kw">if </span>!rest_is_nil {
                                 <span class="kw">let </span>(arg1, end) = decons2(rest);
-                                <span class="kw">let </span>eq_val = eq_val(end, nil);
-                                <span class="kw">if </span>eq_val {
+                                <span class="kw">let </span>end_is_nil = eq_tag(end, nil);
+                                <span class="kw">if </span>end_is_nil {
                                     <span class="kw">let </span>cont: Cont::Unop = cons4(op, cont, foo, foo);
                                     <span class="kw">return </span>(arg1, env, cont, ret)
                                 }
@@ -2722,13 +2769,13 @@
                         }
                         <span class="comment">// binops
                         </span><span class="kw">let </span>(op) = get_binop(head);
-                        <span class="kw">let </span>eq_val = eq_val(op, nil);
-                        <span class="kw">if </span>!eq_val {
-                            <span class="kw">let </span>eq_val = eq_val(rest, nil);
-                            <span class="kw">if </span>!eq_val {
+                        <span class="kw">let </span>op_is_nil = eq_tag(op, nil);
+                        <span class="kw">if </span>!op_is_nil {
+                            <span class="kw">let </span>rest_is_nil = eq_tag(rest, nil);
+                            <span class="kw">if </span>!rest_is_nil {
                                 <span class="kw">let </span>(arg1, more) = decons2(rest);
-                                <span class="kw">let </span>eq_val = eq_val(more, nil);
-                                <span class="kw">if </span>!eq_val {
+                                <span class="kw">let </span>more_is_nil = eq_tag(more, nil);
+                                <span class="kw">if </span>!more_is_nil {
                                     <span class="kw">let </span>cont: Cont::Binop = cons4(op, env, more, cont);
                                     <span class="kw">return </span>(arg1, env, cont, ret);
                                 }
@@ -2738,8 +2785,8 @@
                         }
                         <span class="comment">//coprocessors
                         </span><span class="kw">let </span>(is_cproc) = is_cproc(head);
-                        <span class="kw">let </span>is_t = eq_val(is_cproc, t);
-                        <span class="kw">if </span>is_t {
+                        <span class="kw">let </span>is_cproc_is_t = eq_val(is_cproc, t);
+                        <span class="kw">if </span>is_cproc_is_t {
                             <span class="kw">let </span>(arg, unevaled_args) = car_cdr(rest);
                             <span class="kw">let </span>cont: Cont::Cproc = cons4(head, unevaled_args, nil, cont);
                             <span class="kw">return </span>(arg, env, cont, ret);
@@ -2809,24 +2856,23 @@
     <span class="kw">let </span>extend_rec = <span class="macro">func!</span>(extend_rec(env, var, result): <span class="number">1 </span>=&gt; {
         <span class="kw">let </span>(binding_or_env, rest) = car_cdr(env);
         <span class="kw">let </span>(var_or_binding, _val_or_more_bindings) = car_cdr(binding_or_env);
-        <span class="kw">let </span>cons: Expr::Cons = cons2(var, result);
-        <span class="kw">match </span>var_or_binding.tag {
+        <span class="kw">let </span>binding: Expr::Cons = cons2(var, result);
+        <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+        <span class="kw">let </span>nil = cast(nil, Expr::Nil);
+        <span class="kw">let </span>sym: Expr::Sym;
+        <span class="kw">let </span>var_or_binding_is_sym = eq_tag(var_or_binding, sym);
+        <span class="kw">let </span>var_or_binding_is_nil = eq_tag(var_or_binding, nil);
+        <span class="kw">let </span>var_or_binding_is_sym_or_nil = or(var_or_binding_is_sym, var_or_binding_is_nil);
+        <span class="kw">if </span>var_or_binding_is_sym_or_nil {
             <span class="comment">// It&#39;s a var, so we are extending a simple env with a recursive env.
-            </span>Expr::Sym | Expr::Nil =&gt; {
-                <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
-                <span class="kw">let </span>nil = cast(nil, Expr::Nil);
-                <span class="kw">let </span>list: Expr::Cons = cons2(cons, nil);
-                <span class="kw">let </span>res: Expr::Cons = cons2(list, env);
-                <span class="kw">return </span>(res)
-            }
-            <span class="comment">// It&#39;s a binding, so we are extending a recursive env.
-            </span>Expr::Cons =&gt; {
-                <span class="kw">let </span>cons2: Expr::Cons = cons2(cons, binding_or_env);
-                <span class="kw">let </span>res: Expr::Cons = cons2(cons2, rest);
-
-                <span class="kw">return </span>(res)
-            }
+            </span><span class="kw">let </span>list: Expr::Cons = cons2(binding, nil);
+            <span class="kw">let </span>res: Expr::Cons = cons2(list, env);
+            <span class="kw">return </span>(res)
         }
+        <span class="comment">// It&#39;s a binding, so we are extending a recursive env.
+        </span><span class="kw">let </span>cons2: Expr::Cons = cons2(binding, binding_or_env);
+        <span class="kw">let </span>res: Expr::Cons = cons2(cons2, rest);
+        <span class="kw">return </span>(res)
     });
     <span class="comment">// Returns 0u64 if both arguments are U64, 0 (num) if the arguments are some kind of number (either U64 or Num),
     // and nil otherwise
@@ -2865,28 +2911,27 @@
     });
     <span class="kw">let </span>choose_cproc_call = choose_cproc_call(cprocs, ivc);
     <span class="macro">func!</span>(apply_cont(result, env, cont, ctrl): <span class="number">4 </span>=&gt; {
-        <span class="comment">// Useful constants
-        </span><span class="kw">let </span>ret = Symbol(<span class="string">&quot;return&quot;</span>);
-        <span class="kw">let </span>makethunk = Symbol(<span class="string">&quot;make-thunk&quot;</span>);
-        <span class="kw">let </span>errctrl = Symbol(<span class="string">&quot;error&quot;</span>);
-        <span class="kw">let </span>err: Cont::Error;
-        <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
-        <span class="kw">let </span>nil = cast(nil, Expr::Nil);
-        <span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>);
-        <span class="kw">let </span>zero = Num(<span class="number">0</span>);
-        <span class="kw">let </span>size_u64 = Num(<span class="number">18446744073709551616</span>);
-        <span class="kw">let </span>empty_str = String(<span class="string">&quot;&quot;</span>);
-        <span class="kw">let </span>foo: Expr::Nil;
-
         <span class="kw">match </span>symbol ctrl {
             <span class="string">&quot;apply-continuation&quot; </span>=&gt; {
+                <span class="kw">let </span>ret = Symbol(<span class="string">&quot;return&quot;</span>);
+                <span class="kw">let </span>err: Cont::Error;
+                <span class="kw">let </span>term: Cont::Terminal;
+                <span class="kw">let </span>cont_is_term = eq_tag(cont, term);
+                <span class="kw">let </span>cont_is_err = eq_tag(cont, err);
+                <span class="kw">let </span>cont_is_term_or_err = or(cont_is_term, cont_is_err);
+                <span class="kw">if </span>cont_is_term_or_err {
+                    <span class="kw">return </span>(result, env, cont, ret)
+                }
+                <span class="kw">let </span>makethunk = Symbol(<span class="string">&quot;make-thunk&quot;</span>);
+                <span class="kw">let </span>errctrl = Symbol(<span class="string">&quot;error&quot;</span>);
+                <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
+                <span class="kw">let </span>nil = cast(nil, Expr::Nil);
+                <span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>);
+                <span class="kw">let </span>zero = Num(<span class="number">0</span>);
+                <span class="kw">let </span>foo: Expr::Nil;
                 <span class="kw">match </span>cont.tag {
-                    Cont::Terminal | Cont::Error =&gt; {
-                        <span class="kw">return </span>(result, env, cont, ret)
-                    }
                     Cont::Outermost =&gt; {
-                        <span class="kw">let </span>cont: Cont::Terminal;
-                        <span class="kw">return </span>(result, env, cont, ret)
+                        <span class="kw">return </span>(result, env, term, ret)
                     }
                     Cont::Emit =&gt; {
                         <span class="kw">let </span>(cont, _rest, _foo, _foo) = decons4(cont);
@@ -2972,7 +3017,12 @@
                         <span class="kw">return </span>(body, extended_env, cont, ret)
                     }
                     Cont::Unop =&gt; {
+                        <span class="kw">let </span>empty_str = String(<span class="string">&quot;&quot;</span>);
+                        <span class="kw">let </span>comm: Expr::Comm;
                         <span class="kw">let </span>(operator, continuation, _foo, _foo) = decons4(cont);
+                        <span class="kw">let </span>result_is_num = eq_tag(result, zero);
+                        <span class="kw">let </span>result_is_comm = eq_tag(result, comm);
+                        <span class="kw">let </span>result_is_num_or_comm = or(result_is_num, result_is_comm);
                         <span class="kw">match </span>operator.tag {
                             Op1::Car =&gt; {
                                 <span class="comment">// Almost like car_cdr, except it returns
@@ -3062,12 +3112,16 @@
                                 <span class="kw">return</span>(comm, env, continuation, makethunk)
                             }
                             Op1::Num =&gt; {
-                                <span class="kw">match </span>result.tag {
-                                    Expr::Num | Expr::Comm | Expr::Char | Expr::U64 =&gt; {
-                                        <span class="kw">let </span>cast = cast(result, Expr::Num);
-                                        <span class="kw">return</span>(cast, env, continuation, makethunk)
-                                    }
-                                };
+                                <span class="kw">let </span>char: Expr::Char;
+                                <span class="kw">let </span>u64: Expr::U64;
+                                <span class="kw">let </span>result_is_char = eq_tag(result, char);
+                                <span class="kw">let </span>result_is_u64 = eq_tag(result, u64);
+                                <span class="kw">let </span>acc_cast = or(result_is_num_or_comm, result_is_char);
+                                <span class="kw">let </span>acc_cast = or(acc_cast, result_is_u64);
+                                <span class="kw">if </span>acc_cast {
+                                    <span class="kw">let </span>cast = cast(result, Expr::Num);
+                                    <span class="kw">return</span>(cast, env, continuation, makethunk)
+                                }
                                 <span class="kw">return</span>(result, env, err, errctrl)
                             }
                             Op1::U64 =&gt; {
@@ -3085,12 +3139,10 @@
                                 <span class="kw">return</span>(result, env, err, errctrl)
                             }
                             Op1::Comm =&gt; {
-                                <span class="kw">match </span>result.tag {
-                                    Expr::Num | Expr::Comm =&gt; {
-                                        <span class="kw">let </span>cast = cast(result, Expr::Comm);
-                                        <span class="kw">return</span>(cast, env, continuation, makethunk)
-                                    }
-                                };
+                                <span class="kw">if </span>result_is_num_or_comm {
+                                    <span class="kw">let </span>cast = cast(result, Expr::Comm);
+                                    <span class="kw">return</span>(cast, env, continuation, makethunk)
+                                }
                                 <span class="kw">return</span>(result, env, err, errctrl)
                             }
                             Op1::Char =&gt; {
@@ -3137,6 +3189,7 @@
                         <span class="kw">return </span>(result, env, err, errctrl)
                     }
                     Cont::Binop2 =&gt; {
+                        <span class="kw">let </span>size_u64 = Num(<span class="number">18446744073709551616</span>);
                         <span class="kw">let </span>(operator, evaled_arg, continuation, _foo) = decons4(cont);
                         <span class="kw">let </span>(args_num_type) = args_num_type(evaled_arg, result);
                         <span class="kw">let </span>args_num_type_eq_nil = eq_tag(args_num_type, nil);
@@ -3389,9 +3442,9 @@
 
 <span class="kw">fn </span>make_thunk() -&gt; Func {
     <span class="macro">func!</span>(make_thunk(expr, env, cont, ctrl): <span class="number">4 </span>=&gt; {
-        <span class="kw">let </span>ret = Symbol(<span class="string">&quot;return&quot;</span>);
         <span class="kw">match </span>symbol ctrl {
             <span class="string">&quot;make-thunk&quot; </span>=&gt; {
+                <span class="kw">let </span>ret = Symbol(<span class="string">&quot;return&quot;</span>);
                 <span class="kw">match </span>cont.tag {
                     Cont::Tail =&gt; {
                         <span class="kw">let </span>(saved_env, saved_cont, _foo, _foo) = decons4(cont);
@@ -3424,8 +3477,8 @@
     <span class="kw">use </span>blstrs::Scalar <span class="kw">as </span>Fr;
 
     <span class="kw">const </span>NUM_INPUTS: usize = <span class="number">1</span>;
-    <span class="kw">const </span>NUM_AUX: usize = <span class="number">10564</span>;
-    <span class="kw">const </span>NUM_CONSTRAINTS: usize = <span class="number">12945</span>;
+    <span class="kw">const </span>NUM_AUX: usize = <span class="number">10523</span>;
+    <span class="kw">const </span>NUM_CONSTRAINTS: usize = <span class="number">12551</span>;
     <span class="kw">const </span>NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash4: <span class="number">14</span>,
         hash6: <span class="number">3</span>,
@@ -3444,12 +3497,11 @@
         <span class="kw">let _ </span>= func.synthesize_frame_aux(<span class="kw-2">&amp;mut </span>cs, <span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>frame, <span class="kw-2">&amp;</span>lang);
         <span class="macro">assert_eq!</span>(func.slot, NUM_SLOTS);
         <span class="macro">assert_eq!</span>(cs.num_inputs(), NUM_INPUTS);
-        <span class="macro">assert_eq!</span>(cs.aux().len(), NUM_AUX);
-
-        <span class="kw">let </span>computed_num_constraints = func.num_constraints(<span class="kw-2">&amp;</span>store);
-        <span class="kw">let </span>num_constraints = cs.num_constraints();
-        <span class="macro">assert_eq!</span>(computed_num_constraints, num_constraints);
-        <span class="macro">assert_eq!</span>(num_constraints, NUM_CONSTRAINTS);
+        <span class="macro">assert_eq!</span>(
+            (cs.aux().len(), cs.num_constraints()),
+            (NUM_AUX, NUM_CONSTRAINTS)
+        );
+        <span class="macro">assert_eq!</span>(func.num_constraints(<span class="kw-2">&amp;</span>store), NUM_CONSTRAINTS);
     }
 }
 </code></pre></div></section></main></body></html>

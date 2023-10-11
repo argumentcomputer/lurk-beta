@@ -52,8 +52,12 @@
 <a href="#52" id="52">52</a>
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>std::collections::{hash_map::Entry, HashMap};
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::hash_map::Entry;
+
+<span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>fxhash::FxHashMap;
 <span class="kw">use </span>tracing::info;
 
 <span class="kw">use </span><span class="kw">super</span>::Var;
@@ -63,13 +67,13 @@
 /// variables before using them, so we don&#39;t expect to need some piece of
 /// information from a variable that hasn&#39;t been defined.
 </span><span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub struct </span>VarMap&lt;V&gt;(HashMap&lt;Var, V&gt;);
+</span><span class="kw">pub struct </span>VarMap&lt;V&gt;(FxHashMap&lt;Var, V&gt;);
 
 <span class="kw">impl</span>&lt;V&gt; VarMap&lt;V&gt; {
     <span class="doccomment">/// Creates an empty `VarMap`
     </span><span class="attr">#[inline]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new() -&gt; VarMap&lt;V&gt; {
-        VarMap(HashMap::default())
+        VarMap(FxHashMap::default())
     }
 
     <span class="doccomment">/// Inserts new data into a `VarMap`
