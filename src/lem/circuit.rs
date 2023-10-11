@@ -34,9 +34,10 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use crate::{
     circuit::gadgets::{
         constraints::{
-            add, alloc_equal, alloc_is_zero, allocate_is_negative, and, div, enforce_pack,
+            add, alloc_equal, alloc_is_zero, allocate_is_negative, and, div,
             enforce_product_and_sum, enforce_selector_with_premise, implies_equal,
-            implies_equal_const, implies_u64, implies_unequal_const, mul, or, pick, sub,
+            implies_equal_const, implies_pack, implies_u64, implies_unequal_const, mul, or, pick,
+            sub,
         },
         data::{allocate_constant, hash_poseidon},
         pointer::AllocatedPtr,
@@ -60,6 +61,7 @@ pub enum AllocatedVal<F: LurkField> {
     Pointer(AllocatedPtr<F>),
     Number(AllocatedNum<F>),
     Boolean(Boolean),
+    Bits(Vec<Boolean>),
 }
 
 /// Manages global allocations for constants in a constraint system
@@ -173,7 +175,13 @@ fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
                 let lt = or(&mut cs.namespace(|| "or"), &and1, &and2)?;
                 AllocatedVal::Boolean(lt)
             }
-            SlotType::BitDecomp => todo!(),
+            SlotType::BitDecomp => {
+                let a_num = &preallocated_preimg[0];
+                let bits = a_num
+                    .to_bits_le_strict(&mut cs.namespace(|| "a_num_bits"))
+                    .unwrap();
+                AllocatedVal::Bits(bits)
+            }
         }
     };
     Ok(preallocated_img)
@@ -261,7 +269,12 @@ fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
                         || *b,
                     ));
                 }
-                PreimageData::F(..) => todo!(),
+                PreimageData::F(a) => {
+                    preallocated_preimg.push(AllocatedNum::alloc_infallible(
+                        cs.namespace(|| format!("component 0 slot {slot}")),
+                        || *a,
+                    ));
+                }
             }
 
             // Allocate the image by calling the arithmetic function according
@@ -502,6 +515,14 @@ impl Func {
             store,
         )?;
 
+        let preallocated_bit_decomp_slots = allocate_slots(
+            cs,
+            &frame.preimages.bit_decomp,
+            SlotType::BitDecomp,
+            self.slot.bit_decomp,
+            store,
+        )?;
+
         struct Globals<'a, F: LurkField, C: Coprocessor<F>> {
             lang: &'a Lang<F, C>,
             store: &'a Store<F>,
@@ -511,6 +532,7 @@ impl Func {
             preallocated_hash8_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
             preallocated_commitment_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
             preallocated_less_than_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
+            preallocated_bit_decomp_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
             call_outputs: &'a VecDeque<Vec<Ptr<F>>>,
             call_idx: usize,
             cproc_outputs: &'a [Vec<Ptr<F>>],
@@ -903,9 +925,16 @@ impl Func {
                     Op::Trunc(tgt, a, n) => {
                         assert!(*n <= 64);
                         let a = bound_allocations.get_ptr(a)?;
-                        let mut trunc_bits =
-                            a.hash().to_bits_le_strict(cs.namespace(|| "to_bits_le"))?;
-                        trunc_bits.truncate(*n as usize);
+                        let (preallocated_preimg, trunc_bits) =
+                            &g.preallocated_bit_decomp_slots[next_slot.consume_bit_decomp()];
+                        implies_equal(
+                            &mut cs.namespace(|| "implies equal component trunc"),
+                            not_dummy,
+                            a.hash(),
+                            &preallocated_preimg[0],
+                        );
+                        let AllocatedVal::Bits(trunc_bits) = trunc_bits else { panic!("Expected bits") };
+                        let trunc_bits = &trunc_bits[0..*n as usize];
                         let trunc = AllocatedNum::alloc(cs.namespace(|| "trunc"), || {
                             let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
                             a.hash()
@@ -913,7 +942,12 @@ impl Func {
                                 .map(|a| F::from_u64(a.to_u64_unchecked() & b))
                                 .ok_or(SynthesisError::AssignmentMissing)
                         })?;
-                        enforce_pack(cs.namespace(|| "enforce_trunc"), &trunc_bits, &trunc);
+                        implies_pack(
+                            cs.namespace(|| "implies_trunc"),
+                            not_dummy,
+                            trunc_bits,
+                            &trunc,
+                        );
                         let tag = g
                             .global_allocator
                             .get_allocated_const_cloned(Tag::Expr(Num).to_field())?;
@@ -1255,6 +1289,7 @@ impl Func {
                 preallocated_hash8_slots,
                 preallocated_commitment_slots,
                 preallocated_less_than_slots,
+                preallocated_bit_decomp_slots,
                 call_outputs,
                 call_idx,
                 cproc_outputs,
@@ -1331,14 +1366,9 @@ impl Func {
                         globals.insert(FWrap(F::ONE));
                         num_constraints += 5;
                     }
-                    Op::Lt(..) => {
+                    Op::Lt(..) | Op::Trunc(..) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
                         num_constraints += 2;
-                    }
-                    Op::Trunc(..) => {
-                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
-                        // bit decomposition + enforce_pack
-                        num_constraints += 389;
                     }
                     Op::DivRem64(..) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
@@ -1436,7 +1466,8 @@ impl Func {
             + 337 * self.slot.hash6
             + 388 * self.slot.hash8
             + 265 * self.slot.commitment
-            + 1172 * self.slot.less_than;
+            + 1172 * self.slot.less_than
+            + 388 * self.slot.bit_decomp;
         let num_constraints = recurse(&self.body, globals, store, false);
         slot_constraints + num_constraints + globals.len()
     }

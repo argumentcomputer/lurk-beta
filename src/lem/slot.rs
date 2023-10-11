@@ -270,16 +270,15 @@ impl SlotType {
     }
 
     pub(crate) fn is_compatible<F: LurkField>(&self, preimg: &PreimageData<F>) -> bool {
-        use PreimageData::*;
-        match (self, preimg) {
-            (Self::Hash4, PtrVec(..))
-            | (Self::Hash6, PtrVec(..))
-            | (Self::Hash8, PtrVec(..))
-            | (Self::Commitment, FPtr(..))
-            | (Self::LessThan, FPair(..))
-            | (Self::BitDecomp, F(..)) => true,
-            _ => false,
-        }
+        matches!(
+            (self, preimg),
+            (Self::Hash4, PreimageData::PtrVec(..))
+                | (Self::Hash6, PreimageData::PtrVec(..))
+                | (Self::Hash8, PreimageData::PtrVec(..))
+                | (Self::Commitment, PreimageData::FPtr(..))
+                | (Self::LessThan, PreimageData::FPair(..))
+                | (Self::BitDecomp, PreimageData::F(..))
+        )
     }
 }
 

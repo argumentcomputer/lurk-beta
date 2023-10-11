@@ -59,6 +59,7 @@ pub struct Preimages<F: LurkField> {
     pub hash8: Vec<Option<PreimageData<F>>>,
     pub commitment: Vec<Option<PreimageData<F>>>,
     pub less_than: Vec<Option<PreimageData<F>>>,
+    pub bit_decomp: Vec<Option<PreimageData<F>>>,
     pub call_outputs: VecDeque<Vec<Ptr<F>>>,
     pub cproc_outputs: Vec<Vec<Ptr<F>>>,
 }
@@ -71,6 +72,7 @@ impl<F: LurkField> Preimages<F> {
         let hash8 = Vec::with_capacity(slot.hash8);
         let commitment = Vec::with_capacity(slot.commitment);
         let less_than = Vec::with_capacity(slot.less_than);
+        let bit_decomp = Vec::with_capacity(slot.bit_decomp);
         let call_outputs = VecDeque::new();
         let cproc_outputs = Vec::new();
         Preimages {
@@ -79,6 +81,7 @@ impl<F: LurkField> Preimages<F> {
             hash8,
             commitment,
             less_than,
+            bit_decomp,
             call_outputs,
             cproc_outputs,
         }
@@ -91,6 +94,7 @@ impl<F: LurkField> Preimages<F> {
         let hash8 = vec![None; slot.hash8];
         let commitment = vec![None; slot.commitment];
         let less_than = vec![None; slot.less_than];
+        let bit_decomp = vec![None; slot.bit_decomp];
         let call_outputs = VecDeque::new();
         let cproc_outputs = Vec::new();
         Preimages {
@@ -99,6 +103,7 @@ impl<F: LurkField> Preimages<F> {
             hash8,
             commitment,
             less_than,
+            bit_decomp,
             call_outputs,
             cproc_outputs,
         }
@@ -291,11 +296,11 @@ impl Block {
                     assert!(*n <= 64);
                     let a = bindings.get_ptr(a)?;
                     let c = if let Ptr::Atom(_, f) = a {
-                        preimages.less_than.push(Some(PreimageData::F(f)));
+                        preimages.bit_decomp.push(Some(PreimageData::F(f)));
                         let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
                         Ptr::Atom(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() & b))
                     } else {
-                        bail!("`Trunc` only works a leaf")
+                        bail!("`Trunc` only works on atoms")
                     };
                     bindings.insert_ptr(tgt.clone(), c);
                 }
@@ -514,6 +519,7 @@ impl Func {
         let hash8_init = preimages.hash8.len();
         let commitment_init = preimages.commitment.len();
         let less_than_init = preimages.less_than.len();
+        let bit_decomp_init = preimages.bit_decomp.len();
 
         let mut res = self.body.run(
             args,
@@ -532,6 +538,7 @@ impl Func {
         let hash8_used = preimages.hash8.len() - hash8_init;
         let commitment_used = preimages.commitment.len() - commitment_init;
         let less_than_used = preimages.less_than.len() - less_than_init;
+        let bit_decomp_used = preimages.bit_decomp.len() - bit_decomp_init;
 
         for _ in hash4_used..self.slot.hash4 {
             preimages.hash4.push(None);
@@ -547,6 +554,9 @@ impl Func {
         }
         for _ in less_than_used..self.slot.less_than {
             preimages.less_than.push(None);
+        }
+        for _ in bit_decomp_used..self.slot.bit_decomp {
+            preimages.bit_decomp.push(None);
         }
 
         Ok(res)
