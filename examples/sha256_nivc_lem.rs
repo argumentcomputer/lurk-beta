@@ -4,23 +4,26 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
 use tracing_texray::TeXRayLayer;
 
 use lurk::{
-    circuit::circuit_frame::MultiFrame,
-    coprocessor::sha256::{Sha256Coproc, Sha256Coprocessor},
-    eval::{empty_sym_env, lang::Lang},
+    coprocessor::sha256::Sha256Coprocessor,
+    eval::lang::Lang,
     field::LurkField,
+    lem::{
+        eval::{evaluate, make_eval_step_from_lang},
+        multiframe::MultiFrame,
+        pointers::Ptr,
+        store::Store,
+    },
     proof::{supernova::SuperNovaProver, Prover},
-    ptr::Ptr,
     public_parameters::{
         instance::{Instance, Kind},
         public_params_default_dir, supernova_public_params,
     },
     state::user_sym,
-    store::Store,
 };
 
 const REDUCTION_COUNT: usize = 10;
 
-fn sha256_nivc<F: LurkField>(store: &mut Store<F>, n: usize, input: Vec<usize>) -> Ptr<F> {
+fn sha256_nivc<F: LurkField>(store: &Store<F>, n: usize, input: Vec<usize>) -> Ptr<F> {
     assert_eq!(n, input.len());
     let input = input
         .iter()
@@ -48,11 +51,11 @@ fn sha256_nivc<F: LurkField>(store: &mut Store<F>, n: usize, input: Vec<usize>) 
 "#
     );
 
-    store.read(&program).unwrap()
+    store.read_with_default_state(&program).unwrap()
 }
 
 /// Run the example in this file with
-/// `cargo run --release --example sha256_nivc <n>`
+/// `cargo run --release --example sha256_nivc_lem <n>`
 /// where `n` is the needed arity (default is 1)
 fn main() {
     let subscriber = Registry::default()
@@ -64,19 +67,22 @@ fn main() {
     let args = std::env::args().collect::<Vec<_>>();
     let n = args.get(1).unwrap_or(&"1".into()).parse().unwrap();
 
-    let store = &mut Store::<Fr>::new();
+    let store = &Store::<Fr>::default();
     let cproc_sym = user_sym(&format!("sha256_nivc_{n}"));
 
     let call = sha256_nivc(store, n, (0..n).collect());
 
-    let lang = Lang::<Fr, Sha256Coproc<Fr>>::new_with_bindings(
-        store,
-        vec![(cproc_sym, Sha256Coprocessor::new(n).into())],
-    );
+    let mut lang = Lang::<Fr, Sha256Coprocessor<Fr>>::new();
+    lang.add_coprocessor_lem(cproc_sym, Sha256Coprocessor::new(n), store);
     let lang_rc = Arc::new(lang.clone());
 
-    let supernova_prover =
-        SuperNovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(REDUCTION_COUNT, lang);
+    let lurk_step = make_eval_step_from_lang(&lang, false);
+    let (frames, _) = evaluate(Some((&lurk_step, &lang)), call, store, 1000).unwrap();
+
+    let supernova_prover = SuperNovaProver::<Fr, Sha256Coprocessor<Fr>, MultiFrame<'_, _, _>>::new(
+        REDUCTION_COUNT,
+        lang,
+    );
 
     println!("Setting up running claim parameters (rc = {REDUCTION_COUNT})...");
     let pp_start = Instant::now();
@@ -101,7 +107,7 @@ fn main() {
     let (proof, z0, zi, num_steps, last_circuit_index) =
         tracing_texray::examine(tracing::info_span!("bang!")).in_scope(|| {
             supernova_prover
-                .evaluate_and_prove(&pp, call, empty_sym_env(store), store, 10000, lang_rc)
+                .prove(&pp, &frames, store, lang_rc)
                 .unwrap()
         });
     let proof_end = proof_start.elapsed();
@@ -120,7 +126,7 @@ fn main() {
 
     if res {
         println!(
-            "Congratulations! You proved and verified a NIVC SHA256 hash calculation in {:?} time!",
+            "Congratulations! You proved and verified a LEM NIVC SHA256 hash calculation in {:?} time!",
             pp_end + proof_end + verify_end
         );
     }

@@ -112,15 +112,9 @@ pub fn build_frames<
         }
         pc = get_pc(&expr, store, lang);
     }
+    // TODO: remove this after #729 is merged
     if iterations < limit {
-        let (frame, _) = lurk_step.call(
-            &input,
-            store,
-            Preimages::new_from_func(lurk_step),
-            &mut vec![],
-            lang,
-            pc,
-        )?;
+        let frame = lurk_step.call_simple(&input, store, lang, pc)?;
         frames.push(frame);
     }
     Ok((frames, iterations))
@@ -224,6 +218,13 @@ pub fn evaluate_simple<F: LurkField, C: Coprocessor<F>>(
     }
 }
 
+/// Creates a LEM `Func` corresponding to Lurk's step function from a `Lang`.
+/// The `ivc` flag tells whether the generated step function is used for IVC or
+/// NIVC. In the IVC case, the step function is capable of reducing calls to the
+/// coprocessors present in `Lang` and their circuit will go in the circuit of
+/// the step function. In the NIVC case, the step function won't be able to reduce
+/// calls to coprocessors and sets up a loop via the `Expr::Cproc` tag, meaning
+/// that the reduction must be done from outside.
 pub fn make_eval_step_from_lang<F: LurkField, C: Coprocessor<F>>(
     lang: &Lang<F, C>,
     ivc: bool,
@@ -238,7 +239,7 @@ pub fn make_eval_step_from_lang<F: LurkField, C: Coprocessor<F>>(
     )
 }
 
-pub fn make_eval_step(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
+fn make_eval_step(cprocs: &[(&Symbol, usize)], ivc: bool) -> Func {
     let reduce = reduce(cprocs);
     let apply_cont = apply_cont(cprocs, ivc);
     let make_thunk = make_thunk();
@@ -383,7 +384,9 @@ fn run_cproc(cproc_sym: Symbol, arity: usize) -> Func {
     Func::new("run_cproc".into(), func_inp, 3, block).unwrap()
 }
 
-pub(crate) fn make_cprocs_funcs_from_lang<F: LurkField, C: Coprocessor<F>>(
+/// Creates the `Func`s used to call coprocessors in the NIVC scenario. Each
+/// coprocessor in the `Lang` will have its own specialized `Func`
+pub fn make_cprocs_funcs_from_lang<F: LurkField, C: Coprocessor<F>>(
     lang: &Lang<F, C>,
 ) -> std::sync::Arc<[Func]> {
     lang.coprocessors()

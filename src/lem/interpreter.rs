@@ -556,4 +556,24 @@ impl Func {
 
         Ok(res)
     }
+
+    #[inline]
+    pub fn call_simple<F: LurkField, C: Coprocessor<F>>(
+        &self,
+        args: &[Ptr<F>],
+        store: &Store<F>,
+        lang: &Lang<F, C>,
+        pc: usize,
+    ) -> Result<Frame<F>> {
+        Ok(self
+            .call(
+                args,
+                store,
+                Preimages::new_from_func(self),
+                &mut vec![],
+                lang,
+                pc,
+            )?
+            .0)
+    }
 }

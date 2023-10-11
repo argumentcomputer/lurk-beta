@@ -146,7 +146,7 @@ pub trait MultiFrameTrait<'a, F: LurkField, C: Coprocessor<F> + 'a>:
     ) -> Result<Self::AllocatedIO, SynthesisError>;
 
     /// Synthesize a blank circuit.
-    fn blank(folding_config: Arc<FoldingConfig<F, C>>, meta: Meta<F>) -> Self;
+    fn blank(folding_config: Arc<FoldingConfig<F, C>>, meta: Meta<F>, pc: usize) -> Self;
 
     /// Create an instance from some `Self::Frame`s.
     fn from_frames(

@@ -39,7 +39,10 @@ where
         })
     }
 
-    pub(crate) fn read(&self, instance: &Instance<F, C>) -> Result<PublicParams<F, M>, Error> {
+    pub(crate) fn read(
+        &self,
+        instance: &Instance<'a, F, C, M>,
+    ) -> Result<PublicParams<F, M>, Error> {
         let file = instance.open(&self.dir)?;
         let reader = BufReader::new(file);
         bincode::deserialize_from(reader).map_err(|e| {
@@ -49,7 +52,7 @@ where
 
     pub(crate) fn read_bytes(
         &self,
-        instance: &Instance<F, C>,
+        instance: &Instance<'a, F, C, M>,
         byte_sink: &mut Vec<u8>,
     ) -> Result<(), Error> {
         let file = instance.open(&self.dir)?;
@@ -60,7 +63,7 @@ where
 
     pub(crate) fn write(
         &self,
-        instance: &Instance<F, C>,
+        instance: &Instance<'a, F, C, M>,
         data: &PublicParams<F, M>,
     ) -> Result<(), Error> {
         let file = instance.create(&self.dir)?;
@@ -72,7 +75,7 @@ where
 
     pub(crate) fn write_abomonated<V: Abomonation>(
         &self,
-        instance: &Instance<F, C>,
+        instance: &Instance<'a, F, C, M>,
         data: &V,
     ) -> Result<(), Error> {
         let mut file = instance.create(&self.dir)?;
