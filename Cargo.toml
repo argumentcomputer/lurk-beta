@@ -26,6 +26,7 @@ clap = { workspace = true, features = ["derive"] }
 config = "0.13.3"
 dashmap = "5.5.0"
 ff = { workspace = true }
+fxhash = "0.2.1"
 generic-array = "0.14.7"
 hex = { version = "0.4.3", features = ["serde"] }
 indexmap = { version = "1.9.3", features = ["rayon", "serde"] }
