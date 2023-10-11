@@ -48,7 +48,7 @@ use crate::{
 };
 
 use super::{
-    interpreter::{Frame, PreimageData},
+    interpreter::Frame,
     pointers::{Ptr, ZPtr},
     slot::*,
     store::Store,
@@ -173,6 +173,7 @@ fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
                 let lt = or(&mut cs.namespace(|| "or"), &and1, &and2)?;
                 AllocatedVal::Boolean(lt)
             }
+            SlotType::BitDecomp => todo!(),
         }
     };
     Ok(preallocated_img)
@@ -201,6 +202,7 @@ fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
                 idx: slot_idx,
                 typ: slot_type,
             };
+            assert!(slot_type.is_compatible(preimg_data));
 
             // Allocate the preimage because the image depends on it
             let mut preallocated_preimg = Vec::with_capacity(slot_type.preimg_size());
@@ -259,6 +261,7 @@ fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
                         || *b,
                     ));
                 }
+                PreimageData::F(..) => todo!(),
             }
 
             // Allocate the image by calling the arithmetic function according

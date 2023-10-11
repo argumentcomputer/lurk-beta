@@ -1699,6 +1699,7 @@ mod tests {
         hash8: 4,
         commitment: 1,
         less_than: 1,
+        bit_decomp: 1,
     };
 
     #[test]

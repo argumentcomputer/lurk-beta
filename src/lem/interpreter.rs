@@ -2,7 +2,8 @@ use anyhow::{anyhow, bail, Result};
 use std::collections::VecDeque;
 
 use super::{
-    path::Path, pointers::Ptr, store::Store, var_map::VarMap, Block, Ctrl, Func, Op, Tag, Var,
+    path::Path, pointers::Ptr, slot::PreimageData, store::Store, var_map::VarMap, Block, Ctrl,
+    Func, Op, Tag, Var,
 };
 
 use crate::{
@@ -13,13 +14,6 @@ use crate::{
     state::initial_lurk_state,
     tag::ExprTag::{Comm, Nil, Num, Sym},
 };
-
-#[derive(Clone, Debug)]
-pub enum PreimageData<F: LurkField> {
-    PtrVec(Vec<Ptr<F>>),
-    FPtr(F, Ptr<F>),
-    FPair(F, F),
-}
 
 pub enum Val<F: LurkField> {
     Pointer(Ptr<F>),
@@ -297,6 +291,7 @@ impl Block {
                     assert!(*n <= 64);
                     let a = bindings.get_ptr(a)?;
                     let c = if let Ptr::Atom(_, f) = a {
+                        preimages.less_than.push(Some(PreimageData::F(f)));
                         let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
                         Ptr::Atom(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() & b))
                     } else {
