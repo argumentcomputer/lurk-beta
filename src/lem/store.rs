@@ -14,6 +14,10 @@ use crate::{
     state::{lurk_sym, user_sym, State},
     symbol::Symbol,
     syntax::Syntax,
+    tag::ContTag::{
+        self, Binop, Binop2, Call, Call0, Call2, Dummy, Emit, If, Let, LetRec, Lookup, Outermost,
+        Tail, Terminal, Unop,
+    },
     tag::ExprTag::{Char, Comm, Cons, Cproc, Fun, Key, Nil, Num, Str, Sym, Thunk, U64},
     uint::UInt,
 };
@@ -459,10 +463,9 @@ impl<F: LurkField> Store<F> {
     /// Warning: without cache hits, this function might blow up Rust's recursion
     /// depth limit. This limitation is circumvented by calling `hydrate_z_cache`.
     pub fn hash_ptr(&self, ptr: &Ptr<F>) -> Result<ZPtr<F>> {
-        use crate::tag::ContTag::{Dummy, Error, Outermost, Terminal};
         match ptr {
             Ptr::Atom(tag, x) => match tag {
-                Tag::Cont(Outermost | Error | Dummy | Terminal) => {
+                Tag::Cont(Outermost | ContTag::Error | Dummy | Terminal) => {
                     // temporary shim for compatibility with Lurk Alpha
                     Ok(ZPtr::from_parts(
                         *tag,
@@ -716,7 +719,7 @@ impl<F: LurkField> Ptr<F> {
                     _ => "<Malformed U64>".into(),
                 },
                 Fun => match self.get_index3() {
-                    None => "<Opaque Fun>".into(),
+                    None => "<Malformed Fun>".into(),
                     Some(idx) => {
                         if let Some((arg, bod, _)) = store.fetch_3_ptrs(idx) {
                             match bod.tag() {
@@ -773,10 +776,132 @@ impl<F: LurkField> Ptr<F> {
                     }
                     None => "<Malformed Comm>".into(),
                 },
-                Cproc => "<COPROCESSOR (TODO)>".into(),
+                Cproc => match self.get_index2() {
+                    None => "<Malformed Cproc>".into(),
+                    Some(idx) => {
+                        if let Some((cproc_name, args)) = store.fetch_2_ptrs(idx) {
+                            format!(
+                                "<COPROC {} {}>",
+                                cproc_name.fmt_to_string(store, state),
+                                args.fmt_to_string(store, state)
+                            )
+                        } else {
+                            "<Opaque Cproc>".into()
+                        }
+                    }
+                },
             },
-            Tag::Cont(_) => "<CONTINUATION (TODO)>".into(),
-            _ => unreachable!(),
+            Tag::Cont(t) => match t {
+                Outermost => "Outermost".into(),
+                Dummy => "Dummy".into(),
+                ContTag::Error => "Error".into(),
+                Terminal => "Terminal".into(),
+                Call0 => self.fmt_cont2_to_string("Call0", "saved_env", store, state),
+                Call => {
+                    self.fmt_cont3_to_string("Call", ("unevaled_arg", "saved_env"), store, state)
+                }
+                Call2 => self.fmt_cont3_to_string("Call2", ("function", "saved_env"), store, state),
+                Tail => self.fmt_cont2_to_string("Tail", "saved_env", store, state),
+                Lookup => self.fmt_cont2_to_string("Lookup", "saved_env", store, state),
+                Unop => self.fmt_cont2_to_string("Unop", "saved_env", store, state),
+                Binop => self.fmt_cont4_to_string(
+                    "Binop",
+                    ("operator", "saved_env", "unevaled_args"),
+                    store,
+                    state,
+                ),
+                Binop2 => {
+                    self.fmt_cont3_to_string("Binop2", ("operator", "evaled_arg"), store, state)
+                }
+                If => self.fmt_cont2_to_string("If", "unevaled_args", store, state),
+                Let => self.fmt_cont4_to_string("Let", ("var", "saved_env", "body"), store, state),
+                LetRec => {
+                    self.fmt_cont4_to_string("LetRec", ("var", "saved_env", "body"), store, state)
+                }
+                Emit => "Emit <CONTINUATION>".into(),
+                ContTag::Cproc => self.fmt_cont4_to_string(
+                    "Cproc",
+                    ("name", "unevaled_args", "evaled_args"),
+                    store,
+                    state,
+                ),
+            },
+            Tag::Op1(op) => op.to_string(),
+            Tag::Op2(op) => op.to_string(),
+        }
+    }
+
+    fn fmt_cont2_to_string(
+        &self,
+        name: &str,
+        field: &str,
+        store: &Store<F>,
+        state: &State,
+    ) -> String {
+        match self.get_index2() {
+            None => format!("<Malformed {name}>"),
+            Some(idx) => {
+                if let Some((a, cont)) = store.fetch_2_ptrs(idx) {
+                    format!(
+                        "{name}{{ {field}: {}, continuation: {} }}",
+                        a.fmt_to_string(store, state),
+                        cont.fmt_to_string(store, state)
+                    )
+                } else {
+                    format!("<Opaque {name}>")
+                }
+            }
+        }
+    }
+
+    fn fmt_cont3_to_string(
+        &self,
+        name: &str,
+        fields: (&str, &str),
+        store: &Store<F>,
+        state: &State,
+    ) -> String {
+        match self.get_index3() {
+            None => format!("<Malformed {name}>"),
+            Some(idx) => {
+                if let Some((a, b, cont)) = store.fetch_3_ptrs(idx) {
+                    let (fa, fb) = fields;
+                    format!(
+                        "{name}{{ {fa}: {}, {fb}: {}, continuation: {} }}",
+                        a.fmt_to_string(store, state),
+                        b.fmt_to_string(store, state),
+                        cont.fmt_to_string(store, state)
+                    )
+                } else {
+                    format!("<Opaque {name}>")
+                }
+            }
+        }
+    }
+
+    fn fmt_cont4_to_string(
+        &self,
+        name: &str,
+        fields: (&str, &str, &str),
+        store: &Store<F>,
+        state: &State,
+    ) -> String {
+        match self.get_index4() {
+            None => format!("<Malformed {name}>"),
+            Some(idx) => {
+                if let Some((a, b, c, cont)) = store.fetch_4_ptrs(idx) {
+                    let (fa, fb, fc) = fields;
+                    format!(
+                        "{name}{{ {fa}: {}, {fb}: {}, {fc}: {}, continuation: {} }}",
+                        a.fmt_to_string(store, state),
+                        b.fmt_to_string(store, state),
+                        c.fmt_to_string(store, state),
+                        cont.fmt_to_string(store, state)
+                    )
+                } else {
+                    format!("<Opaque {name}>")
+                }
+            }
         }
     }
 }
