@@ -1285,12 +1285,13 @@ impl Func {
             block: &Block,
             globals: &mut HashSet<FWrap<F>>,
             store: &Store<F>,
+            is_nested: bool,
         ) -> usize {
             let mut num_constraints = 0;
             for op in &block.ops {
                 match op {
                     Op::Call(_, func, _) => {
-                        num_constraints += recurse(&func.body, globals, store);
+                        num_constraints += recurse(&func.body, globals, store, is_nested);
                     }
                     Op::Null(_, tag) => {
                         use crate::tag::ContTag::{Dummy, Error, Outermost, Terminal};
@@ -1384,9 +1385,9 @@ impl Func {
                 Ctrl::Return(vars) => num_constraints + 2 * vars.len(),
                 Ctrl::If(_, true_block, false_block) => {
                     num_constraints
-                        + 2
-                        + recurse(true_block, globals, store)
-                        + recurse(false_block, globals, store)
+                        + if is_nested { 2 } else { 0 }
+                        + recurse(true_block, globals, store, true)
+                        + recurse(false_block, globals, store, true)
                 }
                 Ctrl::MatchTag(_, cases, def) => {
                     // We allocate one boolean per case and constrain it once
@@ -1395,12 +1396,12 @@ impl Func {
                     num_constraints += 2 * cases.len() + 1;
 
                     for block in cases.values() {
-                        num_constraints += recurse(block, globals, store);
+                        num_constraints += recurse(block, globals, store, true);
                     }
                     if let Some(def) = def {
                         // constraints for the boolean, the unequalities and the default case
                         num_constraints += 1 + cases.len();
-                        num_constraints += recurse(def, globals, store);
+                        num_constraints += recurse(def, globals, store, true);
                     }
                     num_constraints
                 }
@@ -1415,12 +1416,12 @@ impl Func {
                     num_constraints += 2 * cases.len() + 1;
 
                     for block in cases.values() {
-                        num_constraints += recurse(block, globals, store);
+                        num_constraints += recurse(block, globals, store, true);
                     }
                     if let Some(def) = def {
                         // constraints for the boolean, the unequalities and the default case
                         num_constraints += 1 + cases.len();
-                        num_constraints += recurse(def, globals, store);
+                        num_constraints += recurse(def, globals, store, true);
                     }
                     num_constraints
                 }
@@ -1433,7 +1434,7 @@ impl Func {
             + 388 * self.slot.hash8
             + 265 * self.slot.commitment
             + 1172 * self.slot.less_than;
-        let num_constraints = recurse(&self.body, globals, store);
+        let num_constraints = recurse(&self.body, globals, store, false);
         slot_constraints + num_constraints + globals.len()
     }
 }
