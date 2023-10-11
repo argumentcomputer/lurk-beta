@@ -1691,15 +1691,14 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 9737;
-    const NUM_CONSTRAINTS: usize = 11664;
+    const NUM_AUX: usize = 9390;
+    const NUM_CONSTRAINTS: usize = 11322;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash4: 14,
         hash6: 3,
         hash8: 4,
         commitment: 1,
-        less_than: 1,
-        bit_decomp: 1,
+        bit_decomp: 3,
     };
 
     #[test]

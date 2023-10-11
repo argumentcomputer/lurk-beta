@@ -34,10 +34,9 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use crate::{
     circuit::gadgets::{
         constraints::{
-            add, alloc_equal, alloc_is_zero, allocate_is_negative, and, div,
-            enforce_product_and_sum, enforce_selector_with_premise, implies_equal,
-            implies_equal_const, implies_pack, implies_u64, implies_unequal_const, mul, or, pick,
-            sub,
+            add, alloc_equal, alloc_is_zero, and, div, enforce_product_and_sum,
+            enforce_selector_with_premise, implies_equal, implies_equal_const, implies_pack,
+            implies_u64, implies_unequal_const, mul, or, pick, sub,
         },
         data::{allocate_constant, hash_poseidon},
         pointer::AllocatedPtr,
@@ -152,29 +151,6 @@ fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
                 preallocated_preimg,
                 store.poseidon_cache.constants.c3(),
             )?),
-            SlotType::LessThan => {
-                // When a and b have the same sign, a < b iff a - b < 0
-                // When a and b have different signs, a < b iff a is negative
-                let a_num = &preallocated_preimg[0];
-                let b_num = &preallocated_preimg[1];
-                let a_is_negative = allocate_is_negative(cs.namespace(|| "a_is_negative"), a_num)?;
-                let b_is_negative = allocate_is_negative(cs.namespace(|| "b_is_negative"), b_num)?;
-                // (same_sign && diff_is_neg) || (!same_sign && a_is_neg)
-                let same_sign =
-                    Boolean::xor(cs.namespace(|| "same_sign"), &a_is_negative, &b_is_negative)?
-                        .not();
-                let diff = sub(cs.namespace(|| "diff"), a_num, b_num)?;
-                let diff_is_negative =
-                    allocate_is_negative(cs.namespace(|| "diff_is_negative"), &diff)?;
-                let and1 = and(&mut cs.namespace(|| "and1"), &same_sign, &diff_is_negative)?;
-                let and2 = and(
-                    &mut cs.namespace(|| "and2"),
-                    &same_sign.not(),
-                    &a_is_negative,
-                )?;
-                let lt = or(&mut cs.namespace(|| "or"), &and1, &and2)?;
-                AllocatedVal::Boolean(lt)
-            }
             SlotType::BitDecomp => {
                 let a_num = &preallocated_preimg[0];
                 let bits = a_num
@@ -254,19 +230,6 @@ fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
                     preallocated_preimg.push(AllocatedNum::alloc_infallible(
                         cs.namespace(|| format!("component 2 slot {slot}")),
                         || *z_ptr.value(),
-                    ));
-                }
-                PreimageData::FPair(a, b) => {
-                    // allocate first component
-                    preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| format!("component 0 slot {slot}")),
-                        || *a,
-                    ));
-
-                    // allocate second component
-                    preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| format!("component 1 slot {slot}")),
-                        || *b,
                     ));
                 }
                 PreimageData::F(a) => {
@@ -507,14 +470,6 @@ impl Func {
             store,
         )?;
 
-        let preallocated_less_than_slots = allocate_slots(
-            cs,
-            &frame.preimages.less_than,
-            SlotType::LessThan,
-            self.slot.less_than,
-            store,
-        )?;
-
         let preallocated_bit_decomp_slots = allocate_slots(
             cs,
             &frame.preimages.bit_decomp,
@@ -531,7 +486,6 @@ impl Func {
             preallocated_hash6_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
             preallocated_hash8_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
             preallocated_commitment_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
-            preallocated_less_than_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
             preallocated_bit_decomp_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
             call_outputs: &'a VecDeque<Vec<Ptr<F>>>,
             call_idx: usize,
@@ -907,19 +861,63 @@ impl Func {
                         bound_allocations.insert_ptr(tgt.clone(), c);
                     }
                     Op::Lt(tgt, a, b) => {
-                        let a = bound_allocations.get_ptr(a)?;
-                        let b = bound_allocations.get_ptr(b)?;
-                        let (preallocated_preimg, lt) =
-                            &g.preallocated_less_than_slots[next_slot.consume_less_than()];
-                        for (i, n) in [a.hash(), b.hash()].into_iter().enumerate() {
-                            implies_equal(
-                                &mut cs.namespace(|| format!("implies equal component {i}")),
-                                not_dummy,
-                                n,
-                                &preallocated_preimg[i],
-                            );
-                        }
-                        let AllocatedVal::Boolean(lt) = lt else { panic!("Expected boolean") };
+                        // Retrieve a, b, a-b
+                        let a_num = bound_allocations.get_ptr(a)?.hash();
+                        let b_num = bound_allocations.get_ptr(b)?.hash();
+                        let diff = sub(cs.namespace(|| "diff"), a_num, b_num)?;
+                        // Duplicate a, b, a-b
+                        let double_a = add(cs.namespace(|| "double_a"), a_num, a_num)?;
+                        let double_b = add(cs.namespace(|| "double_b"), b_num, b_num)?;
+                        let double_diff = add(cs.namespace(|| "double_diff"), &diff, &diff)?;
+                        // Get preimg/bits for the double of a, b, a-b
+                        let (double_a_preimg, double_a_bits) =
+                            &g.preallocated_bit_decomp_slots[next_slot.consume_bit_decomp()];
+                        let AllocatedVal::Bits(double_a_bits) = double_a_bits else { panic!("Expected bits") };
+                        let (double_b_preimg, double_b_bits) =
+                            &g.preallocated_bit_decomp_slots[next_slot.consume_bit_decomp()];
+                        let AllocatedVal::Bits(double_b_bits) = double_b_bits else { panic!("Expected bits") };
+                        let (double_diff_preimg, double_diff_bits) =
+                            &g.preallocated_bit_decomp_slots[next_slot.consume_bit_decomp()];
+                        let AllocatedVal::Bits(double_diff_bits) = double_diff_bits else { panic!("Expected bits") };
+                        // Check that the preimg is double of a, b, a-b
+                        implies_equal(
+                            &mut cs.namespace(|| "implies equal for a_preimg"),
+                            not_dummy,
+                            &double_a,
+                            &double_a_preimg[0],
+                        );
+                        implies_equal(
+                            &mut cs.namespace(|| "implies equal for b_preimg"),
+                            not_dummy,
+                            &double_b,
+                            &double_b_preimg[0],
+                        );
+                        implies_equal(
+                            &mut cs.namespace(|| "implies equal for diff_preimg"),
+                            not_dummy,
+                            &double_diff,
+                            &double_diff_preimg[0],
+                        );
+
+                        // The number is negative if the first bit of its double is 1
+                        let a_is_negative = double_a_bits.get(0).unwrap();
+                        let b_is_negative = double_b_bits.get(0).unwrap();
+                        let diff_is_negative = double_diff_bits.get(0).unwrap();
+                        // When a and b have the same sign, a < b iff a - b < 0
+                        // When a and b have different signs, a < b iff a is negative
+                        let same_sign = Boolean::xor(
+                            cs.namespace(|| "same_sign"),
+                            a_is_negative,
+                            b_is_negative,
+                        )?
+                        .not();
+                        let and1 = and(&mut cs.namespace(|| "and1"), &same_sign, diff_is_negative)?;
+                        let and2 = and(
+                            &mut cs.namespace(|| "and2"),
+                            &same_sign.not(),
+                            a_is_negative,
+                        )?;
+                        let lt = or(&mut cs.namespace(|| "or"), &and1, &and2)?;
                         bound_allocations.insert_bool(tgt.clone(), lt.clone());
                     }
                     Op::Trunc(tgt, a, n) => {
@@ -1288,7 +1286,6 @@ impl Func {
                 preallocated_hash6_slots,
                 preallocated_hash8_slots,
                 preallocated_commitment_slots,
-                preallocated_less_than_slots,
                 preallocated_bit_decomp_slots,
                 call_outputs,
                 call_idx,
@@ -1366,8 +1363,13 @@ impl Func {
                         globals.insert(FWrap(F::ONE));
                         num_constraints += 5;
                     }
-                    Op::Lt(..) | Op::Trunc(..) => {
+                    Op::Lt(..) => {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        num_constraints += 11;
+                    }
+                    Op::Trunc(..) => {
+                        globals.insert(FWrap(Tag::Expr(Num).to_field()));
+                        // 1 implies_equal, 1 implies_pack
                         num_constraints += 2;
                     }
                     Op::DivRem64(..) => {
@@ -1466,7 +1468,6 @@ impl Func {
             + 337 * self.slot.hash6
             + 388 * self.slot.hash8
             + 265 * self.slot.commitment
-            + 1172 * self.slot.less_than
             + 388 * self.slot.bit_decomp;
         let num_constraints = recurse(&self.body, globals, store, false);
         slot_constraints + num_constraints + globals.len()

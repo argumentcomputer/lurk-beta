@@ -58,7 +58,6 @@ pub struct Preimages<F: LurkField> {
     pub hash6: Vec<Option<PreimageData<F>>>,
     pub hash8: Vec<Option<PreimageData<F>>>,
     pub commitment: Vec<Option<PreimageData<F>>>,
-    pub less_than: Vec<Option<PreimageData<F>>>,
     pub bit_decomp: Vec<Option<PreimageData<F>>>,
     pub call_outputs: VecDeque<Vec<Ptr<F>>>,
     pub cproc_outputs: Vec<Vec<Ptr<F>>>,
@@ -71,7 +70,6 @@ impl<F: LurkField> Preimages<F> {
         let hash6 = Vec::with_capacity(slot.hash6);
         let hash8 = Vec::with_capacity(slot.hash8);
         let commitment = Vec::with_capacity(slot.commitment);
-        let less_than = Vec::with_capacity(slot.less_than);
         let bit_decomp = Vec::with_capacity(slot.bit_decomp);
         let call_outputs = VecDeque::new();
         let cproc_outputs = Vec::new();
@@ -80,7 +78,6 @@ impl<F: LurkField> Preimages<F> {
             hash6,
             hash8,
             commitment,
-            less_than,
             bit_decomp,
             call_outputs,
             cproc_outputs,
@@ -93,7 +90,6 @@ impl<F: LurkField> Preimages<F> {
         let hash6 = vec![None; slot.hash6];
         let hash8 = vec![None; slot.hash8];
         let commitment = vec![None; slot.commitment];
-        let less_than = vec![None; slot.less_than];
         let bit_decomp = vec![None; slot.bit_decomp];
         let call_outputs = VecDeque::new();
         let cproc_outputs = Vec::new();
@@ -102,7 +98,6 @@ impl<F: LurkField> Preimages<F> {
             hash6,
             hash8,
             commitment,
-            less_than,
             bit_decomp,
             call_outputs,
             cproc_outputs,
@@ -283,7 +278,12 @@ impl Block {
                     let a = bindings.get_ptr(a)?;
                     let b = bindings.get_ptr(b)?;
                     let c = if let (Ptr::Atom(_, f), Ptr::Atom(_, g)) = (a, b) {
-                        preimages.less_than.push(Some(PreimageData::FPair(f, g)));
+                        let diff = f - g;
+                        preimages.bit_decomp.push(Some(PreimageData::F(f + f)));
+                        preimages.bit_decomp.push(Some(PreimageData::F(g + g)));
+                        preimages
+                            .bit_decomp
+                            .push(Some(PreimageData::F(diff + diff)));
                         let f = BaseNum::Scalar(f);
                         let g = BaseNum::Scalar(g);
                         f < g
@@ -518,7 +518,6 @@ impl Func {
         let hash6_init = preimages.hash6.len();
         let hash8_init = preimages.hash8.len();
         let commitment_init = preimages.commitment.len();
-        let less_than_init = preimages.less_than.len();
         let bit_decomp_init = preimages.bit_decomp.len();
 
         let mut res = self.body.run(
@@ -537,7 +536,6 @@ impl Func {
         let hash6_used = preimages.hash6.len() - hash6_init;
         let hash8_used = preimages.hash8.len() - hash8_init;
         let commitment_used = preimages.commitment.len() - commitment_init;
-        let less_than_used = preimages.less_than.len() - less_than_init;
         let bit_decomp_used = preimages.bit_decomp.len() - bit_decomp_init;
 
         for _ in hash4_used..self.slot.hash4 {
@@ -551,9 +549,6 @@ impl Func {
         }
         for _ in commitment_used..self.slot.commitment {
             preimages.commitment.push(None);
-        }
-        for _ in less_than_used..self.slot.less_than {
-            preimages.less_than.push(None);
         }
         for _ in bit_decomp_used..self.slot.bit_decomp {
             preimages.bit_decomp.push(None);
