@@ -507,45 +507,47 @@
 <a href="#507" id="507">507</a>
 <a href="#508" id="508">508</a>
 <a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
-</span><span class="kw">use </span>std::marker::PhantomData;
-<span class="kw">use </span>std::ops::Index;
 
-<span class="kw">use </span>abomonation::Abomonation;
-<span class="kw">use </span>tracing::{debug, info};
-
+</span><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
+<span class="kw">use </span>ff::{Field, PrimeField};
 <span class="kw">use </span>nova::{
-    <span class="self">self</span>,
-    supernova::{<span class="self">self</span>, error::SuperNovaError, CircuitDigests, NonUniformCircuit, RecursiveSNARK},
+    supernova::{
+        <span class="self">self</span>, error::SuperNovaError, AuxParams, CircuitDigests, NonUniformCircuit, RecursiveSNARK,
+    },
     traits::{
         circuit_supernova::{StepCircuit <span class="kw">as </span>SuperStepCircuit, TrivialSecondaryCircuit},
         Group,
     },
 };
-
-<span class="kw">use </span>ff::{Field, PrimeField};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::{marker::PhantomData, ops::Index, sync::Arc};
+<span class="kw">use </span>tracing::{debug, info};
 
-<span class="kw">use </span><span class="kw">crate</span>::circuit::MultiFrame;
-
-<span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
-
-<span class="kw">use </span><span class="kw">crate</span>::error::ProofError;
-<span class="kw">use </span><span class="kw">crate</span>::eval::{lang::Lang, Meta};
-<span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
-<span class="kw">use </span><span class="kw">crate</span>::proof::nova::{CurveCycleEquipped, G1, G2};
-<span class="kw">use </span><span class="kw">crate</span>::proof::{MultiFrameTrait, Provable, Prover};
-
-<span class="kw">use </span><span class="kw">super</span>::nova::NovaCircuitShape;
-<span class="kw">use </span><span class="kw">super</span>::FrameLike;
+<span class="kw">use crate</span>::{
+    circuit::MultiFrame,
+    coprocessor::Coprocessor,
+    error::ProofError,
+    eval::{lang::Lang, Meta},
+    field::LurkField,
+    proof::{
+        nova::{CurveCycleEquipped, NovaCircuitShape, G1, G2},
+        {FrameLike, MultiFrameTrait, Provable, Prover},
+    },
+};
 
 <span class="doccomment">/// Type alias for a Trivial Test Circuit with G2 scalar field elements.
 </span><span class="kw">pub type </span>C2&lt;F&gt; = TrivialSecondaryCircuit&lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar&gt;;
 
 <span class="doccomment">/// Type alias for SuperNova Aux Parameters with the curve cycle types defined above.
-</span><span class="kw">pub type </span>SuperNovaAuxParams&lt;F&gt; = supernova::AuxParams&lt;G1&lt;F&gt;, G2&lt;F&gt;&gt;;
+</span><span class="kw">pub type </span>SuperNovaAuxParams&lt;F&gt; = AuxParams&lt;G1&lt;F&gt;, G2&lt;F&gt;&gt;;
 
 <span class="doccomment">/// Type alias for SuperNova Public Parameters with the curve cycle types defined above.
 </span><span class="kw">pub type </span>SuperNovaPublicParams&lt;F, C1&gt; = supernova::PublicParams&lt;G1&lt;F&gt;, G2&lt;F&gt;, C1, C2&lt;F&gt;&gt;;
@@ -604,7 +606,7 @@
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_nivc(lang, rc));
-    <span class="kw">let </span>non_uniform_circuit = M::blank(folding_config, Meta::Lurk);
+    <span class="kw">let </span>non_uniform_circuit = M::blank(folding_config, Meta::Lurk, <span class="number">0</span>);
     <span class="kw">let </span>pp = SuperNovaPublicParams::&lt;F, M&gt;::new(<span class="kw-2">&amp;</span>non_uniform_circuit);
     PublicParams { pp }
 }
@@ -984,7 +986,12 @@
 ///
 /// Note: For now, we use ad-hoc circuit cache keys.
 /// See: [crate::public_parameters::instance]
-</span><span class="kw">pub fn </span>circuit_cache_key&lt;F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt;(
+</span><span class="kw">pub fn </span>circuit_cache_key&lt;
+    <span class="lifetime">&#39;a</span>,
+    F: CurveCycleEquipped,
+    C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
+    M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;G1&lt;F&gt;, G2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
+&gt;(
     rc: usize,
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     circuit_index: usize,
@@ -994,7 +1001,7 @@
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>PrimeField&gt;::Repr: Abomonation,
 {
     <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_nivc(lang, <span class="number">2</span>));
-    <span class="kw">let </span>circuit = MultiFrame::blank(folding_config, Meta::Lurk);
+    <span class="kw">let </span>circuit = M::blank(folding_config, Meta::Lurk, <span class="number">0</span>);
     <span class="kw">let </span>num_circuits = circuit.num_circuits();
     <span class="kw">let </span>circuit = circuit.primary_circuit(circuit_index);
     F::from(rc <span class="kw">as </span>u64) * supernova::circuit_digest::&lt;F::G1, F::G2, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span>circuit, num_circuits)
@@ -1002,7 +1009,12 @@
 
 <span class="doccomment">/// Collects all the cache keys of supernova instance. We need all of them to compute
 /// a cache key for the digest of the [PublicParams] of the supernova instance.
-</span><span class="kw">pub fn </span>circuit_cache_keys&lt;F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt;(
+</span><span class="kw">pub fn </span>circuit_cache_keys&lt;
+    <span class="lifetime">&#39;a</span>,
+    F: CurveCycleEquipped,
+    C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
+    M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;G1&lt;F&gt;, G2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
+&gt;(
     rc: usize,
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
 ) -&gt; CircuitDigests&lt;G1&lt;F&gt;&gt;
@@ -1012,7 +1024,7 @@
 {
     <span class="kw">let </span>num_circuits = lang.coprocessor_count() + <span class="number">1</span>;
     <span class="kw">let </span>digests = (<span class="number">0</span>..num_circuits)
-        .map(|circuit_index| circuit_cache_key(rc, lang.clone(), circuit_index))
+        .map(|circuit_index| circuit_cache_key::&lt;F, C, M&gt;(rc, lang.clone(), circuit_index))
         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
     CircuitDigests::new(digests)
 }

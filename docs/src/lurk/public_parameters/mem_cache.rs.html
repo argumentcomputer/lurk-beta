@@ -177,10 +177,10 @@
         F: CurveCycleEquipped,
         C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;static</span>,
         M: MultiFrameTrait&lt;<span class="lifetime">&#39;static</span>, F, C&gt;,
-        Fn: FnOnce(<span class="kw-2">&amp;</span>Instance&lt;F, C&gt;) -&gt; Arc&lt;PublicParams&lt;F, M&gt;&gt;,
+        Fn: FnOnce(<span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;static</span>, F, C, M&gt;) -&gt; Arc&lt;PublicParams&lt;F, M&gt;&gt;,
     &gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span><span class="self">self</span>,
-        instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
+        instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;static</span>, F, C, M&gt;,
         default: Fn,
         disk_cache_path: <span class="kw-2">&amp;</span>Utf8Path,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;PublicParams&lt;F, M&gt;&gt;, Error&gt;
@@ -238,10 +238,10 @@
         F: CurveCycleEquipped,
         C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;static</span>,
         M: MultiFrameTrait&lt;<span class="lifetime">&#39;static</span>, F, C&gt;,
-        Fn: FnOnce(<span class="kw-2">&amp;</span>Instance&lt;F, C&gt;) -&gt; Arc&lt;PublicParams&lt;F, M&gt;&gt;,
+        Fn: FnOnce(<span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;static</span>, F, C, M&gt;) -&gt; Arc&lt;PublicParams&lt;F, M&gt;&gt;,
     &gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span><span class="self">self</span>,
-        instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
+        instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;static</span>, F, C, M&gt;,
         default: Fn,
         disk_cache_path: <span class="kw-2">&amp;</span>Utf8Path,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;PublicParams&lt;F, M&gt;&gt;, Error&gt;

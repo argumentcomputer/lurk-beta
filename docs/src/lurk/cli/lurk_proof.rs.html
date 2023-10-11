@@ -145,9 +145,19 @@
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>::nova::traits::Group;
+<span class="kw">use </span>::nova::{
+    supernova::NonUniformCircuit,
+    traits::{circuit_supernova::StepCircuit <span class="kw">as </span>SuperStepCircuit, Group},
+};
 <span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -158,6 +168,7 @@
     field::LurkField,
     proof::{
         nova::{<span class="self">self</span>, CurveCycleEquipped, G1, G2},
+        supernova::C2,
         MultiFrameTrait,
     },
     public_parameters::{
@@ -256,7 +267,10 @@
 
 <span class="kw">impl</span>&lt;
         F: CurveCycleEquipped + DeserializeOwned,
-        M: MultiFrameTrait&lt;<span class="lifetime">&#39;static</span>, F, Coproc&lt;F&gt;&gt; + <span class="lifetime">&#39;static</span>,
+        M: MultiFrameTrait&lt;<span class="lifetime">&#39;static</span>, F, Coproc&lt;F&gt;&gt;
+            + SuperStepCircuit&lt;F&gt;
+            + NonUniformCircuit&lt;G1&lt;F&gt;, G2&lt;F&gt;, M, C2&lt;F&gt;&gt;
+            + <span class="lifetime">&#39;static</span>,
     &gt; LurkProof&lt;<span class="lifetime">&#39;static</span>, F, Coproc&lt;F&gt;, M&gt;
 <span class="kw">where
     </span>&lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,

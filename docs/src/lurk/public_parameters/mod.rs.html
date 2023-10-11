@@ -247,6 +247,9 @@
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
 <a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>::nova::traits::Group;
 <span class="kw">use </span>abomonation::{decode, Abomonation};
 <span class="kw">use </span>camino::{Utf8Path, Utf8PathBuf};
@@ -285,7 +288,7 @@
     C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;static</span>,
     M: MultiFrameTrait&lt;<span class="lifetime">&#39;static</span>, F, C&gt;,
 &gt;(
-    instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
+    instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;static</span>, F, C, M&gt;,
     disk_cache_path: <span class="kw-2">&amp;</span>Utf8Path,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;PublicParams&lt;F, M&gt;&gt;, Error&gt;
 <span class="kw">where
@@ -294,7 +297,9 @@
     &lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
-    <span class="kw">let </span>f = |instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;| Arc::new(nova::public_params(instance.rc, instance.lang()));
+    <span class="kw">let </span>f = |instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;static</span>, F, C, M&gt;| {
+        Arc::new(nova::public_params(instance.rc, instance.lang()))
+    };
     mem_cache::PUBLIC_PARAM_MEM_CACHE.get_from_mem_cache_or_update_with(
         instance,
         f,
@@ -308,7 +313,7 @@
 /// to the lifetime of the file. Thus, we cannot pass a reference out and must
 /// rely on a closure to capture the data and continue the computation in `bind`.
 </span><span class="kw">pub fn </span>with_public_params&lt;<span class="lifetime">&#39;a</span>, F, C, M, Fn, T&gt;(
-    instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
+    instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;,
     disk_cache_path: <span class="kw-2">&amp;</span>Utf8Path,
     bind: Fn,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;T, Error&gt;
@@ -320,7 +325,8 @@
     &lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
-    <span class="kw">let </span>default = |instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;| nova::public_params(instance.rc, instance.lang());
+    <span class="kw">let </span>default =
+        |instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;| nova::public_params(instance.rc, instance.lang());
     <span class="kw">let </span>disk_cache = DiskCache::&lt;F, C, M&gt;::new(disk_cache_path).unwrap();
 
     <span class="kw">let </span><span class="kw-2">mut </span>bytes = <span class="macro">vec!</span>[];
@@ -351,7 +357,7 @@
     C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
     M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
 &gt;(
-    instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
+    instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;,
     disk_cache_path: <span class="kw-2">&amp;</span>Utf8Path,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;NovaCircuitShape&lt;F&gt;, Error&gt;
 <span class="kw">where
@@ -380,7 +386,7 @@
     C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
     M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
 &gt;(
-    instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
+    instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;,
     disk_cache_path: <span class="kw-2">&amp;</span>Utf8Path,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;SuperNovaAuxParams&lt;F&gt;, Error&gt;
 <span class="kw">where
@@ -414,7 +420,7 @@
     C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
     M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt; + SuperStepCircuit&lt;F&gt; + NonUniformCircuit&lt;G1&lt;F&gt;, G2&lt;F&gt;, M, C2&lt;F&gt;&gt;,
 &gt;(
-    instance_primary: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;,
+    instance_primary: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;,
     disk_cache_path: <span class="kw-2">&amp;</span>Utf8Path,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;supernova::PublicParams&lt;F, M&gt;, Error&gt;
 <span class="kw">where
@@ -423,7 +429,7 @@
     &lt;&lt;G1&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
     &lt;&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar <span class="kw">as </span>ff::PrimeField&gt;::Repr: Abomonation,
 {
-    <span class="kw">let </span>default = |instance: <span class="kw-2">&amp;</span>Instance&lt;F, C&gt;| {
+    <span class="kw">let </span>default = |instance: <span class="kw-2">&amp;</span>Instance&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;| {
         supernova::public_params::&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;(instance.rc, instance.lang())
     };
     <span class="kw">let </span>disk_cache = DiskCache::&lt;F, C, M&gt;::new(disk_cache_path).unwrap();

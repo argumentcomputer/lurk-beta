@@ -673,10 +673,14 @@
 <a href="#673" id="673">673</a>
 <a href="#674" id="674">674</a>
 <a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
-</span><span class="kw">use </span>std::{marker::PhantomData, sync::Mutex};
 
-<span class="kw">use </span>abomonation::Abomonation;
+</span><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::WitnessCS;
 <span class="kw">use </span>bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 <span class="kw">use </span>ff::Field;
@@ -695,18 +699,27 @@
 <span class="kw">use </span>pasta_curves::{pallas, vesta};
 <span class="kw">use </span>rayon::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::{
+    marker::PhantomData,
+    sync::{Arc, Mutex},
+};
 
-<span class="kw">use </span><span class="kw">crate</span>::config::CONFIG;
-
-<span class="kw">use </span><span class="kw">crate</span>::coprocessor::Coprocessor;
-<span class="kw">use </span><span class="kw">crate</span>::error::ProofError;
-<span class="kw">use </span><span class="kw">crate</span>::eval::{lang::Lang, Meta};
-<span class="kw">use </span><span class="kw">crate</span>::field::LurkField;
-<span class="kw">use </span><span class="kw">crate</span>::proof::{supernova::FoldingConfig, MultiFrameTrait, Prover};
-<span class="kw">use </span><span class="kw">crate</span>::store::Store;
-
-<span class="kw">use </span><span class="kw">super</span>::FrameLike;
+<span class="kw">use crate</span>::{
+    circuit::{
+        gadgets::{
+            data::GlobalAllocations,
+            pointer::{AllocatedContPtr, AllocatedPtr},
+        },
+        CircuitFrame, MultiFrame,
+    },
+    config::CONFIG,
+    coprocessor::Coprocessor,
+    error::ProofError,
+    eval::{lang::Lang, Meta},
+    field::LurkField,
+    proof::{supernova::FoldingConfig, FrameLike, MultiFrameTrait, Prover},
+    store::Store,
+};
 
 <span class="doccomment">/// This trait defines most of the requirements for programming generically over the supported Nova curve cycles
 /// (currently Pallas/Vesta and BN254/Grumpkin). It being pegged on the `LurkField` trait encodes that we do
@@ -867,12 +880,17 @@
 ///
 /// Note: For now, we use ad-hoc circuit cache keys.
 /// See: [crate::public_parameters::instance]
-</span><span class="kw">pub fn </span>circuit_cache_key&lt;F: CurveCycleEquipped, C: Coprocessor&lt;F&gt;&gt;(
+</span><span class="kw">pub fn </span>circuit_cache_key&lt;
+    <span class="lifetime">&#39;a</span>,
+    F: CurveCycleEquipped,
+    C: Coprocessor&lt;F&gt; + <span class="lifetime">&#39;a</span>,
+    M: MultiFrameTrait&lt;<span class="lifetime">&#39;a</span>, F, C&gt;,
+&gt;(
     rc: usize,
     lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
 ) -&gt; F {
     <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang, <span class="number">2</span>));
-    <span class="kw">let </span>circuit = MultiFrame::blank(folding_config, Meta::Lurk);
+    <span class="kw">let </span>circuit = M::blank(folding_config, Meta::Lurk, <span class="number">0</span>);
     F::from(rc <span class="kw">as </span>u64) * nova::circuit_digest::&lt;F::G1, F::G2, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span>circuit)
 }
 
@@ -912,7 +930,7 @@
 ) -&gt; (M, C2&lt;F&gt;) {
     <span class="kw">let </span>folding_config = Arc::new(FoldingConfig::new_ivc(lang, count));
     (
-        M::blank(folding_config, Meta::Lurk),
+        M::blank(folding_config, Meta::Lurk, <span class="number">0</span>),
         TrivialCircuit::default(),
     )
 }
@@ -1188,14 +1206,6 @@
         <span class="macro">vec!</span>[&lt;G2&lt;F&gt; <span class="kw">as </span>Group&gt;::Scalar::ZERO]
     }
 }
-
-<span class="kw">use </span><span class="kw">crate</span>::circuit::{
-    gadgets::{
-        data::GlobalAllocations,
-        pointer::{AllocatedContPtr, AllocatedPtr},
-    },
-    CircuitFrame, MultiFrame,
-};
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: LurkField, C: Coprocessor&lt;F&gt;&gt; StepCircuit&lt;F&gt; <span class="kw">for </span>MultiFrame&lt;<span class="lifetime">&#39;a</span>, F, C&gt; {
     <span class="kw">fn </span>arity(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {

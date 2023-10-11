@@ -1722,6 +1722,9 @@
 <a href="#1722" id="1722">1722</a>
 <a href="#1723" id="1723">1723</a>
 <a href="#1724" id="1724">1724</a>
+<a href="#1725" id="1725">1725</a>
+<a href="#1726" id="1726">1726</a>
+<a href="#1727" id="1727">1727</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -1836,15 +1839,9 @@
         }
         pc = get_pc(<span class="kw-2">&amp;</span>expr, store, lang);
     }
-    <span class="kw">if </span>iterations &lt; limit {
-        <span class="kw">let </span>(frame, <span class="kw">_</span>) = lurk_step.call(
-            <span class="kw-2">&amp;</span>input,
-            store,
-            Preimages::new_from_func(lurk_step),
-            <span class="kw-2">&amp;mut </span><span class="macro">vec!</span>[],
-            lang,
-            pc,
-        )<span class="question-mark">?</span>;
+    <span class="comment">// TODO: remove this after #729 is merged
+    </span><span class="kw">if </span>iterations &lt; limit {
+        <span class="kw">let </span>frame = lurk_step.call_simple(<span class="kw-2">&amp;</span>input, store, lang, pc)<span class="question-mark">?</span>;
         frames.push(frame);
     }
     <span class="prelude-val">Ok</span>((frames, iterations))
@@ -1948,7 +1945,14 @@
     }
 }
 
-<span class="kw">pub fn </span>make_eval_step_from_lang&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
+<span class="doccomment">/// Creates a LEM `Func` corresponding to Lurk&#39;s step function from a `Lang`.
+/// The `ivc` flag tells whether the generated step function is used for IVC or
+/// NIVC. In the IVC case, the step function is capable of reducing calls to the
+/// coprocessors present in `Lang` and their circuit will go in the circuit of
+/// the step function. In the NIVC case, the step function won&#39;t be able to reduce
+/// calls to coprocessors and sets up a loop via the `Expr::Cproc` tag, meaning
+/// that the reduction must be done from outside.
+</span><span class="kw">pub fn </span>make_eval_step_from_lang&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
     lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
     ivc: bool,
 ) -&gt; Func {
@@ -1962,7 +1966,7 @@
     )
 }
 
-<span class="kw">pub fn </span>make_eval_step(cprocs: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>Symbol, usize)], ivc: bool) -&gt; Func {
+<span class="kw">fn </span>make_eval_step(cprocs: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>Symbol, usize)], ivc: bool) -&gt; Func {
     <span class="kw">let </span>reduce = reduce(cprocs);
     <span class="kw">let </span>apply_cont = apply_cont(cprocs, ivc);
     <span class="kw">let </span>make_thunk = make_thunk();
@@ -2107,7 +2111,9 @@
     Func::new(<span class="string">&quot;run_cproc&quot;</span>.into(), func_inp, <span class="number">3</span>, block).unwrap()
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>make_cprocs_funcs_from_lang&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
+<span class="doccomment">/// Creates the `Func`s used to call coprocessors in the NIVC scenario. Each
+/// coprocessor in the `Lang` will have its own specialized `Func`
+</span><span class="kw">pub fn </span>make_cprocs_funcs_from_lang&lt;F: LurkField, C: Coprocessor&lt;F&gt;&gt;(
     lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
 ) -&gt; std::sync::Arc&lt;[Func]&gt; {
     lang.coprocessors()
