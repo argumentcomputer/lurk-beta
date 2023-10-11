@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/store.rs`."><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (59edd6705 2023-10-09)" data-channel="nightly" data-search-js="search-5f5ec5419eadd0c9.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/store.rs`."><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (d627cf07c 2023-10-10)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-0689c575f077d64f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../lurk/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -780,6 +780,131 @@
 <a href="#780" id="780">780</a>
 <a href="#781" id="781">781</a>
 <a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>arc_swap::ArcSwap;
 <span class="kw">use </span>elsa::sync::{FrozenMap, FrozenVec};
@@ -796,6 +921,10 @@
     state::{lurk_sym, user_sym, State},
     symbol::Symbol,
     syntax::Syntax,
+    tag::ContTag::{
+        <span class="self">self</span>, Binop, Binop2, Call, Call0, Call2, Dummy, Emit, If, Let, LetRec, Lookup, Outermost,
+        Tail, Terminal, Unop,
+    },
     tag::ExprTag::{Char, Comm, Cons, Cproc, Fun, Key, Nil, Num, Str, Sym, Thunk, U64},
     uint::UInt,
 };
@@ -1241,10 +1370,9 @@
     /// Warning: without cache hits, this function might blow up Rust&#39;s recursion
     /// depth limit. This limitation is circumvented by calling `hydrate_z_cache`.
     </span><span class="kw">pub fn </span>hash_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;ZPtr&lt;F&gt;&gt; {
-        <span class="kw">use </span><span class="kw">crate</span>::tag::ContTag::{Dummy, Error, Outermost, Terminal};
         <span class="kw">match </span>ptr {
             Ptr::Atom(tag, x) =&gt; <span class="kw">match </span>tag {
-                Tag::Cont(Outermost | Error | Dummy | Terminal) =&gt; {
+                Tag::Cont(Outermost | ContTag::Error | Dummy | Terminal) =&gt; {
                     <span class="comment">// temporary shim for compatibility with Lurk Alpha
                     </span><span class="prelude-val">Ok</span>(ZPtr::from_parts(
                         <span class="kw-2">*</span>tag,
@@ -1498,7 +1626,7 @@
                     <span class="kw">_ </span>=&gt; <span class="string">&quot;&lt;Malformed U64&gt;&quot;</span>.into(),
                 },
                 Fun =&gt; <span class="kw">match </span><span class="self">self</span>.get_index3() {
-                    <span class="prelude-val">None </span>=&gt; <span class="string">&quot;&lt;Opaque Fun&gt;&quot;</span>.into(),
+                    <span class="prelude-val">None </span>=&gt; <span class="string">&quot;&lt;Malformed Fun&gt;&quot;</span>.into(),
                     <span class="prelude-val">Some</span>(idx) =&gt; {
                         <span class="kw">if let </span><span class="prelude-val">Some</span>((arg, bod, <span class="kw">_</span>)) = store.fetch_3_ptrs(idx) {
                             <span class="kw">match </span>bod.tag() {
@@ -1555,10 +1683,132 @@
                     }
                     <span class="prelude-val">None </span>=&gt; <span class="string">&quot;&lt;Malformed Comm&gt;&quot;</span>.into(),
                 },
-                Cproc =&gt; <span class="string">&quot;&lt;COPROCESSOR (TODO)&gt;&quot;</span>.into(),
+                Cproc =&gt; <span class="kw">match </span><span class="self">self</span>.get_index2() {
+                    <span class="prelude-val">None </span>=&gt; <span class="string">&quot;&lt;Malformed Cproc&gt;&quot;</span>.into(),
+                    <span class="prelude-val">Some</span>(idx) =&gt; {
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>((cproc_name, args)) = store.fetch_2_ptrs(idx) {
+                            <span class="macro">format!</span>(
+                                <span class="string">&quot;&lt;COPROC {} {}&gt;&quot;</span>,
+                                cproc_name.fmt_to_string(store, state),
+                                args.fmt_to_string(store, state)
+                            )
+                        } <span class="kw">else </span>{
+                            <span class="string">&quot;&lt;Opaque Cproc&gt;&quot;</span>.into()
+                        }
+                    }
+                },
             },
-            Tag::Cont(<span class="kw">_</span>) =&gt; <span class="string">&quot;&lt;CONTINUATION (TODO)&gt;&quot;</span>.into(),
-            <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
+            Tag::Cont(t) =&gt; <span class="kw">match </span>t {
+                Outermost =&gt; <span class="string">&quot;Outermost&quot;</span>.into(),
+                Dummy =&gt; <span class="string">&quot;Dummy&quot;</span>.into(),
+                ContTag::Error =&gt; <span class="string">&quot;Error&quot;</span>.into(),
+                Terminal =&gt; <span class="string">&quot;Terminal&quot;</span>.into(),
+                Call0 =&gt; <span class="self">self</span>.fmt_cont2_to_string(<span class="string">&quot;Call0&quot;</span>, <span class="string">&quot;saved_env&quot;</span>, store, state),
+                Call =&gt; {
+                    <span class="self">self</span>.fmt_cont3_to_string(<span class="string">&quot;Call&quot;</span>, (<span class="string">&quot;unevaled_arg&quot;</span>, <span class="string">&quot;saved_env&quot;</span>), store, state)
+                }
+                Call2 =&gt; <span class="self">self</span>.fmt_cont3_to_string(<span class="string">&quot;Call2&quot;</span>, (<span class="string">&quot;function&quot;</span>, <span class="string">&quot;saved_env&quot;</span>), store, state),
+                Tail =&gt; <span class="self">self</span>.fmt_cont2_to_string(<span class="string">&quot;Tail&quot;</span>, <span class="string">&quot;saved_env&quot;</span>, store, state),
+                Lookup =&gt; <span class="self">self</span>.fmt_cont2_to_string(<span class="string">&quot;Lookup&quot;</span>, <span class="string">&quot;saved_env&quot;</span>, store, state),
+                Unop =&gt; <span class="self">self</span>.fmt_cont2_to_string(<span class="string">&quot;Unop&quot;</span>, <span class="string">&quot;saved_env&quot;</span>, store, state),
+                Binop =&gt; <span class="self">self</span>.fmt_cont4_to_string(
+                    <span class="string">&quot;Binop&quot;</span>,
+                    (<span class="string">&quot;operator&quot;</span>, <span class="string">&quot;saved_env&quot;</span>, <span class="string">&quot;unevaled_args&quot;</span>),
+                    store,
+                    state,
+                ),
+                Binop2 =&gt; {
+                    <span class="self">self</span>.fmt_cont3_to_string(<span class="string">&quot;Binop2&quot;</span>, (<span class="string">&quot;operator&quot;</span>, <span class="string">&quot;evaled_arg&quot;</span>), store, state)
+                }
+                If =&gt; <span class="self">self</span>.fmt_cont2_to_string(<span class="string">&quot;If&quot;</span>, <span class="string">&quot;unevaled_args&quot;</span>, store, state),
+                Let =&gt; <span class="self">self</span>.fmt_cont4_to_string(<span class="string">&quot;Let&quot;</span>, (<span class="string">&quot;var&quot;</span>, <span class="string">&quot;saved_env&quot;</span>, <span class="string">&quot;body&quot;</span>), store, state),
+                LetRec =&gt; {
+                    <span class="self">self</span>.fmt_cont4_to_string(<span class="string">&quot;LetRec&quot;</span>, (<span class="string">&quot;var&quot;</span>, <span class="string">&quot;saved_env&quot;</span>, <span class="string">&quot;body&quot;</span>), store, state)
+                }
+                Emit =&gt; <span class="string">&quot;Emit &lt;CONTINUATION&gt;&quot;</span>.into(),
+                ContTag::Cproc =&gt; <span class="self">self</span>.fmt_cont4_to_string(
+                    <span class="string">&quot;Cproc&quot;</span>,
+                    (<span class="string">&quot;name&quot;</span>, <span class="string">&quot;unevaled_args&quot;</span>, <span class="string">&quot;evaled_args&quot;</span>),
+                    store,
+                    state,
+                ),
+            },
+            Tag::Op1(op) =&gt; op.to_string(),
+            Tag::Op2(op) =&gt; op.to_string(),
+        }
+    }
+
+    <span class="kw">fn </span>fmt_cont2_to_string(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        name: <span class="kw-2">&amp;</span>str,
+        field: <span class="kw-2">&amp;</span>str,
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        state: <span class="kw-2">&amp;</span>State,
+    ) -&gt; String {
+        <span class="kw">match </span><span class="self">self</span>.get_index2() {
+            <span class="prelude-val">None </span>=&gt; <span class="macro">format!</span>(<span class="string">&quot;&lt;Malformed {name}&gt;&quot;</span>),
+            <span class="prelude-val">Some</span>(idx) =&gt; {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>((a, cont)) = store.fetch_2_ptrs(idx) {
+                    <span class="macro">format!</span>(
+                        <span class="string">&quot;{name}{{ {field}: {}, continuation: {} }}&quot;</span>,
+                        a.fmt_to_string(store, state),
+                        cont.fmt_to_string(store, state)
+                    )
+                } <span class="kw">else </span>{
+                    <span class="macro">format!</span>(<span class="string">&quot;&lt;Opaque {name}&gt;&quot;</span>)
+                }
+            }
+        }
+    }
+
+    <span class="kw">fn </span>fmt_cont3_to_string(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        name: <span class="kw-2">&amp;</span>str,
+        fields: (<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str),
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        state: <span class="kw-2">&amp;</span>State,
+    ) -&gt; String {
+        <span class="kw">match </span><span class="self">self</span>.get_index3() {
+            <span class="prelude-val">None </span>=&gt; <span class="macro">format!</span>(<span class="string">&quot;&lt;Malformed {name}&gt;&quot;</span>),
+            <span class="prelude-val">Some</span>(idx) =&gt; {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>((a, b, cont)) = store.fetch_3_ptrs(idx) {
+                    <span class="kw">let </span>(fa, fb) = fields;
+                    <span class="macro">format!</span>(
+                        <span class="string">&quot;{name}{{ {fa}: {}, {fb}: {}, continuation: {} }}&quot;</span>,
+                        a.fmt_to_string(store, state),
+                        b.fmt_to_string(store, state),
+                        cont.fmt_to_string(store, state)
+                    )
+                } <span class="kw">else </span>{
+                    <span class="macro">format!</span>(<span class="string">&quot;&lt;Opaque {name}&gt;&quot;</span>)
+                }
+            }
+        }
+    }
+
+    <span class="kw">fn </span>fmt_cont4_to_string(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        name: <span class="kw-2">&amp;</span>str,
+        fields: (<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str),
+        store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
+        state: <span class="kw-2">&amp;</span>State,
+    ) -&gt; String {
+        <span class="kw">match </span><span class="self">self</span>.get_index4() {
+            <span class="prelude-val">None </span>=&gt; <span class="macro">format!</span>(<span class="string">&quot;&lt;Malformed {name}&gt;&quot;</span>),
+            <span class="prelude-val">Some</span>(idx) =&gt; {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>((a, b, c, cont)) = store.fetch_4_ptrs(idx) {
+                    <span class="kw">let </span>(fa, fb, fc) = fields;
+                    <span class="macro">format!</span>(
+                        <span class="string">&quot;{name}{{ {fa}: {}, {fb}: {}, {fc}: {}, continuation: {} }}&quot;</span>,
+                        a.fmt_to_string(store, state),
+                        b.fmt_to_string(store, state),
+                        c.fmt_to_string(store, state),
+                        cont.fmt_to_string(store, state)
+                    )
+                } <span class="kw">else </span>{
+                    <span class="macro">format!</span>(<span class="string">&quot;&lt;Opaque {name}&gt;&quot;</span>)
+                }
+            }
         }
     }
 }
