@@ -1,5 +1,7 @@
+use std::collections::hash_map::Entry;
+
 use anyhow::{bail, Result};
-use std::collections::{hash_map::Entry, HashMap};
+use fxhash::FxHashMap;
 use tracing::info;
 
 use super::Var;
@@ -9,13 +11,13 @@ use super::Var;
 /// variables before using them, so we don't expect to need some piece of
 /// information from a variable that hasn't been defined.
 #[derive(Clone, Debug)]
-pub struct VarMap<V>(HashMap<Var, V>);
+pub struct VarMap<V>(FxHashMap<Var, V>);
 
 impl<V> VarMap<V> {
     /// Creates an empty `VarMap`
     #[inline]
     pub(crate) fn new() -> VarMap<V> {
-        VarMap(HashMap::default())
+        VarMap(FxHashMap::default())
     }
 
     /// Inserts new data into a `VarMap`
