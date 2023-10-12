@@ -153,9 +153,7 @@ fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
             )?),
             SlotType::BitDecomp => {
                 let a_num = &preallocated_preimg[0];
-                let bits = a_num
-                    .to_bits_le_strict(&mut cs.namespace(|| "a_num_bits"))
-                    .unwrap();
+                let bits = a_num.to_bits_le_strict(&mut cs.namespace(|| "a_num_bits"))?;
                 AllocatedVal::Bits(bits)
             }
         }
@@ -861,15 +859,21 @@ impl Func {
                         bound_allocations.insert_ptr(tgt.clone(), c);
                     }
                     Op::Lt(tgt, a, b) => {
+                        // To find out whether a < b, we will use the following reasoning:
+                        // 1) when a and b have the same sign, a < b iff a - b is negative
+                        // 2) when a and b have different signs, a < b iff a is negative
+                        // 3) a number is negative iff its double is odd
+                        // 4) a number is odd iff its least significant bit is 1
+
                         // Retrieve a, b, a-b
                         let a_num = bound_allocations.get_ptr(a)?.hash();
                         let b_num = bound_allocations.get_ptr(b)?.hash();
                         let diff = sub(cs.namespace(|| "diff"), a_num, b_num)?;
-                        // Duplicate a, b, a-b
+                        // Double a, b, a-b
                         let double_a = add(cs.namespace(|| "double_a"), a_num, a_num)?;
                         let double_b = add(cs.namespace(|| "double_b"), b_num, b_num)?;
                         let double_diff = add(cs.namespace(|| "double_diff"), &diff, &diff)?;
-                        // Get preimg/bits for the double of a, b, a-b
+                        // Get slot allocated preimages/bits for the double of a, b, a-b
                         let (double_a_preimg, double_a_bits) =
                             &g.preallocated_bit_decomp_slots[next_slot.consume_bit_decomp()];
                         let AllocatedVal::Bits(double_a_bits) = double_a_bits else { panic!("Expected bits") };
@@ -879,7 +883,7 @@ impl Func {
                         let (double_diff_preimg, double_diff_bits) =
                             &g.preallocated_bit_decomp_slots[next_slot.consume_bit_decomp()];
                         let AllocatedVal::Bits(double_diff_bits) = double_diff_bits else { panic!("Expected bits") };
-                        // Check that the preimg is double of a, b, a-b
+                        // Check that the slot allocated preimages are the double of a, b, a-b
                         implies_equal(
                             &mut cs.namespace(|| "implies equal for a_preimg"),
                             not_dummy,
@@ -899,18 +903,20 @@ impl Func {
                             &double_diff_preimg[0],
                         );
 
-                        // The number is negative if the first bit of its double is 1
+                        // The number is negative if the least significant bit of its double is 1
                         let a_is_negative = double_a_bits.get(0).unwrap();
                         let b_is_negative = double_b_bits.get(0).unwrap();
                         let diff_is_negative = double_diff_bits.get(0).unwrap();
-                        // When a and b have the same sign, a < b iff a - b < 0
-                        // When a and b have different signs, a < b iff a is negative
+
+                        // Two numbers have the same sign if both are negative or both are positive, i.e.
                         let same_sign = Boolean::xor(
                             cs.namespace(|| "same_sign"),
                             a_is_negative,
                             b_is_negative,
                         )?
                         .not();
+
+                        // Finally, a < b iff (same_sign && diff < 0) || (!same_sign && a < 0)
                         let and1 = and(&mut cs.namespace(|| "and1"), &same_sign, diff_is_negative)?;
                         let and2 = and(
                             &mut cs.namespace(|| "and2"),
