@@ -9,7 +9,7 @@
 
 ;; We chain a next commitment by applying the committed function to a value of 9.
 
-!(chain 0x2da6ae5854eb3055c31cbcd632f4d833a2a73fae5f5be4ee20fad3100285a28a 9)
+!(chain 0x06042852d90bf409974d1ee3bc153c0f48ea5512c9b4f697561df9ad7b5abbe0 9)
 
 ;; The new counter value is 9, and the function returns a new functional commitment.
 
@@ -25,7 +25,7 @@
 
 ;; Now let's chain another call to the new head, adding 12 to the counter.
 
-!(chain 0x30773603a363eac816a6e6e80e39c8eda0342635ffeb63e9c2412e3d3fb4da5b 12)
+!(chain 0x251ccd3ecf6ae912eeb6558733b04b50e0b0c374a2dd1b797fcca84b0d9a8794 12)
 
 ;; Now the counter is 21, and we have a new head commitment.
 
@@ -39,7 +39,7 @@
 
 ;; One more time, we'll add 14 to the head commitment's internal state.
 
-!(chain 0x0d628d7c6def025fe258334476b4950cfac1f86cadc68c06497aaee27f208532 14)
+!(chain 0x281605259696cd2529c00806465c9726d81df4ccd2c3500312c991c1fd572592 14)
 
 ;; 21 + 14 = 35, as expected.
 

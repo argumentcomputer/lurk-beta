@@ -509,7 +509,7 @@ fn expression<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
 fn opening_request<P: AsRef<Path>, F: LurkField + Serialize + DeserializeOwned>(
     request_path: P,
 ) -> Result<OpeningRequest<F>, error::Error> {
-    OpeningRequest::read_from_path(request_path)
+    OpeningRequest::read_from_json_path(request_path)
 }
 
 // Get proof from supplied path or else from stdin.
