@@ -79,7 +79,7 @@ fn compute_frame<F: LurkField, C: Coprocessor<F>>(
 }
 
 // Builds frames for IVC or NIVC scheme
-pub fn build_frames<
+fn build_frames<
     F: LurkField,
     C: Coprocessor<F>,
     LogFmt: Fn(usize, &[Ptr<F>], &[Ptr<F>], &Store<F>) -> String,
@@ -121,7 +121,7 @@ pub fn build_frames<
 }
 
 /// Faster version of `build_frames` that doesn't accumulate frames
-pub fn traverse_frames<F: LurkField, C: Coprocessor<F>>(
+fn traverse_frames<F: LurkField, C: Coprocessor<F>>(
     lurk_step: &Func,
     cprocs_run: &[Func],
     mut input: Vec<Ptr<F>>,

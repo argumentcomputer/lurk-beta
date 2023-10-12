@@ -17,14 +17,13 @@ use crate::{
         supernova::{FoldingConfig, C2},
         CEKState, EvaluationStore, FrameLike, MultiFrameTrait, Provable,
     },
-    state::initial_lurk_state,
     store,
     tag::ContTag,
 };
 
 use super::{
     circuit::{BoundAllocations, GlobalAllocator},
-    eval::{build_frames, make_cprocs_funcs_from_lang, make_eval_step_from_lang},
+    eval::{evaluate_with_env_and_cont, make_cprocs_funcs_from_lang, make_eval_step_from_lang},
     interpreter::Frame,
     pointers::Ptr,
     store::Store,
@@ -406,25 +405,11 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         store: &Self::Store,
         limit: usize,
         lang: &Lang<F, C>,
-    ) -> std::result::Result<Vec<Self::EvalFrame>, ProofError> {
-        // TODO: integrate https://github.com/lurk-lab/lurk-rs/commit/963a6361701efcaa78735d8fc9c927f518d8e31c
-        let input = vec![expr, env, Ptr::null(Tag::Cont(ContTag::Outermost))];
-        let state = initial_lurk_state();
-        let log_fmt = |i: usize, inp: &[Ptr<F>], emit: &[Ptr<F>], store: &Store<F>| {
-            let mut out = format!(
-                "Frame: {i}\n\tExpr: {}\n\tEnv:  {}\n\tCont: {}",
-                inp[0].fmt_to_string(store, state),
-                inp[1].fmt_to_string(store, state),
-                inp[2].fmt_to_string(store, state)
-            );
-            if let Some(ptr) = emit.first() {
-                out.push_str(&format!("\n\tEmtd: {}", ptr.fmt_to_string(store, state)));
-            }
-            out
-        };
+    ) -> Result<Vec<Self::EvalFrame>, ProofError> {
+        let cont = Ptr::null(Tag::Cont(ContTag::Outermost));
         let lurk_step = make_eval_step_from_lang(lang, true);
-        match build_frames(&lurk_step, &[], input, store, limit, lang, log_fmt) {
-            Ok((frames, ..)) => Ok(frames),
+        match evaluate_with_env_and_cont(Some((&lurk_step, lang)), expr, env, cont, store, limit) {
+            Ok((frames, _)) => Ok(frames),
             Err(e) => Err(ProofError::Reduction(ReductionError::Misc(e.to_string()))),
         }
     }
