@@ -612,6 +612,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
                             &input_expr,
                             &input_env,
                             &input_cont,
+                            false,
                         )?
                     }
                     None => {
@@ -629,6 +630,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
                             &input_expr,
                             &input_env,
                             &input_cont,
+                            false,
                         )?
                     }
                 }

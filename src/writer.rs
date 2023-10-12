@@ -4,6 +4,7 @@ use crate::field::LurkField;
 use crate::lurk_sym_ptr;
 use crate::package::SymbolRef;
 use crate::ptr::{ContPtr, Ptr};
+use crate::state::initial_lurk_state;
 use crate::state::State;
 use crate::store::Store;
 use crate::symbol::Symbol;
@@ -16,6 +17,10 @@ pub trait Write<F: LurkField> {
         let mut out = Vec::new();
         self.fmt(store, state, &mut out).expect("preallocated");
         String::from_utf8(out).expect("I know it")
+    }
+
+    fn simple_fmt_to_string(&self, store: &Store<F>) -> String {
+        self.fmt_to_string(store, initial_lurk_state())
     }
 }
 

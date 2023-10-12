@@ -150,19 +150,19 @@ impl State {
         let keyword_package = Package::new(SymbolRef::new(Symbol::root_key()));
 
         // bootstrap the lurk package
-        let mut lurk_package = Package::new(root_package.intern(LURK_PACKAGE_SYMBOL_NAME.into()));
+        let mut lurk_package = Package::new(root_package.intern(LURK_PACKAGE_SYMBOL_NAME));
         for symbol_name in LURK_PACKAGE_SYMBOLS_NAMES.iter() {
             lurk_package.intern((*symbol_name).to_string());
         }
 
         // bootstrap the meta package
-        let mut meta_package = Package::new(lurk_package.intern(META_PACKAGE_SYMBOL_NAME.into()));
+        let mut meta_package = Package::new(lurk_package.intern(META_PACKAGE_SYMBOL_NAME));
         for symbol_name in META_PACKAGE_SYMBOLS_NAMES.iter() {
             meta_package.intern((*symbol_name).to_string());
         }
 
         // bootstrap the user package
-        let mut user_package = Package::new(lurk_package.intern(USER_PACKAGE_SYMBOL_NAME.into()));
+        let mut user_package = Package::new(lurk_package.intern(USER_PACKAGE_SYMBOL_NAME));
         user_package
             .use_package(&lurk_package)
             .expect("all symbols in the lurk package are importable");
@@ -302,7 +302,7 @@ pub mod test {
 
         let my_package_name = SymbolRef::new(Symbol::sym(&["my-package"]));
         let mut my_package = Package::new(my_package_name.clone());
-        let my_symbol = my_package.intern("my-symbol".into());
+        let my_symbol = my_package.intern("my-symbol");
         state.add_package(my_package);
 
         test_printing_helper(&state, my_symbol.clone(), ".my-package.my-symbol");

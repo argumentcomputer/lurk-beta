@@ -19,6 +19,8 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
+use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
+
 use lurk_macros::Coproc;
 use serde::{Deserialize, Serialize};
 
@@ -26,6 +28,9 @@ use crate::package::Package;
 use crate::state::State;
 use crate::{self as lurk, Symbol};
 
+use crate::circuit::gadgets::constraints::{enforce_equal, select};
+use crate::circuit::gadgets::data::GlobalAllocations;
+use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use crate::coprocessor::{CoCircuit, Coprocessor};
 use crate::eval::lang::Lang;
 use crate::field::{FWrap, LurkField};
@@ -33,6 +38,7 @@ use crate::hash::{HashArity, InversePoseidonCache, PoseidonCache};
 use crate::num::Num;
 use crate::ptr::Ptr;
 use crate::store::Store;
+use crate::tag::{ExprTag, Tag};
 
 #[derive(Debug)]
 pub enum Error<F> {
@@ -44,6 +50,8 @@ pub enum Error<F> {
 pub type PreimagePath<F, const ARITY: usize> = Vec<[F; ARITY]>;
 
 pub type HashPreimagePath<F, const ARITY: usize> = Vec<(F, [F; ARITY])>;
+
+pub type StandardTrie<'a, F> = Trie<'a, F, 8, 85>;
 
 #[derive(Clone, Coproc, Debug)]
 pub enum TrieCoproc<F: LurkField> {
@@ -63,16 +71,49 @@ impl<F: LurkField> Coprocessor<F> for NewCoprocessor<F> {
     }
 
     fn simple_evaluate(&self, s: &Store<F>, _args: &[Ptr<F>]) -> Ptr<F> {
-        let trie: Trie<'_, F, 8, 85> = Trie::new(s);
+        let trie: StandardTrie<'_, F> = Trie::new(s);
 
         let root = trie.root;
 
-        // FIXME: Use a custom type.
+        // TODO: Use a custom type.
         s.intern_num(Num::Scalar(root))
+    }
+
+    fn has_circuit(&self) -> bool {
+        true
     }
 }
 
-impl<F: LurkField> CoCircuit<F> for NewCoprocessor<F> {}
+impl<F: LurkField> CoCircuit<F> for NewCoprocessor<F> {
+    fn arity(&self) -> usize {
+        0
+    }
+
+    // This is so small, it would make sense to include in the Lurk reduction.
+    // TODO: Allow `FoldingConfig` to specify whethere a given Coprocessor should have its own circuit or not.
+    fn synthesize<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        _g: &GlobalAllocations<F>,
+        store: &Store<F>,
+        _input_exprs: &[AllocatedPtr<F>],
+        input_env: &AllocatedPtr<F>,
+        input_cont: &AllocatedContPtr<F>,
+        _dummy_or_blank: bool,
+    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
+        let trie: StandardTrie<'_, F> = Trie::new(store);
+
+        // TODO: Use a custom type.
+        let root = store.intern_num(Num::Scalar(trie.root));
+        let root_zptr = store.hash_expr(&root).unwrap();
+
+        Ok((
+            AllocatedPtr::alloc_constant(cs, root_zptr)?,
+            input_env.clone(),
+            input_cont.clone(),
+        ))
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Default, Deserialize)]
 pub struct LookupCoprocessor<F: LurkField> {
@@ -87,17 +128,60 @@ impl<F: LurkField> Coprocessor<F> for LookupCoprocessor<F> {
     fn simple_evaluate(&self, s: &Store<F>, args: &[Ptr<F>]) -> Ptr<F> {
         let root_ptr = args[0];
         let key_ptr = args[1];
+
+        // TODO: Check tags.
         let root_scalar = *s.hash_expr(&root_ptr).unwrap().value();
         let key_scalar = *s.hash_expr(&key_ptr).unwrap().value();
-        let trie: Trie<'_, F, 8, 85> = Trie::new_with_root(s, root_scalar);
+        let trie: StandardTrie<'_, F> = Trie::new_with_root(s, root_scalar);
 
         let found = trie.lookup_aux(key_scalar).unwrap();
 
         s.intern_maybe_opaque_comm(found)
     }
+
+    fn has_circuit(&self) -> bool {
+        true
+    }
 }
 
-impl<F: LurkField> CoCircuit<F> for LookupCoprocessor<F> {}
+impl<F: LurkField> CoCircuit<F> for LookupCoprocessor<F> {
+    fn arity(&self) -> usize {
+        2
+    }
+
+    fn synthesize<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        _g: &GlobalAllocations<F>,
+        s: &Store<F>,
+        args: &[AllocatedPtr<F>],
+        input_env: &AllocatedPtr<F>,
+        input_cont: &AllocatedContPtr<F>,
+        dummy_or_blank: bool,
+    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
+        let root_ptr = &args[0];
+        let key_ptr = &args[1];
+
+        // TODO: Check tags.
+        let root_value = root_ptr.hash().get_value();
+        let key_val = key_ptr.hash();
+        let trie: StandardTrie<'_, F> = if dummy_or_blank {
+            Trie::new(s)
+        } else {
+            Trie::new_with_root(s, root_value.ok_or(SynthesisError::AssignmentMissing)?)
+        };
+
+        let result_commitment_val = trie.synthesize_lookup(cs, s, key_val)?;
+
+        let result_commitment = AllocatedPtr::alloc_tag(
+            &mut cs.namespace(|| "result_commitment"),
+            ExprTag::Comm.to_field(),
+            result_commitment_val,
+        )?;
+
+        Ok((result_commitment, input_env.clone(), input_cont.clone()))
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Default, Deserialize)]
 pub struct InsertCoprocessor<F: LurkField> {
@@ -116,15 +200,63 @@ impl<F: LurkField> Coprocessor<F> for InsertCoprocessor<F> {
         let root_scalar = *s.hash_expr(&root_ptr).unwrap().value();
         let key_scalar = *s.hash_expr(&key_ptr).unwrap().value();
         let val_scalar = *s.hash_expr(&val_ptr).unwrap().value();
-        let mut trie: Trie<'_, F, 8, 85> = Trie::new_with_root(s, root_scalar);
+        let mut trie: StandardTrie<'_, F> = Trie::new_with_root(s, root_scalar);
         trie.insert(key_scalar, val_scalar).unwrap();
 
         let new_root = trie.root;
         s.intern_num(Num::Scalar(new_root))
     }
+
+    fn has_circuit(&self) -> bool {
+        true
+    }
 }
 
-impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {}
+impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {
+    fn arity(&self) -> usize {
+        3
+    }
+
+    fn synthesize<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        _g: &GlobalAllocations<F>,
+        s: &Store<F>,
+        args: &[AllocatedPtr<F>],
+        input_env: &AllocatedPtr<F>,
+        input_cont: &AllocatedContPtr<F>,
+        dummy_or_blank: bool,
+    ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
+        let root_ptr = &args[0];
+        let key_ptr = &args[1];
+        let val_ptr = &args[2];
+
+        assert_eq!(self.arity(), args.len());
+
+        // TODO: Check tags.
+        let root_value = root_ptr.hash().get_value();
+        let key_val = key_ptr.hash();
+        let new_val = val_ptr.hash();
+        let trie: StandardTrie<'_, F> = if dummy_or_blank {
+            Trie::new(s)
+        } else {
+            Trie::new_with_root(s, root_value.ok_or(SynthesisError::AssignmentMissing)?)
+        };
+
+        let new_root_val = trie
+            .synthesize_insert(cs, s, key_val, new_val.clone())
+            .map_err(|_e| SynthesisError::Unsatisfiable)?;
+
+        let new_allocated_trie = AllocatedPtr::alloc_tag(
+            &mut cs.namespace(|| "new_commitment"),
+            // TODO: Use a custom type
+            ExprTag::Num.to_field(),
+            new_root_val,
+        )?;
+
+        Ok((new_allocated_trie, input_env.clone(), input_cont.clone()))
+    }
+}
 
 /// Add the `Trie`-associated functions to a `Lang` with standard bindings.
 // TODO: define standard patterns for such modularity.
@@ -145,13 +277,12 @@ pub fn install<F: LurkField>(
 
     let name: Symbol = ".lurk.trie".into();
     let mut package = Package::new(name.into());
-    package.intern("new".into());
-    package.intern("lookup".into());
-    package.intern("insert".into());
+    ["new", "lookup", "insert"].iter().for_each(|name| {
+        package.intern(*name);
+    });
     state.borrow_mut().add_package(package);
 }
 
-//pub type ChildMap<F: LurkField, const ARITY: usize> = HashMap<FWrap<F>, [F; ARITY]>;
 pub type ChildMap<F, const ARITY: usize> = InversePoseidonCache<F>;
 
 /// A sparse Trie.
@@ -392,6 +523,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
     }
 
     const fn arity_bits() -> usize {
+        // This assumes ARITY is a power of two, as checked in `new_aux()`.
         ARITY.trailing_zeros() as usize
     }
 
@@ -422,6 +554,21 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         path
     }
 
+    fn synthesize_path<CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        key: &AllocatedNum<F>,
+    ) -> Result<Vec<Vec<Boolean>>, SynthesisError> {
+        let mut bits = key.to_bits_le_strict(&mut cs.namespace(|| "bits"))?;
+        bits.reverse();
+
+        let (arity_bits, bits_needed) = Self::path_bit_dimensions();
+        let path = bits[bits.len() - bits_needed..]
+            .chunks(arity_bits)
+            .map(|chunk| chunk.into())
+            .collect();
+        Ok(path)
+    }
+
     // Returns a value corresponding to the commitment associated with `key`, if any.
     // Note that this depends on the impossibility of discovering a value for which the commitment is zero. We could
     // alternately return the empty element (`F::zero()`) for missing values, but instead return an `Option` to more
@@ -433,7 +580,8 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
 
     fn lookup_aux(&self, key: F) -> Result<F, Error<F>> {
         let path = Self::path(key);
-        let preimage_path = Self::prove_lookup_aux(self.root, self.children, &path)?.preimage_path;
+        let preimage_path =
+            Self::prove_lookup_at_path(self.root, self.children, &path)?.preimage_path;
 
         assert_eq!(path.len(), preimage_path.len());
 
@@ -442,16 +590,93 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         Ok(final_preimage[final_step])
     }
 
-    /// Returns a slice of preimages, corresponding to the path.
-    /// Final preimage contains payloads.
-    pub fn prove_lookup(&self, key: F) -> Result<LookupProof<F, ARITY, HEIGHT>, Error<F>> {
-        let path = Self::path(key);
-        Self::prove_lookup_aux(self.root, self.children, &path)
+    fn synthesize_lookup<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        s: &Store<F>,
+        key: &AllocatedNum<F>,
+    ) -> Result<AllocatedNum<F>, SynthesisError> {
+        let path = Self::synthesize_path(&mut cs.namespace(|| "path"), key)?;
+
+        let val = self.synthesize_lookup_at_path(cs, s, &path)?.0;
+
+        Ok(val)
+    }
+
+    fn synthesize_lookup_at_path<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        s: &Store<F>,
+        path: &[Vec<Boolean>],
+    ) -> Result<(AllocatedNum<F>, Vec<Vec<AllocatedNum<F>>>), SynthesisError> {
+        let allocated_root =
+            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "root"), || self.root);
+        let mut preimage_path = Vec::with_capacity(HEIGHT);
+
+        let found = path
+            .iter()
+            .enumerate()
+            .try_fold(allocated_root, |next, (i, k_bits)| {
+                let next_preimage = next
+                    .get_value()
+                    // Use empty trie as dummy values if needed.
+                    .unwrap_or_else(|| self.empty_root_for_height(i));
+
+                let preimage = Self::get_hash_preimage(
+                    self.children,
+                    next.get_value().unwrap_or(next_preimage),
+                );
+                let allocated_preimage = if let Some(p) = preimage {
+                    p.iter()
+                        .enumerate()
+                        .map(|(j, f)| {
+                            AllocatedNum::alloc_infallible(
+                                &mut cs.namespace(|| format!("preimage-{i}-{j}")),
+                                || *f,
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                } else {
+                    (0..ARITY)
+                        .map(|j| {
+                            AllocatedNum::alloc_infallible(
+                                &mut cs.namespace(|| format!("preimage-{i}-{j}")),
+                                || F::ZERO, // FIXME
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                };
+
+                preimage_path.push(allocated_preimage.clone());
+
+                let hashed = s.poseidon_constants().constants(ARITY.into()).hash(
+                    &mut cs.namespace(|| format!("poseidon_hash_{i}")),
+                    allocated_preimage.clone(),
+                    None,
+                )?;
+
+                enforce_equal(cs, || format!("hashed equals next {i}"), &hashed, &next);
+
+                select(
+                    &mut cs.namespace(|| format!("select-{i}")),
+                    &allocated_preimage,
+                    k_bits,
+                )
+            })?;
+
+        Ok((found, preimage_path))
     }
 
     /// Returns a slice of preimages, corresponding to the path.
     /// Final preimage contains payloads.
-    fn prove_lookup_aux(
+    pub fn prove_lookup(&self, key: F) -> Result<LookupProof<F, ARITY, HEIGHT>, Error<F>> {
+        let path = Self::path(key);
+        Self::prove_lookup_at_path(self.root, self.children, &path)
+    }
+
+    /// Returns a slice of preimages, corresponding to the path.
+    /// Final preimage contains payloads.
+    fn prove_lookup_at_path(
         root: F,
         children: &ChildMap<F, ARITY>,
         path: &[usize],
@@ -461,6 +686,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         path.iter().try_fold(root, |next, k| {
             if let Some(preimage) = Self::get_hash_preimage(children, next) {
                 preimages.push(*preimage);
+
                 Ok((*preimage)[*k])
             } else {
                 Err(Error::MissingPreimage(next))
@@ -471,8 +697,7 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
     }
 
     pub fn insert(&mut self, key: F, value: F) -> Result<bool, Error<F>> {
-        let path = Self::path(key);
-        let (_insert_proof, inserted) = self.prove_insert_aux(&path, value)?;
+        let (_insert_proof, inserted) = self.prove_insert(key, value)?;
 
         Ok(inserted)
     }
@@ -483,33 +708,18 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         value: F,
     ) -> Result<(InsertProof<F, ARITY, HEIGHT>, bool), Error<F>> {
         let path = Self::path(key);
-        self.prove_insert_aux(&path, value)
+        self.insert_at_path(&path, value)
     }
 
-    fn prove_insert_aux(
+    fn insert_at_path(
         &mut self,
         path: &[usize],
         value: F,
     ) -> Result<(InsertProof<F, ARITY, HEIGHT>, bool), Error<F>> {
-        let old_proof = Self::prove_lookup_aux(self.root, self.children, path)?;
+        let old_proof = Self::prove_lookup_at_path(self.root, self.children, path)?;
 
-        let mut new_value = value;
-        let mut proof = path
-            .iter()
-            .zip(&old_proof.preimage_path)
-            .rev()
-            .map(|(path_index, existing_preimage)| {
-                let mut new_preimage = *existing_preimage;
-                new_preimage[*path_index] = new_value;
-                let new_hash = self.register_hash(new_preimage);
-                new_value = new_hash;
-                new_preimage
-            })
-            .collect::<Vec<_>>();
+        let (proof, new_root) = self.modify_value_at_path(path, &old_proof.preimage_path, value)?;
 
-        proof.reverse();
-
-        let new_root = new_value;
         let inserted = new_root != self.root;
 
         self.root = new_root;
@@ -518,6 +728,117 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
 
         Ok((InsertProof::new(old_proof, new_proof), inserted))
     }
+
+    fn modify_value_at_path(
+        &mut self,
+        path: &[usize],
+        preimage_path: &PreimagePath<F, ARITY>,
+        mut value: F,
+    ) -> Result<(PreimagePath<F, ARITY>, F), Error<F>> {
+        let mut proof = path
+            .iter()
+            .zip(preimage_path)
+            .rev()
+            .enumerate()
+            .map(|(_i, (path_index, existing_preimage))| {
+                let mut new_preimage = *existing_preimage;
+                new_preimage[*path_index] = value;
+                let new_hash = self.register_hash(new_preimage);
+                value = new_hash;
+                new_preimage
+            })
+            .collect::<Vec<_>>();
+
+        proof.reverse();
+
+        Ok((proof, value))
+    }
+
+    pub fn synthesize_insert<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        s: &Store<F>,
+        key: &AllocatedNum<F>,
+        value: AllocatedNum<F>,
+    ) -> Result<AllocatedNum<F>, SynthesisError> {
+        let path = Self::synthesize_path(&mut cs.namespace(|| "path"), key)?;
+        self.synthesize_insert_at_path(&mut cs.namespace(|| "insert_aux"), s, &path, value)
+    }
+
+    fn synthesize_insert_at_path<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        s: &Store<F>,
+        path: &[Vec<Boolean>],
+        value: AllocatedNum<F>,
+    ) -> Result<AllocatedNum<F>, SynthesisError> {
+        let preimage_path = self
+            .synthesize_lookup_at_path(&mut cs.namespace(|| "found_value"), s, path)?
+            .1;
+
+        Self::synthesize_modify_value_at_path(
+            &mut cs.namespace(|| "new_root_value"),
+            s,
+            path,
+            &preimage_path,
+            value,
+        )
+    }
+
+    fn synthesize_modify_value_at_path<CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        s: &Store<F>,
+        path: &[Vec<Boolean>],
+        preimage_path: &[Vec<AllocatedNum<F>>],
+        mut value: AllocatedNum<F>,
+    ) -> Result<AllocatedNum<F>, SynthesisError> {
+        path.iter().zip(preimage_path).rev().enumerate().for_each(
+            |(i, (path_bits, existing_preimage))| {
+                let path_index = index_from_bits(path_bits);
+                let new_preimage = existing_preimage
+                    .iter()
+                    .enumerate()
+                    .map(|(j, _x)| {
+                        AllocatedNum::alloc(
+                            &mut cs.namespace(|| format!("preimage-{i}-{j}")),
+                            || {
+                                if j == path_index {
+                                    value.get_value().ok_or(SynthesisError::AssignmentMissing)
+                                } else {
+                                    existing_preimage[j]
+                                        .get_value()
+                                        .ok_or(SynthesisError::AssignmentMissing)
+                                }
+                            },
+                        )
+                        .unwrap()
+                    })
+                    .collect::<Vec<_>>();
+
+                value = s
+                    .poseidon_constants()
+                    .constants(ARITY.into())
+                    .hash(
+                        &mut cs.namespace(|| format!("poseidon_hash_{i}")),
+                        new_preimage,
+                        None,
+                    )
+                    .unwrap();
+            },
+        );
+
+        Ok(value)
+    }
+}
+
+fn index_from_bits(bits: &[Boolean]) -> usize {
+    bits.iter().fold(0, |mut acc, bit| {
+        acc *= 2;
+        if bit.get_value().unwrap_or(false) {
+            acc += 1
+        };
+        acc
+    })
 }
 
 impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Default

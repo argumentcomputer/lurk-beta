@@ -3211,3 +3211,81 @@ fn test_letrec_sequencing() {
         None,
     );
 }
+
+#[test]
+fn test_trie_lang_circuit() {
+    use crate::coprocessor::trie::{install, TrieCoproc};
+
+    let s = &mut Store::<Fr>::default();
+    let state = State::init_lurk_state().rccell();
+    let mut lang = Lang::<Fr, TrieCoproc<Fr>>::new();
+
+    install(s, state.clone(), &mut lang);
+
+    let expr = "(let ((trie (.lurk.trie.new)))
+                      trie)";
+
+    let expr = s.read_with_state(state.clone(), expr).unwrap();
+    let res = s
+        .read("0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53")
+        .unwrap();
+
+    let terminal = s.get_cont_terminal();
+
+    let lang = Arc::new(lang);
+
+    nova_test_full_aux2::<_, _, C1Lurk<'_, _, TrieCoproc<_>>>(
+        s,
+        expr,
+        Some(res),
+        None,
+        Some(terminal),
+        None,
+        4,
+        DEFAULT_REDUCTION_COUNT,
+        false,
+        None,
+        lang.clone(),
+    );
+
+    let expr2 =
+            s.read_with_state(state.clone(), "(.lurk.trie.lookup 0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53 123)").unwrap();
+    let res2 = s.intern_opaque_comm(Fr::zero());
+
+    nova_test_full_aux2::<_, _, C1Lurk<'_, _, TrieCoproc<_>>>(
+        s,
+        expr2,
+        Some(res2),
+        None,
+        Some(terminal),
+        None,
+        2,
+        DEFAULT_REDUCTION_COUNT,
+        false,
+        None,
+        lang.clone(),
+    );
+
+    let expr3 =
+            s.read_with_state(state.clone(), "(.lurk.trie.insert 0x1cc5b90039db85fd519af975afa1de9d2b92960a585a546637b653b115bc3b53 123 456)").unwrap();
+    let res3 = s
+        .read_with_state(
+            state,
+            "0x1b22dc5a394231c34e4529af674dc56a736fbd07508acfd1d12c0e67c8b4de27",
+        )
+        .unwrap();
+
+    nova_test_full_aux2::<_, _, C1Lurk<'_, _, TrieCoproc<_>>>(
+        s,
+        expr3,
+        Some(res3),
+        None,
+        None,
+        None,
+        2,
+        DEFAULT_REDUCTION_COUNT,
+        false,
+        None,
+        lang,
+    );
+}
