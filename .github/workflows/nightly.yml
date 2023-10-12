@@ -41,11 +41,77 @@ jobs:
       - uses: taiki-e/install-action@nextest
       - uses: Swatinem/rust-cache@v2
       - name: Linux Tests
+        id: tests
         run: |
           cargo nextest run --profile ci --workspace --cargo-profile dev-ci --run-ignored all
+        continue-on-error: true
       - name: Benches build successfully
+        id: benches
         run: |
           cargo bench --no-run --profile dev-ci
+        continue-on-error: true
       - name: Linux Doc Tests
+        id: doctests
         run: |
-         cargo test --doc --workspace --profile dev-ci
+          cargo test --doc --workspace --profile dev-ci
+        continue-on-error: true
+      - name: Debug
+        run: |
+          echo ${{ steps.tests.outcome }}
+          echo ${{ steps.benches.outcome  }}
+          echo ${{ steps.tests.outcome }}
+
+      - name: Gather status in a single variable
+        if: steps.tests.outcome == 'success' && steps.benches.outcome == 'success' && steps.doctests.outcome == 'success'
+        run: echo "status=true" >> $GITHUB_ENV
+
+      - name: Amend MESSAGE for tests
+        if: steps.tests.outcome != 'success'
+        run: echo "MESSAGE=${{ env.MESSAGE }} Exhaustive test run failed in ${{ github.run_id }}" >> $GITHUB_ENV
+
+      - name: Amend MESSAGE for benches
+        if: steps.benches.outcome != 'success'
+        run: echo "MESSAGE=${{ env.MESSAGE }} Bench compilation failed in ${{ github.run_id }}" >> $GITHUB_ENV
+
+      - name: Amend MESSAGE for doctests
+        if: steps.doctests.outcome != 'success'
+        run: echo "MESSAGE=${{ env.MESSAGE }} Doc test run failed in ${{ github.run_id }}" >> $GITHUB_ENV
+
+      - name: Find the last report issue open
+        id: last_issue
+        uses: micalevisk/last-issue-action@v2
+        with:
+          state: open
+          labels: |
+            nightly
+            automated issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Close last report open issue
+        if: env.status == 'true' && steps.last_issue.outputs.has-found == 'true'
+        uses: peter-evans/close-issue@v3
+        with:
+          issue-number: ${{ steps.last_issue.outputs.issue-number }}
+          comment: "All nightly tests succeeded"
+      - name: Update last report open issue
+        if: env.status == 'false' && steps.last_issue.outputs.has-found == 'true'
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          issue-number: ${{ steps.last_issue.outputs.issue-number }}
+          body: ${{ env.MESSAGE }}
+          edit-mode: replace
+
+      - name: Create file for issue
+        if: env.status == 'false' && steps.last_issue.outputs.has-found == 'false'
+        run: echo "${{ env.MESSAGE }}" > ./_body.md
+        
+      - name: Create issue from report
+        if: env.status == 'false' && steps.last_issue.outputs.has-found == 'false'
+        uses: peter-evans/create-issue-from-file@v4
+        with:
+          title: Nightly run failed
+          content-filepath: ./_body.md
+          labels: |
+            nightly
+            automated issue
+  
