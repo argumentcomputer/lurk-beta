@@ -230,7 +230,7 @@ impl Block {
 }
 
 #[derive(Clone, Debug)]
-pub enum PreimageData<F: LurkField> {
+pub enum SlotData<F: LurkField> {
     PtrVec(Vec<Ptr<F>>),
     FPtr(F, Ptr<F>),
     F(F),
@@ -256,14 +256,14 @@ impl SlotType {
         }
     }
 
-    pub(crate) fn is_compatible<F: LurkField>(&self, preimg: &PreimageData<F>) -> bool {
+    pub(crate) fn is_compatible<F: LurkField>(&self, slot_data: &SlotData<F>) -> bool {
         matches!(
-            (self, preimg),
-            (Self::Hash4, PreimageData::PtrVec(..))
-                | (Self::Hash6, PreimageData::PtrVec(..))
-                | (Self::Hash8, PreimageData::PtrVec(..))
-                | (Self::Commitment, PreimageData::FPtr(..))
-                | (Self::BitDecomp, PreimageData::F(..))
+            (self, slot_data),
+            (Self::Hash4, SlotData::PtrVec(..))
+                | (Self::Hash6, SlotData::PtrVec(..))
+                | (Self::Hash8, SlotData::PtrVec(..))
+                | (Self::Commitment, SlotData::FPtr(..))
+                | (Self::BitDecomp, SlotData::F(..))
         )
     }
 }

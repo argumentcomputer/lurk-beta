@@ -164,13 +164,13 @@ fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
 /// Allocates unconstrained slots
 fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    preimg_data: &[Option<PreimageData<F>>],
+    slots_data: &[Option<SlotData<F>>],
     slot_type: SlotType,
     num_slots: usize,
     store: &Store<F>,
 ) -> Result<Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>> {
     assert!(
-        preimg_data.len() == num_slots,
+        slots_data.len() == num_slots,
         "collected preimages not equal to the number of available slots"
     );
 
@@ -178,19 +178,19 @@ fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
 
     // We must perform the allocations for the slots containing data collected
     // by the interpreter. The `None` cases must be filled with dummy values
-    for (slot_idx, maybe_preimg_data) in preimg_data.iter().enumerate() {
-        if let Some(preimg_data) = maybe_preimg_data {
+    for (slot_idx, maybe_slot_data) in slots_data.iter().enumerate() {
+        if let Some(slot_data) = maybe_slot_data {
             let slot = Slot {
                 idx: slot_idx,
                 typ: slot_type,
             };
-            assert!(slot_type.is_compatible(preimg_data));
+            assert!(slot_type.is_compatible(slot_data));
 
             // Allocate the preimage because the image depends on it
             let mut preallocated_preimg = Vec::with_capacity(slot_type.preimg_size());
 
-            match preimg_data {
-                PreimageData::PtrVec(ptr_vec) => {
+            match slot_data {
+                SlotData::PtrVec(ptr_vec) => {
                     let mut component_idx = 0;
                     for ptr in ptr_vec {
                         let z_ptr = store.hash_ptr(ptr)?;
@@ -212,7 +212,7 @@ fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
                         component_idx += 1;
                     }
                 }
-                PreimageData::FPtr(f, ptr) => {
+                SlotData::FPtr(f, ptr) => {
                     let z_ptr = store.hash_ptr(ptr)?;
                     // allocate first component
                     preallocated_preimg.push(AllocatedNum::alloc_infallible(
@@ -230,7 +230,7 @@ fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
                         || *z_ptr.value(),
                     ));
                 }
-                PreimageData::F(a) => {
+                SlotData::F(a) => {
                     preallocated_preimg.push(AllocatedNum::alloc_infallible(
                         cs.namespace(|| format!("component 0 slot {slot}")),
                         || *a,
@@ -438,7 +438,7 @@ impl Func {
         // that's why they are filled with dummies
         let preallocated_hash4_slots = allocate_slots(
             cs,
-            &frame.preimages.hash4,
+            &frame.advices.hash4,
             SlotType::Hash4,
             self.slot.hash4,
             store,
@@ -446,7 +446,7 @@ impl Func {
 
         let preallocated_hash6_slots = allocate_slots(
             cs,
-            &frame.preimages.hash6,
+            &frame.advices.hash6,
             SlotType::Hash6,
             self.slot.hash6,
             store,
@@ -454,7 +454,7 @@ impl Func {
 
         let preallocated_hash8_slots = allocate_slots(
             cs,
-            &frame.preimages.hash8,
+            &frame.advices.hash8,
             SlotType::Hash8,
             self.slot.hash8,
             store,
@@ -462,7 +462,7 @@ impl Func {
 
         let preallocated_commitment_slots = allocate_slots(
             cs,
-            &frame.preimages.commitment,
+            &frame.advices.commitment,
             SlotType::Commitment,
             self.slot.commitment,
             store,
@@ -470,7 +470,7 @@ impl Func {
 
         let preallocated_bit_decomp_slots = allocate_slots(
             cs,
-            &frame.preimages.bit_decomp,
+            &frame.advices.bit_decomp,
             SlotType::BitDecomp,
             self.slot.bit_decomp,
             store,
@@ -1274,9 +1274,9 @@ impl Func {
             }
         }
 
-        let call_outputs = &frame.preimages.call_outputs;
+        let call_outputs = &frame.advices.call_outputs;
         let call_idx = 0;
-        let cproc_outputs = &frame.preimages.cproc_outputs;
+        let cproc_outputs = &frame.advices.cproc_outputs;
         recurse(
             cs,
             &self.body,

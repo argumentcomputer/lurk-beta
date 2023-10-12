@@ -19,7 +19,7 @@ use crate::{
 };
 
 use super::{
-    interpreter::{Frame, Preimages},
+    interpreter::{Advices, Frame},
     pointers::Ptr,
     store::Store,
     Ctrl, Func, Op, Tag, Var,
@@ -72,7 +72,7 @@ fn compute_frame<F: LurkField, C: Coprocessor<F>>(
             .expect("Program counter outside range")
     };
     assert_eq!(func.input_params.len(), input.len());
-    let preimages = Preimages::new_from_func(func);
+    let preimages = Advices::new_from_func(func);
     let (frame, _) = func.call(input, store, preimages, emitted, lang, pc)?;
     let must_break = matches!(frame.output[2].tag(), Tag::Cont(Terminal | Error));
     Ok((frame, must_break))
