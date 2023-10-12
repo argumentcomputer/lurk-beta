@@ -33,12 +33,11 @@ impl<Fr: LurkField> Arbitrary for Num<Fr> {
     type Strategy = BoxedStrategy<Self>;
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        any::<FWrap<Fr>>()
-            .prop_map(|f| match f.0.to_u64() {
-                Some(x) => Self::U64(x),
-                None => Self::Scalar(f.0),
-            })
-            .boxed()
+        prop_oneof![
+            any::<u64>().prop_map(Num::U64),
+            any::<FWrap<Fr>>().prop_map(|f| Num::Scalar(f.0)),
+        ]
+        .boxed()
     }
 }
 
@@ -291,144 +290,206 @@ impl<'de, F: LurkField> Deserialize<'de> for Num<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nom::ToUsize;
+    use proptest::proptest;
 
     use ff::Field;
     use pasta_curves::pallas::Scalar;
     use pasta_curves::pallas::Scalar as Fr;
 
-    #[test]
-    fn test_add_assign() {
-        // u64 - u64 - no overflow
-        let mut a = Num::<Scalar>::U64(5);
-        a += Num::from(10);
-        assert_eq!(a, Num::from(15));
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            cases: 1000,
+            .. ProptestConfig::default()
+          })]
 
-        // u64 - u64 - overflow
-        let mut a = Num::from(u64::MAX);
-        a += Num::from(10);
-        assert_eq!(a, Num::Scalar(Scalar::from(u64::MAX) + Scalar::from(10)));
 
-        // scalar - scalar - no overflow
-        let mut a = Num::Scalar(Scalar::from(5));
-        a += Num::Scalar(Scalar::from(10));
-        assert_eq!(a, Num::Scalar(Scalar::from(5) + Scalar::from(10)));
+        #[test]
+        fn prop_add_assign(a in any::<Num<Fr>>(), b in any::<Num<Fr>>()){
+            let mut c = a;
+            c += b;
 
-        // scalar - u64 - overflow
-        let mut a = Num::Scalar(Scalar::from(5));
-        a += Num::from(u64::MAX);
-        assert_eq!(a, Num::Scalar(Scalar::from(5) + Scalar::from(u64::MAX)));
+            match (a, b) {
+                (Num::U64(x1), Num::U64(x2)) => {
+                    // does this overflow?
+                    if x1.checked_add(x2).is_none() {
+                        assert_eq!(c, Num::Scalar(Scalar::from(x1) + Scalar::from(x2)));
+                    } else {
+                        assert_eq!(c, Num::U64(x1 + x2));
+                    }
+                },
+                (Num::Scalar(x1), Num::U64(x2))  | (Num::U64(x2), Num::Scalar(x1)) => {
+                    assert_eq!(c, Num::Scalar(x1 + Scalar::from(x2)));
+                },
+                (Num::Scalar(x1), Num::Scalar(x2)) => {
+                    assert_eq!(c, Num::Scalar(x1 + x2));
+                }
+            }
+        }
 
-        // scalar - u64 - overflow
-        let mut a = Num::from(u64::MAX);
-        a += Num::Scalar(Scalar::from(5));
-        assert_eq!(a, Num::Scalar(Scalar::from(5) + Scalar::from(u64::MAX)));
-    }
+        #[test]
+        fn prop_sub_assign(a in any::<Num<Fr>>(), b in any::<Num<Fr>>()) {
+            let mut c = a;
+            c -= b;
 
-    #[test]
-    fn test_sub_assign() {
-        // u64 - u64 - no overflow
-        let mut a = Num::<Scalar>::U64(10);
-        a -= Num::U64(5);
-        assert_eq!(a, Num::U64(5));
+            match (a, b) {
+                (Num::U64(x1), Num::U64(x2)) => {
+                    // does this underflow?
+                    if x1.to_usize().checked_sub(x2.to_usize()).is_none(){
+                        assert_eq!(c, Num::Scalar(Scalar::from(x1) - Scalar::from(x2)));
+                    } else {
+                        assert_eq!(c, Num::U64(x1 - x2));
+                    }
+                },
+                (Num::Scalar(x1), Num::U64(x2))  => {
+                    assert_eq!(c, Num::Scalar(x1 - Scalar::from(x2)));
+                },
+                 (Num::U64(x1), Num::Scalar(x2)) => {
+                    assert_eq!(c, Num::Scalar(Scalar::from(x1) - x2));
+                },
+                (Num::Scalar(x1), Num::Scalar(x2)) => {
+                    assert_eq!(c, Num::Scalar(x1 - x2));
+                }
+            }
+        }
 
-        // u64 - u64 - overflow
-        let mut a = Num::U64(0);
-        a -= Num::U64(10);
-        assert_eq!(a, Num::Scalar(Scalar::from(0) - Scalar::from(10)));
+        #[test]
+        fn prop_mul_assign(a in any::<Num<Fr>>(), b in any::<Num<Fr>>()){
+            let mut c = a;
+            c *= b;
 
-        // scalar - scalar - no overflow
-        let mut a = Num::Scalar(Scalar::from(10));
-        a -= Num::Scalar(Scalar::from(5));
-        assert_eq!(a, Num::Scalar(Scalar::from(10) - Scalar::from(5)));
+            match (a, b) {
+                (Num::U64(x1), Num::U64(x2)) => {
+                    // does this overflow?
+                    if  x1.checked_mul(x2).is_none() {
+                        assert_eq!(c, Num::Scalar(Scalar::from(x1) * Scalar::from(x2)));
+                    } else {
+                        assert_eq!(c, Num::U64(x1 * x2));
+                    }
+                },
+                (Num::Scalar(x1), Num::U64(x2))  | (Num::U64(x2), Num::Scalar(x1)) => {
+                    assert_eq!(c, Num::Scalar(x1 * Scalar::from(x2)));
+                },
+                (Num::Scalar(x1), Num::Scalar(x2)) => {
+                    assert_eq!(c, Num::Scalar(x1 * x2));
+                }
+            }
+        }
 
-        // scalar - u64 - overflow
-        let mut a = Num::Scalar(Scalar::from(5));
-        a -= Num::U64(10);
-        assert_eq!(a, Num::Scalar(Scalar::from(5) - Scalar::from(10)));
+        #[test]
+        fn prop_div_assign(a in any::<Num<Fr>>(), b in any::<Num<Fr>>().prop_filter("divisor must be non-zero", |b| !b.is_zero())){
+            let mut c = a;
+            c /= b;
 
-        // scalar - u64 - no overflow
-        let mut a = Num::Scalar(Scalar::from(10));
-        a -= Num::U64(5);
-        assert_eq!(a, Num::Scalar(Scalar::from(10) - Scalar::from(5)));
+            match (a, b) {
+                (Num::U64(x1), Num::U64(x2)) => {
+                    // is x1 an exact multiple?
+                    if let Some(x) = x1.checked_rem_euclid(x2){
+                        if x == 0 {
+                            assert_eq!(c, Num::U64(x1 / x2));
 
-        // scalar - u64 - overflow
-        let mut a = Num::U64(5);
-        a -= Num::Scalar(Scalar::from(10));
-        assert_eq!(a, Num::Scalar(Scalar::from(5) - Scalar::from(10)));
+                        } else {
+                            c *= b;
+                            assert_eq!(c, Num::Scalar(Scalar::from(x1)));
+                        }
+                    } else {
+                        unreachable!("excluded by prop_filter")
+                    }
+                },
+                (Num::U64(x1), Num::Scalar(_))  => {
+                    c *= b;
+                    assert_eq!(c, Num::Scalar(Scalar::from(x1)));
+                },
+                (Num::Scalar(_), _) => {
+                    c *= b;
+                    assert_eq!(c, a);
+                }
+            }
+        }
 
-        // scalar - u64 - no overflow
-        let mut a = Num::U64(10);
-        a -= Num::Scalar(Scalar::from(5));
-        assert_eq!(a, Num::Scalar(Scalar::from(10) - Scalar::from(5)));
-    }
+        #[test]
+        fn prop_mosts(a in any::<Num<Fr>>()) {
+            if a.is_negative() {
+                assert!(a >= Num::most_negative());
+                assert!(a < Num::most_positive());
+            } else {
+                assert!(a <= Num::most_positive());
+                assert!(a > Num::most_negative());
+            }
+        }
 
-    #[test]
-    fn test_mul_assign() {
-        // u64 - u64 - no overflow
-        let mut a = Num::<Scalar>::U64(5);
-        a *= Num::U64(10);
-        assert_eq!(a, Num::U64(5 * 10));
+        #[test]
+        fn prop_sign_and_sub(a in any::<Num<Fr>>(), b in any::<Num<Fr>>()) {
+            let mut c = a;
+            c -= b;
 
-        // u64 - u64 - overflow
-        let mut a = Num::U64(u64::MAX);
-        a *= Num::U64(10);
-        assert_eq!(a, Num::Scalar(Scalar::from(u64::MAX) * Scalar::from(10)));
+            if a.is_negative() {
+                // does this "underflow" (in the sense of consistency w/ Num::is_less_than)
+                let mut underflow_boundary = Num::most_negative();
+                underflow_boundary += b;
 
-        // scalar - scalar - no overflow
-        let mut a = Num::Scalar(Scalar::from(5));
-        a *= Num::Scalar(Scalar::from(10));
-        assert_eq!(a, Num::Scalar(Scalar::from(5) * Scalar::from(10)));
+                if a >= underflow_boundary {
+                  assert!(c.is_negative());
+                }
+            } else if b.is_negative() {
+                // does this "overflow" (in the sense of consistency w/ Num::is_less_than)
+                // b negative, a - b = a + |b| which can be greater than most_positive
+                let mut overflow_boundary = Num::most_positive();
+                overflow_boundary -= b;
 
-        // scalar - u64 - overflow
-        let mut a = Num::Scalar(Scalar::from(5));
-        a *= Num::U64(u64::MAX);
-        assert_eq!(a, Num::Scalar(Scalar::from(5) * Scalar::from(u64::MAX)));
+                if a <= overflow_boundary {
+                    assert!(a.is_less_than(&c));
+                }
+            } else {
+                assert!(c.is_less_than(&a));
+            }
+        }
 
-        // scalar - u64 - overflow
-        let mut a = Num::U64(u64::MAX);
-        a *= Num::Scalar(Scalar::from(5));
-        assert_eq!(a, Num::Scalar(Scalar::from(5) * Scalar::from(u64::MAX)));
-    }
+        #[test]
+        fn prop_lesser(a in any::<Num<Fr>>(), b in any::<Num<Fr>>()) {
+            // operands should be distinct for is_less_than
+            prop_assume!(a != b);
 
-    #[test]
-    fn test_div_assign() {
-        // u64 - u64 - no overflow
-        let mut a = Num::<Scalar>::U64(10);
-        a /= Num::U64(5);
-        assert_eq!(a, Num::U64(10 / 5));
+            // anti-symmetry
+            if a.is_less_than(&b) && b.is_less_than(&a)  {
+                assert_eq!(a, b);
+            }
 
-        let mut a = Num::<Scalar>::U64(10);
-        a /= Num::U64(3);
-
-        // The result is not a Num::U64.
-        assert!(matches!(a, Num::<Scalar>::Scalar(_)));
-
-        a *= Num::U64(3);
-        assert_eq!(a, Num::<Scalar>::Scalar(Scalar::from(10)));
-
-        // scalar - scalar - no overflow
-        let mut a = Num::Scalar(Scalar::from(10));
-        a /= Num::Scalar(Scalar::from(5));
-        assert_eq!(
-            a,
-            Num::Scalar(Scalar::from(10) * Scalar::from(5).invert().unwrap())
-        );
-
-        // scalar - u64 - no overflow
-        let mut a = Num::Scalar(Scalar::from(10));
-        a /= Num::U64(5);
-        assert_eq!(
-            a,
-            Num::Scalar(Scalar::from(10) * Scalar::from(5).invert().unwrap())
-        );
-
-        // scalar - u64 - no overflow
-        let mut a = Num::U64(10);
-        a /= Num::Scalar(Scalar::from(5));
-        assert_eq!(
-            a,
-            Num::Scalar(Scalar::from(10) * Scalar::from(5).invert().unwrap())
-        );
+            match (a, b) {
+                (Num::U64(x1), Num::U64(x2)) => {
+                    assert_eq!(a.is_less_than(&b), x1 < x2);
+                },
+                (Num::Scalar(x1), Num::Scalar(x2)) => {
+                    // this time, we express the conditions in terms of the
+                    // saclar  operation
+                    let underflow = {
+                        let mut underflow_boundary = Scalar::most_negative();
+                        underflow_boundary += x2;
+                        x1 > underflow_boundary
+                    };
+                    let overflow = {
+                        let mut overflow_boundary = Scalar::most_positive();
+                        overflow_boundary -= x2;
+                        x1 > overflow_boundary
+                    };
+                    if !underflow && !overflow {
+                        assert_eq!(a.is_less_than(&b), Num::Scalar(x1 - x2).is_negative());
+                    }
+                },
+                (Num::U64(x1), Num::Scalar(x2)) if !x2.is_negative() => {
+                    assert_eq!(a.is_less_than(&b), Scalar::from(x1) < x2);
+                },
+                (Num::U64(_), Num::Scalar(_))  => { // right_operand.is_negative()
+                    assert!(!a.is_less_than(&b));
+                },
+                (Num::Scalar(x1), Num::U64(x2)) if !x1.is_negative() => {
+                    assert_eq!(a.is_less_than(&b), x1 < Scalar::from(x2));
+                }
+                (Num::Scalar(_), Num::U64(_))  => { // left_operand.is_negative()
+                    assert!(a.is_less_than(&b));
+                },
+            }
+        }
     }
 
     #[test]
