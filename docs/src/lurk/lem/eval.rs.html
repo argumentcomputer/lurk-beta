@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/eval.rs`."><title>eval.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-deb46770fd761b69.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (475c71da0 2023-10-11)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5f34af1a0ee6bacd.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/eval.rs`."><title>eval.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-deb46770fd761b69.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (e20cb7702 2023-10-12)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5f34af1a0ee6bacd.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1718,39 +1718,6 @@
 <a href="#1718" id="1718">1718</a>
 <a href="#1719" id="1719">1719</a>
 <a href="#1720" id="1720">1720</a>
-<a href="#1721" id="1721">1721</a>
-<a href="#1722" id="1722">1722</a>
-<a href="#1723" id="1723">1723</a>
-<a href="#1724" id="1724">1724</a>
-<a href="#1725" id="1725">1725</a>
-<a href="#1726" id="1726">1726</a>
-<a href="#1727" id="1727">1727</a>
-<a href="#1728" id="1728">1728</a>
-<a href="#1729" id="1729">1729</a>
-<a href="#1730" id="1730">1730</a>
-<a href="#1731" id="1731">1731</a>
-<a href="#1732" id="1732">1732</a>
-<a href="#1733" id="1733">1733</a>
-<a href="#1734" id="1734">1734</a>
-<a href="#1735" id="1735">1735</a>
-<a href="#1736" id="1736">1736</a>
-<a href="#1737" id="1737">1737</a>
-<a href="#1738" id="1738">1738</a>
-<a href="#1739" id="1739">1739</a>
-<a href="#1740" id="1740">1740</a>
-<a href="#1741" id="1741">1741</a>
-<a href="#1742" id="1742">1742</a>
-<a href="#1743" id="1743">1743</a>
-<a href="#1744" id="1744">1744</a>
-<a href="#1745" id="1745">1745</a>
-<a href="#1746" id="1746">1746</a>
-<a href="#1747" id="1747">1747</a>
-<a href="#1748" id="1748">1748</a>
-<a href="#1749" id="1749">1749</a>
-<a href="#1750" id="1750">1750</a>
-<a href="#1751" id="1751">1751</a>
-<a href="#1752" id="1752">1752</a>
-<a href="#1753" id="1753">1753</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -2000,7 +1967,7 @@
     <span class="macro">func!</span>(step(expr, env, cont): <span class="number">3 </span>=&gt; {
         <span class="kw">let </span>(expr, env, cont, ctrl) = reduce(expr, env, cont);
         <span class="kw">let </span>(expr, env, cont, ctrl) = apply_cont(expr, env, cont, ctrl);
-        <span class="kw">let </span>(expr, env, cont, _ctrl) = make_thunk(expr, env, cont, ctrl);
+        <span class="kw">let </span>(expr, env, cont) = make_thunk(expr, env, cont, ctrl);
         <span class="kw">return </span>(expr, env, cont)
     })
 }
@@ -2540,9 +2507,9 @@
             <span class="kw">return </span>(expr, env, cont, apply)
         }
         <span class="kw">let </span>errctrl = Symbol(<span class="string">&quot;error&quot;</span>);
+        <span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>);
         <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
         <span class="kw">let </span>nil = cast(nil, Expr::Nil);
-        <span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>);
         <span class="kw">let </span>foo: Expr::Nil;
 
         <span class="kw">match </span>expr.tag {
@@ -2843,23 +2810,23 @@
 <span class="kw">fn </span>apply_cont(cprocs: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>Symbol, usize)], ivc: bool) -&gt; Func {
     <span class="kw">let </span>car_cdr = car_cdr();
     <span class="kw">let </span>make_tail_continuation = <span class="macro">func!</span>(make_tail_continuation(env, continuation): <span class="number">1 </span>=&gt; {
-        <span class="kw">let </span>foo: Expr::Nil;
         <span class="kw">match </span>continuation.tag {
             Cont::Tail =&gt; {
                 <span class="kw">return </span>(continuation);
             }
         };
+        <span class="kw">let </span>foo: Expr::Nil;
         <span class="kw">let </span>tail_continuation: Cont::Tail = cons4(env, continuation, foo, foo);
         <span class="kw">return </span>(tail_continuation);
     });
 
     <span class="kw">let </span>extend_rec = <span class="macro">func!</span>(extend_rec(env, var, result): <span class="number">1 </span>=&gt; {
-        <span class="kw">let </span>(binding_or_env, rest) = car_cdr(env);
-        <span class="kw">let </span>(var_or_binding, _val_or_more_bindings) = car_cdr(binding_or_env);
-        <span class="kw">let </span>binding: Expr::Cons = cons2(var, result);
         <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
         <span class="kw">let </span>nil = cast(nil, Expr::Nil);
         <span class="kw">let </span>sym: Expr::Sym;
+        <span class="kw">let </span>(binding_or_env, rest) = car_cdr(env);
+        <span class="kw">let </span>(var_or_binding, _val_or_more_bindings) = car_cdr(binding_or_env);
+        <span class="kw">let </span>binding: Expr::Cons = cons2(var, result);
         <span class="kw">let </span>var_or_binding_is_sym = eq_tag(var_or_binding, sym);
         <span class="kw">let </span>var_or_binding_is_nil = eq_tag(var_or_binding, nil);
         <span class="kw">let </span>var_or_binding_is_sym_or_nil = or(var_or_binding_is_sym, var_or_binding_is_nil);
@@ -2913,22 +2880,29 @@
     <span class="macro">func!</span>(apply_cont(result, env, cont, ctrl): <span class="number">4 </span>=&gt; {
         <span class="kw">match </span>symbol ctrl {
             <span class="string">&quot;apply-continuation&quot; </span>=&gt; {
-                <span class="kw">let </span>ret = Symbol(<span class="string">&quot;return&quot;</span>);
-                <span class="kw">let </span>err: Cont::Error;
-                <span class="kw">let </span>term: Cont::Terminal;
-                <span class="kw">let </span>cont_is_term = eq_tag(cont, term);
-                <span class="kw">let </span>cont_is_err = eq_tag(cont, err);
-                <span class="kw">let </span>cont_is_term_or_err = or(cont_is_term, cont_is_err);
-                <span class="kw">if </span>cont_is_term_or_err {
-                    <span class="kw">return </span>(result, env, cont, ret)
-                }
                 <span class="kw">let </span>makethunk = Symbol(<span class="string">&quot;make-thunk&quot;</span>);
+                <span class="kw">let </span>lookup: Cont::Lookup;
+                <span class="kw">let </span>tail: Cont::Tail;
+                <span class="kw">let </span>cont_is_lookup = eq_tag(cont, lookup);
+                <span class="kw">let </span>cont_is_tail = eq_tag(cont, tail);
+                <span class="kw">let </span>cont_is_tail_or_lookup = or(cont_is_lookup, cont_is_tail);
+                <span class="kw">if </span>cont_is_tail_or_lookup {
+                    <span class="kw">let </span>(saved_env, continuation, _foo, _foo) = decons4(cont);
+                    <span class="kw">return </span>(result, saved_env, continuation, makethunk)
+                }
+
                 <span class="kw">let </span>errctrl = Symbol(<span class="string">&quot;error&quot;</span>);
+                <span class="kw">let </span>ret = Symbol(<span class="string">&quot;return&quot;</span>);
+                <span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>);
                 <span class="kw">let </span>nil = Symbol(<span class="string">&quot;nil&quot;</span>);
                 <span class="kw">let </span>nil = cast(nil, Expr::Nil);
-                <span class="kw">let </span>t = Symbol(<span class="string">&quot;t&quot;</span>);
+                <span class="kw">let </span>empty_str = String(<span class="string">&quot;&quot;</span>);
                 <span class="kw">let </span>zero = Num(<span class="number">0</span>);
                 <span class="kw">let </span>foo: Expr::Nil;
+                <span class="kw">let </span>char: Expr::Char;
+                <span class="kw">let </span>u64: Expr::U64;
+                <span class="kw">let </span>err: Cont::Error;
+                <span class="kw">let </span>term: Cont::Terminal;
                 <span class="kw">match </span>cont.tag {
                     Cont::Outermost =&gt; {
                         <span class="kw">return </span>(result, env, term, ret)
@@ -3017,12 +2991,13 @@
                         <span class="kw">return </span>(body, extended_env, cont, ret)
                     }
                     Cont::Unop =&gt; {
-                        <span class="kw">let </span>empty_str = String(<span class="string">&quot;&quot;</span>);
                         <span class="kw">let </span>comm: Expr::Comm;
-                        <span class="kw">let </span>(operator, continuation, _foo, _foo) = decons4(cont);
+                        <span class="kw">let </span>result_is_char = eq_tag(result, char);
+                        <span class="kw">let </span>result_is_u64 = eq_tag(result, u64);
                         <span class="kw">let </span>result_is_num = eq_tag(result, zero);
                         <span class="kw">let </span>result_is_comm = eq_tag(result, comm);
                         <span class="kw">let </span>result_is_num_or_comm = or(result_is_num, result_is_comm);
+                        <span class="kw">let </span>(operator, continuation, _foo, _foo) = decons4(cont);
                         <span class="kw">match </span>operator.tag {
                             Op1::Car =&gt; {
                                 <span class="comment">// Almost like car_cdr, except it returns
@@ -3080,31 +3055,19 @@
                                 <span class="kw">return </span>(result, env, emit, makethunk)
                             }
                             Op1::Open =&gt; {
-                                <span class="kw">match </span>result.tag {
-                                    Expr::Num =&gt; {
-                                        <span class="kw">let </span>result = cast(result, Expr::Comm);
-                                        <span class="kw">let </span>(_secret, payload) = open(result);
-                                        <span class="kw">return</span>(payload, env, continuation, makethunk)
-                                    }
-                                    Expr::Comm =&gt; {
-                                        <span class="kw">let </span>(_secret, payload) = open(result);
-                                        <span class="kw">return</span>(payload, env, continuation, makethunk)
-                                    }
-                                };
+                                <span class="kw">if </span>result_is_num_or_comm {
+                                    <span class="kw">let </span>result = cast(result, Expr::Comm);
+                                    <span class="kw">let </span>(_secret, payload) = open(result);
+                                    <span class="kw">return</span>(payload, env, continuation, makethunk)
+                                }
                                 <span class="kw">return</span>(result, env, err, errctrl)
                             }
                             Op1::Secret =&gt; {
-                                <span class="kw">match </span>result.tag {
-                                    Expr::Num =&gt; {
-                                        <span class="kw">let </span>result = cast(result, Expr::Comm);
-                                        <span class="kw">let </span>(secret, _payload) = open(result);
-                                        <span class="kw">return</span>(secret, env, continuation, makethunk)
-                                    }
-                                    Expr::Comm =&gt; {
-                                        <span class="kw">let </span>(secret, _payload) = open(result);
-                                        <span class="kw">return</span>(secret, env, continuation, makethunk)
-                                    }
-                                };
+                                <span class="kw">if </span>result_is_num_or_comm {
+                                    <span class="kw">let </span>result = cast(result, Expr::Comm);
+                                    <span class="kw">let </span>(secret, _payload) = open(result);
+                                    <span class="kw">return</span>(secret, env, continuation, makethunk)
+                                }
                                 <span class="kw">return</span>(result, env, err, errctrl)
                             }
                             Op1::Commit =&gt; {
@@ -3112,10 +3075,6 @@
                                 <span class="kw">return</span>(comm, env, continuation, makethunk)
                             }
                             Op1::Num =&gt; {
-                                <span class="kw">let </span>char: Expr::Char;
-                                <span class="kw">let </span>u64: Expr::U64;
-                                <span class="kw">let </span>result_is_char = eq_tag(result, char);
-                                <span class="kw">let </span>result_is_u64 = eq_tag(result, u64);
                                 <span class="kw">let </span>acc_cast = or(result_is_num_or_comm, result_is_char);
                                 <span class="kw">let </span>acc_cast = or(acc_cast, result_is_u64);
                                 <span class="kw">if </span>acc_cast {
@@ -3125,17 +3084,13 @@
                                 <span class="kw">return</span>(result, env, err, errctrl)
                             }
                             Op1::U64 =&gt; {
-                                <span class="kw">match </span>result.tag {
-                                    Expr::Num =&gt; {
-                                        <span class="comment">// The limit is 2**64 - 1
-                                        </span><span class="kw">let </span>trunc = truncate(result, <span class="number">64</span>);
-                                        <span class="kw">let </span>cast = cast(trunc, Expr::U64);
-                                        <span class="kw">return</span>(cast, env, continuation, makethunk)
-                                    }
-                                    Expr::U64 =&gt; {
-                                        <span class="kw">return</span>(result, env, continuation, makethunk)
-                                    }
-                                };
+                                <span class="kw">let </span>result_is_num_or_u64 = or(result_is_num, result_is_u64);
+                                <span class="kw">if </span>result_is_num_or_u64 {
+                                    <span class="comment">// The limit is 2**64 - 1
+                                    </span><span class="kw">let </span>trunc = truncate(result, <span class="number">64</span>);
+                                    <span class="kw">let </span>cast = cast(trunc, Expr::U64);
+                                    <span class="kw">return</span>(cast, env, continuation, makethunk)
+                                }
                                 <span class="kw">return</span>(result, env, err, errctrl)
                             }
                             Op1::Comm =&gt; {
@@ -3146,17 +3101,13 @@
                                 <span class="kw">return</span>(result, env, err, errctrl)
                             }
                             Op1::Char =&gt; {
-                                <span class="kw">match </span>result.tag {
-                                    Expr::Num =&gt; {
-                                        <span class="comment">// The limit is 2**32 - 1
-                                        </span><span class="kw">let </span>trunc = truncate(result, <span class="number">32</span>);
-                                        <span class="kw">let </span>cast = cast(trunc, Expr::Char);
-                                        <span class="kw">return</span>(cast, env, continuation, makethunk)
-                                    }
-                                    Expr::Char =&gt; {
-                                        <span class="kw">return</span>(result, env, continuation, makethunk)
-                                    }
-                                };
+                                <span class="kw">let </span>result_is_num_or_char = or(result_is_num, result_is_char);
+                                <span class="kw">if </span>result_is_num_or_char {
+                                    <span class="comment">// The limit is 2**32 - 1
+                                    </span><span class="kw">let </span>trunc = truncate(result, <span class="number">32</span>);
+                                    <span class="kw">let </span>cast = cast(trunc, Expr::Char);
+                                    <span class="kw">return</span>(cast, env, continuation, makethunk)
+                                }
                                 <span class="kw">return</span>(result, env, err, errctrl)
                             }
                             Op1::Eval =&gt; {
@@ -3202,17 +3153,13 @@
                                 <span class="kw">return </span>(val, env, continuation, makethunk)
                             }
                             Op2::StrCons =&gt; {
-                                <span class="kw">match </span>evaled_arg.tag {
-                                    Expr::Char =&gt; {
-                                        <span class="kw">match </span>result.tag {
-                                            Expr::Str =&gt; {
-                                                <span class="kw">let </span>val: Expr::Str = cons2(evaled_arg, result);
-                                                <span class="kw">return </span>(val, env, continuation, makethunk)
-                                            }
-                                        };
-                                        <span class="kw">return </span>(result, env, err, errctrl)
-                                    }
-                                };
+                                <span class="kw">let </span>result_is_str = eq_tag(result, empty_str);
+                                <span class="kw">let </span>evaled_arg_is_char = eq_tag(evaled_arg, char);
+                                <span class="kw">let </span>acc_ok = and(result_is_str, evaled_arg_is_char);
+                                <span class="kw">if </span>acc_ok {
+                                    <span class="kw">let </span>val: Expr::Str = cons2(evaled_arg, result);
+                                    <span class="kw">return </span>(val, env, continuation, makethunk)
+                                }
                                 <span class="kw">return </span>(result, env, err, errctrl)
                             }
                             Op2::Hide =&gt; {
@@ -3301,13 +3248,11 @@
                             }
                             Op2::Quotient =&gt; {
                                 <span class="kw">let </span>is_z = eq_val(result, zero);
-                                <span class="kw">if </span>is_z {
+                                <span class="kw">let </span>acc_err = or(is_z, args_num_type_eq_nil);
+                                <span class="kw">if </span>acc_err {
                                     <span class="kw">return </span>(result, env, err, errctrl)
                                 }
                                 <span class="kw">match </span>args_num_type.tag {
-                                    Expr::Nil =&gt; {
-                                        <span class="kw">return </span>(result, env, err, errctrl)
-                                    }
                                     Expr::Num =&gt; {
                                         <span class="kw">let </span>val = div(evaled_arg, result);
                                         <span class="kw">return </span>(val, env, continuation, makethunk)
@@ -3321,16 +3266,14 @@
                             }
                             Op2::Modulo =&gt; {
                                 <span class="kw">let </span>is_z = eq_val(result, zero);
-                                <span class="kw">if </span>is_z {
-                                    <span class="kw">return </span>(result, env, err, errctrl)
+                                <span class="kw">let </span>is_not_z = not(is_z);
+                                <span class="kw">let </span>args_num_type_is_num = eq_tag(args_num_type, u64);
+                                <span class="kw">let </span>acc_ok = and(is_not_z, args_num_type_is_num);
+                                <span class="kw">if </span>acc_ok {
+                                    <span class="kw">let </span>(_div, rem) = div_rem64(evaled_arg, result);
+                                    <span class="kw">let </span>rem = cast(rem, Expr::U64);
+                                    <span class="kw">return </span>(rem, env, continuation, makethunk)
                                 }
-                                <span class="kw">match </span>args_num_type.tag {
-                                    Expr::U64 =&gt; {
-                                        <span class="kw">let </span>(_div, rem) = div_rem64(evaled_arg, result);
-                                        <span class="kw">let </span>rem = cast(rem, Expr::U64);
-                                        <span class="kw">return </span>(rem, env, continuation, makethunk)
-                                    }
-                                };
                                 <span class="kw">return </span>(result, env, err, errctrl)
                             }
                             Op2::NumEqual =&gt; {
@@ -3402,14 +3345,6 @@
                         };
                         <span class="kw">return </span>(arg1, env, err, errctrl)
                     }
-                    Cont::Lookup =&gt; {
-                        <span class="kw">let </span>(saved_env, continuation, _foo, _foo) = decons4(cont);
-                        <span class="kw">return </span>(result, saved_env, continuation, makethunk)
-                    }
-                    Cont::Tail =&gt; {
-                        <span class="kw">let </span>(saved_env, continuation, _foo, _foo) = decons4(cont);
-                        <span class="kw">return </span>(result, saved_env, continuation, makethunk)
-                    }
                     Cont::Cproc =&gt; {
                         <span class="kw">let </span>(cproc_name, unevaled_args, evaluated_args, cont) = decons4(cont);
                         <span class="comment">// accumulate the evaluated arg (`result`)
@@ -3441,28 +3376,27 @@
 }
 
 <span class="kw">fn </span>make_thunk() -&gt; Func {
-    <span class="macro">func!</span>(make_thunk(expr, env, cont, ctrl): <span class="number">4 </span>=&gt; {
+    <span class="macro">func!</span>(make_thunk(expr, env, cont, ctrl): <span class="number">3 </span>=&gt; {
         <span class="kw">match </span>symbol ctrl {
             <span class="string">&quot;make-thunk&quot; </span>=&gt; {
-                <span class="kw">let </span>ret = Symbol(<span class="string">&quot;return&quot;</span>);
                 <span class="kw">match </span>cont.tag {
                     Cont::Tail =&gt; {
                         <span class="kw">let </span>(saved_env, saved_cont, _foo, _foo) = decons4(cont);
                         <span class="kw">let </span>thunk: Expr::Thunk = cons2(expr, saved_cont);
                         <span class="kw">let </span>cont: Cont::Dummy;
-                        <span class="kw">return </span>(thunk, saved_env, cont, ret)
+                        <span class="kw">return </span>(thunk, saved_env, cont)
                     }
                     Cont::Outermost =&gt; {
                         <span class="kw">let </span>cont: Cont::Terminal;
-                        <span class="kw">return </span>(expr, env, cont, ret)
+                        <span class="kw">return </span>(expr, env, cont)
                     }
                 };
                 <span class="kw">let </span>thunk: Expr::Thunk = cons2(expr, cont);
                 <span class="kw">let </span>cont: Cont::Dummy;
-                <span class="kw">return </span>(thunk, env, cont, ret)
+                <span class="kw">return </span>(thunk, env, cont)
             }
         };
-        <span class="kw">return </span>(expr, env, cont, ctrl)
+        <span class="kw">return </span>(expr, env, cont)
     })
 }
 
@@ -3477,8 +3411,8 @@
     <span class="kw">use </span>blstrs::Scalar <span class="kw">as </span>Fr;
 
     <span class="kw">const </span>NUM_INPUTS: usize = <span class="number">1</span>;
-    <span class="kw">const </span>NUM_AUX: usize = <span class="number">10523</span>;
-    <span class="kw">const </span>NUM_CONSTRAINTS: usize = <span class="number">12551</span>;
+    <span class="kw">const </span>NUM_AUX: usize = <span class="number">10510</span>;
+    <span class="kw">const </span>NUM_CONSTRAINTS: usize = <span class="number">12437</span>;
     <span class="kw">const </span>NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash4: <span class="number">14</span>,
         hash6: <span class="number">3</span>,
