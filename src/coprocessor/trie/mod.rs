@@ -99,7 +99,7 @@ impl<F: LurkField> CoCircuit<F> for NewCoprocessor<F> {
         _input_exprs: &[AllocatedPtr<F>],
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
-        _dummy_or_blank: bool,
+        _not_dummy: bool,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         let trie: StandardTrie<'_, F> = Trie::new(store);
 
@@ -157,7 +157,7 @@ impl<F: LurkField> CoCircuit<F> for LookupCoprocessor<F> {
         args: &[AllocatedPtr<F>],
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
-        dummy_or_blank: bool,
+        not_dummy: bool,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         let root_ptr = &args[0];
         let key_ptr = &args[1];
@@ -165,10 +165,10 @@ impl<F: LurkField> CoCircuit<F> for LookupCoprocessor<F> {
         // TODO: Check tags.
         let root_value = root_ptr.hash().get_value();
         let key_val = key_ptr.hash();
-        let trie: StandardTrie<'_, F> = if dummy_or_blank {
-            Trie::new(s)
-        } else {
+        let trie: StandardTrie<'_, F> = if not_dummy && root_value.is_some() {
             Trie::new_with_root(s, root_value.ok_or(SynthesisError::AssignmentMissing)?)
+        } else {
+            Trie::new(s)
         };
 
         let result_commitment_val = trie.synthesize_lookup(cs, s, key_val)?;
@@ -225,7 +225,7 @@ impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {
         args: &[AllocatedPtr<F>],
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
-        dummy_or_blank: bool,
+        not_dummy: bool,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         let root_ptr = &args[0];
         let key_ptr = &args[1];
@@ -237,10 +237,10 @@ impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {
         let root_value = root_ptr.hash().get_value();
         let key_val = key_ptr.hash();
         let new_val = val_ptr.hash();
-        let trie: StandardTrie<'_, F> = if dummy_or_blank {
-            Trie::new(s)
-        } else {
+        let trie: StandardTrie<'_, F> = if not_dummy && root_value.is_some() {
             Trie::new_with_root(s, root_value.ok_or(SynthesisError::AssignmentMissing)?)
+        } else {
+            Trie::new(s)
         };
 
         let new_root_val = trie
@@ -277,8 +277,8 @@ pub fn install<F: LurkField>(
 
     let name: Symbol = ".lurk.trie".into();
     let mut package = Package::new(name.into());
-    ["new", "lookup", "insert"].iter().for_each(|name| {
-        package.intern(*name);
+    ["new", "lookup", "insert"].into_iter().for_each(|name| {
+        package.intern(name);
     });
     state.borrow_mut().add_package(package);
 }

@@ -3134,11 +3134,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                         F::from(arity as u64),
                     )?;
 
-                    // This coprocessor circuit is a dummy if the entire `reduce_cons` circuit is.
-                    let outer_dummy = not_dummy.get_value() == Some(false);
-                    // Otherwise, it's also a dummy when its bound name (the `z_ptr`) doesn't match the head symbol.
-                    // If the head symbol is missing, we are synthesizing a blank circuit.
-                    let dummy_or_blank = outer_dummy || head_zptr != Some(*z_ptr);
+                    let outer_not_dummy = not_dummy.get_value() == Some(true);
+                    let inner_not_dummy = outer_not_dummy && head_zptr == Some(*z_ptr);
 
                     let (result_expr, result_env, result_cont) = coproc.synthesize(
                         &mut cs.namespace(|| "coproc"),
@@ -3147,7 +3144,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                         &inputs[..arity],
                         env,
                         cont,
-                        dummy_or_blank,
+                        inner_not_dummy,
                     )?;
 
                     let quoted_expr = AllocatedPtr::construct_list(

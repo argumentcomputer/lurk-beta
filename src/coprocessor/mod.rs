@@ -189,7 +189,7 @@ pub trait CoCircuit<F: LurkField>: Send + Sync + Clone {
         _input_exprs: &[AllocatedPtr<F>],
         _input_env: &AllocatedPtr<F>,
         _input_cont: &AllocatedContPtr<F>,
-        _dummy_or_blank: bool,
+        _not_dummy: bool,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         // A `synthesize` implementation needs to be provided by implementers of `CoCircuit`.
         unimplemented!()
@@ -268,7 +268,7 @@ pub(crate) mod test {
             input_exprs: &[AllocatedPtr<F>],
             input_env: &AllocatedPtr<F>,
             input_cont: &AllocatedContPtr<F>,
-            _dummy_or_blank: bool,
+            _not_dummy: bool,
         ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError>
         {
             let a = input_exprs[0].clone();
