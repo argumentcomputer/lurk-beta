@@ -617,34 +617,29 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
             .iter()
             .enumerate()
             .try_fold(allocated_root, |next, (i, k_bits)| {
-                let next_preimage = next
-                    .get_value()
-                    // Use empty trie as dummy values if needed.
-                    .unwrap_or_else(|| self.empty_root_for_height(i));
+                let next_val = next.get_value();
 
-                let preimage = Self::get_hash_preimage(
-                    self.children,
-                    next.get_value().unwrap_or(next_preimage),
-                );
+                let preimage = next_val.and_then(|x| Self::get_hash_preimage(self.children, x));
+
                 let allocated_preimage = if let Some(p) = preimage {
                     p.iter()
                         .enumerate()
                         .map(|(j, f)| {
-                            AllocatedNum::alloc_infallible(
+                            AllocatedNum::alloc(
                                 &mut cs.namespace(|| format!("preimage-{i}-{j}")),
-                                || *f,
+                                || Ok(*f),
                             )
                         })
-                        .collect::<Vec<_>>()
+                        .collect::<Result<Vec<_>, SynthesisError>>()?
                 } else {
                     (0..ARITY)
                         .map(|j| {
-                            AllocatedNum::alloc_infallible(
+                            AllocatedNum::alloc(
                                 &mut cs.namespace(|| format!("preimage-{i}-{j}")),
-                                || F::ZERO, // FIXME
+                                || Err(SynthesisError::AssignmentMissing),
                             )
                         })
-                        .collect::<Vec<_>>()
+                        .collect::<Result<Vec<_>, SynthesisError>>()?
                 };
 
                 preimage_path.push(allocated_preimage.clone());
@@ -663,7 +658,6 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
                     k_bits,
                 )
             })?;
-
         Ok((found, preimage_path))
     }
 
@@ -792,40 +786,31 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         preimage_path: &[Vec<AllocatedNum<F>>],
         mut value: AllocatedNum<F>,
     ) -> Result<AllocatedNum<F>, SynthesisError> {
-        path.iter().zip(preimage_path).rev().enumerate().for_each(
-            |(i, (path_bits, existing_preimage))| {
-                let path_index = index_from_bits(path_bits);
-                let new_preimage = existing_preimage
-                    .iter()
-                    .enumerate()
-                    .map(|(j, _x)| {
-                        AllocatedNum::alloc(
-                            &mut cs.namespace(|| format!("preimage-{i}-{j}")),
-                            || {
-                                if j == path_index {
-                                    value.get_value().ok_or(SynthesisError::AssignmentMissing)
-                                } else {
-                                    existing_preimage[j]
-                                        .get_value()
-                                        .ok_or(SynthesisError::AssignmentMissing)
-                                }
-                            },
-                        )
-                        .unwrap()
+        for (i, (path_bits, existing_preimage)) in path.iter().zip(preimage_path).rev().enumerate()
+        {
+            let path_index = index_from_bits(path_bits);
+            let new_preimage = existing_preimage
+                .iter()
+                .enumerate()
+                .map(|(j, _x)| {
+                    AllocatedNum::alloc(&mut cs.namespace(|| format!("preimage-{i}-{j}")), || {
+                        if j == path_index {
+                            value.get_value().ok_or(SynthesisError::AssignmentMissing)
+                        } else {
+                            existing_preimage[j]
+                                .get_value()
+                                .ok_or(SynthesisError::AssignmentMissing)
+                        }
                     })
-                    .collect::<Vec<_>>();
+                })
+                .collect::<Result<Vec<_>, SynthesisError>>()?;
 
-                value = s
-                    .poseidon_constants()
-                    .constants(ARITY.into())
-                    .hash(
-                        &mut cs.namespace(|| format!("poseidon_hash_{i}")),
-                        new_preimage,
-                        None,
-                    )
-                    .unwrap();
-            },
-        );
+            value = s.poseidon_constants().constants(ARITY.into()).hash(
+                &mut cs.namespace(|| format!("poseidon_hash_{i}")),
+                new_preimage,
+                None,
+            )?
+        }
 
         Ok(value)
     }
