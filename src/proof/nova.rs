@@ -2,7 +2,7 @@
 
 use abomonation::Abomonation;
 use bellpepper::util_cs::witness_cs::WitnessCS;
-use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
+use bellpepper_core::{boolean::Boolean, num::AllocatedNum, ConstraintSystem, SynthesisError};
 use ff::Field;
 use nova::{
     errors::NovaError,
@@ -612,7 +612,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
                             &input_expr,
                             &input_env,
                             &input_cont,
-                            false,
+                            &Boolean::Constant(false),
                         )?
                     }
                     None => {
@@ -630,7 +630,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> StepCircuit<F> for MultiFrame<'a, F, C
                             &input_expr,
                             &input_env,
                             &input_cont,
-                            false,
+                            &Boolean::Constant(false),
                         )?
                     }
                 }

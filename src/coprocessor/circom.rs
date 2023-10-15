@@ -10,6 +10,7 @@ pub mod non_wasm {
 
     use ansi_term::Colour::Red;
     use anyhow::{bail, Result};
+    use bellpepper::gadgets::boolean::Boolean;
     use bellpepper_core::{ConstraintSystem, SynthesisError};
     use circom_scotia::r1cs::CircomConfig;
 
@@ -119,7 +120,7 @@ Then run `lurk coprocessor --name {name} <{}_FOLDER>` to instantiate a new gadge
             input_exprs: &[AllocatedPtr<F>],
             input_env: &AllocatedPtr<F>,
             input_cont: &AllocatedContPtr<F>,
-            _not_dummy: bool,
+            _not_dummy: &Boolean,
         ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError>
         {
             let input = self.gadget.clone().into_circom_input(input_exprs);

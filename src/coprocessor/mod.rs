@@ -78,7 +78,7 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
         input_expr: &AllocatedPtr<F>,
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
-        dummy_or_blank: bool,
+        not_dummy: &Boolean,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         // TODO: This code is almost identical to that in circuit_frame.rs (the arg destructuring is factored out and shared there).
         // Refactor to share.
@@ -127,7 +127,7 @@ pub trait Coprocessor<F: LurkField>: Clone + Debug + Sync + Send + CoCircuit<F> 
         )?;
 
         let (result_expr, result_env, result_cont) =
-            self.synthesize(cs, g, store, &inputs, input_env, input_cont, dummy_or_blank)?;
+            self.synthesize(cs, g, store, &inputs, input_env, input_cont, not_dummy)?;
 
         let quoted_expr = AllocatedPtr::construct_list(
             &mut cs.namespace(|| "quote coprocessor result"),
@@ -189,7 +189,7 @@ pub trait CoCircuit<F: LurkField>: Send + Sync + Clone {
         _input_exprs: &[AllocatedPtr<F>],
         _input_env: &AllocatedPtr<F>,
         _input_cont: &AllocatedContPtr<F>,
-        _not_dummy: bool,
+        _not_dummy: &Boolean,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         // A `synthesize` implementation needs to be provided by implementers of `CoCircuit`.
         unimplemented!()
@@ -268,7 +268,7 @@ pub(crate) mod test {
             input_exprs: &[AllocatedPtr<F>],
             input_env: &AllocatedPtr<F>,
             input_cont: &AllocatedContPtr<F>,
-            _not_dummy: bool,
+            _not_dummy: &Boolean,
         ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError>
         {
             let a = input_exprs[0].clone();

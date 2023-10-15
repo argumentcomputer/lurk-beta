@@ -102,7 +102,7 @@ impl<F: LurkField> CoCircuit<F> for Sha256Coprocessor<F> {
         input_exprs: &[AllocatedPtr<F>],
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
-        _not_dummy: bool,
+        _not_dummy: &Boolean,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         Ok((
             synthesize_sha256(cs, input_exprs)?,

@@ -28,7 +28,7 @@ use crate::package::Package;
 use crate::state::State;
 use crate::{self as lurk, Symbol};
 
-use crate::circuit::gadgets::constraints::{enforce_equal, select};
+use crate::circuit::gadgets::constraints::{enforce_equal, implies_equal, select};
 use crate::circuit::gadgets::data::GlobalAllocations;
 use crate::circuit::gadgets::pointer::{AllocatedContPtr, AllocatedPtr};
 use crate::coprocessor::{CoCircuit, Coprocessor};
@@ -99,7 +99,7 @@ impl<F: LurkField> CoCircuit<F> for NewCoprocessor<F> {
         _input_exprs: &[AllocatedPtr<F>],
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
-        _not_dummy: bool,
+        _not_dummy: &Boolean,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         let trie: StandardTrie<'_, F> = Trie::new(store);
 
@@ -157,21 +157,35 @@ impl<F: LurkField> CoCircuit<F> for LookupCoprocessor<F> {
         args: &[AllocatedPtr<F>],
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
-        not_dummy: bool,
+        not_dummy: &Boolean,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         let root_ptr = &args[0];
         let key_ptr = &args[1];
 
         // TODO: Check tags.
-        let root_value = root_ptr.hash().get_value();
+        let supplied_root_value = root_ptr.hash();
+        let root_value = supplied_root_value.get_value();
         let key_val = key_ptr.hash();
-        let trie: StandardTrie<'_, F> = if not_dummy && root_value.is_some() {
+        let trie: StandardTrie<'_, F> = if not_dummy.get_value() == Some(true) {
             Trie::new_with_root(s, root_value.ok_or(SynthesisError::AssignmentMissing)?)
         } else {
             Trie::new(s)
         };
 
-        let result_commitment_val = trie.synthesize_lookup(cs, s, key_val)?;
+        let allocated_root_value =
+            AllocatedNum::alloc(&mut cs.namespace(|| "allocated_root_value"), || {
+                Ok(trie.root)
+            })?;
+
+        implies_equal(
+            &mut cs.namespace(|| "enforce_root"),
+            not_dummy,
+            supplied_root_value,
+            &allocated_root_value,
+        );
+
+        let result_commitment_val =
+            trie.synthesize_lookup(cs, s, &allocated_root_value, key_val)?;
 
         let result_commitment = AllocatedPtr::alloc_tag(
             &mut cs.namespace(|| "result_commitment"),
@@ -225,7 +239,7 @@ impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {
         args: &[AllocatedPtr<F>],
         input_env: &AllocatedPtr<F>,
         input_cont: &AllocatedContPtr<F>,
-        not_dummy: bool,
+        not_dummy: &Boolean,
     ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
         let root_ptr = &args[0];
         let key_ptr = &args[1];
@@ -234,17 +248,30 @@ impl<F: LurkField> CoCircuit<F> for InsertCoprocessor<F> {
         assert_eq!(self.arity(), args.len());
 
         // TODO: Check tags.
-        let root_value = root_ptr.hash().get_value();
+        let supplied_root_value = root_ptr.hash();
+        let root_value = supplied_root_value.get_value();
         let key_val = key_ptr.hash();
         let new_val = val_ptr.hash();
-        let trie: StandardTrie<'_, F> = if not_dummy && root_value.is_some() {
+        let trie: StandardTrie<'_, F> = if not_dummy.get_value() == Some(true) {
             Trie::new_with_root(s, root_value.ok_or(SynthesisError::AssignmentMissing)?)
         } else {
             Trie::new(s)
         };
 
+        let allocated_root_value =
+            AllocatedNum::alloc(&mut cs.namespace(|| "allocated_root_value"), || {
+                Ok(trie.root)
+            })?;
+
+        implies_equal(
+            &mut cs.namespace(|| "enforce_root"),
+            not_dummy,
+            supplied_root_value,
+            &allocated_root_value,
+        );
+
         let new_root_val = trie
-            .synthesize_insert(cs, s, key_val, new_val.clone())
+            .synthesize_insert(cs, s, &allocated_root_value, key_val, new_val.clone())
             .map_err(|_e| SynthesisError::Unsatisfiable)?;
 
         let new_allocated_trie = AllocatedPtr::alloc_tag(
@@ -594,11 +621,14 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         &self,
         cs: &mut CS,
         s: &Store<F>,
+        allocated_root: &AllocatedNum<F>,
         key: &AllocatedNum<F>,
     ) -> Result<AllocatedNum<F>, SynthesisError> {
         let path = Self::synthesize_path(&mut cs.namespace(|| "path"), key)?;
 
-        let val = self.synthesize_lookup_at_path(cs, s, &path)?.0;
+        let val = self
+            .synthesize_lookup_at_path(cs, s, allocated_root, &path)?
+            .0;
 
         Ok(val)
     }
@@ -607,57 +637,55 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         &self,
         cs: &mut CS,
         s: &Store<F>,
+        allocated_root: &AllocatedNum<F>,
         path: &[Vec<Boolean>],
     ) -> Result<(AllocatedNum<F>, Vec<Vec<AllocatedNum<F>>>), SynthesisError> {
-        let allocated_root =
-            AllocatedNum::alloc_infallible(&mut cs.namespace(|| "root"), || self.root);
         let mut preimage_path = Vec::with_capacity(HEIGHT);
 
-        let found = path
-            .iter()
-            .enumerate()
-            .try_fold(allocated_root, |next, (i, k_bits)| {
-                let next_val = next.get_value();
+        let found =
+            path.iter()
+                .enumerate()
+                .try_fold(allocated_root.clone(), |next, (i, k_bits)| {
+                    let next_val = next.get_value();
+                    let preimage = next_val.and_then(|x| Self::get_hash_preimage(self.children, x));
 
-                let preimage = next_val.and_then(|x| Self::get_hash_preimage(self.children, x));
+                    let allocated_preimage = if let Some(p) = preimage {
+                        p.iter()
+                            .enumerate()
+                            .map(|(j, f)| {
+                                AllocatedNum::alloc(
+                                    &mut cs.namespace(|| format!("preimage-{i}-{j}")),
+                                    || Ok(*f),
+                                )
+                            })
+                            .collect::<Result<Vec<_>, SynthesisError>>()?
+                    } else {
+                        (0..ARITY)
+                            .map(|j| {
+                                AllocatedNum::alloc(
+                                    &mut cs.namespace(|| format!("preimage-{i}-{j}")),
+                                    || Err(SynthesisError::AssignmentMissing),
+                                )
+                            })
+                            .collect::<Result<Vec<_>, SynthesisError>>()?
+                    };
 
-                let allocated_preimage = if let Some(p) = preimage {
-                    p.iter()
-                        .enumerate()
-                        .map(|(j, f)| {
-                            AllocatedNum::alloc(
-                                &mut cs.namespace(|| format!("preimage-{i}-{j}")),
-                                || Ok(*f),
-                            )
-                        })
-                        .collect::<Result<Vec<_>, SynthesisError>>()?
-                } else {
-                    (0..ARITY)
-                        .map(|j| {
-                            AllocatedNum::alloc(
-                                &mut cs.namespace(|| format!("preimage-{i}-{j}")),
-                                || Err(SynthesisError::AssignmentMissing),
-                            )
-                        })
-                        .collect::<Result<Vec<_>, SynthesisError>>()?
-                };
+                    preimage_path.push(allocated_preimage.clone());
 
-                preimage_path.push(allocated_preimage.clone());
+                    let hashed = s.poseidon_constants().constants(ARITY.into()).hash(
+                        &mut cs.namespace(|| format!("poseidon_hash_{i}")),
+                        allocated_preimage.clone(),
+                        None,
+                    )?;
 
-                let hashed = s.poseidon_constants().constants(ARITY.into()).hash(
-                    &mut cs.namespace(|| format!("poseidon_hash_{i}")),
-                    allocated_preimage.clone(),
-                    None,
-                )?;
+                    enforce_equal(cs, || format!("hashed equals next {i}"), &hashed, &next);
 
-                enforce_equal(cs, || format!("hashed equals next {i}"), &hashed, &next);
-
-                select(
-                    &mut cs.namespace(|| format!("select-{i}")),
-                    &allocated_preimage,
-                    k_bits,
-                )
-            })?;
+                    select(
+                        &mut cs.namespace(|| format!("select-{i}")),
+                        &allocated_preimage,
+                        k_bits,
+                    )
+                })?;
         Ok((found, preimage_path))
     }
 
@@ -752,22 +780,35 @@ impl<'a, F: LurkField, const ARITY: usize, const HEIGHT: usize> Trie<'a, F, ARIT
         &self,
         cs: &mut CS,
         s: &Store<F>,
+        allocated_root: &AllocatedNum<F>,
         key: &AllocatedNum<F>,
         value: AllocatedNum<F>,
     ) -> Result<AllocatedNum<F>, SynthesisError> {
         let path = Self::synthesize_path(&mut cs.namespace(|| "path"), key)?;
-        self.synthesize_insert_at_path(&mut cs.namespace(|| "insert_aux"), s, &path, value)
+        self.synthesize_insert_at_path(
+            &mut cs.namespace(|| "insert_aux"),
+            s,
+            allocated_root,
+            &path,
+            value,
+        )
     }
 
     fn synthesize_insert_at_path<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         s: &Store<F>,
+        allocated_root: &AllocatedNum<F>,
         path: &[Vec<Boolean>],
         value: AllocatedNum<F>,
     ) -> Result<AllocatedNum<F>, SynthesisError> {
         let preimage_path = self
-            .synthesize_lookup_at_path(&mut cs.namespace(|| "found_value"), s, path)?
+            .synthesize_lookup_at_path(
+                &mut cs.namespace(|| "found_value"),
+                s,
+                allocated_root,
+                path,
+            )?
             .1;
 
         Self::synthesize_modify_value_at_path(

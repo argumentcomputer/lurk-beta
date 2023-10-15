@@ -84,7 +84,7 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
                 input_exprs: &[lurk::circuit::gadgets::pointer::AllocatedPtr<F>],
                 input_env: &lurk::circuit::gadgets::pointer::AllocatedPtr<F>,
                 input_cont: &lurk::circuit::gadgets::pointer::AllocatedContPtr<F>,
-                dummy_or_blank: bool,
+                not_dummy: &bellpepper::gadgets::boolean::Boolean,
             ) -> Result<(lurk::circuit::gadgets::pointer::AllocatedPtr<F>, lurk::circuit::gadgets::pointer::AllocatedPtr<F>, lurk::circuit::gadgets::pointer::AllocatedContPtr<F>), bellpepper_core::SynthesisError> {
                 match self {
                     #synthesize_arms
@@ -163,7 +163,7 @@ fn synthesize_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::Toke
         let variant_ident = &variant.ident;
 
         match_arms.extend(quote! {
-            #name::#variant_ident(cocircuit) => cocircuit.synthesize(cs, g, store, input_exprs, input_env, input_cont, dummy_or_blank),
+            #name::#variant_ident(cocircuit) => cocircuit.synthesize(cs, g, store, input_exprs, input_env, input_cont, not_dummy),
         });
     }
     match_arms
