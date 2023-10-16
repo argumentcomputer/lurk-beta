@@ -2,9 +2,9 @@
 name: GPU tests
 
 on:
-  push:
-    branches:
-      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [master]
 
 env:
   CARGO_TERM_COLOR: always
@@ -65,7 +65,7 @@ jobs:
           EC_GPU_FRAMEWORK: cuda
         # Temporarily skipping CLI test due to cudaMallocAsync error: https://github.com/lurk-lab/lurk-rs/issues/596
         run: |
-          cargo nextest run --profile ci --cargo-profile dev-ci --features cuda -E 'all() - test(test_prove_and_verify)'
+          cargo nextest run --profile ci --cargo-profile dev-ci --features cuda -E 'test(test_prove_and_verify)'
 
   opencl:
     name: Rust tests on OpenCL
@@ -100,4 +100,4 @@ jobs:
           EC_GPU_FRAMEWORK: opencl
         # Temporarily skipping CLI test due to cudaMallocAsync error: https://github.com/lurk-lab/lurk-rs/issues/596
         run: |
-          cargo nextest run --profile ci --cargo-profile dev-ci --features cuda,opencl -E 'all() - test(test_prove_and_verify)'
+          cargo nextest run --profile ci --cargo-profile dev-ci --features cuda,opencl -E 'test(test_prove_and_verify)'
