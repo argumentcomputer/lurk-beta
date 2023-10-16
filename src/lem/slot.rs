@@ -103,7 +103,8 @@
 //! STEP 2 will need as many iterations as it takes to evaluate the Lurk
 //! expression and so will STEP 3.
 
-use super::{Block, Ctrl, Op};
+use super::{pointers::Ptr, Block, Ctrl, Op};
+use crate::field::LurkField;
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SlotsCounter {
@@ -111,7 +112,7 @@ pub struct SlotsCounter {
     pub hash6: usize,
     pub hash8: usize,
     pub commitment: usize,
-    pub less_than: usize,
+    pub bit_decomp: usize,
 }
 
 impl SlotsCounter {
@@ -123,7 +124,7 @@ impl SlotsCounter {
             hash6: num_slots.1,
             hash8: num_slots.2,
             commitment: num_slots.3,
-            less_than: num_slots.4,
+            bit_decomp: num_slots.4,
         }
     }
 
@@ -152,9 +153,9 @@ impl SlotsCounter {
     }
 
     #[inline]
-    pub fn consume_less_than(&mut self) -> usize {
-        self.less_than += 1;
-        self.less_than - 1
+    pub fn consume_bit_decomp(&mut self) -> usize {
+        self.bit_decomp += 1;
+        self.bit_decomp - 1
     }
 
     #[inline]
@@ -165,7 +166,7 @@ impl SlotsCounter {
             hash6: max(self.hash6, other.hash6),
             hash8: max(self.hash8, other.hash8),
             commitment: max(self.commitment, other.commitment),
-            less_than: max(self.less_than, other.less_than),
+            bit_decomp: max(self.bit_decomp, other.bit_decomp),
         }
     }
 
@@ -176,7 +177,7 @@ impl SlotsCounter {
             hash6: self.hash6 + other.hash6,
             hash8: self.hash8 + other.hash8,
             commitment: self.commitment + other.commitment,
-            less_than: self.less_than + other.less_than,
+            bit_decomp: self.bit_decomp + other.bit_decomp,
         }
     }
 
@@ -194,7 +195,8 @@ impl Block {
                 Op::Cons3(..) | Op::Decons3(..) => SlotsCounter::new((0, 1, 0, 0, 0)),
                 Op::Cons4(..) | Op::Decons4(..) => SlotsCounter::new((0, 0, 1, 0, 0)),
                 Op::Hide(..) | Op::Open(..) => SlotsCounter::new((0, 0, 0, 1, 0)),
-                Op::Lt(..) => SlotsCounter::new((0, 0, 0, 0, 1)),
+                Op::Lt(..) => SlotsCounter::new((0, 0, 0, 0, 3)),
+                Op::Trunc(..) => SlotsCounter::new((0, 0, 0, 0, 1)),
                 Op::Call(_, func, _) => func.slot,
                 _ => SlotsCounter::default(),
             };
@@ -227,13 +229,20 @@ impl Block {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum SlotData<F: LurkField> {
+    PtrVec(Vec<Ptr<F>>),
+    FPtr(F, Ptr<F>),
+    F(F),
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum SlotType {
     Hash4,
     Hash6,
     Hash8,
     Commitment,
-    LessThan,
+    BitDecomp,
 }
 
 impl SlotType {
@@ -243,8 +252,19 @@ impl SlotType {
             Self::Hash6 => 6,
             Self::Hash8 => 8,
             Self::Commitment => 3,
-            Self::LessThan => 2,
+            Self::BitDecomp => 1,
         }
+    }
+
+    pub(crate) fn is_compatible<F: LurkField>(&self, slot_data: &SlotData<F>) -> bool {
+        matches!(
+            (self, slot_data),
+            (Self::Hash4, SlotData::PtrVec(..))
+                | (Self::Hash6, SlotData::PtrVec(..))
+                | (Self::Hash8, SlotData::PtrVec(..))
+                | (Self::Commitment, SlotData::FPtr(..))
+                | (Self::BitDecomp, SlotData::F(..))
+        )
     }
 }
 
@@ -255,7 +275,7 @@ impl std::fmt::Display for SlotType {
             Self::Hash6 => write!(f, "Hash6"),
             Self::Hash8 => write!(f, "Hash8"),
             Self::Commitment => write!(f, "Commitment"),
-            Self::LessThan => write!(f, "LessThan"),
+            Self::BitDecomp => write!(f, "BitDecomp"),
         }
     }
 }

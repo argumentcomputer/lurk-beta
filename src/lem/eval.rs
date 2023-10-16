@@ -19,7 +19,7 @@ use crate::{
 };
 
 use super::{
-    interpreter::{Frame, Preimages},
+    interpreter::{Advices, Frame},
     pointers::Ptr,
     store::Store,
     Ctrl, Func, Op, Tag, Var,
@@ -72,7 +72,7 @@ fn compute_frame<F: LurkField, C: Coprocessor<F>>(
             .expect("Program counter outside range")
     };
     assert_eq!(func.input_params.len(), input.len());
-    let preimages = Preimages::new_from_func(func);
+    let preimages = Advices::new_from_func(func);
     let (frame, _) = func.call(input, store, preimages, emitted, lang, pc)?;
     let must_break = matches!(frame.output[2].tag(), Tag::Cont(Terminal | Error));
     Ok((frame, must_break))
@@ -1691,14 +1691,14 @@ mod tests {
     use blstrs::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
-    const NUM_AUX: usize = 10510;
-    const NUM_CONSTRAINTS: usize = 12437;
+    const NUM_AUX: usize = 9390;
+    const NUM_CONSTRAINTS: usize = 11322;
     const NUM_SLOTS: SlotsCounter = SlotsCounter {
         hash4: 14,
         hash6: 3,
         hash8: 4,
         commitment: 1,
-        less_than: 1,
+        bit_decomp: 3,
     };
 
     #[test]
