@@ -472,9 +472,13 @@ mod tests {
                         overflow_boundary -= x2;
                         x1 > overflow_boundary
                     };
+                    let diff = Num::Scalar(x1 - x2);
                     if !underflow && !overflow {
-                        assert_eq!(a.is_less_than(&b), Num::Scalar(x1 - x2).is_negative());
+                        assert_eq!(a.is_less_than(&b), diff.is_negative());
                     }
+
+                    let same_sign = !(x1.is_negative() ^ x2.is_negative());
+                    assert_eq!(a.is_less_than(&b), (same_sign && diff.is_negative()) || (!same_sign && a.is_negative()));
                 },
                 (Num::U64(x1), Num::Scalar(x2)) if !x2.is_negative() => {
                     assert_eq!(a.is_less_than(&b), Scalar::from(x1) < x2);
