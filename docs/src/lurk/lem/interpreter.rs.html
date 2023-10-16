@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/interpreter.rs`."><title>interpreter.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-deb46770fd761b69.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (e20cb7702 2023-10-12)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5f34af1a0ee6bacd.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/interpreter.rs`."><title>interpreter.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-deb46770fd761b69.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (42b1224e9 2023-10-15)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5f34af1a0ee6bacd.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -567,21 +567,12 @@
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
 <a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
-<a href="#578" id="578">578</a>
-<a href="#579" id="579">579</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{anyhow, bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>std::collections::VecDeque;
 
 <span class="kw">use super</span>::{
-    path::Path, pointers::Ptr, store::Store, var_map::VarMap, Block, Ctrl, Func, Op, Tag, Var,
+    path::Path, pointers::Ptr, slot::SlotData, store::Store, var_map::VarMap, Block, Ctrl, Func,
+    Op, Tag, Var,
 };
 
 <span class="kw">use crate</span>::{
@@ -592,13 +583,6 @@
     state::initial_lurk_state,
     tag::ExprTag::{Comm, Nil, Num, Sym},
 };
-
-<span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub enum </span>PreimageData&lt;F: LurkField&gt; {
-    PtrVec(Vec&lt;Ptr&lt;F&gt;&gt;),
-    FPtr(F, Ptr&lt;F&gt;),
-    FPair(F, F),
-}
 
 <span class="kw">pub enum </span>Val&lt;F: LurkField&gt; {
     Pointer(Ptr&lt;F&gt;),
@@ -634,56 +618,56 @@
 }
 
 <span class="attr">#[derive(Clone, Debug, Default)]
-</span><span class="doccomment">/// `Preimages` hold the non-deterministic advices for hashes and `Func` calls.
+</span><span class="doccomment">/// `Advices` hold the non-deterministic advices for hashes and `Func` calls.
 /// The hash preimages must have the same shape as the allocated slots for the
 /// `Func`, and the `None` values are used to fill the unused slots, which are
 /// later filled by dummy values.
-</span><span class="kw">pub struct </span>Preimages&lt;F: LurkField&gt; {
-    <span class="kw">pub </span>hash4: Vec&lt;<span class="prelude-ty">Option</span>&lt;PreimageData&lt;F&gt;&gt;&gt;,
-    <span class="kw">pub </span>hash6: Vec&lt;<span class="prelude-ty">Option</span>&lt;PreimageData&lt;F&gt;&gt;&gt;,
-    <span class="kw">pub </span>hash8: Vec&lt;<span class="prelude-ty">Option</span>&lt;PreimageData&lt;F&gt;&gt;&gt;,
-    <span class="kw">pub </span>commitment: Vec&lt;<span class="prelude-ty">Option</span>&lt;PreimageData&lt;F&gt;&gt;&gt;,
-    <span class="kw">pub </span>less_than: Vec&lt;<span class="prelude-ty">Option</span>&lt;PreimageData&lt;F&gt;&gt;&gt;,
+</span><span class="kw">pub struct </span>Advices&lt;F: LurkField&gt; {
+    <span class="kw">pub </span>hash4: Vec&lt;<span class="prelude-ty">Option</span>&lt;SlotData&lt;F&gt;&gt;&gt;,
+    <span class="kw">pub </span>hash6: Vec&lt;<span class="prelude-ty">Option</span>&lt;SlotData&lt;F&gt;&gt;&gt;,
+    <span class="kw">pub </span>hash8: Vec&lt;<span class="prelude-ty">Option</span>&lt;SlotData&lt;F&gt;&gt;&gt;,
+    <span class="kw">pub </span>commitment: Vec&lt;<span class="prelude-ty">Option</span>&lt;SlotData&lt;F&gt;&gt;&gt;,
+    <span class="kw">pub </span>bit_decomp: Vec&lt;<span class="prelude-ty">Option</span>&lt;SlotData&lt;F&gt;&gt;&gt;,
     <span class="kw">pub </span>call_outputs: VecDeque&lt;Vec&lt;Ptr&lt;F&gt;&gt;&gt;,
     <span class="kw">pub </span>cproc_outputs: Vec&lt;Vec&lt;Ptr&lt;F&gt;&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;F: LurkField&gt; Preimages&lt;F&gt; {
-    <span class="kw">pub fn </span>new_from_func(func: <span class="kw-2">&amp;</span>Func) -&gt; Preimages&lt;F&gt; {
+<span class="kw">impl</span>&lt;F: LurkField&gt; Advices&lt;F&gt; {
+    <span class="kw">pub fn </span>new_from_func(func: <span class="kw-2">&amp;</span>Func) -&gt; Advices&lt;F&gt; {
         <span class="kw">let </span>slot = func.slot;
         <span class="kw">let </span>hash4 = Vec::with_capacity(slot.hash4);
         <span class="kw">let </span>hash6 = Vec::with_capacity(slot.hash6);
         <span class="kw">let </span>hash8 = Vec::with_capacity(slot.hash8);
         <span class="kw">let </span>commitment = Vec::with_capacity(slot.commitment);
-        <span class="kw">let </span>less_than = Vec::with_capacity(slot.less_than);
+        <span class="kw">let </span>bit_decomp = Vec::with_capacity(slot.bit_decomp);
         <span class="kw">let </span>call_outputs = VecDeque::new();
         <span class="kw">let </span>cproc_outputs = Vec::new();
-        Preimages {
+        Advices {
             hash4,
             hash6,
             hash8,
             commitment,
-            less_than,
+            bit_decomp,
             call_outputs,
             cproc_outputs,
         }
     }
 
-    <span class="kw">pub fn </span>blank(func: <span class="kw-2">&amp;</span>Func) -&gt; Preimages&lt;F&gt; {
+    <span class="kw">pub fn </span>blank(func: <span class="kw-2">&amp;</span>Func) -&gt; Advices&lt;F&gt; {
         <span class="kw">let </span>slot = func.slot;
         <span class="kw">let </span>hash4 = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.hash4];
         <span class="kw">let </span>hash6 = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.hash6];
         <span class="kw">let </span>hash8 = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.hash8];
         <span class="kw">let </span>commitment = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.commitment];
-        <span class="kw">let </span>less_than = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.less_than];
+        <span class="kw">let </span>bit_decomp = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; slot.bit_decomp];
         <span class="kw">let </span>call_outputs = VecDeque::new();
         <span class="kw">let </span>cproc_outputs = Vec::new();
-        Preimages {
+        Advices {
             hash4,
             hash6,
             hash8,
             commitment,
-            less_than,
+            bit_decomp,
             call_outputs,
             cproc_outputs,
         }
@@ -700,7 +684,7 @@
     <span class="kw">pub </span>input: Vec&lt;Ptr&lt;F&gt;&gt;,
     <span class="kw">pub </span>output: Vec&lt;Ptr&lt;F&gt;&gt;,
     <span class="kw">pub </span>emitted: Vec&lt;Ptr&lt;F&gt;&gt;,
-    <span class="kw">pub </span>preimages: Preimages&lt;F&gt;,
+    <span class="kw">pub </span>advices: Advices&lt;F&gt;,
     <span class="kw">pub </span>blank: bool,
     <span class="kw">pub </span>pc: usize,
 }
@@ -709,12 +693,12 @@
     <span class="kw">pub fn </span>blank(func: <span class="kw-2">&amp;</span>Func, pc: usize) -&gt; Frame&lt;F&gt; {
         <span class="kw">let </span>input = <span class="macro">vec!</span>[Ptr::null(Tag::Expr(Nil)); func.input_params.len()];
         <span class="kw">let </span>output = <span class="macro">vec!</span>[Ptr::null(Tag::Expr(Nil)); func.output_size];
-        <span class="kw">let </span>preimages = Preimages::blank(func);
+        <span class="kw">let </span>advices = Advices::blank(func);
         Frame {
             input,
             output,
             emitted: Vec::default(),
-            preimages,
+            advices,
             blank: <span class="bool-val">true</span>,
             pc,
         }
@@ -730,7 +714,7 @@
         input: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;],
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
         <span class="kw-2">mut </span>bindings: VarMap&lt;Val&lt;F&gt;&gt;,
-        <span class="kw-2">mut </span>preimages: Preimages&lt;F&gt;,
+        <span class="kw-2">mut </span>advices: Advices&lt;F&gt;,
         <span class="kw-2">mut </span>path: Path,
         emitted: <span class="kw-2">&amp;mut </span>Vec&lt;Ptr&lt;F&gt;&gt;,
         lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
@@ -750,7 +734,7 @@
                     <span class="kw">for </span>(var, ptr) <span class="kw">in </span>out.iter().zip(<span class="kw-2">&amp;</span>out_ptrs) {
                         bindings.insert(var.clone(), Val::Pointer(<span class="kw-2">*</span>ptr));
                     }
-                    preimages.cproc_outputs.push(out_ptrs);
+                    advices.cproc_outputs.push(out_ptrs);
                 }
                 Op::Call(out, func, inp) =&gt; {
                     <span class="comment">// Get the argument values
@@ -761,10 +745,10 @@
                     // save all the inner call outputs, push the output of the call in front
                     // of it, then extend `call_outputs`
                     </span><span class="kw">let </span><span class="kw-2">mut </span>inner_call_outputs = VecDeque::new();
-                    std::mem::swap(<span class="kw-2">&amp;mut </span>inner_call_outputs, <span class="kw-2">&amp;mut </span>preimages.call_outputs);
+                    std::mem::swap(<span class="kw-2">&amp;mut </span>inner_call_outputs, <span class="kw-2">&amp;mut </span>advices.call_outputs);
                     <span class="kw">let </span>(<span class="kw-2">mut </span>frame, func_path) =
-                        func.call(<span class="kw-2">&amp;</span>inp_ptrs, store, preimages, emitted, lang, pc)<span class="question-mark">?</span>;
-                    std::mem::swap(<span class="kw-2">&amp;mut </span>inner_call_outputs, <span class="kw-2">&amp;mut </span>frame.preimages.call_outputs);
+                        func.call(<span class="kw-2">&amp;</span>inp_ptrs, store, advices, emitted, lang, pc)<span class="question-mark">?</span>;
+                    std::mem::swap(<span class="kw-2">&amp;mut </span>inner_call_outputs, <span class="kw-2">&amp;mut </span>frame.advices.call_outputs);
 
                     <span class="comment">// Extend the path and bind the output variables to the output values
                     </span>path.extend_from_path(<span class="kw-2">&amp;</span>func_path);
@@ -772,10 +756,10 @@
                         bindings.insert_ptr(var.clone(), <span class="kw-2">*</span>ptr);
                     }
 
-                    <span class="comment">// Update `preimages` correctly
+                    <span class="comment">// Update `advices` correctly
                     </span>inner_call_outputs.push_front(frame.output);
-                    preimages = frame.preimages;
-                    preimages.call_outputs.extend(inner_call_outputs);
+                    advices = frame.advices;
+                    advices.call_outputs.extend(inner_call_outputs);
                 }
                 Op::Null(tgt, tag) =&gt; {
                     bindings.insert_ptr(tgt.clone(), Ptr::null(<span class="kw-2">*</span>tag));
@@ -863,7 +847,10 @@
                     <span class="kw">let </span>a = bindings.get_ptr(a)<span class="question-mark">?</span>;
                     <span class="kw">let </span>b = bindings.get_ptr(b)<span class="question-mark">?</span>;
                     <span class="kw">let </span>c = <span class="kw">if let </span>(Ptr::Atom(<span class="kw">_</span>, f), Ptr::Atom(<span class="kw">_</span>, g)) = (a, b) {
-                        preimages.less_than.push(<span class="prelude-val">Some</span>(PreimageData::FPair(f, g)));
+                        <span class="kw">let </span>diff = f - g;
+                        advices.bit_decomp.push(<span class="prelude-val">Some</span>(SlotData::F(f + f)));
+                        advices.bit_decomp.push(<span class="prelude-val">Some</span>(SlotData::F(g + g)));
+                        advices.bit_decomp.push(<span class="prelude-val">Some</span>(SlotData::F(diff + diff)));
                         <span class="kw">let </span>f = BaseNum::Scalar(f);
                         <span class="kw">let </span>g = BaseNum::Scalar(g);
                         f &lt; g
@@ -876,10 +863,11 @@
                     <span class="macro">assert!</span>(<span class="kw-2">*</span>n &lt;= <span class="number">64</span>);
                     <span class="kw">let </span>a = bindings.get_ptr(a)<span class="question-mark">?</span>;
                     <span class="kw">let </span>c = <span class="kw">if let </span>Ptr::Atom(<span class="kw">_</span>, f) = a {
+                        advices.bit_decomp.push(<span class="prelude-val">Some</span>(SlotData::F(f)));
                         <span class="kw">let </span>b = <span class="kw">if </span><span class="kw-2">*</span>n &lt; <span class="number">64 </span>{ (<span class="number">1 </span>&lt;&lt; <span class="kw-2">*</span>n) - <span class="number">1 </span>} <span class="kw">else </span>{ u64::MAX };
                         Ptr::Atom(Tag::Expr(Num), F::from_u64(f.to_u64_unchecked() &amp; b))
                     } <span class="kw">else </span>{
-                        <span class="macro">bail!</span>(<span class="string">&quot;`Trunc` only works a leaf&quot;</span>)
+                        <span class="macro">bail!</span>(<span class="string">&quot;`Trunc` only works on atoms&quot;</span>)
                     };
                     bindings.insert_ptr(tgt.clone(), c);
                 }
@@ -910,18 +898,14 @@
                     <span class="kw">let </span>preimg_ptrs = bindings.get_many_ptr(preimg)<span class="question-mark">?</span>;
                     <span class="kw">let </span>tgt_ptr = store.intern_2_ptrs(<span class="kw-2">*</span>tag, preimg_ptrs[<span class="number">0</span>], preimg_ptrs[<span class="number">1</span>]);
                     bindings.insert_ptr(img.clone(), tgt_ptr);
-                    preimages
-                        .hash4
-                        .push(<span class="prelude-val">Some</span>(PreimageData::PtrVec(preimg_ptrs)));
+                    advices.hash4.push(<span class="prelude-val">Some</span>(SlotData::PtrVec(preimg_ptrs)));
                 }
                 Op::Cons3(img, tag, preimg) =&gt; {
                     <span class="kw">let </span>preimg_ptrs = bindings.get_many_ptr(preimg)<span class="question-mark">?</span>;
                     <span class="kw">let </span>tgt_ptr =
                         store.intern_3_ptrs(<span class="kw-2">*</span>tag, preimg_ptrs[<span class="number">0</span>], preimg_ptrs[<span class="number">1</span>], preimg_ptrs[<span class="number">2</span>]);
                     bindings.insert_ptr(img.clone(), tgt_ptr);
-                    preimages
-                        .hash6
-                        .push(<span class="prelude-val">Some</span>(PreimageData::PtrVec(preimg_ptrs)));
+                    advices.hash6.push(<span class="prelude-val">Some</span>(SlotData::PtrVec(preimg_ptrs)));
                 }
                 Op::Cons4(img, tag, preimg) =&gt; {
                     <span class="kw">let </span>preimg_ptrs = bindings.get_many_ptr(preimg)<span class="question-mark">?</span>;
@@ -933,9 +917,7 @@
                         preimg_ptrs[<span class="number">3</span>],
                     );
                     bindings.insert_ptr(img.clone(), tgt_ptr);
-                    preimages
-                        .hash8
-                        .push(<span class="prelude-val">Some</span>(PreimageData::PtrVec(preimg_ptrs)));
+                    advices.hash8.push(<span class="prelude-val">Some</span>(SlotData::PtrVec(preimg_ptrs)));
                 }
                 Op::Decons2(preimg, img) =&gt; {
                     <span class="kw">let </span>img_ptr = bindings.get_ptr(img)<span class="question-mark">?</span>;
@@ -949,9 +931,9 @@
                     <span class="kw">for </span>(var, ptr) <span class="kw">in </span>preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert_ptr(var.clone(), <span class="kw-2">*</span>ptr);
                     }
-                    preimages
+                    advices
                         .hash4
-                        .push(<span class="prelude-val">Some</span>(PreimageData::PtrVec(preimg_ptrs.to_vec())));
+                        .push(<span class="prelude-val">Some</span>(SlotData::PtrVec(preimg_ptrs.to_vec())));
                 }
                 Op::Decons3(preimg, img) =&gt; {
                     <span class="kw">let </span>img_ptr = bindings.get_ptr(img)<span class="question-mark">?</span>;
@@ -965,9 +947,9 @@
                     <span class="kw">for </span>(var, ptr) <span class="kw">in </span>preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert_ptr(var.clone(), <span class="kw-2">*</span>ptr);
                     }
-                    preimages
+                    advices
                         .hash6
-                        .push(<span class="prelude-val">Some</span>(PreimageData::PtrVec(preimg_ptrs.to_vec())));
+                        .push(<span class="prelude-val">Some</span>(SlotData::PtrVec(preimg_ptrs.to_vec())));
                 }
                 Op::Decons4(preimg, img) =&gt; {
                     <span class="kw">let </span>img_ptr = bindings.get_ptr(img)<span class="question-mark">?</span>;
@@ -981,9 +963,9 @@
                     <span class="kw">for </span>(var, ptr) <span class="kw">in </span>preimg.iter().zip(preimg_ptrs.iter()) {
                         bindings.insert_ptr(var.clone(), <span class="kw-2">*</span>ptr);
                     }
-                    preimages
+                    advices
                         .hash8
-                        .push(<span class="prelude-val">Some</span>(PreimageData::PtrVec(preimg_ptrs.to_vec())));
+                        .push(<span class="prelude-val">Some</span>(SlotData::PtrVec(preimg_ptrs.to_vec())));
                 }
                 Op::Hide(tgt, sec, src) =&gt; {
                     <span class="kw">let </span>src_ptr = bindings.get_ptr(src)<span class="question-mark">?</span>;
@@ -991,9 +973,9 @@
                         <span class="macro">bail!</span>(<span class="string">&quot;{sec} is not a numeric pointer&quot;</span>)
                     };
                     <span class="kw">let </span>tgt_ptr = store.hide(secret, src_ptr)<span class="question-mark">?</span>;
-                    preimages
+                    advices
                         .commitment
-                        .push(<span class="prelude-val">Some</span>(PreimageData::FPtr(secret, src_ptr)));
+                        .push(<span class="prelude-val">Some</span>(SlotData::FPtr(secret, src_ptr)));
                     bindings.insert_ptr(tgt.clone(), tgt_ptr);
                 }
                 Op::Open(tgt_secret, tgt_ptr, comm) =&gt; {
@@ -1005,9 +987,7 @@
                     };
                     bindings.insert_ptr(tgt_ptr.clone(), <span class="kw-2">*</span>ptr);
                     bindings.insert_ptr(tgt_secret.clone(), Ptr::Atom(Tag::Expr(Num), <span class="kw-2">*</span>secret));
-                    preimages
-                        .commitment
-                        .push(<span class="prelude-val">Some</span>(PreimageData::FPtr(<span class="kw-2">*</span>secret, <span class="kw-2">*</span>ptr)))
+                    advices.commitment.push(<span class="prelude-val">Some</span>(SlotData::FPtr(<span class="kw-2">*</span>secret, <span class="kw-2">*</span>ptr)))
                 }
             }
         }
@@ -1017,13 +997,13 @@
                 <span class="kw">let </span>tag = ptr.tag();
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = cases.get(tag) {
                     path.push_tag_inplace(<span class="kw-2">*</span>tag);
-                    block.run(input, store, bindings, preimages, path, emitted, lang, pc)
+                    block.run(input, store, bindings, advices, path, emitted, lang, pc)
                 } <span class="kw">else </span>{
                     path.push_default_inplace();
                     <span class="kw">let </span><span class="prelude-val">Some</span>(def) = def <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;No match for tag {}&quot;</span>, tag)
                     };
-                    def.run(input, store, bindings, preimages, path, emitted, lang, pc)
+                    def.run(input, store, bindings, advices, path, emitted, lang, pc)
                 }
             }
             Ctrl::MatchSymbol(match_var, cases, def) =&gt; {
@@ -1036,22 +1016,22 @@
                 };
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = cases.get(<span class="kw-2">&amp;</span>sym) {
                     path.push_symbol_inplace(sym);
-                    block.run(input, store, bindings, preimages, path, emitted, lang, pc)
+                    block.run(input, store, bindings, advices, path, emitted, lang, pc)
                 } <span class="kw">else </span>{
                     path.push_default_inplace();
                     <span class="kw">let </span><span class="prelude-val">Some</span>(def) = def <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;No match for symbol {sym}&quot;</span>)
                     };
-                    def.run(input, store, bindings, preimages, path, emitted, lang, pc)
+                    def.run(input, store, bindings, advices, path, emitted, lang, pc)
                 }
             }
             Ctrl::If(b, true_block, false_block) =&gt; {
                 <span class="kw">let </span>b = bindings.get_bool(b)<span class="question-mark">?</span>;
                 path.push_bool_inplace(b);
                 <span class="kw">if </span>b {
-                    true_block.run(input, store, bindings, preimages, path, emitted, lang, pc)
+                    true_block.run(input, store, bindings, advices, path, emitted, lang, pc)
                 } <span class="kw">else </span>{
-                    false_block.run(input, store, bindings, preimages, path, emitted, lang, pc)
+                    false_block.run(input, store, bindings, advices, path, emitted, lang, pc)
                 }
             }
             Ctrl::Return(output_vars) =&gt; {
@@ -1065,7 +1045,7 @@
                         input,
                         output,
                         emitted: emitted.clone(),
-                        preimages,
+                        advices,
                         blank: <span class="bool-val">false</span>,
                         pc,
                     },
@@ -1081,7 +1061,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         args: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;],
         store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
-        preimages: Preimages&lt;F&gt;,
+        advices: Advices&lt;F&gt;,
         emitted: <span class="kw-2">&amp;mut </span>Vec&lt;Ptr&lt;F&gt;&gt;,
         lang: <span class="kw-2">&amp;</span>Lang&lt;F, C&gt;,
         pc: usize,
@@ -1092,45 +1072,45 @@
         }
 
         <span class="comment">// We must fill any unused slots with `None` values so we save
-        // the initial size of preimages, which might not be zero
-        </span><span class="kw">let </span>hash4_init = preimages.hash4.len();
-        <span class="kw">let </span>hash6_init = preimages.hash6.len();
-        <span class="kw">let </span>hash8_init = preimages.hash8.len();
-        <span class="kw">let </span>commitment_init = preimages.commitment.len();
-        <span class="kw">let </span>less_than_init = preimages.less_than.len();
+        // the initial size of advices, which might not be zero
+        </span><span class="kw">let </span>hash4_init = advices.hash4.len();
+        <span class="kw">let </span>hash6_init = advices.hash6.len();
+        <span class="kw">let </span>hash8_init = advices.hash8.len();
+        <span class="kw">let </span>commitment_init = advices.commitment.len();
+        <span class="kw">let </span>bit_decomp_init = advices.bit_decomp.len();
 
         <span class="kw">let </span><span class="kw-2">mut </span>res = <span class="self">self</span>.body.run(
             args,
             store,
             bindings,
-            preimages,
+            advices,
             Path::default(),
             emitted,
             lang,
             pc,
         )<span class="question-mark">?</span>;
-        <span class="kw">let </span>preimages = <span class="kw-2">&amp;mut </span>res.<span class="number">0</span>.preimages;
+        <span class="kw">let </span>advices = <span class="kw-2">&amp;mut </span>res.<span class="number">0</span>.advices;
 
-        <span class="kw">let </span>hash4_used = preimages.hash4.len() - hash4_init;
-        <span class="kw">let </span>hash6_used = preimages.hash6.len() - hash6_init;
-        <span class="kw">let </span>hash8_used = preimages.hash8.len() - hash8_init;
-        <span class="kw">let </span>commitment_used = preimages.commitment.len() - commitment_init;
-        <span class="kw">let </span>less_than_used = preimages.less_than.len() - less_than_init;
+        <span class="kw">let </span>hash4_used = advices.hash4.len() - hash4_init;
+        <span class="kw">let </span>hash6_used = advices.hash6.len() - hash6_init;
+        <span class="kw">let </span>hash8_used = advices.hash8.len() - hash8_init;
+        <span class="kw">let </span>commitment_used = advices.commitment.len() - commitment_init;
+        <span class="kw">let </span>bit_decomp_used = advices.bit_decomp.len() - bit_decomp_init;
 
         <span class="kw">for _ in </span>hash4_used..<span class="self">self</span>.slot.hash4 {
-            preimages.hash4.push(<span class="prelude-val">None</span>);
+            advices.hash4.push(<span class="prelude-val">None</span>);
         }
         <span class="kw">for _ in </span>hash6_used..<span class="self">self</span>.slot.hash6 {
-            preimages.hash6.push(<span class="prelude-val">None</span>);
+            advices.hash6.push(<span class="prelude-val">None</span>);
         }
         <span class="kw">for _ in </span>hash8_used..<span class="self">self</span>.slot.hash8 {
-            preimages.hash8.push(<span class="prelude-val">None</span>);
+            advices.hash8.push(<span class="prelude-val">None</span>);
         }
         <span class="kw">for _ in </span>commitment_used..<span class="self">self</span>.slot.commitment {
-            preimages.commitment.push(<span class="prelude-val">None</span>);
+            advices.commitment.push(<span class="prelude-val">None</span>);
         }
-        <span class="kw">for _ in </span>less_than_used..<span class="self">self</span>.slot.less_than {
-            preimages.less_than.push(<span class="prelude-val">None</span>);
+        <span class="kw">for _ in </span>bit_decomp_used..<span class="self">self</span>.slot.bit_decomp {
+            advices.bit_decomp.push(<span class="prelude-val">None</span>);
         }
 
         <span class="prelude-val">Ok</span>(res)
@@ -1148,7 +1128,7 @@
             </span>.call(
                 args,
                 store,
-                Preimages::new_from_func(<span class="self">self</span>),
+                Advices::new_from_func(<span class="self">self</span>),
                 <span class="kw-2">&amp;mut </span><span class="macro">vec!</span>[],
                 lang,
                 pc,

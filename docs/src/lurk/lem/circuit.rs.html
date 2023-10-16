@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/circuit.rs`."><title>circuit.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-deb46770fd761b69.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (e20cb7702 2023-10-12)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5f34af1a0ee6bacd.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lem/circuit.rs`."><title>circuit.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-deb46770fd761b69.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="lurk" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0-nightly (42b1224e9 2023-10-15)" data-channel="nightly" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5f34af1a0ee6bacd.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1438,6 +1438,47 @@
 <a href="#1438" id="1438">1438</a>
 <a href="#1439" id="1439">1439</a>
 <a href="#1440" id="1440">1440</a>
+<a href="#1441" id="1441">1441</a>
+<a href="#1442" id="1442">1442</a>
+<a href="#1443" id="1443">1443</a>
+<a href="#1444" id="1444">1444</a>
+<a href="#1445" id="1445">1445</a>
+<a href="#1446" id="1446">1446</a>
+<a href="#1447" id="1447">1447</a>
+<a href="#1448" id="1448">1448</a>
+<a href="#1449" id="1449">1449</a>
+<a href="#1450" id="1450">1450</a>
+<a href="#1451" id="1451">1451</a>
+<a href="#1452" id="1452">1452</a>
+<a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
+<a href="#1455" id="1455">1455</a>
+<a href="#1456" id="1456">1456</a>
+<a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
+<a href="#1459" id="1459">1459</a>
+<a href="#1460" id="1460">1460</a>
+<a href="#1461" id="1461">1461</a>
+<a href="#1462" id="1462">1462</a>
+<a href="#1463" id="1463">1463</a>
+<a href="#1464" id="1464">1464</a>
+<a href="#1465" id="1465">1465</a>
+<a href="#1466" id="1466">1466</a>
+<a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
+<a href="#1469" id="1469">1469</a>
+<a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
+<a href="#1475" id="1475">1475</a>
+<a href="#1476" id="1476">1476</a>
+<a href="#1477" id="1477">1477</a>
+<a href="#1478" id="1478">1478</a>
+<a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellperson constraints for LEM, such
@@ -1474,9 +1515,9 @@
 <span class="kw">use crate</span>::{
     circuit::gadgets::{
         constraints::{
-            add, alloc_equal, alloc_is_zero, allocate_is_negative, and, div, enforce_pack,
-            enforce_product_and_sum, enforce_selector_with_premise, implies_equal,
-            implies_equal_const, implies_u64, implies_unequal_const, mul, or, pick, sub,
+            add, alloc_equal, alloc_is_zero, and, div, enforce_product_and_sum,
+            enforce_selector_with_premise, implies_equal, implies_equal_const, implies_pack,
+            implies_u64, implies_unequal_const, mul, or, pick, sub,
         },
         data::{allocate_constant, hash_poseidon},
         pointer::AllocatedPtr,
@@ -1488,7 +1529,7 @@
 };
 
 <span class="kw">use super</span>::{
-    interpreter::{Frame, PreimageData},
+    interpreter::Frame,
     pointers::{Ptr, ZPtr},
     slot::<span class="kw-2">*</span>,
     store::Store,
@@ -1500,6 +1541,7 @@
     Pointer(AllocatedPtr&lt;F&gt;),
     Number(AllocatedNum&lt;F&gt;),
     Boolean(Boolean),
+    Bits(Vec&lt;Boolean&gt;),
 }
 
 <span class="doccomment">/// Manages global allocations for constants in a constraint system
@@ -1590,28 +1632,10 @@
                 preallocated_preimg,
                 store.poseidon_cache.constants.c3(),
             )<span class="question-mark">?</span>),
-            SlotType::LessThan =&gt; {
-                <span class="comment">// When a and b have the same sign, a &lt; b iff a - b &lt; 0
-                // When a and b have different signs, a &lt; b iff a is negative
-                </span><span class="kw">let </span>a_num = <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">0</span>];
-                <span class="kw">let </span>b_num = <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">1</span>];
-                <span class="kw">let </span>a_is_negative = allocate_is_negative(cs.namespace(|| <span class="string">&quot;a_is_negative&quot;</span>), a_num)<span class="question-mark">?</span>;
-                <span class="kw">let </span>b_is_negative = allocate_is_negative(cs.namespace(|| <span class="string">&quot;b_is_negative&quot;</span>), b_num)<span class="question-mark">?</span>;
-                <span class="comment">// (same_sign &amp;&amp; diff_is_neg) || (!same_sign &amp;&amp; a_is_neg)
-                </span><span class="kw">let </span>same_sign =
-                    Boolean::xor(cs.namespace(|| <span class="string">&quot;same_sign&quot;</span>), <span class="kw-2">&amp;</span>a_is_negative, <span class="kw-2">&amp;</span>b_is_negative)<span class="question-mark">?
-                        </span>.not();
-                <span class="kw">let </span>diff = sub(cs.namespace(|| <span class="string">&quot;diff&quot;</span>), a_num, b_num)<span class="question-mark">?</span>;
-                <span class="kw">let </span>diff_is_negative =
-                    allocate_is_negative(cs.namespace(|| <span class="string">&quot;diff_is_negative&quot;</span>), <span class="kw-2">&amp;</span>diff)<span class="question-mark">?</span>;
-                <span class="kw">let </span>and1 = and(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;and1&quot;</span>), <span class="kw-2">&amp;</span>same_sign, <span class="kw-2">&amp;</span>diff_is_negative)<span class="question-mark">?</span>;
-                <span class="kw">let </span>and2 = and(
-                    <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;and2&quot;</span>),
-                    <span class="kw-2">&amp;</span>same_sign.not(),
-                    <span class="kw-2">&amp;</span>a_is_negative,
-                )<span class="question-mark">?</span>;
-                <span class="kw">let </span>lt = or(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;or&quot;</span>), <span class="kw-2">&amp;</span>and1, <span class="kw-2">&amp;</span>and2)<span class="question-mark">?</span>;
-                AllocatedVal::Boolean(lt)
+            SlotType::BitDecomp =&gt; {
+                <span class="kw">let </span>a_num = <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">0</span>];
+                <span class="kw">let </span>bits = a_num.to_bits_le_strict(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;a_num_bits&quot;</span>))<span class="question-mark">?</span>;
+                AllocatedVal::Bits(bits)
             }
         }
     };
@@ -1621,13 +1645,13 @@
 <span class="doccomment">/// Allocates unconstrained slots
 </span><span class="kw">fn </span>allocate_slots&lt;F: LurkField, CS: ConstraintSystem&lt;F&gt;&gt;(
     cs: <span class="kw-2">&amp;mut </span>CS,
-    preimg_data: <span class="kw-2">&amp;</span>[<span class="prelude-ty">Option</span>&lt;PreimageData&lt;F&gt;&gt;],
+    slots_data: <span class="kw-2">&amp;</span>[<span class="prelude-ty">Option</span>&lt;SlotData&lt;F&gt;&gt;],
     slot_type: SlotType,
     num_slots: usize,
     store: <span class="kw-2">&amp;</span>Store&lt;F&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)&gt;&gt; {
     <span class="macro">assert!</span>(
-        preimg_data.len() == num_slots,
+        slots_data.len() == num_slots,
         <span class="string">&quot;collected preimages not equal to the number of available slots&quot;
     </span>);
 
@@ -1635,18 +1659,19 @@
 
     <span class="comment">// We must perform the allocations for the slots containing data collected
     // by the interpreter. The `None` cases must be filled with dummy values
-    </span><span class="kw">for </span>(slot_idx, maybe_preimg_data) <span class="kw">in </span>preimg_data.iter().enumerate() {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(preimg_data) = maybe_preimg_data {
+    </span><span class="kw">for </span>(slot_idx, maybe_slot_data) <span class="kw">in </span>slots_data.iter().enumerate() {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(slot_data) = maybe_slot_data {
             <span class="kw">let </span>slot = Slot {
                 idx: slot_idx,
                 typ: slot_type,
             };
+            <span class="macro">assert!</span>(slot_type.is_compatible(slot_data));
 
             <span class="comment">// Allocate the preimage because the image depends on it
             </span><span class="kw">let </span><span class="kw-2">mut </span>preallocated_preimg = Vec::with_capacity(slot_type.preimg_size());
 
-            <span class="kw">match </span>preimg_data {
-                PreimageData::PtrVec(ptr_vec) =&gt; {
+            <span class="kw">match </span>slot_data {
+                SlotData::PtrVec(ptr_vec) =&gt; {
                     <span class="kw">let </span><span class="kw-2">mut </span>component_idx = <span class="number">0</span>;
                     <span class="kw">for </span>ptr <span class="kw">in </span>ptr_vec {
                         <span class="kw">let </span>z_ptr = store.hash_ptr(ptr)<span class="question-mark">?</span>;
@@ -1668,7 +1693,7 @@
                         component_idx += <span class="number">1</span>;
                     }
                 }
-                PreimageData::FPtr(f, ptr) =&gt; {
+                SlotData::FPtr(f, ptr) =&gt; {
                     <span class="kw">let </span>z_ptr = store.hash_ptr(ptr)<span class="question-mark">?</span>;
                     <span class="comment">// allocate first component
                     </span>preallocated_preimg.push(AllocatedNum::alloc_infallible(
@@ -1686,17 +1711,10 @@
                         || <span class="kw-2">*</span>z_ptr.value(),
                     ));
                 }
-                PreimageData::FPair(a, b) =&gt; {
-                    <span class="comment">// allocate first component
-                    </span>preallocated_preimg.push(AllocatedNum::alloc_infallible(
+                SlotData::F(a) =&gt; {
+                    preallocated_preimg.push(AllocatedNum::alloc_infallible(
                         cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;component 0 slot {slot}&quot;</span>)),
                         || <span class="kw-2">*</span>a,
-                    ));
-
-                    <span class="comment">// allocate second component
-                    </span>preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;component 1 slot {slot}&quot;</span>)),
-                        || <span class="kw-2">*</span>b,
                     ));
                 }
             }
@@ -1901,7 +1919,7 @@
         // that&#39;s why they are filled with dummies
         </span><span class="kw">let </span>preallocated_hash4_slots = allocate_slots(
             cs,
-            <span class="kw-2">&amp;</span>frame.preimages.hash4,
+            <span class="kw-2">&amp;</span>frame.advices.hash4,
             SlotType::Hash4,
             <span class="self">self</span>.slot.hash4,
             store,
@@ -1909,7 +1927,7 @@
 
         <span class="kw">let </span>preallocated_hash6_slots = allocate_slots(
             cs,
-            <span class="kw-2">&amp;</span>frame.preimages.hash6,
+            <span class="kw-2">&amp;</span>frame.advices.hash6,
             SlotType::Hash6,
             <span class="self">self</span>.slot.hash6,
             store,
@@ -1917,7 +1935,7 @@
 
         <span class="kw">let </span>preallocated_hash8_slots = allocate_slots(
             cs,
-            <span class="kw-2">&amp;</span>frame.preimages.hash8,
+            <span class="kw-2">&amp;</span>frame.advices.hash8,
             SlotType::Hash8,
             <span class="self">self</span>.slot.hash8,
             store,
@@ -1925,17 +1943,17 @@
 
         <span class="kw">let </span>preallocated_commitment_slots = allocate_slots(
             cs,
-            <span class="kw-2">&amp;</span>frame.preimages.commitment,
+            <span class="kw-2">&amp;</span>frame.advices.commitment,
             SlotType::Commitment,
             <span class="self">self</span>.slot.commitment,
             store,
         )<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>preallocated_less_than_slots = allocate_slots(
+        <span class="kw">let </span>preallocated_bit_decomp_slots = allocate_slots(
             cs,
-            <span class="kw-2">&amp;</span>frame.preimages.less_than,
-            SlotType::LessThan,
-            <span class="self">self</span>.slot.less_than,
+            <span class="kw-2">&amp;</span>frame.advices.bit_decomp,
+            SlotType::BitDecomp,
+            <span class="self">self</span>.slot.bit_decomp,
             store,
         )<span class="question-mark">?</span>;
 
@@ -1947,7 +1965,7 @@
             preallocated_hash6_slots: Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)&gt;,
             preallocated_hash8_slots: Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)&gt;,
             preallocated_commitment_slots: Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)&gt;,
-            preallocated_less_than_slots: Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)&gt;,
+            preallocated_bit_decomp_slots: Vec&lt;(Vec&lt;AllocatedNum&lt;F&gt;&gt;, AllocatedVal&lt;F&gt;)&gt;,
             call_outputs: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>VecDeque&lt;Vec&lt;Ptr&lt;F&gt;&gt;&gt;,
             call_idx: usize,
             cproc_outputs: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[Vec&lt;Ptr&lt;F&gt;&gt;],
@@ -2322,27 +2340,86 @@
                         bound_allocations.insert_ptr(tgt.clone(), c);
                     }
                     Op::Lt(tgt, a, b) =&gt; {
-                        <span class="kw">let </span>a = bound_allocations.get_ptr(a)<span class="question-mark">?</span>;
-                        <span class="kw">let </span>b = bound_allocations.get_ptr(b)<span class="question-mark">?</span>;
-                        <span class="kw">let </span>(preallocated_preimg, lt) =
-                            <span class="kw-2">&amp;</span>g.preallocated_less_than_slots[next_slot.consume_less_than()];
-                        <span class="kw">for </span>(i, n) <span class="kw">in </span>[a.hash(), b.hash()].into_iter().enumerate() {
-                            implies_equal(
-                                <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;implies equal component {i}&quot;</span>)),
-                                not_dummy,
-                                n,
-                                <span class="kw-2">&amp;</span>preallocated_preimg[i],
-                            );
-                        }
-                        <span class="kw">let </span>AllocatedVal::Boolean(lt) = lt <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">&quot;Expected boolean&quot;</span>) };
+                        <span class="comment">// To find out whether a &lt; b, we will use the following reasoning:
+                        // 1) when a and b have the same sign, a &lt; b iff a - b is negative
+                        // 2) when a and b have different signs, a &lt; b iff a is negative
+                        // 3) a number is negative iff its double is odd
+                        // 4) a number is odd iff its least significant bit is 1
+
+                        // Retrieve a, b, a-b
+                        </span><span class="kw">let </span>a_num = bound_allocations.get_ptr(a)<span class="question-mark">?</span>.hash();
+                        <span class="kw">let </span>b_num = bound_allocations.get_ptr(b)<span class="question-mark">?</span>.hash();
+                        <span class="kw">let </span>diff = sub(cs.namespace(|| <span class="string">&quot;diff&quot;</span>), a_num, b_num)<span class="question-mark">?</span>;
+                        <span class="comment">// Double a, b, a-b
+                        </span><span class="kw">let </span>double_a = add(cs.namespace(|| <span class="string">&quot;double_a&quot;</span>), a_num, a_num)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>double_b = add(cs.namespace(|| <span class="string">&quot;double_b&quot;</span>), b_num, b_num)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>double_diff = add(cs.namespace(|| <span class="string">&quot;double_diff&quot;</span>), <span class="kw-2">&amp;</span>diff, <span class="kw-2">&amp;</span>diff)<span class="question-mark">?</span>;
+                        <span class="comment">// Get slot allocated preimages/bits for the double of a, b, a-b
+                        </span><span class="kw">let </span>(double_a_preimg, double_a_bits) =
+                            <span class="kw-2">&amp;</span>g.preallocated_bit_decomp_slots[next_slot.consume_bit_decomp()];
+                        <span class="kw">let </span>AllocatedVal::Bits(double_a_bits) = double_a_bits <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">&quot;Expected bits&quot;</span>) };
+                        <span class="kw">let </span>(double_b_preimg, double_b_bits) =
+                            <span class="kw-2">&amp;</span>g.preallocated_bit_decomp_slots[next_slot.consume_bit_decomp()];
+                        <span class="kw">let </span>AllocatedVal::Bits(double_b_bits) = double_b_bits <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">&quot;Expected bits&quot;</span>) };
+                        <span class="kw">let </span>(double_diff_preimg, double_diff_bits) =
+                            <span class="kw-2">&amp;</span>g.preallocated_bit_decomp_slots[next_slot.consume_bit_decomp()];
+                        <span class="kw">let </span>AllocatedVal::Bits(double_diff_bits) = double_diff_bits <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">&quot;Expected bits&quot;</span>) };
+                        <span class="comment">// Check that the slot allocated preimages are the double of a, b, a-b
+                        </span>implies_equal(
+                            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal for a_preimg&quot;</span>),
+                            not_dummy,
+                            <span class="kw-2">&amp;</span>double_a,
+                            <span class="kw-2">&amp;</span>double_a_preimg[<span class="number">0</span>],
+                        );
+                        implies_equal(
+                            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal for b_preimg&quot;</span>),
+                            not_dummy,
+                            <span class="kw-2">&amp;</span>double_b,
+                            <span class="kw-2">&amp;</span>double_b_preimg[<span class="number">0</span>],
+                        );
+                        implies_equal(
+                            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal for diff_preimg&quot;</span>),
+                            not_dummy,
+                            <span class="kw-2">&amp;</span>double_diff,
+                            <span class="kw-2">&amp;</span>double_diff_preimg[<span class="number">0</span>],
+                        );
+
+                        <span class="comment">// The number is negative if the least significant bit of its double is 1
+                        </span><span class="kw">let </span>a_is_negative = double_a_bits.get(<span class="number">0</span>).unwrap();
+                        <span class="kw">let </span>b_is_negative = double_b_bits.get(<span class="number">0</span>).unwrap();
+                        <span class="kw">let </span>diff_is_negative = double_diff_bits.get(<span class="number">0</span>).unwrap();
+
+                        <span class="comment">// Two numbers have the same sign if both are negative or both are positive, i.e.
+                        </span><span class="kw">let </span>same_sign = Boolean::xor(
+                            cs.namespace(|| <span class="string">&quot;same_sign&quot;</span>),
+                            a_is_negative,
+                            b_is_negative,
+                        )<span class="question-mark">?
+                        </span>.not();
+
+                        <span class="comment">// Finally, a &lt; b iff (same_sign &amp;&amp; diff &lt; 0) || (!same_sign &amp;&amp; a &lt; 0)
+                        </span><span class="kw">let </span>and1 = and(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;and1&quot;</span>), <span class="kw-2">&amp;</span>same_sign, diff_is_negative)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>and2 = and(
+                            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;and2&quot;</span>),
+                            <span class="kw-2">&amp;</span>same_sign.not(),
+                            a_is_negative,
+                        )<span class="question-mark">?</span>;
+                        <span class="kw">let </span>lt = or(<span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;or&quot;</span>), <span class="kw-2">&amp;</span>and1, <span class="kw-2">&amp;</span>and2)<span class="question-mark">?</span>;
                         bound_allocations.insert_bool(tgt.clone(), lt.clone());
                     }
                     Op::Trunc(tgt, a, n) =&gt; {
                         <span class="macro">assert!</span>(<span class="kw-2">*</span>n &lt;= <span class="number">64</span>);
                         <span class="kw">let </span>a = bound_allocations.get_ptr(a)<span class="question-mark">?</span>;
-                        <span class="kw">let </span><span class="kw-2">mut </span>trunc_bits =
-                            a.hash().to_bits_le_strict(cs.namespace(|| <span class="string">&quot;to_bits_le&quot;</span>))<span class="question-mark">?</span>;
-                        trunc_bits.truncate(<span class="kw-2">*</span>n <span class="kw">as </span>usize);
+                        <span class="kw">let </span>(preallocated_preimg, trunc_bits) =
+                            <span class="kw-2">&amp;</span>g.preallocated_bit_decomp_slots[next_slot.consume_bit_decomp()];
+                        implies_equal(
+                            <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal component trunc&quot;</span>),
+                            not_dummy,
+                            a.hash(),
+                            <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">0</span>],
+                        );
+                        <span class="kw">let </span>AllocatedVal::Bits(trunc_bits) = trunc_bits <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">&quot;Expected bits&quot;</span>) };
+                        <span class="kw">let </span>trunc_bits = <span class="kw-2">&amp;</span>trunc_bits[<span class="number">0</span>..<span class="kw-2">*</span>n <span class="kw">as </span>usize];
                         <span class="kw">let </span>trunc = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;trunc&quot;</span>), || {
                             <span class="kw">let </span>b = <span class="kw">if </span><span class="kw-2">*</span>n &lt; <span class="number">64 </span>{ (<span class="number">1 </span>&lt;&lt; <span class="kw-2">*</span>n) - <span class="number">1 </span>} <span class="kw">else </span>{ u64::MAX };
                             a.hash()
@@ -2350,7 +2427,12 @@
                                 .map(|a| F::from_u64(a.to_u64_unchecked() &amp; b))
                                 .ok_or(SynthesisError::AssignmentMissing)
                         })<span class="question-mark">?</span>;
-                        enforce_pack(cs.namespace(|| <span class="string">&quot;enforce_trunc&quot;</span>), <span class="kw-2">&amp;</span>trunc_bits, <span class="kw-2">&amp;</span>trunc);
+                        implies_pack(
+                            cs.namespace(|| <span class="string">&quot;implies_trunc&quot;</span>),
+                            not_dummy,
+                            trunc_bits,
+                            <span class="kw-2">&amp;</span>trunc,
+                        );
                         <span class="kw">let </span>tag = g
                             .global_allocator
                             .get_allocated_const_cloned(Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
@@ -2673,9 +2755,9 @@
             }
         }
 
-        <span class="kw">let </span>call_outputs = <span class="kw-2">&amp;</span>frame.preimages.call_outputs;
+        <span class="kw">let </span>call_outputs = <span class="kw-2">&amp;</span>frame.advices.call_outputs;
         <span class="kw">let </span>call_idx = <span class="number">0</span>;
-        <span class="kw">let </span>cproc_outputs = <span class="kw-2">&amp;</span>frame.preimages.cproc_outputs;
+        <span class="kw">let </span>cproc_outputs = <span class="kw-2">&amp;</span>frame.advices.cproc_outputs;
         recurse(
             cs,
             <span class="kw-2">&amp;</span><span class="self">self</span>.body,
@@ -2691,7 +2773,7 @@
                 preallocated_hash6_slots,
                 preallocated_hash8_slots,
                 preallocated_commitment_slots,
-                preallocated_less_than_slots,
+                preallocated_bit_decomp_slots,
                 call_outputs,
                 call_idx,
                 cproc_outputs,
@@ -2770,12 +2852,12 @@
                     }
                     Op::Lt(..) =&gt; {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
-                        num_constraints += <span class="number">2</span>;
+                        num_constraints += <span class="number">11</span>;
                     }
                     Op::Trunc(..) =&gt; {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
-                        <span class="comment">// bit decomposition + enforce_pack
-                        </span>num_constraints += <span class="number">389</span>;
+                        <span class="comment">// 1 implies_equal, 1 implies_pack
+                        </span>num_constraints += <span class="number">2</span>;
                     }
                     Op::DivRem64(..) =&gt; {
                         globals.insert(FWrap(Tag::Expr(Num).to_field()));
@@ -2873,7 +2955,7 @@
             + <span class="number">337 </span>* <span class="self">self</span>.slot.hash6
             + <span class="number">388 </span>* <span class="self">self</span>.slot.hash8
             + <span class="number">265 </span>* <span class="self">self</span>.slot.commitment
-            + <span class="number">1172 </span>* <span class="self">self</span>.slot.less_than;
+            + <span class="number">388 </span>* <span class="self">self</span>.slot.bit_decomp;
         <span class="kw">let </span>num_constraints = recurse(<span class="kw-2">&amp;</span><span class="self">self</span>.body, globals, store, <span class="bool-val">false</span>);
         slot_constraints + num_constraints + globals.len()
     }
