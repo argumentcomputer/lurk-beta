@@ -6,8 +6,8 @@
 //! The motivation behind LEM is the fact that hand-writing the circuit is a
 //! fragile process that hinders experimentation and safety. Thus we would like
 //! to bootstrap the circuit automatically, as well as an interpretation
-//! algorithm that computes all non-deterministic advices for the circuit,
-//! given a higher level description of the step function.
+//! algorithm that computes all non-deterministic hints for the circuit, given a
+//! higher level description of the step function.
 //!
 //! LEM also allows the `Store` API to be completely abstracted away from the
 //! responsibilities of LEM authors. Indeed, we want the implementation details
@@ -35,7 +35,7 @@
 //!
 //! The interpreter runs a LEM function given input values. Interpreting a LEM
 //! function will compute the values of each variable in the path of execution.
-//! In particular, it will compute all the non-deterministic advices that are
+//! In particular, it will compute all the non-deterministic hints that are
 //! needed to solve the circuit.
 //!
 //! ### Synthesizing
