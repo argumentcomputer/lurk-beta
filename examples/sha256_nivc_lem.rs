@@ -4,7 +4,7 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter, Registry};
 use tracing_texray::TeXRayLayer;
 
 use lurk::{
-    coprocessor::sha256::Sha256Coprocessor,
+    coprocessor::sha256::{Sha256Coproc, Sha256Coprocessor},
     eval::lang::Lang,
     field::LurkField,
     lem::{
@@ -72,17 +72,15 @@ fn main() {
 
     let call = sha256_nivc(store, n, (0..n).collect());
 
-    let mut lang = Lang::<Fr, Sha256Coprocessor<Fr>>::new();
+    let mut lang = Lang::<Fr, Sha256Coproc<Fr>>::new();
     lang.add_coprocessor_lem(cproc_sym, Sha256Coprocessor::new(n), store);
     let lang_rc = Arc::new(lang.clone());
 
     let lurk_step = make_eval_step_from_lang(&lang, false);
     let (frames, _) = evaluate(Some((&lurk_step, &lang)), call, store, 1000).unwrap();
 
-    let supernova_prover = SuperNovaProver::<Fr, Sha256Coprocessor<Fr>, MultiFrame<'_, _, _>>::new(
-        REDUCTION_COUNT,
-        lang,
-    );
+    let supernova_prover =
+        SuperNovaProver::<Fr, Sha256Coproc<Fr>, MultiFrame<'_, _, _>>::new(REDUCTION_COUNT, lang);
 
     println!("Setting up running claim parameters (rc = {REDUCTION_COUNT})...");
     let pp_start = Instant::now();

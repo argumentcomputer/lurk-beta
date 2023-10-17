@@ -95,7 +95,7 @@ fn store_benchmark_lem(c: &mut Criterion) {
     let state = State::init_lurk_state().rccell();
 
     // todo!() rfc out into more flexible test cases
-    let sizes = vec![(10, 16), (10, 160)];
+    let sizes = [(10, 16), (10, 160)];
     for size in sizes {
         let parameter_string = format!("_{}_{}", size.0, size.1);
 
@@ -134,7 +134,7 @@ fn hydration_benchmark_lem(c: &mut Criterion) {
     let state = State::init_lurk_state().rccell();
 
     // todo!() rfc out into more flexible test cases
-    let sizes = vec![(10, 16), (10, 160)];
+    let sizes = [(10, 16), (10, 160)];
     for size in sizes {
         let parameter_string = format!("_{}_{}", size.0, size.1);
 
@@ -174,7 +174,7 @@ fn eval_benchmark_lem(c: &mut Criterion) {
     let state = State::init_lurk_state().rccell();
 
     // todo!() rfc out into more flexible test cases
-    let sizes = vec![(10, 16), (10, 160)];
+    let sizes = [(10, 16), (10, 160)];
     for size in sizes {
         let parameter_string = format!("_{}_{}", size.0, size.1);
 
@@ -327,7 +327,7 @@ fn verify_benchmark_lem(c: &mut Criterion) {
     let pp: PublicParams<Fq, MultiFrame<'_, Fq, Coproc<Fq>>> =
         public_params(reduction_count, lang.clone());
 
-    let sizes = vec![(10, 0)];
+    let sizes = [(10, 0)];
     for size in sizes {
         let parameter_string = format!("_{}_{}", size.0, size.1);
         let benchmark_id = BenchmarkId::new("verify_go_base_nova", &parameter_string);
@@ -370,7 +370,7 @@ fn verify_compressed_benchmark_lem(c: &mut Criterion) {
     let pp: PublicParams<Fq, MultiFrame<'_, Fq, Coproc<Fq>>> =
         public_params(reduction_count, lang.clone());
 
-    let sizes = vec![(10, 0)];
+    let sizes = [(10, 0)];
     for size in sizes {
         let parameter_string = format!("_{}_{}", size.0, size.1);
         let benchmark_id = BenchmarkId::new("verify_compressed_go_base_nova", &parameter_string);
