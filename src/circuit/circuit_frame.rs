@@ -127,6 +127,10 @@ impl<F: LurkField> EvaluationStore for Store<F> {
         Store::get_cont_terminal(self)
     }
 
+    fn hydrate_z_cache(&self) {
+        self.hydrate_scalar_cache()
+    }
+
     fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> Result<bool, Self::Error> {
         self.ptr_eq(left, right)
     }

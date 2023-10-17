@@ -103,6 +103,11 @@ impl<F: LurkField> Ptr<F> {
     }
 
     #[inline]
+    pub fn is_tuple(&self) -> bool {
+        matches!(self, Ptr::Tuple2(..) | Ptr::Tuple3(..) | Ptr::Tuple4(..))
+    }
+
+    #[inline]
     pub fn get_atom(&self) -> Option<&F> {
         match self {
             Ptr::Atom(_, f) => Some(f),

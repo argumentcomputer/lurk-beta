@@ -68,6 +68,9 @@ pub trait EvaluationStore {
     /// getting the terminal continuation pointer
     fn get_cont_terminal(&self) -> Self::ContPtr;
 
+    /// cache hashes for pointers enqueued for hydration
+    fn hydrate_z_cache(&self);
+
     /// hash-equality of the expressions represented by Ptrs
     fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> Result<bool, Self::Error>;
 }

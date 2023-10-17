@@ -37,7 +37,7 @@ use crate::{
     error::ProofError,
     eval::{lang::Lang, Meta},
     field::LurkField,
-    proof::{supernova::FoldingConfig, FrameLike, MultiFrameTrait, Prover},
+    proof::{supernova::FoldingConfig, EvaluationStore, FrameLike, MultiFrameTrait, Prover},
     store::Store,
 };
 
@@ -306,6 +306,7 @@ where
         store: &'a M::Store,
         lang: &Arc<Lang<F, C>>,
     ) -> Result<(Proof<'a, F, C, M>, Vec<F>, Vec<F>, usize), ProofError> {
+        store.hydrate_z_cache();
         let z0 = M::io_to_scalar_vector(store, frames[0].input()).map_err(|e| e.into())?;
         let zi =
             M::io_to_scalar_vector(store, frames.last().unwrap().output()).map_err(|e| e.into())?;
