@@ -55,7 +55,7 @@ impl ProveParams {
     fn name(&self) -> String {
         let date = env!("VERGEN_GIT_COMMIT_DATE");
         let sha = env!("VERGEN_GIT_SHA");
-        format!("{date}:{sha}:Fibonacci-rc={}", self.reduction_count)
+        format!("{date}:{sha}:Fibonacci-LEM-rc={}", self.reduction_count)
     }
 }
 
