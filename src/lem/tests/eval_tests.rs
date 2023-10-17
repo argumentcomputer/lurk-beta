@@ -2437,9 +2437,11 @@ fn test_eval_non_symbol_binding_error() {
 
 #[test]
 fn test_dumb_lang() {
-    use crate::{coprocessor::test::DumbCoprocessor, state::user_sym};
+    use crate::{
+        coprocessor::test::DumbCoprocessor, eval::tests::coproc::DumbCoproc, state::user_sym,
+    };
 
-    let mut lang = Lang::<Fr, DumbCoprocessor<Fr>>::new();
+    let mut lang = Lang::<Fr, DumbCoproc<Fr>>::new();
     let dumb = DumbCoprocessor::new();
     let name = user_sym("cproc-dumb");
 

@@ -35,10 +35,16 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
     let eval_arity_arms = eval_arity_match_arms(name, variants);
     let evaluate_arms = evaluate_match_arms(name, variants);
     let simple_evaluate_arms = simple_evaluate_match_arms(name, variants);
+    let evaluate_lem_internal_arms = evaluate_lem_internal_match_arms(name, variants);
+    let evaluate_lem_arms = evaluate_lem_match_arms(name, variants);
+    let evaluate_lem_simple_arms = evaluate_lem_simple_match_arms(name, variants);
     let has_circuit_arms = has_circuit_match_arms(name, variants);
 
     let arity_arms = arity_match_arms(name, variants);
     let synthesize_arms = synthesize_match_arms(name, variants);
+    let synthesize_lem_internal_arms = synthesize_lem_internal_match_arms(name, variants);
+    let synthesize_lem_arms = synthesize_lem_match_arms(name, variants);
+    let synthesize_lem_simple_arms = synthesize_lem_simple_match_arms(name, variants);
 
     let from_impls = from_impls(name, variants);
 
@@ -59,6 +65,24 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
             fn simple_evaluate(&self, s: &lurk::store::Store<F>, args: &[lurk::ptr::Ptr<F>]) -> lurk::ptr::Ptr<F> {
                 match self {
                     #simple_evaluate_arms
+                }
+            }
+
+            fn evaluate_lem_internal(&self, s: &lurk::lem::store::Store<F>, ptrs: &[lurk::lem::pointers::Ptr<F>]) -> Vec<lurk::lem::pointers::Ptr<F>> {
+                match self {
+                    #evaluate_lem_internal_arms
+                }
+            }
+
+            fn evaluate_lem(&self, s: &lurk::lem::store::Store<F>, args: &[lurk::lem::pointers::Ptr<F>], env: &lurk::lem::pointers::Ptr<F>, cont: &lurk::lem::pointers::Ptr<F>) -> Vec<lurk::lem::pointers::Ptr<F>> {
+                match self {
+                    #evaluate_lem_arms
+                }
+            }
+
+            fn evaluate_lem_simple(&self, s: &lurk::lem::store::Store<F>, args: &[lurk::lem::pointers::Ptr<F>]) -> lurk::lem::pointers::Ptr<F> {
+                match self {
+                    #evaluate_lem_simple_arms
                 }
             }
 
@@ -87,6 +111,47 @@ fn impl_enum_coproc(name: &Ident, variants: &DataEnum) -> TokenStream {
             ) -> Result<(lurk::circuit::gadgets::pointer::AllocatedPtr<F>, lurk::circuit::gadgets::pointer::AllocatedPtr<F>, lurk::circuit::gadgets::pointer::AllocatedContPtr<F>), bellpepper_core::SynthesisError> {
                 match self {
                     #synthesize_arms
+                }
+            }
+
+            fn synthesize_lem_internal<CS: bellpepper_core::ConstraintSystem<F>>(
+                &self,
+                cs: &mut CS,
+                g: &lurk::lem::circuit::GlobalAllocator<F>,
+                s: &lurk::lem::store::Store<F>,
+                not_dummy: &bellpepper::gadgets::boolean::Boolean,
+                ptrs: &[lurk::circuit::gadgets::pointer::AllocatedPtr<F>],
+            ) -> Result<Vec<lurk::circuit::gadgets::pointer::AllocatedPtr<F>>, bellpepper_core::SynthesisError> {
+                match self {
+                    #synthesize_lem_internal_arms
+                }
+            }
+
+            fn synthesize_lem<CS: bellpepper_core::ConstraintSystem<F>>(
+                &self,
+                cs: &mut CS,
+                g: &lurk::lem::circuit::GlobalAllocator<F>,
+                s: &lurk::lem::store::Store<F>,
+                not_dummy: &bellpepper::gadgets::boolean::Boolean,
+                args: &[lurk::circuit::gadgets::pointer::AllocatedPtr<F>],
+                env: &lurk::circuit::gadgets::pointer::AllocatedPtr<F>,
+                cont: &lurk::circuit::gadgets::pointer::AllocatedPtr<F>,
+            ) -> Result<Vec<lurk::circuit::gadgets::pointer::AllocatedPtr<F>>, bellpepper_core::SynthesisError> {
+                match self {
+                    #synthesize_lem_arms
+                }
+            }
+
+            fn synthesize_lem_simple<CS: bellpepper_core::ConstraintSystem<F>>(
+                &self,
+                cs: &mut CS,
+                g: &lurk::lem::circuit::GlobalAllocator<F>,
+                s: &lurk::lem::store::Store<F>,
+                not_dummy: &bellpepper::gadgets::boolean::Boolean,
+                args: &[lurk::circuit::gadgets::pointer::AllocatedPtr<F>],
+            ) -> Result<lurk::circuit::gadgets::pointer::AllocatedPtr<F>, bellpepper_core::SynthesisError> {
+                match self {
+                    #synthesize_lem_simple_arms
                 }
             }
         }
@@ -132,6 +197,42 @@ fn simple_evaluate_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2:
     match_arms
 }
 
+fn evaluate_lem_internal_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
+    let mut match_arms = quote! {};
+    for variant in variants.variants.iter() {
+        let variant_ident = &variant.ident;
+
+        match_arms.extend(quote! {
+            #name::#variant_ident(coprocessor) => coprocessor.evaluate_lem_internal(s, ptrs),
+        });
+    }
+    match_arms
+}
+
+fn evaluate_lem_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
+    let mut match_arms = quote! {};
+    for variant in variants.variants.iter() {
+        let variant_ident = &variant.ident;
+
+        match_arms.extend(quote! {
+            #name::#variant_ident(coprocessor) => coprocessor.evaluate_lem(s, args, env, cont),
+        });
+    }
+    match_arms
+}
+
+fn evaluate_lem_simple_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
+    let mut match_arms = quote! {};
+    for variant in variants.variants.iter() {
+        let variant_ident = &variant.ident;
+
+        match_arms.extend(quote! {
+            #name::#variant_ident(coprocessor) => coprocessor.evaluate_lem_simple(s, args),
+        });
+    }
+    match_arms
+}
+
 fn has_circuit_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
     let mut match_arms = quote! {};
     for variant in variants.variants.iter() {
@@ -163,6 +264,45 @@ fn synthesize_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::Toke
 
         match_arms.extend(quote! {
             #name::#variant_ident(cocircuit) => cocircuit.synthesize(cs, g, store, input_exprs, input_env, input_cont),
+        });
+    }
+    match_arms
+}
+
+fn synthesize_lem_internal_match_arms(
+    name: &Ident,
+    variants: &DataEnum,
+) -> proc_macro2::TokenStream {
+    let mut match_arms = quote! {};
+    for variant in variants.variants.iter() {
+        let variant_ident = &variant.ident;
+
+        match_arms.extend(quote! {
+            #name::#variant_ident(cocircuit) => cocircuit.synthesize_lem_internal(cs, g, s, not_dummy, ptrs),
+        });
+    }
+    match_arms
+}
+
+fn synthesize_lem_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
+    let mut match_arms = quote! {};
+    for variant in variants.variants.iter() {
+        let variant_ident = &variant.ident;
+
+        match_arms.extend(quote! {
+            #name::#variant_ident(cocircuit) => cocircuit.synthesize_lem(cs, g, s, not_dummy, args, env, cont),
+        });
+    }
+    match_arms
+}
+
+fn synthesize_lem_simple_match_arms(name: &Ident, variants: &DataEnum) -> proc_macro2::TokenStream {
+    let mut match_arms = quote! {};
+    for variant in variants.variants.iter() {
+        let variant_ident = &variant.ident;
+
+        match_arms.extend(quote! {
+            #name::#variant_ident(cocircuit) => cocircuit.synthesize_lem_simple(cs, g, s, not_dummy, args),
         });
     }
     match_arms

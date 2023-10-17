@@ -3080,11 +3080,11 @@ fn test_prove_head_with_sym_mimicking_value() {
 
 #[test]
 fn test_dumb_lang() {
-    use crate::coprocessor::test::DumbCoprocessor;
+    use crate::{coprocessor::test::DumbCoprocessor, eval::tests::coproc::DumbCoproc};
 
     let s = &Store::<Fr>::default();
 
-    let mut lang = Lang::<Fr, DumbCoprocessor<Fr>>::new();
+    let mut lang = Lang::<Fr, DumbCoproc<Fr>>::new();
     let name = user_sym("cproc-dumb");
     let dumb = DumbCoprocessor::new();
 
@@ -3104,7 +3104,7 @@ fn test_dumb_lang() {
     let error = Ptr::null(Tag::Cont(Error));
     let lang = Arc::new(lang);
 
-    test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
+    test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
         s,
         expr,
         Some(res),
@@ -3114,7 +3114,7 @@ fn test_dumb_lang() {
         3,
         Some(lang.clone()),
     );
-    test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
+    test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
         s,
         expr2,
         Some(res),
@@ -3124,7 +3124,7 @@ fn test_dumb_lang() {
         6,
         Some(lang.clone()),
     );
-    test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
+    test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
         s,
         expr3,
         None,
@@ -3134,7 +3134,7 @@ fn test_dumb_lang() {
         4,
         Some(lang.clone()),
     );
-    test_aux::<_, _, C1LEM<'_, _, DumbCoprocessor<_>>>(
+    test_aux::<_, _, C1LEM<'_, _, DumbCoproc<_>>>(
         s,
         expr4,
         None,
