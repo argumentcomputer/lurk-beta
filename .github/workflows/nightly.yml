@@ -55,15 +55,17 @@ jobs:
         run: |
           cargo test --doc --workspace --profile dev-ci
         continue-on-error: true
-      - name: Debug
-        run: |
-          echo ${{ steps.tests.outcome }}
-          echo ${{ steps.benches.outcome  }}
-          echo ${{ steps.tests.outcome }}
 
       - name: Gather status in a single variable
         if: steps.tests.outcome == 'success' && steps.benches.outcome == 'success' && steps.doctests.outcome == 'success'
         run: echo "status=true" >> $GITHUB_ENV
+
+      - name: Debug
+        run: |
+          echo ${{ steps.tests.outcome }}
+          echo ${{ steps.benches.outcome  }}
+          echo ${{ steps.doctests.outcome }}
+          echo ${{ env.status }}
 
       - name: Amend MESSAGE for tests
         if: steps.tests.outcome != 'success'
@@ -87,14 +89,16 @@ jobs:
             automated issue
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Close last report open issue
         if: env.status == 'true' && steps.last_issue.outputs.has-found == 'true'
         uses: peter-evans/close-issue@v3
         with:
           issue-number: ${{ steps.last_issue.outputs.issue-number }}
           comment: "All nightly tests succeeded"
+
       - name: Update last report open issue
-        if: env.status == 'false' && steps.last_issue.outputs.has-found == 'true'
+        if: env.status != 'true' && steps.last_issue.outputs.has-found == 'true'
         uses: peter-evans/create-or-update-comment@v3
         with:
           issue-number: ${{ steps.last_issue.outputs.issue-number }}
@@ -102,11 +106,11 @@ jobs:
           edit-mode: replace
 
       - name: Create file for issue
-        if: env.status == 'false' && steps.last_issue.outputs.has-found == 'false'
+        if: env.status != 'true' && steps.last_issue.outputs.has-found == 'false'
         run: echo "${{ env.MESSAGE }}" > ./_body.md
         
       - name: Create issue from report
-        if: env.status == 'false' && steps.last_issue.outputs.has-found == 'false'
+        if: env.status != 'true' && steps.last_issue.outputs.has-found == 'false'
         uses: peter-evans/create-issue-from-file@v4
         with:
           title: Nightly run failed
