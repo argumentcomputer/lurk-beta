@@ -60,7 +60,6 @@ To verify the generated proof:
 
 Please note the following limitations:
 - Proof as serialized here are not optimized for size.
-- The Groth16 and SnarkPack+ parameters used here were not the result of a trusted setup so are insecure.
 - To simplify reproducibility in development and for example purposes, these parameters are deterministically generated on-demand.
 - The parameters are currently uncached.
 - This adds time to both proof and verification.

@@ -30,11 +30,6 @@ fn main() -> Result<()> {
             Coproc<pallas::Scalar>,
         >(Lang::<pallas::Scalar, Coproc<pallas::Scalar>>::new()),
         // TODO: Support all LanguageFields.
-        // LanguageField::BLS12_381 => repl_cli::<
-        //     blstrs::Scalar,
-        //     ClutchState<blstrs::Scalar, Coproc<blstrs::Scalar>>,
-        //     Coproc<blstrs::Scalar>,
-        // >(Lang::<blstrs::Scalar, Coproc<blstrs::Scalar>>::new()),
         // LanguageField::Vesta => repl_cli::<
         //     vesta::Scalar,
         //     ClutchState<vesta::Scalar, Coproc<vesta::Scalar>>,

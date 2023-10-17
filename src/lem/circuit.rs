@@ -1,6 +1,6 @@
 //! ## Constraint system for LEM
 //!
-//! This module implements the generation of bellperson constraints for LEM, such
+//! This module implements the generation of bellpepper constraints for LEM, such
 //! that it can be used with Nova folding to prove evaluations of Lurk expressions.
 //!
 //! ### "Concrete" and "virtual" paths

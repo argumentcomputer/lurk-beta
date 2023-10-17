@@ -357,7 +357,7 @@ pub(crate) fn multi_case_aux<F: LurkField, CS: ConstraintSystem<F>>(
 
 #[allow(unused_imports)]
 mod tests {
-    use blstrs::Scalar as Fr;
+    use pasta_curves::pallas::Scalar as Fr;
 
     use super::*;
     use crate::store::Store;
@@ -692,7 +692,7 @@ mod tests {
     }
 
     #[test]
-    fn groth_case() {
+    fn circuit_consistency_case() {
         let mut cs = TestConstraintSystem::<Fr>::new();
         let mut cs_blank = MetricCS::<Fr>::new();
         let s = &mut Store::<Fr>::default();

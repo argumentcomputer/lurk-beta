@@ -9,7 +9,7 @@ calculate an evaluation. `lurk-rs` implements a concrete instance of the Lurk la
 evaluation can be generated. `lurk-rs` generates zk-SNARK proofs for multiple backends, and verification of these
 proofs requires reference to a verification key whose identity is derived from the computation encoded in the
 corresponding arithmetic circuit. The initial Lurk circuit implementation is specified as a Rank-1 Constraint System
-(R1CS), from which Groth16 or Nova proofs are created.
+(R1CS), from which Nova or SuperNova proofs are created.
 
 Because the circuit must check the computation to be proved, many aspects of the implementation itself must be fully
 specified. The reference implementation of Lurk expression evaluation in

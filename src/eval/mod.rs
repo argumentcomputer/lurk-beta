@@ -525,10 +525,7 @@ where
 
         // TODO: We previously had an optimization here. If the limit was not reached, the final frame should be an
         // identity reduction suitable for padding. If it's not needed for that purpose, we can pop it from frames. In
-        // the worst case, this could save creating one multi-frame filled only with this identity padding. However,
-        // knowing when it is safe to do that is complicated, because for Groth16/SnarkPack+, we may need to pad the
-        // total number of proofs to a power of two. For now, we omit the optimization. With more thought and care, we
-        // could add it back later.
+        // the worst case, this could save creating one multi-frame filled only with this identity padding.
 
         if !frames.is_empty() {
             let padding_frame = frames[frames.len() - 1].clone();

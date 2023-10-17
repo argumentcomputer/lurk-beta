@@ -1,8 +1,8 @@
-use blstrs::Scalar as Fr;
 use camino::Utf8Path;
 use criterion::{
     black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, SamplingMode,
 };
+use pasta_curves::pallas::Scalar as Fr;
 
 use lurk::{
     circuit::circuit_frame::MultiFrame,

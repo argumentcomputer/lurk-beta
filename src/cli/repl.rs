@@ -284,7 +284,6 @@ impl Repl<F> {
                     println!("Proof key: \"{proof_key}\"");
                     Ok(())
                 }
-                Backend::SnarkPackPlus => todo!(),
             },
         }
     }

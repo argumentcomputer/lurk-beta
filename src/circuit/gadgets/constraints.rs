@@ -696,7 +696,7 @@ pub(crate) fn and_v<CS: ConstraintSystem<F>, F: PrimeField>(
     Ok(and)
 }
 
-/// This is a replication of Bellperson's original `and`, but receives a mutable
+/// This is a replication of Bellpepper's original `and`, but receives a mutable
 /// reference for the constraint system instead of a copy
 #[allow(dead_code)]
 pub(crate) fn and<CS: ConstraintSystem<F>, F: PrimeField>(
@@ -948,8 +948,8 @@ mod tests {
     use super::*;
 
     use bellpepper_core::test_cs::TestConstraintSystem;
-    use blstrs::Scalar as Fr;
     use ff::Field;
+    use pasta_curves::pallas::Scalar as Fr;
     use proptest::prelude::*;
     use std::ops::{AddAssign, SubAssign};
 

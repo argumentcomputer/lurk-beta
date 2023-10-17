@@ -1,7 +1,7 @@
-use blstrs::Scalar as Fr;
 use criterion::{
     black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, SamplingMode,
 };
+use pasta_curves::pallas::Scalar as Fr;
 use pasta_curves::pallas::Scalar as Fq;
 use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 

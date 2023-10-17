@@ -11,8 +11,6 @@
 
 Lurk is currently in Alpha. Code that runs in the Lurk Alpha release is expected to also run in Lurk Beta, and eventually Lurk 1.0. However, some low-level data representations are anticipated to change, and we will be refactoring the circuit implementation to increase auditability and further our confidence in Lurk's cryptographic security. Also note that since Lurk inherits some security properties from the underlying proving system, those who would rely on Lurk should investigate the security and status of Nova itself. We encourage early adopters to begin writing real applications taking advantage of Lurk so you can begin to familiarize yourself with the programming model. Likewise, we welcome your feedback -- which will help ensure ongoing development meets user need.
 
-Note that Groth16 support is only partial, since no trusted setup has been run. If you wish to use Lurk with Groth16, a trusted setup will be required; and we would not recommend undertaking this until the 1.0 circuit has been released.
-
 # Overview
 
 Lurk is a statically scoped dialect of Lisp, influenced by Scheme and Common Lisp. A reference implementation focused on describing and developing the core language can be found in the [`lurk`](https://github.com/lurk-lab/lurk-lisp) repo.
@@ -26,8 +24,8 @@ Lurk's distinguishing feature relative to most zk-SNARK authoring languages is t
 Integration with backend proving systems and tooling for proof generation are both still very early. Performance and user experience still have room for significant optimization and improvement, but simple examples can be found in the [fcomm example directory](fcomm/README.md).
 
 # Backends
-- Nova is Lurk's officially-supported backend. It uses the [Nova proving system](https://github.com/microsoft/Nova) and the Pasta Curves.
-- There is also a Groth16 [SnarkPack](https://eprint.iacr.org/2021/529)[+](https://github.com/filecoin-project/bellperson/pull/257) backend using Bls12-381 (but see notes at *Status* above).
+- Nova is Lurk's officially-supported IVC backend. It uses Lurk Lab's Arecibo fork of the [Nova proving system](https://github.com/lurk-lab/arecibo) and the Pasta Curves.
+- SuperNova is Lurk's in-development NIVC backend. It uses Arecibo's [SuperNova extension ot the Nova proving system](https://github.com/lurk-lab/arecibo/tree/dev/src/supernova) and the Pasta Curves.
 - Future work may target Halo2 or other proving systems.
 
 It is an explicit design goal that statements about the evaluation of Lurk programs have identical semantic meaning across backends, with the qualification that Lurk language instances are themselves parameterized on scalar field and hash function. When backends use the same scalar field and hash function, they can be used to generate equivalent proofs. This is because the concrete representation of content-addressed data is fixed.

@@ -989,8 +989,8 @@ impl<F: LurkField> Ptr<F> {
 
 #[cfg(test)]
 mod tests {
-    use blstrs::Scalar as Fr;
     use ff::Field;
+    use pasta_curves::pallas::Scalar as Fr;
 
     use crate::{
         field::LurkField,

@@ -1888,8 +1888,8 @@ pub mod test {
     };
     use crate::{list, num, symbol};
 
-    use blstrs::Scalar as Fr;
     use ff::Field;
+    use pasta_curves::pallas::Scalar as Fr;
     use pasta_curves::pallas::Scalar as S1;
     use rand::rngs::OsRng;
 

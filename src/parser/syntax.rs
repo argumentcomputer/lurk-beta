@@ -436,8 +436,8 @@ pub fn parse_maybe_meta<F: LurkField>(
 
 #[cfg(test)]
 pub mod tests {
-    use blstrs::Scalar;
     use nom::Parser;
+    use pasta_curves::pallas::Scalar;
     #[cfg(not(target_arch = "wasm32"))]
     use proptest::prelude::*;
 

@@ -55,7 +55,7 @@ enum Command {
     Repl(ReplArgs),
     /// Verifies a Lurk proof
     Verify(VerifyArgs),
-    /// Instantiates a new circom gadget to interface with bellperson.
+    /// Instantiates a new circom gadget to interface with bellpepper.
     ///
     /// See `lurk circom --help` for more details
     #[command(verbatim_doc_comment)]
@@ -276,7 +276,6 @@ impl ReplArgs {
 fn parse_backend(backend_str: &String) -> Result<Backend> {
     match backend_str.to_lowercase().as_str() {
         "nova" => Ok(Backend::Nova),
-        "snarkpack+" => Ok(Backend::SnarkPackPlus),
         _ => bail!("Backend not supported: {backend_str}"),
     }
 }
@@ -285,7 +284,6 @@ fn parse_field(field_str: &String) -> Result<LanguageField> {
     match field_str.to_lowercase().as_str() {
         "pallas" => Ok(LanguageField::Pallas),
         "vesta" => Ok(LanguageField::Vesta),
-        "bls12-381" => Ok(LanguageField::BLS12_381),
         _ => bail!("Field not supported: {field_str}"),
     }
 }
@@ -404,7 +402,6 @@ impl ReplCli {
         match field {
             LanguageField::Pallas => repl!(rc, limit, pallas::Scalar, backend),
             // LanguageField::Vesta => repl!(rc, limit, vesta::Scalar, backend),
-            // LanguageField::BLS12_381 => repl!(rc, limit, blstrs::Scalar, backend),
             LanguageField::Vesta => todo!(),
             LanguageField::BLS12_381 => todo!(),
             LanguageField::BN256 => todo!(),
@@ -455,7 +452,6 @@ impl LoadCli {
         match field {
             LanguageField::Pallas => load!(rc, limit, pallas::Scalar, backend),
             // LanguageField::Vesta => load!(rc, limit, vesta::Scalar, backend),
-            // LanguageField::BLS12_381 => load!(rc, limit, blstrs::Scalar, backend),
             LanguageField::Vesta => todo!(),
             LanguageField::BLS12_381 => todo!(),
             LanguageField::BN256 => todo!(),

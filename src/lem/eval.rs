@@ -1688,7 +1688,7 @@ mod tests {
         lem::{slot::SlotsCounter, store::Store},
     };
     use bellpepper_core::{test_cs::TestConstraintSystem, Comparable};
-    use blstrs::Scalar as Fr;
+    use pasta_curves::pallas::Scalar as Fr;
 
     const NUM_INPUTS: usize = 1;
     const NUM_AUX: usize = 9390;

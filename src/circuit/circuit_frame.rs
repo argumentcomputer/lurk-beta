@@ -5756,16 +5756,14 @@ mod tests {
         lang::{Coproc, Lang},
         Evaluable, IO,
     };
-    use crate::proof::groth16::Groth16Prover;
+    use crate::proof::nova::{public_params, NovaProver};
     use crate::proof::{Provable, Prover};
     use crate::store::Store;
     use bellpepper::util_cs::metric_cs::MetricCS;
     use bellpepper_core::test_cs::TestConstraintSystem;
     use bellpepper_core::{Comparable, Delta};
-    use bellperson::groth16;
-    use blstrs::{Bls12, Scalar as Fr};
     use ff::{Field, PrimeField};
-    use pairing::Engine;
+    use pasta_curves::pallas::Scalar as Fr;
 
     const DEFAULT_REDUCTION_COUNT: usize = 1;
 
@@ -5784,20 +5782,11 @@ mod tests {
         let lang = Arc::new(raw_lang.clone());
         let (_, witness, meta) = input.reduce(&store, &lang).unwrap();
 
-        let public_params = Groth16Prover::<Bls12, Coproc<Fr>, Fr, MultiFrame<'_, Fr, Coproc<Fr>>>::create_groth_params(
+        let public_params = public_params(DEFAULT_REDUCTION_COUNT, lang.clone());
+        let nova_prover = NovaProver::<Fr, Coproc<Fr>, MultiFrame<'_, Fr, Coproc<Fr>>>::new(
             DEFAULT_REDUCTION_COUNT,
-            lang.clone(),
-        )
-        .unwrap();
-        let groth_prover =
-            Groth16Prover::<Bls12, Coproc<Fr>, Fr, MultiFrame<'_, Fr, Coproc<Fr>>>::new(
-                DEFAULT_REDUCTION_COUNT,
-                raw_lang,
-            );
-        let groth_params = &public_params.0;
-
-        let vk = &groth_params.vk;
-        let pvk = groth16::prepare_verifying_key(vk);
+            raw_lang,
+        );
 
         store.hydrate_scalar_cache();
         let test_with_output = |output: IO<Fr>, expect_success: bool, store: &Store<Fr>| {
@@ -5808,28 +5797,23 @@ mod tests {
                 lang.clone(),
                 DEFAULT_REDUCTION_COUNT,
             ));
-            let blank_multiframe = MultiFrame::<<Bls12 as Engine>::Fr, Coproc<Fr>>::blank(
-                folding_config.clone(),
-                Meta::Lurk,
-            );
+            let blank_multiframe =
+                MultiFrame::<Fr, Coproc<Fr>>::blank(folding_config.clone(), Meta::Lurk);
 
             blank_multiframe
                 .synthesize(&mut cs_blank)
                 .expect("failed to synthesize");
 
-            let multiframes = MultiFrame::from_frames(
-                DEFAULT_REDUCTION_COUNT,
-                &[Frame {
-                    input,
-                    output,
-                    i: 0,
-                    witness,
-                    meta,
-                    _p: Default::default(),
-                }],
-                store,
-                folding_config,
-            );
+            let frames = [Frame {
+                input,
+                output,
+                i: 0,
+                witness,
+                meta,
+                _p: Default::default(),
+            }];
+            let multiframes =
+                MultiFrame::from_frames(DEFAULT_REDUCTION_COUNT, &frames, store, folding_config);
 
             let multiframe = &multiframes[0];
 
@@ -5843,20 +5827,23 @@ mod tests {
             assert!(delta == Delta::Equal);
 
             // println!("{}", print_cs(&cs));
-            assert_eq!(11823, cs.num_constraints());
+            assert_eq!(11463, cs.num_constraints());
             assert_eq!(13, cs.num_inputs());
-            assert_eq!(11479, cs.aux().len());
+            assert_eq!(11119, cs.aux().len());
 
             let public_inputs = multiframe.public_inputs();
-            let mut rng = rand::thread_rng();
 
-            let proof = groth_prover
-                .prove(multiframe.clone(), groth_params, &mut rng)
+            let (proof, ..) = nova_prover
+                .prove(&public_params, &frames, store, &lang)
                 .unwrap();
             let cs_verified = cs.is_satisfied() && cs.verify(&public_inputs);
-            let verified = multiframe
-                .clone()
-                .verify_groth16_proof(&pvk, &proof)
+            let verified = proof
+                .verify(
+                    &public_params,
+                    1,
+                    &input.to_inputs(store),
+                    &output.to_inputs(store),
+                )
                 .unwrap();
 
             if expect_success {
@@ -5945,7 +5932,7 @@ mod tests {
                 lang.clone(),
                 DEFAULT_REDUCTION_COUNT,
             ));
-            MultiFrame::<<Bls12 as Engine>::Fr, Coproc<Fr>>::from_frames(
+            MultiFrame::<Fr, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
@@ -6030,7 +6017,7 @@ mod tests {
                 lang.clone(),
                 DEFAULT_REDUCTION_COUNT,
             ));
-            MultiFrame::<<Bls12 as Engine>::Fr, Coproc<Fr>>::from_frames(
+            MultiFrame::<Fr, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
@@ -6118,7 +6105,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
             ));
 
-            MultiFrame::<<Bls12 as Engine>::Fr, Coproc<Fr>>::from_frames(
+            MultiFrame::<Fr, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
@@ -6205,7 +6192,7 @@ mod tests {
                 DEFAULT_REDUCTION_COUNT,
             ));
 
-            MultiFrame::<<Bls12 as Engine>::Fr, Coproc<Fr>>::from_frames(
+            MultiFrame::<Fr, Coproc<Fr>>::from_frames(
                 DEFAULT_REDUCTION_COUNT,
                 &[frame],
                 store,
