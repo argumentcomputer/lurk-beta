@@ -396,6 +396,33 @@ impl<F: LurkField> Store<F> {
         })
     }
 
+    /// Fetches a cons list that was interned. If the list is improper, the second
+    /// element of the returned pair will carry the improper terminating value
+    fn fetch_list(&self, ptr: &Ptr<F>) -> Option<(Vec<Ptr<F>>, Option<Ptr<F>>)> {
+        match ptr {
+            Ptr::Tuple2(Tag::Expr(Nil), _) => Some((vec![], None)),
+            Ptr::Tuple2(Tag::Expr(Cons), mut idx) => {
+                let mut list = vec![];
+                let mut last = None;
+                while let Some((car, cdr)) = self.fetch_2_ptrs(idx) {
+                    list.push(*car);
+                    match cdr.tag() {
+                        Tag::Expr(Nil) => break,
+                        Tag::Expr(Cons) => {
+                            idx = cdr.get_index2()?;
+                        }
+                        _ => {
+                            last = Some(*cdr);
+                            break;
+                        }
+                    }
+                }
+                Some((list, last))
+            }
+            _ => None,
+        }
+    }
+
     pub fn intern_syntax(&self, syn: Syntax<F>) -> Ptr<F> {
         match syn {
             Syntax::Num(_, x) => Ptr::Atom(Tag::Expr(Num), x.into_scalar()),
@@ -656,11 +683,11 @@ impl<F: LurkField> Store<F> {
 }
 
 impl<F: LurkField> Ptr<F> {
-    pub fn dbg_display(self, store: &Store<F>) -> String {
-        if let Some(s) = store.fetch_string(&self) {
+    pub fn dbg_display(&self, store: &Store<F>) -> String {
+        if let Some(s) = store.fetch_string(self) {
             return format!("\"{s}\"");
         }
-        if let Some(s) = store.fetch_symbol(&self) {
+        if let Some(s) = store.fetch_symbol(self) {
             return format!("{s}");
         }
         match self {
@@ -672,56 +699,36 @@ impl<F: LurkField> Ptr<F> {
                 }
             }
             Ptr::Tuple2(tag, x) => {
-                let (p1, p2) = store.fetch_2_ptrs(x).unwrap();
+                let (p1, p2) = store.fetch_2_ptrs(*x).unwrap();
                 format!(
                     "({} {} {})",
                     tag,
-                    (*p1).dbg_display(store),
-                    (*p2).dbg_display(store)
+                    p1.dbg_display(store),
+                    p2.dbg_display(store)
                 )
             }
             Ptr::Tuple3(tag, x) => {
-                let (p1, p2, p3) = store.fetch_3_ptrs(x).unwrap();
+                let (p1, p2, p3) = store.fetch_3_ptrs(*x).unwrap();
                 format!(
                     "({} {} {} {})",
                     tag,
-                    (*p1).dbg_display(store),
-                    (*p2).dbg_display(store),
-                    (*p3).dbg_display(store)
+                    p1.dbg_display(store),
+                    p2.dbg_display(store),
+                    p3.dbg_display(store)
                 )
             }
             Ptr::Tuple4(tag, x) => {
-                let (p1, p2, p3, p4) = store.fetch_4_ptrs(x).unwrap();
+                let (p1, p2, p3, p4) = store.fetch_4_ptrs(*x).unwrap();
                 format!(
                     "({} {} {} {} {})",
                     tag,
-                    (*p1).dbg_display(store),
-                    (*p2).dbg_display(store),
-                    (*p3).dbg_display(store),
-                    (*p4).dbg_display(store)
+                    p1.dbg_display(store),
+                    p2.dbg_display(store),
+                    p3.dbg_display(store),
+                    p4.dbg_display(store)
                 )
             }
         }
-    }
-
-    fn unfold_list(&self, store: &Store<F>) -> Option<(Vec<Ptr<F>>, Option<Ptr<F>>)> {
-        let mut idx = self.get_index2()?;
-        let mut list = vec![];
-        let mut last = None;
-        while let Some((car, cdr)) = store.fetch_2_ptrs(idx) {
-            list.push(*car);
-            match cdr.tag() {
-                Tag::Expr(Nil) => break,
-                Tag::Expr(Cons) => {
-                    idx = cdr.get_index2()?;
-                }
-                _ => {
-                    last = Some(*cdr);
-                    break;
-                }
-            }
-        }
-        Some((list, last))
     }
 
     pub fn fmt_to_string(&self, store: &Store<F>, state: &State) -> String {
@@ -760,16 +767,16 @@ impl<F: LurkField> Ptr<F> {
                     _ => "<Malformed Char>".into(),
                 },
                 Cons => {
-                    if let Some((list, last)) = self.unfold_list(store) {
+                    if let Some((list, non_nil)) = store.fetch_list(self) {
                         let list = list
                             .iter()
                             .map(|p| p.fmt_to_string(store, state))
                             .collect::<Vec<_>>();
-                        if let Some(last) = last {
+                        if let Some(non_nil) = non_nil {
                             format!(
                                 "({} . {})",
                                 list.join(" "),
-                                last.fmt_to_string(store, state)
+                                non_nil.fmt_to_string(store, state)
                             )
                         } else {
                             format!("({})", list.join(" "))
@@ -982,15 +989,89 @@ impl<F: LurkField> Ptr<F> {
 
 #[cfg(test)]
 mod tests {
+    use blstrs::Scalar as Fr;
+    use ff::Field;
+
+    use crate::{
+        field::LurkField,
+        state::initial_lurk_state,
+        tag::{ExprTag, Tag},
+        Symbol,
+    };
+
+    use super::{Ptr, Store};
+
     #[test]
-    fn test_ptr_hashing() {
+    fn test_car_cdr() {
+        let store = Store::<Fr>::default();
+
+        // empty list
+        let nil = store.intern_nil();
+        let (car, cdr) = store.car_cdr(&nil).unwrap();
+        assert_eq!((&car, &cdr), (&nil, &nil));
+
+        // regular cons
+        let one = Ptr::<Fr>::num_u64(1);
+        let a = Ptr::<Fr>::char('a');
+        let one_a = store.cons(one, a);
+        let (car, cdr) = store.car_cdr(&one_a).unwrap();
+        assert_eq!((&one, &a), (&car, &cdr));
+
+        // string
+        let abc = store.intern_string("abc");
+        let bc = store.intern_string("bc");
+        let (car, cdr) = store.car_cdr(&abc).unwrap();
+        assert_eq!((&a, &bc), (&car, &cdr));
+
+        // empty string
+        let empty_str = store.intern_string("");
+        let (car, cdr) = store.car_cdr(&empty_str).unwrap();
+        assert_eq!((&nil, &empty_str), (&car, &cdr));
+    }
+
+    #[test]
+    fn test_list() {
+        let store = Store::<Fr>::default();
+        let state = initial_lurk_state();
+
+        // empty list
+        let list = store.list(vec![]);
+        let nil = store.intern_nil();
+        assert_eq!(&list, &nil);
+        let (elts, non_nil) = store.fetch_list(&list).unwrap();
+        assert!(elts.is_empty());
+        assert!(non_nil.is_none());
+
+        // proper list
+        let a = Ptr::<Fr>::char('a');
+        let b = Ptr::<Fr>::char('b');
+        let list = store.list(vec![a, b]);
+        assert_eq!(list.fmt_to_string(&store, state), "('a' 'b')");
+        let (elts, non_nil) = store.fetch_list(&list).unwrap();
+        assert_eq!(elts.len(), 2);
+        assert_eq!((&elts[0], &elts[1]), (&a, &b));
+        assert!(non_nil.is_none());
+
+        // improper list
+        let c = Ptr::<Fr>::char('c');
+        let b_c = store.cons(b, c);
+        let a_b_c = store.cons(a, b_c);
+        assert_eq!(a_b_c.fmt_to_string(&store, state), "('a' 'b' . 'c')");
+        let (elts, non_nil) = store.fetch_list(&a_b_c).unwrap();
+        assert_eq!(elts.len(), 2);
+        assert_eq!((&elts[0], &elts[1]), (&a, &b));
+        assert_eq!(non_nil, Some(c));
+    }
+
+    #[test]
+    fn test_ptr_hashing_safety() {
         let string = String::from_utf8(vec![b'0'; 4096]).unwrap();
-        let store = super::Store::<blstrs::Scalar>::default();
+        let store = Store::<Fr>::default();
         let ptr = store.intern_string(&string);
         // `hash_ptr_unsafe` would overflow the stack, whereas `hash_ptr` works
         let x = store.hash_ptr(&ptr).unwrap();
 
-        let store = super::Store::<blstrs::Scalar>::default();
+        let store = Store::<Fr>::default();
         let ptr = store.intern_string(&string);
         store.hydrate_z_cache();
         // but `hash_ptr_unsafe` works just fine after manual hydration
@@ -998,5 +1079,52 @@ mod tests {
 
         // and, of course, those functions result on the same `ZPtr`
         assert_eq!(x, y);
+    }
+
+    #[test]
+    fn string_hashing() {
+        let s = &Store::<Fr>::default();
+        let hi_ptr = s.intern_string("hi");
+
+        let hi_hash_manual = s.poseidon_cache.hash4(&[
+            ExprTag::Char.to_field(),
+            Fr::from_char('h'),
+            ExprTag::Str.to_field(),
+            s.poseidon_cache.hash4(&[
+                ExprTag::Char.to_field(),
+                Fr::from_char('i'),
+                ExprTag::Str.to_field(),
+                Fr::ZERO,
+            ]),
+        ]);
+
+        let hi_hash = s.hash_ptr(&hi_ptr).unwrap().1;
+        assert_eq!(hi_hash, hi_hash_manual);
+    }
+
+    #[test]
+    fn symbol_hashing() {
+        let s = &Store::<Fr>::default();
+        let foo_ptr = s.intern_string("foo");
+        let bar_ptr = s.intern_string("bar");
+        let foo_bar_ptr = s.intern_symbol(&Symbol::sym_from_vec(vec!["foo".into(), "bar".into()]));
+
+        let foo_z_ptr = s.hash_ptr(&foo_ptr).unwrap();
+        let bar_z_ptr = s.hash_ptr(&bar_ptr).unwrap();
+
+        let foo_bar_hash_manual = s.poseidon_cache.hash4(&[
+            ExprTag::Str.to_field(),
+            bar_z_ptr.1,
+            ExprTag::Sym.to_field(),
+            s.poseidon_cache.hash4(&[
+                ExprTag::Str.to_field(),
+                foo_z_ptr.1,
+                ExprTag::Sym.to_field(),
+                Fr::ZERO,
+            ]),
+        ]);
+
+        let foo_bar_hash = s.hash_ptr(&foo_bar_ptr).unwrap().1;
+        assert_eq!(foo_bar_hash, foo_bar_hash_manual);
     }
 }
