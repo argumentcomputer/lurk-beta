@@ -1197,7 +1197,7 @@ mod test {
         );
 
         let function_source = "(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))";
-        let expected_io = vec![("5", "5"), ("3", "8")];
+        let expected_io = [("5", "5"), ("3", "8")];
 
         let mut function = CommittedExpression::<S1> {
             expr: LurkPtr::Source(function_source.into()),

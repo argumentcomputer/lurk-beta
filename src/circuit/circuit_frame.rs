@@ -191,7 +191,7 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         let env = s.hash_expr(&input.env).unwrap();
         let cont = s.hash_cont(&input.cont).unwrap();
 
-        let z_scalar = vec![
+        let z_scalar = [
             expr.tag().to_field(),
             *expr.value(),
             env.tag().to_field(),

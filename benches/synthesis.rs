@@ -87,7 +87,7 @@ fn synthesize<M: measurement::Measurement>(
 }
 
 fn fibonacci_synthesize(c: &mut Criterion) {
-    let batch_sizes = vec![5, 10, 100, 200];
+    let batch_sizes = [5, 10, 100, 200];
     let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("synthesis");
     group.sampling_mode(SamplingMode::Flat); // This can take a *while*
     group.sample_size(10);

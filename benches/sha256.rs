@@ -157,8 +157,8 @@ fn sha256_ivc_prove<M: measurement::Measurement>(
 
 fn ivc_prove_benchmarks(c: &mut Criterion) {
     tracing::debug!("{:?}", &*lurk::config::CONFIG);
-    let reduction_counts = vec![10, 100];
-    let batch_sizes = vec![1, 2, 5, 10, 20];
+    let reduction_counts = [10, 100];
+    let batch_sizes = [1, 2, 5, 10, 20];
     let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("prove");
     group.sampling_mode(SamplingMode::Flat); // This can take a *while*
     group.sample_size(10);
@@ -244,8 +244,8 @@ fn sha256_ivc_prove_compressed<M: measurement::Measurement>(
 
 fn ivc_prove_compressed_benchmarks(c: &mut Criterion) {
     tracing::debug!("{:?}", &*lurk::config::CONFIG);
-    let reduction_counts = vec![10, 100];
-    let batch_sizes = vec![1, 2, 5, 10, 20];
+    let reduction_counts = [10, 100];
+    let batch_sizes = [1, 2, 5, 10, 20];
     let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("prove_compressed");
     group.sampling_mode(SamplingMode::Flat); // This can take a *while*
     group.sample_size(10);
@@ -331,8 +331,8 @@ fn sha256_nivc_prove<M: measurement::Measurement>(
 
 fn nivc_prove_benchmarks(c: &mut Criterion) {
     tracing::debug!("{:?}", &*lurk::config::CONFIG);
-    let reduction_counts = vec![10, 100];
-    let batch_sizes = vec![1, 2, 5, 10, 20];
+    let reduction_counts = [10, 100];
+    let batch_sizes = [1, 2, 5, 10, 20];
     let mut group: BenchmarkGroup<'_, _> = c.benchmark_group("prove");
     group.sampling_mode(SamplingMode::Flat); // This can take a *while*
     group.sample_size(10);
