@@ -660,6 +660,10 @@
 <a href="#660" id="660">660</a>
 <a href="#661" id="661">661</a>
 <a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>abomonation::Abomonation;
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>bellpepper::util_cs::witness_cs::WitnessCS;
@@ -762,6 +766,10 @@
 
     <span class="kw">fn </span>get_cont_terminal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::ContPtr {
         Ptr::null(Tag::Cont(ContTag::Terminal))
+    }
+
+    <span class="kw">fn </span>hydrate_z_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="self">self</span>.hydrate_z_cache()
     }
 
     <span class="kw">fn </span>ptr_eq(<span class="kw-2">&amp;</span><span class="self">self</span>, left: <span class="kw-2">&amp;</span><span class="self">Self</span>::Ptr, right: <span class="kw-2">&amp;</span><span class="self">Self</span>::Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;bool, <span class="self">Self</span>::Error&gt; {

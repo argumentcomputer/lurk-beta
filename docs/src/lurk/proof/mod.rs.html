@@ -295,6 +295,9 @@
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
 <a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
 </pre></div><pre class="rust"><code><span class="attr">#![deny(missing_docs)]
 
 </span><span class="doccomment">//! This module offers a connection the the backend proving engine of Lurk.
@@ -364,6 +367,9 @@
     </span><span class="kw">fn </span>initial_empty_env(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Ptr;
     <span class="doccomment">/// getting the terminal continuation pointer
     </span><span class="kw">fn </span>get_cont_terminal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::ContPtr;
+
+    <span class="doccomment">/// cache hashes for pointers enqueued for hydration
+    </span><span class="kw">fn </span>hydrate_z_cache(<span class="kw-2">&amp;</span><span class="self">self</span>);
 
     <span class="doccomment">/// hash-equality of the expressions represented by Ptrs
     </span><span class="kw">fn </span>ptr_eq(<span class="kw-2">&amp;</span><span class="self">self</span>, left: <span class="kw-2">&amp;</span><span class="self">Self</span>::Ptr, right: <span class="kw-2">&amp;</span><span class="self">Self</span>::Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;bool, <span class="self">Self</span>::Error&gt;;

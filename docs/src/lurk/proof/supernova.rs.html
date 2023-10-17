@@ -513,6 +513,7 @@
 <a href="#513" id="513">513</a>
 <a href="#514" id="514">514</a>
 <a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>abomonation::Abomonation;
@@ -539,7 +540,7 @@
     field::LurkField,
     proof::{
         nova::{CurveCycleEquipped, NovaCircuitShape, G1, G2},
-        {FrameLike, MultiFrameTrait, Provable, Prover},
+        {EvaluationStore, FrameLike, MultiFrameTrait, Provable, Prover},
     },
 };
 
@@ -784,6 +785,7 @@
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>M::Store,
         lang: Arc&lt;Lang&lt;F, C&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;, Vec&lt;F&gt;, Vec&lt;F&gt;, usize, usize), ProofError&gt; {
+        store.hydrate_z_cache();
         <span class="kw">let </span>z0 = M::io_to_scalar_vector(store, frames[<span class="number">0</span>].input()).map_err(|e| e.into())<span class="question-mark">?</span>;
         <span class="kw">let </span>zi =
             M::io_to_scalar_vector(store, frames.last().unwrap().output()).map_err(|e| e.into())<span class="question-mark">?</span>;

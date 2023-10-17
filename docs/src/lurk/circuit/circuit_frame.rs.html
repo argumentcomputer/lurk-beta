@@ -6464,6 +6464,10 @@
 <a href="#6464" id="6464">6464</a>
 <a href="#6465" id="6465">6465</a>
 <a href="#6466" id="6466">6466</a>
+<a href="#6467" id="6467">6467</a>
+<a href="#6468" id="6468">6468</a>
+<a href="#6469" id="6469">6469</a>
+<a href="#6470" id="6470">6470</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
@@ -6591,6 +6595,10 @@
     <span class="kw">fn </span>get_cont_terminal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::ContPtr {
         <span class="comment">// qualified syntax for the
         </span>Store::get_cont_terminal(<span class="self">self</span>)
+    }
+
+    <span class="kw">fn </span>hydrate_z_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="self">self</span>.hydrate_scalar_cache()
     }
 
     <span class="kw">fn </span>ptr_eq(<span class="kw-2">&amp;</span><span class="self">self</span>, left: <span class="kw-2">&amp;</span><span class="self">Self</span>::Ptr, right: <span class="kw-2">&amp;</span><span class="self">Self</span>::Ptr) -&gt; <span class="prelude-ty">Result</span>&lt;bool, <span class="self">Self</span>::Error&gt; {

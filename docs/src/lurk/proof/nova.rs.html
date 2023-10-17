@@ -678,6 +678,7 @@
 <a href="#678" id="678">678</a>
 <a href="#679" id="679">679</a>
 <a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="kw">use </span>abomonation::Abomonation;
@@ -717,7 +718,7 @@
     error::ProofError,
     eval::{lang::Lang, Meta},
     field::LurkField,
-    proof::{supernova::FoldingConfig, FrameLike, MultiFrameTrait, Prover},
+    proof::{supernova::FoldingConfig, EvaluationStore, FrameLike, MultiFrameTrait, Prover},
     store::Store,
 };
 
@@ -986,6 +987,7 @@
         store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>M::Store,
         lang: <span class="kw-2">&amp;</span>Arc&lt;Lang&lt;F, C&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;<span class="lifetime">&#39;a</span>, F, C, M&gt;, Vec&lt;F&gt;, Vec&lt;F&gt;, usize), ProofError&gt; {
+        store.hydrate_z_cache();
         <span class="kw">let </span>z0 = M::io_to_scalar_vector(store, frames[<span class="number">0</span>].input()).map_err(|e| e.into())<span class="question-mark">?</span>;
         <span class="kw">let </span>zi =
             M::io_to_scalar_vector(store, frames.last().unwrap().output()).map_err(|e| e.into())<span class="question-mark">?</span>;

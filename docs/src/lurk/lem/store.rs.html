@@ -905,10 +905,106 @@
 <a href="#905" id="905">905</a>
 <a href="#906" id="906">906</a>
 <a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>arc_swap::ArcSwap;
 <span class="kw">use </span>elsa::sync::{FrozenMap, FrozenVec};
 <span class="kw">use </span>elsa::sync_index_set::FrozenIndexSet;
+<span class="kw">use </span>indexmap::IndexSet;
 <span class="kw">use </span>nom::{sequence::preceded, Parser};
 <span class="kw">use </span>rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 <span class="kw">use </span>std::{cell::RefCell, rc::Rc, sync::Arc};
@@ -1207,14 +1303,11 @@
         </span>}
     }
 
-    <span class="kw">pub fn </span>hide(<span class="kw-2">&amp;</span><span class="self">self</span>, secret: F, payload: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;&gt; {
-        <span class="kw">let </span>z_ptr = <span class="self">self</span>.hash_ptr(<span class="kw-2">&amp;</span>payload)<span class="question-mark">?</span>;
-        <span class="kw">let </span>hash = <span class="self">self
-            </span>.poseidon_cache
-            .hash3(<span class="kw-2">&amp;</span>[secret, z_ptr.tag_field(), <span class="kw-2">*</span>z_ptr.value()]);
-        <span class="self">self</span>.comms
-            .insert(FWrap::&lt;F&gt;(hash), Box::new((secret, payload)));
-        <span class="prelude-val">Ok</span>(Ptr::comm(hash))
+    <span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>hide(<span class="kw-2">&amp;</span><span class="self">self</span>, secret: F, payload: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Ptr&lt;F&gt;&gt; {
+        <span class="prelude-val">Ok</span>(Ptr::comm(
+            <span class="self">self</span>.hide_and_return_z_payload(secret, payload)<span class="question-mark">?</span>.<span class="number">0</span>,
+        ))
     }
 
     <span class="kw">pub fn </span>hide_and_return_z_payload(<span class="kw-2">&amp;</span><span class="self">self</span>, secret: F, payload: Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(F, ZPtr&lt;F&gt;)&gt; {
@@ -1368,8 +1461,9 @@
     /// cache for the new `Ptr`s.
     ///
     /// Warning: without cache hits, this function might blow up Rust&#39;s recursion
-    /// depth limit. This limitation is circumvented by calling `hydrate_z_cache`.
-    </span><span class="kw">pub fn </span>hash_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;ZPtr&lt;F&gt;&gt; {
+    /// depth limit. This limitation is circumvented by calling `hydrate_z_cache`
+    /// beforehand or by using `hash_ptr` instead, which is slightly slower.
+    </span><span class="kw">fn </span>hash_ptr_unsafe(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;ZPtr&lt;F&gt;&gt; {
         <span class="kw">match </span>ptr {
             Ptr::Atom(tag, x) =&gt; <span class="kw">match </span>tag {
                 Tag::Cont(Outermost | ContTag::Error | Dummy | Terminal) =&gt; {
@@ -1388,8 +1482,8 @@
                     <span class="kw">let </span><span class="prelude-val">Some</span>((a, b)) = <span class="self">self</span>.fetch_2_ptrs(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on tuple2&quot;</span>)
                     };
-                    <span class="kw">let </span>a = <span class="self">self</span>.hash_ptr(a)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>b = <span class="self">self</span>.hash_ptr(b)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>a = <span class="self">self</span>.hash_ptr_unsafe(a)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>b = <span class="self">self</span>.hash_ptr_unsafe(b)<span class="question-mark">?</span>;
                     <span class="kw">let </span>z_ptr = ZPtr::from_parts(
                         <span class="kw-2">*</span>tag,
                         <span class="self">self</span>.poseidon_cache.hash4(<span class="kw-2">&amp;</span>[
@@ -1410,9 +1504,9 @@
                     <span class="kw">let </span><span class="prelude-val">Some</span>((a, b, c)) = <span class="self">self</span>.fetch_3_ptrs(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on tuple3&quot;</span>)
                     };
-                    <span class="kw">let </span>a = <span class="self">self</span>.hash_ptr(a)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>b = <span class="self">self</span>.hash_ptr(b)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>c = <span class="self">self</span>.hash_ptr(c)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>a = <span class="self">self</span>.hash_ptr_unsafe(a)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>b = <span class="self">self</span>.hash_ptr_unsafe(b)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>c = <span class="self">self</span>.hash_ptr_unsafe(c)<span class="question-mark">?</span>;
                     <span class="kw">let </span>z_ptr = ZPtr::from_parts(
                         <span class="kw-2">*</span>tag,
                         <span class="self">self</span>.poseidon_cache.hash6(<span class="kw-2">&amp;</span>[
@@ -1435,10 +1529,10 @@
                     <span class="kw">let </span><span class="prelude-val">Some</span>((a, b, c, d)) = <span class="self">self</span>.fetch_4_ptrs(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
                         <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on tuple4&quot;</span>)
                     };
-                    <span class="kw">let </span>a = <span class="self">self</span>.hash_ptr(a)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>b = <span class="self">self</span>.hash_ptr(b)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>c = <span class="self">self</span>.hash_ptr(c)<span class="question-mark">?</span>;
-                    <span class="kw">let </span>d = <span class="self">self</span>.hash_ptr(d)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>a = <span class="self">self</span>.hash_ptr_unsafe(a)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>b = <span class="self">self</span>.hash_ptr_unsafe(b)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>c = <span class="self">self</span>.hash_ptr_unsafe(c)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>d = <span class="self">self</span>.hash_ptr_unsafe(d)<span class="question-mark">?</span>;
                     <span class="kw">let </span>z_ptr = ZPtr::from_parts(
                         <span class="kw-2">*</span>tag,
                         <span class="self">self</span>.poseidon_cache.hash8(<span class="kw-2">&amp;</span>[
@@ -1459,18 +1553,91 @@
         }
     }
 
-    <span class="doccomment">/// Hashes `Ptr` trees from the bottom to the top, avoiding deep recursions
-    /// in `hash_ptr`.
-    </span><span class="kw">pub fn </span>hydrate_z_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="self">self</span>.dehydrated
-            .load()
-            .iter()
-            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-            .par_iter()
-            .for_each(|ptr| {
-                <span class="self">self</span>.hash_ptr(ptr).expect(<span class="string">&quot;failed to hash_ptr&quot;</span>);
+    <span class="doccomment">/// Hashes pointers in parallel, consuming chunks of length 256, which is a
+    /// reasonably safe limit in terms of memory consumption.
+    </span><span class="kw">fn </span>hydrate_z_cache_with_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>, ptrs: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>Ptr&lt;F&gt;]) {
+        <span class="kw">for </span>chunk <span class="kw">in </span>ptrs.chunks(<span class="number">256</span>) {
+            chunk.par_iter().for_each(|ptr| {
+                <span class="self">self</span>.hash_ptr_unsafe(ptr).expect(<span class="string">&quot;hash_ptr failed&quot;</span>);
             });
+        }
+    }
+
+    <span class="doccomment">/// Hashes enqueued `Ptr` trees from the bottom to the top, avoiding deep
+    /// recursions in `hash_ptr`. Resets the `dehydrated` queue afterwards.
+    </span><span class="kw">pub fn </span>hydrate_z_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="self">self</span>.hydrate_z_cache_with_ptrs(<span class="kw-2">&amp;</span><span class="self">self</span>.dehydrated.load().iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;());
         <span class="self">self</span>.dehydrated.swap(Arc::new(FrozenVec::default()));
+    }
+
+    <span class="doccomment">/// Whether the length of the dehydrated queue is within the safe limit.
+    /// Note: these values are experimental and may be machine dependant.
+    </span><span class="attr">#[inline]
+    </span><span class="kw">fn </span>is_below_safe_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="kw">if </span><span class="macro">cfg!</span>(debug_assertions) {
+            <span class="comment">// not release mode
+            </span><span class="self">self</span>.dehydrated.load().len() &lt; <span class="number">443
+        </span>} <span class="kw">else </span>{
+            <span class="comment">// release mode
+            </span><span class="self">self</span>.dehydrated.load().len() &lt; <span class="number">2497
+        </span>}
+    }
+
+    <span class="doccomment">/// Safe version of `hash_ptr_unsafe` that doesn&#39;t hit a stack overflow by
+    /// precomputing the pointers that need to be hashed in order to hash the
+    /// provided `ptr`
+    </span><span class="kw">pub fn </span>hash_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;ZPtr&lt;F&gt;&gt; {
+        <span class="kw">if </span><span class="self">self</span>.is_below_safe_threshold() {
+            <span class="comment">// just run `hash_ptr_unsafe` for extra speed when the dehydrated
+            // queue is small enough
+            </span><span class="kw">return </span><span class="self">self</span>.hash_ptr_unsafe(ptr);
+        }
+        <span class="kw">let </span><span class="kw-2">mut </span>ptrs: IndexSet&lt;<span class="kw-2">&amp;</span>Ptr&lt;F&gt;&gt; = IndexSet::default();
+        <span class="kw">let </span><span class="kw-2">mut </span>stack = <span class="macro">vec!</span>[ptr];
+        <span class="macro">macro_rules! </span>feed_loop {
+            (<span class="macro-nonterminal">$x</span>:expr) =&gt; {
+                <span class="kw">if </span><span class="macro-nonterminal">$x</span>.is_tuple() {
+                    <span class="kw">if </span><span class="self">self</span>.z_cache.get(<span class="macro-nonterminal">$x</span>).is_none() {
+                        <span class="kw">if </span>ptrs.insert(<span class="macro-nonterminal">$x</span>) {
+                            stack.push(<span class="macro-nonterminal">$x</span>);
+                        }
+                    }
+                }
+            };
+        }
+        <span class="kw">while let </span><span class="prelude-val">Some</span>(ptr) = stack.pop() {
+            <span class="kw">match </span>ptr {
+                Ptr::Atom(..) =&gt; (),
+                Ptr::Tuple2(<span class="kw">_</span>, idx) =&gt; {
+                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b)) = <span class="self">self</span>.fetch_2_ptrs(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
+                        <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on tuple2&quot;</span>)
+                    };
+                    <span class="kw">for </span>ptr <span class="kw">in </span>[a, b] {
+                        <span class="macro">feed_loop!</span>(ptr)
+                    }
+                }
+                Ptr::Tuple3(<span class="kw">_</span>, idx) =&gt; {
+                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b, c)) = <span class="self">self</span>.fetch_3_ptrs(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
+                        <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on tuple3&quot;</span>)
+                    };
+                    <span class="kw">for </span>ptr <span class="kw">in </span>[a, b, c] {
+                        <span class="macro">feed_loop!</span>(ptr)
+                    }
+                }
+                Ptr::Tuple4(<span class="kw">_</span>, idx) =&gt; {
+                    <span class="kw">let </span><span class="prelude-val">Some</span>((a, b, c, d)) = <span class="self">self</span>.fetch_4_ptrs(<span class="kw-2">*</span>idx) <span class="kw">else </span>{
+                        <span class="macro">bail!</span>(<span class="string">&quot;Index {idx} not found on tuple4&quot;</span>)
+                    };
+                    <span class="kw">for </span>ptr <span class="kw">in </span>[a, b, c, d] {
+                        <span class="macro">feed_loop!</span>(ptr)
+                    }
+                }
+            }
+        }
+        ptrs.reverse();
+        <span class="self">self</span>.hydrate_z_cache_with_ptrs(<span class="kw-2">&amp;</span>ptrs.into_iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;());
+        <span class="comment">// Now it&#39;s okay to call `hash_ptr_unsafe`
+        </span><span class="self">self</span>.hash_ptr_unsafe(ptr)
     }
 
     <span class="kw">pub fn </span>to_vector(<span class="kw-2">&amp;</span><span class="self">self</span>, ptrs: <span class="kw-2">&amp;</span>[Ptr&lt;F&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;F&gt;&gt; {
@@ -1483,7 +1650,9 @@
             })
     }
 
-    <span class="kw">pub fn </span>ptr_eq(<span class="kw-2">&amp;</span><span class="self">self</span>, a: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;, b: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+    <span class="doccomment">/// Equality of the content-addressed versions of two pointers
+    </span><span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>ptr_eq(<span class="kw-2">&amp;</span><span class="self">self</span>, a: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;, b: <span class="kw-2">&amp;</span>Ptr&lt;F&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.hash_ptr(a)<span class="question-mark">? </span>== <span class="self">self</span>.hash_ptr(b)<span class="question-mark">?</span>)
     }
 }
@@ -1810,6 +1979,27 @@
                 }
             }
         }
+    }
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_ptr_hashing() {
+        <span class="kw">let </span>string = String::from_utf8(<span class="macro">vec!</span>[<span class="string">b&#39;0&#39;</span>; <span class="number">4096</span>]).unwrap();
+        <span class="kw">let </span>store = <span class="kw">super</span>::Store::&lt;blstrs::Scalar&gt;::default();
+        <span class="kw">let </span>ptr = store.intern_string(<span class="kw-2">&amp;</span>string);
+        <span class="comment">// `hash_ptr_unsafe` would overflow the stack, whereas `hash_ptr` works
+        </span><span class="kw">let </span>x = store.hash_ptr(<span class="kw-2">&amp;</span>ptr).unwrap();
+
+        <span class="kw">let </span>store = <span class="kw">super</span>::Store::&lt;blstrs::Scalar&gt;::default();
+        <span class="kw">let </span>ptr = store.intern_string(<span class="kw-2">&amp;</span>string);
+        store.hydrate_z_cache();
+        <span class="comment">// but `hash_ptr_unsafe` works just fine after manual hydration
+        </span><span class="kw">let </span>y = store.hash_ptr_unsafe(<span class="kw-2">&amp;</span>ptr).unwrap();
+
+        <span class="comment">// and, of course, those functions result on the same `ZPtr`
+        </span><span class="macro">assert_eq!</span>(x, y);
     }
 }
 </code></pre></div></section></main></body></html>
