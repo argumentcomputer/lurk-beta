@@ -195,14 +195,16 @@ where
         z0: &[F],
         zi: &[F],
     ) -> Result<bool, SuperNovaError> {
-        let (z0_primary, _zi_primary) = (z0, zi);
+        let (z0_primary, zi_primary) = (z0, zi);
         let z0_secondary = Self::z0_secondary();
+        let zi_secondary = &z0_secondary;
 
-        match self {
+        let (zi_primary_verified, zi_secondary_verified) = match self {
             Self::Recursive(p) => p.verify(&pp.pp, circuit_index, z0_primary, &z0_secondary),
             Self::Compressed(_) => unimplemented!(),
         }?;
-        Ok(true)
+
+        Ok(zi_primary == zi_primary_verified && *zi_secondary == zi_secondary_verified)
     }
 
     fn z0_secondary() -> Vec<<F::G2 as Group>::Scalar> {
