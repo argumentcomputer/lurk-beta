@@ -6661,7 +6661,7 @@
         <span class="kw">let </span>env = s.hash_expr(<span class="kw-2">&amp;</span>input.env).unwrap();
         <span class="kw">let </span>cont = s.hash_cont(<span class="kw-2">&amp;</span>input.cont).unwrap();
 
-        <span class="kw">let </span>z_scalar = <span class="macro">vec!</span>[
+        <span class="kw">let </span>z_scalar = [
             expr.tag().to_field(),
             <span class="kw-2">*</span>expr.value(),
             env.tag().to_field(),

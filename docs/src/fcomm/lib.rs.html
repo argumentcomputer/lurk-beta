@@ -2538,7 +2538,7 @@
         );
 
         <span class="kw">let </span>function_source = <span class="string">&quot;(letrec ((secret 12345) (a (lambda (acc x) (let ((acc (+ acc x))) (cons acc (hide secret (a acc))))))) (a 0))&quot;</span>;
-        <span class="kw">let </span>expected_io = <span class="macro">vec!</span>[(<span class="string">&quot;5&quot;</span>, <span class="string">&quot;5&quot;</span>), (<span class="string">&quot;3&quot;</span>, <span class="string">&quot;8&quot;</span>)];
+        <span class="kw">let </span>expected_io = [(<span class="string">&quot;5&quot;</span>, <span class="string">&quot;5&quot;</span>), (<span class="string">&quot;3&quot;</span>, <span class="string">&quot;8&quot;</span>)];
 
         <span class="kw">let </span><span class="kw-2">mut </span>function = CommittedExpression::&lt;S1&gt; {
             expr: LurkPtr::Source(function_source.into()),

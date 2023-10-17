@@ -1479,6 +1479,22 @@
 <a href="#1479" id="1479">1479</a>
 <a href="#1480" id="1480">1480</a>
 <a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
+<a href="#1486" id="1486">1486</a>
+<a href="#1487" id="1487">1487</a>
+<a href="#1488" id="1488">1488</a>
+<a href="#1489" id="1489">1489</a>
+<a href="#1490" id="1490">1490</a>
+<a href="#1491" id="1491">1491</a>
+<a href="#1492" id="1492">1492</a>
+<a href="#1493" id="1493">1493</a>
+<a href="#1494" id="1494">1494</a>
+<a href="#1495" id="1495">1495</a>
+<a href="#1496" id="1496">1496</a>
+<a href="#1497" id="1497">1497</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ## Constraint system for LEM
 //!
 //! This module implements the generation of bellperson constraints for LEM, such
@@ -2028,7 +2044,9 @@
                         </span><span class="kw">let </span>img_tag = g
                             .global_allocator
                             .get_allocated_const_cloned(<span class="macro-nonterminal">$tag</span>.to_field())<span class="question-mark">?</span>;
-                        <span class="kw">let </span>AllocatedVal::Number(img_hash) = preallocated_img_hash <span class="kw">else </span>{ <span class="macro">bail!</span>(<span class="string">&quot;Expected number&quot;</span>)};
+                        <span class="kw">let </span>AllocatedVal::Number(img_hash) = preallocated_img_hash <span class="kw">else </span>{
+                            <span class="macro">bail!</span>(<span class="string">&quot;Expected number&quot;</span>)
+                        };
                         <span class="kw">let </span>img_ptr = AllocatedPtr::from_parts(img_tag, img_hash.clone());
                         bound_allocations.insert_ptr(<span class="macro-nonterminal">$img</span>, img_ptr);
                     };
@@ -2054,7 +2072,9 @@
                         };
 
                         <span class="comment">// Add the implication constraint for the image
-                        </span><span class="kw">let </span>AllocatedVal::Number(img_hash) = preallocated_img_hash <span class="kw">else </span>{ <span class="macro">bail!</span>(<span class="string">&quot;Expected number&quot;</span>)};
+                        </span><span class="kw">let </span>AllocatedVal::Number(img_hash) = preallocated_img_hash <span class="kw">else </span>{
+                            <span class="macro">bail!</span>(<span class="string">&quot;Expected number&quot;</span>)
+                        };
                         implies_equal(
                             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="macro">format!</span>(<span class="string">&quot;implies equal {}.hash&quot;</span>, <span class="macro-nonterminal">$img</span>)),
                             not_dummy,
@@ -2357,13 +2377,19 @@
                         <span class="comment">// Get slot allocated preimages/bits for the double of a, b, a-b
                         </span><span class="kw">let </span>(double_a_preimg, double_a_bits) =
                             <span class="kw-2">&amp;</span>g.preallocated_bit_decomp_slots[next_slot.consume_bit_decomp()];
-                        <span class="kw">let </span>AllocatedVal::Bits(double_a_bits) = double_a_bits <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">&quot;Expected bits&quot;</span>) };
+                        <span class="kw">let </span>AllocatedVal::Bits(double_a_bits) = double_a_bits <span class="kw">else </span>{
+                            <span class="macro">panic!</span>(<span class="string">&quot;Expected bits&quot;</span>)
+                        };
                         <span class="kw">let </span>(double_b_preimg, double_b_bits) =
                             <span class="kw-2">&amp;</span>g.preallocated_bit_decomp_slots[next_slot.consume_bit_decomp()];
-                        <span class="kw">let </span>AllocatedVal::Bits(double_b_bits) = double_b_bits <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">&quot;Expected bits&quot;</span>) };
+                        <span class="kw">let </span>AllocatedVal::Bits(double_b_bits) = double_b_bits <span class="kw">else </span>{
+                            <span class="macro">panic!</span>(<span class="string">&quot;Expected bits&quot;</span>)
+                        };
                         <span class="kw">let </span>(double_diff_preimg, double_diff_bits) =
                             <span class="kw-2">&amp;</span>g.preallocated_bit_decomp_slots[next_slot.consume_bit_decomp()];
-                        <span class="kw">let </span>AllocatedVal::Bits(double_diff_bits) = double_diff_bits <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">&quot;Expected bits&quot;</span>) };
+                        <span class="kw">let </span>AllocatedVal::Bits(double_diff_bits) = double_diff_bits <span class="kw">else </span>{
+                            <span class="macro">panic!</span>(<span class="string">&quot;Expected bits&quot;</span>)
+                        };
                         <span class="comment">// Check that the slot allocated preimages are the double of a, b, a-b
                         </span>implies_equal(
                             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal for a_preimg&quot;</span>),
@@ -2418,7 +2444,9 @@
                             a.hash(),
                             <span class="kw-2">&amp;</span>preallocated_preimg[<span class="number">0</span>],
                         );
-                        <span class="kw">let </span>AllocatedVal::Bits(trunc_bits) = trunc_bits <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">&quot;Expected bits&quot;</span>) };
+                        <span class="kw">let </span>AllocatedVal::Bits(trunc_bits) = trunc_bits <span class="kw">else </span>{
+                            <span class="macro">panic!</span>(<span class="string">&quot;Expected bits&quot;</span>)
+                        };
                         <span class="kw">let </span>trunc_bits = <span class="kw-2">&amp;</span>trunc_bits[<span class="number">0</span>..<span class="kw-2">*</span>n <span class="kw">as </span>usize];
                         <span class="kw">let </span>trunc = AllocatedNum::alloc(cs.namespace(|| <span class="string">&quot;trunc&quot;</span>), || {
                             <span class="kw">let </span>b = <span class="kw">if </span><span class="kw-2">*</span>n &lt; <span class="number">64 </span>{ (<span class="number">1 </span>&lt;&lt; <span class="kw-2">*</span>n) - <span class="number">1 </span>} <span class="kw">else </span>{ u64::MAX };
@@ -2490,7 +2518,9 @@
                             .get_allocated_const(Tag::Expr(Num).to_field())<span class="question-mark">?</span>;
                         <span class="kw">let </span>(preallocated_preimg, hash) =
                             <span class="kw-2">&amp;</span>g.preallocated_commitment_slots[next_slot.consume_commitment()];
-                        <span class="kw">let </span>AllocatedVal::Number(hash) = hash <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">&quot;Excepted number&quot;</span>) };
+                        <span class="kw">let </span>AllocatedVal::Number(hash) = hash <span class="kw">else </span>{
+                            <span class="macro">panic!</span>(<span class="string">&quot;Excepted number&quot;</span>)
+                        };
                         implies_equal(
                             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal secret.tag&quot;</span>),
                             not_dummy,
@@ -2528,7 +2558,9 @@
                         <span class="kw">let </span>comm_tag = g
                             .global_allocator
                             .get_allocated_const(Tag::Expr(Comm).to_field())<span class="question-mark">?</span>;
-                        <span class="kw">let </span>AllocatedVal::Number(com_hash) = com_hash <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">&quot;Excepted number&quot;</span>) };
+                        <span class="kw">let </span>AllocatedVal::Number(com_hash) = com_hash <span class="kw">else </span>{
+                            <span class="macro">panic!</span>(<span class="string">&quot;Excepted number&quot;</span>)
+                        };
                         implies_equal(
                             <span class="kw-2">&amp;mut </span>cs.namespace(|| <span class="string">&quot;implies equal comm.tag&quot;</span>),
                             not_dummy,
