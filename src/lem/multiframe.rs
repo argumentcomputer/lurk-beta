@@ -64,6 +64,31 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         self.folding_config.lang()
     }
 
+    /// Checks that a slice of pointers and a slice of allocated pointers have
+    /// the same length. If `!blank`, asserts that the hashed pointers have tags
+    /// and values corresponding to the ones from the respective allocated pointers
+    fn assert_eq_ptrs_aptrs(
+        store: &Store<F>,
+        blank: bool,
+        ptrs: &[Ptr<F>],
+        aptrs: &[AllocatedPtr<F>],
+    ) -> Result<(), SynthesisError> {
+        assert_eq!(ptrs.len(), aptrs.len());
+        if !blank {
+            for (aptr, ptr) in aptrs.iter().zip(ptrs) {
+                let z_ptr = store.hash_ptr(ptr).expect("hash_ptr failed");
+                let (Some(alloc_ptr_tag), Some(alloc_ptr_hash)) =
+                    (aptr.tag().get_value(), aptr.hash().get_value())
+                else {
+                    return Err(SynthesisError::AssignmentMissing);
+                };
+                assert_eq!(alloc_ptr_tag, z_ptr.tag().to_field());
+                assert_eq!(&alloc_ptr_hash, z_ptr.value());
+            }
+        }
+        Ok(())
+    }
+
     fn synthesize_frames_sequential<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
@@ -75,18 +100,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         let (_, output) = frames
             .iter()
             .try_fold((0, input.to_vec()), |(i, input), frame| {
-                if !frame.blank {
-                    for (alloc_ptr, input) in input.iter().zip(&frame.input) {
-                        let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
-                        let (Some(alloc_ptr_tag), Some(alloc_ptr_hash)) =
-                            (alloc_ptr.tag().get_value(), alloc_ptr.hash().get_value())
-                        else {
-                            return Err(SynthesisError::AssignmentMissing);
-                        };
-                        assert_eq!(alloc_ptr_tag, input_zptr.tag().to_field());
-                        assert_eq!(alloc_ptr_hash, *input_zptr.value());
-                    }
-                }
                 let bound_allocations = &mut BoundAllocations::new();
                 let func = self.get_func();
                 func.add_input(&input, bound_allocations);
@@ -101,7 +114,8 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                     )
                     .expect("failed to synthesize frame");
                 assert_eq!(input.len(), output.len());
-                Ok((i + 1, output))
+                Self::assert_eq_ptrs_aptrs(store, frame.blank, &frame.output, &output)?;
+                Ok::<_, SynthesisError>((i + 1, output))
             })?;
         Ok(output)
     }
@@ -114,7 +128,6 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
         frames: &[Frame<F>],
         g: &GlobalAllocator<F>,
     ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
-        assert!(!frames.is_empty());
         assert!(cs.is_witness_generator());
         assert!(CONFIG.parallelism.synthesis.is_parallel());
         const MIN_CHUNK_SIZE: usize = 10;
@@ -128,7 +141,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
 
         // We partition the frames into chunks, ideally one for each CPU. Each chunk will produce its
         // corresponding partial witness in parallel, which are then collected into a vector.
-        let css = frames
+        let mut css = frames
             .par_chunks(chunk_size)
             .enumerate()
             .map(|(chunk_idx, chunk)| {
@@ -141,10 +154,10 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                 let chunk_input = if chunk_idx == 0 {
                     input.clone()
                 } else {
-                    let first_chunk_frame = &frames[chunk_idx * chunk_size];
+                    let first_chunk_frame = &chunk[0];
                     let mut chunk_input = Vec::with_capacity(input.len());
                     for (input_ptr_idx, input_ptr) in first_chunk_frame.input.iter().enumerate() {
-                        let z_ptr = store.hash_ptr(input_ptr).expect("Hash pointer failed");
+                        let z_ptr = store.hash_ptr(input_ptr).expect("hash_ptr failed");
                         let alloc_ptr = AllocatedPtr::alloc(
                             &mut cs.namespace(|| format!("var: {chunk_idx}.{input_ptr_idx}")),
                             || Ok(z_ptr),
@@ -155,28 +168,41 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                     chunk_input
                 };
 
-                let chunk_output =
-                    self.synthesize_frames_sequential(&mut cs, store, chunk_input, chunk, g);
+                let chunk_output = self
+                    .synthesize_frames_sequential(&mut cs, store, chunk_input, chunk, g)
+                    .expect("sequential synthesis failed");
+
+                assert_eq!(input.len(), chunk_output.len());
+                let last_chunk_frame = chunk.last().expect("chunk shouldn't be empty");
+                Self::assert_eq_ptrs_aptrs(
+                    store,
+                    last_chunk_frame.blank,
+                    &last_chunk_frame.output,
+                    &chunk_output,
+                )
+                .expect("assertion failed");
+
                 (cs, chunk_output)
             })
             .collect::<Vec<_>>();
-
-        // The final output should be the output of the last chunk
-        let mut final_output = None;
 
         // At last, we need to concatenate all the partial witnesses into a single witness.
         // Since we have allocated the input for each chunk (apart from the first) instead
         // of using the output of the previous chunk, we will have to ignore the allocated
         // inputs before concatenating the witnesses
-        for (i, (frames_cs, output)) in css.into_iter().enumerate() {
-            final_output = Some(output);
+        for (i, (frames_cs, _)) in css.iter().enumerate() {
             let start = if i == 0 { 0 } else { input.len() * 2 };
-            let aux = &frames_cs.aux_slice()[start..];
-            cs.extend_aux(aux);
+            cs.extend_aux(&frames_cs.aux_slice()[start..]);
         }
 
-        // Since frames is not empty, final_output cannot be None
-        final_output.unwrap()
+        if let Some((_, last_chunk_output)) = css.pop() {
+            // the final output is the output of the last chunk
+            Ok(last_chunk_output)
+        } else {
+            // there were no frames so we just return the input, preserving the
+            // same behavior as the sequential version
+            Ok(input)
+        }
     }
 }
 
