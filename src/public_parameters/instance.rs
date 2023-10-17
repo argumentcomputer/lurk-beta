@@ -156,7 +156,7 @@ where
             abomonated,
             cache_key,
             kind,
-            _p: PhantomData::default(),
+            _p: PhantomData,
         }
     }
 

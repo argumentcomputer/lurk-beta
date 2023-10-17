@@ -178,8 +178,10 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
                 if !frame.blank {
                     for (alloc_ptr, input) in input.iter().zip(&frame.input) {
                         let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
-                        let (Some(alloc_ptr_tag), Some(alloc_ptr_hash)) = (alloc_ptr.tag().get_value(), alloc_ptr.hash().get_value()) else {
-                            return Err(SynthesisError::AssignmentMissing)
+                        let (Some(alloc_ptr_tag), Some(alloc_ptr_hash)) =
+                            (alloc_ptr.tag().get_value(), alloc_ptr.hash().get_value())
+                        else {
+                            return Err(SynthesisError::AssignmentMissing);
                         };
                         assert_eq!(alloc_ptr_tag, input_zptr.tag().to_field());
                         assert_eq!(alloc_ptr_hash, *input_zptr.value());

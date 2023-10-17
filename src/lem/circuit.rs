@@ -547,7 +547,9 @@ impl Func {
                         let img_tag = g
                             .global_allocator
                             .get_allocated_const_cloned($tag.to_field())?;
-                        let AllocatedVal::Number(img_hash) = preallocated_img_hash else { bail!("Expected number")};
+                        let AllocatedVal::Number(img_hash) = preallocated_img_hash else {
+                            bail!("Expected number")
+                        };
                         let img_ptr = AllocatedPtr::from_parts(img_tag, img_hash.clone());
                         bound_allocations.insert_ptr($img, img_ptr);
                     };
@@ -573,7 +575,9 @@ impl Func {
                         };
 
                         // Add the implication constraint for the image
-                        let AllocatedVal::Number(img_hash) = preallocated_img_hash else { bail!("Expected number")};
+                        let AllocatedVal::Number(img_hash) = preallocated_img_hash else {
+                            bail!("Expected number")
+                        };
                         implies_equal(
                             &mut cs.namespace(|| format!("implies equal {}.hash", $img)),
                             not_dummy,
@@ -876,13 +880,19 @@ impl Func {
                         // Get slot allocated preimages/bits for the double of a, b, a-b
                         let (double_a_preimg, double_a_bits) =
                             &g.preallocated_bit_decomp_slots[next_slot.consume_bit_decomp()];
-                        let AllocatedVal::Bits(double_a_bits) = double_a_bits else { panic!("Expected bits") };
+                        let AllocatedVal::Bits(double_a_bits) = double_a_bits else {
+                            panic!("Expected bits")
+                        };
                         let (double_b_preimg, double_b_bits) =
                             &g.preallocated_bit_decomp_slots[next_slot.consume_bit_decomp()];
-                        let AllocatedVal::Bits(double_b_bits) = double_b_bits else { panic!("Expected bits") };
+                        let AllocatedVal::Bits(double_b_bits) = double_b_bits else {
+                            panic!("Expected bits")
+                        };
                         let (double_diff_preimg, double_diff_bits) =
                             &g.preallocated_bit_decomp_slots[next_slot.consume_bit_decomp()];
-                        let AllocatedVal::Bits(double_diff_bits) = double_diff_bits else { panic!("Expected bits") };
+                        let AllocatedVal::Bits(double_diff_bits) = double_diff_bits else {
+                            panic!("Expected bits")
+                        };
                         // Check that the slot allocated preimages are the double of a, b, a-b
                         implies_equal(
                             &mut cs.namespace(|| "implies equal for a_preimg"),
@@ -937,7 +947,9 @@ impl Func {
                             a.hash(),
                             &preallocated_preimg[0],
                         );
-                        let AllocatedVal::Bits(trunc_bits) = trunc_bits else { panic!("Expected bits") };
+                        let AllocatedVal::Bits(trunc_bits) = trunc_bits else {
+                            panic!("Expected bits")
+                        };
                         let trunc_bits = &trunc_bits[0..*n as usize];
                         let trunc = AllocatedNum::alloc(cs.namespace(|| "trunc"), || {
                             let b = if *n < 64 { (1 << *n) - 1 } else { u64::MAX };
@@ -1009,7 +1021,9 @@ impl Func {
                             .get_allocated_const(Tag::Expr(Num).to_field())?;
                         let (preallocated_preimg, hash) =
                             &g.preallocated_commitment_slots[next_slot.consume_commitment()];
-                        let AllocatedVal::Number(hash) = hash else { panic!("Excepted number") };
+                        let AllocatedVal::Number(hash) = hash else {
+                            panic!("Excepted number")
+                        };
                         implies_equal(
                             &mut cs.namespace(|| "implies equal secret.tag"),
                             not_dummy,
@@ -1047,7 +1061,9 @@ impl Func {
                         let comm_tag = g
                             .global_allocator
                             .get_allocated_const(Tag::Expr(Comm).to_field())?;
-                        let AllocatedVal::Number(com_hash) = com_hash else { panic!("Excepted number") };
+                        let AllocatedVal::Number(com_hash) = com_hash else {
+                            panic!("Excepted number")
+                        };
                         implies_equal(
                             &mut cs.namespace(|| "implies equal comm.tag"),
                             not_dummy,
