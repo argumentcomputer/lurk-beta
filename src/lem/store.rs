@@ -2,6 +2,7 @@ use anyhow::{bail, Result};
 use arc_swap::ArcSwap;
 use elsa::sync::{FrozenMap, FrozenVec};
 use elsa::sync_index_set::FrozenIndexSet;
+use indexmap::IndexSet;
 use nom::{sequence::preceded, Parser};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::{cell::RefCell, rc::Rc, sync::Arc};
@@ -300,14 +301,11 @@ impl<F: LurkField> Store<F> {
         }
     }
 
+    #[inline]
     pub fn hide(&self, secret: F, payload: Ptr<F>) -> Result<Ptr<F>> {
-        let z_ptr = self.hash_ptr(&payload)?;
-        let hash = self
-            .poseidon_cache
-            .hash3(&[secret, z_ptr.tag_field(), *z_ptr.value()]);
-        self.comms
-            .insert(FWrap::<F>(hash), Box::new((secret, payload)));
-        Ok(Ptr::comm(hash))
+        Ok(Ptr::comm(
+            self.hide_and_return_z_payload(secret, payload)?.0,
+        ))
     }
 
     pub fn hide_and_return_z_payload(&self, secret: F, payload: Ptr<F>) -> Result<(F, ZPtr<F>)> {
@@ -461,8 +459,9 @@ impl<F: LurkField> Store<F> {
     /// cache for the new `Ptr`s.
     ///
     /// Warning: without cache hits, this function might blow up Rust's recursion
-    /// depth limit. This limitation is circumvented by calling `hydrate_z_cache`.
-    pub fn hash_ptr(&self, ptr: &Ptr<F>) -> Result<ZPtr<F>> {
+    /// depth limit. This limitation is circumvented by calling `hydrate_z_cache`
+    /// beforehand or by using `hash_ptr` instead, which is slightly slower.
+    fn hash_ptr_unsafe(&self, ptr: &Ptr<F>) -> Result<ZPtr<F>> {
         match ptr {
             Ptr::Atom(tag, x) => match tag {
                 Tag::Cont(Outermost | ContTag::Error | Dummy | Terminal) => {
@@ -481,8 +480,8 @@ impl<F: LurkField> Store<F> {
                     let Some((a, b)) = self.fetch_2_ptrs(*idx) else {
                         bail!("Index {idx} not found on tuple2")
                     };
-                    let a = self.hash_ptr(a)?;
-                    let b = self.hash_ptr(b)?;
+                    let a = self.hash_ptr_unsafe(a)?;
+                    let b = self.hash_ptr_unsafe(b)?;
                     let z_ptr = ZPtr::from_parts(
                         *tag,
                         self.poseidon_cache.hash4(&[
@@ -503,9 +502,9 @@ impl<F: LurkField> Store<F> {
                     let Some((a, b, c)) = self.fetch_3_ptrs(*idx) else {
                         bail!("Index {idx} not found on tuple3")
                     };
-                    let a = self.hash_ptr(a)?;
-                    let b = self.hash_ptr(b)?;
-                    let c = self.hash_ptr(c)?;
+                    let a = self.hash_ptr_unsafe(a)?;
+                    let b = self.hash_ptr_unsafe(b)?;
+                    let c = self.hash_ptr_unsafe(c)?;
                     let z_ptr = ZPtr::from_parts(
                         *tag,
                         self.poseidon_cache.hash6(&[
@@ -528,10 +527,10 @@ impl<F: LurkField> Store<F> {
                     let Some((a, b, c, d)) = self.fetch_4_ptrs(*idx) else {
                         bail!("Index {idx} not found on tuple4")
                     };
-                    let a = self.hash_ptr(a)?;
-                    let b = self.hash_ptr(b)?;
-                    let c = self.hash_ptr(c)?;
-                    let d = self.hash_ptr(d)?;
+                    let a = self.hash_ptr_unsafe(a)?;
+                    let b = self.hash_ptr_unsafe(b)?;
+                    let c = self.hash_ptr_unsafe(c)?;
+                    let d = self.hash_ptr_unsafe(d)?;
                     let z_ptr = ZPtr::from_parts(
                         *tag,
                         self.poseidon_cache.hash8(&[
@@ -552,18 +551,91 @@ impl<F: LurkField> Store<F> {
         }
     }
 
-    /// Hashes `Ptr` trees from the bottom to the top, avoiding deep recursions
-    /// in `hash_ptr`.
-    pub fn hydrate_z_cache(&self) {
-        self.dehydrated
-            .load()
-            .iter()
-            .collect::<Vec<_>>()
-            .par_iter()
-            .for_each(|ptr| {
-                self.hash_ptr(ptr).expect("failed to hash_ptr");
+    /// Hashes pointers in parallel, consuming chunks of length 256, which is a
+    /// reasonably safe limit in terms of memory consumption.
+    fn hydrate_z_cache_with_ptrs(&self, ptrs: &[&Ptr<F>]) {
+        for chunk in ptrs.chunks(256) {
+            chunk.par_iter().for_each(|ptr| {
+                self.hash_ptr_unsafe(ptr).expect("hash_ptr failed");
             });
+        }
+    }
+
+    /// Hashes enqueued `Ptr` trees from the bottom to the top, avoiding deep
+    /// recursions in `hash_ptr`. Resets the `dehydrated` queue afterwards.
+    pub fn hydrate_z_cache(&self) {
+        self.hydrate_z_cache_with_ptrs(&self.dehydrated.load().iter().collect::<Vec<_>>());
         self.dehydrated.swap(Arc::new(FrozenVec::default()));
+    }
+
+    /// Whether the length of the dehydrated queue is within the safe limit.
+    /// Note: these values are experimental and may be machine dependant.
+    #[inline]
+    fn is_below_safe_threshold(&self) -> bool {
+        if cfg!(debug_assertions) {
+            // not release mode
+            self.dehydrated.load().len() < 443
+        } else {
+            // release mode
+            self.dehydrated.load().len() < 2497
+        }
+    }
+
+    /// Safe version of `hash_ptr_unsafe` that doesn't hit a stack overflow by
+    /// precomputing the pointers that need to be hashed in order to hash the
+    /// provided `ptr`
+    pub fn hash_ptr(&self, ptr: &Ptr<F>) -> Result<ZPtr<F>> {
+        if self.is_below_safe_threshold() {
+            // just run `hash_ptr_unsafe` for extra speed when the dehydrated
+            // queue is small enough
+            return self.hash_ptr_unsafe(ptr);
+        }
+        let mut ptrs: IndexSet<&Ptr<F>> = IndexSet::default();
+        let mut stack = vec![ptr];
+        macro_rules! feed_loop {
+            ($x:expr) => {
+                if $x.is_tuple() {
+                    if self.z_cache.get($x).is_none() {
+                        if ptrs.insert($x) {
+                            stack.push($x);
+                        }
+                    }
+                }
+            };
+        }
+        while let Some(ptr) = stack.pop() {
+            match ptr {
+                Ptr::Atom(..) => (),
+                Ptr::Tuple2(_, idx) => {
+                    let Some((a, b)) = self.fetch_2_ptrs(*idx) else {
+                        bail!("Index {idx} not found on tuple2")
+                    };
+                    for ptr in [a, b] {
+                        feed_loop!(ptr)
+                    }
+                }
+                Ptr::Tuple3(_, idx) => {
+                    let Some((a, b, c)) = self.fetch_3_ptrs(*idx) else {
+                        bail!("Index {idx} not found on tuple3")
+                    };
+                    for ptr in [a, b, c] {
+                        feed_loop!(ptr)
+                    }
+                }
+                Ptr::Tuple4(_, idx) => {
+                    let Some((a, b, c, d)) = self.fetch_4_ptrs(*idx) else {
+                        bail!("Index {idx} not found on tuple4")
+                    };
+                    for ptr in [a, b, c, d] {
+                        feed_loop!(ptr)
+                    }
+                }
+            }
+        }
+        ptrs.reverse();
+        self.hydrate_z_cache_with_ptrs(&ptrs.into_iter().collect::<Vec<_>>());
+        // Now it's okay to call `hash_ptr_unsafe`
+        self.hash_ptr_unsafe(ptr)
     }
 
     pub fn to_vector(&self, ptrs: &[Ptr<F>]) -> Result<Vec<F>> {
@@ -576,6 +648,8 @@ impl<F: LurkField> Store<F> {
             })
     }
 
+    /// Equality of the content-addressed versions of two pointers
+    #[inline]
     pub fn ptr_eq(&self, a: &Ptr<F>, b: &Ptr<F>) -> Result<bool> {
         Ok(self.hash_ptr(a)? == self.hash_ptr(b)?)
     }
@@ -903,5 +977,26 @@ impl<F: LurkField> Ptr<F> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_ptr_hashing() {
+        let string = String::from_utf8(vec![b'0'; 4096]).unwrap();
+        let store = super::Store::<blstrs::Scalar>::default();
+        let ptr = store.intern_string(&string);
+        // `hash_ptr_unsafe` would overflow the stack, whereas `hash_ptr` works
+        let x = store.hash_ptr(&ptr).unwrap();
+
+        let store = super::Store::<blstrs::Scalar>::default();
+        let ptr = store.intern_string(&string);
+        store.hydrate_z_cache();
+        // but `hash_ptr_unsafe` works just fine after manual hydration
+        let y = store.hash_ptr_unsafe(&ptr).unwrap();
+
+        // and, of course, those functions result on the same `ZPtr`
+        assert_eq!(x, y);
     }
 }

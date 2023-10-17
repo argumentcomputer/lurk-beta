@@ -102,6 +102,10 @@ impl<F: LurkField> EvaluationStore for Store<F> {
         Ptr::null(Tag::Cont(ContTag::Terminal))
     }
 
+    fn hydrate_z_cache(&self) {
+        self.hydrate_z_cache()
+    }
+
     fn ptr_eq(&self, left: &Self::Ptr, right: &Self::Ptr) -> Result<bool, Self::Error> {
         Ok(self.hash_ptr(left)? == self.hash_ptr(right)?)
     }

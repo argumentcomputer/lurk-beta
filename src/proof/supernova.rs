@@ -24,7 +24,7 @@ use crate::{
     field::LurkField,
     proof::{
         nova::{CurveCycleEquipped, NovaCircuitShape, G1, G2},
-        {FrameLike, MultiFrameTrait, Provable, Prover},
+        {EvaluationStore, FrameLike, MultiFrameTrait, Provable, Prover},
     },
 };
 
@@ -269,6 +269,7 @@ where
         store: &'a M::Store,
         lang: Arc<Lang<F, C>>,
     ) -> Result<(Proof<'a, F, C, M>, Vec<F>, Vec<F>, usize, usize), ProofError> {
+        store.hydrate_z_cache();
         let z0 = M::io_to_scalar_vector(store, frames[0].input()).map_err(|e| e.into())?;
         let zi =
             M::io_to_scalar_vector(store, frames.last().unwrap().output()).map_err(|e| e.into())?;
