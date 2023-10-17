@@ -438,7 +438,7 @@ impl Func {
         // that's why they are filled with dummies
         let preallocated_hash4_slots = allocate_slots(
             cs,
-            &frame.advices.hash4,
+            &frame.hints.hash4,
             SlotType::Hash4,
             self.slot.hash4,
             store,
@@ -446,7 +446,7 @@ impl Func {
 
         let preallocated_hash6_slots = allocate_slots(
             cs,
-            &frame.advices.hash6,
+            &frame.hints.hash6,
             SlotType::Hash6,
             self.slot.hash6,
             store,
@@ -454,7 +454,7 @@ impl Func {
 
         let preallocated_hash8_slots = allocate_slots(
             cs,
-            &frame.advices.hash8,
+            &frame.hints.hash8,
             SlotType::Hash8,
             self.slot.hash8,
             store,
@@ -462,7 +462,7 @@ impl Func {
 
         let preallocated_commitment_slots = allocate_slots(
             cs,
-            &frame.advices.commitment,
+            &frame.hints.commitment,
             SlotType::Commitment,
             self.slot.commitment,
             store,
@@ -470,7 +470,7 @@ impl Func {
 
         let preallocated_bit_decomp_slots = allocate_slots(
             cs,
-            &frame.advices.bit_decomp,
+            &frame.hints.bit_decomp,
             SlotType::BitDecomp,
             self.slot.bit_decomp,
             store,
@@ -1274,9 +1274,9 @@ impl Func {
             }
         }
 
-        let call_outputs = &frame.advices.call_outputs;
+        let call_outputs = &frame.hints.call_outputs;
         let call_idx = 0;
-        let cproc_outputs = &frame.advices.cproc_outputs;
+        let cproc_outputs = &frame.hints.cproc_outputs;
         recurse(
             cs,
             &self.body,
