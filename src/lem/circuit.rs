@@ -22,6 +22,7 @@
 //! the constraints we care about with implication gadgets.
 
 use anyhow::{anyhow, bail, Result};
+use bellpepper::util_cs::witness_cs::WitnessCS;
 use bellpepper_core::{
     ConstraintSystem, SynthesisError,
     {
@@ -29,6 +30,7 @@ use bellpepper_core::{
         num::AllocatedNum,
     },
 };
+use rayon::prelude::*;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::{
@@ -41,6 +43,7 @@ use crate::{
         data::{allocate_constant, hash_poseidon},
         pointer::AllocatedPtr,
     },
+    config::CONFIG,
     coprocessor::Coprocessor,
     eval::lang::Lang,
     field::{FWrap, LurkField},
@@ -161,111 +164,97 @@ fn allocate_img_for_slot<F: LurkField, CS: ConstraintSystem<F>>(
     Ok(preallocated_img)
 }
 
-/// Allocates unconstrained slots
-fn allocate_slots<F: LurkField, CS: ConstraintSystem<F>>(
+fn allocate_slot<F: LurkField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    slots_data: &[Option<SlotData<F>>],
+    slot_idx: usize,
+    slot_data: &Option<SlotData<F>>,
     slot_type: SlotType,
-    num_slots: usize,
     store: &Store<F>,
-) -> Result<Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>> {
-    assert!(
-        slots_data.len() == num_slots,
-        "collected preimages not equal to the number of available slots"
-    );
+) -> Result<(Vec<AllocatedNum<F>>, AllocatedVal<F>)> {
+    if let Some(slot_data) = slot_data {
+        let slot = Slot {
+            idx: slot_idx,
+            typ: slot_type,
+        };
+        assert!(slot_type.is_compatible(slot_data));
 
-    let mut preallocations = Vec::with_capacity(num_slots);
+        // Allocate the preimage because the image depends on it
+        let mut preallocated_preimg = Vec::with_capacity(slot_type.preimg_size());
 
-    // We must perform the allocations for the slots containing data collected
-    // by the interpreter. The `None` cases must be filled with dummy values
-    for (slot_idx, maybe_slot_data) in slots_data.iter().enumerate() {
-        if let Some(slot_data) = maybe_slot_data {
-            let slot = Slot {
-                idx: slot_idx,
-                typ: slot_type,
-            };
-            assert!(slot_type.is_compatible(slot_data));
-
-            // Allocate the preimage because the image depends on it
-            let mut preallocated_preimg = Vec::with_capacity(slot_type.preimg_size());
-
-            match slot_data {
-                SlotData::PtrVec(ptr_vec) => {
-                    let mut component_idx = 0;
-                    for ptr in ptr_vec {
-                        let z_ptr = store.hash_ptr(ptr)?;
-
-                        // allocate pointer tag
-                        preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                            cs.namespace(|| format!("component {component_idx} slot {slot}")),
-                            || z_ptr.tag_field(),
-                        ));
-
-                        component_idx += 1;
-
-                        // allocate pointer hash
-                        preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                            cs.namespace(|| format!("component {component_idx} slot {slot}")),
-                            || *z_ptr.value(),
-                        ));
-
-                        component_idx += 1;
-                    }
-                }
-                SlotData::FPtr(f, ptr) => {
+        match slot_data {
+            SlotData::PtrVec(ptr_vec) => {
+                let mut component_idx = 0;
+                for ptr in ptr_vec {
                     let z_ptr = store.hash_ptr(ptr)?;
-                    // allocate first component
+
+                    // allocate pointer tag
                     preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| format!("component 0 slot {slot}")),
-                        || *f,
-                    ));
-                    // allocate second component
-                    preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| format!("component 1 slot {slot}")),
+                        cs.namespace(|| format!("component {component_idx} slot {slot}")),
                         || z_ptr.tag_field(),
                     ));
-                    // allocate third component
+
+                    component_idx += 1;
+
+                    // allocate pointer hash
                     preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| format!("component 2 slot {slot}")),
+                        cs.namespace(|| format!("component {component_idx} slot {slot}")),
                         || *z_ptr.value(),
                     ));
-                }
-                SlotData::F(a) => {
-                    preallocated_preimg.push(AllocatedNum::alloc_infallible(
-                        cs.namespace(|| format!("component 0 slot {slot}")),
-                        || *a,
-                    ));
+
+                    component_idx += 1;
                 }
             }
-
-            // Allocate the image by calling the arithmetic function according
-            // to the slot type
-            let preallocated_img =
-                allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
-
-            preallocations.push((preallocated_preimg, preallocated_img));
-        } else {
-            let slot = Slot {
-                idx: slot_idx,
-                typ: slot_type,
-            };
-            let preallocated_preimg: Vec<_> = (0..slot_type.preimg_size())
-                .map(|component_idx| {
-                    AllocatedNum::alloc_infallible(
-                        cs.namespace(|| format!("component {component_idx} slot {slot}")),
-                        || F::ZERO,
-                    )
-                })
-                .collect();
-
-            let preallocated_img =
-                allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
-
-            preallocations.push((preallocated_preimg, preallocated_img));
+            SlotData::FPtr(f, ptr) => {
+                let z_ptr = store.hash_ptr(ptr)?;
+                // allocate first component
+                preallocated_preimg.push(AllocatedNum::alloc_infallible(
+                    cs.namespace(|| format!("component 0 slot {slot}")),
+                    || *f,
+                ));
+                // allocate second component
+                preallocated_preimg.push(AllocatedNum::alloc_infallible(
+                    cs.namespace(|| format!("component 1 slot {slot}")),
+                    || z_ptr.tag_field(),
+                ));
+                // allocate third component
+                preallocated_preimg.push(AllocatedNum::alloc_infallible(
+                    cs.namespace(|| format!("component 2 slot {slot}")),
+                    || *z_ptr.value(),
+                ));
+            }
+            SlotData::F(a) => {
+                preallocated_preimg.push(AllocatedNum::alloc_infallible(
+                    cs.namespace(|| format!("component 0 slot {slot}")),
+                    || *a,
+                ));
+            }
         }
-    }
 
-    Ok(preallocations)
+        // Allocate the image by calling the arithmetic function according
+        // to the slot type
+        let preallocated_img =
+            allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
+
+        Ok((preallocated_preimg, preallocated_img))
+    } else {
+        let slot = Slot {
+            idx: slot_idx,
+            typ: slot_type,
+        };
+        let preallocated_preimg: Vec<_> = (0..slot_type.preimg_size())
+            .map(|component_idx| {
+                AllocatedNum::alloc_infallible(
+                    cs.namespace(|| format!("component {component_idx} slot {slot}")),
+                    || F::ZERO,
+                )
+            })
+            .collect();
+
+        let preallocated_img =
+            allocate_img_for_slot(cs, &slot, preallocated_preimg.clone(), store)?;
+
+        Ok((preallocated_preimg, preallocated_img))
+    }
 }
 
 impl Block {
@@ -433,58 +422,76 @@ impl Func {
         // Outputs are constrained by the return statement. All functions return
         let preallocated_outputs = self.allocate_output(cs, store, frame)?;
 
-        // Slots are constrained by their usage inside the function body. The ones
-        // not used in throughout the concrete path are effectively unconstrained,
-        // that's why they are filled with dummies
-        let preallocated_hash4_slots = allocate_slots(
-            cs,
-            &frame.hints.hash4,
-            SlotType::Hash4,
-            self.slot.hash4,
-            store,
-        )?;
+        assert_eq!(frame.hints.hash4.len(), self.slot.hash4);
+        assert_eq!(frame.hints.hash6.len(), self.slot.hash6);
+        assert_eq!(frame.hints.hash8.len(), self.slot.hash8);
+        assert_eq!(frame.hints.commitment.len(), self.slot.commitment);
+        assert_eq!(frame.hints.bit_decomp.len(), self.slot.bit_decomp);
 
-        let preallocated_hash6_slots = allocate_slots(
-            cs,
-            &frame.hints.hash6,
-            SlotType::Hash6,
-            self.slot.hash6,
-            store,
-        )?;
+        let num_total_slots = self.slot.hash4
+            + self.slot.hash6
+            + self.slot.hash8
+            + self.slot.commitment
+            + self.slot.bit_decomp;
 
-        let preallocated_hash8_slots = allocate_slots(
-            cs,
-            &frame.hints.hash8,
-            SlotType::Hash8,
-            self.slot.hash8,
-            store,
-        )?;
+        let mut slots_data: Vec<(&Option<SlotData<F>>, SlotType)> =
+            Vec::with_capacity(num_total_slots);
+        [
+            (&frame.hints.hash4, SlotType::Hash4),
+            (&frame.hints.hash6, SlotType::Hash6),
+            (&frame.hints.hash8, SlotType::Hash8),
+            (&frame.hints.commitment, SlotType::Commitment),
+            (&frame.hints.bit_decomp, SlotType::BitDecomp),
+        ]
+        .into_iter()
+        .for_each(|(sd_vec, t)| sd_vec.iter().for_each(|sd| slots_data.push((sd, t))));
 
-        let preallocated_commitment_slots = allocate_slots(
-            cs,
-            &frame.hints.commitment,
-            SlotType::Commitment,
-            self.slot.commitment,
-            store,
-        )?;
+        let mut preallocations: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)> =
+            Vec::with_capacity(num_total_slots);
 
-        let preallocated_bit_decomp_slots = allocate_slots(
-            cs,
-            &frame.hints.bit_decomp,
-            SlotType::BitDecomp,
-            self.slot.bit_decomp,
-            store,
-        )?;
+        // TODO: make it possible to force bit decomposition slots to be synthesized sequentially
+        if cs.is_witness_generator() && CONFIG.parallelism.poseidon_witnesses.is_parallel() {
+            let css = slots_data
+                .into_par_iter()
+                .enumerate()
+                .map(|(slot_idx, (slot_data, slot_type))| {
+                    let mut bogus_cs = WitnessCS::new();
+                    let allocs =
+                        allocate_slot(&mut bogus_cs, slot_idx, slot_data, slot_type, store);
+                    (bogus_cs, allocs)
+                })
+                .collect::<Vec<_>>();
+            for (bogus_cs, allocs) in css {
+                cs.extend_aux(bogus_cs.aux_slice());
+                preallocations.push(allocs?);
+            }
+        } else {
+            for (slot_idx, (slot_data, slot_type)) in slots_data.into_iter().enumerate() {
+                preallocations.push(allocate_slot(cs, slot_idx, slot_data, slot_type, store)?);
+            }
+        };
+
+        let hash4_upper = self.slot.hash4;
+        let hash6_upper = hash4_upper + self.slot.hash6;
+        let hash8_upper = hash6_upper + self.slot.hash8;
+        let commitment_upper = hash8_upper + self.slot.commitment;
+        let bit_decomp_upper = commitment_upper + self.slot.bit_decomp;
+
+        let preallocated_hash4_slots = &preallocations[0..hash4_upper];
+        let preallocated_hash6_slots = &preallocations[hash4_upper..hash6_upper];
+        let preallocated_hash8_slots = &preallocations[hash6_upper..hash8_upper];
+        let preallocated_commitment_slots = &preallocations[hash8_upper..commitment_upper];
+        let preallocated_bit_decomp_slots = &preallocations[commitment_upper..bit_decomp_upper];
 
         struct Globals<'a, F: LurkField, C: Coprocessor<F>> {
             lang: &'a Lang<F, C>,
             store: &'a Store<F>,
             global_allocator: &'a GlobalAllocator<F>,
-            preallocated_hash4_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
-            preallocated_hash6_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
-            preallocated_hash8_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
-            preallocated_commitment_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
-            preallocated_bit_decomp_slots: Vec<(Vec<AllocatedNum<F>>, AllocatedVal<F>)>,
+            preallocated_hash4_slots: &'a [(Vec<AllocatedNum<F>>, AllocatedVal<F>)],
+            preallocated_hash6_slots: &'a [(Vec<AllocatedNum<F>>, AllocatedVal<F>)],
+            preallocated_hash8_slots: &'a [(Vec<AllocatedNum<F>>, AllocatedVal<F>)],
+            preallocated_commitment_slots: &'a [(Vec<AllocatedNum<F>>, AllocatedVal<F>)],
+            preallocated_bit_decomp_slots: &'a [(Vec<AllocatedNum<F>>, AllocatedVal<F>)],
             call_outputs: &'a VecDeque<Vec<Ptr<F>>>,
             call_idx: usize,
             cproc_outputs: &'a [Vec<Ptr<F>>],
@@ -1290,9 +1297,6 @@ impl Func {
             }
         }
 
-        let call_outputs = &frame.hints.call_outputs;
-        let call_idx = 0;
-        let cproc_outputs = &frame.hints.cproc_outputs;
         recurse(
             cs,
             &self.body,
@@ -1309,9 +1313,9 @@ impl Func {
                 preallocated_hash8_slots,
                 preallocated_commitment_slots,
                 preallocated_bit_decomp_slots,
-                call_outputs,
-                call_idx,
-                cproc_outputs,
+                call_outputs: &frame.hints.call_outputs,
+                call_idx: 0,
+                cproc_outputs: &frame.hints.cproc_outputs,
             },
             0,
             frame.blank,
