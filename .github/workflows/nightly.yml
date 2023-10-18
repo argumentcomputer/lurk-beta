@@ -69,15 +69,15 @@ jobs:
 
       - name: Amend MESSAGE for tests
         if: steps.tests.outcome != 'success'
-        run: echo "MESSAGE=${{ env.MESSAGE }} Exhaustive test run failed in ${{ github.run_id }}" >> $GITHUB_ENV
+        run: echo "MESSAGE=${{ env.MESSAGE }} Exhaustive test run failed in https://github.com/lurk-lab/lurk-rs/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
 
       - name: Amend MESSAGE for benches
         if: steps.benches.outcome != 'success'
-        run: echo "MESSAGE=${{ env.MESSAGE }} Bench compilation failed in ${{ github.run_id }}" >> $GITHUB_ENV
+        run: echo "MESSAGE=${{ env.MESSAGE }} Bench compilation failed in https://github.com/lurk-lab/lurk-rs/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
 
       - name: Amend MESSAGE for doctests
         if: steps.doctests.outcome != 'success'
-        run: echo "MESSAGE=${{ env.MESSAGE }} Doc test run failed in ${{ github.run_id }}" >> $GITHUB_ENV
+        run: echo "MESSAGE=${{ env.MESSAGE }} Doc test run failed in https://github.com/lurk-lab/lurk-rs/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
 
       - name: Find the last report issue open
         id: last_issue
