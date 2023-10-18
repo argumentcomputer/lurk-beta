@@ -213,7 +213,7 @@ impl<'a, F: LurkField> HashConst<'a, F> {
 }
 
 impl<'a, F: LurkField> HashConst<'a, F> {
-    fn hash<CS: ConstraintSystem<F>>(
+    pub(crate) fn hash<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
         preimage: Vec<AllocatedNum<F>>,

@@ -40,7 +40,8 @@ impl Package {
     /// Given a symbol name, returns the corresponding symbol if it's accessible
     /// in the package. If it's not, make it so by creating a new symbol prefixed
     /// by the package's name.
-    pub fn intern(&mut self, symbol_name: String) -> SymbolRef {
+    pub fn intern<T: Into<String>>(&mut self, symbol_name: T) -> SymbolRef {
+        let symbol_name = symbol_name.into();
         self.symbols
             .entry(symbol_name)
             .or_insert_with_key(|symbol_name| {

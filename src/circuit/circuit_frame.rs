@@ -514,6 +514,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                     let next_expr_hash = store.hash_expr(&next_input.expr);
                     let next_env_hash = store.hash_expr(&next_input.env);
                     let next_cont_hash = store.hash_cont(&next_input.cont);
+
                     assert_eq!(
                         allocated_io.0.tag().get_value(),
                         next_expr_hash.map(|x| x.tag_field()),
@@ -1144,10 +1145,14 @@ fn reduce_expression<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     g: &GlobalAllocations<F>,
 ) -> Result<(AllocatedPtr<F>, AllocatedPtr<F>, AllocatedContPtr<F>), SynthesisError> {
     debug!("reduce_expression");
-    debug!("{}", &expr.fetch_and_write_str(store));
-    debug!("{:?}", &expr);
-    debug!("{}", &env.fetch_and_write_str(store));
-    debug!("{} {:?}", &cont.fetch_and_write_cont_str(store), &cont);
+    debug!("expr: {}", &expr.fetch_and_write_str(store));
+    debug!("expr allocated: {:?}", &expr);
+    debug!("env: {}", &env.fetch_and_write_str(store));
+    debug!(
+        "cont: {} {:?}",
+        &cont.fetch_and_write_cont_str(store),
+        &cont
+    );
     let mut results = Results::default();
     {
         // Self-evaluating expressions
@@ -1864,11 +1869,17 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
     let mut head_is_coprocessor_bools =
         Vec::with_capacity(folding_config.lang().coprocessors().len());
 
+    debug!(
+        "coprocessor count: {}",
+        folding_config.lang().coprocessors().len()
+    );
     for (sym, (coproc, z_ptr)) in folding_config.lang().coprocessors().iter() {
         if !coproc.has_circuit() {
             continue;
         };
         let cs = &mut cs.namespace(|| format!("head is {}", sym));
+
+        debug!("coprocessor sym: {sym:?}");
 
         let allocated_boolean = head.alloc_hash_equal(cs, *z_ptr.value())?;
 
@@ -1883,6 +1894,8 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
             &head_is_coprocessor_bools.iter().collect::<Vec<_>>(),
         )?
     };
+    debug!("head: {}", head.fetch_and_write_str(store));
+    debug!("head_is_coprocessor: {:?}", head_is_coprocessor.get_value());
 
     // This should enumerate all symbols, and it's important that each of these groups (some of which cover only one
     // symbol) also enforce that `head_is_a_sym`. Otherwise, expressions mimicking the symbol value can wreak havoc. See
@@ -3111,6 +3124,7 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                     if !coproc.has_circuit() {
                         continue;
                     };
+                    debug!("coprocessor sym: {sym:?}");
 
                     let cs = &mut cs.namespace(|| format!("{} coprocessor", sym));
 
@@ -3122,8 +3136,23 @@ fn reduce_cons<F: LurkField, CS: ConstraintSystem<F>, C: Coprocessor<F>>(
                         F::from(arity as u64),
                     )?;
 
-                    let (result_expr, result_env, result_cont) =
-                        coproc.synthesize(cs, g, store, &inputs[..arity], env, cont)?;
+                    let allocated_z_ptr = AllocatedPtr::alloc_constant(
+                        &mut cs.namespace(|| "allocated_z_ptr"),
+                        *z_ptr,
+                    )?;
+                    let inner_not_dummy0 = head
+                        .alloc_equal(&mut cs.namespace(|| "inner_not_dummy"), &allocated_z_ptr)?;
+                    let inner_not_dummy = and!(cs, &inner_not_dummy0, not_dummy)?;
+
+                    let (result_expr, result_env, result_cont) = coproc.synthesize(
+                        &mut cs.namespace(|| "coproc"),
+                        g,
+                        store,
+                        &inputs[..arity],
+                        env,
+                        cont,
+                        &inner_not_dummy,
+                    )?;
 
                     let quoted_expr = AllocatedPtr::construct_list(
                         &mut cs.namespace(|| "quote coprocessor result"),

@@ -2,7 +2,7 @@ use super::*;
 use pasta_curves::pallas::Scalar as Fr;
 
 #[test]
-fn trie_lang() {
+fn trie_lang_eval() {
     use crate::coprocessor::trie::{install, TrieCoproc};
 
     let s = &mut Store::<Fr>::default();
