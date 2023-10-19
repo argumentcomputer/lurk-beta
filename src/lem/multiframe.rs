@@ -4,10 +4,12 @@ use bellpepper::util_cs::witness_cs::WitnessCS;
 use bellpepper_core::{num::AllocatedNum, Circuit, ConstraintSystem, SynthesisError};
 use ff::PrimeField;
 use nova::{supernova::NonUniformCircuit, traits::Group};
+use rayon::prelude::*;
 use std::sync::Arc;
 
 use crate::{
     circuit::gadgets::pointer::AllocatedPtr,
+    config::CONFIG,
     coprocessor::Coprocessor,
     error::{ProofError, ReductionError},
     eval::{lang::Lang, Meta},
@@ -22,10 +24,11 @@ use crate::{
 };
 
 use super::{
-    circuit::{BoundAllocations, GlobalAllocator},
+    circuit::{build_slots_allocations, BoundAllocations, GlobalAllocator, SlotsWitness},
     eval::{evaluate_with_env_and_cont, make_cprocs_funcs_from_lang, make_eval_step_from_lang},
     interpreter::Frame,
     pointers::Ptr,
+    slot::SlotsCounter,
     store::Store,
     Func, Tag,
 };
@@ -60,6 +63,161 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     #[inline]
     fn get_lang(&self) -> &Lang<F, C> {
         self.folding_config.lang()
+    }
+
+    /// Checks that a slice of pointers and a slice of allocated pointers have
+    /// the same length. If `!blank`, asserts that the hashed pointers have tags
+    /// and values corresponding to the ones from the respective allocated pointers
+    fn assert_eq_ptrs_aptrs(
+        store: &Store<F>,
+        blank: bool,
+        ptrs: &[Ptr<F>],
+        aptrs: &[AllocatedPtr<F>],
+    ) -> Result<(), SynthesisError> {
+        assert_eq!(ptrs.len(), aptrs.len());
+        if !blank {
+            for (aptr, ptr) in aptrs.iter().zip(ptrs) {
+                let z_ptr = store.hash_ptr(ptr).expect("hash_ptr failed");
+                let (Some(alloc_ptr_tag), Some(alloc_ptr_hash)) =
+                    (aptr.tag().get_value(), aptr.hash().get_value())
+                else {
+                    return Err(SynthesisError::AssignmentMissing);
+                };
+                assert_eq!(alloc_ptr_tag, z_ptr.tag().to_field());
+                assert_eq!(&alloc_ptr_hash, z_ptr.value());
+            }
+        }
+        Ok(())
+    }
+
+    fn synthesize_frames_sequential<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        g: &GlobalAllocator<F>,
+        store: &Store<F>,
+        input: Vec<AllocatedPtr<F>>,
+        frames: &[Frame<F>],
+        slots_witnesses: Option<&[SlotsWitness<F>]>,
+    ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
+        let (_, output) = frames
+            .iter()
+            .try_fold((0, input.to_vec()), |(i, input), frame| {
+                let bound_allocations = &mut BoundAllocations::new();
+                let func = self.get_func();
+                func.add_input(&input, bound_allocations);
+                let output = func
+                    .synthesize_frame(
+                        &mut cs.namespace(|| format!("frame {i}")),
+                        store,
+                        frame,
+                        g,
+                        bound_allocations,
+                        self.get_lang(),
+                        slots_witnesses.map(|sws| &sws[i]),
+                    )
+                    .expect("failed to synthesize frame");
+                assert_eq!(input.len(), output.len());
+                Self::assert_eq_ptrs_aptrs(store, frame.blank, &frame.output, &output)?;
+                Ok::<_, SynthesisError>((i + 1, output))
+            })?;
+        Ok(output)
+    }
+
+    fn synthesize_frames_parallel<CS: ConstraintSystem<F>>(
+        &self,
+        cs: &mut CS,
+        g: &GlobalAllocator<F>,
+        store: &Store<F>,
+        input: Vec<AllocatedPtr<F>>,
+        frames: &[Frame<F>],
+        slots_witnesses: &[SlotsWitness<F>],
+    ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
+        assert!(cs.is_witness_generator());
+        assert!(CONFIG.parallelism.synthesis.is_parallel());
+        assert_eq!(frames.len(), slots_witnesses.len());
+        const MIN_CHUNK_SIZE: usize = 10;
+
+        let num_frames = frames.len();
+
+        let chunk_size = CONFIG
+            .parallelism
+            .synthesis
+            .chunk_size(num_frames, MIN_CHUNK_SIZE);
+
+        // We partition the frames into chunks, ideally one for each CPU. Each chunk will produce its
+        // corresponding partial witness in parallel, which are then collected into a vector.
+        let mut css = frames
+            .par_chunks(chunk_size)
+            .enumerate()
+            .map(|(chunk_idx, chunk)| {
+                let mut chunk_cs = WitnessCS::new();
+                // The first chunk will take as input the actual input of the circuit.
+                // Subsequent chunks would have to take the output of the previous chunk as input.
+                // But since we know the values of each chunk input and we are generating the
+                // witnesses separately and in parallel, we will allocate new variables for each
+                // chunk.
+                let chunk_input = if chunk_idx == 0 {
+                    input.clone()
+                } else {
+                    // Allocate the pointers from the input of the first chunk frame
+                    chunk[0]
+                        .input
+                        .iter()
+                        .map(|input_ptr| {
+                            let z_ptr = store.hash_ptr(input_ptr).expect("hash_ptr failed");
+                            AllocatedPtr::alloc(&mut chunk_cs, || Ok(z_ptr))
+                                .expect("allocation failed")
+                        })
+                        .collect::<Vec<_>>()
+                };
+
+                let first_chunk_elt_idx = chunk_idx * chunk_size;
+                let last_chunk_elt_idx = first_chunk_elt_idx + chunk.len();
+                let chunk_slots_witnesses =
+                    &slots_witnesses[first_chunk_elt_idx..last_chunk_elt_idx];
+
+                let chunk_output = self
+                    .synthesize_frames_sequential(
+                        &mut chunk_cs,
+                        g,
+                        store,
+                        chunk_input,
+                        chunk,
+                        Some(chunk_slots_witnesses),
+                    )
+                    .expect("sequential synthesis failed");
+
+                assert_eq!(input.len(), chunk_output.len());
+                let last_chunk_frame = chunk.last().expect("chunk shouldn't be empty");
+                Self::assert_eq_ptrs_aptrs(
+                    store,
+                    last_chunk_frame.blank,
+                    &last_chunk_frame.output,
+                    &chunk_output,
+                )
+                .expect("assertion failed");
+
+                (chunk_cs, chunk_output)
+            })
+            .collect::<Vec<_>>();
+
+        // At last, we need to concatenate all the partial witnesses into a single witness.
+        // Since we have allocated the input for each chunk (apart from the first) instead
+        // of using the output of the previous chunk, we will have to ignore the allocated
+        // inputs before concatenating the witnesses
+        for (i, (frames_cs, _)) in css.iter().enumerate() {
+            let start = if i == 0 { 0 } else { input.len() * 2 };
+            cs.extend_aux(&frames_cs.aux_slice()[start..]);
+        }
+
+        if let Some((_, last_chunk_output)) = css.pop() {
+            // the final output is the output of the last chunk
+            Ok(last_chunk_output)
+        } else {
+            // there were no frames so we just return the input, preserving the
+            // same behavior as the sequential version
+            Ok(input)
+        }
     }
 }
 
@@ -172,38 +330,48 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         frames: &[Self::CircuitFrame],
         g: &Self::GlobalAllocation,
     ) -> Result<Self::AllocatedIO, SynthesisError> {
-        let (_, output) = frames
-            .iter()
-            .try_fold((0, input.to_vec()), |(i, input), frame| {
-                if !frame.blank {
-                    for (alloc_ptr, input) in input.iter().zip(&frame.input) {
-                        let input_zptr = store.hash_ptr(input).expect("Hash did not succeed");
-                        let (Some(alloc_ptr_tag), Some(alloc_ptr_hash)) =
-                            (alloc_ptr.tag().get_value(), alloc_ptr.hash().get_value())
-                        else {
-                            return Err(SynthesisError::AssignmentMissing);
-                        };
-                        assert_eq!(alloc_ptr_tag, input_zptr.tag().to_field());
-                        assert_eq!(alloc_ptr_hash, *input_zptr.value());
-                    }
+        if cs.is_witness_generator() {
+            let Some(frame) = frames.first() else {
+                // no frames so no witness to generate
+                return Ok(input);
+            };
+            let slots_counter = SlotsCounter {
+                hash4: frame.hints.hash4.len(),
+                hash6: frame.hints.hash6.len(),
+                hash8: frame.hints.hash8.len(),
+                commitment: frame.hints.commitment.len(),
+                bit_decomp: frame.hints.bit_decomp.len(),
+            };
+            let gen_slots_witness = |frame| {
+                let mut witness = WitnessCS::new();
+                let allocations =
+                    build_slots_allocations(&mut witness, store, frame, &slots_counter)
+                        .expect("slot allocations failed");
+                SlotsWitness {
+                    witness,
+                    allocations,
                 }
-                let bound_allocations = &mut BoundAllocations::new();
-                let func = self.get_func();
-                func.add_input(&input, bound_allocations);
-                let output = func
-                    .synthesize_frame(
-                        &mut cs.namespace(|| format!("frame {i}")),
-                        store,
-                        frame,
-                        g,
-                        bound_allocations,
-                        self.get_lang(),
-                    )
-                    .expect("failed to synthesize frame");
-                assert_eq!(input.len(), output.len());
-                Ok((i + 1, output))
-            })?;
-        Ok(output)
+            };
+            let slots_witnesses = if CONFIG.parallelism.poseidon_witnesses.is_parallel() {
+                frames.par_iter().map(gen_slots_witness).collect::<Vec<_>>()
+            } else {
+                frames.iter().map(gen_slots_witness).collect::<Vec<_>>()
+            };
+            if CONFIG.parallelism.synthesis.is_parallel() {
+                self.synthesize_frames_parallel(cs, g, store, input, frames, &slots_witnesses)
+            } else {
+                self.synthesize_frames_sequential(
+                    cs,
+                    g,
+                    store,
+                    input,
+                    frames,
+                    Some(&slots_witnesses),
+                )
+            }
+        } else {
+            self.synthesize_frames_sequential(cs, g, store, input, frames, None)
+        }
     }
 
     fn blank(folding_config: Arc<FoldingConfig<F, C>>, _meta: Meta<F>, pc: usize) -> Self {

@@ -101,6 +101,19 @@ impl Config {
         }
     }
 
+    fn parallel_synthesis() -> Self {
+        Self {
+            parallelism: ParallelConfig {
+                recursive_steps: Flow::Parallel,
+                synthesis: Flow::Parallel,
+                poseidon_witnesses: Flow::Sequential,
+            },
+            witness_generation: WitnessGeneration {
+                precompute_neptune: true,
+            },
+        }
+    }
+
     fn parallel_steps_only() -> Self {
         Self {
             parallelism: ParallelConfig {
@@ -120,6 +133,7 @@ enum CannedConfig {
     FullySequential,
     MaxParallelSimple,
     ParallelStepsOnly,
+    ParallelSynthesis,
 }
 
 impl From<CannedConfig> for Config {
@@ -127,6 +141,7 @@ impl From<CannedConfig> for Config {
         match canned {
             CannedConfig::FullySequential => Self::fully_sequential(),
             CannedConfig::MaxParallelSimple => Self::max_parallel_simple(),
+            CannedConfig::ParallelSynthesis => Self::parallel_synthesis(),
             CannedConfig::ParallelStepsOnly => Self::parallel_steps_only(),
         }
     }
@@ -139,6 +154,7 @@ impl TryFrom<&str> for CannedConfig {
         match s {
             "FULLY-SEQUENTIAL" => Ok(Self::FullySequential),
             "MAX-PARALLEL-SIMPLE" => Ok(Self::MaxParallelSimple),
+            "PARALLEL-SYNTHESIS" => Ok(Self::ParallelSynthesis),
             "PARALLEL-STEPS-ONLY" => Ok(Self::ParallelStepsOnly),
             _ => bail!("Invalid CannedConfig: {s}"),
         }
