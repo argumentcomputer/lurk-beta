@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["AllocatedVal"],"struct":["GlobalAllocator"]};
+window.SIDEBAR_ITEMS = {"enum":["AllocatedVal"],"fn":["build_slots_allocations"],"struct":["GlobalAllocator","SlotsAllocations","SlotsWitness"]};
