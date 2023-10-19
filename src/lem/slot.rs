@@ -159,7 +159,7 @@ impl SlotsCounter {
     }
 
     #[inline]
-    pub fn max(&self, other: Self) -> Self {
+    pub fn cmp_max(&self, other: Self) -> Self {
         use std::cmp::max;
         Self {
             hash4: max(self.hash4, other.hash4),
@@ -183,7 +183,7 @@ impl SlotsCounter {
 
     #[inline]
     pub fn fold_max(self, vec: Vec<Self>) -> Self {
-        vec.into_iter().fold(self, |acc, i| acc.max(i))
+        vec.into_iter().fold(self, |acc, i| acc.cmp_max(i))
     }
 }
 
@@ -209,7 +209,7 @@ impl Block {
                     .map_or(SlotsCounter::default(), |def| def.count_slots());
                 cases
                     .values()
-                    .fold(init, |acc, block| acc.max(block.count_slots()))
+                    .fold(init, |acc, block| acc.cmp_max(block.count_slots()))
             }
             Ctrl::MatchSymbol(_, cases, def) => {
                 let init = def
@@ -217,11 +217,11 @@ impl Block {
                     .map_or(SlotsCounter::default(), |def| def.count_slots());
                 cases
                     .values()
-                    .fold(init, |acc, block| acc.max(block.count_slots()))
+                    .fold(init, |acc, block| acc.cmp_max(block.count_slots()))
             }
             Ctrl::If(_, true_block, false_block) => {
                 let if_slots = true_block.count_slots();
-                if_slots.max(false_block.count_slots())
+                if_slots.cmp_max(false_block.count_slots())
             }
             Ctrl::Return(..) => SlotsCounter::default(),
         };

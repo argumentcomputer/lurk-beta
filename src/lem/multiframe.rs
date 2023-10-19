@@ -24,10 +24,11 @@ use crate::{
 };
 
 use super::{
-    circuit::{BoundAllocations, GlobalAllocator},
+    circuit::{build_slots_allocations, BoundAllocations, GlobalAllocator, SlotsWitness},
     eval::{evaluate_with_env_and_cont, make_cprocs_funcs_from_lang, make_eval_step_from_lang},
     interpreter::Frame,
     pointers::Ptr,
+    slot::SlotsCounter,
     store::Store,
     Func, Tag,
 };
@@ -92,10 +93,11 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     fn synthesize_frames_sequential<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
+        g: &GlobalAllocator<F>,
         store: &Store<F>,
         input: Vec<AllocatedPtr<F>>,
         frames: &[Frame<F>],
-        g: &GlobalAllocator<F>,
+        slots_witnesses: Option<&[SlotsWitness<F>]>,
     ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
         let (_, output) = frames
             .iter()
@@ -111,6 +113,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                         g,
                         bound_allocations,
                         self.get_lang(),
+                        slots_witnesses.map(|sws| &sws[i]),
                     )
                     .expect("failed to synthesize frame");
                 assert_eq!(input.len(), output.len());
@@ -123,13 +126,15 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
     fn synthesize_frames_parallel<CS: ConstraintSystem<F>>(
         &self,
         cs: &mut CS,
+        g: &GlobalAllocator<F>,
         store: &Store<F>,
         input: Vec<AllocatedPtr<F>>,
         frames: &[Frame<F>],
-        g: &GlobalAllocator<F>,
+        slots_witnesses: &[SlotsWitness<F>],
     ) -> Result<Vec<AllocatedPtr<F>>, SynthesisError> {
         assert!(cs.is_witness_generator());
         assert!(CONFIG.parallelism.synthesis.is_parallel());
+        assert_eq!(frames.len(), slots_witnesses.len());
         const MIN_CHUNK_SIZE: usize = 10;
 
         let num_frames = frames.len();
@@ -145,7 +150,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
             .par_chunks(chunk_size)
             .enumerate()
             .map(|(chunk_idx, chunk)| {
-                let mut cs = WitnessCS::new();
+                let mut chunk_cs = WitnessCS::new();
                 // The first chunk will take as input the actual input of the circuit.
                 // Subsequent chunks would have to take the output of the previous chunk as input.
                 // But since we know the values of each chunk input and we are generating the
@@ -154,22 +159,32 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                 let chunk_input = if chunk_idx == 0 {
                     input.clone()
                 } else {
-                    let first_chunk_frame = &chunk[0];
-                    let mut chunk_input = Vec::with_capacity(input.len());
-                    for (input_ptr_idx, input_ptr) in first_chunk_frame.input.iter().enumerate() {
-                        let z_ptr = store.hash_ptr(input_ptr).expect("hash_ptr failed");
-                        let alloc_ptr = AllocatedPtr::alloc(
-                            &mut cs.namespace(|| format!("var: {chunk_idx}.{input_ptr_idx}")),
-                            || Ok(z_ptr),
-                        )
-                        .expect("Allocation failed");
-                        chunk_input.push(alloc_ptr)
-                    }
-                    chunk_input
+                    // Allocate the pointers from the input of the first chunk frame
+                    chunk[0]
+                        .input
+                        .iter()
+                        .map(|input_ptr| {
+                            let z_ptr = store.hash_ptr(input_ptr).expect("hash_ptr failed");
+                            AllocatedPtr::alloc(&mut chunk_cs, || Ok(z_ptr))
+                                .expect("allocation failed")
+                        })
+                        .collect::<Vec<_>>()
                 };
 
+                let first_chunk_elt_idx = chunk_idx * chunk_size;
+                let last_chunk_elt_idx = first_chunk_elt_idx + chunk.len();
+                let chunk_slots_witnesses =
+                    &slots_witnesses[first_chunk_elt_idx..last_chunk_elt_idx];
+
                 let chunk_output = self
-                    .synthesize_frames_sequential(&mut cs, store, chunk_input, chunk, g)
+                    .synthesize_frames_sequential(
+                        &mut chunk_cs,
+                        g,
+                        store,
+                        chunk_input,
+                        chunk,
+                        Some(chunk_slots_witnesses),
+                    )
                     .expect("sequential synthesis failed");
 
                 assert_eq!(input.len(), chunk_output.len());
@@ -182,7 +197,7 @@ impl<'a, F: LurkField, C: Coprocessor<F>> MultiFrame<'a, F, C> {
                 )
                 .expect("assertion failed");
 
-                (cs, chunk_output)
+                (chunk_cs, chunk_output)
             })
             .collect::<Vec<_>>();
 
@@ -315,10 +330,47 @@ impl<'a, F: LurkField, C: Coprocessor<F> + 'a> MultiFrameTrait<'a, F, C> for Mul
         frames: &[Self::CircuitFrame],
         g: &Self::GlobalAllocation,
     ) -> Result<Self::AllocatedIO, SynthesisError> {
-        if cs.is_witness_generator() && CONFIG.parallelism.synthesis.is_parallel() {
-            self.synthesize_frames_parallel(cs, store, input, frames, g)
+        if cs.is_witness_generator() {
+            let Some(frame) = frames.first() else {
+                // no frames so no witness to generate
+                return Ok(input);
+            };
+            let slots_counter = SlotsCounter {
+                hash4: frame.hints.hash4.len(),
+                hash6: frame.hints.hash6.len(),
+                hash8: frame.hints.hash8.len(),
+                commitment: frame.hints.commitment.len(),
+                bit_decomp: frame.hints.bit_decomp.len(),
+            };
+            let gen_slots_witness = |frame| {
+                let mut witness = WitnessCS::new();
+                let allocations =
+                    build_slots_allocations(&mut witness, store, frame, &slots_counter)
+                        .expect("slot allocations failed");
+                SlotsWitness {
+                    witness,
+                    allocations,
+                }
+            };
+            let slots_witnesses = if CONFIG.parallelism.poseidon_witnesses.is_parallel() {
+                frames.par_iter().map(gen_slots_witness).collect::<Vec<_>>()
+            } else {
+                frames.iter().map(gen_slots_witness).collect::<Vec<_>>()
+            };
+            if CONFIG.parallelism.synthesis.is_parallel() {
+                self.synthesize_frames_parallel(cs, g, store, input, frames, &slots_witnesses)
+            } else {
+                self.synthesize_frames_sequential(
+                    cs,
+                    g,
+                    store,
+                    input,
+                    frames,
+                    Some(&slots_witnesses),
+                )
+            }
         } else {
-            self.synthesize_frames_sequential(cs, store, input, frames, g)
+            self.synthesize_frames_sequential(cs, g, store, input, frames, None)
         }
     }
 
